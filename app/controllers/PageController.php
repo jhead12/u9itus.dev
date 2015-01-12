@@ -1,0 +1,27 @@
+<?php
+
+class PageController extends \BaseController {
+
+	/**
+	 * Display a listing of the resource.
+	 *
+	 * @return Response
+	 */
+	public function home()
+	{
+		return View::make('pages.home');
+	}
+	public function about()
+	{
+		return View::make('pages.aboutus');
+	}
+	public function pricing()
+	{
+		return View::make('pages.pricing');
+	}
+	public function thankyou()
+	{
+		return View::make('pages.thankyou');
+	}
+
+}

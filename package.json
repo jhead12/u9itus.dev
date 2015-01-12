@@ -1,0 +1,48 @@
+{
+  "name": "dial4dough.com",
+  "version": "0.0.1",
+  "description": "Dial4dough.com front-end design",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/planetoftheweb/responsive.git"
+  },
+  "author": "Josh Head",
+  "devDependencies": {
+    "btoa": "~1.1.2",
+    "ejs": "~1.0.0",
+    "escodegen": "^1.5.0",
+    "gulp": "^3.8.7",
+    "gulp-autoprefixer": "^2.0.0",
+    "gulp-browserify": "^0.5.0",
+    "gulp-compass": "^2.0.3",
+    "gulp-concat": "^2.3.4",
+    "gulp-connect": "^2.0.6",
+    "gulp-if": "^1.2.4",
+    "gulp-less": "^2.0.1",
+    "gulp-minify-css": "^0.3.11",
+    "gulp-minify-html": "^0.1.4",
+    "gulp-uglify": "^0.3.1",
+    "gulp-util": "^2.2.20",
+    "jquery": "^2.1.1",
+    "node-sass": "~0.9.3",
+    "npm-shrinkwrap": "~5.1.0",
+    "remarkable": "~1.4.0",
+    "vinyl-fs": "^0.3.13"
+  },
+  "jspm": {
+    "main": "js/bootstrap",
+    "directories": {
+      "example": "examples",
+      "lib": "dist"
+    },
+    "shim": {
+      "js/bootstrap": {
+        "imports": "jquery",
+        "exports": "$"
+      }
+    },
+    "buildConfig": {
+      "uglify": true
+    }
+  }
+}
