@@ -61,5 +61,5 @@
 
     });
     </script>
-     <script src="{{asset('js/formatter.js')}}">
+     <script src="{{asset('js/script.js')}}">
       </script>

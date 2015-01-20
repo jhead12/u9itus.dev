@@ -9,7 +9,7 @@
       <div class="vert-text ">
         <div >
             
-            <div class="alert alert-danger" style="padding-top:70px;">We have been down repairing hacked vulnerabilities that have affeceted the system. We have been working hard with our small team to quickly resolve the issues. We will be back soon. Feel free to contact us if you have any questions or contributions. Thank you.  </div>
+            <div class="alert alert-danger" style="padding-top:70px;"> We are repairing and updating the AdDials application. We will be back soon. Feel free to contact us if you have any questions or contributions. Thank you.  </div>
         <img src="{{asset('images/off.images/logo.png')}}">
    
         <h2>Get paid up to $1.75 reviewing advertisements, or what we call AdDials</h2>
