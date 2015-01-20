@@ -2,18 +2,8 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="cc298910-660e-4aa3-bf56-54158befec62" name="Default" comment="">
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/public/images/logo-2.png" />
-      <change type="DELETED" beforePath="C:\Users\jhead12.Heads-PC.000\Documents\GitHub\dial4dough.dev\app\D4D\Notifications\Register.php" afterPath="" />
-      <change type="DELETED" beforePath="C:\Users\jhead12.Heads-PC.000\Documents\GitHub\dial4dough.dev\app\database\migrations\2015_01_11_231241_users_table.php" afterPath="" />
-      <change type="DELETED" beforePath="C:\Users\jhead12.Heads-PC.000\Documents\GitHub\dial4dough.dev\app\routes\Logins.php" afterPath="" />
-      <change type="DELETED" beforePath="C:\Users\jhead12.Heads-PC.000\Documents\GitHub\dial4dough.dev\app\views\registration\create.blade.php" afterPath="" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/app/controllers/RegistrationController.php" afterPath="$PROJECT_DIR$/app/controllers/RegistrationController.php" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/app/config/local/app.php" afterPath="$PROJECT_DIR$/app/config/local/app.php" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/app/views/pages/scripts/create.blade.php" afterPath="$PROJECT_DIR$/app/views/pages/scripts/create.blade.php" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/app/views/layouts/partials/downNav.blade.php" afterPath="$PROJECT_DIR$/app/views/layouts/partials/downNav.blade.php" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/app/views/pages/partials/footer.blade.php" afterPath="$PROJECT_DIR$/app/views/pages/partials/footer.blade.php" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/app/views/pages/down/index.blade.php" afterPath="$PROJECT_DIR$/app/views/pages/down/index.blade.php" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
     </list>
     <ignored path="dial4dough.dev.iws" />
     <ignored path=".idea/workspace.xml" />
@@ -71,27 +61,27 @@
       <file leaf-file-name="index.blade.php" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/app/views/pages/down/index.blade.php">
           <provider selected="true" editor-type-id="text-editor">
-            <state vertical-scroll-proportion="-7.1923075" vertical-offset="0" max-vertical-offset="544">
-              <caret line="11" column="125" selection-start-line="11" selection-start-column="125" selection-end-line="11" selection-end-column="125" />
+            <state vertical-scroll-proportion="-10.461538" vertical-offset="0" max-vertical-offset="544">
+              <caret line="16" column="69" selection-start-line="16" selection-start-column="69" selection-end-line="16" selection-end-column="69" />
               <folding />
             </state>
           </provider>
         </entry>
       </file>
-      <file leaf-file-name="footer.blade.php" pinned="false" current-in-tab="false">
+      <file leaf-file-name="footer.blade.php" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/app/views/pages/partials/footer.blade.php">
           <provider selected="true" editor-type-id="text-editor">
-            <state vertical-scroll-proportion="-15.038462" vertical-offset="0" max-vertical-offset="493">
-              <caret line="23" column="9" selection-start-line="23" selection-start-column="9" selection-end-line="23" selection-end-column="9" />
+            <state vertical-scroll-proportion="0.37046006" vertical-offset="0" max-vertical-offset="826">
+              <caret line="18" column="102" selection-start-line="18" selection-start-column="102" selection-end-line="18" selection-end-column="102" />
               <folding />
             </state>
           </provider>
         </entry>
       </file>
-      <file leaf-file-name="mystyle.scss" pinned="false" current-in-tab="true">
+      <file leaf-file-name="mystyle.scss" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/app/assets/sass/frames/mystyle.scss">
           <provider selected="true" editor-type-id="text-editor">
-            <state vertical-scroll-proportion="0.6174334" vertical-offset="714" max-vertical-offset="12002">
+            <state vertical-scroll-proportion="-19.615385" vertical-offset="714" max-vertical-offset="12002">
               <caret line="72" column="17" selection-start-line="72" selection-start-column="17" selection-end-line="72" selection-end-column="17" />
               <folding />
             </state>
@@ -172,11 +162,11 @@
         <option value="$PROJECT_DIR$/app/routes/Robot.php" />
         <option value="$PROJECT_DIR$/app/config/local/app.php" />
         <option value="$PROJECT_DIR$/app/controllers/RegistrationController.php" />
-        <option value="$PROJECT_DIR$/app/views/pages/down/index.blade.php" />
         <option value="$PROJECT_DIR$/app/views/layouts/partials/downNav.blade.php" />
         <option value="$PROJECT_DIR$/app/views/pages/scripts/create.blade.php" />
-        <option value="$PROJECT_DIR$/app/views/pages/partials/footer.blade.php" />
         <option value="$PROJECT_DIR$/app/assets/sass/frames/mystyle.scss" />
+        <option value="$PROJECT_DIR$/app/views/pages/down/index.blade.php" />
+        <option value="$PROJECT_DIR$/app/views/pages/partials/footer.blade.php" />
       </list>
     </option>
   </component>
@@ -360,37 +350,15 @@
               <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
             </PATH_ELEMENT>
             <PATH_ELEMENT>
-              <option name="myItemId" value="assets" />
+              <option name="myItemId" value="views" />
               <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
             </PATH_ELEMENT>
             <PATH_ELEMENT>
-              <option name="myItemId" value="sass" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
-            </PATH_ELEMENT>
-          </PATH>
-          <PATH>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="dial4dough.dev" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.ProjectViewProjectNode" />
-            </PATH_ELEMENT>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="dial4dough.dev" />
+              <option name="myItemId" value="pages" />
               <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
             </PATH_ELEMENT>
             <PATH_ELEMENT>
-              <option name="myItemId" value="app" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
-            </PATH_ELEMENT>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="assets" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
-            </PATH_ELEMENT>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="sass" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
-            </PATH_ELEMENT>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="frames" />
+              <option name="myItemId" value="down" />
               <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
             </PATH_ELEMENT>
           </PATH>
@@ -826,12 +794,12 @@
       <workItem from="1421720073882" duration="2524000" />
       <workItem from="1421723043411" duration="544000" />
       <workItem from="1421725148479" duration="8788000" />
-      <workItem from="1421736056186" duration="5081000" />
+      <workItem from="1421736056186" duration="5550000" />
     </task>
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="24078000" />
+    <option name="totallyTimeSpent" value="24547000" />
   </component>
   <component name="ToolWindowManager">
     <frame x="28" y="1" width="1493" height="1000" extended-state="0" />
@@ -849,7 +817,7 @@
       <window_info id="Version Control" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
       <window_info id="Terminal" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
       <window_info id="Designer" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
-      <window_info id="Project" active="true" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" weight="0.2101695" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
+      <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" weight="0.2101695" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
       <window_info id="IDEtalk Messages" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="8" side_tool="false" content_ui="tabs" />
       <window_info id="Database" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="4" side_tool="false" content_ui="tabs" />
       <window_info id="Structure" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.25" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
@@ -1254,14 +1222,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/app/views/pages/down/index.blade.php">
-      <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="-7.1923075" vertical-offset="0" max-vertical-offset="544">
-          <caret line="11" column="125" selection-start-line="11" selection-start-column="125" selection-end-line="11" selection-end-column="125" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/app/views/pages/scripts/create.blade.php">
       <provider selected="true" editor-type-id="text-editor">
         <state vertical-scroll-proportion="-42.5" vertical-offset="0" max-vertical-offset="1207">
@@ -1270,18 +1230,26 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/app/views/pages/partials/footer.blade.php">
+    <entry file="file://$PROJECT_DIR$/app/assets/sass/frames/mystyle.scss">
       <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="-15.038462" vertical-offset="0" max-vertical-offset="493">
-          <caret line="23" column="9" selection-start-line="23" selection-start-column="9" selection-end-line="23" selection-end-column="9" />
+        <state vertical-scroll-proportion="-19.615385" vertical-offset="714" max-vertical-offset="12002">
+          <caret line="72" column="17" selection-start-line="72" selection-start-column="17" selection-end-line="72" selection-end-column="17" />
           <folding />
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/app/assets/sass/frames/mystyle.scss">
+    <entry file="file://$PROJECT_DIR$/app/views/pages/down/index.blade.php">
       <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.6174334" vertical-offset="714" max-vertical-offset="12002">
-          <caret line="72" column="17" selection-start-line="72" selection-start-column="17" selection-end-line="72" selection-end-column="17" />
+        <state vertical-scroll-proportion="-10.461538" vertical-offset="0" max-vertical-offset="544">
+          <caret line="16" column="69" selection-start-line="16" selection-start-column="69" selection-end-line="16" selection-end-column="69" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/app/views/pages/partials/footer.blade.php">
+      <provider selected="true" editor-type-id="text-editor">
+        <state vertical-scroll-proportion="0.37046006" vertical-offset="0" max-vertical-offset="826">
+          <caret line="18" column="102" selection-start-line="18" selection-start-column="102" selection-end-line="18" selection-end-column="102" />
           <folding />
         </state>
       </provider>

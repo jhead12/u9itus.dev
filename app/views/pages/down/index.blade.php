@@ -14,7 +14,7 @@
    
         <h2>Get paid up to $1.75 reviewing advertisements, or what we call AdDials</h2>
       
-        <p>Advertisers look for loyalty, Dial4dough pays you for you loyalty.</p> 
+        <p>Advertisers look for loyalty, Dial4dough pays you for your loyalty.</p>
         </div>
        
        
