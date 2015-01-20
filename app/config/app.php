@@ -78,7 +78,7 @@ return array(
 	|
 	*/
 
-	'key' => 'YourSecretKey!!!',
+	'key' => 'JrTglgYfUlhr7mavpRxRA13BItU9VyUq',
 
 	'cipher' => MCRYPT_RIJNDAEL_128,
 
@@ -121,9 +121,15 @@ return array(
 		'Illuminate\Validation\ValidationServiceProvider',
 		'Illuminate\View\ViewServiceProvider',
 		'Illuminate\Workbench\WorkbenchServiceProvider',
+		/* Additional Providers */
+
 		'Way\Generators\GeneratorsServiceProvider',
-		'Laracasts\Commander\CommanderServiceProvider'
-		
+		'Zizaco\Confide\ServiceProvider',
+		'Zizaco\Entrust\EntrustServiceProvider',
+		'Barryvdh\Debugbar\ServiceProvider', // Debugger
+		'Healey\Robots\RobotsServiceProvider',
+
+
 
 	),
 
@@ -192,6 +198,15 @@ return array(
 		'Validator'         => 'Illuminate\Support\Facades\Validator',
 		'View'              => 'Illuminate\Support\Facades\View',
 
+
+		/* Additional Aliases */
+		'Confide'    		=> 'Zizaco\Confide\Facade',
+		'Entrust'    		=> 'Zizaco\Entrust\EntrustFacade',
+		'String'         	=> 'Andrew13\Helpers\String', // String
+		'Carbon'          	=> 'Carbon\Carbon', // Carbon
+
 	),
+
+	'available_language' => array('en', 'pt', 'es'),
 
 );

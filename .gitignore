@@ -7,5 +7,5 @@ composer.lock
 .DS_Store
 Thumbs.db
 /app/assets
-
+/node_modules
 tests/_output/*

@@ -6,16 +6,19 @@
 	"type": "project",
 	"require": {
 		"laravel/framework": "4.2.*",
-		"laracasts/commander":"~1.0",
+	  	"zizaco/entrust": "~1.2",
+	  	"zizaco/confide": "~4.0@dev",
         "twilio/sdk": "dev-master",
         "laravel/cashier": "~2.0",
         "jenssegers/mongodb": "*",
-        "intervention/httpauth": "dev-master"
+        "intervention/httpauth": "dev-master",
+	  	"healey/robots": "dev-master"
 	},
 	"require-dev": {
 		"way/generators": "~3.0",
 		"codeception/codeception": "~2.0",
-		"laracasts/testdummy": "~1.0"
+		"laracasts/testdummy": "~1.0",
+	  	"barryvdh/laravel-debugbar": "1.*"
 	},
 	"autoload": {
 		"classmap": [
@@ -26,7 +29,10 @@
 			"app/database/migrations",
 			"app/database/seeds",
 			"app/tests/TestCase.php"
-		]
+		],
+		"psr-4": {
+			"D4D\\":"app/D4D"
+		}
 	},
 	"scripts": {
 		"post-install-cmd": [
@@ -41,9 +47,7 @@
 			"php artisan key:generate"
 		]
 	},
-	"psr-0": {
-			"D4D":"app/"
-		},
+	
 	"config": {
 		"preferred-install": "dist"
 	},

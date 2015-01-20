@@ -13,12 +13,13 @@
          <a class="navbar-brand" href="{{URL::to('/')}}">Dial4dough</a>
   </div>
   <ul class="nav navbar-nav navbar-right">
+          <li><a href="https://dialer.dial4dough.com/affiliates/signup.php#ContactUs"><i class="fa fa-phone-square"></i>347-230-8438</a></li> 
           <li><a href="{{URL::to('/pricing')}}">Pricing</a></li>
           <li><a href="{{URL::to('/about')}}">About</a></li>
           <li class="dropdown">
             <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">Login <span class="caret"></span></a>
             <ul class="dropdown-menu" role="menu">
-             <li><a href="#">Login</a></li>
+             <li><a href="{{URL::to('users/login')}}">Login</a></li>
               <li class="divider"></li>
               <li><a href="https://dialer.dial4dough.com/affiliates/login.php#login">Member Login</a></li>
             </ul>

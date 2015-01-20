@@ -1,37 +1,39 @@
 <?php namespace D4D\PAP;
 
+class PapApi implements PapInterface{
 
-use Guzzle\Service\Client;
+	public function signIn($command)
+	{
+			   $session = new Gpf_Api_Session("http://www.dialer.dial4dough.com/affiliates/scripts/server.php");
+            if(!@$session->login("matrixblend@yahoo.com", "mc1282")) {
+            Log::error("Cannot login. Message: ".$session->getMessage());
+            }
 
-class PapAPI {
+            //PAP Session
+                    $affiliate = new Pap_Api_Affiliate($session);
 
-	protected $session;
-	protected $affiliate;
-
-	public function _contruct(Client $session){
-
-	
-					//PAP Session
-			$affiliate = new Pap_Api_Affiliate($session);
-            $this->$affiliate = $affiliate;
-
-
-	}
-	public function search($email){
-
-		 //Check to see if he user in PAP
-                   $this->$affiliate->setNotificationEmail($email);
-                   
-                 $response = $this->$affiliate->load();
-                  
-
-                    return $response->json();
-                }
-
-
-
-
+                    return $affiliate;
 	}
 
+	public function checkUser($commander)
+	{
+
+			    //Check to see if he user in PAP
+                    $affiliate->setNotificationEmail($commander->email);
+                    //$affiliate->setUserid('2005630');
+                    $exist = true;
+
+                                        try {
+                $affiliate->load();
+              } catch (Exception $e) {
+                  //The User Does not exist
+                 Log::error('postCreate '.$e->getMessage());
+                 $exist = false;
+
+
+              }//catch
+
+	}
 
 }
+

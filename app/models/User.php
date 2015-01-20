@@ -1,19 +1,18 @@
 <?php
+use Zizaco\Confide\ConfideUser;
+use Zizaco\Confide\ConfideUserInterface;
+use Zizaco\Entrust\HasRole;
 
-use Illuminate\Auth\UserTrait;
-use Illuminate\Auth\UserInterface;
-use Illuminate\Auth\Reminders\RemindableTrait;
-use Illuminate\Auth\Reminders\RemindableInterface;
 use Laravel\Cashier\BillableTrait;
 use Laravel\Cashier\BillableInterface;
 
 
-class User extends Eloquent implements UserInterface, RemindableInterface, BillableInterface {
+class User extends Eloquent implements  BillableInterface, ConfideUserInterface {
 
 
-use UserTrait, RemindableTrait, BillableTrait;
+use ConfideUser, BillableTrait;
+    use HasRole;
 
-public $errors;
 
 	protected $fillable = array('pin','refid','firstName','lastName','sex','country','birthday','oldUser','ftlogin','Paypal_email','telephone','ip_address','comments','ratings','favorites','email', 'username', 'password','password_temp','street_address','city','state','zip', 'code', 'active', 'userid','terms', 'campaignid');
 
@@ -22,6 +21,101 @@ public $errors;
 			'password'	=> 'required'
 
 	];
+
+    /**
+     * Redirect after auth.
+     * If ifValid is set to true it will redirect a logged in user.
+     * @param $redirect
+     * @param bool $ifValid
+     * @return mixed
+     */
+    public static function checkAuthAndRedirect($redirect, $ifValid=false)
+    {
+        // Get the user information
+        $user = Auth::user();
+        $redirectTo = false;
+
+        if(empty($user->id) && ! $ifValid) // Not logged in redirect, set session.
+        {
+            Session::put('loginRedirect', $redirect);
+            $redirectTo = Redirect::to('user/login')
+                ->with( 'notice', Lang::get('user/user.login_first') );
+        }
+        elseif(!empty($user->id) && $ifValid) // Valid user, we want to redirect.
+        {
+            $redirectTo = Redirect::to($redirect);
+        }
+
+        return array($user, $redirectTo);
+    }
+
+    public function currentUser()
+    {
+        return Confide::user();
+    }
+
+    /**
+     * Get the e-mail address where password reminders are sent.
+     *
+     * @return string
+     */
+    public function getReminderEmail()
+    {
+        return $this->email;
+    }
+
+    /**
+     * Returns user's current role ids only.
+     * @return array|bool
+     */
+    public function currentRoleIds()
+    {
+        $roles = $this->roles;
+        $roleIds = false;
+        if( !empty( $roles ) ) {
+            $roleIds = array();
+            foreach( $roles as &$role )
+            {
+                $roleIds[] = $role->id;
+            }
+        }
+        return $roleIds;
+    }
+
+
+    /**
+     * Save roles inputted from multiselect
+     * @param $inputRoles
+     */
+    public function saveRoles($inputRoles)
+    {
+        if(! empty($inputRoles)) {
+            $this->roles()->sync($inputRoles);
+        } else {
+            $this->roles()->detach();
+        }
+    }
+
+    /**
+     * Get the date the user was created.
+     *
+     * @return string
+     */
+    public function joined()
+    {
+        return String::date(Carbon::createFromFormat('Y-n-j G:i:s', $this->created_at));
+    }
+
+
+    /**
+     * Get user by username
+     * @param $username
+     * @return mixed
+     */
+    public function getUserByUsername( $username )
+    {
+        return $this->where('username', '=', $username)->first();
+    }
 
 	public static $rules = [
 
@@ -33,7 +127,7 @@ public $errors;
                 'password'       => 'required',
                 'username'       => 'required|max:20|min:3|unique:users',
                 'sex'            => 'required',
-                //'country'        => 'required'
+                'country2'        => 'required'
 
 
 	];
@@ -47,7 +141,7 @@ public $errors;
                 'payagreement'      => 'required'
 
 	];
-	public static $emailOnly = [ 'email' => 'required'];
+
 	public static $payRulesExt = [
 
 				'paypal_email'      => 'required|max:50| unique:users',
@@ -111,23 +205,6 @@ public $errors;
 	 */
 	protected $hidden = array('password');
 
-	public function isValid($data)
-	{
 
-		$validation = Validator::make($data, [
-			'rules'		=> static::$rules,
-			'payRulesExt'=>static::$payRulesExt,
-			'payRules'	=> static::$payRules
-
-			]);
-
-		if ($validation->passes())
-		{
-			return true;
-		}
-
-		$this->$errors = $validation->messages();
-		return false;
-	}
 
 }

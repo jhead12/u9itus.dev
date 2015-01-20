@@ -82,14 +82,76 @@ Route::filter('guest', function()
 */
 
 Route::filter('csrf', function()
-
-
 {
-
-	$token = Request::ajax() ? Request::header('X-CSRF-Token') : Input::get('_token');
-
-	if (Session::token() !=$token)
+	if (Session::getToken() != Input::get('csrf_token') &&  Session::getToken() != Input::get('_token'))
 	{
 		throw new Illuminate\Session\TokenMismatchException;
+	}
+});
+
+
+/*
+|--------------------------------------------------------------------------
+| Dialpad action Filter
+|--------------------------------------------------------------------------
+|
+| 
+|
+*/
+
+Route::filter('dialpad', function(){
+
+	// $addials = Addial::where('completed','=', true)->distinct('userclickId')->get();
+	$marketer = Marketer::where('amount','=', 0)->get();
+	//return count($marketer);
+	if( count($marketer) > 0){
+
+			
+			$id = Marketer::distinct('_id')->get();
+			
+			foreach ($id as $key => $value) {
+				# code...
+				return $value->$id;
+			}
+
+			//Marketer::Destroy($id);
+			
+
+	}else{
+
+		
+	}
+	
+
+ 
+
+    }
+);
+//This filter check if the user has already completed the addial.
+Route::filter('user', 'DialpadFilter');
+
+
+
+/*
+|--------------------------------------------------------------------------
+| Language
+|--------------------------------------------------------------------------
+|
+| Detect the browser language.
+|
+*/
+
+Route::filter('detectLang',  function($route, $request, $lang = 'auto')
+{
+
+	if($lang != "auto" && in_array($lang , Config::get('app.available_language')))
+	{
+		Config::set('app.locale', $lang);
+	}else{
+		$browser_lang = !empty($_SERVER['HTTP_ACCEPT_LANGUAGE']) ? strtok(strip_tags($_SERVER['HTTP_ACCEPT_LANGUAGE']), ',') : '';
+		$browser_lang = substr($browser_lang, 0,2);
+		$userLang = (in_array($browser_lang, Config::get('app.available_language'))) ? $browser_lang : Config::get('app.locale');
+		Config::set('app.locale', $userLang);
+		App::setLocale($userLang);
 	}
 });

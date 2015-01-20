@@ -30,8 +30,9 @@ ClassLoader::addDirectories(array(
 | build a basic log file setup which creates a single file for logs.
 |
 */
+$logFile = 'log-'.php_sapi_name().'.txt';
 
-Log::useFiles(storage_path().'/logs/laravel.log');
+Log::useDailyFiles(storage_path().'/logs/'.$logFile);
 
 /*
 |--------------------------------------------------------------------------
@@ -48,9 +49,29 @@ Log::useFiles(storage_path().'/logs/laravel.log');
 
 App::error(function(Exception $exception, $code)
 {
-	Log::error($exception);
-});
+	$pathInfo = Request::getPathInfo();
+	$message = $exception->getMessage() ?: 'Exception';
+	Log::error("$code - $message @ $pathInfo\r\n$exception");
 
+	if (Config::get('app.debug')) {
+		return;
+	}
+
+	// check if will use admin error template
+	$admin = Auth::check() ? 'admin/' : '';
+
+	switch ($code)
+	{
+		case 403:
+			return Response::view( $admin . 'error/403', compact('message'), 403);
+
+		case 500:
+			return Response::view( $admin . 'error/500', compact('message'), 500);
+
+		default:
+			return Response::view( $admin . 'error/404', compact('message'), $code);
+	}
+});
 /*
 |--------------------------------------------------------------------------
 | Maintenance Mode Handler
@@ -64,7 +85,8 @@ App::error(function(Exception $exception, $code)
 
 App::down(function()
 {
-	return Response::make("Be right back!", 503);
+
+	return View::make('pages.down.index');
 });
 
 /*

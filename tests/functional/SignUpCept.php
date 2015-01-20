@@ -32,13 +32,14 @@ $I->fillField('email', 'john@example.com');
 $I->fillField('username', 'JohnDoe');
 $I->fillField('password', 'secret');
 $I->fillField('password_again', 'secret');
+$I->fillField('telephone','555-555-5555');
+$I->fillField('sex','male');
+
+
 
 
 $I->click('Create account');
-$I->seeRecord('users',[
-	'username'	=> 'JohnDoe',
-	'email'		=> 'john@example.com'
-]);
+
 $I->seeCurrentUrlEquals('/thankyou');
 
 

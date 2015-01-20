@@ -9,7 +9,7 @@ var gulp = require('gulp'),
     concat = require('gulp-concat');
     path = require('path');
 	  autoprefixer = require('gulp-autoprefixer')
-
+    var notify = require("gulp-notify");
     minifyCSS = require('gulp-minify-css');
     less = require('gulp-less');
    
@@ -48,6 +48,7 @@ gulp.task('js', function() {
     .on('error', gutil.log)
     .pipe(gulpif(env === 'production', uglify()))
     .pipe(gulp.dest(outputDir + 'js'))
+    .pipe(notify("Complete: Javascripts Updated"))
     .pipe(connect.reload())
 });
 
@@ -65,8 +66,9 @@ gulp.task('compass', function() {
     .on('error', gutil.log))
 
    .pipe(gulp.dest( outputDir + 'css'))
-   
+    .pipe(notify("Complete: Sass Updated"))
     .pipe(connect.reload())
+
 });
 
 gulp.task('minify-css', function() {

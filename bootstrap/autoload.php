@@ -43,8 +43,8 @@ if (file_exists($compiled = __DIR__.'/compiled.php'))
 |
 */
 
-Patchwork\Utf8\Bootup::initMbstring();
-
+//Patchwork\Utf8\Bootup::initMbstring();
+Patchwork\Utf8\Bootup::initAll();
 /*
 |--------------------------------------------------------------------------
 | Register The Laravel Auto Loader

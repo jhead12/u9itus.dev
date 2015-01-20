@@ -27,6 +27,9 @@ $app = new Illuminate\Foundation\Application;
 $env = $app->detectEnvironment(array(
 
 	'local' => array('homestead'),
+    'staging' => array('homestead'),
+    'production' => array('headent.purchology.com'),
+
 
 ));
 
