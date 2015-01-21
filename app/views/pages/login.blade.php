@@ -44,3 +44,5 @@
 </form>
 </div>
 </div>
+
+@include('pages.partials.footer')

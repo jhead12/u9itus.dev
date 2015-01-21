@@ -32,6 +32,10 @@
             <input class="form-control" placeholder="{{{ Lang::get('confide::confide.e_mail') }}}" type="text" name="email" id="email" value="{{{ Input::old('email') }}}">
         </div>
         <div class="form-group">
+            <label for="telephone">{{{ Lang::get('confide::confide.telephone') }}} <small>{{ Lang::get('confide::confide.signup.confirmation_required') }}</small></label>
+            <input class="form-control" placeholder="{{{ Lang::get('confide::confide.telephonel') }}}" type="tel" name="telephone" id="telephone" value="{{{ Input::old('telephone') }}}">
+        </div>
+        <div class="form-group">
             <label for="password">{{{ Lang::get('confide::confide.password') }}}</label>
             <input class="form-control" placeholder="{{{ Lang::get('confide::confide.password') }}}" type="password" name="password" id="password">
         </div>

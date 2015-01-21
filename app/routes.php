@@ -5,6 +5,27 @@
 Route::when('*','csrf',['post','put','patch']);
 
 
+/** ------------------------------------------
+ *  Route model binding
+ *  ------------------------------------------
+ */
+Route::model('user', 'User');
+Route::model('comment', 'Comment');
+Route::model('post', 'Post');
+//Route::model('addials','Addials');
+Route::model('role', 'Role');
+
+/** ------------------------------------------
+ *  Route constraint patterns
+ *  ------------------------------------------
+ */
+Route::pattern('comment', '[0-9]+');
+Route::pattern('post', '[0-9]+');
+Route::pattern('user', '[0-9]+');
+Route::pattern('role', '[0-9]+');
+Route::pattern('token', '[0-9a-z]+');
+
+
 
 
 

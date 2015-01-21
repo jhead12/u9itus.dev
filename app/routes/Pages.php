@@ -15,3 +15,15 @@ Route::get('/thankyou', [
 	'as'	=> 'thankyou',
 	'uses'	=> 'PageController@thankyou'
 	]);
+
+
+
+# Filter for detect language
+Route::when('contact-us','detectLang');
+
+# Contact Us Static Page
+Route::get('contact-us', function()
+{
+	// Return about us page
+	return View::make('pages/site/contact-us');
+});

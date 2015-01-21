@@ -111,6 +111,53 @@
                  </div>
                  @endif
                  </div>
+    <div class="form-group">
+        {{Form::label('country2', ' Available Countries', array('class' => 'large-5','columns','left'))}}
+        {{Form::select('country2', array(
+        'Available countries' => array("USA","United Kingdom","Virgin Islands","Canada","Guam","Domican Republic","Puerto Rico")
+
+        ))}}
+
+
+        </label>
+
+
+
+        @if($errors->has('email'))
+        <div id="alert" class="large-5 columns left">
+
+            <div data-alert class="alert-box">
+                <small class="error">{{$errors->first('telephone')}}</small>
+
+                <a href="#" class="close">&times;</a>
+            </div>
+
+        </div>
+        @endif
+    </div>
+
+    <div class="form-group">
+
+        <label> Phone * <small>Enter a valid telephone number.</small>
+            <input type="tel" id="email" class="form-control" name="telephone"placeholder="email" {{ (Input::old('telephone')) ? 'value="' . e(Input::old('telephone')) . '"': '' }}>
+
+        </label>
+
+
+
+        @if($errors->has('email'))
+        <div id="alert" class="large-5 columns left">
+
+            <div data-alert class="alert-box">
+                <small class="error">{{$errors->first('telephone')}}</small>
+
+                <a href="#" class="close">&times;</a>
+            </div>
+
+        </div>
+        @endif
+    </div>
+
                  
                  <div class="form-group">
                     

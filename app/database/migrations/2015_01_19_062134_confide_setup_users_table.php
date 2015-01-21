@@ -21,7 +21,7 @@ class ConfideSetupUsersTable extends Migration
             $table->timestamps();
 
             
-            $table->string('userid');
+            $table->string('userId');
             $table->string('telephone')->unique();
             $table->boolean('ftlogin');
             $table->text('lastName');

@@ -126,7 +126,7 @@ return array(
 		'Way\Generators\GeneratorsServiceProvider',
 		'Zizaco\Confide\ServiceProvider',
 		'Zizaco\Entrust\EntrustServiceProvider',
-		'Barryvdh\Debugbar\ServiceProvider', // Debugger
+
 		'Healey\Robots\RobotsServiceProvider',
 
 
@@ -203,7 +203,7 @@ return array(
 		'Confide'    		=> 'Zizaco\Confide\Facade',
 		'Entrust'    		=> 'Zizaco\Entrust\EntrustFacade',
 		'String'         	=> 'Andrew13\Helpers\String', // String
-		'Carbon'          	=> 'Carbon\Carbon', // Carbon
+
 
 	),
 
