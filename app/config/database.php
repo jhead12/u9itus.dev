@@ -62,6 +62,24 @@ return array(
 			'collation' => 'utf8_unicode_ci',
 			'prefix'    => '',
 		),
+		'mongodb' => array(
+			'driver'   => 'mongodb',
+			'host'     => getenv('MONGODB1_HOST'),
+			'port'     => getenv('MONGODB1_PORT'),
+			'username' => getenv('MONGODB1_USERNAME'),
+			'password' => getenv('MONGODB1_PASSWORD'),
+			'database' => getenv('MONGODB1_NAME')
+		),
+
+
+		'mongodb2' => array(
+			'driver'   => 'mongodb',
+			'host'     => getenv('MONGODB2_HOST'),
+			'port'     => getenv('MONGODB2_PORT'),
+			'username' => getenv('MONGODB2_USERNAME'),
+			'password' => getenv('MONGODB2_PASSWORD'),
+			'database' => getenv('MONGODB2_NAME')
+		),
 
 		'pgsql' => array(
 			'driver'   => 'pgsql',

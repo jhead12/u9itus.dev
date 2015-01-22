@@ -26,6 +26,7 @@ class UserRepository
         $user->password = array_get($input, 'password');
         $user->telephone = array_get($input, 'telephone');
         $user->country = array_get($input, 'country');
+        $user->sex  = array_get($input, 'sex');
 
         // The password confirmation will be removed from model
         // before saving. This field will be used in Ardent's
@@ -37,6 +38,9 @@ class UserRepository
 
         // Save if valid. Password field will be hashed before save
         $this->save($user);
+
+        //new PapUser($user);
+        // Event::fire('papUser', $user);
 
         return $user;
     }
@@ -53,7 +57,7 @@ class UserRepository
         if (! isset($input['password'])) {
             $input['password'] = null;
         }
-
+        //Event::fire('papLogin',$input);
         return Confide::logAttempt($input, Config::get('confide::signup_confirm'));
     }
 

@@ -12,7 +12,9 @@
         "laravel/cashier": "~2.0",
         "jenssegers/mongodb": "*",
         "intervention/httpauth": "dev-master",
-	  	"healey/robots": "dev-master"
+	  	"healey/robots": "dev-master",
+	  "yajra/laravel-oci8": "~1.5",
+	  "yajra/laravel-datatables-oracle": "*"
 	},
 	"require-dev": {
 		"way/generators": "~3.0",

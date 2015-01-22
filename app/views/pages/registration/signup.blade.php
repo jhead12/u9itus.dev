@@ -32,9 +32,32 @@
             <input class="form-control" placeholder="{{{ Lang::get('confide::confide.e_mail') }}}" type="text" name="email" id="email" value="{{{ Input::old('email') }}}">
         </div>
         <div class="form-group">
-            <label for="telephone">{{{ Lang::get('confide::confide.telephone') }}} <small>{{ Lang::get('confide::confide.signup.confirmation_required') }}</small></label>
-            <input class="form-control" placeholder="{{{ Lang::get('confide::confide.telephonel') }}}" type="tel" name="telephone" id="telephone" value="{{{ Input::old('telephone') }}}">
+            <label for="email">{{{ Lang::get('confide::confide.telephone') }}} <small>{{ Lang::get('confide::confide.signup.confirmation_required') }}</small></label>
+            <input class="form-control" placeholder="{{{ Lang::get('confide::confide.telephone') }}}" type="tel" name="telephone" id="telephone" value="{{{ Input::old('telephone') }}}">
         </div>
+        <div class="form-group">
+
+            <label>Gender </label>
+
+            <input type="radio" name="sex" value="male" id="gender_set"><label for="gender_set">Male</label>
+            <input type="radio" name="sex" value="female" id="gender_set"><label for="gender_set">Female</label>
+
+            @if($errors->has('sex'))
+            <small class="error">{{$errors->first('sex')}}</small>
+            @endif
+
+        </div>
+
+        <div class="form-group">
+
+                {{Form::label('country', ' Available Countries', array('class' => 'large-5','columns','left'))}}
+                {{Form::select('country', array(
+                'Available countries' => array("USA","United Kingdom","Virgin Islands","Canada","Guam","Domican Republic","Puerto Rico")
+
+                ));}}
+
+
+            </div>
         <div class="form-group">
             <label for="password">{{{ Lang::get('confide::confide.password') }}}</label>
             <input class="form-control" placeholder="{{{ Lang::get('confide::confide.password') }}}" type="password" name="password" id="password">
@@ -44,7 +67,8 @@
             <input class="form-control" placeholder="{{{ Lang::get('confide::confide.password_confirmation') }}}" type="password" name="password_confirmation" id="password_confirmation">
         </div>
 
-       
+
+
 
         @if (Session::get('notice'))
             <div class="alert">{{ Session::get('notice') }}</div>
