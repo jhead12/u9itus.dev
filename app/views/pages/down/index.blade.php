@@ -3,23 +3,26 @@
 @section('content')
 
 
+<div class="row" xmlns="http://www.w3.org/1999/html">
 
-        
-      <!-- Main component for a primary marketing message or call to action -->
-      <div class="vert-text ">
+    <!-- Main component for a primary marketing message or call to action -->
+    <div class="vert-text ">
         <div >
-            
-        <img src="{{asset('images/off.images/logo.png')}}">
-   
-        <h2>Get paid up to $1.75 reviewing advertisements, or what we call AdDials</h2>
-      
-        <p>Advertisers look for loyalty, Dial4dough pays you for your loyalty.</p>
+
+            <img src="{{asset('images/off.images/logo.png')}}">
+
+            <h2>Get paid up to $1.75 reviewing advertisements, or what we call AdDials</h2>
+
+            <p>Advertisers look for loyalty, Dial4dough pays you for your loyalty.</p>
             <p>
-                <button rel="stylesheet" href="https://dialer.dial4dough.com/affiliates/signup.php#SignupForm" class="btn btn-lg btn-primary"/>Sign up!</button>
+                <input type="button" href="https://dialer.dial4dough.com/affiliates/signup.php#SignupForm" class="btn btn-lg btn-primary"/>Sign up!</input>
         </div>
-       
-       
-      </div>
+
+
+    </div>
+
+</div>
+
 
       @include('pages.partials.content')
       @include('pages.partials.footer')
