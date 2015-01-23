@@ -1,6 +1,6 @@
 
  <script src="//code.jquery.com/jquery-1.11.0.min.js"></script>
- <script src="{{asset('js/jquery.formatter.js')}}"></script>
+
  
 <script>
     $(document).ready(function(){

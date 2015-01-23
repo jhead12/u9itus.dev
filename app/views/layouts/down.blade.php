@@ -146,7 +146,7 @@
          </script>
          <script type="text/javascript"><!--
 document.write(unescape("%3Cscript id='pap_x2s6df8d' src='" + (("https:" == document.location.protocol) ? "https://" : "http://") + 
-"diarler.dial4dough.com/scripts/trackjs.js' type='text/javascript'%3E%3C/script%3E"));//-->
+"dialer.dial4dough.com/scripts/trackjs.js' type='text/javascript'%3E%3C/script%3E"));//-->
 </script>
 <script type="text/javascript"><!--
 PostAffTracker.setAccountId('default1');
@@ -157,13 +157,13 @@ PostAffTracker.track();
 </script>
         <script type="text/javascript">
 (function(d, src, c) { var t=d.scripts[d.scripts.length - 1],s=d.createElement('script');s.id='la_x2s6df8d';s.async=true;s.src=src;s.onload=s.onreadystatechange=function(){var rs=this.readyState;if(rs&&(rs!='complete')&&(rs!='loaded')){return;}c(this);};t.parentElement.insertBefore(s,t.nextSibling);})(document,
-'//dial4dough.ladesk.com/scripts/track.js',
+'//dialer.dial4dough.ladesk.com/scripts/track.js',
 function(e){  });
 </script>
 
 
-<script type="text/javascript" id="la_x2s6df8d" src="//dial4dough.ladesk.com/scripts/track.js"></script>
-                <img src="//dial4dough.ladesk.com/scripts/pix.gif" onLoad="LiveAgentTracker.createButton('button1', this);"/>
+<script type="text/javascript" id="la_x2s6df8d" src="//dialer.dial4dough.ladesk.com/scripts/track.js"></script>
+                <img src="//dialer.dial4dough.ladesk.com/scripts/pix.gif" onLoad="LiveAgentTracker.createButton('button1', this);"/>
 
  @yield('scripts')
 
