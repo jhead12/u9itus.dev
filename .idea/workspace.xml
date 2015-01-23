@@ -50,16 +50,6 @@
               </provider>
             </entry>
           </file>
-          <file leaf-file-name="AdminController.php" pinned="false" current-in-tab="false">
-            <entry file="file://$PROJECT_DIR$/app/controllers/AdminController.php">
-              <provider selected="true" editor-type-id="text-editor">
-                <state vertical-scroll-proportion="-7.8461537" vertical-offset="0" max-vertical-offset="340">
-                  <caret line="12" column="5" selection-start-line="12" selection-start-column="5" selection-end-line="12" selection-end-column="5" />
-                  <folding />
-                </state>
-              </provider>
-            </entry>
-          </file>
           <file leaf-file-name="signup.blade.php" pinned="false" current-in-tab="false">
             <entry file="file://$PROJECT_DIR$/app/views/pages/registration/signup.blade.php">
               <provider selected="true" editor-type-id="text-editor">
@@ -102,6 +92,16 @@
               </provider>
             </entry>
           </file>
+          <file leaf-file-name="downNav.blade.php" pinned="false" current-in-tab="true">
+            <entry file="file://$PROJECT_DIR$/app/views/layouts/partials/downNav.blade.php">
+              <provider selected="true" editor-type-id="text-editor">
+                <state vertical-scroll-proportion="0.57894737" vertical-offset="178" max-vertical-offset="544">
+                  <caret line="15" column="24" selection-start-line="15" selection-start-column="24" selection-end-line="15" selection-end-column="24" />
+                  <folding />
+                </state>
+              </provider>
+            </entry>
+          </file>
           <file leaf-file-name="content.blade.php" pinned="false" current-in-tab="false">
             <entry file="file://$PROJECT_DIR$/app/views/pages/partials/content.blade.php">
               <provider selected="true" editor-type-id="text-editor">
@@ -112,11 +112,11 @@
               </provider>
             </entry>
           </file>
-          <file leaf-file-name="default.blade.php" pinned="false" current-in-tab="true">
+          <file leaf-file-name="default.blade.php" pinned="false" current-in-tab="false">
             <entry file="file://$PROJECT_DIR$/app/views/pages/site/layouts/default.blade.php">
               <provider selected="true" editor-type-id="text-editor">
-                <state vertical-scroll-proportion="-12.165414" vertical-offset="1618" max-vertical-offset="2210">
-                  <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+                <state vertical-scroll-proportion="-1.8461539" vertical-offset="1618" max-vertical-offset="2210">
+                  <caret line="98" column="43" selection-start-line="98" selection-start-column="43" selection-end-line="98" selection-end-column="43" />
                   <folding />
                 </state>
               </provider>
@@ -189,18 +189,8 @@
           <file leaf-file-name="index.blade.php" pinned="false" current-in-tab="true">
             <entry file="file://$PROJECT_DIR$/app/views/pages/down/index.blade.php">
               <provider selected="true" editor-type-id="text-editor">
-                <state vertical-scroll-proportion="0.6131148" vertical-offset="102" max-vertical-offset="612">
-                  <caret line="17" column="155" selection-start-line="17" selection-start-column="155" selection-end-line="17" selection-end-column="155" />
-                  <folding />
-                </state>
-              </provider>
-            </entry>
-          </file>
-          <file leaf-file-name="downNav.blade.php" pinned="false" current-in-tab="false">
-            <entry file="file://$PROJECT_DIR$/app/views/layouts/partials/downNav.blade.php">
-              <provider selected="true" editor-type-id="text-editor">
-                <state vertical-scroll-proportion="-10.807693" vertical-offset="76" max-vertical-offset="544">
-                  <caret line="21" column="39" selection-start-line="21" selection-start-column="39" selection-end-line="21" selection-end-column="39" />
+                <state vertical-scroll-proportion="0.66885245" vertical-offset="102" max-vertical-offset="629">
+                  <caret line="18" column="16" selection-start-line="18" selection-start-column="16" selection-end-line="18" selection-end-column="16" />
                   <folding />
                 </state>
               </provider>
@@ -761,12 +751,12 @@
       <workItem from="1421798292071" duration="4795000" />
       <workItem from="1421806538879" duration="13866000" />
       <workItem from="1421826211524" duration="6920000" />
-      <workItem from="1421875290166" duration="22303000" />
+      <workItem from="1421875290166" duration="22442000" />
     </task>
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="80490000" />
+    <option name="totallyTimeSpent" value="80629000" />
   </component>
   <component name="ToolWindowManager">
     <frame x="-9" y="-9" width="1384" height="738" extended-state="6" />
@@ -1174,14 +1164,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/app/views/layouts/partials/downNav.blade.php">
-      <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="-10.807693" vertical-offset="76" max-vertical-offset="544">
-          <caret line="21" column="39" selection-start-line="21" selection-start-column="39" selection-end-line="21" selection-end-column="39" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/app/views/layouts/down.blade.php">
       <provider selected="true" editor-type-id="text-editor">
         <state vertical-scroll-proportion="-5.230769" vertical-offset="255" max-vertical-offset="3043">
@@ -1208,14 +1190,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/app/views/pages/site/layouts/default.blade.php">
-      <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="-12.165414" vertical-offset="1618" max-vertical-offset="2210">
-          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/app/views/layouts/default.blade.php">
       <provider selected="true" editor-type-id="text-editor">
         <state vertical-scroll-proportion="4.1153846" vertical-offset="107" max-vertical-offset="476">
@@ -1232,10 +1206,26 @@
         </state>
       </provider>
     </entry>
+    <entry file="file://$PROJECT_DIR$/app/views/pages/site/layouts/default.blade.php">
+      <provider selected="true" editor-type-id="text-editor">
+        <state vertical-scroll-proportion="-1.8461539" vertical-offset="1618" max-vertical-offset="2210">
+          <caret line="98" column="43" selection-start-line="98" selection-start-column="43" selection-end-line="98" selection-end-column="43" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/app/views/layouts/partials/downNav.blade.php">
+      <provider selected="true" editor-type-id="text-editor">
+        <state vertical-scroll-proportion="0.57894737" vertical-offset="178" max-vertical-offset="544">
+          <caret line="15" column="24" selection-start-line="15" selection-start-column="24" selection-end-line="15" selection-end-column="24" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/app/views/pages/down/index.blade.php">
       <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.6131148" vertical-offset="102" max-vertical-offset="612">
-          <caret line="17" column="155" selection-start-line="17" selection-start-column="155" selection-end-line="17" selection-end-column="155" />
+        <state vertical-scroll-proportion="0.66885245" vertical-offset="102" max-vertical-offset="629">
+          <caret line="18" column="16" selection-start-line="18" selection-start-column="16" selection-end-line="18" selection-end-column="16" />
           <folding />
         </state>
       </provider>
