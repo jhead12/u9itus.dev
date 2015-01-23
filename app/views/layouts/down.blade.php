@@ -22,8 +22,8 @@
 
 <link rel="stylesheet" href="{{asset('css/main.css')}}">
 <link rel="stylesheet" href="{{asset('css/mystyles.css')}}">
-<link rel="stylesheet" href="{{asset('css/tips.css')}}">
-<link rel="stylesheet" href="{{asset('css/intlTelInput.css')}}">
+    <link rel="stylesheet" href="{{asset('css/tips.css')}}">
+    <link rel="stylesheet" href="{{asset('css/intlTelInput.css')}}">
 
 <noscript>
             <link rel="stylesheet" href="css/skel.css" />
@@ -105,65 +105,6 @@
 @yield('content')
 
 
-
-
-        <script src="//code.jquery.com/jquery-1.11.0.min.js"></script>
-        <script src="//code.jquery.com/jquery-migrate-1.2.1.min.js"></script>
-
- <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.2.0/js/bootstrap.min.js"></script>
-  <script src="{{asset('js/script.js')}}"></script>
-  
-        {{--<script src="{{asset('js/recap.js')}}"></script>--}} 
-         <script src="{{asset('js/jv.js')}}"></script>
-
-         
-   
-         <script src="{{asset('js/vendor/jquery.cookie.js')}}"></script> <!-- Optional -->
-         <script src="{{asset('js/alerts.js')}}"></script>
-         <script src="{{asset('js/custom.js')}}"></script>
-      
-
-                
-                <script>
-                  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
-                  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
-                  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
-                  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
-
-                  ga('create', 'UA-56093034-1', 'auto');
-                  ga('send', 'pageview');
-
-                </script>
-
-        <script>
-
-         var confirmation = $('#confirmation');
-         if(confirmation){
-         confirmation.append('body');
-
-
-            }
-         </script>
-         <script type="text/javascript"><!--
-document.write(unescape("%3Cscript id='pap_x2s6df8d' src='" + (("https:" == document.location.protocol) ? "https://" : "http://") + 
-"dialer.dial4dough.com/scripts/trackjs.js' type='text/javascript'%3E%3C/script%3E"));//-->
-</script>
-<script type="text/javascript"><!--
-PostAffTracker.setAccountId('default1');
-try {
-PostAffTracker.track();
-} catch (err) { }
-//-->
-</script>
-        <script type="text/javascript">
-(function(d, src, c) { var t=d.scripts[d.scripts.length - 1],s=d.createElement('script');s.id='la_x2s6df8d';s.async=true;s.src=src;s.onload=s.onreadystatechange=function(){var rs=this.readyState;if(rs&&(rs!='complete')&&(rs!='loaded')){return;}c(this);};t.parentElement.insertBefore(s,t.nextSibling);})(document,
-'//dialer.dial4dough.ladesk.com/scripts/track.js',
-function(e){  });
-</script>
-
-
-<script type="text/javascript" id="la_x2s6df8d" src="//dialer.dial4dough.ladesk.com/scripts/track.js"></script>
-                <img src="//dialer.dial4dough.ladesk.com/scripts/pix.gif" onLoad="LiveAgentTracker.createButton('button1', this);"/>
 
  @yield('scripts')
 
