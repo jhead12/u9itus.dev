@@ -5,7 +5,6 @@
       
     <!-- Latest compiled and minified CSS -->
 
-        <script src="{{asset('js/vendor/modernizr.js')}}"></script>
         <script src="https://js.stripe.com/v2"></script>
 
 
@@ -18,21 +17,6 @@
       
         <!-- Optional theme -->
 <!--<link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap-theme.min.css">-->
-
-
-<link rel="stylesheet" href="{{asset('css/main.css')}}">
-<link rel="stylesheet" href="{{asset('css/mystyles.css')}}">
-    <link rel="stylesheet" href="{{asset('css/tips.css')}}">
-    <link rel="stylesheet" href="{{asset('css/intlTelInput.css')}}">
-
-<noscript>
-            <link rel="stylesheet" href="css/skel.css" />
-            <link rel="stylesheet" href="css/style.css" />
-            <link rel="stylesheet" href="css/style-xlarge.css" />
-      
-        </noscript>
-
-
 
 
   </head>
