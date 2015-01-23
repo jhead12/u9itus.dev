@@ -7,7 +7,7 @@
 
     <!-- Main component for a primary marketing message or call to action -->
     <div class="vert-text ">
-        <div >
+        <div style="padding: 80px" >
 
             <img src="{{asset('images/off.images/logo.png')}}">
 
