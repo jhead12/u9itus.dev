@@ -18,7 +18,7 @@
       <li class="dropdown">
           <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">Login <span class="caret"></span></a>
           <ul class="dropdown-menu" role="menu">
-              <li><a href="#">Registration(<span style="color:red">Unavailable</span> )</a></li>
+              <li><a href="https://dialer.dial4dough.com/affiliates/signup.php#SignupForm">Registration</a></li>
               <li class="divider"></li>
               <li><a href="https://dialer.dial4dough.com/affiliates/login.php#login">Member Login</a></li>
           </ul>
