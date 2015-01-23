@@ -24,6 +24,24 @@ App::after(function($request, $response)
 
 /*
 |--------------------------------------------------------------------------
+| PAP Login Filters
+|--------------------------------------------------------------------------
+|
+|The following filters will check if the user is signed into PAP loggin
+| If they are not will redirect them to the pap Login
+|
+|
+*/
+Route::filter('logged',function(){
+	//Get cross site cookie from Pap
+	//Check if the cookie has the logged in User
+	//If the user is logged in allow them access to the page.
+	//If the user is not redirect them to the log in page
+
+});
+
+/*
+|--------------------------------------------------------------------------
 | Authentication Filters
 |--------------------------------------------------------------------------
 |

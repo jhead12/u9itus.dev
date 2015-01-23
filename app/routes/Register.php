@@ -8,6 +8,7 @@ Route::get('/register', [
 	'uses'	=> 'RegistrationController@create'
 	]);
 Route::post('/register',[
+	'before' => 'csrf',
 	'as'	=> 'register_path',
 	'uses'	=> 'RegistrationController@store'
 
