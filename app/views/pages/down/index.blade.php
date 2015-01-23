@@ -15,7 +15,7 @@
 
             <p>Advertisers look for loyalty, Dial4dough pays you for your loyalty.</p>
             <p>
-                <a href="https://dialer.dial4dough.com/affiliates/signup.php#SignupForm" class="">Sign Up</a>
+                <a href="https://dialer.dial4dough.com/affiliates/signup.php#SignupForm" class="'btn btn-lg btn-primary ">Sign Up</a>
             </p>
         </div>
 
