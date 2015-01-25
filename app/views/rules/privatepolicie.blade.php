@@ -1,4 +1,4 @@
-@extends('layout.default')
+@extends('layouts.default')
 
 @section('content')
 
@@ -109,9 +109,9 @@
 
 <!-- Site footer -->
 				</section><!-- sidebar -->
-	
 
 
 
 
+	@include('pages.partials.footer')
 @stop

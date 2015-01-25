@@ -23,5 +23,13 @@ class PageController extends \BaseController {
 	{
 		return View::make('pages.thankyou');
 	}
+	public function privacy()
+	{
+		return View::make('rules.privatepolicie');
+	}
+	public function terms()
+	{
+		return View::make('rules.terms');
+	}
 
 }

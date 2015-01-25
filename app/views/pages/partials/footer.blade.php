@@ -16,7 +16,7 @@
 
 
             <p class="pull-right"><a href="#">Back to top</a></p>
-        <p>&copy; 2014 HeadEnterprise, Inc. &middot; <a href="#">Privacy</a> &middot;<a href="https://blog.dial4dough.com">Blog</a> &middot; <a href="{{URL::route('terms')}}" target="_blank">Terms of
+        <p>&copy; 2014 HeadEnterprise, Inc. &middot; <a href="{{URL::route('privatepolicy')}}">Privacy</a> &middot;<a href="https://blog.dial4dough.com">Blog</a> &middot; <a href="{{URL::route('terms')}}" target="_blank">Terms of
                     Service</a></p>
          
     @include('pages.scripts.create')

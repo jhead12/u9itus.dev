@@ -2,11 +2,11 @@
 
 Route::get('/terms',[
 		'as' 	=> 'terms',
-		'uses'	=> 'PagesController@terms'
+		'uses'	=> 'PageController@terms'
 	]);
 
 Route::get('/privatepolicy',[
 		'as'	=> 'privatepolicy',
-		'uses'	=>  'PagesController@private'
+		'uses'	=>  'PageController@privacy'
 
 	]);
