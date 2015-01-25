@@ -31,3 +31,9 @@ Route::get('about', function()
 	// Return about us page
 	return View::make('pages/site/contact-us');
 });
+
+Route::get('polidream', function()
+{
+	// Return about us page
+	return View::make('pages/site/polidream');
+});

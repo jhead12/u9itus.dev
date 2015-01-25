@@ -45,4 +45,7 @@
 </div>
 </div>
 
+
+@end
+
 @include('pages.partials.footer')
