@@ -25,4 +25,6 @@
 
     <p><strong><em>We are looking out for the little guy.</em></strong></p>
 </div>
+
+    @include('pages.partials.footer')
     @stop

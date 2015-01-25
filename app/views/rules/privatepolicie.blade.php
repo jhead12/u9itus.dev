@@ -112,6 +112,5 @@
 
 
 
-
 	@include('pages.partials.footer')
 @stop
