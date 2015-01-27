@@ -1,16 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="cc298910-660e-4aa3-bf56-54158befec62" name="Default" comment="">
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/app/routes/Addials.php" />
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/app/views/adpad/user.blade.php" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/app/controllers/AddialsController.php" afterPath="$PROJECT_DIR$/app/controllers/AddialsController.php" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/app/routes/Adpad.php" afterPath="$PROJECT_DIR$/app/routes/Adpad.php" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/gulpfile.js" afterPath="$PROJECT_DIR$/gulpfile.js" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/app/routes.php" afterPath="$PROJECT_DIR$/app/routes.php" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/public/js/script.js" afterPath="$PROJECT_DIR$/public/js/script.js" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
-    </list>
+    <list default="true" id="cc298910-660e-4aa3-bf56-54158befec62" name="Default" comment="" />
     <ignored path="dial4dough.dev.iws" />
     <ignored path=".idea/workspace.xml" />
     <ignored path=".idea/dataSources.local.xml" />
@@ -50,8 +41,8 @@
           <file leaf-file-name="user.blade.php" pinned="false" current-in-tab="true">
             <entry file="file://$PROJECT_DIR$/app/views/adpad/user.blade.php">
               <provider selected="true" editor-type-id="text-editor">
-                <state vertical-scroll-proportion="0.1724138" vertical-offset="835" max-vertical-offset="1665">
-                  <caret line="59" column="45" selection-start-line="59" selection-start-column="45" selection-end-line="59" selection-end-column="45" />
+                <state vertical-scroll-proportion="-2.0172415" vertical-offset="660" max-vertical-offset="1665">
+                  <caret line="5" column="3" selection-start-line="5" selection-start-column="3" selection-end-line="5" selection-end-column="3" />
                   <folding />
                 </state>
               </provider>
@@ -855,8 +846,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/app/views/adpad/user.blade.php">
       <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.1724138" vertical-offset="835" max-vertical-offset="1665">
-          <caret line="59" column="45" selection-start-line="59" selection-start-column="45" selection-end-line="59" selection-end-column="45" />
+        <state vertical-scroll-proportion="-2.0172415" vertical-offset="660" max-vertical-offset="1665">
+          <caret line="5" column="3" selection-start-line="5" selection-start-column="3" selection-end-line="5" selection-end-column="3" />
           <folding />
         </state>
       </provider>
