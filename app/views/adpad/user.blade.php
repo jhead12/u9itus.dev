@@ -49,6 +49,7 @@
     <table class="auto-style17" style="width: 100%">
 
         <tbody>
+        
         <tr>
             <td style="height: 23px; width: 131px"><strong>Company Name</strong></td>
             <td style="height: 23px; width: 103px"><strong>Product I.D.</strong></td>
@@ -56,12 +57,13 @@
             <td style="height: 23px; width: 101px"><strong>Product Name</strong></td>
             <td style="height: 23px; width: 245px"><strong>Type advertisement</strong></td>
         </tr>
+        @foreach($marketers as $marketer)
         <tr>
-            <td style="width: 131px">Marketer</td>
-            <td style="width: 103px">73476a</td>
-            <td style="width: 154px"><a href="http://473ba1vgk2y1ueouppx9t9l4oo.hop.clickbank.net/"><span class="auto-style19">Click link Here</span></a></td>
-            <td class="auto-style18" style="width: 101px">Restore Vision</td>
-            <td style="width: 245px">Audio</td>
+            <td style="width: 131px">{{$marketer->company_name}}</td>
+            <td style="width: 103px">{{$marketer->id}}</td>
+            <td style="width: 154px"><a href="http://{{$marketer->purchase_url}}"><span class="auto-style19">Click link Here</span></a></td>
+            <td class="auto-style18" style="width: 101px">{{$marketer->title}}</td>
+            <td style="width: 245px">{{$marketer->type}}</td>
         </tr>
         <tr>
             <td style="width: 131px">Click Bank</td>
@@ -98,6 +100,8 @@
             <td class="auto-style18" style="width: 101px">Addials advert</td>
             <td style="width: 245px">Audio</td>
         </tr>
+
+            @endforeach
         </tbody>
 
 
