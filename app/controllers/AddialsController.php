@@ -10,7 +10,7 @@ class AddialsController extends \BaseController
 {
 
 
-    public function _construct(User $user)
+     function _construct(User $user)
     {
         $this->user = $user;
     }
@@ -372,11 +372,11 @@ class AddialsController extends \BaseController
                     $marketers = Marketer::where('orderId', '!=', $_id[$i])->remember(60)->get();
                 }
 
-                return View::make('adpad.index')->with('marketers', $marketers);
+                return View::make('adpad.user')->with('marketers', $marketers);
             } else {
 
                 $marketers = Marketer::remember(60);
-                return View::make('adpad.index')->with('marketers', $marketers);
+                return View::make('adpad.user')->with('marketers', $marketers);
             }
             return View::make('home')->with('global-danger', 'There was a problem, please try again. If problem persist please contact Dial4dough');
 

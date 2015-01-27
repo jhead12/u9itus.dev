@@ -2,22 +2,6 @@
 
 
 
-/*
-
-Route::get('/dialpad/mess',function()
-{
-    Flash::message('A new pin has been sent to your email address.');
-
-});
-
-
-
-/*dialpad Functionality*/
-/*
-    |The dial pad system. Needs to be within the filter.
-    */
-
-Route::resource('addials','AddialsController');
 
 Route::get('/dialpad', array(
     'as'    => 'dialpad',

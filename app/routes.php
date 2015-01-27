@@ -12,7 +12,8 @@ Route::when('*','csrf',['post','put','patch']);
 Route::model('user', 'User');
 Route::model('comment', 'Comment');
 Route::model('post', 'Post');
-//Route::model('addials','Addials');
+Route::model('addial','Addials');
+Route::model('marketer', 'Marketer');
 Route::model('role', 'Role');
 
 /** ------------------------------------------
