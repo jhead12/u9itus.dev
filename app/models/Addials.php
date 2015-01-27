@@ -1,13 +1,29 @@
 <?php
 
 use Jenssegers\Mongodb\Eloquent\SoftDeletingTrait;
+
 use Jenssegers\Mongodb\Model as Eloquent;
 
 class Addial extends Eloquent {
 
     use SoftDeletingTrait;
 
-    protected $fillable = array('serial','currentAmount','userclickId','campaignId','addials','firstName','id','lastname','audio_file','city','company_name','created_at','email','postingbody','updated_at','completed');
+    protected $fillable = array('serial'
+    ,'currentAmount'
+    ,'userclickId'
+    ,'campaignId'
+    ,'addials'
+    ,'id'
+    ,'completed'
+    , 'amount'
+    , 'banners'
+
+    , 'catagory'
+    ,'url'
+
+
+
+    );
 
 
     //protected $table = 'addials';
@@ -15,11 +31,83 @@ class Addial extends Eloquent {
         return $this->belongsToMany('Marketer','User',null);
     }
 
-    
+
     protected $connection = 'mongodb';
 
     protected $collection = 'addials';
     protected $dates = ['deleted_at'];
+
+
+    public static $form =[
+        // 'title'         => 'required|max:50| min:2',
+        // 'telephone'     => 'required |max:50',
+        // 'company_name'  => 'required| max:50',
+        // 'purchase_url'  => 'required',
+        // 'type'          => 'required',
+        // 'authToken'     => 'required',
+        // 'accountSid'    => 'required'
+
+    ];
+
+    public static $adVal =[
+
+        'pin'       => 'required|unique:users'
+
+
+
+
+    ];
+
+
+
+
+    public static $list = [
+
+        'antiques',
+        'appliances',
+        'arts+crafts',
+        'atv/utv/sno',
+        'auto parts',
+        'baby+kid',
+        'barter',
+        'beauty+hlth',
+        'bikes',
+        'boats',
+        'books',
+        'business',
+        'cars+trucks',
+        'cds/dvd/vhs',
+        'cell phones',
+        'clothes+acc',
+        'collectibles',
+        'computers',
+        'electronics',
+
+        'farm+garden',
+        'free',
+        'furniture',
+        'garage sale',
+        'general',
+        'heavy equip',
+        'household',
+        'jewelry',
+        'materials',
+        'motorcycles',
+        'music instr',
+        'photo+video',
+        'rvs+camp',
+        'sporting',
+        'tickets',
+        'tools',
+        'toys+games',
+        'video gaming',
+        'wanted'
+
+    ];
+
+
+
+
 
 
 }

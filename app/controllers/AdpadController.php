@@ -9,7 +9,9 @@ class AdpadController extends \BaseController {
 	 */
 	public function index()
 	{
-		//
+		$marketers = 'test';
+
+        dd($marketers);
 	}
 
 
@@ -226,24 +228,12 @@ class AdpadController extends \BaseController {
     // Dial Pad Functionality.
     /*Need to set up ajax to color cordinate the link on the page.*/
     public function getDialpad(){
-        //return 'This is the Bronze page';
-         //$addials = Addial::all();
 
-
-
-
-        $userid = Auth::user()->userid;
-        //If there is an user Addial that has a completed status of true. Then take the addial off the dialpad.Other wise show it.
-          $addials = Addial::where('userclickId','=',$userid)->where('completed','=',false)->remember(60)->get();
-            //return $addials;
-            
-         //$notCompleted = Addial::where('userclickId','=',$userid)->where('completed','=',false)->distinct()->get(array('campaignId'));
-         $marketers = Marketer::where('amount','>', 0)->simplePaginate(5);
 
 
         //Check if Uncompleted Addial Still has a related campaign. If not Destroy Addial.
          
-        if($addials || $marketers ){
+        if( $marketers ){
 
             //return 'yes';
 
@@ -268,7 +258,7 @@ class AdpadController extends \BaseController {
 
                // $marketers = Marketer::where('_id','=',$_id[$i])->get();
 
-                return View::make('account.dialpad')->with('marketers',$marketers);
+                return View::make('adpad.index')->with('marketers',$marketers);
 
             }
             else{

@@ -62,7 +62,7 @@ return array(
 			'collation' => 'utf8_unicode_ci',
 			'prefix'    => '',
 		),
-		'mongodb' => array(
+		'mongodb2' => array(
 			'driver'   => 'mongodb',
 			'host'     => getenv('MONGODB1_HOST'),
 			'port'     => getenv('MONGODB1_PORT'),
@@ -72,7 +72,7 @@ return array(
 		),
 
 
-		'mongodb2' => array(
+		'mongodb' => array(
 			'driver'   => 'mongodb',
 			'host'     => getenv('MONGODB2_HOST'),
 			'port'     => getenv('MONGODB2_PORT'),

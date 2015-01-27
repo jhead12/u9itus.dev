@@ -126,6 +126,7 @@ return array(
 		'Way\Generators\GeneratorsServiceProvider',
 		'Zizaco\Confide\ServiceProvider',
 		'Zizaco\Entrust\EntrustServiceProvider',
+		'Jenssegers\Mongodb\MongodbServiceProvider',
 
 		'Healey\Robots\RobotsServiceProvider',
 
