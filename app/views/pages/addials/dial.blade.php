@@ -16,6 +16,9 @@
     {{Form::token()}}
 </form>
 
+
+    <script type="text/javascript" src="https://secure.jotform.us/jsform/50266024595152"></script>
+
 </div>
 
 </div>
