@@ -24,7 +24,7 @@ var env,
     outputDir,
     sassStyle;
 
-env = 'development';
+env = 'production';
 
 
 if (env==='development') {
@@ -37,7 +37,7 @@ if (env==='development') {
   sassStyle = 'compressed';
 }
 
-jsSources = ['app/assets/javascripts/bootstrap.js','app/assets/javascripts/intlTelInput.js','app/assets/javascripts/soundmanager2.js'];
+jsSources = ['app/assets/javascripts/animator.js','app/assets/javascripts/bootstrap.js','app/assets/javascripts/intlTelInput.js','app/assets/javascripts/soundmanager2.js','app/assets/javascripts/audio_dials.js'];
 
 sassSources = ['app/assets/sass/main.scss'];
 
