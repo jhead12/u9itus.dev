@@ -99,15 +99,20 @@ Route::filter('guest', function()
 |
 */
 
-Route::filter('csrf', function()
+Route::filter('csrf', function($route, $request)
 {
-	$token = Request::ajax() ? Request::header('X-CSRF-Token') : Input::get('_token');
-	if (Session::token() !=$token)
+	if (strtoupper($request->getMethod()) === 'GET')
+	{
+		return; // get requests are not CSRF protected
+	}
+
+	$token = $request->ajax() ? $request->header('X-CSRF-Token') : Input::get('_token');
+
+	if (Session::token() != $token)
 	{
 		throw new Illuminate\Session\TokenMismatchException;
 	}
 });
-
 //Pap Filter
 Route::filter('pap', function(){
 

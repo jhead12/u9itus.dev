@@ -22,7 +22,8 @@ class AddialsController extends \BaseController
      */
     public function index()
     {
-        return View::make('adpad.index');
+        $id = str_random(6);
+        return View::make('adpad.index')->with('id',$id );
     }
 
     public function forgotPin()
