@@ -6,15 +6,16 @@
 
 
 
-<form action="#" method="post" id='callback'>
-    <span>Your Number:
-    <input type="tel" id="mobile-number" value="" placeholder="valid telephone #" name="called"  /></span>
-    <input type="hidden" value="{{$marketer->telephone}}" name="telephone">
+{{--<form action="#" method="post" id='callback' hidden>--}}
+    {{--<span>Your Number:--}}
+    {{--<input type="tel" id="mobile-number" value="" placeholder="valid telephone #" name="called"  /></span>--}}
+    {{--<input type="hidden" value="{{$marketer->telephone}}" name="telephone">--}}
 
-    <input type="submit" class='button' id="connect" value="Connect"/>
+    {{--<input type="submit" class='button' id="connect" value="Connect"/>--}}
 
-    {{Form::token()}}
-</form>
+    {{--{{Form::token()}}--}}
+{{--</form>--}}
+    <div class="ui360 ui360-vis"><a href="{{asset('assets/addials/')}}/{{$marketer->audio_file}}">Listen</a></div>
 
 
     <script type="text/javascript" src="https://secure.jotform.us/jsform/50266024595152"></script>
