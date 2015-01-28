@@ -62,7 +62,7 @@
 
 
 
-        <tr>
+        <tr class="{{$marketer->id}}">
             <td style="width: 131px">{{$marketer->company_name}}</td>
             <td style="width: 103px">{{$marketer->id}}</td>
             <td style="width: 154px">  <a href="#" data-toggle="modal" data-target=".bs-{{$marketer->id}}">Click here</a></td>
@@ -75,49 +75,12 @@
                 <div class="modal-dialog modal-lg">
                     <div class="modal-content">
                         <h1>{{$marketer->title}}</h1>
-                        <p>The Phone system will go here</p>
+                        @include('pages.addials.business')
                     </div>
                 </div>
             </div>
 
 
-
-
-        </tr>
-        <tr>
-            <td style="width: 131px">Click Bank</td>
-            <td style="width: 103px">67345b</td>
-            <td style="width: 154px"><a href="http://f8885y0fqfxazhu3p3m86zwd-5.hop.clickbank.net/">Click link Here</a></td>
-            <td class="auto-style18" style="width: 101px">Wierd cure 4 diabetes</td>
-            <td style="width: 245px">Audio</td>
-        </tr>
-        <tr>
-            <td style="width: 131px">Click Bank</td>
-            <td style="width: 103px">54317a</td>
-            <td style="width: 154px"><a href="http://b21651zfvcte2bmw0h3h9qs9su.hop.clickbank.net/">Click link Here</a></td>
-            <td class="auto-style18" style="width: 101px">High blood pressure cure</td>
-            <td style="width: 245px">Audio</td>
-        </tr>
-        <tr>
-            <td style="width: 131px; height: 23px">Click Bank</td>
-            <td style="width: 103px; height: 23px">76893g</td>
-            <td style="width: 154px; height: 23px"><a href="http://da1580vow32g18kqmibfuk3t7s.hop.clickbank.net/">Click link Here</a></td>
-            <td style="width: 101px; height: 23px"><b style="mso-bidi-font-weight: normal"><span class="auto-style18" style="line-height: 115%; font-family: &quot;Calibri&quot;,&quot;sans-serif&quot;; mso-ascii-theme-font: minor-latin; mso-fareast-font-family: Calibri; mso-fareast-theme-font: minor-latin; mso-hansi-theme-font: minor-latin; mso-bidi-font-family: &quot;Times New Roman&quot;; mso-bidi-theme-font: minor-bidi; mso-ansi-language: EN-US; mso-fareast-language: EN-US; mso-bidi-language: AR-SA">Cure Sciatica in 7 Days</span></b></td>
-            <td style="width: 245px; height: 23px">Audio</td>
-        </tr>
-        <tr>
-            <td style="width: 131px">Click Bank</td>
-            <td style="width: 103px">10987x</td>
-            <td style="width: 154px"><a href="http://860d4ztpncvcxdhqp6e7sqmefi.hop.clickbank.net/">Click link Here</a></td>
-            <td style="width: 101px"><b style="mso-bidi-font-weight: normal"><span class="auto-style18" style="line-height: 115%; font-family: &quot;Calibri&quot;,&quot;sans-serif&quot;; mso-ascii-theme-font: minor-latin; mso-fareast-font-family: Calibri; mso-fareast-theme-font: minor-latin; mso-hansi-theme-font: minor-latin; mso-bidi-font-family: &quot;Times New Roman&quot;; mso-bidi-theme-font: minor-bidi; mso-ansi-language: EN-US; mso-fareast-language: EN-US; mso-bidi-language: AR-SA">Diabetes Cure without a doctor</span></b></td>
-            <td style="width: 245px">Audio</td>
-        </tr>
-        <tr>
-            <td style="width: 131px">Head Enterprises</td>
-            <td style="width: 103px">12345D4D</td>
-            <td style="width: 154px"><a href="Addialsizzlesoundswithendmsg.mp3">Click link Here</a></td>
-            <td class="auto-style18" style="width: 101px">Addials advert</td>
-            <td style="width: 245px">Audio</td>
         </tr>
 
             @endforeach
@@ -126,5 +89,13 @@
 
     </table>
 
+
+
     @include('layouts.partials.footer')
+
+    <script>
+        $("#mobile-number").intlTelInput();
+    </script>
+
+
 @stop

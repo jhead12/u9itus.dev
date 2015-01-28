@@ -101,13 +101,19 @@ Route::filter('guest', function()
 
 Route::filter('csrf', function()
 {
-	if ($_SERVER['REQUEST_METHOD'] === 'POST' || $_SERVER['REQUEST_METHOD'] === 'PUT') {
-		if (Session::token() != Input::get('_token'))
-		{
-			throw new Illuminate\Session\TokenMismatchException;
-		}
+	$token = Request::ajax() ? Request::header('X-CSRF-Token') : Input::get('_token');
+	if (Session::token() !=$token)
+	{
+		throw new Illuminate\Session\TokenMismatchException;
 	}
 });
+
+//Pap Filter
+Route::filter('pap', function(){
+
+	//if the request cookies is loggin then allow the user to use the dialpad
+});
+
 
 /*
 |--------------------------------------------------------------------------

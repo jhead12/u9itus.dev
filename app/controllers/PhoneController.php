@@ -87,7 +87,7 @@ class PhoneController extends \BaseController {
     public function postMakecall(){
 
 
-
+        dd(Input::only('called'));
 
 
         //require 'twilio/sdk/Services/Twilio.php';

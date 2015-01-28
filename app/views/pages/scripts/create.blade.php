@@ -64,9 +64,63 @@
 
 
 
+     <script>
+
+         $('#callback').submit(function(event){
+             event.preventDefault();
+//console.log('test');
+
+             var token  = $('input[name="_token"]').val();
+             var called = $('input[name="called"]').val();
+             var telephone = $('input[name="telephone"]').val();
+             var dataString = "called="+ called +"&telephone=" +telephone +"&token=" + token;
+
+             //console.log('this is the data'+dataString)
+             $.ajax({
+
+                 headers: {'X-CSRF-Token' : token},
+                 url: "{{URL::to('callback')}}",
+                 type: 'post',
+                 data: dataString,
+                 success: function(data){
+                     //console.log(data);
+
+                     $('.phone').empty();
 
 
 
+                     var obj = JSON.parse(data);
+                     //$('.phone').append('<div id="sid">'+ obj.sid +'</div>');
+
+                     var sid = obj.sid;
+                     var dataSid = "sid="+ obj.sid;
+
+
+
+                     var promise = $.ajax({
+                         url: "{{URL::to('status')}}",
+                         data: dataSid,
+                         type: 'get',
+                         success:function(data){
+                             $('.phone').append("<div> Call status:"+data+"</div>");
+
+
+                         }
+                     });
+
+
+                 }
+             });
+
+
+
+         });
+     </script>
+
+
+ <script>
+     $("#mobile-number").intlTelInput();
+ </script>
 
 
 
@@ -105,3 +159,7 @@
 
  <script type="text/javascript" id="la_x2s6df8d" src="//dial4dough.ladesk.com/scripts/track.js"></script>
  <img src="//dial4dough.ladesk.com/scripts/pix.gif" onLoad="LiveAgentTracker.createButton('button1', this);"/>
+
+ @yield('scripts')
+
+

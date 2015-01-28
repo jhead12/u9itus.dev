@@ -1,6 +1,6 @@
 
 
-            <div class="large-7 columns">
+            <div class="row">
 
 
 
@@ -15,7 +15,7 @@
             <br/>
 
             <address>
-                Web Site <a href="http://www.somedomain.com/contact">www.somedomain.com</a>.<br>
+                Web Site <a href="{{$marketer->purchase_url}}">{{$marketer->purchase_url}}</a>.<br>
                 Business Contact{{$marketer->telephone}}<br>
                 You may also want to visit us:<br>
 

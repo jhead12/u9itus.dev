@@ -18,9 +18,9 @@
    <div class="flex-video">
         <iframe width="420" height="315" src="{{$marketer->video_url}}" frameborder="0" allowfullscreen></iframe>
 </div>
-     @include('account.addials.video')   
+     @include('pages.addials.video')
 @else
-@include('account.addials.dial')
+@include('pages.addials.dial')
  
 @endif
 
@@ -28,14 +28,14 @@
     </div>
     <div class="tab-pane" id="business">
 
- @include('account.addials.info')
+ @include('pages.addials.info')
 
     </div>
     <div class="tab-pane" id="map">
 
 
 
-     @include('account.addials.map')
+     @include('pages.addials.map')
 
         </div>
         </div>

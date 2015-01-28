@@ -36,6 +36,8 @@ Route::get('/thecorner',array(
 // POST URL to handle form submission and make outbound call
 Route::post('/call', function()
 {
+
+    dd('test');
     //Session::flash('message', 'Repairing the feedback');
     Session::put('key', 'Repairing the feedback');
     return array('message' => 'Repairing the feedback');
@@ -56,7 +58,8 @@ Route::post('/call', function()
     try {
         // Place an outbound call
         $call = $client->account->calls->create(
-            $_ENV['TWILIO_NUMBER'], // A Twilio number in your account
+
+            //$_ENV['TWILIO_NUMBER'], // A Twilio number in your account
             $number, // The visitor's phone number
             $url
         );
@@ -70,18 +73,20 @@ Route::post('/call', function()
 });
 
 // POST URL to handle form submission and make outbound call
-// Route::post('/callback', function() 
+// Route::post('/callback', function()
 // {
+//
+//
 //     // A message for Twilio's TTS engine to repeat
-//     $sayMessage = 'Thanks for contacting our sales department. If this were a 
-//         real click to call application, we would redirect your call to our 
+//     $sayMessage = 'Thanks for contacting our sales department. If this were a
+//         real click to call application, we would redirect your call to our
 //         sales team right now using the Dial tag.';
-
+//
 //     $twiml = new Services_Twilio_Twiml();
 //     $twiml->say($sayMessage, array('voice' => 'alice'));
-
-
-
+//
+//
+//
 //     $response = Response::make($twiml, 200);
 //     $response->dial('+13109098860');
 //     $response->header('Content-Type', 'text/xml');
@@ -89,9 +94,9 @@ Route::post('/call', function()
 // });
 
 
-// Route::post('/callback',array(
-//   'before'=> 'auth',
-// 'as'    => 'callback',
-// 'uses'  => 'PhoneController@postMakecall'
-// ));  
+ Route::post('/callback',array(
+
+ 'as'    => 'callback',
+ 'uses'  => 'PhoneController@postMakecall'
+ ));
 

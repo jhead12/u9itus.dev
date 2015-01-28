@@ -24,7 +24,7 @@ var env,
     outputDir,
     sassStyle;
 
-env = 'devlopment';
+env = 'production';
 
 
 if (env==='development') {
@@ -37,7 +37,7 @@ if (env==='development') {
   sassStyle = 'compressed';
 }
 
-jsSources = ['app/assets/javascripts/bootstrap.js'];
+jsSources = ['app/assets/javascripts/bootstrap.js','app/assets/javascripts/intlTelInput.js'];
 
 sassSources = ['app/assets/sass/main.scss'];
 
@@ -76,11 +76,17 @@ gulp.task('minify-css', function() {
     .pipe(minifyCSS({keepBreaks:true}))
     .pipe(gulp.dest('public/css/'))
 });
-
+// Copy images to production
+gulp.task('move', function() {
+    gulp.src('./app/assets/images/**/*.*')
+        .pipe(gulpif(env === 'production', gulp.dest(outputDir+'images')))
+        .pipe(notify("Images: Moved Images"))
+});
 
 gulp.task('watch', function() {
   gulp.watch(jsSources, ['js']);
   gulp.watch(['./app/assets/sass/**/*.scss'], ['compass']);
+    gulp.watch(['./app/assets/images/**/*.*'],['move']);
  //gulp.watch('components/index.html', ['html']);
 });
 
@@ -100,10 +106,6 @@ gulp.task('connect', function() {
 //      });
 
 
-// Copy images to production
-gulp.task('move', function() {
-  gulp.src('app/assets/images/**/*.*')
-  .pipe(gulpif(env === 'production', gulp.dest(outputDir+'images')))
-});
+
 
 gulp.task('default', ['watch', 'js', 'compass', 'move', 'connect']);
