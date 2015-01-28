@@ -1,12 +1,13 @@
 
 
+            <div class="container">
+
+
             <div class="row">
-
-
-
 
             <section>
             <h3>{{$marketer->title}}</h3>
+                <p>Product I.D: {{$marketer->id}}</p>
             <article>
             {{$marketer->content}}
 
@@ -24,7 +25,7 @@
                 {{$marketer->zip}}<br>
                 USA
               </address>
-
+            </div>
 
 
 
