@@ -99,6 +99,7 @@ gulp.task('watch', function() {
   gulp.watch(jsSources, ['js']);
   gulp.watch(['./app/assets/sass/**/*.scss'], ['compass']);
     gulp.watch(['./app/assets/images/**/*.*'],['move']);
+    gulp.watch(['./app/assets/javascripts/soundManager2.js'],['js2'])
  //gulp.watch('components/index.html', ['html']);
 });
 

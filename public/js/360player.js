@@ -338,6 +338,8 @@ function ThreeSixtyPlayer() {
 
     finish: function() {
       var nextLink;
+      $('.form').show();
+
       pl.removeClass(this._360data.oUIBox,this._360data.className);
       this._360data.className = '';
       // self.clearCanvas(this._360data.oCanvas);

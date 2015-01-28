@@ -2,46 +2,10 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="cc298910-660e-4aa3-bf56-54158befec62" name="Default" comment="">
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/public/css/360-button-pause-2x.png" />
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/public/css/360-button-pause-light-2x.png" />
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/public/css/360-button-pause-light.gif" />
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/public/css/360-button-pause-light.png" />
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/public/css/360-button-pause.gif" />
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/public/css/360-button-pause.png" />
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/public/css/360-button-play-2x.png" />
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/public/css/360-button-play-light-2x.png" />
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/public/css/360-button-play-light.gif" />
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/public/css/360-button-play-light.png" />
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/public/css/360-button-play.gif" />
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/public/css/360-button-play.png" />
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/public/css/360-button-vis-pause-light.gif" />
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/public/css/360-button-vis-pause-light.png" />
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/public/css/360-button-vis-pause.gif" />
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/public/css/360-button-vis-pause.png" />
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/public/css/360-button-vis-play-light.gif" />
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/public/css/360-button-vis-play-light.png" />
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/public/css/360-button-vis-play.gif" />
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/public/css/360-button-vis-play.png" />
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/public/css/icon_loading_dots.gif" />
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/public/css/icon_loading_spinner.gif" />
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/public/css/icon_loading_spinner_bigger.gif" />
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/public/swf/soundmanager2.swf" />
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/public/swf/soundmanager2_debug.swf" />
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/public/swf/soundmanager2_flash9.swf" />
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/public/swf/soundmanager2_flash9_debug.swf" />
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/public/swf/soundmanager2_flash_xdomain.zip" />
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/public/js/360player.js" />
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/public/js/berniecode-animator.js" />
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/public/css/flashblock.css" />
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/public/js/soundmanager2.js" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/86461a3d70c50b4f32f201c8d8d11eb692a4acdc/audio.scssc" afterPath="$PROJECT_DIR$/.sass-cache/86461a3d70c50b4f32f201c8d8d11eb692a4acdc/audio.scssc" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/0105f47814369f1a0f49c401e0546e87f5baaac7/main.scssc" afterPath="$PROJECT_DIR$/.sass-cache/0105f47814369f1a0f49c401e0546e87f5baaac7/main.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/public/js/360player.js" afterPath="$PROJECT_DIR$/public/js/360player.js" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/public/js/audio.js" afterPath="$PROJECT_DIR$/public/js/audio.js" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/app/views/pages/scripts/create.blade.php" afterPath="$PROJECT_DIR$/app/views/pages/scripts/create.blade.php" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/app/views/layouts/default.blade.php" afterPath="$PROJECT_DIR$/app/views/layouts/default.blade.php" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/app/views/pages/addials/dial.blade.php" afterPath="$PROJECT_DIR$/app/views/pages/addials/dial.blade.php" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/gulpfile.js" afterPath="$PROJECT_DIR$/gulpfile.js" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/public/css/main.css" afterPath="$PROJECT_DIR$/public/css/main.css" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/public/js/script.js" afterPath="$PROJECT_DIR$/public/js/script.js" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
     </list>
     <ignored path="dial4dough.dev.iws" />
@@ -78,31 +42,41 @@
   </component>
   <component name="FileEditorManager">
     <leaf>
-      <file leaf-file-name="gulpfile.js" pinned="false" current-in-tab="true">
+      <file leaf-file-name="gulpfile.js" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/gulpfile.js">
           <provider selected="true" editor-type-id="text-editor">
-            <state vertical-scroll-proportion="-0.252809" vertical-offset="540" max-vertical-offset="1935">
-              <caret line="27" column="17" selection-start-line="27" selection-start-column="17" selection-end-line="27" selection-end-column="17" />
+            <state vertical-scroll-proportion="0.0" vertical-offset="1110" max-vertical-offset="1950">
+              <caret line="101" column="69" selection-start-line="101" selection-start-column="69" selection-end-line="101" selection-end-column="69" />
               <folding />
             </state>
           </provider>
         </entry>
       </file>
-      <file leaf-file-name="berniecode-animator.js" pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/public/js/berniecode-animator.js">
+      <file leaf-file-name="create.blade.php" pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/app/views/pages/scripts/create.blade.php">
           <provider selected="true" editor-type-id="text-editor">
-            <state vertical-scroll-proportion="0.0" vertical-offset="270" max-vertical-offset="10200">
-              <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+            <state vertical-scroll-proportion="-3.75" vertical-offset="195" max-vertical-offset="3330">
+              <caret line="19" column="0" selection-start-line="19" selection-start-column="0" selection-end-line="19" selection-end-column="0" />
               <folding />
             </state>
           </provider>
         </entry>
       </file>
-      <file leaf-file-name="berniecode-animator.js" pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/app/assets/javascripts/360/berniecode-animator.js">
+      <file leaf-file-name="dial.blade.php" pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/app/views/pages/addials/dial.blade.php">
           <provider selected="true" editor-type-id="text-editor">
-            <state vertical-scroll-proportion="0.0" vertical-offset="0" max-vertical-offset="10200">
-              <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+            <state vertical-scroll-proportion="-12.791667" vertical-offset="38" max-vertical-offset="585">
+              <caret line="23" column="20" selection-start-line="23" selection-start-column="16" selection-end-line="23" selection-end-column="20" />
+              <folding />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file leaf-file-name="360player.js" pinned="false" current-in-tab="true">
+        <entry file="file://$PROJECT_DIR$/public/js/360player.js">
+          <provider selected="true" editor-type-id="text-editor">
+            <state vertical-scroll-proportion="0.8146067" vertical-offset="5325" max-vertical-offset="21120">
+              <caret line="399" column="17" selection-start-line="399" selection-start-column="13" selection-end-line="399" selection-end-column="17" />
               <folding />
             </state>
           </provider>
@@ -126,7 +100,6 @@
   <component name="IdeDocumentHistory">
     <option name="CHANGED_PATHS">
       <list>
-        <option value="$PROJECT_DIR$/app/views/layouts/down.blade.php" />
         <option value="$PROJECT_DIR$/app/views/pages/home.blade.php" />
         <option value="$PROJECT_DIR$/app/routes/Rules.php" />
         <option value="$PROJECT_DIR$/app/views/pages/partials/footer.blade.php" />
@@ -172,11 +145,12 @@
         <option value="$PROJECT_DIR$/app/assets/sass/frames/audio.scss" />
         <option value="$PROJECT_DIR$/app/assets/sass/main.scss" />
         <option value="$PROJECT_DIR$/app/views/layouts/default.blade.php" />
-        <option value="$PROJECT_DIR$/app/assets/javascripts/soundmanager2.js" />
-        <option value="$PROJECT_DIR$/app/views/pages/scripts/create.blade.php" />
         <option value="$PROJECT_DIR$/app/assets/sass/frames/360player.scss" />
         <option value="$PROJECT_DIR$/app/assets/sass/frames/360player-visualization.scss" />
         <option value="$PROJECT_DIR$/gulpfile.js" />
+        <option value="$PROJECT_DIR$/app/assets/javascripts/soundmanager2.js" />
+        <option value="$PROJECT_DIR$/app/views/pages/scripts/create.blade.php" />
+        <option value="$PROJECT_DIR$/public/js/360player.js" />
       </list>
     </option>
   </component>
@@ -293,6 +267,72 @@
             </PATH_ELEMENT>
             <PATH_ELEMENT>
               <option name="myItemId" value="app" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
+            </PATH_ELEMENT>
+          </PATH>
+          <PATH>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="dial4dough.dev" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.ProjectViewProjectNode" />
+            </PATH_ELEMENT>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="dial4dough.dev" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
+            </PATH_ELEMENT>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="app" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
+            </PATH_ELEMENT>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="views" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
+            </PATH_ELEMENT>
+          </PATH>
+          <PATH>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="dial4dough.dev" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.ProjectViewProjectNode" />
+            </PATH_ELEMENT>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="dial4dough.dev" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
+            </PATH_ELEMENT>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="app" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
+            </PATH_ELEMENT>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="views" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
+            </PATH_ELEMENT>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="pages" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
+            </PATH_ELEMENT>
+          </PATH>
+          <PATH>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="dial4dough.dev" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.ProjectViewProjectNode" />
+            </PATH_ELEMENT>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="dial4dough.dev" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
+            </PATH_ELEMENT>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="app" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
+            </PATH_ELEMENT>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="views" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
+            </PATH_ELEMENT>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="pages" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
+            </PATH_ELEMENT>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="addials" />
               <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
             </PATH_ELEMENT>
           </PATH>
@@ -427,7 +467,7 @@
   </component>
   <component name="ToolWindowManager">
     <frame x="0" y="22" width="1440" height="822" extended-state="6" />
-    <editor active="false" />
+    <editor active="true" />
     <layout>
       <window_info id="Changes" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
       <window_info id="Terminal" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" weight="0.21232876" sideWeight="0.71060175" order="7" side_tool="false" content_ui="tabs" />
@@ -435,7 +475,7 @@
       <window_info id="Database" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.32978722" sideWeight="0.5" order="4" side_tool="false" content_ui="tabs" />
       <window_info id="Structure" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.24964234" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
       <window_info id="Application Servers" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="8" side_tool="false" content_ui="tabs" />
-      <window_info id="Project" active="true" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" weight="0.28755364" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
+      <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" weight="0.28755364" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
       <window_info id="Debug" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.4" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
       <window_info id="Run" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
       <window_info id="Favorites" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="2" side_tool="true" content_ui="tabs" />
@@ -763,14 +803,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/app/views/pages/addials/dial.blade.php">
-      <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.2543021" vertical-offset="62" max-vertical-offset="585">
-          <caret line="13" column="38" selection-start-line="13" selection-start-column="38" selection-end-line="13" selection-end-column="38" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/app/assets/javascripts/360/excanvas.js">
       <provider selected="true" editor-type-id="text-editor">
         <state vertical-scroll-proportion="0.0" vertical-offset="0" max-vertical-offset="330">
@@ -829,40 +861,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/app/assets/javascripts/soundmanager2.js">
-      <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.6179775" vertical-offset="0" max-vertical-offset="91140">
-          <caret line="22" column="11" selection-start-line="22" selection-start-column="11" selection-end-line="22" selection-end-column="11" />
-          <folding>
-            <element signature="n#!!doc" expanded="false" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/public/js/berniecode-animator.js">
-      <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.0" vertical-offset="0" max-vertical-offset="10200">
-          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/public/js/360player.js">
-      <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="24.019724" vertical-offset="2567" max-vertical-offset="21090">
-          <caret line="998" column="11" selection-start-line="998" selection-start-column="4" selection-end-line="998" selection-end-column="11" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/app/views/pages/scripts/create.blade.php">
-      <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.2294455" vertical-offset="0" max-vertical-offset="3270">
-          <caret line="8" column="52" selection-start-line="8" selection-start-column="52" selection-end-line="8" selection-end-column="52" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/app/assets/sass/frames/auto.scss">
       <provider selected="true" editor-type-id="text-editor">
         <state vertical-scroll-proportion="0.6596558" vertical-offset="0" max-vertical-offset="720">
@@ -879,21 +877,37 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/app/assets/javascripts/360/berniecode-animator.js">
-      <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.0" vertical-offset="0" max-vertical-offset="10200">
-          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/app/assets/sass/frames/360player.scss">
       <provider selected="true" editor-type-id="text-editor">
         <state vertical-scroll-proportion="1.6213018" vertical-offset="3213" max-vertical-offset="4830">
           <caret line="269" column="29" selection-start-line="269" selection-start-column="29" selection-end-line="269" selection-end-column="29" />
           <folding>
-            <element signature="e#3928#4587#2" expanded="true" />
+            <element signature="e#3928#4587#2" expanded="false" />
           </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/app/assets/javascripts/360/berniecode-animator.js">
+      <provider selected="true" editor-type-id="text-editor">
+        <state vertical-scroll-proportion="-0.6179775" vertical-offset="330" max-vertical-offset="10200">
+          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/public/js/berniecode-animator.js">
+      <provider selected="true" editor-type-id="text-editor">
+        <state vertical-scroll-proportion="0.36516854" vertical-offset="270" max-vertical-offset="10200">
+          <caret line="31" column="0" selection-start-line="31" selection-start-column="0" selection-end-line="31" selection-end-column="0" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/gulpfile.js">
+      <provider selected="true" editor-type-id="text-editor">
+        <state vertical-scroll-proportion="0.0" vertical-offset="1110" max-vertical-offset="1950">
+          <caret line="101" column="69" selection-start-line="101" selection-start-column="69" selection-end-line="101" selection-end-column="69" />
+          <folding />
         </state>
       </provider>
     </entry>
@@ -905,10 +919,34 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/gulpfile.js">
+    <entry file="file://$PROJECT_DIR$/app/assets/javascripts/soundmanager2.js">
       <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="-0.252809" vertical-offset="540" max-vertical-offset="1935">
-          <caret line="27" column="17" selection-start-line="27" selection-start-column="17" selection-end-line="27" selection-end-column="17" />
+        <state vertical-scroll-proportion="0.36291912" vertical-offset="1196" max-vertical-offset="90975">
+          <caret line="103" column="22" selection-start-line="103" selection-start-column="22" selection-end-line="103" selection-end-column="22" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/app/views/pages/addials/dial.blade.php">
+      <provider selected="true" editor-type-id="text-editor">
+        <state vertical-scroll-proportion="-12.791667" vertical-offset="38" max-vertical-offset="585">
+          <caret line="23" column="20" selection-start-line="23" selection-start-column="16" selection-end-line="23" selection-end-column="20" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/app/views/pages/scripts/create.blade.php">
+      <provider selected="true" editor-type-id="text-editor">
+        <state vertical-scroll-proportion="-3.75" vertical-offset="195" max-vertical-offset="3330">
+          <caret line="19" column="0" selection-start-line="19" selection-start-column="0" selection-end-line="19" selection-end-column="0" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/public/js/360player.js">
+      <provider selected="true" editor-type-id="text-editor">
+        <state vertical-scroll-proportion="0.8146067" vertical-offset="5325" max-vertical-offset="21120">
+          <caret line="399" column="17" selection-start-line="399" selection-start-column="13" selection-end-line="399" selection-end-column="17" />
           <folding />
         </state>
       </provider>

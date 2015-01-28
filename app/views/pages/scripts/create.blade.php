@@ -13,7 +13,11 @@
     soundManager.setup({
         // path to directory containing SM2 SWF
         url: '../../swf/'
+
+
     });
+
+
 
     threeSixtyPlayer.config.scaleFont = (navigator.userAgent.match(/msie/i)?false:true);
     threeSixtyPlayer.config.showHMSTime = true;
