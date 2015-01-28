@@ -20887,61 +20887,6 @@ div.ui360 a span.metadata * {
   vertical-align: baseline;
 }
 
-.auto-style1 {
-  font-family: "Times New Roman";
-  font-size: medium;
-  color: green;
-  letter-spacing: normal;
-}
-
-.auto-style2 {
-  color: red;
-}
-
-.auto-style3 {
-  color: #be1212;
-}
-
-.auto-style4 {
-  text-align: left;
-  color: #be1212;
-}
-
-.auto-style6 {
-  border: 2px solid #c0c0c0;
-  background-color: #ffff00;
-}
-
-.auto-style7 {
-  background-color: #FFFFFF;
-}
-
-.auto-style8 {
-  color: #1838be;
-}
-
-.auto-style9 {
-  border: 2px solid #c0c0c0;
-  background-color: #FFFFFF;
-}
-
-.auto-style14 {
-  color: green;
-}
-
-.auto-style17 {
-  border-style: solid;
-  border-width: 2px;
-}
-
-.auto-style18 {
-  font-size: x-small;
-}
-
-.auto-style19 {
-  color: #000000;
-}
-
 /* larger canvas, spectrum + EQ visualization and other items */
 .ui360-vis,
 .ui360-vis .sm2-360ui,
@@ -20957,7 +20902,7 @@ div.ui360 a span.metadata * {
   padding-top: 1px;
   padding-bottom: 1px;
   margin-bottom: -18px;
-  /* approximate "line height" we want */
+  /* approximate "l ine height" we want */
   padding-left: 248px;
   margin-left: 0px;
   background-position: 22.6% 50%;

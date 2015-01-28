@@ -18,6 +18,7 @@ var gulp = require('gulp'),
 var env,
 
     jsSources,
+    jsSources2,
     bowerSources,
     sassSources,
     htmlSources,
@@ -37,7 +38,8 @@ if (env==='development') {
   sassStyle = 'compressed';
 }
 
-jsSources = ['app/assets/javascripts/animator.js','app/assets/javascripts/bootstrap.js','app/assets/javascripts/intlTelInput.js','app/assets/javascripts/soundmanager2.js','app/assets/javascripts/audio_dials.js'];
+jsSources = ['app/assets/javascripts/bootstrap.js'];
+jsSources2 = ['app/assets/javascripts/360/berniecode-animator.js','app/assets/javascripts/soundmanager2.js'];
 
 sassSources = ['app/assets/sass/main.scss'];
 
@@ -50,6 +52,16 @@ gulp.task('js', function() {
     .pipe(gulp.dest(outputDir + 'js'))
     .pipe(notify("Complete: Javascripts Updated"))
     .pipe(connect.reload())
+});
+gulp.task('js2', function() {
+    gulp.src(jsSources2)
+        .pipe(concat('audio.js'))
+        .pipe(browserify())
+        .on('error', gutil.log)
+        .pipe(gulpif(env === 'production', uglify()))
+        .pipe(gulp.dest(outputDir + 'js'))
+        .pipe(notify("Complete: Javascripts2 Updated"))
+        .pipe(connect.reload())
 });
 
 gulp.task('compass', function() {
@@ -108,4 +120,4 @@ gulp.task('connect', function() {
 
 
 
-gulp.task('default', ['watch', 'js', 'compass', 'move', 'connect']);
+gulp.task('default', ['watch', 'js','js2', 'compass', 'move', 'connect']);

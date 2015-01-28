@@ -15,13 +15,19 @@
 
     {{--{{Form::token()}}--}}
 {{--</form>--}}
-    <div class="ui360 ui360-vis"><a href="{{asset('assets/addials/')}}/{{$marketer->audio_file}}">Listen</a></div>
+
+    <div class="ui360 ui360-vis">
+        <a href="{{asset('assets/addials/')}}/{{$marketer->audio_file}}">Listen</a>
+    </div>
 
 
-    <script type="text/javascript" src="https://secure.jotform.us/jsform/50266024595152"></script>
+    <div class="form" hidden>
+
+        <script type="text/javascript" src="https://secure.jotform.us/jsform/50266024595152"></script>
+    </div>
+
 
 </div>
 
 </div>
-
 
