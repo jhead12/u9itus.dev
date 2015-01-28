@@ -84,6 +84,6 @@
 </div>
 
 
-@include('pages.partials.footer')
+@include('layouts.partials.footer')
 @include('pages.scripts.create')
 

@@ -65,6 +65,6 @@
 </div>
 @endif
 
-        @include('pages.partials.footer')
+        @include('layouts.partials.footer')
 
 <!-- Create a script that will get mongodb info and color the list by the completed/opened status. Send the data realtime via the firebase. -->

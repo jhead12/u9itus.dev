@@ -105,5 +105,5 @@
 <p>If you agree, then sign up as a Head Enterprises subscriber!</p>
 
 </article>
-@include('pages.partials.footer')
+@include('layouts.partials.footer')
 @stop

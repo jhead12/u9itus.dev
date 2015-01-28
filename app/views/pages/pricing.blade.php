@@ -43,5 +43,5 @@
   </div>
   <div class="pad"></div>
 </div>
-@include('pages.partials.footer')
+@include('layouts.partials.footer')
 

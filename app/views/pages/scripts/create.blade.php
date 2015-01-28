@@ -1,7 +1,7 @@
 
  <script src="//code.jquery.com/jquery-1.11.0.min.js"></script>
-
- 
+ <script src="//code.jquery.com/jquery-migrate-1.2.1.min.js"></script>
+ <script src="{{asset('js/script.js')}}"></script>
 <script>
     $(document).ready(function(){
         var token = $('input[name="_hidden"]');
@@ -61,17 +61,14 @@
 
     });
     </script>
-     <script src="{{asset('js/script.js')}}">
-      </script>
 
 
 
 
- <script src="//code.jquery.com/jquery-1.11.0.min.js"></script>
- <script src="//code.jquery.com/jquery-migrate-1.2.1.min.js"></script>
 
- <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.2.0/js/bootstrap.min.js"></script>
- <script src="{{asset('js/script.js')}}"></script>
+
+
+
 
 
 
@@ -87,18 +84,10 @@
 
  </script>
 
- <script>
 
-     var confirmation = $('#confirmation');
-     if(confirmation){
-         confirmation.append('body');
-
-
-     }
- </script>
  <script type="text/javascript"><!--
      document.write(unescape("%3Cscript id='pap_x2s6df8d' src='" + (("https:" == document.location.protocol) ? "https://" : "http://") +
-     "dial4dough.com/scripts/trackjs.js' type='text/javascript'%3E%3C/script%3E"));//-->
+     "dialer.dial4dough.com/scripts/trackjs.js' type='text/javascript'%3E%3C/script%3E"));//-->
  </script>
  <script type="text/javascript"><!--
      PostAffTracker.setAccountId('default1');

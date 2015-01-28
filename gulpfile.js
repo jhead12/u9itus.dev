@@ -24,7 +24,7 @@ var env,
     outputDir,
     sassStyle;
 
-env = 'production';
+env = 'devlopment';
 
 
 if (env==='development') {
@@ -37,7 +37,7 @@ if (env==='development') {
   sassStyle = 'compressed';
 }
 
-jsSources = ['app/assets/javascripts/bootstrap.js','app/assets/javascripts/foundation/foundation.reveal.js'];
+jsSources = ['app/assets/javascripts/bootstrap.js'];
 
 sassSources = ['app/assets/sass/main.scss'];
 

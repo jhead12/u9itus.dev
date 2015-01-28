@@ -58,12 +58,31 @@
             <td style="height: 23px; width: 245px"><strong>Type advertisement</strong></td>
         </tr>
         @foreach($marketers as $marketer)
+
+
+
+
         <tr>
             <td style="width: 131px">{{$marketer->company_name}}</td>
             <td style="width: 103px">{{$marketer->id}}</td>
-            <td style="width: 154px"><a href="http://{{$marketer->purchase_url}}"><span class="auto-style19">Click link Here</span></a></td>
+            <td style="width: 154px">  <a href="#" data-toggle="modal" data-target=".bs-{{$marketer->id}}">Click here</a></td>
             <td class="auto-style18" style="width: 101px">{{$marketer->title}}</td>
             <td style="width: 245px">{{$marketer->type}}</td>
+
+            <!-- Large modal -->
+
+            <div class="modal fade bs-{{$marketer->id}}" tabindex="-1" role="dialog" aria-labelledby="myLargeModalLabel" aria-hidden="true">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <h1>{{$marketer->title}}</h1>
+                        <p>The Phone system will go here</p>
+                    </div>
+                </div>
+            </div>
+
+
+
+
         </tr>
         <tr>
             <td style="width: 131px">Click Bank</td>
@@ -107,4 +126,5 @@
 
     </table>
 
+    @include('layouts.partials.footer')
 @stop

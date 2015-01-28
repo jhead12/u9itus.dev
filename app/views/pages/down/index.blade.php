@@ -26,6 +26,6 @@
 
 
       @include('pages.partials.content')
-      @include('pages.partials.footer')
+      @include('layouts.partials.footer')
 
 @stop

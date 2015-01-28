@@ -125,7 +125,7 @@ If you agree, then sign up as a Head Enterprises subscriber!
 
 
 
-@include('pages.partials.footer')
+@include('layouts.partials.footer')
 @include('pages.scripts.create')
 
     @stop
