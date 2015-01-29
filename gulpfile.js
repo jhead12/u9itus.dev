@@ -44,7 +44,7 @@ if (env==='development') {
 
 jsSources = ['app/assets/javascripts/bootstrap.js'];
 initInput = ['app/assets/javascripts/intlTelInput.js'];
-sound = ['app/assets/javascripts/soundmanager2.js'];
+sound = ['app/assets/javascripts/sound/soundmanager2.js'];
 custom = ['app/assets/javascripts/sound/custom.js'];
 sassSources = ['app/assets/sass/main.scss'];
 
@@ -128,7 +128,7 @@ gulp.task('watch', function() {
   gulp.watch(['./app/assets/sass/**/*.scss'], ['compass']);
     gulp.watch(['./app/assets/images/**/*.*'],['move']);
     gulp.watch(['./app/assets/javascripts/intlTelInput.js'],['js2']);
-    gulp.watch(['./app/assets/javascripts/sound/360player.js'],['sound']);
+    gulp.watch(['./app/assets/javascripts/sound/*.js'],['sound']);
     //gulp.watch(['./app/assets/javascripts/sound/custom.js'],['custom']);
  //gulp.watch('components/index.html', ['html']);
 });

@@ -35,4 +35,4 @@
         </div>
 
 
-<a class="close-reveal-modal">&#215;</a>
+<button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
