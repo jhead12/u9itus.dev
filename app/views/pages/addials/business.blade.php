@@ -2,8 +2,8 @@
 
     <!-- If statement that will indicate if the if the dialpad is a video/live/audio dial -->
     <li class="active"><a href="#action" role="tab" data-toggle="tab">Dial Connect</a></li>
-    <li><a href="#business" role="tab" data-toggle="tab">Business Info</a></li>
-    <li><a href="#map" role="tab" data-toggle="tab">Map</a></li>
+    <li><a href="#business" role="tab" data-toggle="tab">Business Info/product Id</a></li>
+
 
 
 </ul>
@@ -31,13 +31,7 @@
  @include('pages.addials.info')
 
     </div>
-    <div class="tab-pane" id="map">
 
-
-
-     @include('pages.addials.map')
-
-        </div>
         </div>
 
 

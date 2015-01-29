@@ -1,8 +1,10 @@
 <div class="panel" xmlns="http://www.w3.org/1999/html">
 
+<div class="alert alert-success">
+    <p>This is the ad Dial portal. Once the call has completed you will receive your payment.{{----}} </p>
+</div>
 
-<p>This is the ad Dial portal. Once the call has completed you will receive your payment.{{----}} </p>
-<div class="phone">
+<div class="row">
 
 
 
@@ -15,9 +17,9 @@
 
     {{--{{Form::token()}}--}}
 {{--</form>--}}
-
+    <h1>Click play to listen to the AdDial</h1>
     <div class="ui360 ui360-vis">
-        <a href="{{asset('assets/addials/')}}/{{$marketer->audio_file}}">Listen</a>
+        <a href="{{asset('assets/addials/')}}/{{$marketer->audio_file}}"></a>
     </div>
 
 
