@@ -14,7 +14,7 @@
 
 @if($marketer->type==='video')
 <h1>Video Review Addial</h1>
-<p>Please review the complete video to receive commision. </p>
+<p>Please review the complete video to receive commission. </p>
    <div class="flex-video">
         <iframe width="420" height="315" src="{{$marketer->video_url}}" frameborder="0" allowfullscreen></iframe>
 </div>

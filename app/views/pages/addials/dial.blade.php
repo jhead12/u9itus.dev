@@ -17,7 +17,7 @@
 
     {{--{{Form::token()}}--}}
 {{--</form>--}}
-    <h1>Click play to listen to the AdDial</h1>
+    <small>Click play to listen to the AdDial</small>
     <div class="ui360 ui360-vis">
         <a href="{{asset('assets/addials/')}}/{{$marketer->audio_file}}"></a>
     </div>
