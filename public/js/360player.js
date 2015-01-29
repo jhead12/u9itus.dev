@@ -590,7 +590,7 @@ function ThreeSixtyPlayer() {
      // massive hack
      thisSound._360data.oAnim.seekTo(0); // play to end
      window.setTimeout(function() {
-       // reset full 360 fill after animation has completed (oncomplete hack)
+       // reset full sound fill after animation has completed (oncomplete hack)
        thisSound._360data.didFinish = false;
        thisSound._360data.animating = 0;
        self.resetLastValues(thisSound);
@@ -911,7 +911,7 @@ function ThreeSixtyPlayer() {
       waveData = null;
       innerRadius = (self.config.waveformDataOutside?1:(self.config.waveformDataConstrain?0.5:0.565));
       scale = (self.config.waveformDataOutside?0.7:0.75);
-      perItemAngle = self.deg2rad((360/sampleCount)*self.config.waveformDataLineRatio); // 0.85 = clean pixel lines at 150? // self.deg2rad(360*(Math.max(1,downSample-1))/sampleCount);
+      perItemAngle = self.deg2rad((360/sampleCount)*self.config.waveformDataLineRatio); // 0.85 = clean pixel lines at 150? // self.deg2rad(sound*(Math.max(1,downSample-1))/sampleCount);
       for (i=0; i<dataLength; i+=downSample) {
         startAngle = self.deg2rad(360*(i/(sampleCount)*1/downSample)); // +0.67 - counter for spacing
         endAngle = startAngle+perItemAngle;
@@ -935,7 +935,7 @@ function ThreeSixtyPlayer() {
       scale = (self.config.eqDataOutside?0.5:0.75);
       startAngle = 0;
       endAngle = 0;
-      perItemAngle = self.deg2rad((360/sampleCount)*self.config.eqDataLineRatio); // self.deg2rad(360/(sampleCount+1));
+      perItemAngle = self.deg2rad((360/sampleCount)*self.config.eqDataLineRatio); // self.deg2rad(sound/(sampleCount+1));
       playedAngle = self.deg2rad((oSound._360data.didFinish===1?360:360*(oSound._360data.lastValues.position/oSound._360data.lastValues.durationEstimate)));
       j=0;
       iAvg = 0;
@@ -977,7 +977,7 @@ function ThreeSixtyPlayer() {
 
   this.uiTest = function(sClass) {
 
-    // fake a 360 UI so we can get some numbers from CSS, etc.
+    // fake a sound UI so we can get some numbers from CSS, etc.
 
     var oTemplate = document.createElement('div'),
         oFakeUI, oFakeUIBox, oTemp, fakeDiameter, uiHTML, circleDiameter, circleRadius, fontSizeMax, oTiming;

@@ -18,12 +18,16 @@ var gulp = require('gulp'),
 var env,
 
     jsSources,
-    jsSources2,
+
+    sound,
+    custom,
+    initInput,
     bowerSources,
     sassSources,
     htmlSources,
     outputDir,
     sassStyle;
+
 
 env = 'production';
 
@@ -39,9 +43,12 @@ if (env==='development') {
 }
 
 jsSources = ['app/assets/javascripts/bootstrap.js'];
-jsSources2 = ['app/assets/javascripts/360/berniecode-animator.js','app/assets/javascripts/soundmanager2.js'];
-
+initInput = ['app/assets/javascripts/intlTelInput.js'];
+sound = ['app/assets/javascripts/soundmanager2.js'];
+custom = ['app/assets/javascripts/sound/custom.js'];
 sassSources = ['app/assets/sass/main.scss'];
+
+
 
 gulp.task('js', function() {
   gulp.src(jsSources)
@@ -53,16 +60,37 @@ gulp.task('js', function() {
     .pipe(notify("Complete: Javascripts Updated"))
     .pipe(connect.reload())
 });
-gulp.task('js2', function() {
-    gulp.src(jsSources2)
+gulp.task('sound', function() {
+    gulp.src(sound)
         .pipe(concat('audio.js'))
         .pipe(browserify())
         .on('error', gutil.log)
         .pipe(gulpif(env === 'production', uglify()))
         .pipe(gulp.dest(outputDir + 'js'))
-        .pipe(notify("Complete: Javascripts2 Updated"))
+        .pipe(notify("Complete: Audio Updated"))
         .pipe(connect.reload())
 });
+gulp.task('type', function() {
+    gulp.src(initInput)
+        .pipe(concat('type.js'))
+        .pipe(browserify())
+        .on('error', gutil.log)
+        .pipe(gulpif(env === 'production', uglify()))
+        .pipe(gulp.dest(outputDir + 'js'))
+        .pipe(notify("Complete: Type Updated"))
+        .pipe(connect.reload())
+});
+gulp.task('custom', function() {
+    gulp.src(custom)
+        .pipe(concat('custom.js'))
+        .pipe(browserify())
+        .on('error', gutil.log)
+        .pipe(gulpif(env === 'production', uglify()))
+        .pipe(gulp.dest(outputDir + 'js'))
+        .pipe(notify("Complete: Custom Updated"))
+        .pipe(connect.reload())
+});
+
 
 gulp.task('compass', function() {
   gulp.src(sassSources)
@@ -99,7 +127,9 @@ gulp.task('watch', function() {
   gulp.watch(jsSources, ['js']);
   gulp.watch(['./app/assets/sass/**/*.scss'], ['compass']);
     gulp.watch(['./app/assets/images/**/*.*'],['move']);
-    gulp.watch(['./app/assets/javascripts/soundManager2.js'],['js2'])
+    gulp.watch(['./app/assets/javascripts/intlTelInput.js'],['js2']);
+    gulp.watch(['./app/assets/javascripts/sound/360player.js'],['sound']);
+    //gulp.watch(['./app/assets/javascripts/sound/custom.js'],['custom']);
  //gulp.watch('components/index.html', ['html']);
 });
 
@@ -121,4 +151,4 @@ gulp.task('connect', function() {
 
 
 
-gulp.task('default', ['watch', 'js','js2', 'compass', 'move', 'connect']);
+gulp.task('default', ['watch', 'js','sound','custom', 'compass','type', 'move', 'connect']);

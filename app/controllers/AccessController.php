@@ -89,7 +89,7 @@ class AccessController extends \BaseController {
                 $validator = Validator::make(Input::all(),User::$emailOnly
                     );
 
-                if($validator -> fails()) {
+                if($validator-> fails()) {
                     return Redirect::back()
                             ->withErrors($validator)
                             ->withInput();
@@ -100,7 +100,7 @@ class AccessController extends \BaseController {
                     // change password
 
                     $user = User::where('email', '=',Input::get('email'))->first();
-					dd($user);
+
 
                     //return count($user);
 

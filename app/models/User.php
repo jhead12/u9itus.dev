@@ -116,7 +116,9 @@ use ConfideUser, BillableTrait;
     {
         return $this->where('username', '=', $username)->first();
     }
-
+    public static $emailOnly =[
+                'email' => 'require'
+    ];
 	public static $rules = [
 
 	 			'firstName'      => 'required|max:50| min:2',

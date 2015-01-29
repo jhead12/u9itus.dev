@@ -75,7 +75,9 @@
                 <div class="modal-dialog modal-lg">
                     <div class="modal-content">
                         <h1>{{$marketer->title}}</h1>
+
                         @include('pages.addials.business')
+
                     </div>
                 </div>
             </div>
