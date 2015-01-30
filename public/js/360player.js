@@ -338,7 +338,7 @@ function ThreeSixtyPlayer() {
 
     finish: function() {
       var nextLink;
-      $('.form').show();
+      $('.form').show('slow');
 
       pl.removeClass(this._360data.oUIBox,this._360data.className);
       this._360data.className = '';
@@ -354,12 +354,20 @@ function ThreeSixtyPlayer() {
     },
 
     whileloading: function() {
+
+
       if (this.paused) {
+        alert('please wait while AdDial is loading. Thank You');
         self.updatePlaying.apply(this);
       }
     },
 
     whileplaying: function() {
+      if(this._360data.fps++ == 2000){
+        console.log('2mins');
+        //$('#productID').append('<p class=\"alert alert-warning\">this is a test PRODUCTID</p>');
+      }
+
       self.updatePlaying.apply(this);
       this._360data.fps++;
     },

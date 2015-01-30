@@ -1,7 +1,7 @@
 
 <div class="content" xmlns="http://www.w3.org/1999/html">
 
-<div class="alert alert-success">
+<div class="alert alert-success" hidden>
     <p>This is the ad Dial portal. Once the call has completed you will receive your payment.{{----}} </p>
 </div>
 
@@ -25,17 +25,18 @@
     </div>
     <small>Click play to listen to the AdDial</small>
     <div class="ui360 ui360-vis">
-        <a href="{{asset('assets/addials/')}}/{{$marketer->audio_file}}">Play</a>
-
+        <a href="{{asset('assets/addials/')}}/{{$marketer->audio_file}}"></a>
     </div>
 
+<div id="productID"></div>
 
     <div class="form" hidden>
 
         <script type="text/javascript" src="https://secure.jotform.us/jsform/50266024595152"></script>
     </div>
 
-    <div class="row">
+    <div class="content" id="message">
+
         <small class="alert alert-warning"> please note: you are only paid once per Addials.</small>
 
 

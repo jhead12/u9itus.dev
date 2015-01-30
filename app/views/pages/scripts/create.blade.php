@@ -12,7 +12,12 @@
 <script src="{{asset('js/custom.js')}}"></script>
 <script src="{{asset('js/type.js')}}"></script>
 
+<script type="text/javascript">
+    $('#close').click(function(){
+        location.reload();
 
+    });
+</script>
 
 
  <script>

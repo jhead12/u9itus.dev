@@ -8,11 +8,74 @@
 
     <h1>Dial Pad</h1>
 
+
+
+
     <p><strong>DialPad User Instructions</strong></p>
 
     <p ><span ><strong><span >Please adhere to the following instructions to enable receiving credits for addials.</span>&nbsp;</strong></span></span></p>
 
     <p ><strong>Adequate&nbsp;information must be present in Dial4dough members&#39; profiles to receive addials. &nbsp;Login to the dial4dough<span class="Apple-converted-space">&nbsp;</span>members&#39; area.&nbsp;Click on the &quot;My Profile&quot; link on the left side of the site. &nbsp;Make sure that the &quot;Additional Information&quot;section<span class="Apple-converted-space">&nbsp;</span>&nbsp;at the bottom of page&nbsp; is completed and accurate.&nbsp; If this is not done, our tracking system will not provide you with addials to enable your earning income.</strong></p>
+
+
+    <form method="post" style="border: 1px dotted rgb(255, 0, 0); padding: 2px; color: rgb(0, 0, 0); font-family: 'Times New Roman'; font-size: medium; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; line-height: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; white-space: normal; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;">
+        <p><strong>Web&nbsp;audio and video addials:</strong></p>
+
+        <p ><strong><span class="auto-style9" style="color: rgb(190, 24, 153);">Web and some audio addials may be clicked.  Member will be sent to a Website or audio file to view a timed video and, or audio file.  Product I.D., your username, phone number and email address will be required to receive credit for your listening or viewing. Your presence will be identified once you follow the instructions within the specific addials promotion.</span></strong></p>
+
+        <p><strong>Payment credits for addials will be alloted in accordance to membership selection.</strong></p>
+    </form>
+
+
+
+    <table class="auto-style17" style="width: 100%">
+
+        <tbody>
+
+        <tr>
+            <td style="height: 23px; width: 131px"><strong>Company Name</strong></td>
+            <td style="height: 23px; width: 103px"><strong>Product I.D.</strong></td>
+            <td style="height: 23px; width: 154px"><strong>Phone Number or Link</strong></td>
+            <td style="height: 23px; width: 101px"><strong>Product Name</strong></td>
+            <td style="height: 23px; width: 245px"><strong>Type advertisement</strong></td>
+        </tr>
+        @foreach($marketers as $marketer)
+
+
+
+
+            <tr class="{{$marketer->id}}">
+                <td style="width: 131px">{{$marketer->company_name}}</td>
+                <td style="width: 103px">{{$marketer->id}}</td>
+                <td style="width: 154px">  <a href="#" class="btn btn-primary" data-toggle="modal" data-target=".bs-{{$marketer->id}}">Click here</a></td>
+                <td class="auto-style18" style="width: 101px">{{$marketer->title}}</td>
+                <td style="width: 245px">{{$marketer->type}}</td>
+
+                <!-- Large modal -->
+
+                <div class="modal fade bs-{{$marketer->id}}" tabindex="-1" role="dialog" aria-labelledby="myLargeModalLabel" aria-hidden="true">
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <h1>{{$marketer->title}}</h1>
+
+                            @include('pages.addials.business')
+
+                        </div>
+                    </div>
+                </div>
+
+
+            </tr>
+
+        @endforeach
+        </tbody>
+
+
+    </table>
+
+
+
+
 
     <h3 ><strong>Telephone Dials:</strong></h3>
 
@@ -37,60 +100,7 @@
         </li>
     </ol>
 
-    <form method="post" style="border: 1px dotted rgb(255, 0, 0); padding: 2px; color: rgb(0, 0, 0); font-family: 'Times New Roman'; font-size: medium; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; line-height: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; white-space: normal; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;">
-        <p><strong>Web&nbsp;audio and video addials:</strong></p>
 
-        <p ><strong><span class="auto-style9" style="color: rgb(190, 24, 153);">Web and some audio addials may be clicked.  Member will be sent to a Website or audio file to view a timed video and, or audio file.  Product I.D., your username, phone number and email address will be required to receive credit for your listening or viewing. Your presence will be identified once you follow the instructions within the specific addials promotion.</span></strong></p>
-
-        <p><strong>Payment credits for addials will be alloted in accordance to membership selection.</strong></p>
-    </form>
-
-
-
-    <table class="auto-style17" style="width: 100%">
-
-        <tbody>
-        
-        <tr>
-            <td style="height: 23px; width: 131px"><strong>Company Name</strong></td>
-            <td style="height: 23px; width: 103px"><strong>Product I.D.</strong></td>
-            <td style="height: 23px; width: 154px"><strong>Phone Number or Link</strong></td>
-            <td style="height: 23px; width: 101px"><strong>Product Name</strong></td>
-            <td style="height: 23px; width: 245px"><strong>Type advertisement</strong></td>
-        </tr>
-        @foreach($marketers as $marketer)
-
-
-
-
-        <tr class="{{$marketer->id}}">
-            <td style="width: 131px">{{$marketer->company_name}}</td>
-            <td style="width: 103px">{{$marketer->id}}</td>
-            <td style="width: 154px">  <a href="#" data-toggle="modal" data-target=".bs-{{$marketer->id}}">Click here</a></td>
-            <td class="auto-style18" style="width: 101px">{{$marketer->title}}</td>
-            <td style="width: 245px">{{$marketer->type}}</td>
-
-            <!-- Large modal -->
-
-            <div class="modal fade bs-{{$marketer->id}}" tabindex="-1" role="dialog" aria-labelledby="myLargeModalLabel" aria-hidden="true">
-                <div class="modal-dialog modal-lg">
-                    <div class="modal-content">
-                        <h1>{{$marketer->title}}</h1>
-
-                        @include('pages.addials.business')
-
-                    </div>
-                </div>
-            </div>
-
-
-        </tr>
-
-            @endforeach
-        </tbody>
-
-
-    </table>
 
 
 
