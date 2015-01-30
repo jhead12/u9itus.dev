@@ -1,5 +1,5 @@
-<div class="row">
-<div class="panel" xmlns="http://www.w3.org/1999/html">
+
+<div class="content" xmlns="http://www.w3.org/1999/html">
 
 <div class="alert alert-success">
     <p>This is the ad Dial portal. Once the call has completed you will receive your payment.{{----}} </p>
@@ -18,7 +18,7 @@
 
     {{--{{Form::token()}}--}}
 {{--</form>--}}
-    <div class="row">
+    <div class="content">
         <p class="alert alert-danger">
             For the next 24 hours advertisements will be uploading slowly. Advertisements will increase in volume as they load into our servers.  Please be patient.
         </p>
@@ -42,8 +42,6 @@
     </div>
 
 
-
-</div>
 
 </div>
 
