@@ -6,18 +6,10 @@
 </div>
 
 
+@foreach($marketer as $data)
 
 
 
-{{--<form action="#" method="post" id='callback' hidden>--}}
-    {{--<span>Your Number:--}}
-    {{--<input type="tel" id="mobile-number" value="" placeholder="valid telephone #" name="called"  /></span>--}}
-    {{--<input type="hidden" value="{{$marketer->telephone}}" name="telephone">--}}
-
-    {{--<input type="submit" class='button' id="connect" value="Connect"/>--}}
-
-    {{--{{Form::token()}}--}}
-{{--</form>--}}
     <div class="content">
         <p class="alert alert-danger">
             For the next 24 hours advertisements will be uploading slowly. Advertisements will increase in volume as they load into our servers.  Please be patient.
@@ -25,15 +17,19 @@
     </div>
     <small>Click play to listen to the AdDial</small>
     <div class="ui360 ui360-vis">
-        <a href="{{asset('assets/addials/')}}/{{$marketer->audio_file}}"></a>
+        <a href="{{asset('assets/addials/')}}/{{$data->audio_file}}"></a>
     </div>
 
 <div id="productID"></div>
 
+
+    @endforeach
+
     <div class="form" hidden>
 
         <script type="text/javascript" src="https://secure.jotform.us/jsform/50266024595152"></script>
-    </div>
+
+
 
     <div class="content" id="message">
 
@@ -42,7 +38,7 @@
 
     </div>
 
-
-
+</div>
 </div>
 
+@include('layouts.partials.footer')

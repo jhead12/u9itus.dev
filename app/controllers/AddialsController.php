@@ -182,21 +182,20 @@ class AddialsController extends \BaseController
         //This Opens the Modal with the Marketer information
 
 
-        $str_id = intval($id);
 
         $marketer = Marketer::where('id', '=', $id)->get();
 
+        //$marketer = Marketer::where('id', '=', $id)->get();
+        //Event::fire('addial.show', $marketer);
 
-        Event::fire('addial.show', $marketer);
 
-
-        Session::push('merid', $id);
+        //Session::push('merid', $id);
 
 
         //return $marketer;
 
 
-        return View::make('account.modals.addials')->with('marketer', $marketer);
+        return View::make('pages.addials.business')->with('marketer',$marketer);
 
 
     }

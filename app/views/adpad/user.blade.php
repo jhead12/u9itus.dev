@@ -47,22 +47,31 @@
             <tr class="{{$marketer->id}}">
                 <td style="width: 131px">{{$marketer->company_name}}</td>
                 <td style="width: 103px">{{$marketer->id}}</td>
-                <td style="width: 154px">  <a href="#" class="btn btn-primary" data-toggle="modal" data-target=".bs-{{$marketer->id}}">Click here</a></td>
+                {{--<td style="width: 154px">  <a href="#" class="btn btn-primary" data-toggle="modal" data-target=".bs-{{$marketer->id}}">Click here</a></td>--}}
+                <td style="width: 154px"><a href="{{URL::route('addials.show', $marketer->id) }}" class="btn btn-primary">Click here</a></td>
+
                 <td class="auto-style18" style="width: 101px">{{$marketer->title}}</td>
                 <td style="width: 245px">{{$marketer->type}}</td>
 
                 <!-- Large modal -->
-
-                <div class="modal fade bs-{{$marketer->id}}" tabindex="-1" role="dialog" aria-labelledby="myLargeModalLabel" aria-hidden="true">
-                    <div class="modal-dialog modal-lg">
-                        <div class="modal-content">
-                            <h1>{{$marketer->title}}</h1>
-
-                            @include('pages.addials.business')
-
-                        </div>
-                    </div>
+                <div id="myModal" class="reveal-modal" data-reveal>
+                    <h2>Awesome. I have it.</h2>
+                    <p class="lead">Your couch.  It is mine.</p>
+                    <p>I'm a cool paragraph that lives inside of an even cooler modal. Wins!</p>
+                    <a class="close-reveal-modal">&#215;</a>
                 </div>
+
+                {{--<div class="modal fade bs-{{$marketer->id}}" tabindex="-1" role="dialog" aria-labelledby="myLargeModalLabel" aria-hidden="true">--}}
+                    {{--<div class="modal-dialog modal-lg">--}}
+                        {{--<div class="modal-content">--}}
+                            {{--<h1>{{$marketer->title}}</h1>--}}
+
+                            {{--@include('pages.addials.business')--}}
+                            {{--@include('pages.addials.business', array($marketer))--}}
+
+                        {{--</div>--}}
+                    {{--</div>--}}
+                {{--</div>--}}
 
 
             </tr>
@@ -106,9 +115,6 @@
 
     @include('layouts.partials.footer')
 
-    <script>
-        $("#mobile-number").intlTelInput();
-    </script>
 
 
 @stop

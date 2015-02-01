@@ -22,6 +22,7 @@ var env,
     sound,
     custom,
     initInput,
+    foundation,
     bowerSources,
     sassSources,
     htmlSources,
@@ -41,7 +42,7 @@ if (env==='development') {
 
   sassStyle = 'compressed';
 }
-
+foundation = ['app/assets/javascripts/foundation/foundation.js','app/assets/javascripts/foundation/foundation.reveal.js'];
 jsSources = ['app/assets/javascripts/bootstrap.js'];
 initInput = ['app/assets/javascripts/intlTelInput.js'];
 sound = ['app/assets/javascripts/sound/soundmanager2.js'];
@@ -52,13 +53,25 @@ sassSources = ['app/assets/sass/main.scss'];
 
 gulp.task('js', function() {
   gulp.src(jsSources)
-    .pipe(concat('script.js'))
+    .pipe(concat('foundation.min.js'))
     .pipe(browserify())
     .on('error', gutil.log)
     .pipe(gulpif(env === 'production', uglify()))
     .pipe(gulp.dest(outputDir + 'js'))
     .pipe(notify("Complete: Javascripts Updated"))
     .pipe(connect.reload())
+});
+
+
+gulp.task('foundation', function() {
+    gulp.src(foundation)
+        .pipe(concat('script.js'))
+        .pipe(browserify())
+        .on('error', gutil.log)
+        .pipe(gulpif(env === 'production', uglify()))
+        .pipe(gulp.dest(outputDir + 'js'))
+        .pipe(notify("Complete: Foundation Updated"))
+        .pipe(connect.reload())
 });
 gulp.task('sound', function() {
     gulp.src(sound)
@@ -129,6 +142,7 @@ gulp.task('watch', function() {
     gulp.watch(['./app/assets/images/**/*.*'],['move']);
     gulp.watch(['./app/assets/javascripts/intlTelInput.js'],['js2']);
     gulp.watch(['./app/assets/javascripts/sound/*.js'],['sound']);
+    gulp.watch('./app/assets.javascripts/foundation/*.js',['foundation']);
     //gulp.watch(['./app/assets/javascripts/sound/custom.js'],['custom']);
  //gulp.watch('components/index.html', ['html']);
 });
@@ -151,4 +165,4 @@ gulp.task('connect', function() {
 
 
 
-gulp.task('default', ['watch', 'js','sound','custom', 'compass','type', 'move', 'connect']);
+gulp.task('default', ['watch', 'js','sound','custom', 'compass','foundation','type', 'move', 'connect']);

@@ -26,10 +26,27 @@ Route::post('/addial/confirm',array(
 |Test (Addial Pop-upfunction)
 */
 
+
+
 Route::get('/addial/{id}',array(
     'as'    => 'addial-show',
     'uses'  => 'AddialsController@show'
 ));
+
+//Route::get('/addial/{id}',['as'=>'addials-show'],function($id){
+//
+//
+//
+//
+//    $marketer = Marketer::where('id', '=', $id )->get();
+//
+//    Session::put('marketer',$marketer);
+//
+//
+//    return View::make('pages.addials.business',compact('marketer'));
+//
+//
+//});
 
 
 

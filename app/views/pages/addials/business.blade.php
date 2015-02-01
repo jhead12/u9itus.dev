@@ -1,3 +1,11 @@
+@extends('layouts.default')
+
+
+@section('content')
+
+    <ul class="pager">
+    <li type="btn " class="previous"><a href="{{URL::to('dialpad')}}">&larr; back</a></li>
+    </ul>
 <ul class="nav nav-tabs" role="tablist" id="myTab">
 
     <!-- If statement that will indicate if the if the dialpad is a video/live/audio dial -->
@@ -6,23 +14,17 @@
 
 
 
+
 </ul>
 
 <div class="tab-content">
     <div class="tab-pane active" id="action">
-       
 
-@if($marketer->type==='video')
-<h1>Video Review Addial</h1>
-<p>Please review the complete video to receive commission. </p>
-   <div class="flex-video">
-        <iframe width="420" height="315" src="{{$marketer->video_url}}" frameborder="0" allowfullscreen></iframe>
-</div>
-     @include('pages.addials.video')
-@else
-@include('pages.addials.dial')
- 
-@endif
+
+
+@include('pages.addials.dial',array($marketer))
+
+
 
 
     </div>
@@ -32,7 +34,18 @@
 
     </div>
 
-        </div>
+</div>
+
+<form action="hidden" id="name" data-name="{{$marketer}}"></form>
+
+<script src="//code.jquery.com/jquery-1.11.0.min.js"></script>
+<script type="text/javascript">
+
+    var name = $('#name').data('marketer');
 
 
-<button id="close" type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+</script>
+
+
+
+
