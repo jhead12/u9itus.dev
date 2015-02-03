@@ -1,5 +1,7 @@
 <?php
 
+App::bind('D4D\Repos\Pap\PapRepositoryInterface', 'D4D\Repos\Pap\DbPapRepository');
+App::bind('D4D\Repos\Addials\AddialsRepositoryInterface','D4D\Repos\Addials\DbAddialsRepository');
 
 Route::resource('addials','AddialsController');
 
@@ -12,6 +14,7 @@ Route::post('/addial-serial',array(
     'as'  => 'addial-serial',
     'uses'    =>'SubscriptionController@createAddialSerial'
 ));
+
 
 
 /*
@@ -33,21 +36,7 @@ Route::get('/addial/{id}',array(
     'uses'  => 'AddialsController@show'
 ));
 
-//Route::get('/addial/{id}',['as'=>'addials-show'],function($id){
-//
-//
-//
-//
-//    $marketer = Marketer::where('id', '=', $id )->get();
-//
-//    Session::put('marketer',$marketer);
-//
-//
-//    return View::make('pages.addials.business',compact('marketer'));
-//
-//
-//});
-
+Route::get('/complete', 'AddialsController@index');
 
 
 

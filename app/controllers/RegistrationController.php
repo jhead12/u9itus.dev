@@ -31,7 +31,7 @@ class RegistrationController extends \BaseController  {
 		// Create an Interface where the user is logged into pap, using geten('user name')
 		//validation
 		// if not valid, go back
-		// check if the user exist in PAP
+		// check if the user exist in Pap
 		// if the user is in pap but not in Front DB, get the info, and return it to the fron database
 		// then, create a user and send a email with a previous user
 		// send user an email with the login info

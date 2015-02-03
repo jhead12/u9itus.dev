@@ -6,14 +6,35 @@
  * Time: 3:18 PM
  */
 
+
+use D4D\Repos\Addials\AddialsRepositoryInterface;
+use D4D\Repos\Pap\PapRepositoryInterface;
+use Illuminate\Support\Facades\Cookie;
+use Laracasts\Utilities\JavaScript\Facades\JavaScript;
+
+
 class AddialsController extends \BaseController
 {
+    private $papRepo;
+    private $adRepo;
+
+    private $marketer;
 
 
-     function _construct(User $user)
+    /**
+     * @param PapRepositoryInterface $papRepo
+     * @param AddialsRepositoryInterface $adRepo
+     * @param Marketer $marketer
+     */
+    function __construct(PapRepositoryInterface $papRepo, AddialsRepositoryInterface $adRepo, Marketer $marketer)
     {
-        $this->user = $user;
+        $this->papRepo = $papRepo;
+
+        $this->adRepo = $adRepo;
+        $this->marketer = $marketer;
+
     }
+
 
     /**
      * Display a listing of the resource.
@@ -22,8 +43,12 @@ class AddialsController extends \BaseController
      */
     public function index()
     {
+
+
+        $marketer=  $this->marketer->all();
+
         $id = str_random(6);
-        return View::make('adpad.index')->with('id',$id );
+        return View::make('adpad.index')->with('marketers', $marketer );
     }
 
     public function forgotPin()
@@ -128,11 +153,11 @@ class AddialsController extends \BaseController
             $purchase_url = Input::get('purchase_url');
 
 
-            $marketer = Marketer::create(
+            $marketer = $this->marketer->create(
                 [
                     'title' => $title,
                     'telephone' => $telephone,
-                    'company_name' => $company_name,
+
                     // 'banners'        => $image,
 
                     'postingbody' => $postingbody,
@@ -157,7 +182,7 @@ class AddialsController extends \BaseController
 
                 ]);
 
-            $marketer->save();
+            $this->marketer->save();
 
             //Event::fire('addial.submit');
 
@@ -179,21 +204,9 @@ class AddialsController extends \BaseController
     {
 
 
-        //This Opens the Modal with the Marketer information
+        $marketer =$this->adRepo->getById($id);
 
-
-
-        $marketer = Marketer::where('id', '=', $id)->get();
-
-        //$marketer = Marketer::where('id', '=', $id)->get();
-        //Event::fire('addial.show', $marketer);
-
-
-        //Session::push('merid', $id);
-
-
-        //return $marketer;
-
+        Cookie::queue('key', $id, 500);
 
         return View::make('pages.addials.business')->with('marketer',$marketer);
 
@@ -211,7 +224,7 @@ class AddialsController extends \BaseController
         //Addial-confirm
 
         $data = Input::all();
-        $marketers = Marketer::all();
+        $marketers = $this->marketer->all();
 
         //
         if ($data['pin'] === Auth::user()->pin) {
@@ -248,7 +261,7 @@ class AddialsController extends \BaseController
                     ));
                 }
                 //return View::make('account.addials.business')->with('marketer',$marketer);
-                $decrement = $marketer->decrement('amount');
+                $decrement = $this->marketer->decrement('amount');
                 if ($addial) {
                     $saleTracker = new Pap_Api_SaleTracker('http://dialer.dial4dough.com/scripts/sale.php');
                     $saleTracker->setAccountId('default1');
@@ -297,88 +310,20 @@ class AddialsController extends \BaseController
 
 
     /**
-     * Show the form for editing the specified resource.
-     *
-     * @param  int $id
-     * @return Response
+     * @return mixed
      */
-    public function edit($id)
-    {
-        //
-    }
-
-
-    /**a
-     * Update the specified resource in storage.
-     *
-     * @param  int $id
-     * @return Response
-     */
-    public function update($id)
-    {
-        //
-    }
-
-
-    /**
-     * Remove the specified resource from storage.
-     *
-     * @param  int $id
-     * @return Response
-     */
-    public function destroy($id)
-    {
-        //
-    }
-
-
-        public function getDialpad()
+    public function getDialpad()
         {
-            $cookies =  array(Request::server('HTTP_COOKIE'));
 
-//            foreach($cookies as $value){
-//                    //return  "Value: $value<br />\n";
-//
-//
-//                  $array = explode(';', $value);
-//                $new_array = array();
-//                array_walk($array,'walk', $new_array);
-//
-//                function walk($val, $key, $new_array){
-//                    $nums = explode('=',$val);
-//                    $new_array[$nums[0]] = $nums[1];
-//                }
-//                return $new_array;
-//
-//
-//            }
 
-            //Get the Id from the PAP User ID.
-            $userid = 'visitorID';
-            //If there is an user Addial that has a completed status of true. Then take the addial off the dialpad.Other wise show it.
-            //$addials = Addial::where('userclickId', '=', $userid)->where('completed', '=', false)->remember(60)->get();
-            $addials = Addial::all();
 
-            //$notCompleted = Addial::where('userclickId','=',$userid)->where('completed','=',false)->distinct()->get(array('campaignId'));
-            $marketers = Marketer::where('amount', '>', 0)->simplePaginate(5);
-            //Check if Uncompleted Addial Still has a related campaign. If not Destroy Addial.
+      $marketers = $this->adRepo->getDials();
 
-            if ($addials || $marketers) {
-                //return 'yes';
-                $_marketer = Marketer::distinct()->get(array('orderId'));
-                $_addials = Addial::distinct()->get(array('orderId'));
-                for ($i = 0; $i < count($_addials); ++$i) {
-                    $_id = $_addials[$i];
-                    $marketers = Marketer::where('orderId', '!=', $_id[$i])->remember(60)->get();
-                }
+
+
 
                 return View::make('adpad.user')->with('marketers', $marketers);
-            } else {
 
-                $marketers = Marketer::remember(60);
-                return View::make('adpad.user')->with('marketers', $marketers);
-            }
-            return View::make('home')->with('global-danger', 'There was a problem, please try again. If problem persist please contact Dial4dough');
 
     }
 }

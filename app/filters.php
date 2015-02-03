@@ -24,10 +24,10 @@ App::after(function($request, $response)
 
 /*
 |--------------------------------------------------------------------------
-| PAP Login Filters
+| Pap Login Filters
 |--------------------------------------------------------------------------
 |
-|The following filters will check if the user is signed into PAP loggin
+|The following filters will check if the user is signed into Pap loggin
 | If they are not will redirect them to the pap Login
 |
 |

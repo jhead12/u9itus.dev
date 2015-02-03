@@ -1,7 +1,8 @@
 
 <!-- soundManager.useFlashBlock: related CSS -->
+<script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
 
-<script src="//code.jquery.com/jquery-1.11.0.min.js"></script>
+
  <script src="//code.jquery.com/jquery-migrate-1.2.1.min.js"></script>
 <script src="{{asset('js/foundation.min.js')}}"></script>
 
@@ -12,6 +13,9 @@
 <script src="{{asset('js/360player.js')}}"></script>
 <script src="{{asset('js/custom.js')}}"></script>
 <script src="{{asset('js/type.js')}}"></script>
+{{--<script src="{{asset('js/app.js')}}"></script>--}}
+
+
 
 <script type="text/javascript">
 
@@ -145,7 +149,32 @@
 
 
  <script>
-     $("#mobile-number").intlTelInput();
+     $('#phoneNumber').intlTelInput({
+         responsiveDropdown: true,
+         autoFormat: true,
+         utilsScript: '/js/utils.js'
+     });
+
+     $('#contactForm').on('submit', function(e) {
+         // Prevent submit event from bubbling and automatically submitting the
+         // form
+         e.preventDefault();
+
+         // Call our ajax endpoint on the server to initialize the phone call
+         $.ajax({
+             url: '/call',
+             method: 'POST',
+             dataType: 'json',
+             data: {
+                 phoneNumber: $('#phoneNumber').val()
+             }
+         }).done(function(data) {
+             // The JSON sent back from the server will contain a success message
+             alert(data.message);
+         }).fail(function(error) {
+             alert(JSON.stringify(error));
+         });
+     });
  </script>
 
 
@@ -188,6 +217,7 @@
 
 
 
+@include('pages/scripts/data')
 
  @yield('scripts')
 

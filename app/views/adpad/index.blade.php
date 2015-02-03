@@ -41,7 +41,7 @@
 
 
     @endforeach
-    {{$marketers->links()}}
+
 
 
 

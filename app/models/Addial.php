@@ -8,34 +8,20 @@ class Addial extends Eloquent {
 
     use SoftDeletingTrait;
 
-    protected $fillable = array('serial'
-    ,'currentAmount'
-    ,'userclickId'
-    ,'campaignId'
-    ,'addials'
-    ,'id'
-    ,'completed'
-    , 'amount'
-    , 'banners'
-
-    , 'catagory'
-    ,'url'
-
-
-
-    );
+    protected $fillable = array(
+    'status','form_id','fields','flag','ip','id' );
 
 
     //protected $table = 'addials';
-    public function user(){
-        return $this->belongsToMany('Marketer','User',null);
-    }
+//    public function user(){
+//        return $this->belongsToMany('Marketer','User',null);
+//    }
 
 
     protected $connection = 'mongodb';
 
     protected $collection = 'addials';
-    protected $dates = ['deleted_at'];
+    //protected $dates = ['updated'];
 
 
     public static $form =[

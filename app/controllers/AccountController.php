@@ -230,7 +230,7 @@ class AccountController extends BaseController{
 
             // Checks if the user is an Older account Holder.
             if($user->oldUser===1){
-                //Check to see if he user in PAP
+                //Check to see if he user in Pap
                 $email = $user->email;
                 //$affiliate->setUserid();
                 $affiliate->setNotificationEmail($email);
@@ -372,7 +372,7 @@ class AccountController extends BaseController{
             else{
                 //Set the refid -- check to see if in scope
                 $refid = $affiliate->getRefid();
-                //Check to see if he user in PAP
+                //Check to see if he user in Pap
                 $email = $user->email;
                 $affiliate->setNotificationEmail($email);
 
@@ -649,7 +649,7 @@ class AccountController extends BaseController{
 
             // Checks if the user is an Older account Holder.
             if($user->oldUser===1){
-                //Check to see if he user in PAP
+                //Check to see if he user in Pap
                 $email = $user->email;
                 //$affiliate->setUserid();
                 $affiliate->setNotificationEmail($email);
@@ -788,7 +788,7 @@ class AccountController extends BaseController{
 
             // If the User is new to the System
             else{
-                //Check to see if he user in PAP
+                //Check to see if he user in Pap
                 $email = $user->email;
                 $affiliate->setNotificationEmail($email);
 
@@ -1041,7 +1041,7 @@ class AccountController extends BaseController{
 
             // Checks if the user is an Older account Holder.
             if($user->oldUser===1){
-                //Check to see if he user in PAP
+                //Check to see if he user in Pap
                 $email = $user->email;
                 //$affiliate->setUserid();
                 $affiliate->setNotificationEmail($email);
@@ -1181,7 +1181,7 @@ class AccountController extends BaseController{
 
             // If the User is new to the System
             else{
-                //Check to see if he user in PAP
+                //Check to see if he user in Pap
                 $email = $user->email;
                 $affiliate->setNotificationEmail($email);
 

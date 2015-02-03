@@ -2,7 +2,7 @@
 
 
 /*CSRF*/
-Route::when('*','csrf',['post','put','patch']);
+//Route::when('*','csrf',['post','put','patch']);
 
 
 /** ------------------------------------------

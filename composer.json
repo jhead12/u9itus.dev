@@ -14,11 +14,13 @@
         "intervention/httpauth": "dev-master",
 	  	"healey/robots": "dev-master",
 	  "yajra/laravel-oci8": "~1.5",
-	  "yajra/laravel-datatables-oracle": "*"
+	  "yajra/laravel-datatables-oracle": "*",
+	  "laracasts/utilities": "1.0.1"
 	},
 	"require-dev": {
 		"way/generators": "~3.0",
 		"codeception/codeception": "~2.0",
+	  "phpspec/phpspec": "2.0.*@dev",
 		"laracasts/testdummy": "~1.0"
 
 	},
@@ -32,8 +34,8 @@
 			"app/database/seeds",
 			"app/tests/TestCase.php"
 		],
-		"psr-4": {
-			"D4D\\":"app/D4D"
+		"psr-0": {
+			"D4D":"app/"
 		}
 	},
 	"scripts": {

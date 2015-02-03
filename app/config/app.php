@@ -127,6 +127,8 @@ return array(
 		'Zizaco\Confide\ServiceProvider',
 		'Zizaco\Entrust\EntrustServiceProvider',
 		'Jenssegers\Mongodb\MongodbServiceProvider',
+		'Intervention\Httpauth\HttpauthServiceProvider',
+		'Laracasts\Utilities\UtilitiesServiceProvider',
 
 		'Healey\Robots\RobotsServiceProvider',
 
@@ -204,6 +206,9 @@ return array(
 		'Confide'    		=> 'Zizaco\Confide\Facade',
 		'Entrust'    		=> 'Zizaco\Entrust\EntrustFacade',
 		'String'         	=> 'Andrew13\Helpers\String', // String
+		'Moloquent'       	=> 'Jenssegers\Mongodb\Model',
+		'Httpauth' 			=> 'Intervention\Httpauth\Facades\Httpauth'
+
 
 
 	),

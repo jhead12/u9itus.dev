@@ -139,6 +139,7 @@ gulp.task('move', function() {
 gulp.task('watch', function() {
   gulp.watch(jsSources, ['js']);
   gulp.watch(['./app/assets/sass/**/*.scss'], ['compass']);
+
     gulp.watch(['./app/assets/images/**/*.*'],['move']);
     gulp.watch(['./app/assets/javascripts/intlTelInput.js'],['js2']);
     gulp.watch(['./app/assets/javascripts/sound/*.js'],['sound']);
@@ -165,4 +166,4 @@ gulp.task('connect', function() {
 
 
 
-gulp.task('default', ['watch', 'js','sound','custom', 'compass','foundation','type', 'move', 'connect']);
+gulp.task('default', ['watch', 'js','sound','custom', 'compass','type','foundation', 'move', 'connect']);

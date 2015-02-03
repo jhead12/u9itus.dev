@@ -16,6 +16,7 @@
       </div>
 
       @include('pages.partials.content')
+
       @include('layouts.partials.footer')
 
     </div> <!-- /container -->

@@ -340,6 +340,17 @@ function ThreeSixtyPlayer() {
       var nextLink;
       $('.form').show('slow');
 
+
+       function setCookie(cname, cvalue, exdays) {
+        var d = new Date();
+        d.setTime(d.getTime() + (exdays*24*60*60*1000));
+        var expires = "expires="+d.toUTCString();
+        document.cookie = cname + "=" + cvalue + "; " + expires;
+      }
+
+      //setCookie('test','this',2);
+
+
       pl.removeClass(this._360data.oUIBox,this._360data.className);
       this._360data.className = '';
       // self.clearCanvas(this._360data.oCanvas);

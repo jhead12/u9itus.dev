@@ -80,6 +80,14 @@ return array(
 			'password' => getenv('MONGODB2_PASSWORD'),
 			'database' => getenv('MONGODB2_NAME')
 		),
+		'mongodb3' => array(
+			'driver'   => 'mongodb',
+			'host'     => getenv('MONGODB3_HOST'),
+			'port'     => getenv('MONGODB3_PORT'),
+			'username' => getenv('MONGODB3_USERNAME'),
+			'password' => getenv('MONGODB3_PASSWORD'),
+			'database' => getenv('MONGODB3_NAME')
+		),
 
 		'pgsql' => array(
 			'driver'   => 'pgsql',
