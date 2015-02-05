@@ -3,6 +3,11 @@
 
 @section('content')
 
+    <div class="container">
+
+
+
+
     <ul class="pager">
     <li type="btn " class="previous"><a href="{{URL::to('dialpad')}}">&larr; back</a></li>
     </ul>
@@ -47,5 +52,5 @@
 </script>
 
 
-
+    </div>
 

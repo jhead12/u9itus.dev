@@ -3,6 +3,9 @@
 @section('content')
 
 
+<div class="container">
+
+
 
 
 
@@ -110,7 +113,7 @@
     </ol>
 
 
-
+</div>
 
 
     @include('layouts.partials.footer')

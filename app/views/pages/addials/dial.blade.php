@@ -8,6 +8,9 @@
 
 @foreach($marketer as $data)
 
+<div class="container">
+
+
 
 
     <div class="content">
@@ -50,5 +53,6 @@
 </div>
 
 
+</div>
 
 @include('layouts.partials.footer')
