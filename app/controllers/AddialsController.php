@@ -208,7 +208,7 @@ class AddialsController extends \BaseController
          $user = $this->papRepo->getVisitorId();
         $marketer =$this->adRepo->getById($id);
 
-       Cookie::queue('key', $id, 500);
+       Cookie::queue('key', $id, 10000);
 
         //Session::put('key', $id );
 
@@ -235,6 +235,8 @@ class AddialsController extends \BaseController
         //Cookie::forever($sid, $id);
 
         //Session::forget('key');
+
+        Cookie::forget('key');
 
 
 
