@@ -6,6 +6,7 @@ interface AddialsRepositoryInterface {
 	public function getAll();
 	public function getDials();
 	public function getById($id);
+	public function filter($key);
 
 
 }

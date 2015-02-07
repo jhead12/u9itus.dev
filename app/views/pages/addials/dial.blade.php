@@ -26,6 +26,14 @@
 
 <div id="productID"></div>
 
+        @elseif($data->type==='video')
+            <h1>Video Review AdDial</h1>
+            <p>Please review the complete video to receive commission. </p>
+            <div class="flex-video">
+                <iframe width="420" height="315" src="{{$data->video_url}}" frameborder="0" allowfullscreen></iframe>
+            </div>
+            @include('account.addials.video')
+
         @elseif($data->type === "telephone")
 
 

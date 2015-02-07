@@ -23,6 +23,7 @@ var env,
     custom,
     initInput,
     foundation,
+    angular,
     bowerSources,
     sassSources,
     htmlSources,
@@ -48,6 +49,7 @@ initInput = ['app/assets/javascripts/intlTelInput.js'];
 sound = ['app/assets/javascripts/sound/soundmanager2.js'];
 custom = ['app/assets/javascripts/sound/custom.js'];
 sassSources = ['app/assets/sass/main.scss'];
+angular = ['app/assets/javascripts/angular/app.js'];
 
 
 
@@ -61,6 +63,18 @@ gulp.task('js', function() {
     .pipe(notify("Complete: Javascripts Updated"))
     .pipe(connect.reload())
 });
+
+gulp.task('angular', function() {
+    gulp.src(jsSources)
+        .pipe(concat('app.js'))
+        .pipe(browserify())
+        .on('error', gutil.log)
+        .pipe(gulpif(env === 'production', uglify()))
+        .pipe(gulp.dest(outputDir + 'js'))
+        .pipe(notify("Complete: Angular Updated"))
+        .pipe(connect.reload())
+});
+
 
 
 gulp.task('foundation', function() {
@@ -139,6 +153,7 @@ gulp.task('move', function() {
 gulp.task('watch', function() {
   gulp.watch(jsSources, ['js']);
   gulp.watch(['./app/assets/sass/**/*.scss'], ['compass']);
+    gulp.watch(['./app/assets/javascripts/angular/app.js']);
 
     gulp.watch(['./app/assets/images/**/*.*'],['move']);
     gulp.watch(['./app/assets/javascripts/intlTelInput.js'],['js2']);
@@ -166,4 +181,4 @@ gulp.task('connect', function() {
 
 
 
-gulp.task('default', ['watch', 'js','sound','custom', 'compass','type','foundation', 'move', 'connect']);
+gulp.task('default', ['watch', 'js','sound','custom', 'compass','type','angular','foundation', 'move', 'connect']);

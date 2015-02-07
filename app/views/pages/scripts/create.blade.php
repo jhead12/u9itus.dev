@@ -2,7 +2,8 @@
 <!-- soundManager.useFlashBlock: related CSS -->
 <script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
 
-
+{{--<script src="{{asset('js/angular.min.js')}}"></script>--}}
+{{--<script src="{{asset('js/app.js')}}"></script>--}}
  <script src="//code.jquery.com/jquery-migrate-1.2.1.min.js"></script>
 <script src="{{asset('js/foundation.min.js')}}"></script>
 

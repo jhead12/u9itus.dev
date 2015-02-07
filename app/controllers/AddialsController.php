@@ -45,6 +45,8 @@ class AddialsController extends \BaseController
     {
 
 
+
+
         $marketer=  $this->marketer->all();
 
         $id = str_random(6);
@@ -203,14 +205,41 @@ class AddialsController extends \BaseController
     public function show($id)
     {
 
-
+         $user = $this->papRepo->getVisitorId();
         $marketer =$this->adRepo->getById($id);
 
-        Cookie::queue('key', $id, 500);
+       //Cookie::queue('key', $id, 500);
+
+        Session::put('key', $id );
 
         return View::make('pages.addials.business')->with('marketer',$marketer);
 
 
+    }
+
+    public function thankyou(){
+
+        //Get the id of the Id of the current Item.
+        $id = Session::get('key');
+
+        //$this->adRepo->filter($id);
+
+        $sid = str_random(10);
+       $user = $this->papRepo->getVisitorId();
+
+        $this->papRepo->adCommission($user, $id);
+
+
+        Javascript::put(['id'=>['name'=>$id, 'user'=>$user, 'id'=>$sid]]);
+
+        //Cookie::forever($sid, $id);
+
+        //Session::forget('key');
+
+
+
+
+        return View::make('adpad.thankyou');
     }
 
     /**
@@ -315,9 +344,12 @@ class AddialsController extends \BaseController
     public function getDialpad()
         {
 
+            $marketers = $this->adRepo->getDials();
+            // $this->adRepo->filter($marketers);
 
 
-      $marketers = $this->adRepo->getDials();
+
+
 
 
 

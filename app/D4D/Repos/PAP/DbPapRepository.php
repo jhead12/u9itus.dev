@@ -34,51 +34,25 @@ class DbPapRepository implements PapRepositoryInterface{
 
     public function getAll(){
 
-        return 'getting all from the pap baby';
+        return '';
     }
 
     public function getVisitorId(){
 
 
-      return  $visitorId =  $_COOKIE['PAPVisitorId'];
-        if($visitorId !=null){
+       // $visitorId =  $_COOKIE['PAPVisitorId'];
 
+        if(isset($_COOKIE['PAPVisitorId']))
 
+        {
+            $visitorId =  $_COOKIE['PAPVisitorId'];
 
-            if (strlen($visitorId) > 32) {
-                $visitorId = substr($visitorId, -32);
-            }
+           return $visitorId;
+        }else
+        {
+            return null;
+        }
 
-            $request = new Gpf_Rpc_GridRequest('Pap_Merchants_Tools_VisitorAffiliatesGrid', 'getRows', $this->session);
-
-            $request->addFilter("visitorid", Gpf_Data_Filter::EQUALS, $visitorId);
-            $request->addFilter("rtype", Gpf_Data_Filter::EQUALS, 'A');
-            $request->addFilter("validto", Gpf_Data_Filter::DATE_EQUALS_GREATER, date('Y-m-d'));
-            //in PAN insert here your merchant network accountid
-            //$request->addFilter("accountid", Gpf_Data_Filter::EQUALS, 'default1');
-            $request->setLimit(0, 1);
-
-
-            try {
-                $request->sendNow();
-            } catch(Exception $e) {
-                die("API call error: ".$e->getMessage());
-            }
-
-             $grid = $request->getGrid();
-
-            $recordset = $grid->getRecordset();
-
-            if ($recordset->getSize() > 0) {
-                echo $recordset->get(0)->get('userid');
-            }
-
-
-
-
-
-
-             }
 
         }
     public function displayOnlineUsers(){
@@ -108,18 +82,20 @@ class DbPapRepository implements PapRepositoryInterface{
 
     }
 
-    public function adCommission($user){
+    public function adCommission($user, $id){
 
         $serial = str_random(6);
 
 
         $saleTracker = new Pap_Api_SaleTracker('https://www.dialer.dial4dough.com/scripts/sale.php');
         $saleTracker->setAccountId('default1');
-        $saleTracker->setVisitorId( $this->getVisitorId());
+
+        $saleTracker->setVisitorId($user);
         $sale2 = $saleTracker->createSale();
         //$sale2->setAffiliateID(Auth::user()->userid);
         //$sale2->setCampaignID(Auth::user()->campaignid);
         $sale2->setOrderID($serial);
+        $sale2->setProductID($id);
         $sale2->setTotalCost('1.75');
         $saleTracker->register();
     }

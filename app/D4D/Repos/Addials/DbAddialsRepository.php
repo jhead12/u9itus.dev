@@ -34,6 +34,11 @@ class DbAddialsRepository  implements AddialsRepositoryInterface {
 
 
     }
+    public function filter($key){
+
+        //return $key;
+        //return $_COOKIE['88c6adcf1679e42dab512b8c784a0c28b62456b0'];
+    }
     public function getDials(){
 
 

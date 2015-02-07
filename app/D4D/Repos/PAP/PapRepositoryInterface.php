@@ -6,7 +6,7 @@ interface PapRepositoryInterface {
 	public function getAll();
 	public function getVisitorId();
 	public function displayOnlineUsers();
-	public function adCommission($user);
+	public function adCommission($user, $id);
 
 
 }

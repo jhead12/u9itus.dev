@@ -15,6 +15,10 @@ Route::post('/addial-serial',array(
     'uses'    =>'SubscriptionController@createAddialSerial'
 ));
 
+Route::get('/thankyou',array(
+    'as'    => 'thankyou',
+    'uses'  => 'AddialsController@thankyou'
+));
 
 
 /*

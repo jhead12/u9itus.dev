@@ -4,6 +4,7 @@
 
 
 Route::get('/dialpad', array(
+    'before'=> 'pap',
     'as'    => 'dialpad',
     'uses'  => 'AddialsController@getDialpad'
 ));

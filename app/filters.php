@@ -117,7 +117,16 @@ Route::filter('csrf', function($route, $request)
 Route::filter('pap', function(){
 
 	//if the request cookies is loggin then allow the user to use the dialpad
+
+
+//	if( isset($_COOKIE['PAPVisitorId']) ===false )
+//	{
+//		return $_COOKIE;
+//	}
+
 });
+
+
 
 
 /*
