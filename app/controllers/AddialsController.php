@@ -208,9 +208,9 @@ class AddialsController extends \BaseController
          $user = $this->papRepo->getVisitorId();
         $marketer =$this->adRepo->getById($id);
 
-       //Cookie::queue('key', $id, 500);
+       Cookie::queue('key', $id, 500);
 
-        Session::put('key', $id );
+        //Session::put('key', $id );
 
         return View::make('pages.addials.business')->with('marketer',$marketer);
 
@@ -220,7 +220,7 @@ class AddialsController extends \BaseController
     public function thankyou(){
 
         //Get the id of the Id of the current Item.
-        $id = Session::get('key');
+        $id = Cookie::get('key');
 
         //$this->adRepo->filter($id);
 
