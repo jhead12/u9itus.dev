@@ -4,6 +4,12 @@
 
 @section('content')
 
+    <div class="container">
+
+
+
+
+
 <article>
 
 <p>Head Enterprises SUBSCRIPTION TERMS AND CONDITIONS</p>
@@ -105,5 +111,7 @@
 <p>If you agree, then sign up as a Head Enterprises subscriber!</p>
 
 </article>
+
+    </div>
 @include('layouts.partials.footer')
 @stop

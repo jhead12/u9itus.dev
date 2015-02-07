@@ -1,7 +1,7 @@
 @extends('layouts.default')
 
 @section('content')
-    <div class='row'>
+    <div class='container'>
     <h1>A Politician's Dream</h1>
 
     <p>It is projected that there will be billions of campaign advertising dollars available for the upcoming presidential and congressional elections.  Isn't it amazing how much money can be raised for politicians to become elected, while their constituents struggle for survival?  Just think about what would occur if these campaign dollars could be placed in the hands of the public.   It is easy to see that the economy would receive a great boost.</p>

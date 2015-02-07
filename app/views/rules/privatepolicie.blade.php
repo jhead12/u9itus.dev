@@ -3,7 +3,7 @@
 @section('content')
 
 
-	<section class='row'>
+	<section class='container'>
 				  <p>&nbsp;</p>
 				  <p><strong>COMMITMENT TO YOUR PRIVACY</strong>
 				    </h2>
