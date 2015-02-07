@@ -8,7 +8,7 @@
     <article style="text-align: left">
         <h1 style="color: red">Make $1.75 Each Time You View an Advertisement!</h1>
 
-        <p>There is no reason to without income again!  People are making money looking at videos, listening to audio messages live, and recorded.  Members are getting paid weekly.</p>
+        <p>There is no reason to be without income again!  People are making money looking at videos, listening to audio messages live, and recorded.  Members are getting paid weekly.</p>
 
 
             <h3 style="color: #008000">We are not talking about getting paid pennies or fractions of pennies for an endless multilevel system.  We are talking about getting paid hard cash money for your current activity.</h3>
