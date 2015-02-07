@@ -52,7 +52,7 @@
             <div class="col-sm-4">
                 <i class="service-icon fa fa-magnet"></i>
                 <h3>How often do you click on Advertisements and purchase?</h3>
-                <p>Yes, some advertisements get you to purchase goods or services, however, how often are you impressed by the advertisements? The Dial4dough system allows you to rate and comment on advertisements for products that you find valuable.</p>
+                <p>Dial4dough believes in consumer loyalty. If you are loyal to your customer then your customer will be loyal to you. Why not get paid for your loyalty?</p>
             </div>
         </div>
 

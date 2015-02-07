@@ -3,7 +3,6 @@
   <component name="ChangeListManager">
     <list default="true" id="cc298910-660e-4aa3-bf56-54158befec62" name="Default" comment="">
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/app/views/pages/partials/content.blade.php" afterPath="$PROJECT_DIR$/app/views/pages/partials/content.blade.php" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/app/config/session.php" afterPath="$PROJECT_DIR$/app/config/session.php" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
     </list>
     <ignored path="dial4dough.dev.iws" />
@@ -83,8 +82,8 @@
       <file leaf-file-name="content.blade.php" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/app/views/pages/partials/content.blade.php">
           <provider selected="true" editor-type-id="text-editor">
-            <state vertical-scroll-proportion="0.29013538" vertical-offset="0" max-vertical-offset="1620">
-              <caret line="10" column="36" selection-start-line="10" selection-start-column="36" selection-end-line="10" selection-end-column="36" />
+            <state vertical-scroll-proportion="0.60928434" vertical-offset="465" max-vertical-offset="1620">
+              <caret line="52" column="57" selection-start-line="52" selection-start-column="57" selection-end-line="52" selection-end-column="57" />
               <folding />
             </state>
           </provider>
@@ -385,7 +384,7 @@
     </panes>
   </component>
   <component name="PropertiesComponent">
-    <property name="last_opened_file_path" value="$PROJECT_DIR$/../iamlaurenmarie.com" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$/../dial4dough.com" />
     <property name="FullScreen" value="false" />
     <property name="options.lastSelected" value="preferences.lookFeel" />
     <property name="options.splitter.main.proportions" value="0.3" />
@@ -983,8 +982,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/app/views/pages/partials/content.blade.php">
       <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.29013538" vertical-offset="0" max-vertical-offset="1620">
-          <caret line="10" column="36" selection-start-line="10" selection-start-column="36" selection-end-line="10" selection-end-column="36" />
+        <state vertical-scroll-proportion="0.60928434" vertical-offset="465" max-vertical-offset="1620">
+          <caret line="52" column="57" selection-start-line="52" selection-start-column="57" selection-end-line="52" selection-end-column="57" />
           <folding />
         </state>
       </provider>
