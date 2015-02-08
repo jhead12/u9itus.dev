@@ -22,13 +22,13 @@ App::after(function($request, $response)
 	//
 });
 
-// App::before(function($request)
-// {
-//     if( ! Request::secure())
-//     {
-//         return Redirect::secure(Request::path());
-//     }
-// });
+ App::before(function($request)
+ {
+     if( ! Request::secure())
+     {
+         return Redirect::secure(Request::path());
+     }
+ });
 
 /*
 |--------------------------------------------------------------------------
