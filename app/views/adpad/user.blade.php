@@ -44,7 +44,7 @@
         </tr>
         @foreach($marketers as $marketer)
 
-
+            @if($marketer->active ===true)
 
 
             <tr class="{{$marketer->id}}">
@@ -78,6 +78,7 @@
 
 
             </tr>
+            @endif
 
         @endforeach
         </tbody>
