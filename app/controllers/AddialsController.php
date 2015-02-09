@@ -346,6 +346,8 @@ class AddialsController extends \BaseController
     public function getDialpad()
         {
 
+            //return Cookie::get('7654389');
+
             $marketers = $this->adRepo->getDials();
             // $this->adRepo->filter($marketers);
 
@@ -353,7 +355,7 @@ class AddialsController extends \BaseController
 
 
 
-
+                Javascript::put(['marketers'=>'marketer']);
 
 
                 return View::make('adpad.user')->with('marketers', $marketers);

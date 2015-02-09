@@ -1,0 +1,7 @@
+db.createUser(
+{
+user: "jhead12",
+pwd: "mc1282",
+roles: [ "dbOwner", "dbAdmin" ]
+}
+)

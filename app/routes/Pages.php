@@ -11,7 +11,11 @@ Route::get('/about','PageController@about');
 
 Route::get('/pricing','PageController@pricing');
 
+Route::get('upgrade',function()
+{
 
+	return View::make('pages/upgrade');
+});
 
 
 

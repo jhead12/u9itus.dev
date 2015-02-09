@@ -23,6 +23,7 @@ var env,
     custom,
     initInput,
     foundation,
+    cookie,
     angular,
     bowerSources,
     sassSources,
@@ -50,6 +51,7 @@ sound = ['app/assets/javascripts/sound/soundmanager2.js'];
 custom = ['app/assets/javascripts/sound/custom.js'];
 sassSources = ['app/assets/sass/main.scss'];
 angular = ['app/assets/javascripts/angular/app.js'];
+cookie = ['app/assets/javascripts/jquery.cookie.js'];
 
 
 
@@ -63,6 +65,18 @@ gulp.task('js', function() {
     .pipe(notify("Complete: Javascripts Updated"))
     .pipe(connect.reload())
 });
+
+gulp.task('cookie', function() {
+    gulp.src(jsSources)
+        .pipe(concat('cookie.min.js'))
+        .pipe(browserify())
+        .on('error', gutil.log)
+        .pipe(gulpif(env === 'production', uglify()))
+        .pipe(gulp.dest(outputDir + 'js'))
+        .pipe(notify("Complete: Javascripts Updated"))
+        .pipe(connect.reload())
+});
+
 
 gulp.task('angular', function() {
     gulp.src(jsSources)
@@ -181,4 +195,4 @@ gulp.task('connect', function() {
 
 
 
-gulp.task('default', ['watch', 'js','sound','custom', 'compass','type','angular','foundation', 'move', 'connect']);
+gulp.task('default', ['watch', 'js','sound','custom', 'compass','type','angular','foundation','cookie', 'move', 'connect']);

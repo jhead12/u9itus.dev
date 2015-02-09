@@ -44,14 +44,16 @@
         </tr>
         @foreach($marketers as $marketer)
 
+
+
             @if($marketer->active ===true)
 
 
-            <tr class="{{$marketer->id}}">
+            <tr id='adClass' class="{{$marketer->id}}_content">
                 <td style="width: 131px">{{$marketer->company_name}}</td>
                 <td style="width: 103px">{{$marketer->id}}</td>
                 {{--<td style="width: 154px">  <a href="#" class="btn btn-primary" data-toggle="modal" data-target=".bs-{{$marketer->id}}">Click here</a></td>--}}
-                <td style="width: 154px"><a href="{{URL::route('addials.show', $marketer->id) }}" class="btn btn-primary">Click here</a></td>
+                <td style="width: 154px"><a id="{{$marketer->id}}_link"  href="{{URL::route('addials.show', $marketer->id) }}" class="btn btn-primary ">Click here</a></td>
 
                 <td class="auto-style18" style="width: 101px">{{$marketer->title}}</td>
                 <td style="width: 245px">{{$marketer->type}}</td>
@@ -64,20 +66,11 @@
                     <a class="close-reveal-modal">&#215;</a>
                 </div>
 
-                {{--<div class="modal fade bs-{{$marketer->id}}" tabindex="-1" role="dialog" aria-labelledby="myLargeModalLabel" aria-hidden="true">--}}
-                    {{--<div class="modal-dialog modal-lg">--}}
-                        {{--<div class="modal-content">--}}
-                            {{--<h1>{{$marketer->title}}</h1>--}}
 
-                            {{--@include('pages.addials.business')--}}
-                            {{--@include('pages.addials.business', array($marketer))--}}
-
-                        {{--</div>--}}
-                    {{--</div>--}}
-                {{--</div>--}}
 
 
             </tr>
+
             @endif
 
         @endforeach
@@ -116,6 +109,9 @@
 
 </div>
 
+<form action="">
+    <input type="hidden" id="data1" data-name="{{$marketers}}"/>
+</form>
 
     @include('layouts.partials.footer')
 
