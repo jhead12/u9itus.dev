@@ -1,3 +1,4 @@
+{{--Since you like to hack code superDaddy. Why wont you help me shit. It's just one programmer with limited skills who is trying to help folk make money on the internet. And you fckin up the process is not helping, maybe if you are some company that is affraid of competition, then I understand. However if you are a lone wolf, lets work together.--}}
 
 <!-- soundManager.useFlashBlock: related CSS -->
 <script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
@@ -20,86 +21,6 @@
 
 <script src="{{asset('js/jquery.cookie.js')}}"></script>
 
-<script>
-
-    //This is not production quality, its just demo code.
-    var cookieList = function(cookieName) {
-//When the cookie is saved the items will be a comma seperated string
-//So we will split the cookie by comma to get the original array
-        var cookie = $.cookie(cookieName);
-//Load the items or a new array if null.
-        var items = cookie ? cookie.split(/,/) : new Array();
-
-//Return a object that we can use to access the array.
-//while hiding direct access to the declared items array
-//this is called closures see http://www.jibbering.com/faq/faq_notes/closures.html
-        return {
-            "add": function(val) {
-                //Add to the items.
-                items.push(val);
-                //Save the items to a cookie.
-                //EDIT: Modified from linked answer by Nick see
-                //      http://stackoverflow.com/questions/3387251/how-to-store-array-in-jquery-cookie
-                $.cookie(cookieName, items.join(','));
-            },
-            "remove": function (val) {
-                //EDIT: Thx to Assef and luke for remove.
-                indx = items.indexOf(val);
-                if(indx!=-1) items.splice(indx, 1);
-                $.cookie(cookieName, items.join(','));        },
-            "clear": function() {
-                items = null;
-                //clear the cookie.
-                $.cookie(cookieName, null);
-            },
-            "items": function() {
-                //Get all the items.
-                return items;
-            }
-        }
-    }
-</script>
-
-
-
-<script>
-
-    $('tr:has(a)').each(function(index, element ){
-
-        $('tr a').on('click',function(event){
-                event.preventDefault();
-                var data = $(this).data();
-                $(this).addClass('disabled');
-
-                console.log(index);
-
-           // $.cookie(data.name, true, { expires: 7, path: '/' });
-            var list = new cookieList(data.name);
-            list.add('true');
-
-        });
-
-        //console.log( index, element);
-
-    });
-
-    //var list = $('#adClass').attr('class');
-    $('#adClass').each(function(index, val){
-
-       $('#adClass').attr('class');
-        console.log(index, val);
-    });
-
-
-    $("tr[class*='_content']").each(function() {
-
-        $(this).hide();
-
-    });
-
-
-    console.log(name);
-</script>
 
 
 
