@@ -35,3 +35,14 @@
 
 
 
+<script type="text/javascript">
+    document.write(unescape("%3Cscript id=%27pap_x2s6df8d%27 src=%27" + (("https:" == document.location.protocol) ? "https://" : "http://") + "dialer.dial4dough.com/scripts/trackjs.js%27 type=%27text/javascript%27%3E%3C/script%3E"));
+</script> <script type="text/javascript">
+    PostAffTracker.setAccountId('default1');
+    var sale = PostAffTracker.createSale();
+    sale.setTotalCost('1.75');
+    sale.setOrderID(id.id);
+    sale.setProductID(id.name);
+
+    PostAffTracker.register();
+</script>
