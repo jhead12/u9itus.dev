@@ -40,7 +40,7 @@
 </script> <script type="text/javascript">
     PostAffTracker.setAccountId('default1');
     var sale = PostAffTracker.createSale();
-    sale.setVisitorId(id.user);
+    sale.setVisitorId(id.visitor);
     sale.setTotalCost('1.75');
     sale.setOrderID(id.id);
     sale.setProductID(id.name);
