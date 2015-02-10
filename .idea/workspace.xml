@@ -2,7 +2,6 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="cc298910-660e-4aa3-bf56-54158befec62" name="Default" comment="">
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/app/filters.php" afterPath="$PROJECT_DIR$/app/filters.php" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/app/views/pages/upgrade.blade.php" afterPath="$PROJECT_DIR$/app/views/pages/upgrade.blade.php" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
     </list>
@@ -93,8 +92,8 @@
       <file leaf-file-name="upgrade.blade.php" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/app/views/pages/upgrade.blade.php">
           <provider selected="true" editor-type-id="text-editor">
-            <state vertical-scroll-proportion="0.6803279" vertical-offset="200" max-vertical-offset="885">
-              <caret line="41" column="22" selection-start-line="41" selection-start-column="22" selection-end-line="41" selection-end-column="22" />
+            <state vertical-scroll-proportion="0.8032787" vertical-offset="200" max-vertical-offset="1065">
+              <caret line="46" column="31" selection-start-line="46" selection-start-column="31" selection-end-line="46" selection-end-column="31" />
               <folding>
                 <element signature="e#2946#3009#0#HTML" expanded="true" />
                 <element signature="e#3013#3041#0#HTML" expanded="true" />
@@ -877,8 +876,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/app/views/pages/upgrade.blade.php">
       <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.6803279" vertical-offset="200" max-vertical-offset="885">
-          <caret line="41" column="22" selection-start-line="41" selection-start-column="22" selection-end-line="41" selection-end-column="22" />
+        <state vertical-scroll-proportion="0.8032787" vertical-offset="200" max-vertical-offset="1065">
+          <caret line="46" column="31" selection-start-line="46" selection-start-column="31" selection-end-line="46" selection-end-column="31" />
           <folding>
             <element signature="e#2946#3009#0#HTML" expanded="true" />
             <element signature="e#3013#3041#0#HTML" expanded="true" />
