@@ -230,7 +230,7 @@ class AddialsController extends \BaseController
         $this->papRepo->adCommission($user, $id);
 
 
-        Javascript::put(['id'=>['name'=>$id, 'visitor'=>$user, 'id'=>$sid]]);
+        Javascript::put(['id'=>['name'=>$id, 'visitorid'=>$user, 'id'=>$sid]]);
 
         //Cookie::forever($sid, $id);
 
