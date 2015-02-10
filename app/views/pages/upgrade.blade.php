@@ -63,4 +63,5 @@
     PostAffTracker.writeCookieToCustomField('pap_ab78y5t4a');
 </script>
 
+    @include('layouts.partials.footer')
 @stop
