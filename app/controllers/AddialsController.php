@@ -46,7 +46,6 @@ class AddialsController extends \BaseController
 
 
 
-
         $marketer=  $this->marketer->all();
 
         $id = str_random(6);
@@ -205,7 +204,7 @@ class AddialsController extends \BaseController
     public function show($id)
     {
 
-         $user = $this->papRepo->getVisitorId();
+         //$user = $this->papRepo->getVisitorId();
         $marketer =$this->adRepo->getById($id);
 
        Cookie::queue('key', $id, 10000);
@@ -228,9 +227,13 @@ class AddialsController extends \BaseController
        $user = $this->papRepo->getVisitorId();
 
         $this->papRepo->adCommission($user, $id);
+        $affid = $this->papRepo->getVisitorId();
+        $visitorid = $_COOKIE['PAPVisitorId'];
 
 
-        Javascript::put(['id'=>['name'=>$id, 'visitorid'=>$user, 'id'=>$sid]]);
+        //dd($this->papRepo->getUser());
+
+        Javascript::put(['id'=>['name'=>$id, 'visitorid'=>$visitorid,'affid'=>$affid, 'id'=>$sid]]);
 
         //Cookie::forever($sid, $id);
 

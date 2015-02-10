@@ -129,7 +129,8 @@ Route::filter('pap', function(){
 
 	if( ! isset($_COOKIE['PAPVisitorId']) )
 	{
-		return $_COOKIE;
+		//return Redirect::to('/')->with('global-warning', 'Please log in order to access this page.');
+
 	}
 
 });

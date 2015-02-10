@@ -14,8 +14,9 @@
 
 </head>
 <body>
+
 	@include('layouts.partials.nav')
-	
+	@include('layouts.partials.alerts')
 
 
 	@yield('content')
