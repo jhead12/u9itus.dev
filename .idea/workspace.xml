@@ -106,8 +106,8 @@
       <file leaf-file-name="thankyou.blade.php" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/app/views/adpad/thankyou.blade.php">
           <provider selected="true" editor-type-id="text-editor">
-            <state vertical-scroll-proportion="0.8278689" vertical-offset="125" max-vertical-offset="810">
-              <caret line="42" column="25" selection-start-line="42" selection-start-column="25" selection-end-line="42" selection-end-column="25" />
+            <state vertical-scroll-proportion="0.63114756" vertical-offset="710" max-vertical-offset="1485">
+              <caret line="73" column="49" selection-start-line="73" selection-start-column="40" selection-end-line="73" selection-end-column="50" />
               <folding />
             </state>
           </provider>
@@ -979,8 +979,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/app/views/adpad/thankyou.blade.php">
       <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.8278689" vertical-offset="125" max-vertical-offset="810">
-          <caret line="42" column="25" selection-start-line="42" selection-start-column="25" selection-end-line="42" selection-end-column="25" />
+        <state vertical-scroll-proportion="0.63114756" vertical-offset="710" max-vertical-offset="1485">
+          <caret line="73" column="49" selection-start-line="73" selection-start-column="40" selection-end-line="73" selection-end-column="50" />
           <folding />
         </state>
       </provider>
