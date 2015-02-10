@@ -41,6 +41,10 @@
             <input type="hidden" name="hosted_button_id" value="VET83VQK3Q3QG">
             <input type="image" src="https://www.paypalobjects.com/en_US/i/btn/btn_subscribeCC_LG.gif" border="0" name="submit" alt="PayPal - The safer, easier way to pay online!">
             <img alt="" border="0" src="https://www.paypalobjects.com/en_US/i/scr/pixel.gif" width="1" height="1">
+            <input type="hidden" name="notify_url" value="http://dialer.dial4dough.com/plugins/PayPal/paypal.php">
+            <input type="hidden" name="custom" value="" id="pap_dx8vc2s5">
+            <script id="pap_x2s6df8d" src="http://dialer.dial4dough.com/scripts/notifysale.php?accountId=default1" type="text/javascript">
+            </script>
         </form>
     </div>
         <div class="row">
@@ -50,6 +54,10 @@
                 <input type="hidden" name="hosted_button_id" value="7H2UESMQX82F8">
                 <input type="image" src="https://www.paypalobjects.com/en_US/i/btn/btn_subscribeCC_LG.gif" border="0" name="submit" alt="PayPal - The safer, easier way to pay online!">
                 <img alt="" border="0" src="https://www.paypalobjects.com/en_US/i/scr/pixel.gif" width="1" height="1">
+                <input type="hidden" name="notify_url" value="http://dialer.dial4dough.com/plugins/PayPal/paypal.php">
+                <input type="hidden" name="custom" value="" id="pap_dx8vc2s5">
+                <script id="pap_x2s6df8d" src="http://dialer.dial4dough.com/scripts/notifysale.php?accountId=default1" type="text/javascript">
+                </script>
             </form>
 
         </div>
