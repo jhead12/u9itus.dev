@@ -35,20 +35,12 @@
 <p class="auto-style3" dir="ltr"><b style="font-weight: normal;">Please click on the button below to upgrade with your credit Card or through Paypal:</b></p>
 
 
-
-<form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_top"><input name="cmd" type="hidden" value="_s-xclick" /> <input name="hosted_button_id" type="hidden" value="LKFPVHE9U2EML" />
-    <table>
-        <tbody>
-        <tr>
-            <td><input name="on0" type="hidden" value="Dial4dough Payment Options" />Dial4dough Payment Options</td>
-        </tr>
-        <tr>
-            <td><select name="os0"><option value="Gold Membership">Gold Membership : $50.00 USD - yearly</option><option value="Platinum Membership">Platinum Membership : $100.00 USD - yearly</option> </select></td>
-        </tr>
-        </tbody>
-    </table>
-
-    <input name="currency_code" type="hidden" value="USD" /> <input alt="PayPal - The safer, easier way to pay online!" border="0" name="submit" src="https://www.paypalobjects.com/en_US/i/btn/btn_subscribeCC_LG.gif" type="image" /> <img alt="" border="0" height="1" src="https://www.paypalobjects.com/en_US/i/scr/pixel.gif" width="1" /></form>
+        <form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_top">
+            <input type="hidden" name="cmd" value="_s-xclick">
+            <input type="hidden" name="hosted_button_id" value="VET83VQK3Q3QG">
+            <input type="image" src="https://www.paypalobjects.com/en_US/i/btn/btn_subscribeCC_LG.gif" border="0" name="submit" alt="PayPal - The safer, easier way to pay online!">
+            <img alt="" border="0" src="https://www.paypalobjects.com/en_US/i/scr/pixel.gif" width="1" height="1">
+        </form>
 
     </div>
 <script type="text/javascript">

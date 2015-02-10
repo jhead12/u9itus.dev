@@ -22,13 +22,13 @@ App::after(function($request, $response)
 	//
 });
 
-// App::before(function($request)
-// {
-//     if( ! Request::secure())
-//     {
-//         return Redirect::secure(Request::path());
-//     }
-// });
+ App::before(function($request)
+ {
+     if( ! Request::secure())
+     {
+         return Redirect::secure(Request::path());
+     }
+ });
 
 /*
 |--------------------------------------------------------------------------
@@ -127,10 +127,10 @@ Route::filter('pap', function(){
 	//if the request cookies is loggin then allow the user to use the dialpad
 
 
-//	if( isset($_COOKIE['PAPVisitorId']) ===false )
-//	{
-//		return $_COOKIE;
-//	}
+	if( ! isset($_COOKIE['PAPVisitorId']) )
+	{
+		return $_COOKIE;
+	}
 
 });
 
