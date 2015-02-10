@@ -33,52 +33,7 @@
 
 @include('pages/scripts/create')
 
-<?php /********* Post Affiliate Pro integration snippet *******/
-if (isset($_POST['enteryour4'])) {
-// total cost
-$total = 0;
 
-if (isset($_POST['selectyour'])) {
-    $select = "selectyour";
-}
-else {
-    for ($i = 0; $i < 100; $i++) {
-        if (isset($_POST["selectyour".$i])) {
-            $select = "selectyour".$i;
-        }
-    }
-}
-
-foreach ($_POST[$select] as $row) {
-    $t = str_replace('{"',"",stripslashes($row));
-    $t = str_replace('"}',"",$t);
-    $vals = explode('","',$t);
-    foreach ($vals as $row) {
-        $pairs = explode('":"',$row);
-        if ($pairs[0] == 'price') {
-            $total = $total + $pairs[1];
-        }
-    }
-}
-?>
-<script type="text/javascript">
-    document.write(unescape("%3Cscript id=%27pap_x2s6df8d%27 src=%27" +
-    (("https:" == document.location.protocol) ? "https://" : "http://") +
-    "dialer.dial4dough.com/scripts/rackjs.js%27 type=%27text/javascript%27%3E%3C/script%3E"));
-</script>
-<script type="text/javascript">
-    PostAffTracker.setAccountId('default1');
-
-    var sale = PostAffTracker.createSale();
-    sale.setTotalCost('1.75');
-    sale.setOrderID('<?php echo $_POST['enteryour4']; ?>');
-    sale.setProductID('<?php echo $_POST['Product ID']; ?>');
-    PostAffTracker.register();
-</script>
-<?php
-}
-/********  Post Affiliate Pro integration snippet *******/
-?>
 
 <script type="text/javascript">
     document.write(unescape("%3Cscript id=%27pap_x2s6df8d%27 src=%27" + (("https:" == document.location.protocol) ? "https://" : "http://") + "dialer.dial4dough.com/scripts/trackjs.js%27 type=%27text/javascript%27%3E%3C/script%3E"));
