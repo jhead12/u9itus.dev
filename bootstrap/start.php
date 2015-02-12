@@ -28,7 +28,8 @@ $env = $app->detectEnvironment(array(
 
 	'local' => array('homestead'),
     'staging' => array('homestead'),
-    'production' => array('headent.purchology.com'),
+//    'production' => array('headent.purchology.com'),
+    'production'    => array('DIALPAD-STREAM'),
 
 
 ));
