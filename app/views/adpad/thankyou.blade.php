@@ -8,7 +8,7 @@
     <h1>Thank You</h1>
 
     <ul class="pager">
-        <li type="btn btn-primary " class="previous"><a href="{{URL::to('dialpad')}}">&larr; back</a></li>
+        <li type="btn btn-primary " class="previous"><a href="https://dialer.dial4dough.com/affiliates/panel.php">&larr; back</a></li>
     </ul>
 
     <p><strong>Thank you for viewing our ads.</strong>  Credit for your viewing efforts will be posted within a few minutes.  You may view your earned credits in your members area at the top of the page on all pages.</p>
