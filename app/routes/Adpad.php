@@ -2,12 +2,12 @@
 
 
 
-
-Route::get('/dialpad', array(
-    'before'=> 'pap',
-    'as'    => 'dialpad',
-    'uses'  => 'AddialsController@getDialpad'
-));
+//
+//Route::get('/dialpad', array(
+//    'before'=> 'pap',
+//    'as'    => 'dialpad',
+//    'uses'  => 'AddialsController@getDialpad'
+//));
 
 Route::get('/addial-create',array(
     'as'    => 'addial-create',

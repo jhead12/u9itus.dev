@@ -204,10 +204,10 @@ class AddialsController extends \BaseController
     public function show($id)
     {
 
-         //$user = $this->papRepo->getVisitorId();
+
         $marketer =$this->adRepo->getById($id);
 
-       Cookie::queue('key', $id, 10000);
+       //Cookie::queue('key', $id, 10000);
 
         //Session::put('key', $id );
 
@@ -224,9 +224,9 @@ class AddialsController extends \BaseController
         //$this->adRepo->filter($id);
 
         $sid = str_random(10);
-       $user = $this->papRepo->getVisitorId();
 
-        $this->papRepo->adCommission($user, $id);
+
+        //$this->papRepo->adCommission($user, $id);
         $affid = $this->papRepo->getVisitorId();
         $visitorid = $_COOKIE['PAPVisitorId'];
 
@@ -244,7 +244,7 @@ class AddialsController extends \BaseController
 
 
 
-        return View::make('adpad.thankyou');
+        return view('adpad.thankyou');
     }
 
     /**

@@ -62,7 +62,23 @@
         <a href="http://blog.dial4dough.com/?p=16" class="btn btn-outline btn-lg">Earning Philosophy</a>
     </div>
 </div>
+<div class="bs-docs-featurette">
+    <div class="container">
+        <h2 class="bs-docs-featurette-title">Lets see what members have been saying?</h2>
+        <p class="lead">Testimoninials .</p>
 
+        <hr class="half-rule">
+
+        <div class="container">
+
+            <div id="fb-root"></div><script>(function(d, s, id) {  var js, fjs = d.getElementsByTagName(s)[0];  if (d.getElementById(id)) return;  js = d.createElement(s); js.id = id;  js.src = "//connect.facebook.net/en_US/sdk.js#xfbml=1&version=v2.3";  fjs.parentNode.insertBefore(js, fjs);}(document, 'script', 'facebook-jssdk'));</script><div class="fb-post" data-href="https://www.facebook.com/Dial4dough/posts/868528283165946" data-width="500"><div class="fb-xfbml-parse-ignore"><blockquote cite="https://www.facebook.com/Dial4dough/posts/868528283165946"><p>This is truly one unique program that like Wine, has been bottled up for a great while. Just like Wine, the Dial4dough program is going to taste so sweet once the world tastes the contents inside, I&#039;m sure...</p>Posted by <a href="https://www.facebook.com/consumervue">Rj Willis Okuszka</a> on <a href="https://www.facebook.com/Dial4dough/posts/868528283165946">Monday, September 29, 2014</a></blockquote></div></div>
+
+        </div>
+
+        <hr class="half-rule">
+
+    </div>
+</div>
 
 
 
