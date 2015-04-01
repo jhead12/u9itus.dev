@@ -80,6 +80,27 @@
     </div>
 </div>
 
+<div class="bs-docs-featurette">
+    <div class="container">
+        <h2 class="bs-docs-featurette-title">Follow our progress?</h2>
+        <p class="lead">News Letter.
+
+
+        </p>
+
+        <hr class="half-rule">
+
+        <div class="row" style="padding-left: 350px;">
+
+
+            <script type="text/javascript" src="http://app.getresponse.com/view_webform.js?wid=5498105&u=47t"></script>
+        </div>
+
+        <hr class="half-rule">
+
+    </div>
+</div>
+
 
 
     {{--<div class="container marketing">--}}
