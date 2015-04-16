@@ -18,7 +18,7 @@
       <div id="video-container" >
         <video autoplay loop  poster="{{asset('images/bg0809.jpg')}}" class="fillWidth">
 
-          <source src="{{asset('video/hero_slide.mp4')}}" type="video/mp4"/>
+          {{--<source src="{{asset('video/hero_slide.mp4')}}" type="video/mp4"/>--}}
         </video>
 
 
