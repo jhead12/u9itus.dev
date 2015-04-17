@@ -11,8 +11,14 @@
                 <span class="icon-bar"></span>
             </button>
             <a class="navbar-brand" href="{{URL::to('/')}}">Dial4dough</a>
+
+            <ul class="nav navbar-nav navbar-left">
+                <li><a class="fb-share-button" data-href="https://www.dial4dough.com" data-layout="button"></a></li>
+            </ul>
+
         </div>
         <ul class="nav navbar-nav navbar-right">
+
             <li><a href="https://dialer.dial4dough.com/affiliates/signup.php#ContactUs"><i class="fa fa-phone-square"></i>347-230-8438</a></li>
             <li><a href="{{URL::to('about')}}">About</a></li>
             <li><a href="{{URL::to('polidream')}}">Politicians Dream</a></li>
