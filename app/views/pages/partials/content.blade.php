@@ -106,6 +106,8 @@
 
         <div class="row" style="padding-left: 350px;">
 
+            <iframe src="https://docs.google.com/spreadsheets/d/1vCI278pZB9TU90pttIUa6WXEzFIqBsCZVwxYYeNjDwk/pubhtml?widget=true&amp;headers=false"></iframe>
+
 
             <script type="text/javascript" src="http://app.getresponse.com/view_webform.js?wid=5498105&u=47t"></script>
         </div>
