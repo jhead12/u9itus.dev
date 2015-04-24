@@ -27,9 +27,9 @@
                 <ul class="dropdown-menu" role="menu">
 
 
-                    <li><a href="http://dialer.dial4dough.com/affiliates/signup.php#SignupForm">Registration</a></li>
+                    <li><a href="https://dialer.dial4dough.com/affiliates/signup.php#SignupForm">Registration</a></li>
                     <li class="divider"></li>
-                    <li><a href="http://dialer.dial4dough.com/affiliates/login.php#login">Member Login</a></li>
+                    <li><a href="https://dialer.dial4dough.com">Member Login</a></li>
                 </ul>
             </li>
         </ul>
