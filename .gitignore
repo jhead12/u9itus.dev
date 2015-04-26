@@ -9,3 +9,5 @@ Thumbs.db
 /app/assets
 /node_modules
 tests/_output/*
+.vagrant
+.sass-cache
