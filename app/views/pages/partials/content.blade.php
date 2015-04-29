@@ -76,7 +76,7 @@
 <div class="bs-docs-featurette">
     <div class="container">
         <h2 class="bs-docs-featurette-title">Lets see what members have been saying?</h2>
-        <p class="lead">Testimoninials .</p>
+        <p class="lead">Testimonials .</p>
 
         <hr class="half-rule">
 
