@@ -13,10 +13,11 @@
 
             <h3 style="color: #008000">We are talking about getting paid hard cash money for your advertisement reviewing activity.</h3>
 
+        <br/>
         <h4>Whats the catch?</h4>
 
         <p> Once a member earns $100.00 for viewing advertisements from us, there is a 20 percent purchase requirement to continue receiving advertisements to review.
-            Members will also be required to answer a multiple choice question to receive credit for viewing advertisements. That's it!</p>
+           That's it!</p>
 
         <p>There are four subscriptions levels. Free, Silver, Gold and Platinum.  Make .25 cents $.75 cents, $1.00  or $1.75 to review advertisements. You make the choice. NO Hidden fees or language. We are right up front. <strong>Money Back Guaranteed!</strong></p>
 
