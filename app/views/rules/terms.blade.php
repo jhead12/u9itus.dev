@@ -1,13 +1,13 @@
-@extends('layouts.default')
+@extends('layouts.generic')
 
 
 
 @section('content')
 
-    <div class="container">
+    <section id="main" class="container">
 
 
-
+        <div class="box">
 
 
 <article>
@@ -111,7 +111,8 @@
 <p>If you agree, then sign up as a Head Enterprises subscriber!</p>
 
 </article>
+            </div>
 
-    </div>
+  </section>
 @include('layouts.partials.footer')
 @stop

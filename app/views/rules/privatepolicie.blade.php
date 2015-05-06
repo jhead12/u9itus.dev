@@ -1,6 +1,8 @@
-@extends('layouts.default')
+@extends('layouts.generic')
 
 @section('content')
+    <section id="main" class="container">
+    <div class="box">
 
 
 	<section class='container'>
@@ -110,7 +112,8 @@
 <!-- Site footer -->
 				</section><!-- sidebar -->
 
-
+</div>
+        </section>
 
 	@include('layouts.partials.footer')
 @stop

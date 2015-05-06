@@ -1,8 +1,16 @@
-@extends('layouts.default')
+@extends('layouts.generic')
 
 @section('content')
-    <div class='container'>
-    <h1>A Politician's Dream</h1>
+
+
+    <section id="main" class="container">
+
+        <header>
+            <h2 style="font-size: 5em">A Politician's Dream</h2>
+        </header>
+
+        <div class="box">
+
 
     <p>It is projected that there will be billions of campaign advertising dollars available for the upcoming presidential and congressional elections.  Isn't it amazing how much money can be raised for politicians to become elected, while their constituents struggle for survival?  Just think about what would occur if these campaign dollars could be placed in the hands of the public.   It is easy to see that the economy would receive a great boost.</p>
 
@@ -24,7 +32,9 @@
     <p>Our program is simple and straight-forward.  It will allow politicians to show their true concerns by supporting their constituency. Politicians can now show their concerns about our economy by passing on some of the campaign advertising dollars to the public.  This alone would help the economy grow.</p>
 
     <p><strong><em>We are looking out for the little guy.</em></strong></p>
-</div>
+
+            </div>
+</section>
 
     @include('layouts.partials.footer')
     @stop

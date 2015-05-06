@@ -29,7 +29,9 @@ var env,
     sassSources,
     htmlSources,
     outputDir,
+    init,
     sassStyle;
+
 
 
 env = 'production';
@@ -49,9 +51,11 @@ jsSources = ['app/assets/javascripts/bootstrap.js'];
 initInput = ['app/assets/javascripts/intlTelInput.js'];
 sound = ['app/assets/javascripts/sound/soundmanager2.js'];
 custom = ['app/assets/javascripts/sound/custom.js'];
-sassSources = ['app/assets/sass/main.scss'];
+sassSources = ['app/assets/sass/style.scss'];
 angular = ['app/assets/javascripts/angular/app.js'];
 cookie = ['app/assets/javascripts/jquery.cookie.js'];
+init = ['app/assets/javascripts/init.js'];
+
 
 
 
@@ -64,6 +68,17 @@ gulp.task('js', function() {
     .pipe(gulp.dest(outputDir + 'js'))
     .pipe(notify("Complete: Javascripts Updated"))
     .pipe(connect.reload())
+});
+
+gulp.task('init', function() {
+    gulp.src(init)
+        .pipe(concat('init.js'))
+        .pipe(browserify())
+        .on('error', gutil.log)
+        .pipe(gulpif(env === 'production', uglify()))
+        .pipe(gulp.dest(outputDir + 'js'))
+        .pipe(notify("Complete: Init Updated"))
+        .pipe(connect.reload())
 });
 
 gulp.task('cookie', function() {
@@ -171,6 +186,7 @@ gulp.task('watch', function() {
 
     gulp.watch(['./app/assets/images/**/*.*'],['move']);
     gulp.watch(['./app/assets/javascripts/intlTelInput.js'],['js2']);
+    gulp.watch(['./app/assets/javascripts/init.js'],['init']);
     gulp.watch(['./app/assets/javascripts/sound/*.js'],['sound']);
     gulp.watch('./app/assets.javascripts/foundation/*.js',['foundation']);
     //gulp.watch(['./app/assets/javascripts/sound/custom.js'],['custom']);
@@ -195,4 +211,4 @@ gulp.task('connect', function() {
 
 
 
-gulp.task('default', ['watch', 'js','sound','custom', 'compass','type','angular','foundation','cookie', 'move', 'connect']);
+gulp.task('default', ['watch', 'js','sound','init','custom', 'compass','type','angular','foundation','cookie', 'move', 'connect']);

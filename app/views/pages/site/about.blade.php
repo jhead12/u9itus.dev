@@ -1,13 +1,15 @@
-@extends('layouts.default')
+@extends('layouts.generic')
 
 
 @section('content')
 
-<div class="container">
+    <section id="main" class="container">
 
+        <header>
+            <h2 style="font-size: 5em">What Is Dial4dough All About?</h2>
+        </header>
+        <div class="box">
 
-
-    <h1>What Is Dial4dough All About?</h1>
 
     <p><strong>Dial4dough</strong> is designed to enable its users to earn income by completing simple tasks, i.e. listening to telephone advertisements, viewing a Website, or video promotion.
         We recognize that there is a wage-earners crises.  This crises has come upon us because the need for human labor has decreased over the past few decades.  We must now view jobs from a different angle. Dial4dough believes that it can assist in filling a void that can improve the lives of many.</p>
@@ -32,7 +34,10 @@
 
     <p><strong>Dial4dough </strong>is responding to the crises by providing a forum for revenue, not only for those seeking a sustained income, but also for individuals and businesses that can see the wisdom in using this system.  Everyone wins with Dial4dough.</p>
 
-</div>
+            </div>
+</section>
 
     @include('layouts.partials.footer')
+
+    @endsection
 

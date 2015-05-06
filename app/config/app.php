@@ -13,7 +13,7 @@ return array(
 	|
 	*/
 
-	'debug' => false,
+	'debug' => true,
 
 	/*
 	|--------------------------------------------------------------------------
@@ -128,7 +128,6 @@ return array(
 		'Zizaco\Entrust\EntrustServiceProvider',
 		'Jenssegers\Mongodb\MongodbServiceProvider',
 		'Intervention\Httpauth\HttpauthServiceProvider',
-		'Laracasts\Utilities\UtilitiesServiceProvider',
 
 		'Healey\Robots\RobotsServiceProvider',
 
