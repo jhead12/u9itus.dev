@@ -5,7 +5,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="cc298910-660e-4aa3-bf56-54158befec62" name="Default" comment="">
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/app/views/pages/partials/content.blade.php" afterPath="$PROJECT_DIR$/app/views/pages/partials/content.blade.php" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/app/views/pages/scripts/create.blade.php" afterPath="$PROJECT_DIR$/app/views/pages/scripts/create.blade.php" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
     </list>
     <ignored path="dial4dough.dev.iws" />
@@ -42,14 +42,12 @@
   </component>
   <component name="FileEditorManager">
     <leaf>
-      <file leaf-file-name="content.blade.php" pinned="false" current-in-tab="true">
-        <entry file="file://$PROJECT_DIR$/app/views/pages/partials/content.blade.php">
+      <file leaf-file-name="create.blade.php" pinned="false" current-in-tab="true">
+        <entry file="file://$PROJECT_DIR$/app/views/pages/scripts/create.blade.php">
           <provider selected="true" editor-type-id="text-editor">
-            <state vertical-scroll-proportion="0.3653586" vertical-offset="780" max-vertical-offset="3420">
-              <caret line="70" column="70" selection-start-line="70" selection-start-column="70" selection-end-line="70" selection-end-column="70" />
-              <folding>
-                <element signature="n#style#0;n#h2#0;n#header#0;n#section#0;n#section#0;n#!!top" expanded="true" />
-              </folding>
+            <state vertical-scroll-proportion="0.6143437" vertical-offset="641" max-vertical-offset="1575">
+              <caret line="73" column="0" selection-start-line="73" selection-start-column="0" selection-end-line="73" selection-end-column="0" />
+              <folding />
             </state>
           </provider>
         </entry>
@@ -98,7 +96,6 @@
         <option value="$PROJECT_DIR$/users.json" />
         <option value="$PROJECT_DIR$/app/config/app.php" />
         <option value="$PROJECT_DIR$/gulpfile.js" />
-        <option value="$PROJECT_DIR$/app/views/pages/scripts/create.blade.php" />
         <option value="$PROJECT_DIR$/app/views/layouts/default.blade.php" />
         <option value="$PROJECT_DIR$/app/assets/sass/style.scss" />
         <option value="$PROJECT_DIR$/app/views/layouts/partials/footer.blade.php" />
@@ -113,6 +110,7 @@
         <option value="$PROJECT_DIR$/app/views/layouts/generic.blade.php" />
         <option value="$PROJECT_DIR$/app/views/pages/home.blade.php" />
         <option value="$PROJECT_DIR$/app/views/pages/partials/content.blade.php" />
+        <option value="$PROJECT_DIR$/app/views/pages/scripts/create.blade.php" />
       </list>
     </option>
   </component>
@@ -278,7 +276,7 @@
     <property name="ToolWindowEvent Log.ShowToolbar" value="false" />
     <property name="editorconfig.notification" value="Applied .editorconfig settings" />
     <property name="list.type.of.created.stylesheet" value="SCSS" />
-    <property name="SearchEverywhereHistoryKey" value="&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/pages/partials/content.blade.php&#10;home&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/pages/home.blade.php&#10;hom&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/pages/home.blade.php&#10;cont&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/pages/partials/content.blade.php&#10;ge&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/layouts/generic.blade.php&#10;.ht&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/public/.htaccess&#10;na&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/layouts/partials/nav.blade.php&#10;con&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/pages/partials/content.blade.php&#10;rules/pri&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/rules/privatepolicie.blade.php&#10;rules/ter&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/rules/terms.blade.php&#10;PageCont&#9;null&#9;null&#10;pages/site/about&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/pages/site/about.blade.php&#10;pages/site/p&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/pages/site/polidream.blade.php&#10;nav&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/layouts/partials/nav.blade.php&#10;fo&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/layouts/partials/footer.blade.php&#10;foo&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/layouts/partials/footer.blade.php&#10;va&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/Vagrantfile&#10;de&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/layouts/default.blade.php&#10;partials/na&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/layouts/partials/nav.blade.php&#10;def&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/layouts/default.blade.php&#10;cre&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/pages/scripts/create.blade.php&#10;gul&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/gulpfile.js&#10;layouts/de&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/layouts/default.blade.php&#10;layouts/def&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/layouts/default.blade.php&#10;gulp&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/gulpfile.js&#10;compo&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/composer.json&#10;filt&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/filters.php&#10;rout&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/routes.php&#10;vagr&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/Vagrantfile&#10;scripts/cr&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/pages/scripts/create.blade.php&#10;partials/fo&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/layouts/partials/footer.blade.php&#10;layouts/default&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/layouts/default.blade.php&#10;home.b&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/pages/home.blade.php&#10;c&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/pages/partials/content.blade.php&#10;conte&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/pages/partials/content.blade.php&#10;nav.&#9;FILE&#9;file:///Users/joshhead/Documents/Github/dial4dough.dev/app/views/layouts/partials/nav.blade.php&#10;thankyou&#9;FILE&#9;file:///Users/joshhead/Documents/Github/dial4dough.dev/app/views/adpad/thankyou.blade.php&#10;thank&#9;FILE&#9;file:///Users/joshhead/Documents/Github/dial4dough.dev/app/views/pages/thankyou.blade.php&#10;fil&#9;FILE&#9;file:///Users/joshhead/Documents/Github/dial4dough.dev/app/filters.php&#10;creat&#9;FILE&#9;file:///Users/joshhead/Documents/Github/dial4dough.dev/app/views/pages/scripts/create.blade.php&#10;view/use&#9;FILE&#9;file:///Users/joshhead/Documents/Github/dial4dough.dev/app/views/adpad/user.blade.php" />
+    <property name="SearchEverywhereHistoryKey" value="crea&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/pages/scripts/create.blade.php&#10;home&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/pages/home.blade.php&#10;hom&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/pages/home.blade.php&#10;cont&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/pages/partials/content.blade.php&#10;ge&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/layouts/generic.blade.php&#10;.ht&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/public/.htaccess&#10;na&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/layouts/partials/nav.blade.php&#10;con&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/pages/partials/content.blade.php&#10;rules/pri&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/rules/privatepolicie.blade.php&#10;rules/ter&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/rules/terms.blade.php&#10;PageCont&#9;null&#9;null&#10;pages/site/about&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/pages/site/about.blade.php&#10;pages/site/p&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/pages/site/polidream.blade.php&#10;nav&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/layouts/partials/nav.blade.php&#10;fo&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/layouts/partials/footer.blade.php&#10;foo&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/layouts/partials/footer.blade.php&#10;va&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/Vagrantfile&#10;de&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/layouts/default.blade.php&#10;partials/na&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/layouts/partials/nav.blade.php&#10;def&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/layouts/default.blade.php&#10;cre&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/pages/scripts/create.blade.php&#10;gul&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/gulpfile.js&#10;layouts/de&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/layouts/default.blade.php&#10;layouts/def&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/layouts/default.blade.php&#10;gulp&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/gulpfile.js&#10;compo&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/composer.json&#10;filt&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/filters.php&#10;rout&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/routes.php&#10;vagr&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/Vagrantfile&#10;scripts/cr&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/pages/scripts/create.blade.php&#10;partials/fo&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/layouts/partials/footer.blade.php&#10;layouts/default&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/layouts/default.blade.php&#10;home.b&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/pages/home.blade.php&#10;c&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/pages/partials/content.blade.php&#10;conte&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/pages/partials/content.blade.php&#10;nav.&#9;FILE&#9;file:///Users/joshhead/Documents/Github/dial4dough.dev/app/views/layouts/partials/nav.blade.php&#10;thankyou&#9;FILE&#9;file:///Users/joshhead/Documents/Github/dial4dough.dev/app/views/adpad/thankyou.blade.php&#10;thank&#9;FILE&#9;file:///Users/joshhead/Documents/Github/dial4dough.dev/app/views/pages/thankyou.blade.php&#10;fil&#9;FILE&#9;file:///Users/joshhead/Documents/Github/dial4dough.dev/app/filters.php&#10;creat&#9;FILE&#9;file:///Users/joshhead/Documents/Github/dial4dough.dev/app/views/pages/scripts/create.blade.php&#10;view/use&#9;FILE&#9;file:///Users/joshhead/Documents/Github/dial4dough.dev/app/views/adpad/user.blade.php" />
     <property name="com.intellij.ide.scratch.ScratchpadManager" value="Blade" />
   </component>
   <component name="RecentsManager">
@@ -660,13 +658,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/app/views/pages/scripts/create.blade.php">
-      <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.6320225" vertical-offset="0" max-vertical-offset="1395">
-          <caret line="30" column="0" selection-start-line="30" selection-start-column="0" selection-end-line="30" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/Vagrantfile">
       <provider selected="true" editor-type-id="text-editor">
         <state vertical-scroll-proportion="0.5266854" vertical-offset="0" max-vertical-offset="5055">
@@ -849,11 +840,43 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/app/views/pages/partials/content.blade.php">
       <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.3653586" vertical-offset="780" max-vertical-offset="3420">
-          <caret line="70" column="70" selection-start-line="70" selection-start-column="70" selection-end-line="70" selection-end-column="70" />
+        <state vertical-scroll-proportion="0.405954" vertical-offset="780" max-vertical-offset="3420">
+          <caret line="72" column="30" selection-start-line="72" selection-start-column="30" selection-end-line="72" selection-end-column="30" />
           <folding>
-            <element signature="n#style#0;n#h2#0;n#header#0;n#section#0;n#section#0;n#!!top" expanded="true" />
+            <marker date="1430971436000" expanded="true" signature="-1:-1" placeholder="..." />
+            <marker date="1430971436000" expanded="true" signature="-1:-1" placeholder="..." />
+            <marker date="1430971436000" expanded="true" signature="-1:-1" placeholder="..." />
+            <marker date="1430971436000" expanded="true" signature="-1:-1" placeholder="..." />
+            <marker date="1430971436000" expanded="true" signature="-1:-1" placeholder="..." />
+            <marker date="1430971436000" expanded="true" signature="-1:-1" placeholder="..." />
+            <marker date="1430971436000" expanded="true" signature="-1:-1" placeholder="..." />
+            <marker date="1430971436000" expanded="true" signature="-1:-1" placeholder="..." />
+            <marker date="1430971436000" expanded="true" signature="-1:-1" placeholder="..." />
+            <marker date="1430971436000" expanded="true" signature="-1:-1" placeholder="..." />
+            <marker date="1430971436000" expanded="true" signature="-1:-1" placeholder="..." />
+            <marker date="1430971436000" expanded="true" signature="-1:-1" placeholder="..." />
+            <marker date="1430971436000" expanded="true" signature="-1:-1" placeholder="..." />
+            <marker date="1430971436000" expanded="true" signature="-1:-1" placeholder="..." />
+            <marker date="1430971436000" expanded="true" signature="-1:-1" placeholder="..." />
+            <marker date="1430971436000" expanded="true" signature="-1:-1" placeholder="..." />
+            <marker date="1430971436000" expanded="false" signature="-1:-1" placeholder="..." />
+            <marker date="1430971436000" expanded="true" signature="-1:-1" placeholder="..." />
+            <marker date="1430971436000" expanded="true" signature="-1:-1" placeholder="..." />
+            <marker date="1430971436000" expanded="true" signature="-1:-1" placeholder="..." />
+            <marker date="1430971436000" expanded="true" signature="-1:-1" placeholder="..." />
+            <marker date="1430971436000" expanded="true" signature="-1:-1" placeholder="..." />
+            <marker date="1430971436000" expanded="true" signature="-1:-1" placeholder="..." />
+            <marker date="1430971436000" expanded="false" signature="-1:-1" placeholder="..." />
+            <marker date="1430971436000" expanded="true" signature="-1:-1" placeholder="..." />
           </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/app/views/pages/scripts/create.blade.php">
+      <provider selected="true" editor-type-id="text-editor">
+        <state vertical-scroll-proportion="0.6143437" vertical-offset="641" max-vertical-offset="1575">
+          <caret line="73" column="0" selection-start-line="73" selection-start-column="0" selection-end-line="73" selection-end-column="0" />
+          <folding />
         </state>
       </provider>
     </entry>

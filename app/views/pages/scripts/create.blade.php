@@ -71,13 +71,25 @@
      } catch (err) { }
      //-->
  </script>
- <script type="text/javascript">
-     (function(d, src, c) { var t=d.scripts[d.scripts.length - 1],s=d.createElement('script');s.id='la_x2s6df8d';s.async=true;s.src=src;s.onload=s.onreadystatechange=function(){var rs=this.readyState;if(rs&&(rs!='complete')&&(rs!='loaded')){return;}c(this);};t.parentElement.insertBefore(s,t.nextSibling);})(document,
-         '//dial4dough.ladesk.com/scripts/track.js',
-         function(e){  });
- </script>
 
 
+<!-- Start of StatCounter Code for Default Guide -->
+<script type="text/javascript">
+    var sc_project=10428515;
+    var sc_invisible=1;
+    var sc_security="98419ed9";
+    var scJsHost = (("https:" == document.location.protocol) ?
+            "https://secure." : "http://www.");
+    document.write("<sc"+"ript type='text/javascript' src='" +
+    scJsHost+
+    "statcounter.com/counter/counter.js'></"+"script>");
+</script>
+<noscript><div class="statcounter"><a title="web analytics"
+                                      href="http://statcounter.com/" target="_blank"><img
+                    class="statcounter"
+                    src="http://c.statcounter.com/10428515/0/98419ed9/1/"
+                    alt="web analytics"></a></div></noscript>
+<!-- End of StatCounter Code for Default Guide -->
 
 
 
