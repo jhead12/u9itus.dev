@@ -29,7 +29,7 @@
                     {{--</li>--}}
                 </ul>
             </li>
-            <li><a href="https://dialer.dial4dough.com">Member Login</a></li>
+            <li><a href="https://dialer.dial4dough.com/affiliates/login.php">Member Login</a></li>
             <li><a href="https://dialer.dial4dough.com/affiliates/signup.php#SignupForm" class="button">Sign Up</a></li>
         </ul>
     </nav>
