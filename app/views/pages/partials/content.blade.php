@@ -98,12 +98,12 @@
         </div>
         <div class="features-row">
             <section>
-                <span class="icon major fa-cloud accent4"></span>
+                <span class="icon major fa-coffee accent4"></span>
                 <h3>Earning potential</h3>
                 <p><p>Members are also paid $10.00, $15.00, $20.00 and $30.00 bonuses to sponsor other members. You can start earning money today even as a free member! Check it out! No experience required.</p>
             </section>
             <section>
-                <span class="icon major fa-lock accent5"></span>
+                <span class="icon major fa-bank accent5"></span>
                 <h3>Getting Paid</h3>
                 <p>Yes, some advertisements get you to purchase goods or services, however, how often are you impressed by the advertisements? The Dial4dough system allows you to rate and comment on advertisements for products that you find valuable.</p>
             </section>
