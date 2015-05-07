@@ -68,7 +68,7 @@
 
     <section class="box special">
         <header class="major">
-            <h2 style="color: red">View an Advertisement and make up $1.75 each time!
+            <h2 style="color: red">Get paid $1.75 reviewing AdDials!
               </h2>
             <p>We are talking about getting paid hard cash money for your advertisement reviewing activity.<br />
                </p>
