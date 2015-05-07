@@ -68,7 +68,7 @@
 
     <section class="box special">
         <header class="major">
-            <h2 style="color: red">Get paid for viewing advertisement.
+            <h2 style="color: red">Get paid for viewing advertisements.
               </h2>
             <p>We are talking about getting paid hard cash money for your advertisement reviewing activity.<br />
                </p>

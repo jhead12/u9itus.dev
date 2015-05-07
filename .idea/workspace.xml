@@ -46,7 +46,7 @@
         <entry file="file://$PROJECT_DIR$/app/views/pages/partials/content.blade.php">
           <provider selected="true" editor-type-id="text-editor">
             <state vertical-scroll-proportion="0.3653586" vertical-offset="780" max-vertical-offset="3420">
-              <caret line="70" column="47" selection-start-line="70" selection-start-column="47" selection-end-line="70" selection-end-column="47" />
+              <caret line="70" column="70" selection-start-line="70" selection-start-column="70" selection-end-line="70" selection-end-column="70" />
               <folding>
                 <element signature="n#style#0;n#h2#0;n#header#0;n#section#0;n#section#0;n#!!top" expanded="true" />
               </folding>
@@ -850,7 +850,7 @@
     <entry file="file://$PROJECT_DIR$/app/views/pages/partials/content.blade.php">
       <provider selected="true" editor-type-id="text-editor">
         <state vertical-scroll-proportion="0.3653586" vertical-offset="780" max-vertical-offset="3420">
-          <caret line="70" column="47" selection-start-line="70" selection-start-column="47" selection-end-line="70" selection-end-column="47" />
+          <caret line="70" column="70" selection-start-line="70" selection-start-column="70" selection-end-line="70" selection-end-column="70" />
           <folding>
             <element signature="n#style#0;n#h2#0;n#header#0;n#section#0;n#section#0;n#!!top" expanded="true" />
           </folding>
