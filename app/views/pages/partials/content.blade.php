@@ -111,7 +111,7 @@
             </table>
             <h2  style="color: red">Get paid for viewing advertisements.
               </h2>
-            <p>What could be more rewarding than to earn cash money for a few moments on the phone?
+            <p>What could be more rewarding than to earn cash money for a few moments of your time?
 
                 Dial4Dough is now paying well for consumers to simply review to 2 - 5 minute ads.  No Selling!<br />
                </p>
