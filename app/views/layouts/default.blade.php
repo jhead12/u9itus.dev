@@ -4,7 +4,15 @@
 <head>
 	<meta charset="UTF-8">
 	<meta name="google-site-verification" content="OzhSWDz72APDh5zTIpCvWki0bnXbTUh3SroT0_2UQ-s" />
-	<title>Dial4dough</title>
+    <meta property="og:description"
+          content="Small businesses are people, and people buy from people. Dial4dough gives that person to make money online to support themselves as well as make a profit while building their company. Any one can make money with dial4dough.com" />
+    <meta property="og:determiner" content="the" />
+    <meta property="og:locale" content="en_GB" />
+    <meta property="og:locale:alternate" content="fr_FR" />
+    <meta property="og:locale:alternate" content="es_ES" />
+    <meta property="og:site_name" content="dial4dough" />
+    <meta property="article:section" content="Money">
+    <title>Dial4dough</title>
 
 <link href="//maxcdn.bootstrapcdn.com/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet">
 	{{--<link rel="stylesheet" href="{{asset('css/main.css')}}">--}}
