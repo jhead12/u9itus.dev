@@ -20,7 +20,7 @@
         </p>
 
 
-      <p>Make $.25 - $1.75 each Reviewing to Advertisements!</p>
+      <p>Make $.25 - $1.75 to listen to Advertisements!</p>
       <ul class="actions ">
           <li><a href="https://dialer.dial4dough.com/affiliates/signup.php#SignupForm" class="button special">Sign Up</a></li>
           <li><a href="{{URL::to('about')}}" class="button">Learn More</a></li>
