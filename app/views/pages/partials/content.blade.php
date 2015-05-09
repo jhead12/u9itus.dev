@@ -138,7 +138,7 @@
 
         <h2>The Unwritten Agreement</h2>
 
-        <p style="text-align: left">Quiet as it has been kept, employers have always been relied upon their employees to purchase company products, goods, and services.  There was once an unwritten agreement for this to take place.  The understanding was mutual and simple: If you worked for Chevrolet you drove a Chevy. If you worked for GE, then you purchased GE products.
+        <p style="text-align: left">Quiet as it has been kept, employers have always relied upon their employees to purchase company products, goods, and services.  There was once an unwritten agreement for this to take place.  The understanding was mutual and simple: If you worked for Chevrolet you drove a Chevy. If you worked for GE, then you purchased GE products.
 
             Company employees have always been loyal buyers of products for which they had input into producing or distributing.  This is only natural!  Employee purchasing has been the backbone of many businesses, and helped many companies remain strong.  Now things have changed drastically.
 
