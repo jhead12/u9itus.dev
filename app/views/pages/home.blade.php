@@ -18,7 +18,9 @@
   <section id="banner" data-layer="true" data-speed="4" data-background="true">
         <p>     <img src="{{asset('images/off.images/logo.png')}}" alt="logo"/>
         </p>
-      <p>Get paid $1.75 reviewing AdDials.</p>
+
+
+      <p>Make $.25 - $1.75 each Reviewing to Advertisements!</p>
       <ul class="actions ">
           <li><a href="https://dialer.dial4dough.com/affiliates/signup.php#SignupForm" class="button special">Sign Up</a></li>
           <li><a href="{{URL::to('about')}}" class="button">Learn More</a></li>

@@ -68,9 +68,52 @@
 
     <section class="box special" >
         <header class="major" >
+
+
+            <table border="0" id="table1"  style="text-align: left"bordercolorlight="#006600" cellpadding="0" bordercolordark="#008000" cellspacing="0" >
+                <tr>
+                    <td  class="12u">
+                        <p >
+
+                              <i class="fa fa-arrow-circle-o-right"></i><span class="style4"> No
+						more Clicking For Pennies</span></p>
+                        <br/>
+                        <p class="style7">
+
+		<i class="fa fa-arrow-circle-o-right"></i> Quick
+						Payments!</p>
+                        <br/>
+
+
+                        <p class="style7">
+			<i class="fa fa-arrow-circle-o-right"></i> Additional countries
+			targeted for future</p>
+                        <br/>
+
+                        <p>
+                            <i class="fa fa-arrow-circle-o-right"></i> Earn As
+						Much As You Like!</p>
+                        <br/>
+                        <p>
+                            <i class="fa fa-arrow-circle-o-right"></i> Refer
+						Others and Earn Even More!</p>
+                        <br/>
+                        <p>
+                        <i class="fa fa-arrow-circle-o-right"></i> No
+						Selling Required! </p>
+                        <br/>
+
+                        <p>
+                        <i class="fa fa-arrow-circle-o-right"></i> No
+						Payment required to earn.</p>
+                    </td>
+                </tr>
+            </table>
             <h2  style="color: red">Get paid for viewing advertisements.
               </h2>
-            <p>We are talking about getting paid hard cash money for your advertisement reviewing activity.<br />
+            <p>What could be more rewarding than to earn cash money for a few moments on the phone?
+
+                Dial4Dough is now paying well for consumers to simply review to 2 - 5 minute ads.  No Selling!<br />
                </p>
             <br/>
 
@@ -79,9 +122,34 @@
         {{--<span class="image featured"><img src="images/pic01.jpg" alt="" /></span>--}}
     </section>
 
-    <section class="box special features" >
+    <section class="box special features"  >
 
         <h2>Whats the catch?</h2>
+
+        <p style="text-align: left">Some may ask: "What's the catch?"  Here is the catch.  After members receive $100 in hand, they must spend a minimum of 20 percent of their earnings on products, goods, and/or services from companies providing the advertisements. You scratch the advertisers backs, and they will scratch yours by providing more advertisements.
+
+            Start making $12.00+ an hour sitting on your fanny in your pajamas whether you are a FREE or Paying member.
+            <br/>
+
+             <h4 style="text-align: left">We believe in honesty. </h4>
+            <br/>
+
+             </p>
+
+        <h2>The Unwritten Agreement</h2>
+
+        <p style="text-align: left">Quiet as it has been kept, employers have always been relied upon their employees to purchase company products, goods, and services.  There was once an unwritten agreement for this to take place.  The understanding was mutual and simple: If you worked for Chevrolet you drove a Chevy. If you worked for GE, then you purchased GE products.
+
+            Company employees have always been loyal buyers of products for which they had input into producing or distributing.  This is only natural!  Employee purchasing has been the backbone of many businesses, and helped many companies remain strong.  Now things have changed drastically.
+
+            Today with corporate mergers, high-tech equipment, outsourcing of jobs, and business closures, few consumers have reasons to be loyal to any one product, service or company.
+
+            Product loyalty is becoming a thing  of the past.
+
+            But, Wait....  We have good news!</p>
+
+
+        <p>We pay through "PayPal" every two weeks!</p>
         <div class="features-row">
 
             <section>
