@@ -205,7 +205,7 @@
     <hr class="half-rule">
 
 
-    <div class="row" style="padding-left: 490px;">
+    <div class="12u">
         <h2>Get updates and news of our progress.</h2>
 
 
