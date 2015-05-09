@@ -186,7 +186,7 @@
 
 
 <div class="12u">
-<section id="box special  ">
+<section id="class="box special features  ">
 
   {{--<p>Blandit varius ut praesent nascetur eu penatibus nisi risus faucibus nunc.</p>--}}
     {{--<script type="text/javascript" src="http://app.getresponse.com/view_webform.js?wid=5498105&u=47t"></script>--}}
@@ -207,9 +207,9 @@
 
 
 
- <div class="container 50%" style="text-align: center">
+ <div class="container 50%" >
 
-     <h2>Get updates and news</h2>
+     <h2 >Get updates and news</h2>
 
 
 

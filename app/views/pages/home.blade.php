@@ -15,7 +15,7 @@
   {{--</main>--}}
 
   <!-- Banner -->
-  <section id="banner" data-layer="true" data-speed="3" data-background="true">
+  <section id="banner" data-layer="true" data-speed="4" data-background="true">
         <p>     <img src="{{asset('images/off.images/logo.png')}}" alt="logo"/>
         </p>
       <p>Get paid $1.75 reviewing AdDials.</p>
