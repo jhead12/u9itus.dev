@@ -76,7 +76,7 @@
                         <p >
 
                               <i class="fa fa-arrow-circle-o-right"></i><span class="style4"> No
-						more Clicking For Pennies</span></p>
+						more Clicking or writing reviews for Pennies</span></p>
                         <br/>
                         <p class="style7">
 
