@@ -18,8 +18,7 @@
 	},
 	"require-dev": {
 		"way/generators": "~3.0",
-		"codeception/codeception": "~2.0",
-	  "phpspec/phpspec": "2.0.*@dev",
+
 		"laracasts/testdummy": "~1.0"
 
 	},

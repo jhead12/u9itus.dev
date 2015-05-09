@@ -18,7 +18,7 @@
 	<!--[if IE]><script type="text/javascript" src="js/excanvas.js"></script><![endif]-->
 
 </head>
-<body class="landing">
+<body class="landing" >
 
 
 

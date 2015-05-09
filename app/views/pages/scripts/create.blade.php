@@ -26,9 +26,15 @@
 <script src="{{asset('js/skel.min.js')}}"></script>
 <script src="{{asset('js/skel-layers.min.js')}}"></script>
 <script src="{{asset('js/init.js')}}"></script>
+<script src="{{url('js/pl.js')}}"></script>
 
+<script type="text/javascript">
+    (function () {
 
+        parallaxSite.create();
 
+    }());
+</script>
 
 
 <script type="text/javascript">

@@ -64,11 +64,11 @@
 {{--</div>--}}
 
 <!-- Main -->
-<section id="main" class="container">
+<section id="main" class="container" >
 
-    <section class="box special">
-        <header class="major">
-            <h2 style="color: red">Get paid for viewing advertisements.
+    <section class="box special" >
+        <header class="major" >
+            <h2  style="color: red">Get paid for viewing advertisements.
               </h2>
             <p>We are talking about getting paid hard cash money for your advertisement reviewing activity.<br />
                </p>
@@ -79,7 +79,7 @@
         {{--<span class="image featured"><img src="images/pic01.jpg" alt="" /></span>--}}
     </section>
 
-    <section class="box special features">
+    <section class="box special features" >
 
         <h2>Whats the catch?</h2>
         <div class="features-row">
