@@ -185,7 +185,7 @@
 
 
 
-
+<div class="12u">
 <section id="box special  ">
 
   {{--<p>Blandit varius ut praesent nascetur eu penatibus nisi risus faucibus nunc.</p>--}}
@@ -205,18 +205,26 @@
     <hr class="half-rule">
 
 
-    <div class="12u">
-        <h2>Get updates and news of our progress.</h2>
+
+
+ <div class="container 50%" style="text-align: center">
+
+     <h2>Get updates and news</h2>
 
 
 
 
-        <script type="text/javascript" src="http://app.getresponse.com/view_webform.js?wid=5498105&u=47t"></script>
-    </div>
+     <script type="text/javascript" src="http://app.getresponse.com/view_webform.js?wid=5498105&u=47t"></script>
+
+ </div>
+
+</section>
+
+</div>
 
     <hr class="half-rule">
 
 
 
-</section>
+
 
