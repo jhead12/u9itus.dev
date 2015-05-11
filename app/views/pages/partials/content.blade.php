@@ -1,67 +1,4 @@
 
-{{--<div class="bs-docs-featurette">--}}
-    {{--<div class="container">--}}
-        {{--<h2 class="bs-docs-featurette-title">Dial4dough believes in consumer loyalty.</h2>--}}
-        {{--<p class="lead">Dial4dough is providing a means for wage-earners to increase their net worth through combined consumer clout.  This will enable them to also enjoy a stress-free work environment.</p>--}}
-
-        {{--<hr class="half-rule">--}}
-
-        {{--<div class="container">--}}
-            {{--<div class="col-sm-4">--}}
-                {{--<i class="service-icon fa fa-rocket"></i>--}}
-                {{--<h3>Economic Change.</h3>--}}
-                {{--<p>Dial4dough is providing a means for wage-earners to increase their net worth through combined consumer clout.  This will enable them to also enjoy a stress-free work environment.</p>--}}
-            {{--</div>--}}
-            {{--<div class="col-sm-4">--}}
-                {{--<i class="service-icon fa fa-magnet"></i>--}}
-                {{--<h3>Getting Paid</h3>--}}
-                {{--<p>Yes, some advertisements get you to purchase goods or services, however, how often are you impressed by the advertisements? The Dial4dough system allows you to rate and comment on advertisements for products that you find valuable.</p>--}}
-            {{--</div>--}}
-            {{--<div class="col-sm-4">--}}
-                {{--<i class="service-icon fa fa-adjust"></i>--}}
-                {{--<h3>How often do you click on Advertisements and purchase?</h3>--}}
-                {{--<p>Dial4dough believes in consumer loyalty. If you are loyal to your customer then your customer will be loyal to you. Why not get paid for your loyalty?</p>--}}
-            {{--</div>--}}
-        {{--</div>--}}
-
-        {{--<hr class="half-rule">--}}
-
-        {{--<p class="lead">Dial4dough is expansive. Check out how you can earn more!</p>--}}
-        {{--<a href="http://blog.dial4dough.com/?p=16" class="btn btn-outline btn-lg">Earning Philosophy</a>--}}
-    {{--</div>--}}
-{{--</div>--}}
-
-{{--<div class="bs-docs-featurette">--}}
-    {{--<div class="container">--}}
-
-        {{--<h2>Change we can depend on</h2>--}}
-
-        {{--<iframe src="//fast.wistia.net/embed/iframe/p69olthcav?videoFoam=true" allowtransparency="true" frameborder="0" scrolling="no" class="wistia_embed" name="wistia_embed" allowfullscreen mozallowfullscreen webkitallowfullscreen oallowfullscreen msallowfullscreen width="509" height="314"></iframe><script src="//fast.wistia.net/assets/external/E-v1.js"></script>--}}
-    {{--</div>--}}
-{{--</div>--}}
-
-{{--<div class="bs-docs-featurette">--}}
-    {{--<div class="container">--}}
-        {{--<h2 class="bs-docs-featurette-title">Lets see what members have been saying?</h2>--}}
-        {{--<p class="lead">Testimonials .</p>--}}
-
-        {{--<hr class="half-rule">--}}
-
-        {{--<div class="container">--}}
-
-            {{--<div id="fb-root"></div><script>(function(d, s, id) {  var js, fjs = d.getElementsByTagName(s)[0];  if (d.getElementById(id)) return;  js = d.createElement(s); js.id = id;  js.src = "//connect.facebook.net/en_US/sdk.js#xfbml=1&version=v2.3";  fjs.parentNode.insertBefore(js, fjs);}(document, 'script', 'facebook-jssdk'));</script><div class="fb-post" data-href="https://www.facebook.com/Dial4dough/posts/868528283165946" data-width="500"><div class="fb-xfbml-parse-ignore"><blockquote cite="https://www.facebook.com/Dial4dough/posts/868528283165946"><p>This is truly one unique program that like Wine, has been bottled up for a great while. Just like Wine, the Dial4dough program is going to taste so sweet once the world tastes the contents inside, I&#039;m sure...</p>Posted by <a href="https://www.facebook.com/consumervue">Rj Willis Okuszka</a> on <a href="https://www.facebook.com/Dial4dough/posts/868528283165946">Monday, September 29, 2014</a></blockquote></div></div>--}}
-
-        {{--</div>--}}
-
-        {{--<hr class="half-rule">--}}
-
-    {{--</div>--}}
-{{--</div>--}}
-
-{{--<div class="bs-docs-featurette">--}}
-    {{--<div class="container">--}}
-
-{{--</div>--}}
 
 <!-- Main -->
 <section id="main" class="container" >
@@ -70,45 +7,7 @@
         <header class="major" >
 
 
-            <table border="0" id="table1"  style="text-align: left"bordercolorlight="#006600" cellpadding="0" bordercolordark="#008000" cellspacing="0" >
-                <tr>
-                    <td  class="12u">
-                        <p >
 
-                              <i class="fa fa-arrow-circle-o-right"></i><span class="style4"> No
-						more Clicking or writing reviews for Pennies</span></p>
-                        <br/>
-                        <p class="style7">
-
-		<i class="fa fa-arrow-circle-o-right"></i> Quick
-						Payments!</p>
-                        <br/>
-
-
-                        <p class="style7">
-			<i class="fa fa-arrow-circle-o-right"></i> Additional countries
-			targeted for future</p>
-                        <br/>
-
-                        <p>
-                            <i class="fa fa-arrow-circle-o-right"></i> Earn As
-						Much As You Like!</p>
-                        <br/>
-                        <p>
-                            <i class="fa fa-arrow-circle-o-right"></i> Refer
-						Others and Earn Even More!</p>
-                        <br/>
-                        <p>
-                        <i class="fa fa-arrow-circle-o-right"></i> No
-						Selling Required! </p>
-                        <br/>
-
-                        <p>
-                        <i class="fa fa-arrow-circle-o-right"></i> No
-						Payment required to earn.</p>
-                    </td>
-                </tr>
-            </table>
             <h2  style="color: red">Get paid for viewing advertisements.
               </h2>
             <p>What could be more rewarding than to earn cash money for a few moments of your time?
@@ -116,6 +15,45 @@
                 Dial4Dough is now paying well for consumers to simply review to 2 - 5 minute ads.  No Selling!<br />
                </p>
             <br/>
+            <table border="0" id="table1"  style="text-align: left"bordercolorlight="#fff" cellpadding="0" bordercolordark="#fff" cellspacing="0" >
+                <tr>
+                    <td  class="12u">
+                        <p >
+
+                            <i class="fa fa-arrow-circle-o-right"></i><span class="style4"> No
+						more Clicking or writing reviews for Pennies</span></p>
+                        <br/>
+                        <p class="style7">
+
+                            <i class="fa fa-arrow-circle-o-right"></i> Quick
+                            Payments!</p>
+                        <br/>
+
+
+                        <p class="style7">
+                            <i class="fa fa-arrow-circle-o-right"></i> Additional countries
+                            targeted for future</p>
+                        <br/>
+
+                        <p>
+                            <i class="fa fa-arrow-circle-o-right"></i> Earn As
+                            Much As You Like!</p>
+                        <br/>
+                        <p>
+                            <i class="fa fa-arrow-circle-o-right"></i> Refer
+                            Others and Earn Even More!</p>
+                        <br/>
+                        <p>
+                            <i class="fa fa-arrow-circle-o-right"></i> No
+                            Selling Required! </p>
+                        <br/>
+
+                        <p>
+                            <i class="fa fa-arrow-circle-o-right"></i> No
+                            Payment required to earn.</p>
+                    </td>
+                </tr>
+            </table>
 
 
         </header>
