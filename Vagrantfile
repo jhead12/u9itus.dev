@@ -182,7 +182,7 @@ Vagrant.configure("2") do |config|
   config.vm.provision "shell", path: "#{github_url}/scripts/php.sh", args: [php_timezone, hhvm, php_version]
 
   # Enable MSSQL for PHP
-  # config.vm.provision "shell", path: "#{github_url}/scripts/mssql.sh"
+  config.vm.provision "shell", path: "#{github_url}/scripts/mssql.sh"
 
   # Provision Vim
   # config.vm.provision "shell", path: "#{github_url}/scripts/vim.sh", args: github_url
