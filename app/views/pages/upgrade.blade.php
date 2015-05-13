@@ -77,6 +77,17 @@
 
         </div>
 
+        <div class="row">
+            <h3>Bronze upgrade</h3>
+            <form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_top">
+                <input type="hidden" name="cmd" value="_s-xclick">
+                <input type="hidden" name="hosted_button_id" value="9B8FDWU2LQDNG">
+                <input type="image" src="https://www.paypalobjects.com/en_US/i/btn/btn_subscribeCC_LG.gif" border="0" name="submit" alt="PayPal - The safer, easier way to pay online!">
+                <img alt="" border="0" src="https://www.paypalobjects.com/en_US/i/scr/pixel.gif" width="1" height="1">
+            </form>
+
+        </div>
+
     </div>
 <script type="text/javascript">
     document.write(unescape("%3Cscript id=%27pap_x2s6df8d%27 src=%27" + (("https:" == document.location.protocol) ? "https://" : "http://") + "dialer.dial4dough.com/scripts/trackjs.js%27 type=%27text/javascript%27%3E%3C/script%3E"));

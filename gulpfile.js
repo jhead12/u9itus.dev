@@ -1,14 +1,15 @@
 var gulp = require('gulp'),
+     autoprefixer = require('gulp-autoprefixer'),
     gutil = require('gulp-util'),
     browserify = require('gulp-browserify'),
     compass = require('gulp-compass'),
     connect = require('gulp-connect'),
     gulpif = require('gulp-if'),
     uglify = require('gulp-uglify'),
-    minifyHTML = require('gulp-minify-html'),
-    concat = require('gulp-concat');
+
+    concat = require('gulp-concat'),
     path = require('path');
-	  autoprefixer = require('gulp-autoprefixer')
+
     var notify = require("gulp-notify");
     minifyCSS = require('gulp-minify-css');
     less = require('gulp-less');
@@ -104,6 +105,19 @@ gulp.task('angular', function() {
         .pipe(connect.reload())
 });
 
+gulp.task('default', function () {
+     gulp.src('./public/css/*.css')
+        .pipe(autoprefixer({
+            browsers: ['last 2 versions'],
+            cascade: false,
+            expand: true,
+             flatten: true,
+            dest: ''
+        }))
+         .pipe(notify("Complete: Autoprefix"))
+
+});
+
 
 
 gulp.task('foundation', function() {
@@ -190,6 +204,7 @@ gulp.task('watch', function() {
     gulp.watch(['./app/assets/javascripts/sound/*.js'],['sound']);
     gulp.watch('./app/assets.javascripts/foundation/*.js',['foundation']);
     //gulp.watch(['./app/assets/javascripts/sound/custom.js'],['custom']);
+
  //gulp.watch('components/index.html', ['html']);
 });
 
@@ -211,4 +226,4 @@ gulp.task('connect', function() {
 
 
 
-gulp.task('default', ['watch', 'js','sound','init','custom', 'compass','type','angular','foundation','cookie', 'move', 'connect']);
+gulp.task('default', ['watch', 'js','sound','init','custom','compass','type','angular','foundation','cookie', 'move', 'connect','default']);
