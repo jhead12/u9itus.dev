@@ -19,6 +19,9 @@
 <p></p>
         <p><strong>Silver Upgrade</strong> - Members can upgrade for one quarter for $25.00. Members in this class will receive $.75 for each AdDial completed.</p>
 
+        <p><strong>Bronze Upgrade</strong> - Members can upgrade for one year for $5.00. Members in this class will receive $.25 for each AdDial completed.</p>
+
+
         <p>Silver Members sponsoring other members into the Dial4dough program will now have an opportunity to receive $5.00 quarterly (every three months) residual income for each Silver member sponsored; $10.00 yearly for each Gold member sponsored, and $15.00 for each Platinum member sponsored.</p>
 
         <p>It should be noted that revenue received from recruiting Dial4dough members is residual income.  Each quarter or year as the case may be, that a Platinum member or Gold member reconfirms his or her membership, their qualified sponsor will receive the upgrade bonus in the same amount as the initial recruitment bonus.</p>

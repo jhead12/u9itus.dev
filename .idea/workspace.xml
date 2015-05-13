@@ -2,8 +2,6 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="cc298910-660e-4aa3-bf56-54158befec62" name="Default" comment="">
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/public/images/banner.jpg" afterPath="$PROJECT_DIR$/public/images/banner.jpg" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/gulpfile.js" afterPath="$PROJECT_DIR$/gulpfile.js" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/app/views/pages/upgrade.blade.php" afterPath="$PROJECT_DIR$/app/views/pages/upgrade.blade.php" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
     </list>
@@ -44,11 +42,11 @@
       <file leaf-file-name="upgrade.blade.php" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/app/views/pages/upgrade.blade.php">
           <provider selected="true" editor-type-id="text-editor">
-            <state vertical-scroll-proportion="0.79253113" vertical-offset="582" max-vertical-offset="1605">
-              <caret line="77" column="14" selection-start-line="0" selection-start-column="0" selection-end-line="101" selection-end-column="0" />
+            <state vertical-scroll-proportion="0.43568465" vertical-offset="0" max-vertical-offset="1650">
+              <caret line="21" column="56" selection-start-line="21" selection-start-column="56" selection-end-line="21" selection-end-column="56" />
               <folding>
-                <element signature="e#3746#3809#0#HTML" expanded="true" />
-                <element signature="e#3813#3841#0#HTML" expanded="true" />
+                <element signature="e#3908#3971#0#HTML" expanded="true" />
+                <element signature="e#3975#4003#0#HTML" expanded="true" />
               </folding>
             </state>
           </provider>
@@ -785,11 +783,11 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/app/views/pages/upgrade.blade.php">
       <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.79253113" vertical-offset="582" max-vertical-offset="1605">
-          <caret line="77" column="14" selection-start-line="0" selection-start-column="0" selection-end-line="101" selection-end-column="0" />
+        <state vertical-scroll-proportion="0.43568465" vertical-offset="0" max-vertical-offset="1650">
+          <caret line="21" column="56" selection-start-line="21" selection-start-column="56" selection-end-line="21" selection-end-column="56" />
           <folding>
-            <element signature="e#3746#3809#0#HTML" expanded="true" />
-            <element signature="e#3813#3841#0#HTML" expanded="true" />
+            <element signature="e#3908#3971#0#HTML" expanded="true" />
+            <element signature="e#3975#4003#0#HTML" expanded="true" />
           </folding>
         </state>
       </provider>
