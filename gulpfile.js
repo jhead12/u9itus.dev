@@ -203,7 +203,7 @@ gulp.task('watch', function() {
     gulp.watch(['./app/assets/javascripts/init.js'],['init']);
     gulp.watch(['./app/assets/javascripts/sound/*.js'],['sound']);
     gulp.watch('./app/assets.javascripts/foundation/*.js',['foundation']);
-    //gulp.watch(['./app/assets/javascripts/sound/custom.js'],['custom']);
+    //gulp.watch(['./public/css/*.css'],['default']);
 
  //gulp.watch('components/index.html', ['html']);
 });
@@ -226,4 +226,4 @@ gulp.task('connect', function() {
 
 
 
-gulp.task('default', ['watch', 'js','sound','init','custom','compass','type','angular','foundation','cookie', 'move', 'connect','default']);
+gulp.task('default', ['watch', 'js','sound','init','custom','compass','type','angular','foundation','cookie', 'move', 'connect']);
