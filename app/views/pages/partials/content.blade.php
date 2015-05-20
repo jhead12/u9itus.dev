@@ -10,11 +10,12 @@
 
             <h2  style="color: red">Get paid for viewing advertisements.
               </h2>
+            <h4 style="color:red">Our members have been paid every pay day bi-monthly since October 2014!</h4>
             <p>What could be more rewarding than to earn cash money for a few moments of your time?
 
                 Dial4Dough is now paying well for consumers to simply review to 2 - 5 minute ads.  No Selling!<br />
                </p>
-            <h4 style="color:red">Our members have been paid every pay day bi-monthly since October 2014!</h4>
+
             <br/>
             <table border="0" id="table1"  style="text-align: left"bordercolorlight="#fff" cellpadding="0" bordercolordark="#fff" cellspacing="0" >
                 <tr>
