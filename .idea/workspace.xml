@@ -42,8 +42,8 @@
       <file leaf-file-name="footer.blade.php" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/app/views/layouts/partials/footer.blade.php">
           <provider selected="true" editor-type-id="text-editor">
-            <state vertical-scroll-proportion="0.6164383" vertical-offset="0" max-vertical-offset="600">
-              <caret line="24" column="66" selection-start-line="24" selection-start-column="66" selection-end-line="24" selection-end-column="66" />
+            <state vertical-scroll-proportion="0.59075344" vertical-offset="0" max-vertical-offset="615">
+              <caret line="23" column="17" selection-start-line="23" selection-start-column="17" selection-end-line="23" selection-end-column="17" />
               <folding />
             </state>
           </provider>
@@ -820,8 +820,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/app/views/layouts/partials/footer.blade.php">
       <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.6164383" vertical-offset="0" max-vertical-offset="600">
-          <caret line="24" column="66" selection-start-line="24" selection-start-column="66" selection-end-line="24" selection-end-column="66" />
+        <state vertical-scroll-proportion="0.59075344" vertical-offset="0" max-vertical-offset="615">
+          <caret line="23" column="17" selection-start-line="23" selection-start-column="17" selection-end-line="23" selection-end-column="17" />
           <folding />
         </state>
       </provider>

@@ -20,7 +20,8 @@
 
         <li>
             <br/>
-            <small>If you want to support the development and accessibility of the project please donate here. Thank You.</small>
+            <small>If you want to support the development and accessibility of dial4dough.com please donate here. Thank You.</small>
+            <br/>
             <form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_top">
                 <input type="hidden" name="cmd" value="_s-xclick">
                 <input type="hidden" name="hosted_button_id" value="UVDM2WC56KUXA">
