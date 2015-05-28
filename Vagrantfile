@@ -17,7 +17,7 @@ hostname        = "dial4dough.app"
 #   10.0.0.1    - 10.255.255.254
 #   172.16.0.1  - 172.31.255.254
 #   192.168.0.1 - 192.168.255.254
-server_ip             = "192.168.22.12"
+server_ip             = "192.168.22.11"
 server_cpus           = "1"   # Cores
 server_memory         = "384" # MB
 server_swap           = "768" # Options: false | int (MB) - Guideline: Between one or two times the server_memory
@@ -31,9 +31,9 @@ server_timezone  = "UTC"
 # Database Configuration
 mysql_root_password   = "root"   # We'll assume user "root"
 mysql_version         = "5.5"    # Options: 5.5 | 5.6
-mysql_enable_remote   = "false"  # remote access enabled when true
+mysql_enable_remote   = "true"  # remote access enabled when true
 pgsql_root_password   = "root"   # We'll assume user "root"
-mongo_enable_remote   = "false"  # remote access enabled when true
+mongo_enable_remote   = "true"  # remote access enabled when true
 
 # Languages and Packages
 php_timezone          = "UTC"    # http://php.net/manual/en/timezones.php
@@ -50,7 +50,7 @@ hhvm                  = "false"
 
 # PHP Options
 composer_packages     = [        # List any global Composer packages that you want to install
-  #"phpunit/phpunit:4.0.*",
+  "phpunit/phpunit:4.0.*",
   #"codeception/codeception=*",
   #"phpspec/phpspec:2.0.*@dev",
   #"squizlabs/php_codesniffer:1.5.*",
@@ -67,7 +67,7 @@ symfony_root_folder   = "/vagrant/symfony" # Where to install Symfony.
 
 nodejs_version        = "latest"   # By default "latest" will equal the latest stable version
 nodejs_packages       = [          # List any global NodeJS packages that you want to install
-  "grunt-cli",
+  #"grunt-cli",
   "gulp",
   "bower",
   #"yo",
@@ -102,18 +102,18 @@ Vagrant.configure("2") do |config|
 
   # Create a static IP
   config.vm.network :private_network, ip: server_ip
-  config.vm.network :forwarded_port, guest: 80, host: 8000
+  config.vm.network :forwarded_port, guest: 80, host: 8081
 
   # Use NFS for the shared folder
   config.vm.synced_folder ".", "/vagrant",
             id: "core",
             :nfs => true,
-            :mount_options =>  ['dmode=777','fmode=777']
+            :mount_options => ['nolock,vers=3,udp,noatime']
 
   # If using VirtualBox
   config.vm.provider :virtualbox do |vb|
 
-    vb.name = "dial4dough.dev"
+    vb.name = "Dial4dou"
 
     # Set server cpus
     vb.customize ["modifyvm", :id, "--cpus", server_cpus]
@@ -182,7 +182,7 @@ Vagrant.configure("2") do |config|
   config.vm.provision "shell", path: "#{github_url}/scripts/php.sh", args: [php_timezone, hhvm, php_version]
 
   # Enable MSSQL for PHP
-  config.vm.provision "shell", path: "#{github_url}/scripts/mssql.sh"
+  # config.vm.provision "shell", path: "#{github_url}/scripts/mssql.sh"
 
   # Provision Vim
   # config.vm.provision "shell", path: "#{github_url}/scripts/vim.sh", args: github_url
@@ -195,7 +195,7 @@ Vagrant.configure("2") do |config|
   ##########
 
   # Provision Apache Base
-  config.vm.provision "shell", path: "#{github_url}/scripts/apache.sh", args: [server_ip, public_folder, hostname, github_url]
+   config.vm.provision "shell", path: "#{github_url}/scripts/apache.sh", args: [server_ip, public_folder, hostname, github_url]
 
   # Provision Nginx Base
   # config.vm.provision "shell", path: "#{github_url}/scripts/nginx.sh", args: [server_ip, public_folder, hostname, github_url]
@@ -291,7 +291,7 @@ Vagrant.configure("2") do |config|
    config.vm.provision "shell", path: "#{github_url}/scripts/nodejs.sh", privileged: false, args: nodejs_packages.unshift(nodejs_version, github_url)
 
   # Install Ruby Version Manager (RVM)
-   config.vm.provision "shell", path: "#{github_url}/scripts/rvm.sh", privileged: false, args: ruby_gems.unshift(ruby_version)
+  # config.vm.provision "shell", path: "#{github_url}/scripts/rvm.sh", privileged: false, args: ruby_gems.unshift(ruby_version)
 
   ####
   # Frameworks and Tooling
@@ -316,7 +316,7 @@ Vagrant.configure("2") do |config|
   # config.vm.provision "shell", path: "#{github_url}/scripts/git-ftp.sh", privileged: false
 
   # Install Ansible
-  # config.vm.provision "shell", path: "#{github_url}/scripts/ansible.sh"
+   config.vm.provision "shell", path: "#{github_url}/scripts/ansible.sh"
 
   # Install Android
   # config.vm.provision "shell", path: "#{github_url}/scripts/android.sh"

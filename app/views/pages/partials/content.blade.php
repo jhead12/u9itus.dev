@@ -13,7 +13,7 @@
             <h4 style="color:green">Our members have been paid every pay day bi-monthly since October 2014!</h4>
             <p>What could be more rewarding than to earn cash money for a few moments of your time?
 
-                Dial4Dough is now paying well for consumers to simply review to 2 - 5 minute ads.  No Selling!<br />
+                Dial4Dough is now paying well for consumers to simply review to 2 - 5 minute ads.
                </p>
 
             <br/>
