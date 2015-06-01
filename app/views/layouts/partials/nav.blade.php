@@ -8,6 +8,7 @@
 
     <nav id="nav">
         <ul>
+            <li><div class="fb-like" data-href="http://www.dial4dough.com" data-layout="standard" data-action="like" data-show-faces="true" data-share="true"></div></li>
 
             <li><a href="{{URL::to('/')}}">Home</a></li>
 
@@ -19,7 +20,6 @@
 
                     <li><a href="{{URL::to('about')}}">About</a></li>
 
-                    <li><a class="fb-share-button" data-href="https://www.dial4dough.com" data-layout="button"></a></li>
                     {{--<li>--}}
                         {{--<a href="">Submenu</a>--}}
                         {{--<ul>--}}

@@ -42,6 +42,8 @@
 
     <nav id="nav">
         <ul>
+            <li><div class="fb-like" data-href="http://www.dial4dough.com" data-layout="standard" data-action="like" data-show-faces="true" data-share="true"></div></li>
+
             <li><a href="{{URL::to('/')}}">Home</a></li>
 
             <li>
