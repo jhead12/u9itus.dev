@@ -45,5 +45,8 @@
     "buildConfig": {
       "uglify": true
     }
+  },
+  "dependencies": {
+    "bootflat": "^2.0.4"
   }
 }

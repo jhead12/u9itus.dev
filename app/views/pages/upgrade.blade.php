@@ -1,104 +1,191 @@
 @extends('layouts.inner')
+@section('style')
+
+    <style>
+
+        body{
+
+            padding: 0px;
+            margin: 0px;
+        }
+
+        #gradient
+        {
+            width: 100%;
+            height: 800px;
+            padding: 0px;
+            margin: 0px;
+        }
+    </style>
+    <link rel="stylesheet" href="{{asset('/css/bootflat.min.css"')}}/>
+
+@endsection
 
 @section('content')
-    <div class="container">
+
+
+    <div class="container" >
+
+
+            <div class="row">
+                <div class="col-md-12 ">
+                    <div class="panel panel-default">
+                        <div class="fb-like" data-href="https://www.dial4dough.com" data-layout="standard" data-action="like" data-show-faces="false" data-share="true"></div>
+                        <div class="panel-heading">Upgrade today.</div>
 
 
 
 
-<h1>Upgrades</h1>
-        <br/>
-        <br/>
 
-<p dir="ltr" style="line-height: 1.15; margin-top: 0pt; margin-bottom: 0pt;"><b style="font-weight: normal;"><span style="color: rgb(0, 0, 0); font-family: Arial; font-size: 16px; font-style: normal; font-variant: normal; font-weight: bold; text-decoration: none; vertical-align: baseline; background-color: transparent;">Gold Upgrade</span><span style="color: rgb(0, 0, 0); font-family: Arial; font-size: 16px; font-style: normal; font-variant: normal; font-weight: normal; text-decoration: none; vertical-align: baseline; background-color: transparent;"> - &nbsp;Members can upgrade for a one year subscription for &nbsp;$50.00. &nbsp;This upgrade will allow members in this class to receive $1.00 for each AdDial completed. Gold members also receive $20.00 for each new Platinum member sponsored and $15.00 for each Gold member sponsored.</span></b></p>
+                        <div class="row">
 
-<p></p>
-
-<p dir="ltr" style="line-height: 1.15; margin-top: 0pt; margin-bottom: 0pt;"><b style="font-weight: normal;"><span style="color: rgb(0, 0, 0); font-family: Arial; font-size: 16px; font-style: normal; font-variant: normal; font-weight: bold; text-decoration: none; vertical-align: baseline; background-color: transparent;">Platinum Upgrade</span><span style="color: rgb(0, 0, 0); font-family: Arial; font-size: 16px; font-style: normal; font-variant: normal; font-weight: normal; text-decoration: none; vertical-align: baseline; background-color: transparent;"> - Members can upgrade for one year for $100.00. Members in this class will receive $1.75 for each AdDial completed.</span></b></p>
-
-<p></p>
-        <p><strong>Silver Upgrade</strong> - Members can upgrade for one quarter for $25.00. Members in this class will receive $.75 for each AdDial completed.</p>
-
-        <p><strong>Bronze Upgrade</strong> - Members can upgrade for one year for $5.00. Members in this class will receive $.25 for each AdDial completed.</p>
+                            <div class="col-md-12">
+                                <div class="pricing">
+                                    <ul>
+                                        <li class="unit price-primary">
 
 
-        <p>Silver Members sponsoring other members into the Dial4dough program will now have an opportunity to receive $5.00 quarterly (every three months) residual income for each Silver member sponsored; $10.00 yearly for each Gold member sponsored, and $15.00 for each Platinum member sponsored.</p>
+                                            <div class="price-title">
+                                                {{--<img src="{{asset('images/d__0002_Bronze.jpg')}}" alt="platinum"/>--}}
 
-        <p>It should be noted that revenue received from recruiting Dial4dough members is residual income.  Each quarter or year as the case may be, that a Platinum member or Gold member reconfirms his or her membership, their qualified sponsor will receive the upgrade bonus in the same amount as the initial recruitment bonus.</p>
+                                                <h3>$20</h3>
+                                                <p>Monthly</p>
 
-<p></p>
+                                            </div>
+                                            <div class="price-body">
+                                                <h4>Platinum Membership</h4>
 
-<p dir="ltr" style="line-height: 1.15; margin-top: 0pt; margin-bottom: 0pt;"><b style="font-weight: normal;"><span style="color: rgb(0, 0, 0); font-family: Arial; font-size: 16px; font-style: normal; font-variant: normal; font-weight: normal; text-decoration: none; vertical-align: baseline; background-color: transparent;">Platinum Members sponsoring other members into the Dial4dough program will now have an opportunity to receive $20.00 yearly residual income for each Upgraded Gold member recruited, and $30.00 for each Platinum member recruited.</span></b></p>
-
-<p></p>
-
-<p></p>
-
-<p dir="ltr" style="line-height: 1.15; margin-top: 0pt; margin-bottom: 0pt;"><b style="font-weight: normal;"><span style="color: rgb(0, 0, 0); font-family: Arial; font-size: 16px; font-style: normal; font-variant: normal; font-weight: normal; text-decoration: none; vertical-align: baseline; background-color: transparent;">It should be noted that revenue received from recruiting Dial4dough members is residual income. &nbsp;Each year that a Platinum member or Gold member reconfirms his or her membership, their qualified sponsor will receive the upgrade bonus in the same amount as the initial recruitment bonus.</span></b></p>
-
-<p></p>
-
-<p dir="ltr" style="line-height: 1.15; margin-top: 0pt; margin-bottom: 0pt;"><b style="font-weight: normal;">&nbsp;</b></p>
-
-<p class="auto-style3" dir="ltr"><b style="font-weight: normal;">Please click on the button below to upgrade with your credit Card or through Paypal:</b></p>
+                                                <ul>
+                                                    <p>Earn $1.75 per dial</p>
+                                                    <p>Sample earnings:  <span >20</span> x <span style="color: red;font-size: xx-small">Platinum</span> = <small class="total_pla"></small></p>
 
 
-        <div class="row"><h3>Platinum upgrade</h3>
-        <form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_top">
-            <input type="hidden" name="cmd" value="_s-xclick">
-            <input type="hidden" name="hosted_button_id" value="VET83VQK3Q3QG">
-            <input type="image" src="https://www.paypalobjects.com/en_US/i/btn/btn_subscribeCC_LG.gif" border="0" name="submit" alt="PayPal - The safer, easier way to pay online!">
-            <img alt="" border="0" src="https://www.paypalobjects.com/en_US/i/scr/pixel.gif" width="1" height="1">
-            <input type="hidden" name="notify_url" value="http://dialer.dial4dough.com/plugins/PayPal/paypal.php">
-            <input type="hidden" name="custom" value="" id="pap_dx8vc2s5">
-            <script id="pap_x2s6df8d" src="http://dialer.dial4dough.com/scripts/notifysale.php?accountId=default1" type="text/javascript">
-            </script>
-        </form>
-    </div>
-        <div class="row">
-            <h3>Gold upgrade</h3>
-            <form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_top">
-                <input type="hidden" name="cmd" value="_s-xclick">
-                <input type="hidden" name="hosted_button_id" value="7H2UESMQX82F8">
-                <input type="image" src="https://www.paypalobjects.com/en_US/i/btn/btn_subscribeCC_LG.gif" border="0" name="submit" alt="PayPal - The safer, easier way to pay online!">
-                <img alt="" border="0" src="https://www.paypalobjects.com/en_US/i/scr/pixel.gif" width="1" height="1">
-                <input type="hidden" name="notify_url" value="http://dialer.dial4dough.com/plugins/PayPal/paypal.php">
-                <input type="hidden" name="custom" value="" id="pap_dx8vc2s5">
-                <script id="pap_x2s6df8d" src="http://dialer.dial4dough.com/scripts/notifysale.php?accountId=default1" type="text/javascript">
-                </script>
-            </form>
+                                                    <li>Earn $20 from each platinum recruit</li>
+                                                    <li>Earn 15% Marketer bonus</li>
+                                                </ul>
+                                            </div>
+                                            <div class="price-foot">
 
-        </div>
-        <div class="row">
-            <h3>Silver upgrade</h3>
-            <form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_top">
-                <input type="hidden" name="cmd" value="_s-xclick">
-                <input type="hidden" name="hosted_button_id" value="6QAFFXPFLTBVY">
-                <input type="image" src="https://www.paypalobjects.com/en_US/i/btn/btn_subscribeCC_LG.gif" border="0" name="submit" alt="PayPal - The safer, easier way to pay online!">
-                <img alt="" border="0" src="https://www.paypalobjects.com/en_US/i/scr/pixel.gif" width="1" height="1">
-            </form>
+                                                <form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_top">
+                                                    <input type="hidden" name="cmd" value="_s-xclick">
+                                                    <input type="hidden" name="hosted_button_id" value="VC3HF2W8KA2YN">
+                                                    <input type="image" src="https://www.paypalobjects.com/en_US/i/btn/btn_subscribeCC_LG.gif" border="0" name="submit" alt="PayPal - The safer, easier way to pay online!">
+                                                    <img alt="" border="0" src="https://www.paypalobjects.com/en_US/i/scr/pixel.gif" width="1" height="1">
+                                                    <input  class="hidden" name="notify_url" value="https://www.dial4dough.info/paypal/pay" id="pap_ab78y5t4a" />
 
-        </div>
+                                                </form>
+                                            </div>
+                                        </li>
+                                        <li class="unit price-success">
+                                            <div class="price-title">
 
-        <div class="row">
-            <h3>Bronze upgrade</h3>
-            <form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_top">
-                <input type="hidden" name="cmd" value="_s-xclick">
-                <input type="hidden" name="hosted_button_id" value="9B8FDWU2LQDNG">
-                <input type="image" src="https://www.paypalobjects.com/en_US/i/btn/btn_subscribeCC_LG.gif" border="0" name="submit" alt="PayPal - The safer, easier way to pay online!">
-                <img alt="" border="0" src="https://www.paypalobjects.com/en_US/i/scr/pixel.gif" width="1" height="1">
-            </form>
+                                                {{--<img src="{{asset('images/d__0002_Bronze.jpg')}}" alt="gold"/>--}}
 
-        </div>
 
-    </div>
-<script type="text/javascript">
-    document.write(unescape("%3Cscript id=%27pap_x2s6df8d%27 src=%27" + (("https:" == document.location.protocol) ? "https://" : "http://") + "dialer.dial4dough.com/scripts/trackjs.js%27 type=%27text/javascript%27%3E%3C/script%3E"));
-</script><script type="text/javascript">PostAffTracker.setAccountId('default1');
+                                                <h3>$15</h3>
+                                                <p>Monthly</p>
+                                            </div>
+                                            <div class="price-body">
+                                                <h4>Gold Membership</h4>
 
-    PostAffTracker.setAppendValuesToField('||');
-    PostAffTracker.writeCookieToCustomField('pap_ab78y5t4a');
-</script>
+                                                <ul>
+                                                    <li>Earn $1.00 per dial</li>
+                                                    <p> Sample earnings:  <span >20</span> x <span style="color: red;font-size: xx-small">Gold</span> = <small class="total_gold"></small></p>
 
-    @include('layouts.partials.footer')
-@stop
+                                                    <li>Earn $15 from each platinum recruit </li>
+                                                    <li>Earn 15% Marketer bonus</li>
+
+                                                </ul>
+                                            </div>
+                                            <div class="price-foot">
+                                                <form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_top">
+                                                    <input type="hidden" name="cmd" value="_s-xclick">
+                                                    <input type="hidden" name="hosted_button_id" value="7H2UESMQX82F8">
+                                                    <input type="image" src="https://www.paypalobjects.com/en_US/i/btn/btn_subscribeCC_LG.gif" border="0" name="submit" alt="PayPal - The safer, easier way to pay online!">
+                                                    <img alt="" border="0" src="https://www.paypalobjects.com/en_US/i/scr/pixel.gif" width="1" height="1">
+                                                    <input  class="hidden" name="notify_url" value="https://www.dial4dough.info/paypal/pay" id="pap_ab78y5t4a" />
+                                                </form>
+                                            </div>
+                                        </li>
+                                        <li class="unit price-warning">
+
+
+                                            <div class="price-title">
+                                                {{--<img src="" alt="silver"/>--}}
+
+                                                <h3>$5</h3>
+                                                <p>Monthly</p>
+                                            </div>
+                                            <div class="price-body">
+                                                <h4>Silver Membership</h4>
+                                                <ul>
+                                                    <li>Earn $.75 per dial</li>
+                                                    <li>Sample earnings:  <span >20</span> x <span style="color: red;font-size: xx-small">Silver</span> = <small class="total_silver"></small></li>
+
+                                                    <li>Earn $10 from each Platinum recruit</li>
+                                                    <li>Earn 15%  Marketer bonus</li>
+
+                                                </ul>
+                                            </div>
+                                            <div class="price-foot">
+                                                <form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_top">
+                                                    <input type="hidden" name="cmd" value="_s-xclick">
+                                                    <input type="hidden" name="hosted_button_id" value="6QAFFXPFLTBVY">
+                                                    <input type="image" src="https://www.paypalobjects.com/en_US/i/btn/btn_subscribeCC_LG.gif" border="0" name="submit" alt="PayPal - The safer, easier way to pay online!">
+                                                    <img alt="" border="0" src="https://www.paypalobjects.com/en_US/i/scr/pixel.gif" width="1" height="1">
+                                                    <input class="hidden" name="notify_url" value="https:://www.dial4dough.info/paypal/pay" id="pap_ab78y5t4a" />
+                                                </form>
+                                            </div>
+                                        </li>
+                                        <li class="unit price-success">
+
+
+                                            <div class="price-title">
+                                                <h3>$5</h3>
+                                                <p>Monthly</p>
+
+                                            </div>
+                                            <div class="price-body">
+                                                <h4>Bronze Qualified</h4>
+                                                <small>Free (If met the requirements)</small>
+
+                                                <ul>
+                                                    <li>*Earn $.25 per dial</li>
+                                                    <li>Sample earnings:  <span >20</span> x <span style="color: red;font-size: xx-small">Bronze Qualified</span> = <small class="total_bronze_q"></small></li>
+                                                    <li>$5 Platinum recruit bonus</li>
+                                                    <li>Earn 15% Marketer bonus</li>
+                                                </ul>
+                                            </div>
+                                            <div class="price-foot">
+                                                <form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_top">
+                                                    <input type="hidden" name="cmd" value="_s-xclick">
+                                                    <input type="hidden" name="hosted_button_id" value="PYQREKFF58YP4">
+                                                    <input type="image" src="https://www.paypalobjects.com/en_US/i/btn/btn_subscribeCC_LG.gif" border="0" name="submit" alt="PayPal - The safer, easier way to pay online!">
+                                                    <img alt="" border="0" src="https://www.paypalobjects.com/en_US/i/scr/pixel.gif" width="1" height="1">
+                                                    <input  class='hidden'name="notify_url" value="https://www.dial4dough.info/paypal/pay" id="pap_ab78y5t4a" />
+                                                </form>
+                                            </div>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+
+
+                        </div>
+
+
+
+                    </div>
+                </div>
+            </div></div>
+
+
+
+
+    <!--Add the following script at the bottom of the web page (immediately before the </body> tag)-->
+@endsection
+
+
+
+
+
