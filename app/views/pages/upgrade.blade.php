@@ -57,11 +57,7 @@
 
                                                 <ul>
                                                     <p>Earn $1.75 per dial</p>
-                                                    <p>Sample earnings:  <span >20</span> x <span style="color: red;font-size: xx-small">Platinum</span> = <small class="total_pla"></small></p>
 
-
-                                                    <li>Earn $20 from each platinum recruit</li>
-                                                    <li>Earn 15% Marketer bonus</li>
                                                 </ul>
                                             </div>
                                             <div class="price-foot">
@@ -90,10 +86,7 @@
 
                                                 <ul>
                                                     <li>Earn $1.00 per dial</li>
-                                                    <p> Sample earnings:  <span >20</span> x <span style="color: red;font-size: xx-small">Gold</span> = <small class="total_gold"></small></p>
 
-                                                    <li>Earn $15 from each platinum recruit </li>
-                                                    <li>Earn 15% Marketer bonus</li>
 
                                                 </ul>
                                             </div>
@@ -120,10 +113,7 @@
                                                 <h4>Silver Membership</h4>
                                                 <ul>
                                                     <li>Earn $.75 per dial</li>
-                                                    <li>Sample earnings:  <span >20</span> x <span style="color: red;font-size: xx-small">Silver</span> = <small class="total_silver"></small></li>
 
-                                                    <li>Earn $10 from each Platinum recruit</li>
-                                                    <li>Earn 15%  Marketer bonus</li>
 
                                                 </ul>
                                             </div>
@@ -151,9 +141,6 @@
 
                                                 <ul>
                                                     <li>*Earn $.25 per dial</li>
-                                                    <li>Sample earnings:  <span >20</span> x <span style="color: red;font-size: xx-small">Bronze Qualified</span> = <small class="total_bronze_q"></small></li>
-                                                    <li>$5 Platinum recruit bonus</li>
-                                                    <li>Earn 15% Marketer bonus</li>
                                                 </ul>
                                             </div>
                                             <div class="price-foot">
