@@ -44,17 +44,17 @@
 
 </script>
 
-<script type="text/javascript">
-    $('li.unit').hover(
+{{--<script type="text/javascript">--}}
+    {{--$('li.unit').hover(--}}
 
-            function(){
+            {{--function(){--}}
 
-                $(this).delay( 1800 ).addClass('active')
-            },
-            function(){
-                $(this).delay( 1800 ).removeClass('active');
+                {{--$(this).delay( 1800 ).addClass('active')--}}
+            {{--},--}}
+            {{--function(){--}}
+                {{--$(this).delay( 1800 ).removeClass('active');--}}
 
-            });
-</script>
+            {{--});--}}
+{{--</script>--}}
 
 </html>
