@@ -25,11 +25,11 @@
 
 
     <div class="container" >
+        <div class="row">
 
 
-            <div class="row">
                 <div class="col-md-12 ">
-                    <div class="panel panel-default">
+
                         <div class="fb-like" data-href="https://www.dial4dough.com" data-layout="standard" data-action="like" data-show-faces="false" data-share="true"></div>
                         <div class="panel-heading">Upgrade today.</div>
 
@@ -113,7 +113,7 @@
                                             <div class="price-title">
                                                 {{--<img src="" alt="silver"/>--}}
 
-                                                <h3>$5</h3>
+                                                <h3>$10</h3>
                                                 <p>Monthly</p>
                                             </div>
                                             <div class="price-body">
@@ -177,7 +177,8 @@
 
                     </div>
                 </div>
-            </div></div>
+
+
 
 
 
