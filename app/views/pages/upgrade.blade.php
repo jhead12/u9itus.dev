@@ -137,7 +137,7 @@
                                             </div>
                                             <div class="price-body">
                                                 <h4>Bronze Qualified</h4>
-                                                <small>Free (If met the requirements)</small>
+                                                <small>** fre 7 Day Trial **</small>
 
                                                 <ul>
                                                     <li>*Earn $.25 per dial</li>
