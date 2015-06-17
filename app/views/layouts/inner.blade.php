@@ -28,6 +28,8 @@
 
 </body>
 
+<script src="{{asset('js/jquery.min.js')}}"></script>
+
 <script type="text/javascript">
     document.write(unescape("%3Cscript id=%27pap_x2s6df8d%27 src=%27" + (("https:" == document.location.protocol) ? "https://" : "http://") + "dialer.dial4dough.com/scripts/trackjs.js%27 type=%27text/javascript%27%3E%3C/script%3E"));
 </script>
