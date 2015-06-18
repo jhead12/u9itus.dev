@@ -58,6 +58,8 @@
                                                 <ul>
                                                     <p>Earn $1.75 per dial</p>
                                                     <li>Quarterly bonuses for sponsoring paid members</li>
+                                                    <li>Earn 15% from Addial buyers</li>
+
 
                                                 </ul>
                                             </div>
@@ -88,6 +90,8 @@
                                                 <ul>
                                                     <li>Earn $1.00 per dial</li>
                                                     <li>Quarterly bonuses for sponsoring paid members</li>
+                                                    <li>Earn 15% from Addial buyers</li>
+
 
 
 
@@ -117,6 +121,8 @@
                                                 <ul>
                                                     <li>Earn $.75 per dial</li>
                                                     <li>Quarterly bonuses for sponsoring paid members</li>
+                                                    <li>Earn 15% from Addial buyers</li>
+
 
 
 
@@ -147,6 +153,8 @@
                                                 <ul>
                                                     <li>*Earn $.25 per dial</li>
                                                     <li>Quarterly bonuses for sponsoring paid members</li>
+                                                    <li>Earn 15% from Addial buyers</li>
+
 
                                                 </ul>
                                             </div>
