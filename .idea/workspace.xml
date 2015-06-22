@@ -3,6 +3,7 @@
   <component name="ChangeListManager">
     <list default="true" id="cc298910-660e-4aa3-bf56-54158befec62" name="Default" comment="">
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/public/.htaccess" afterPath="$PROJECT_DIR$/public/.htaccess" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/app/views/pages/partials/content.blade.php" afterPath="$PROJECT_DIR$/app/views/pages/partials/content.blade.php" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
     </list>
     <ignored path="dial4dough.dev.iws" />
@@ -39,11 +40,11 @@
   </component>
   <component name="FileEditorManager">
     <leaf>
-      <file leaf-file-name=".htaccess" pinned="false" current-in-tab="true">
-        <entry file="file://$PROJECT_DIR$/public/.htaccess">
+      <file leaf-file-name="content.blade.php" pinned="false" current-in-tab="true">
+        <entry file="file://$PROJECT_DIR$/app/views/pages/partials/content.blade.php">
           <provider selected="true" editor-type-id="text-editor">
-            <state vertical-scroll-proportion="0.446281" vertical-offset="0" max-vertical-offset="605">
-              <caret line="18" column="0" selection-start-line="18" selection-start-column="0" selection-end-line="18" selection-end-column="0" />
+            <state vertical-scroll-proportion="0.29752067" vertical-offset="15" max-vertical-offset="3675">
+              <caret line="13" column="99" selection-start-line="13" selection-start-column="99" selection-end-line="13" selection-end-column="99" />
               <folding />
             </state>
           </provider>
@@ -97,7 +98,6 @@
         <option value="$PROJECT_DIR$/app/views/pages/scripts/create.blade.php" />
         <option value="$PROJECT_DIR$/.gitignore" />
         <option value="$PROJECT_DIR$/app/views/layouts/partials/footer.blade.php" />
-        <option value="$PROJECT_DIR$/app/views/pages/partials/content.blade.php" />
         <option value="$PROJECT_DIR$/app/views/layouts/default.blade.php" />
         <option value="$PROJECT_DIR$/Vagrantfile" />
         <option value="$PROJECT_DIR$/app/config/local/app.php" />
@@ -108,6 +108,7 @@
         <option value="$PROJECT_DIR$/app/views/layouts/partials/nav.blade.php" />
         <option value="$PROJECT_DIR$/app/views/layouts/generic.blade.php" />
         <option value="$PROJECT_DIR$/public/.htaccess" />
+        <option value="$PROJECT_DIR$/app/views/pages/partials/content.blade.php" />
       </list>
     </option>
   </component>
@@ -337,7 +338,7 @@
     <property name="ToolWindowEvent Log.ShowToolbar" value="false" />
     <property name="editorconfig.notification" value="Applied .editorconfig settings" />
     <property name="list.type.of.created.stylesheet" value="SCSS" />
-    <property name="SearchEverywhereHistoryKey" value="ht&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/public/.htaccess&#10;in&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/layouts/inner.blade.php&#10;inner&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/layouts/inner.blade.php&#10;layouts/i&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/layouts/inner.blade.php&#10;layouts/inner&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/layouts/inner.blade.php&#10;upgrade&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/pages/upgrade.blade.php&#10;.h&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/public/.htaccess&#10;.ht&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/public/.htaccess&#10;vag&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/Vagrantfile&#10;layouts/partials/nav&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/layouts/partials/nav.blade.php&#10;layouts/default&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/layouts/default.blade.php&#10;home.blade&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/pages/home.blade.php&#10;home&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/pages/home.blade.php&#10;cont&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/pages/partials/content.blade.php&#10;foot&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/layouts/partials/footer.blade.php&#10;nav.&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/layouts/partials/nav.blade.php&#10;nav&#9;null&#9;null&#10;content&#9;FILE&#9;file://C:/Users/josh/Documents/GitHub/dial4dough.dev/app/views/pages/partials/content.blade.php&#10;up&#9;FILE&#9;file:///Users/joshhead/Documents/Github/dial4dough.dev/app/views/pages/upgrade.blade.php&#10;creat&#9;FILE&#9;file:///Users/joshhead/Documents/Github/dial4dough.dev/app/views/pages/scripts/create.blade.php&#10;partials/foo&#9;FILE&#9;file:///Users/joshhead/Documents/Github/dial4dough.dev/app/views/layouts/partials/footer.blade.php&#10;gu&#9;FILE&#9;file:///Users/joshhead/Documents/Github/dial4dough.dev/gulpfile.js&#10;con&#9;FILE&#9;file:///Users/joshhead/Documents/Github/dial4dough.dev/app/views/pages/partials/content.blade.php&#10;va&#9;FILE&#9;file:///Users/joshhead/Documents/Github/dial4dough.dev/Vagrantfile&#10;pages/partials/&#9;FILE&#9;file:///Users/joshhead/Documents/Github/dial4dough.dev/app/views/pages/partials&#10;home.&#9;FILE&#9;file:///Users/joshhead/Documents/Github/dial4dough.dev/app/views/pages/home.blade.php&#10;hom&#9;FILE&#9;file:///Users/joshhead/Documents/Github/dial4dough.dev/app/controllers/HomeController.php&#10;Home&#9;null&#9;null&#10;gul&#9;FILE&#9;file:///Users/joshhead/Documents/Github/dial4dough.dev/gulpfile.js&#10;ho&#9;FILE&#9;file:///Users/joshhead/Documents/Github/dial4dough.dev/app/views/pages/home.blade.php&#10;def&#9;FILE&#9;file:///Users/joshhead/Documents/Github/dial4dough.dev/app/views/layouts/default.blade.php&#10;Va&#9;FILE&#9;file:///Users/joshhead/Documents/Github/dial4dough.dev/Vagrantfile&#10;crea&#9;FILE&#9;file:///Users/joshhead/Documents/Github/dial4dough.dev/app/views/pages/scripts/create.blade.php&#10;ge&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/layouts/generic.blade.php&#10;na&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/layouts/partials/nav.blade.php&#10;rules/pri&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/rules/privatepolicie.blade.php&#10;rules/ter&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/rules/terms.blade.php&#10;PageCont&#9;null&#9;null&#10;pages/site/about&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/pages/site/about.blade.php&#10;pages/site/p&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/pages/site/polidream.blade.php&#10;fo&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/layouts/partials/footer.blade.php&#10;foo&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/layouts/partials/footer.blade.php&#10;de&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/layouts/default.blade.php&#10;partials/na&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/layouts/partials/nav.blade.php&#10;cre&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/pages/scripts/create.blade.php&#10;layouts/de&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/layouts/default.blade.php&#10;layouts/def&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/layouts/default.blade.php&#10;gulp&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/gulpfile.js&#10;compo&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/composer.json&#10;filt&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/filters.php" />
+    <property name="SearchEverywhereHistoryKey" value="con&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/pages/partials/content.blade.php&#10;ht&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/public/.htaccess&#10;in&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/layouts/inner.blade.php&#10;inner&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/layouts/inner.blade.php&#10;layouts/i&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/layouts/inner.blade.php&#10;layouts/inner&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/layouts/inner.blade.php&#10;upgrade&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/pages/upgrade.blade.php&#10;.h&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/public/.htaccess&#10;.ht&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/public/.htaccess&#10;vag&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/Vagrantfile&#10;layouts/partials/nav&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/layouts/partials/nav.blade.php&#10;layouts/default&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/layouts/default.blade.php&#10;home.blade&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/pages/home.blade.php&#10;home&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/pages/home.blade.php&#10;cont&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/pages/partials/content.blade.php&#10;foot&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/layouts/partials/footer.blade.php&#10;nav.&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/layouts/partials/nav.blade.php&#10;nav&#9;null&#9;null&#10;content&#9;FILE&#9;file://C:/Users/josh/Documents/GitHub/dial4dough.dev/app/views/pages/partials/content.blade.php&#10;up&#9;FILE&#9;file:///Users/joshhead/Documents/Github/dial4dough.dev/app/views/pages/upgrade.blade.php&#10;creat&#9;FILE&#9;file:///Users/joshhead/Documents/Github/dial4dough.dev/app/views/pages/scripts/create.blade.php&#10;partials/foo&#9;FILE&#9;file:///Users/joshhead/Documents/Github/dial4dough.dev/app/views/layouts/partials/footer.blade.php&#10;gu&#9;FILE&#9;file:///Users/joshhead/Documents/Github/dial4dough.dev/gulpfile.js&#10;va&#9;FILE&#9;file:///Users/joshhead/Documents/Github/dial4dough.dev/Vagrantfile&#10;pages/partials/&#9;FILE&#9;file:///Users/joshhead/Documents/Github/dial4dough.dev/app/views/pages/partials&#10;home.&#9;FILE&#9;file:///Users/joshhead/Documents/Github/dial4dough.dev/app/views/pages/home.blade.php&#10;hom&#9;FILE&#9;file:///Users/joshhead/Documents/Github/dial4dough.dev/app/controllers/HomeController.php&#10;Home&#9;null&#9;null&#10;gul&#9;FILE&#9;file:///Users/joshhead/Documents/Github/dial4dough.dev/gulpfile.js&#10;ho&#9;FILE&#9;file:///Users/joshhead/Documents/Github/dial4dough.dev/app/views/pages/home.blade.php&#10;def&#9;FILE&#9;file:///Users/joshhead/Documents/Github/dial4dough.dev/app/views/layouts/default.blade.php&#10;Va&#9;FILE&#9;file:///Users/joshhead/Documents/Github/dial4dough.dev/Vagrantfile&#10;crea&#9;FILE&#9;file:///Users/joshhead/Documents/Github/dial4dough.dev/app/views/pages/scripts/create.blade.php&#10;ge&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/layouts/generic.blade.php&#10;na&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/layouts/partials/nav.blade.php&#10;rules/pri&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/rules/privatepolicie.blade.php&#10;rules/ter&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/rules/terms.blade.php&#10;PageCont&#9;null&#9;null&#10;pages/site/about&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/pages/site/about.blade.php&#10;pages/site/p&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/pages/site/polidream.blade.php&#10;fo&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/layouts/partials/footer.blade.php&#10;foo&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/layouts/partials/footer.blade.php&#10;de&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/layouts/default.blade.php&#10;partials/na&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/layouts/partials/nav.blade.php&#10;cre&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/pages/scripts/create.blade.php&#10;layouts/de&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/layouts/default.blade.php&#10;layouts/def&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/layouts/default.blade.php&#10;gulp&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/gulpfile.js&#10;compo&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/composer.json&#10;filt&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/filters.php" />
     <property name="com.intellij.ide.scratch.ScratchpadManager" value="Blade" />
   </component>
   <component name="RecentsManager">
@@ -371,9 +372,6 @@
       <BehatRunner />
       <method />
     </configuration>
-    <configuration default="true" type="PhpUnitRemoteRunConfigurationType" factoryName="PHPUnit on Server">
-      <method />
-    </configuration>
     <configuration default="true" type="js.build_tools.gulp" factoryName="Gulp.js">
       <node-options />
       <gulpfile />
@@ -381,6 +379,9 @@
       <arguments />
       <pass-parent-envs>true</pass-parent-envs>
       <envs />
+      <method />
+    </configuration>
+    <configuration default="true" type="PhpUnitRemoteRunConfigurationType" factoryName="PHPUnit on Server">
       <method />
     </configuration>
     <list size="0" />
@@ -438,12 +439,12 @@
     </todo-panel>
   </component>
   <component name="ToolWindowManager">
-    <frame x="0" y="0" width="1440" height="900" extended-state="6" />
+    <frame x="0" y="0" width="1440" height="900" extended-state="0" />
     <editor active="true" />
     <layout>
       <window_info id="Changes" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
       <window_info id="Terminal" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" weight="0.2948718" sideWeight="0.5393419" order="7" side_tool="false" content_ui="tabs" />
-      <window_info id="TODO" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.32891566" sideWeight="0.5" order="6" side_tool="false" content_ui="tabs" />
+      <window_info id="TODO" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.32867134" sideWeight="0.5" order="6" side_tool="false" content_ui="tabs" />
       <window_info id="Database" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.3297568" sideWeight="0.5" order="4" side_tool="false" content_ui="tabs" />
       <window_info id="Structure" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.24964234" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
       <window_info id="Application Servers" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="8" side_tool="false" content_ui="tabs" />
@@ -456,8 +457,8 @@
       <window_info id="Ant Build" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.25" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
       <window_info id="IDEtalk Messages" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="8" side_tool="false" content_ui="tabs" />
       <window_info id="IDEtalk" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.32978722" sideWeight="0.5" order="4" side_tool="false" content_ui="tabs" />
-      <window_info id="Run" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
       <window_info id="Hierarchy" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.25" sideWeight="0.5" order="2" side_tool="false" content_ui="combo" />
+      <window_info id="Run" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
       <window_info id="Cvs" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.25" sideWeight="0.5" order="4" side_tool="false" content_ui="tabs" />
       <window_info id="Designer" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
       <window_info id="Message" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="0" side_tool="false" content_ui="tabs" />
@@ -470,13 +471,13 @@
       <window_info id="Inspection" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.39973083" sideWeight="0.5" order="5" side_tool="false" content_ui="tabs" />
     </layout>
     <layout-to-restore>
-      <window_info id="Palette&#9;" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
       <window_info id="UI Designer" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
+      <window_info id="Palette&#9;" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
       <window_info id="Changes" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
-      <window_info id="Ant Build" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.25" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
       <window_info id="Database" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.32978722" sideWeight="0.5" order="6" side_tool="false" content_ui="tabs" />
-      <window_info id="Event Log" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.32671958" sideWeight="0.5" order="8" side_tool="true" content_ui="tabs" />
+      <window_info id="Ant Build" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.25" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
       <window_info id="IDEtalk Messages" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="12" side_tool="false" content_ui="tabs" />
+      <window_info id="Event Log" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.32671958" sideWeight="0.5" order="8" side_tool="true" content_ui="tabs" />
       <window_info id="IDEtalk" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.32978722" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
       <window_info id="Version Control" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="9" side_tool="false" content_ui="tabs" />
       <window_info id="TODO" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="6" side_tool="false" content_ui="tabs" />
@@ -697,13 +698,6 @@
         <state />
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/app/views/pages/partials/content.blade.php">
-      <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.57024795" vertical-offset="15" max-vertical-offset="3675">
-          <caret line="24" column="37" selection-start-line="24" selection-start-column="37" selection-end-line="24" selection-end-column="37" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/app/assets/javascripts/init.js">
       <provider selected="true" editor-type-id="text-editor">
         <state vertical-scroll-proportion="0.0" vertical-offset="0" max-vertical-offset="1650">
@@ -792,7 +786,6 @@
       <provider selected="true" editor-type-id="text-editor">
         <state vertical-scroll-proportion="0.0" vertical-offset="0" max-vertical-offset="795">
           <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-          <folding />
         </state>
       </provider>
     </entry>
@@ -800,7 +793,6 @@
       <provider selected="true" editor-type-id="text-editor">
         <state vertical-scroll-proportion="0.2231405" vertical-offset="15" max-vertical-offset="645">
           <caret line="10" column="158" selection-start-line="10" selection-start-column="158" selection-end-line="10" selection-end-column="158" />
-          <folding />
         </state>
       </provider>
     </entry>
@@ -808,7 +800,6 @@
       <provider selected="true" editor-type-id="text-editor">
         <state vertical-scroll-proportion="0.0" vertical-offset="0" max-vertical-offset="605">
           <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-          <folding />
         </state>
       </provider>
     </entry>
@@ -816,7 +807,6 @@
       <provider selected="true" editor-type-id="text-editor">
         <state vertical-scroll-proportion="0.0" vertical-offset="0" max-vertical-offset="1800">
           <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-          <folding />
         </state>
       </provider>
     </entry>
@@ -824,7 +814,6 @@
       <provider selected="true" editor-type-id="text-editor">
         <state vertical-scroll-proportion="0.17355372" vertical-offset="0" max-vertical-offset="990">
           <caret line="7" column="92" selection-start-line="7" selection-start-column="92" selection-end-line="7" selection-end-column="92" />
-          <folding />
         </state>
       </provider>
     </entry>
@@ -832,26 +821,23 @@
       <provider selected="true" editor-type-id="text-editor">
         <state vertical-scroll-proportion="-0.09090909" vertical-offset="835" max-vertical-offset="1440">
           <caret line="52" column="0" selection-start-line="52" selection-start-column="0" selection-end-line="52" selection-end-column="0" />
-          <folding>
-            <marker date="1434841766000" expanded="true" signature="-1:-1" placeholder="..." />
-            <marker date="1434841766000" expanded="true" signature="-1:-1" placeholder="..." />
-            <marker date="1434841766000" expanded="true" signature="-1:-1" placeholder="..." />
-            <marker date="1434841766000" expanded="true" signature="-1:-1" placeholder="..." />
-            <marker date="1434841766000" expanded="true" signature="-1:-1" placeholder="..." />
-            <marker date="1434841766000" expanded="true" signature="-1:-1" placeholder="..." />
-            <marker date="1434841766000" expanded="true" signature="-1:-1" placeholder="..." />
-            <marker date="1434841766000" expanded="true" signature="-1:-1" placeholder="..." />
-            <marker date="1434841766000" expanded="true" signature="-1:-1" placeholder="..." />
-            <marker date="1434841766000" expanded="true" signature="-1:-1" placeholder="..." />
-            <marker date="1434841766000" expanded="true" signature="-1:-1" placeholder="{...}" />
-          </folding>
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/public/.htaccess">
       <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.446281" vertical-offset="0" max-vertical-offset="605">
-          <caret line="18" column="0" selection-start-line="18" selection-start-column="0" selection-end-line="18" selection-end-column="0" />
+        <state vertical-scroll-proportion="0.4214876" vertical-offset="0" max-vertical-offset="605">
+          <caret line="17" column="4" selection-start-line="17" selection-start-column="4" selection-end-line="17" selection-end-column="4" />
+          <folding>
+            <marker date="1434988292000" expanded="true" signature="-1:-1" placeholder="&lt;IfModule mod_rewrite.c&gt;" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/app/views/pages/partials/content.blade.php">
+      <provider selected="true" editor-type-id="text-editor">
+        <state vertical-scroll-proportion="0.29752067" vertical-offset="15" max-vertical-offset="3675">
+          <caret line="13" column="99" selection-start-line="13" selection-start-column="99" selection-end-line="13" selection-end-column="99" />
           <folding />
         </state>
       </provider>
