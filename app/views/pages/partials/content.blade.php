@@ -108,7 +108,7 @@
             <section>
                 <span class="icon major fa-coffee accent4"></span>
                 <h3>Earning potential</h3>
-                <p><p>Members are also paid $10.00, $15.00, $20.00 and $30.00 bonuses to sponsor other members. You can start earning money today even as a free member! Check it out! No experience required.</p>
+                <p><p>There are Daily paid bonuses for sponsoring new members.  </p>
             </section>
             <section>
                 <span class="icon major fa-bank accent5"></span>
