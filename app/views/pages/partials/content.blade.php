@@ -108,7 +108,7 @@
             <section>
                 <span class="icon major fa-coffee accent4"></span>
                 <h3>Earning potential</h3>
-                <p><p>There are Daily paid bonuses for sponsoring new members.  </p>
+                <p><p>Members are paid bonuses for sponsoring Silver, Gold and Platinum members. Bonus payments are now made within 48 hours of sponsored members monthly upgrade.</p>
             </section>
             <section>
                 <span class="icon major fa-bank accent5"></span>
