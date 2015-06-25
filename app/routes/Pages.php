@@ -40,3 +40,9 @@ Route::get('about', function(){
 
 	return View::make('pages/site/about');
 });
+
+Route::get('maintenance',function(){
+
+    return View::make('maintenance');
+
+});
