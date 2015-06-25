@@ -2,9 +2,7 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="cc298910-660e-4aa3-bf56-54158befec62" name="Default" comment="">
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/app/views/maintenance.php" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/app/routes/Pages.php" afterPath="$PROJECT_DIR$/app/routes/Pages.php" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.vagrant/machines/Vaprobash/virtualbox/action_set_name" afterPath="$PROJECT_DIR$/.vagrant/machines/Vaprobash/virtualbox/action_set_name" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/app/views/maintenance.php" afterPath="$PROJECT_DIR$/app/views/maintenance.php" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
     </list>
     <ignored path="dial4dough.dev.iws" />
@@ -44,8 +42,8 @@
       <file leaf-file-name="maintenance.php" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/app/views/maintenance.php">
           <provider selected="true" editor-type-id="text-editor">
-            <state vertical-scroll-proportion="0.42769858" vertical-offset="0" max-vertical-offset="491">
-              <caret line="14" column="166" selection-start-line="14" selection-start-column="166" selection-end-line="14" selection-end-column="166" />
+            <state vertical-scroll-proportion="0.45824847" vertical-offset="0" max-vertical-offset="491">
+              <caret line="15" column="33" selection-start-line="15" selection-start-column="33" selection-end-line="15" selection-end-column="33" />
               <folding />
             </state>
           </provider>
@@ -1012,8 +1010,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/app/views/maintenance.php">
       <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.42769858" vertical-offset="0" max-vertical-offset="491">
-          <caret line="14" column="166" selection-start-line="14" selection-start-column="166" selection-end-line="14" selection-end-column="166" />
+        <state vertical-scroll-proportion="0.45824847" vertical-offset="0" max-vertical-offset="491">
+          <caret line="15" column="33" selection-start-line="15" selection-start-column="33" selection-end-line="15" selection-end-column="33" />
           <folding />
         </state>
       </provider>
