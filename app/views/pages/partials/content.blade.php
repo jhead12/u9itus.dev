@@ -38,9 +38,7 @@
                         <br/>
 
                         <p>
-                            <i class="fa fa-arrow-circle-o-right"></i> Earn As
-                            Much As You Like!</p>
-                        <br/>
+
                         <p>
                             <i class="fa fa-arrow-circle-o-right"></i> Refer
                             Others and Earn Even More!</p>
@@ -51,8 +49,7 @@
                         <br/>
 
                         <p>
-                            <i class="fa fa-arrow-circle-o-right"></i> No
-                            Payment required to earn.</p>
+                            <i class="fa fa-arrow-circle-o-right"></i> Check our program free.</p>
                     </td>
                 </tr>
             </table>
