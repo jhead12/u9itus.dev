@@ -146,21 +146,21 @@
     <div class="row">
         <div class=" 12u">
 
-            <section class="box special features" >
+            {{--<section class="box special features" >--}}
 
-                <h2 style="color: red">What are members saying?
-                </h2>
-                <a href="https://plus.google.com/_/notifications/emlink?emr=06221871286775873145&emid=COi8_s_OqsUCFSlSTAodJhoAwQ&path=/113718656627066905863/posts/hh2hSstrQ9w&dt=1430829330724&ub=STREAM_COMMENT_NEW">
+                {{--<h2 style="color: red">What are members saying?--}}
+                {{--</h2>--}}
+                {{--<a href="https://plus.google.com/_/notifications/emlink?emr=06221871286775873145&emid=COi8_s_OqsUCFSlSTAodJhoAwQ&path=/113718656627066905863/posts/hh2hSstrQ9w&dt=1430829330724&ub=STREAM_COMMENT_NEW">--}}
 
-                    <img src="{{asset('images/rj_testimonial.png')}}" alt="testi1"/>
+                    {{--<img src="{{asset('images/rj_testimonial.png')}}" alt="testi1"/>--}}
 
-                </a>
+                {{--</a>--}}
 
-                <br/>
+                {{--<br/>--}}
 
 
                 {{--<span class="image featured"><img src="images/pic01.jpg" alt="" /></span>--}}
-            </section>
+            {{--</section>--}}
 
         </div>
 
