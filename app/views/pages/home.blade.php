@@ -20,7 +20,7 @@
         </p>
 
 
-      <p style="font-size: xx-large;font-weight: 900">Earn as much as $1.75 to Listen to  2 minute infomercials!</p>
+      <h1 style="font-size: xx-large;font-weight: 900;color: white">Earn as much as $1.75 to Listen to  2 minute infomercials!</h1>
       <ul class="actions ">
           <li><a href="https://dialer.dial4dough.com/affiliates/signup.php#SignupForm" class="button special ">Sign Up Now!</a></li>
           <li><a href="{{URL::to('about')}}" class="button">Learn More</a></li>

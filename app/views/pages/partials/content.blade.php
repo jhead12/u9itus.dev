@@ -17,7 +17,7 @@
                </p>
 
             <br/>
-            <table border="0" id="table1"  style="text-align: left"bordercolorlight="#fff" cellpadding="0" bordercolordark="#fff" cellspacing="0" >
+            <table border="0" id="table1"  style="text-align: left" cellpadding="0"  cellspacing="0" >
                 <tr>
                     <td  class="12u">
                         <p >
@@ -33,8 +33,7 @@
 
 
                         <p class="style7">
-                            <i class="fa fa-arrow-circle-o-right"></i> Additional countries
-                            targeted for future</p>
+                            <i class="fa fa-arrow-circle-o-right"></i> No need of signing up for emailed offers to be paid.</p>
                         <br/>
 
                         <p>
@@ -49,7 +48,7 @@
                         <br/>
 
                         <p>
-                            <i class="fa fa-arrow-circle-o-right"></i> Check our program free.</p>
+                            <i class="fa fa-arrow-circle-o-right"></i>The advertisers are from small business who want you to see their services.</p>
                     </td>
                 </tr>
             </table>
