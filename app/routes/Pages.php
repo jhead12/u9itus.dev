@@ -7,6 +7,9 @@ Route::get('/',[
 
 	]);
 
+Route::get('redirect','PageController@redirect');
+
+
 Route::get('about','PageController@about');
 
 Route::get('pricing','PageController@pricing');

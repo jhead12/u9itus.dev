@@ -43,7 +43,7 @@
 
 
 	@include('layouts.partials.nav')
-	@include('layouts.partials.alerts')
+	@include('notifications')
 
 
 	@yield('content')

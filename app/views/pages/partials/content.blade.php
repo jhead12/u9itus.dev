@@ -17,7 +17,7 @@
                </p>
 
             <br/>
-            <table border="0" id="table1"  style="text-align: left" cellpadding="0"  cellspacing="0" >
+            <table border="0" id="table1"  style="text-align: left"   >
                 <tr>
                     <td  class="12u">
                         <p >

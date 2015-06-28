@@ -72,7 +72,6 @@
 
 @if ($message = Session::get('info'))
 <div class="alert alert-info alert-block">
-	<button type="button" class="close" data-dismiss="alert">&times;</button>
 	<h4><i class="fa fa-info-circle"></i> Info</h4>
     <p class="message">
         @if(is_array($message))
@@ -83,5 +82,8 @@
         {{ $message }}
         @endif
     </p>
+    <button type="button" class="close" data-dismiss="alert">&times;</button>
+
+    <script>setTimeout(close,10000); function close(){$('.close').click().slideUp('slow')}</script>
 </div>
 @endif
