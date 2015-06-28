@@ -100,9 +100,9 @@
 <p>Head Enterprises operates secure data networks protected by industry standard firewall and password protection systems. Our security and privacy policies are periodically reviewed and enhanced as necessary and only authorized individuals have access to the information provided by our customers.</p>
 
 <p><strong>OPT-OUT POLICY</strong></p>
+        <p>This site uses Google Analytics to track data for all user activates. You can opt out <a href="https://tools.google.com/dlpage/gaoptout/">Here</a> </p>
 
 <p>We give users options wherever necessary and practical. Such choices include:</p>
-
 <p>·      Opting not to register to receive our electronic newsletters.
 ·      Opting not to participate in certain interactive areas, which completely alleviates the need to gather any personally identifiable information from our users
 <strong>YOUR CONSENT</strong></p>

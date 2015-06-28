@@ -189,7 +189,7 @@
 
 
 <div class="12u">
-<section id="class="box special features ">
+<section id="class="box special features">
 
 
 
@@ -206,6 +206,8 @@
         {{--</div>--}}
     {{--</form>--}}
     {{--<h2 >Follow our progress</h2>--}}
+    </section>
+    </div>
 
     <hr class="half-rule">
 

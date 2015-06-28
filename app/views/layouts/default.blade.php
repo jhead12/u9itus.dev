@@ -14,7 +14,7 @@
     <meta property="article:section" content="Money">
     <title>Dial4dough</title>
 
-<link href="//maxcdn.bootstrapcdn.com/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet">
+<link href="{{asset('css/font-awesome.min.css')}}" rel="stylesheet">
 	{{--<link rel="stylesheet" href="{{asset('css/main.css')}}">--}}
     <link rel="stylesheet" href="{{asset('css/style.css')}}">
 

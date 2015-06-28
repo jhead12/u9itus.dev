@@ -8,18 +8,18 @@
 {{--<script src="{{asset('js/app.js')}}"></script>--}}
  <script src="//code.jquery.com/jquery-migrate-1.2.1.min.js"></script>
 
-<script src="{{asset('js/foundation.min.js')}}"></script>
+{{--<script src="{{asset('js/foundation.min.js')}}"></script>--}}
 
  <script src="{{asset('js/script.js')}}"></script>
-<script src="{{asset('js/berniecode-animator.js')}}"></script>
- <script src="{{asset('js/audio.js')}}"></script>
+{{--<script src="{{asset('js/berniecode-animator.js')}}"></script>--}}
+{{-- <script src="{{asset('js/audio.js')}}"></script>--}}
 
-<script src="{{asset('js/360player.js')}}"></script>
-<script src="{{asset('js/custom.js')}}"></script>
-<script src="{{asset('js/type.js')}}"></script>
+{{--<script src="{{asset('js/360player.js')}}"></script>--}}
+{{--<script src="{{asset('js/custom.js')}}"></script>--}}
+{{--<script src="{{asset('js/type.js')}}"></script>--}}
 {{--<script src="{{asset('js/app.js')}}"></script>--}}
 
-<script src="{{asset('js/jquery.cookie.js')}}"></script>
+{{--<script src="{{asset('js/jquery.cookie.js')}}"></script>--}}
 
 <script src="{{asset('js/jquery.dropotron.min.js')}}"></script>
 <script src="{{asset('js/jquery.scrollgress.min.js')}}"></script>
