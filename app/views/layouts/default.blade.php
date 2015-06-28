@@ -59,6 +59,8 @@
 
 
 
+@include('layouts.partials.footer')
+
 <!-- Start of StatCounter Code for Default Guide -->
 <script type="text/javascript">
     var sc_project=10428515;
