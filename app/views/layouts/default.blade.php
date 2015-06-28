@@ -13,7 +13,6 @@
     <meta property="og:site_name" content="dial4dough" />
     <meta property="article:section" content="Money">
     <title>Dial4dough</title>
-    <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css">
     <link rel="stylesheet" href="{{asset('css/style.css')}}">
 
     {{--<link rel="stylesheet" type="text/css" href="{{asset('css/flashblock.css')}}" />--}}
@@ -26,6 +25,8 @@
 </head>
 <body class="landing" >
 <!-- Google Tag Manager -->
+
+
 <noscript><iframe src="//www.googletagmanager.com/ns.html?id=GTM-NL8VZM"
                   height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
@@ -77,5 +78,17 @@
                     alt="web analytics"></a></div></noscript>
 <!-- End of StatCounter Code for Default Guide -->
 
+
+<script>
+    var cb = function() {
+        var l = document.createElement('link'); l.rel = 'stylesheet';
+        l.href = '//maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css';
+        var h = document.getElementsByTagName('head')[0]; h.parentNode.insertBefore(l, h);
+    };
+    var raf = requestAnimationFrame || mozRequestAnimationFrame ||
+            webkitRequestAnimationFrame || msRequestAnimationFrame;
+    if (raf) raf(cb);
+    else window.addEventListener('load', cb);
+</script>
 </body>
 </html>
