@@ -2,24 +2,90 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="cc298910-660e-4aa3-bf56-54158befec62" name="Default" comment="">
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/app/assets/sass/font-awesome.min.css" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/public/images/47581_728561687162607_1288471817_n.png" afterPath="$PROJECT_DIR$/public/images/47581_728561687162607_1288471817_n.png" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/public/images/banner5.jpg" afterPath="$PROJECT_DIR$/public/images/banner5.jpg" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/public/images/banner6.jpg" afterPath="$PROJECT_DIR$/public/images/banner6.jpg" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/public/images/bg0810.jpg" afterPath="$PROJECT_DIR$/public/images/bg0810.jpg" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/public/images/d4d.lg-logo.jpg" afterPath="$PROJECT_DIR$/public/images/d4d.lg-logo.jpg" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/public/images/d4d.sm-Logo-in.png" afterPath="$PROJECT_DIR$/public/images/d4d.sm-Logo-in.png" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/public/images/d__0002_Bronze.jpg" afterPath="$PROJECT_DIR$/public/images/d__0002_Bronze.jpg" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/public/images/form-error.gif" afterPath="$PROJECT_DIR$/public/images/form-error.gif" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/public/images/form-required.gif" afterPath="$PROJECT_DIR$/public/images/form-required.gif" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/public/images/icon_32_logo.png" afterPath="$PROJECT_DIR$/public/images/icon_32_logo.png" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/public/images/lightbulb-blue.png" afterPath="$PROJECT_DIR$/public/images/lightbulb-blue.png" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/public/images/lightbulb-gray.png" afterPath="$PROJECT_DIR$/public/images/lightbulb-gray.png" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/public/images/nav_bronze.png" afterPath="$PROJECT_DIR$/public/images/nav_bronze.png" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/public/images/nav_gold.png" afterPath="$PROJECT_DIR$/public/images/nav_gold.png" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/public/images/nav_platinum.png" afterPath="$PROJECT_DIR$/public/images/nav_platinum.png" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/public/images/pic01.jpg" afterPath="$PROJECT_DIR$/public/images/pic01.jpg" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/public/images/validation-sprite.png" afterPath="$PROJECT_DIR$/public/images/validation-sprite.png" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/public/css/font-awesome.min.css" afterPath="" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/98a7ed5264178fbd0870c9038118ca3f0a0ab596/_alternating-rows-and-columns.scssc" afterPath="$PROJECT_DIR$/.sass-cache/98a7ed5264178fbd0870c9038118ca3f0a0ab596/_alternating-rows-and-columns.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/17d03613c125918cd0766f51918feb21dc3c074a/_animation.scssc" afterPath="$PROJECT_DIR$/.sass-cache/17d03613c125918cd0766f51918feb21dc3c074a/_animation.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/17d03613c125918cd0766f51918feb21dc3c074a/_appearance.scssc" afterPath="$PROJECT_DIR$/.sass-cache/17d03613c125918cd0766f51918feb21dc3c074a/_appearance.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/17d03613c125918cd0766f51918feb21dc3c074a/_background-clip.scssc" afterPath="$PROJECT_DIR$/.sass-cache/17d03613c125918cd0766f51918feb21dc3c074a/_background-clip.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/17d03613c125918cd0766f51918feb21dc3c074a/_background-origin.scssc" afterPath="$PROJECT_DIR$/.sass-cache/17d03613c125918cd0766f51918feb21dc3c074a/_background-origin.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/17d03613c125918cd0766f51918feb21dc3c074a/_background-size.scssc" afterPath="$PROJECT_DIR$/.sass-cache/17d03613c125918cd0766f51918feb21dc3c074a/_background-size.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/5a462c574cc9d6048b27e284d2bee463ad06adb0/_base.scssc" afterPath="$PROJECT_DIR$/.sass-cache/5a462c574cc9d6048b27e284d2bee463ad06adb0/_base.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/17d03613c125918cd0766f51918feb21dc3c074a/_border-radius.scssc" afterPath="$PROJECT_DIR$/.sass-cache/17d03613c125918cd0766f51918feb21dc3c074a/_border-radius.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/98a7ed5264178fbd0870c9038118ca3f0a0ab596/_borders.scssc" afterPath="$PROJECT_DIR$/.sass-cache/98a7ed5264178fbd0870c9038118ca3f0a0ab596/_borders.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/17d03613c125918cd0766f51918feb21dc3c074a/_box-shadow.scssc" afterPath="$PROJECT_DIR$/.sass-cache/17d03613c125918cd0766f51918feb21dc3c074a/_box-shadow.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/17d03613c125918cd0766f51918feb21dc3c074a/_box-sizing.scssc" afterPath="$PROJECT_DIR$/.sass-cache/17d03613c125918cd0766f51918feb21dc3c074a/_box-sizing.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/dffb2df37a0936c2cc978fbaf4323c58f60a6797/_breakpoint.scssc" afterPath="$PROJECT_DIR$/.sass-cache/dffb2df37a0936c2cc978fbaf4323c58f60a6797/_breakpoint.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/622f0a367d2abdc892f2af88934fcd5a48a771fe/_brightness.scssc" afterPath="$PROJECT_DIR$/.sass-cache/622f0a367d2abdc892f2af88934fcd5a48a771fe/_brightness.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/cd57c9b0980d0f25e92ee54d3ee2a16b903b7e86/_bullets.scssc" afterPath="$PROJECT_DIR$/.sass-cache/cd57c9b0980d0f25e92ee54d3ee2a16b903b7e86/_bullets.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/0fe24dfc41fffed2d6891c797fcd7dee100afa65/_clearfix.scssc" afterPath="$PROJECT_DIR$/.sass-cache/0fe24dfc41fffed2d6891c797fcd7dee100afa65/_clearfix.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/3dc42df00806de7d8a69305a38a55c4890752fa3/_color.scssc" afterPath="$PROJECT_DIR$/.sass-cache/3dc42df00806de7d8a69305a38a55c4890752fa3/_color.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/17d03613c125918cd0766f51918feb21dc3c074a/_columns.scssc" afterPath="$PROJECT_DIR$/.sass-cache/17d03613c125918cd0766f51918feb21dc3c074a/_columns.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/5c1730f32298ffd91557b8d52e7146c95c422f95/_compass.scssc" afterPath="$PROJECT_DIR$/.sass-cache/5c1730f32298ffd91557b8d52e7146c95c422f95/_compass.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/22b7d36a22d4db069379698a0b905baaa3611d9d/_context.scssc" afterPath="$PROJECT_DIR$/.sass-cache/22b7d36a22d4db069379698a0b905baaa3611d9d/_context.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/622f0a367d2abdc892f2af88934fcd5a48a771fe/_contrast.scssc" afterPath="$PROJECT_DIR$/.sass-cache/622f0a367d2abdc892f2af88934fcd5a48a771fe/_contrast.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/af1a5722249b61fe97c5776f7a26e0902a00f406/_css3.scssc" afterPath="$PROJECT_DIR$/.sass-cache/af1a5722249b61fe97c5776f7a26e0902a00f406/_css3.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/74addf4e91b2ba2bc68516f8bf8498eaedef9cf5/_default-pair.scssc" afterPath="$PROJECT_DIR$/.sass-cache/74addf4e91b2ba2bc68516f8bf8498eaedef9cf5/_default-pair.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/74addf4e91b2ba2bc68516f8bf8498eaedef9cf5/_default.scssc" afterPath="$PROJECT_DIR$/.sass-cache/74addf4e91b2ba2bc68516f8bf8498eaedef9cf5/_default.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/9625ff729eb857eaaa9bd78281ed4259add16f0e/_default.scssc" afterPath="$PROJECT_DIR$/.sass-cache/9625ff729eb857eaaa9bd78281ed4259add16f0e/_default.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/a558dd1abf3da0de05c6c532db312d666cc760b7/_default.scssc" afterPath="$PROJECT_DIR$/.sass-cache/a558dd1abf3da0de05c6c532db312d666cc760b7/_default.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/17d03613c125918cd0766f51918feb21dc3c074a/_deprecated-support.scssc" afterPath="$PROJECT_DIR$/.sass-cache/17d03613c125918cd0766f51918feb21dc3c074a/_deprecated-support.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/74addf4e91b2ba2bc68516f8bf8498eaedef9cf5/_double-string.scssc" afterPath="$PROJECT_DIR$/.sass-cache/74addf4e91b2ba2bc68516f8bf8498eaedef9cf5/_double-string.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/fd37e48f404fe1a3747e66fd29bef17f6c31f140/_double.scssc" afterPath="$PROJECT_DIR$/.sass-cache/fd37e48f404fe1a3747e66fd29bef17f6c31f140/_double.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/bbe6e3467eb0788de7c874201395cdc9422f15de/_ellipsis.scssc" afterPath="$PROJECT_DIR$/.sass-cache/bbe6e3467eb0788de7c874201395cdc9422f15de/_ellipsis.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/17d03613c125918cd0766f51918feb21dc3c074a/_filter.scssc" afterPath="$PROJECT_DIR$/.sass-cache/17d03613c125918cd0766f51918feb21dc3c074a/_filter.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/17d03613c125918cd0766f51918feb21dc3c074a/_flexbox.scssc" afterPath="$PROJECT_DIR$/.sass-cache/17d03613c125918cd0766f51918feb21dc3c074a/_flexbox.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/0fe24dfc41fffed2d6891c797fcd7dee100afa65/_float.scssc" afterPath="$PROJECT_DIR$/.sass-cache/0fe24dfc41fffed2d6891c797fcd7dee100afa65/_float.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/17d03613c125918cd0766f51918feb21dc3c074a/_font-face.scssc" afterPath="$PROJECT_DIR$/.sass-cache/17d03613c125918cd0766f51918feb21dc3c074a/_font-face.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/bbe6e3467eb0788de7c874201395cdc9422f15de/_force-wrap.scssc" afterPath="$PROJECT_DIR$/.sass-cache/bbe6e3467eb0788de7c874201395cdc9422f15de/_force-wrap.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/3dc42df00806de7d8a69305a38a55c4890752fa3/_general.scssc" afterPath="$PROJECT_DIR$/.sass-cache/3dc42df00806de7d8a69305a38a55c4890752fa3/_general.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/782a0bd87992107041654cec56e572d9555410d7/_grid-background.scssc" afterPath="$PROJECT_DIR$/.sass-cache/782a0bd87992107041654cec56e572d9555410d7/_grid-background.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/0fe24dfc41fffed2d6891c797fcd7dee100afa65/_hacks.scssc" afterPath="$PROJECT_DIR$/.sass-cache/0fe24dfc41fffed2d6891c797fcd7dee100afa65/_hacks.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/22b7d36a22d4db069379698a0b905baaa3611d9d/_helpers.scssc" afterPath="$PROJECT_DIR$/.sass-cache/22b7d36a22d4db069379698a0b905baaa3611d9d/_helpers.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/cd57c9b0980d0f25e92ee54d3ee2a16b903b7e86/_horizontal-list.scssc" afterPath="$PROJECT_DIR$/.sass-cache/cd57c9b0980d0f25e92ee54d3ee2a16b903b7e86/_horizontal-list.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/f80149e2d24d84e9c8bc0e2a066a9d62bc1f6d5b/_hover-link.scssc" afterPath="$PROJECT_DIR$/.sass-cache/f80149e2d24d84e9c8bc0e2a066a9d62bc1f6d5b/_hover-link.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/17d03613c125918cd0766f51918feb21dc3c074a/_hyphenation.scssc" afterPath="$PROJECT_DIR$/.sass-cache/17d03613c125918cd0766f51918feb21dc3c074a/_hyphenation.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/17d03613c125918cd0766f51918feb21dc3c074a/_images.scssc" afterPath="$PROJECT_DIR$/.sass-cache/17d03613c125918cd0766f51918feb21dc3c074a/_images.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/cd57c9b0980d0f25e92ee54d3ee2a16b903b7e86/_inline-block-list.scssc" afterPath="$PROJECT_DIR$/.sass-cache/cd57c9b0980d0f25e92ee54d3ee2a16b903b7e86/_inline-block-list.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/17d03613c125918cd0766f51918feb21dc3c074a/_inline-block.scssc" afterPath="$PROJECT_DIR$/.sass-cache/17d03613c125918cd0766f51918feb21dc3c074a/_inline-block.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/cd57c9b0980d0f25e92ee54d3ee2a16b903b7e86/_inline-list.scssc" afterPath="$PROJECT_DIR$/.sass-cache/cd57c9b0980d0f25e92ee54d3ee2a16b903b7e86/_inline-list.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/f80149e2d24d84e9c8bc0e2a066a9d62bc1f6d5b/_link-colors.scssc" afterPath="$PROJECT_DIR$/.sass-cache/f80149e2d24d84e9c8bc0e2a066a9d62bc1f6d5b/_link-colors.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/573835d864b4df5ce94e4258e1e431786e6d4972/_links.scssc" afterPath="$PROJECT_DIR$/.sass-cache/573835d864b4df5ce94e4258e1e431786e6d4972/_links.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/573835d864b4df5ce94e4258e1e431786e6d4972/_lists.scssc" afterPath="$PROJECT_DIR$/.sass-cache/573835d864b4df5ce94e4258e1e431786e6d4972/_lists.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/0fe24dfc41fffed2d6891c797fcd7dee100afa65/_min.scssc" afterPath="$PROJECT_DIR$/.sass-cache/0fe24dfc41fffed2d6891c797fcd7dee100afa65/_min.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/22b7d36a22d4db069379698a0b905baaa3611d9d/_no-query.scssc" afterPath="$PROJECT_DIR$/.sass-cache/22b7d36a22d4db069379698a0b905baaa3611d9d/_no-query.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/bbe6e3467eb0788de7c874201395cdc9422f15de/_nowrap.scssc" afterPath="$PROJECT_DIR$/.sass-cache/bbe6e3467eb0788de7c874201395cdc9422f15de/_nowrap.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/17d03613c125918cd0766f51918feb21dc3c074a/_opacity.scssc" afterPath="$PROJECT_DIR$/.sass-cache/17d03613c125918cd0766f51918feb21dc3c074a/_opacity.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/22b7d36a22d4db069379698a0b905baaa3611d9d/_parsers.scssc" afterPath="$PROJECT_DIR$/.sass-cache/22b7d36a22d4db069379698a0b905baaa3611d9d/_parsers.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/fd37e48f404fe1a3747e66fd29bef17f6c31f140/_query.scssc" afterPath="$PROJECT_DIR$/.sass-cache/fd37e48f404fe1a3747e66fd29bef17f6c31f140/_query.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/17d03613c125918cd0766f51918feb21dc3c074a/_regions.scssc" afterPath="$PROJECT_DIR$/.sass-cache/17d03613c125918cd0766f51918feb21dc3c074a/_regions.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/bbe6e3467eb0788de7c874201395cdc9422f15de/_replacement.scssc" afterPath="$PROJECT_DIR$/.sass-cache/bbe6e3467eb0788de7c874201395cdc9422f15de/_replacement.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/0fe24dfc41fffed2d6891c797fcd7dee100afa65/_reset.scssc" afterPath="$PROJECT_DIR$/.sass-cache/0fe24dfc41fffed2d6891c797fcd7dee100afa65/_reset.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/af1a5722249b61fe97c5776f7a26e0902a00f406/_reset.scssc" afterPath="$PROJECT_DIR$/.sass-cache/af1a5722249b61fe97c5776f7a26e0902a00f406/_reset.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/1b738f11201afbb477e64dc7110840de8846bfa2/_resolution.scssc" afterPath="$PROJECT_DIR$/.sass-cache/1b738f11201afbb477e64dc7110840de8846bfa2/_resolution.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/fd37e48f404fe1a3747e66fd29bef17f6c31f140/_resolution.scssc" afterPath="$PROJECT_DIR$/.sass-cache/fd37e48f404fe1a3747e66fd29bef17f6c31f140/_resolution.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/22b7d36a22d4db069379698a0b905baaa3611d9d/_respond-to.scssc" afterPath="$PROJECT_DIR$/.sass-cache/22b7d36a22d4db069379698a0b905baaa3611d9d/_respond-to.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/98a7ed5264178fbd0870c9038118ca3f0a0ab596/_scaffolding.scssc" afterPath="$PROJECT_DIR$/.sass-cache/98a7ed5264178fbd0870c9038118ca3f0a0ab596/_scaffolding.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/fd37e48f404fe1a3747e66fd29bef17f6c31f140/_single.scssc" afterPath="$PROJECT_DIR$/.sass-cache/fd37e48f404fe1a3747e66fd29bef17f6c31f140/_single.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/5a462c574cc9d6048b27e284d2bee463ad06adb0/_sprite-img.scssc" afterPath="$PROJECT_DIR$/.sass-cache/5a462c574cc9d6048b27e284d2bee463ad06adb0/_sprite-img.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/3dc42df00806de7d8a69305a38a55c4890752fa3/_sprites.scssc" afterPath="$PROJECT_DIR$/.sass-cache/3dc42df00806de7d8a69305a38a55c4890752fa3/_sprites.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/af1a5722249b61fe97c5776f7a26e0902a00f406/_support.scssc" afterPath="$PROJECT_DIR$/.sass-cache/af1a5722249b61fe97c5776f7a26e0902a00f406/_support.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/3dc42df00806de7d8a69305a38a55c4890752fa3/_tables.scssc" afterPath="$PROJECT_DIR$/.sass-cache/3dc42df00806de7d8a69305a38a55c4890752fa3/_tables.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/0fe24dfc41fffed2d6891c797fcd7dee100afa65/_tag-cloud.scssc" afterPath="$PROJECT_DIR$/.sass-cache/0fe24dfc41fffed2d6891c797fcd7dee100afa65/_tag-cloud.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/17d03613c125918cd0766f51918feb21dc3c074a/_text-shadow.scssc" afterPath="$PROJECT_DIR$/.sass-cache/17d03613c125918cd0766f51918feb21dc3c074a/_text-shadow.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/573835d864b4df5ce94e4258e1e431786e6d4972/_text.scssc" afterPath="$PROJECT_DIR$/.sass-cache/573835d864b4df5ce94e4258e1e431786e6d4972/_text.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/17d03613c125918cd0766f51918feb21dc3c074a/_transform.scssc" afterPath="$PROJECT_DIR$/.sass-cache/17d03613c125918cd0766f51918feb21dc3c074a/_transform.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/17d03613c125918cd0766f51918feb21dc3c074a/_transition.scssc" afterPath="$PROJECT_DIR$/.sass-cache/17d03613c125918cd0766f51918feb21dc3c074a/_transition.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/fd37e48f404fe1a3747e66fd29bef17f6c31f140/_triple.scssc" afterPath="$PROJECT_DIR$/.sass-cache/fd37e48f404fe1a3747e66fd29bef17f6c31f140/_triple.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/af1a5722249b61fe97c5776f7a26e0902a00f406/_typography.scssc" afterPath="$PROJECT_DIR$/.sass-cache/af1a5722249b61fe97c5776f7a26e0902a00f406/_typography.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/573835d864b4df5ce94e4258e1e431786e6d4972/_units.scssc" afterPath="$PROJECT_DIR$/.sass-cache/573835d864b4df5ce94e4258e1e431786e6d4972/_units.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/f80149e2d24d84e9c8bc0e2a066a9d62bc1f6d5b/_unstyled-link.scssc" afterPath="$PROJECT_DIR$/.sass-cache/f80149e2d24d84e9c8bc0e2a066a9d62bc1f6d5b/_unstyled-link.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/17d03613c125918cd0766f51918feb21dc3c074a/_user-interface.scssc" afterPath="$PROJECT_DIR$/.sass-cache/17d03613c125918cd0766f51918feb21dc3c074a/_user-interface.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/65e4c30c131f260ea88c3e4f2e16dfc2ba547e74/_utilities.scssc" afterPath="$PROJECT_DIR$/.sass-cache/65e4c30c131f260ea88c3e4f2e16dfc2ba547e74/_utilities.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/af1a5722249b61fe97c5776f7a26e0902a00f406/_utilities.scssc" afterPath="$PROJECT_DIR$/.sass-cache/af1a5722249b61fe97c5776f7a26e0902a00f406/_utilities.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.sass-cache/573835d864b4df5ce94e4258e1e431786e6d4972/_vertical_rhythm.scssc" afterPath="$PROJECT_DIR$/.sass-cache/573835d864b4df5ce94e4258e1e431786e6d4972/_vertical_rhythm.scssc" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/app/views/layouts/default.blade.php" afterPath="$PROJECT_DIR$/app/views/layouts/default.blade.php" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/dial4dough.dev.iml" afterPath="$PROJECT_DIR$/.idea/dial4dough.dev.iml" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/gulpfile.js" afterPath="$PROJECT_DIR$/gulpfile.js" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/public/css/style.css" afterPath="$PROJECT_DIR$/public/css/style.css" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/app/assets/sass/style.scss" afterPath="$PROJECT_DIR$/app/assets/sass/style.scss" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
@@ -63,8 +129,8 @@
           <file leaf-file-name="style.scss" pinned="false" current-in-tab="true">
             <entry file="file://$PROJECT_DIR$/app/assets/sass/style.scss">
               <provider selected="true" editor-type-id="text-editor">
-                <state vertical-scroll-proportion="0.43032786" vertical-offset="17250" max-vertical-offset="20325">
-                  <caret line="1157" column="40" selection-start-line="1157" selection-start-column="40" selection-end-line="1157" selection-end-column="40" />
+                <state vertical-scroll-proportion="0.5504587" vertical-offset="60" max-vertical-offset="20520">
+                  <caret line="12" column="0" selection-start-line="12" selection-start-column="0" selection-end-line="12" selection-end-column="0" />
                   <folding />
                 </state>
               </provider>
@@ -74,11 +140,11 @@
       </split-first>
       <split-second>
         <leaf>
-          <file leaf-file-name="style.css" pinned="false" current-in-tab="true">
-            <entry file="file://$PROJECT_DIR$/public/css/style.css">
+          <file leaf-file-name="default.blade.php" pinned="false" current-in-tab="true">
+            <entry file="file://$PROJECT_DIR$/app/views/layouts/default.blade.php">
               <provider selected="true" editor-type-id="text-editor">
-                <state vertical-scroll-proportion="0.06276151" vertical-offset="0" max-vertical-offset="239">
-                  <caret line="1" column="0" selection-start-line="0" selection-start-column="11" selection-end-line="0" selection-end-column="32" />
+                <state vertical-scroll-proportion="0.31512606" vertical-offset="150" max-vertical-offset="1290">
+                  <caret line="15" column="104" selection-start-line="15" selection-start-column="104" selection-end-line="15" selection-end-column="104" />
                   <folding />
                 </state>
               </provider>
@@ -143,8 +209,8 @@
         <option value="$PROJECT_DIR$/app/views/pages/scripts/create.blade.php" />
         <option value="$PROJECT_DIR$/app/views/rules/privatepolicie.blade.php" />
         <option value="$PROJECT_DIR$/gulpfile.js" />
-        <option value="$PROJECT_DIR$/app/views/layouts/default.blade.php" />
         <option value="$PROJECT_DIR$/app/assets/sass/style.scss" />
+        <option value="$PROJECT_DIR$/app/views/layouts/default.blade.php" />
       </list>
     </option>
   </component>
@@ -201,198 +267,6 @@
               <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
             </PATH_ELEMENT>
           </PATH>
-          <PATH>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="dial4dough.dev" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.ProjectViewProjectNode" />
-            </PATH_ELEMENT>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="dial4dough.dev" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
-            </PATH_ELEMENT>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="public" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
-            </PATH_ELEMENT>
-          </PATH>
-          <PATH>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="dial4dough.dev" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.ProjectViewProjectNode" />
-            </PATH_ELEMENT>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="dial4dough.dev" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
-            </PATH_ELEMENT>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="public" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
-            </PATH_ELEMENT>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="images" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
-            </PATH_ELEMENT>
-          </PATH>
-          <PATH>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="dial4dough.dev" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.ProjectViewProjectNode" />
-            </PATH_ELEMENT>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="dial4dough.dev" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
-            </PATH_ELEMENT>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="public" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
-            </PATH_ELEMENT>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="css" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
-            </PATH_ELEMENT>
-          </PATH>
-          <PATH>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="dial4dough.dev" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.ProjectViewProjectNode" />
-            </PATH_ELEMENT>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="dial4dough.dev" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
-            </PATH_ELEMENT>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="public" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
-            </PATH_ELEMENT>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="css" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
-            </PATH_ELEMENT>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="images" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
-            </PATH_ELEMENT>
-          </PATH>
-          <PATH>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="dial4dough.dev" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.ProjectViewProjectNode" />
-            </PATH_ELEMENT>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="dial4dough.dev" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
-            </PATH_ELEMENT>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="app" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
-            </PATH_ELEMENT>
-          </PATH>
-          <PATH>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="dial4dough.dev" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.ProjectViewProjectNode" />
-            </PATH_ELEMENT>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="dial4dough.dev" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
-            </PATH_ELEMENT>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="app" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
-            </PATH_ELEMENT>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="views" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
-            </PATH_ELEMENT>
-          </PATH>
-          <PATH>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="dial4dough.dev" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.ProjectViewProjectNode" />
-            </PATH_ELEMENT>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="dial4dough.dev" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
-            </PATH_ELEMENT>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="app" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
-            </PATH_ELEMENT>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="views" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
-            </PATH_ELEMENT>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="pages" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
-            </PATH_ELEMENT>
-          </PATH>
-          <PATH>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="dial4dough.dev" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.ProjectViewProjectNode" />
-            </PATH_ELEMENT>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="dial4dough.dev" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
-            </PATH_ELEMENT>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="app" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
-            </PATH_ELEMENT>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="assets" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
-            </PATH_ELEMENT>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="sass" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
-            </PATH_ELEMENT>
-          </PATH>
-          <PATH>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="dial4dough.dev" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.ProjectViewProjectNode" />
-            </PATH_ELEMENT>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="dial4dough.dev" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
-            </PATH_ELEMENT>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="app" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
-            </PATH_ELEMENT>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="assets" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
-            </PATH_ELEMENT>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="sass" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
-            </PATH_ELEMENT>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="foundation" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
-            </PATH_ELEMENT>
-          </PATH>
-          <PATH>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="dial4dough.dev" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.ProjectViewProjectNode" />
-            </PATH_ELEMENT>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="dial4dough.dev" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
-            </PATH_ELEMENT>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="app" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
-            </PATH_ELEMENT>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="assets" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
-            </PATH_ELEMENT>
-          </PATH>
         </subPane>
       </pane>
       <pane id="Scope" />
@@ -410,7 +284,7 @@
     <property name="ToolWindowEvent Log.ShowToolbar" value="false" />
     <property name="editorconfig.notification" value="Applied .editorconfig settings" />
     <property name="list.type.of.created.stylesheet" value="SCSS" />
-    <property name="SearchEverywhereHistoryKey" value="def&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/layouts/default.blade.php&#10;con&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/pages/partials/content.blade.php&#10;gul&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/gulpfile.js&#10;gulpfi&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/gulpfile.js&#10;priva&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/rules/privatepolicie.blade.php&#10;content&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/pages/partials/content.blade.php&#10;defa&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/layouts/default.blade.php&#10;conten&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/pages/partials/content.blade.php&#10;homecon&#9;null&#9;null&#10;v&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/Vagrantfile&#10;.ht&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/public/.htaccess&#10;cont&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/pages/partials/content.blade.php&#10;nav&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/layouts/partials/nav.blade.php&#10;Home&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/pages/home.blade.php&#10;h&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/pages/home.blade.php&#10;Vag&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/Vagrantfile&#10;hom&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/pages/home.blade.php&#10;home&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/pages/home.blade.php&#10;Va&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/Vagrantfile&#10;co&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/pages/partials/content.blade.php&#10;vag&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/Vagrantfile&#10;DbPa&#9;null&#9;null&#10;ht&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/public/.htaccess&#10;in&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/layouts/inner.blade.php&#10;inner&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/layouts/inner.blade.php&#10;layouts/i&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/layouts/inner.blade.php&#10;layouts/inner&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/layouts/inner.blade.php&#10;upgrade&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/pages/upgrade.blade.php&#10;.h&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/public/.htaccess&#10;layouts/partials/nav&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/layouts/partials/nav.blade.php&#10;layouts/default&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/layouts/default.blade.php&#10;home.blade&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/pages/home.blade.php&#10;foot&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/layouts/partials/footer.blade.php&#10;nav.&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/layouts/partials/nav.blade.php&#10;up&#9;FILE&#9;file:///Users/joshhead/Documents/Github/dial4dough.dev/app/views/pages/upgrade.blade.php&#10;creat&#9;FILE&#9;file:///Users/joshhead/Documents/Github/dial4dough.dev/app/views/pages/scripts/create.blade.php&#10;partials/foo&#9;FILE&#9;file:///Users/joshhead/Documents/Github/dial4dough.dev/app/views/layouts/partials/footer.blade.php&#10;gu&#9;FILE&#9;file:///Users/joshhead/Documents/Github/dial4dough.dev/gulpfile.js&#10;va&#9;FILE&#9;file:///Users/joshhead/Documents/Github/dial4dough.dev/Vagrantfile&#10;pages/partials/&#9;FILE&#9;file:///Users/joshhead/Documents/Github/dial4dough.dev/app/views/pages/partials&#10;home.&#9;FILE&#9;file:///Users/joshhead/Documents/Github/dial4dough.dev/app/views/pages/home.blade.php&#10;ho&#9;FILE&#9;file:///Users/joshhead/Documents/Github/dial4dough.dev/app/views/pages/home.blade.php&#10;crea&#9;FILE&#9;file:///Users/joshhead/Documents/Github/dial4dough.dev/app/views/pages/scripts/create.blade.php&#10;ge&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/layouts/generic.blade.php&#10;na&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/layouts/partials/nav.blade.php&#10;rules/pri&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/rules/privatepolicie.blade.php&#10;rules/ter&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/rules/terms.blade.php&#10;PageCont&#9;null&#9;null&#10;pages/site/about&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/pages/site/about.blade.php" />
+    <property name="SearchEverywhereHistoryKey" value="de&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/layouts/default.blade.php&#10;gul&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/gulpfile.js&#10;d&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/layouts/default.blade.php&#10;def&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/layouts/default.blade.php&#10;con&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/pages/partials/content.blade.php&#10;gulpfi&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/gulpfile.js&#10;priva&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/rules/privatepolicie.blade.php&#10;content&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/pages/partials/content.blade.php&#10;defa&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/layouts/default.blade.php&#10;conten&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/pages/partials/content.blade.php&#10;homecon&#9;null&#9;null&#10;v&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/Vagrantfile&#10;.ht&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/public/.htaccess&#10;cont&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/pages/partials/content.blade.php&#10;nav&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/layouts/partials/nav.blade.php&#10;Home&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/pages/home.blade.php&#10;h&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/pages/home.blade.php&#10;Vag&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/Vagrantfile&#10;hom&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/pages/home.blade.php&#10;home&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/pages/home.blade.php&#10;Va&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/Vagrantfile&#10;co&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/pages/partials/content.blade.php&#10;vag&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/Vagrantfile&#10;DbPa&#9;null&#9;null&#10;ht&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/public/.htaccess&#10;in&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/layouts/inner.blade.php&#10;inner&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/layouts/inner.blade.php&#10;layouts/i&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/layouts/inner.blade.php&#10;layouts/inner&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/layouts/inner.blade.php&#10;upgrade&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/pages/upgrade.blade.php&#10;.h&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/public/.htaccess&#10;layouts/partials/nav&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/layouts/partials/nav.blade.php&#10;layouts/default&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/layouts/default.blade.php&#10;home.blade&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/pages/home.blade.php&#10;foot&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/layouts/partials/footer.blade.php&#10;nav.&#9;FILE&#9;file:///Users/jhead/Documents/Github/dial4dough.dev/app/views/layouts/partials/nav.blade.php&#10;up&#9;FILE&#9;file:///Users/joshhead/Documents/Github/dial4dough.dev/app/views/pages/upgrade.blade.php&#10;creat&#9;FILE&#9;file:///Users/joshhead/Documents/Github/dial4dough.dev/app/views/pages/scripts/create.blade.php&#10;partials/foo&#9;FILE&#9;file:///Users/joshhead/Documents/Github/dial4dough.dev/app/views/layouts/partials/footer.blade.php&#10;gu&#9;FILE&#9;file:///Users/joshhead/Documents/Github/dial4dough.dev/gulpfile.js&#10;va&#9;FILE&#9;file:///Users/joshhead/Documents/Github/dial4dough.dev/Vagrantfile&#10;pages/partials/&#9;FILE&#9;file:///Users/joshhead/Documents/Github/dial4dough.dev/app/views/pages/partials&#10;home.&#9;FILE&#9;file:///Users/joshhead/Documents/Github/dial4dough.dev/app/views/pages/home.blade.php&#10;ho&#9;FILE&#9;file:///Users/joshhead/Documents/Github/dial4dough.dev/app/views/pages/home.blade.php&#10;crea&#9;FILE&#9;file:///Users/joshhead/Documents/Github/dial4dough.dev/app/views/pages/scripts/create.blade.php&#10;ge&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/layouts/generic.blade.php&#10;na&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/layouts/partials/nav.blade.php&#10;rules/pri&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/rules/privatepolicie.blade.php&#10;rules/ter&#9;FILE&#9;file:///Users/joshhead/Documents/GitHub/dial4dough.dev/app/views/rules/terms.blade.php&#10;PageCont&#9;null&#9;null" />
     <property name="com.intellij.ide.scratch.ScratchpadManager" value="Blade" />
     <property name="DefaultHtmlFileTemplate" value="Html5" />
   </component>
@@ -516,15 +390,16 @@
     <editor active="true" />
     <layout>
       <window_info id="Changes" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
-      <window_info id="Terminal" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" weight="0.3364865" sideWeight="0.5393419" order="7" side_tool="false" content_ui="tabs" />
-      <window_info id="TODO" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.32867134" sideWeight="0.5" order="6" side_tool="false" content_ui="tabs" />
+      <window_info id="Terminal" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" weight="0.33739838" sideWeight="0.5393419" order="7" side_tool="false" content_ui="tabs" />
+      <window_info id="TODO" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.32837838" sideWeight="0.5" order="6" side_tool="false" content_ui="tabs" />
+      <window_info id="Find" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.32384825" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
       <window_info id="Database" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.3297568" sideWeight="0.5" order="4" side_tool="false" content_ui="tabs" />
       <window_info id="Structure" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.24964234" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
       <window_info id="Application Servers" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="8" side_tool="false" content_ui="tabs" />
       <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" weight="0.31500742" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
       <window_info id="Favorites" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="2" side_tool="true" content_ui="tabs" />
       <window_info id="Event Log" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.15783133" sideWeight="0.46065807" order="7" side_tool="true" content_ui="tabs" />
-      <window_info id="Version Control" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
+      <window_info id="Version Control" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.32972974" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
       <window_info id="Palette&#9;" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
       <window_info id="UI Designer" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
       <window_info id="Ant Build" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.25" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
@@ -536,7 +411,6 @@
       <window_info id="Designer" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
       <window_info id="Message" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="0" side_tool="false" content_ui="tabs" />
       <window_info id="Palette" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
-      <window_info id="Find" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.32384825" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
       <window_info id="Debug" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.4" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
       <window_info id="Maven Projects" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
       <window_info id="Commander" active="false" anchor="right" auto_hide="false" internal_type="SLIDING" type="SLIDING" visible="false" weight="0.4" sideWeight="0.5" order="0" side_tool="false" content_ui="tabs" />
@@ -600,13 +474,6 @@
     <option name="FILTER_TARGETS" value="false" />
   </component>
   <component name="editorHistoryManager">
-    <entry file="file://$PROJECT_DIR$/app/views/layouts/partials/innerNav.blade.php">
-      <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.0" vertical-offset="0" max-vertical-offset="605">
-          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/app/views/layouts/down.blade.php">
       <provider selected="true" editor-type-id="text-editor">
         <state vertical-scroll-proportion="0.0" vertical-offset="0" max-vertical-offset="1800">
@@ -696,13 +563,6 @@
         <state />
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/app/views/layouts/partials/nav.blade.php">
-      <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.42769858" vertical-offset="0" max-vertical-offset="645">
-          <caret line="14" column="0" selection-start-line="14" selection-start-column="0" selection-end-line="14" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/public/.htaccess">
       <provider selected="true" editor-type-id="text-editor">
         <state vertical-scroll-proportion="0.65163934" vertical-offset="66" max-vertical-offset="375">
@@ -782,14 +642,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/app/views/layouts/partials/footer.blade.php">
-      <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.87447697" vertical-offset="301" max-vertical-offset="615">
-          <caret line="34" column="14" selection-start-line="34" selection-start-column="14" selection-end-line="34" selection-end-column="34" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/app/views/pages/home.blade.php">
       <provider selected="true" editor-type-id="text-editor">
         <state vertical-scroll-proportion="0.43032786" vertical-offset="0" max-vertical-offset="645">
@@ -861,37 +713,6 @@
         <state />
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/gulpfile.js">
-      <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.4052953" vertical-offset="701" max-vertical-offset="3795">
-          <caret line="60" column="11" selection-start-line="60" selection-start-column="11" selection-end-line="60" selection-end-column="11" />
-          <folding>
-            <marker date="1435476729000" expanded="true" signature="-1:-1" placeholder="{...}" />
-            <marker date="1435476729000" expanded="true" signature="-1:-1" placeholder="{...}" />
-            <marker date="1435476729000" expanded="true" signature="-1:-1" placeholder="{...}" />
-            <marker date="1435476729000" expanded="true" signature="-1:-1" placeholder="{&quot;progressive&quot;: true...}" />
-            <marker date="1435476729000" expanded="true" signature="-1:-1" placeholder="//..." />
-            <marker date="1435476729000" expanded="true" signature="-1:-1" placeholder="{...}" />
-            <marker date="1435476729000" expanded="true" signature="-1:-1" placeholder="{...}" />
-            <marker date="1435476729000" expanded="true" signature="-1:-1" placeholder="{...}" />
-            <marker date="1435476729000" expanded="true" signature="-1:-1" placeholder="{...}" />
-            <marker date="1435476729000" expanded="true" signature="-1:-1" placeholder="{...}" />
-            <marker date="1435476729000" expanded="true" signature="-1:-1" placeholder="{&quot;cascade&quot;: false...}" />
-            <marker date="1435476729000" expanded="true" signature="-1:-1" placeholder="{...}" />
-            <marker date="1435476729000" expanded="true" signature="-1:-1" placeholder="{...}" />
-            <marker date="1435476729000" expanded="true" signature="-1:-1" placeholder="{...}" />
-            <marker date="1435476729000" expanded="true" signature="-1:-1" placeholder="{...}" />
-            <marker date="1435476729000" expanded="true" signature="-1:-1" placeholder="{...}" />
-            <marker date="1435476729000" expanded="true" signature="-1:-1" placeholder="{&quot;sass&quot;: 'app/assets/sass'...}" />
-            <marker date="1435476729000" expanded="true" signature="-1:-1" placeholder="{...}" />
-            <marker date="1435476729000" expanded="true" signature="-1:-1" placeholder="{...}" />
-            <marker date="1435476729000" expanded="true" signature="-1:-1" placeholder="{...}" />
-            <marker date="1435476729000" expanded="true" signature="-1:-1" placeholder="{&quot;livereload&quot;: true...}" />
-            <marker date="1435476729000" expanded="true" signature="-1:-1" placeholder="//..." />
-          </folding>
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/app/views/pages/partials/content.blade.php">
       <provider selected="true" editor-type-id="text-editor">
         <state vertical-scroll-proportion="-5.8737273" vertical-offset="3124" max-vertical-offset="3630">
@@ -957,40 +778,6 @@
       <provider selected="true" editor-type-id="text-editor">
         <state vertical-scroll-proportion="0.0" vertical-offset="0" max-vertical-offset="244">
           <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/app/views/layouts/default.blade.php">
-      <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.37656903" vertical-offset="135" max-vertical-offset="1305">
-          <caret line="15" column="0" selection-start-line="15" selection-start-column="0" selection-end-line="15" selection-end-column="0" />
-          <folding>
-            <marker date="1435476925000" expanded="true" signature="-1:-1" placeholder="..." />
-            <marker date="1435476925000" expanded="true" signature="-1:-1" placeholder="..." />
-            <marker date="1435476925000" expanded="true" signature="-1:-1" placeholder="..." />
-            <marker date="1435476925000" expanded="true" signature="-1:-1" placeholder="..." />
-            <marker date="1435476925000" expanded="true" signature="-1:-1" placeholder="..." />
-            <marker date="1435476925000" expanded="true" signature="-1:-1" placeholder="..." />
-            <marker date="1435476925000" expanded="false" signature="-1:-1" placeholder="..." />
-            <marker date="1435476925000" expanded="true" signature="-1:-1" placeholder="..." />
-            <marker date="1435476925000" expanded="true" signature="-1:-1" placeholder="{...}" />
-            <marker date="1435476925000" expanded="true" signature="-1:-1" placeholder="{&quot;event&quot;: 'gtm.js'...}" />
-            <marker date="1435476925000" expanded="true" signature="-1:-1" placeholder="..." />
-            <marker date="1435476925000" expanded="true" signature="-1:-1" placeholder="{...}" />
-            <marker date="1435476925000" expanded="true" signature="-1:-1" placeholder="..." />
-            <marker date="1435476925000" expanded="true" signature="-1:-1" placeholder="..." />
-            <marker date="1435476925000" expanded="true" signature="-1:-1" placeholder="..." />
-            <marker date="1435476925000" expanded="true" signature="-1:-1" placeholder="..." />
-            <marker date="1435476925000" expanded="true" signature="-1:-1" placeholder="..." />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/public/css/style.css">
-      <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.06276151" vertical-offset="0" max-vertical-offset="239">
-          <caret line="1" column="0" selection-start-line="0" selection-start-column="11" selection-end-line="0" selection-end-column="32" />
           <folding />
         </state>
       </provider>
@@ -1127,33 +914,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/app/assets/sass/_vars.scss">
-      <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.0" vertical-offset="0" max-vertical-offset="900">
-          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/app/assets/sass/_mixins.scss">
-      <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.0" vertical-offset="0" max-vertical-offset="690">
-          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-          <folding>
-            <marker date="1425350590000" expanded="true" signature="-1:-1" placeholder="{...}" />
-            <marker date="1425350590000" expanded="true" signature="-1:-1" placeholder="{...}" />
-            <marker date="1425350590000" expanded="true" signature="-1:-1" placeholder="{...}" />
-            <marker date="1425350590000" expanded="true" signature="-1:-1" placeholder="{...}" />
-            <marker date="1425350590000" expanded="true" signature="-1:-1" placeholder="{...}" />
-            <marker date="1425350590000" expanded="true" signature="-1:-1" placeholder="{...}" />
-            <marker date="1425350590000" expanded="true" signature="-1:-1" placeholder="{...}" />
-            <marker date="1425350590000" expanded="true" signature="-1:-1" placeholder="{...}" />
-            <marker date="1425350590000" expanded="true" signature="-1:-1" placeholder="{...}" />
-            <marker date="1425350590000" expanded="true" signature="-1:-1" placeholder="{...}" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/app/assets/sass/foundation/_functions.scss">
       <provider selected="true" editor-type-id="text-editor">
         <state vertical-scroll-proportion="-1.8442622" vertical-offset="450" max-vertical-offset="1620">
@@ -1181,10 +941,121 @@
         </state>
       </provider>
     </entry>
+    <entry file="file://$PROJECT_DIR$/public/css/style.css">
+      <provider selected="true" editor-type-id="text-editor">
+        <state vertical-scroll-proportion="0.06276151" vertical-offset="0" max-vertical-offset="239">
+          <caret line="1" column="0" selection-start-line="1" selection-start-column="0" selection-end-line="1" selection-end-column="0" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/app/views/layouts/partials/nav.blade.php">
+      <provider selected="true" editor-type-id="text-editor">
+        <state vertical-scroll-proportion="-0.8200837" vertical-offset="406" max-vertical-offset="645">
+          <caret line="14" column="0" selection-start-line="14" selection-start-column="0" selection-end-line="14" selection-end-column="0" />
+          <folding>
+            <marker date="1435441261000" expanded="true" signature="-1:-1" placeholder="..." />
+            <marker date="1435441261000" expanded="true" signature="-1:-1" placeholder="..." />
+            <marker date="1435441261000" expanded="true" signature="-1:-1" placeholder="..." />
+            <marker date="1435441261000" expanded="true" signature="-1:-1" placeholder="..." />
+            <marker date="1435441261000" expanded="true" signature="-1:-1" placeholder="..." />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/app/views/layouts/partials/footer.blade.php">
+      <provider selected="true" editor-type-id="text-editor">
+        <state vertical-scroll-proportion="0.31380752" vertical-offset="0" max-vertical-offset="615">
+          <caret line="5" column="16" selection-start-line="5" selection-start-column="16" selection-end-line="5" selection-end-column="16" />
+          <folding>
+            <marker date="1432791896000" expanded="true" signature="-1:-1" placeholder="..." />
+            <marker date="1432791896000" expanded="true" signature="-1:-1" placeholder="..." />
+            <marker date="1432791896000" expanded="true" signature="-1:-1" placeholder="..." />
+            <marker date="1432791896000" expanded="true" signature="-1:-1" placeholder="..." />
+            <marker date="1432791896000" expanded="true" signature="-1:-1" placeholder="..." />
+            <marker date="1432791896000" expanded="true" signature="-1:-1" placeholder="..." />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/.gitignore">
+      <provider selected="true" editor-type-id="text-editor">
+        <state vertical-scroll-proportion="0.61728394" vertical-offset="0" max-vertical-offset="270">
+          <caret line="10" column="9" selection-start-line="10" selection-start-column="9" selection-end-line="10" selection-end-column="9" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/gulpfile.js">
+      <provider selected="true" editor-type-id="text-editor">
+        <state vertical-scroll-proportion="0.5840336" vertical-offset="2786" max-vertical-offset="3795">
+          <caret line="195" column="30" selection-start-line="195" selection-start-column="30" selection-end-line="195" selection-end-column="30" />
+          <folding>
+            <marker date="1435478909000" expanded="true" signature="-1:-1" placeholder="{...}" />
+            <marker date="1435478909000" expanded="true" signature="-1:-1" placeholder="{...}" />
+            <marker date="1435478909000" expanded="true" signature="-1:-1" placeholder="{...}" />
+            <marker date="1435478909000" expanded="true" signature="-1:-1" placeholder="{&quot;progressive&quot;: true...}" />
+            <marker date="1435478909000" expanded="true" signature="-1:-1" placeholder="//..." />
+            <marker date="1435478909000" expanded="true" signature="-1:-1" placeholder="{...}" />
+            <marker date="1435478909000" expanded="true" signature="-1:-1" placeholder="{...}" />
+            <marker date="1435478909000" expanded="true" signature="-1:-1" placeholder="{...}" />
+            <marker date="1435478909000" expanded="true" signature="-1:-1" placeholder="{...}" />
+            <marker date="1435478909000" expanded="true" signature="-1:-1" placeholder="{...}" />
+            <marker date="1435478909000" expanded="true" signature="-1:-1" placeholder="{&quot;cascade&quot;: false...}" />
+            <marker date="1435478909000" expanded="true" signature="-1:-1" placeholder="{...}" />
+            <marker date="1435478909000" expanded="true" signature="-1:-1" placeholder="{...}" />
+            <marker date="1435478909000" expanded="true" signature="-1:-1" placeholder="{...}" />
+            <marker date="1435478909000" expanded="true" signature="-1:-1" placeholder="{...}" />
+            <marker date="1435478909000" expanded="true" signature="-1:-1" placeholder="{...}" />
+            <marker date="1435478909000" expanded="true" signature="-1:-1" placeholder="{&quot;sass&quot;: 'app/assets/sass'...}" />
+            <marker date="1435478909000" expanded="true" signature="-1:-1" placeholder="{...}" />
+            <marker date="1435478909000" expanded="true" signature="-1:-1" placeholder="{...}" />
+            <marker date="1435478909000" expanded="true" signature="-1:-1" placeholder="{...}" />
+            <marker date="1435478909000" expanded="true" signature="-1:-1" placeholder="{&quot;livereload&quot;: true...}" />
+            <marker date="1435478909000" expanded="true" signature="-1:-1" placeholder="//..." />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/app/assets/sass/_mixins.scss">
+      <provider selected="true" editor-type-id="text-editor">
+        <state vertical-scroll-proportion="0.0" vertical-offset="0" max-vertical-offset="690">
+          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+          <folding>
+            <marker date="1425350590000" expanded="true" signature="-1:-1" placeholder="{...}" />
+            <marker date="1425350590000" expanded="true" signature="-1:-1" placeholder="{...}" />
+            <marker date="1425350590000" expanded="true" signature="-1:-1" placeholder="{...}" />
+            <marker date="1425350590000" expanded="true" signature="-1:-1" placeholder="{...}" />
+            <marker date="1425350590000" expanded="true" signature="-1:-1" placeholder="{...}" />
+            <marker date="1425350590000" expanded="true" signature="-1:-1" placeholder="{...}" />
+            <marker date="1425350590000" expanded="true" signature="-1:-1" placeholder="{...}" />
+            <marker date="1425350590000" expanded="true" signature="-1:-1" placeholder="{...}" />
+            <marker date="1425350590000" expanded="true" signature="-1:-1" placeholder="{...}" />
+            <marker date="1425350590000" expanded="true" signature="-1:-1" placeholder="{...}" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/app/assets/sass/style.scss">
       <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.43032786" vertical-offset="17250" max-vertical-offset="20325">
-          <caret line="1157" column="40" selection-start-line="1157" selection-start-column="40" selection-end-line="1157" selection-end-column="40" />
+        <state vertical-scroll-proportion="0.5504587" vertical-offset="60" max-vertical-offset="20520">
+          <caret line="12" column="0" selection-start-line="12" selection-start-column="0" selection-end-line="12" selection-end-column="0" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/app/assets/sass/_vars.scss">
+      <provider selected="true" editor-type-id="text-editor">
+        <state vertical-scroll-proportion="0.27230048" vertical-offset="452" max-vertical-offset="900">
+          <caret line="34" column="0" selection-start-line="34" selection-start-column="0" selection-end-line="34" selection-end-column="0" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/app/views/layouts/default.blade.php">
+      <provider selected="true" editor-type-id="text-editor">
+        <state vertical-scroll-proportion="0.31512606" vertical-offset="150" max-vertical-offset="1290">
+          <caret line="15" column="104" selection-start-line="15" selection-start-column="104" selection-end-line="15" selection-end-column="104" />
           <folding />
         </state>
       </provider>
