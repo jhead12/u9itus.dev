@@ -65,6 +65,7 @@ gulp.task('move', function () {
     return gulp.src('./app/assets/images/**/*.*')
         .pipe(imagemin({
             progressive: true,
+            optimizationLevel:5,
             svgoPlugins: [{removeViewBox: false}],
             use: [pngquant()]
         }))
