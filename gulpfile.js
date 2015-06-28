@@ -6,6 +6,9 @@ var gulp = require('gulp'),
     connect = require('gulp-connect'),
     gulpif = require('gulp-if'),
     uglify = require('gulp-uglify'),
+    imagemin = require('gulp-imagemin'),
+    pngquant = require('imagemin-pngquant'),
+
 
     concat = require('gulp-concat'),
     path = require('path');
@@ -56,6 +59,25 @@ sassSources = ['app/assets/sass/style.scss'];
 angular = ['app/assets/javascripts/angular/app.js'];
 cookie = ['app/assets/javascripts/jquery.cookie.js'];
 init = ['app/assets/javascripts/init.js'];
+
+
+gulp.task('move', function () {
+    return gulp.src('./app/assets/images/**/*.*')
+        .pipe(imagemin({
+            progressive: true,
+            svgoPlugins: [{removeViewBox: false}],
+            use: [pngquant()]
+        }))
+        .pipe(gulpif(env === 'production', gulp.dest(outputDir+'images')))
+        .pipe(notify("Images: Moved and Compressed"))
+});
+
+// Copy images to production
+//gulp.task('move', function() {
+//    gulp.src('./app/assets/images/**/*.*')
+//        .pipe(gulpif(env === 'production', gulp.dest(outputDir+'images')))
+//        .pipe(notify("Images: Moved Images"))
+//});
 
 
 
@@ -186,12 +208,7 @@ gulp.task('minify-css', function() {
     .pipe(minifyCSS({keepBreaks:true}))
     .pipe(gulp.dest('public/css/'))
 });
-// Copy images to production
-gulp.task('move', function() {
-    gulp.src('./app/assets/images/**/*.*')
-        .pipe(gulpif(env === 'production', gulp.dest(outputDir+'images')))
-        .pipe(notify("Images: Moved Images"))
-});
+
 
 gulp.task('watch', function() {
   gulp.watch(jsSources, ['js']);
