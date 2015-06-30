@@ -97,7 +97,7 @@
             <section>
                 <span class="icon major fa-area-chart accent3"></span>
                 <h3>Membership Levels</h3>
-                There are four subscriptions levels. Free, Silver, Gold and Platinum.  Make .25 cents $.75 cents, $1.00  or $1.75 to review advertisements. You make the choice. NO Hidden fees or language. We are right up front. <strong>Money Back Guaranteed!</strong>
+                There are four subscriptions levels. Free, Silver, Gold and Platinum.  Make .25 cents $.75 cents, $1.00  or $1.75 to review advertisements. You make the choice. NO Hidden fees or language. We are right up front.
             </section>
         </div>
         <div class="features-row">
