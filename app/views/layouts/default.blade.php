@@ -5,7 +5,7 @@
 	<meta charset="UTF-8">
 	<meta name="google-site-verification" content="OzhSWDz72APDh5zTIpCvWki0bnXbTUh3SroT0_2UQ-s" />
     <meta property="og:description"
-          content="Small businesses are people, and people buy from people. Dial4dough gives that person to make money online to support themselves as well as make a profit while building their company. Any one can make money with dial4dough.com" />
+          content="Small businesses are humans, and people buy from humans. Dial4dough gives that person to make money online to support themselves as well as make a profit while building their company. Any one can make money online with dial4dough.com" />
     <meta property="og:determiner" content="the" />
     <meta property="og:locale" content="en_GB" />
     <meta property="og:locale:alternate" content="fr_FR" />

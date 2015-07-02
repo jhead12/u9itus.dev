@@ -67,7 +67,7 @@
             Start making $12.00+ an hour sitting on your fanny in your pajamas whether you are a FREE or Paying member.
             <br/>
 
-             <h4 style="text-align: left">We believe in honesty. </h4>
+             {{--<h4 style="text-align: left">We believe in honesty. </h4>--}}
             <br/>
 
              </p>
@@ -82,7 +82,7 @@
 
             Product loyalty is becoming a thing  of the past.
 
-            But, Wait....  We have good news!</p>
+            </p>
 
 
         <p>We pay through "PayPal" every two weeks!</p>
