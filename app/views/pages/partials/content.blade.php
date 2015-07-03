@@ -8,8 +8,8 @@
 
 
 
-            <h2  style="color: red">Get paid for viewing advertisements.
-              </h2>
+            {{--<h2  style="color: red">Get paid for viewing advertisements.--}}
+              {{--</h2>--}}
             {{--<h4 style="color:green">Our members have been paid every pay day bi-weekly since October 2014!</h4>--}}
             <p>What could be more rewarding than to earn cash money for a few moments of your time?
 

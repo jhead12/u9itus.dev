@@ -20,7 +20,7 @@
         </p>
 
 
-      <h1 style="font-size: xx-large;color: #ffff00">Get paid to review addials!</h1>
+      <h1 style="font-size: xx-large;color: #ffff00">Get paid $1.75 reviewing AdDials</h1>
       <ul class="actions ">
           <li><a href="https://dialer.dial4dough.com/affiliates/signup.php#SignupForm" class="button special ">Sign Up Now!</a></li>
           <li><a href="{{URL::to('about')}}" class="button">Learn More</a></li>
