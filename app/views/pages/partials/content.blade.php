@@ -149,7 +149,7 @@
 
                 <h2 style="color: red">We pay our members consistently and on time.
                 </h2>
-                <p>Yes they are making Dough dialing 4 dough. <a href="https://dialer.dial4dough.com/affiliates/signup.php#SignupForm">Join today for 1 cent!</a></p>
+                <p>Yes they are making Dough dialing 4 dough on a 15 day Cycle payroll. <a href="https://dialer.dial4dough.com/affiliates/signup.php#SignupForm">Join today for 1 cent!</a></p>
                 <a href="https://dialer.dial4dough.com/affiliates/signup.php#SignupForm">
 
                     <img src="{{asset('images/paypal_payouts.png')}}" alt="Payouts as of {{\Carbon\Carbon::createFromDate(2015,6,17)}}"/>
