@@ -145,21 +145,20 @@
     <div class="row">
         <div class=" 12u">
 
-            {{--<section class="box special features" >--}}
+            <section class="box special features" >
 
-                {{--<h2 style="color: red">What are members saying?--}}
-                {{--</h2>--}}
-                {{--<a href="https://plus.google.com/_/notifications/emlink?emr=06221871286775873145&emid=COi8_s_OqsUCFSlSTAodJhoAwQ&path=/113718656627066905863/posts/hh2hSstrQ9w&dt=1430829330724&ub=STREAM_COMMENT_NEW">--}}
+                <h2 style="color: red">We pay our members consistently and on time.
+                </h2>
+                <p>Yes they are making Dough dialing 4 dough. <a href="https://dialer.dial4dough.com/affiliates/signup.php#SignupForm">Join today for 1 cent!</a></p>
+                <a href="https://dialer.dial4dough.com/affiliates/signup.php#SignupForm">
 
-                    {{--<img src="{{asset('images/rj_testimonial.png')}}" alt="testi1"/>--}}
+                    <img src="{{asset('images/paypal_payouts.png')}}" alt="Payouts as of {{\Carbon\Carbon::createFromDate(2015,6,17)}}"/>
 
-                {{--</a>--}}
+                </a>
 
-                {{--<br/>--}}
+                <br/>
 
-
-                {{--<span class="image featured"><img src="images/pic01.jpg" alt="" /></span>--}}
-            {{--</section>--}}
+            </section>
 
         </div>
 
