@@ -161,6 +161,12 @@
                     They paid me through my Paypal account every two weeks. It is a legitimate earnings site and I am loving it."  - <a href="https://www.dial4dough.com?a_aid=36-20ohw">Lakeisha H.
                     </a> </blockquote>
 
+                <blockquote>
+                    "...you'll enjoy the offers, the ease of earning and the ability to earn bi-weekly is a plus! You could build a nice monthly income here, without any problem. This is truly an recession proof site that will be around for a long time to come." -
+                    <a href="http://wesleystud.blogspot.com/">Wesley S.</a>
+
+                </blockquote>
+
             </section>
 
         </div>

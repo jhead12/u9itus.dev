@@ -10,6 +10,11 @@
 
 {{--<script src="{{asset('js/foundation.min.js')}}"></script>--}}
 
+
+
+
+
+
  <script src="{{asset('js/script.js')}}"></script>
 {{--<script src="{{asset('js/berniecode-animator.js')}}"></script>--}}
 {{-- <script src="{{asset('js/audio.js')}}"></script>--}}
@@ -20,6 +25,23 @@
 {{--<script src="{{asset('js/app.js')}}"></script>--}}
 
 {{--<script src="{{asset('js/jquery.cookie.js')}}"></script>--}}
+
+<script type="text/javascript">
+    $(function() {
+        $('a[href*=#]:not([href=#])').click(function() {
+            if (location.pathname.replace(/^\//,'') == this.pathname.replace(/^\//,'') && location.hostname == this.hostname) {
+                var target = $(this.hash);
+                target = target.length ? target : $('[name=' + this.hash.slice(1) +']');
+                if (target.length) {
+                    $('html,body').animate({
+                        scrollTop: target.offset().top
+                    }, 1000);
+                    return false;
+                }
+            }
+        });
+    });
+</script>
 
 <script src="{{asset('js/jquery.dropotron.min.js')}}"></script>
 <script src="{{asset('js/jquery.scrollgress.min.js')}}"></script>
