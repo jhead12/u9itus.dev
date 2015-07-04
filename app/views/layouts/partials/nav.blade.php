@@ -10,7 +10,8 @@
         <ul>
             {{--<div class="fb-like"  data-href="http://www.dial4dough.com" data-layout="standard" data-action="like" data-show-faces="false" data-share="false"></div>--}}
 
-            <li><a href="{{URL::to('/')}}">Home</a></li>
+            <li><a href="#banner">Home</a></li>
+            <li><a href="#testimonials">Testimonials</a></li>
 
 
             <li>

@@ -143,7 +143,7 @@
     <div class="row">
         <div class=" 12u">
 
-            <section class="box special features" >
+            <section id='testimonials'class="box special features" >
 
                 <h2 style="color: red">Testimonials.
                 </h2>
