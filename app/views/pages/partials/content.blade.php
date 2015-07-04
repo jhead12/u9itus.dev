@@ -140,6 +140,26 @@
 
         {{--</div>--}}
     {{--</div>--}}
+    <div class="row">
+        <div class=" 12u">
+
+            <section class="box special features" >
+
+                <h2 style="color: red">Testimonials.
+                </h2>
+                <a href="https://dialer.dial4dough.com/affiliates/signup.php#SignupForm">
+
+                    <img src="{{asset('images/rj_testimonial.png')}}" alt="Payouts as of {{\Carbon\Carbon::createFromDate(2015,6,17)}}"/>
+
+                </a>
+
+                <br/>
+
+            </section>
+
+        </div>
+
+    </div>
 
 
     <div class="row">
