@@ -147,13 +147,19 @@
 
                 <h2 style="color: red">Testimonials.
                 </h2>
-                <a href="https://dialer.dial4dough.com/affiliates/signup.php#SignupForm">
+                <a href="https://www.dial4dough.com?a_aid=1g-02cgs">
 
                     <img src="{{asset('images/rj_testimonial.png')}}" alt="Payouts as of {{\Carbon\Carbon::createFromDate(2015,6,17)}}"/>
 
                 </a>
 
                 <br/>
+                <blockquote>
+
+                    "I was introduced to Dia4dough by a friend and I signed up right away. I view and listen video and audio ads and get paid for it.
+
+                    They paid me through my Paypal account every two weeks. It is a legitimate earnings site and I am loving it."  - <a href="https://www.dial4dough.com?a_aid=36-20ohw">Lakeisha H.
+                    </a> </blockquote>
 
             </section>
 
