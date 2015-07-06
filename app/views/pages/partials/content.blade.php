@@ -166,6 +166,14 @@
                     <a href="http://wesleystud.blogspot.com/">Wesley S.</a>
 
                 </blockquote>
+                <blockquote>
+
+                    "Dial4dough is one heck of a program! how many people can get paid today just listening to adds? I would highly recommend this program to anyone!" - Jamie Crist
+                </blockquote>
+
+                <blockquote>
+                    "This website D4D has been a God send. They are trying to help people and they are actually doing it, by paying people. This is a well made website and very professional. It is easy to use. Just follow the instructions. D4D administrators's are very helpful and knowledgeable. Thank you Dial4Dough. Keep up the good work." --Delores
+                </blockquote>
 
             </section>
 
