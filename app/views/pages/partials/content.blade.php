@@ -182,7 +182,8 @@
                 </blockquote>
 
                 <blockquote>
-                    "This website D4D has been a God send. They are trying to help people and they are actually doing it, by paying people. This is a well made website and very professional. It is easy to use. Just follow the instructions. D4D administrators's are very helpful and knowledgeable. Thank you Dial4Dough. Keep up the good work." --Delores
+                    "This website D4D has been a God send. They are trying to help people and they are actually doing it, by paying people. This is a well made website and very professional. It is easy to use. Just follow the instructions. D4D administrators's are very helpful and knowledgeable. Thank you Dial4Dough. Keep up the good work." --<a
+                            href="https://www.dial4dough.com/?a_aid=7q-08zma">Delores</a>
                 </blockquote>
 
             </section>
