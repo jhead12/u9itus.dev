@@ -146,14 +146,23 @@
             <section id='testimonials'class="box special features" >
 
                 <h2 style="color: red">Testimonials.
-                </h2>
-                {{--<a href="https://www.dial4dough.com/?a_aid=1g-02cgs">--}}
+                <blockquote>
 
-                    {{--<img src="{{asset('images/rj_testimonial.png')}}" alt="Payouts as of {{\Carbon\Carbon::createFromDate(2015,6,17)}}"/>--}}
+                    "I've been on the internet personally & professionally for over 16 years,
+                    I can personally guarantee, that you will not find a better, more reliable
+                    business, than Dial4Dough!  They pay you much more for your valuable time,
+                    $.25 to $1.75 for each ad you view, and they do so AUTOMATICALLY...that's
+                    right, NO requesting or begging for your funds, waiting days or weeks to get
+                    paid...EVERY 15th & 30th of each month, there'll be a email from PayPal
+                    letting you know your funds are available...something you can depend on!  AND
+                    they've been doing so since October of last year!!  Promote the whole system,
+                    viewing Ad Dials, sponsor a few referrals and as an advertising platform, and
+                    you can make a comfortable & reliable monthly income.  So what are you waiting
+                    for??...join the program, upgrade to increase your earnings, and make a PROFIT
+                    in the first two days!!" --
+                         <a href="https://www.dial4dough.com/?a_aid=61-50iha">Ric G</a>
+                </blockquote>
 
-                {{--</a>--}}
-
-                <br/>
                 <blockquote>
 
                     "I was introduced to Dia4dough by a friend and I signed up right away. I view and listen video and audio ads and get paid for it.
