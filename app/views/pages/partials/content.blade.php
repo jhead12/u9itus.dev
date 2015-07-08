@@ -147,7 +147,7 @@
 
                 <h2 style="color: red">Testimonials.
                 </h2>
-                <a href="https://www.dial4dough.com?a_aid=1g-02cgs">
+                <a href="https://www.dial4dough.com/?a_aid=1g-02cgs">
 
                     <img src="{{asset('images/rj_testimonial.png')}}" alt="Payouts as of {{\Carbon\Carbon::createFromDate(2015,6,17)}}"/>
 
@@ -168,7 +168,8 @@
                 </blockquote>
                 <blockquote>
 
-                    "Dial4dough is one heck of a program! how many people can get paid today just listening to adds? I would highly recommend this program to anyone!" - Jamie Crist
+                    "Dial4dough is one heck of a program! how many people can get paid today just listening to adds? I would highly recommend this program to anyone!" -
+                    <a href="https://www.dial4dough.com/?a_aid=9K-98wlu">Jamie Crist</a>
                 </blockquote>
 
                 <blockquote>
