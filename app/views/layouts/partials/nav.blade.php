@@ -10,6 +10,8 @@
         <ul>
             {{--<div class="fb-like"  data-href="http://www.dial4dough.com" data-layout="standard" data-action="like" data-show-faces="false" data-share="false"></div>--}}
 
+            <li><a href="https://dialer.dial4dough.com/affiliates/signup.php#ContactUs"><i class="fa fa-phone-square"></i> 347-230-8438</a></li>
+
             <li><a href="#banner">Home</a></li>
             <li><a href="#testimonials">Testimonials</a></li>
 
@@ -20,6 +22,8 @@
                     <li><a href="/polidream">Politicians Dream</a></li>
 
                     <li><a href="{{URL::to('about')}}">About</a></li>
+
+
 
                     {{--<li>--}}
                         {{--<a href="">Submenu</a>--}}
