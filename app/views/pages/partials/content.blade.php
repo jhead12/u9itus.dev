@@ -145,7 +145,7 @@
 
             <section id='testimonials'class="box special features" >
 
-                <h2 style="color: red">Testimonials.
+                <h2 style="color: red">Testimonials.</h2>
                 <blockquote>
 
                     "I've been on the internet personally & professionally for over 16 years,
