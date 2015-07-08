@@ -147,11 +147,11 @@
 
                 <h2 style="color: red">Testimonials.
                 </h2>
-                <a href="https://www.dial4dough.com/?a_aid=1g-02cgs">
+                {{--<a href="https://www.dial4dough.com/?a_aid=1g-02cgs">--}}
 
-                    <img src="{{asset('images/rj_testimonial.png')}}" alt="Payouts as of {{\Carbon\Carbon::createFromDate(2015,6,17)}}"/>
+                    {{--<img src="{{asset('images/rj_testimonial.png')}}" alt="Payouts as of {{\Carbon\Carbon::createFromDate(2015,6,17)}}"/>--}}
 
-                </a>
+                {{--</a>--}}
 
                 <br/>
                 <blockquote>
