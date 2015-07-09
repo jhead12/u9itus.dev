@@ -146,6 +146,12 @@
             <section id='testimonials'class="box special features" >
 
                 <h2 style="color: red">Testimonials.</h2>
+
+                <blockquote>
+
+                    "With the Dial4Dough as well as the AdDials system, I have been able to get more traffic exposure on the net, while sharpening my marketing skills and increasing my viralvoiceover.com, consulting business. Even with the consultation I have received from the staff at D4D is pricele$$, Thank you D4D, you guys Rock and show you truly care about the success of others.." -
+                    <a href="https://www.dial4dough.com/?a_aid=1g-02cgs">RJ Okuszka</a>
+                </blockquote>
                 <blockquote>
 
                     "I've been on the internet personally & professionally for over 16 years,
