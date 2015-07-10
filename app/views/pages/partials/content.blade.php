@@ -72,6 +72,10 @@
 
              </p>
 
+        <h2>Our Products</h2>
+
+        <a href="https://docs.google.com/document/d/1mAD87P2AcXnm9it9kDgxJmnYOYQ_4XzuH9V1cuCK0_w/pub">Products List</a>
+
         <h2>The Unwritten Agreement</h2>
 
         <p style="text-align: left">Quiet as it has been kept, employers have always relied upon their employees to purchase company products, goods, and services.  There was once an unwritten agreement for this to take place.  The understanding was mutual and simple: If you worked for Chevrolet you drove a Chevy. If you worked for GE, then you purchased GE products.
