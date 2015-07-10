@@ -74,7 +74,6 @@
 
         <h2>Our Products</h2>
 
-        <a href="https://docs.google.com/document/d/1mAD87P2AcXnm9it9kDgxJmnYOYQ_4XzuH9V1cuCK0_w/pub">Products List</a>
 
         <h2>The Unwritten Agreement</h2>
 
