@@ -288,7 +288,3 @@
 
     <hr class="half-rule">
 
-</section>
-
-</div>
-

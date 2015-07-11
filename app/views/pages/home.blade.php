@@ -20,7 +20,7 @@
         </p>
 
 
-      <h1 style="font-size: xx-large;color: #ffff00">Get paid $1.75 reviewing advertisements.</h1>
+      <h1 style="font-size: xx-large;color: #ffff00">The marketers treat. Earn while listening to their message. Dial4dough.</h1>
       <ul class="actions ">
           <li><a href="https://dialer.dial4dough.com/affiliates/signup.php#SignupForm" class="button special ">Sign Up Now!</a></li>
           <li><a href="{{URL::to('about')}}" class="button">Learn More</a></li>
