@@ -15,14 +15,13 @@
             <li><a href="#banner">Home</a></li>
             <li><a href="#testimonials">Testimonials</a></li>
 
-
-            <li>
             <li><a href="https://docs.google.com/document/d/1mAD87P2AcXnm9it9kDgxJmnYOYQ_4XzuH9V1cuCK0_w/pub">Products</a>
-
+            </li>
+            <li>
                 <a href="" class="icon fa-angle-down">Philosophy</a>
                 <ul>
                     <li><a href="/polidream">Politicians Dream</a></li>
-                    </li>
+
 
                     <li><a href="{{URL::to('about')}}">About</a></li>
 
