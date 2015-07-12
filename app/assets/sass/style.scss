@@ -47,6 +47,22 @@
 			border-bottom-color: transparent;
 		}
 	}
+	.sub-header {
+	  position: absolute;
+	  left: 0px;
+	  top: 51%;
+	  right: 0px;
+	  //bottom: auto;
+	  display: block;
+	  width: 959px;
+	  margin: 0px auto;
+	  //font-family: 'Open Sans', sans-serif;
+	  //color: rgba(243, 252, 172, 0.52);
+	  font-size: 26px;
+	  line-height: 44px;
+	  font-weight: 300;
+	  text-align: center;
+	}
 
 	strong, b {
 		color: $color-fg-bold;
