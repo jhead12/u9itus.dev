@@ -21,9 +21,10 @@
                 <a href="" class="icon fa-angle-down">Philosophy</a>
                 <ul>
                     <li><a href="/polidream">Politicians Dream</a></li>
+                    <li><a href="http://files.dial4dough.com/head_enterprises.html">About us</a></li>
 
 
-                    <li><a href="{{URL::to('about')}}">About</a></li>
+                    <li><a href="{{URL::to('about')}}">Mission</a></li>
 
 
 
