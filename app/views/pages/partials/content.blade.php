@@ -145,7 +145,7 @@
     <div class="row">
         <div class=" 12u">
 
-            <section id='testimonials'class="box special features" >
+            <section id='testimonials' class="box special features" >
 
                 <h2 style="color: red">Testimonials.</h2>
 
@@ -227,7 +227,7 @@
         <div class=" 12u">
 
 
-    <section id="box special features" >
+    <section id="box special features">
 
 
         <h2>New Break Through!</h2>
@@ -246,8 +246,8 @@
 
 
 
-<div class="12u">
-<section id="class="box special features">
+{{--<div class="12u">--}}
+{{--<section id="class="box special features">--}}
 
 
 
@@ -264,8 +264,8 @@
         {{--</div>--}}
     {{--</form>--}}
     {{--<h2 >Follow our progress</h2>--}}
-    </section>
-    </div>
+    {{--</section>--}}
+    {{--</div>--}}
 
     <hr class="half-rule">
 
