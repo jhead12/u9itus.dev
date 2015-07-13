@@ -13,7 +13,7 @@
     <meta property="og:locale:alternate" content="es_ES" />
     <meta property="og:site_name" content="dial4dough" />
     <meta property="article:section" content="Money">
-    <title>1.75 an ad view : get paid to view ads. Dial4dough</title>
+    <title>earn up to $1.75 online for viewing each ad"</title>
     <link rel="stylesheet" href="{{asset('css/style.css')}}">
 
 
