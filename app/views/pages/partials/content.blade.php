@@ -227,7 +227,7 @@
         <div class=" 12u">
 
 
-    <section id="box special features">
+    <section class="box special features">
 
 
         <h2>New Break Through!</h2>
