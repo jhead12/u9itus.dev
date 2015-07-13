@@ -64,7 +64,7 @@
 
         <p style="text-align: left">Some may ask: "What's the catch?"  Here is the catch.  After members receive $100 in hand, they must spend a minimum of 20 percent of their earnings on products, goods, and/or services from companies providing the advertisements. You scratch the advertisers backs, and they will scratch yours by providing more advertisements.
 
-            Start making $12.00+ an hour sitting on your fanny in your pajamas whether you are a FREE or Paying member.
+            Start earning $1.75 every 3 minutes online by viewing ads sitting on your fanny in your pajamas.
             <br/>
 
              {{--<h4 style="text-align: left">We believe in honesty. </h4>--}}
@@ -94,24 +94,24 @@
 
                 <span class="icon major fa-bolt accent2"></span>
                 <h3>Commitment</h3>
-                <p>Once a member earns $100.00 for viewing advertisements from us, there is a 20 percent purchase requirement to continue receiving advertisements to review.</p>
+                <p>Once a member earns $100.00 for viewing advertisements from us, there is a 20 percent purchase requirement to continue earning money by viewing ads.</p>
             </section>
             <section>
                 <span class="icon major fa-area-chart accent3"></span>
                 <h3>Membership Levels</h3>
-                There are four subscriptions levels. Free, Silver, Gold and Platinum.  Make .25 cents $.75 cents, $1.00  or $1.75 to review advertisements. You make the choice. NO Hidden fees or language. We are right up front.
+                There are four subscriptions levels. Free, Silver, Gold and Platinum.  Earn .25 cents $.75 cents, $1.00  or $1.75 to viewing advertisements. You make the choice. NO Hidden fees or language. We are right up front.
             </section>
         </div>
         <div class="features-row">
             <section>
                 <span class="icon major fa-coffee accent4"></span>
                 <h3>Earning potential</h3>
-                <p><p>Members are paid bonuses for sponsoring Silver, Gold and Platinum members. Bonus payments are now made within 48 hours of sponsored members monthly upgrade.</p>
+                <p><p>Members are paid bonuses for sponsoring Silver, Gold and Platinum members. Bonus payouts are made within 48 hours of sponsored members monthly upgrade.</p>
             </section>
             <section>
                 <span class="icon major fa-bank accent5"></span>
                 <h3>Getting Paid</h3>
-                <p>Yes, some advertisements get you to purchase goods or services, however, how often are you impressed by the advertisements? The Dial4dough system allows you to rate and comment on advertisements for products that you find valuable.</p>
+                <p>Yes, some advertisements get you to purchase goods or services, however, how often are you impressed by the advertisements? The Dial4dough system allows you to rate and share on advertisements for products that you find valuable.</p>
             </section>
         </div>
     </section>
@@ -206,7 +206,7 @@
 
             <section class="box special features" >
 
-                <h2 style="color: red">We pay our members consistently and on time.
+                <h2 style="color: red">The payouts to our members  are consistent and on time.
                 </h2>
                 <p>Yes they are making Dough dialing 4 dough on a 15 day Cycle payroll. <a href="https://dialer.dial4dough.com/affiliates/signup.php#SignupForm">Join today for 1 cent!</a></p>
                 <a href="https://dialer.dial4dough.com/affiliates/signup.php#SignupForm">

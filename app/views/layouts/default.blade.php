@@ -12,7 +12,7 @@
     <meta property="og:locale:alternate" content="es_ES" />
     <meta property="og:site_name" content="dial4dough" />
     <meta property="article:section" content="Money">
-    <title>Dial4dough</title>
+    <title>1.75 an ad view : get paid to view ads. Dial4dough</title>
     <link rel="stylesheet" href="{{asset('css/style.css')}}">
 
     {{--<link rel="stylesheet" type="text/css" href="{{asset('css/flashblock.css')}}" />--}}
