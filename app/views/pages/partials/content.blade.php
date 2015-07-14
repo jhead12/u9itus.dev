@@ -3,13 +3,16 @@
 <!-- Main -->
 <section id="main" class="container" >
 
+
     <section class="box special" >
+    <h2  style="color: red">Earn money online by viewing ads.
+              </h2>
+
         <header class="major" >
 
 
 
-            <h2  style="color: red">Earn money online by viewing ads.
-              </h2>
+
             {{--<h4 style="color:green">Our members have been paid every pay day bi-weekly since October 2014!</h4>--}}
             <p>What could be more rewarding than to earn cash money for a few moments of your time?
 
@@ -232,7 +235,7 @@
 
         <h2>New Break Through!</h2>
 
-        <iframe src="//fast.wistia.net/embed/iframe/63opuyj50c?videoFoam=true" frameborder="0" scrolling="no" class="wistia_embed" name="wistia_embed" allowfullscreen width="509" height="410"></iframe><script src="//fast.wistia.net/assets/external/E-v1.js"></script>
+        <iframe src="//fast.wistia.net/embed/iframe/63opuyj50c?videoFoam=true"  class="wistia_embed" name="wistia_embed" allowfullscreen width="509" height="410"></iframe><script src="//fast.wistia.net/assets/external/E-v1.js"></script>
     </section>
 
             </div>
