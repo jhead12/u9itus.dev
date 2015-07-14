@@ -20,6 +20,10 @@ Route::get('upgrade',function()
 	return View::make('pages/upgrade');
 });
 
+Route::get('backlinks',function(){
+	return View::make('pages/backlinks');
+});
+
 
 
 # Filter for detect language
