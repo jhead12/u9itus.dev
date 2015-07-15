@@ -6,7 +6,7 @@
     <section id="main" class="container">
 
         <header>
-            <h2 style="font-size: 5em">Our Mission</h2>
+            <h2 style="font-size: 5em">About us</h2>
         </header>
         <div class="box">
 

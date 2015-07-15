@@ -1,4 +1,4 @@
-@extends('layouts.default')
+@extends('layouts.generic')
 
 @section('content')
 
@@ -7,7 +7,9 @@
 <br>
 <article>
 
-<h1>What Is Dial4dough All About?</h1>
+    <header>
+        <h2 style="font-size: 5em">Our Mission</h2>
+    </header>
     <p>Dial4dough is designed to enable its users to earn income by completing simple tasks, i.e. listening to telephone advertisements, viewing a Website, or video promotion. We recognize that there is a wage-earner' crises.  This crisis has come upon us because the need for human labor has decreased over the past few decades.  We must now view jobs from a different angle.
         Dial4dough believes that it can assist in filling a void that can improve the lives of many.</p>
 
@@ -26,11 +28,12 @@
     <p><strong>Everyone wins with Dial4dough.</strong> This is our mission.</p>
 
     <p>Head Enterprises  347-230-8438</p>
-<div class="large-6">
-<a href="{{URL::to('register')}}"><h1 style="color: red">Sign up today.</h1> </a>
-</div>
+
 
 </article><!-- sidebar -->
+    <div class="large-6">
+        <a href="{{URL::to('register')}}"><h1 style="color: red">Sign up today.</h1> </a>
+    </div>
 <br/>
 <br/>
 
