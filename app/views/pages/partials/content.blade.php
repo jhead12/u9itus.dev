@@ -235,7 +235,7 @@
 
         <h2>New Break Through!</h2>
 
-<iframe class="wistia_embed" name="wistia_embed" src="http://fast.wistia.net/embed/iframe/dgk0u7jlmk" allowtransparency="true" frameborder="0" scrolling="no" width="480" height="388"></iframe>
+<iframe class="wistia_embed" name="wistia_embed" src="https://fast.wistia.net/embed/iframe/dgk0u7jlmk" allowtransparency="true" frameborder="0" scrolling="no" width="480" height="388"></iframe>
     </section>
 
             </div>
