@@ -16,6 +16,10 @@ class PageController extends \BaseController {
 	{
 		return View::make('pages.aboutus');
 	}
+	public function headent()
+	{
+		return View::make('pages.headent');
+	}
 
     /**
      * @return mixed

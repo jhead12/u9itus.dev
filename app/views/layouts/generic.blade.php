@@ -52,7 +52,8 @@
                     <li><a href="/polidream">Politicians Dream</a></li>
                     <li><a href="https://docs.google.com/document/d/1mAD87P2AcXnm9it9kDgxJmnYOYQ_4XzuH9V1cuCK0_w/pub">Products List</a>
                     </li>
-                    <li><a href="http://files.dial4dough.com/head_enterprises.html">Head Enterprises</a></li>
+                    <li><a href="{{URL::to('headent')}}">Head Enterprise</a></li>
+
                     <li><a href="/polidream">Politicians Dream</a></li>
 
                     <li><a href="{{URL::to('about')}}">About</a></li>

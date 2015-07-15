@@ -14,6 +14,7 @@ Route::get('mission','PageController@about');
 
 Route::get('pricing','PageController@pricing');
 
+Route::get('headent','PageController@headent');
 Route::get('upgrade',function()
 {
 
