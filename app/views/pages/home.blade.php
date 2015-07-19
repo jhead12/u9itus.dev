@@ -21,7 +21,7 @@
         </p>
 
 
-      <h1 style="font-size:larger;color: #ffff00">Turn Consumer Clout To Cash. Earn up to $1.75 ea. to view vidio and audio commercials!</h1>
+      <h1 style="font-size:larger;color: #ffff00">Turn Consumer Clout To Cash.  Earn up to $1.75 ea. to view video and audio commercials!</h1>
       <ul class="actions ">
           <li><a href="https://dialer.dial4dough.com/affiliates/signup.php#SignupForm" class="button special ">Sign Up Now!</a></li>
           <li><a href="{{URL::to('about')}}" class="button">Learn More</a></li>
