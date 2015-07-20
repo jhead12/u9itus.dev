@@ -14,9 +14,8 @@
 
 
             {{--<h4 style="color:green">Our members have been paid every pay day bi-weekly since October 2014!</h4>--}}
-            <p>What could be more rewarding than to earn cash money for a few moments of your time?
-
-                Dial4Dough is now paying well for consumers to simply review to 2 - 5 minute ads.
+            <p>
+                Dial4Dough is now paying well for consumers to simply review to 2 - 3 minute advertisements while working at home!
                </p>
 
             <br/>
@@ -63,18 +62,6 @@
 
     <section class="box special features"  >
 
-        <h2>Whats the catch?</h2>
-
-        <p style="text-align: left">Some may ask: "What's the catch?"  Here is the catch.  After members receive $100 in hand, they must spend a minimum of 20 percent of their earnings on products, goods, and/or services from companies providing the advertisements. You scratch the advertisers backs, and they will scratch yours by providing more advertisements.
-
-            Start earning $1.75 every 3 minutes online by viewing ads sitting on your fanny in your pajamas.
-            <br/>
-
-             {{--<h4 style="text-align: left">We believe in honesty. </h4>--}}
-            <br/>
-
-             </p>
-
 
 
         <h2>The Unwritten Agreement</h2>
@@ -102,7 +89,7 @@
             <section>
                 <span class="icon major fa-area-chart accent3"></span>
                 <h3>Membership Levels</h3>
-                There are four subscriptions levels. Free, Silver, Gold and Platinum.  Earn .25 cents $.75 cents, $1.00  or $1.75 to viewing advertisements. You make the choice. NO Hidden fees or language. We are right up front.
+                There are five subscriptions levels. Bronze Starter, Bronze Qualified , Silver, Gold and Platinum. Earn .05 cents .25 cents $.75 cents, $1.00 or $1.75.  All members must verify their PayPal accounts before they can begin earning income viewing advertisements through our system.
             </section>
         </div>
         <div class="features-row">
