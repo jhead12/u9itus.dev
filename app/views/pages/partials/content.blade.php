@@ -90,6 +90,8 @@
                 <span class="icon major fa-area-chart accent3"></span>
                 <h3>Membership Levels</h3>
                 There are five subscriptions levels. Bronze Starter, Bronze Qualified , Silver, Gold and Platinum. Earn .05 cents .25 cents $.75 cents, $1.00 or $1.75.  All members must verify their PayPal accounts before they can begin earning income viewing advertisements through our system.
+
+NO Hidden fees or confusing language. We are right up front.
             </section>
         </div>
         <div class="features-row">
