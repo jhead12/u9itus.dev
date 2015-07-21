@@ -8,12 +8,12 @@
           content="Small businesses are humans, and people buy from humans. Dial4dough gives that person to make money online to support themselves as well as make a profit while building their company. Any one can make money online with dial4dough.com" />
     <meta property="og:determiner" content="the" />
     <meta property="og:locale" content="en_GB" />
-    <meta name="description" content="earn money online by viewing ads">
+    <meta name="description" content="earn money online by viewing ads community ads brick and mortar ads making an side income retirement aid ">
     <meta property="og:locale:alternate" content="fr_FR" />
     <meta property="og:locale:alternate" content="es_ES" />
     <meta property="og:site_name" content="dial4dough" />
     <meta property="article:section" content="Money">
-    <title>earn money online by viewing ads""</title>
+    <title>The Dial4dough Community income system</title>
     <link rel="stylesheet" href="{{asset('css/style.css')}}">
 
 
