@@ -3,8 +3,8 @@
 <!-- Main -->
 <section id="main" class="container" >
 
-
     <section class="box special" >
+        <header class="major" >
     <h2  style="color: red">Earn money online by viewing ads.
               </h2>
 
@@ -18,7 +18,7 @@
 
              What could be more rewarding than to earn cash money for a few moments of your time?
 
-                Dial4Dough is now paying well for consumers to simply review to 2 - 5 minute ads.</p>
+                Dial4Dough is now paying well for consumers to simply review to 30sec - 5 minute ads.</p>
 
             <br/>
             <table  id="table1"  style="text-align: left"   >
