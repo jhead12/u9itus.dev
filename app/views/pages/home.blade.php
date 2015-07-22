@@ -21,7 +21,7 @@
         </p>
 
 
-      <h1 style="font-size:larger;color: #ffff00">What could be more rewarding than to earn extra cash money for a few moments of your time? </h1>
+      <h1 style="font-size:xx-large;color: #ffff00">Earn as much as $1.75 to Listen to  2 minute infomercials! </h1>
       <ul class="actions ">
           <li><a href="https://dialer.dial4dough.com/affiliates/signup.php#SignupForm" class="button special ">Sign Up Now!</a></li>
           <li><a href="{{URL::to('about')}}" class="button">Learn More</a></li>

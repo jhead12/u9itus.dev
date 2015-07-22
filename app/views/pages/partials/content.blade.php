@@ -15,8 +15,10 @@
 
             {{--<h4 style="color:green">Our members have been paid every pay day bi-weekly since October 2014!</h4>--}}
             <p>
-                Dial4Dough is now paying well for consumers to simply review to 2 - 3 minute advertisements while working at home!
-               </p>
+
+             What could be more rewarding than to earn cash money for a few moments of your time?
+
+                Dial4Dough is now paying well for consumers to simply review to 2 - 5 minute ads.</p>
 
             <br/>
             <table  id="table1"  style="text-align: left"   >
