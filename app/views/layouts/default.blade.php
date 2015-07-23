@@ -60,9 +60,53 @@
 	@yield('content')
 
 
+<div id="ouibounce-modal">
+    <div class="underlay"></div>
+    <div class="modal">
+        <div class="modal-title">
+            <h3>Trying to sell products using video ads?</h3>
+        </div>
 
+        <div class="modal-body">
+            <p>Getting Little or NO results?.</p>
+            <h2>We have good news!</h2>
+            <p style="margin: 0">Get started with a new concept!</p>
+            <p style="font-size: large;color: red;margin: 0">FREE No Obligation!</p>
+            <p style="font-size: larger;margin: 0">Sell Products! Make Money!</p>
+            <p style="margin:0">(No credit card required) </p>
+            <a class="button button-primary" href="http://adddough-com.3dcartstores.com/Addials-Free-Starter-Kit--limited-offer_p_26.html" target="_blank">Start here!</a>
+
+            <br>
+        </div>
+
+        <div class="modal-footer">
+            <p>no thanks</p>
+        </div>
+    </div>
+</div>
 
 @include('layouts.partials.footer')
+
+
+<script src="{{asset('js/ouibounce.min.js')}}"></script>
+
+<script>
+
+    var _ouibounce = ouibounce(document.getElementById('ouibounce-modal'), {
+        aggressive: true,
+        timer: 0,
+        callback: function() { console.log('ouibounce fired!'); }
+    });
+    $('body').on('click', function() {
+        $('#ouibounce-modal').hide();
+    });
+    $('#ouibounce-modal .modal-footer').on('click', function() {
+        $('#ouibounce-modal').hide();
+    });
+    $('#ouibounce-modal .modal').on('click', function(e) {
+        e.stopPropagation();
+    });
+</script>
 
 <!-- Start of StatCounter Code for Default Guide -->
 <script type="text/javascript">
@@ -96,6 +140,8 @@
     if (raf) raf(cb);
     else window.addEventListener('load', cb);
 </script>
+
+
 
 
 <a href="http://www.sonicrun.com"></a>
