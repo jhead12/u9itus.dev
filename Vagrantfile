@@ -59,7 +59,7 @@ composer_packages     = [        # List any global Composer packages that you wa
 # Default web server document root
 # Symfony's public directory is assumed "web"
 # Laravel's public directory is assumed "public"
-public_folder         = "/vagrant"
+public_folder         = "/vagrant/public"
 
 laravel_root_folder   = "/vagrant/laravel" # Where to install Laravel. Will `composer install` if a composer.json file exists
 laravel_version       = "latest-stable" # If you need a specific version of Laravel, set it here
@@ -113,7 +113,7 @@ Vagrant.configure("2") do |config|
   # If using VirtualBox
   config.vm.provider :virtualbox do |vb|
 
-    vb.name = "Dial4dou"
+    vb.name = "dial4dough.dev"
 
     # Set server cpus
     vb.customize ["modifyvm", :id, "--cpus", server_cpus]

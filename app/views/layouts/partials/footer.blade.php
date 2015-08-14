@@ -13,11 +13,11 @@
     </ul>
     <ul class="copyright">
         <li>&copy; HeadEnterprise. All rights reserved.</li>
-        <li><a href="{{URL::route('privatepolicy')}}">Privacy</a></li>
-        <li><a href="{{URL::route('terms')}}" target="_blank">Terms of
-                Service</a></li>
-        <li><a href="http://adddough.com">Advertise with us.</a></li>
-        <li><a href="https://blog.dial4dough.com">Dial4dough blog</a></li>
+        {{--<li><a href="{{URL::route('privatepolicy')}}">Privacy</a></li>--}}
+        {{--<li><a href="{{URL::route('terms')}}" target="_blank">Terms of--}}
+                {{--Service</a></li>--}}
+        {{--<li><a href="http://adddough.com">Advertise with us.</a></li>--}}
+        {{--<li><a href="https://blog.dial4dough.com">Dial4dough blog</a></li>--}}
 
 
       </ul>

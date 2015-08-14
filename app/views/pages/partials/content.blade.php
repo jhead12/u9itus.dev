@@ -14,101 +14,101 @@
 
 
             {{--<h4 style="color:green">Our members have been paid every pay day bi-weekly since October 2014!</h4>--}}
-            <p>
+            {{--<p>--}}
 
-             What could be more rewarding than to earn cash money for a few moments of your time?
+             {{--What could be more rewarding than to earn cash money for a few moments of your time?--}}
 
-                Dial4Dough is now paying well for consumers to simply review to 30sec - 2 minute ads.</p>
+                {{--Dial4Dough is now paying well for consumers to simply review to 30sec - 2 minute ads.</p>--}}
 
-            <br/>
-            <table  id="table1"  style="text-align: left"   >
-                <tr>
-                    <td  class="12u">
-                        <p >
+            {{--<br/>--}}
+            {{--<table  id="table1"  style="text-align: left"   >--}}
+                {{--<tr>--}}
+                    {{--<td  class="12u">--}}
+                        {{--<p >--}}
 
-                            <i class="fa fa-arrow-circle-o-right"></i><span class="style4"> No
-						more Clicking or writing reviews for Pennies</span></p>
-                        <br/>
-                        <p class="style7">
+                            {{--<i class="fa fa-arrow-circle-o-right"></i><span class="style4"> No--}}
+						{{--more Clicking or writing reviews for Pennies</span></p>--}}
+                        {{--<br/>--}}
+                        {{--<p class="style7">--}}
 
-                            <i class="fa fa-arrow-circle-o-right"></i> Quick
-                            Payments!</p>
-                        <br/>
+                            {{--<i class="fa fa-arrow-circle-o-right"></i> Quick--}}
+                            {{--Payments!</p>--}}
+                        {{--<br/>--}}
 
 
-                        <p class="style7">
-                            <i class="fa fa-arrow-circle-o-right"></i> No need of signing up for emailed offers to be paid.</p>
-                        <br/>
+                        {{--<p class="style7">--}}
+                            {{--<i class="fa fa-arrow-circle-o-right"></i> No need of signing up for emailed offers to be paid.</p>--}}
+                        {{--<br/>--}}
 
-                        <p>
+                        {{--<p>--}}
 
-                        <p>
-                            <i class="fa fa-arrow-circle-o-right"></i> Refer
-                            Others and Earn Even More!</p>
-                        <br/>
-                        <p>
-                            <i class="fa fa-arrow-circle-o-right"></i> No
-                            Selling Required! </p>
-                        <br/>
+                        {{--<p>--}}
+                            {{--<i class="fa fa-arrow-circle-o-right"></i> Refer--}}
+                            {{--Others and Earn Even More!</p>--}}
+                        {{--<br/>--}}
+                        {{--<p>--}}
+                            {{--<i class="fa fa-arrow-circle-o-right"></i> No--}}
+                            {{--Selling Required! </p>--}}
+                        {{--<br/>--}}
 
-                        <p>
-                            <i class="fa fa-arrow-circle-o-right"></i>The advertisers are from small business who want you to see their services.</p>
-                    </td>
-                </tr>
-            </table>
+                        {{--<p>--}}
+                            {{--<i class="fa fa-arrow-circle-o-right"></i>The advertisers are from small business who want you to see their services.</p>--}}
+                    {{--</td>--}}
+                {{--</tr>--}}
+            {{--</table>--}}
 
 
         </header>
         {{--<span class="image featured"><img src="images/pic01.jpg" alt="" /></span>--}}
-    </section>
+    {{--</section>--}}
 
-    <section class="box special features"  >
-
-
-
-        <h2>The Unwritten Agreement</h2>
-
-        <p style="text-align: left">Quiet as it has been kept, employers have always relied upon their employees to purchase company products, goods, and services.  There was once an unwritten agreement for this to take place.  The understanding was mutual and simple: If you worked for Chevrolet you drove a Chevy. If you worked for GE, then you purchased GE products.
-
-            Company employees have always been loyal buyers of products for which they had input into producing or distributing.  This is only natural!  Employee purchasing has been the backbone of many businesses, and helped many companies remain strong.  Now things have changed drastically.
-
-            Today with corporate mergers, high-tech equipment, outsourcing of jobs, and business closures, few consumers have reasons to be loyal to any one product, service or company.
-
-            Product loyalty is becoming a thing  of the past.
-
-            </p>
+    {{--<section class="box special features"  >--}}
 
 
-        <p>We pay through "PayPal" every two weeks!</p>
-        <div class="features-row">
 
-            <section>
+        {{--<h2>The Unwritten Agreement</h2>--}}
 
-                <span class="icon major fa-bolt accent2"></span>
-                <h3>Commitment</h3>
-                <p>Once a member earns $100.00 for viewing advertisements from us, there is a 20 percent purchase requirement to continue earning money by viewing ads.</p>
-            </section>
-            <section>
-                <span class="icon major fa-area-chart accent3"></span>
-                <h3>Membership Levels</h3>
-                There are five subscriptions levels. Bronze Starter, Bronze Qualified , Silver, Gold and Platinum. Earn .05 cents .25 cents $.75 cents, $1.00 or $1.75.  All members must verify their PayPal accounts before they can begin earning income viewing advertisements through our system.
+        {{--<p style="text-align: left">Quiet as it has been kept, employers have always relied upon their employees to purchase company products, goods, and services.  There was once an unwritten agreement for this to take place.  The understanding was mutual and simple: If you worked for Chevrolet you drove a Chevy. If you worked for GE, then you purchased GE products.--}}
 
-NO Hidden fees or confusing language. We are right up front.
-            </section>
-        </div>
-        <div class="features-row">
-            <section>
-                <span class="icon major fa-coffee accent4"></span>
-                <h3>Earning potential</h3>
-                <p><p>Members are paid bonuses for sponsoring Silver, Gold and Platinum members. Bonus payouts are made within 48 hours of sponsored members monthly upgrade.</p>
-            </section>
-            <section>
-                <span class="icon major fa-bank accent5"></span>
-                <h3>Getting Paid</h3>
-                <p>Yes, some advertisements get you to purchase goods or services, however, how often are you impressed by the advertisements? The Dial4dough system allows you to rate and share on advertisements for products that you find valuable.</p>
-            </section>
-        </div>
-    </section>
+            {{--Company employees have always been loyal buyers of products for which they had input into producing or distributing.  This is only natural!  Employee purchasing has been the backbone of many businesses, and helped many companies remain strong.  Now things have changed drastically.--}}
+
+            {{--Today with corporate mergers, high-tech equipment, outsourcing of jobs, and business closures, few consumers have reasons to be loyal to any one product, service or company.--}}
+
+            {{--Product loyalty is becoming a thing  of the past.--}}
+
+            {{--</p>--}}
+
+
+        {{--<p>We pay through "PayPal" every two weeks!</p>--}}
+        {{--<div class="features-row">--}}
+
+            {{--<section>--}}
+
+                {{--<span class="icon major fa-bolt accent2"></span>--}}
+                {{--<h3>Commitment</h3>--}}
+                {{--<p>Once a member earns $100.00 for viewing advertisements from us, there is a 20 percent purchase requirement to continue earning money by viewing ads.</p>--}}
+            {{--</section>--}}
+            {{--<section>--}}
+                {{--<span class="icon major fa-area-chart accent3"></span>--}}
+                {{--<h3>Membership Levels</h3>--}}
+                {{--There are five subscriptions levels. Bronze Starter, Bronze Qualified , Silver, Gold and Platinum. Earn .05 cents .25 cents $.75 cents, $1.00 or $1.75.  All members must verify their PayPal accounts before they can begin earning income viewing advertisements through our system.--}}
+
+{{--NO Hidden fees or confusing language. We are right up front.--}}
+            {{--</section>--}}
+        {{--</div>--}}
+        {{--<div class="features-row">--}}
+            {{--<section>--}}
+                {{--<span class="icon major fa-coffee accent4"></span>--}}
+                {{--<h3>Earning potential</h3>--}}
+                {{--<p><p>Members are paid bonuses for sponsoring Silver, Gold and Platinum members. Bonus payouts are made within 48 hours of sponsored members monthly upgrade.</p>--}}
+            {{--</section>--}}
+            {{--<section>--}}
+                {{--<span class="icon major fa-bank accent5"></span>--}}
+                {{--<h3>Getting Paid</h3>--}}
+                {{--<p>Yes, some advertisements get you to purchase goods or services, however, how often are you impressed by the advertisements? The Dial4dough system allows you to rate and share on advertisements for products that you find valuable.</p>--}}
+            {{--</section>--}}
+        {{--</div>--}}
+    {{--</section>--}}
 
     {{--<div class="row">--}}
         {{--<div class="6u 12u(narrower)">--}}
@@ -136,107 +136,107 @@ NO Hidden fees or confusing language. We are right up front.
 
         {{--</div>--}}
     {{--</div>--}}
-    <div class="row">
-        <div class=" 12u">
+    {{--<div class="row">--}}
+        {{--<div class=" 12u">--}}
 
-            <section id='testimonials' class="box special features" >
+            {{--<section id='testimonials' class="box special features" >--}}
 
-                <h2 style="color: red">Testimonials.</h2>
+                {{--<h2 style="color: red">Testimonials.</h2>--}}
 
-                <blockquote>
+                {{--<blockquote>--}}
 
-                    "With the Dial4Dough as well as the AdDials system, I have been able to get more traffic exposure on the net, while sharpening my marketing skills and increasing my viralvoiceover.com, consulting business. Even with the consultation I have received from the staff at D4D is pricele$$, Thank you D4D, you guys Rock and show you truly care about the success of others.." -
-                    <a href="https://www.dial4dough.com/?a_aid=1g-02cgs">RJ Okuszka</a>
-                </blockquote>
-                <blockquote>
+                    {{--"With the Dial4Dough as well as the AdDials system, I have been able to get more traffic exposure on the net, while sharpening my marketing skills and increasing my viralvoiceover.com, consulting business. Even with the consultation I have received from the staff at D4D is pricele$$, Thank you D4D, you guys Rock and show you truly care about the success of others.." ---}}
+                    {{--<a href="https://www.dial4dough.com/?a_aid=1g-02cgs">RJ Okuszka</a>--}}
+                {{--</blockquote>--}}
+                {{--<blockquote>--}}
 
-                    "I've been on the internet personally & professionally for over 16 years,
-                    I can personally guarantee, that you will not find a better, more reliable
-                    business, than Dial4Dough!  They pay you much more for your valuable time,
-                    $.25 to $1.75 for each ad you view, and they do so AUTOMATICALLY...that's
-                    right, NO requesting or begging for your funds, waiting days or weeks to get
-                    paid...EVERY 15th & 30th of each month, there'll be a email from PayPal
-                    letting you know your funds are available...something you can depend on!  AND
-                    they've been doing so since October of last year!!  Promote the whole system,
-                    viewing Ad Dials, sponsor a few referrals and as an advertising platform, and
-                    you can make a comfortable & reliable monthly income.  So what are you waiting
-                    for??...join the program, upgrade to increase your earnings, and make a PROFIT
-                    in the first two days!!" --
-                         <a href="https://www.dial4dough.com/?a_aid=61-50iha">Ric G</a>
-                </blockquote>
+                    {{--"I've been on the internet personally & professionally for over 16 years,--}}
+                    {{--I can personally guarantee, that you will not find a better, more reliable--}}
+                    {{--business, than Dial4Dough!  They pay you much more for your valuable time,--}}
+                    {{--$.25 to $1.75 for each ad you view, and they do so AUTOMATICALLY...that's--}}
+                    {{--right, NO requesting or begging for your funds, waiting days or weeks to get--}}
+                    {{--paid...EVERY 15th & 30th of each month, there'll be a email from PayPal--}}
+                    {{--letting you know your funds are available...something you can depend on!  AND--}}
+                    {{--they've been doing so since October of last year!!  Promote the whole system,--}}
+                    {{--viewing Ad Dials, sponsor a few referrals and as an advertising platform, and--}}
+                    {{--you can make a comfortable & reliable monthly income.  So what are you waiting--}}
+                    {{--for??...join the program, upgrade to increase your earnings, and make a PROFIT--}}
+                    {{--in the first two days!!" ----}}
+                         {{--<a href="https://www.dial4dough.com/?a_aid=61-50iha">Ric G</a>--}}
+                {{--</blockquote>--}}
 
-                <blockquote>
+                {{--<blockquote>--}}
 
-                    "I was introduced to Dia4dough by a friend and I signed up right away. I view and listen video and audio ads and get paid for it.
+                    {{--"I was introduced to Dia4dough by a friend and I signed up right away. I view and listen video and audio ads and get paid for it.--}}
 
-                    They paid me through my Paypal account every two weeks. It is a legitimate earnings site and I am loving it."  - <a href="https://www.dial4dough.com?a_aid=36-20ohw">Lakeisha H.
-                    </a> </blockquote>
+                    {{--They paid me through my Paypal account every two weeks. It is a legitimate earnings site and I am loving it."  - <a href="https://www.dial4dough.com?a_aid=36-20ohw">Lakeisha H.--}}
+                    {{--</a> </blockquote>--}}
 
-                <blockquote>
-                    "...you'll enjoy the offers, the ease of earning and the ability to earn bi-weekly is a plus! You could build a nice monthly income here, without any problem. This is truly an recession proof site that will be around for a long time to come." -
-                    <a href="http://wesleystud.blogspot.com/">Wesley S.</a>
+                {{--<blockquote>--}}
+                    {{--"...you'll enjoy the offers, the ease of earning and the ability to earn bi-weekly is a plus! You could build a nice monthly income here, without any problem. This is truly an recession proof site that will be around for a long time to come." ---}}
+                    {{--<a href="http://wesleystud.blogspot.com/">Wesley S.</a>--}}
 
-                </blockquote>
-                <blockquote>
+                {{--</blockquote>--}}
+                {{--<blockquote>--}}
 
-                    "Dial4dough is one heck of a program! how many people can get paid today just listening to adds? I would highly recommend this program to anyone!" -
-                    <a href="https://www.dial4dough.com/?a_aid=9K-98wlu">Jamie Crist</a>
-                </blockquote>
+                    {{--"Dial4dough is one heck of a program! how many people can get paid today just listening to adds? I would highly recommend this program to anyone!" ---}}
+                    {{--<a href="https://www.dial4dough.com/?a_aid=9K-98wlu">Jamie Crist</a>--}}
+                {{--</blockquote>--}}
 
-                <blockquote>
-                    "This website D4D has been a God send. They are trying to help people and they are actually doing it, by paying people. This is a well made website and very professional. It is easy to use. Just follow the instructions. D4D administrators's are very helpful and knowledgeable. Thank you Dial4Dough. Keep up the good work." --<a
-                            href="https://www.dial4dough.com/?a_aid=7q-08zma">Delores</a>
-                </blockquote>
+                {{--<blockquote>--}}
+                    {{--"This website D4D has been a God send. They are trying to help people and they are actually doing it, by paying people. This is a well made website and very professional. It is easy to use. Just follow the instructions. D4D administrators's are very helpful and knowledgeable. Thank you Dial4Dough. Keep up the good work." --<a--}}
+                            {{--href="https://www.dial4dough.com/?a_aid=7q-08zma">Delores</a>--}}
+                {{--</blockquote>--}}
 
-            </section>
+            {{--</section>--}}
 
-        </div>
+        {{--</div>--}}
 
-    </div>
-
-
-    <div class="row">
-        <div class=" 12u">
-
-            <section class="box special features" >
-
-                <h2 style="color: red">The payouts to our members  are consistent and on time.
-                </h2>
-                <p>Yes they are making Dough dialing 4 dough on a 15 day Cycle payroll. <a href="https://dialer.dial4dough.com/affiliates/signup.php#SignupForm">Join today for 1 cent!</a></p>
-                <a href="https://dialer.dial4dough.com/affiliates/signup.php#SignupForm">
-
-                    <img src="{{asset('images/payout_june2015.png')}}" alt="Payouts as of {{\Carbon\Carbon::createFromDate(2015,6,17)}}"/>
-
-                </a>
-
-                <br/>
-
-            </section>
-
-        </div>
-
-    </div>
-
-    <div class="row">
-        <div class=" 12u">
+    {{--</div>--}}
 
 
-    <section class="box special features">
+    {{--<div class="row">--}}
+        {{--<div class=" 12u">--}}
+
+            {{--<section class="box special features" >--}}
+
+                {{--<h2 style="color: red">The payouts to our members  are consistent and on time.--}}
+                {{--</h2>--}}
+                {{--<p>Yes they are making Dough dialing 4 dough on a 15 day Cycle payroll. <a href="https://dialer.dial4dough.com/affiliates/signup.php#SignupForm">Join today for 1 cent!</a></p>--}}
+                {{--<a href="https://dialer.dial4dough.com/affiliates/signup.php#SignupForm">--}}
+
+                    {{--<img src="{{asset('images/payout_june2015.png')}}" alt="Payouts as of {{\Carbon\Carbon::createFromDate(2015,6,17)}}"/>--}}
+
+                {{--</a>--}}
+
+                {{--<br/>--}}
+
+            {{--</section>--}}
+
+        {{--</div>--}}
+
+    {{--</div>--}}
+
+    {{--<div class="row">--}}
+        {{--<div class=" 12u">--}}
 
 
-        <h2>Consumer Clout To Cash</h2>
-        <p hidden>consumerism</p>
+    {{--<section class="box special features">--}}
 
 
-<iframe src="//fast.wistia.net/embed/iframe/zye3cktn8m?videoFoam=true" allowtransparency="true"  scrolling="no" class="wistia_embed" name="wistia_embed" allowfullscreen mozallowfullscreen webkitallowfullscreen oallowfullscreen msallowfullscreen width="509" height="382"></iframe><script src="//fast.wistia.net/assets/external/E-v1.js"></script>  </section>
-
-            </div>
-        </div>
+        {{--<h2>Consumer Clout To Cash</h2>--}}
+        {{--<p hidden>consumerism</p>--}}
 
 
+{{--<iframe src="//fast.wistia.net/embed/iframe/zye3cktn8m?videoFoam=true" allowtransparency="true"  scrolling="no" class="wistia_embed" name="wistia_embed" allowfullscreen mozallowfullscreen webkitallowfullscreen oallowfullscreen msallowfullscreen width="509" height="382"></iframe><script src="//fast.wistia.net/assets/external/E-v1.js"></script>  </section>--}}
+
+            {{--</div>--}}
+        {{--</div>--}}
 
 
-</section>
+
+
+{{--</section>--}}
 
 
 
@@ -269,11 +269,11 @@ NO Hidden fees or confusing language. We are right up front.
 
  <div class="container 50%" >
 
-     <h2 >Get updates and news</h2>
+     {{--<h2 >Get updates and news</h2>--}}
 
 
 
-@include('pages.partials.form')
+{{--@include('pages.partials.form')--}}
 
 
 
