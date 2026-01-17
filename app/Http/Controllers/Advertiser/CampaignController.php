@@ -11,7 +11,6 @@ class CampaignController extends Controller
 {
     public function __construct()
     {
-        $this->middleware(['auth', 'role:advertiser']);
     }
 
     public function index()

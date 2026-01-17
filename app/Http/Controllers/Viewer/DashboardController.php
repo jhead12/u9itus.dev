@@ -13,7 +13,6 @@ class DashboardController extends Controller
 
     public function __construct(ViewTrackingService $viewTrackingService)
     {
-        $this->middleware(['auth', 'role:viewer']);
         $this->viewTrackingService = $viewTrackingService;
     }
 
