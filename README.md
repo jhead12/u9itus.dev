@@ -1,59 +1,212 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Dial4Dough MVP - Loyalty Viewers Platform
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+**Version:** 1.0.0 (MVP)  
+**Framework:** Laravel 11  
+**Database:** SQLite (upgradeable to PostgreSQL)
 
-## About Laravel
+## Overview
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+Dial4Dough is a Loyalty Viewers platform where advertisers pay viewers to watch video ads. The platform is controlled by Head Enterprises (admin) who manually or automatically assign ads to viewers.
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Key Features
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+### Core Business Model
+- **One Assignment Per Viewer**: Viewers can only have ONE active ad assignment at a time
+- **80% Watch Requirement**: Viewers must watch at least 80% of the video to get paid
+- **Admin-Controlled Assignments**: Admins manually or automatically assign ads to viewers
+- **One View Per Campaign**: Each viewer can only watch each campaign once
+- **24-Hour Expiration**: Assignments expire after 24 hours if not completed
 
-## Learning Laravel
+### User Roles
+1. **Admin** - Manages assignments, approves campaigns, tracks completion
+2. **Advertiser** - Uploads video ads, pays via Stripe, views campaign analytics
+3. **Viewer** - Watches assigned ads, earns money, receives payouts
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+### Technical Stack
+- **Backend**: Laravel 11 (PHP 8.1+)
+- **Database**: SQLite (MVP) / PostgreSQL (Production)
+- **Authentication**: Laravel built-in auth with role-based access
+- **Permissions**: Spatie Laravel Permission
+- **Payments**: Laravel Cashier (Stripe integration)
+- **Frontend**: Bootstrap 5 + jQuery
+- **Testing**: Pest
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+## Quick Start
 
-## Laravel Sponsors
+### Requirements
+- PHP 8.1 or higher
+- Composer
+- SQLite3
+- Node.js & NPM (for frontend assets)
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+### Installation
 
-### Premium Partners
+1. **Clone the repository**
+```bash
+git clone https://github.com/jhead12/dial4dough.dev.git
+cd dial4dough.dev
+```
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+2. **Install dependencies**
+```bash
+composer install
+npm install
+```
 
-## Contributing
+3. **Environment setup**
+```bash
+cp .env.example .env
+php artisan key:generate
+```
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+4. **Database setup**
+```bash
+touch database/database.sqlite
+php artisan migrate --seed
+```
 
-## Code of Conduct
+5. **Build frontend assets**
+```bash
+npm run build
+```
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+6. **Start development server**
+```bash
+php artisan serve
+```
 
-## Security Vulnerabilities
+7. **Access the application**
+- URL: http://localhost:8000
+- Admin: admin@dial4dough.com / password
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+## Default Credentials
+
+After running the seeders, you can log in with:
+
+**Admin Account:**
+- Email: admin@dial4dough.com
+- Password: password
+
+*Change these credentials immediately in production!*
+
+## Application Structure
+
+### Database Schema
+
+**Users** - Extended with user_type, KYC status, assignment tracking  
+**Advertisers** - Company info, Stripe integration, budgets  
+**Loyalty Viewers** - Demographics, payment preferences, earnings  
+**Campaigns** - Video ads with targeting, budget, status  
+**Ad Assignments** - Core feature linking campaigns to viewers  
+
+### Services
+
+- **AdminAssignmentService** - Assignment logic and validation
+- **ViewTrackingService** - Watch time tracking and completion
+- **PaymentService** - Stripe charges and viewer payouts
+
+### Console Commands
+
+```bash
+# Handle expired assignments (runs hourly)
+php artisan assignments:handle-expired
+
+# Process viewer payouts (runs daily)
+php artisan payouts:process-viewer
+```
+
+## Development Workflow
+
+### Running Tests
+```bash
+php artisan test
+```
+
+### Code Style
+```bash
+./vendor/bin/pint
+```
+
+### Database Management
+```bash
+# Fresh migration
+php artisan migrate:fresh --seed
+
+# Reset specific table
+php artisan migrate:rollback --step=1
+
+# Check migration status
+php artisan migrate:status
+```
+
+## API Endpoints
+
+### Admin Routes
+- `GET /admin/assignments` - Assignment dashboard
+- `POST /admin/assign-ad` - Manually assign ad
+- `POST /admin/auto-assign` - Auto-assign ads
+
+### Advertiser Routes
+- `GET /advertiser/dashboard` - Overview
+- `GET /advertiser/campaigns` - List campaigns
+- `POST /advertiser/campaigns` - Create campaign
+- `GET /advertiser/campaigns/{id}` - Campaign analytics
+
+### Viewer Routes
+- `GET /viewer/dashboard` - Current assignment & earnings
+- `GET /viewer/watch/{assignment}` - Watch video
+- `POST /viewer/complete/{assignment}` - Mark as completed
+
+## Configuration
+
+Key configuration values in `config/dial4dough.php`:
+
+```php
+'head_enterprises_fee_percent' => 15.0,  // Platform fee
+'assignment_expiry_hours' => 24,         // Assignment lifetime
+'min_watch_time_percent' => 80,          // Minimum watch time
+'min_payout_amount' => 25.00,            // Minimum payout threshold
+'default_payment_per_view' => 1.00,      // Default payment
+```
+
+## Security
+
+- Role-based access control via Spatie Permission
+- Policy-based authorization for campaigns and assignments
+- CSRF protection on all forms
+- SQL injection prevention via Eloquent ORM
+- XSS protection via Blade templating
+
+## Known Limitations (MVP)
+
+- SQLite database (upgrade to PostgreSQL for production)
+- Local file storage (upgrade to S3 for production)
+- Stripe test mode only
+- Manual PayPal payouts (no API integration)
+- No real-time features
+- No blockchain verification
+- Basic fraud detection
+
+## Future Enhancements
+
+- Real-time notifications via WebSockets
+- Advanced fraud detection
+- Blockchain verification
+- Advanced analytics dashboard
+- Mobile application
+- Multi-language support
+- Video streaming optimization
+
+## Support
+
+For issues and questions:
+- GitHub Issues: https://github.com/jhead12/dial4dough.dev/issues
+- Documentation: See INSTALLATION.md for detailed setup guide
 
 ## License
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+MIT License - See LICENSE file for details
+
+## Credits
+
+Developed by Head Enterprises

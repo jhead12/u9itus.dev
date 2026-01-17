@@ -61,6 +61,9 @@ class AdminAssignmentService
                 'last_assignment_at' => now(),
             ]);
 
+            // Send notification to viewer
+            $viewer->notify(new \App\Notifications\NewAdAssigned($assignment));
+
             return $assignment;
         });
     }
