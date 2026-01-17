@@ -14,7 +14,12 @@ class DashboardController extends Controller
 
     public function index()
     {
-        $advertiser = auth()->user()->advertiser;
+        $user = auth()->user();
+        $advertiser = $user->advertiser;
+        
+        if (!$advertiser) {
+            abort(403, 'Advertiser profile not found.');
+        }
         
         $campaigns = $advertiser->campaigns()
             ->withCount(['assignments as total_views' => function($query) {

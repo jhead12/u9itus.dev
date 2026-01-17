@@ -16,7 +16,14 @@ class CampaignController extends Controller
 
     public function index()
     {
-        $campaigns = auth()->user()->advertiser->campaigns()
+        $user = auth()->user();
+        $advertiser = $user->advertiser;
+        
+        if (!$advertiser) {
+            abort(403, 'Advertiser profile not found.');
+        }
+
+        $campaigns = $advertiser->campaigns()
             ->latest()
             ->paginate(10);
 
@@ -30,6 +37,13 @@ class CampaignController extends Controller
 
     public function store(Request $request)
     {
+        $user = auth()->user();
+        $advertiser = $user->advertiser;
+        
+        if (!$advertiser) {
+            abort(403, 'Advertiser profile not found.');
+        }
+
         $validated = $request->validate([
             'title' => 'required|string|max:255',
             'description' => 'required|string',
@@ -38,8 +52,8 @@ class CampaignController extends Controller
             'total_views_requested' => 'required|integer|min:1',
             'payment_per_view' => 'required|numeric|min:0.01',
             'min_watch_time_percent' => 'nullable|numeric|min:1|max:100',
-            'target_states' => 'nullable|array',
-            'target_cities' => 'nullable|array',
+            'target_states' => 'nullable|string',
+            'target_cities' => 'nullable|string',
         ]);
 
         try {
@@ -50,20 +64,24 @@ class CampaignController extends Controller
             $feePercent = config('dial4dough.head_enterprises_fee_percent', 15);
             $viewCost = $validated['payment_per_view'] * $validated['total_views_requested'];
             $totalBudget = $viewCost * (1 + ($feePercent / 100));
+            
+            // Parse target locations
+            $targetStates = !empty($validated['target_states']) ? array_filter(array_map('trim', explode(',', $validated['target_states']))) : [];
+            $targetCities = !empty($validated['target_cities']) ? array_filter(array_map('trim', explode(',', $validated['target_cities']))) : [];
 
-            $campaign = auth()->user()->advertiser->campaigns()->create([
+            $campaign = $advertiser->campaigns()->create([
                 'title' => $validated['title'],
                 'description' => $validated['description'],
                 'campaign_type' => $validated['campaign_type'],
                 'media_file_url' => $mediaPath,
-                'media_duration' => 15, // Default, should be calculated from video
+                'media_duration' => 15, // TODO: Calculate from actual media file
                 'total_budget' => $totalBudget,
                 'payment_per_view' => $validated['payment_per_view'],
                 'head_enterprises_fee_percent' => $feePercent,
                 'total_views_requested' => $validated['total_views_requested'],
                 'views_completed' => 0,
-                'target_states' => $validated['target_states'] ?? [],
-                'target_cities' => $validated['target_cities'] ?? [],
+                'target_states' => $targetStates,
+                'target_cities' => $targetCities,
                 'min_watch_time_percent' => $validated['min_watch_time_percent'] ?? config('dial4dough.min_watch_time_percent', 80),
                 'status' => 'pending',
                 'approval_status' => 'pending',
@@ -84,7 +102,7 @@ class CampaignController extends Controller
         $this->authorize('view', $campaign);
 
         $campaign->load(['assignments' => function($query) {
-            $query->completed()->with('viewer');
+            $query->where('status', 'completed')->with('viewer');
         }]);
 
         $analytics = [
@@ -93,7 +111,7 @@ class CampaignController extends Controller
                 : 0,
             'total_spent' => $campaign->views_completed * $campaign->payment_per_view,
             'remaining_views' => $campaign->remainingViews(),
-            'avg_watch_time' => $campaign->assignments()->completed()->avg('watch_time') ?? 0,
+            'avg_watch_time' => $campaign->assignments()->where('status', 'completed')->avg('watch_time') ?? 0,
         ];
 
         return view('advertiser.campaigns.show', compact('campaign', 'analytics'));

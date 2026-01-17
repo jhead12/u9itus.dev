@@ -98,14 +98,14 @@
 
                     <div class="mb-3">
                         <label class="form-label">Target States (Optional)</label>
-                        <input type="text" class="form-control" name="target_states[]" placeholder="e.g., California">
-                        <small class="text-muted">Leave empty to target all states</small>
+                        <input type="text" class="form-control" name="target_states" placeholder="e.g., California, Texas, New York">
+                        <small class="text-muted">Comma-separated list. Leave empty to target all states</small>
                     </div>
 
                     <div class="mb-3">
                         <label class="form-label">Target Cities (Optional)</label>
-                        <input type="text" class="form-control" name="target_cities[]" placeholder="e.g., Los Angeles">
-                        <small class="text-muted">Leave empty to target all cities</small>
+                        <input type="text" class="form-control" name="target_cities" placeholder="e.g., Los Angeles, Dallas, New York City">
+                        <small class="text-muted">Comma-separated list. Leave empty to target all cities</small>
                     </div>
 
                     <div class="d-flex justify-content-between">
