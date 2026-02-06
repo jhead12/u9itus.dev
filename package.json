@@ -1,55 +1,34 @@
 {
-  "name": "dial4dough.com",
-  "version": "0.0.1",
-  "description": "Dial4dough.com front-end design",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/planetoftheweb/responsive.git"
-  },
-  "author": "Josh Head",
-  "devDependencies": {
-    "btoa": "~1.1.2",
-    "ejs": "~1.0.0",
-    "escodegen": "^1.5.0",
-    "gulp": "^3.8.7",
-    "gulp-autoprefixer": "^2.0.0",
-    "gulp-browserify": "^0.5.0",
-    "gulp-compass": "^2.0.3",
-    "gulp-concat": "^2.3.4",
-    "gulp-connect": "^2.0.6",
-    "gulp-if": "^1.2.4",
-    "gulp-imagemin": "^2.3.0",
-    "gulp-less": "^2.0.1",
-    "gulp-minify-css": "^0.3.11",
-    "gulp-minify-html": "^0.1.4",
-    "gulp-notify": "^2.1.0",
-    "gulp-uglify": "^0.3.1",
-    "gulp-util": "^2.2.20",
-    "jquery": "^2.1.1",
-    "node-sass": "~0.9.3",
-    "npm-shrinkwrap": "~5.1.0",
-    "remarkable": "~1.4.0",
-    "vinyl-fs": "^0.3.13"
-  },
-  "jspm": {
-    "main": "js/bootstrap",
-    "directories": {
-      "example": "examples",
-      "lib": "dist"
+    "$schema": "https://www.schemastore.org/package.json",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "build": "vite build",
+        "dev": "vite",
+        "wix:dev": "npx wix dev",
+        "wix:build": "npx wix build",
+        "wix:publish": "npx wix publish",
+        "wix:create-version": "npx wix app create-version"
     },
-    "shim": {
-      "js/bootstrap": {
-        "imports": "jquery",
-        "exports": "$"
-      }
+    "devDependencies": {
+        "@tailwindcss/forms": "^0.5.2",
+        "@tailwindcss/vite": "^4.0.0",
+        "@wix/cli": "^1.1.159",
+        "alpinejs": "^3.4.2",
+        "autoprefixer": "^10.4.2",
+        "axios": "^1.11.0",
+        "concurrently": "^9.0.1",
+        "laravel-vite-plugin": "^2.0.0",
+        "postcss": "^8.4.31",
+        "tailwindcss": "^3.1.0",
+        "vite": "^7.0.7"
     },
-    "buildConfig": {
-      "uglify": true
+    "dependencies": {
+        "@wix/dashboard": "^1.3.42",
+        "@wix/data": "^1.0.386",
+        "@wix/design-system": "^1.255.0",
+        "@wix/members": "^1.0.420",
+        "@wix/sdk": "^1.21.2",
+        "gsap": "^3.14.2"
     }
-  },
-  "dependencies": {
-    "bootflat": "^2.0.4",
-    "imagemin": "^3.2.0",
-    "imagemin-pngquant": "^4.1.0"
-  }
 }
