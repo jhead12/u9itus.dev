@@ -1,0 +1,252 @@
+{
+    "info": {
+        "name": "Dial4Dough - Political Loyalty Ads API",
+        "description": "Complete API collection for testing the Wix political ads platform",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "variable": [
+        {
+            "key": "base_url",
+            "value": "http://localhost:8000",
+            "type": "string"
+        },
+        {
+            "key": "politician_uuid",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "voter_uuid",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "campaign_uuid",
+            "value": "",
+            "type": "string"
+        }
+    ],
+    "item": [
+        {
+            "name": "Health Check",
+            "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                    "raw": "{{base_url}}/api/health",
+                    "host": ["{{base_url}}"],
+                    "path": ["api", "health"]
+                }
+            }
+        },
+        {
+            "name": "Politician",
+            "item": [
+                {
+                    "name": "Create Politician",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "if (pm.response.code === 201) {",
+                                    "    const json = pm.response.json();",
+                                    "    pm.collectionVariables.set('politician_uuid', json.politician.data.uuid);",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"wix_member_id\": \"member-{{$timestamp}}\",\n    \"full_name\": \"Senator Jane Doe\",\n    \"political_office\": \"State Senator\",\n    \"governance_level\": \"state\",\n    \"state\": \"CA\",\n    \"city\": \"Los Angeles\",\n    \"email\": \"jane.doe{{$timestamp}}@example.com\",\n    \"bio\": \"Experienced state senator focused on education reform.\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/api/politicians",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "politicians"]
+                        }
+                    }
+                },
+                {
+                    "name": "Get Politician Profile",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{base_url}}/api/politicians/{{politician_uuid}}",
+                            "host": ["{{base_url}}"],
+                            "path": [
+                                "api",
+                                "politicians",
+                                "{{politician_uuid}}"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Create Campaign",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "if (pm.response.code === 201) {",
+                                    "    const json = pm.response.json();",
+                                    "    pm.collectionVariables.set('campaign_uuid', json.campaign.data.uuid);",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"title\": \"Vote Yes on Proposition 22\",\n    \"message_summary\": \"Learn why Proposition 22 benefits our community\",\n    \"campaign_type\": \"video\",\n    \"governance_level\": \"state\",\n    \"media_url\": \"https://www.youtube.com/watch?v=dQw4w9WgXcQ\",\n    \"media_duration\": 180,\n    \"total_budget\": 500.00,\n    \"total_views_requested\": 800,\n    \"target_states\": [\"CA\"],\n    \"min_watch_time_percent\": 75\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/api/politicians/{{politician_uuid}}/campaigns",
+                            "host": ["{{base_url}}"],
+                            "path": [
+                                "api",
+                                "politicians",
+                                "{{politician_uuid}}",
+                                "campaigns"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Voter",
+            "item": [
+                {
+                    "name": "Register Voter",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "if (pm.response.code === 201) {",
+                                    "    const json = pm.response.json();",
+                                    "    pm.collectionVariables.set('voter_uuid', json.voter.data.uuid);",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"full_name\": \"John Smith\",\n    \"email\": \"john.smith{{$timestamp}}@example.com\",\n    \"state\": \"CA\",\n    \"city\": \"San Francisco\",\n    \"zip_code\": \"94102\",\n    \"payment_method\": \"paypal\",\n    \"paypal_email\": \"john.paypal@example.com\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/api/voters",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "voters"]
+                        }
+                    }
+                },
+                {
+                    "name": "Get Available Campaigns",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{base_url}}/api/voters/{{voter_uuid}}/campaigns/available",
+                            "host": ["{{base_url}}"],
+                            "path": [
+                                "api",
+                                "voters",
+                                "{{voter_uuid}}",
+                                "campaigns",
+                                "available"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Get Earnings Summary",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{base_url}}/api/voters/{{voter_uuid}}/earnings",
+                            "host": ["{{base_url}}"],
+                            "path": [
+                                "api",
+                                "voters",
+                                "{{voter_uuid}}",
+                                "earnings"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Admin",
+            "item": [
+                {
+                    "name": "Platform Analytics",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{base_url}}/api/admin/analytics",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "admin", "analytics"]
+                        }
+                    }
+                },
+                {
+                    "name": "Pending Campaigns",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{base_url}}/api/admin/campaigns/pending",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "admin", "campaigns", "pending"]
+                        }
+                    }
+                },
+                {
+                    "name": "Approve Campaign",
+                    "request": {
+                        "method": "POST",
+                        "url": {
+                            "raw": "{{base_url}}/api/admin/campaigns/{{campaign_uuid}}/approve",
+                            "host": ["{{base_url}}"],
+                            "path": [
+                                "api",
+                                "admin",
+                                "campaigns",
+                                "{{campaign_uuid}}",
+                                "approve"
+                            ]
+                        }
+                    }
+                }
+            ]
+        }
+    ]
+}
