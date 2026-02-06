@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Enums\PaymentStatus;
+use App\Enums\ViewPaymentStatus;
 use App\Models\PoliticalCampaign;
 use App\Models\Voter;
 use App\Models\ViewSession;
@@ -31,7 +33,7 @@ class PoliticalPaymentService
         // $campaign->politician->stripe_customer_id for the payment source
 
         $campaign->update([
-            'payment_status' => 'captured',
+            'payment_status' => PaymentStatus::Captured,
         ]);
 
         Log::info("Campaign {$campaign->uuid} charged: \${$campaign->total_budget}");
@@ -66,7 +68,7 @@ class PoliticalPaymentService
         foreach ($eligibleVoters as $voter) {
             // Only pay sessions that have passed the hold window
             $approvedEarnings = ViewSession::where('voter_id', $voter->id)
-                ->where('payment_status', 'approved')
+                ->where('payment_status', ViewPaymentStatus::Approved)
                 ->where('completed_at', '<=', now()->subHours($holdHours))
                 ->sum('voter_payout_amount');
 
@@ -78,10 +80,10 @@ class PoliticalPaymentService
             DB::transaction(function () use ($voter, $approvedEarnings, $holdHours) {
                 // Mark sessions as paid
                 ViewSession::where('voter_id', $voter->id)
-                    ->where('payment_status', 'approved')
+                    ->where('payment_status', ViewPaymentStatus::Approved)
                     ->where('completed_at', '<=', now()->subHours($holdHours))
                     ->update([
-                        'payment_status' => 'paid',
+                        'payment_status' => ViewPaymentStatus::Paid,
                         'paid_at' => now(),
                     ]);
 
@@ -113,12 +115,14 @@ class PoliticalPaymentService
      * Net margin: 25%–50%
      */
     public function perViewProfit(
-        float $revenuePerView = 0.60,
-        float $voterPayout = 0.25,
+        ?float $revenuePerView = null,
+        ?float $voterPayout = null,
         bool $hasReferral = false,
         float $processingFee = 0.02,
         float $opsCost = 0.05
     ): array {
+        $revenuePerView ??= (float) config('dial4dough.revenue_per_view', 0.60);
+        $voterPayout    ??= (float) config('dial4dough.viewer_payout_per_view', 0.25);
         $referralCommission = $hasReferral
             ? $voterPayout * (config('dial4dough.referral_commission_percent', 10) / 100)
             : 0;

@@ -29,14 +29,18 @@ class WixSite extends Model
         'settings',
     ];
 
+    protected $table = 'wix_sites';
+
     protected function casts(): array
     {
         return [
+            'access_token'     => 'encrypted',
+            'refresh_token'    => 'encrypted',
             'token_expires_at' => 'datetime',
-            'installed_at' => 'datetime',
-            'uninstalled_at' => 'datetime',
-            'is_active' => 'boolean',
-            'settings' => 'array',
+            'installed_at'     => 'datetime',
+            'uninstalled_at'   => 'datetime',
+            'is_active'        => 'boolean',
+            'settings'         => 'array',
         ];
     }
 
@@ -68,5 +72,13 @@ class WixSite extends Model
     public function tokenExpired(): bool
     {
         return $this->token_expires_at && $this->token_expires_at->isPast();
+    }
+
+    /**
+     * Route model binding key.
+     */
+    public function getRouteKeyName(): string
+    {
+        return 'instance_id';
     }
 }

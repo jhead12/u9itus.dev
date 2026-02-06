@@ -106,7 +106,7 @@ class WixOAuthService
         $url = $this->apiBaseUrl . '/' . ltrim($endpoint, '/');
 
         $response = Http::withHeaders([
-            'Authorization' => $site->access_token,
+            'Authorization' => 'Bearer ' . $site->access_token,
         ])->{$method}($url, $data);
 
         if ($response->failed()) {

@@ -14,6 +14,8 @@ class Politician extends Model
 {
     use HasFactory;
 
+    protected $table = 'politicians';
+
     protected $fillable = [
         'user_id',
         'wix_site_id',
@@ -47,36 +49,44 @@ class Politician extends Model
         ];
     }
 
-    protected static function boot()
+    protected static function boot(): void
     {
         parent::boot();
-        static::creating(function ($politician) {
+        static::creating(function (Politician $politician): void {
             if (empty($politician->uuid)) {
                 $politician->uuid = (string) Str::uuid();
             }
         });
     }
 
-    public function user()
+    public function user(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
-    public function wixSite()
+    public function wixSite(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(WixSite::class);
     }
 
-    public function campaigns()
+    public function campaigns(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(PoliticalCampaign::class);
     }
 
     /**
-     * Voters referred/procured by this politician's campaigns.
+     * View sessions across all of this politician's campaigns.
      */
-    public function procuredVoters()
+    public function viewSessions(): \Illuminate\Database\Eloquent\Relations\HasManyThrough
     {
         return $this->hasManyThrough(ViewSession::class, PoliticalCampaign::class);
+    }
+
+    /**
+     * Route model binding key.
+     */
+    public function getRouteKeyName(): string
+    {
+        return 'uuid';
     }
 }

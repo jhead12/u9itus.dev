@@ -27,7 +27,7 @@ class OAuthController extends Controller
      * Entry point — Wix redirects here when the site owner clicks "Add to Site."
      * We redirect them to the Wix consent screen.
      */
-    public function install(Request $request)
+    public function install(Request $request): \Illuminate\Http\RedirectResponse|\Illuminate\Http\JsonResponse
     {
         $token = $request->query('token');
 
@@ -44,7 +44,7 @@ class OAuthController extends Controller
      * Wix redirects here after the site owner grants consent.
      * We exchange the auth code for tokens.
      */
-    public function callback(Request $request)
+    public function callback(Request $request): \Illuminate\Http\RedirectResponse|\Illuminate\Http\JsonResponse
     {
         $code       = $request->query('code');
         $instanceId = $request->query('instanceId');
@@ -63,7 +63,7 @@ class OAuthController extends Controller
             return redirect()->route('wix.dashboard.index');
         } catch (\Throwable $e) {
             Log::error('Wix OAuth callback failed', ['error' => $e->getMessage()]);
-            return response()->json(['error' => 'OAuth failed: ' . $e->getMessage()], 500);
+            return response()->json(['error' => 'OAuth authorization failed. Please try again.'], 500);
         }
     }
 
@@ -71,7 +71,7 @@ class OAuthController extends Controller
      * Signup URL — shown when a Wix user needs to create an account on our side
      * before installing the app.
      */
-    public function signup(Request $request)
+    public function signup(Request $request): \Illuminate\Contracts\View\View
     {
         return view('wix.signup', [
             'instance' => $request->query('instance'),

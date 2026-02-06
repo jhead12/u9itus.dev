@@ -2,6 +2,10 @@
 
 namespace App\Models;
 
+use App\Enums\ApprovalStatus;
+use App\Enums\CampaignStatus;
+use App\Enums\CampaignType;
+use App\Enums\PaymentStatus;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Support\Str;
@@ -54,30 +58,41 @@ class PoliticalCampaign extends Model
         'completed_at',
     ];
 
+    protected $table = 'political_campaigns';
+
+    protected $hidden = [
+        'stripe_payment_intent_id',
+        'head_enterprises_fee_percent',
+    ];
+
     protected function casts(): array
     {
         return [
-            'target_states' => 'array',
-            'target_cities' => 'array',
-            'target_districts' => 'array',
-            'target_governance_levels' => 'array',
-            'revenue_per_view' => 'decimal:2',
-            'voter_payout_per_view' => 'decimal:2',
-            'total_budget' => 'decimal:2',
-            'amount_spent' => 'decimal:2',
+            'campaign_type'              => CampaignType::class,
+            'status'                     => CampaignStatus::class,
+            'approval_status'            => ApprovalStatus::class,
+            'payment_status'             => PaymentStatus::class,
+            'target_states'              => 'array',
+            'target_cities'              => 'array',
+            'target_districts'           => 'array',
+            'target_governance_levels'   => 'array',
+            'revenue_per_view'           => 'decimal:2',
+            'voter_payout_per_view'      => 'decimal:2',
+            'total_budget'               => 'decimal:2',
+            'amount_spent'               => 'decimal:2',
             'head_enterprises_fee_percent' => 'decimal:2',
-            'live_scheduled_at' => 'datetime',
-            'live_ended_at' => 'datetime',
-            'approved_at' => 'datetime',
-            'started_at' => 'datetime',
-            'completed_at' => 'datetime',
+            'live_scheduled_at'          => 'datetime',
+            'live_ended_at'              => 'datetime',
+            'approved_at'                => 'datetime',
+            'started_at'                 => 'datetime',
+            'completed_at'               => 'datetime',
         ];
     }
 
-    protected static function boot()
+    protected static function boot(): void
     {
         parent::boot();
-        static::creating(function ($campaign) {
+        static::creating(function (PoliticalCampaign $campaign): void {
             if (empty($campaign->uuid)) {
                 $campaign->uuid = (string) Str::uuid();
             }
@@ -90,12 +105,12 @@ class PoliticalCampaign extends Model
         });
     }
 
-    public function politician()
+    public function politician(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(Politician::class);
     }
 
-    public function viewSessions()
+    public function viewSessions(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(ViewSession::class);
     }
@@ -106,7 +121,7 @@ class PoliticalCampaign extends Model
     public function needsMoreViews(): bool
     {
         return $this->views_completed < $this->total_views_requested
-            && $this->status === 'active';
+            && $this->status === CampaignStatus::Active;
     }
 
     /**
@@ -130,25 +145,25 @@ class PoliticalCampaign extends Model
      */
     public function isLiveFeed(): bool
     {
-        return $this->campaign_type === 'live_feed';
+        return $this->campaign_type === CampaignType::LiveFeed;
     }
 
     // ── Scopes ──────────────────────────────────────────────
-    public function scopeActive($query)
+    public function scopeActive($query): void
     {
-        return $query->where('status', 'active')
-                     ->where('approval_status', 'approved');
+        $query->where('status', CampaignStatus::Active)
+              ->where('approval_status', ApprovalStatus::Approved);
     }
 
-    public function scopeNeedingViews($query)
+    public function scopeNeedingViews($query): void
     {
-        return $query->active()
-                     ->whereColumn('views_completed', '<', 'total_views_requested');
+        $query->active()
+              ->whereColumn('views_completed', '<', 'total_views_requested');
     }
 
-    public function scopeLive($query)
+    public function scopeLive($query): void
     {
-        return $query->where('campaign_type', 'live_feed')
-                     ->where('status', 'active');
+        $query->where('campaign_type', CampaignType::LiveFeed)
+              ->where('status', CampaignStatus::Active);
     }
 }

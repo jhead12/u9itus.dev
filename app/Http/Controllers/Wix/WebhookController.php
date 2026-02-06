@@ -3,31 +3,40 @@
 namespace App\Http\Controllers\Wix;
 
 use App\Http\Controllers\Controller;
+use App\Services\WixOAuthService;
 use App\Services\WixWebhookService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
 /**
  * Receives inbound webhooks from Wix (app installed, removed, member events).
+ *
+ * All webhooks MUST include a valid X-Wix-Signature header when
+ * a webhook secret is configured in the environment.
  */
 class WebhookController extends Controller
 {
     public function __construct(
         protected WixWebhookService $webhookService,
+        protected WixOAuthService $wixOAuth,
     ) {}
 
     /**
      * Single endpoint that handles all Wix webhook events.
      */
-    public function handle(Request $request)
+    public function handle(Request $request): JsonResponse
     {
-        // Verify signature if webhook secret is configured
-        $signature = $request->header('X-Wix-Signature');
-        if ($signature && config('wix.webhook_secret')) {
-            $payload = $request->getContent();
-            $service = app(\App\Services\WixOAuthService::class);
+        // ── Signature verification (mandatory when secret is configured) ──
+        if (config('wix.webhook_secret')) {
+            $signature = $request->header('X-Wix-Signature');
 
-            if (!$service->verifyWebhookSignature($payload, $signature)) {
+            if (!$signature) {
+                Log::warning('Wix webhook missing signature header');
+                return response()->json(['error' => 'Missing signature'], 401);
+            }
+
+            if (!$this->wixOAuth->verifyWebhookSignature($request->getContent(), $signature)) {
                 Log::warning('Wix webhook signature verification failed');
                 return response()->json(['error' => 'Invalid signature'], 401);
             }

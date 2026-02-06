@@ -2,23 +2,29 @@
 
 namespace App\Models;
 
+use App\Enums\ViewPaymentStatus;
+use App\Enums\ViewSessionStatus;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Support\Str;
 
 /**
  * A single view session — a voter watching a politician's video or live feed.
+ *
  * Tracks watch time, completion, fraud signals, and payment status.
+ * Business logic for payout calculation lives in PoliticalViewService.
  */
 class ViewSession extends Model
 {
     use HasFactory;
 
+    protected $table = 'view_sessions';
+
     protected $fillable = [
         'uuid',
         'political_campaign_id',
         'voter_id',
-        'status',                   // assigned | in_progress | completed | expired | flagged
+        'status',
         'started_at',
         'completed_at',
         'expires_at',
@@ -27,7 +33,7 @@ class ViewSession extends Model
         'voter_payout_amount',
         'platform_revenue',
         'referral_commission',
-        'payment_status',           // pending | approved | paid | held | rejected
+        'payment_status',
         'paid_at',
         'ip_address',
         'device_fingerprint',
@@ -36,107 +42,72 @@ class ViewSession extends Model
         'fraud_flags',
     ];
 
+    protected $hidden = [
+        'ip_address',
+        'device_fingerprint',
+        'user_agent',
+    ];
+
     protected function casts(): array
     {
         return [
-            'started_at' => 'datetime',
-            'completed_at' => 'datetime',
-            'expires_at' => 'datetime',
-            'paid_at' => 'datetime',
+            'status'                => ViewSessionStatus::class,
+            'payment_status'        => ViewPaymentStatus::class,
+            'started_at'            => 'datetime',
+            'completed_at'          => 'datetime',
+            'expires_at'            => 'datetime',
+            'paid_at'               => 'datetime',
             'completion_percentage' => 'decimal:2',
-            'voter_payout_amount' => 'decimal:2',
-            'platform_revenue' => 'decimal:2',
-            'referral_commission' => 'decimal:2',
-            'fraud_score' => 'decimal:2',
-            'fraud_flags' => 'array',
+            'voter_payout_amount'   => 'decimal:2',
+            'platform_revenue'      => 'decimal:2',
+            'referral_commission'   => 'decimal:2',
+            'fraud_score'           => 'decimal:2',
+            'fraud_flags'           => 'array',
         ];
     }
 
-    protected static function boot()
+    protected static function boot(): void
     {
         parent::boot();
-        static::creating(function ($session) {
+        static::creating(function (self $session): void {
             if (empty($session->uuid)) {
                 $session->uuid = (string) Str::uuid();
             }
         });
     }
 
-    public function campaign()
+    // ── Relationships ───────────────────────────────────────
+
+    public function campaign(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(PoliticalCampaign::class, 'political_campaign_id');
     }
 
-    public function voter()
+    public function voter(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(Voter::class);
     }
 
+    // ── State Transitions ───────────────────────────────────
+
     /**
-     * Start watching.
+     * Mark as started — voter pressed play.
      */
-    public function markStarted()
+    public function markStarted(): void
     {
         $this->update([
-            'status' => 'in_progress',
+            'status'     => ViewSessionStatus::InProgress,
             'started_at' => now(),
         ]);
     }
 
-    /**
-     * Mark as completed and calculate payouts.
-     */
-    public function markCompleted(int $watchTimeSeconds)
+    // ── Scopes ──────────────────────────────────────────────
+
+    public function scopeCompleted($query)
     {
-        $campaign = $this->campaign;
-        $completionPct = $campaign->media_duration > 0
-            ? ($watchTimeSeconds / $campaign->media_duration) * 100
-            : 100;
-
-        $qualifies = $completionPct >= $campaign->min_watch_time_percent;
-
-        $voterPayout = $qualifies ? $campaign->voter_payout_per_view : 0;
-        $platformRevenue = $qualifies ? ($campaign->revenue_per_view - $voterPayout) : 0;
-
-        // Referral commission: 10 % of voter payout if the voter was referred
-        $referralCommission = 0;
-        if ($qualifies && $this->voter->referred_by_voter_id) {
-            $referralCommission = $voterPayout * (config('dial4dough.referral_commission_percent', 10) / 100);
-            $platformRevenue -= $referralCommission;
-        }
-
-        $this->update([
-            'status' => 'completed',
-            'completed_at' => now(),
-            'watch_time_seconds' => $watchTimeSeconds,
-            'completion_percentage' => $completionPct,
-            'voter_payout_amount' => $voterPayout,
-            'platform_revenue' => $platformRevenue,
-            'referral_commission' => $referralCommission,
-            'payment_status' => $qualifies ? 'approved' : 'rejected',
-        ]);
-
-        if ($qualifies) {
-            // Credit voter
-            $this->voter->increment('pending_earnings', $voterPayout);
-            $this->voter->increment('total_views');
-
-            // Credit referrer
-            if ($referralCommission > 0 && $this->voter->referrer) {
-                ReferralEarning::create([
-                    'referrer_voter_id' => $this->voter->referred_by_voter_id,
-                    'referred_voter_id' => $this->voter->id,
-                    'view_session_id' => $this->id,
-                    'commission_amount' => $referralCommission,
-                ]);
-                $this->voter->referrer->increment('pending_earnings', $referralCommission);
-            }
-
-            // Update campaign spend
-            $campaign->increment('views_completed');
-            $campaign->increment('amount_spent', $campaign->revenue_per_view);
-        }
+        return $query->where('status', ViewSessionStatus::Completed);
     }
+}
 
     /**
      * Check if session is expired.

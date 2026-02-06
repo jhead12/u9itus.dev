@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Enums\ViewPaymentStatus;
+use App\Enums\ViewSessionStatus;
 use App\Models\ViewSession;
 use App\Models\Voter;
 use Illuminate\Http\Request;
@@ -59,7 +61,7 @@ class FraudPreventionService
 
         // 4. Rapid-fire views (< 5 seconds between completions)
         $lastView = $voter->viewSessions()
-            ->where('status', 'completed')
+            ->where('status', ViewSessionStatus::Completed)
             ->orderByDesc('completed_at')
             ->first();
 
@@ -114,8 +116,8 @@ class FraudPreventionService
     public function holdPayouts(Voter $voter): void
     {
         ViewSession::where('voter_id', $voter->id)
-            ->where('payment_status', 'approved')
-            ->update(['payment_status' => 'held']);
+            ->where('payment_status', ViewPaymentStatus::Approved)
+            ->update(['payment_status' => ViewPaymentStatus::Held]);
 
         Log::info("Payouts held for voter {$voter->id}");
     }

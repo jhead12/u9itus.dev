@@ -13,6 +13,15 @@ class Voter extends Model
 {
     use HasFactory;
 
+    protected $table = 'voters';
+
+    protected $hidden = [
+        'device_fingerprint',
+        'ip_address',
+        'paypal_email',
+        'cashapp_tag',
+    ];
+
     protected $fillable = [
         'user_id',
         'wix_site_id',
@@ -58,10 +67,10 @@ class Voter extends Model
         ];
     }
 
-    protected static function boot()
+    protected static function boot(): void
     {
         parent::boot();
-        static::creating(function ($voter) {
+        static::creating(function (Voter $voter): void {
             if (empty($voter->uuid)) {
                 $voter->uuid = (string) Str::uuid();
             }
@@ -71,17 +80,17 @@ class Voter extends Model
         });
     }
 
-    public function user()
+    public function user(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
-    public function wixSite()
+    public function wixSite(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(WixSite::class);
     }
 
-    public function viewSessions()
+    public function viewSessions(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(ViewSession::class);
     }
@@ -89,7 +98,7 @@ class Voter extends Model
     /**
      * The voter who referred this voter.
      */
-    public function referrer()
+    public function referrer(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(Voter::class, 'referred_by_voter_id');
     }
@@ -97,7 +106,7 @@ class Voter extends Model
     /**
      * Voters that this voter has referred.
      */
-    public function referrals()
+    public function referrals(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(Voter::class, 'referred_by_voter_id');
     }
@@ -105,9 +114,17 @@ class Voter extends Model
     /**
      * Commission earnings from referrals (10% of referred voters' view payouts).
      */
-    public function referralEarnings()
+    public function referralEarnings(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(ReferralEarning::class, 'referrer_voter_id');
+    }
+
+    /**
+     * Route model binding key.
+     */
+    public function getRouteKeyName(): string
+    {
+        return 'uuid';
     }
 
     /**

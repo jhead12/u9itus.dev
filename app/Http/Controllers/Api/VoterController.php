@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\StoreVoterRequest;
+use App\Http\Resources\VoterResource;
 use App\Models\Voter;
 use App\Models\ViewSession;
 use App\Models\PoliticalCampaign;
@@ -10,11 +12,12 @@ use App\Services\PoliticalViewService;
 use App\Services\FraudPreventionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
 
 /**
  * REST API for voters — registration, watching videos, earnings, referrals.
+ *
  * These endpoints power the Wix widget and voter dashboard.
+ * Voter routes use UUID-based binding and rate limiting (see routes/api.php).
  */
 class VoterController extends Controller
 {
@@ -26,25 +29,11 @@ class VoterController extends Controller
     /**
      * Register a new voter.
      */
-    public function store(Request $request): JsonResponse
+    public function store(StoreVoterRequest $request): JsonResponse
     {
-        $validated = Validator::make($request->all(), [
-            'full_name'     => 'required|string|max:255',
-            'email'         => 'required|email|unique:voters,email',
-            'phone'         => 'nullable|string|max:20',
-            'state'         => 'nullable|string|max:2',
-            'city'          => 'nullable|string|max:255',
-            'zip_code'      => 'nullable|string|max:10',
-            'referral_code' => 'nullable|string|max:16',
-            'payment_method'=> 'nullable|in:wallet,paypal,cashapp',
-            'paypal_email'  => 'nullable|email',
-            'cashapp_tag'   => 'nullable|string|max:50',
-            'wix_member_id' => 'nullable|string',
-            'wix_site_id'   => 'nullable|integer',
-            'preferred_governance_levels' => 'nullable|array',
-        ])->validate();
+        $validated = $request->validated();
 
-        // Handle referral
+        // Handle referral code → referrer lookup
         if (!empty($validated['referral_code'])) {
             $referrer = Voter::where('referral_code', $validated['referral_code'])->first();
             if ($referrer) {
@@ -57,7 +46,7 @@ class VoterController extends Controller
 
         return response()->json([
             'message'       => 'Voter registered successfully',
-            'voter'         => $voter,
+            'voter'         => new VoterResource($voter),
             'referral_code' => $voter->referral_code,
         ], 201);
     }
@@ -68,21 +57,20 @@ class VoterController extends Controller
     public function show(Voter $voter): JsonResponse
     {
         return response()->json([
-            'voter'    => $voter,
+            'voter'    => new VoterResource($voter),
             'earnings' => $this->viewService->voterEarningsSummary($voter),
         ]);
     }
 
     /**
-     * Get available campaigns for this voter.
+     * Get available campaigns for this voter (location-matched, not yet watched).
      */
     public function availableCampaigns(Voter $voter): JsonResponse
     {
         $campaigns = $this->viewService->availableCampaigns($voter);
 
         return response()->json([
-            'campaigns' => $campaigns->map(fn($c) => [
-                'id'                => $c->id,
+            'campaigns' => $campaigns->map(fn ($c) => [
                 'uuid'              => $c->uuid,
                 'title'             => $c->title,
                 'message_summary'   => $c->message_summary,
@@ -125,16 +113,16 @@ class VoterController extends Controller
                 'must_watch' => $campaign->min_watch_time_percent,
             ]);
         } catch (\RuntimeException $e) {
-            return response()->json(['error' => $e->getMessage()], 403);
+            return response()->json(['error' => 'Unable to start view session'], 403);
         }
     }
 
     /**
-     * Heartbeat — track viewing progress.
+     * Heartbeat — track viewing progress (called every ~5 seconds by widget).
      */
     public function trackProgress(Request $request, ViewSession $session): JsonResponse
     {
-        $seconds = $request->input('seconds_watched', 0);
+        $seconds = (int) $request->input('seconds_watched', 0);
 
         $this->viewService->trackProgress($session, $seconds);
 
@@ -146,7 +134,7 @@ class VoterController extends Controller
      */
     public function completeView(Request $request, ViewSession $session): JsonResponse
     {
-        $totalSeconds = $request->input('total_seconds_watched', 0);
+        $totalSeconds = (int) $request->input('total_seconds_watched', 0);
 
         $session = $this->viewService->completeView($session, $totalSeconds);
 
@@ -159,7 +147,7 @@ class VoterController extends Controller
     }
 
     /**
-     * Get voter's view history.
+     * Get voter's view history (paginated).
      */
     public function viewHistory(Voter $voter): JsonResponse
     {
@@ -185,10 +173,10 @@ class VoterController extends Controller
     public function referrals(Voter $voter): JsonResponse
     {
         return response()->json([
-            'referral_code'    => $voter->referral_code,
-            'referrals_count'  => $voter->referrals()->count(),
-            'referral_earnings'=> $voter->referralEarnings()->sum('commission_amount'),
-            'referred_voters'  => $voter->referrals()->select('id', 'full_name', 'created_at')->get(),
+            'referral_code'     => $voter->referral_code,
+            'referrals_count'   => $voter->referrals()->count(),
+            'referral_earnings' => $voter->referralEarnings()->sum('commission_amount'),
+            'referred_voters'   => $voter->referrals()->select('uuid', 'full_name', 'created_at')->get(),
         ]);
     }
 }

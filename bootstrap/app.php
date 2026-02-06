@@ -20,6 +20,12 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'wix.verify' => \App\Http\Middleware\VerifyWixInstance::class,
         ]);
+
+        // Wix routes are loaded via iframes — CSRF tokens are unavailable.
+        // Signature verification is handled by VerifyWixInstance middleware instead.
+        $middleware->validateCsrfTokens(except: [
+            'wix/*',
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
