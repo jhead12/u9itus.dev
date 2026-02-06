@@ -1,8 +1,9 @@
-@extends('layouts.app')
+<x-app-layout title="Viewer Dashboard">
 
-@section('title', 'Viewer Dashboard')
+    <x-slot name="header">
+        <h1 class="h3 mb-0">Viewer Dashboard</h1>
+    </x-slot>
 
-@section('content')
 <div class="row">
     <div class="col-md-12">
         <h1>Viewer Dashboard</h1>
@@ -165,4 +166,4 @@
         </div>
     </div>
 </div>
-@endsection
+</x-app-layout>

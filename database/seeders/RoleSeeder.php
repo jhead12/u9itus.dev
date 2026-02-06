@@ -17,20 +17,20 @@ class RoleSeeder extends Seeder
         // Reset cached roles and permissions
         app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
 
-        // Create permissions first
-        $manageAssignments = Permission::create(['name' => 'manage assignments']);
-        $manageCampaigns = Permission::create(['name' => 'manage campaigns']);
-        $watchAds = Permission::create(['name' => 'watch ads']);
-        $viewReports = Permission::create(['name' => 'view reports']);
+        // Create permissions first (idempotent)
+        $manageAssignments = Permission::firstOrCreate(['name' => 'manage assignments']);
+        $manageCampaigns = Permission::firstOrCreate(['name' => 'manage campaigns']);
+        $watchAds = Permission::firstOrCreate(['name' => 'watch ads']);
+        $viewReports = Permission::firstOrCreate(['name' => 'view reports']);
 
-        // Create roles
-        $adminRole = Role::create(['name' => 'admin']);
-        $advertiserRole = Role::create(['name' => 'advertiser']);
-        $viewerRole = Role::create(['name' => 'viewer']);
+        // Create roles (idempotent)
+        $adminRole = Role::firstOrCreate(['name' => 'admin']);
+        $advertiserRole = Role::firstOrCreate(['name' => 'advertiser']);
+        $viewerRole = Role::firstOrCreate(['name' => 'viewer']);
 
-        // Assign permissions to roles
-        $adminRole->givePermissionTo([$manageAssignments, $viewReports]);
-        $advertiserRole->givePermissionTo([$manageCampaigns, $viewReports]);
-        $viewerRole->givePermissionTo([$watchAds]);
+        // Assign permissions to roles (use sync to avoid duplicates)
+        $adminRole->syncPermissions([$manageAssignments->name, $viewReports->name]);
+        $advertiserRole->syncPermissions([$manageCampaigns->name, $viewReports->name]);
+        $viewerRole->syncPermissions([$watchAds->name]);
     }
 }

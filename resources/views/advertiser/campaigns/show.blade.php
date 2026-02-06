@@ -1,8 +1,14 @@
-@extends('layouts.app')
+<x-app-layout title="{{ $campaign->title }} - Campaign Analytics">
 
-@section('title', $campaign->title . ' - Campaign Analytics')
+    <x-slot name="header">
+        <div class="d-flex justify-content-between align-items-center">
+            <h1 class="h3 mb-0">{{ $campaign->title }}</h1>
+            <a href="{{ route('advertiser.campaigns.index') }}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Back to Campaigns
+            </a>
+        </div>
+    </x-slot>
 
-@section('content')
 <div class="row">
     <div class="col-md-12">
         <div class="d-flex justify-content-between align-items-center mb-3">
@@ -174,4 +180,4 @@
         </div>
     </div>
 </div>
-@endsection
+</x-app-layout>

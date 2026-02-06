@@ -1,0 +1,54 @@
+{
+    "appId": "${WIX_APP_ID}",
+    "name": "Dial4Dough – Political Loyalty Ads",
+    "description": "Connect politicians and local governance officials with voters through paid video messages. Voters earn money for watching political content.",
+    "version": "1.0.0",
+    "components": {
+        "dashboardPage": {
+            "title": "Dial4Dough",
+            "path": "/wix/dashboard",
+            "icon": "campaign"
+        },
+        "widget": {
+            "title": "Political Message Feed",
+            "description": "Embed the voter video feed on any Wix page so site visitors can watch political messages and earn rewards.",
+            "defaultSize": {
+                "width": 800,
+                "height": 600
+            },
+            "settingsPanel": true
+        }
+    },
+    "webhooks": {
+        "appInstalled": "/api/wix/webhooks",
+        "appRemoved": "/api/wix/webhooks"
+    },
+    "oauth": {
+        "redirectUrl": "/wix/oauth/callback",
+        "signupUrl": "/wix/signup"
+    },
+    "extensions": {
+        "dashboard": {
+            "pages": [
+                {
+                    "id": "politician-dashboard",
+                    "title": "Politician Dashboard",
+                    "path": "/wix/dashboard/politician",
+                    "icon": "podium"
+                },
+                {
+                    "id": "voter-dashboard",
+                    "title": "Voter Dashboard",
+                    "path": "/wix/dashboard/voter",
+                    "icon": "audience"
+                },
+                {
+                    "id": "admin-dashboard",
+                    "title": "Admin Panel",
+                    "path": "/wix/dashboard/admin",
+                    "icon": "settings"
+                }
+            ]
+        }
+    }
+}

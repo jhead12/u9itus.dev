@@ -1,211 +1,316 @@
-# Dial4Dough MVP - Loyalty Viewers Platform
+# Dial4Dough – Political Loyalty Ads (Wix App Extension)
 
-**Version:** 1.0.0 (MVP)  
-**Framework:** Laravel 11  
+**Version:** 2.0.0  
+**Framework:** Laravel 11 + Wix App Extension  
+**Platform:** Wix Marketplace Plugin  
 **Database:** SQLite (upgradeable to PostgreSQL)
 
 ## Overview
 
-Dial4Dough is a Loyalty Viewers platform where advertisers pay viewers to watch video ads. The platform is controlled by Head Enterprises (admin) who manually or automatically assign ads to viewers.
+Dial4Dough is a **Wix app extension** that connects **politicians and local governance officials** directly with **potential voters** through paid video messages and live feeds. Politicians pay $0.60 per view; voters earn $0.25 for watching the full message. The platform includes referral commissions, fraud prevention, and batch payouts.
+
+> _"Regardless of how much artificial intelligence is used, without the human element the production that AI affords is all for naught. Human beings will still be required to purchase this production. I am offering a solution."_ — Head Enterprises
 
 ## Key Features
 
-### Core Business Model
-- **One Assignment Per Viewer**: Viewers can only have ONE active ad assignment at a time
-- **80% Watch Requirement**: Viewers must watch at least 80% of the video to get paid
-- **Admin-Controlled Assignments**: Admins manually or automatically assign ads to viewers
-- **One View Per Campaign**: Each viewer can only watch each campaign once
-- **24-Hour Expiration**: Assignments expire after 24 hours if not completed
+### Core Business Model — Per-View Economics
+
+| Component                                 | Amount                          |
+| ----------------------------------------- | ------------------------------- |
+| Politician pays per view                  | **$0.60**                       |
+| Voter earns per view                      | **$0.25**                       |
+| Referral commission (10% of voter payout) | $0.025                          |
+| Payment processing (estimated)            | ~$0.02                          |
+| Ops & infrastructure                      | ~$0.03–$0.12                    |
+| **Platform net profit**                   | **$0.18–$0.30 (30–50% margin)** |
 
 ### User Roles
-1. **Admin** - Manages assignments, approves campaigns, tracks completion
-2. **Advertiser** - Uploads video ads, pays via Stripe, views campaign analytics
-3. **Viewer** - Watches assigned ads, earns money, receives payouts
+
+1. **Politician** — Creates video messages or live feeds, pays to distribute them to voters
+2. **Voter** — Watches political messages, earns money, refers friends
+3. **Admin** — Approves campaigns, manages fraud, processes payouts
+
+### Wix Integration
+
+- **Wix Dashboard Pages** — Politician, Voter, and Admin dashboards rendered inside Wix
+- **Site Widget** — Embeddable video player for voter-facing pages
+- **OAuth Flow** — Seamless Wix app installation and token management
+- **Webhooks** — Handles app installed/removed and member events
+- **Wix Design System** — UI follows Wix visual guidelines
+
+### Political Features
+
+- Governance levels: Federal, State, County, City, School Board, Special District
+- Political offices: Mayor, City Council, Governor, US Senator, etc.
+- Target by state, city, congressional district
+- Video messages + live feeds
+- 100% watch requirement (must watch the full message to earn)
+
+### Fraud Prevention
+
+- Device fingerprinting
+- Daily view rate limits
+- IP anomaly detection
+- Rapid-fire view detection
+- Payout hold periods (48-hour verification window)
+- Voter trust scoring
 
 ### Technical Stack
+
 - **Backend**: Laravel 11 (PHP 8.1+)
+- **Frontend**: Wix App Extension + Blade templates
+- **Wix SDK**: @wix/sdk, @wix/dashboard, @wix/design-system, @wix/members
 - **Database**: SQLite (MVP) / PostgreSQL (Production)
-- **Authentication**: Laravel built-in auth with role-based access
+- **Authentication**: Wix OAuth + Laravel auth
 - **Permissions**: Spatie Laravel Permission
-- **Payments**: Laravel Cashier (Stripe integration)
-- **Frontend**: Bootstrap 5 + jQuery
+- **Payments**: Stripe (politician billing) + PayPal/CashApp (voter payouts)
 - **Testing**: Pest
 
 ## Quick Start
 
 ### Requirements
+
 - PHP 8.1 or higher
 - Composer
 - SQLite3
-- Node.js & NPM (for frontend assets)
+- Node.js 18+ & NPM
+- Wix Developer Account (for app publishing)
 
 ### Installation
 
 1. **Clone the repository**
+
 ```bash
 git clone https://github.com/jhead12/dial4dough.dev.git
 cd dial4dough.dev
 ```
 
 2. **Install dependencies**
+
 ```bash
 composer install
 npm install
 ```
 
 3. **Environment setup**
+
 ```bash
 cp .env.example .env
 php artisan key:generate
 ```
 
+Edit `.env` and set your Wix app credentials:
+
+```env
+WIX_APP_ID=your-wix-app-id
+WIX_APP_SECRET=your-wix-app-secret
+WIX_WEBHOOK_SECRET=your-webhook-secret
+WIX_APP_URL=https://yourdomain.com
+WIX_REDIRECT_URL=https://yourdomain.com/wix/oauth/callback
+```
+
 4. **Database setup**
+
 ```bash
 touch database/database.sqlite
-php artisan migrate --seed
+php artisan migrate
 ```
 
 5. **Build frontend assets**
+
 ```bash
 npm run build
 ```
 
 6. **Start development server**
+
 ```bash
 php artisan serve
 ```
 
-7. **Access the application**
-- URL: http://localhost:8000
-- Admin: admin@dial4dough.com / password
+7. **Start Wix development mode** (in a separate terminal)
 
-## Default Credentials
+```bash
+npm run wix:dev
+```
 
-After running the seeders, you can log in with:
+## Wix App Setup
 
-**Admin Account:**
-- Email: admin@dial4dough.com
-- Password: password
-
-*Change these credentials immediately in production!*
+1. Create a new app at [Wix Developers](https://dev.wix.com/)
+2. Set the **OAuth Redirect URL** to `https://yourdomain.com/wix/oauth/callback`
+3. Configure webhooks pointing to `https://yourdomain.com/api/wix/webhooks`
+4. Add dashboard pages and widget components as defined in `wix.config.json`
+5. Set the required scopes: `WIX_MEMBERS.READ`, `WIX_MEMBERS.MANAGE`, `WIX_DATA.READ`, `WIX_DATA.WRITE`, `WIX_ANALYTICS.READ`
 
 ## Application Structure
 
-### Database Schema
+### Database Schema (Political Tables)
 
-**Users** - Extended with user_type, KYC status, assignment tracking  
-**Advertisers** - Company info, Stripe integration, budgets  
-**Loyalty Viewers** - Demographics, payment preferences, earnings  
-**Campaigns** - Video ads with targeting, budget, status  
-**Ad Assignments** - Core feature linking campaigns to viewers  
+| Table                   | Purpose                                                       |
+| ----------------------- | ------------------------------------------------------------- |
+| **wix_sites**           | Wix site installations, OAuth tokens, settings                |
+| **politicians**         | Politician profiles, governance level, office, district       |
+| **voters**              | Voter profiles, wallet balance, referral codes, trust score   |
+| **political_campaigns** | Video/live-feed campaigns with per-view pricing and targeting |
+| **view_sessions**       | Individual view tracking — watch time, fraud score, payouts   |
+| **referral_earnings**   | Referral commission records per view session                  |
 
 ### Services
 
-- **AdminAssignmentService** - Assignment logic and validation
-- **ViewTrackingService** - Watch time tracking and completion
-- **PaymentService** - Stripe charges and viewer payouts
+| Service                     | Purpose                                                         |
+| --------------------------- | --------------------------------------------------------------- |
+| **WixOAuthService**         | OAuth consent URL, token exchange, refresh, API calls           |
+| **WixWebhookService**       | Routes Wix webhook events (install, remove, member events)      |
+| **PoliticalViewService**    | View lifecycle: assign → start → track → complete               |
+| **PoliticalPaymentService** | Campaign billing, batch payouts, per-view profit calculation    |
+| **FraudPreventionService**  | Device fingerprinting, rate limits, IP anomalies, trust scoring |
 
-### Console Commands
+### Controllers
 
-```bash
-# Handle expired assignments (runs hourly)
-php artisan assignments:handle-expired
-
-# Process viewer payouts (runs daily)
-php artisan payouts:process-viewer
-```
-
-## Development Workflow
-
-### Running Tests
-```bash
-php artisan test
-```
-
-### Code Style
-```bash
-./vendor/bin/pint
-```
-
-### Database Management
-```bash
-# Fresh migration
-php artisan migrate:fresh --seed
-
-# Reset specific table
-php artisan migrate:rollback --step=1
-
-# Check migration status
-php artisan migrate:status
-```
+| Controller                   | Purpose                                         |
+| ---------------------------- | ----------------------------------------------- |
+| **Wix\OAuthController**      | `install()`, `callback()`, `signup()`           |
+| **Wix\WebhookController**    | Wix event handling with signature verification  |
+| **Wix\DashboardController**  | Dashboard stats, admin panel                    |
+| **Api\PoliticianController** | Politician CRUD, campaign management            |
+| **Api\VoterController**      | Registration, view sessions, earnings           |
+| **Api\AdminController**      | Analytics, approvals, payouts, fraud management |
 
 ## API Endpoints
 
-### Admin Routes
-- `GET /admin/assignments` - Assignment dashboard
-- `POST /admin/assign-ad` - Manually assign ad
-- `POST /admin/auto-assign` - Auto-assign ads
+### Wix Routes (`/wix/*`)
 
-### Advertiser Routes
-- `GET /advertiser/dashboard` - Overview
-- `GET /advertiser/campaigns` - List campaigns
-- `POST /advertiser/campaigns` - Create campaign
-- `GET /advertiser/campaigns/{id}` - Campaign analytics
+- `GET /wix/install` — Start OAuth installation flow
+- `GET /wix/oauth/callback` — OAuth callback
+- `GET /wix/dashboard` — Main dashboard page
+- `GET /wix/dashboard/politician` — Politician management page
+- `GET /wix/dashboard/voter` — Voter dashboard page
+- `GET /wix/dashboard/admin` — Admin dashboard page
+- `GET /wix/widget/feed` — Embeddable voter feed widget
+- `GET /wix/widget/settings` — Widget settings
 
-### Viewer Routes
-- `GET /viewer/dashboard` - Current assignment & earnings
-- `GET /viewer/watch/{assignment}` - Watch video
-- `POST /viewer/complete/{assignment}` - Mark as completed
+### Voter API (`/api/v1/*`)
+
+- `POST /api/v1/voters/register` — Register a voter (with optional referral code)
+- `GET /api/v1/voters/{voter}/campaigns` — Available campaigns for a voter
+- `POST /api/v1/sessions/start` — Start watching a campaign
+- `POST /api/v1/sessions/{session}/progress` — Heartbeat progress update
+- `POST /api/v1/sessions/{session}/complete` — Mark view as completed
+- `GET /api/v1/voters/{voter}/earnings` — Earnings summary
+- `GET /api/v1/voters/{voter}/referrals` — Referral earnings
+
+### Politician API (`/api/v1/*`)
+
+- `POST /api/v1/politicians` — Create politician profile
+- `PUT /api/v1/politicians/{politician}` — Update profile
+- `POST /api/v1/politicians/{politician}/campaigns` — Create campaign (min $6 budget, min 10 views)
+- `GET /api/v1/politicians/{politician}/campaigns` — List campaigns with analytics
+
+### Admin API (`/api/v1/admin/*`)
+
+- `GET /api/v1/admin/analytics` — Platform-wide analytics
+- `POST /api/v1/admin/campaigns/{campaign}/approve` — Approve a campaign
+- `POST /api/v1/admin/campaigns/{campaign}/reject` — Reject a campaign
+- `POST /api/v1/admin/payouts/process` — Run batch payout processing
+- `GET /api/v1/admin/flagged-voters` — List fraud-flagged voters
+- `POST /api/v1/admin/voters/{voter}/clear-flag` — Clear fraud flag
 
 ## Configuration
 
 Key configuration values in `config/dial4dough.php`:
 
 ```php
-'head_enterprises_fee_percent' => 15.0,  // Platform fee
-'assignment_expiry_hours' => 24,         // Assignment lifetime
-'min_watch_time_percent' => 80,          // Minimum watch time
-'min_payout_amount' => 25.00,            // Minimum payout threshold
-'default_payment_per_view' => 1.00,      // Default payment
+'revenue_per_view'         => 0.60,   // Politician pays per view
+'voter_payout_per_view'    => 0.25,   // Voter earns per view
+'referral_commission_pct'  => 10,     // 10% of voter payout = $0.025
+'min_watch_percent'        => 100,    // Must watch full message
+'video_duration_min'       => 30,     // Minimum 30 seconds
+'video_duration_max'       => 300,    // Maximum 5 minutes
+'batch_payout_min'         => 10.00,  // Minimum payout threshold
+'fraud_daily_view_limit'   => 50,     // Max views per voter per day
+'fraud_payout_hold_hours'  => 48,     // Verification hold period
+```
+
+Wix credentials in `config/wix.php`:
+
+```php
+'app_id'         => env('WIX_APP_ID'),
+'app_secret'     => env('WIX_APP_SECRET'),
+'webhook_secret' => env('WIX_WEBHOOK_SECRET'),
 ```
 
 ## Security
 
+- Wix instance verification via JWT on all dashboard/widget routes
+- Wix webhook signature verification (HMAC-SHA256)
 - Role-based access control via Spatie Permission
-- Policy-based authorization for campaigns and assignments
+- Fraud prevention with multi-signal scoring
+- 48-hour payout hold for verification window
+- Device fingerprinting to prevent multi-account abuse
 - CSRF protection on all forms
 - SQL injection prevention via Eloquent ORM
-- XSS protection via Blade templating
 
 ## Known Limitations (MVP)
 
 - SQLite database (upgrade to PostgreSQL for production)
-- Local file storage (upgrade to S3 for production)
-- Stripe test mode only
-- Manual PayPal payouts (no API integration)
-- No real-time features
+- Stripe test mode only (politician billing)
+- PayPal/CashApp payouts are placeholder (no API integration yet)
+- No real-time live feed streaming (coming soon)
 - No blockchain verification
-- Basic fraud detection
+- Basic video hosting (external URLs — no built-in CDN)
 
 ## Future Enhancements
 
+- Live feed streaming via WebRTC or Wix Video
 - Real-time notifications via WebSockets
-- Advanced fraud detection
-- Blockchain verification
-- Advanced analytics dashboard
-- Mobile application
+- Advanced fraud detection with ML scoring
+- Blockchain-verified view records
+- Mobile-optimized voter experience
 - Multi-language support
-- Video streaming optimization
+- Advanced analytics dashboard with demographic insights
+- Automated Stripe Connect for politician billing
+- PayPal Mass Pay API for batch voter payouts
+
+## Development
+
+### Running Tests
+
+```bash
+php artisan test
+```
+
+### Code Style
+
+```bash
+./vendor/bin/pint
+```
+
+### Wix Commands
+
+```bash
+npm run wix:dev           # Start Wix dev server
+npm run wix:build         # Build Wix app
+npm run wix:create-version # Create new app version
+npm run wix:publish       # Publish to Wix Marketplace
+```
+
+### Database Management
+
+```bash
+php artisan migrate:fresh   # Fresh migration
+php artisan migrate:status  # Check migration status
+```
 
 ## Support
 
 For issues and questions:
+
 - GitHub Issues: https://github.com/jhead12/dial4dough.dev/issues
 - Documentation: See INSTALLATION.md for detailed setup guide
 
 ## License
 
-MIT License - See LICENSE file for details
+MIT License — See LICENSE file for details
 
 ## Credits
 

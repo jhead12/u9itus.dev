@@ -1,8 +1,9 @@
-@extends('layouts.app')
+<x-app-layout title="Watch Ad">
 
-@section('title', 'Watch Ad')
+    <x-slot name="header">
+        <h1 class="h3 mb-0">Watch Ad</h1>
+    </x-slot>
 
-@section('content')
 <div class="row justify-content-center">
     <div class="col-md-10">
         <div class="card">
@@ -188,4 +189,4 @@
     });
 </script>
 @endpush
-@endsection
+</x-app-layout>

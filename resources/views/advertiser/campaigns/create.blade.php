@@ -1,8 +1,9 @@
-@extends('layouts.app')
+<x-app-layout title="Create Campaign">
 
-@section('title', 'Create Campaign')
+    <x-slot name="header">
+        <h1 class="h3 mb-0">Create New Campaign</h1>
+    </x-slot>
 
-@section('content')
 <div class="row">
     <div class="col-md-12">
         <h1>Create New Campaign</h1>
@@ -179,4 +180,4 @@
     updateBudget();
 </script>
 @endpush
-@endsection
+</x-app-layout>
