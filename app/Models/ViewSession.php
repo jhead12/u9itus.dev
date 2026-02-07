@@ -107,7 +107,6 @@ class ViewSession extends Model
     {
         return $query->where('status', ViewSessionStatus::Completed);
     }
-}
 
     /**
      * Check if session is expired.
@@ -118,14 +117,10 @@ class ViewSession extends Model
             && !in_array($this->status, ['completed', 'flagged']);
     }
 
-    // ── Scopes ──────────────────────────────────────────────
+    // ── Additional Scopes ───────────────────────────────────
+    
     public function scopeActive($query)
     {
         return $query->whereIn('status', ['assigned', 'in_progress']);
-    }
-
-    public function scopeCompleted($query)
-    {
-        return $query->where('status', 'completed');
     }
 }

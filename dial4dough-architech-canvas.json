@@ -1,708 +1,539 @@
 {
-  "version": "1.0",
-  "name": "Dial4Dough - Political Loyalty Ads Platform",
-  "description": "Complete system architecture showing $0.60/view revenue model with 25-50% profit margins",
-  "nodes": [
-    {
-      "id": "user-politician",
-      "type": "User",
-      "label": "Politician User",
-      "description": "Political candidate/office holder who creates campaigns",
-      "position": { "x": 100, "y": 100 },
-      "data": {
-        "actions": ["Register", "Create Campaign", "Add Payment Method", "Monitor Campaign"]
-      }
-    },
-    {
-      "id": "user-voter",
-      "type": "User",
-      "label": "Voter User",
-      "description": "Registered voter who watches political ads and earns money",
-      "position": { "x": 100, "y": 300 },
-      "data": {
-        "actions": ["Register", "Watch Video", "Generate Referral Code", "Request Payout"]
-      }
-    },
-    {
-      "id": "user-admin",
-      "type": "User",
-      "label": "Admin User",
-      "description": "Platform administrator",
-      "position": { "x": 100, "y": 500 },
-      "data": {
-        "actions": ["Approve/Reject Campaigns", "Review Fraud", "Process Payouts"]
-      }
-    },
-    {
-      "id": "ui-politician-dashboard",
-      "type": "Frontend",
-      "label": "Wix Dashboard (Politician)",
-      "description": "Politician campaign management interface",
-      "position": { "x": 400, "y": 100 },
-      "data": {
-        "technology": "Wix Dashboard Extension (React)",
-        "endpoints": [
-          "POST /api/politicians",
-          "POST /api/campaigns",
-          "GET /api/campaigns/{id}",
-          "POST /api/campaigns/{id}/payment"
-        ]
-      }
-    },
-    {
-      "id": "ui-voter-dashboard",
-      "type": "Frontend",
-      "label": "Wix Dashboard (Voter)",
-      "description": "Voter video viewing and earnings interface",
-      "position": { "x": 400, "y": 300 },
-      "data": {
-        "technology": "Wix Dashboard Extension (React)",
-        "endpoints": [
-          "POST /api/voters",
-          "GET /api/voters/{id}/campaigns/available",
-          "POST /api/view-sessions",
-          "GET /api/voters/{id}/earnings"
-        ]
-      }
-    },
-    {
-      "id": "ui-admin-dashboard",
-      "type": "Frontend",
-      "label": "Wix Dashboard (Admin)",
-      "description": "Administrative control panel",
-      "position": { "x": 400, "y": 500 },
-      "data": {
-        "technology": "Wix Dashboard Extension (React)",
-        "endpoints": [
-          "GET /api/admin/campaigns/pending",
-          "POST /api/admin/campaigns/{id}/approve",
-          "POST /api/admin/campaigns/{id}/reject",
-          "GET /api/admin/fraud-reviews",
-          "POST /api/admin/payouts/process"
-        ]
-      }
-    },
-    {
-      "id": "ui-welcome",
-      "type": "Frontend",
-      "label": "Laravel Welcome Page",
-      "description": "Public landing page showing revenue model",
-      "position": { "x": 400, "y": 700 },
-      "data": {
-        "technology": "Laravel Blade Template",
-        "url": "https://dial4doughdev-production.up.railway.app",
-        "shows": "Revenue model, profit margins (25-50%), platform economics"
-      }
-    },
-    {
-      "id": "server-laravel-api",
-      "type": "Server",
-      "label": "Laravel API Server",
-      "description": "Main backend API orchestrating all business logic",
-      "position": { "x": 700, "y": 300 },
-      "data": {
-        "technology": "Laravel 12 / PHP 8.2",
-        "port": 8080,
-        "url": "https://dial4doughdev-production.up.railway.app",
-        "hosting": "Railway.app",
-        "responsibilities": [
-          "RESTful API endpoints",
-          "Business logic orchestration",
-          "Authentication & authorization",
-          "Request validation",
-          "Response formatting"
-        ]
-      }
-    },
-    {
-      "id": "service-auth",
-      "type": "Service A",
-      "label": "Auth Service (Wix OAuth)",
-      "description": "Handles Wix authentication and site installations",
-      "position": { "x": 1000, "y": 100 },
-      "data": {
-        "technology": "Laravel + Wix SDK",
-        "responsibilities": [
-          "Wix OAuth flow (/wix/oauth/callback)",
-          "Instance token validation",
-          "Site installation tracking",
-          "Member authentication"
-        ],
-        "externalDependency": "https://www.wixapis.com"
-      }
-    },
-    {
-      "id": "service-campaign",
-      "type": "Service B",
-      "label": "Campaign Management",
-      "description": "Manages campaign lifecycle and status transitions",
-      "position": { "x": 1000, "y": 200 },
-      "data": {
-        "technology": "Laravel Service Class",
-        "responsibilities": [
-          "Campaign creation & validation",
-          "Budget management",
-          "Status transitions (pending → active → completed)",
-          "View count tracking"
-        ],
-        "methods": [
-          "createCampaign()",
-          "approveCampaign()",
-          "incrementViewCount()",
-          "calculateCompletionPercentage()"
-        ]
-      }
-    },
-    {
-      "id": "service-view-tracking",
-      "type": "Service C",
-      "label": "View Tracking Service",
-      "description": "Tracks video watch time and validates completion",
-      "position": { "x": 1000, "y": 300 },
-      "data": {
-        "technology": "Laravel Service Class",
-        "responsibilities": [
-          "Track video watch time",
-          "Validate completion threshold (80%)",
-          "Update view session status",
-          "Calculate earnings"
-        ],
-        "methods": [
-          "startViewSession()",
-          "trackProgress()",
-          "completeView()",
-          "validateWatchTime()"
-        ]
-      }
-    },
-    {
-      "id": "service-payment",
-      "type": "Service D",
-      "label": "Payment Processing",
-      "description": "Handles all payment operations via Stripe",
-      "position": { "x": 1000, "y": 400 },
-      "data": {
-        "technology": "Laravel Service Class + Stripe SDK",
-        "responsibilities": [
-          "Charge politicians (Stripe)",
-          "Calculate payouts to voters",
-          "Process referral commissions",
-          "Handle payment holds"
-        ],
-        "methods": [
-          "chargeAdvertiser($amount)",
-          "calculateViewerEarnings($viewCount)",
-          "processReferralCommission($referrerId, $amount)",
-          "batchPayoutToVoters()"
-        ],
-        "economics": {
-          "perView": {
-            "revenue": "$0.60",
-            "viewerPayout": "$0.25",
-            "referralCommission": "$0.025",
-            "processingFees": "$0.02",
-            "operations": "$0.03-$0.12",
-            "profit": "$0.21-$0.30",
-            "margin": "35-50%"
-          }
+    "name": "Dial4Dough - Political Loyalty Ads Platform",
+    "description": "Complete system architecture showing $0.60/view revenue model with 25-50% profit margins. Deployed at https://dial4doughdev-production.up.railway.app",
+    "components": [
+        {
+            "id": "user-politician",
+            "type": "user",
+            "name": "Politician User",
+            "position": {
+                "x": 100,
+                "y": 100
+            },
+            "properties": {
+                "description": "Political candidate/office holder who creates campaigns",
+                "actions": [
+                    "Register",
+                    "Create Campaign",
+                    "Add Payment Method",
+                    "Monitor Campaign"
+                ]
+            }
+        },
+        {
+            "id": "user-voter",
+            "type": "user",
+            "name": "Voter User",
+            "position": {
+                "x": 100,
+                "y": 300
+            },
+            "properties": {
+                "description": "Registered voter who watches political ads and earns money",
+                "actions": [
+                    "Register",
+                    "Watch Video",
+                    "Generate Referral Code",
+                    "Request Payout"
+                ]
+            }
+        },
+        {
+            "id": "user-admin",
+            "type": "user",
+            "name": "Admin User",
+            "position": {
+                "x": 100,
+                "y": 500
+            },
+            "properties": {
+                "description": "Platform administrator",
+                "actions": [
+                    "Approve/Reject Campaigns",
+                    "Review Fraud",
+                    "Process Payouts"
+                ]
+            }
+        },
+        {
+            "id": "ui-politician-dashboard",
+            "type": "frontend",
+            "name": "Wix Dashboard (Politician)",
+            "position": {
+                "x": 400,
+                "y": 100
+            },
+            "properties": {
+                "description": "Politician campaign management interface",
+                "technology": "Wix Dashboard Extension (React)",
+                "endpoints": [
+                    "POST /api/politicians",
+                    "POST /api/campaigns",
+                    "GET /api/campaigns/{id}",
+                    "POST /api/campaigns/{id}/payment"
+                ]
+            }
+        },
+        {
+            "id": "ui-voter-dashboard",
+            "type": "frontend",
+            "name": "Wix Dashboard (Voter)",
+            "position": {
+                "x": 400,
+                "y": 300
+            },
+            "properties": {
+                "description": "Voter video viewing and earnings interface",
+                "technology": "Wix Dashboard Extension (React)",
+                "endpoints": [
+                    "POST /api/voters",
+                    "GET /api/voters/{id}/campaigns/available",
+                    "POST /api/view-sessions",
+                    "GET /api/voters/{id}/earnings"
+                ]
+            }
+        },
+        {
+            "id": "ui-admin-dashboard",
+            "type": "frontend",
+            "name": "Wix Dashboard (Admin)",
+            "position": {
+                "x": 400,
+                "y": 500
+            },
+            "properties": {
+                "description": "Administrative control panel",
+                "technology": "Wix Dashboard Extension (React)",
+                "endpoints": [
+                    "GET /api/admin/campaigns/pending",
+                    "POST /api/admin/campaigns/{id}/approve",
+                    "POST /api/admin/campaigns/{id}/reject",
+                    "GET /api/admin/fraud-reviews",
+                    "POST /api/admin/payouts/process"
+                ]
+            }
+        },
+        {
+            "id": "ui-welcome",
+            "type": "frontend",
+            "name": "Laravel Welcome Page",
+            "position": {
+                "x": 400,
+                "y": 700
+            },
+            "properties": {
+                "description": "Public landing page showing revenue model",
+                "technology": "Laravel Blade Template",
+                "url": "https://dial4doughdev-production.up.railway.app",
+                "shows": "Revenue model, profit margins (25-50%), platform economics"
+            }
+        },
+        {
+            "id": "server-laravel-api",
+            "type": "server",
+            "name": "Laravel API Server",
+            "position": {
+                "x": 700,
+                "y": 300
+            },
+            "properties": {
+                "description": "Main backend API orchestrating all business logic",
+                "technology": "Laravel 12 / PHP 8.2",
+                "port": 8080,
+                "url": "https://dial4doughdev-production.up.railway.app",
+                "hosting": "Railway.app",
+                "responsibilities": [
+                    "RESTful API endpoints",
+                    "Business logic orchestration",
+                    "Authentication & authorization",
+                    "Request validation",
+                    "Response formatting"
+                ]
+            }
+        },
+        {
+            "id": "service-auth",
+            "type": "auth_service",
+            "name": "Auth Service (Wix OAuth)",
+            "position": {
+                "x": 1000,
+                "y": 100
+            },
+            "properties": {
+                "description": "Handles Wix authentication and site installations",
+                "technology": "Laravel + Wix SDK",
+                "responsibilities": [
+                    "Wix OAuth flow (/wix/oauth/callback)",
+                    "Instance token validation",
+                    "Site installation tracking",
+                    "Member authentication"
+                ],
+                "externalDependency": "https://www.wixapis.com"
+            }
+        },
+        {
+            "id": "service-campaign",
+            "type": "analytics",
+            "name": "Campaign Management",
+            "position": {
+                "x": 1000,
+                "y": 200
+            },
+            "properties": {
+                "description": "Manages campaign lifecycle and status transitions",
+                "technology": "Laravel Service Layer",
+                "responsibilities": [
+                    "Campaign creation and validation",
+                    "Status transitions (draft → pending → active → completed)",
+                    "Budget management",
+                    "Ad assignment to campaigns"
+                ],
+                "statuses": [
+                    "draft",
+                    "pending_approval",
+                    "active",
+                    "paused",
+                    "completed",
+                    "rejected"
+                ]
+            }
+        },
+        {
+            "id": "service-view-tracking",
+            "type": "analytics",
+            "name": "View Tracking Service",
+            "position": {
+                "x": 1000,
+                "y": 300
+            },
+            "properties": {
+                "description": "Tracks video watch time and validates completion",
+                "technology": "Laravel Service Layer",
+                "responsibilities": [
+                    "Create view sessions",
+                    "Update watch time progress",
+                    "Mark sessions as completed",
+                    "Trigger payment after completion"
+                ],
+                "completionThreshold": "90% of video duration"
+            }
+        },
+        {
+            "id": "service-payment",
+            "type": "analytics",
+            "name": "Payment Processing",
+            "position": {
+                "x": 1000,
+                "y": 400
+            },
+            "properties": {
+                "description": "Handles all payment operations via Stripe",
+                "technology": "Laravel + Stripe API",
+                "responsibilities": [
+                    "Charge politicians $0.60 per view",
+                    "Payout voters $0.25 per completed view",
+                    "Process referral commissions (10% = $0.025)",
+                    "Batch payout processing",
+                    "Handle payment failures and refunds"
+                ],
+                "processingFee": "$0.02 per transaction"
+            }
+        },
+        {
+            "id": "service-fraud",
+            "type": "analytics",
+            "name": "Fraud Detection",
+            "position": {
+                "x": 1000,
+                "y": 500
+            },
+            "properties": {
+                "description": "Detects and prevents fraudulent viewing activity",
+                "technology": "Laravel Service Layer",
+                "responsibilities": [
+                    "IP address tracking",
+                    "Multiple views from same user detection",
+                    "Rapid replay detection",
+                    "Watch pattern analysis",
+                    "Flag suspicious sessions for admin review"
+                ],
+                "rules": [
+                    "Max 1 view per campaign per voter",
+                    "Minimum watch time validation",
+                    "Velocity checks"
+                ]
+            }
+        },
+        {
+            "id": "service-referral",
+            "type": "analytics",
+            "name": "Referral System",
+            "position": {
+                "x": 1000,
+                "y": 600
+            },
+            "properties": {
+                "description": "Manages referral codes and 10% commission payouts",
+                "technology": "Laravel Service Layer",
+                "responsibilities": [
+                    "Generate unique referral codes",
+                    "Track referral relationships",
+                    "Calculate 10% commission ($0.025 per view)",
+                    "Payout referrer when referee completes view"
+                ],
+                "commission": "10% of viewer payout ($0.025)"
+            }
+        },
+        {
+            "id": "service-webhook",
+            "type": "analytics",
+            "name": "Webhook Handler",
+            "position": {
+                "x": 1000,
+                "y": 700
+            },
+            "properties": {
+                "description": "Processes incoming Wix platform webhooks",
+                "technology": "Laravel Event Handlers",
+                "responsibilities": [
+                    "App installation/uninstallation events",
+                    "Member login/logout events",
+                    "Update local state based on Wix events"
+                ],
+                "endpoint": "/wix/webhooks"
+            }
+        },
+        {
+            "id": "database-mysql",
+            "type": "database",
+            "name": "MySQL Database",
+            "position": {
+                "x": 1300,
+                "y": 400
+            },
+            "properties": {
+                "description": "Primary data store for all application data",
+                "technology": "MySQL 9.4.0",
+                "hosting": "Railway (shinkansen.proxy.rlwy.net:39648)",
+                "tables": [
+                    "politicians",
+                    "voters",
+                    "campaigns",
+                    "ads",
+                    "view_sessions",
+                    "payments",
+                    "referrals",
+                    "wix_instances",
+                    "fraud_reviews"
+                ]
+            }
+        },
+        {
+            "id": "external-stripe",
+            "type": "analytics",
+            "name": "Stripe Payment Gateway",
+            "position": {
+                "x": 1300,
+                "y": 100
+            },
+            "properties": {
+                "description": "Processes all payments and payouts (External Service)",
+                "api": "https://api.stripe.com",
+                "operations": [
+                    "Charge politicians $0.60 per view",
+                    "Payout voters $0.25 per view",
+                    "Payout referrers $0.025 per referral"
+                ],
+                "fee": "$0.02 + 2.9% per transaction"
+            }
+        },
+        {
+            "id": "external-wix",
+            "type": "analytics",
+            "name": "Wix Platform",
+            "position": {
+                "x": 1300,
+                "y": 600
+            },
+            "properties": {
+                "description": "Hosts dashboards and provides OAuth (External Service)",
+                "api": "https://www.wixapis.com",
+                "services": [
+                    "OAuth 2.0 authentication",
+                    "Dashboard extension hosting",
+                    "Member management API",
+                    "Webhook delivery"
+                ]
+            }
+        },
+        {
+            "id": "external-video",
+            "type": "analytics",
+            "name": "Video Hosting",
+            "position": {
+                "x": 1300,
+                "y": 800
+            },
+            "properties": {
+                "description": "Hosts political ad videos (External Service)",
+                "options": [
+                    "Vimeo",
+                    "YouTube",
+                    "Cloudflare Stream",
+                    "AWS S3 + CloudFront"
+                ],
+                "requirements": [
+                    "Embed support",
+                    "Progress tracking API",
+                    "CDN delivery for performance"
+                ]
+            }
         }
-      }
-    },
-    {
-      "id": "service-fraud",
-      "type": "Service E",
-      "label": "Fraud Detection",
-      "description": "Detects and prevents fraudulent viewing activity",
-      "position": { "x": 1000, "y": 500 },
-      "data": {
-        "technology": "Laravel Service Class",
-        "responsibilities": [
-          "Detect suspicious patterns",
-          "Flag high-volume viewers",
-          "Rate limiting per voter",
-          "IP/device fingerprinting"
-        ],
-        "rules": [
-          "Max 50 views per day per voter",
-          "Max 5 views per hour",
-          "Duplicate IP detection",
-          "Watch time pattern analysis"
-        ],
-        "methods": [
-          "checkVoterActivity($voterId)",
-          "flagSuspiciousViews($sessionId)",
-          "holdPayments($voterId)"
-        ]
-      }
-    },
-    {
-      "id": "service-referral",
-      "type": "Service F",
-      "label": "Referral System",
-      "description": "Manages referral codes and 10% commission payouts",
-      "position": { "x": 1000, "y": 600 },
-      "data": {
-        "technology": "Laravel Service Class",
-        "responsibilities": [
-          "Generate unique referral codes",
-          "Track referral relationships",
-          "Calculate 10% commissions",
-          "Credit referral earnings"
-        ],
-        "methods": [
-          "generateReferralCode($voterId)",
-          "trackReferralSignup($code, $newVoterId)",
-          "creditReferralEarnings($referrerId, $amount)"
-        ]
-      }
-    },
-    {
-      "id": "service-webhook",
-      "type": "Service G",
-      "label": "Webhook Handler",
-      "description": "Processes incoming Wix platform webhooks",
-      "position": { "x": 1000, "y": 700 },
-      "data": {
-        "technology": "Laravel Service Class",
-        "responsibilities": [
-          "Process Wix webhooks",
-          "Handle app install/uninstall",
-          "Member login events",
-          "Signature verification"
-        ],
-        "endpoints": ["POST /api/wix/webhooks"],
-        "events": [
-          "App Installed",
-          "App Removed",
-          "Member Registered",
-          "Member Login"
-        ]
-      }
-    },
-    {
-      "id": "database-mysql",
-      "type": "Database",
-      "label": "MySQL Database",
-      "description": "Primary data store for all application data",
-      "position": { "x": 1300, "y": 400 },
-      "data": {
-        "technology": "MySQL 9.4.0",
-        "hosting": "Railway.app",
-        "host": "shinkansen.proxy.rlwy.net:39648",
-        "connection": "Public TCP Proxy",
-        "tables": [
-          "users - User accounts",
-          "advertisers - Politician metadata",
-          "campaigns - Ad campaigns",
-          "ad_assignments - Campaign-to-advertiser mapping",
-          "loyalty_viewers - Voter accounts",
-          "view_sessions - Individual video views",
-          "referral_earnings - Commission tracking",
-          "wix_sites - Installed Wix sites",
-          "wix_site_members - Wix member mappings",
-          "political_campaigns - Political campaign details",
-          "political_ad_requests - Ad submission requests",
-          "voter_views - View history",
-          "voter_earnings - Earning records",
-          "notifications - System notifications"
-        ]
-      }
-    },
-    {
-      "id": "external-stripe",
-      "type": "External Service",
-      "label": "Stripe Payment Gateway",
-      "description": "Processes all payments and payouts",
-      "position": { "x": 1300, "y": 100 },
-      "data": {
-        "provider": "Stripe",
-        "api": "https://api.stripe.com",
-        "responsibilities": [
-          "Process politician payments ($0.60 per view)",
-          "Handle voter payouts (batch $0.25 per view)",
-          "Manage payment methods",
-          "Process refunds"
-        ],
-        "webhooks": ["Payment confirmation", "Failed payments"]
-      }
-    },
-    {
-      "id": "external-wix",
-      "type": "External Service",
-      "label": "Wix Platform",
-      "description": "Hosts dashboards and provides OAuth",
-      "position": { "x": 1300, "y": 600 },
-      "data": {
-        "provider": "Wix.com",
-        "api": "https://www.wixapis.com",
-        "responsibilities": [
-          "OAuth authentication",
-          "Member management",
-          "Site information",
-          "Dashboard hosting"
-        ],
-        "webhooks": ["App lifecycle events", "Member events"]
-      }
-    },
-    {
-      "id": "external-video",
-      "type": "External Service",
-      "label": "Video Hosting",
-      "description": "Hosts political ad videos",
-      "position": { "x": 1300, "y": 800 },
-      "data": {
-        "provider": "YouTube, Vimeo, or custom",
-        "responsibilities": [
-          "Host political ad videos",
-          "Provide embed URLs",
-          "Track video playback",
-          "Provide duration metadata"
-        ]
-      }
-    }
-  ],
-  "edges": [
-    {
-      "id": "edge-1",
-      "source": "user-politician",
-      "target": "ui-politician-dashboard",
-      "label": "interacts",
-      "type": "user-interaction"
-    },
-    {
-      "id": "edge-2",
-      "source": "user-voter",
-      "target": "ui-voter-dashboard",
-      "label": "interacts",
-      "type": "user-interaction"
-    },
-    {
-      "id": "edge-3",
-      "source": "user-admin",
-      "target": "ui-admin-dashboard",
-      "label": "interacts",
-      "type": "user-interaction"
-    },
-    {
-      "id": "edge-4",
-      "source": "ui-politician-dashboard",
-      "target": "server-laravel-api",
-      "label": "requests",
-      "type": "api-call"
-    },
-    {
-      "id": "edge-5",
-      "source": "ui-voter-dashboard",
-      "target": "server-laravel-api",
-      "label": "requests",
-      "type": "api-call"
-    },
-    {
-      "id": "edge-6",
-      "source": "ui-admin-dashboard",
-      "target": "server-laravel-api",
-      "label": "requests",
-      "type": "api-call"
-    },
-    {
-      "id": "edge-7",
-      "source": "server-laravel-api",
-      "target": "service-auth",
-      "label": "calls",
-      "type": "service-call"
-    },
-    {
-      "id": "edge-8",
-      "source": "server-laravel-api",
-      "target": "service-campaign",
-      "label": "calls",
-      "type": "service-call"
-    },
-    {
-      "id": "edge-9",
-      "source": "server-laravel-api",
-      "target": "service-view-tracking",
-      "label": "calls",
-      "type": "service-call"
-    },
-    {
-      "id": "edge-10",
-      "source": "server-laravel-api",
-      "target": "service-payment",
-      "label": "calls",
-      "type": "service-call"
-    },
-    {
-      "id": "edge-11",
-      "source": "server-laravel-api",
-      "target": "service-fraud",
-      "label": "calls",
-      "type": "service-call"
-    },
-    {
-      "id": "edge-12",
-      "source": "server-laravel-api",
-      "target": "service-referral",
-      "label": "calls",
-      "type": "service-call"
-    },
-    {
-      "id": "edge-13",
-      "source": "server-laravel-api",
-      "target": "service-webhook",
-      "label": "calls",
-      "type": "service-call"
-    },
-    {
-      "id": "edge-14",
-      "source": "service-auth",
-      "target": "database-mysql",
-      "label": "queries",
-      "type": "database-query"
-    },
-    {
-      "id": "edge-15",
-      "source": "service-campaign",
-      "target": "database-mysql",
-      "label": "queries",
-      "type": "database-query"
-    },
-    {
-      "id": "edge-16",
-      "source": "service-view-tracking",
-      "target": "database-mysql",
-      "label": "queries",
-      "type": "database-query"
-    },
-    {
-      "id": "edge-17",
-      "source": "service-payment",
-      "target": "database-mysql",
-      "label": "queries",
-      "type": "database-query"
-    },
-    {
-      "id": "edge-18",
-      "source": "service-fraud",
-      "target": "database-mysql",
-      "label": "queries",
-      "type": "database-query"
-    },
-    {
-      "id": "edge-19",
-      "source": "service-referral",
-      "target": "database-mysql",
-      "label": "queries",
-      "type": "database-query"
-    },
-    {
-      "id": "edge-20",
-      "source": "service-webhook",
-      "target": "database-mysql",
-      "label": "queries",
-      "type": "database-query"
-    },
-    {
-      "id": "edge-21",
-      "source": "service-payment",
-      "target": "external-stripe",
-      "label": "charges/payouts",
-      "type": "external-api"
-    },
-    {
-      "id": "edge-22",
-      "source": "service-auth",
-      "target": "external-wix",
-      "label": "authenticates",
-      "type": "external-api"
-    },
-    {
-      "id": "edge-23",
-      "source": "external-wix",
-      "target": "service-webhook",
-      "label": "sends events",
-      "type": "webhook"
-    },
-    {
-      "id": "edge-24",
-      "source": "service-view-tracking",
-      "target": "external-video",
-      "label": "embeds",
-      "type": "external-api"
-    }
-  ],
-  "flows": [
-    {
-      "id": "flow-1",
-      "name": "Politician Campaign Creation",
-      "description": "Complete flow from campaign form submission to database storage and Stripe payment intent",
-      "steps": [
-        "Politician fills out campaign form (title, video URL, budget, target views)",
-        "Wix Dashboard sends POST /api/campaigns",
-        "Laravel validates request",
-        "Campaign Management Service creates campaign (status: pending)",
-        "Payment Processing Service creates Stripe payment intent",
-        "Record saved to campaigns table",
-        "Success response returned with campaign ID"
-      ],
-      "nodes": ["user-politician", "ui-politician-dashboard", "server-laravel-api", "service-campaign", "service-payment", "database-mysql", "external-stripe"]
-    },
-    {
-      "id": "flow-2",
-      "name": "Admin Campaign Approval",
-      "description": "Admin reviews pending campaign and captures payment",
-      "steps": [
-        "Admin views pending campaigns",
-        "Admin clicks Approve button",
-        "Wix Dashboard sends POST /api/admin/campaigns/{id}/approve",
-        "Laravel validates admin permissions",
-        "Campaign Management Service updates status to active",
-        "Payment Processing Service captures Stripe payment ($0.60 × target_views)",
-        "Campaign now visible to voters",
-        "Success response with updated campaign"
-      ],
-      "nodes": ["user-admin", "ui-admin-dashboard", "server-laravel-api", "service-campaign", "service-payment", "database-mysql", "external-stripe"]
-    },
-    {
-      "id": "flow-3",
-      "name": "Voter Watches Video & Earns",
-      "description": "Complete viewing session with fraud checks and earnings credit",
-      "steps": [
-        "Voter opens voter dashboard",
-        "Wix Dashboard fetches GET /api/voters/{id}/campaigns/available",
-        "Voter clicks Watch Video",
-        "Wix Dashboard sends POST /api/view-sessions with campaign_id",
-        "View Tracking Service creates view session (status: in_progress)",
-        "Fraud Detection Service checks voter activity limits",
-        "Timer tracks watch time in frontend",
-        "When 80% completed, send PUT /api/view-sessions/{id}/complete",
-        "View Tracking Service validates completion",
-        "Payment Processing Service credits $0.25 to voter earnings",
-        "Campaign Management Service increments views_completed",
-        "If voter has referrer, Referral System Service credits $0.025 commission",
-        "Success response with updated earnings"
-      ],
-      "nodes": ["user-voter", "ui-voter-dashboard", "server-laravel-api", "service-view-tracking", "service-fraud", "service-payment", "service-referral", "service-campaign", "database-mysql"]
-    },
-    {
-      "id": "flow-4",
-      "name": "Referral Commission",
-      "description": "Referral code generation and 10% commission tracking",
-      "steps": [
-        "Existing voter generates referral code via GET /api/voters/{id}/referral-code",
-        "Referral System Service creates/retrieves unique code",
-        "Voter shares code with friend",
-        "New voter registers with referral code via POST /api/voters",
-        "Referral System Service links voters (referred_by field)",
-        "When new voter completes ANY view:",
-        "Payment Processing Service calculates $0.25 for viewer",
-        "Referral System Service calculates $0.025 (10%) for referrer",
-        "Both amounts credited to respective pending_earnings",
-        "Record created in referral_earnings table"
-      ],
-      "nodes": ["user-voter", "ui-voter-dashboard", "server-laravel-api", "service-referral", "service-payment", "database-mysql"]
-    },
-    {
-      "id": "flow-5",
-      "name": "Fraud Detection & Review",
-      "description": "Automated fraud detection with admin review queue",
-      "steps": [
-        "During view completion, Fraud Detection Service runs checks",
-        "Checks: views per day, views per hour, IP patterns, watch time patterns",
-        "If threshold exceeded (50 views/day): flag voter, hold payments, notify admin",
-        "Admin opens fraud review dashboard",
-        "Admin reviews voter activity history",
-        "Admin clears flag (releases payments) OR confirms fraud (rejects payments, bans voter)"
-      ],
-      "nodes": ["user-voter", "ui-voter-dashboard", "server-laravel-api", "service-fraud", "service-payment", "user-admin", "ui-admin-dashboard", "database-mysql"]
-    },
-    {
-      "id": "flow-6",
-      "name": "Payout Processing (Batch)",
-      "description": "Weekly batch payout processing to voters via Stripe",
-      "steps": [
-        "Admin clicks Process Payouts (weekly/threshold-based)",
-        "Send POST /api/admin/payouts/process",
-        "Payment Processing Service queries voters with pending_earnings > $10",
-        "For each eligible voter: create Stripe payout, move to total_earned, update last_payout_date",
-        "Batch process completes",
-        "Return summary: total voters paid, total amount, failures"
-      ],
-      "nodes": ["user-admin", "ui-admin-dashboard", "server-laravel-api", "service-payment", "database-mysql", "external-stripe"]
-    },
-    {
-      "id": "flow-7",
-      "name": "Wix App Installation",
-      "description": "OAuth flow when app is installed on Wix site",
-      "steps": [
-        "User installs Dial4Dough app on Wix site",
-        "Wix sends webhook POST /api/wix/webhooks with event app.installed",
-        "Webhook Handler Service validates signature",
-        "Auth Service creates record in wix_sites table",
-        "Send OAuth redirect to user for permissions",
-        "User grants permissions",
-        "Wix redirects to /wix/oauth/callback?code=xxx",
-        "Auth Service exchanges code for access token",
-        "Store access_token and refresh_token in wix_sites",
-        "App now fully installed and authenticated"
-      ],
-      "nodes": ["external-wix", "server-laravel-api", "service-webhook", "service-auth", "database-mysql"]
-    }
-  ],
-  "metadata": {
-    "economics": {
-      "perViewBreakdown": {
-        "revenue": 0.60,
-        "viewerPayout": 0.25,
-        "viewerPayoutPercent": 42,
-        "referralCommission": 0.025,
-        "referralCommissionPercent": 4,
-        "processingFees": 0.02,
-        "processingFeesPercent": 3,
-        "operationsMin": 0.03,
-        "operationsMax": 0.12,
-        "operationsPercentMin": 5,
-        "operationsPercentMax": 20,
-        "profitMin": 0.21,
-        "profitMax": 0.30,
-        "marginMin": 35,
-        "marginMax": 50
-      },
-      "targetMargins": {
-        "bestCase": "50% margin ($0.30 profit) with efficient ops",
-        "conservative": "35% margin ($0.21 profit)",
-        "planningTarget": "25-40% net margin"
-      }
-    },
-    "deployment": {
-      "status": "deployed",
-      "url": "https://dial4doughdev-production.up.railway.app",
-      "hosting": "Railway.app",
-      "database": "MySQL 9.4.0 on Railway",
-      "connectionType": "Public TCP Proxy"
-    },
-    "security": {
-      "authentication": "Wix OAuth 2.0",
-      "authorization": "Role-based (politician/voter/admin)",
-      "paymentSecurity": "PCI compliant via Stripe",
-      "fraudPrevention": [
-        "50 views/day limit per voter",
-        "5 views/hour limit",
-        "IP/device fingerprinting",
-        "Watch time pattern analysis",
-        "Manual admin review queue"
-      ]
-    },
-    "scalingConsiderations": {
-      "current": "Single Laravel API server, MySQL on Railway, synchronous processing",
-      "future10k": [
-        "Load balancing across multiple Laravel instances",
-        "Laravel Queues + Redis for async jobs",
-        "CloudFlare CDN for static assets and video",
-        "MySQL read replicas for analytics",
-        "Redis for session storage and rate limiting",
-        "Microservices for payment/fraud"
-      ]
-    }
-  }
+    ],
+    "connections": [
+        {
+            "from": "user-politician",
+            "to": "ui-politician-dashboard",
+            "type": "direct",
+            "label": "interacts"
+        },
+        {
+            "from": "user-voter",
+            "to": "ui-voter-dashboard",
+            "type": "direct",
+            "label": "interacts"
+        },
+        {
+            "from": "user-admin",
+            "to": "ui-admin-dashboard",
+            "type": "direct",
+            "label": "interacts"
+        },
+        {
+            "from": "ui-politician-dashboard",
+            "to": "server-laravel-api",
+            "type": "direct",
+            "label": "requests"
+        },
+        {
+            "from": "ui-voter-dashboard",
+            "to": "server-laravel-api",
+            "type": "direct",
+            "label": "requests"
+        },
+        {
+            "from": "ui-admin-dashboard",
+            "to": "server-laravel-api",
+            "type": "direct",
+            "label": "requests"
+        },
+        {
+            "from": "server-laravel-api",
+            "to": "service-auth",
+            "type": "direct",
+            "label": "calls"
+        },
+        {
+            "from": "server-laravel-api",
+            "to": "service-campaign",
+            "type": "direct",
+            "label": "calls"
+        },
+        {
+            "from": "server-laravel-api",
+            "to": "service-view-tracking",
+            "type": "direct",
+            "label": "calls"
+        },
+        {
+            "from": "server-laravel-api",
+            "to": "service-payment",
+            "type": "direct",
+            "label": "calls"
+        },
+        {
+            "from": "server-laravel-api",
+            "to": "service-fraud",
+            "type": "direct",
+            "label": "calls"
+        },
+        {
+            "from": "server-laravel-api",
+            "to": "service-referral",
+            "type": "direct",
+            "label": "calls"
+        },
+        {
+            "from": "server-laravel-api",
+            "to": "service-webhook",
+            "type": "direct",
+            "label": "calls"
+        },
+        {
+            "from": "service-auth",
+            "to": "database-mysql",
+            "type": "direct",
+            "label": "queries"
+        },
+        {
+            "from": "service-campaign",
+            "to": "database-mysql",
+            "type": "direct",
+            "label": "queries"
+        },
+        {
+            "from": "service-view-tracking",
+            "to": "database-mysql",
+            "type": "direct",
+            "label": "queries"
+        },
+        {
+            "from": "service-payment",
+            "to": "database-mysql",
+            "type": "direct",
+            "label": "queries"
+        },
+        {
+            "from": "service-fraud",
+            "to": "database-mysql",
+            "type": "direct",
+            "label": "queries"
+        },
+        {
+            "from": "service-referral",
+            "to": "database-mysql",
+            "type": "direct",
+            "label": "queries"
+        },
+        {
+            "from": "service-webhook",
+            "to": "database-mysql",
+            "type": "direct",
+            "label": "queries"
+        },
+        {
+            "from": "service-payment",
+            "to": "external-stripe",
+            "type": "direct",
+            "label": "charges/payouts"
+        },
+        {
+            "from": "service-auth",
+            "to": "external-wix",
+            "type": "direct",
+            "label": "authenticates"
+        },
+        {
+            "from": "external-wix",
+            "to": "service-webhook",
+            "type": "direct",
+            "label": "sends events"
+        },
+        {
+            "from": "service-view-tracking",
+            "to": "external-video",
+            "type": "direct",
+            "label": "embeds"
+        }
+    ]
 }
