@@ -12,7 +12,7 @@ This guide walks you through deploying the Laravel backend and Wix extension to 
 - ✅ A public server for Laravel backend (e.g., DigitalOcean, AWS, Railway, Heroku)
 - ✅ Domain with HTTPS (Wix requires secure endpoints)
 - ✅ Stripe account for payments (test mode for development)
-- ✅ Node.js 18+ and PHP 8.1+
+- ✅ Node.js 18+ and PHP 8.2+
 
 ---
 
@@ -48,8 +48,15 @@ npm install -g @railway/cli
 # 2. Login
 railway login
 
-# 3. Initialize project
+# 3. Create or link to project
 cd /Volumes/PRO-BLADE/Github/dial4dough.dev
+
+# Check if already linked
+railway status
+
+# If NOT linked:
+#   - If you have existing Railway projects: railway link
+#   - If this is your first project: railway init
 railway init
 
 # 4. Add MySQL database
@@ -70,8 +77,8 @@ ssh root@your-server-ip
 
 # 1. Install dependencies
 apt update && apt upgrade -y
-apt install -y php8.1 php8.1-fpm php8.1-mysql php8.1-mbstring php8.1-xml \
-    php8.1-curl php8.1-zip nginx mysql-server composer git
+apt install -y php8.2 php8.2-fpm php8.2-mysql php8.2-mbstring php8.2-xml \
+    php8.2-curl php8.2-zip nginx mysql-server composer git
 
 # 2. Clone your repo
 cd /var/www
