@@ -225,21 +225,47 @@
                         <div class="mt-8 p-6 bg-gradient-to-br from-teal-900/40 to-emerald-900/40 rounded-2xl border-2 border-teal-500/30 backdrop-blur-sm">
                             <div class="flex items-start space-x-3">
                                 <div class="flex-shrink-0 text-3xl">💰</div>
-                                <div>
-                                    <h4 class="text-lg font-bold text-teal-300 mb-2">Path to $1,000</h4>
-                                    <p class="text-slate-300 text-sm leading-relaxed mb-3">
-                                        Watch 4,000 political ads at $0.25 each to earn $1,000. With just 10 ads per day, that's achievable in one year—or faster with referrals!
+                                <div class="flex-1">
+                                    <h4 class="text-lg font-bold text-teal-300 mb-2">Realistic Path to $1,000</h4>
+                                    <p class="text-slate-300 text-sm leading-relaxed mb-4">
+                                        The secret to reaching $1,000 isn't just watching ads yourself—it's building a referral network. Earn 10% commission on every ad your referrals watch!
                                     </p>
-                                    <div class="grid grid-cols-2 gap-3 text-xs">
-                                        <div class="bg-slate-800/50 rounded-lg p-3">
-                                            <div class="text-teal-400 font-semibold">10 ads/day</div>
-                                            <div class="text-slate-400">400 days = $1,000</div>
+                                    
+                                    <!-- Earnings Breakdown -->
+                                    <div class="space-y-2 mb-4 text-xs">
+                                        <div class="flex items-center justify-between p-2 bg-slate-800/50 rounded-lg">
+                                            <span class="text-slate-400">Your views (10 ads/day × $0.25)</span>
+                                            <span class="text-teal-400 font-semibold">$2.50/day</span>
                                         </div>
-                                        <div class="bg-slate-800/50 rounded-lg p-3">
-                                            <div class="text-emerald-400 font-semibold">+ 5 referrals</div>
-                                            <div class="text-slate-400">Earn 2x faster</div>
+                                        <div class="flex items-center justify-between p-2 bg-slate-800/50 rounded-lg">
+                                            <span class="text-slate-400">5 referrals (50 ads/day × $0.025)</span>
+                                            <span class="text-emerald-400 font-semibold">$1.25/day</span>
+                                        </div>
+                                        <div class="flex items-center justify-between p-2 bg-gradient-to-r from-emerald-900/50 to-teal-900/50 rounded-lg border border-emerald-500/30">
+                                            <span class="text-white font-semibold">Total Daily Earnings</span>
+                                            <span class="text-emerald-300 font-bold text-base">$3.75/day</span>
                                         </div>
                                     </div>
+
+                                    <!-- Time to Goal -->
+                                    <div class="grid grid-cols-3 gap-2 text-xs">
+                                        <div class="bg-slate-800/50 rounded-lg p-3 text-center">
+                                            <div class="text-emerald-400 font-bold text-lg">267</div>
+                                            <div class="text-slate-400 mt-1">days (~9 months)</div>
+                                        </div>
+                                        <div class="bg-slate-800/50 rounded-lg p-3 text-center border border-teal-500/30">
+                                            <div class="text-teal-400 font-bold text-lg">10</div>
+                                            <div class="text-slate-400 mt-1">active referrals</div>
+                                        </div>
+                                        <div class="bg-slate-800/50 rounded-lg p-3 text-center">
+                                            <div class="text-emerald-400 font-bold text-lg">200</div>
+                                            <div class="text-slate-400 mt-1">days (~6.5 months)</div>
+                                        </div>
+                                    </div>
+
+                                    <p class="text-xs text-slate-400 mt-3 italic">
+                                        💡 With 10 active referrals each watching 10 ads/day, you earn $5/day total—reaching $1,000 in just 6.5 months!
+                                    </p>
                                 </div>
                             </div>
                         </div>
