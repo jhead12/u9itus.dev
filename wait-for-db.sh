@@ -1,6 +1,13 @@
 #!/bin/bash
 # Wait for database to be ready and then run migrations
 
+echo "=== Setting up Laravel environment ==="
+# Ensure required directories exist
+mkdir -p storage/framework/{sessions,views,cache}
+mkdir -p storage/logs
+mkdir -p bootstrap/cache
+chmod -R 775 storage bootstrap/cache
+
 echo "=== Database Connection Setup ==="
 echo "DB_HOST: ${DB_HOST}"
 echo "DB_PORT: ${DB_PORT}"
