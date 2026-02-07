@@ -153,10 +153,10 @@ php artisan db:seed  # Optional: seed test data
 
 ```bash
 # Health check
-curl https://your-domain.com/api/health
+curl https://dial4doughdev-production.up.railway.app/api/health
 
 # Should return:
-# {"status":"ok","message":"Dial4Dough API is running"}
+# {"status":"ok","message":"Dial4Dough API is running","timestamp":"..."}
 
 # Test Wix webhook endpoint
 curl -X POST https://your-domain.com/api/wix/webhooks \

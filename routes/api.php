@@ -22,6 +22,19 @@ use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
+| Health Check Endpoint
+|--------------------------------------------------------------------------
+*/
+Route::get('/health', function () {
+    return response()->json([
+        'status' => 'ok',
+        'message' => 'Dial4Dough API is running',
+        'timestamp' => now()->toIso8601String(),
+    ]);
+})->name('api.health');
+
+/*
+|--------------------------------------------------------------------------
 | Wix Webhooks (verified by HMAC signature — no auth middleware)
 |--------------------------------------------------------------------------
 */
