@@ -1,0 +1,43 @@
+# Git files
+.git
+.gitignore
+.gitattributes
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Logs
+storage/logs/*.log
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Dependencies (will be installed in Dockerfile)
+/node_modules
+/vendor
+
+# Build artifacts
+/public/hot
+/public/storage
+
+# Environment
+.env
+.env.backup
+.env.production
+
+# Testing
+.phpunit.result.cache
+/coverage
+
+# Documentation
+README.md
+*.md
+docs/
+
+# Legacy
+/legacy
