@@ -17,6 +17,9 @@ return Application::configure(basePath: dirname(__DIR__))
         },
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Trust Railway proxies for proper HTTPS URL generation
+        $middleware->trustProxies(at: '*');
+        
         $middleware->alias([
             'wix.verify' => \App\Http\Middleware\VerifyWixInstance::class,
         ]);
