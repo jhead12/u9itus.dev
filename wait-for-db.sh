@@ -58,8 +58,14 @@ done
 echo "Running database migrations..."
 php artisan migrate --force 2>&1 || echo "Migration failed but continuing startup..."
 
+# Set default PORT if not provided by Railway
+export PORT=${PORT:-8080}
+
 echo "==================================="
-echo "Starting Laravel server on port ${PORT:-8080}..."
+echo "Starting Laravel server..."
+echo "PORT: $PORT"
+echo "Command: php artisan serve --host=0.0.0.0 --port=$PORT"
 echo "==================================="
 
-exec php artisan serve --host=0.0.0.0 --port=${PORT:-8080}
+# Use exec to replace shell with PHP process
+exec php artisan serve --host=0.0.0.0 --port=$PORT
