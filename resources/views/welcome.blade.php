@@ -220,6 +220,29 @@
                                 Fast, secure payouts
                             </li>
                         </ul>
+                        
+                        <!-- Earnings Goal Callout -->
+                        <div class="mt-8 p-6 bg-gradient-to-br from-teal-900/40 to-emerald-900/40 rounded-2xl border-2 border-teal-500/30 backdrop-blur-sm">
+                            <div class="flex items-start space-x-3">
+                                <div class="flex-shrink-0 text-3xl">💰</div>
+                                <div>
+                                    <h4 class="text-lg font-bold text-teal-300 mb-2">Path to $1,000</h4>
+                                    <p class="text-slate-300 text-sm leading-relaxed mb-3">
+                                        Watch 4,000 political ads at $0.25 each to earn $1,000. With just 10 ads per day, that's achievable in one year—or faster with referrals!
+                                    </p>
+                                    <div class="grid grid-cols-2 gap-3 text-xs">
+                                        <div class="bg-slate-800/50 rounded-lg p-3">
+                                            <div class="text-teal-400 font-semibold">10 ads/day</div>
+                                            <div class="text-slate-400">400 days = $1,000</div>
+                                        </div>
+                                        <div class="bg-slate-800/50 rounded-lg p-3">
+                                            <div class="text-emerald-400 font-semibold">+ 5 referrals</div>
+                                            <div class="text-slate-400">Earn 2x faster</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
