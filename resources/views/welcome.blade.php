@@ -55,46 +55,94 @@
                     <x-app-layout title="{{ config('app.name', 'Laravel') }}">
                         <main class="flex max-w-[335px] w-full flex-col-reverse lg:max-w-4xl lg:flex-row">
                             <div class="text-[13px] leading-[20px] flex-1 p-6 pb-12 lg:p-20 bg-white dark:bg-[#161615] dark:text-[#EDEDEC] shadow-[inset_0px_0px_0px_1px_rgba(26,26,0,0.16)] dark:shadow-[inset_0px_0px_0px_1px_#fffaed2d] rounded-bl-lg rounded-br-lg lg:rounded-tl-lg lg:rounded-br-none">
-                                <h1 class="mb-1 font-medium">Let's get started</h1>
-                                <p class="mb-2 text-[#706f6c] dark:text-[#A1A09A]">Laravel has an incredibly rich ecosystem. <br>We suggest starting with the following.</p>
-                                <ul class="flex flex-col mb-4 lg:mb-6">
-                                    <li class="flex items-center gap-4 py-2 relative before:border-l before:border-[#e3e3e0] dark:before:border-[#3E3E3A] before:top-1/2 before:bottom-0 before:left-[0.4rem] before:absolute">
-                                        <span class="relative py-1 bg-white dark:bg-[#161615]">
-                                            <span class="flex items-center justify-center rounded-full bg-[#FDFDFC] dark:bg-[#161615] shadow-[0px_0px_1px_0px_rgba(0,0,0,0.03),0px_1px_2px_0px_rgba(0,0,0,0.06)] w-3.5 h-3.5 border dark:border-[#3E3E3A] border-[#e3e3e0]">
-                                                <span class="rounded-full bg-[#dbdbd7] dark:bg-[#3E3E3A] w-1.5 h-1.5"></span>
-                                            </span>
-                                        </span>
-                                        <span>
-                                            Read the
-                                            <a href="https://laravel.com/docs" target="_blank" class="inline-flex items-center space-x-1 font-medium underline underline-offset-4 text-[#f53003] dark:text-[#FF4433] ml-1">
-                                                <span>Documentation</span>
-                                            </a>
-                                        </span>
-                                    </li>
-                                    <li class="flex items-center gap-4 py-2 relative before:border-l before:border-[#e3e3e0] dark:before:border-[#3E3E3A] before:bottom-1/2 before:top-0 before:left-[0.4rem] before:absolute">
-                                        <span class="relative py-1 bg-white dark:bg-[#161615]">
-                                            <span class="flex items-center justify-center rounded-full bg-[#FDFDFC] dark:bg-[#161615] shadow-[0px_0px_1px_0px_rgba(0,0,0,0.03),0px_1px_2px_0px_rgba(0,0,0,0.06)] w-3.5 h-3.5 border dark:border-[#3E3E3A] border-[#e3e3e0]">
-                                                <span class="rounded-full bg-[#dbdbd7] dark:bg-[#3E3E3A] w-1.5 h-1.5"></span>
-                                            </span>
-                                        </span>
-                                        <span>
-                                            Watch video tutorials at
-                                            <a href="https://laracasts.com" target="_blank" class="inline-flex items-center space-x-1 font-medium underline underline-offset-4 text-[#f53003] dark:text-[#FF4433] ml-1">
-                                                <span>Laracasts</span>
-                                            </a>
-                                        </span>
-                                    </li>
+                                <h1 class="mb-4 font-medium text-xl">Dial4Dough – Political Loyalty Ads</h1>
+                                <p class="mb-4 text-[#706f6c] dark:text-[#A1A09A]">Connect politicians with voters through paid video messages. A transparent, profitable platform with healthy margins and residual income opportunities.</p>
+                                
+                                <h2 class="mb-2 font-medium">💰 Revenue Model ($0.60 per view)</h2>
+                                <div class="mb-4 p-4 bg-[#fff2f2] dark:bg-[#1D0002] rounded-sm">
+                                    <ul class="space-y-2 text-[#706f6c] dark:text-[#A1A09A]">
+                                        <li>✅ <strong class="text-[#1b1b18] dark:text-[#EDEDEC]">Revenue:</strong> $0.60 from politician per view</li>
+                                        <li>💵 <strong class="text-[#1b1b18] dark:text-[#EDEDEC]">Viewer Payout:</strong> $0.25 direct payment</li>
+                                        <li>🤝 <strong class="text-[#1b1b18] dark:text-[#EDEDEC]">Referral Commission:</strong> $0.025 (10% of viewer payout)</li>
+                                        <li>💳 <strong class="text-[#1b1b18] dark:text-[#EDEDEC]">Processing Fees:</strong> ~$0.02 (card/wallet fees)</li>
+                                        <li>⚙️ <strong class="text-[#1b1b18] dark:text-[#EDEDEC]">Operations:</strong> $0.03-$0.12 (infrastructure, fraud detection, support)</li>
+                                    </ul>
+                                </div>
+
+                                <h2 class="mb-2 font-medium">📊 Profit Margins</h2>
+                                <div class="mb-4 p-4 bg-[#fff2f2] dark:bg-[#1D0002] rounded-sm">
+                                    <div class="space-y-3 text-[#706f6c] dark:text-[#A1A09A]">
+                                        <div>
+                                            <p class="font-medium text-[#1b1b18] dark:text-[#EDEDEC]">With Efficient Operations ($0.03 ops cost):</p>
+                                            <p>Net Profit: ~<span class="text-[#f53003] dark:text-[#FF4433] font-bold">$0.30 per view (50% margin)</span></p>
+                                        </div>
+                                        <div>
+                                            <p class="font-medium text-[#1b1b18] dark:text-[#EDEDEC]">Conservative Planning ($0.12 ops cost):</p>
+                                            <p>Net Profit: ~<span class="text-[#f53003] dark:text-[#FF4433] font-bold">$0.21 per view (35% margin)</span></p>
+                                        </div>
+                                        <div>
+                                            <p class="font-medium text-[#1b1b18] dark:text-[#EDEDEC]">Target Margin Range:</p>
+                                            <p><span class="text-[#f53003] dark:text-[#FF4433] font-bold">25%-50% net margin</span> per valid view</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <h2 class="mb-2 font-medium">🎯 Key Success Factors</h2>
+                                <ul class="mb-4 space-y-1 text-[#706f6c] dark:text-[#A1A09A]">
+                                    <li>🛡️ Fraud prevention & view validation</li>
+                                    <li>💳 Batch payouts to reduce processing fees</li>
+                                    <li>📈 Performance-based commission structure</li>
+                                    <li>⚡ CDN optimization for bandwidth costs</li>
+                                    <li>🤖 Automated support & self-service tools</li>
                                 </ul>
+
                                 <ul class="flex gap-3 text-sm leading-normal">
-                                    <li>
-                                        <a href="https://cloud.laravel.com" target="_blank" class="inline-block dark:bg-[#eeeeec] dark:border-[#eeeeec] dark:text-[#1C1C1A] dark:hover:bg-white dark:hover:border-white hover:bg-black hover:border-black px-5 py-1.5 bg-[#1b1b18] rounded-sm border border-black text-white text-sm leading-normal">Deploy now</a>
-                                    </li>
+                                    @auth
+                                        <li>
+                                            <a href="{{ url('/dashboard') }}" class="inline-block dark:bg-[#eeeeec] dark:border-[#eeeeec] dark:text-[#1C1C1A] dark:hover:bg-white dark:hover:border-white hover:bg-black hover:border-black px-5 py-1.5 bg-[#1b1b18] rounded-sm border border-black text-white text-sm leading-normal">Go to Dashboard</a>
+                                        </li>
+                                    @else
+                                        <li>
+                                            <a href="{{ route('register') }}" class="inline-block dark:bg-[#eeeeec] dark:border-[#eeeeec] dark:text-[#1C1C1A] dark:hover:bg-white dark:hover:border-white hover:bg-black hover:border-black px-5 py-1.5 bg-[#1b1b18] rounded-sm border border-black text-white text-sm leading-normal">Get Started</a>
+                                        </li>
+                                        <li>
+                                            <a href="{{ route('login') }}" class="inline-block px-5 py-1.5 dark:text-[#EDEDEC] border-[#19140035] hover:border-[#1915014a] border text-[#1b1b18] dark:border-[#3E3E3A] dark:hover:border-[#62605b] rounded-sm text-sm leading-normal">Sign In</a>
+                                        </li>
+                                    @endauth
                                 </ul>
                             </div>
-                            <div class="bg-[#fff2f2] dark:bg-[#1D0002] relative lg:-ml-px -mb-px lg:mb-0 rounded-t-lg lg:rounded-t-none lg:rounded-r-lg aspect-[335/376] lg:aspect-auto w-full lg:w-[438px] shrink-0 overflow-hidden flex items-center justify-center">
-                                <div class="text-center p-6">
-                                    <div class="fs-1 fw-bold text-danger">{{ config('app.name', 'Laravel') }}</div>
-                                    <div class="text-muted mt-2">Welcome</div>
+                            <div class="bg-[#fff2f2] dark:bg-[#1D0002] relative lg:-ml-px -mb-px lg:mb-0 rounded-t-lg lg:rounded-t-none lg:rounded-r-lg aspect-[335/376] lg:aspect-auto w-full lg:w-[438px] shrink-0 overflow-hidden flex items-center justify-center p-8">
+                                <div class="text-center">
+                                    <div class="text-4xl font-bold text-[#f53003] dark:text-[#FF4433] mb-4">$0.60</div>
+                                    <div class="text-lg font-medium text-[#1b1b18] dark:text-[#EDEDEC] mb-6">Per Ad View</div>
+                                    
+                                    <div class="space-y-3 text-left">
+                                        <div class="flex justify-between items-center">
+                                            <span class="text-[#706f6c] dark:text-[#A1A09A]">Viewer Earns</span>
+                                            <span class="font-bold text-[#1b1b18] dark:text-[#EDEDEC]">$0.25</span>
+                                        </div>
+                                        <div class="flex justify-between items-center">
+                                            <span class="text-[#706f6c] dark:text-[#A1A09A]">Referral</span>
+                                            <span class="font-bold text-[#1b1b18] dark:text-[#EDEDEC]">$0.025</span>
+                                        </div>
+                                        <div class="flex justify-between items-center">
+                                            <span class="text-[#706f6c] dark:text-[#A1A09A]">Processing</span>
+                                            <span class="font-bold text-[#1b1b18] dark:text-[#EDEDEC]">$0.02</span>
+                                        </div>
+                                        <div class="flex justify-between items-center">
+                                            <span class="text-[#706f6c] dark:text-[#A1A09A]">Operations</span>
+                                            <span class="font-bold text-[#1b1b18] dark:text-[#EDEDEC]">$0.03-$0.12</span>
+                                        </div>
+                                        <div class="border-t border-[#e3e3e0] dark:border-[#3E3E3A] pt-3 mt-3">
+                                            <div class="flex justify-between items-center">
+                                                <span class="text-[#706f6c] dark:text-[#A1A09A] font-medium">Platform Profit</span>
+                                                <span class="font-bold text-[#f53003] dark:text-[#FF4433]">$0.21-$0.30</span>
+                                            </div>
+                                            <div class="text-center mt-2">
+                                                <span class="text-[#f53003] dark:text-[#FF4433] font-bold text-lg">25-50% Margin</span>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </main>
