@@ -1,0 +1,98 @@
+{
+  "name": "Architecture Diagram",
+  "description": "Generated architecture diagram",
+  "components": [
+    {
+      "id": "user",
+      "type": "user",
+      "name": "User",
+      "position": {
+        "x": 100,
+        "y": 200
+      },
+      "properties": {}
+    },
+    {
+      "id": "ui",
+      "type": "frontend",
+      "name": "UI",
+      "position": {
+        "x": 300,
+        "y": 200
+      },
+      "properties": {}
+    },
+    {
+      "id": "server",
+      "type": "server",
+      "name": "Server",
+      "position": {
+        "x": 500,
+        "y": 200
+      },
+      "properties": {}
+    },
+    {
+      "id": "serviceA",
+      "type": "auth_service",
+      "name": "Service A",
+      "position": {
+        "x": 700,
+        "y": 120
+      },
+      "properties": {}
+    },
+    {
+      "id": "serviceB",
+      "type": "analytics",
+      "name": "Service B",
+      "position": {
+        "x": 700,
+        "y": 280
+      },
+      "properties": {}
+    },
+    {
+      "id": "db",
+      "type": "database",
+      "name": "Database",
+      "position": {
+        "x": 900,
+        "y": 280
+      },
+      "properties": {}
+    }
+  ],
+  "connections": [
+    {
+      "from": "user",
+      "to": "ui",
+      "type": "direct",
+      "label": "interacts"
+    },
+    {
+      "from": "ui",
+      "to": "server",
+      "type": "direct",
+      "label": "requests"
+    },
+    {
+      "from": "server",
+      "to": "serviceA",
+      "type": "direct",
+      "label": "calls"
+    },
+    {
+      "from": "server",
+      "to": "serviceB",
+      "type": "direct",
+      "label": "calls"
+    },
+    {
+      "from": "serviceB",
+      "to": "db",
+      "type": "direct",
+      "label": "queries"
+    }
+  ]
+}
