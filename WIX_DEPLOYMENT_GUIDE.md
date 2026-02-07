@@ -156,7 +156,7 @@ php artisan db:seed  # Optional: seed test data
 curl https://dial4doughdev-production.up.railway.app/api/health
 
 # Should return:
-# {"status":"ok","message":"Dial4Dough API is running","timestamp":"..."}
+# {"status":"ok","message":"Dial4Dough API is running","timestamp":"2026-02-07T02:58:08+00:00"}
 
 # Test Wix webhook endpoint
 curl -X POST https://your-domain.com/api/wix/webhooks \
