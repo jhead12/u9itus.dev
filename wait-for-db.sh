@@ -58,13 +58,8 @@ done
 echo "Running database migrations..."
 php artisan migrate --force 2>&1 || echo "Migration failed but continuing startup..."
 
-echo "Running config cache..."
-php artisan config:cache 2>&1 || true
-
 echo "==================================="
-echo "Starting Laravel server..."
-echo "PORT: ${PORT:-8080}"
-echo "HOST: 0.0.0.0"
+echo "Starting Laravel server on port ${PORT:-8080}..."
 echo "==================================="
 
 exec php artisan serve --host=0.0.0.0 --port=${PORT:-8080}
