@@ -285,6 +285,40 @@
             }
         },
         {
+            "id": "service-notification",
+            "type": "analytics",
+            "name": "Notification Service (Wix)",
+            "position": {
+                "x": 1000,
+                "y": 650
+            },
+            "properties": {
+                "description": "Secure ad delivery via Wix email/push/SMS APIs with token generation",
+                "technology": "Laravel + Wix APIs",
+                "responsibilities": [
+                    "Generate one-time secure tokens (SHA-256)",
+                    "Send notifications via Wix Triggered Emails API",
+                    "Send push notifications via Wix Notifications API",
+                    "Send SMS via Wix Marketing API",
+                    "Rate limiting (10 ads per 24 hours)",
+                    "Token expiration management (24 hours)",
+                    "Batch notification distribution"
+                ],
+                "wixAPIs": [
+                    "/v1/triggered-emails/send",
+                    "/v1/notifications/send",
+                    "/v1/marketing/sms/send",
+                    "/v1/automations/create"
+                ],
+                "security": [
+                    "One-time use tokens",
+                    "24-hour expiration",
+                    "IP/device tracking",
+                    "Prevents panel abuse"
+                ]
+            }
+        },
+        {
             "id": "service-webhook",
             "type": "analytics",
             "name": "Webhook Handler",
@@ -324,7 +358,8 @@
                     "payments",
                     "referrals",
                     "wix_instances",
-                    "fraud_reviews"
+                    "fraud_reviews",
+                    "ad_view_tokens (one-time secure tokens for notifications)"
                 ]
             }
         },
@@ -362,7 +397,11 @@
                     "OAuth 2.0 authentication",
                     "Dashboard extension hosting",
                     "Member management API",
-                    "Webhook delivery"
+                    "Webhook delivery",
+                    "Triggered Emails API (ad notifications)",
+                    "Push Notifications API (instant alerts)",
+                    "Marketing/SMS API (text notifications)",
+                    "Automations API (workflow triggers)"
                 ]
             }
         },
@@ -465,6 +504,12 @@
         },
         {
             "from": "server-laravel-api",
+            "to": "service-notification",
+            "type": "direct",
+            "label": "calls"
+        },
+        {
+            "from": "server-laravel-api",
             "to": "service-webhook",
             "type": "direct",
             "label": "calls"
@@ -504,6 +549,18 @@
             "to": "database-mysql",
             "type": "direct",
             "label": "queries"
+        },
+        {
+            "from": "service-notification",
+            "to": "database-mysql",
+            "type": "direct",
+            "label": "queries"
+        },
+        {
+            "from": "service-notification",
+            "to": "external-wix",
+            "type": "direct",
+            "label": "sends notifications"
         },
         {
             "from": "service-webhook",

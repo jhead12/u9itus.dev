@@ -1,13 +1,19 @@
 # Dial4Dough – Political Loyalty Ads (Wix App Extension)
 
 **Version:** 2.0.0  
-**Framework:** Laravel 11 + Wix App Extension  
+**Framework:** Laravel 12 + Wix App Extension  
 **Platform:** Wix Marketplace Plugin  
-**Database:** SQLite (upgradeable to PostgreSQL)
+**Database:** MySQL (Railway Production)  
+**Deployment:** Railway.app with Metal Build  
+**Production URL:** https://dial4doughdev-production.up.railway.app
 
 ## Overview
 
-Dial4Dough is a **Wix app extension** that connects **politicians and local governance officials** directly with **potential voters** through paid video messages and live feeds. Politicians pay $0.60 per view; voters earn $0.25 for watching the full message. The platform includes referral commissions, fraud prevention, and batch payouts.
+Dial4Dough is a **secure Wix app extension** that connects **politicians and local governance officials** directly with **potential voters** through paid video messages and live feeds. Politicians pay $0.60 per view; voters earn $0.25 for watching the full message. The platform includes **secure token-based ad delivery**, referral commissions, advanced fraud prevention, and automated batch payouts.
+
+### 🔒 Security-First Architecture
+
+Unlike traditional ad platforms where users can click repeatedly, Dial4Dough uses **push notification-based delivery** with one-time use tokens to prevent fraud and abuse.
 
 > _"Regardless of how much artificial intelligence is used, without the human element the production that AI affords is all for naught. Human beings will still be required to purchase this production. I am offering a solution."_ — Head Enterprises
 
@@ -46,14 +52,23 @@ Dial4Dough is a **Wix app extension** that connects **politicians and local gove
 - Video messages + live feeds
 - 100% watch requirement (must watch the full message to earn)
 
-### Fraud Prevention
+### Advanced Security & Fraud Prevention
 
+**Token-Based Ad Delivery:**
+- 🔑 Secure one-time use tokens (SHA-256)
+- 📧 Email/SMS/Push notification delivery via Wix APIs
+- ⏰ 24-hour token expiration
+- 🚫 No panel-based ad access (prevents clicking abuse)
+- 📊 Complete audit trail of all notifications
+
+**Fraud Detection:**
 - Device fingerprinting
-- Daily view rate limits
+- Rate limiting (max 10 ads per 24 hours)
 - IP anomaly detection
 - Rapid-fire view detection
 - Payout hold periods (48-hour verification window)
 - Voter trust scoring
+- Token replay attack prevention
 
 ### Technical Stack
 
@@ -140,7 +155,50 @@ npm run wix:dev
 2. Set the **OAuth Redirect URL** to `https://yourdomain.com/wix/oauth/callback`
 3. Configure webhooks pointing to `https://yourdomain.com/api/wix/webhooks`
 4. Add dashboard pages and widget components as defined in `wix.config.json`
-5. Set the required scopes: `WIX_MEMBERS.READ`, `WIX_MEMBERS.MANAGE`, `WIX_DATA.READ`, `WIX_DATA.WRITE`, `WIX_ANALYTICS.READ`
+5. Set the required scopes:
+   - `SCOPE.DC-MEMBERS.MANAGE-MEMBERS` — Access voter contact info
+   - `SCOPE.DC-PAIDPLANS.MANAGE-PLANS` — Manage subscriptions
+   - `SCOPE.WIX.EVENTS.READ-WRITE` — Triggered emails
+   - `SCOPE.WIX.NOTIFICATIONS` — Push notifications
+   - `SCOPE.WIX.AUTOMATIONS` — Marketing automations
+   - `SCOPE.WIX.MARKETING.SEND-MESSAGES` — SMS notifications
+
+## 🔐 Secure Notification System
+
+### Why Token-Based Delivery?
+
+**Traditional (Vulnerable):**
+- Voters access ad panel and click repeatedly
+- Bots can automate viewing
+- Hard to prevent fraud
+
+**Token-Based (Secure):**
+- System controls when voters receive ads
+- One-time use tokens prevent replay attacks
+- Rate limiting built-in (10 ads/24 hours)
+- Complete audit trail
+
+### How It Works
+
+```mermaid
+sequenceDiagram
+    Admin->>System: Approve Campaign
+    System->>Notification Service: Distribute to voters
+    Notification Service->>Wix API: Send email/push/SMS
+    Wix API->>Voter: Secure link with token
+    Voter->>System: Click link
+    System->>System: Validate token (one-time use)
+    System->>Voter: Play video
+    System->>Database: Mark token as used
+```
+
+### Notification Methods
+
+| Method | API | Delivery Time | Best For |
+|--------|-----|---------------|----------|
+| Email | Wix Triggered Emails | 1-5 min | Primary method |
+| Push | Wix Notifications | Instant | Mobile users |
+| SMS | Wix Marketing | Instant | High priority |
 
 ## Application Structure
 
@@ -154,27 +212,30 @@ npm run wix:dev
 | **political_campaigns** | Video/live-feed campaigns with per-view pricing and targeting |
 | **view_sessions**       | Individual view tracking — watch time, fraud score, payouts   |
 | **referral_earnings**   | Referral commission records per view session                  |
+| **ad_view_tokens** 🆕   | One-time secure tokens for ad delivery via notifications      |
 
 ### Services
 
-| Service                     | Purpose                                                         |
-| --------------------------- | --------------------------------------------------------------- |
-| **WixOAuthService**         | OAuth consent URL, token exchange, refresh, API calls           |
-| **WixWebhookService**       | Routes Wix webhook events (install, remove, member events)      |
-| **PoliticalViewService**    | View lifecycle: assign → start → track → complete               |
-| **PoliticalPaymentService** | Campaign billing, batch payouts, per-view profit calculation    |
-| **FraudPreventionService**  | Device fingerprinting, rate limits, IP anomalies, trust scoring |
+| Service                       | Purpose                                                         |
+| ----------------------------- | --------------------------------------------------------------- |
+| **WixOAuthService**           | OAuth consent URL, token exchange, refresh, API calls           |
+| **WixWebhookService**         | Routes Wix webhook events (install, remove, member events)      |
+| **WixNotificationService** 🆕 | Secure ad delivery via Wix email/push/SMS with token generation |
+| **PoliticalViewService**      | View lifecycle: assign → start → track → complete               |
+| **PoliticalPaymentService**   | Campaign billing, batch payouts, per-view profit calculation    |
+| **FraudPreventionService**    | Device fingerprinting, rate limits, IP anomalies, trust scoring |
 
 ### Controllers
 
-| Controller                   | Purpose                                         |
-| ---------------------------- | ----------------------------------------------- |
-| **Wix\OAuthController**      | `install()`, `callback()`, `signup()`           |
-| **Wix\WebhookController**    | Wix event handling with signature verification  |
-| **Wix\DashboardController**  | Dashboard stats, admin panel                    |
-| **Api\PoliticianController** | Politician CRUD, campaign management            |
-| **Api\VoterController**      | Registration, view sessions, earnings           |
-| **Api\AdminController**      | Analytics, approvals, payouts, fraud management |
+| Controller                       | Purpose                                                |
+| -------------------------------- | ------------------------------------------------------ |
+| **Wix\OAuthController**          | `install()`, `callback()`, `signup()`                  |
+| **Wix\WebhookController**        | Wix event handling with signature verification         |
+| **Wix\DashboardController**      | Dashboard stats, admin panel                           |
+| **SecureAdViewController** 🆕    | Token-based ad viewing, notification distribution      |
+| **Api\PoliticianController**     | Politician CRUD, campaign management                   |
+| **Api\VoterController**          | Registration, view sessions, earnings                  |
+| **Api\AdminController**          | Analytics, approvals, payouts, fraud management        |
 
 ## API Endpoints
 
@@ -189,15 +250,21 @@ npm run wix:dev
 - `GET /wix/widget/feed` — Embeddable voter feed widget
 - `GET /wix/widget/settings` — Widget settings
 
+### Secure Ad Viewing Routes 🆕
+
+- `GET /ad/view/{token}` — View ad via secure one-time token (from email/SMS)
+- `GET /api/v1/tokens/{token}/validate` — Validate token before loading video
+- `POST /api/v1/campaigns/{campaign}/distribute` — Distribute ad to eligible voters (Admin)
+- `GET /voter/notifications` — View notification history (Voter dashboard)
+- `POST /test/notification` — Send test notification (Development)
+
 ### Voter API (`/api/v1/*`)
 
 - `POST /api/v1/voters/register` — Register a voter (with optional referral code)
-- `GET /api/v1/voters/{voter}/campaigns` — Available campaigns for a voter
-- `POST /api/v1/sessions/start` — Start watching a campaign
-- `POST /api/v1/sessions/{session}/progress` — Heartbeat progress update
-- `POST /api/v1/sessions/{session}/complete` — Mark view as completed
 - `GET /api/v1/voters/{voter}/earnings` — Earnings summary
 - `GET /api/v1/voters/{voter}/referrals` — Referral earnings
+- `POST /api/v1/sessions/{session}/progress` — Heartbeat progress update (from token view)
+- `POST /api/v1/sessions/{session}/complete` — Mark view as completed
 
 ### Politician API (`/api/v1/*`)
 

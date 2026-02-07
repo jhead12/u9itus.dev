@@ -67,7 +67,27 @@ return [
     |--------------------------------------------------------------------------
     */
     'scopes' => [
-        'SCOPE.DC-MEMBERS.MANAGE-MEMBERS',
-        'SCOPE.DC-PAIDPLANS.MANAGE-PLANS',
+        'SCOPE.DC-MEMBERS.MANAGE-MEMBERS',     // Access voter contact info
+        'SCOPE.DC-PAIDPLANS.MANAGE-PLANS',     // Manage subscriptions
+        'SCOPE.WIX.EVENTS.READ-WRITE',         // Triggered emails
+        'SCOPE.WIX.NOTIFICATIONS',             // Push notifications
+        'SCOPE.WIX.AUTOMATIONS',               // Marketing automations
+        'SCOPE.WIX.MARKETING.SEND-MESSAGES',   // SMS notifications
+    ],
+    
+    /*
+    |--------------------------------------------------------------------------
+    | Notification Settings
+    |--------------------------------------------------------------------------
+    */
+    'notifications' => [
+        'rate_limit' => [
+            'hours' => 24,
+            'max_ads' => 10,  // Max 10 ad notifications per voter per 24 hours
+        ],
+        'token_expiry_hours' => 24,
+        'default_method' => 'email',  // email | push | sms
+        'fallback_methods' => ['push', 'email'], // Fallback order if primary fails
+        'batch_size' => 100,  // Max voters to notify in single batch
     ],
 ];
