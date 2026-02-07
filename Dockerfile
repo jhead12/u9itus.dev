@@ -52,6 +52,5 @@ RUN chmod +x wait-for-db.sh
 # Expose port (Railway will override this)
 EXPOSE 8080
 
-# Railway will call wait-for-db.sh via railway.json startCommand
-# Don't cache config here - needs runtime env vars
-CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8080"]
+# Start via wait-for-db.sh which handles migrations and server startup
+CMD ["./wait-for-db.sh"]

@@ -61,4 +61,5 @@ php artisan migrate --force 2>&1 || echo "Migration failed but continuing startu
 echo "Running config cache..."
 php artisan config:cache 2>&1 || true
 
-echo "Setup complete! Starting application..."
+echo "Setup complete! Starting application on port ${PORT:-8080}..."
+exec php artisan serve --host=0.0.0.0 --port=${PORT:-8080}
