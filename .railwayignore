@@ -1,5 +1,6 @@
 node_modules/
 vendor/
+legacy/
 storage/logs/
 storage/framework/cache/
 storage/framework/sessions/
@@ -9,3 +10,5 @@ storage/framework/views/
 .env.*
 tests/
 *.log
+*.md
+loyalty-ads/
