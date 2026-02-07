@@ -29,6 +29,8 @@
         "@wix/design-system": "^1.255.0",
         "@wix/members": "^1.0.420",
         "@wix/sdk": "^1.21.2",
-        "gsap": "^3.14.2"
+        "gsap": "^3.14.2",
+        "react": "^18.3.1",
+        "react-dom": "^18.3.1"
     }
 }

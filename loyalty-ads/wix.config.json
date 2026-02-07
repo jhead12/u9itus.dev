@@ -1,0 +1,5 @@
+{
+  "$schema": "https://dev.wix.com/wix-cli/schemas/wix-config.json",
+  "appId": "c9218813-77ea-4c75-8a26-a59356e4ef08",
+  "projectId": "loyalty-ads"
+}
