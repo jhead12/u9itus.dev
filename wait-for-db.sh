@@ -3,18 +3,30 @@
 
 echo "Waiting for database connection..."
 
-# Wait up to 30 seconds for database
-until php artisan db:monitor --max-attempts=1 2>/dev/null || [ $SECONDS -gt 30 ]; do
-  echo "Database not ready yet... retrying in 2 seconds"
+# Wait up to 60 seconds for database with proper timeout
+MAX_ATTEMPTS=30
+ATTEMPT=0
+
+while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+  ATTEMPT=$((ATTEMPT + 1))
+  echo "Attempt $ATTEMPT/$MAX_ATTEMPTS: Checking database connectivity..."
+  
+  # Try to connect using PHP directly instead of artisan command
+  if php -r "new PDO('mysql:host=' . getenv('DB_HOST') . ';port=' . getenv('DB_PORT') . ';dbname=' . getenv('DB_DATABASE'), getenv('DB_USERNAME'), getenv('DB_PASSWORD'));" 2>/dev/null; then
+    echo "✓ Database connection successful!"
+    break
+  fi
+  
+  if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
+    echo "✗ Database not reachable after $MAX_ATTEMPTS attempts (60 seconds)"
+    echo "Starting application anyway - migrations will be attempted on first request..."
+    exit 0
+  fi
+  
   sleep 2
 done
 
-if [ $SECONDS -gt 30 ]; then
-  echo "WARNING: Database not reachable after 30 seconds, starting anyway..."
-  exit 0
-fi
-
-echo "Database is ready! Running migrations..."
+echo "Running database migrations..."
 php artisan migrate --force
 
 echo "Migration complete! Starting application..."
