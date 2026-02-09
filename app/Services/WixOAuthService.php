@@ -25,10 +25,14 @@ class WixOAuthService
 
     public function __construct()
     {
-        $this->appId      = config('wix.app_id');
-        $this->appSecret  = config('wix.app_secret');
-        $this->tokenUrl   = config('wix.token_url');
-        $this->apiBaseUrl  = config('wix.api_base_url');
+        $this->appId      = config('wix.app_id') ?? '';
+        $this->appSecret  = config('wix.app_secret') ?? '';
+        $this->tokenUrl   = config('wix.token_url') ?? 'https://www.wixapis.com/oauth/access';
+        $this->apiBaseUrl  = config('wix.api_base_url') ?? 'https://www.wixapis.com';
+
+        if (empty($this->appId) || empty($this->appSecret)) {
+            Log::warning('WixOAuthService: WIX_APP_ID or WIX_APP_SECRET is not configured. Set these in your .env file.');
+        }
     }
 
     /**

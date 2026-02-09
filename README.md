@@ -55,6 +55,7 @@ Unlike traditional ad platforms where users can click repeatedly, Dial4Dough use
 ### Advanced Security & Fraud Prevention
 
 **Token-Based Ad Delivery:**
+
 - 🔑 Secure one-time use tokens (SHA-256)
 - 📧 Email/SMS/Push notification delivery via Wix APIs
 - ⏰ 24-hour token expiration
@@ -62,6 +63,7 @@ Unlike traditional ad platforms where users can click repeatedly, Dial4Dough use
 - 📊 Complete audit trail of all notifications
 
 **Fraud Detection:**
+
 - Device fingerprinting
 - Rate limiting (max 10 ads per 24 hours)
 - IP anomaly detection
@@ -121,7 +123,7 @@ WIX_APP_ID=your-wix-app-id
 WIX_APP_SECRET=your-wix-app-secret
 WIX_WEBHOOK_SECRET=your-webhook-secret
 WIX_APP_URL=https://yourdomain.com
-WIX_REDIRECT_URL=https://yourdomain.com/wix/oauth/callback
+WIX_REDIRECT_URL=/wix/oauth/callback
 ```
 
 4. **Database setup**
@@ -156,23 +158,25 @@ npm run wix:dev
 3. Configure webhooks pointing to `https://yourdomain.com/api/wix/webhooks`
 4. Add dashboard pages and widget components as defined in `wix.config.json`
 5. Set the required scopes:
-   - `SCOPE.DC-MEMBERS.MANAGE-MEMBERS` — Access voter contact info
-   - `SCOPE.DC-PAIDPLANS.MANAGE-PLANS` — Manage subscriptions
-   - `SCOPE.WIX.EVENTS.READ-WRITE` — Triggered emails
-   - `SCOPE.WIX.NOTIFICATIONS` — Push notifications
-   - `SCOPE.WIX.AUTOMATIONS` — Marketing automations
-   - `SCOPE.WIX.MARKETING.SEND-MESSAGES` — SMS notifications
+    - `SCOPE.DC-MEMBERS.MANAGE-MEMBERS` — Access voter contact info
+    - `SCOPE.DC-PAIDPLANS.MANAGE-PLANS` — Manage subscriptions
+    - `SCOPE.WIX.EVENTS.READ-WRITE` — Triggered emails
+    - `SCOPE.WIX.NOTIFICATIONS` — Push notifications
+    - `SCOPE.WIX.AUTOMATIONS` — Marketing automations
+    - `SCOPE.WIX.MARKETING.SEND-MESSAGES` — SMS notifications
 
 ## 🔐 Secure Notification System
 
 ### Why Token-Based Delivery?
 
 **Traditional (Vulnerable):**
+
 - Voters access ad panel and click repeatedly
 - Bots can automate viewing
 - Hard to prevent fraud
 
 **Token-Based (Secure):**
+
 - System controls when voters receive ads
 - One-time use tokens prevent replay attacks
 - Rate limiting built-in (10 ads/24 hours)
@@ -194,11 +198,11 @@ sequenceDiagram
 
 ### Notification Methods
 
-| Method | API | Delivery Time | Best For |
-|--------|-----|---------------|----------|
-| Email | Wix Triggered Emails | 1-5 min | Primary method |
-| Push | Wix Notifications | Instant | Mobile users |
-| SMS | Wix Marketing | Instant | High priority |
+| Method | API                  | Delivery Time | Best For       |
+| ------ | -------------------- | ------------- | -------------- |
+| Email  | Wix Triggered Emails | 1-5 min       | Primary method |
+| Push   | Wix Notifications    | Instant       | Mobile users   |
+| SMS    | Wix Marketing        | Instant       | High priority  |
 
 ## Application Structure
 
@@ -227,15 +231,15 @@ sequenceDiagram
 
 ### Controllers
 
-| Controller                       | Purpose                                                |
-| -------------------------------- | ------------------------------------------------------ |
-| **Wix\OAuthController**          | `install()`, `callback()`, `signup()`                  |
-| **Wix\WebhookController**        | Wix event handling with signature verification         |
-| **Wix\DashboardController**      | Dashboard stats, admin panel                           |
-| **SecureAdViewController** 🆕    | Token-based ad viewing, notification distribution      |
-| **Api\PoliticianController**     | Politician CRUD, campaign management                   |
-| **Api\VoterController**          | Registration, view sessions, earnings                  |
-| **Api\AdminController**          | Analytics, approvals, payouts, fraud management        |
+| Controller                    | Purpose                                           |
+| ----------------------------- | ------------------------------------------------- |
+| **Wix\OAuthController**       | `install()`, `callback()`, `signup()`             |
+| **Wix\WebhookController**     | Wix event handling with signature verification    |
+| **Wix\DashboardController**   | Dashboard stats, admin panel                      |
+| **SecureAdViewController** 🆕 | Token-based ad viewing, notification distribution |
+| **Api\PoliticianController**  | Politician CRUD, campaign management              |
+| **Api\VoterController**       | Registration, view sessions, earnings             |
+| **Api\AdminController**       | Analytics, approvals, payouts, fraud management   |
 
 ## API Endpoints
 

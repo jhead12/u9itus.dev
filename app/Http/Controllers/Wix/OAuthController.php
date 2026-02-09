@@ -62,7 +62,13 @@ class OAuthController extends Controller
             // Redirect to the dashboard page within Wix
             return redirect()->route('wix.dashboard.index');
         } catch (\Throwable $e) {
-            Log::error('Wix OAuth callback failed', ['error' => $e->getMessage()]);
+            Log::error('Wix OAuth callback failed', [
+                'error'       => $e->getMessage(),
+                'exception'   => get_class($e),
+                'file'        => $e->getFile() . ':' . $e->getLine(),
+                'instanceId'  => $instanceId,
+                'code_present' => !empty($code),
+            ]);
             return response()->json(['error' => 'OAuth authorization failed. Please try again.'], 500);
         }
     }
