@@ -24,40 +24,53 @@ chmod -R 775 storage bootstrap/cache
 
 # ============================================================
 # Database Configuration Priority:
-# 1. Use individual DB_* vars if DB_HOST is already a proper hostname
-# 2. Otherwise parse DATABASE_URL/MYSQL_URL if provided
+# 1. Parse DATABASE_URL/MYSQL_URL if provided
+# 2. Otherwise use individual DB_* environment variables
 # ============================================================
 
-# Check if DB_HOST is already properly set (not a URL)
-if [[ -n "$DB_HOST" ]] && [[ "$DB_HOST" != mysql://* ]] && [[ "$DB_HOST" != mysqli://* ]]; then
-  # Individual vars are already set correctly, use them
+# Get the database URL from Railway (DATABASE_URL, MYSQL_URL, or DB_HOST if it's a URL)
+RAW_URL="${DATABASE_URL:-${MYSQL_URL}}"
+
+# If DB_HOST contains a URL scheme, use it as the source
+if [[ -n "$DB_HOST" ]] && [[ "$DB_HOST" == mysql://* || "$DB_HOST" == mysqli://* ]]; then
+  RAW_URL="$DB_HOST"
+fi
+
+# Parse the database URL if we have one
+if [[ -n "$RAW_URL" ]] && [[ "$RAW_URL" == mysql://* || "$RAW_URL" == mysqli://* ]]; then
+  echo "Detected database URL — parsing into components..."
+  
+  # Strip the scheme (mysql:// or mysqli://)
+  WITHOUT_SCHEME="${RAW_URL#*://}"
+  
+  # Extract user:pass@host:port/database
+  USERINFO="${WITHOUT_SCHEME%%@*}"
+  HOSTINFO="${WITHOUT_SCHEME#*@}"
+  
+  # Extract username and password
+  export DB_USERNAME="${USERINFO%%:*}"
+  export DB_PASSWORD="${USERINFO#*:}"
+  
+  # Extract host:port/database
+  HOST_PORT="${HOSTINFO%%/*}"
+  export DB_DATABASE="${HOSTINFO#*/}"
+  export DB_HOST="${HOST_PORT%%:*}"
+  export DB_PORT="${HOST_PORT#*:}"
+  
+  # If port is same as host (no colon), default to 3306
+  if [[ "$DB_PORT" == "$DB_HOST" ]]; then
+    export DB_PORT=3306
+  fi
+  
+  export DB_CONNECTION=mysql
+  echo "Parsed database connection from URL"
+elif [[ -n "$DB_HOST" ]] && [[ "$DB_HOST" != mysql://* ]] && [[ "$DB_HOST" != mysqli://* ]]; then
+  # Individual vars are already set correctly
   echo "Using individual database environment variables..."
   export DB_CONNECTION="${DB_CONNECTION:-mysql}"
 else
-  # Try to parse DATABASE_URL or MYSQL_URL
-  RAW_HOST="${DATABASE_URL:-${MYSQL_URL}}"
-  
-  if [[ -n "$RAW_HOST" ]] && ([[ "$RAW_HOST" == mysql://* ]] || [[ "$RAW_HOST" == mysqli://* ]]); then
-    echo "Detected full database URL — parsing into components..."
-    # Strip the scheme
-    WITHOUT_SCHEME="${RAW_HOST#*://}"
-    # Extract user:pass
-    USERINFO="${WITHOUT_SCHEME%%@*}"
-    HOSTINFO="${WITHOUT_SCHEME#*@}"
-    # Extract username and password
-    export DB_USERNAME="${USERINFO%%:*}"
-    export DB_PASSWORD="${USERINFO#*:}"
-    # Extract host:port/dbname
-    HOST_PORT="${HOSTINFO%%/*}"
-    export DB_DATABASE="${HOSTINFO#*/}"
-    export DB_HOST="${HOST_PORT%%:*}"
-    export DB_PORT="${HOST_PORT#*:}"
-    # Also set DB_URL for Laravel's native URL-based config
-    export DB_URL="$RAW_HOST"
-    export DB_CONNECTION=mysql
-  else
-    echo "WARNING: No valid database configuration found!"
-    echo "Set either DATABASE_URL or individual DB_* environment variables"
+  echo "WARNING: No valid database configuration found!"
+  echo "Set either DATABASE_URL or individual DB_* environment variables"
   fi
 fi
 
