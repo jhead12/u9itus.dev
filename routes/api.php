@@ -41,10 +41,6 @@ Route::get('/health', function () {
 Route::post('/wix/webhooks', [WebhookController::class, 'handle'])
     ->name('api.wix.webhooks');
 
-// Wix sends GET to verify the webhook endpoint is reachable
-Route::get('/wix/webhooks', fn () => response()->json(['status' => 'ok']))
-    ->name('api.wix.webhooks.verify');
-
 /*
 |--------------------------------------------------------------------------
 | Versioned API — v1
