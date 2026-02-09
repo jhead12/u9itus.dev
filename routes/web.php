@@ -13,29 +13,22 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
+// Diagnostic endpoint - always works
+Route::get('/diagnose', function () {
+    return response()->json([
+        'status' => 'Laravel is running',
+        'php_version' => PHP_VERSION,
+        'laravel_version' => app()->version(),
+        'app_key_set' => !empty(config('app.key')),
+        'app_env' => config('app.env'),
+        'app_debug' => config('app.debug'),
+        'routes_loaded' => Route::has('login'),
+        'view_exists' => view()->exists('welcome'),
+    ]);
+});
+
 Route::get('/', function () {
-    try {
-        // Test basic env loading
-        $appKey = config('app.key') ? 'set' : 'not set';
-        $appEnv = config('app.env', 'unknown');
-        
-        // Test route availability
-        $hasLogin = Route::has('login');
-        $hasRegister = Route::has('register');
-        
-        // If all checks pass, render the view
-        return view('welcome');
-    } catch (\Exception $e) {
-        // Return error details for debugging
-        return response()->json([
-            'error' => 'Failed to load home page',
-            'message' => $e->getMessage(),
-            'file' => $e->getFile(),
-            'line' => $e->getLine(),
-            'app_key_set' => !empty(env('APP_KEY')),
-            'app_env' => env('APP_ENV', 'not set'),
-        ], 500);
-    }
+    return view('welcome');
 });
 
 Route::get('/debug-info', function () {
@@ -47,8 +40,13 @@ Route::get('/debug-info', function () {
         'db_connection' => config('database.default'),
         'storage_writable' => is_writable(storage_path()),
         'cache_writable' => is_writable(storage_path('framework/cache')),
+        'views_writable' => is_writable(storage_path('framework/views')),
         'env' => app()->environment(),
         'debug' => config('app.debug'),
+        'view_exists' => view()->exists('welcome'),
+        'recent_log' => file_exists(storage_path('logs/laravel.log')) 
+            ? substr(file_get_contents(storage_path('logs/laravel.log')), -2000)
+            : 'No log file',
     ]);
 });
 
