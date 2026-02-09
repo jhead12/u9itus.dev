@@ -9,6 +9,12 @@ echo "PHP version: $(php -v | head -1)"
 echo "Clearing configuration cache..."
 php artisan config:clear 2>&1 || echo "Config cache clear skipped (may not exist)"
 php artisan cache:clear 2>&1 || echo "Cache clear skipped (may not exist)"
+php artisan view:clear 2>&1 || echo "View cache clear skipped (may not exist)"
+
+# Optimize for production
+echo "Optimizing application..."
+php artisan config:cache 2>&1 || echo "Config caching failed"
+php artisan route:cache 2>&1 || echo "Route caching failed"
 
 # Ensure required directories exist
 mkdir -p storage/framework/{sessions,views,cache}
