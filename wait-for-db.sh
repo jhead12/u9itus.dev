@@ -5,6 +5,11 @@ set -o pipefail
 echo "=== Setting up Laravel environment ==="
 echo "PHP version: $(php -v | head -1)"
 
+# Clear any cached config to ensure fresh environment variables are used
+echo "Clearing configuration cache..."
+php artisan config:clear 2>&1 || echo "Config cache clear skipped (may not exist)"
+php artisan cache:clear 2>&1 || echo "Cache clear skipped (may not exist)"
+
 # Ensure required directories exist
 mkdir -p storage/framework/{sessions,views,cache}
 mkdir -p storage/logs
@@ -12,40 +17,71 @@ mkdir -p bootstrap/cache
 chmod -R 775 storage bootstrap/cache
 
 # ============================================================
-# Parse DATABASE_URL or MYSQL_URL if DB_HOST looks like a URL
-# Railway often provides DB_HOST as a full connection URL:
-#   mysql://user:pass@host:port/dbname
-# We need to decompose it into individual env vars.
+# Database Configuration Priority:
+# 1. Use individual DB_* vars if DB_HOST is already a proper hostname
+# 2. Otherwise parse DATABASE_URL/MYSQL_URL if provided
 # ============================================================
-RAW_HOST="${DATABASE_URL:-${MYSQL_URL:-${DB_HOST}}}"
 
-if [[ "$RAW_HOST" == mysql://* ]] || [[ "$RAW_HOST" == mysqli://* ]]; then
-  echo "Detected full database URL — parsing into components..."
-  # Strip the scheme
-  WITHOUT_SCHEME="${RAW_HOST#*://}"
-  # Extract user:pass
-  USERINFO="${WITHOUT_SCHEME%%@*}"
-  HOSTINFO="${WITHOUT_SCHEME#*@}"
-  # Extract username and password
-  export DB_USERNAME="${USERINFO%%:*}"
-  export DB_PASSWORD="${USERINFO#*:}"
-  # Extract host:port/dbname
-  HOST_PORT="${HOSTINFO%%/*}"
-  export DB_DATABASE="${HOSTINFO#*/}"
-  export DB_HOST="${HOST_PORT%%:*}"
-  export DB_PORT="${HOST_PORT#*:}"
-  # Also set DB_URL for Laravel's native URL-based config
-  export DB_URL="$RAW_HOST"
-  export DB_CONNECTION=mysql
+# Check if DB_HOST is already properly set (not a URL)
+if [[ -n "$DB_HOST" ]] && [[ "$DB_HOST" != mysql://* ]] && [[ "$DB_HOST" != mysqli://* ]]; then
+  # Individual vars are already set correctly, use them
+  echo "Using individual database environment variables..."
+  export DB_CONNECTION="${DB_CONNECTION:-mysql}"
+else
+  # Try to parse DATABASE_URL or MYSQL_URL
+  RAW_HOST="${DATABASE_URL:-${MYSQL_URL}}"
+  
+  if [[ -n "$RAW_HOST" ]] && ([[ "$RAW_HOST" == mysql://* ]] || [[ "$RAW_HOST" == mysqli://* ]]); then
+    echo "Detected full database URL — parsing into components..."
+    # Strip the scheme
+    WITHOUT_SCHEME="${RAW_HOST#*://}"
+    # Extract user:pass
+    USERINFO="${WITHOUT_SCHEME%%@*}"
+    HOSTINFO="${WITHOUT_SCHEME#*@}"
+    # Extract username and password
+    export DB_USERNAME="${USERINFO%%:*}"
+    export DB_PASSWORD="${USERINFO#*:}"
+    # Extract host:port/dbname
+    HOST_PORT="${HOSTINFO%%/*}"
+    export DB_DATABASE="${HOSTINFO#*/}"
+    export DB_HOST="${HOST_PORT%%:*}"
+    export DB_PORT="${HOST_PORT#*:}"
+    # Also set DB_URL for Laravel's native URL-based config
+    export DB_URL="$RAW_HOST"
+    export DB_CONNECTION=mysql
+  else
+    echo "WARNING: No valid database configuration found!"
+    echo "Set either DATABASE_URL or individual DB_* environment variables"
+  fi
 fi
 
 echo "=== Database Connection Setup ==="
-echo "DB_CONNECTION: ${DB_CONNECTION}"
-echo "DB_HOST: ${DB_HOST}"
-echo "DB_PORT: ${DB_PORT}"
-echo "DB_DATABASE: ${DB_DATABASE}"
-echo "DB_USERNAME: ${DB_USERNAME}"
+echo "DB_CONNECTION: ${DB_CONNECTION:-not set}"
+echo "DB_HOST: ${DB_HOST:-not set}"
+echo "DB_PORT: ${DB_PORT:-not set}"
+echo "DB_DATABASE: ${DB_DATABASE:-not set}"
+echo "DB_USERNAME: ${DB_USERNAME:-not set}"
 echo "================================="
+
+# Validate database configuration
+if [[ -z "$DB_HOST" ]] || [[ -z "$DB_PORT" ]] || [[ -z "$DB_DATABASE" ]]; then
+  echo "ERROR: Required database environment variables are missing!"
+  echo "Please set DB_HOST, DB_PORT, DB_DATABASE, DB_USERNAME, and DB_PASSWORD"
+  exit 1
+fi
+
+# Ensure DB_HOST is not a URL
+if [[ "$DB_HOST" == *"://"* ]]; then
+  echo "ERROR: DB_HOST appears to be a full URL: $DB_HOST"
+  echo "DB_HOST should only contain the hostname, not a full connection string"
+  echo "Check your Railway environment variables"
+  exit 1
+fi
+
+# Unset conflicting URL variables to prevent Laravel from using them
+unset DATABASE_URL
+unset MYSQL_URL
+unset DB_URL
 
 # Set default PORT if not provided by Railway
 export PORT=${PORT:-8080}
