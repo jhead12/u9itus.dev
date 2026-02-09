@@ -5,6 +5,9 @@ set -o pipefail
 echo "=== Setting up Laravel environment ==="
 echo "PHP version: $(php -v | head -1)"
 
+# Override session driver to use file storage (database-based sessions require DB to be ready)
+export SESSION_DRIVER=file
+
 # Clear any cached config to ensure fresh environment variables are used
 echo "Clearing configuration cache..."
 php artisan config:clear 2>&1 || echo "Config cache clear skipped (may not exist)"
