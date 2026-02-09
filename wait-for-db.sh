@@ -71,7 +71,6 @@ elif [[ -n "$DB_HOST" ]] && [[ "$DB_HOST" != mysql://* ]] && [[ "$DB_HOST" != my
 else
   echo "WARNING: No valid database configuration found!"
   echo "Set either DATABASE_URL or individual DB_* environment variables"
-  fi
 fi
 
 echo "=== Database Connection Setup ==="
