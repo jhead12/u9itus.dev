@@ -14,7 +14,28 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::get('/', function () {
-    return view('welcome');
+    try {
+        // Test basic env loading
+        $appKey = config('app.key') ? 'set' : 'not set';
+        $appEnv = config('app.env', 'unknown');
+        
+        // Test route availability
+        $hasLogin = Route::has('login');
+        $hasRegister = Route::has('register');
+        
+        // If all checks pass, render the view
+        return view('welcome');
+    } catch (\Exception $e) {
+        // Return error details for debugging
+        return response()->json([
+            'error' => 'Failed to load home page',
+            'message' => $e->getMessage(),
+            'file' => $e->getFile(),
+            'line' => $e->getLine(),
+            'app_key_set' => !empty(env('APP_KEY')),
+            'app_env' => env('APP_ENV', 'not set'),
+        ], 500);
+    }
 });
 
 Route::get('/debug-info', function () {
