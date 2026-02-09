@@ -12,10 +12,6 @@ php artisan cache:clear 2>&1 || echo "Cache clear skipped (may not exist)"
 php artisan view:clear 2>&1 || echo "View cache clear skipped (may not exist)"
 php artisan route:clear 2>&1 || echo "Route cache clear skipped (may not exist)"
 
-# Optimize for production (skip route:cache since we use route closures)
-echo "Optimizing application..."
-php artisan config:cache 2>&1 || echo "Config caching failed"
-
 # Ensure required directories exist
 mkdir -p storage/framework/{sessions,views,cache}
 mkdir -p storage/logs
