@@ -1,7 +1,7 @@
 # Dial4Dough Production Dockerfile for Railway Metal Build
-# Replaces deprecated Nixpacks with reliable Docker-based deployment
+# Uses PHP CLI since we run php artisan serve (not FPM)
 
-FROM php:8.2-fpm-alpine
+FROM php:8.2-cli-alpine
 
 # Install system dependencies
 RUN apk add --no-cache \
