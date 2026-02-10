@@ -125,7 +125,8 @@ class WixOAuthService
     }
 
     /**
-     * Verify a Wix webhook signature.
+     * Verify a Wix webhook signature (HMAC-SHA256).
+     * Legacy method - use verifyWebhookJwt() for JWT-based webhooks.
      */
     public function verifyWebhookSignature(string $payload, string $signature): bool
     {
@@ -133,6 +134,48 @@ class WixOAuthService
         $expected = hash_hmac('sha256', $payload, $secret);
 
         return hash_equals($expected, $signature);
+    }
+    
+    /**
+     * Verify and decode a JWT-signed webhook from Wix.
+     * 
+     * @param string $jwtBody Raw JWT token from request body
+     * @return array|null Decoded webhook event data, or null if verification fails
+     */
+    public function verifyWebhookJwt(string $jwtBody): ?array
+    {
+        try {
+            $publicKey = config('wix.webhook_public_key');
+            
+            if (empty($publicKey)) {
+                Log::warning('WIX_WEBHOOK_PUBLIC_KEY not configured');
+                return null;
+            }
+            
+            // Decode and verify the JWT
+            $decoded = \Firebase\JWT\JWT::decode($jwtBody, new \Firebase\JWT\Key($publicKey, 'RS256'));
+            
+            // Extract the nested event data
+            $event = json_decode($decoded->data);
+            $eventData = json_decode($event->data ?? '{}');
+            
+            return [
+                'eventType' => $event->eventType ?? null,
+                'instanceId' => $event->instanceId ?? null,
+                'data' => $eventData,
+                'raw' => $event,
+            ];
+            
+        } catch (\Firebase\JWT\ExpiredException $e) {
+            Log::warning('Wix webhook JWT expired', ['error' => $e->getMessage()]);
+            return null;
+        } catch (\Firebase\JWT\SignatureInvalidException $e) {
+            Log::warning('Wix webhook JWT signature invalid', ['error' => $e->getMessage()]);
+            return null;
+        } catch (\Exception $e) {
+            Log::error('Wix webhook JWT verification failed', ['error' => $e->getMessage()]);
+            return null;
+        }
     }
 
     /**

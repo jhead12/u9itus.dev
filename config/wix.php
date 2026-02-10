@@ -37,6 +37,28 @@ return [
     |
     */
     'webhook_secret' => env('WIX_WEBHOOK_SECRET'),
+    
+    /*
+    |--------------------------------------------------------------------------
+    | Wix Webhook Public Key (JWT Verification)
+    |--------------------------------------------------------------------------
+    |
+    | Public key used to verify JWT-signed webhooks from Wix.
+    | This key is provided by Wix for webhook verification.
+    |
+    */
+    'webhook_public_key' => env('WIX_WEBHOOK_PUBLIC_KEY', <<<EOD
+-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAuWcRHyUpBhPhDFutLwGh
+MuH0fxzcpLDxxmzYVFb1o5i9OGe8xlz7NPEFp2CJeSWsmfzwJCNsrMJavxveW+V2
+kTPg9/3Ru3tFEaufjJ21CnajQoHWUrpgH8lrlhOgWdzIgx8IFfS6fGYMiZnFe/Y9
+hBGMdDVwPZwByDqjTIkXoMhjMNAG1o3A9vHJm0dIOLDv2HlgapsdSN9WafHmWBcZ
+EFlKd65et8RS0ZKo+UDQkBvau5w1ajk5xv5nJESCeBxe6je2jHoU3LCfAAJ0Icm6
+Z4G/W7WNcbK/ZmuWTGs/4IgnFYMhAn2H9Ab++Tcf+D6pNm3O12IuZIjwC516sdXm
+fwIDAQAB
+-----END PUBLIC KEY-----
+EOD
+    ),
 
     /*
     |--------------------------------------------------------------------------

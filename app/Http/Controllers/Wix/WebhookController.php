@@ -24,29 +24,55 @@ class WebhookController extends Controller
 
     /**
      * Single endpoint that handles all Wix webhook events.
+     * Supports both JWT-signed webhooks (preferred) and HMAC-signed webhooks (legacy).
      */
     public function handle(Request $request): JsonResponse
     {
-        // ── Signature verification (mandatory when secret is configured) ──
-        if (config('wix.webhook_secret')) {
+        $rawBody = $request->getContent();
+        $eventType = null;
+        $data = [];
+        $instanceId = null;
+
+        // ── Try JWT verification first (modern Wix webhooks) ──
+        $jwtData = $this->wixOAuth->verifyWebhookJwt($rawBody);
+        
+        if ($jwtData) {
+            // JWT verification successful
+            $eventType = $jwtData['eventType'];
+            $instanceId = $jwtData['instanceId'];
+            $data = [
+                'eventType' => $eventType,
+                'instanceId' => $instanceId,
+                'data' => $jwtData['data'],
+            ];
+            
+            Log::info("Wix webhook received (JWT): {$eventType}", [
+                'instanceId' => $instanceId,
+            ]);
+            
+        } else {
+            // ── Fall back to HMAC signature verification (legacy) ──
             $signature = $request->header('X-Wix-Signature');
 
-            if (!$signature) {
+            if (config('wix.webhook_secret') && !$signature) {
                 Log::warning('Wix webhook missing signature header');
                 return response()->json(['error' => 'Missing signature'], 401);
             }
 
-            if (!$this->wixOAuth->verifyWebhookSignature($request->getContent(), $signature)) {
+            if (config('wix.webhook_secret') && !$this->wixOAuth->verifyWebhookSignature($rawBody, $signature)) {
                 Log::warning('Wix webhook signature verification failed');
                 return response()->json(['error' => 'Invalid signature'], 401);
             }
+
+            // Extract data from request body (legacy format)
+            $eventType = $request->input('eventType') ?? $request->input('event');
+            $data = $request->all();
+            
+            Log::info("Wix webhook received (HMAC): {$eventType}");
         }
 
-        $eventType = $request->input('eventType') ?? $request->input('event');
-        $data      = $request->all();
-
         if (!$eventType) {
-            Log::warning('Wix webhook received without eventType', $data);
+            Log::warning('Wix webhook received without eventType', ['data' => $data]);
             return response()->json(['error' => 'Missing eventType'], 400);
         }
 
