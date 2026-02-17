@@ -48,7 +48,7 @@
 <div class="wix-card">
     <h2>Embed Instructions</h2>
     <p style="color: var(--wix-color-text-light); margin-bottom: 12px;">
-        This widget is automatically available when you install the Dial4Dough app.
+        This widget is automatically available when you install the U9itus app.
         You can also manually embed it using an HTML iframe:
     </p>
     <code style="display:block; background:#F0F4F7; padding:12px; border-radius:var(--wix-radius); font-size:13px; word-break:break-all; color:#162D3D;">

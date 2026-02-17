@@ -39,7 +39,7 @@ class RegisteredUserController extends Controller
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
-            'user_type' => 'user', // Default user type for regular registrations
+            'user_type' => 'viewer', // Default: viewers earn money watching ads
         ]);
 
         event(new Registered($user));

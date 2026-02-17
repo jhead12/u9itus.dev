@@ -34,7 +34,7 @@
             <div class="flex justify-between items-center h-20">
                 <div class="flex items-center space-x-2">
                     <div class="text-3xl font-light tracking-tight">
-                        <span class="font-bold">DIAL</span><span class="text-emerald-400">4</span><span class="font-bold">DOUGH</span>
+                        <span class="font-bold">U9</span><span class="text-emerald-400">itus</span>
                     </div>
                 </div>
                 
@@ -451,7 +451,7 @@
             <div class="grid md:grid-cols-3 gap-8 mb-8">
                 <div>
                     <div class="text-2xl font-light tracking-tight mb-4">
-                        <span class="font-bold">DIAL</span><span class="text-emerald-400">4</span><span class="font-bold">DOUGH</span>
+                        <span class="font-bold">U9</span><span class="text-emerald-400">itus</span>
                     </div>
                     <p class="text-slate-400 text-sm">
                         The transparent platform connecting politicians with engaged voters through paid video messages.

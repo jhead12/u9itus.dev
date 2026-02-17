@@ -34,6 +34,8 @@ class User extends Authenticatable
         'zip_code',
         'country',
         'is_verified',
+        'wix_member_id',
+        'wix_instance_id',
     ];
 
     /**
@@ -79,6 +81,14 @@ class User extends Authenticatable
         return $this->hasOne(Voter::class);
     }
 
+    /**
+     * Wix site linked to this user via instance ID.
+     */
+    public function wixSite(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(WixSite::class, 'wix_instance_id', 'instance_id');
+    }
+
     // ── Scopes ───────────────────────────────────────────────
 
     /**
@@ -87,5 +97,13 @@ class User extends Authenticatable
     public function scopeAdmins($query): void
     {
         $query->where('user_type', 'admin');
+    }
+
+    /**
+     * Whether this user was created via Wix SSO (has no password).
+     */
+    public function isWixSsoUser(): bool
+    {
+        return !empty($this->wix_member_id);
     }
 }

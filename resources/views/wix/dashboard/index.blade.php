@@ -102,7 +102,7 @@
 <div class="wix-card">
     <h2>Our Mission</h2>
     <p style="color: var(--wix-color-text-light); font-size: 14px; line-height: 1.8;">
-        Dial4Dough bridges the gap between politicians and voters by putting a value on
+        U9itus bridges the gap between politicians and voters by putting a value on
         attention. In a world increasingly shaped by AI, the human element remains
         irreplaceable — people must still be reached, heard, and engaged.
         Our Loyalty Ads program pays voters to watch political messages in full,

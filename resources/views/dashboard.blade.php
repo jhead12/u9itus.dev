@@ -12,7 +12,7 @@
                     <div class="flex items-center space-x-3 mb-4">
                         <span class="text-3xl">👋</span>
                         <div>
-                            <h3 class="text-lg font-semibold text-white">Welcome to Dial4Dough!</h3>
+                            <h3 class="text-lg font-semibold text-white">Welcome to U9itus!</h3>
                             <p class="text-slate-400 text-sm">You're successfully logged in</p>
                         </div>
                     </div>

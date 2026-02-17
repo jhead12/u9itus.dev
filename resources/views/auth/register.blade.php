@@ -2,7 +2,7 @@
     <div class="space-y-6">
         <div>
             <h2 class="text-2xl font-bold text-white">Create your account</h2>
-            <p class="mt-2 text-slate-400">Join Dial4Dough and start earning today</p>
+            <p class="mt-2 text-slate-400">Join U9itus and start earning today</p>
         </div>
 
         <form method="POST" action="{{ route('register') }}" class="space-y-5">
