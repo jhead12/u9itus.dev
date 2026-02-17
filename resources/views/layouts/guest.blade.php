@@ -18,7 +18,7 @@
         <div class="min-h-screen flex flex-col sm:justify-center items-center pt-6 sm:pt-0 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
             <div class="mb-8">
                 <a href="/" class="flex items-center space-x-2 text-3xl font-bold hover:opacity-80 transition">
-                    <span class="font-bold">DIAL</span><span class="text-emerald-400">4</span><span class="font-bold">DOUGH</span>
+                    <span class="font-bold">U9</span><span class="text-emerald-400">itus</span>
                 </a>
             </div>
 

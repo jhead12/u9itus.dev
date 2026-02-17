@@ -97,10 +97,10 @@ class PoliticalCampaign extends Model
                 $campaign->uuid = (string) Str::uuid();
             }
             if (is_null($campaign->revenue_per_view)) {
-                $campaign->revenue_per_view = config('dial4dough.revenue_per_view', 0.60);
+                $campaign->revenue_per_view = config('u9itus.revenue_per_view', 0.60);
             }
-            if (is_null($campaign->voter_payout_per_view)) {
-                $campaign->voter_payout_per_view = config('dial4dough.viewer_payout_per_view', 0.25);
+            if (empty($campaign->voter_payout_per_view)) {
+                $campaign->voter_payout_per_view = config('u9itus.viewer_payout_per_view', 0.25);
             }
         });
     }

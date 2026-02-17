@@ -136,7 +136,7 @@ class Voter extends Model
             ->whereDate('created_at', today())
             ->count();
 
-        return $viewsToday < config('dial4dough.fraud.max_views_per_voter_per_day', 50)
+        return $viewsToday < config('u9itus.fraud.max_views_per_voter_per_day', 50)
             && !$this->flagged_for_fraud
             && $this->is_active
             && $this->is_verified;

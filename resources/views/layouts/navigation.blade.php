@@ -6,7 +6,7 @@
                 <!-- Logo -->
                 <div class="shrink-0 flex items-center">
                     <a href="{{ route('dashboard') }}" class="flex items-center space-x-2 text-xl font-bold hover:opacity-80 transition">
-                        <span class="font-bold text-white">DIAL</span><span class="text-emerald-400">4</span><span class="font-bold text-white">DOUGH</span>
+                        <span class="font-bold text-white">U9</span><span class="text-emerald-400">itus</span>
                     </a>
                 </div>
 

@@ -121,10 +121,10 @@ class PoliticalPaymentService
         float $processingFee = 0.02,
         float $opsCost = 0.05
     ): array {
-        $revenuePerView ??= (float) config('dial4dough.revenue_per_view', 0.60);
-        $voterPayout    ??= (float) config('dial4dough.viewer_payout_per_view', 0.25);
+        $revenuePerView ??= (float) config('u9itus.revenue_per_view', 0.60);
+        $voterPayout    ??= (float) config('u9itus.viewer_payout_per_view', 0.25);
         $referralCommission = $hasReferral
-            ? $voterPayout * (config('dial4dough.referral_commission_percent', 10) / 100)
+            ? $voterPayout * (config('u9itus.referral_commission_percent', 10) / 100)
             : 0;
 
         $totalCost = $voterPayout + $referralCommission + $processingFee + $opsCost;

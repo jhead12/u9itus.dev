@@ -33,7 +33,7 @@ class StoreVoterRequest extends FormRequest
             'wix_member_id'              => 'nullable|string',
             'wix_site_id'                => 'nullable|integer|exists:wix_sites,id',
             'preferred_governance_levels' => 'nullable|array',
-            'preferred_governance_levels.*' => 'string|in:' . implode(',', array_keys(config('dial4dough.governance_levels', []))),
+            'preferred_governance_levels.*' => 'string|in:' . implode(',', array_keys(config('u9itus.governance_levels', []))),
         ];
     }
 }

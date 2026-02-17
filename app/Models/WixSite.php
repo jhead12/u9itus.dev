@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 /**
- * Represents a Wix site that has installed the Dial4Dough app.
+ * Represents a Wix site that has installed the U9itus app.
  * Each Wix installation gets its own instance with OAuth tokens.
  */
 class WixSite extends Model
