@@ -70,7 +70,7 @@
                 <tr>
                     <td>{{ $politician->full_name }}</td>
                     <td>{{ ucwords(str_replace('_', ' ', $politician->political_office ?? 'N/A')) }}</td>
-                    <td>{{ config("dial4dough.governance_levels.{$politician->governance_level}", $politician->governance_level ?? 'N/A') }}</td>
+                    <td>{{ config("u9itus.governance_levels.{$politician->governance_level}", $politician->governance_level ?? 'N/A') }}</td>
                     <td>{{ $politician->state ?? 'N/A' }}</td>
                     <td>{{ $politician->campaigns->count() }}</td>
                     <td>${{ number_format($politician->total_spent, 2) }}</td>

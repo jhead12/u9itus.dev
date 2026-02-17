@@ -1,5 +1,5 @@
 /**
- * Dial4Dough – Wix Site Widget Extension
+ * U9itus – Wix Site Widget Extension
  *
  * This is the embeddable widget that renders on Wix site pages.
  * It displays available political campaigns and the video player

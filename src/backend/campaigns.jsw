@@ -1,0 +1,209 @@
+/**
+ * Campaign & Voter Data Backend Module
+ * 
+ * This module connects to the U9itus Laravel API to fetch
+ * voter dashboard data, campaign information, and view history.
+ */
+
+import { apiGet, apiPost } from './api.jsw';
+import { getOrCreateVoterForMember, getCurrentMember } from './members.jsw';
+import wixSecretsBackend from 'wix-secrets-backend';
+
+/**
+ * Get voter UUID from Wix member or storage
+ * Integrates with Wix Members for proper authentication
+ * @returns {Promise<string>} Voter UUID
+ */
+async function getVoterUuid() {
+    // Try to get voter UUID from authenticated Wix member
+    try {
+        const member = await getCurrentMember();
+        
+        if (member) {
+            // Get or create voter account for this member
+            const voter = await getOrCreateVoterForMember();
+            return voter.uuid;
+        }
+    } catch (error) {
+        console.warn('No authenticated member found:', error);
+    }
+    
+    // Fallback: Try to get from Wix Secrets (for anonymous users)
+    try {
+        const voterUuid = await wixSecretsBackend.getSecret('voter_uuid');
+        if (voterUuid) {
+            return voterUuid;
+        }
+    } catch (error) {
+        console.warn('No voter UUID found in secrets');
+    }
+    
+    // Last resort: Return a test UUID (for development only)
+    // TODO: In production, either require login or create anonymous voter
+    console.warn('Using test voter UUID - implement proper authentication');
+    return 'test-voter-uuid-123'; // Replace with actual voter creation
+}
+
+/**
+ * Get voter dashboard data (balance, pending, stats)
+ * @returns {Promise<object>} Dashboard data
+ */
+export async function getVoterDashboard() {
+    try {
+        const voterUuid = await getVoterUuid();
+        
+        // Fetch voter profile and earnings from API
+        const [voterData, earningsData] = await Promise.all([
+            apiGet(`/voters/${voterUuid}`),
+            apiGet(`/voters/${voterUuid}/earnings`)
+        ]);
+
+        return {
+            voter: voterData.voter,
+            balance: earningsData.total_earned || 0,
+            pending: earningsData.pending_payout || 0,
+            paid: earningsData.total_paid || 0,
+            viewsCompleted: earningsData.views_completed || 0,
+            viewsPending: earningsData.views_pending || 0,
+            referralCode: voterData.voter.referral_code || '',
+            referralEarnings: earningsData.referral_commission || 0
+        };
+    } catch (error) {
+        console.error('Failed to fetch voter dashboard:', error);
+        throw error;
+    }
+}
+
+/**
+ * Get available campaigns for voter
+ * @returns {Promise<Array>} List of available campaigns
+ */
+export async function getCampaigns() {
+    try {
+        const voterUuid = await getVoterUuid();
+        const response = await apiGet(`/voters/${voterUuid}/campaigns`);
+        
+        return response.campaigns || [];
+    } catch (error) {
+        console.error('Failed to fetch campaigns:', error);
+        return [];
+    }
+}
+
+/**
+ * Get voter's view history
+ * @param {number} page - Page number (default: 1)
+ * @returns {Promise<object>} Paginated view history
+ */
+export async function getViewHistory(page = 1) {
+    try {
+        const voterUuid = await getVoterUuid();
+        const response = await apiGet(`/voters/${voterUuid}/history?page=${page}`);
+        
+        return {
+            data: response.data || [],
+            currentPage: response.current_page || 1,
+            lastPage: response.last_page || 1,
+            total: response.total || 0
+        };
+    } catch (error) {
+        console.error('Failed to fetch view history:', error);
+        return { data: [], currentPage: 1, lastPage: 1, total: 0 };
+    }
+}
+
+/**
+ * Get voter's referral information
+ * @returns {Promise<object>} Referral data
+ */
+export async function getReferrals() {
+    try {
+        const voterUuid = await getVoterUuid();
+        const response = await apiGet(`/voters/${voterUuid}/referrals`);
+        
+        return {
+            referralCode: response.referral_code || '',
+            referralsCount: response.referrals_count || 0,
+            referralEarnings: response.referral_earnings || 0,
+            referredVoters: response.referred_voters || []
+        };
+    } catch (error) {
+        console.error('Failed to fetch referrals:', error);
+        return {
+            referralCode: '',
+            referralsCount: 0,
+            referralEarnings: 0,
+            referredVoters: []
+        };
+    }
+}
+
+/**
+ * Start watching a campaign
+ * @param {string} campaignUuid - Campaign UUID
+ * @returns {Promise<object>} Session data
+ */
+export async function startWatchingCampaign(campaignUuid) {
+    try {
+        const voterUuid = await getVoterUuid();
+        const response = await apiPost(`/voters/${voterUuid}/campaigns/${campaignUuid}/watch`);
+        
+        return {
+            sessionId: response.session_id,
+            mediaUrl: response.media_url,
+            payout: response.payout,
+            duration: response.duration,
+            mustWatch: response.must_watch
+        };
+    } catch (error) {
+        console.error('Failed to start watching campaign:', error);
+        throw error;
+    }
+}
+
+/**
+ * Register a new voter
+ * @param {object} voterData - Voter information
+ * @returns {Promise<object>} Created voter data
+ */
+export async function registerVoter(voterData) {
+    try {
+        const response = await apiPost('/voters', voterData);
+        
+        // Store voter UUID in secrets for future use
+        if (response.voter && response.voter.uuid) {
+            await wixSecretsBackend.setSecret('voter_uuid', response.voter.uuid);
+        }
+        
+        return response;
+    } catch (error) {
+        console.error('Failed to register voter:', error);
+        throw error;
+    }
+}
+
+/**
+ * Get notification/token counts
+ * Note: This is a placeholder - implement actual notification API endpoint
+ * @returns {Promise<object>} Notification counts
+ */
+export async function getNotifications() {
+    try {
+        const voterUuid = await getVoterUuid();
+        
+        // TODO: Implement actual notification endpoint in Laravel API
+        // For now, return mock data
+        return {
+            unreadCount: 3,
+            availableTokens: 12,
+            notifications: []
+        };
+    } catch (error) {
+        console.error('Failed to fetch notifications:', error);
+        return {
+            unreadCount: 0,
+            availableTokens: 0,
+            notifications: []
+        };
+    }
+}

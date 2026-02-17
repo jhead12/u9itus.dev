@@ -1,5 +1,5 @@
 #!/bin/bash
-# Quick API Testing Script for Dial4Dough
+# Quick API Testing Script for U9itus
 # Usage: ./test-api.sh [local|production]
 
 ENV=${1:-local}

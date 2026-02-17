@@ -1,0 +1,105 @@
+/**
+ * API Utilities for Wix Backend
+ * 
+ * This module provides helper functions for making HTTP requests
+ * to the U9itus Laravel backend API.
+ */
+
+import { fetch } from 'wix-fetch';
+
+// Backend API URL (Railway production)
+const API_BASE = 'https://u9itus-production.up.railway.app/api/v1';
+
+/**
+ * Make a GET request to the API
+ * @param {string} endpoint - API endpoint (e.g., '/voters/{uuid}/earnings')
+ * @param {object} options - Optional headers or query params
+ * @returns {Promise<object>}
+ */
+export async function apiGet(endpoint, options = {}) {
+    try {
+        const url = `${API_BASE}${endpoint}`;
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`API GET Error [${response.status}]:`, errorText);
+            throw new Error(`API request failed: ${response.status}`);
+        }
+
+        return await response.json();
+    } catch (error) {
+        console.error('API GET request failed:', error);
+        throw error;
+    }
+}
+
+/**
+ * Make a POST request to the API
+ * @param {string} endpoint - API endpoint
+ * @param {object} data - Request body
+ * @param {object} options - Optional headers
+ * @returns {Promise<object>}
+ */
+export async function apiPost(endpoint, data = {}, options = {}) {
+    try {
+        const url = `${API_BASE}${endpoint}`;
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            },
+            body: JSON.stringify(data)
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`API POST Error [${response.status}]:`, errorText);
+            throw new Error(`API request failed: ${response.status}`);
+        }
+
+        return await response.json();
+    } catch (error) {
+        console.error('API POST request failed:', error);
+        throw error;
+    }
+}
+
+/**
+ * Make a PUT request to the API
+ * @param {string} endpoint - API endpoint
+ * @param {object} data - Request body
+ * @param {object} options - Optional headers
+ * @returns {Promise<object>}
+ */
+export async function apiPut(endpoint, data = {}, options = {}) {
+    try {
+        const url = `${API_BASE}${endpoint}`;
+        const response = await fetch(url, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            },
+            body: JSON.stringify(data)
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`API PUT Error [${response.status}]:`, errorText);
+            throw new Error(`API request failed: ${response.status}`);
+        }
+
+        return await response.json();
+    } catch (error) {
+        console.error('API PUT request failed:', error);
+        throw error;
+    }
+}

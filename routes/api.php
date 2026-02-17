@@ -1,7 +1,7 @@
 <?php
 
 /**
- * API Routes for Dial4Dough – Political Loyalty Ads (Wix App Extension)
+ * API Routes for U9itus – Political Loyalty Ads (Wix App Extension)
  *
  * These routes are consumed by:
  *   1. Wix Dashboard pages (rendered in iframes, verified by wix.verify middleware)
@@ -28,7 +28,7 @@ use Illuminate\Support\Facades\Route;
 Route::get('/health', function () {
     return response()->json([
         'status' => 'ok',
-        'message' => 'Dial4Dough API is running',
+        'message' => 'U9itus API is running',
         'timestamp' => now()->toIso8601String(),
     ]);
 })->name('api.health');

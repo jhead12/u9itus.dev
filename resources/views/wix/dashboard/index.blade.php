@@ -1,11 +1,11 @@
 @extends('wix.layouts.dashboard')
 
-@section('title', 'Dial4Dough – Dashboard')
+@section('title', 'U9itus – Dashboard')
 
 @section('content')
 <div class="page-header">
     <div>
-        <h1>Dial4Dough – Political Loyalty Ads</h1>
+        <h1>U9itus – Political Loyalty Ads</h1>
         <p class="subtitle">Connect politicians with voters through paid video messages</p>
     </div>
 </div>

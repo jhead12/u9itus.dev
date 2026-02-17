@@ -3,7 +3,7 @@
 return [
     /*
     |--------------------------------------------------------------------------
-    | Dial4Dough – Political Loyalty Ads Configuration
+    | U9itus – Political Loyalty Ads Configuration
     |--------------------------------------------------------------------------
     |
     | This app connects politicians and local governance officials directly

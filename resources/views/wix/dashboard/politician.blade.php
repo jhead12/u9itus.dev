@@ -24,7 +24,7 @@
                 <label style="display:block; font-size:13px; color:var(--wix-color-text-light); margin-bottom:4px;">Political Office</label>
                 <select name="political_office" id="political_office" style="width:100%; padding:8px 12px; border:1px solid #C1E4FE; border-radius:var(--wix-radius); font-size:14px;">
                     <option value="">Select office...</option>
-                    @foreach(config('dial4dough.political_offices', []) as $office)
+                    @foreach(config('u9itus.political_offices', []) as $office)
                         <option value="{{ $office }}">{{ ucwords(str_replace('_', ' ', $office)) }}</option>
                     @endforeach
                 </select>
@@ -33,7 +33,7 @@
                 <label style="display:block; font-size:13px; color:var(--wix-color-text-light); margin-bottom:4px;">Governance Level</label>
                 <select name="governance_level" id="governance_level" style="width:100%; padding:8px 12px; border:1px solid #C1E4FE; border-radius:var(--wix-radius); font-size:14px;">
                     <option value="">Select level...</option>
-                    @foreach(config('dial4dough.governance_levels', []) as $key => $label)
+                    @foreach(config('u9itus.governance_levels', []) as $key => $label)
                         <option value="{{ $key }}">{{ $label }}</option>
                     @endforeach
                 </select>
@@ -91,7 +91,7 @@
                 <div style="margin-bottom:12px;">
                     <label style="display:block; font-size:13px; color:var(--wix-color-text-light); margin-bottom:4px;">Governance Level</label>
                     <select name="governance_level" style="width:100%; padding:8px 12px; border:1px solid #C1E4FE; border-radius:var(--wix-radius); font-size:14px;">
-                        @foreach(config('dial4dough.governance_levels', []) as $key => $label)
+                        @foreach(config('u9itus.governance_levels', []) as $key => $label)
                             <option value="{{ $key }}">{{ $label }}</option>
                         @endforeach
                     </select>
@@ -104,7 +104,7 @@
             <div class="wix-grid" style="grid-template-columns: 1fr 1fr;">
                 <div style="margin-bottom:12px;">
                     <label style="display:block; font-size:13px; color:var(--wix-color-text-light); margin-bottom:4px;">Video Duration (seconds)</label>
-                    <input type="number" name="media_duration" min="{{ config('dial4dough.min_video_duration') }}" max="{{ config('dial4dough.max_video_duration') }}" style="width:100%; padding:8px 12px; border:1px solid #C1E4FE; border-radius:var(--wix-radius); font-size:14px;">
+                    <input type="number" name="media_duration" min="{{ config('u9itus.min_video_duration') }}" max="{{ config('u9itus.max_video_duration') }}" style="width:100%; padding:8px 12px; border:1px solid #C1E4FE; border-radius:var(--wix-radius); font-size:14px;">
                 </div>
                 <div style="margin-bottom:12px;">
                     <label style="display:block; font-size:13px; color:var(--wix-color-text-light); margin-bottom:4px;">Total Views Requested</label>

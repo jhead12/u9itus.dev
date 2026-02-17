@@ -5,8 +5,8 @@
     "scripts": {
         "build": "vite build",
         "dev": "vite",
-        "wix:dev": "npx wix dev",
-        "wix:build": "npx wix build",
+        "dev:all": "concurrently \"php artisan serve\" \"npm run dev\"",
+        "wix:login": "npx wix login",
         "wix:publish": "npx wix publish",
         "wix:create-version": "npx wix app create-version"
     },

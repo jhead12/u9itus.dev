@@ -1,5 +1,5 @@
 /**
- * Dial4Dough – Wix Dashboard Page Extension
+ * U9itus – Wix Dashboard Page Extension
  *
  * This module initializes the Wix Dashboard SDK and communicates
  * with our Laravel backend API to render the politician/voter dashboard
@@ -16,7 +16,7 @@ export async function init() {
     try {
         // Show a toast notification on load
         dashboard.showToast({
-            message: "Dial4Dough – Political Loyalty Ads loaded",
+            message: "U9itus – Political Loyalty Ads loaded",
             type: "success",
         });
     } catch (error) {

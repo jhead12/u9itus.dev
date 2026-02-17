@@ -1,6 +1,6 @@
 {
-    "name": "Dial4Dough - Political Loyalty Ads Platform",
-    "description": "Complete system architecture showing $0.60/view revenue model with 25-50% profit margins. Deployed at https://dial4doughdev-production.up.railway.app",
+    "name": "U9itus - Political Loyalty Ads Platform",
+    "description": "Complete system architecture showing $0.60/view revenue model with 25-50% profit margins. Deployed at https://u9itus-production.up.railway.app",
     "components": [
         {
             "id": "user-politician",
@@ -124,7 +124,7 @@
             "properties": {
                 "description": "Public landing page showing revenue model",
                 "technology": "Laravel Blade Template",
-                "url": "https://dial4doughdev-production.up.railway.app",
+                "url": "https://u9itus-production.up.railway.app",
                 "shows": "Revenue model, profit margins (25-50%), platform economics"
             }
         },
@@ -140,7 +140,7 @@
                 "description": "Main backend API orchestrating all business logic",
                 "technology": "Laravel 12 / PHP 8.2",
                 "port": 8080,
-                "url": "https://dial4doughdev-production.up.railway.app",
+                "url": "https://u9itus-production.up.railway.app",
                 "hosting": "Railway.app",
                 "responsibilities": [
                     "RESTful API endpoints",

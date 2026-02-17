@@ -18,7 +18,7 @@
         </label>
         <select id="governance-filter" style="width:100%; padding:8px 12px; border:1px solid #C1E4FE; border-radius:var(--wix-radius); font-size:14px;">
             <option value="">All Levels</option>
-            @foreach(config('dial4dough.governance_levels', []) as $key => $label)
+            @foreach(config('u9itus.governance_levels', []) as $key => $label)
                 <option value="{{ $key }}">{{ $label }}</option>
             @endforeach
         </select>

@@ -21,8 +21,8 @@ class StorePoliticianRequest extends FormRequest
     {
         return [
             'full_name'         => 'required|string|max:255',
-            'political_office'  => 'nullable|string|in:' . implode(',', config('dial4dough.political_offices', [])),
-            'governance_level'  => 'nullable|string|in:' . implode(',', array_keys(config('dial4dough.governance_levels', []))),
+            'political_office'  => 'nullable|string|in:' . implode(',', config('u9itus.political_offices', [])),
+            'governance_level'  => 'nullable|string|in:' . implode(',', array_keys(config('u9itus.governance_levels', []))),
             'district'          => 'nullable|string|max:255',
             'party_affiliation' => 'nullable|string|max:100',
             'state'             => 'nullable|string|max:2',

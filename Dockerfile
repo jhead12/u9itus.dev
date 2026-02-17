@@ -1,4 +1,4 @@
-# Dial4Dough Production Dockerfile for Railway Metal Build
+# U9itus Production Dockerfile for Railway Metal Build
 # Uses PHP CLI since we run php artisan serve (not FPM)
 
 FROM php:8.2-cli-alpine

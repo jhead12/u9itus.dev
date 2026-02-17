@@ -55,8 +55,8 @@ class PoliticalPaymentService
      */
     public function processBatchPayouts(): array
     {
-        $minPayout  = config('dial4dough.min_payout_amount', 5.00);
-        $holdHours  = config('dial4dough.fraud.payout_hold_hours', 48);
+        $minPayout  = config('u9itus.min_payout_amount', 5.00);
+        $holdHours  = config('u9itus.fraud.payout_hold_hours', 48);
 
         $eligibleVoters = Voter::where('pending_earnings', '>=', $minPayout)
             ->where('flagged_for_fraud', false)

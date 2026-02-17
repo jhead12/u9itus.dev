@@ -1,19 +1,19 @@
-# Dial4Dough – Political Loyalty Ads (Wix App Extension)
+# U9itus – Political Loyalty Ads (Wix App Extension)
 
 **Version:** 2.0.0  
 **Framework:** Laravel 12 + Wix App Extension  
 **Platform:** Wix Marketplace Plugin  
 **Database:** MySQL (Railway Production)  
 **Deployment:** Railway.app with Metal Build  
-**Production URL:** https://dial4doughdev-production.up.railway.app
+**Production URL:** https://u9itus-production.up.railway.app
 
 ## Overview
 
-Dial4Dough is a **secure Wix app extension** that connects **politicians and local governance officials** directly with **potential voters** through paid video messages and live feeds. Politicians pay $0.60 per view; voters earn $0.25 for watching the full message. The platform includes **secure token-based ad delivery**, referral commissions, advanced fraud prevention, and automated batch payouts.
+U9itus is a **secure Wix app extension** that connects **politicians and local governance officials** directly with **potential voters** through paid video messages and live feeds. Politicians pay $0.60 per view; voters earn $0.25 for watching the full message. The platform includes **secure token-based ad delivery**, referral commissions, advanced fraud prevention, and automated batch payouts.
 
 ### 🔒 Security-First Architecture
 
-Unlike traditional ad platforms where users can click repeatedly, Dial4Dough uses **push notification-based delivery** with one-time use tokens to prevent fraud and abuse.
+Unlike traditional ad platforms where users can click repeatedly, U9itus uses **push notification-based delivery** with one-time use tokens to prevent fraud and abuse.
 
 > _"Regardless of how much artificial intelligence is used, without the human element the production that AI affords is all for naught. Human beings will still be required to purchase this production. I am offering a solution."_ — Head Enterprises
 
@@ -98,8 +98,8 @@ Unlike traditional ad platforms where users can click repeatedly, Dial4Dough use
 1. **Clone the repository**
 
 ```bash
-git clone https://github.com/jhead12/dial4dough.dev.git
-cd dial4dough.dev
+git clone https://github.com/jhead12/u9itus.dev.git
+cd u9itus.dev
 ```
 
 2. **Install dependencies**
@@ -241,6 +241,21 @@ sequenceDiagram
 | **Api\VoterController**       | Registration, view sessions, earnings             |
 | **Api\AdminController**       | Analytics, approvals, payouts, fraud management   |
 
+### Wix Frontend Integration
+
+| Module                          | Purpose                                                     |
+| ------------------------------- | ----------------------------------------------------------- |
+| **backend/api.jsw** 🆕          | HTTP request utilities for Laravel API communication        |
+| **backend/campaigns.jsw** 🆕    | Campaign and voter dashboard data retrieval                 |
+| **backend/members.jsw** 🆕      | Wix Member authentication and voter account synchronization |
+| **pages/voter-dashboard.js** 🆕 | Complete voter dashboard with real backend data integration |
+
+**Quick Start Guides:**
+
+- [Voter Dashboard Quick Start](docs/wix/VOTER_DASHBOARD_QUICKSTART.md) — Step-by-step setup
+- [Backend Integration Guide](docs/wix/BACKEND_INTEGRATION.md) — Architecture and data flow
+- [Dashboard Data Mapping](docs/wix/DASHBOARD_DATA_MAPPING.md) — UI element to API mapping
+
 ## API Endpoints
 
 ### Wix Routes (`/wix/*`)
@@ -288,7 +303,7 @@ sequenceDiagram
 
 ## Configuration
 
-Key configuration values in `config/dial4dough.php`:
+Key configuration values in `config/u9itus.php`:
 
 ```php
 'revenue_per_view'         => 0.60,   // Politician pays per view
@@ -376,7 +391,7 @@ php artisan migrate:status  # Check migration status
 
 For issues and questions:
 
-- GitHub Issues: https://github.com/jhead12/dial4dough.dev/issues
+- GitHub Issues: https://github.com/jhead12/u9itus.dev/issues
 - Documentation: See INSTALLATION.md for detailed setup guide
 
 ## License

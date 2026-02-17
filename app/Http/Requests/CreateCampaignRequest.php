@@ -24,8 +24,8 @@ class CreateCampaignRequest extends FormRequest
      */
     public function rules(): array
     {
-        $minBudget   = config('dial4dough.revenue_per_view', 0.60) * 10;
-        $minDuration = config('dial4dough.min_video_duration', 30);
+        $minBudget   = config('u9itus.revenue_per_view', 0.60) * 10;
+        $minDuration = config('u9itus.min_video_duration', 30);
         $maxDuration = config('dial4dough.max_video_duration', 300);
 
         return [

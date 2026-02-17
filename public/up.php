@@ -4,6 +4,6 @@
 header('Content-Type: application/json');
 echo json_encode([
     'status' => 'ok',
-    'message' => 'Dial4Dough web server is running',
+    'message' => 'U9itus web server is running',
     'timestamp' => gmdate('c'),
 ]);

@@ -29,14 +29,14 @@ class FraudPreventionService
 
         // 1. Rate-limit: too many views today
         $viewsToday = $voter->viewSessions()->whereDate('created_at', today())->count();
-        $maxPerDay  = config('dial4dough.fraud.max_views_per_voter_per_day', 50);
+        $maxPerDay  = config('u9itus.fraud.max_views_per_voter_per_day', 50);
         if ($viewsToday >= $maxPerDay) {
             $flags[] = 'daily_limit_exceeded';
             $score += 50;
         }
 
         // 2. Device fingerprint check
-        if (config('dial4dough.fraud.device_fingerprint_required', true)) {
+        if (config('u9itus.fraud.device_fingerprint_required', true)) {
             $fingerprint = $request->header('X-Device-Fingerprint') ?? $request->input('device_fingerprint');
             if (!$fingerprint) {
                 $flags[] = 'missing_device_fingerprint';
@@ -54,7 +54,7 @@ class FraudPreventionService
             ->distinct('voter_id')
             ->count('voter_id');
 
-        if ($sameIpVoters > config('dial4dough.fraud.suspicious_activity_threshold', 10)) {
+        if ($sameIpVoters > config('u9itus.fraud.suspicious_activity_threshold', 10)) {
             $flags[] = 'ip_shared_by_many_voters';
             $score += 25;
         }

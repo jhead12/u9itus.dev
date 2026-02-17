@@ -43,11 +43,11 @@ Railway's MySQL service may auto-generate these. Our startup script now explicit
 Ensure these are also set in Railway:
 
 ```bash
-APP_NAME=Dial4Dough
+APP_NAME=U9itus
 APP_ENV=production
 APP_KEY=base64:XFlGX3wc4VayD/JJwIEKCkmOXCbFEWN3VwzldIxkWug=
 APP_DEBUG=false
-APP_URL=https://dial4doughdev-production.up.railway.app
+APP_URL=https://u9itus-production.up.railway.app
 
 LOG_CHANNEL=stack
 LOG_LEVEL=error
@@ -59,7 +59,7 @@ QUEUE_CONNECTION=database
 # Wix Configuration
 WIX_APP_ID=3cc2de07-3a6c-4542-b7b3-e92721c6df8a
 WIX_APP_SECRET=91b427ed-cf50-447e-a391-0d7337be5007
-WIX_APP_URL=https://dial4doughdev-production.up.railway.app
+WIX_APP_URL=https://u9itus-production.up.railway.app
 ```
 
 ## Deployment Steps
@@ -80,7 +80,7 @@ WIX_APP_URL=https://dial4doughdev-production.up.railway.app
     - ✅ Server running on port 8080
     - ✅ No "Connection refused" or URL parsing errors
 
-4. **Test the site** at https://dial4doughdev-production.up.railway.app
+4. **Test the site** at https://u9itus-production.up.railway.app
 
 ## What Was Fixed
 

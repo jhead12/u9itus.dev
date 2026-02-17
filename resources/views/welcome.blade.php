@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{{ config('app.name', 'Dial4Dough') }} - Political Loyalty Ads Platform</title>
+    <title>{{ config('app.name', 'U9itus') }} - Political Loyalty Ads Platform</title>
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=inter:300,400,500,600,700,800&display=swap" rel="stylesheet" />
     
@@ -150,7 +150,7 @@
             <div class="text-center mb-16">
                 <span class="text-emerald-400 font-semibold text-sm tracking-wider uppercase">— The Platform</span>
                 <h2 class="mt-4 text-4xl sm:text-5xl font-bold">
-                    How <span class="text-emerald-400">Dial4Dough</span> Works
+                    How <span class="text-emerald-400">U9itus</span> Works
                 </h2>
             </div>
             
