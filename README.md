@@ -1,15 +1,24 @@
-# U9itus – Political Loyalty Ads (Wix App Extension)
+# U9itus – Political Loyalty Ads (Dual-Platform)
 
 **Version:** 2.0.0  
-**Framework:** Laravel 12 + Wix App Extension  
-**Platform:** Wix Marketplace Plugin  
+**Framework:** Laravel 12 + Dual-Platform Architecture  
+**Platforms:** Wix App Extension + Standalone Application  
 **Database:** MySQL (Railway Production)  
 **Deployment:** Railway.app with Metal Build  
 **Production URL:** https://u9itus-production.up.railway.app
 
 ## Overview
 
-U9itus is a **secure Wix app extension** that connects **politicians and local governance officials** directly with **potential voters** through paid video messages and live feeds. Politicians pay $0.60 per view; voters earn $0.25 for watching the full message. The platform includes **secure token-based ad delivery**, referral commissions, advanced fraud prevention, and automated batch payouts.
+U9itus is a **dual-platform political advertising platform** that connects **politicians and local governance officials** directly with **potential voters** through paid video messages and live feeds. Politicians pay $0.60 per view; voters earn $0.25 for watching the full message. The platform includes **secure token-based ad delivery**, referral commissions, advanced fraud prevention, and automated batch payouts.
+
+### 🚀 Dual-Platform Architecture
+
+U9itus supports **two deployment modes** from a single codebase:
+
+1. **Wix App Extension** — Integrated into Wix marketplace for their 200M+ users
+2. **Standalone Application** — Direct deployment for enterprise clients and white-label solutions
+
+This architecture provides maximum market reach while maintaining code efficiency. See [Dual-Platform Architecture Guide](doc/DUAL_PLATFORM_ARCHITECTURE.md) for details.
 
 ### 🔒 Security-First Architecture
 
@@ -116,14 +125,27 @@ cp .env.example .env
 php artisan key:generate
 ```
 
-Edit `.env` and set your Wix app credentials:
+Edit `.env` and configure your platform mode:
 
 ```env
+# Platform Configuration
+# Options: 'wix', 'standalone', or 'dual' (both platforms enabled)
+PLATFORM_MODE=dual
+
+# Wix App Configuration (required for Wix mode)
 WIX_APP_ID=your-wix-app-id
 WIX_APP_SECRET=your-wix-app-secret
 WIX_WEBHOOK_SECRET=your-webhook-secret
 WIX_APP_URL=https://yourdomain.com
 WIX_REDIRECT_URL=/wix/oauth/callback
+
+# Standalone App Configuration (required for standalone mode)
+APP_URL=https://yourdomain.com
+FRONTEND_URL=https://app.yourdomain.com
+
+# Database Configuration
+DB_CONNECTION=sqlite
+# DB_CONNECTION=mysql (for production)
 ```
 
 4. **Database setup**
@@ -145,13 +167,45 @@ npm run build
 php artisan serve
 ```
 
-7. **Start Wix development mode** (in a separate terminal)
+## Platform Modes
+
+U9itus can run in three different modes:
+
+### Wix Mode Only
 
 ```bash
-npm run wix:dev
+PLATFORM_MODE=wix php artisan serve
 ```
 
-## Wix App Setup
+- Only Wix routes active (`/wix/*`)
+- Wix OAuth required
+- Dashboard embedded in Wix iframes
+
+### Standalone Mode Only
+
+```bash
+PLATFORM_MODE=standalone php artisan serve
+npm run dev  # For frontend assets
+```
+
+- Only standalone routes active (`/dashboard`, `/politician/*`, `/voter/*`)
+- Standard Laravel authentication
+- Full-featured SPA interface
+
+### Dual Mode (Recommended for Development)
+
+```bash
+PLATFORM_MODE=dual php artisan serve
+npm run dev
+```
+
+- Both Wix and standalone routes active
+- Test both platforms simultaneously
+- Shared backend API and database
+
+See [Dual-Platform Architecture Guide](doc/DUAL_PLATFORM_ARCHITECTURE.md) for detailed information.
+
+## Wix App Setup (Wix Mode Only)
 
 1. Create a new app at [Wix Developers](https://dev.wix.com/)
 2. Set the **OAuth Redirect URL** to `https://yourdomain.com/wix/oauth/callback`
@@ -231,15 +285,20 @@ sequenceDiagram
 
 ### Controllers
 
-| Controller                    | Purpose                                           |
-| ----------------------------- | ------------------------------------------------- |
-| **Wix\OAuthController**       | `install()`, `callback()`, `signup()`             |
-| **Wix\WebhookController**     | Wix event handling with signature verification    |
-| **Wix\DashboardController**   | Dashboard stats, admin panel                      |
-| **SecureAdViewController** 🆕 | Token-based ad viewing, notification distribution |
-| **Api\PoliticianController**  | Politician CRUD, campaign management              |
-| **Api\VoterController**       | Registration, view sessions, earnings             |
-| **Api\AdminController**       | Analytics, approvals, payouts, fraud management   |
+| Controller                          | Platform   | Purpose                                           |
+| ----------------------------------- | ---------- | ------------------------------------------------- |
+| **Wix\OAuthController**             | Wix        | `install()`, `callback()`, `signup()`             |
+| **Wix\WebhookController**           | Wix        | Wix event handling with signature verification    |
+| **Wix\DashboardController**         | Wix        | Dashboard stats, admin panel                      |
+| **Standalone\AuthController** 🆕    | Standalone | Registration, login, password reset               |
+| **Standalone\DashboardController**  | Standalone | Role-based dashboard routing                      |
+| **Standalone\PoliticianController** | Standalone | Campaign management, analytics, billing           |
+| **Standalone\VoterController**      | Standalone | Ad watching, earnings, referrals                  |
+| **Standalone\AdminController**      | Standalone | User management, fraud, payouts                   |
+| **SecureAdViewController** 🆕       | Both       | Token-based ad viewing, notification distribution |
+| **Api\PoliticianController**        | Both       | Politician CRUD, campaign management (API)        |
+| **Api\VoterController**             | Both       | Registration, view sessions, earnings (API)       |
+| **Api\AdminController**             | Both       | Analytics, approvals, payouts, fraud (API)        |
 
 ### Wix Frontend Integration
 
@@ -303,6 +362,30 @@ sequenceDiagram
 
 ## Configuration
 
+### Platform Mode
+
+Configure which platform(s) to enable in `config/platform.php`:
+
+```php
+'mode' => env('PLATFORM_MODE', 'dual'), // Options: wix, standalone, dual
+
+'wix' => [
+    'enabled' => env('PLATFORM_MODE', 'dual') !== 'standalone',
+    // Wix-specific configuration
+],
+
+'standalone' => [
+    'enabled' => env('PLATFORM_MODE', 'dual') !== 'wix',
+    'features' => [
+        'registration' => true,
+        'password_reset' => true,
+        'email_verification' => true,
+    ],
+],
+```
+
+### Business Logic
+
 Key configuration values in `config/u9itus.php`:
 
 ```php
@@ -317,7 +400,9 @@ Key configuration values in `config/u9itus.php`:
 'fraud_payout_hold_hours'  => 48,     // Verification hold period
 ```
 
-Wix credentials in `config/wix.php`:
+### Wix Integration
+
+Wix credentials in `config/wix.php` (only required for Wix mode):
 
 ```php
 'app_id'         => env('WIX_APP_ID'),
@@ -347,8 +432,17 @@ Wix credentials in `config/wix.php`:
 
 ## Future Enhancements
 
+### Platform Features
+
+- **Standalone Dashboard UI** — Full Vue.js/React SPA implementation
+- **Mobile App** — React Native app for both platforms
+- **White-Label Solution** — Customizable branding for enterprise clients
+- **API Gateway** — Unified API for both platforms
+
+### Core Features
+
 - Live feed streaming via WebRTC or Wix Video
-- Real-time notifications via WebSockets
+- Real-time notifications via Laravel Reverb/WebSockets
 - Advanced fraud detection with ML scoring
 - Blockchain-verified view records
 - Mobile-optimized voter experience
@@ -356,6 +450,12 @@ Wix credentials in `config/wix.php`:
 - Advanced analytics dashboard with demographic insights
 - Automated Stripe Connect for politician billing
 - PayPal Mass Pay API for batch voter payouts
+
+### Notification Services (Standalone)
+
+- Twilio SMS integration
+- Firebase Cloud Messaging for push notifications
+- SendGrid/Mailgun for transactional emails
 
 ## Development
 
@@ -388,6 +488,14 @@ php artisan migrate:status  # Check migration status
 ```
 
 ## Support
+
+For detailed information about the dual-platform architecture, see:
+
+- **[Dual-Platform Architecture Guide](doc/DUAL_PLATFORM_ARCHITECTURE.md)** — Complete technical architecture
+- **[Wix Deployment Guide](doc/WIX_DEPLOYMENT_GUIDE.md)** — Wix-specific setup
+- **[Development Documentation](DEVELOPMENT.md)** — Development workflow
+
+For technical support or questions:
 
 For issues and questions:
 

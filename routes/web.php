@@ -8,8 +8,11 @@ use Illuminate\Support\Facades\Route;
 | Web Routes
 |--------------------------------------------------------------------------
 |
-| The primary UI is rendered inside Wix iframes (see routes/wix.php).
-| These web routes handle the Laravel-native auth pages and profile.
+| U9itus supports dual-platform deployment:
+| - Wix App Extension routes (routes/wix.php)
+| - Standalone application routes (routes/standalone.php)
+|
+| Platform-specific routes are loaded based on config('platform.mode').
 |
 */
 
@@ -27,7 +30,33 @@ Route::get('/diagnose', function () {
     ]);
 });
 
+/*
+|--------------------------------------------------------------------------
+| Platform-Specific Routes Loading
+|--------------------------------------------------------------------------
+*/
+
+// Load Wix routes if enabled
+if (config('platform.wix.enabled', true)) {
+    require __DIR__.'/wix.php';
+}
+
+// Load standalone routes if enabled
+if (config('platform.standalone.enabled', true)) {
+    require __DIR__.'/standalone.php';
+}
+
+/*
+|--------------------------------------------------------------------------
+| Shared Application Routes
+|--------------------------------------------------------------------------
+*/
+
 Route::get('/', function () {
+    // Redirect based on platform mode
+    if (config('platform.mode') === 'wix') {
+        return view('welcome-wix');
+    }
     return view('welcome');
 });
 
@@ -50,6 +79,8 @@ Route::get('/debug-info', function () {
     ]);
 });
 
+// Legacy routes - kept for backward compatibility
+// These are now primarily handled in standalone.php
 Route::get('/dashboard', function () {
     return view('dashboard');
 })->middleware(['auth', 'verified'])->name('dashboard');
@@ -60,4 +91,7 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
-require __DIR__.'/auth.php';
+// Auth routes only loaded for standalone mode
+if (config('platform.standalone.enabled', true)) {
+    require __DIR__.'/auth.php';
+}
