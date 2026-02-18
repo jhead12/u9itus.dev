@@ -72,7 +72,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         Route::prefix('/voters/{voter:uuid}')->name('voters.')->group(function () {
             Route::get('/', [VoterController::class, 'show'])->name('show');
             Route::get('/campaigns', [VoterController::class, 'availableCampaigns'])->name('campaigns');
-            Route::post('/campaigns/{campaign:uuid}/watch', [VoterController::class, 'startView'])->name('watch');
+            Route::post('/campaigns/{campaign:uuid}/watch', [VoterController::class, 'startView'])->name('watch')->withoutScopedBindings();
             Route::get('/history', [VoterController::class, 'viewHistory'])->name('history');
             Route::get('/earnings', [VoterController::class, 'earnings'])->name('earnings');
             Route::get('/referrals', [VoterController::class, 'referrals'])->name('referrals');

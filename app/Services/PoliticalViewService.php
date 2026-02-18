@@ -42,7 +42,7 @@ class PoliticalViewService
                 'political_campaign_id' => $campaign->id,
                 'voter_id'              => $voter->id,
                 'status'                => ViewSessionStatus::Assigned,
-                'expires_at'            => Carbon::now()->addHours(config('u9itus.assignment_expiry_hours', 24)),
+                'expires_at'            => Carbon::now()->addHours((int) config('u9itus.assignment_expiry_hours', 24)),
                 'ip_address'            => $request->ip(),
                 'device_fingerprint'    => $request->header('X-Device-Fingerprint') ?? $request->input('device_fingerprint'),
                 'user_agent'            => $request->userAgent(),

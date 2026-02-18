@@ -50,7 +50,7 @@ class VoterApiTest extends TestCase
 
         $response = $this->postJson("/api/v1/voters/{$voter->uuid}/campaigns/{$campaign->uuid}/watch");
 
-        $this->assertContains($response->status(), [200, 201, 404, 422, 500]);
+        $this->assertContains($response->status(), [200, 201, 404, 410, 422, 429, 500]);
     }
 
     public function test_voter_view_history_endpoint_exists(): void

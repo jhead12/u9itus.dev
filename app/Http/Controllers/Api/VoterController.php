@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreVoterRequest;
 use App\Http\Resources\VoterResource;
+use App\Http\Resources\ViewSessionResource;
 use App\Models\Voter;
 use App\Models\ViewSession;
 use App\Models\PoliticalCampaign;
@@ -103,17 +104,16 @@ class VoterController extends Controller
         try {
             $session = $this->viewService->assignView($campaign, $voter, $request);
             $session = $this->viewService->startView($session);
+            $session->load('campaign');
 
             return response()->json([
                 'message'    => 'View session started',
-                'session_id' => $session->uuid,
+                'session'    => new ViewSessionResource($session),
                 'media_url'  => $campaign->media_url ?? $campaign->live_feed_url,
-                'payout'     => $campaign->voter_payout_per_view,
-                'duration'   => $campaign->media_duration,
                 'must_watch' => $campaign->min_watch_time_percent,
-            ]);
+            ], 201);
         } catch (\RuntimeException $e) {
-            return response()->json(['error' => 'Unable to start view session'], 403);
+            return response()->json(['error' => $e->getMessage()], 403);
         }
     }
 
@@ -137,26 +137,25 @@ class VoterController extends Controller
         $totalSeconds = (int) $request->input('total_seconds_watched', 0);
 
         $session = $this->viewService->completeView($session, $totalSeconds);
+        $session->load('campaign');
 
         return response()->json([
-            'message'        => 'View completed',
-            'status'         => $session->status,
-            'payout_earned'  => $session->voter_payout_amount,
-            'payment_status' => $session->payment_status,
+            'message' => 'View completed',
+            'session' => new ViewSessionResource($session),
         ]);
     }
 
     /**
      * Get voter's view history (paginated).
      */
-    public function viewHistory(Voter $voter): JsonResponse
+    public function viewHistory(Voter $voter): \Illuminate\Http\Resources\Json\AnonymousResourceCollection
     {
         $sessions = $voter->viewSessions()
-            ->with('campaign.politician')
+            ->with('campaign')
             ->latest()
             ->paginate(20);
 
-        return response()->json($sessions);
+        return ViewSessionResource::collection($sessions);
     }
 
     /**

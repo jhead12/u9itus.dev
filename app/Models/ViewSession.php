@@ -118,9 +118,51 @@ class ViewSession extends Model
     }
 
     // ── Additional Scopes ───────────────────────────────────
-    
+
     public function scopeActive($query)
     {
         return $query->whereIn('status', ['assigned', 'in_progress']);
+    }
+
+    /**
+     * Group sessions by status value for analytics breakdowns.
+     *
+     * @return \Illuminate\Support\Collection<string, int>
+     */
+    public static function byStatus(int $campaignId): \Illuminate\Support\Collection
+    {
+        return static::where('political_campaign_id', $campaignId)
+            ->selectRaw('status, COUNT(*) as count')
+            ->groupBy('status')
+            ->get()
+            ->mapWithKeys(fn ($row) => [
+                ($row->status instanceof ViewSessionStatus
+                    ? $row->status->value
+                    : $row->status) => (int) $row->count,
+            ]);
+    }
+
+    /**
+     * Flag this session for fraud review.
+     */
+    public function flagForReview(array $flags = []): void
+    {
+        $merged = array_unique(array_merge((array) ($this->fraud_flags ?? []), $flags));
+        $this->update([
+            'status'      => ViewSessionStatus::Flagged,
+            'fraud_flags' => $merged,
+        ]);
+    }
+
+    /**
+     * Payout eligibility: completed + payment pending or approved.
+     */
+    public function scopePendingPayout($query)
+    {
+        return $query->where('status', ViewSessionStatus::Completed)
+                     ->whereIn('payment_status', [
+                         ViewPaymentStatus::Pending,
+                         ViewPaymentStatus::Approved,
+                     ]);
     }
 }

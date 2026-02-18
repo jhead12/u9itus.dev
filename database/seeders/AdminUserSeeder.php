@@ -18,7 +18,7 @@ class AdminUserSeeder extends Seeder
             'name' => 'Admin User',
             'first_name' => 'Admin',
             'last_name' => 'User',
-            'email' => 'admin@dial4dough.com',
+            'email' => 'admin@U9itus.com',
             'password' => Hash::make('password'), // Change this in production
             'user_type' => 'admin',
             'email_verified_at' => now(),
