@@ -89,7 +89,7 @@ test('politician can create a campaign', function () {
         'total_budget'           => 60.00,
         'message_summary'        => 'A short description.',
         'media_url'              => 'https://cdn.example.com/video.mp4',
-        'media_duration'         => 15, // within env limits (MIN=10, MAX=20)
+        'media_duration'         => config('u9itus.min_video_duration', 30) + 5,
     ];
 
     $response = $this->actingAs($politician)
