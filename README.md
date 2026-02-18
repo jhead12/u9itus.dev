@@ -1,11 +1,12 @@
 # U9itus – Political Loyalty Ads (Dual-Platform)
 
-**Version:** 2.0.0  
+**Version:** 2.1.0  
 **Framework:** Laravel 12 + Dual-Platform Architecture  
 **Platforms:** Wix App Extension + Standalone Application  
 **Database:** MySQL (Railway Production)  
 **Deployment:** Railway.app with Metal Build  
-**Production URL:** https://u9itus-production.up.railway.app
+**Production URL:** https://u9itus-production.up.railway.app  
+**Test Suite:** 95 passing, 174 assertions
 
 ## Overview
 
@@ -83,14 +84,14 @@ Unlike traditional ad platforms where users can click repeatedly, U9itus uses **
 
 ### Technical Stack
 
-- **Backend**: Laravel 11 (PHP 8.1+)
-- **Frontend**: Wix App Extension + Blade templates
+- **Backend**: Laravel 12 (PHP 8.2+)
+- **Frontend**: Wix App Extension + Blade templates (Tailwind CSS dark theme)
 - **Wix SDK**: @wix/sdk, @wix/dashboard, @wix/design-system, @wix/members
-- **Database**: SQLite (MVP) / PostgreSQL (Production)
-- **Authentication**: Wix OAuth + Laravel auth
-- **Permissions**: Spatie Laravel Permission
-- **Payments**: Stripe (politician billing) + PayPal/CashApp (voter payouts)
-- **Testing**: Pest
+- **Database**: SQLite (development) / MySQL (Railway production)
+- **Authentication**: Wix OAuth + Laravel auth (Standalone)
+- **Permissions**: Spatie Laravel Permission (roles: `admin`, `politician`, `voter`)
+- **Payments**: Stripe (politician billing) + PayPal/CashApp (voter payouts — placeholder)
+- **Testing**: Pest (95 tests, 174 assertions)
 
 ## Quick Start
 
@@ -262,52 +263,89 @@ sequenceDiagram
 
 ### Database Schema (Political Tables)
 
-| Table                   | Purpose                                                       |
-| ----------------------- | ------------------------------------------------------------- |
-| **wix_sites**           | Wix site installations, OAuth tokens, settings                |
-| **politicians**         | Politician profiles, governance level, office, district       |
-| **voters**              | Voter profiles, wallet balance, referral codes, trust score   |
-| **political_campaigns** | Video/live-feed campaigns with per-view pricing and targeting |
-| **view_sessions**       | Individual view tracking — watch time, fraud score, payouts   |
-| **referral_earnings**   | Referral commission records per view session                  |
-| **ad_view_tokens** 🆕   | One-time secure tokens for ad delivery via notifications      |
+| Table                          | Purpose                                                        |
+| ------------------------------ | -------------------------------------------------------------- |
+| **wix_sites**                  | Wix site installations, OAuth tokens, settings                 |
+| **politicians**                | Politician profiles, governance level, office, district, party |
+| **voters**                     | Voter profiles, wallet balance, referral codes, trust score    |
+| **political_campaigns**        | Video/live-feed campaigns with per-view pricing and targeting  |
+| **view_sessions**              | Individual view tracking — watch time, fraud score, payouts    |
+| **referral_earnings**          | Referral commission records per view session                   |
+| **ad_view_tokens**             | One-time secure tokens for ad delivery via notifications       |
+| **campaign_transactions**      | Stripe payment records per politician                          |
+| **politician_credits**         | Credit balance ledger for per-view billing                     |
+| **politician_payment_methods** | Stored Stripe payment methods per politician                   |
 
 ### Services
 
-| Service                       | Purpose                                                         |
-| ----------------------------- | --------------------------------------------------------------- |
-| **WixOAuthService**           | OAuth consent URL, token exchange, refresh, API calls           |
-| **WixWebhookService**         | Routes Wix webhook events (install, remove, member events)      |
-| **WixNotificationService** 🆕 | Secure ad delivery via Wix email/push/SMS with token generation |
-| **PoliticalViewService**      | View lifecycle: assign → start → track → complete               |
-| **PoliticalPaymentService**   | Campaign billing, batch payouts, per-view profit calculation    |
-| **FraudPreventionService**    | Device fingerprinting, rate limits, IP anomalies, trust scoring |
+| Service                     | Purpose                                                            |
+| --------------------------- | ------------------------------------------------------------------ |
+| **WixOAuthService**         | OAuth consent URL, token exchange, refresh, API calls              |
+| **WixWebhookService**       | Routes Wix webhook events (install, remove, member events)         |
+| **WixNotificationService**  | Secure ad delivery via Wix email/push/SMS with token generation    |
+| **PoliticalViewService**    | View lifecycle: assign → start → track → complete                  |
+| **PoliticalPaymentService** | Campaign billing, batch payouts, per-view profit calculation       |
+| **FraudPreventionService**  | Device fingerprinting, rate limits, IP anomalies, trust scoring    |
+| **CampaignBillingService**  | Stripe PaymentIntent creation, credit top-up, credit deduction     |
+| **StripePaymentService**    | Low-level Stripe SDK wrapper (customers, payment methods, intents) |
 
 ### Controllers
 
-| Controller                          | Platform   | Purpose                                           |
-| ----------------------------------- | ---------- | ------------------------------------------------- |
-| **Wix\OAuthController**             | Wix        | `install()`, `callback()`, `signup()`             |
-| **Wix\WebhookController**           | Wix        | Wix event handling with signature verification    |
-| **Wix\DashboardController**         | Wix        | Dashboard stats, admin panel                      |
-| **Standalone\AuthController** 🆕    | Standalone | Registration, login, password reset               |
-| **Standalone\DashboardController**  | Standalone | Role-based dashboard routing                      |
-| **Standalone\PoliticianController** | Standalone | Campaign management, analytics, billing           |
-| **Standalone\VoterController**      | Standalone | Ad watching, earnings, referrals                  |
-| **Standalone\AdminController**      | Standalone | User management, fraud, payouts                   |
-| **SecureAdViewController** 🆕       | Both       | Token-based ad viewing, notification distribution |
-| **Api\PoliticianController**        | Both       | Politician CRUD, campaign management (API)        |
-| **Api\VoterController**             | Both       | Registration, view sessions, earnings (API)       |
-| **Api\AdminController**             | Both       | Analytics, approvals, payouts, fraud (API)        |
+| Controller                          | Platform   | Purpose                                                                            |
+| ----------------------------------- | ---------- | ---------------------------------------------------------------------------------- |
+| **Wix\OAuthController**             | Wix        | `install()`, `callback()`, `signup()`                                              |
+| **Wix\WebhookController**           | Wix        | Wix event handling with signature verification                                     |
+| **Wix\DashboardController**         | Wix        | Dashboard stats, admin panel                                                       |
+| **Standalone\AuthController**       | Standalone | Separate politician/voter registration, shared login, admin portal, password reset |
+| **Standalone\DashboardController**  | Standalone | Role-based dashboard routing                                                       |
+| **Standalone\PoliticianController** | Standalone | Full campaign CRUD, video upload, analytics, billing, profile                      |
+| **Standalone\VoterController**      | Standalone | Ad watching, earnings, referrals                                                   |
+| **Standalone\AdminController**      | Standalone | User management, fraud, payouts, campaign approval                                 |
+| **SecureAdViewController**          | Both       | Token-based ad viewing, notification distribution                                  |
+| **Api\PoliticianController**        | Both       | Politician CRUD, campaign management (API)                                         |
+| **Api\VoterController**             | Both       | Registration, view sessions, earnings (API)                                        |
+| **Api\AdminController**             | Both       | Analytics, approvals, payouts, fraud (API)                                         |
+| **Api\StripeWebhookController**     | Both       | `payment_intent.succeeded` / `payment_intent.payment_failed`                       |
+
+### Standalone Frontend Views
+
+All standalone views use the dark Tailwind CSS theme (`slate-900` background, `emerald-400/500` accents).
+
+#### Authentication Views (`resources/views/standalone/auth/`)
+
+| View                            | Purpose                                                                      |
+| ------------------------------- | ---------------------------------------------------------------------------- |
+| `login.blade.php`               | Shared login with Politician / Voter portal tabs                             |
+| `admin-login.blade.php`         | Dedicated admin portal (amber-accented, role-enforced)                       |
+| `register-choose.blade.php`     | Role chooser landing — Politician 🏛️ vs Voter 🗳️ cards                       |
+| `register-politician.blade.php` | Politician signup: credentials + office, party, governance level, state/city |
+| `register-voter.blade.php`      | Voter signup: credentials + state, ZIP, referral code                        |
+| `forgot-password.blade.php`     | Password reset request                                                       |
+| `reset-password.blade.php`      | Set new password (token-based)                                               |
+
+#### Politician Dashboard Views (`resources/views/standalone/politician/`)
+
+| View                           | Purpose                                                                          |
+| ------------------------------ | -------------------------------------------------------------------------------- |
+| `dashboard.blade.php`          | Overview stats: campaigns, views, spend, pending credits                         |
+| `campaigns/index.blade.php`    | Campaign card grid with status badges, pause/resume actions                      |
+| `campaigns/create.blade.php`   | New campaign form with live budget↔views sync                                    |
+| `campaigns/show.blade.php`     | Campaign detail, Submit for Review button, video upload panel, session log       |
+| `campaigns/edit.blade.php`     | Edit campaign — pre-filled, live feed toggle, target states JS                   |
+| `analytics.blade.php`          | Platform-wide analytics overview with campaign breakdown table                   |
+| `analytics/campaign.blade.php` | Per-campaign session stats (status breakdown, session log)                       |
+| `billing.blade.php`            | Credit balance, add-funds form, credit ledger, Stripe transaction history        |
+| `invoices.blade.php`           | Full paginated transaction history with status badges                            |
+| `profile.blade.php`            | Edit profile (office, party, bio, governance, district) + read-only account info |
 
 ### Wix Frontend Integration
 
-| Module                          | Purpose                                                     |
-| ------------------------------- | ----------------------------------------------------------- |
-| **backend/api.jsw** 🆕          | HTTP request utilities for Laravel API communication        |
-| **backend/campaigns.jsw** 🆕    | Campaign and voter dashboard data retrieval                 |
-| **backend/members.jsw** 🆕      | Wix Member authentication and voter account synchronization |
-| **pages/voter-dashboard.js** 🆕 | Complete voter dashboard with real backend data integration |
+| Module                       | Purpose                                                     |
+| ---------------------------- | ----------------------------------------------------------- |
+| **backend/api.jsw**          | HTTP request utilities for Laravel API communication        |
+| **backend/campaigns.jsw**    | Campaign and voter dashboard data retrieval                 |
+| **backend/members.jsw**      | Wix Member authentication and voter account synchronization |
+| **pages/voter-dashboard.js** | Complete voter dashboard with real backend data integration |
 
 **Quick Start Guides:**
 
@@ -317,48 +355,157 @@ sequenceDiagram
 
 ## API Endpoints
 
+> **Total routes:** 124 registered routes across Wix, Standalone, and API layers.
+
+### Authentication Routes (Standalone)
+
+| Method | URL                       | Purpose                                     |
+| ------ | ------------------------- | ------------------------------------------- |
+| `GET`  | `/login`                  | Shared login page (Politician / Voter tabs) |
+| `POST` | `/login`                  | Authenticate and redirect by role           |
+| `GET`  | `/admin/login`            | Dedicated admin portal                      |
+| `POST` | `/admin/login`            | Admin-only authentication (role-enforced)   |
+| `GET`  | `/register`               | Role-chooser landing page                   |
+| `GET`  | `/register/politician`    | Politician registration form                |
+| `POST` | `/register/politician`    | Create politician account + profile         |
+| `GET`  | `/register/voter`         | Voter registration form                     |
+| `POST` | `/register/voter`         | Create voter account + profile              |
+| `GET`  | `/forgot-password`        | Password reset request                      |
+| `GET`  | `/reset-password/{token}` | Reset password form                         |
+| `POST` | `/logout`                 | Sign out                                    |
+
+### Politician Dashboard Routes (`/politician/*`)
+
+Requires `auth`, `verified`, and `role:politician` middleware.
+
+| Method   | URL                                        | Purpose                                     |
+| -------- | ------------------------------------------ | ------------------------------------------- |
+| `GET`    | `/politician/dashboard`                    | Overview stats                              |
+| `GET`    | `/politician/campaigns`                    | Campaign list                               |
+| `GET`    | `/politician/campaigns/create`             | New campaign form                           |
+| `POST`   | `/politician/campaigns`                    | Store new campaign                          |
+| `GET`    | `/politician/campaigns/{id}`               | Campaign detail                             |
+| `GET`    | `/politician/campaigns/{id}/edit`          | Edit campaign form                          |
+| `PUT`    | `/politician/campaigns/{id}`               | Update campaign                             |
+| `DELETE` | `/politician/campaigns/{id}`               | Delete campaign (draft only)                |
+| `POST`   | `/politician/campaigns/{id}/pause`         | Pause active campaign                       |
+| `POST`   | `/politician/campaigns/{id}/resume`        | Resume paused campaign                      |
+| `POST`   | `/politician/campaigns/{id}/submit-review` | Submit draft for admin review               |
+| `POST`   | `/politician/campaigns/{id}/upload-video`  | Upload campaign video                       |
+| `GET`    | `/politician/analytics`                    | Platform-wide analytics overview            |
+| `GET`    | `/politician/analytics/{id}`               | Per-campaign analytics detail               |
+| `GET`    | `/politician/billing`                      | Credit balance + Stripe transaction history |
+| `POST`   | `/politician/billing/add-funds`            | Create Stripe PaymentIntent to add credits  |
+| `GET`    | `/politician/billing/invoices`             | Full paginated transaction history          |
+| `GET`    | `/politician/profile`                      | View/edit profile                           |
+| `PUT`    | `/politician/profile`                      | Update political profile                    |
+
+### Voter Dashboard Routes (`/voter/*`)
+
+Requires `auth`, `verified`, and `role:voter` middleware.
+
+| Method | URL                              | Purpose                               |
+| ------ | -------------------------------- | ------------------------------------- |
+| `GET`  | `/voter/dashboard`               | Earnings overview                     |
+| `GET`  | `/voter/watch/{token}`           | Load ad via secure token              |
+| `POST` | `/voter/watch/{token}/start`     | Mark session started                  |
+| `POST` | `/voter/watch/{token}/complete`  | Mark session complete, trigger payout |
+| `GET`  | `/voter/earnings`                | Earnings summary                      |
+| `GET`  | `/voter/earnings/history`        | Earnings history                      |
+| `POST` | `/voter/earnings/request-payout` | Request cash payout                   |
+| `GET`  | `/voter/referrals`               | Referral overview                     |
+| `GET`  | `/voter/referrals/link`          | Get personal referral link            |
+| `GET`  | `/voter/preferences`             | Notification preferences              |
+| `PUT`  | `/voter/preferences`             | Update preferences                    |
+| `GET`  | `/voter/profile`                 | Profile page                          |
+| `PUT`  | `/voter/profile`                 | Update profile                        |
+
+### Admin Dashboard Routes (`/admin/*`)
+
+Requires `auth`, `verified`, and `role:admin` middleware. Access via `/admin/login`.
+
+| Method | URL                              | Purpose                     |
+| ------ | -------------------------------- | --------------------------- |
+| `GET`  | `/admin/dashboard`               | Admin overview              |
+| `GET`  | `/admin/campaigns/pending`       | Campaigns awaiting approval |
+| `POST` | `/admin/campaigns/{id}/approve`  | Approve campaign            |
+| `POST` | `/admin/campaigns/{id}/reject`   | Reject campaign             |
+| `GET`  | `/admin/users`                   | User list                   |
+| `GET`  | `/admin/users/{id}`              | User detail                 |
+| `PUT`  | `/admin/users/{id}/suspend`      | Suspend user                |
+| `PUT`  | `/admin/users/{id}/unsuspend`    | Reinstate user              |
+| `GET`  | `/admin/fraud`                   | Fraud dashboard             |
+| `GET`  | `/admin/fraud/flagged-views`     | Flagged view sessions       |
+| `POST` | `/admin/fraud/views/{id}/review` | Review a flagged session    |
+| `GET`  | `/admin/payouts`                 | Payout overview             |
+| `GET`  | `/admin/payouts/pending`         | Pending voter payouts       |
+| `POST` | `/admin/payouts/batch-process`   | Run batch payout processing |
+| `GET`  | `/admin/analytics`               | Platform analytics          |
+| `GET`  | `/admin/reports/revenue`         | Revenue report              |
+| `GET`  | `/admin/reports/engagement`      | Engagement report           |
+| `GET`  | `/admin/settings`                | System settings             |
+| `PUT`  | `/admin/settings`                | Update settings             |
+
 ### Wix Routes (`/wix/*`)
 
-- `GET /wix/install` — Start OAuth installation flow
-- `GET /wix/oauth/callback` — OAuth callback
-- `GET /wix/dashboard` — Main dashboard page
-- `GET /wix/dashboard/politician` — Politician management page
-- `GET /wix/dashboard/voter` — Voter dashboard page
-- `GET /wix/dashboard/admin` — Admin dashboard page
-- `GET /wix/widget/feed` — Embeddable voter feed widget
-- `GET /wix/widget/settings` — Widget settings
+| Method | URL                         | Purpose                       |
+| ------ | --------------------------- | ----------------------------- |
+| `GET`  | `/wix/install`              | Start OAuth installation flow |
+| `GET`  | `/wix/oauth/callback`       | OAuth callback                |
+| `GET`  | `/wix/dashboard`            | Main dashboard page           |
+| `GET`  | `/wix/dashboard/politician` | Politician management page    |
+| `GET`  | `/wix/dashboard/voter`      | Voter dashboard page          |
+| `GET`  | `/wix/dashboard/admin`      | Admin dashboard page          |
+| `GET`  | `/wix/widget`               | Embeddable voter feed widget  |
+| `GET`  | `/wix/widget/settings`      | Widget settings               |
+| `POST` | `/api/wix/webhooks`         | Wix webhook receiver          |
 
-### Secure Ad Viewing Routes 🆕
+### REST API (`/api/v1/*`)
 
-- `GET /ad/view/{token}` — View ad via secure one-time token (from email/SMS)
-- `GET /api/v1/tokens/{token}/validate` — Validate token before loading video
-- `POST /api/v1/campaigns/{campaign}/distribute` — Distribute ad to eligible voters (Admin)
-- `GET /voter/notifications` — View notification history (Voter dashboard)
-- `POST /test/notification` — Send test notification (Development)
+#### Politician API
 
-### Voter API (`/api/v1/*`)
+| Method | URL                                         | Purpose                   |
+| ------ | ------------------------------------------- | ------------------------- |
+| `POST` | `/api/v1/politicians`                       | Create politician profile |
+| `GET`  | `/api/v1/politicians/{id}`                  | Get politician            |
+| `PUT`  | `/api/v1/politicians/{id}`                  | Update profile            |
+| `POST` | `/api/v1/politicians/{id}/campaigns`        | Create campaign           |
+| `GET`  | `/api/v1/politicians/{id}/campaigns`        | List campaigns            |
+| `GET`  | `/api/v1/politicians/{id}/campaigns/{cid}`  | Campaign detail           |
+| `GET`  | `/api/v1/politicians/{id}/billing/balance`  | Credit balance            |
+| `POST` | `/api/v1/politicians/{id}/billing/purchase` | Purchase credits          |
 
-- `POST /api/v1/voters/register` — Register a voter (with optional referral code)
-- `GET /api/v1/voters/{voter}/earnings` — Earnings summary
-- `GET /api/v1/voters/{voter}/referrals` — Referral earnings
-- `POST /api/v1/sessions/{session}/progress` — Heartbeat progress update (from token view)
-- `POST /api/v1/sessions/{session}/complete` — Mark view as completed
+#### Voter API
 
-### Politician API (`/api/v1/*`)
+| Method | URL                                         | Purpose                                      |
+| ------ | ------------------------------------------- | -------------------------------------------- |
+| `POST` | `/api/v1/voters`                            | Register voter (with optional referral code) |
+| `GET`  | `/api/v1/voters/{id}`                       | Get voter profile                            |
+| `GET`  | `/api/v1/voters/{id}/earnings`              | Earnings summary                             |
+| `GET`  | `/api/v1/voters/{id}/referrals`             | Referral earnings                            |
+| `GET`  | `/api/v1/voters/{id}/campaigns`             | Available campaigns for voter                |
+| `POST` | `/api/v1/voters/{id}/campaigns/{cid}/watch` | Assign watch session token                   |
+| `GET`  | `/api/v1/voters/{id}/history`               | View history                                 |
+| `POST` | `/api/v1/sessions/{session}/progress`       | Heartbeat / progress update                  |
+| `POST` | `/api/v1/sessions/{session}/complete`       | Mark view completed                          |
 
-- `POST /api/v1/politicians` — Create politician profile
-- `PUT /api/v1/politicians/{politician}` — Update profile
-- `POST /api/v1/politicians/{politician}/campaigns` — Create campaign (min $6 budget, min 10 views)
-- `GET /api/v1/politicians/{politician}/campaigns` — List campaigns with analytics
+#### Admin API
 
-### Admin API (`/api/v1/admin/*`)
+| Method | URL                                    | Purpose                     |
+| ------ | -------------------------------------- | --------------------------- |
+| `GET`  | `/api/v1/admin/analytics`              | Platform-wide analytics     |
+| `GET`  | `/api/v1/admin/campaigns/pending`      | Pending approval queue      |
+| `POST` | `/api/v1/admin/campaigns/{id}/approve` | Approve a campaign          |
+| `POST` | `/api/v1/admin/campaigns/{id}/reject`  | Reject a campaign           |
+| `POST` | `/api/v1/admin/payouts/process`        | Run batch payout processing |
+| `GET`  | `/api/v1/admin/voters/flagged`         | List fraud-flagged voters   |
+| `POST` | `/api/v1/admin/voters/{id}/clear-flag` | Clear fraud flag            |
 
-- `GET /api/v1/admin/analytics` — Platform-wide analytics
-- `POST /api/v1/admin/campaigns/{campaign}/approve` — Approve a campaign
-- `POST /api/v1/admin/campaigns/{campaign}/reject` — Reject a campaign
-- `POST /api/v1/admin/payouts/process` — Run batch payout processing
-- `GET /api/v1/admin/flagged-voters` — List fraud-flagged voters
-- `POST /api/v1/admin/voters/{voter}/clear-flag` — Clear fraud flag
+#### Stripe Webhook
+
+| Method | URL                    | Purpose                                                             |
+| ------ | ---------------------- | ------------------------------------------------------------------- |
+| `POST` | `/api/stripe/webhooks` | Handle `payment_intent.succeeded` / `payment_intent.payment_failed` |
 
 ## Configuration
 
@@ -393,8 +540,9 @@ Key configuration values in `config/u9itus.php`:
 'voter_payout_per_view'    => 0.25,   // Voter earns per view
 'referral_commission_pct'  => 10,     // 10% of voter payout = $0.025
 'min_watch_percent'        => 100,    // Must watch full message
-'video_duration_min'       => 30,     // Minimum 30 seconds
-'video_duration_max'       => 300,    // Maximum 5 minutes
+'video_duration_min'       => env('MIN_VIDEO_DURATION', 10),  // Minimum seconds
+'video_duration_max'       => env('MAX_VIDEO_DURATION', 20),  // Maximum seconds (env-controlled)
+'max_video_size_mb'        => 500,    // Max video upload size
 'batch_payout_min'         => 10.00,  // Minimum payout threshold
 'fraud_daily_view_limit'   => 50,     // Max views per voter per day
 'fraud_payout_hold_hours'  => 48,     // Verification hold period
@@ -414,21 +562,26 @@ Wix credentials in `config/wix.php` (only required for Wix mode):
 
 - Wix instance verification via JWT on all dashboard/widget routes
 - Wix webhook signature verification (HMAC-SHA256)
-- Role-based access control via Spatie Permission
+- Role-based access control via Spatie Permission (`admin`, `politician`, `voter`)
+- Admin portal (`/admin/login`) enforces `role:admin` check post-authentication
+- Separate politician and voter registration flows prevent role confusion
 - Fraud prevention with multi-signal scoring
 - 48-hour payout hold for verification window
 - Device fingerprinting to prevent multi-account abuse
 - CSRF protection on all forms
 - SQL injection prevention via Eloquent ORM
+- Signed URLs for email verification links
 
 ## Known Limitations (MVP)
 
-- SQLite database (upgrade to PostgreSQL for production)
-- Stripe test mode only (politician billing)
+- SQLite database in development (MySQL on Railway production)
+- Stripe test mode only (politician billing — no live keys)
 - PayPal/CashApp payouts are placeholder (no API integration yet)
 - No real-time live feed streaming (coming soon)
 - No blockchain verification
 - Basic video hosting (external URLs — no built-in CDN)
+- Admin and voter dashboard views not yet fully built out (routes exist, controller stubs in place)
+- Phase 3 (Analytics & Tracking API), Phase 5 (Voter watch experience), Phase 7 (Notifications), Phase 8 (Security & Fraud) pending
 
 ## Future Enhancements
 
@@ -465,6 +618,33 @@ Wix credentials in `config/wix.php` (only required for Wix mode):
 php artisan test
 ```
 
+Current status: **95 passed, 174 assertions, 0 failures** (1 incomplete stub).
+
+Test coverage includes:
+
+- `HealthTest` — API health endpoint
+- `Auth/PasswordResetTest` — Password reset flow
+- `Auth/AuthenticationTest` — Login / logout
+- `Auth/RegistrationTest` — User registration
+- `Campaign/CampaignCrudTest` — 20 tests covering campaign CRUD, submit-for-review, video upload validation, analytics, billing, profile, ownership checks
+- `Billing/CampaignBillingTest` — Stripe PaymentIntent creation, credit top-up, webhook handling
+- `Wix/DashboardTest`, `Wix/OAuthTest` — Wix endpoint routing
+
+### Implementation Progress
+
+| Phase    | Description                                                                        | Status      |
+| -------- | ---------------------------------------------------------------------------------- | ----------- |
+| Phase 1  | Auth & Foundation (auth views, dashboard layout, middleware, email verification)   | ✅ Complete |
+| Phase 2  | Campaign Management (full CRUD, video upload, analytics, billing, profile views)   | ✅ Complete |
+| Phase 4  | Billing scaffold (Stripe service, webhook, credit ledger, billing views)           | ✅ Complete |
+| Phase 9  | Testing (95 passing tests)                                                         | ✅ Ongoing  |
+| Phase 3  | Analytics & Tracking (ViewSession lifecycle API, fraud detection, payout dispatch) | ⬜ Next     |
+| Phase 5  | Voter watch experience (token-based video delivery, JS heartbeat)                  | ⬜ Pending  |
+| Phase 6  | Admin features (campaign approval queue, KYC management, fraud review)             | ⬜ Pending  |
+| Phase 7  | Notifications (email on approval/rejection/completion)                             | ⬜ Pending  |
+| Phase 8  | Security & Fraud (advanced scoring, VPN detection, device fingerprinting)          | ⬜ Pending  |
+| Phase 10 | Deployment (Railway production config, env hardening)                              | ⬜ Pending  |
+
 ### Code Style
 
 ```bash
@@ -494,8 +674,8 @@ For detailed information about the dual-platform architecture, see:
 - **[Dual-Platform Architecture Guide](doc/DUAL_PLATFORM_ARCHITECTURE.md)** — Complete technical architecture
 - **[Wix Deployment Guide](doc/WIX_DEPLOYMENT_GUIDE.md)** — Wix-specific setup
 - **[Development Documentation](DEVELOPMENT.md)** — Development workflow
-
-For technical support or questions:
+- **[Migration Notes](doc/MIGRATION_NOTES.md)** — Upgrade and migration history
+- **[Changelog](doc/CHANGELOG.md)** — Version history
 
 For issues and questions:
 
@@ -508,4 +688,5 @@ MIT License — See LICENSE file for details
 
 ## Credits
 
-Developed by Head Enterprises
+Developed by Head Enterprises  
+Version 2.1.0 — Standalone platform with Wix dual-mode architecture

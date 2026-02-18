@@ -1,0 +1,37 @@
+<?php
+
+namespace App\Http\Requests;
+
+use Illuminate\Foundation\Http\FormRequest;
+
+class UpdateCampaignRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
+        $campaign = $this->route('campaign');
+        $politician = auth()->user()?->politician;
+        return $politician && $campaign && (int) $campaign->politician_id === (int) $politician->id;
+    }
+
+    public function rules(): array
+    {
+        return [
+            'title'                    => ['sometimes', 'required', 'string', 'max:255'],
+            'message_summary'          => ['nullable', 'string', 'max:2000'],
+            'campaign_type'            => ['sometimes', 'required', 'in:video,live_feed'],
+            'governance_level'         => ['nullable', 'string', 'max:100'],
+            'total_budget'             => ['sometimes', 'required', 'numeric', 'min:6.00'],
+            'total_views_requested'    => ['sometimes', 'required', 'integer', 'min:10'],
+            'target_states'            => ['nullable', 'array'],
+            'target_states.*'          => ['string', 'max:2'],
+            'target_cities'            => ['nullable', 'array'],
+            'target_cities.*'          => ['string', 'max:100'],
+            'target_districts'         => ['nullable', 'array'],
+            'target_districts.*'       => ['string', 'max:100'],
+            'target_governance_levels' => ['nullable', 'array'],
+            'min_watch_time_percent'   => ['nullable', 'integer', 'min:50', 'max:100'],
+            'live_scheduled_at'        => ['nullable', 'date', 'after:now'],
+            'live_feed_url'            => ['nullable', 'url'],
+        ];
+    }
+}

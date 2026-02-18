@@ -36,6 +36,7 @@ class User extends Authenticatable
         'is_verified',
         'wix_member_id',
         'wix_instance_id',
+        'platform',
     ];
 
     /**

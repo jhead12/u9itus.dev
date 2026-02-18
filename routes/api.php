@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\PoliticianController;
 use App\Http\Controllers\Api\VoterController;
 use App\Http\Controllers\Wix\WebhookController;
+use App\Http\Controllers\Api\StripeWebhookController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -40,6 +41,14 @@ Route::get('/health', function () {
 */
 Route::post('/wix/webhooks', [WebhookController::class, 'handle'])
     ->name('api.wix.webhooks');
+
+/*
+|--------------------------------------------------------------------------
+| Stripe Webhooks (minimal handler)
+|--------------------------------------------------------------------------
+*/
+Route::post('/stripe/webhooks', [StripeWebhookController::class, 'handle'])
+    ->name('api.stripe.webhooks');
 
 /*
 |--------------------------------------------------------------------------
@@ -90,6 +99,10 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::post('/campaigns', [PoliticianController::class, 'createCampaign'])->name('campaigns.store');
             Route::get('/campaigns', [PoliticianController::class, 'campaigns'])->name('campaigns.index');
             Route::get('/campaigns/{campaign:uuid}', [PoliticianController::class, 'campaignShow'])->name('campaigns.show');
+
+            // Billing endpoints for politician (standalone + Wix)
+            Route::get('/billing/balance', [\App\Http\Controllers\Api\BillingController::class, 'balance'])->name('billing.balance');
+            Route::post('/billing/purchase', [\App\Http\Controllers\Api\BillingController::class, 'purchase'])->name('billing.purchase');
         });
 
         /*

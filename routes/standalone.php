@@ -23,15 +23,28 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::middleware('guest')->group(function () {
+    // Shared login (redirects by role after authentication)
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
     Route::post('/login', [AuthController::class, 'login']);
-    
-    Route::get('/register', [AuthController::class, 'showRegister'])->name('register');
-    Route::post('/register', [AuthController::class, 'register']);
-    
+
+    // Admin-specific login portal
+    Route::get('/admin/login', [AuthController::class, 'showAdminLogin'])->name('admin.login');
+    Route::post('/admin/login', [AuthController::class, 'adminLogin'])->name('admin.login.submit');
+
+    // Registration — role chooser landing
+    Route::get('/register', [AuthController::class, 'showRegisterChoose'])->name('register');
+
+    // Politician registration
+    Route::get('/register/politician', [AuthController::class, 'showRegisterPolitician'])->name('register.politician');
+    Route::post('/register/politician', [AuthController::class, 'registerPolitician'])->name('register.politician.submit');
+
+    // Voter registration
+    Route::get('/register/voter', [AuthController::class, 'showRegisterVoter'])->name('register.voter');
+    Route::post('/register/voter', [AuthController::class, 'registerVoter'])->name('register.voter.submit');
+
     Route::get('/forgot-password', [AuthController::class, 'showForgotPassword'])->name('password.request');
     Route::post('/forgot-password', [AuthController::class, 'sendResetLink'])->name('password.email');
-    
+
     Route::get('/reset-password/{token}', [AuthController::class, 'showResetPassword'])->name('password.reset');
     Route::post('/reset-password', [AuthController::class, 'resetPassword'])->name('password.update');
 });
@@ -47,7 +60,7 @@ Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->n
 
 Route::middleware('auth')->group(function () {
     Route::get('/email/verify', [AuthController::class, 'showVerifyEmail'])->name('verification.notice');
-    Route::get('/email/verify/{id}/{hash}', [AuthController::class, 'verifyEmail'])->name('verification.verify');
+    Route::get('/email/verify/{id}/{hash}', [AuthController::class, 'verifyEmail'])->middleware('signed')->name('verification.verify');
     Route::post('/email/resend', [AuthController::class, 'resendVerification'])->name('verification.send');
 });
 
@@ -78,6 +91,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/campaigns/{campaign}/edit', [PoliticianController::class, 'editCampaign'])->name('campaigns.edit');
         Route::put('/campaigns/{campaign}', [PoliticianController::class, 'updateCampaign'])->name('campaigns.update');
         Route::delete('/campaigns/{campaign}', [PoliticianController::class, 'destroyCampaign'])->name('campaigns.destroy');
+        Route::post('/campaigns/{campaign}/pause', [PoliticianController::class, 'pauseCampaign'])->name('campaigns.pause');
+        Route::post('/campaigns/{campaign}/resume', [PoliticianController::class, 'resumeCampaign'])->name('campaigns.resume');
+        Route::post('/campaigns/{campaign}/submit-review', [PoliticianController::class, 'submitForReview'])->name('campaigns.submit-review');
         
         // Video Upload
         Route::post('/campaigns/{campaign}/upload-video', [PoliticianController::class, 'uploadVideo'])->name('campaigns.upload-video');

@@ -3,42 +3,44 @@
 namespace App\Http\Controllers\Standalone;
 
 use App\Http\Controllers\Controller;
+use App\Models\Politician;
 use App\Models\User;
+use App\Models\Voter;
 use Illuminate\Auth\Events\Registered;
+use Illuminate\Auth\Events\Verified;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Password;
 use Illuminate\Validation\Rules;
 
 /**
  * Standalone Authentication Controller
- * 
+ *
  * Handles registration, login, and password reset for the standalone platform.
- * Uses standard Laravel authentication system.
+ * Separate registration flows exist for politicians and voters.
+ * Admin users have their own dedicated login portal.
  */
 class AuthController extends Controller
 {
-    /**
-     * Show the login form.
-     */
+    // -------------------------------------------------------------------------
+    // Shared Login
+    // -------------------------------------------------------------------------
+
     public function showLogin()
     {
         return view('standalone.auth.login');
     }
 
-    /**
-     * Handle login request.
-     */
     public function login(Request $request)
     {
         $request->validate([
-            'email' => ['required', 'email'],
+            'email'    => ['required', 'email'],
             'password' => ['required'],
         ]);
 
         if (Auth::attempt($request->only('email', 'password'), $request->boolean('remember'))) {
             $request->session()->regenerate();
-            
             return redirect()->intended(route('dashboard'));
         }
 
@@ -47,48 +49,165 @@ class AuthController extends Controller
         ])->onlyInput('email');
     }
 
-    /**
-     * Show the registration form.
-     */
-    public function showRegister()
+    // -------------------------------------------------------------------------
+    // Admin Login Portal
+    // -------------------------------------------------------------------------
+
+    public function showAdminLogin()
     {
-        return view('standalone.auth.register');
+        return view('standalone.auth.admin-login');
     }
 
-    /**
-     * Handle registration request.
-     */
-    public function register(Request $request)
+    public function adminLogin(Request $request)
     {
         $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
-            'password' => ['required', 'confirmed', Rules\Password::defaults()],
-            'user_type' => ['required', 'in:politician,voter'],
-            'phone' => ['nullable', 'string', 'max:20'],
+            'email'    => ['required', 'email'],
+            'password' => ['required'],
+        ]);
+
+        if (Auth::attempt($request->only('email', 'password'), false)) {
+            $user = Auth::user();
+
+            if (! $user->hasRole('admin')) {
+                Auth::logout();
+                return back()->withErrors([
+                    'email' => 'Access denied. This portal is for administrators only.',
+                ])->onlyInput('email');
+            }
+
+            $request->session()->regenerate();
+            return redirect()->route('admin.dashboard');
+        }
+
+        return back()->withErrors([
+            'email' => 'The provided credentials do not match our records.',
+        ])->onlyInput('email');
+    }
+
+    // -------------------------------------------------------------------------
+    // Registration — Role Chooser
+    // -------------------------------------------------------------------------
+
+    public function showRegisterChoose()
+    {
+        return view('standalone.auth.register-choose');
+    }
+
+    // -------------------------------------------------------------------------
+    // Politician Registration
+    // -------------------------------------------------------------------------
+
+    public function showRegisterPolitician()
+    {
+        return view('standalone.auth.register-politician');
+    }
+
+    public function registerPolitician(Request $request)
+    {
+        $request->validate([
+            'name'             => ['required', 'string', 'max:255'],
+            'email'            => ['required', 'string', 'email', 'max:255', 'unique:users'],
+            'password'         => ['required', 'confirmed', Rules\Password::defaults()],
+            'phone'            => ['nullable', 'string', 'max:20'],
+            'political_office' => ['nullable', 'string', 'max:255'],
+            'party'            => ['nullable', 'string', 'max:100'],
+            'governance_level' => ['nullable', 'string', 'max:50'],
+            'state'            => ['nullable', 'string', 'size:2'],
+            'city'             => ['nullable', 'string', 'max:100'],
+            'terms'            => ['accepted'],
         ]);
 
         $user = User::create([
-            'name' => $request->name,
-            'email' => $request->email,
+            'name'     => $request->name,
+            'email'    => $request->email,
             'password' => Hash::make($request->password),
-            'phone' => $request->phone,
+            'phone'    => $request->phone,
             'platform' => 'standalone',
         ]);
 
-        // Assign role based on user type
-        $user->assignRole($request->user_type);
+        $user->assignRole('politician');
+
+        // Create the politician profile record
+        Politician::create([
+            'user_id'          => $user->id,
+            'full_name'        => $request->name,
+            'political_office' => $request->political_office,
+            'party_affiliation'=> $request->party,
+            'governance_level' => $request->governance_level,
+            'state'            => $request->state,
+            'city'             => $request->city,
+        ]);
 
         event(new Registered($user));
 
         Auth::login($user);
 
-        return redirect(route('dashboard'));
+        return redirect()->route('politician.dashboard');
     }
 
-    /**
-     * Handle logout request.
-     */
+    // -------------------------------------------------------------------------
+    // Voter Registration
+    // -------------------------------------------------------------------------
+
+    public function showRegisterVoter()
+    {
+        return view('standalone.auth.register-voter');
+    }
+
+    public function registerVoter(Request $request)
+    {
+        $request->validate([
+            'name'          => ['required', 'string', 'max:255'],
+            'email'         => ['required', 'string', 'email', 'max:255', 'unique:users'],
+            'password'      => ['required', 'confirmed', Rules\Password::defaults()],
+            'phone'         => ['nullable', 'string', 'max:20'],
+            'state'         => ['nullable', 'string', 'size:2'],
+            'zip_code'      => ['nullable', 'string', 'max:10'],
+            'referral_code' => ['nullable', 'string', 'max:20'],
+            'terms'         => ['accepted'],
+        ]);
+
+        $user = User::create([
+            'name'     => $request->name,
+            'email'    => $request->email,
+            'password' => Hash::make($request->password),
+            'phone'    => $request->phone,
+            'platform' => 'standalone',
+        ]);
+
+        $user->assignRole('voter');
+
+        // Resolve referral voter if a code was provided
+        $referredByVoterId = null;
+        if ($request->filled('referral_code')) {
+            $referrer = Voter::where('referral_code', $request->referral_code)->first();
+            $referredByVoterId = $referrer?->id;
+        }
+
+        Voter::create([
+            'user_id'             => $user->id,
+            'full_name'           => $request->name,
+            'email'               => $user->email,
+            'phone'               => $request->phone,
+            'state'               => $request->state,
+            'zip_code'            => $request->zip_code,
+            'referral_code'       => strtoupper(substr(md5($user->email . time()), 0, 8)),
+            'referred_by_voter_id'=> $referredByVoterId,
+            'wallet_balance'      => 0,
+            'trust_score'         => 100,
+        ]);
+
+        event(new Registered($user));
+
+        Auth::login($user);
+
+        return redirect()->route('voter.dashboard');
+    }
+
+    // -------------------------------------------------------------------------
+    // Logout
+    // -------------------------------------------------------------------------
+
     public function logout(Request $request)
     {
         Auth::guard('web')->logout();
@@ -99,17 +218,15 @@ class AuthController extends Controller
         return redirect('/');
     }
 
-    /**
-     * Show the forgot password form.
-     */
+    // -------------------------------------------------------------------------
+    // Password Reset
+    // -------------------------------------------------------------------------
+
     public function showForgotPassword()
     {
         return view('standalone.auth.forgot-password');
     }
 
-    /**
-     * Send password reset link.
-     */
     public function sendResetLink(Request $request)
     {
         $request->validate(['email' => 'required|email']);
@@ -123,22 +240,16 @@ class AuthController extends Controller
             : back()->withErrors(['email' => __($status)]);
     }
 
-    /**
-     * Show the reset password form.
-     */
     public function showResetPassword(string $token)
     {
         return view('standalone.auth.reset-password', ['token' => $token]);
     }
 
-    /**
-     * Handle password reset.
-     */
     public function resetPassword(Request $request)
     {
         $request->validate([
-            'token' => 'required',
-            'email' => 'required|email',
+            'token'    => 'required',
+            'email'    => 'required|email',
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
         ]);
 
@@ -156,33 +267,39 @@ class AuthController extends Controller
             : back()->withErrors(['email' => [__($status)]]);
     }
 
-    /**
-     * Show email verification notice.
-     */
+    // -------------------------------------------------------------------------
+    // Email Verification
+    // -------------------------------------------------------------------------
+
     public function showVerifyEmail()
     {
         return view('standalone.auth.verify-email');
     }
 
-    /**
-     * Verify email address.
-     */
     public function verifyEmail(Request $request)
     {
+        if (! $request->hasValidSignature()) {
+            abort(403, 'Invalid or expired verification link.');
+        }
+
+        if (! hash_equals(
+            (string) sha1($request->user()->getEmailForVerification()),
+            (string) $request->route('hash')
+        )) {
+            abort(403, 'Invalid verification link.');
+        }
+
         if ($request->user()->hasVerifiedEmail()) {
-            return redirect()->intended(route('dashboard').'?verified=1');
+            return redirect()->intended(route('dashboard') . '?verified=1');
         }
 
         if ($request->user()->markEmailAsVerified()) {
             event(new Verified($request->user()));
         }
 
-        return redirect()->intended(route('dashboard').'?verified=1');
+        return redirect()->intended(route('dashboard') . '?verified=1');
     }
 
-    /**
-     * Resend email verification.
-     */
     public function resendVerification(Request $request)
     {
         if ($request->user()->hasVerifiedEmail()) {

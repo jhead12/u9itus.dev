@@ -13,7 +13,7 @@ class HealthTest extends TestCase
         $response->assertStatus(200)
             ->assertJson([
                 'status' => 'ok',
-                'message' => 'Dial4Dough API is running',
+                'message' => 'U9itus API is running',
             ])
             ->assertJsonStructure([
                 'status',

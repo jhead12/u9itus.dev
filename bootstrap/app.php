@@ -21,7 +21,11 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->trustProxies(at: '*');
         
         $middleware->alias([
-            'wix.verify' => \App\Http\Middleware\VerifyWixInstance::class,
+            'wix.verify'        => \App\Http\Middleware\VerifyWixInstance::class,
+            'redirect.wix'      => \App\Http\Middleware\RedirectIfWix::class,
+            'role'              => \Spatie\Permission\Middleware\RoleMiddleware::class,
+            'permission'        => \Spatie\Permission\Middleware\PermissionMiddleware::class,
+            'role_or_permission'=> \Spatie\Permission\Middleware\RoleOrPermissionMiddleware::class,
         ]);
 
         // Wix routes are loaded via iframes — CSRF tokens are unavailable.
