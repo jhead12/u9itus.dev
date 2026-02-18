@@ -23,11 +23,28 @@ class VoterController extends Controller
     public function dashboard()
     {
         $user = Auth::user();
-        
-        // TODO: Load voter stats, pending earnings, etc.
-        
+        $voter = $user->voter;
+
+        $summary = [
+            'wallet_balance' => $voter->wallet_balance ?? 0,
+            'pending_earnings' => $voter->pending_earnings ?? 0,
+            'total_earned' => $voter->total_earned ?? 0,
+            'total_views' => $voter->total_views ?? 0,
+        ];
+
+        $recentSessions = $voter
+            ? $voter->viewSessions()
+                ->with('campaign')
+                ->latest()
+                ->take(10)
+                ->get()
+            : collect();
+
         return view('standalone.voter.dashboard', [
             'user' => $user,
+            'voter' => $voter,
+            'summary' => $summary,
+            'recentSessions' => $recentSessions,
         ]);
     }
 
