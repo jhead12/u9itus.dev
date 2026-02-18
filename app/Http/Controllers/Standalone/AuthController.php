@@ -129,16 +129,28 @@ class AuthController extends Controller
         $user->assignRole('politician');
 
         // Create the politician profile record (firstOrCreate prevents duplicates on form retry)
-        Politician::firstOrCreate(
+        $politicianData = $request->only([
+            'political_office',
+            'party',
+            'governance_level',
+            'state',
+            'city',
+        ]);
+
+        // Normalize keys to match the politicians table
+        $politicianPayload = [
+            'full_name'         => $request->input('name'),
+            'political_office'  => $politicianData['political_office'] ?? null,
+            'party_affiliation' => $politicianData['party'] ?? null,
+            'governance_level'  => $politicianData['governance_level'] ?? null,
+            'state'             => $politicianData['state'] ?? null,
+            'city'              => $politicianData['city'] ?? null,
+        ];
+
+        // Use updateOrCreate to ensure fields are written deterministically
+        \App\Models\Politician::updateOrCreate(
             ['user_id' => $user->id],
-            [
-                'full_name'         => $request->name,
-                'political_office'  => $request->political_office,
-                'party_affiliation' => $request->party,
-                'governance_level'  => $request->governance_level,
-                'state'             => $request->state,
-                'city'              => $request->city,
-            ]
+            $politicianPayload
         );
 
         event(new Registered($user));
@@ -188,20 +200,29 @@ class AuthController extends Controller
             $referredByVoterId = $referrer?->id;
         }
 
-        Voter::firstOrCreate(
+        $voterData = $request->only([
+            'state',
+            'zip_code',
+            'phone',
+            'referral_code',
+        ]);
+
+        $voterPayload = [
+            'full_name'            => $request->input('name'),
+            'email'                => $user->email,
+            'phone'                => $voterData['phone'] ?? $request->input('phone'),
+            'state'                => $voterData['state'] ?? null,
+            'zip_code'             => $voterData['zip_code'] ?? null,
+            'referred_by_voter_id' => $referredByVoterId,
+            'wallet_balance'       => 0,
+            'trust_score'          => 100,
+            'is_active'            => true,
+            'is_verified'          => false,
+        ];
+
+        \App\Models\Voter::updateOrCreate(
             ['user_id' => $user->id],
-            [
-                'full_name'            => $request->name,
-                'email'                => $user->email,
-                'phone'                => $request->phone,
-                'state'                => $request->state,
-                'zip_code'             => $request->zip_code,
-                'referred_by_voter_id' => $referredByVoterId,
-                'wallet_balance'       => 0,
-                'trust_score'          => 100,
-                'is_active'            => true,
-                'is_verified'          => false,
-            ]
+            $voterPayload
         );
 
         event(new Registered($user));
