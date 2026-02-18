@@ -123,7 +123,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // Watch Ad (secure token-based)
         Route::get('/watch/{token}', [VoterController::class, 'watch'])->name('watch');
         Route::post('/watch/{token}/start', [VoterController::class, 'startWatching'])->name('watch.start');
-        Route::post('/watch/{token}/complete', [VoterController::class, 'markComplete'])->name('watch.complete');
+        // Heartbeat & completion use session UUID (not token)
+        Route::post('/session/{sessionUuid}/progress', [VoterController::class, 'progressHeartbeat'])->name('session.progress');
+        Route::post('/session/{sessionUuid}/complete', [VoterController::class, 'markComplete'])->name('session.complete');
         
         // Earnings & Payouts
         Route::get('/earnings', [VoterController::class, 'earnings'])->name('earnings');

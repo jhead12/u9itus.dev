@@ -647,6 +647,265 @@ Test coverage includes:
 | Phase 8  | Security & Fraud (advanced scoring, VPN detection, device fingerprinting)          | ⬜ Pending  |
 | Phase 10 | Deployment (Railway production config, env hardening)                              | ⬜ Pending  |
 
+#### Architecture Overview
+
+```mermaid
+flowchart TB
+    subgraph clients["👤 Clients"]
+        WIX_USER["Wix Site Visitor"]
+        STANDALONE_USER["Standalone User"]
+        MOBILE["Mobile / API Client"]
+    end
+
+    subgraph entrypoints["🌐 Entry Points"]
+        WIX_ROUTES["/wix/*\nOAuth · Dashboard · Widget"]
+        STANDALONE_ROUTES["/login · /register\n/politician/* · /voter/* · /admin/*"]
+        API_ROUTES["/api/v1/*\nREST API"]
+        WEBHOOK_ROUTES["/api/wix/webhooks\n/api/stripe/webhooks"]
+    end
+
+    subgraph middleware["🔒 Middleware Layer"]
+        WIX_VERIFY["wix.verify\nJWT Instance Check"]
+        AUTH["auth · verified\nLaravel Session"]
+        ROLE["role:politician\nrole:voter\nrole:admin"]
+        THROTTLE["throttle:60,1\nRate Limiting"]
+    end
+
+    subgraph controllers["🎮 Controllers"]
+        direction LR
+        subgraph wix_ctrl["Wix Controllers"]
+            OAUTH_C["OAuthController"]
+            WIX_DASH_C["DashboardController"]
+            WEBHOOK_C["WebhookController"]
+        end
+        subgraph standalone_ctrl["Standalone Controllers"]
+            AUTH_C["AuthController"]
+            SA_DASH_C["DashboardController"]
+            POLITICIAN_C["PoliticianController"]
+            VOTER_C["VoterController"]
+            ADMIN_C["AdminController"]
+        end
+        subgraph api_ctrl["API Controllers"]
+            API_POLITICIAN["PoliticianController"]
+            API_VOTER["VoterController"]
+            API_ADMIN["AdminController"]
+            API_BILLING["BillingController"]
+            STRIPE_WH["StripeWebhookController"]
+        end
+        SECURE_AD["SecureAdViewController\n(Both Platforms)"]
+    end
+
+    subgraph services["⚙️ Service Layer"]
+        VIEW_SVC["PoliticalViewService\nassign → start → track → complete"]
+        PAYMENT_SVC["PoliticalPaymentService\nbilling · payouts · profit calc"]
+        FRAUD_SVC["FraudPreventionService\nfingerprint · rate-limit · trust score"]
+        BILLING_SVC["CampaignBillingService\nStripe intents · credit ledger"]
+        STRIPE_SVC["StripePaymentService\ncustomers · methods · charges"]
+        WIX_OAUTH_SVC["WixOAuthService\nconsent · tokens · refresh"]
+        WIX_HOOK_SVC["WixWebhookService\ninstall · remove · member events"]
+        NOTIF_SVC["WixNotificationService\nemail · push · SMS delivery"]
+        STD_NOTIF_SVC["StandardNotificationService\nemail · SMS (standalone)"]
+    end
+
+    subgraph data["🗄️ Data Layer"]
+        subgraph models["Eloquent Models"]
+            USER["User"]
+            POLITICIAN_M["Politician"]
+            VOTER_M["Voter"]
+            CAMPAIGN_M["PoliticalCampaign"]
+            SESSION_M["ViewSession"]
+            TOKEN_M["AdViewToken"]
+            CREDIT_M["PoliticianCredit"]
+            TXN_M["CampaignTransaction"]
+            REFERRAL_M["ReferralEarning"]
+            WIX_SITE_M["WixSite"]
+        end
+        DB[("MySQL\nRailway Production")]
+    end
+
+    subgraph external["☁️ External Services"]
+        STRIPE["Stripe API\nPayments"]
+        WIX_API["Wix APIs\nOAuth · Members · Notifications"]
+        RAILWAY["Railway.app\nDocker · Volumes"]
+    end
+
+    %% Client → Entry Points
+    WIX_USER --> WIX_ROUTES
+    STANDALONE_USER --> STANDALONE_ROUTES
+    MOBILE --> API_ROUTES
+    WIX_API --> WEBHOOK_ROUTES
+    STRIPE --> WEBHOOK_ROUTES
+
+    %% Entry Points → Middleware
+    WIX_ROUTES --> WIX_VERIFY
+    STANDALONE_ROUTES --> AUTH --> ROLE
+    API_ROUTES --> THROTTLE
+
+    %% Middleware → Controllers
+    WIX_VERIFY --> wix_ctrl
+    ROLE --> standalone_ctrl
+    THROTTLE --> api_ctrl
+    WEBHOOK_ROUTES --> WEBHOOK_C
+    WEBHOOK_ROUTES --> STRIPE_WH
+
+    %% Controllers → Services
+    WIX_DASH_C --> VIEW_SVC
+    OAUTH_C --> WIX_OAUTH_SVC
+    WEBHOOK_C --> WIX_HOOK_SVC
+    POLITICIAN_C --> BILLING_SVC
+    POLITICIAN_C --> VIEW_SVC
+    VOTER_C --> VIEW_SVC
+    ADMIN_C --> PAYMENT_SVC
+    ADMIN_C --> FRAUD_SVC
+    SECURE_AD --> VIEW_SVC
+    SECURE_AD --> NOTIF_SVC
+    API_VOTER --> VIEW_SVC
+    API_POLITICIAN --> VIEW_SVC
+    API_ADMIN --> PAYMENT_SVC
+    API_BILLING --> BILLING_SVC
+    STRIPE_WH --> BILLING_SVC
+
+    %% Services → Services
+    VIEW_SVC --> FRAUD_SVC
+    VIEW_SVC --> PAYMENT_SVC
+    BILLING_SVC --> STRIPE_SVC
+    NOTIF_SVC --> WIX_API
+    PAYMENT_SVC --> REFERRAL_M
+
+    %% Services → Models
+    VIEW_SVC --> SESSION_M
+    VIEW_SVC --> TOKEN_M
+    PAYMENT_SVC --> CREDIT_M
+    PAYMENT_SVC --> TXN_M
+    FRAUD_SVC --> VOTER_M
+    BILLING_SVC --> TXN_M
+    WIX_OAUTH_SVC --> WIX_SITE_M
+
+    %% Models → DB
+    models --> DB
+
+    %% Services → External
+    STRIPE_SVC --> STRIPE
+    WIX_OAUTH_SVC --> WIX_API
+
+    %% Styles
+    style clients fill:#1e293b,stroke:#64748b,color:#e2e8f0
+    style entrypoints fill:#172554,stroke:#3b82f6,color:#bfdbfe
+    style middleware fill:#3b0764,stroke:#a855f7,color:#e9d5ff
+    style controllers fill:#14532d,stroke:#22c55e,color:#bbf7d0
+    style services fill:#713f12,stroke:#f59e0b,color:#fef3c7
+    style data fill:#1e1b4b,stroke:#6366f1,color:#c7d2fe
+    style external fill:#7f1d1d,stroke:#ef4444,color:#fecaca
+```
+
+#### Per-View Money Flow
+
+```mermaid
+flowchart LR
+    POL["🏛️ Politician\npays $0.60/view"]
+    STRIPE_PAY["💳 Stripe\nPaymentIntent"]
+    CREDITS["🪙 Credit\nLedger"]
+    PLATFORM["📊 Platform\nnet $0.18–$0.30"]
+    VOTER_EARN["🗳️ Voter\nearns $0.25"]
+    REFERRER["👥 Referrer\nearns $0.025"]
+    PAYOUT["💰 Payout\nPayPal / CashApp"]
+
+    POL -->|"Stripe charge"| STRIPE_PAY
+    STRIPE_PAY -->|"credit top-up"| CREDITS
+    CREDITS -->|"$0.60 deducted\nper completed view"| PLATFORM
+    PLATFORM -->|"$0.25"| VOTER_EARN
+    PLATFORM -->|"$0.025 (10%)"| REFERRER
+    VOTER_EARN -->|"batch payout\nmin $10"| PAYOUT
+    REFERRER -->|"batch payout"| PAYOUT
+
+    style POL fill:#1e3a5f,stroke:#60a5fa,color:#fff
+    style STRIPE_PAY fill:#4b2e83,stroke:#a78bfa,color:#fff
+    style CREDITS fill:#713f12,stroke:#f59e0b,color:#fff
+    style PLATFORM fill:#064e3b,stroke:#34d399,color:#fff
+    style VOTER_EARN fill:#1e3a5f,stroke:#60a5fa,color:#fff
+    style REFERRER fill:#1e3a5f,stroke:#60a5fa,color:#fff
+    style PAYOUT fill:#7f1d1d,stroke:#f87171,color:#fff
+```
+
+#### Secure Ad View Lifecycle
+
+```mermaid
+stateDiagram-v2
+    [*] --> campaign_approved : Admin approves campaign
+
+    campaign_approved --> token_generated : System generates\nSHA-256 token
+    token_generated --> notification_sent : Email / Push / SMS\nvia Wix or Standard
+
+    notification_sent --> link_clicked : Voter clicks\nsecure link
+    link_clicked --> token_validated : Validate token\n(one-time, <24h)
+
+    token_validated --> video_playing : Token valid →\nPlay video
+    token_validated --> rejected : Token expired,\nused, or invalid
+
+    video_playing --> heartbeat : JS heartbeat\nevery 5s
+    heartbeat --> video_playing : Progress < 100%
+
+    heartbeat --> fraud_check : Progress = 100%
+    fraud_check --> completed : Fraud score OK →\nMark completed
+    fraud_check --> flagged : Suspicious →\nHold for review
+
+    completed --> voter_paid : +$0.25 to wallet
+    voter_paid --> referral_paid : Referrer gets $0.025
+    referral_paid --> [*]
+
+    flagged --> admin_review : Admin reviews
+    admin_review --> completed : Cleared
+    admin_review --> rejected : Confirmed fraud
+    rejected --> [*]
+```
+
+#### Dual-Platform Request Routing
+
+```mermaid
+flowchart TB
+    REQ["Incoming HTTP Request"]
+
+    REQ --> CHECK{"Route prefix?"}
+
+    CHECK -->|"/wix/*"| WIX_FLOW
+    CHECK -->|"/politician/*\n/voter/*\n/admin/*"| SA_FLOW
+    CHECK -->|"/api/v1/*"| API_FLOW
+    CHECK -->|"/api/wix/webhooks\n/api/stripe/webhooks"| WH_FLOW
+
+    subgraph WIX_FLOW["Wix Platform"]
+        W1["JWT Instance\nVerification"] --> W2["Wix Controller"]
+        W2 --> W3["Blade View\n(iframe embed)"]
+    end
+
+    subgraph SA_FLOW["Standalone Platform"]
+        S1["Laravel Auth\n+ Role Check"] --> S2["Standalone\nController"]
+        S2 --> S3["Blade View\n(Tailwind dark theme)"]
+    end
+
+    subgraph API_FLOW["REST API"]
+        A1["Throttle\n+ Wix Verify"] --> A2["API Controller"]
+        A2 --> A3["JSON Response"]
+    end
+
+    subgraph WH_FLOW["Webhooks"]
+        H1["Signature\nVerification"] --> H2["Process Event"]
+        H2 --> H3["200 OK"]
+    end
+
+    W2 --> SVC["Shared Service Layer"]
+    S2 --> SVC
+    A2 --> SVC
+    H2 --> SVC
+
+    SVC --> DB[("MySQL")]
+
+    style WIX_FLOW fill:#172554,stroke:#3b82f6,color:#bfdbfe
+    style SA_FLOW fill:#14532d,stroke:#22c55e,color:#bbf7d0
+    style API_FLOW fill:#713f12,stroke:#f59e0b,color:#fef3c7
+    style WH_FLOW fill:#3b0764,stroke:#a855f7,color:#e9d5ff
+    style SVC fill:#1e1b4b,stroke:#6366f1,color:#c7d2fe
+```
+
 ### Code Style
 
 ```bash
