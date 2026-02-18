@@ -112,8 +112,9 @@ php artisan --version 2>&1 || {
   # Start server anyway so Railway can see error pages
 }
 
-# Wait for database (reduced to 10 attempts / ~30 seconds)
-MAX_ATTEMPTS=10
+# Wait for database (30 attempts / ~2.5 minutes to survive Railway MySQL restart cycles)
+# Railway may remount the MySQL volume and restart the service, which can take 60–90 seconds.
+MAX_ATTEMPTS=30
 ATTEMPT=0
 DB_CONNECTED=false
 
@@ -127,7 +128,7 @@ while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
         'mysql:host=' . getenv('DB_HOST') . ';port=' . getenv('DB_PORT') . ';dbname=' . getenv('DB_DATABASE'),
         getenv('DB_USERNAME'),
         getenv('DB_PASSWORD'),
-        [PDO::ATTR_TIMEOUT => 5]
+        [PDO::ATTR_TIMEOUT => 10]
       );
       echo 'connected';
       exit(0);
@@ -143,7 +144,14 @@ while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
   fi
   
   echo ""
-  sleep 3
+  # Use longer sleep for later attempts (Railway MySQL may still be restarting)
+  if [ $ATTEMPT -lt 5 ]; then
+    sleep 3
+  elif [ $ATTEMPT -lt 15 ]; then
+    sleep 5
+  else
+    sleep 8
+  fi
 done
 
 if [ "$DB_CONNECTED" = true ]; then
