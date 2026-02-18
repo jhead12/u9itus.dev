@@ -12,15 +12,15 @@
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-5">
             <p class="text-slate-400 text-sm">Referral Code</p>
-            <p class="text-2xl font-bold text-emerald-400 mt-1 tracking-widest">{{ $referralCode }}</p>
+            <p class="text-2xl font-bold text-emerald-400 mt-1 tracking-widest">{{ $voter->referral_code }}</p>
         </div>
         <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-5">
             <p class="text-slate-400 text-sm">Total Referrals</p>
-            <p class="text-2xl font-bold text-white mt-1">{{ $referralCount }}</p>
+            <p class="text-2xl font-bold text-white mt-1">{{ $referrals->count() }}</p>
         </div>
         <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-5">
             <p class="text-slate-400 text-sm">Referral Earnings</p>
-            <p class="text-2xl font-bold text-purple-400 mt-1">${{ number_format($referralEarnings, 2) }}</p>
+            <p class="text-2xl font-bold text-purple-400 mt-1">${{ number_format($totalReferralEarnings, 2) }}</p>
         </div>
     </div>
 
@@ -35,7 +35,7 @@
                 id="referral-link"
                 type="text"
                 readonly
-                value="{{ route('register.voter') }}?ref={{ $referralCode }}"
+                value="{{ route('register.voter') }}?ref={{ $voter->referral_code }}"
                 class="flex-1 bg-slate-900 border border-slate-600 rounded-lg px-4 py-2.5 text-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
             >
             <button onclick="copyLink()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition whitespace-nowrap">
@@ -46,7 +46,7 @@
     </div>
 
     {{-- Referred voters table --}}
-    @if($referredVoters->isNotEmpty())
+    @if($referrals->isNotEmpty())
     <div>
         <h2 class="text-lg font-semibold text-white mb-4">Referred Voters</h2>
         <div class="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
@@ -58,7 +58,7 @@
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-700/50">
-                    @foreach($referredVoters as $referred)
+                    @foreach($referrals as $referred)
                     <tr>
                         <td class="px-4 py-3 text-white">{{ $referred->full_name }}</td>
                         <td class="px-4 py-3 text-slate-400">{{ $referred->created_at?->format('M j, Y') }}</td>

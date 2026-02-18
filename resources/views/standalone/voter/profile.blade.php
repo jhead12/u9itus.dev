@@ -26,32 +26,24 @@
     @if($voter)
     <form action="{{ route('voter.profile.update') }}" method="POST">
         @csrf
-        @method('PATCH')
+        @method('PUT')
 
-        {{-- Account info (user) --}}
+        {{-- Read-only account info --}}
         <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-6 mb-6">
             <h2 class="text-lg font-semibold text-white mb-4">Account Information</h2>
             <div class="space-y-4">
                 <div>
-                    <label class="block text-sm font-medium text-slate-300 mb-1" for="name">Display Name</label>
-                    <input
-                        id="name" name="name" type="text"
-                        value="{{ old('name', $voter->user->name ?? '') }}"
-                        class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    <label class="block text-sm font-medium text-slate-300 mb-1">Email</label>
+                    <input type="text" disabled
+                        value="{{ $user->email }}"
+                        class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-400 text-sm cursor-not-allowed"
                     >
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-slate-300 mb-1" for="email">Email</label>
-                    <input
-                        id="email" name="email" type="email"
-                        value="{{ old('email', $voter->user->email ?? '') }}"
-                        class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                    >
+                    <p class="text-slate-500 text-xs mt-1">Email cannot be changed here. Contact support.</p>
                 </div>
             </div>
         </div>
 
-        {{-- Voter details --}}
+        {{-- Editable voter details --}}
         <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
             <h2 class="text-lg font-semibold text-white mb-4">Voter Details</h2>
             <div class="space-y-4">
@@ -60,6 +52,16 @@
                     <input
                         id="full_name" name="full_name" type="text"
                         value="{{ old('full_name', $voter->full_name ?? '') }}"
+                        class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        required
+                    >
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-300 mb-1" for="phone">Phone</label>
+                    <input
+                        id="phone" name="phone" type="tel"
+                        value="{{ old('phone', $voter->phone ?? '') }}"
+                        placeholder="(555) 555-5555"
                         class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     >
                 </div>
@@ -82,6 +84,14 @@
                             class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                         >
                     </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-300 mb-1" for="city">City</label>
+                    <input
+                        id="city" name="city" type="text"
+                        value="{{ old('city', $voter->city ?? '') }}"
+                        class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    >
                 </div>
             </div>
         </div>

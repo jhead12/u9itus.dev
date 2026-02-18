@@ -106,13 +106,15 @@
     overlay.addEventListener('click', async () => {
         overlay.style.display = 'none';
         try {
-            const res = await post('{{ route("voter.watch.start", ["token" => "__T__"]) }}'.replace('__T__', token), {});
-            if (res.error) { showStatus(res.error, 'error'); return; }
+            const startUrl = '{{ url("/voter/watch") }}/' + encodeURIComponent(token) + '/start';
+            const res = await post(startUrl, {});
+            if (res.error) { showStatus(res.error, 'error'); overlay.style.display = ''; return; }
             sessionId = res.session_id;
             video.play();
             startHeartbeat();
         } catch (e) {
             showStatus('Could not start session. Please try again.', 'error');
+            overlay.style.display = '';
         }
     });
 
@@ -134,11 +136,13 @@
         clearInterval(heartbeatTimer);
         const total = Math.floor(video.duration);
         try {
-            const res = await post(`/voter/session/${sessionId}/complete`, { total_seconds_watched: total });
+            const baseUrl = '{{ url("/voter/session") }}';
+            const res = await post(`${baseUrl}/${sessionId}/complete`, { total_seconds_watched: total });
             if (res.qualified) {
-                showStatus(`🎉 You earned ${{ '$' }}${parseFloat(res.payout_earned).toFixed(2)}! Payment is being processed.`, 'success');
+                showStatus(`\u{1F389} You earned $${parseFloat(res.payout_earned).toFixed(2)}! Payment is being processed.`, 'success');
+                statusMsg.innerHTML += ' <a href="{{ route("voter.dashboard") }}" class="underline text-emerald-400 ml-2">View earnings →</a>';
             } else {
-                showStatus('Video ended — watch at least {{ $mustWatch }}% to earn a payout.', 'info');
+                showStatus('Video ended \u2014 watch at least {{ $mustWatch }}% to earn a payout.', 'info');
             }
         } catch (e) {
             showStatus('Error recording completion. Contact support.', 'error');

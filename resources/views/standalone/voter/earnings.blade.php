@@ -63,6 +63,40 @@
         @endif
     </div>
 
+    {{-- Recent completed views --}}
+    @if(isset($sessions) && $sessions->count() > 0)
+    <div>
+        <h2 class="text-lg font-semibold text-white mb-4">Recent Completed Views</h2>
+        <div class="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="border-b border-slate-700 text-slate-400 text-left">
+                        <th class="px-4 py-3 font-medium">Campaign</th>
+                        <th class="px-4 py-3 font-medium">Earned</th>
+                        <th class="px-4 py-3 font-medium text-right">Date</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-700/50">
+                    @foreach($sessions as $session)
+                    <tr class="hover:bg-slate-700/20 transition">
+                        <td class="px-4 py-3 text-white">{{ $session->campaign->title ?? '—' }}</td>
+                        <td class="px-4 py-3 font-medium text-emerald-400">
+                            ${{ number_format($session->voter_payout_amount ?? 0, 2) }}
+                        </td>
+                        <td class="px-4 py-3 text-slate-400 text-xs text-right">
+                            {{ $session->completed_at?->format('M j, Y') }}
+                        </td>
+                    </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+        @if(method_exists($sessions, 'links'))
+        <div class="mt-3">{{ $sessions->links() }}</div>
+        @endif
+    </div>
+    @endif
+
     <div class="text-right">
         <a href="{{ route('voter.earnings.history') }}" class="text-emerald-400 hover:text-emerald-300 text-sm">View full history →</a>
     </div>

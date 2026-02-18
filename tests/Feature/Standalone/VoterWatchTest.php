@@ -11,6 +11,7 @@ use App\Models\ViewSession;
 use App\Models\Voter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
+use Spatie\Permission\Models\Role;
 
 uses(RefreshDatabase::class);
 
@@ -18,7 +19,11 @@ uses(RefreshDatabase::class);
 
 function voterUser(array $voterOverrides = []): array
 {
+    Role::firstOrCreate(['name' => 'voter', 'guard_name' => 'web']);
+
     $user  = User::factory()->create();
+    $user->assignRole('voter');
+
     $voter = Voter::factory()->create(array_merge([
         'user_id'    => $user->id,
         'is_verified' => true,
@@ -78,7 +83,7 @@ test('non-existent token shows not_found error', function () {
         ->get(route('voter.watch', ['token' => 'bad-token']))
         ->assertOk()
         ->assertViewIs('standalone.voter.watch-error')
-        ->assertViewHas('reason', 'not_found');
+        ->assertViewHas('reason', 'invalid');
 });
 
 test('already used token shows already_used error', function () {
@@ -119,13 +124,13 @@ test('startWatching creates view session and marks token used', function () {
         ->postJson(route('voter.watch.start', ['token' => $adToken->token]));
 
     $response->assertOk()
-        ->assertJsonStructure(['session_uuid', 'started_at']);
+        ->assertJsonStructure(['session_id', 'status']);
 
     // Token should now be consumed
     expect($adToken->fresh()->is_used)->toBeTrue();
 
     // A session should exist
-    $uuid = $response->json('session_uuid');
+    $uuid = $response->json('session_id');
     expect(ViewSession::where('uuid', $uuid)->exists())->toBeTrue();
 });
 
@@ -155,7 +160,7 @@ test('heartbeat returns ok', function () {
     $session  = ViewSession::factory()->create([
         'voter_id'              => $voter->id,
         'political_campaign_id' => $campaign->id,
-        'status'                => ViewSessionStatus::Started->value,
+        'status'                => ViewSessionStatus::InProgress->value,
     ]);
 
     $this->actingAs($user)
@@ -174,14 +179,16 @@ test('markComplete returns qualified and payout fields', function () {
     $session  = ViewSession::factory()->create([
         'voter_id'              => $voter->id,
         'political_campaign_id' => $campaign->id,
-        'status'                => ViewSessionStatus::Started->value,
+        'status'                => ViewSessionStatus::InProgress->value,
         'watch_time_seconds'    => 55,
     ]);
 
     $this->actingAs($user)
-        ->postJson(route('voter.session.complete', ['sessionUuid' => $session->uuid]))
+        ->postJson(route('voter.session.complete', ['sessionUuid' => $session->uuid]), [
+            'total_seconds_watched' => 55,
+        ])
         ->assertOk()
-        ->assertJsonStructure(['qualified', 'payout_earned', 'payment_status']);
+        ->assertJsonStructure(['qualified', 'payout_earned', 'status']);
 });
 
 // ── Dashboard ─────────────────────────────────────────────────────────────────
@@ -242,7 +249,7 @@ test('preferences update redirects with success', function () {
     [$user] = voterUser();
 
     $this->actingAs($user)
-        ->put(route('voter.preferences.update'), ['notify_email' => '1'])
+        ->put(route('voter.preferences.update'), ['payment_method' => 'paypal', 'paypal_email' => 'test@example.com'])
         ->assertRedirect()
         ->assertSessionHas('success');
 });
@@ -261,11 +268,10 @@ test('profile update saves changes', function () {
 
     $this->actingAs($user)
         ->put(route('voter.profile.update'), [
-            'name'      => 'Test User',
-            'email'     => $user->email,
             'full_name' => 'Test Full Name',
             'state'     => 'TX',
             'zip_code'  => '78701',
+            'city'      => 'Austin',
         ])
         ->assertRedirect()
         ->assertSessionHas('success');
