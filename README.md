@@ -6,7 +6,7 @@
 **Database:** MySQL (Railway Production)  
 **Deployment:** Railway.app with Metal Build  
 **Production URL:** https://u9itus-production.up.railway.app  
-**Test Suite:** 95 passing, 174 assertions
+**Test Suite:** 108 passing, 226 assertions
 
 ## Overview
 
@@ -91,7 +91,7 @@ Unlike traditional ad platforms where users can click repeatedly, U9itus uses **
 - **Authentication**: Wix OAuth + Laravel auth (Standalone)
 - **Permissions**: Spatie Laravel Permission (roles: `admin`, `politician`, `voter`)
 - **Payments**: Stripe (politician billing) + PayPal/CashApp (voter payouts — placeholder)
-- **Testing**: Pest (95 tests, 174 assertions)
+- **Testing**: Pest (108 tests, 226 assertions)
 
 ## Quick Start
 
@@ -581,7 +581,7 @@ Wix credentials in `config/wix.php` (only required for Wix mode):
 - No blockchain verification
 - Basic video hosting (external URLs — no built-in CDN)
 - Admin and voter dashboard views not yet fully built out (routes exist, controller stubs in place)
-- Phase 3 (Analytics & Tracking API), Phase 5 (Voter watch experience), Phase 7 (Notifications), Phase 8 (Security & Fraud) pending
+- Phase 5 (Voter watch experience), Phase 6 (Admin features), Phase 7 (Notifications), Phase 8 (Security & Fraud) pending
 
 ## Future Enhancements
 
@@ -618,7 +618,7 @@ Wix credentials in `config/wix.php` (only required for Wix mode):
 php artisan test
 ```
 
-Current status: **95 passed, 174 assertions, 0 failures** (1 incomplete stub).
+Current status: **108 passed, 226 assertions, 0 failures** (1 incomplete stub).
 
 Test coverage includes:
 
@@ -628,6 +628,8 @@ Test coverage includes:
 - `Auth/RegistrationTest` — User registration
 - `Campaign/CampaignCrudTest` — 20 tests covering campaign CRUD, submit-for-review, video upload validation, analytics, billing, profile, ownership checks
 - `Billing/CampaignBillingTest` — Stripe PaymentIntent creation, credit top-up, webhook handling
+- `Api/ViewSessionLifecycleTest` — 13 tests covering full view session lifecycle, fraud gates, referral commissions, analytics scopes
+- `Api/VoterApiTest` — Voter API endpoint smoke tests
 - `Wix/DashboardTest`, `Wix/OAuthTest` — Wix endpoint routing
 
 ### Implementation Progress
@@ -636,10 +638,10 @@ Test coverage includes:
 | -------- | ---------------------------------------------------------------------------------- | ----------- |
 | Phase 1  | Auth & Foundation (auth views, dashboard layout, middleware, email verification)   | ✅ Complete |
 | Phase 2  | Campaign Management (full CRUD, video upload, analytics, billing, profile views)   | ✅ Complete |
+| Phase 3  | Analytics & Tracking (ViewSession lifecycle API, fraud detection, payout dispatch) | ✅ Complete |
 | Phase 4  | Billing scaffold (Stripe service, webhook, credit ledger, billing views)           | ✅ Complete |
-| Phase 9  | Testing (95 passing tests)                                                         | ✅ Ongoing  |
-| Phase 3  | Analytics & Tracking (ViewSession lifecycle API, fraud detection, payout dispatch) | ⬜ Next     |
-| Phase 5  | Voter watch experience (token-based video delivery, JS heartbeat)                  | ⬜ Pending  |
+| Phase 9  | Testing (108 passing tests)                                                        | ✅ Ongoing  |
+| Phase 5  | Voter watch experience (token-based video delivery, JS heartbeat)                  | ⬜ Next     |
 | Phase 6  | Admin features (campaign approval queue, KYC management, fraud review)             | ⬜ Pending  |
 | Phase 7  | Notifications (email on approval/rejection/completion)                             | ⬜ Pending  |
 | Phase 8  | Security & Fraud (advanced scoring, VPN detection, device fingerprinting)          | ⬜ Pending  |
