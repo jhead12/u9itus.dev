@@ -21,19 +21,27 @@ class DashboardController extends Controller
     {
         $user = Auth::user();
 
-        // Redirect to role-specific dashboard
-        if ($user->hasRole('admin')) {
-            return redirect()->route('admin.dashboard');
-        } elseif ($user->hasRole('politician')) {
-            return redirect()->route('politician.dashboard');
-        } elseif ($user->hasRole('voter')) {
-            return redirect()->route('voter.dashboard');
+        // Check Spatie roles first (authoritative source)
+        if ($user->hasRole('admin'))      return redirect()->route('admin.dashboard');
+        if ($user->hasRole('politician')) return redirect()->route('politician.dashboard');
+        if ($user->hasRole('voter'))      return redirect()->route('voter.dashboard');
+
+        // Fallback: user_type column (catches users whose role row is missing)
+        $destination = match($user->user_type ?? '') {
+            'admin'      => route('admin.dashboard'),
+            'politician' => route('politician.dashboard'),
+            'voter'      => route('voter.dashboard'),
+            default      => null,
+        };
+
+        if ($destination) {
+            // Repair: assign the missing Spatie role so next login goes directly
+            $user->assignRole($user->user_type);
+            return redirect($destination);
         }
 
-        // Default dashboard for users without specific role
-        return view('standalone.dashboard.index', [
-            'user' => $user,
-        ]);
+        // No role and no user_type — show the neutral placeholder
+        return view('standalone.dashboard.index', ['user' => $user]);
     }
 
     /**

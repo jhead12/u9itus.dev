@@ -41,12 +41,31 @@ class AuthController extends Controller
 
         if (Auth::attempt($request->only('email', 'password'), $request->boolean('remember'))) {
             $request->session()->regenerate();
-            return redirect()->intended(route('dashboard'));
+            return redirect()->intended($this->roleRedirect(Auth::user()));
         }
 
         return back()->withErrors([
             'email' => 'The provided credentials do not match our records.',
         ])->onlyInput('email');
+    }
+
+    /**
+     * Resolve the correct post-login destination for a given user.
+     * Checks Spatie roles first, then falls back to the user_type column.
+     */
+    private function roleRedirect(\App\Models\User $user): string
+    {
+        if ($user->hasRole('admin'))      return route('admin.dashboard');
+        if ($user->hasRole('politician')) return route('politician.dashboard');
+        if ($user->hasRole('voter'))      return route('voter.dashboard');
+
+        // Fallback: use user_type column in case the role row is missing
+        return match($user->user_type) {
+            'admin'      => route('admin.dashboard'),
+            'politician' => route('politician.dashboard'),
+            'voter'      => route('voter.dashboard'),
+            default      => route('dashboard'),
+        };
     }
 
     // -------------------------------------------------------------------------
