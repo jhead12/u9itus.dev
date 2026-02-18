@@ -118,11 +118,12 @@ class AuthController extends Controller
         ]);
 
         $user = User::create([
-            'name'     => $request->name,
-            'email'    => $request->email,
-            'password' => Hash::make($request->password),
-            'phone'    => $request->phone,
-            'platform' => 'standalone',
+            'name'      => $request->name,
+            'email'     => $request->email,
+            'password'  => Hash::make($request->password),
+            'phone'     => $request->phone,
+            'platform'  => 'standalone',
+            'user_type' => 'politician',
         ]);
 
         $user->assignRole('politician');
@@ -170,11 +171,12 @@ class AuthController extends Controller
         ]);
 
         $user = User::create([
-            'name'     => $request->name,
-            'email'    => $request->email,
-            'password' => Hash::make($request->password),
-            'phone'    => $request->phone,
-            'platform' => 'standalone',
+            'name'      => $request->name,
+            'email'     => $request->email,
+            'password'  => Hash::make($request->password),
+            'phone'     => $request->phone,
+            'platform'  => 'standalone',
+            'user_type' => 'voter',
         ]);
 
         $user->assignRole('voter');
