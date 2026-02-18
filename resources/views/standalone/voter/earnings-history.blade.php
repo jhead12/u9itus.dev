@@ -1,21 +1,37 @@
-@extends('layouts.app')
+@extends('layouts.voter')
 
 @section('title', 'Earnings History')
 
 @section('content')
-<div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+<div class="px-4 sm:px-6 lg:px-8 py-8 max-w-5xl mx-auto space-y-7">
 
     <div class="flex items-center justify-between">
-        <h1 class="text-3xl font-bold text-white">Earnings History</h1>
-        <a href="{{ route('voter.earnings') }}" class="text-emerald-400 hover:text-emerald-300 text-sm">← Back to Earnings</a>
+        <div>
+            <h1 class="text-2xl font-bold text-white">View History</h1>
+            <p class="text-slate-400 text-sm mt-0.5">All your ad-view sessions &mdash; every status</p>
+        </div>
+        <a href="{{ route('voter.earnings') }}"
+           class="flex items-center gap-1 text-slate-400 hover:text-white text-sm transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+            </svg>
+            Earnings
+        </a>
     </div>
 
     @if($sessions instanceof \Illuminate\Pagination\LengthAwarePaginator ? $sessions->total() === 0 : $sessions->isEmpty())
-    <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-10 text-center">
-        <p class="text-slate-400">No view sessions yet. Check your email for ad invitations!</p>
+    <div class="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-12 text-center">
+        <div class="w-14 h-14 rounded-full bg-slate-700/50 flex items-center justify-center mx-auto mb-4">
+            <svg class="w-7 h-7 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+            </svg>
+        </div>
+        <p class="text-slate-400 text-sm font-medium">No view sessions yet</p>
+        <p class="text-slate-600 text-xs mt-1">Check your email for ad invitations!</p>
     </div>
     @else
-    <div class="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
+    <div class="bg-slate-800/50 border border-slate-700/60 rounded-2xl overflow-hidden">
         <table class="w-full text-sm">
             <thead>
                 <tr class="border-b border-slate-700 text-slate-400 text-left">

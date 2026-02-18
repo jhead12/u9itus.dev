@@ -1,22 +1,27 @@
-@extends('layouts.app')
+@extends('layouts.voter')
 
 @section('title', 'My Referrals')
 
 @section('content')
-<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+<div class="px-4 sm:px-6 lg:px-8 py-8 max-w-4xl mx-auto space-y-7">
 
-    <h1 class="text-3xl font-bold text-white">My Referrals</h1>
+    <div>
+        <h1 class="text-2xl font-bold text-white">Referrals</h1>
+        <p class="text-slate-400 text-sm mt-0.5">Earn 10% commission on every view your referred voters complete</p>
+    </div>
 
     @if($voter)
     {{-- Stats --}}
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-5">
-            <p class="text-slate-400 text-sm">Referral Code</p>
-            <p class="text-2xl font-bold text-emerald-400 mt-1 tracking-widest">{{ $voter->referral_code }}</p>
+        <div class="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-5">
+            <p class="text-slate-400 text-xs font-medium uppercase tracking-wide">Referral Code</p>
+            <p class="text-2xl font-bold text-emerald-400 mt-2 tracking-widest font-mono">{{ $voter->referral_code }}</p>
+            <p class="text-slate-500 text-xs mt-1">Share with friends</p>
         </div>
-        <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-5">
-            <p class="text-slate-400 text-sm">Total Referrals</p>
-            <p class="text-2xl font-bold text-white mt-1">{{ $referrals->count() }}</p>
+        <div class="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-5">
+            <p class="text-slate-400 text-xs font-medium uppercase tracking-wide">Total Referrals</p>
+            <p class="text-2xl font-bold text-white mt-2">{{ $referrals->count() }}</p>
+            <p class="text-slate-500 text-xs mt-1">Registered voters</p>
         </div>
         <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-5">
             <p class="text-slate-400 text-sm">Referral Earnings</p>
@@ -48,20 +53,27 @@
     {{-- Referred voters table --}}
     @if($referrals->isNotEmpty())
     <div>
-        <h2 class="text-lg font-semibold text-white mb-4">Referred Voters</h2>
-        <div class="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
+        <h2 class="text-base font-semibold text-white mb-4">Referred Voters ({{ $referrals->count() }})</h2>
+        <div class="bg-slate-800/50 border border-slate-700/60 rounded-2xl overflow-hidden">
             <table class="w-full text-sm">
                 <thead>
-                    <tr class="border-b border-slate-700 text-slate-400 text-left">
-                        <th class="px-4 py-3 font-medium">Name</th>
-                        <th class="px-4 py-3 font-medium">Joined</th>
+                    <tr class="border-b border-slate-700/60 text-slate-500 text-xs uppercase tracking-wide text-left">
+                        <th class="px-5 py-3 font-medium">Name</th>
+                        <th class="px-5 py-3 font-medium">Joined</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-slate-700/50">
+                <tbody class="divide-y divide-slate-700/40">
                     @foreach($referrals as $referred)
-                    <tr>
-                        <td class="px-4 py-3 text-white">{{ $referred->full_name }}</td>
-                        <td class="px-4 py-3 text-slate-400">{{ $referred->created_at?->format('M j, Y') }}</td>
+                    <tr class="hover:bg-slate-700/20 transition">
+                        <td class="px-5 py-4">
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-slate-300 text-xs font-bold shrink-0">
+                                    {{ strtoupper(substr($referred->full_name ?? '?', 0, 1)) }}
+                                </div>
+                                <span class="text-white">{{ $referred->full_name ?? 'Anonymous' }}</span>
+                            </div>
+                        </td>
+                        <td class="px-5 py-4 text-slate-400 text-sm">{{ $referred->created_at?->format('M j, Y') }}</td>
                     </tr>
                     @endforeach
                 </tbody>
@@ -69,14 +81,21 @@
         </div>
     </div>
     @else
-    <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-8 text-center">
-        <p class="text-slate-400">No referrals yet. Share your link to start earning commissions!</p>
+    <div class="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-10 text-center">
+        <div class="w-12 h-12 rounded-full bg-slate-700/50 flex items-center justify-center mx-auto mb-4">
+            <svg class="w-6 h-6 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                    d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+            </svg>
+        </div>
+        <p class="text-slate-400 text-sm font-medium">No referrals yet</p>
+        <p class="text-slate-600 text-xs mt-1">Share your link above to start earning commissions!</p>
     </div>
     @endif
 
     @else
-    <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-10 text-center">
-        <p class="text-slate-400">No voter profile found.</p>
+    <div class="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-10 text-center">
+        <p class="text-slate-400">No voter profile found. Contact support.</p>
     </div>
     @endif
 
