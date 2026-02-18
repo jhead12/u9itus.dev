@@ -24,13 +24,16 @@ class RoleSeeder extends Seeder
         $viewReports = Permission::firstOrCreate(['name' => 'view reports']);
 
         // Create roles (idempotent)
-        $adminRole = Role::firstOrCreate(['name' => 'admin']);
-        $advertiserRole = Role::firstOrCreate(['name' => 'advertiser']);
-        $viewerRole = Role::firstOrCreate(['name' => 'viewer']);
+        $adminRole      = Role::firstOrCreate(['name' => 'admin']);
+        $politicianRole = Role::firstOrCreate(['name' => 'politician']);
+        $voterRole      = Role::firstOrCreate(['name' => 'voter']);
+        // Legacy roles kept for backward compatibility
+        Role::firstOrCreate(['name' => 'advertiser']);
+        Role::firstOrCreate(['name' => 'viewer']);
 
         // Assign permissions to roles (use sync to avoid duplicates)
-        $adminRole->syncPermissions([$manageAssignments->name, $viewReports->name]);
-        $advertiserRole->syncPermissions([$manageCampaigns->name, $viewReports->name]);
-        $viewerRole->syncPermissions([$watchAds->name]);
+        $adminRole->syncPermissions([$manageAssignments->name, $manageCampaigns->name, $viewReports->name]);
+        $politicianRole->syncPermissions([$manageCampaigns->name, $viewReports->name]);
+        $voterRole->syncPermissions([$watchAds->name]);
     }
 }

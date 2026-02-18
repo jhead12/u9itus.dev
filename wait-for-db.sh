@@ -149,6 +149,9 @@ done
 if [ "$DB_CONNECTED" = true ]; then
   echo "Running database migrations..."
   php artisan migrate --force 2>&1 || echo "WARNING: Migration failed but continuing startup..."
+
+  echo "Seeding roles and permissions..."
+  php artisan db:seed --class=RoleSeeder --force 2>&1 || echo "WARNING: Role seeding failed but continuing startup..."
 else
   echo "✗ Database not reachable after $MAX_ATTEMPTS attempts"
   echo "Skipping migrations — will retry on first request..."
