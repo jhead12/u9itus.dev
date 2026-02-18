@@ -23,27 +23,39 @@ class VoterController extends Controller
     public function dashboard()
     {
         $user = Auth::user();
-        $voter = $user->voter;
+
+        // Self-heal: create voter profile if registration created the user
+        // but the voter record is missing (e.g. early registrations or retry failures).
+        $voter = $user->voter ?? \App\Models\Voter::firstOrCreate(
+            ['user_id' => $user->id],
+            [
+                'full_name'      => $user->name,
+                'email'          => $user->email,
+                'phone'          => $user->phone,
+                'wallet_balance' => 0,
+                'trust_score'    => 100,
+                'is_active'      => true,
+                'is_verified'    => false,
+            ]
+        );
 
         $summary = [
-            'wallet_balance' => $voter->wallet_balance ?? 0,
-            'pending_earnings' => $voter->pending_earnings ?? 0,
-            'total_earned' => $voter->total_earned ?? 0,
-            'total_views' => $voter->total_views ?? 0,
+            'wallet_balance'  => (float) ($voter->wallet_balance ?? 0),
+            'pending_earnings'=> (float) ($voter->pending_earnings ?? 0),
+            'total_earned'    => (float) ($voter->total_earned ?? 0),
+            'total_views'     => (int)   ($voter->total_views ?? 0),
         ];
 
-        $recentSessions = $voter
-            ? $voter->viewSessions()
-                ->with('campaign')
-                ->latest()
-                ->take(10)
-                ->get()
-            : collect();
+        $recentSessions = $voter->viewSessions()
+            ->with('campaign')
+            ->latest()
+            ->take(10)
+            ->get();
 
         return view('standalone.voter.dashboard', [
-            'user' => $user,
-            'voter' => $voter,
-            'summary' => $summary,
+            'user'           => $user,
+            'voter'          => $voter,
+            'summary'        => $summary,
             'recentSessions' => $recentSessions,
         ]);
     }

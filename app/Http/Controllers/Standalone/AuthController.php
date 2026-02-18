@@ -127,22 +127,24 @@ class AuthController extends Controller
 
         $user->assignRole('politician');
 
-        // Create the politician profile record
-        Politician::create([
-            'user_id'          => $user->id,
-            'full_name'        => $request->name,
-            'political_office' => $request->political_office,
-            'party_affiliation'=> $request->party,
-            'governance_level' => $request->governance_level,
-            'state'            => $request->state,
-            'city'             => $request->city,
-        ]);
+        // Create the politician profile record (firstOrCreate prevents duplicates on form retry)
+        Politician::firstOrCreate(
+            ['user_id' => $user->id],
+            [
+                'full_name'         => $request->name,
+                'political_office'  => $request->political_office,
+                'party_affiliation' => $request->party,
+                'governance_level'  => $request->governance_level,
+                'state'             => $request->state,
+                'city'              => $request->city,
+            ]
+        );
 
         event(new Registered($user));
 
         Auth::login($user);
 
-        return redirect()->route('politician.dashboard');
+        return redirect()->route('verification.notice');
     }
 
     // -------------------------------------------------------------------------
@@ -184,24 +186,27 @@ class AuthController extends Controller
             $referredByVoterId = $referrer?->id;
         }
 
-        Voter::create([
-            'user_id'             => $user->id,
-            'full_name'           => $request->name,
-            'email'               => $user->email,
-            'phone'               => $request->phone,
-            'state'               => $request->state,
-            'zip_code'            => $request->zip_code,
-            'referral_code'       => strtoupper(substr(md5($user->email . time()), 0, 8)),
-            'referred_by_voter_id'=> $referredByVoterId,
-            'wallet_balance'      => 0,
-            'trust_score'         => 100,
-        ]);
+        Voter::firstOrCreate(
+            ['user_id' => $user->id],
+            [
+                'full_name'            => $request->name,
+                'email'                => $user->email,
+                'phone'                => $request->phone,
+                'state'                => $request->state,
+                'zip_code'             => $request->zip_code,
+                'referred_by_voter_id' => $referredByVoterId,
+                'wallet_balance'       => 0,
+                'trust_score'          => 100,
+                'is_active'            => true,
+                'is_verified'          => false,
+            ]
+        );
 
         event(new Registered($user));
 
         Auth::login($user);
 
-        return redirect()->route('voter.dashboard');
+        return redirect()->route('verification.notice');
     }
 
     // -------------------------------------------------------------------------
