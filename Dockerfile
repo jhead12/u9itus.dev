@@ -26,6 +26,12 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 # Set working directory
 WORKDIR /var/www/html
 
+# Cache-bust argument — increment to force fresh composer install layer
+ARG CACHE_BUST=2
+
+# Copy composer files first for better layer caching
+COPY composer.json composer.lock ./
+
 # Copy application files
 COPY . .
 
