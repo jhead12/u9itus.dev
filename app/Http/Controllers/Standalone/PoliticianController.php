@@ -353,12 +353,10 @@ class PoliticianController extends Controller
             'amount' => ['required', 'numeric', 'min:10', 'max:10000'],
         ]);
 
-        $amountCents = (int) round($validated['amount'] * 100);
-
         /** @var \App\Services\CampaignBillingService $billing */
         $billing = app(\App\Services\CampaignBillingService::class);
 
-        $intentData = $billing->createPurchaseIntent($politician->id, $amountCents, [
+        $intentData = $billing->createPurchaseIntent($politician, (float) $validated['amount'], [
             'description' => 'Credit top-up for politician #' . $politician->id,
         ]);
 

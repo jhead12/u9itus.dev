@@ -13,7 +13,13 @@ class StripePaymentService
     {
         // Lazy-load Stripe client if available
         if (class_exists('\Stripe\StripeClient')) {
-            $this->client = new \Stripe\StripeClient(config('services.stripe.secret'));
+            $key = config('services.stripe.secret');
+            if (! empty($key)) {
+                $this->client = new \Stripe\StripeClient($key);
+            } else {
+                $this->client = null;
+                Log::warning('Stripe secret key not configured (STRIPE_SECRET_KEY env var missing). Payments are disabled.');
+            }
         } else {
             $this->client = null;
             Log::warning('Stripe SDK not installed. Install stripe/stripe-php to enable payments.');
