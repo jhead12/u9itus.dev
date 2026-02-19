@@ -51,7 +51,33 @@
                 </div>
             </div>
 
-            <div id="liveFeedFields" class="{{ in_array(old('campaign_type', $campaign->campaign_type?->value ?? $campaign->campaign_type), ['live_feed']) ? '' : 'hidden' }} space-y-4">
+@php
+    $editType = old('campaign_type', $campaign->campaign_type?->value ?? $campaign->campaign_type);
+@endphp
+
+            {{-- Video fields --}}
+            <div id="videoFields" class="{{ $editType === 'live_feed' ? 'hidden' : '' }} space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-300 mb-1.5">Video URL <span class="text-red-400">*</span></label>
+                    <input type="url" name="media_url" value="{{ old('media_url', $campaign->media_url) }}"
+                        class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition"
+                        placeholder="https://example.com/your-video.mp4" />
+                    @error('media_url')<p class="text-xs text-red-400 mt-1">{{ $message }}</p>@enderror
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-300 mb-1.5">Video Duration (seconds) <span class="text-red-400">*</span></label>
+                    <input type="number" name="media_duration" value="{{ old('media_duration', $campaign->media_duration) }}"
+                        min="{{ config('u9itus.min_video_duration', 30) }}"
+                        max="{{ config('u9itus.max_video_duration', 300) }}"
+                        class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition"
+                        placeholder="e.g. 60" />
+                    <p class="text-xs text-slate-500 mt-1">Between {{ config('u9itus.min_video_duration', 30) }}–{{ config('u9itus.max_video_duration', 300) }} seconds</p>
+                    @error('media_duration')<p class="text-xs text-red-400 mt-1">{{ $message }}</p>@enderror
+                </div>
+            </div>
+
+            {{-- Live feed fields --}}
+            <div id="liveFeedFields" class="{{ $editType === 'live_feed' ? '' : 'hidden' }} space-y-4">
                 <div>
                     <label class="block text-sm font-medium text-slate-300 mb-1.5">Live Stream URL</label>
                     <input type="url" name="live_feed_url" value="{{ old('live_feed_url', $campaign->live_feed_url) }}"
@@ -117,7 +143,9 @@
 @push('scripts')
 <script>
     document.getElementById('campaignType').addEventListener('change', function() {
-        document.getElementById('liveFeedFields').classList.toggle('hidden', this.value !== 'live_feed');
+        const isLive = this.value === 'live_feed';
+        document.getElementById('liveFeedFields').classList.toggle('hidden', !isLive);
+        document.getElementById('videoFields').classList.toggle('hidden', isLive);
     });
 
     // Convert comma-separated states to target_states[] before submit
