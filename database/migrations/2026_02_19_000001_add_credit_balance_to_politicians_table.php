@@ -30,18 +30,21 @@ return new class extends Migration
 
         // Backfill: set credit_balance to the latest balance_after from the ledger.
         // If no ledger rows exist for a politician, balance remains 0.
+        // Written as a correlated subquery so it works on both MySQL and SQLite.
         DB::statement("
-            UPDATE politicians p
-            JOIN (
-                SELECT politician_id, balance_after
-                FROM politician_credits pc1
-                WHERE created_at = (
-                    SELECT MAX(created_at)
-                    FROM politician_credits pc2
-                    WHERE pc2.politician_id = pc1.politician_id
-                )
-            ) latest ON latest.politician_id = p.id
-            SET p.credit_balance = latest.balance_after
+            UPDATE politicians
+            SET credit_balance = (
+                SELECT balance_after
+                FROM politician_credits
+                WHERE politician_id = politicians.id
+                ORDER BY created_at DESC
+                LIMIT 1
+            )
+            WHERE EXISTS (
+                SELECT 1
+                FROM politician_credits
+                WHERE politician_id = politicians.id
+            )
         ");
     }
 
