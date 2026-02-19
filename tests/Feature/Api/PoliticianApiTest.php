@@ -6,7 +6,6 @@ use App\Models\Politician;
 use App\Models\PoliticalCampaign;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 class PoliticianApiTest extends TestCase
@@ -16,7 +15,7 @@ class PoliticianApiTest extends TestCase
     public function test_politician_registration_endpoint_exists(): void
     {
         $user = User::factory()->create();
-        Sanctum::actingAs($user);
+        $this->actingAs($user);
 
         $response = $this->postJson('/api/v1/politicians', [
             'first_name' => 'Jane',
@@ -31,7 +30,7 @@ class PoliticianApiTest extends TestCase
     public function test_politician_profile_endpoint_exists(): void
     {
         $user = User::factory()->create();
-        Sanctum::actingAs($user);
+        $this->actingAs($user);
         $politician = Politician::factory()->create();
 
         $response = $this->getJson("/api/v1/politicians/{$politician->uuid}");
@@ -42,7 +41,7 @@ class PoliticianApiTest extends TestCase
     public function test_politician_update_endpoint_exists(): void
     {
         $user = User::factory()->create();
-        Sanctum::actingAs($user);
+        $this->actingAs($user);
         $politician = Politician::factory()->create();
 
         $response = $this->putJson("/api/v1/politicians/{$politician->uuid}", [
@@ -55,7 +54,7 @@ class PoliticianApiTest extends TestCase
     public function test_politician_create_campaign_endpoint_exists(): void
     {
         $user = User::factory()->create();
-        Sanctum::actingAs($user);
+        $this->actingAs($user);
         $politician = Politician::factory()->create();
 
         $response = $this->postJson("/api/v1/politicians/{$politician->uuid}/campaigns", [
@@ -70,7 +69,7 @@ class PoliticianApiTest extends TestCase
     public function test_politician_campaigns_list_endpoint_exists(): void
     {
         $user = User::factory()->create();
-        Sanctum::actingAs($user);
+        $this->actingAs($user);
         $politician = Politician::factory()->create();
 
         $response = $this->getJson("/api/v1/politicians/{$politician->uuid}/campaigns");
@@ -81,7 +80,7 @@ class PoliticianApiTest extends TestCase
     public function test_politician_campaign_show_endpoint_exists(): void
     {
         $user = User::factory()->create();
-        Sanctum::actingAs($user);
+        $this->actingAs($user);
         $politician = Politician::factory()->create();
         $campaign = PoliticalCampaign::factory()->create(['politician_id' => $politician->id]);
 

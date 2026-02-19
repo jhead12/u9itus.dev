@@ -10,10 +10,7 @@ use Illuminate\Support\Facades\Schema;
  *
  * 1. Fixes the user_type enum to include 'user' (was missing, caused registration crashes).
  * 2. Makes first_name/last_name nullable (SSO users may lack them).
- * 3. Makes password nullable (SSO users authenticated via Wix have no password).
- * 4. Adds wix_member_id & wix_instance_id to users table for SSO linking.
- *
- * Note: SQLite doesn't support ALTER COLUMN for enums, so we use a workaround.
+ * 3. Makes password nullable (passwordless login flows).
  */
 return new class extends Migration
 {
@@ -37,22 +34,10 @@ return new class extends Migration
             $table->string('password')->nullable()->change();
         });
 
-        // 4. Add Wix SSO identity columns
-        Schema::table('users', function (Blueprint $table) {
-            $table->string('wix_member_id')->nullable()->unique()->after('remember_token');
-            $table->string('wix_instance_id')->nullable()->after('wix_member_id');
-
-            $table->index('wix_instance_id');
-        });
     }
 
     public function down(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            $table->dropIndex(['wix_instance_id']);
-            $table->dropColumn(['wix_member_id', 'wix_instance_id']);
-        });
-
         Schema::table('users', function (Blueprint $table) {
             $table->string('password')->nullable(false)->change();
         });

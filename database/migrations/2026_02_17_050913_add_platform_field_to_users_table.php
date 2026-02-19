@@ -5,11 +5,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Add platform field to users table for dual-platform support.
- * 
- * This allows us to track which platform a user registered from:
- * - 'wix' for Wix App Extension users
- * - 'standalone' for standalone application users
+ * Add platform field to users table.
  */
 return new class extends Migration
 {
@@ -19,9 +15,9 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->enum('platform', ['wix', 'standalone'])
+            $table->string('platform')
                 ->default('standalone')
-                ->after('wix_instance_id')
+                ->after('remember_token')
                 ->comment('Platform the user registered from');
             
             // Add index for faster platform-based queries

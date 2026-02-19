@@ -8,29 +8,9 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('wix_sites', function (Blueprint $table) {
-            $table->id();
-            $table->string('instance_id')->unique()->comment('Wix instance ID');
-            $table->string('site_url')->nullable();
-            $table->text('access_token')->nullable();
-            $table->text('refresh_token')->nullable();
-            $table->timestamp('token_expires_at')->nullable();
-            $table->string('site_display_name')->nullable();
-            $table->string('owner_email')->nullable();
-            $table->string('plan_type')->default('free');
-            $table->boolean('is_active')->default(true);
-            $table->timestamp('installed_at')->nullable();
-            $table->timestamp('uninstalled_at')->nullable();
-            $table->string('webhook_secret')->nullable();
-            $table->json('settings')->nullable();
-            $table->timestamps();
-        });
-
         Schema::create('politicians', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->nullable()->constrained()->nullOnDelete();
-            $table->foreignId('wix_site_id')->nullable()->constrained()->nullOnDelete();
-            $table->string('wix_member_id')->nullable();
             $table->uuid('uuid')->unique();
             $table->string('full_name');
             $table->string('political_office')->nullable();
@@ -52,14 +32,11 @@ return new class extends Migration
             $table->timestamps();
 
             $table->index(['governance_level', 'state']);
-            $table->index('wix_member_id');
         });
 
         Schema::create('voters', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->nullable()->constrained()->nullOnDelete();
-            $table->foreignId('wix_site_id')->nullable()->constrained()->nullOnDelete();
-            $table->string('wix_member_id')->nullable();
             $table->uuid('uuid')->unique();
             $table->string('full_name');
             $table->string('email')->nullable();
@@ -88,7 +65,6 @@ return new class extends Migration
 
             $table->index(['state', 'city']);
             $table->index('referral_code');
-            $table->index('wix_member_id');
         });
 
         Schema::create('political_campaigns', function (Blueprint $table) {
@@ -179,6 +155,5 @@ return new class extends Migration
         Schema::dropIfExists('political_campaigns');
         Schema::dropIfExists('voters');
         Schema::dropIfExists('politicians');
-        Schema::dropIfExists('wix_sites');
     }
 };

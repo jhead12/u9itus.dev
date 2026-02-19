@@ -6,7 +6,6 @@ use App\Models\PoliticalCampaign;
 use App\Models\User;
 use App\Models\Voter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 class AdminApiTest extends TestCase
@@ -16,7 +15,7 @@ class AdminApiTest extends TestCase
     public function test_admin_analytics_endpoint_exists(): void
     {
         $user = User::factory()->create();
-        Sanctum::actingAs($user);
+        $this->actingAs($user);
 
         $response = $this->getJson('/api/v1/admin/analytics');
 
@@ -26,7 +25,7 @@ class AdminApiTest extends TestCase
     public function test_admin_pending_campaigns_endpoint_exists(): void
     {
         $user = User::factory()->create();
-        Sanctum::actingAs($user);
+        $this->actingAs($user);
 
         $response = $this->getJson('/api/v1/admin/campaigns/pending');
 
@@ -36,7 +35,7 @@ class AdminApiTest extends TestCase
     public function test_admin_approve_campaign_endpoint_exists(): void
     {
         $user = User::factory()->create();
-        Sanctum::actingAs($user);
+        $this->actingAs($user);
         $campaign = PoliticalCampaign::factory()->create();
 
         $response = $this->postJson("/api/v1/admin/campaigns/{$campaign->uuid}/approve");
@@ -47,7 +46,7 @@ class AdminApiTest extends TestCase
     public function test_admin_reject_campaign_endpoint_exists(): void
     {
         $user = User::factory()->create();
-        Sanctum::actingAs($user);
+        $this->actingAs($user);
         $campaign = PoliticalCampaign::factory()->create();
 
         $response = $this->postJson("/api/v1/admin/campaigns/{$campaign->uuid}/reject", [
@@ -60,7 +59,7 @@ class AdminApiTest extends TestCase
     public function test_admin_process_payouts_endpoint_exists(): void
     {
         $user = User::factory()->create();
-        Sanctum::actingAs($user);
+        $this->actingAs($user);
 
         $response = $this->postJson('/api/v1/admin/payouts/process');
 
@@ -70,7 +69,7 @@ class AdminApiTest extends TestCase
     public function test_admin_flagged_voters_endpoint_exists(): void
     {
         $user = User::factory()->create();
-        Sanctum::actingAs($user);
+        $this->actingAs($user);
 
         $response = $this->getJson('/api/v1/admin/voters/flagged');
 
@@ -80,7 +79,7 @@ class AdminApiTest extends TestCase
     public function test_admin_clear_fraud_flag_endpoint_exists(): void
     {
         $user = User::factory()->create();
-        Sanctum::actingAs($user);
+        $this->actingAs($user);
         $voter = Voter::factory()->create();
 
         $response = $this->postJson("/api/v1/admin/voters/{$voter->uuid}/clear-flag");
