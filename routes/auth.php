@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\Route;
 Route::middleware('guest')->group(function () {
     // NOTE: register, login, forgot-password and reset-password routes are
     // handled by routes/standalone.php which provides role-specific flows.
-    // The routes below are kept only for reference / Wix mode fallback.
+    // The routes below are kept only for reference.
 
     // Route::get('register', [RegisteredUserController::class, 'create'])->name('register');
     // Route::post('register', [RegisteredUserController::class, 'store']);

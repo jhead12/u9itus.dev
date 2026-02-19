@@ -9,7 +9,7 @@ use Illuminate\Http\Request;
  * Authentication Service Interface
  * 
  * Platform-agnostic interface for user authentication.
- * Implementations exist for both Wix OAuth and standalone Laravel auth.
+ * Implemented by StandardAuthService for standalone Laravel auth.
  */
 interface AuthServiceInterface
 {

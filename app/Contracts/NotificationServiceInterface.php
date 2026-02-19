@@ -8,7 +8,7 @@ use App\Models\User;
  * Notification Service Interface
  * 
  * Platform-agnostic interface for sending notifications to users.
- * Implementations exist for both Wix and standalone platforms.
+ * Implemented by StandardNotificationService for the standalone platform.
  */
 interface NotificationServiceInterface
 {

@@ -1,23 +1,22 @@
 <?php
 
 /**
- * API Routes for U9itus – Political Loyalty Ads (Wix App Extension)
+ * API Routes for U9itus – Political Loyalty Ads (Standalone)
  *
  * These routes are consumed by:
- *   1. Wix Dashboard pages (rendered in iframes, verified by wix.verify middleware)
- *   2. Wix site widgets (voter-facing video player)
- *   3. Wix webhooks (app installed/removed events, verified by signature)
+ *   1. Dashboard pages (authenticated via Sanctum)
+ *   2. Voter-facing video player widget
+ *   3. Stripe webhooks
  *
  * Security layers:
- *   - Webhook routes: Verified by HMAC signature (no user auth needed)
+ *   - Webhook routes: Verified by signature (no user auth needed)
  *   - Voter routes: Bound by UUID (not sequential IDs) + rate-limited
- *   - Politician/Admin routes: Protected by wix.verify middleware
+ *   - Politician/Admin routes: Protected by auth:sanctum middleware
  */
 
 use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\PoliticianController;
 use App\Http\Controllers\Api\VoterController;
-use App\Http\Controllers\Wix\WebhookController;
 use App\Http\Controllers\Api\StripeWebhookController;
 use Illuminate\Support\Facades\Route;
 
@@ -33,14 +32,6 @@ Route::get('/health', function () {
         'timestamp' => now()->toIso8601String(),
     ]);
 })->name('api.health');
-
-/*
-|--------------------------------------------------------------------------
-| Wix Webhooks (verified by HMAC signature — no auth middleware)
-|--------------------------------------------------------------------------
-*/
-Route::post('/wix/webhooks', [WebhookController::class, 'handle'])
-    ->name('api.wix.webhooks');
 
 /*
 |--------------------------------------------------------------------------
@@ -87,10 +78,10 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
 
     /*
     |----------------------------------------------------------------------
-    | Politician API (Wix Dashboard — requires instance verification)
+    | Politician API (authenticated via Sanctum)
     |----------------------------------------------------------------------
     */
-    Route::middleware('wix.verify')->group(function () {
+    Route::middleware('auth:sanctum')->group(function () {
         Route::post('/politicians', [PoliticianController::class, 'store'])->name('politicians.store');
 
         Route::prefix('/politicians/{politician:uuid}')->name('politicians.')->group(function () {
@@ -100,14 +91,14 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::get('/campaigns', [PoliticianController::class, 'campaigns'])->name('campaigns.index');
             Route::get('/campaigns/{campaign:uuid}', [PoliticianController::class, 'campaignShow'])->name('campaigns.show');
 
-            // Billing endpoints for politician (standalone + Wix)
+            // Billing endpoints for politician
             Route::get('/billing/balance', [\App\Http\Controllers\Api\BillingController::class, 'balance'])->name('billing.balance');
             Route::post('/billing/purchase', [\App\Http\Controllers\Api\BillingController::class, 'purchase'])->name('billing.purchase');
         });
 
         /*
         |------------------------------------------------------------------
-        | Admin API (Wix Dashboard — requires instance verification)
+        | Admin API (authenticated via Sanctum)
         |------------------------------------------------------------------
         */
         Route::prefix('/admin')->name('admin.')->group(function () {

@@ -17,7 +17,7 @@ use Illuminate\Http\Request;
 /**
  * REST API for voters — registration, watching videos, earnings, referrals.
  *
- * These endpoints power the Wix widget and voter dashboard.
+ * These endpoints power the voter widget and voter dashboard.
  * Voter routes use UUID-based binding and rate limiting (see routes/api.php).
  */
 class VoterController extends Controller

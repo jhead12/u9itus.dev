@@ -14,8 +14,6 @@ class PoliticianFactory extends Factory
     {
         return [
             'user_id' => null,
-            'wix_site_id' => null,
-            'wix_member_id' => 'test-member-' . Str::uuid(),
             'uuid' => Str::uuid(),
             'full_name' => $this->faker->name(),
             'political_office' => $this->faker->randomElement(['Mayor', 'Senator', 'Representative', 'Governor']),

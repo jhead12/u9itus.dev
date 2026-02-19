@@ -21,7 +21,7 @@ use Illuminate\Support\Facades\DB;
 /**
  * Admin API — campaign approval, fraud management, payouts, analytics.
  *
- * Protected by wix.verify middleware (see routes/api.php).
+ * Protected by auth:sanctum middleware (see routes/api.php).
  */
 class AdminController extends Controller
 {

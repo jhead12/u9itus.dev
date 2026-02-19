@@ -32,39 +32,39 @@ This document describes the complete system architecture for U9itus that can be 
 
 ### 2. **Frontend Layer**
 
-#### Wix Dashboard (Politician)
+#### Politician Dashboard
 
 - **Type**: UI
-- **Technology**: Wix Dashboard Extension (React)
-- **Port**: N/A (Wix-hosted)
+- **Technology**: Laravel Blade + Tailwind CSS
+- **URL**: /politician/\*
 - **Endpoints Used**:
-    - POST /api/politicians
-    - POST /api/campaigns
-    - GET /api/campaigns/{id}
-    - POST /api/campaigns/{id}/payment
+    - POST /api/v1/politicians
+    - POST /api/v1/politicians/{id}/campaigns
+    - GET /api/v1/politicians/{id}/campaigns
+    - POST /api/v1/politicians/{id}/billing/purchase
 
-#### Wix Dashboard (Voter)
+#### Voter Dashboard
 
 - **Type**: UI
-- **Technology**: Wix Dashboard Extension (React)
-- **Port**: N/A (Wix-hosted)
+- **Technology**: Laravel Blade + Tailwind CSS
+- **URL**: /voter/\*
 - **Endpoints Used**:
-    - POST /api/voters
-    - GET /api/voters/{id}/campaigns/available
-    - POST /api/view-sessions
-    - GET /api/voters/{id}/earnings
+    - POST /api/v1/voters
+    - GET /api/v1/voters/{id}/campaigns
+    - POST /api/v1/voters/{id}/campaigns/{cid}/watch
+    - GET /api/v1/voters/{id}/earnings
 
-#### Wix Dashboard (Admin)
+#### Admin Dashboard
 
 - **Type**: UI
-- **Technology**: Wix Dashboard Extension (React)
-- **Port**: N/A (Wix-hosted)
+- **Technology**: Laravel Blade + Tailwind CSS
+- **URL**: /admin/\*
 - **Endpoints Used**:
-    - GET /api/admin/campaigns/pending
-    - POST /api/admin/campaigns/{id}/approve
-    - POST /api/admin/campaigns/{id}/reject
-    - GET /api/admin/fraud-reviews
-    - POST /api/admin/payouts/process
+    - GET /api/v1/admin/campaigns/pending
+    - POST /api/v1/admin/campaigns/{id}/approve
+    - POST /api/v1/admin/campaigns/{id}/reject
+    - GET /api/v1/admin/voters/flagged
+    - POST /api/v1/admin/payouts/process
 
 #### Laravel Welcome Page
 
@@ -95,16 +95,15 @@ This document describes the complete system architecture for U9itus that can be 
 
 ### 4. **Service Layer**
 
-#### Auth Service (Wix OAuth)
+#### Auth Service (Laravel Sanctum)
 
 - **Type**: Service A
-- **Technology**: Laravel + Wix SDK
+- **Technology**: Laravel Sanctum + Spatie Permission
 - **Responsibilities**:
-    - Wix OAuth flow (`/wix/oauth/callback`)
-    - Instance token validation
-    - Site installation tracking
-    - Member authentication
-- **External Dependency**: Wix API (https://www.wixapis.com)
+    - Session-based authentication
+    - API token management
+    - Role-based access control (admin, politician, voter)
+    - Email verification
 
 #### Campaign Management Service
 

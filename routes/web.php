@@ -8,11 +8,8 @@ use Illuminate\Support\Facades\Route;
 | Web Routes
 |--------------------------------------------------------------------------
 |
-| U9itus supports dual-platform deployment:
-| - Wix App Extension routes (routes/wix.php)
-| - Standalone application routes (routes/standalone.php)
-|
-| Platform-specific routes are loaded based on config('platform.mode').
+| U9itus Standalone Application Routes
+| Framework: Laravel 12 (Standalone Architecture)
 |
 */
 
@@ -32,19 +29,11 @@ Route::get('/diagnose', function () {
 
 /*
 |--------------------------------------------------------------------------
-| Platform-Specific Routes Loading
+| Standalone Routes
 |--------------------------------------------------------------------------
 */
 
-// Load Wix routes if enabled
-if (config('platform.wix.enabled', true)) {
-    require __DIR__.'/wix.php';
-}
-
-// Load standalone routes if enabled
-if (config('platform.standalone.enabled', true)) {
-    require __DIR__.'/standalone.php';
-}
+require __DIR__.'/standalone.php';
 
 /*
 |--------------------------------------------------------------------------
@@ -53,10 +42,6 @@ if (config('platform.standalone.enabled', true)) {
 */
 
 Route::get('/', function () {
-    // Redirect based on platform mode
-    if (config('platform.mode') === 'wix') {
-        return view('welcome-wix');
-    }
     return view('welcome');
 });
 
@@ -91,7 +76,4 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
-// Auth routes only loaded for standalone mode
-if (config('platform.standalone.enabled', true)) {
-    require __DIR__.'/auth.php';
-}
+require __DIR__.'/auth.php';

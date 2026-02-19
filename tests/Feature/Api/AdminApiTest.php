@@ -3,8 +3,10 @@
 namespace Tests\Feature\Api;
 
 use App\Models\PoliticalCampaign;
+use App\Models\User;
 use App\Models\Voter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 class AdminApiTest extends TestCase
@@ -13,40 +15,42 @@ class AdminApiTest extends TestCase
 
     public function test_admin_analytics_endpoint_exists(): void
     {
-        $response = $this->withHeaders([
-            'X-Wix-Instance' => 'fake-admin-token',
-        ])->getJson('/api/v1/admin/analytics');
+        $user = User::factory()->create();
+        Sanctum::actingAs($user);
+
+        $response = $this->getJson('/api/v1/admin/analytics');
 
         $this->assertContains($response->status(), [200, 401, 403, 500]);
     }
 
     public function test_admin_pending_campaigns_endpoint_exists(): void
     {
-        $response = $this->withHeaders([
-            'X-Wix-Instance' => 'fake-admin-token',
-        ])->getJson('/api/v1/admin/campaigns/pending');
+        $user = User::factory()->create();
+        Sanctum::actingAs($user);
+
+        $response = $this->getJson('/api/v1/admin/campaigns/pending');
 
         $this->assertContains($response->status(), [200, 401, 403, 500]);
     }
 
     public function test_admin_approve_campaign_endpoint_exists(): void
     {
+        $user = User::factory()->create();
+        Sanctum::actingAs($user);
         $campaign = PoliticalCampaign::factory()->create();
 
-        $response = $this->withHeaders([
-            'X-Wix-Instance' => 'fake-admin-token',
-        ])->postJson("/api/v1/admin/campaigns/{$campaign->uuid}/approve");
+        $response = $this->postJson("/api/v1/admin/campaigns/{$campaign->uuid}/approve");
 
         $this->assertContains($response->status(), [200, 401, 403, 404, 422, 500]);
     }
 
     public function test_admin_reject_campaign_endpoint_exists(): void
     {
+        $user = User::factory()->create();
+        Sanctum::actingAs($user);
         $campaign = PoliticalCampaign::factory()->create();
 
-        $response = $this->withHeaders([
-            'X-Wix-Instance' => 'fake-admin-token',
-        ])->postJson("/api/v1/admin/campaigns/{$campaign->uuid}/reject", [
+        $response = $this->postJson("/api/v1/admin/campaigns/{$campaign->uuid}/reject", [
             'reason' => 'Inappropriate content',
         ]);
 
@@ -55,39 +59,41 @@ class AdminApiTest extends TestCase
 
     public function test_admin_process_payouts_endpoint_exists(): void
     {
-        $response = $this->withHeaders([
-            'X-Wix-Instance' => 'fake-admin-token',
-        ])->postJson('/api/v1/admin/payouts/process');
+        $user = User::factory()->create();
+        Sanctum::actingAs($user);
+
+        $response = $this->postJson('/api/v1/admin/payouts/process');
 
         $this->assertContains($response->status(), [200, 401, 403, 422, 500]);
     }
 
     public function test_admin_flagged_voters_endpoint_exists(): void
     {
-        $response = $this->withHeaders([
-            'X-Wix-Instance' => 'fake-admin-token',
-        ])->getJson('/api/v1/admin/voters/flagged');
+        $user = User::factory()->create();
+        Sanctum::actingAs($user);
+
+        $response = $this->getJson('/api/v1/admin/voters/flagged');
 
         $this->assertContains($response->status(), [200, 401, 403, 500]);
     }
 
     public function test_admin_clear_fraud_flag_endpoint_exists(): void
     {
+        $user = User::factory()->create();
+        Sanctum::actingAs($user);
         $voter = Voter::factory()->create();
 
-        $response = $this->withHeaders([
-            'X-Wix-Instance' => 'fake-admin-token',
-        ])->postJson("/api/v1/admin/voters/{$voter->uuid}/clear-flag");
+        $response = $this->postJson("/api/v1/admin/voters/{$voter->uuid}/clear-flag");
 
         $this->assertContains($response->status(), [200, 401, 403, 404, 422, 500]);
     }
 
-    public function test_admin_endpoints_require_wix_headers(): void
+    public function test_admin_endpoints_require_authentication(): void
     {
-        // Request without Wix headers should be blocked
+        // Request without authentication should be blocked
         $response = $this->getJson('/api/v1/admin/analytics');
 
-        // Should return 401 or 403 without valid Wix instance
+        // Should return 401 without valid authentication
         $this->assertContains($response->status(), [401, 403, 500]);
     }
 }

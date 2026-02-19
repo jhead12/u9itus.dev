@@ -18,8 +18,6 @@ class Politician extends Model
 
     protected $fillable = [
         'user_id',
-        'wix_site_id',
-        'wix_member_id',
         'uuid',
         'full_name',
         'political_office',
@@ -62,11 +60,6 @@ class Politician extends Model
     public function user(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(User::class);
-    }
-
-    public function wixSite(): \Illuminate\Database\Eloquent\Relations\BelongsTo
-    {
-        return $this->belongsTo(WixSite::class);
     }
 
     public function campaigns(): \Illuminate\Database\Eloquent\Relations\HasMany

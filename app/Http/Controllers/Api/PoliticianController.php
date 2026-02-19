@@ -19,8 +19,8 @@ use Illuminate\Support\Facades\Validator;
 /**
  * REST API for politicians to manage their profiles and campaigns.
  *
- * These endpoints are consumed by the Wix dashboard components
- * and are protected by the wix.verify middleware (see routes/api.php).
+ * These endpoints are consumed by the dashboard components
+ * and are protected by the auth:sanctum middleware (see routes/api.php).
  */
 class PoliticianController extends Controller
 {

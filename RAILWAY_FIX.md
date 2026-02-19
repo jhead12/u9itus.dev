@@ -55,11 +55,6 @@ LOG_LEVEL=error
 SESSION_DRIVER=database
 CACHE_STORE=database
 QUEUE_CONNECTION=database
-
-# Wix Configuration
-WIX_APP_ID=3cc2de07-3a6c-4542-b7b3-e92721c6df8a
-WIX_APP_SECRET=91b427ed-cf50-447e-a391-0d7337be5007
-WIX_APP_URL=https://u9itus-production.up.railway.app
 ```
 
 ## Deployment Steps

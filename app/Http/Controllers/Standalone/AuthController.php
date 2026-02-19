@@ -6,11 +6,13 @@ use App\Http\Controllers\Controller;
 use App\Models\Politician;
 use App\Models\User;
 use App\Models\Voter;
+use App\Mail\WelcomeMail;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Auth\Events\Verified;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Validation\Rules;
 
@@ -182,6 +184,13 @@ class AuthController extends Controller
 
         event(new Registered($user));
 
+        // Send welcome email (non-fatal if SMTP not yet configured)
+        try {
+            Mail::to($user->email)->queue(new WelcomeMail($user));
+        } catch (\Exception) {
+            // silently skip — email config may not be set up yet
+        }
+
         Auth::login($user);
 
         return redirect()->route('verification.notice');
@@ -256,6 +265,13 @@ class AuthController extends Controller
         );
 
         event(new Registered($user));
+
+        // Send welcome email (non-fatal if SMTP not yet configured)
+        try {
+            Mail::to($user->email)->queue(new WelcomeMail($user));
+        } catch (\Exception) {
+            // silently skip — email config may not be set up yet
+        }
 
         Auth::login($user);
 

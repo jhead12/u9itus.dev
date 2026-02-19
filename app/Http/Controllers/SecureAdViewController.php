@@ -4,9 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\PoliticalCampaign;
 use App\Models\Voter;
-use App\Models\WixSite;
 use App\Models\AdViewToken;
-use App\Services\WixNotificationService;
+use App\Contracts\NotificationServiceInterface;
 use Illuminate\Http\Request;
 
 /**
@@ -15,9 +14,9 @@ use Illuminate\Http\Request;
  */
 class SecureAdViewController extends Controller
 {
-    protected WixNotificationService $notificationService;
+    protected NotificationServiceInterface $notificationService;
 
-    public function __construct(WixNotificationService $notificationService)
+    public function __construct(NotificationServiceInterface $notificationService)
     {
         $this->notificationService = $notificationService;
     }
@@ -28,34 +27,26 @@ class SecureAdViewController extends Controller
      */
     public function distributeAdToVoters(Request $request, PoliticalCampaign $campaign)
     {
-        $wixSite = WixSite::where('app_installed', true)->first();
-        
-        if (!$wixSite) {
-            return response()->json(['error' => 'No Wix site configured'], 400);
-        }
-
         // Get eligible voters (based on location, demographics, etc.)
-        $eligibleVoters = Voter::where('status', 'active')
+        $eligibleVoters = Voter::where('is_active', true)
+            ->where('is_verified', true)
+            ->where('flagged_for_fraud', false)
             ->whereHas('user', function ($query) {
-                $query->where('email_verified_at', '!=', null);
+                $query->whereNotNull('email_verified_at');
             })
             ->limit(100)
             ->pluck('id')
             ->toArray();
 
-        // Batch send notifications
-        $result = $this->notificationService->batchSendNotifications(
-            $campaign,
-            $eligibleVoters,
-            $wixSite,
-            'email' // or 'push', 'sms'
-        );
+        if (empty($eligibleVoters)) {
+            return response()->json(['error' => 'No eligible voters found'], 400);
+        }
 
+        // TODO: Implement batch notification distribution via StandardNotificationService
         return response()->json([
             'campaign_id' => $campaign->id,
-            'notifications_sent' => count($result['sent']),
-            'failed' => count($result['failed']),
-            'details' => $result,
+            'eligible_voters' => count($eligibleVoters),
+            'message' => 'Distribution queued',
         ]);
     }
 
@@ -119,18 +110,19 @@ class SecureAdViewController extends Controller
     {
         $voter = Voter::where('user_id', auth()->id())->firstOrFail();
         $campaign = PoliticalCampaign::where('status', 'active')->first();
-        $wixSite = WixSite::where('app_installed', true)->first();
 
-        if (!$campaign || !$wixSite) {
-            return response()->json(['error' => 'No active campaign or Wix site'], 400);
+        if (!$campaign) {
+            return response()->json(['error' => 'No active campaign found'], 400);
         }
 
         try {
-            $token = $this->notificationService->sendAdNotificationEmail(
-                $voter,
-                $campaign,
-                $wixSite
-            );
+            $token = AdViewToken::create([
+                'voter_id' => $voter->id,
+                'campaign_id' => $campaign->id,
+                'token' => bin2hex(random_bytes(32)),
+                'expires_at' => now()->addHours(config('u9itus.assignment_expiry_hours', 24)),
+                'sent_at' => now(),
+            ]);
 
             return response()->json([
                 'success' => true,

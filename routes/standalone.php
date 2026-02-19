@@ -3,10 +3,10 @@
 /**
  * Standalone Application Routes
  * 
- * These routes are for the standalone version of U9itus,
- * independent of the Wix platform integration.
+ * These routes are for the U9itus standalone application,
+ * powered by Laravel 12.
  * 
- * Only loaded when config('platform.standalone.enabled') === true
+ * Framework: Laravel 12 (Standalone Architecture)
  */
 
 use App\Http\Controllers\Standalone\AuthController;
@@ -182,6 +182,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // System Settings
         Route::get('/settings', [AdminController::class, 'settings'])->name('settings');
         Route::put('/settings', [AdminController::class, 'updateSettings'])->name('settings.update');
+        Route::post('/settings/test-email', [AdminController::class, 'testEmail'])->name('settings.test-email');
     });
 });
 
