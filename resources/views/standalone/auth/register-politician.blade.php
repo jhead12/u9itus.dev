@@ -86,8 +86,8 @@
                     </div>
 
                     <div>
-                        <label for="phone" class="block text-sm font-medium text-slate-300 mb-1.5">Phone number</label>
-                        <input id="phone" type="tel" name="phone" value="{{ old('phone') }}"
+                        <label for="phone" class="block text-sm font-medium text-slate-300 mb-1.5">Phone number <span class="text-red-400">*</span></label>
+                        <input id="phone" type="tel" name="phone" value="{{ old('phone') }}" required
                             class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition"
                             placeholder="+1 (555) 000-0000" />
                     </div>
@@ -101,22 +101,22 @@
                 <div class="space-y-4">
                     <div class="grid grid-cols-2 gap-3">
                         <div>
-                            <label for="political_office" class="block text-sm font-medium text-slate-300 mb-1.5">Running for / Current office</label>
-                            <input id="political_office" type="text" name="political_office" value="{{ old('political_office') }}"
+                            <label for="political_office" class="block text-sm font-medium text-slate-300 mb-1.5">Running for / Current office <span class="text-red-400">*</span></label>
+                            <input id="political_office" type="text" name="political_office" value="{{ old('political_office') }}" required
                                 class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition"
                                 placeholder="e.g. City Council" />
                         </div>
                         <div>
-                            <label for="party" class="block text-sm font-medium text-slate-300 mb-1.5">Political party</label>
-                            <input id="party" type="text" name="party" value="{{ old('party') }}"
+                            <label for="party" class="block text-sm font-medium text-slate-300 mb-1.5">Political party <span class="text-red-400">*</span></label>
+                            <input id="party" type="text" name="party" value="{{ old('party') }}" required
                                 class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition"
                                 placeholder="e.g. Democratic" />
                         </div>
                     </div>
 
                     <div>
-                        <label for="governance_level" class="block text-sm font-medium text-slate-300 mb-1.5">Governance level</label>
-                        <select id="governance_level" name="governance_level"
+                        <label for="governance_level" class="block text-sm font-medium text-slate-300 mb-1.5">Governance level <span class="text-red-400">*</span></label>
+                        <select id="governance_level" name="governance_level" required
                             class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition">
                             <option value="">Select level...</option>
                             @foreach(config('u9itus.governance_levels', ['federal','state','county','city','school_board','special_district']) as $level)
@@ -129,8 +129,8 @@
 
                     <div class="grid grid-cols-2 gap-3">
                         <div>
-                            <label for="state" class="block text-sm font-medium text-slate-300 mb-1.5">State</label>
-                            <select id="state" name="state"
+                            <label for="state" class="block text-sm font-medium text-slate-300 mb-1.5">State <span class="text-red-400">*</span></label>
+                            <select id="state" name="state" required
                                 class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition">
                                 <option value="">Select state...</option>
                                 @foreach(config('u9itus.us_states', []) as $abbr => $stateName)
@@ -139,8 +139,8 @@
                             </select>
                         </div>
                         <div>
-                            <label for="city" class="block text-sm font-medium text-slate-300 mb-1.5">City / District</label>
-                            <input id="city" type="text" name="city" value="{{ old('city') }}"
+                            <label for="city" class="block text-sm font-medium text-slate-300 mb-1.5">City / District <span class="text-red-400">*</span></label>
+                            <input id="city" type="text" name="city" value="{{ old('city') }}" required
                                 class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition"
                                 placeholder="e.g. Austin" />
                         </div>

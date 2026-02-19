@@ -127,22 +127,30 @@ class AuthController extends Controller
             'name'             => ['required', 'string', 'max:255'],
             'email'            => ['required', 'string', 'email', 'max:255', 'unique:users'],
             'password'         => ['required', 'confirmed', Rules\Password::defaults()],
-            'phone'            => ['nullable', 'string', 'max:20'],
-            'political_office' => ['nullable', 'string', 'max:255'],
-            'party'            => ['nullable', 'string', 'max:100'],
-            'governance_level' => ['nullable', 'string', 'max:50'],
-            'state'            => ['nullable', 'string', 'size:2'],
-            'city'             => ['nullable', 'string', 'max:100'],
+            'phone'            => ['required', 'string', 'max:20'],
+            'political_office' => ['required', 'string', 'max:255'],
+            'party'            => ['required', 'string', 'max:100'],
+            'governance_level' => ['required', 'string', 'max:50'],
+            'state'            => ['required', 'string', 'size:2'],
+            'city'             => ['required', 'string', 'max:100'],
             'terms'            => ['accepted'],
         ]);
 
+        $nameParts = explode(' ', trim($request->name), 2);
+        $firstName = $nameParts[0];
+        $lastName  = $nameParts[1] ?? '';
+
         $user = User::create([
-            'name'      => $request->name,
-            'email'     => $request->email,
-            'password'  => Hash::make($request->password),
-            'phone'     => $request->phone,
-            'platform'  => 'standalone',
-            'user_type' => 'politician',
+            'name'       => $request->name,
+            'first_name' => $firstName,
+            'last_name'  => $lastName,
+            'email'      => $request->email,
+            'password'   => Hash::make($request->password),
+            'phone'      => $request->phone,
+            'city'       => $request->city,
+            'state'      => $request->state,
+            'platform'   => 'standalone',
+            'user_type'  => 'politician',
         ]);
 
         $user->assignRole('politician');
