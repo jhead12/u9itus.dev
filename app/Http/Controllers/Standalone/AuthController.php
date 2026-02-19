@@ -239,9 +239,12 @@ class AuthController extends Controller
             'is_verified'          => false,
         ];
 
+        // Search by email so that any orphaned voter row (user_id = NULL) created
+        // during a failed previous registration attempt is adopted rather than
+        // leaving a broken duplicate. Always write user_id into the record.
         \App\Models\Voter::updateOrCreate(
-            ['user_id' => $user->id],
-            $voterPayload
+            ['email' => $user->email],
+            array_merge($voterPayload, ['user_id' => $user->id])
         );
 
         event(new Registered($user));

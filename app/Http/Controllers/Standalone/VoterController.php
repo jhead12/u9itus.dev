@@ -31,7 +31,24 @@ class VoterController extends Controller
     {
         $user = Auth::user();
 
-        return $user->voter ?? Voter::firstOrCreate(
+        // Primary lookup: via the user_id foreign key
+        if ($voter = $user->voter) {
+            return $voter;
+        }
+
+        // Fallback: find an orphaned voter row matched by email (NULL user_id
+        // caused by a registration race condition) and stitch the FK.
+        $voter = Voter::where('email', $user->email)
+            ->whereNull('user_id')
+            ->first();
+
+        if ($voter) {
+            $voter->update(['user_id' => $user->id]);
+            return $voter->fresh();
+        }
+
+        // Last resort: create a new voter profile linked to this user.
+        return Voter::firstOrCreate(
             ['user_id' => $user->id],
             [
                 'full_name'      => $user->name,
