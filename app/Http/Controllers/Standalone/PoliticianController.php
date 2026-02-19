@@ -343,7 +343,13 @@ class PoliticianController extends Controller
         ));
     }
 
-    /** Add funds via Stripe — creates a PaymentIntent and redirects to checkout. */
+    /**
+     * Add funds via Stripe — creates a PaymentIntent and returns the client_secret
+     * as JSON so the billing page Stripe.js can complete the card payment in-browser.
+     *
+     * Expects: POST with JSON or form body { amount: number }
+     * Returns: JSON { client_secret, publishable_key, amount }
+     */
     public function addFunds(Request $request)
     {
         $politician = Auth::user()->politician;
@@ -356,12 +362,25 @@ class PoliticianController extends Controller
         /** @var \App\Services\CampaignBillingService $billing */
         $billing = app(\App\Services\CampaignBillingService::class);
 
-        $intentData = $billing->createPurchaseIntent($politician, (float) $validated['amount'], [
-            'description' => 'Credit top-up for politician #' . $politician->id,
-        ]);
+        try {
+            $intentData = $billing->createPurchaseIntent($politician, (float) $validated['amount'], [
+                'description' => 'Credit top-up for politician #' . $politician->id,
+            ]);
+        } catch (\Exception $e) {
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json(['error' => $e->getMessage()], 500);
+            }
+            return back()->withErrors(['amount' => 'Payment service unavailable: ' . $e->getMessage()]);
+        }
 
-        return redirect()->away($intentData['checkout_url'] ?? route('politician.billing'))
-            ->with('info', 'Redirecting to payment…');
+        // Always return JSON — the billing view submits via fetch() and handles the response.
+        return response()->json([
+            'client_secret'   => $intentData['client_secret'],
+            'payment_intent'  => $intentData['payment_intent_id'],
+            'amount'          => $validated['amount'],
+            'publishable_key' => config('services.stripe.public'),
+            'return_url'      => route('politician.billing'),
+        ]);
     }
 
     /** Invoice / transaction history page. */

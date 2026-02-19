@@ -6,6 +6,16 @@
 @section('content')
 <div class="space-y-6">
 
+    {{-- Payment result notices — shown by JS after Stripe redirect (redirect_status param) --}}
+    <div id="notice-success" class="hidden bg-emerald-500/10 border border-emerald-500/30 rounded-xl px-5 py-4 flex items-center gap-3">
+        <svg class="w-5 h-5 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+        <p class="text-sm text-emerald-300">Payment successful! Credits will appear in your ledger momentarily.</p>
+    </div>
+    <div id="notice-failed" class="hidden bg-red-500/10 border border-red-500/30 rounded-xl px-5 py-4 flex items-center gap-3">
+        <svg class="w-5 h-5 text-red-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        <p class="text-sm text-red-300">Payment failed or was cancelled. Please try again.</p>
+    </div>
+
     {{-- Credit Balance + Add Funds --}}
     <div class="grid sm:grid-cols-3 gap-4">
         <div class="sm:col-span-2 bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
@@ -13,21 +23,47 @@
             <p class="text-4xl font-bold text-emerald-400">${{ number_format($creditBalance, 2) }}</p>
             <p class="text-xs text-slate-500 mt-2">Used to fund active campaigns at ${{ number_format(config('u9itus.revenue_per_view', 0.60), 2) }}/view</p>
         </div>
+
+        {{-- Add Funds card — Stripe.js PaymentElement flow --}}
         <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
             <p class="text-sm font-semibold text-slate-200 mb-3">Add Funds</p>
-            <form method="POST" action="{{ route('politician.billing.add-funds') }}">
-                @csrf
+
+            {{-- Step 1: amount selection --}}
+            <div id="step-amount">
                 <div class="relative mb-3">
                     <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
-                    <input type="number" name="amount" min="10" max="10000" step="10" value="100"
+                    <input id="fund-amount" type="number" min="10" max="10000" step="10" value="100"
                         class="w-full bg-slate-900/60 border border-slate-700 rounded-lg pl-7 pr-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition" />
                 </div>
-                <button type="submit"
+                <button id="btn-proceed"
                     class="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-semibold rounded-lg py-2.5 text-sm transition">
                     Add Credits via Stripe
                 </button>
-            </form>
-            <p class="text-xs text-slate-600 mt-2 text-center">Minimum $10</p>
+                <p class="text-xs text-slate-600 mt-2 text-center">Minimum $10</p>
+            </div>
+
+            {{-- Step 2: Stripe PaymentElement (hidden until client_secret is loaded) --}}
+            <div id="step-payment" class="hidden">
+                <p class="text-xs text-slate-400 mb-3">Paying <span id="pay-display"></span></p>
+                <div id="payment-element" class="mb-3"></div>
+                <div id="payment-message" class="hidden text-xs text-red-400 mb-2"></div>
+                <button id="btn-pay"
+                    class="w-full bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-slate-900 font-semibold rounded-lg py-2.5 text-sm transition">
+                    Pay Now
+                </button>
+                <button id="btn-cancel" class="w-full mt-2 text-xs text-slate-500 hover:text-slate-300">
+                    Cancel
+                </button>
+            </div>
+
+            {{-- Loading spinner --}}
+            <div id="step-loading" class="hidden text-center py-4">
+                <svg class="animate-spin mx-auto h-6 w-6 text-emerald-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                </svg>
+                <p class="text-xs text-slate-500 mt-2">Processing…</p>
+            </div>
         </div>
     </div>
 
@@ -135,3 +171,123 @@
 
 </div>
 @endsection
+
+@push('scripts')
+<script src="https://js.stripe.com/v3/"></script>
+<script>
+(function () {
+    const addFundsUrl  = @json(route('politician.billing.add-funds'));
+    const csrfToken    = document.querySelector('meta[name="csrf-token"]')?.content ?? '';
+
+    let stripe, elements;
+
+    const show = id => document.getElementById(id).classList.remove('hidden');
+    const hide = id => document.getElementById(id).classList.add('hidden');
+    const $msg = document.getElementById('payment-message');
+
+    function showError(msg) {
+        $msg.textContent = msg;
+        $msg.classList.remove('hidden');
+    }
+
+    // ── Step 1: "Add Credits via Stripe" clicked ───────────────────────────
+    document.getElementById('btn-proceed').addEventListener('click', async () => {
+        const amount = parseFloat(document.getElementById('fund-amount').value);
+        if (!amount || amount < 10) {
+            alert('Minimum amount is $10.');
+            return;
+        }
+
+        hide('step-amount');
+        show('step-loading');
+
+        try {
+            const res = await fetch(addFundsUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken,
+                },
+                body: JSON.stringify({ amount }),
+            });
+
+            const data = await res.json();
+
+            if (!res.ok || data.error) {
+                throw new Error(data.error ?? data.message ?? 'Server error');
+            }
+
+            if (!data.client_secret) {
+                throw new Error('Payment service not configured. Please contact support.');
+            }
+
+            // Mount Stripe PaymentElement
+            stripe   = Stripe(data.publishable_key);
+            elements = stripe.elements({
+                clientSecret: data.client_secret,
+                appearance: {
+                    theme: 'night',
+                    variables: { colorPrimary: '#10b981', colorBackground: '#0f172a', borderRadius: '8px' }
+                },
+            });
+
+            const paymentEl = elements.create('payment');
+            paymentEl.mount('#payment-element');
+
+            document.getElementById('pay-display').textContent = '$' + parseFloat(data.amount).toFixed(2);
+
+            hide('step-loading');
+            show('step-payment');
+
+            // Store return_url for confirmPayment
+            document.getElementById('btn-pay').dataset.returnUrl = data.return_url;
+
+        } catch (err) {
+            hide('step-loading');
+            show('step-amount');
+            alert('Error: ' + err.message);
+        }
+    });
+
+    // ── Step 2: "Pay Now" clicked ─────────────────────────────────────────
+    document.getElementById('btn-pay').addEventListener('click', async (e) => {
+        const btn = e.currentTarget;
+        btn.disabled = true;
+        btn.textContent = 'Processing…';
+        $msg.classList.add('hidden');
+
+        const { error } = await stripe.confirmPayment({
+            elements,
+            confirmParams: { return_url: btn.dataset.returnUrl },
+        });
+
+        // Only reached if confirmPayment fails immediately (e.g. validation error)
+        if (error) {
+            showError(error.message);
+            btn.disabled = false;
+            btn.textContent = 'Pay Now';
+        }
+    });
+
+    // ── Cancel button ─────────────────────────────────────────────────────
+    document.getElementById('btn-cancel').addEventListener('click', () => {
+        $msg.classList.add('hidden');
+        hide('step-payment');
+        show('step-amount');
+    });
+
+    // ── Handle redirect-back from Stripe (redirect_status param) ────────
+    const urlParams = new URLSearchParams(window.location.search);
+    const redirectStatus = urlParams.get('redirect_status');
+    if (redirectStatus === 'succeeded') {
+        document.getElementById('notice-success').classList.remove('hidden');
+        // Clean up the URL without a reload
+        history.replaceState({}, '', @json(route('politician.billing')));
+    } else if (redirectStatus === 'failed' || redirectStatus === 'canceled') {
+        document.getElementById('notice-failed').classList.remove('hidden');
+        history.replaceState({}, '', @json(route('politician.billing')));
+    }
+})();
+</script>
+@endpush
