@@ -83,11 +83,32 @@ class User extends Authenticatable
     // ── Scopes ───────────────────────────────────────────────
 
     /**
+     * Valid user_type values for the standalone political platform.
+     */
+    public const ROLES = ['admin', 'politician', 'voter'];
+
+    /**
      * Scope to admin users.
      */
     public function scopeAdmins($query): void
     {
         $query->where('user_type', 'admin');
+    }
+
+    /**
+     * Scope to politician users.
+     */
+    public function scopePoliticians($query): void
+    {
+        $query->where('user_type', 'politician');
+    }
+
+    /**
+     * Scope to voter users.
+     */
+    public function scopeVoters($query): void
+    {
+        $query->where('user_type', 'voter');
     }
 
 }

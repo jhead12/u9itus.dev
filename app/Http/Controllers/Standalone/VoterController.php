@@ -4,9 +4,12 @@ namespace App\Http\Controllers\Standalone;
 
 use App\Http\Controllers\Controller;
 use App\Models\AdViewToken;
+use App\Models\PoliticalCampaign;
 use App\Models\Voter;
 use App\Models\ViewSession;
 use App\Services\PoliticalViewService;
+use App\Enums\CampaignStatus;
+use App\Enums\ApprovalStatus;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -81,6 +84,161 @@ class VoterController extends Controller
             'summary'        => $summary,
             'recentSessions' => $recentSessions,
         ]);
+    }
+
+    // ── Ad Viewing Room ──────────────────────────────────────
+
+    /**
+     * GET /voter/ad-room
+     * List all active campaigns available for this voter to watch.
+     *
+     * Filtering priority:
+     *  1. Campaigns the voter has NOT already completed (no duplicate payout).
+     *  2. Campaigns with remaining views (views_completed < total_views_requested).
+     *  3. Active + admin-approved only.
+     *  4. Soft-match voter's preferred_governance_levels & state if set.
+     */
+    public function adRoom(Request $request)
+    {
+        $voter = $this->resolveVoter();
+
+        // IDs of campaigns the voter already completed (no re-watching for pay)
+        $completedCampaignIds = $voter->viewSessions()
+            ->where('status', 'completed')
+            ->pluck('political_campaign_id')
+            ->all();
+
+        // IDs of campaigns with an in-progress (unexpired) token for this voter
+        $inProgressTokenCampaignIds = AdViewToken::where('voter_id', $voter->id)
+            ->where('is_used', false)
+            ->where('is_expired', false)
+            ->where('expires_at', '>', now())
+            ->pluck('political_campaign_id')
+            ->all();
+
+        // Voter's stored governance-level preferences
+        $voterPrefs = $voter->preferred_governance_levels ?? [];
+
+        $query = PoliticalCampaign::with('politician:id,full_name,political_office,governance_level,profile_photo_url,verified_official')
+            ->where('status', CampaignStatus::Active)
+            ->where('approval_status', ApprovalStatus::Approved)
+            ->whereColumn('views_completed', '<', 'total_views_requested')
+            ->whereNotIn('id', $completedCampaignIds);
+
+        // Text search (title / message summary)
+        if ($q = $request->input('q')) {
+            $query->where(function ($s) use ($q) {
+                $s->where('title', 'like', "%{$q}%")
+                  ->orWhere('message_summary', 'like', "%{$q}%");
+            });
+        }
+
+        // Explicit governance-level filter from the URL (?level=)
+        if ($levelFilter = $request->input('level')) {
+            $query->where('governance_level', $levelFilter);
+        } elseif (! empty($voterPrefs)) {
+            // Voter preference soft-filter only when no explicit level chosen
+            $query->whereIn('governance_level', $voterPrefs);
+        }
+
+        // State filter: campaigns targeting voter's state (or no state restriction)
+        if ($voter->state) {
+            $query->where(function ($q) use ($voter) {
+                $q->whereNull('target_states')
+                  ->orWhereJsonContains('target_states', $voter->state);
+            });
+        }
+
+        $campaigns = $query
+            ->orderByDesc('revenue_per_view')
+            ->orderByDesc('updated_at')
+            ->paginate(12)
+            ->withQueryString();
+
+        // Today's view count for this voter (fraud / daily limit display)
+        $viewsToday = $voter->viewSessions()
+            ->whereDate('created_at', today())
+            ->count();
+
+        $dailyLimit  = (int) config('u9itus.fraud.max_views_per_voter_per_day', 50);
+        $canViewMore = $viewsToday < $dailyLimit && ! $voter->flagged_for_fraud && $voter->is_active;
+
+        return view('standalone.voter.ad-room', [
+            'voter'                    => $voter,
+            'campaigns'                => $campaigns,
+            'viewsToday'               => $viewsToday,
+            'dailyLimit'               => $dailyLimit,
+            'canViewMore'              => $canViewMore,
+            'inProgressTokenCampaignIds' => $inProgressTokenCampaignIds,
+            'completedCampaignIds'     => $completedCampaignIds,
+        ]);
+    }
+
+    /**
+     * POST /voter/campaigns/{campaign}/claim
+     * Mint a one-time AdViewToken for the voter and redirect to the watch page.
+     * This is the "Watch Now" action from the Ad Viewing Room.
+     */
+    public function claimCampaign(Request $request, PoliticalCampaign $campaign)
+    {
+        $voter = $this->resolveVoter();
+
+        // Guard: campaign must still be active
+        if ($campaign->status !== CampaignStatus::Active
+            || $campaign->approval_status !== ApprovalStatus::Approved) {
+            return back()->withErrors(['claim' => 'This campaign is no longer available.']);
+        }
+
+        // Guard: no more views needed
+        if ($campaign->views_completed >= $campaign->total_views_requested) {
+            return back()->withErrors(['claim' => 'This campaign has reached its view target.']);
+        }
+
+        // Guard: voter eligibility
+        if (! $voter->canViewToday()) {
+            return back()->withErrors([
+                'claim' => 'You have reached your daily viewing limit or your account is restricted.',
+            ]);
+        }
+
+        // Guard: voter already completed this campaign
+        $alreadyCompleted = $voter->viewSessions()
+            ->where('political_campaign_id', $campaign->id)
+            ->where('status', 'completed')
+            ->exists();
+
+        if ($alreadyCompleted) {
+            return back()->withErrors(['claim' => 'You have already watched this campaign.']);
+        }
+
+        // Re-use an existing unexpired token for this campaign if one exists
+        $existing = AdViewToken::where('voter_id', $voter->id)
+            ->where('political_campaign_id', $campaign->id)
+            ->where('is_used', false)
+            ->where('is_expired', false)
+            ->where('expires_at', '>', now())
+            ->first();
+
+        if ($existing) {
+            return redirect()->route('voter.watch', $existing->token);
+        }
+
+        // Mint a new token (no email/SMS — direct from Ad Room)
+        $token = AdViewToken::create([
+            'political_campaign_id' => $campaign->id,
+            'voter_id'              => $voter->id,
+            'notification_method'   => 'direct',
+            'sent_to'               => $voter->email ?? 'direct',
+            'sent_at'               => now(),
+        ]);
+
+        Log::info('AdViewToken minted from Ad Room', [
+            'voter_id'    => $voter->id,
+            'campaign_id' => $campaign->id,
+            'token'       => substr($token->token, 0, 8) . '…',
+        ]);
+
+        return redirect()->route('voter.watch', $token->token);
     }
 
     // ── Watch (token-based ad delivery) ─────────────────────

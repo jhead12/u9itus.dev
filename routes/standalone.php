@@ -119,7 +119,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     */
     Route::prefix('voter')->name('voter.')->middleware('role:voter')->group(function () {
         Route::get('/dashboard', [VoterController::class, 'dashboard'])->name('dashboard');
-        
+
+        // ── Ad Viewing Room ──────────────────────────────────────────────────
+        // Browse available campaigns and self-select one to watch.
+        Route::get('/ad-room', [VoterController::class, 'adRoom'])->name('ad-room');
+        // Claim a campaign from the Ad Viewing Room → mints a token → redirects to watch page.
+        Route::post('/campaigns/{campaign}/claim', [VoterController::class, 'claimCampaign'])->name('campaigns.claim');
+
         // Watch Ad (secure token-based)
         Route::get('/watch/{token}', [VoterController::class, 'watch'])->name('watch');
         Route::post('/watch/{token}/start', [VoterController::class, 'startWatching'])->name('watch.start');

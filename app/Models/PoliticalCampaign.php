@@ -115,6 +115,26 @@ class PoliticalCampaign extends Model
         return $this->hasMany(ViewSession::class);
     }
 
+    public function adViewTokens(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(AdViewToken::class, 'political_campaign_id');
+    }
+
+    /**
+     * Alias: video_storage_path → media_url
+     * The media_url column stores the video file path for 'video' type campaigns
+     * and acts as the canonical "video storage path" in the platform schema.
+     */
+    public function getVideoStoragePathAttribute(): ?string
+    {
+        return $this->media_url;
+    }
+
+    public function setVideoStoragePathAttribute(string $value): void
+    {
+        $this->attributes['media_url'] = $value;
+    }
+
     /**
      * Check if campaign still needs more views.
      */

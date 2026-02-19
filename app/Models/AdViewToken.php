@@ -114,7 +114,7 @@ class AdViewToken extends Model
      */
     public function getViewingUrl(): string
     {
-        return route('ad.view.token', ['token' => $this->token]);
+        return route('voter.watch', ['token' => $this->token]);
     }
 
     // Relationships

@@ -44,6 +44,42 @@
         @endforeach
     </div>
 
+    {{-- Ad Viewing Room CTA -- primary earn action --}}
+    <a href="{{ route('voter.ad-room') }}"
+       class="group block bg-gradient-to-br from-emerald-900/50 via-teal-900/40 to-slate-800/60
+              border border-emerald-500/30 hover:border-emerald-400/60
+              rounded-2xl p-6 transition">
+        <div class="flex items-center justify-between gap-4">
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-500/30
+                            flex items-center justify-center shrink-0
+                            group-hover:scale-105 transition-transform">
+                    <svg class="w-6 h-6 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M15 10l4.553-2.069A1 1 0 0121 8.882v6.236a1 1 0 01-1.447.894L15 14M3 8a2 2 0 00-2 2v4a2 2 0 002 2h9a2 2 0 002-2v-4a2 2 0 00-2-2H3z"/>
+                    </svg>
+                </div>
+                <div>
+                    <p class="text-white font-bold text-base flex items-center gap-2">
+                        Ad Viewing Room
+                        <span class="text-[10px] bg-emerald-600/30 border border-emerald-500/30 text-emerald-400
+                                     rounded-full px-2 py-0.5 font-semibold leading-none">LIVE</span>
+                    </p>
+                    <p class="text-slate-400 text-sm mt-0.5">
+                        Browse available campaigns &amp; earn
+                        <span class="text-emerald-400 font-semibold">$0.25</span> per completed view
+                    </p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2 text-emerald-400 group-hover:translate-x-1 transition-transform shrink-0">
+                <span class="text-sm font-semibold hidden sm:block">Start earning</span>
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                </svg>
+            </div>
+        </div>
+    </a>
+
     {{-- Payout CTA --}}
     @if(($summary['pending_earnings'] ?? 0) >= config('u9itus.batch_payout_min', 10))
     <div class="bg-gradient-to-r from-emerald-900/40 to-teal-900/30 border border-emerald-500/30 rounded-2xl p-5 flex items-center gap-5 justify-between">

@@ -32,6 +32,7 @@ class Politician extends Model
         'verified_official',
         'kyc_status',
         'stripe_customer_id',
+        'credit_balance',
         'total_spent',
         'total_campaigns',
         'total_views_received',
@@ -41,6 +42,7 @@ class Politician extends Model
     protected function casts(): array
     {
         return [
+            'credit_balance' => 'decimal:2',
             'total_spent' => 'decimal:2',
             'verified_official' => 'boolean',
             'is_active' => 'boolean',
@@ -57,6 +59,18 @@ class Politician extends Model
         });
     }
 
+    /**
+     * Re-derive credit_balance from the ledger and persist it.
+     * Call this after any credit transaction to keep the denormalized
+     * column in sync.
+     */
+    public function syncCreditBalance(): void
+    {
+        $latest = $this->credits()->latest('created_at')->first();
+        $this->credit_balance = $latest ? $latest->balance_after : 0;
+        $this->saveQuietly();
+    }
+
     public function user(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(User::class);
@@ -65,6 +79,11 @@ class Politician extends Model
     public function campaigns(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(PoliticalCampaign::class);
+    }
+
+    public function credits(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(PoliticianCredit::class);
     }
 
     /**

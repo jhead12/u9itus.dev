@@ -170,9 +170,8 @@ php artisan serve
 | **Standalone\AuthController**       | Separate politician/voter registration, shared login, admin portal, password reset |
 | **Standalone\DashboardController**  | Role-based dashboard routing                                                       |
 | **Standalone\PoliticianController** | Full campaign CRUD, video upload, analytics, billing, profile                      |
-| **Standalone\VoterController**      | Ad watching, earnings, referrals                                                   |
+| **Standalone\VoterController**      | Ad room, SHA-256 token-based ad watching, earnings, referrals                      |
 | **Standalone\AdminController**      | User management, fraud, payouts, campaign approval                                 |
-| **SecureAdViewController**          | Token-based ad viewing, notification distribution                                  |
 | **Api\PoliticianController**        | Politician CRUD, campaign management (API)                                         |
 | **Api\VoterController**             | Registration, view sessions, earnings (API)                                        |
 | **Api\AdminController**             | Analytics, approvals, payouts, fraud (API)                                         |
