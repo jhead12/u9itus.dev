@@ -523,7 +523,7 @@ class AdminController extends Controller
         ]);
 
         foreach (self::ALL_ENV_KEYS as $key) {
-            $value = $request->input($key, '');
+            $value = (string) ($request->input($key) ?? '');
             $this->setEnvValue($key, $value);
         }
 
