@@ -247,14 +247,46 @@ class PoliticianController extends Controller
             403
         );
 
+        $maxMb  = config('u9itus.max_video_size_mb', 100);
+        $minSec = config('u9itus.min_video_duration', 10);
+        $maxSec = config('u9itus.max_video_duration', 20);
+
         $request->validate([
             'video' => [
-                'required', 'file', 'mimetypes:video/mp4,video/quicktime,video/webm',
-                'max:' . (config('u9itus.max_video_size_mb', 500) * 1024),
+                'required',
+                'file',
+                'mimetypes:video/mp4,video/quicktime,video/webm',
+                'max:' . ($maxMb * 1024),
             ],
         ]);
 
         $file = $request->file('video');
+
+        // ── Strict duration check via ffprobe (when available) ───────────────
+        // ffprobe is included with ffmpeg; install: `apt install ffmpeg` / `brew install ffmpeg`
+        $ffprobe = trim(shell_exec('which ffprobe 2>/dev/null') ?? '');
+        if ($ffprobe) {
+            $tmpPath  = $file->getRealPath();
+            $duration = (float) shell_exec(
+                escapeshellcmd($ffprobe)
+                . ' -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 '
+                . escapeshellarg($tmpPath)
+                . ' 2>/dev/null'
+            );
+
+            if ($duration > 0) {
+                if ($duration < $minSec) {
+                    return back()->withErrors(['video' => "Video is too short ({$duration}s). Minimum is {$minSec} seconds."]);
+                }
+                if ($duration > $maxSec) {
+                    $rounded = round($duration, 1);
+                    return back()->withErrors(['video' => "Video is too long ({$rounded}s). Maximum is {$maxSec} seconds. Please trim your video and re-upload."]);
+                }
+                // Persist the detected duration on the campaign
+                $campaign->media_duration = (int) round($duration);
+            }
+        }
+
         $disk = config('filesystems.default', 'local');
 
         // Delete old video if present
@@ -266,7 +298,10 @@ class PoliticianController extends Controller
         $path = $file->store("campaigns/{$campaign->id}/video", $disk);
         $url  = Storage::disk($disk)->url($path);
 
-        $campaign->update(['media_url' => $url]);
+        $campaign->update(array_filter([
+            'media_url'      => $url,
+            'media_duration' => $campaign->media_duration,
+        ], fn ($v) => $v !== null));
 
         return back()->with('success', 'Video uploaded successfully.');
     }
