@@ -201,6 +201,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/settings', [AdminController::class, 'settings'])->name('settings');
         Route::put('/settings', [AdminController::class, 'updateSettings'])->name('settings.update');
         Route::post('/settings/test-email', [AdminController::class, 'testEmail'])->name('settings.test-email');
+
+        // Email Template Management (Phase 7b)
+        Route::get('/email-templates', [AdminController::class, 'emailTemplates'])->name('email-templates.index');
+        Route::get('/email-templates/{template}/edit', [AdminController::class, 'editEmailTemplate'])->name('email-templates.edit');
+        Route::put('/email-templates/{template}', [AdminController::class, 'updateEmailTemplate'])->name('email-templates.update');
+        Route::patch('/email-templates/{template}/toggle', [AdminController::class, 'toggleEmailTemplate'])->name('email-templates.toggle');
+        Route::get('/email-templates/{template}/preview', [AdminController::class, 'previewEmailTemplate'])->name('email-templates.preview');
     });
 });
 

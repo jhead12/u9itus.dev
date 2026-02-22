@@ -7,6 +7,9 @@ use App\Enums\CampaignStatus;
 use App\Http\Controllers\Controller;
 use App\Mail\CampaignApprovedMail;
 use App\Mail\CampaignRejectedMail;
+use App\Mail\KycApprovedMail;
+use App\Mail\KycRejectedMail;
+use App\Models\EmailTemplate;
 use App\Models\PoliticalCampaign;
 use App\Models\Politician;
 use App\Models\User;
@@ -410,6 +413,16 @@ class AdminController extends Controller
             $user->voter->update(['is_verified' => true]);
         }
 
+        // Notify the user their KYC has been approved
+        try {
+            Mail::to($user->email)->queue(new KycApprovedMail($user));
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::warning('Failed to send KYC approved email', [
+                'user_id' => $user->id,
+                'error'   => $e->getMessage(),
+            ]);
+        }
+
         return back()->with('success', 'KYC approved for ' . $user->name . '.');
     }
 
@@ -433,6 +446,19 @@ class AdminController extends Controller
 
         if ($user->politician) {
             $user->politician->update(['kyc_status' => 'rejected']);
+        }
+
+        // Notify the user their KYC has been rejected with the reason
+        try {
+            Mail::to($user->email)->queue(new KycRejectedMail(
+                $user,
+                $request->input('reason', 'Identity could not be verified.')
+            ));
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::warning('Failed to send KYC rejected email', [
+                'user_id' => $user->id,
+                'error'   => $e->getMessage(),
+            ]);
         }
 
         return back()->with('success', 'KYC rejected for ' . $user->name . '.');
@@ -581,5 +607,125 @@ class AdminController extends Controller
         }
 
         file_put_contents($envPath, $contents);
+    }
+
+    // ── Email Template Management ────────────────────────────────────────────
+
+    /**
+     * List all email templates.
+     */
+    public function emailTemplates()
+    {
+        $templates = EmailTemplate::orderBy('category')->orderBy('name')->get()
+            ->groupBy('category');
+
+        return view('standalone.admin.email-templates', compact('templates'));
+    }
+
+    /**
+     * Show the edit form for a single email template.
+     */
+    public function editEmailTemplate(EmailTemplate $template)
+    {
+        return view('standalone.admin.email-template-edit', compact('template'));
+    }
+
+    /**
+     * Persist changes to an email template.
+     */
+    public function updateEmailTemplate(Request $request, EmailTemplate $template)
+    {
+        $request->validate([
+            'subject_override' => ['nullable', 'string', 'max:255'],
+            'preview_text'     => ['nullable', 'string', 'max:255'],
+            'body_override'    => ['nullable', 'string'],
+            'is_active'        => ['boolean'],
+        ]);
+
+        $template->update([
+            'subject_override' => $request->input('subject_override') ?: null,
+            'preview_text'     => $request->input('preview_text') ?: null,
+            'body_override'    => $request->input('body_override') ?: null,
+            'is_active'        => $request->boolean('is_active', true),
+            'last_edited_by'   => auth()->id(),
+        ]);
+
+        return redirect()
+            ->route('admin.email-templates.index')
+            ->with('success', '"' . $template->name . '" template updated successfully.');
+    }
+
+    /**
+     * Toggle a template's active state (AJAX-friendly).
+     */
+    public function toggleEmailTemplate(EmailTemplate $template)
+    {
+        $template->update([
+            'is_active'      => !$template->is_active,
+            'last_edited_by' => auth()->id(),
+        ]);
+
+        $state = $template->is_active ? 'enabled' : 'disabled';
+
+        return back()->with('success', '"' . $template->name . '" notification ' . $state . '.');
+    }
+
+    /**
+     * Render a preview of the email template in the browser.
+     * Uses a fake model so admins can see what the final email looks like.
+     */
+    public function previewEmailTemplate(EmailTemplate $template)
+    {
+        // Build a safe dummy user for rendering
+        $fakeUser           = new User();
+        $fakeUser->id       = 0;
+        $fakeUser->name     = 'Jane Doe (Preview)';
+        $fakeUser->email    = 'preview@example.com';
+        $fakeUser->user_type = 'voter';
+
+        // If there is a body override, render it directly
+        if ($template->hasBodyOverride()) {
+            return response($template->body_override)->header('Content-Type', 'text/html');
+        }
+
+        // Otherwise render the corresponding Blade view directly
+        $viewMap = [
+            'kyc_approved'      => 'emails.kyc-approved',
+            'kyc_rejected'      => 'emails.kyc-rejected',
+            'campaign_approved' => 'emails.campaign-approved',
+            'campaign_rejected' => 'emails.campaign-rejected',
+            'campaign_completed'=> 'emails.campaign-completed',
+            'credits_purchased' => 'emails.credits-purchased',
+            'low_balance_alert' => 'emails.low-balance-alert',
+            'payout_processed'  => 'emails.payout-processed',
+            'welcome'           => 'emails.welcome',
+            'admin_new_user'    => 'emails.admin-new-user',
+        ];
+
+        $view = $viewMap[$template->key] ?? null;
+
+        if (!$view || !\Illuminate\Support\Facades\View::exists($view)) {
+            return response('<p>No preview available for this template.</p>');
+        }
+
+        // Shared fake data passed to all previews
+        $sharedData = [
+            'user'          => $fakeUser,
+            'reason'        => 'Your document image was unclear. Please re-upload a high-resolution photo.',
+            'credits'       => 500,
+            'amount'        => 275.00,
+            'newBalance'    => 275.00,
+            'transactionId' => 'txn_preview_00001',
+            'currentBalance'=> 12.50,
+            'remainingViews'=> 20,
+            'campaignTitle' => 'Re-elect Mayor Johnson 2026 (Preview)',
+            'viewCount'     => 312,
+            'payoutMethod'  => 'PayPal',
+            'periodLabel'   => 'Feb 1 – Feb 22, 2026',
+            'totalViews'    => 500,
+            'totalSpent'    => 275.00,
+        ];
+
+        return view($view, $sharedData);
     }
 }

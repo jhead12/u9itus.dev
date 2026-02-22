@@ -74,18 +74,30 @@
                     placeholder="you@example.com" />
             </div>
 
-            <div class="grid grid-cols-2 gap-3">
+            <div class="space-y-4">
                 <div>
                     <label for="password" class="block text-sm font-medium text-slate-300 mb-1.5">Password <span class="text-red-400">*</span></label>
-                    <input id="password" type="password" name="password" required
-                        class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition"
-                        placeholder="••••••••" />
+                    <x-password-input
+                        id="password"
+                        name="password"
+                        required
+                        autocomplete="new-password"
+                        btn-class="text-blue-400 hover:text-blue-300"
+                        class="w-full pr-16 bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition"
+                        placeholder="••••••••"
+                    />
                 </div>
                 <div>
-                    <label for="password_confirmation" class="block text-sm font-medium text-slate-300 mb-1.5">Confirm <span class="text-red-400">*</span></label>
-                    <input id="password_confirmation" type="password" name="password_confirmation" required
-                        class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition"
-                        placeholder="••••••••" />
+                    <label for="password_confirmation" class="block text-sm font-medium text-slate-300 mb-1.5">Confirm password <span class="text-red-400">*</span></label>
+                    <x-password-input
+                        id="password_confirmation"
+                        name="password_confirmation"
+                        required
+                        autocomplete="new-password"
+                        btn-class="text-blue-400 hover:text-blue-300"
+                        class="w-full pr-16 bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition"
+                        placeholder="••••••••"
+                    />
                 </div>
             </div>
 

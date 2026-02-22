@@ -77,14 +77,12 @@
                         <a href="{{ route('password.request') }}" class="text-xs text-emerald-400 hover:text-emerald-300 transition">Forgot password?</a>
                     @endif
                 </div>
-                <input
+                <x-password-input
                     id="password"
-                    type="password"
                     name="password"
                     required
                     autocomplete="current-password"
-                    class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm placeholder-slate-500
-                           focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition"
+                    class="w-full pr-16 bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition"
                     placeholder="••••••••"
                 />
             </div>

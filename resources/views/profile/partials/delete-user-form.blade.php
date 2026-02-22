@@ -30,13 +30,16 @@
             <div class="mt-6">
                 <x-input-label for="password" value="{{ __('Password') }}" class="sr-only" />
 
-                <x-text-input
-                    id="password"
-                    name="password"
-                    type="password"
-                    class="mt-1 block w-3/4"
-                    placeholder="{{ __('Password') }}"
-                />
+                <div class="relative mt-1 inline-block w-3/4">
+                    <x-text-input
+                        id="password"
+                        name="password"
+                        type="password"
+                        class="block w-full pr-16"
+                        placeholder="{{ __('Password') }}"
+                    />
+                    <button type="button" onclick="(function(btn){ var inp = btn.previousElementSibling; var show = inp.type === 'password'; inp.type = show ? 'text' : 'password'; btn.textContent = show ? 'Hide' : 'Show'; })(this)" class="absolute inset-y-0 right-0 px-4 text-sm font-semibold text-red-600 hover:text-red-500 transition-colors focus:outline-none select-none" tabindex="-1">Show</button>
+                </div>
 
                 <x-input-error :messages="$errors->userDeletion->get('password')" class="mt-2" />
             </div>

@@ -66,14 +66,13 @@
 
             <div>
                 <label for="password" class="block text-sm font-medium text-slate-300 mb-1.5">Password</label>
-                <input
+                <x-password-input
                     id="password"
-                    type="password"
                     name="password"
                     required
                     autocomplete="current-password"
-                    class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm placeholder-slate-500
-                           focus:outline-none focus:ring-2 focus:ring-amber-500/40 focus:border-amber-500 transition"
+                    btn-class="text-amber-400 hover:text-amber-300"
+                    class="w-full pr-16 bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500/40 focus:border-amber-500 transition"
                     placeholder="••••••••"
                 />
             </div>

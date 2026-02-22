@@ -31,13 +31,14 @@
             <!-- Password -->
             <div>
                 <label for="password" class="block text-sm font-medium text-slate-300 mb-2">Password</label>
-                <input id="password" 
-                       type="password" 
-                       name="password" 
-                       required 
-                       autocomplete="current-password"
-                       class="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition" 
-                       placeholder="••••••••" />
+                <x-password-input
+                    id="password"
+                    name="password"
+                    required
+                    autocomplete="current-password"
+                    class="w-full pr-16 px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition"
+                    placeholder="••••••••"
+                />
                 @error('password')
                     <p class="mt-2 text-sm text-red-400">{{ $message }}</p>
                 @enderror
