@@ -3,8 +3,13 @@
 namespace App\Http\Controllers\Standalone;
 
 use App\Http\Controllers\Controller;
+use App\Models\PoliticalCampaign;
+use App\Models\User;
+use App\Models\ViewSession;
+use App\Models\Voter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 
 /**
@@ -56,7 +61,22 @@ class AdminController extends Controller
      */
     public function dashboard()
     {
-        return view('standalone.admin.dashboard');
+        $stats = [
+            'total_users'       => User::count(),
+            'total_politicians' => User::where('user_type', 'politician')->count(),
+            'total_voters'      => User::where('user_type', 'voter')->count(),
+            'pending_campaigns' => PoliticalCampaign::where('approval_status', 'pending')->count(),
+            'total_campaigns'   => PoliticalCampaign::count(),
+            'active_campaigns'  => PoliticalCampaign::where('status', 'active')->count(),
+            'total_views'       => ViewSession::where('status', 'completed')->count(),
+            'total_revenue'     => ViewSession::where('status', 'completed')->sum('politician_charge') ?? 0,
+            'total_payouts'     => ViewSession::where('status', 'completed')->sum('voter_payout') ?? 0,
+        ];
+
+        $recentUsers = User::latest()->take(5)->get();
+        $recentCampaigns = PoliticalCampaign::with('politician')->latest()->take(5)->get();
+
+        return view('standalone.admin.dashboard', compact('stats', 'recentUsers', 'recentCampaigns'));
     }
 
     /**
@@ -64,7 +84,12 @@ class AdminController extends Controller
      */
     public function pendingCampaigns()
     {
-        return view('standalone.admin.campaigns-pending');
+        $campaigns = PoliticalCampaign::with('politician.user')
+            ->where('approval_status', 'pending')
+            ->latest()
+            ->paginate(20);
+
+        return view('standalone.admin.campaigns-pending', compact('campaigns'));
     }
 
     /**
@@ -88,7 +113,11 @@ class AdminController extends Controller
      */
     public function users()
     {
-        return view('standalone.admin.users');
+        $users = User::withCount([])
+            ->latest()
+            ->paginate(30);
+
+        return view('standalone.admin.users', compact('users'));
     }
 
     /**
@@ -96,7 +125,9 @@ class AdminController extends Controller
      */
     public function showUser($userId)
     {
-        return view('standalone.admin.user-details');
+        $user = User::findOrFail($userId);
+
+        return view('standalone.admin.user-details', compact('user'));
     }
 
     /**
@@ -120,7 +151,19 @@ class AdminController extends Controller
      */
     public function fraud()
     {
-        return view('standalone.admin.fraud');
+        $stats = [
+            'flagged_sessions'   => ViewSession::where('fraud_score', '>', 50)->count(),
+            'high_risk_sessions' => ViewSession::where('fraud_score', '>', 80)->count(),
+            'total_sessions'     => ViewSession::count(),
+        ];
+
+        $flaggedSessions = ViewSession::with(['voter', 'campaign'])
+            ->where('fraud_score', '>', 50)
+            ->orderByDesc('fraud_score')
+            ->take(10)
+            ->get();
+
+        return view('standalone.admin.fraud', compact('stats', 'flaggedSessions'));
     }
 
     /**
@@ -128,7 +171,12 @@ class AdminController extends Controller
      */
     public function flaggedViews()
     {
-        return view('standalone.admin.fraud-views');
+        $sessions = ViewSession::with(['voter', 'campaign'])
+            ->where('fraud_score', '>', 50)
+            ->orderByDesc('fraud_score')
+            ->paginate(30);
+
+        return view('standalone.admin.fraud-views', compact('sessions'));
     }
 
     /**
@@ -144,7 +192,15 @@ class AdminController extends Controller
      */
     public function payouts()
     {
-        return view('standalone.admin.payouts');
+        $stats = [
+            'pending_amount' => ViewSession::where('status', 'completed')
+                ->where('payment_status', 'pending')->sum('voter_payout') ?? 0,
+            'paid_amount'    => ViewSession::where('payment_status', 'paid')->sum('voter_payout') ?? 0,
+            'pending_count'  => ViewSession::where('status', 'completed')
+                ->where('payment_status', 'pending')->count(),
+        ];
+
+        return view('standalone.admin.payouts', compact('stats'));
     }
 
     /**
@@ -152,7 +208,13 @@ class AdminController extends Controller
      */
     public function pendingPayouts()
     {
-        return view('standalone.admin.payouts-pending');
+        $sessions = ViewSession::with(['voter', 'campaign'])
+            ->where('status', 'completed')
+            ->where('payment_status', 'pending')
+            ->latest()
+            ->paginate(30);
+
+        return view('standalone.admin.payouts-pending', compact('sessions'));
     }
 
     /**
@@ -168,7 +230,17 @@ class AdminController extends Controller
      */
     public function analytics()
     {
-        return view('standalone.admin.analytics');
+        $stats = [
+            'total_views'    => ViewSession::where('status', 'completed')->count(),
+            'total_revenue'  => ViewSession::where('status', 'completed')->sum('politician_charge') ?? 0,
+            'total_payouts'  => ViewSession::where('status', 'completed')->sum('voter_payout') ?? 0,
+            'total_profit'   => (ViewSession::where('status', 'completed')->sum('politician_charge') ?? 0)
+                                - (ViewSession::where('status', 'completed')->sum('voter_payout') ?? 0),
+            'total_campaigns' => PoliticalCampaign::count(),
+            'active_campaigns' => PoliticalCampaign::where('status', 'active')->count(),
+        ];
+
+        return view('standalone.admin.analytics', compact('stats'));
     }
 
     /**
@@ -176,7 +248,14 @@ class AdminController extends Controller
      */
     public function revenueReport()
     {
-        return view('standalone.admin.reports-revenue');
+        $revenue = [
+            'total'   => ViewSession::where('status', 'completed')->sum('politician_charge') ?? 0,
+            'payouts' => ViewSession::where('status', 'completed')->sum('voter_payout') ?? 0,
+            'profit'  => (ViewSession::where('status', 'completed')->sum('politician_charge') ?? 0)
+                         - (ViewSession::where('status', 'completed')->sum('voter_payout') ?? 0),
+        ];
+
+        return view('standalone.admin.reports-revenue', compact('revenue'));
     }
 
     /**
@@ -184,7 +263,14 @@ class AdminController extends Controller
      */
     public function engagementReport()
     {
-        return view('standalone.admin.reports-engagement');
+        $engagement = [
+            'total_sessions'     => ViewSession::count(),
+            'completed_sessions' => ViewSession::where('status', 'completed')->count(),
+            'flagged_sessions'   => ViewSession::where('fraud_score', '>', 50)->count(),
+            'avg_watch_percent'  => ViewSession::where('status', 'completed')->avg('watch_time_percent') ?? 0,
+        ];
+
+        return view('standalone.admin.reports-engagement', compact('engagement'));
     }
 
     // ── Settings ────────────────────────────────────────────────────────────
