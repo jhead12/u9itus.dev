@@ -69,8 +69,8 @@ class AdminController extends Controller
             'total_campaigns'   => PoliticalCampaign::count(),
             'active_campaigns'  => PoliticalCampaign::where('status', 'active')->count(),
             'total_views'       => ViewSession::where('status', 'completed')->count(),
-            'total_revenue'     => ViewSession::where('status', 'completed')->sum('politician_charge') ?? 0,
-            'total_payouts'     => ViewSession::where('status', 'completed')->sum('voter_payout') ?? 0,
+            'total_revenue'     => ViewSession::where('status', 'completed')->sum('platform_revenue') ?? 0,
+            'total_payouts'     => ViewSession::where('status', 'completed')->sum('voter_payout_amount') ?? 0,
         ];
 
         $recentUsers = User::latest()->take(5)->get();
@@ -194,8 +194,8 @@ class AdminController extends Controller
     {
         $stats = [
             'pending_amount' => ViewSession::where('status', 'completed')
-                ->where('payment_status', 'pending')->sum('voter_payout') ?? 0,
-            'paid_amount'    => ViewSession::where('payment_status', 'paid')->sum('voter_payout') ?? 0,
+                ->where('payment_status', 'pending')->sum('voter_payout_amount') ?? 0,
+            'paid_amount'    => ViewSession::where('payment_status', 'paid')->sum('voter_payout_amount') ?? 0,
             'pending_count'  => ViewSession::where('status', 'completed')
                 ->where('payment_status', 'pending')->count(),
         ];
@@ -232,10 +232,10 @@ class AdminController extends Controller
     {
         $stats = [
             'total_views'    => ViewSession::where('status', 'completed')->count(),
-            'total_revenue'  => ViewSession::where('status', 'completed')->sum('politician_charge') ?? 0,
-            'total_payouts'  => ViewSession::where('status', 'completed')->sum('voter_payout') ?? 0,
-            'total_profit'   => (ViewSession::where('status', 'completed')->sum('politician_charge') ?? 0)
-                                - (ViewSession::where('status', 'completed')->sum('voter_payout') ?? 0),
+            'total_revenue'  => ViewSession::where('status', 'completed')->sum('platform_revenue') ?? 0,
+            'total_payouts'  => ViewSession::where('status', 'completed')->sum('voter_payout_amount') ?? 0,
+            'total_profit'   => (ViewSession::where('status', 'completed')->sum('platform_revenue') ?? 0)
+                                - (ViewSession::where('status', 'completed')->sum('voter_payout_amount') ?? 0),
             'total_campaigns' => PoliticalCampaign::count(),
             'active_campaigns' => PoliticalCampaign::where('status', 'active')->count(),
         ];
@@ -249,10 +249,10 @@ class AdminController extends Controller
     public function revenueReport()
     {
         $revenue = [
-            'total'   => ViewSession::where('status', 'completed')->sum('politician_charge') ?? 0,
-            'payouts' => ViewSession::where('status', 'completed')->sum('voter_payout') ?? 0,
-            'profit'  => (ViewSession::where('status', 'completed')->sum('politician_charge') ?? 0)
-                         - (ViewSession::where('status', 'completed')->sum('voter_payout') ?? 0),
+            'total'   => ViewSession::where('status', 'completed')->sum('platform_revenue') ?? 0,
+            'payouts' => ViewSession::where('status', 'completed')->sum('voter_payout_amount') ?? 0,
+            'profit'  => (ViewSession::where('status', 'completed')->sum('platform_revenue') ?? 0)
+                         - (ViewSession::where('status', 'completed')->sum('voter_payout_amount') ?? 0),
         ];
 
         return view('standalone.admin.reports-revenue', compact('revenue'));
@@ -267,7 +267,7 @@ class AdminController extends Controller
             'total_sessions'     => ViewSession::count(),
             'completed_sessions' => ViewSession::where('status', 'completed')->count(),
             'flagged_sessions'   => ViewSession::where('fraud_score', '>', 50)->count(),
-            'avg_watch_percent'  => ViewSession::where('status', 'completed')->avg('watch_time_percent') ?? 0,
+            'avg_watch_percent'  => ViewSession::where('status', 'completed')->avg('completion_percentage') ?? 0,
         ];
 
         return view('standalone.admin.reports-engagement', compact('engagement'));

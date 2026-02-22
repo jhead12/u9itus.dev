@@ -36,7 +36,7 @@
                     <tr class="hover:bg-slate-700/20 transition">
                         <td class="px-5 py-3 text-xs text-slate-300">{{ $session->voter?->user?->email ?? $session->voter_id }}</td>
                         <td class="px-5 py-3 text-xs text-slate-300">{{ $session->campaign?->title ?? '—' }}</td>
-                        <td class="px-5 py-3 text-xs font-semibold text-emerald-400">${{ number_format($session->voter_payout ?? 0, 2) }}</td>
+                        <td class="px-5 py-3 text-xs font-semibold text-emerald-400">${{ number_format($session->voter_payout_amount ?? 0, 2) }}</td>
                         <td class="px-5 py-3 text-xs text-slate-400">{{ $session->completed_at ? \Carbon\Carbon::parse($session->completed_at)->format('M j, Y') : $session->updated_at->format('M j, Y') }}</td>
                     </tr>
                     @endforeach
