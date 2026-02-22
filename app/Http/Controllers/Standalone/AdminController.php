@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Standalone;
 
+use App\Enums\ApprovalStatus;
+use App\Enums\CampaignStatus;
 use App\Http\Controllers\Controller;
 use App\Models\PoliticalCampaign;
 use App\Models\User;
@@ -95,17 +97,27 @@ class AdminController extends Controller
     /**
      * Approve a campaign.
      */
-    public function approveCampaign($campaignId)
+    public function approveCampaign(PoliticalCampaign $campaign)
     {
-        return back()->with('success', 'Campaign approved.');
+        $campaign->update([
+            'approval_status' => ApprovalStatus::Approved,
+            'status'          => CampaignStatus::Active,
+        ]);
+
+        return back()->with('success', 'Campaign "' . $campaign->title . '" has been approved and set to active.');
     }
 
     /**
      * Reject a campaign.
      */
-    public function rejectCampaign(Request $request, $campaignId)
+    public function rejectCampaign(Request $request, PoliticalCampaign $campaign)
     {
-        return back()->with('success', 'Campaign rejected.');
+        $campaign->update([
+            'approval_status' => ApprovalStatus::Rejected,
+            'status'          => CampaignStatus::Cancelled,
+        ]);
+
+        return back()->with('success', 'Campaign "' . $campaign->title . '" has been rejected.');
     }
 
     /**
