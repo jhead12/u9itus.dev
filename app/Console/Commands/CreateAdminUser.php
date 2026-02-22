@@ -46,11 +46,13 @@ class CreateAdminUser extends Command
                 'last_name'         => implode(' ', array_slice(explode(' ', $name), 1)) ?: 'User',
                 'password'          => Hash::make($password),
                 'user_type'         => 'admin',
-                'email_verified_at' => now(),
                 'is_verified'       => true,
                 'kyc_status'        => 'approved',
             ]
         );
+
+        // Force-set email_verified_at (not in $fillable on some setups)
+        $user->forceFill(['email_verified_at' => now()])->save();
 
         // Revoke any non-admin roles then assign admin
         $user->syncRoles(['admin']);

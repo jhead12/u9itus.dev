@@ -35,6 +35,7 @@ class User extends Authenticatable
         'country',
         'is_verified',
         'platform',
+        'email_verified_at',
     ];
 
     /**
