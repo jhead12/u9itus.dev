@@ -43,9 +43,16 @@ return [
     ],
 
     'stripe' => [
-        'secret' => env('STRIPE_SECRET'),
-        'public' => env('STRIPE_KEY'),
-        'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
+        'secret'          => env('STRIPE_SECRET'),
+        'public'          => env('STRIPE_KEY'),
+        'webhook_secret'  => env('STRIPE_WEBHOOK_SECRET'),
+    ],
+
+    'paypal' => [
+        'client_id'     => env('PAYPAL_CLIENT_ID'),
+        'client_secret' => env('PAYPAL_CLIENT_SECRET'),
+        // true = sandbox (api-m.sandbox.paypal.com), false = live (api-m.paypal.com)
+        'sandbox'       => env('PAYPAL_SANDBOX', true),
     ],
 
 ];

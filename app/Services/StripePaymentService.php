@@ -2,8 +2,8 @@
 
 namespace App\Services;
 
+use App\Models\Politician;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
 
 class StripePaymentService
 {
@@ -30,24 +30,79 @@ class StripePaymentService
      * Create a PaymentIntent for a campaign charge.
      * Returns Stripe PaymentIntent id or throws when SDK missing.
      */
-    public function createPaymentIntent(float $amount, string $currency = 'usd', array $metadata = [])
-    {
+    public function createPaymentIntent(
+        float $amount,
+        string $currency = 'usd',
+        array $metadata = [],
+        ?string $customerId = null,
+        ?string $paymentMethodId = null,
+    ) {
         if (! $this->client) {
             throw new \RuntimeException('Stripe SDK not available. Run `composer require stripe/stripe-php`.');
         }
 
         $amountCents = (int) round($amount * 100);
 
-        $pi = $this->client->paymentIntents->create([
-            'amount' => $amountCents,
-            'currency' => $currency,
+        $params = [
+            'amount'               => $amountCents,
+            'currency'             => $currency,
             'payment_method_types' => ['card'],
-            'metadata' => $metadata,
-        ]);
+            'metadata'             => $metadata,
+        ];
+
+        if ($customerId) {
+            $params['customer'] = $customerId;
+        }
+
+        if ($paymentMethodId) {
+            $params['payment_method'] = $paymentMethodId;
+        }
+
+        $pi = $this->client->paymentIntents->create($params);
 
         Log::info('Created Stripe PaymentIntent', ['id' => $pi->id, 'amount' => $amount]);
 
         return $pi;
+    }
+
+    /**
+     * Retrieve or create a Stripe Customer for a politician.
+     *
+     * Saves `stripe_customer_id` back to the politician row so subsequent
+     * calls are instant (idempotent).
+     */
+    public function ensureCustomer(Politician $politician): ?string
+    {
+        if (! $this->client) {
+            Log::warning('Stripe SDK not available — cannot ensure customer.');
+            return null;
+        }
+
+        if (! empty($politician->stripe_customer_id)) {
+            return $politician->stripe_customer_id;
+        }
+
+        // Resolve the best available email from the related User.
+        $email = optional($politician->user)->email ?? null;
+
+        $customer = $this->client->customers->create([
+            'name'     => $politician->full_name,
+            'email'    => $email,
+            'metadata' => [
+                'politician_id'   => $politician->id,
+                'politician_uuid' => $politician->uuid,
+            ],
+        ]);
+
+        $politician->stripe_customer_id = $customer->id;
+        $politician->saveQuietly();
+
+        Log::info('Created Stripe Customer for politician', [
+            'politician_id'      => $politician->id,
+            'stripe_customer_id' => $customer->id,
+        ]);
+
+        return $customer->id;
     }
 
     /**

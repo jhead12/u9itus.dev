@@ -377,8 +377,8 @@ npm run dev:all   # Start Laravel + Vite together
 - Mobile app (React Native)
 - Multi-language support
 - Advanced analytics dashboard
-- Automated Stripe Connect for politician billing
-- PayPal Mass Pay API for batch voter payouts
+- ~~Automated Stripe Connect for politician billing~~ ✅ Implemented (auto-customer creation, saved payment methods)
+- ~~PayPal Mass Pay API for batch voter payouts~~ ✅ Implemented (`PayPalPayoutService` wired into `processBatchPayouts`)
 - Twilio SMS integration
 - Firebase Cloud Messaging for push notifications
 

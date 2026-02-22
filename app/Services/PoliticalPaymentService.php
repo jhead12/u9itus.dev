@@ -8,6 +8,7 @@ use App\Models\PoliticalCampaign;
 use App\Models\Voter;
 use App\Models\ViewSession;
 use App\Services\CampaignBillingService;
+use App\Services\PayPalPayoutService;
 use App\Services\StripePaymentService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -25,11 +26,16 @@ class PoliticalPaymentService
 {
     protected ?CampaignBillingService $billingService;
     protected ?StripePaymentService $stripeService;
+    protected ?PayPalPayoutService $paypalService;
 
-    public function __construct(?CampaignBillingService $billingService = null, ?StripePaymentService $stripeService = null)
-    {
+    public function __construct(
+        ?CampaignBillingService $billingService = null,
+        ?StripePaymentService $stripeService = null,
+        ?PayPalPayoutService $paypalService = null,
+    ) {
         $this->billingService = $billingService;
-        $this->stripeService = $stripeService;
+        $this->stripeService  = $stripeService;
+        $this->paypalService  = $paypalService;
     }
 
     /**
@@ -43,7 +49,7 @@ class PoliticalPaymentService
 
         // Attempt to create Stripe PaymentIntent if Stripe SDK available
         try {
-                if ($this->stripeService) {
+            if ($this->stripeService) {
                 $pi = $this->stripeService->createPaymentIntent($amount, 'usd', [
                     'campaign_id' => $campaign->id,
                     'campaign_uuid' => $campaign->uuid,
@@ -69,11 +75,10 @@ class PoliticalPaymentService
 
                 // Mark campaign as authorized
                 $campaign->update(['payment_status' => PaymentStatus::Authorized]);
-                Log::info("Campaign {$campaign->uuid} authorized for: \\\${$amount}", ['payment_intent' => $piId]);
+                Log::info("Campaign {$campaign->uuid} authorized for: \${$amount}", ['payment_intent' => $piId]);
                 return $piId;
             }
-            }
-        } catch (\\Exception $e) {
+        } catch (\Exception $e) {
             Log::error('Stripe PaymentIntent creation failed: ' . $e->getMessage());
             // fall through to fallback behavior
         }
@@ -83,7 +88,7 @@ class PoliticalPaymentService
             'payment_status' => PaymentStatus::Captured,
         ]);
 
-        Log::info("Campaign {$campaign->uuid} charged (fallback): \\${$amount}");
+        Log::info('Campaign ' . $campaign->uuid . ' charged (fallback): $' . $amount);
         return 'pi_fallback_' . $campaign->uuid;
     }
 
@@ -124,28 +129,51 @@ class PoliticalPaymentService
                 continue;
             }
 
-            DB::transaction(function () use ($voter, $approvedEarnings, $holdHours) {
+            // Only attempt real transfer when the voter has a PayPal email.
+            $hasPayPal = ! empty($voter->paypal_email);
+
+            if ($hasPayPal && $this->paypalService) {
+                try {
+                    $batchId = 'u9itus_' . $voter->uuid . '_' . now()->format('Ymd_His');
+                    $this->paypalService->sendBatchPayout($batchId, [[
+                        'email'          => $voter->paypal_email,
+                        'amount'         => $approvedEarnings,
+                        'note'           => 'U9itus viewer earnings',
+                        'sender_item_id' => $batchId,
+                    ]]);
+                } catch (\Exception $e) {
+                    Log::error("PayPal payout failed for voter {$voter->uuid}: " . $e->getMessage());
+                    $results['skipped']++;
+                    continue;
+                }
+            }
+
+            DB::transaction(function () use ($voter, $approvedEarnings, $holdHours, $hasPayPal) {
                 // Mark sessions as paid
                 ViewSession::where('voter_id', $voter->id)
                     ->where('payment_status', ViewPaymentStatus::Approved)
                     ->where('completed_at', '<=', now()->subHours($holdHours))
                     ->update([
                         'payment_status' => ViewPaymentStatus::Paid,
-                        'paid_at' => now(),
+                        'paid_at'        => now(),
                     ]);
 
-                // Move from pending to earned
+                // Move from pending to earned; wallet balance only for internal-wallet voters.
                 $voter->decrement('pending_earnings', $approvedEarnings);
                 $voter->increment('total_earned', $approvedEarnings);
-                $voter->increment('wallet_balance', $approvedEarnings);
 
-                // TODO: Trigger actual PayPal / CashApp / wallet transfer
+                if (! $hasPayPal) {
+                    // No external transfer — credit the on-platform wallet instead.
+                    $voter->increment('wallet_balance', $approvedEarnings);
+                }
             });
 
             $results['processed']++;
             $results['total_paid'] += $approvedEarnings;
 
-            Log::info("Payout processed for voter {$voter->uuid}: \${$approvedEarnings}");
+            Log::info("Payout processed for voter {$voter->uuid}: \${$approvedEarnings}", [
+                'method' => $hasPayPal ? 'paypal' : 'wallet',
+            ]);
         }
 
         return $results;

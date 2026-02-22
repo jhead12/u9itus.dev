@@ -18,6 +18,7 @@ use App\Models\Voter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
 /**
@@ -358,11 +359,27 @@ class AdminController extends Controller
     }
 
     /**
-     * Process batch payouts.
+     * Process batch payouts — moves approved earnings to voters via PayPal
+     * (or credits the on-platform wallet for voters without a PayPal email).
      */
     public function processBatchPayouts(Request $request)
     {
-        return back()->with('success', 'Batch payouts processed.');
+        /** @var \App\Services\PoliticalPaymentService $paymentService */
+        $paymentService = app(\App\Services\PoliticalPaymentService::class);
+
+        try {
+            $results = $paymentService->processBatchPayouts();
+        } catch (\Exception $e) {
+            Log::error('Batch payout run failed: ' . $e->getMessage());
+            return back()->withErrors(['error' => 'Payout run failed: ' . $e->getMessage()]);
+        }
+
+        return back()->with('success', sprintf(
+            'Batch payouts complete — %d paid ($%.2f total), %d skipped.',
+            $results['processed'],
+            $results['total_paid'],
+            $results['skipped'],
+        ));
     }
 
     // ── KYC Management ──────────────────────────────────────────────────────

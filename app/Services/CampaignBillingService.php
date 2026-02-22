@@ -60,6 +60,9 @@ class CampaignBillingService
             'metadata' => $opts['metadata'] ?? null,
         ]);
 
+        // Keep politicians.credit_balance in sync with the ledger.
+        $politician->syncCreditBalance();
+
         Log::info('Added credits for politician', ['politician_id' => $politician->id, 'amount' => $amount, 'balance' => $newBalance]);
 
         return $credit;
@@ -75,10 +78,19 @@ class CampaignBillingService
 
         try {
             if ($this->stripe) {
-                $pi = $this->stripe->createPaymentIntent($amount, 'usd', [
-                    'politician_id' => $politician->id,
-                    'politician_uuid' => $politician->uuid ?? null,
-                ]);
+                // Auto-create the Stripe Customer if one doesn't exist yet.
+                $customerId = $this->stripe->ensureCustomer($politician);
+
+                $pi = $this->stripe->createPaymentIntent(
+                    $amount,
+                    'usd',
+                    [
+                        'politician_id'   => $politician->id,
+                        'politician_uuid' => $politician->uuid ?? null,
+                    ],
+                    $customerId,
+                    $opts['payment_method_id'] ?? null,
+                );
 
                 $piId = $pi->id ?? null;
                 $clientSecret = $pi->client_secret ?? null;

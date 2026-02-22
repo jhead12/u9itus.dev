@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\ViewPaymentStatus;
 use App\Enums\ViewSessionStatus;
 use App\Models\PoliticalCampaign;
+use App\Services\CampaignBillingService;
 use App\Models\ReferralEarning;
 use App\Models\Voter;
 use App\Models\ViewSession;
@@ -22,6 +23,7 @@ class PoliticalViewService
 {
     public function __construct(
         protected FraudPreventionService $fraudService,
+        protected CampaignBillingService $billingService,
     ) {}
 
     /**
@@ -202,7 +204,20 @@ class PoliticalViewService
 
     private function updateCampaignSpend(PoliticalCampaign $campaign): void
     {
+        $cost = (float) $campaign->revenue_per_view;
         $campaign->increment('views_completed');
-        $campaign->increment('amount_spent', (float) $campaign->revenue_per_view);
+        $campaign->increment('amount_spent', $cost);
+
+        // Deduct from politician's credit ledger — precise per-view spend tracking.
+        if ($cost > 0) {
+            $politician = $campaign->politician;
+            if ($politician) {
+                $this->billingService->addCredits($politician, -$cost, [
+                    'transaction_type' => 'usage',
+                    'campaign_id'      => $campaign->id,
+                    'description'      => "View charge — campaign #{$campaign->id}",
+                ]);
+            }
+        }
     }
 }
