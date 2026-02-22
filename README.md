@@ -230,6 +230,9 @@ Requires `auth`, `verified`, and `role:voter` middleware.
 
 ### Admin Dashboard (`/admin/*`)
 
+Email: admin@U9itus.com
+Password: eUMG86blaSSbaQ6VSJt20A ← change this after your first login
+
 Requires `auth`, `verified`, and `role:admin` middleware. Access via `/admin/login`.
 
 | Method | URL                             | Purpose                     |
