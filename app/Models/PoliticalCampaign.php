@@ -51,6 +51,7 @@ class PoliticalCampaign extends Model
         'min_watch_time_percent',
         'status',                  // draft | pending_approval | active | paused | completed | cancelled
         'approval_status',         // pending | approved | rejected
+        'rejection_reason',
         'payment_status',          // pending | authorized | captured | refunded
         'stripe_payment_intent_id',
         'approved_at',

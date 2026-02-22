@@ -34,6 +34,25 @@
             <p class="text-3xl font-bold text-emerald-400">${{ number_format($stats['total_revenue'], 2) }}</p>
             <p class="text-xs text-slate-500 mt-1">${{ number_format($stats['total_payouts'], 2) }} paid out</p>
         </div>
+        <div class="stat-card">
+            <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">KYC Pending</p>
+            <a href="{{ route('admin.kyc.index') }}" class="block">
+                <p class="text-3xl font-bold {{ $stats['kyc_pending'] > 0 ? 'text-yellow-400' : 'text-white' }}">{{ number_format($stats['kyc_pending']) }}</p>
+            </a>
+            <p class="text-xs text-slate-500 mt-1">awaiting identity review</p>
+        </div>
+        <div class="stat-card">
+            <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Fraud Flagged</p>
+            <a href="{{ route('admin.fraud.index') }}" class="block">
+                <p class="text-3xl font-bold {{ $stats['flagged_fraud'] > 0 ? 'text-red-400' : 'text-white' }}">{{ number_format($stats['flagged_fraud']) }}</p>
+            </a>
+            <p class="text-xs text-slate-500 mt-1">voters flagged</p>
+        </div>
+        <div class="stat-card">
+            <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Suspended</p>
+            <p class="text-3xl font-bold {{ $stats['suspended_users'] > 0 ? 'text-orange-400' : 'text-white' }}">{{ number_format($stats['suspended_users']) }}</p>
+            <p class="text-xs text-slate-500 mt-1">suspended accounts</p>
+        </div>
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -101,17 +120,26 @@
             </div>
             <p class="text-xs font-medium text-slate-300 group-hover:text-white transition">Review Campaigns</p>
         </a>
-        <a href="{{ route('admin.users.index') }}" class="bg-slate-800/50 border border-slate-700/50 hover:border-emerald-500/40 rounded-xl p-4 text-center transition group">
-            <div class="text-blue-400 mb-2 flex justify-center">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+        <a href="{{ route('admin.kyc.index') }}" class="bg-slate-800/50 border border-slate-700/50 hover:border-yellow-500/40 rounded-xl p-4 text-center transition group relative">
+            @if($stats['kyc_pending'] > 0)
+            <span class="absolute top-2 right-2 w-5 h-5 rounded-full bg-yellow-500 text-black text-xs font-bold flex items-center justify-center">{{ $stats['kyc_pending'] }}</span>
+            @endif
+            <div class="text-yellow-400 mb-2 flex justify-center">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2"/></svg>
             </div>
-            <p class="text-xs font-medium text-slate-300 group-hover:text-white transition">Manage Users</p>
+            <p class="text-xs font-medium text-slate-300 group-hover:text-white transition">KYC Review</p>
         </a>
-        <a href="{{ route('admin.fraud.index') }}" class="bg-slate-800/50 border border-slate-700/50 hover:border-emerald-500/40 rounded-xl p-4 text-center transition group">
+        <a href="{{ route('admin.fraud.index') }}" class="bg-slate-800/50 border border-slate-700/50 hover:border-red-500/40 rounded-xl p-4 text-center transition group">
             <div class="text-red-400 mb-2 flex justify-center">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
             </div>
             <p class="text-xs font-medium text-slate-300 group-hover:text-white transition">Fraud Review</p>
+        </a>
+        <a href="{{ route('admin.users.index') }}" class="bg-slate-800/50 border border-slate-700/50 hover:border-blue-500/40 rounded-xl p-4 text-center transition group">
+            <div class="text-blue-400 mb-2 flex justify-center">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+            </div>
+            <p class="text-xs font-medium text-slate-300 group-hover:text-white transition">Manage Users</p>
         </a>
         <a href="{{ route('admin.payouts.index') }}" class="bg-slate-800/50 border border-slate-700/50 hover:border-emerald-500/40 rounded-xl p-4 text-center transition group">
             <div class="text-emerald-400 mb-2 flex justify-center">

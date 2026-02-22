@@ -174,6 +174,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/fraud', [AdminController::class, 'fraud'])->name('fraud.index');
         Route::get('/fraud/flagged-views', [AdminController::class, 'flaggedViews'])->name('fraud.views');
         Route::post('/fraud/views/{view}/review', [AdminController::class, 'reviewView'])->name('fraud.review');
+        Route::post('/fraud/voters/{voter}/clear-flag', [AdminController::class, 'clearVoterFraud'])->name('fraud.clear-voter');
+
+        // KYC Management
+        Route::get('/kyc', [AdminController::class, 'kycQueue'])->name('kyc.index');
+        Route::post('/kyc/{user}/approve', [AdminController::class, 'approveKyc'])->name('kyc.approve');
+        Route::post('/kyc/{user}/reject', [AdminController::class, 'rejectKyc'])->name('kyc.reject');
         
         // Payouts Management
         Route::get('/payouts', [AdminController::class, 'payouts'])->name('payouts.index');

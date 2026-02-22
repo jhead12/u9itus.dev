@@ -231,7 +231,7 @@ Requires `auth`, `verified`, and `role:voter` middleware.
 ### Admin Dashboard (`/admin/*`)
 
 Email: admin@U9itus.com
-Password: *(set via `railway run php artisan admin:create`)*
+Password: _(set via `railway run php artisan admin:create`)_
 
 Requires `auth`, `verified`, and `role:admin` middleware. Access via `/admin/login`.
 
@@ -363,8 +363,8 @@ npm run dev:all   # Start Laravel + Vite together
 | Phase 3  | Analytics & Tracking (ViewSession lifecycle API, fraud detection, payout dispatch) | ✅ Complete |
 | Phase 4  | Billing scaffold (Stripe service, webhook, credit ledger, billing views)           | ✅ Complete |
 | Phase 5  | Voter watch experience (token-based video delivery, JS heartbeat)                  | ✅ Complete |
-| Phase 6  | Admin features (campaign approval queue, KYC management, fraud review)             | ⬜ Pending  |
-| Phase 7  | Notifications (email on approval/rejection/completion)                             | ⬜ Pending  |
+| Phase 6  | Admin features (campaign approval queue, KYC management, fraud review)            | ✅ Complete |
+| Phase 7  | Notifications (email on approval/rejection/ - Admin signup notification email,User Signed up Email, Admin Email notification, managment system, completion)                             | ⬜ Pending  |
 | Phase 8  | Security & Fraud (advanced scoring, VPN detection, device fingerprinting)          | ⬜ Pending  |
 | Phase 9  | Testing                                                                            | ✅ Ongoing  |
 | Phase 10 | Deployment (Railway production config, env hardening)                              | ⬜ Pending  |

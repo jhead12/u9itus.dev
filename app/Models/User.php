@@ -28,6 +28,9 @@ class User extends Authenticatable
         'phone',
         'phone_verified_at',
         'kyc_status',
+        'kyc_reviewed_at',
+        'kyc_reviewer_id',
+        'kyc_rejection_reason',
         'street_address',
         'city',
         'state',
@@ -36,6 +39,8 @@ class User extends Authenticatable
         'is_verified',
         'platform',
         'email_verified_at',
+        'suspended_at',
+        'suspension_reason',
     ];
 
     /**
@@ -56,11 +61,31 @@ class User extends Authenticatable
     protected function casts(): array
     {
         return [
-            'email_verified_at' => 'datetime',
-            'phone_verified_at' => 'datetime',
-            'password'          => 'hashed',
-            'is_verified'       => 'boolean',
+            'email_verified_at'  => 'datetime',
+            'phone_verified_at'  => 'datetime',
+            'kyc_reviewed_at'    => 'datetime',
+            'suspended_at'       => 'datetime',
+            'password'           => 'hashed',
+            'is_verified'        => 'boolean',
         ];
+    }
+
+    // ── Helpers ───────────────────────────────────────────────
+
+    /**
+     * Whether this user account is currently suspended.
+     */
+    public function isSuspended(): bool
+    {
+        return $this->suspended_at !== null;
+    }
+
+    /**
+     * Whether this user's KYC is pending review.
+     */
+    public function isKycPending(): bool
+    {
+        return $this->kyc_status === 'pending';
     }
 
     // ── Political platform relationships ─────────────────────

@@ -40,6 +40,9 @@ class ViewSession extends Model
         'user_agent',
         'fraud_score',
         'fraud_flags',
+        'reviewed_at',
+        'reviewed_by',
+        'review_action',
     ];
 
     protected $hidden = [
@@ -63,6 +66,7 @@ class ViewSession extends Model
             'referral_commission'   => 'decimal:2',
             'fraud_score'           => 'decimal:2',
             'fraud_flags'           => 'array',
+            'reviewed_at'           => 'datetime',
         ];
     }
 

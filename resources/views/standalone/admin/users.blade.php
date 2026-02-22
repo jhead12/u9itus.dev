@@ -24,14 +24,15 @@
                     <tr class="border-b border-slate-700/50">
                         <th class="px-5 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide">User</th>
                         <th class="px-5 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide">Role</th>
-                        <th class="px-5 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide">Verified</th>
+                        <th class="px-5 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide">KYC</th>
+                        <th class="px-5 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide">Status</th>
                         <th class="px-5 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide">Joined</th>
                         <th class="px-5 py-3"></th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-700/30">
                     @forelse($users as $u)
-                    <tr class="hover:bg-slate-700/20 transition">
+                    <tr class="hover:bg-slate-700/20 transition {{ $u->isSuspended() ? 'opacity-60' : '' }}">
                         <td class="px-5 py-3">
                             <div class="flex items-center gap-3">
                                 <div class="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-xs font-semibold text-slate-300 shrink-0">
@@ -49,8 +50,21 @@
                             </span>
                         </td>
                         <td class="px-5 py-3">
-                            @if($u->email_verified_at)
-                                <span class="text-xs text-emerald-400">✓ Verified</span>
+                            @php
+                                $kyc = $u->kyc_status ?? 'pending';
+                                $kycClass = match($kyc) {
+                                    'approved' => 'text-emerald-400',
+                                    'rejected' => 'text-red-400',
+                                    default    => 'text-yellow-400',
+                                };
+                            @endphp
+                            <span class="text-xs {{ $kycClass }}">{{ $kyc }}</span>
+                        </td>
+                        <td class="px-5 py-3">
+                            @if($u->isSuspended())
+                                <span class="text-xs text-orange-400">Suspended</span>
+                            @elseif($u->email_verified_at)
+                                <span class="text-xs text-emerald-400">Active</span>
                             @else
                                 <span class="text-xs text-slate-500">Unverified</span>
                             @endif
@@ -62,7 +76,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="5" class="px-5 py-8 text-center text-sm text-slate-500">No users found.</td>
+                        <td colspan="6" class="px-5 py-8 text-center text-sm text-slate-500">No users found.</td>
                     </tr>
                     @endforelse
                 </tbody>
