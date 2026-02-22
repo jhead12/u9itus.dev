@@ -139,6 +139,93 @@
         </div>
     </form>
 
+    {{-- KYC (Know Your Customer) Identity Document Upload --}}
+    <div class="bg-slate-800/50 border {{ $user->kyc_status === 'approved' ? 'border-emerald-500/30' : ($user->kyc_status === 'rejected' ? 'border-red-500/30' : 'border-yellow-500/30') }} rounded-2xl p-6 space-y-4">
+        <div class="flex items-start justify-between gap-4">
+            <div>
+                <h2 class="text-base font-semibold text-white flex items-center gap-2">
+                    <svg class="w-4 h-4 text-yellow-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2"/>
+                    </svg>
+                    KYC Identity Verification
+                </h2>
+                <p class="text-xs text-slate-500 mt-0.5">Know Your Customer — upload a government-issued ID to unlock payouts</p>
+            </div>
+            @if($user->kyc_status === 'approved')
+            <span class="shrink-0 inline-flex items-center gap-1 text-xs bg-emerald-900/40 border border-emerald-700/40 text-emerald-400 rounded-full px-3 py-1 font-medium">
+                ✓ Approved
+            </span>
+            @elseif($user->kyc_status === 'rejected')
+            <span class="shrink-0 inline-flex items-center gap-1 text-xs bg-red-900/30 border border-red-700/30 text-red-400 rounded-full px-3 py-1 font-medium">
+                ✗ Rejected
+            </span>
+            @else
+            <span class="shrink-0 inline-flex items-center gap-1 text-xs bg-yellow-900/20 border border-yellow-700/30 text-yellow-400 rounded-full px-3 py-1 font-medium">
+                ⏳ Pending Review
+            </span>
+            @endif
+        </div>
+
+        @if(session('kyc_success'))
+        <div class="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-sm rounded-lg px-4 py-3">
+            {{ session('kyc_success') }}
+        </div>
+        @endif
+
+        @if($errors->has('kyc_document'))
+        <div class="bg-red-500/10 border border-red-500/30 text-red-400 text-sm rounded-lg px-4 py-3">
+            {{ $errors->first('kyc_document') }}
+        </div>
+        @endif
+
+        {{-- Show rejection reason --}}
+        @if($user->kyc_status === 'rejected' && $user->kyc_rejection_reason)
+        <div class="bg-red-900/20 border border-red-700/30 rounded-lg px-4 py-3">
+            <p class="text-xs text-red-400 font-semibold mb-1">Rejection reason:</p>
+            <p class="text-sm text-red-300">{{ $user->kyc_rejection_reason }}</p>
+            <p class="text-xs text-slate-500 mt-2">Please re-upload a clearer document to try again.</p>
+        </div>
+        @endif
+
+        {{-- Current document --}}
+        @if($user->kyc_document_path)
+        <div class="flex items-center justify-between bg-slate-900/50 border border-slate-700/50 rounded-lg px-4 py-3">
+            <div class="flex items-center gap-2 text-sm text-slate-300 min-w-0">
+                <svg class="w-4 h-4 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+                <span class="truncate">{{ basename($user->kyc_document_path) }}</span>
+            </div>
+            <a href="{{ Storage::disk('public')->url($user->kyc_document_path) }}" target="_blank"
+               class="shrink-0 text-xs text-emerald-400 hover:text-emerald-300 transition ml-3">
+                View →
+            </a>
+        </div>
+        @endif
+
+        {{-- Upload form --}}
+        @if($user->kyc_status !== 'approved')
+        <form action="{{ route('voter.kyc.upload') }}" method="POST" enctype="multipart/form-data" class="space-y-3">
+            @csrf
+            <div>
+                <label class="block text-xs text-slate-400 font-medium mb-1.5">
+                    {{ $user->kyc_document_path ? 'Replace document' : 'Upload government-issued ID' }}
+                </label>
+                <input type="file" name="kyc_document" accept=".jpg,.jpeg,.png,.pdf"
+                       class="block w-full text-sm text-slate-400
+                              file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0
+                              file:text-xs file:font-semibold file:bg-slate-700 file:text-slate-200
+                              hover:file:bg-slate-600 file:transition file:cursor-pointer cursor-pointer">
+                <p class="text-xs text-slate-600 mt-1.5">Accepted: JPG, PNG, PDF — max 5 MB. Passport, driver's licence, or national ID.</p>
+            </div>
+            <button type="submit"
+                    class="px-5 py-2 rounded-lg bg-yellow-500 hover:bg-yellow-400 text-slate-900 text-xs font-bold transition">
+                Upload Document
+            </button>
+        </form>
+        @endif
+    </div>
+
     @else
     <div class="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-10 text-center">
         <p class="text-slate-400">No voter profile found. Contact support.</p>

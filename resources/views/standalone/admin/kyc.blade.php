@@ -1,7 +1,7 @@
 @extends('standalone.layouts.dashboard')
 
-@section('title', 'KYC Management')
-@section('page-title', 'KYC Identity Review')
+@section('title', 'KYC — Know Your Customer')
+@section('page-title', 'KYC — Know Your Customer Identity Review')
 
 @section('content')
 <div class="space-y-6">
@@ -38,7 +38,7 @@
     <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl overflow-hidden">
         <div class="px-5 py-4 border-b border-slate-700/50">
             <h3 class="text-sm font-semibold text-white">Identity Verification Queue</h3>
-            <p class="text-xs text-slate-500 mt-0.5">{{ $users->total() }} user(s) awaiting KYC review</p>
+            <p class="text-xs text-slate-500 mt-0.5">{{ $users->total() }} user(s) awaiting KYC (Know Your Customer) review — users must verify their identity before accessing paid features</p>
         </div>
 
         @if($users->isEmpty())
@@ -80,6 +80,26 @@
                                 <span class="text-amber-400">✗ Email unverified</span>
                                 @endif
                             </div>
+
+                            {{-- KYC Document --}}
+                            @if($user->kyc_document_path)
+                            <div class="mt-2 flex items-center gap-2">
+                                <svg class="w-3.5 h-3.5 text-yellow-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                </svg>
+                                <a href="{{ Storage::disk('public')->url($user->kyc_document_path) }}" target="_blank"
+                                   class="text-xs text-yellow-400 hover:text-yellow-300 underline underline-offset-2 transition">
+                                    View uploaded ID document ({{ strtoupper(pathinfo($user->kyc_document_path, PATHINFO_EXTENSION)) }})
+                                </a>
+                            </div>
+                            @else
+                            <div class="mt-2 flex items-center gap-1.5">
+                                <svg class="w-3.5 h-3.5 text-slate-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                </svg>
+                                <span class="text-xs text-slate-600 italic">No document uploaded yet</span>
+                            </div>
+                            @endif
 
                             {{-- Politician specific info --}}
                             @if($user->politician)

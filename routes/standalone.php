@@ -110,6 +110,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // Profile & Settings
         Route::get('/profile', [PoliticianController::class, 'profile'])->name('profile');
         Route::put('/profile', [PoliticianController::class, 'updateProfile'])->name('profile.update');
+
+        // KYC Document Upload
+        Route::post('/kyc/upload', [PoliticianController::class, 'uploadKycDocument'])->name('kyc.upload');
     });
     
     /*
@@ -149,6 +152,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // Profile
         Route::get('/profile', [VoterController::class, 'profile'])->name('profile');
         Route::put('/profile', [VoterController::class, 'updateProfile'])->name('profile.update');
+
+        // KYC Document Upload
+        Route::post('/kyc/upload', [VoterController::class, 'uploadKycDocument'])->name('kyc.upload');
     });
     
     /*

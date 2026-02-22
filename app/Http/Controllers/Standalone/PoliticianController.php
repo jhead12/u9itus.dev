@@ -431,6 +431,47 @@ class PoliticianController extends Controller
         return view('standalone.politician.invoices', compact('politician', 'transactions'));
     }
 
+    /**
+     * Upload a government-issued ID document for KYC (Know Your Customer) verification.
+     *
+     * Accepts jpg/jpeg/png/pdf up to 5 MB. Stores on the `public` disk under
+     * `kyc/{user_id}/document.{ext}` and resets kyc_status to 'pending' so
+     * the admin is prompted to review the new document.
+     */
+    public function uploadKycDocument(Request $request)
+    {
+        $request->validate([
+            'kyc_document' => [
+                'required',
+                'file',
+                'mimes:jpg,jpeg,png,pdf',
+                'max:5120', // 5 MB
+            ],
+        ]);
+
+        $user = Auth::user();
+        $file = $request->file('kyc_document');
+
+        // Delete old document if one exists
+        if ($user->kyc_document_path) {
+            Storage::disk('public')->delete($user->kyc_document_path);
+        }
+
+        $ext  = $file->getClientOriginalExtension();
+        $path = $file->storeAs("kyc/{$user->id}", "document.{$ext}", 'public');
+
+        // Save path and reset KYC status to pending so admin reviews the new doc
+        $user->update([
+            'kyc_document_path'    => $path,
+            'kyc_status'           => 'pending',
+            'kyc_reviewed_at'      => null,
+            'kyc_reviewer_id'      => null,
+            'kyc_rejection_reason' => null,
+        ]);
+
+        return back()->with('kyc_success', 'Document uploaded successfully. Your identity is now pending review.');
+    }
+
     /** Show profile edit form. */
     public function profile()
     {

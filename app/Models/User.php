@@ -31,6 +31,7 @@ class User extends Authenticatable
         'kyc_reviewed_at',
         'kyc_reviewer_id',
         'kyc_rejection_reason',
+        'kyc_document_path',
         'street_address',
         'city',
         'state',
