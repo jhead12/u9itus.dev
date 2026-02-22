@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Politician;
 use App\Models\User;
 use App\Models\Voter;
+use App\Mail\AdminNewUserNotificationMail;
 use App\Mail\WelcomeMail;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Auth\Events\Verified;
@@ -191,6 +192,17 @@ class AuthController extends Controller
             // silently skip — email config may not be set up yet
         }
 
+        // Notify all admins of the new politician signup
+        try {
+            $user->loadMissing('politician');
+            $admins = User::where('user_type', 'admin')->whereNotNull('email')->get();
+            foreach ($admins as $admin) {
+                Mail::to($admin->email)->queue(new AdminNewUserNotificationMail($user));
+            }
+        } catch (\Exception) {
+            // Non-fatal
+        }
+
         Auth::login($user);
 
         return redirect()->route('verification.notice');
@@ -271,6 +283,16 @@ class AuthController extends Controller
             Mail::to($user->email)->queue(new WelcomeMail($user));
         } catch (\Exception) {
             // silently skip — email config may not be set up yet
+        }
+
+        // Notify all admins of the new voter signup
+        try {
+            $admins = User::where('user_type', 'admin')->whereNotNull('email')->get();
+            foreach ($admins as $admin) {
+                Mail::to($admin->email)->queue(new AdminNewUserNotificationMail($user));
+            }
+        } catch (\Exception) {
+            // Non-fatal
         }
 
         Auth::login($user);

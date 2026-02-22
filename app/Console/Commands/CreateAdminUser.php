@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\User;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
 
 class CreateAdminUser extends Command
@@ -56,6 +57,20 @@ class CreateAdminUser extends Command
 
         // Revoke any non-admin roles then assign admin
         $user->syncRoles(['admin']);
+
+        // Send account-created email to the admin (non-fatal)
+        $isNew = $user->wasRecentlyCreated;
+        try {
+            Mail::to($user->email)
+                ->send(new \App\Mail\AdminAccountCreatedMail(
+                    $user,
+                    $isNew,
+                    $isNew ? $password : ''
+                ));
+            $this->line("  ✉  Notification email sent to {$email}.");
+        } catch (\Exception $e) {
+            $this->warn("  ⚠  Could not send notification email: " . $e->getMessage());
+        }
 
         $this->info("✓ Admin user {$email} created/updated successfully.");
         $this->line("  Roles: " . $user->getRoleNames()->implode(', '));

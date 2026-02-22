@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Standalone;
 use App\Enums\ApprovalStatus;
 use App\Enums\CampaignStatus;
 use App\Http\Controllers\Controller;
+use App\Mail\CampaignApprovedMail;
+use App\Mail\CampaignRejectedMail;
 use App\Models\PoliticalCampaign;
 use App\Models\Politician;
 use App\Models\User;
@@ -109,6 +111,17 @@ class AdminController extends Controller
             'status'          => CampaignStatus::Active,
         ]);
 
+        // Notify the politician that their campaign was approved
+        try {
+            $politicianUser = $campaign->politician?->user;
+            if ($politicianUser?->email) {
+                Mail::to($politicianUser->email)
+                    ->queue(new CampaignApprovedMail($campaign));
+            }
+        } catch (\Exception) {
+            // Non-fatal — silently skip if mail not configured
+        }
+
         return back()->with('success', 'Campaign "' . $campaign->title . '" has been approved and set to active.');
     }
 
@@ -121,11 +134,24 @@ class AdminController extends Controller
             'reason' => ['nullable', 'string', 'max:500'],
         ]);
 
+        $rejectionReason = $request->input('reason', 'Does not meet content guidelines.');
+
         $campaign->update([
             'approval_status'  => ApprovalStatus::Rejected,
             'status'           => CampaignStatus::Cancelled,
-            'rejection_reason' => $request->input('reason', 'Does not meet content guidelines.'),
+            'rejection_reason' => $rejectionReason,
         ]);
+
+        // Notify the politician that their campaign was rejected
+        try {
+            $politicianUser = $campaign->politician?->user;
+            if ($politicianUser?->email) {
+                Mail::to($politicianUser->email)
+                    ->queue(new CampaignRejectedMail($campaign, $rejectionReason));
+            }
+        } catch (\Exception) {
+            // Non-fatal — silently skip if mail not configured
+        }
 
         return back()->with('success', 'Campaign "' . $campaign->title . '" has been rejected.');
     }

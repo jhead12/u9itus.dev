@@ -79,6 +79,11 @@ return [
             'transport' => 'array',
         ],
 
+        'mailgun' => [
+            'transport' => 'mailgun',
+            // Uses config/services.php mailgun.domain, mailgun.secret, mailgun.endpoint
+        ],
+
         'failover' => [
             'transport' => 'failover',
             'mailers' => [
