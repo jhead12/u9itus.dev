@@ -76,6 +76,12 @@
     </div>
 
     {{-- ── Share Links ──────────────────────────────────────────── --}}
+    @php
+        $voterRefUrl      = route('register.voter')      . '?ref=' . $voter->referral_code;
+        $politicianRefUrl = route('register.politician') . '?ref=' . $voter->referral_code;
+        $voterQrSrc       = 'https://api.qrserver.com/v1/create-qr-code/?size=120x120&color=059669&bgcolor=FFFFFF&data=' . rawurlencode($voterRefUrl)      . '&qzone=1';
+        $politicianQrSrc  = 'https://api.qrserver.com/v1/create-qr-code/?size=120x120&color=d97706&bgcolor=FFFFFF&data=' . rawurlencode($politicianRefUrl) . '&qzone=1';
+    @endphp
     <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-6 space-y-7">
         <h2 class="text-lg font-semibold text-white">Share Your Referral Links</h2>
 
@@ -86,7 +92,7 @@
                 <p class="text-slate-400 text-xs">Earn $0.025 per view forever for every voter you refer.</p>
                 <div class="flex gap-2">
                     <input id="voter-referral-link" type="text" readonly
-                        value="{{ route('register.voter') }}?ref={{ $voter->referral_code }}"
+                        value="{{ $voterRefUrl }}"
                         class="flex-1 bg-slate-900 border border-slate-600 rounded-lg px-4 py-2.5 text-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
                     <button onclick="copyLink('voter-referral-link', 'voter-copy-confirm')"
                         class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition whitespace-nowrap">
@@ -97,17 +103,21 @@
             </div>
             {{-- Voter QR --}}
             <div class="flex flex-col items-center gap-2">
-                <div id="voter-qr"
-                     class="w-32 h-32 bg-white rounded-xl p-1.5 shadow-lg shadow-black/40 flex items-center justify-center">
+                <div class="w-32 h-32 bg-white rounded-xl p-1 shadow-lg shadow-black/40 flex items-center justify-center">
+                    <img src="{{ $voterQrSrc }}"
+                         alt="Voter Referral QR Code"
+                         class="w-28 h-28 rounded-lg"
+                         loading="lazy">
                 </div>
-                <button onclick="downloadQR('voter-qr', 'voter-referral-qr.png')"
-                    class="text-xs text-emerald-400 hover:text-emerald-300 flex items-center gap-1 transition">
+                <a href="{{ $voterQrSrc }}&download=1"
+                   download="voter-referral-qr.png"
+                   class="text-xs text-emerald-400 hover:text-emerald-300 flex items-center gap-1 transition">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                             d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
                     </svg>
                     Download PNG
-                </button>
+                </a>
             </div>
         </div>
 
@@ -120,7 +130,7 @@
                 <p class="text-slate-400 text-xs">Earn 10% of the first credit purchase when a politician you recruit funds their campaign.</p>
                 <div class="flex gap-2">
                     <input id="politician-referral-link" type="text" readonly
-                        value="{{ route('register.politician') }}?ref={{ $voter->referral_code }}"
+                        value="{{ $politicianRefUrl }}"
                         class="flex-1 bg-slate-900 border border-slate-600 rounded-lg px-4 py-2.5 text-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
                     <button onclick="copyLink('politician-referral-link', 'politician-copy-confirm')"
                         class="bg-amber-600 hover:bg-amber-500 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition whitespace-nowrap">
@@ -131,17 +141,21 @@
             </div>
             {{-- Politician QR --}}
             <div class="flex flex-col items-center gap-2">
-                <div id="politician-qr"
-                     class="w-32 h-32 bg-white rounded-xl p-1.5 shadow-lg shadow-black/40 flex items-center justify-center">
+                <div class="w-32 h-32 bg-white rounded-xl p-1 shadow-lg shadow-black/40 flex items-center justify-center">
+                    <img src="{{ $politicianQrSrc }}"
+                         alt="Politician Referral QR Code"
+                         class="w-28 h-28 rounded-lg"
+                         loading="lazy">
                 </div>
-                <button onclick="downloadQR('politician-qr', 'politician-referral-qr.png')"
-                    class="text-xs text-amber-400 hover:text-amber-300 flex items-center gap-1 transition">
+                <a href="{{ $politicianQrSrc }}&download=1"
+                   download="politician-referral-qr.png"
+                   class="text-xs text-amber-400 hover:text-amber-300 flex items-center gap-1 transition">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                             d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
                     </svg>
                     Download PNG
-                </button>
+                </a>
             </div>
         </div>
     </div>
@@ -304,64 +318,21 @@
 </div>
 
 @push('scripts')
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" integrity="sha512-CNgIRecGo7nphbeZ04Sc13ka07paqdeTu0WR1IM4kNcpmBAUSHSe1KJQKFgmO7RdKeMtgLmPOq0rB+yR3SHiw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script>
-(function () {
-    const makeQR = (containerId, url, color) => {
-        const el = document.getElementById(containerId);
-        if (!el || !url) return;
-        new QRCode(el, {
-            text:           url,
-            width:          112,
-            height:         112,
-            colorDark:      color,
-            colorLight:     '#ffffff',
-            correctLevel:   QRCode.CorrectLevel.H,
-        });
-    };
-
-    const voterUrl     = document.getElementById('voter-referral-link')?.value;
-    const politicianUrl = document.getElementById('politician-referral-link')?.value;
-
-    makeQR('voter-qr',     voterUrl,      '#059669'); // emerald-600
-    makeQR('politician-qr', politicianUrl, '#d97706'); // amber-600
-
-    window.downloadQR = function (containerId, filename) {
-        const container = document.getElementById(containerId);
-        if (!container) return;
-
-        // qrcode.js renders either a canvas or an img depending on browser
-        const canvas = container.querySelector('canvas');
-        const img    = container.querySelector('img');
-
-        if (canvas) {
-            const link    = document.createElement('a');
-            link.download = filename;
-            link.href     = canvas.toDataURL('image/png');
-            link.click();
-        } else if (img) {
-            // Fallback: draw img onto a temporary canvas for download
-            const tmpCanvas = document.createElement('canvas');
-            tmpCanvas.width  = img.naturalWidth  || 128;
-            tmpCanvas.height = img.naturalHeight || 128;
-            const ctx = tmpCanvas.getContext('2d');
-            ctx.drawImage(img, 0, 0);
-            const link    = document.createElement('a');
-            link.download = filename;
-            link.href     = tmpCanvas.toDataURL('image/png');
-            link.click();
-        }
-    };
-
-    window.copyLink = function (inputId, confirmId) {
-        const input = document.getElementById(inputId);
-        navigator.clipboard.writeText(input.value).then(() => {
-            const el = document.getElementById(confirmId);
+window.copyLink = function (inputId, confirmId) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    navigator.clipboard?.writeText(input.value).then(() => {
+        const el = document.getElementById(confirmId);
+        if (el) {
             el.classList.remove('hidden');
             setTimeout(() => el.classList.add('hidden'), 3000);
-        });
-    };
-}());
+        }
+    }).catch(() => {
+        input.select();
+        document.execCommand('copy');
+    });
+};
 </script>
 @endpush
 @endsection

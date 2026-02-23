@@ -294,63 +294,21 @@
 </div>
 
 @push('scripts')
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"
-        integrity="sha512-CNgIRecGo7nphbeZ04Sc13ka07paqdeTu0WR1IM4kNcpmBAUSHSe1KJQKFgmO7RdKeMtgLmPOq0rB+yR3SHiw=="
-        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script>
-(function () {
-    const voterUrl      = document.getElementById('voter-referral-link')?.value ?? '';
-    const politicianUrl = document.getElementById('politician-referral-link')?.value ?? '';
-
-    function makeQR(containerId, url, color) {
-        const el = document.getElementById(containerId);
-        if (!el || !url) return;
-        new QRCode(el, {
-            text:           url,
-            width:          88,
-            height:         88,
-            colorDark:      color,
-            colorLight:     '#ffffff',
-            correctLevel:   QRCode.CorrectLevel.H,
-        });
+window.copyLink = function (inputId) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    navigator.clipboard?.writeText(input.value).catch(() => {
+        input.select();
+        document.execCommand('copy');
+    });
+    const btn = input.nextElementSibling;
+    if (btn) {
+        const orig = btn.textContent.trim();
+        btn.textContent = 'Copied!';
+        setTimeout(() => { btn.textContent = orig; }, 1800);
     }
-
-    makeQR('voter-qr',      voterUrl,      '#059669');  // emerald
-    makeQR('politician-qr', politicianUrl, '#d97706');  // amber
-
-    window.downloadQR = function (containerId, filename) {
-        const el = document.getElementById(containerId);
-        if (!el) return;
-        const canvas = el.querySelector('canvas');
-        const img    = el.querySelector('img');
-        if (canvas) {
-            const a = document.createElement('a');
-            a.download = filename;
-            a.href = canvas.toDataURL('image/png');
-            a.click();
-        } else if (img) {
-            const a = document.createElement('a');
-            a.download = filename;
-            a.href = img.src;
-            a.click();
-        }
-    };
-
-    window.copyLink = function (inputId) {
-        const input = document.getElementById(inputId);
-        if (!input) return;
-        navigator.clipboard?.writeText(input.value).catch(() => {
-            input.select();
-            document.execCommand('copy');
-        });
-        const btn = input.nextElementSibling;
-        if (btn) {
-            const orig = btn.textContent;
-            btn.textContent = 'Copied!';
-            setTimeout(() => { btn.textContent = orig; }, 1800);
-        }
-    };
-})();
+};
 </script>
 @endpush
 
