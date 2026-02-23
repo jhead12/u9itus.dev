@@ -209,8 +209,9 @@ php artisan serve
 | **FraudPreventionService**      | Device fingerprinting, rate limits, IP anomalies, trust scoring    |
 | **CampaignBillingService**      | Stripe PaymentIntent creation, credit top-up, credit deduction     |
 | **StripePaymentService**        | Low-level Stripe SDK wrapper (customers, payment methods, intents) |
-| **StandardNotificationService** | Email/SMS notification delivery                                    |
-| **StandardAuthService**         | Laravel session-based authentication                               |
+| **StandardNotificationService** | Email/SMS notification delivery                                                    |
+| **StandardAuthService**         | Laravel session-based authentication                                               |
+| **ReverbBroadcastService**      | WebSocket event dispatch — ad delivery, payout alerts, campaign status, presence   |
 
 ### Controllers
 
@@ -450,15 +451,17 @@ npm run dev:all   # Start Laravel + Vite together
 | Phase 8  | Security & Fraud (advanced scoring, VPN detection, device fingerprinting)                                                                                   | ⬜ Pending  |
 | Phase 9  | Testing (unit tests for all services, feature tests for admin approval workflow, CI coverage reporting)                                                     | ✅ Complete |
 | Phase 10 | Deployment (Railway production config, env hardening)                                                                                                       | ⬜ Pending  |
+| Phase 11 | Real-time Notifications — Laravel Reverb/WebSockets (private voter/politician channels, admin broadcast, ad-delivery push, payout alerts, live presence; WebRTC signaling foundation for Phase 12) | 🚧 In Progress |
+| Phase 12 | Live Feed Streaming — WebRTC (politician → voter HLS/WebRTC live video, presence channel viewer counts, live chat via Reverb, built on Phase 11 Reverb server) | ⬜ Pending  |
 
 ## Future Enhancements
 
-- Live feed streaming via WebRTC
-- Real-time notifications via Laravel Reverb/WebSockets
 - Advanced fraud detection with ML scoring
 - Mobile app (React Native)
 - Expand campaign video sources beyond YouTube v1 (Vimeo, Cloudflare Stream, HLS, S3 — see [Campaign Video Media](#campaign-video-media))
-- ~~Allow admin to stop campaigns, if there are errors, such as video not playing, incorrect locations~~ ✅ Implemented (stop/reactivate with required reason, full immutable audit log; push notifications pending)
+- ~~Live feed streaming via WebRTC~~ → Phase 12 (built on Phase 11 Reverb signaling layer)
+- ~~Real-time notifications via Laravel Reverb/WebSockets~~ → Phase 11 (🚧 In Progress)
+- ~~Allow admin to stop campaigns, if there are errors, such as video not playing, incorrect locations~~ ✅ Implemented (stop/reactivate with required reason, full immutable audit log; real-time WebSocket push via Phase 11)
 - Multi-language support
 - Advanced analytics dashboard
 - ~~Automated Stripe Connect for politician billing~~ ✅ Implemented (auto-customer creation, saved payment methods)
