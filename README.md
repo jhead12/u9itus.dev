@@ -63,13 +63,14 @@ Voters earn two distinct types of commission by referring others to the platform
 
 All campaign `media_url` values are expected to be YouTube links in any of the supported formats:
 
-| Format | Example |
-|--------|---------|
-| Short URL | `https://youtu.be/VIDEO_ID` |
+| Format    | Example                                    |
+| --------- | ------------------------------------------ |
+| Short URL | `https://youtu.be/VIDEO_ID`                |
 | Watch URL | `https://www.youtube.com/watch?v=VIDEO_ID` |
-| Embed URL | `https://www.youtube.com/embed/VIDEO_ID` |
+| Embed URL | `https://www.youtube.com/embed/VIDEO_ID`   |
 
 The watch view (`resources/views/standalone/voter/watch.blade.php`) auto-detects a YouTube URL and renders the video via the **YouTube IFrame API** (`YT.Player`). This enables:
+
 - Controlled playback triggered only after the session starts
 - Server-side heartbeat progress tracking every 5 seconds
 - Anti-skip enforcement (viewer cannot seek forward)
@@ -79,14 +80,14 @@ The watch view (`resources/views/standalone/voter/watch.blade.php`) auto-detects
 
 The following additional source types are planned for future versions. The player section uses a `$isYouTube` branch, making it straightforward to extend:
 
-| Source Type | Notes |
-|-------------|-------|
+| Source Type                        | Notes                                                      |
+| ---------------------------------- | ---------------------------------------------------------- |
 | Direct video file (MP4, WebM, OGG) | Native `<video>` element — already implemented as fallback |
-| Vimeo | Vimeo Player SDK (`player.vimeo.com/video/VIDEO_ID`) |
-| Wistia | Wistia Embed API for privacy-friendly hosting |
-| Cloudflare Stream | HLS/DASH stream via `stream.cloudflare.com` |
-| AWS S3 / CloudFront | Signed URL + native `<video>` element |
-| HLS live streams | `hls.js` for live feed capability |
+| Vimeo                              | Vimeo Player SDK (`player.vimeo.com/video/VIDEO_ID`)       |
+| Wistia                             | Wistia Embed API for privacy-friendly hosting              |
+| Cloudflare Stream                  | HLS/DASH stream via `stream.cloudflare.com`                |
+| AWS S3 / CloudFront                | Signed URL + native `<video>` element                      |
+| HLS live streams                   | `hls.js` for live feed capability                          |
 
 > **Implementation note:** Add a new `elseif` branch in the `@php` block at the top of the player section and a matching `if` block in the JavaScript section for each new source type.
 
@@ -296,7 +297,8 @@ Requires `auth`, `verified`, and `role:admin` middleware. Access via `/admin/log
 | `GET`  | `/admin/campaigns/{id}/audit`      | Paginated immutable audit log for campaign |
 | `GET`  | `/admin/users`                     | User list                                  |
 | `GET`  | `/admin/fraud`                     | Fraud dashboard                            |
-| `GET`  | `/admin/payouts`                   | Payout overview                            |
+| `GET`  | `/admin/payouts`                   | Payout overview (`admin.payouts.index`)    |
+| `GET`  | `/admin/payouts/pending`           | Pending payout sessions                    |
 | `POST` | `/admin/payouts/batch-process`     | Run batch payout processing                |
 | `GET`  | `/admin/analytics`                 | Platform analytics                         |
 | `GET`  | `/admin/settings`                  | System settings                            |
@@ -385,8 +387,34 @@ Key values in `config/u9itus.php`:
 ### Running Tests
 
 ```bash
+# Run full suite
 php artisan test
+
+# Unit tests only (services)
+php artisan test --testsuite=Unit
+
+# Feature tests only
+php artisan test --testsuite=Feature
+
+# Run with code coverage (requires Xdebug)
+php artisan test --coverage
 ```
+
+**Test Suite Overview (158 tests, 357 assertions)**
+
+| Suite                                      | Tests | Coverage                                                                             |
+| ------------------------------------------ | ----- | ------------------------------------------------------------------------------------ |
+| `Unit/Services/FraudPreventionServiceTest` | 8     | Score calculation, all fraud flags, `flagVoter`, `holdPayouts`                       |
+| `Unit/Services/CampaignBillingServiceTest` | 9     | `recordTransaction`, credit ledger, procurement commissions, `finalizePaymentIntent` |
+| `Unit/Services/PoliticalViewServiceTest`   | 11    | Full view lifecycle, idempotency, state-targeted campaigns, earnings summary         |
+| `Unit/Services/StripePaymentServiceTest`   | 6     | No-key error path, `ensureCustomer` null-safe, `parseWebhook` fallback               |
+| `Feature/Campaign/AdminApprovalTest`       | 10    | Admin access control, approve/reject/stop/reactivate campaign workflow               |
+| `Feature/Campaign/CampaignCrudTest`        | 20    | Campaign CRUD, validation, submit-for-review, analytics, billing views               |
+| `Feature/Api/ViewSessionLifecycleTest`     | 13    | View session assign → start → progress → complete, referral earnings                 |
+| `Feature/Api/*`                            | 25    | Politician API, Voter API, Admin API, Health endpoint                                |
+| `Feature/Billing/*`                        | 7     | Credit purchase, Stripe webhook (success/failure/idempotency/sig-verify)             |
+| `Feature/Auth/*`                           | 19    | Registration, login, email verification, password reset/update                       |
+| `Feature/Standalone/VoterWatchTest`        | 16    | Token delivery, watch session, heartbeat, payout, voter dashboard                    |
 
 ### Code Style
 
@@ -420,34 +448,8 @@ npm run dev:all   # Start Laravel + Vite together
 | Phase 6  | Admin features (campaign approval queue, edit/stop/reactivate campaigns, KYC management, fraud review, immutable audit log)                                 | ✅ Complete |
 | Phase 7  | Notifications (email on approval/rejection/ - Admin signup notification email,User Signed up Email, Admin Email notification, managment system, completion) | ✅ Complete |
 | Phase 8  | Security & Fraud (advanced scoring, VPN detection, device fingerprinting)                                                                                   | ⬜ Pending  |
-| Phase 9  | Testing                                                                                                                                                     | ✅ Ongoing  |
+| Phase 9  | Testing (unit tests for all services, feature tests for admin approval workflow, CI coverage reporting)                                                     | ✅ Complete |
 | Phase 10 | Deployment (Railway production config, env hardening)                                                                                                       | ⬜ Pending  |
-
-## Known Issues / Bugs to Fix
-
-### `RouteNotFoundException` — `admin.payouts` not defined
-
-**Error:** `Symfony\Component\Routing\Exception\RouteNotFoundException` — Internal Server Error  
-**Message:** `Route [admin.payouts] not defined.`  
-**Environment:** PHP 8.2.30 / Laravel 12.50.0 / `dial4doughdev-production.up.railway.app`  
-**Triggered by:** `GET /admin/payouts/pending`  
-**Source:** `resources/views/standalone/admin/payouts-pending.blade.php:10`
-
-The view `payouts-pending.blade.php` references a route named `admin.payouts` (e.g. `route('admin.payouts')`) which does not exist. The registered route name is `admin.payouts.pending`. The fix is to update the view to use the correct route name or add a named alias in `routes/standalone.php`.
-
-**Stack summary:**
-
-```
-RouteNotFoundException: Route [admin.payouts] not defined.
-  at vendor/laravel/framework/src/Illuminate/Routing/UrlGenerator.php:526
-  called from resources/views/standalone/admin/payouts-pending.blade.php:10
-```
-
-**Fix required:**
-
-- [ ] Update `resources/views/standalone/admin/payouts-pending.blade.php` line 10 — replace `route('admin.payouts')` with the correct route name (e.g. `route('admin.payouts.index')` or `route('admin.payouts.pending')`) depending on the intended destination, **or** add a named route alias in `routes/standalone.php`.
-
----
 
 ## Future Enhancements
 
@@ -478,4 +480,6 @@ MIT License — See LICENSE file for details
 ## Credits
 
 Developed by Head Enterprises  
-Version 3.0.0 — Standalone Laravel 12 Architecture
+Version 3.0.0 — Standalone Laravel 12 Architecture  
+Last updated: February 23, 2026  
+Route fix: `admin.payouts` → `admin.payouts.index` in `payouts-pending.blade.php`
