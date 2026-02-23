@@ -423,10 +423,11 @@ class VoterController extends Controller
 
         $adToken = \App\Models\AdViewToken::where('token', $token)->firstOrFail();
         $voter   = $this->resolveVoter();
+        $campaignId = $adToken->political_campaign_id;
 
         \App\Models\VoterWatchReport::create([
             'voter_id'          => $voter->id,
-            'campaign_id'       => $adToken->campaign_id,
+            'campaign_id'       => $campaignId,
             'view_session_uuid' => $validated['view_session_uuid'] ?? null,
             'type'              => 'issue',
             'issue_category'    => $validated['issue_category'],
@@ -437,11 +438,11 @@ class VoterController extends Controller
         // Notify admin
         try {
             \Illuminate\Support\Facades\Mail::raw(
-                "Issue reported by voter #{$voter->id} ({$voter->email}) on campaign #{$adToken->campaign_id}.\n"
+                "Issue reported by voter #{$voter->id} ({$voter->email}) on campaign #{$campaignId}.\n"
                 . "Category: {$validated['issue_category']}\n"
                 . "Message: " . ($validated['body'] ?? '(none)'),
                 fn ($m) => $m->to(config('mail.from.address', 'admin@u9itus.com'))
-                              ->subject('[U9itus] Ad Issue Report – Campaign #' . $adToken->campaign_id)
+                              ->subject('[U9itus] Ad Issue Report – Campaign #' . $campaignId)
             );
         } catch (\Throwable $e) {
             Log::warning('reportIssue: mail failed', ['error' => $e->getMessage()]);
@@ -463,12 +464,12 @@ class VoterController extends Controller
 
         $adToken   = \App\Models\AdViewToken::where('token', $token)->firstOrFail();
         $voter     = $this->resolveVoter();
-        $campaign  = \App\Models\PoliticalCampaign::with('politician')->findOrFail($adToken->campaign_id);
+        $campaign  = \App\Models\PoliticalCampaign::with('politician.user')->findOrFail($adToken->political_campaign_id);
         $politician = $campaign->politician;
 
         \App\Models\VoterWatchReport::create([
             'voter_id'          => $voter->id,
-            'campaign_id'       => $adToken->campaign_id,
+            'campaign_id'       => $adToken->political_campaign_id,
             'view_session_uuid' => $validated['view_session_uuid'] ?? null,
             'type'              => 'message',
             'issue_category'    => null,
@@ -476,15 +477,16 @@ class VoterController extends Controller
             'status'            => 'open',
         ]);
 
-        // Notify politician
-        if ($politician && $politician->email) {
+        // Notify politician (email is on the related User record)
+        $politicianEmail = $politician?->user?->email ?? null;
+        if ($politicianEmail) {
             try {
                 \Illuminate\Support\Facades\Mail::raw(
                     "A voter has sent you a message regarding your campaign \"{$campaign->title}\".\n\n"
                     . "Message:\n" . $validated['body'] . "\n\n"
                     . "Sent by voter: {$voter->full_name} ({$voter->email})\n"
                     . "Platform: U9itus",
-                    fn ($m) => $m->to($politician->email)
+                    fn ($m) => $m->to($politicianEmail)
                                   ->subject('[U9itus] Voter Message – ' . $campaign->title)
                 );
             } catch (\Throwable $e) {
