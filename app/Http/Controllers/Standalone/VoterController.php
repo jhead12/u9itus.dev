@@ -407,6 +407,94 @@ class VoterController extends Controller
         ]);
     }
 
+    // ── In-Watch Interactions ────────────────────────────────
+
+    /**
+     * Report a technical or content issue with the currently-playing ad.
+     * Stores the report and notifies admin via email.
+     */
+    public function reportIssue(Request $request, string $token)
+    {
+        $validated = $request->validate([
+            'issue_category'    => 'required|in:video_not_playing,incorrect_info,offensive_content,other',
+            'body'              => 'nullable|string|max:1000',
+            'view_session_uuid' => 'nullable|string|max:36',
+        ]);
+
+        $adToken = \App\Models\AdViewToken::where('token', $token)->firstOrFail();
+        $voter   = $this->resolveVoter();
+
+        \App\Models\VoterWatchReport::create([
+            'voter_id'          => $voter->id,
+            'campaign_id'       => $adToken->campaign_id,
+            'view_session_uuid' => $validated['view_session_uuid'] ?? null,
+            'type'              => 'issue',
+            'issue_category'    => $validated['issue_category'],
+            'body'              => $validated['body'] ?? '',
+            'status'            => 'open',
+        ]);
+
+        // Notify admin
+        try {
+            \Illuminate\Support\Facades\Mail::raw(
+                "Issue reported by voter #{$voter->id} ({$voter->email}) on campaign #{$adToken->campaign_id}.\n"
+                . "Category: {$validated['issue_category']}\n"
+                . "Message: " . ($validated['body'] ?? '(none)'),
+                fn ($m) => $m->to(config('mail.from.address', 'admin@u9itus.com'))
+                              ->subject('[U9itus] Ad Issue Report – Campaign #' . $adToken->campaign_id)
+            );
+        } catch (\Throwable $e) {
+            Log::warning('reportIssue: mail failed', ['error' => $e->getMessage()]);
+        }
+
+        return response()->json(['success' => true, 'message' => 'Your report has been submitted. Thank you!']);
+    }
+
+    /**
+     * Send a direct message from the voter to the politician running the campaign.
+     * Stores the message and notifies the politician via email.
+     */
+    public function messagePolitician(Request $request, string $token)
+    {
+        $validated = $request->validate([
+            'body'              => 'required|string|max:1000',
+            'view_session_uuid' => 'nullable|string|max:36',
+        ]);
+
+        $adToken   = \App\Models\AdViewToken::where('token', $token)->firstOrFail();
+        $voter     = $this->resolveVoter();
+        $campaign  = \App\Models\PoliticalCampaign::with('politician')->findOrFail($adToken->campaign_id);
+        $politician = $campaign->politician;
+
+        \App\Models\VoterWatchReport::create([
+            'voter_id'          => $voter->id,
+            'campaign_id'       => $adToken->campaign_id,
+            'view_session_uuid' => $validated['view_session_uuid'] ?? null,
+            'type'              => 'message',
+            'issue_category'    => null,
+            'body'              => $validated['body'],
+            'status'            => 'open',
+        ]);
+
+        // Notify politician
+        if ($politician && $politician->email) {
+            try {
+                \Illuminate\Support\Facades\Mail::raw(
+                    "A voter has sent you a message regarding your campaign \"{$campaign->title}\".\n\n"
+                    . "Message:\n" . $validated['body'] . "\n\n"
+                    . "Sent by voter: {$voter->full_name} ({$voter->email})\n"
+                    . "Platform: U9itus",
+                    fn ($m) => $m->to($politician->email)
+                                  ->subject('[U9itus] Voter Message – ' . $campaign->title)
+                );
+            } catch (\Throwable $e) {
+                Log::warning('messagePolitician: mail failed', ['error' => $e->getMessage()]);
+            }
+        }
+
+        return response()->json(['success' => true, 'message' => 'Your message has been sent to the campaign team!']);
+    }
+
     // ── Earnings ─────────────────────────────────────────────
 
     public function earnings()
