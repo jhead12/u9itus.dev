@@ -85,7 +85,7 @@
                 {{ __('Dashboard') }}
             </x-responsive-nav-link>
                 @if(auth()->check() && auth()->user()->hasRole('admin'))
-                    <x-responsive-nav-link :href="route('admin.assignments.index')" :active="request()->routeIs('admin.*')">
+                    <x-responsive-nav-link :href="route('admin.dashboard')" :active="request()->routeIs('admin.*')">
                         {{ __('Assignments') }}
                     </x-responsive-nav-link>
                 @endif
