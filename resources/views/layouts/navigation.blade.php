@@ -16,8 +16,8 @@
                         {{ __('Dashboard') }}
                     </x-nav-link>
                     @if(auth()->check() && auth()->user()->hasRole('admin'))
-                        <x-nav-link :href="route('admin.assignments.index')" :active="request()->routeIs('admin.*')">
-                            {{ __('Assignments') }}
+                        <x-nav-link :href="route('admin.dashboard')" :active="request()->routeIs('admin.*')">
+                            {{ __('Admin Dashboard') }}
                         </x-nav-link>
                     @endif
                 </div>
