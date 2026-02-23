@@ -4,6 +4,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta name="auth-user-id" content="{{ auth()->id() }}">
+    <meta name="auth-user-role" content="{{ auth()->user()?->getRoleNames()->first() }}">
     <title>@yield('title', 'Dashboard') — {{ config('app.name', 'U9itus') }}</title>
 
     <link rel="preconnect" href="https://fonts.bunny.net">
@@ -160,6 +162,13 @@
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
                     Email Templates
                 </a>
+
+                <p class="px-4 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider mt-2">Account</p>
+
+                <a href="{{ route('admin.profile') }}" class="sidebar-link {{ request()->routeIs('admin.profile*') ? 'active' : '' }}">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                    My Profile
+                </a>
             @endif
 
         </nav>
@@ -202,10 +211,50 @@
                 <h1 class="text-base font-semibold text-slate-200">@yield('page-title', 'Dashboard')</h1>
             </div>
 
-            {{-- Notifications placeholder --}}
-            <button class="relative text-slate-400 hover:text-white">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
-            </button>
+            {{-- Notifications bell (Alpine.js) --}}
+            <div x-data="notificationBell()" x-cloak class="relative">
+                <button @click="open = !open"
+                    class="relative text-slate-400 hover:text-white transition"
+                    aria-label="Notifications">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+                    </svg>
+                    <span x-show="unread > 0"
+                          x-text="unread > 9 ? '9+' : unread"
+                          class="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 rounded-full bg-emerald-500 text-white text-[10px] font-bold flex items-center justify-center px-0.5"
+                          style="display:none;"></span>
+                </button>
+
+                {{-- Dropdown panel --}}
+                <div x-show="open"
+                     @click.outside="open = false"
+                     x-transition
+                     class="absolute right-0 mt-2 w-80 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl overflow-hidden z-50"
+                     style="display:none;">
+                    <div class="px-4 py-3 border-b border-slate-700 flex items-center justify-between">
+                        <p class="text-sm font-semibold text-white">Notifications</p>
+                        <button @click="markAllRead()" class="text-xs text-emerald-400 hover:text-emerald-300 transition">Mark all read</button>
+                    </div>
+
+                    <ul class="max-h-72 overflow-y-auto divide-y divide-slate-700/50">
+                        <template x-if="notifications.length === 0">
+                            <li class="px-4 py-6 text-sm text-slate-500 text-center">No notifications yet.</li>
+                        </template>
+                        <template x-for="(n, i) in notifications" :key="i">
+                            <li class="px-4 py-3 flex gap-3 hover:bg-slate-700/40 transition"
+                                :class="n.read ? 'opacity-60' : ''">
+                                <div class="mt-0.5 w-2 h-2 rounded-full shrink-0 mt-1.5"
+                                     :class="n.type === 'success' ? 'bg-emerald-400' : (n.type === 'warning' ? 'bg-amber-400' : 'bg-red-400')"></div>
+                                <div class="min-w-0 flex-1">
+                                    <p class="text-sm text-slate-200 leading-snug" x-text="n.message"></p>
+                                    <p class="text-xs text-slate-500 mt-0.5" x-text="n.time"></p>
+                                </div>
+                            </li>
+                        </template>
+                    </ul>
+                </div>
+            </div>
         </header>
 
         {{-- Flash messages --}}
@@ -249,5 +298,157 @@
 </script>
 
 @stack('scripts')
+
+{{-- ── Toast notifications (Alpine.js) ──────────────────────────────── --}}
+<div id="toast-container"
+     x-data="toastManager()"
+     x-cloak
+     class="fixed bottom-5 right-5 z-[100] flex flex-col gap-2 pointer-events-none">
+    <template x-for="(t, i) in toasts" :key="t.id">
+        <div x-show="t.visible"
+             x-transition:enter="transition ease-out duration-300"
+             x-transition:enter-start="opacity-0 translate-y-2"
+             x-transition:enter-end="opacity-100 translate-y-0"
+             x-transition:leave="transition ease-in duration-200"
+             x-transition:leave-start="opacity-100"
+             x-transition:leave-end="opacity-0"
+             class="pointer-events-auto flex items-start gap-3 px-4 py-3 rounded-xl shadow-lg border min-w-[260px] max-w-sm"
+             :class="{
+                 'bg-emerald-900/80 border-emerald-500/40 text-emerald-200': t.type === 'success',
+                 'bg-amber-900/80 border-amber-500/40 text-amber-200': t.type === 'warning',
+                 'bg-red-900/80 border-red-500/40 text-red-200': t.type === 'error',
+                 'bg-slate-800 border-slate-600/40 text-slate-200': t.type === 'info'
+             }">
+            {{-- icon --}}
+            <div class="mt-0.5 shrink-0">
+                <svg x-show="t.type === 'success'" class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                <svg x-show="t.type === 'error'" class="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                <svg x-show="t.type === 'warning'" class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                <svg x-show="t.type === 'info'" class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            </div>
+            <p class="text-sm leading-snug flex-1" x-text="t.message"></p>
+            <button @click="remove(i)" class="ml-1 shrink-0 opacity-50 hover:opacity-100 transition">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+    </template>
+</div>
+
+{{-- ── Alpine.js components + Echo boot ───────────────────────────────── --}}
+<script>
+(function () {
+    // ── Toast manager ──────────────────────────────────────────────────
+    window.toastManager = function () {
+        return {
+            toasts: [],
+            _counter: 0,
+            add(message, type = 'info', duration = 5000) {
+                const id = ++this._counter;
+                this.toasts.push({ id, message, type, visible: true });
+                if (duration > 0) setTimeout(() => this.removeById(id), duration);
+            },
+            removeById(id) {
+                const idx = this.toasts.findIndex(t => t.id === id);
+                if (idx !== -1) this.toasts.splice(idx, 1);
+            },
+            remove(idx) { this.toasts.splice(idx, 1); }
+        };
+    };
+
+    // Global toast() helper called by echo.js listeners
+    window._toastProxy = null;
+    window.toast = function (message, type = 'info') {
+        if (window._toastProxy) {
+            window._toastProxy.add(message, type);
+        } else {
+            // queue until Alpine boots the component
+            document.addEventListener('alpine:initialized', () => {
+                const el = document.getElementById('toast-container');
+                if (el && el._x_dataStack) {
+                    el._x_dataStack[0].add(message, type);
+                }
+            }, { once: true });
+        }
+    };
+
+    // ── Notification bell ──────────────────────────────────────────────
+    window.notificationBell = function () {
+        return {
+            open: false,
+            unread: 0,
+            notifications: [],
+            init() {
+                // Expose push() so Echo listeners can reach it
+                window._notificationBell = this;
+            },
+            push(message, type = 'info') {
+                const now = new Date();
+                this.notifications.unshift({
+                    message,
+                    type,
+                    read: false,
+                    time: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                });
+                this.unread++;
+                // Also show a toast
+                window.toast(message, type);
+            },
+            markAllRead() {
+                this.notifications.forEach(n => n.read = true);
+                this.unread = 0;
+            }
+        };
+    };
+
+    // ── Wire up Echo listeners after DOM is ready ──────────────────────
+    document.addEventListener('DOMContentLoaded', function () {
+        const userId = document.querySelector('meta[name="auth-user-id"]')?.content;
+        const role   = document.querySelector('meta[name="auth-user-role"]')?.content;
+
+        if (!window.Echo || !userId || !role) return;
+
+        const push = (msg, type) => {
+            if (window._notificationBell) window._notificationBell.push(msg, type);
+            else window.toast(msg, type);
+        };
+
+        if (role === 'admin') {
+            window.Echo.private('admin.monitor')
+                .listen('.fraud.flag.raised', e => {
+                    push('⚑ Fraud flag raised — Voter #' + (e.voter_id ?? '?'), 'warning');
+                })
+                .listen('.session.completed', e => {
+                    push('✓ View session completed — campaign #' + (e.campaign_id ?? '?'), 'info');
+                });
+        }
+
+        if (role === 'politician') {
+            window.Echo.private('politician.' + userId)
+                .listen('.campaign.approved', e => {
+                    push('✓ Your campaign "' + (e.campaign_title ?? 'Campaign') + '" was approved!', 'success');
+                })
+                .listen('.campaign.rejected', e => {
+                    push('✗ Your campaign "' + (e.campaign_title ?? 'Campaign') + '" was rejected.', 'error');
+                })
+                .listen('.campaign.stopped', e => {
+                    push('⏹ Your campaign "' + (e.campaign_title ?? 'Campaign') + '" was stopped.', 'warning');
+                });
+        }
+
+        if (role === 'voter') {
+            window.Echo.private('voter.' + userId)
+                .listen('.ad.token.delivered', e => {
+                    push('📨 New ad available — earn $0.25!', 'success');
+                })
+                .listen('.session.completed', e => {
+                    push('💰 Payout of $0.25 credited to your wallet.', 'success');
+                })
+                .listen('.payout.processed', e => {
+                    push('🏦 Batch payout of $' + (e.amount ?? '?') + ' processed.', 'success');
+                });
+        }
+    });
+}());
+</script>
 </body>
 </html>

@@ -6,6 +6,31 @@
 @section('content')
 <div class="space-y-6">
 
+    {{-- ── Live new-submission indicator (Echo / Reverb) ──────────────── --}}
+    <div x-data="{ newSubmissions: 0 }"
+         x-init="
+             if (window.Echo) {
+                 window.Echo.private('admin.monitor')
+                     .listen('.campaign.submitted', () => { newSubmissions++ });
+             }
+         "
+         x-show="newSubmissions > 0"
+         style="display:none;"
+         class="flex items-center gap-3 bg-amber-500/10 border border-amber-500/30 text-amber-300 text-sm rounded-xl px-4 py-3">
+        <span class="relative flex h-2.5 w-2.5 shrink-0">
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-400"></span>
+        </span>
+        <span>
+            <span x-text="newSubmissions"></span>
+            new campaign submission<span x-show="newSubmissions > 1">s</span> received.
+        </span>
+        <a href="{{ request()->fullUrl() }}"
+           class="ml-auto text-xs font-medium underline underline-offset-2 hover:text-amber-200 transition whitespace-nowrap">
+            Refresh to review →
+        </a>
+    </div>
+
     @if(session('success'))
     <div class="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-sm rounded-lg px-4 py-3">
         {{ session('success') }}

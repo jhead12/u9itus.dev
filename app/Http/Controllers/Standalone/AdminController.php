@@ -898,4 +898,44 @@ class AdminController extends Controller
 
         return view($view, $sharedData);
     }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Admin Profile
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Show the admin profile / account settings page.
+     */
+    public function profile()
+    {
+        $user = auth()->user();
+
+        return view('standalone.admin.profile', compact('user'));
+    }
+
+    /**
+     * Update admin name, email, or password.
+     */
+    public function updateProfile(Request $request)
+    {
+        $user = auth()->user();
+
+        $validated = $request->validate([
+            'name'                  => ['required', 'string', 'max:255'],
+            'email'                 => ['required', 'email', 'max:255', 'unique:users,email,' . $user->id],
+            'current_password'      => ['nullable', 'current_password'],
+            'password'              => ['nullable', 'min:8', 'confirmed'],
+        ]);
+
+        $user->name  = $validated['name'];
+        $user->email = $validated['email'];
+
+        if (! empty($validated['password'])) {
+            $user->password = bcrypt($validated['password']);
+        }
+
+        $user->save();
+
+        return back()->with('success', 'Profile updated successfully.');
+    }
 }
