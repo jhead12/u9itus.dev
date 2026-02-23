@@ -109,10 +109,11 @@
     const statusMsg   = document.getElementById('status-msg');
     const token       = document.querySelector('meta[name="watch-token"]').content;
     const csrf        = document.querySelector('meta[name="csrf-token"]').content;
-    const duration    = {{ $duration ?? 0 }};
-    const mustWatch   = {{ $mustWatch ?? 100 }};
-    const isYouTube   = {{ $isYouTube ? 'true' : 'false' }};
-    const videoId     = '{{ $videoId ?? '' }}';
+    const duration      = {{ $duration ?? 0 }};
+    const mustWatch     = {{ $mustWatch ?? 100 }};
+    const isYouTube     = {{ $isYouTube ? 'true' : 'false' }};
+    const videoId       = '{{ $videoId ?? '' }}';
+    const dashboardUrl  = '{{ route('voter.dashboard') }}';
 
     let sessionId      = null;
     let heartbeatTimer = null;
@@ -161,7 +162,7 @@
                     clearInterval(antiSkipTimer);
                     if (res.qualified) {
                         showStatus(`\u{1F389} You earned $${parseFloat(res.payout_earned).toFixed(2)}! Payment is being processed.`, 'success');
-                        statusMsg.innerHTML += ' <a href="{{ route(\"voter.dashboard\") }}" class="underline text-emerald-400 ml-2">View earnings \u2192</a>';
+                        statusMsg.innerHTML += ` <a href="${dashboardUrl}" class="underline text-emerald-400 ml-2">View earnings \u2192</a>`;
                     } else {
                         showStatus('You watched enough \u2014 but did not meet the full qualifying threshold. No payout this time.', 'info');
                     }
