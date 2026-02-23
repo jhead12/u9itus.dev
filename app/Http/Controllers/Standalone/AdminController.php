@@ -161,6 +161,55 @@ class AdminController extends Controller
     }
 
     /**
+     * Show the admin edit form for any campaign.
+     */
+    public function editCampaign(PoliticalCampaign $campaign)
+    {
+        $campaign->load('politician.user');
+
+        $states = config('u9itus.us_states', []);
+        $governanceLevels = config('u9itus.governance_levels', [
+            'Federal' => 'Federal', 'State' => 'State', 'County' => 'County',
+            'City' => 'City', 'School Board' => 'School Board',
+        ]);
+
+        return view('standalone.admin.campaign-edit', compact('campaign', 'states', 'governanceLevels'));
+    }
+
+    /**
+     * Update a campaign as admin (no status/ownership restrictions).
+     */
+    public function updateCampaign(Request $request, PoliticalCampaign $campaign)
+    {
+        $validated = $request->validate([
+            'title'                    => ['required', 'string', 'max:255'],
+            'message_summary'          => ['nullable', 'string', 'max:2000'],
+            'campaign_type'            => ['required', 'in:video,live_feed'],
+            'governance_level'         => ['nullable', 'string', 'max:100'],
+            'total_budget'             => ['required', 'numeric', 'min:0'],
+            'total_views_requested'    => ['required', 'integer', 'min:0'],
+            'target_states'            => ['nullable', 'array'],
+            'target_states.*'          => ['string', 'max:2'],
+            'target_cities'            => ['nullable', 'array'],
+            'target_cities.*'          => ['string', 'max:100'],
+            'media_url'                => ['nullable', 'url'],
+            'media_duration'           => ['nullable', 'integer', 'min:1'],
+            'live_feed_url'            => ['nullable', 'url'],
+            'live_scheduled_at'        => ['nullable', 'date'],
+            'min_watch_time_percent'   => ['nullable', 'integer', 'min:50', 'max:100'],
+            'status'                   => ['required', 'in:draft,pending_approval,active,paused,completed,cancelled'],
+            'approval_status'          => ['required', 'in:pending,approved,rejected'],
+            'rejection_reason'         => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $campaign->update($validated);
+
+        return redirect()
+            ->route('admin.campaigns.pending')
+            ->with('success', 'Campaign "' . $campaign->title . '" has been updated.');
+    }
+
+    /**
      * List all users.
      */
     public function users()

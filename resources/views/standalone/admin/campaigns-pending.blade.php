@@ -65,6 +65,10 @@
                                 Approve
                             </button>
                         </form>
+                        <a href="{{ route('admin.campaigns.edit', $campaign) }}"
+                            class="px-3 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 text-xs font-semibold transition border border-amber-500/20">
+                            Edit
+                        </a>
                         <button type="button"
                                 onclick="document.getElementById('reject-form-{{ $campaign->id }}').classList.toggle('hidden')"
                                 class="px-3 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-semibold transition border border-red-500/20">

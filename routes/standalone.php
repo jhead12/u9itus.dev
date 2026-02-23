@@ -172,6 +172,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/campaigns/pending', [AdminController::class, 'pendingCampaigns'])->name('campaigns.pending');
         Route::post('/campaigns/{campaign}/approve', [AdminController::class, 'approveCampaign'])->name('campaigns.approve');
         Route::post('/campaigns/{campaign}/reject', [AdminController::class, 'rejectCampaign'])->name('campaigns.reject');
+
+        // Campaign Editing (admin can edit any campaign)
+        Route::get('/campaigns/{campaign}/edit', [AdminController::class, 'editCampaign'])->name('campaigns.edit');
+        Route::put('/campaigns/{campaign}', [AdminController::class, 'updateCampaign'])->name('campaigns.update');
         
         // User Management
         Route::get('/users', [AdminController::class, 'users'])->name('users.index');
