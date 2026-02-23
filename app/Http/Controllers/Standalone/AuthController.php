@@ -168,23 +168,30 @@ class AuthController extends Controller
             'city',
         ]);
 
-        // Resolve referrer voter if a referral code was supplied
-        $referredByVoterId = null;
+        // Resolve referral code — could belong to a voter OR a politician
+        $referredByVoterId      = null;
+        $referredByPoliticianId = null;
         $refCode = $request->input('referral_code') ?: $request->query('ref');
         if ($refCode) {
-            $referrer = Voter::where('referral_code', $refCode)->first();
-            $referredByVoterId = $referrer?->id;
+            $voterReferrer = Voter::where('referral_code', $refCode)->first();
+            if ($voterReferrer) {
+                $referredByVoterId = $voterReferrer->id;
+            } else {
+                $politicianReferrer = \App\Models\Politician::where('referral_code', $refCode)->first();
+                $referredByPoliticianId = $politicianReferrer?->id;
+            }
         }
 
         // Normalize keys to match the politicians table
         $politicianPayload = [
-            'full_name'             => $request->input('name'),
-            'political_office'      => $politicianData['political_office'] ?? null,
-            'party_affiliation'     => $politicianData['party'] ?? null,
-            'governance_level'      => $politicianData['governance_level'] ?? null,
-            'state'                 => $politicianData['state'] ?? null,
-            'city'                  => $politicianData['city'] ?? null,
-            'referred_by_voter_id'  => $referredByVoterId,
+            'full_name'                 => $request->input('name'),
+            'political_office'          => $politicianData['political_office'] ?? null,
+            'party_affiliation'         => $politicianData['party'] ?? null,
+            'governance_level'          => $politicianData['governance_level'] ?? null,
+            'state'                     => $politicianData['state'] ?? null,
+            'city'                      => $politicianData['city'] ?? null,
+            'referred_by_voter_id'      => $referredByVoterId,
+            'referred_by_politician_id' => $referredByPoliticianId,
         ];
 
         // Use updateOrCreate to ensure fields are written deterministically
@@ -251,11 +258,18 @@ class AuthController extends Controller
 
         $user->assignRole('voter');
 
-        // Resolve referral voter if a code was provided
-        $referredByVoterId = null;
-        if ($request->filled('referral_code')) {
-            $referrer = Voter::where('referral_code', $request->referral_code)->first();
-            $referredByVoterId = $referrer?->id;
+        // Resolve referral code — could belong to a voter OR a politician
+        $referredByVoterId      = null;
+        $referredByPoliticianId = null;
+        $refCode = $request->input('referral_code') ?: $request->query('ref');
+        if ($refCode) {
+            $voterReferrer = Voter::where('referral_code', $refCode)->first();
+            if ($voterReferrer) {
+                $referredByVoterId = $voterReferrer->id;
+            } else {
+                $politicianReferrer = \App\Models\Politician::where('referral_code', $refCode)->first();
+                $referredByPoliticianId = $politicianReferrer?->id;
+            }
         }
 
         $voterData = $request->only([
@@ -266,16 +280,17 @@ class AuthController extends Controller
         ]);
 
         $voterPayload = [
-            'full_name'            => $request->input('name'),
-            'email'                => $user->email,
-            'phone'                => $voterData['phone'] ?? $request->input('phone'),
-            'state'                => $voterData['state'] ?? null,
-            'zip_code'             => $voterData['zip_code'] ?? null,
-            'referred_by_voter_id' => $referredByVoterId,
-            'wallet_balance'       => 0,
-            'trust_score'          => 100,
-            'is_active'            => true,
-            'is_verified'          => false,
+            'full_name'                 => $request->input('name'),
+            'email'                     => $user->email,
+            'phone'                     => $voterData['phone'] ?? $request->input('phone'),
+            'state'                     => $voterData['state'] ?? null,
+            'zip_code'                  => $voterData['zip_code'] ?? null,
+            'referred_by_voter_id'      => $referredByVoterId,
+            'referred_by_politician_id' => $referredByPoliticianId,
+            'wallet_balance'            => 0,
+            'trust_score'               => 100,
+            'is_active'                 => true,
+            'is_verified'               => false,
         ];
 
         // Search by email so that any orphaned voter row (user_id = NULL) created

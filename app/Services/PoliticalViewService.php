@@ -206,19 +206,35 @@ class PoliticalViewService
 
     private function creditReferrer(ViewSession $session, float $commission): void
     {
-        if ($commission <= 0 || !$session->voter->referrer) {
+        if ($commission <= 0) {
             return;
         }
 
-        ReferralEarning::create([
-            'referrer_voter_id' => $session->voter->referred_by_voter_id,
-            'referred_voter_id' => $session->voter->id,
-            'view_session_id'   => $session->id,
-            'commission_amount' => $commission,
-            'referral_type'     => ReferralEarning::TYPE_VOTER_VIEW,
-        ]);
+        $voter = $session->voter;
 
-        $session->voter->referrer->increment('pending_earnings', $commission);
+        // Voter referred by another voter
+        if ($voter->referred_by_voter_id && $voter->referrer) {
+            ReferralEarning::create([
+                'referrer_voter_id' => $voter->referred_by_voter_id,
+                'referred_voter_id' => $voter->id,
+                'view_session_id'   => $session->id,
+                'commission_amount' => $commission,
+                'referral_type'     => ReferralEarning::TYPE_VOTER_VIEW,
+            ]);
+            $voter->referrer->increment('pending_earnings', $commission);
+        }
+
+        // Voter referred by a politician
+        if ($voter->referred_by_politician_id && $voter->politicianReferrer) {
+            ReferralEarning::create([
+                'referrer_politician_id' => $voter->referred_by_politician_id,
+                'referred_voter_id'      => $voter->id,
+                'view_session_id'        => $session->id,
+                'commission_amount'      => $commission,
+                'referral_type'          => ReferralEarning::TYPE_VOTER_VIEW,
+            ]);
+            $voter->politicianReferrer->increment('pending_earnings', $commission);
+        }
     }
 
     private function updateCampaignSpend(PoliticalCampaign $campaign): void

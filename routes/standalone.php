@@ -111,6 +111,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/profile', [PoliticianController::class, 'profile'])->name('profile');
         Route::put('/profile', [PoliticianController::class, 'updateProfile'])->name('profile.update');
 
+        // Referrals
+        Route::get('/referrals', [PoliticianController::class, 'referrals'])->name('referrals');
+
         // KYC Document Upload
         Route::post('/kyc/upload', [PoliticianController::class, 'uploadKycDocument'])->name('kyc.upload');
     });

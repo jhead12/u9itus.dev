@@ -34,6 +34,7 @@ class Voter extends Model
         'congressional_district',
         'preferred_governance_levels',
         'referred_by_voter_id',
+        'referred_by_politician_id',
         'referral_code',
         'payment_method',
         'paypal_email',
@@ -94,6 +95,14 @@ class Voter extends Model
     public function referrer(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(Voter::class, 'referred_by_voter_id');
+    }
+
+    /**
+     * The politician who referred this voter (via politician referral link).
+     */
+    public function politicianReferrer(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Politician::class, 'referred_by_politician_id');
     }
 
     /**

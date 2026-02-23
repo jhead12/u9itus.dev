@@ -23,6 +23,7 @@ class ReferralEarning extends Model
 
     protected $fillable = [
         'referrer_voter_id',
+        'referrer_politician_id',
         'referred_voter_id',
         'view_session_id',
         'commission_amount',
@@ -62,6 +63,14 @@ class ReferralEarning extends Model
     public function politician()
     {
         return $this->belongsTo(Politician::class);
+    }
+
+    /**
+     * The politician who earned this commission (politician-as-referrer).
+     */
+    public function referrerPolitician()
+    {
+        return $this->belongsTo(Politician::class, 'referrer_politician_id');
     }
 
     // ── Scopes ────────────────────────────────────────────────

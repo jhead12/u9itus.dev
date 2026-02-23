@@ -506,4 +506,51 @@ class PoliticianController extends Controller
 
         return back()->with('success', 'Profile updated successfully.');
     }
+
+    /**
+     * Show the politician's referral dashboard.
+     */
+    public function referrals()
+    {
+        $politician = Auth::user()->politician;
+        abort_unless($politician, 403);
+
+        // Voters recruited via this politician's referral link
+        $referredVoters = $politician->referredVoters()
+            ->latest()
+            ->get();
+
+        // Politicians recruited via this politician's referral link
+        $referredPoliticians = $politician->referredPoliticians()
+            ->latest()
+            ->get();
+
+        // Per-view commissions (voter_view type earned by this politician)
+        $voterViewEarnings = $politician->referralEarnings()
+            ->voterViews()
+            ->with('referredVoter')
+            ->latest()
+            ->take(30)
+            ->get();
+
+        // Procurement commissions (politician_procurement type earned by this politician)
+        $procurementEarnings = $politician->referralEarnings()
+            ->procurements()
+            ->with('politician')
+            ->latest()
+            ->get();
+
+        $totalVoterViewEarnings  = (float) $politician->referralEarnings()->voterViews()->sum('commission_amount');
+        $totalProcurementEarnings = (float) $politician->referralEarnings()->procurements()->sum('commission_amount');
+
+        return view('standalone.politician.referrals', compact(
+            'politician',
+            'referredVoters',
+            'referredPoliticians',
+            'voterViewEarnings',
+            'procurementEarnings',
+            'totalVoterViewEarnings',
+            'totalProcurementEarnings'
+        ));
+    }
 }
