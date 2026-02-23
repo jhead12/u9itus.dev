@@ -146,22 +146,50 @@
         heartbeatTimer = setInterval(async () => {
             if (!sessionId || completed) return;
             const watched = Math.floor(getCurrentTime());
-            await post(`/voter/session/${sessionId}/progress`, { seconds_watched: watched });
-            const pct = duration > 0 ? Math.min(100, (watched / duration) * 100) : 0;
-            progressBar.style.width = pct + '%';
+            try {
+                const res = await post(`/voter/session/${sessionId}/progress`, { seconds_watched: watched });
+                // Update progress bar from server-reported percentage if available, else calculate locally
+                const pct = res.watched_pct !== undefined
+                    ? Math.min(100, res.watched_pct)
+                    : (duration > 0 ? Math.min(100, (watched / duration) * 100) : 0);
+                progressBar.style.width = pct + '%';
+
+                // Server auto-completed the session because threshold was reached
+                if (res.auto_completed && !completed) {
+                    completed = true;
+                    clearInterval(heartbeatTimer);
+                    clearInterval(antiSkipTimer);
+                    if (res.qualified) {
+                        showStatus(`\u{1F389} You earned $${parseFloat(res.payout_earned).toFixed(2)}! Payment is being processed.`, 'success');
+                        statusMsg.innerHTML += ' <a href="{{ route(\"voter.dashboard\") }}" class="underline text-emerald-400 ml-2">View earnings \u2192</a>';
+                    } else {
+                        showStatus('You watched enough \u2014 but did not meet the full qualifying threshold. No payout this time.', 'info');
+                    }
+                }
+            } catch (_) { /* silent — next tick will retry */ }
         }, 5000);
     }
 
-    async function handleVideoEnded() {
-        if (!sessionId || completed) return;
+    async function handleVideoEnded(actualPlaybackSeconds) {
+        // If heartbeat already qualified and credited the session, just show a tidy message
+        if (completed) {
+            showStatus('\u2713 Video finished \u2014 earnings already credited to your wallet.', 'success');
+            return;
+        }
+        if (!sessionId) return;
         completed = true;
         clearInterval(heartbeatTimer);
         clearInterval(antiSkipTimer);
-        const total = Math.floor(duration);
+        // Use actual playback time if provided, fallback to the server-side duration
+        const total = Math.floor(actualPlaybackSeconds > 0 ? actualPlaybackSeconds : duration);
         try {
             const baseUrl = '{{ url("/voter/session") }}';
             const res = await post(`${baseUrl}/${sessionId}/complete`, { total_seconds_watched: total });
-            if (res.qualified) {
+            if (res.already_completed) {
+                // Heartbeat beat us to it — earnings already recorded
+                showStatus('\u2713 Video finished \u2014 earnings already credited to your wallet.', 'success');
+                statusMsg.innerHTML += ' <a href="{{ route("voter.dashboard") }}" class="underline text-emerald-400 ml-2">View earnings →</a>';
+            } else if (res.qualified) {
                 showStatus(`\u{1F389} You earned $${parseFloat(res.payout_earned).toFixed(2)}! Payment is being processed.`, 'success');
                 statusMsg.innerHTML += ' <a href="{{ route("voter.dashboard") }}" class="underline text-emerald-400 ml-2">View earnings →</a>';
             } else {
@@ -206,7 +234,7 @@
                                 }, 1000);
                             }
                         } else if (e.data === YT.PlayerState.ENDED) {
-                            handleVideoEnded();
+                            handleVideoEnded(ytPlayer.getCurrentTime() || 0);
                         }
                     }
                 }
@@ -256,7 +284,7 @@
             }
         });
 
-        video.addEventListener('ended', handleVideoEnded);
+        video.addEventListener('ended', () => handleVideoEnded(video.currentTime || 0));
 
         // Prevent skipping forward
         video.addEventListener('timeupdate', () => {

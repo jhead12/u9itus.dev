@@ -282,8 +282,8 @@ class VoterController extends Controller
             ]);
         }
 
-        $duration  = (int) ($campaign->media_duration ?? config('u9itus.video_duration_max', 20));
-        $mustWatch = (int) ($campaign->min_watch_time_percent ?? config('u9itus.min_watch_percent', 100));
+        $duration  = (int) ($campaign->media_duration ?? config('u9itus.max_video_duration', 20));
+        $mustWatch = (int) ($campaign->min_watch_time_percent ?? config('u9itus.min_watch_time_percent', 80));
         $payout    = (float) ($campaign->voter_payout_per_view ?? config('u9itus.voter_payout_per_view', 0.25));
 
         return view('standalone.voter.watch', compact(
@@ -333,16 +333,46 @@ class VoterController extends Controller
     {
         $request->validate(['seconds_watched' => 'required|integer|min:0']);
 
-        $session = ViewSession::where('uuid', $sessionUuid)->firstOrFail();
+        $session = ViewSession::where('uuid', $sessionUuid)
+            ->with('campaign')
+            ->firstOrFail();
         $voter   = $this->resolveVoter();
 
         if ($session->voter_id !== $voter->id) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
-        $this->viewService->trackProgress($session, (int) $request->seconds_watched);
+        $watchedSeconds = (int) $request->seconds_watched;
+        $this->viewService->trackProgress($session, $watchedSeconds);
 
-        return response()->json(['ok' => true]);
+        // Already completed via a previous heartbeat — just report status
+        if ($session->status === \App\Enums\ViewSessionStatus::Completed) {
+            return response()->json([
+                'ok'             => true,
+                'already_completed' => true,
+                'qualified'      => $session->payment_status?->value === 'approved',
+                'payout_earned'  => (float) $session->voter_payout_amount,
+            ]);
+        }
+
+        // Auto-complete when the voter has watched enough to qualify,
+        // even if the video hasn't fired the 'ended' event yet.
+        $campaign      = $session->campaign;
+        $mediaDuration = (int) ($campaign->media_duration ?? config('u9itus.max_video_duration', 20));
+        $minWatchPct   = (float) ($campaign->min_watch_time_percent ?? config('u9itus.min_watch_time_percent', 80));
+        $watchedPct    = $mediaDuration > 0 ? ($watchedSeconds / $mediaDuration) * 100 : 0;
+
+        if ($watchedPct >= $minWatchPct) {
+            $completed = $this->viewService->completeView($session, $watchedSeconds);
+            return response()->json([
+                'ok'             => true,
+                'auto_completed' => true,
+                'qualified'      => $completed->payment_status?->value === 'approved',
+                'payout_earned'  => (float) $completed->voter_payout_amount,
+            ]);
+        }
+
+        return response()->json(['ok' => true, 'watched_pct' => round($watchedPct, 1)]);
     }
 
     /**
@@ -368,9 +398,12 @@ class VoterController extends Controller
         );
 
         return response()->json([
-            'qualified'     => $completed->payment_status?->value === 'approved',
-            'payout_earned' => (float) $completed->voter_payout_amount,
-            'status'        => $completed->status->value,
+            'qualified'          => $completed->payment_status?->value === 'approved',
+            'payout_earned'      => (float) $completed->voter_payout_amount,
+            'status'             => $completed->status->value,
+            'already_completed'  => $session->status === \App\Enums\ViewSessionStatus::Completed
+                                    && $completed->status === \App\Enums\ViewSessionStatus::Completed
+                                    && ! $session->wasChanged(),
         ]);
     }
 

@@ -83,6 +83,11 @@ class PoliticalViewService
      */
     public function completeView(ViewSession $session, int $totalWatchTimeSeconds): ViewSession
     {
+        // Idempotency guard — never double-credit a session that is already completed.
+        if ($session->status === ViewSessionStatus::Completed) {
+            return $session;
+        }
+
         return DB::transaction(function () use ($session, $totalWatchTimeSeconds): ViewSession {
             $campaign = $session->campaign;
 
