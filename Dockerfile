@@ -39,7 +39,7 @@ COPY . .
 RUN composer install --no-dev --optimize-autoloader --no-interaction
 
 # Install Node dependencies and build assets
-RUN npm ci && npm run build
+RUN npm install --no-audit && npm run build
 
 # Create Laravel directories with correct permissions
 RUN mkdir -p storage/framework/sessions \
