@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Support\Str;
+use App\Models\ReferralEarning;
 
 /**
  * A politician or local governance official who creates campaigns
@@ -37,6 +38,7 @@ class Politician extends Model
         'total_campaigns',
         'total_views_received',
         'is_active',
+        'referred_by_voter_id',
     ];
 
     protected function casts(): array
@@ -74,6 +76,25 @@ class Politician extends Model
     public function user(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * The voter who referred this politician to the platform.
+     * When a referred politician makes their first credit purchase, the referrer
+     * earns a one-time procurement commission (10% of purchase amount).
+     */
+    public function referrer(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(Voter::class, 'referred_by_voter_id');
+    }
+
+    /**
+     * Procurement referral earning record for this politician (one-time).
+     */
+    public function procurementReferralEarning(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(ReferralEarning::class, 'politician_id')
+                    ->where('referral_type', ReferralEarning::TYPE_POLITICIAN_PROCUREMENT);
     }
 
     public function campaigns(): \Illuminate\Database\Eloquent\Relations\HasMany

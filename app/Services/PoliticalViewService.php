@@ -172,13 +172,18 @@ class PoliticalViewService
     public function voterEarningsSummary(Voter $voter): array
     {
         return [
-            'total_earned'      => $voter->total_earned,
-            'pending_earnings'  => $voter->pending_earnings,
-            'wallet_balance'    => $voter->wallet_balance,
-            'total_views'       => $voter->total_views,
-            'referral_earnings' => $voter->referralEarnings()->sum('commission_amount'),
-            'referrals_count'   => $voter->referrals()->count(),
-            'views_today'       => $voter->viewSessions()->whereDate('created_at', today())->count(),
+            'total_earned'               => $voter->total_earned,
+            'pending_earnings'           => $voter->pending_earnings,
+            'wallet_balance'             => $voter->wallet_balance,
+            'total_views'                => $voter->total_views,
+            // Voter-view commissions: 10% of each referred voter's payout
+            'referral_earnings'          => (float) $voter->referralEarnings()->voterViews()->sum('commission_amount'),
+            // Politician-procurement commissions: 10% of referred politician's first purchase
+            'procurement_earnings'       => (float) $voter->referralEarnings()->procurements()->sum('commission_amount'),
+            'total_referral_earnings'    => (float) $voter->referralEarnings()->sum('commission_amount'),
+            'referrals_count'            => $voter->referrals()->count(),
+            'referrals_politician_count' => \App\Models\Politician::where('referred_by_voter_id', $voter->id)->count(),
+            'views_today'                => $voter->viewSessions()->whereDate('created_at', today())->count(),
         ];
     }
 
@@ -210,6 +215,7 @@ class PoliticalViewService
             'referred_voter_id' => $session->voter->id,
             'view_session_id'   => $session->id,
             'commission_amount' => $commission,
+            'referral_type'     => ReferralEarning::TYPE_VOTER_VIEW,
         ]);
 
         $session->voter->referrer->increment('pending_earnings', $commission);

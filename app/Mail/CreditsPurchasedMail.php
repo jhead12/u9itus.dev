@@ -32,8 +32,8 @@ class CreditsPurchasedMail extends Mailable
     public function content(): Content
     {
         return new Content(
-            htmlView: 'emails.credits-purchased',
-            textView: 'emails.credits-purchased-text',
+            view: 'emails.credits-purchased',
+            text: 'emails.credits-purchased-text',
         );
     }
 }

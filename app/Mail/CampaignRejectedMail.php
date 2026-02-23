@@ -38,8 +38,8 @@ class CampaignRejectedMail extends Mailable
     public function content(): Content
     {
         return new Content(
-            htmlView: 'emails.campaign-rejected',
-            textView: 'emails.campaign-rejected-text',
+            view: 'emails.campaign-rejected',
+            text: 'emails.campaign-rejected-text',
         );
     }
 }

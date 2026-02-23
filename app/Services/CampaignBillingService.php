@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\CampaignTransaction;
 use App\Models\Politician;
 use App\Models\PoliticianCredit;
+use App\Models\ReferralEarning;
 use Illuminate\Support\Facades\Log;
 
 class CampaignBillingService
@@ -63,9 +64,64 @@ class CampaignBillingService
         // Keep politicians.credit_balance in sync with the ledger.
         $politician->syncCreditBalance();
 
+        // Fire one-time procurement commission on the politician's first purchase.
+        if (($opts['transaction_type'] ?? null) === 'purchase') {
+            $this->triggerProcurementCommission($politician, $amount);
+        }
+
         Log::info('Added credits for politician', ['politician_id' => $politician->id, 'amount' => $amount, 'balance' => $newBalance]);
 
         return $credit;
+    }
+
+    /**
+     * Award a one-time procurement commission to the voter who referred this
+     * politician, triggered on the politician's first credit purchase.
+     *
+     * Commission = procurement_commission_percent (10%) of the purchase amount.
+     * Fires at most once per politician (guarded by existing ReferralEarning row).
+     */
+    private function triggerProcurementCommission(Politician $politician, float $purchaseAmount): void
+    {
+        // Only fire if the politician was referred by a voter
+        if (! $politician->referred_by_voter_id) {
+            return;
+        }
+
+        // One-time only — skip if a procurement commission already exists
+        $alreadyPaid = ReferralEarning::where('politician_id', $politician->id)
+            ->where('referral_type', ReferralEarning::TYPE_POLITICIAN_PROCUREMENT)
+            ->exists();
+
+        if ($alreadyPaid) {
+            return;
+        }
+
+        $pct        = (float) config('u9itus.procurement_commission_percent', 10);
+        $commission = round($purchaseAmount * ($pct / 100), 2);
+
+        if ($commission <= 0) {
+            return;
+        }
+
+        ReferralEarning::create([
+            'referrer_voter_id' => $politician->referred_by_voter_id,
+            'referred_voter_id' => null,   // N/A for procurement commissions
+            'view_session_id'   => null,
+            'commission_amount' => $commission,
+            'referral_type'     => ReferralEarning::TYPE_POLITICIAN_PROCUREMENT,
+            'politician_id'     => $politician->id,
+        ]);
+
+        // Credit the referring voter
+        $politician->referrer?->increment('pending_earnings', $commission);
+
+        Log::info('Procurement commission awarded', [
+            'politician_id'     => $politician->id,
+            'referrer_voter_id' => $politician->referred_by_voter_id,
+            'commission'        => $commission,
+            'purchase_amount'   => $purchaseAmount,
+        ]);
     }
 
     /**

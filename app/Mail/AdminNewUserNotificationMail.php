@@ -40,8 +40,8 @@ class AdminNewUserNotificationMail extends Mailable
     public function content(): Content
     {
         return new Content(
-            htmlView: 'emails.admin-new-user',
-            textView: 'emails.admin-new-user-text',
+            view: 'emails.admin-new-user',
+            text: 'emails.admin-new-user-text',
         );
     }
 }

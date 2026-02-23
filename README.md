@@ -20,14 +20,28 @@ Unlike traditional ad platforms where users can click repeatedly, U9itus uses **
 
 ### Core Business Model — Per-View Economics
 
-| Component                                 | Amount                          |
-| ----------------------------------------- | ------------------------------- |
-| Politician pays per view                  | **$0.60**                       |
-| Voter earns per view                      | **$0.25**                       |
-| Referral commission (10% of voter payout) | $0.025                          |
-| Payment processing (estimated)            | ~$0.02                          |
-| Ops & infrastructure                      | ~$0.03–$0.12                    |
-| **Platform net profit**                   | **$0.18–$0.30 (30–50% margin)** |
+| Component                                            | Amount                          |
+| ---------------------------------------------------- | ------------------------------- |
+| Politician pays per view                             | **$0.60**                       |
+| Voter earns per view                                 | **$0.25**                       |
+| Voter-referral commission (10% of voter payout)      | $0.025 per view _(recurring)_   |
+| Politician-procurement commission (10% of 1st buy)   | ~$0.06+ _(one-time)_            |
+| Payment processing (estimated)                       | ~$0.02                          |
+| Ops & infrastructure                                 | ~$0.03–$0.12                    |
+| **Platform net profit**                              | **$0.18–$0.30 (30–50% margin)** |
+
+### Referral Incentive Structure
+
+Voters earn two distinct types of commission by referring others to the platform:
+
+| Referral Type            | Who You Refer   | Commission                                    | Frequency        |
+| ------------------------ | --------------- | --------------------------------------------- | ---------------- |
+| **Voter Referral**       | A new voter     | **10% of their payout** ($0.025) per view     | Recurring        |
+| **Politician Referral**  | A new politician| **10% of their first credit purchase**        | One-time bonus   |
+
+- Voter referral links route to `/register/voter?ref=<code>`
+- Politician recruitment links route to `/register/politician?ref=<code>`
+- Procurement commission fires automatically when the recruited politician makes their first Stripe credit purchase — guarded to trigger only once per politician.
 
 ### User Roles
 
@@ -145,7 +159,7 @@ php artisan serve
 | **voters**                     | Voter profiles, wallet balance, referral codes, trust score    |
 | **political_campaigns**        | Video/live-feed campaigns with per-view pricing and targeting  |
 | **view_sessions**              | Individual view tracking — watch time, fraud score, payouts    |
-| **referral_earnings**          | Referral commission records per view session                   |
+| **referral_earnings**          | Referral commission records — voter-view (recurring) and politician-procurement (one-time) |
 | **ad_view_tokens**             | One-time secure tokens for ad delivery via notifications       |
 | **campaign_transactions**      | Stripe payment records per politician                          |
 | **politician_credits**         | Credit balance ledger for per-view billing                     |
@@ -302,15 +316,16 @@ Protected by `auth:sanctum` middleware.
 Key values in `config/u9itus.php`:
 
 ```php
-'revenue_per_view'         => 0.60,
-'voter_payout_per_view'    => 0.25,
-'referral_commission_pct'  => 10,
-'min_watch_percent'        => 100,
-'video_duration_min'       => 10,
-'video_duration_max'       => 20,
-'batch_payout_min'         => 10.00,
-'fraud_daily_view_limit'   => 50,
-'fraud_payout_hold_hours'  => 48,
+'revenue_per_view'              => 0.60,   // charged to politician per view
+'viewer_payout_per_view'        => 0.25,   // paid to voter per completed view
+'referral_commission_percent'   => 10,     // % of voter payout → voter referrer (recurring)
+'procurement_commission_percent'=> 10,     // % of politician's 1st purchase → voter referrer (one-time)
+'min_watch_percent'             => 100,
+'video_duration_min'            => 10,
+'video_duration_max'            => 20,
+'batch_payout_min'              => 10.00,
+'fraud_daily_view_limit'        => 50,
+'fraud_payout_hold_hours'       => 48,
 ```
 
 ## Security

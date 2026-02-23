@@ -136,6 +136,7 @@ class AuthController extends Controller
             'governance_level' => ['required', 'string', 'max:50'],
             'state'            => ['required', 'string', 'size:2'],
             'city'             => ['required', 'string', 'max:100'],
+            'referral_code'    => ['nullable', 'string', 'max:20'],
             'terms'            => ['accepted'],
         ]);
 
@@ -167,14 +168,23 @@ class AuthController extends Controller
             'city',
         ]);
 
+        // Resolve referrer voter if a referral code was supplied
+        $referredByVoterId = null;
+        $refCode = $request->input('referral_code') ?: $request->query('ref');
+        if ($refCode) {
+            $referrer = Voter::where('referral_code', $refCode)->first();
+            $referredByVoterId = $referrer?->id;
+        }
+
         // Normalize keys to match the politicians table
         $politicianPayload = [
-            'full_name'         => $request->input('name'),
-            'political_office'  => $politicianData['political_office'] ?? null,
-            'party_affiliation' => $politicianData['party'] ?? null,
-            'governance_level'  => $politicianData['governance_level'] ?? null,
-            'state'             => $politicianData['state'] ?? null,
-            'city'              => $politicianData['city'] ?? null,
+            'full_name'             => $request->input('name'),
+            'political_office'      => $politicianData['political_office'] ?? null,
+            'party_affiliation'     => $politicianData['party'] ?? null,
+            'governance_level'      => $politicianData['governance_level'] ?? null,
+            'state'                 => $politicianData['state'] ?? null,
+            'city'                  => $politicianData['city'] ?? null,
+            'referred_by_voter_id'  => $referredByVoterId,
         ];
 
         // Use updateOrCreate to ensure fields are written deterministically

@@ -31,8 +31,8 @@ class LowBalanceAlertMail extends Mailable
     public function content(): Content
     {
         return new Content(
-            htmlView: 'emails.low-balance-alert',
-            textView: 'emails.low-balance-alert-text',
+            view: 'emails.low-balance-alert',
+            text: 'emails.low-balance-alert-text',
         );
     }
 }

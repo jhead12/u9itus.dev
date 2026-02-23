@@ -36,8 +36,8 @@ class CampaignApprovedMail extends Mailable
     public function content(): Content
     {
         return new Content(
-            htmlView: 'emails.campaign-approved',
-            textView: 'emails.campaign-approved-text',
+            view: 'emails.campaign-approved',
+            text: 'emails.campaign-approved-text',
         );
     }
 }

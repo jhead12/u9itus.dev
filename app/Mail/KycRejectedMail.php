@@ -29,8 +29,8 @@ class KycRejectedMail extends Mailable
     public function content(): Content
     {
         return new Content(
-            htmlView: 'emails.kyc-rejected',
-            textView: 'emails.kyc-rejected-text',
+            view: 'emails.kyc-rejected',
+            text: 'emails.kyc-rejected-text',
         );
     }
 }

@@ -32,8 +32,8 @@ class PayoutProcessedMail extends Mailable
     public function content(): Content
     {
         return new Content(
-            htmlView: 'emails.payout-processed',
-            textView: 'emails.payout-processed-text',
+            view: 'emails.payout-processed',
+            text: 'emails.payout-processed-text',
         );
     }
 }

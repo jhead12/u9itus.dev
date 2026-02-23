@@ -51,7 +51,9 @@
         <form method="POST" action="{{ route('register.politician.submit') }}" class="space-y-4">
             @csrf
 
-            {{-- Account credentials --}}
+            {{-- Capture referral code from ?ref= query param --}}
+            <input type="hidden" name="referral_code" value="{{ request()->query('ref', old('referral_code')) }}">
+
             <div class="pb-4 border-b border-slate-700/50">
                 <p class="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-4">Account Credentials</p>
 

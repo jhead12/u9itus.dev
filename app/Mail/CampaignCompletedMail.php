@@ -30,8 +30,8 @@ class CampaignCompletedMail extends Mailable
     public function content(): Content
     {
         return new Content(
-            htmlView: 'emails.campaign-completed',
-            textView: 'emails.campaign-completed-text',
+            view: 'emails.campaign-completed',
+            text: 'emails.campaign-completed-text',
         );
     }
 }

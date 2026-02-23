@@ -45,8 +45,8 @@ class AdminAccountCreatedMail extends Mailable
     public function content(): Content
     {
         return new Content(
-            htmlView: 'emails.admin-account-created',
-            textView: 'emails.admin-account-created-text',
+            view: 'emails.admin-account-created',
+            text: 'emails.admin-account-created-text',
         );
     }
 }

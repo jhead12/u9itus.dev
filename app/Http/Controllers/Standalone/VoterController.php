@@ -428,21 +428,40 @@ class VoterController extends Controller
     {
         $voter = $this->resolveVoter();
 
+        // Voters referred by this voter
         $referrals = $voter->referrals()
             ->with('user:id,name,created_at')
             ->latest()
             ->get();
 
+        // Politicians referred by this voter
+        $referredPoliticians = \App\Models\Politician::where('referred_by_voter_id', $voter->id)
+            ->with('user:id,name,created_at')
+            ->latest()
+            ->get();
+
+        // Per-view referral earnings (voter_view type)
         $referralEarnings = $voter->referralEarnings()
+            ->voterViews()
             ->with('viewSession.campaign')
             ->latest()
             ->take(20)
             ->get();
 
-        $totalReferralEarnings = (float) $voter->referralEarnings()->sum('commission_amount');
+        // Procurement commission earnings (politician_procurement type)
+        $procurementEarnings = $voter->referralEarnings()
+            ->procurements()
+            ->with('politician')
+            ->latest()
+            ->get();
+
+        $totalReferralEarnings  = (float) $voter->referralEarnings()->voterViews()->sum('commission_amount');
+        $totalProcurementEarnings = (float) $voter->referralEarnings()->procurements()->sum('commission_amount');
 
         return view('standalone.voter.referrals', compact(
-            'voter', 'referrals', 'referralEarnings', 'totalReferralEarnings'
+            'voter', 'referrals', 'referredPoliticians',
+            'referralEarnings', 'procurementEarnings',
+            'totalReferralEarnings', 'totalProcurementEarnings'
         ));
     }
 
