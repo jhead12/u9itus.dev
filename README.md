@@ -57,6 +57,39 @@ Voters earn two distinct types of commission by referring others to the platform
 - Video messages + live feeds
 - 100% watch requirement (must watch the full message to earn)
 
+### Campaign Video Media
+
+**v1 — YouTube (current foundation)**
+
+All campaign `media_url` values are expected to be YouTube links in any of the supported formats:
+
+| Format | Example |
+|--------|---------|
+| Short URL | `https://youtu.be/VIDEO_ID` |
+| Watch URL | `https://www.youtube.com/watch?v=VIDEO_ID` |
+| Embed URL | `https://www.youtube.com/embed/VIDEO_ID` |
+
+The watch view (`resources/views/standalone/voter/watch.blade.php`) auto-detects a YouTube URL and renders the video via the **YouTube IFrame API** (`YT.Player`). This enables:
+- Controlled playback triggered only after the session starts
+- Server-side heartbeat progress tracking every 5 seconds
+- Anti-skip enforcement (viewer cannot seek forward)
+- `ENDED` event hooked to the completion/payout flow
+
+**Planned — Future media type support**
+
+The following additional source types are planned for future versions. The player section uses a `$isYouTube` branch, making it straightforward to extend:
+
+| Source Type | Notes |
+|-------------|-------|
+| Direct video file (MP4, WebM, OGG) | Native `<video>` element — already implemented as fallback |
+| Vimeo | Vimeo Player SDK (`player.vimeo.com/video/VIDEO_ID`) |
+| Wistia | Wistia Embed API for privacy-friendly hosting |
+| Cloudflare Stream | HLS/DASH stream via `stream.cloudflare.com` |
+| AWS S3 / CloudFront | Signed URL + native `<video>` element |
+| HLS live streams | `hls.js` for live feed capability |
+
+> **Implementation note:** Add a new `elseif` branch in the `@php` block at the top of the player section and a matching `if` block in the JavaScript section for each new source type.
+
 ### Security & Fraud Prevention
 
 **Token-Based Ad Delivery:**
@@ -250,23 +283,23 @@ Password: _(set via `railway run php artisan admin:create`)_
 
 Requires `auth`, `verified`, and `role:admin` middleware. Access via `/admin/login`.
 
-| Method | URL                                      | Purpose                                        |
-| ------ | ---------------------------------------- | ---------------------------------------------- |
-| `GET`  | `/admin/dashboard`                       | Admin overview                                 |
-| `GET`  | `/admin/campaigns/pending`               | Campaigns awaiting approval                    |
-| `GET`  | `/admin/campaigns/{id}/edit`             | Edit any campaign (admin only)                 |
-| `PUT`  | `/admin/campaigns/{id}`                  | Update campaign fields + write audit entry     |
-| `POST` | `/admin/campaigns/{id}/approve`          | Approve campaign                               |
-| `POST` | `/admin/campaigns/{id}/reject`           | Reject campaign with reason                    |
-| `POST` | `/admin/campaigns/{id}/stop`             | Force-pause a live campaign with reason        |
-| `POST` | `/admin/campaigns/{id}/reactivate`       | Reactivate a stopped campaign                  |
-| `GET`  | `/admin/campaigns/{id}/audit`            | Paginated immutable audit log for campaign     |
-| `GET`  | `/admin/users`                           | User list                                      |
-| `GET`  | `/admin/fraud`                           | Fraud dashboard                                |
-| `GET`  | `/admin/payouts`                         | Payout overview                                |
-| `POST` | `/admin/payouts/batch-process`           | Run batch payout processing                    |
-| `GET`  | `/admin/analytics`                       | Platform analytics                             |
-| `GET`  | `/admin/settings`                        | System settings                                |
+| Method | URL                                | Purpose                                    |
+| ------ | ---------------------------------- | ------------------------------------------ |
+| `GET`  | `/admin/dashboard`                 | Admin overview                             |
+| `GET`  | `/admin/campaigns/pending`         | Campaigns awaiting approval                |
+| `GET`  | `/admin/campaigns/{id}/edit`       | Edit any campaign (admin only)             |
+| `PUT`  | `/admin/campaigns/{id}`            | Update campaign fields + write audit entry |
+| `POST` | `/admin/campaigns/{id}/approve`    | Approve campaign                           |
+| `POST` | `/admin/campaigns/{id}/reject`     | Reject campaign with reason                |
+| `POST` | `/admin/campaigns/{id}/stop`       | Force-pause a live campaign with reason    |
+| `POST` | `/admin/campaigns/{id}/reactivate` | Reactivate a stopped campaign              |
+| `GET`  | `/admin/campaigns/{id}/audit`      | Paginated immutable audit log for campaign |
+| `GET`  | `/admin/users`                     | User list                                  |
+| `GET`  | `/admin/fraud`                     | Fraud dashboard                            |
+| `GET`  | `/admin/payouts`                   | Payout overview                            |
+| `POST` | `/admin/payouts/batch-process`     | Run batch payout processing                |
+| `GET`  | `/admin/analytics`                 | Platform analytics                         |
+| `GET`  | `/admin/settings`                  | System settings                            |
 
 ### REST API (`/api/v1/*`)
 
@@ -384,11 +417,37 @@ npm run dev:all   # Start Laravel + Vite together
 | Phase 3  | Analytics & Tracking (ViewSession lifecycle API, fraud detection, payout dispatch)                                                                          | ✅ Complete |
 | Phase 4  | Billing scaffold (Stripe service, webhook, credit ledger, billing views)                                                                                    | ✅ Complete |
 | Phase 5  | Voter watch experience (token-based video delivery, JS heartbeat)                                                                                           | ✅ Complete |
-| Phase 6  | Admin features (campaign approval queue, edit/stop/reactivate campaigns, KYC management, fraud review, immutable audit log)                                  | ✅ Complete |
+| Phase 6  | Admin features (campaign approval queue, edit/stop/reactivate campaigns, KYC management, fraud review, immutable audit log)                                 | ✅ Complete |
 | Phase 7  | Notifications (email on approval/rejection/ - Admin signup notification email,User Signed up Email, Admin Email notification, managment system, completion) | ✅ Complete |
 | Phase 8  | Security & Fraud (advanced scoring, VPN detection, device fingerprinting)                                                                                   | ⬜ Pending  |
 | Phase 9  | Testing                                                                                                                                                     | ✅ Ongoing  |
 | Phase 10 | Deployment (Railway production config, env hardening)                                                                                                       | ⬜ Pending  |
+
+## Known Issues / Bugs to Fix
+
+### `RouteNotFoundException` — `admin.payouts` not defined
+
+**Error:** `Symfony\Component\Routing\Exception\RouteNotFoundException` — Internal Server Error  
+**Message:** `Route [admin.payouts] not defined.`  
+**Environment:** PHP 8.2.30 / Laravel 12.50.0 / `dial4doughdev-production.up.railway.app`  
+**Triggered by:** `GET /admin/payouts/pending`  
+**Source:** `resources/views/standalone/admin/payouts-pending.blade.php:10`
+
+The view `payouts-pending.blade.php` references a route named `admin.payouts` (e.g. `route('admin.payouts')`) which does not exist. The registered route name is `admin.payouts.pending`. The fix is to update the view to use the correct route name or add a named alias in `routes/standalone.php`.
+
+**Stack summary:**
+
+```
+RouteNotFoundException: Route [admin.payouts] not defined.
+  at vendor/laravel/framework/src/Illuminate/Routing/UrlGenerator.php:526
+  called from resources/views/standalone/admin/payouts-pending.blade.php:10
+```
+
+**Fix required:**
+
+- [ ] Update `resources/views/standalone/admin/payouts-pending.blade.php` line 10 — replace `route('admin.payouts')` with the correct route name (e.g. `route('admin.payouts.index')` or `route('admin.payouts.pending')`) depending on the intended destination, **or** add a named route alias in `routes/standalone.php`.
+
+---
 
 ## Future Enhancements
 
@@ -396,6 +455,7 @@ npm run dev:all   # Start Laravel + Vite together
 - Real-time notifications via Laravel Reverb/WebSockets
 - Advanced fraud detection with ML scoring
 - Mobile app (React Native)
+- Expand campaign video sources beyond YouTube v1 (Vimeo, Cloudflare Stream, HLS, S3 — see [Campaign Video Media](#campaign-video-media))
 - ~~Allow admin to stop campaigns, if there are errors, such as video not playing, incorrect locations~~ ✅ Implemented (stop/reactivate with required reason, full immutable audit log; push notifications pending)
 - Multi-language support
 - Advanced analytics dashboard

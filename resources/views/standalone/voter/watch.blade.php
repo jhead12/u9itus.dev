@@ -46,20 +46,32 @@
     </div>
 
     {{-- Video Player --}}
+    @php
+        $videoId  = null;
+        $mediaUrl = $campaign->media_url ?? '';
+        if (preg_match('/youtu\.be\/([a-zA-Z0-9_-]+)/', $mediaUrl, $_m))         { $videoId = $_m[1]; }
+        elseif (preg_match('/[?&]v=([a-zA-Z0-9_-]+)/', $mediaUrl, $_m))         { $videoId = $_m[1]; }
+        elseif (preg_match('/\/embed\/([a-zA-Z0-9_-]+)/', $mediaUrl, $_m))     { $videoId = $_m[1]; }
+        $isYouTube = !empty($videoId);
+    @endphp
     <div class="relative bg-black rounded-2xl overflow-hidden shadow-2xl ring-1 ring-slate-700/50" id="player-wrapper">
-        <video
-            id="ad-video"
-            class="w-full aspect-video"
-            controlsList="nodownload nofullscreen"
-            disablePictureInPicture
-            playsinline
-            preload="metadata"
-        >
-            @if($campaign->media_url)
-                <source src="{{ $campaign->media_url }}" type="video/mp4">
-            @endif
-            Your browser does not support HTML5 video.
-        </video>
+        @if($isYouTube)
+            <div id="yt-player-container" class="w-full aspect-video"></div>
+        @else
+            <video
+                id="ad-video"
+                class="w-full aspect-video"
+                controlsList="nodownload nofullscreen"
+                disablePictureInPicture
+                playsinline
+                preload="metadata"
+            >
+                @if($campaign->media_url)
+                    <source src="{{ $campaign->media_url }}" type="video/mp4">
+                @endif
+                Your browser does not support HTML5 video.
+            </video>
+        @endif
 
         {{-- Overlay before play --}}
         <div id="play-overlay" class="absolute inset-0 flex flex-col items-center justify-center bg-black/60 cursor-pointer">
@@ -92,7 +104,6 @@
 @push('scripts')
 <script>
 (function () {
-    const video       = document.getElementById('ad-video');
     const overlay     = document.getElementById('play-overlay');
     const progressBar = document.getElementById('progress-bar');
     const statusMsg   = document.getElementById('status-msg');
@@ -100,11 +111,17 @@
     const csrf        = document.querySelector('meta[name="csrf-token"]').content;
     const duration    = {{ $duration ?? 0 }};
     const mustWatch   = {{ $mustWatch ?? 100 }};
+    const isYouTube   = {{ $isYouTube ? 'true' : 'false' }};
+    const videoId     = '{{ $videoId ?? '' }}';
 
-    let sessionId     = null;
+    let sessionId      = null;
     let heartbeatTimer = null;
-    let completed     = false;
+    let antiSkipTimer  = null;
+    let completed      = false;
+    let lastTime       = 0;
+    let ytPlayer       = null;
 
+    /* ── helpers ─────────────────────────────────────────────────── */
     function showStatus(msg, type = 'info') {
         const colours = {
             info:    'bg-slate-700/50 text-slate-300',
@@ -124,39 +141,23 @@
         }).then(r => r.json());
     }
 
-    // Click overlay → start session
-    overlay.addEventListener('click', async () => {
-        overlay.style.display = 'none';
-        try {
-            const startUrl = '{{ url("/voter/watch") }}/' + encodeURIComponent(token) + '/start';
-            const res = await post(startUrl, {});
-            if (res.error) { showStatus(res.error, 'error'); overlay.style.display = ''; return; }
-            sessionId = res.session_id;
-            video.play();
-            startHeartbeat();
-        } catch (e) {
-            showStatus('Could not start session. Please try again.', 'error');
-            overlay.style.display = '';
-        }
-    });
-
-    // Heartbeat every 5 s
-    function startHeartbeat() {
+    function startHeartbeat(getCurrentTime) {
+        if (heartbeatTimer) return;
         heartbeatTimer = setInterval(async () => {
             if (!sessionId || completed) return;
-            const watched = Math.floor(video.currentTime);
+            const watched = Math.floor(getCurrentTime());
             await post(`/voter/session/${sessionId}/progress`, { seconds_watched: watched });
             const pct = duration > 0 ? Math.min(100, (watched / duration) * 100) : 0;
             progressBar.style.width = pct + '%';
         }, 5000);
     }
 
-    // Video ended → mark complete
-    video.addEventListener('ended', async () => {
+    async function handleVideoEnded() {
         if (!sessionId || completed) return;
         completed = true;
         clearInterval(heartbeatTimer);
-        const total = Math.floor(video.duration);
+        clearInterval(antiSkipTimer);
+        const total = Math.floor(duration);
         try {
             const baseUrl = '{{ url("/voter/session") }}';
             const res = await post(`${baseUrl}/${sessionId}/complete`, { total_seconds_watched: total });
@@ -169,17 +170,103 @@
         } catch (e) {
             showStatus('Error recording completion. Contact support.', 'error');
         }
-    });
+    }
 
-    // Prevent skipping forward
-    let lastTime = 0;
-    video.addEventListener('timeupdate', () => {
-        if (video.currentTime > lastTime + 2) {
-            video.currentTime = lastTime;
-        } else {
-            lastTime = video.currentTime;
-        }
-    });
+    /* ── YouTube IFrame API path ─────────────────────────────────── */
+    if (isYouTube) {
+        // YouTube calls this global when the API script loads
+        window.onYouTubeIframeAPIReady = function () {
+            ytPlayer = new YT.Player('yt-player-container', {
+                height: '100%',
+                width:  '100%',
+                videoId: videoId,
+                playerVars: {
+                    enablejsapi:    1,
+                    rel:            0,
+                    fs:             0,       // disable fullscreen button
+                    modestbranding: 1,
+                    playsinline:    1,
+                    controls:       1,
+                    origin:         window.location.origin,
+                },
+                events: {
+                    onStateChange: function (e) {
+                        if (e.data === YT.PlayerState.PLAYING) {
+                            startHeartbeat(() => ytPlayer.getCurrentTime() || 0);
+                            // Anti-skip: poll every second
+                            if (!antiSkipTimer) {
+                                antiSkipTimer = setInterval(() => {
+                                    if (!ytPlayer || completed) return;
+                                    const t = ytPlayer.getCurrentTime() || 0;
+                                    if (t > lastTime + 3) {
+                                        ytPlayer.seekTo(lastTime, true);
+                                    } else {
+                                        lastTime = t;
+                                    }
+                                }, 1000);
+                            }
+                        } else if (e.data === YT.PlayerState.ENDED) {
+                            handleVideoEnded();
+                        }
+                    }
+                }
+            });
+        };
+
+        // Inject the YouTube IFrame API script
+        var ytScript  = document.createElement('script');
+        ytScript.src  = 'https://www.youtube.com/iframe_api';
+        document.head.appendChild(ytScript);
+
+        // Overlay click → start session then play
+        overlay.addEventListener('click', async () => {
+            overlay.style.display = 'none';
+            try {
+                const startUrl = '{{ url("/voter/watch") }}/' + encodeURIComponent(token) + '/start';
+                const res = await post(startUrl, {});
+                if (res.error) { showStatus(res.error, 'error'); overlay.style.display = ''; return; }
+                sessionId = res.session_id;
+                if (ytPlayer && typeof ytPlayer.playVideo === 'function') {
+                    ytPlayer.playVideo();
+                }
+            } catch (e) {
+                showStatus('Could not start session. Please try again.', 'error');
+                overlay.style.display = '';
+            }
+        });
+    }
+
+    /* ── Native HTML5 video path ─────────────────────────────────── */
+    if (!isYouTube) {
+        const video = document.getElementById('ad-video');
+        let nativeLastTime = 0;
+
+        overlay.addEventListener('click', async () => {
+            overlay.style.display = 'none';
+            try {
+                const startUrl = '{{ url("/voter/watch") }}/' + encodeURIComponent(token) + '/start';
+                const res = await post(startUrl, {});
+                if (res.error) { showStatus(res.error, 'error'); overlay.style.display = ''; return; }
+                sessionId = res.session_id;
+                video.play();
+                startHeartbeat(() => video.currentTime || 0);
+            } catch (e) {
+                showStatus('Could not start session. Please try again.', 'error');
+                overlay.style.display = '';
+            }
+        });
+
+        video.addEventListener('ended', handleVideoEnded);
+
+        // Prevent skipping forward
+        video.addEventListener('timeupdate', () => {
+            if (video.currentTime > nativeLastTime + 2) {
+                video.currentTime = nativeLastTime;
+            } else {
+                nativeLastTime = video.currentTime;
+            }
+        });
+    }
 })();
 </script>
 @endpush
