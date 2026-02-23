@@ -164,6 +164,7 @@ php artisan serve
 | **campaign_transactions**      | Stripe payment records per politician                                                      |
 | **politician_credits**         | Credit balance ledger for per-view billing                                                 |
 | **politician_payment_methods** | Stored Stripe payment methods per politician                                               |
+| **campaign_audit_logs**        | Immutable admin action log — field-level diffs for approve/reject/edit/stop/reactivate     |
 
 ### Services
 
@@ -249,18 +250,23 @@ Password: _(set via `railway run php artisan admin:create`)_
 
 Requires `auth`, `verified`, and `role:admin` middleware. Access via `/admin/login`.
 
-| Method | URL                             | Purpose                     |
-| ------ | ------------------------------- | --------------------------- |
-| `GET`  | `/admin/dashboard`              | Admin overview              |
-| `GET`  | `/admin/campaigns/pending`      | Campaigns awaiting approval |
-| `POST` | `/admin/campaigns/{id}/approve` | Approve campaign            |
-| `POST` | `/admin/campaigns/{id}/reject`  | Reject campaign             |
-| `GET`  | `/admin/users`                  | User list                   |
-| `GET`  | `/admin/fraud`                  | Fraud dashboard             |
-| `GET`  | `/admin/payouts`                | Payout overview             |
-| `POST` | `/admin/payouts/batch-process`  | Run batch payout processing |
-| `GET`  | `/admin/analytics`              | Platform analytics          |
-| `GET`  | `/admin/settings`               | System settings             |
+| Method | URL                                      | Purpose                                        |
+| ------ | ---------------------------------------- | ---------------------------------------------- |
+| `GET`  | `/admin/dashboard`                       | Admin overview                                 |
+| `GET`  | `/admin/campaigns/pending`               | Campaigns awaiting approval                    |
+| `GET`  | `/admin/campaigns/{id}/edit`             | Edit any campaign (admin only)                 |
+| `PUT`  | `/admin/campaigns/{id}`                  | Update campaign fields + write audit entry     |
+| `POST` | `/admin/campaigns/{id}/approve`          | Approve campaign                               |
+| `POST` | `/admin/campaigns/{id}/reject`           | Reject campaign with reason                    |
+| `POST` | `/admin/campaigns/{id}/stop`             | Force-pause a live campaign with reason        |
+| `POST` | `/admin/campaigns/{id}/reactivate`       | Reactivate a stopped campaign                  |
+| `GET`  | `/admin/campaigns/{id}/audit`            | Paginated immutable audit log for campaign     |
+| `GET`  | `/admin/users`                           | User list                                      |
+| `GET`  | `/admin/fraud`                           | Fraud dashboard                                |
+| `GET`  | `/admin/payouts`                         | Payout overview                                |
+| `POST` | `/admin/payouts/batch-process`           | Run batch payout processing                    |
+| `GET`  | `/admin/analytics`                       | Platform analytics                             |
+| `GET`  | `/admin/settings`                        | System settings                                |
 
 ### REST API (`/api/v1/*`)
 
@@ -378,7 +384,7 @@ npm run dev:all   # Start Laravel + Vite together
 | Phase 3  | Analytics & Tracking (ViewSession lifecycle API, fraud detection, payout dispatch)                                                                          | ✅ Complete |
 | Phase 4  | Billing scaffold (Stripe service, webhook, credit ledger, billing views)                                                                                    | ✅ Complete |
 | Phase 5  | Voter watch experience (token-based video delivery, JS heartbeat)                                                                                           | ✅ Complete |
-| Phase 6  | Admin features (campaign approval queue, KYC management, fraud review)                                                                                      | ✅ Complete |
+| Phase 6  | Admin features (campaign approval queue, edit/stop/reactivate campaigns, KYC management, fraud review, immutable audit log)                                  | ✅ Complete |
 | Phase 7  | Notifications (email on approval/rejection/ - Admin signup notification email,User Signed up Email, Admin Email notification, managment system, completion) | ✅ Complete |
 | Phase 8  | Security & Fraud (advanced scoring, VPN detection, device fingerprinting)                                                                                   | ⬜ Pending  |
 | Phase 9  | Testing                                                                                                                                                     | ✅ Ongoing  |
@@ -390,7 +396,7 @@ npm run dev:all   # Start Laravel + Vite together
 - Real-time notifications via Laravel Reverb/WebSockets
 - Advanced fraud detection with ML scoring
 - Mobile app (React Native)
-- Allow admin to stop campaigns, if there are errors, such as video not playing, incorrect locations, (future: allow push notifications when system is implemented.)
+- ~~Allow admin to stop campaigns, if there are errors, such as video not playing, incorrect locations~~ ✅ Implemented (stop/reactivate with required reason, full immutable audit log; push notifications pending)
 - Multi-language support
 - Advanced analytics dashboard
 - ~~Automated Stripe Connect for politician billing~~ ✅ Implemented (auto-customer creation, saved payment methods)
