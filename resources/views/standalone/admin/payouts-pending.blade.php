@@ -7,7 +7,7 @@
 <div class="space-y-6">
 
     <div>
-        <a href="{{ route('admin.payouts') }}" class="text-sm text-slate-400 hover:text-white transition">← Back to payouts</a>
+        <a href="{{ route('admin.payouts.index') }}" class="text-sm text-slate-400 hover:text-white transition">← Back to payouts</a>
     </div>
 
     <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl overflow-hidden">
