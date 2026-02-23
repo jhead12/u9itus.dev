@@ -176,6 +176,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // Campaign Editing (admin can edit any campaign)
         Route::get('/campaigns/{campaign}/edit', [AdminController::class, 'editCampaign'])->name('campaigns.edit');
         Route::put('/campaigns/{campaign}', [AdminController::class, 'updateCampaign'])->name('campaigns.update');
+
+        // Campaign Stop / Reactivate
+        Route::post('/campaigns/{campaign}/stop', [AdminController::class, 'stopCampaign'])->name('campaigns.stop');
+        Route::post('/campaigns/{campaign}/reactivate', [AdminController::class, 'reactivateCampaign'])->name('campaigns.reactivate');
+
+        // Campaign Audit Log
+        Route::get('/campaigns/{campaign}/audit', [AdminController::class, 'campaignAuditLog'])->name('campaigns.audit');
         
         // User Management
         Route::get('/users', [AdminController::class, 'users'])->name('users.index');

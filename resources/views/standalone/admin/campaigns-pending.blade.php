@@ -57,7 +57,7 @@
                     </div>
 
                     {{-- Action buttons --}}
-                    <div class="flex gap-2 shrink-0">
+                    <div class="flex gap-2 shrink-0 flex-wrap">
                         <form method="POST" action="{{ route('admin.campaigns.approve', $campaign) }}">
                             @csrf
                             <button type="submit"
@@ -70,10 +70,19 @@
                             Edit
                         </a>
                         <button type="button"
+                                onclick="document.getElementById('stop-form-{{ $campaign->id }}').classList.toggle('hidden')"
+                                class="px-3 py-1.5 rounded-lg bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 text-xs font-semibold transition border border-orange-500/20">
+                            Stop
+                        </button>
+                        <button type="button"
                                 onclick="document.getElementById('reject-form-{{ $campaign->id }}').classList.toggle('hidden')"
                                 class="px-3 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-semibold transition border border-red-500/20">
                             Reject
                         </button>
+                        <a href="{{ route('admin.campaigns.audit', $campaign) }}"
+                            class="px-3 py-1.5 rounded-lg bg-slate-700/50 hover:bg-slate-700 text-slate-400 text-xs font-semibold transition">
+                            Log
+                        </a>
                     </div>
                 </div>
 
@@ -132,6 +141,20 @@
                         <p class="text-slate-400 line-clamp-3">{{ $campaign->politician->bio }}</p>
                     </div>
                     @endif
+                </div>
+
+                {{-- Stop form (hidden by default) --}}
+                <div id="stop-form-{{ $campaign->id }}" class="hidden">
+                    <form method="POST" action="{{ route('admin.campaigns.stop', $campaign) }}" class="flex gap-2 items-start">
+                        @csrf
+                        <textarea name="reason" rows="2" required
+                            placeholder="Reason for stopping (e.g. video not playing, incorrect targeting)…"
+                            class="flex-1 bg-slate-900/70 border border-slate-600/50 rounded-lg px-3 py-2 text-sm text-slate-300 placeholder-slate-600 focus:outline-none focus:border-orange-500/50 resize-none"></textarea>
+                        <button type="submit"
+                            class="px-4 py-2 rounded-lg bg-orange-500 hover:bg-orange-400 text-white text-xs font-semibold transition shrink-0">
+                            Confirm Stop
+                        </button>
+                    </form>
                 </div>
 
                 {{-- Reject form (hidden by default) --}}

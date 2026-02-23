@@ -390,6 +390,7 @@ npm run dev:all   # Start Laravel + Vite together
 - Real-time notifications via Laravel Reverb/WebSockets
 - Advanced fraud detection with ML scoring
 - Mobile app (React Native)
+- Allow admin to stop campaigns, if there are errors, such as video not playing, incorrect locations, (future: allow push notifications when system is implemented.)
 - Multi-language support
 - Advanced analytics dashboard
 - ~~Automated Stripe Connect for politician billing~~ ✅ Implemented (auto-customer creation, saved payment methods)

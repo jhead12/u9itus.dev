@@ -9,6 +9,7 @@ use App\Mail\CampaignApprovedMail;
 use App\Mail\CampaignRejectedMail;
 use App\Mail\KycApprovedMail;
 use App\Mail\KycRejectedMail;
+use App\Models\CampaignAuditLog;
 use App\Models\EmailTemplate;
 use App\Models\PoliticalCampaign;
 use App\Models\Politician;
@@ -115,6 +116,12 @@ class AdminController extends Controller
             'status'          => CampaignStatus::Active,
         ]);
 
+        CampaignAuditLog::create([
+            'campaign_id' => $campaign->id,
+            'admin_id'    => auth()->id(),
+            'action'      => 'approved',
+        ]);
+
         // Notify the politician that their campaign was approved
         try {
             $politicianUser = $campaign->politician?->user;
@@ -146,6 +153,13 @@ class AdminController extends Controller
             'rejection_reason' => $rejectionReason,
         ]);
 
+        CampaignAuditLog::create([
+            'campaign_id' => $campaign->id,
+            'admin_id'    => auth()->id(),
+            'action'      => 'rejected',
+            'reason'      => $rejectionReason,
+        ]);
+
         // Notify the politician that their campaign was rejected
         try {
             $politicianUser = $campaign->politician?->user;
@@ -167,17 +181,23 @@ class AdminController extends Controller
     {
         $campaign->load('politician.user');
 
+        $auditLogs = CampaignAuditLog::where('campaign_id', $campaign->id)
+            ->with('admin:id,name')
+            ->latest()
+            ->get();
+
         $states = config('u9itus.us_states', []);
         $governanceLevels = config('u9itus.governance_levels', [
             'Federal' => 'Federal', 'State' => 'State', 'County' => 'County',
             'City' => 'City', 'School Board' => 'School Board',
         ]);
 
-        return view('standalone.admin.campaign-edit', compact('campaign', 'states', 'governanceLevels'));
+        return view('standalone.admin.campaign-edit', compact('campaign', 'states', 'governanceLevels', 'auditLogs'));
     }
 
     /**
      * Update a campaign as admin (no status/ownership restrictions).
+     * Diffs all changed fields and writes an immutable audit log entry.
      */
     public function updateCampaign(Request $request, PoliticalCampaign $campaign)
     {
@@ -200,13 +220,87 @@ class AdminController extends Controller
             'status'                   => ['required', 'in:draft,pending_approval,active,paused,completed,cancelled'],
             'approval_status'          => ['required', 'in:pending,approved,rejected'],
             'rejection_reason'         => ['nullable', 'string', 'max:500'],
+            'edit_reason'              => ['nullable', 'string', 'max:500'],
         ]);
+
+        // Snapshot pre-update values for the diff (raw attributes, not cast)
+        $trackFields = array_diff(array_keys($validated), ['edit_reason']);
+        $before  = $campaign->only($trackFields);
+        $reason  = $validated['edit_reason'] ?? null;
+        unset($validated['edit_reason']);
 
         $campaign->update($validated);
 
+        $diff = CampaignAuditLog::buildDiff($before, $validated);
+
+        CampaignAuditLog::create([
+            'campaign_id' => $campaign->id,
+            'admin_id'    => auth()->id(),
+            'action'      => 'edited',
+            'reason'      => $reason,
+            'changes'     => $diff ?: null,
+        ]);
+
         return redirect()
-            ->route('admin.campaigns.pending')
+            ->route('admin.campaigns.edit', $campaign)
             ->with('success', 'Campaign "' . $campaign->title . '" has been updated.');
+    }
+
+    /**
+     * Force-pause (stop) an active campaign with a mandatory reason.
+     */
+    public function stopCampaign(Request $request, PoliticalCampaign $campaign)
+    {
+        $request->validate([
+            'reason' => ['required', 'string', 'max:500'],
+        ]);
+
+        $campaign->update(['status' => CampaignStatus::Paused]);
+
+        CampaignAuditLog::create([
+            'campaign_id' => $campaign->id,
+            'admin_id'    => auth()->id(),
+            'action'      => 'stopped',
+            'reason'      => $request->input('reason'),
+        ]);
+
+        return back()->with('success', 'Campaign "' . $campaign->title . '" has been stopped.');
+    }
+
+    /**
+     * Reactivate a previously stopped / paused campaign.
+     */
+    public function reactivateCampaign(Request $request, PoliticalCampaign $campaign)
+    {
+        $request->validate([
+            'reason' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $campaign->update(['status' => CampaignStatus::Active]);
+
+        CampaignAuditLog::create([
+            'campaign_id' => $campaign->id,
+            'admin_id'    => auth()->id(),
+            'action'      => 'reactivated',
+            'reason'      => $request->input('reason'),
+        ]);
+
+        return back()->with('success', 'Campaign "' . $campaign->title . '" has been reactivated.');
+    }
+
+    /**
+     * Paginated audit log for a single campaign.
+     */
+    public function campaignAuditLog(PoliticalCampaign $campaign)
+    {
+        $campaign->load('politician.user');
+
+        $auditLogs = CampaignAuditLog::where('campaign_id', $campaign->id)
+            ->with('admin:id,name')
+            ->latest()
+            ->paginate(30);
+
+        return view('standalone.admin.campaign-audit', compact('campaign', 'auditLogs'));
     }
 
     /**
