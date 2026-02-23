@@ -7,6 +7,7 @@ use App\Enums\CampaignStatus;
 use App\Http\Controllers\Controller;
 use App\Mail\CampaignApprovedMail;
 use App\Mail\CampaignRejectedMail;
+use App\Services\ReverbBroadcastService;
 use App\Mail\KycApprovedMail;
 use App\Mail\KycRejectedMail;
 use App\Models\CampaignAuditLog;
@@ -133,6 +134,9 @@ class AdminController extends Controller
             // Non-fatal — silently skip if mail not configured
         }
 
+        // Phase 11 — real-time WebSocket push to politician dashboard
+        app(ReverbBroadcastService::class)->campaignApproved($campaign);
+
         return back()->with('success', 'Campaign "' . $campaign->title . '" has been approved and set to active.');
     }
 
@@ -170,6 +174,9 @@ class AdminController extends Controller
         } catch (\Exception) {
             // Non-fatal — silently skip if mail not configured
         }
+
+        // Phase 11 — real-time WebSocket push to politician dashboard
+        app(ReverbBroadcastService::class)->campaignRejected($campaign, $rejectionReason);
 
         return back()->with('success', 'Campaign "' . $campaign->title . '" has been rejected.');
     }
@@ -263,6 +270,9 @@ class AdminController extends Controller
             'action'      => 'stopped',
             'reason'      => $request->input('reason'),
         ]);
+
+        // Phase 11 — real-time WebSocket push to politician dashboard
+        app(ReverbBroadcastService::class)->campaignStopped($campaign, $request->input('reason'));
 
         return back()->with('success', 'Campaign "' . $campaign->title . '" has been stopped.');
     }

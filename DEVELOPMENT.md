@@ -152,20 +152,21 @@ $broadcast->fraudFlagRaised($voter, $score, $reason);
 ### Frontend Echo listeners
 
 ```js
-import { listenAsVoter, toast } from './echo';
+import { listenAsVoter, toast } from "./echo";
 
 // Mount after page load, userId from Blade meta tag
 listenAsVoter(window.AUTH_USER_ID, {
     onAdReady(data) {
-        toast(data.message, 'info');
-        document.getElementById('watch-btn').href = data.watch_url;
+        toast(data.message, "info");
+        document.getElementById("watch-btn").href = data.watch_url;
     },
     onSessionCompleted(data) {
-        toast(data.message, 'success');
-        document.getElementById('balance').textContent = '$' + data.new_balance.toFixed(2);
+        toast(data.message, "success");
+        document.getElementById("balance").textContent =
+            "$" + data.new_balance.toFixed(2);
     },
     onPayoutProcessed(data) {
-        toast(data.message, 'success');
+        toast(data.message, "success");
     },
 });
 ```
@@ -173,6 +174,7 @@ listenAsVoter(window.AUTH_USER_ID, {
 ### Railway Production Setup
 
 Add the following to `railway.json` or the Railway dashboard:
+
 - New service: `php artisan reverb:start --host=0.0.0.0 --port=8080`
 - Expose port `8080` (TCP)
 - Set `REVERB_HOST` to the Railway-assigned domain for the Reverb service
@@ -181,25 +183,24 @@ Add the following to `railway.json` or the Railway dashboard:
 ### Phase 12 Preview — WebRTC Live Feeds
 
 Phase 12 will attach WebRTC signaling messages (SDP offer/answer, ICE candidates) to the **existing** `presence-campaign.live.{uuid}` presence channel introduced in Phase 11. No channel-architecture changes will be required — the presence channel already:
+
 - Tracks who is currently in the live feed room (viewer count)
 - Authorises subscribers by role (politician broadcast, voter watch, admin monitor)
 - Dispatches `campaign.live.started` to notify subscribers
 
 ---
 
-
-
-| Task                     | Command                              |
-| ------------------------ | ------------------------------------ |
-| Start Laravel            | `php artisan serve`                  |
-| Watch frontend           | `npm run dev`                        |
-| Start both               | `npm run dev:all`                    |
-| **Start Reverb server**  | **`php artisan reverb:start`**       |
-| **Setup Reverb keys**    | **`php artisan reverb:setup`**       |
-| Build for prod           | `npm run build`                      |
-| Run migrations           | `php artisan migrate`                |
-| Run tests                | `php artisan test`                   |
-| Code style               | `./vendor/bin/pint`                  |
+| Task                    | Command                        |
+| ----------------------- | ------------------------------ |
+| Start Laravel           | `php artisan serve`            |
+| Watch frontend          | `npm run dev`                  |
+| Start both              | `npm run dev:all`              |
+| **Start Reverb server** | **`php artisan reverb:start`** |
+| **Setup Reverb keys**   | **`php artisan reverb:setup`** |
+| Build for prod          | `npm run build`                |
+| Run migrations          | `php artisan migrate`          |
+| Run tests               | `php artisan test`             |
+| Code style              | `./vendor/bin/pint`            |
 
 ## Common Issues
 

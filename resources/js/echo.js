@@ -14,7 +14,7 @@
 |--------------------------------------------------------------------------
 */
 function echoReady() {
-    return typeof window.Echo !== 'undefined';
+    return typeof window.Echo !== "undefined";
 }
 
 /*
@@ -23,27 +23,26 @@ function echoReady() {
 | Channel: private-politician.{userId}
 |--------------------------------------------------------------------------
 */
-export function listenAsPolitician(userId, {
-    onApproved   = () => {},
-    onRejected   = () => {},
-    onStopped    = () => {},
-} = {}) {
-    if (! echoReady()) return;
+export function listenAsPolitician(
+    userId,
+    { onApproved = () => {}, onRejected = () => {}, onStopped = () => {} } = {},
+) {
+    if (!echoReady()) return;
 
     const channel = window.Echo.private(`politician.${userId}`);
 
-    channel.listen('.campaign.approved', (data) => {
-        console.debug('[Echo] campaign.approved', data);
+    channel.listen(".campaign.approved", (data) => {
+        console.debug("[Echo] campaign.approved", data);
         onApproved(data);
     });
 
-    channel.listen('.campaign.rejected', (data) => {
-        console.debug('[Echo] campaign.rejected', data);
+    channel.listen(".campaign.rejected", (data) => {
+        console.debug("[Echo] campaign.rejected", data);
         onRejected(data);
     });
 
-    channel.listen('.campaign.stopped', (data) => {
-        console.debug('[Echo] campaign.stopped', data);
+    channel.listen(".campaign.stopped", (data) => {
+        console.debug("[Echo] campaign.stopped", data);
         onStopped(data);
     });
 
@@ -56,27 +55,30 @@ export function listenAsPolitician(userId, {
 | Channel: private-voter.{userId}
 |--------------------------------------------------------------------------
 */
-export function listenAsVoter(userId, {
-    onAdReady           = () => {},
-    onSessionCompleted  = () => {},
-    onPayoutProcessed   = () => {},
-} = {}) {
-    if (! echoReady()) return;
+export function listenAsVoter(
+    userId,
+    {
+        onAdReady = () => {},
+        onSessionCompleted = () => {},
+        onPayoutProcessed = () => {},
+    } = {},
+) {
+    if (!echoReady()) return;
 
     const channel = window.Echo.private(`voter.${userId}`);
 
-    channel.listen('.ad.token.delivered', (data) => {
-        console.debug('[Echo] ad.token.delivered', data);
+    channel.listen(".ad.token.delivered", (data) => {
+        console.debug("[Echo] ad.token.delivered", data);
         onAdReady(data);
     });
 
-    channel.listen('.session.completed', (data) => {
-        console.debug('[Echo] session.completed', data);
+    channel.listen(".session.completed", (data) => {
+        console.debug("[Echo] session.completed", data);
         onSessionCompleted(data);
     });
 
-    channel.listen('.payout.processed', (data) => {
-        console.debug('[Echo] payout.processed', data);
+    channel.listen(".payout.processed", (data) => {
+        console.debug("[Echo] payout.processed", data);
         onPayoutProcessed(data);
     });
 
@@ -90,20 +92,20 @@ export function listenAsVoter(userId, {
 |--------------------------------------------------------------------------
 */
 export function listenAsAdmin({
-    onFraudFlag        = () => {},
+    onFraudFlag = () => {},
     onSessionCompleted = () => {},
 } = {}) {
-    if (! echoReady()) return;
+    if (!echoReady()) return;
 
-    const channel = window.Echo.private('admin.monitor');
+    const channel = window.Echo.private("admin.monitor");
 
-    channel.listen('.fraud.flag.raised', (data) => {
-        console.debug('[Echo] fraud.flag.raised', data);
+    channel.listen(".fraud.flag.raised", (data) => {
+        console.debug("[Echo] fraud.flag.raised", data);
         onFraudFlag(data);
     });
 
-    channel.listen('.session.completed', (data) => {
-        console.debug('[Echo] session.completed (admin)', data);
+    channel.listen(".session.completed", (data) => {
+        console.debug("[Echo] session.completed (admin)", data);
         onSessionCompleted(data);
     });
 
@@ -116,13 +118,16 @@ export function listenAsAdmin({
 | Channel: presence-campaign.live.{campaignUuid}
 |--------------------------------------------------------------------------
 */
-export function joinCampaignLive(campaignUuid, {
-    onHere         = () => {},   // initial member list
-    onJoining      = () => {},   // someone joins
-    onLeaving      = () => {},   // someone leaves
-    onLiveStarted  = () => {},   // live feed started event
-} = {}) {
-    if (! echoReady()) return;
+export function joinCampaignLive(
+    campaignUuid,
+    {
+        onHere = () => {}, // initial member list
+        onJoining = () => {}, // someone joins
+        onLeaving = () => {}, // someone leaves
+        onLiveStarted = () => {}, // live feed started event
+    } = {},
+) {
+    if (!echoReady()) return;
 
     const channel = window.Echo.join(`campaign.live.${campaignUuid}`);
 
@@ -130,8 +135,8 @@ export function joinCampaignLive(campaignUuid, {
         .here(onHere)
         .joining(onJoining)
         .leaving(onLeaving)
-        .listen('.campaign.live.started', (data) => {
-            console.debug('[Echo] campaign.live.started', data);
+        .listen(".campaign.live.started", (data) => {
+            console.debug("[Echo] campaign.live.started", data);
             onLiveStarted(data);
         });
 
@@ -150,8 +155,8 @@ export function joinCampaignLive(campaignUuid, {
 | that exposes show(message, type). See layouts/app.blade.php.
 |--------------------------------------------------------------------------
 */
-export function toast(message, type = 'info') {
-    const el = document.getElementById('toast-container');
+export function toast(message, type = "info") {
+    const el = document.getElementById("toast-container");
     if (el && el.__x) {
         el.__x.$data.show(message, type);
     } else {
