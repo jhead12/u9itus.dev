@@ -240,6 +240,21 @@
                         <div class="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center text-white text-xs font-bold shrink-0">
                             {{ strtoupper(substr($politician->full_name ?? 'P', 0, 1)) }}
                         </div>
+                        @if($politician->page_published && $politician->slug)
+                        <a href="{{ route('politician.public.show', $politician->slug) }}"
+                           target="_blank" rel="noopener"
+                           class="text-slate-400 text-xs truncate hover:text-emerald-400 transition"
+                           title="View {{ $politician->full_name }}'s public page">
+                            {{ $politician->full_name ?? 'Official' }}
+                            @if($politician->political_office ?? false)
+                                <span class="text-slate-600">&middot;</span>
+                                {{ $politician->political_office }}
+                            @endif
+                            <svg class="w-3 h-3 inline-block ml-0.5 -mt-0.5 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                            </svg>
+                        </a>
+                        @else
                         <span class="text-slate-400 text-xs truncate">
                             {{ $politician->full_name ?? 'Official' }}
                             @if($politician->political_office ?? false)
@@ -247,6 +262,7 @@
                                 {{ $politician->political_office }}
                             @endif
                         </span>
+                        @endif
                         @if($politician->verified_official ?? false)
                         <svg class="w-3.5 h-3.5 text-emerald-400 shrink-0" fill="currentColor" viewBox="0 0 24 24" title="Verified Official">
                             <path d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/>
