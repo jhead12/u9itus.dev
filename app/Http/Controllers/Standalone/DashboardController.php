@@ -5,15 +5,25 @@ namespace App\Http\Controllers\Standalone;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Standalone Dashboard Controller
- * 
- * Main dashboard controller that routes users to appropriate
- * role-based dashboards.
+ *
+ * Routes authenticated users to their role-specific dashboard.
+ * By the time a request reaches this controller the CheckUserRole middleware
+ * has already guaranteed the user has a valid Spatie role (or has been
+ * redirected away), so the fallback branch here should never fire in practice.
  */
 class DashboardController extends Controller
 {
+    /** Role → named dashboard route. */
+    private const ROLE_ROUTES = [
+        'admin'      => 'admin.dashboard',
+        'politician' => 'politician.dashboard',
+        'voter'      => 'voter.dashboard',
+    ];
+
     /**
      * Show the main dashboard (redirects based on role).
      */
@@ -21,26 +31,40 @@ class DashboardController extends Controller
     {
         $user = Auth::user();
 
-        // Check Spatie roles first (authoritative source)
-        if ($user->hasRole('admin'))      return redirect()->route('admin.dashboard');
-        if ($user->hasRole('politician')) return redirect()->route('politician.dashboard');
-        if ($user->hasRole('voter'))      return redirect()->route('voter.dashboard');
-
-        // Fallback: user_type column (catches users whose role row is missing)
-        $destination = match($user->user_type ?? '') {
-            'admin'      => route('admin.dashboard'),
-            'politician' => route('politician.dashboard'),
-            'voter'      => route('voter.dashboard'),
-            default      => null,
-        };
-
-        if ($destination) {
-            // Repair: assign the missing Spatie role so next login goes directly
-            $user->assignRole($user->user_type);
-            return redirect($destination);
+        // ── Spatie roles (authoritative) ──────────────────────────────────────
+        foreach (self::ROLE_ROUTES as $role => $routeName) {
+            if ($user->hasRole($role)) {
+                return redirect()->route($routeName);
+            }
         }
 
-        // No role and no user_type — show the neutral placeholder
+        // ── Fallback: user_type column ────────────────────────────────────────
+        // The CheckUserRole middleware should have already handled or repaired
+        // this case. If we still reach here, attempt one more repair and log it.
+        $userType = $user->user_type ?? '';
+
+        if (array_key_exists($userType, self::ROLE_ROUTES)) {
+            Log::warning('DashboardController: assigning missing Spatie role from user_type', [
+                'user_id'   => $user->id,
+                'email'     => $user->email,
+                'user_type' => $userType,
+            ]);
+
+            $user->assignRole($userType);
+
+            return redirect()->route(self::ROLE_ROUTES[$userType]);
+        }
+
+        // ── No role, no valid user_type ────────────────────────────────────────
+        // CheckUserRole middleware already handles this path (logout + redirect).
+        // This branch is a last-resort safety net.
+        Log::error('DashboardController: user reached fallback with no resolvable role', [
+            'user_id'   => $user->id,
+            'email'     => $user->email,
+            'user_type' => $userType,
+            'roles'     => $user->getRoleNames(),
+        ]);
+
         return view('standalone.dashboard.index', ['user' => $user]);
     }
 
@@ -50,8 +74,8 @@ class DashboardController extends Controller
     public function submitContact(Request $request)
     {
         $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|email|max:255',
+            'name'    => 'required|string|max:255',
+            'email'   => 'required|email|max:255',
             'subject' => 'required|string|max:255',
             'message' => 'required|string|max:1000',
         ]);

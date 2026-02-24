@@ -71,7 +71,7 @@ Route::middleware('auth')->group(function () {
 |--------------------------------------------------------------------------
 */
 
-Route::middleware(['auth', 'verified'])->group(function () {
+Route::middleware(['auth', 'verified', 'check.role'])->group(function () {
     
     // Main Dashboard (role-based redirect)
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');

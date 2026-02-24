@@ -64,11 +64,10 @@ Route::get('/debug-info', function () {
     ]);
 });
 
-// Legacy routes - kept for backward compatibility
-// These are now primarily handled in standalone.php
-Route::get('/dashboard', function () {
-    return view('dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
+// NOTE: The /dashboard route and its name are fully owned by standalone.php
+// (DashboardController@index). The old closure was removed to prevent it from
+// overriding the named route in cached environments and sending authenticated
+// users to the generic placeholder view.
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
