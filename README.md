@@ -189,7 +189,9 @@ php artisan serve
 
 | Table                          | Purpose                                                                                    |
 | ------------------------------ | ------------------------------------------------------------------------------------------ |
-| **politicians**                | Politician profiles, governance level, office, district, party                             |
+| **politicians**                | Politician profiles, governance level, office, district, party; includes `slug` (5-char UUID prefix + SEO-friendly name, e.g. `a3f9b-mayor-john-smith-chicago`), `page_settings` (JSON theme config), and `page_published` flag |
+| **politician_pages**           | _(Phase 13)_ Public-facing campaign page theme config — layout preset, primary/accent colors, background style, hero banner, section toggles, custom CTA |
+| **politician_initiatives**     | _(Phase 13)_ Policy positions and platform planks displayed on the politician's public page — title, description, icon, sort order, published flag |
 | **voters**                     | Voter profiles, wallet balance, referral codes, trust score                                |
 | **political_campaigns**        | Video/live-feed campaigns with per-view pricing and targeting                              |
 | **view_sessions**              | Individual view tracking — watch time, fraud score, payouts                                |
@@ -199,6 +201,7 @@ php artisan serve
 | **politician_credits**         | Credit balance ledger for per-view billing                                                 |
 | **politician_payment_methods** | Stored Stripe payment methods per politician                                               |
 | **campaign_audit_logs**        | Immutable admin action log — field-level diffs for approve/reject/edit/stop/reactivate     |
+| **fraud_signals**              | _(Phase 8)_ Per-event fraud signal log — signal type, score impact, IP/fingerprint context, admin resolution |
 
 ### Services
 
@@ -206,11 +209,13 @@ php artisan serve
 | ------------------------------- | -------------------------------------------------------------------------------- |
 | **PoliticalViewService**        | View lifecycle: assign → start → track → complete                                |
 | **PoliticalPaymentService**     | Campaign billing, batch payouts, per-view profit calculation                     |
-| **FraudPreventionService**      | Device fingerprinting, rate limits, IP anomalies, trust scoring                  |
+| **FraudPreventionService**      | Multi-signal fraud scoring: rate limits, device fingerprinting, bot UA detection, IP anomalies, VPN/Tor/datacenter detection, auto-flag, `fraud_signals` audit log |
 | **CampaignBillingService**      | Stripe PaymentIntent creation, credit top-up, credit deduction                   |
 | **StripePaymentService**        | Low-level Stripe SDK wrapper (customers, payment methods, intents)               |
 | **StandardNotificationService** | Email/SMS notification delivery                                                  |
 | **StandardAuthService**         | Laravel session-based authentication                                             |
+| **IpReputationService**         | VPN / proxy / Tor exit-node / datacenter IP detection via CIDR blocklist + optional ipinfo.io enrichment (Phase 8) |
+| **DeviceFingerprintService**    | Server-side composite fingerprint generation, bot user-agent analysis, fingerprint compare/store (Phase 8) |
 | **ReverbBroadcastService**      | WebSocket event dispatch — ad delivery, payout alerts, campaign status, presence |
 
 ### Controllers
@@ -401,14 +406,16 @@ php artisan test --testsuite=Feature
 php artisan test --coverage
 ```
 
-**Test Suite Overview (158 tests, 357 assertions)**
+**Test Suite Overview (187 tests, 405 assertions)**
 
 | Suite                                      | Tests | Coverage                                                                             |
 | ------------------------------------------ | ----- | ------------------------------------------------------------------------------------ |
-| `Unit/Services/FraudPreventionServiceTest` | 8     | Score calculation, all fraud flags, `flagVoter`, `holdPayouts`                       |
+| `Unit/Services/FraudPreventionServiceTest` | 14    | Score calculation, all fraud flags (incl. VPN/bot UA), signal persistence, `flagVoter`, `holdPayouts`, `releasePayouts`, `updateTrustScore`, `clearFlag` |
 | `Unit/Services/CampaignBillingServiceTest` | 9     | `recordTransaction`, credit ledger, procurement commissions, `finalizePaymentIntent` |
 | `Unit/Services/PoliticalViewServiceTest`   | 11    | Full view lifecycle, idempotency, state-targeted campaigns, earnings summary         |
 | `Unit/Services/StripePaymentServiceTest`   | 6     | No-key error path, `ensureCustomer` null-safe, `parseWebhook` fallback               |
+| `Unit/Services/IpReputationServiceTest`    | 9     | CIDR datacenter detection, Tor prefix match, score cap, cache, ipinfo.io mock        |
+| `Unit/Services/DeviceFingerprintServiceTest` | 14  | `generate` stability, `compare` cases, `storeIfNew`, bot UA keyword/marker detection |
 | `Feature/Campaign/AdminApprovalTest`       | 10    | Admin access control, approve/reject/stop/reactivate campaign workflow               |
 | `Feature/Campaign/CampaignCrudTest`        | 20    | Campaign CRUD, validation, submit-for-review, analytics, billing views               |
 | `Feature/Api/ViewSessionLifecycleTest`     | 13    | View session assign → start → progress → complete, referral earnings                 |
@@ -448,11 +455,12 @@ npm run dev:all   # Start Laravel + Vite together
 | Phase 5  | Voter watch experience (token-based video delivery, JS heartbeat)                                                                                                                                  | ✅ Complete    |
 | Phase 6  | Admin features (campaign approval queue, edit/stop/reactivate campaigns, KYC management, fraud review, immutable audit log)                                                                        | ✅ Complete    |
 | Phase 7  | Notifications (email on approval/rejection/ - Admin signup notification email,User Signed up Email, Admin Email notification, managment system, completion)                                        | ✅ Complete    |
-| Phase 8  | Security & Fraud (advanced scoring, VPN detection, device fingerprinting)                                                                                                                          | ⬜ Pending     |
+| Phase 8  | Security & Fraud (advanced scoring, VPN detection, device fingerprinting, bot UA detection, Tor/datacenter IP blocklist, `fraud_signals` audit table, `IpReputationService`, `DeviceFingerprintService`, auto-flag + `FraudFlagRaised` broadcast, `releasePayouts`/`clearFlag`/`updateTrustScore` methods) | ✅ Complete    |
 | Phase 9  | Testing (unit tests for all services, feature tests for admin approval workflow, CI coverage reporting)                                                                                            | ✅ Complete    |
 | Phase 10 | Deployment (Railway production config, env hardening)                                                                                                                                              | ⬜ Pending     |
 | Phase 11 | Real-time Notifications — Laravel Reverb/WebSockets (private voter/politician channels, admin broadcast, ad-delivery push, payout alerts, live presence; WebRTC signaling foundation for Phase 12) | 🚧 In Progress |
 | Phase 12 | Live Feed Streaming — WebRTC (politician → voter HLS/WebRTC live video, presence channel viewer counts, live chat via Reverb, built on Phase 11 Reverb server)                                     | ⬜ Pending     |
+| Phase 13 | Politician Public Profile Pages — public `/p/{slug}` campaign pages with custom color themes (CSS variables, not raw CSS), layout presets, initiative/platform section, active campaign video feed, verified badge, Open Graph meta for social sharing; slug format: `{5-char-uuid-prefix}-{seo-readable-name}` (e.g. `a3f9b-mayor-john-smith-chicago`) | ⬜ Pending     |
 
 ## Future Enhancements
 
@@ -466,7 +474,7 @@ npm run dev:all   # Start Laravel + Vite together
 - Advanced analytics dashboard
 - ~~Automated Stripe Connect for politician billing~~ ✅ Implemented (auto-customer creation, saved payment methods)
 - ~~PayPal Mass Pay API for batch voter payouts~~ ✅ Implemented (`PayPalPayoutService` wired into `processBatchPayouts`)
-- Twilio SMS integration
+- Twilio SMS integration — the **5-character UUID prefix** embedded in every politician's `slug` (e.g. `a3f9b` from `a3f9b-mayor-john-smith-chicago`) is intentionally designed as a stable short-ID that can serve as a lookup key for SMS verification, phone-based 2FA, and any future telephony service (Twilio Verify, short-code campaigns, etc.) without exposing the full UUID in a text message
 - Firebase Cloud Messaging for push notifications
 
 ## Support
@@ -485,4 +493,5 @@ MIT License — See LICENSE file for details
 Developed by Head Enterprises  
 Version 3.0.0 — Standalone Laravel 12 Architecture  
 Last updated: February 23, 2026  
-Route fix: `admin.payouts` → `admin.payouts.index` in `payouts-pending.blade.php`
+Route fix: `admin.payouts` → `admin.payouts.index` in `payouts-pending.blade.php`  
+Phase 8 complete: `IpReputationService`, `DeviceFingerprintService`, enhanced `FraudPreventionService`, `fraud_signals` table

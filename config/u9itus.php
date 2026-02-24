@@ -78,6 +78,19 @@ return [
         'device_fingerprint_required'   => env('DEVICE_FINGERPRINT_REQUIRED', true),
         'payout_hold_hours'             => env('PAYOUT_HOLD_HOURS', 48),
         'suspicious_activity_threshold' => env('SUSPICIOUS_ACTIVITY_THRESHOLD', 10),
+
+        /*
+         * Phase 8 — Advanced Fraud Prevention
+         *
+         * auto_flag_threshold  — cumulative fraud score at which the voter is
+         *                        automatically flagged without admin intervention.
+         * ip_reputation_enabled — enable VPN / Tor / datacenter IP detection.
+         * ipinfo_api_key        — optional ipinfo.io API key for enriched signals.
+         *                        Leave empty to rely on the built-in CIDR blocklist.
+         */
+        'auto_flag_threshold'    => env('FRAUD_AUTO_FLAG_THRESHOLD', 80),
+        'ip_reputation_enabled'  => env('FRAUD_IP_REPUTATION_ENABLED', true),
+        'ipinfo_api_key'         => env('IPINFO_API_KEY', ''),
     ],
 
     /*

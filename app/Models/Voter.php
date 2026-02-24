@@ -122,6 +122,14 @@ class Voter extends Model
     }
 
     /**
+     * Fraud signals raised against this voter (Phase 8).
+     */
+    public function fraudSignals(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(\App\Models\FraudSignal::class);
+    }
+
+    /**
      * Route model binding key.
      */
     public function getRouteKeyName(): string

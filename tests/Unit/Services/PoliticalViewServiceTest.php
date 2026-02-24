@@ -24,7 +24,7 @@ function viewService(): PoliticalViewService
     // Wire real services — DB is refreshed between tests.
     $stripe  = Mockery::mock(StripePaymentService::class);
     $billing = new CampaignBillingService($stripe);
-    $fraud   = new FraudPreventionService();
+    $fraud   = app(FraudPreventionService::class);
     return new PoliticalViewService($fraud, $billing);
 }
 
