@@ -116,9 +116,14 @@
 
                 <p class="px-4 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider mt-2">Campaigns</p>
 
-                <a href="{{ route('admin.campaigns.pending') }}" class="sidebar-link {{ request()->routeIs('admin.campaigns.*') ? 'active' : '' }}">
+                <a href="{{ route('admin.campaigns.pending') }}" class="sidebar-link {{ request()->routeIs('admin.campaigns.pending') ? 'active' : '' }}">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.069A1 1 0 0121 8.87v6.26a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
                     Pending Approval
+                </a>
+
+                <a href="{{ route('admin.campaigns.running') }}" class="sidebar-link {{ request()->routeIs('admin.campaigns.running') ? 'active' : '' }}">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                    Running Campaigns
                 </a>
 
                 <p class="px-4 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider mt-2">Users</p>

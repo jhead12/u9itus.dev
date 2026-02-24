@@ -108,6 +108,61 @@ class AdminController extends Controller
     }
 
     /**
+     * Show all currently running (active + paused) campaigns across all politicians.
+     * Includes spend data, voter interaction counts, and view progress.
+     */
+    public function runningCampaigns(Request $request)
+    {
+        $query = PoliticalCampaign::select('political_campaigns.*')
+            ->selectRaw(
+                '(SELECT COUNT(DISTINCT voter_id) FROM view_sessions
+                  WHERE view_sessions.political_campaign_id = political_campaigns.id) as unique_voters_count'
+            )
+            ->selectRaw(
+                '(SELECT COUNT(*) FROM view_sessions
+                  WHERE view_sessions.political_campaign_id = political_campaigns.id
+                    AND status = \'completed\') as completed_sessions_count'
+            )
+            ->selectRaw(
+                '(SELECT ROUND(AVG(completion_percentage), 1) FROM view_sessions
+                  WHERE view_sessions.political_campaign_id = political_campaigns.id
+                    AND status = \'completed\') as avg_completion_pct'
+            )
+            ->with('politician.user')
+            ->whereIn('status', [CampaignStatus::Active->value, CampaignStatus::Paused->value]);
+
+        if ($search = $request->get('search')) {
+            $query->whereHas('politician', fn ($q) =>
+                $q->where('full_name', 'like', "%{$search}%")
+                  ->orWhere('political_office', 'like', "%{$search}%")
+            );
+        }
+
+        if ($status = $request->get('status')) {
+            $query->where('status', $status);
+        }
+
+        if ($type = $request->get('type')) {
+            $query->where('campaign_type', $type);
+        }
+
+        $campaigns = $query
+            ->orderByRaw("CASE WHEN status = 'active' THEN 0 ELSE 1 END")
+            ->latest('started_at')
+            ->paginate(25)
+            ->withQueryString();
+
+        $summary = [
+            'total_active'  => PoliticalCampaign::where('status', CampaignStatus::Active->value)->count(),
+            'total_paused'  => PoliticalCampaign::where('status', CampaignStatus::Paused->value)->count(),
+            'total_spend'   => PoliticalCampaign::whereIn('status', [CampaignStatus::Active->value, CampaignStatus::Paused->value])->sum('amount_spent'),
+            'total_views'   => PoliticalCampaign::whereIn('status', [CampaignStatus::Active->value, CampaignStatus::Paused->value])->sum('views_completed'),
+        ];
+
+        return view('standalone.admin.campaigns-running', compact('campaigns', 'summary'));
+    }
+
+    /**
      * Approve a campaign.
      */
     public function approveCampaign(PoliticalCampaign $campaign)

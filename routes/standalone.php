@@ -173,6 +173,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         
         // Campaign Approval
         Route::get('/campaigns/pending', [AdminController::class, 'pendingCampaigns'])->name('campaigns.pending');
+        Route::get('/campaigns/running', [AdminController::class, 'runningCampaigns'])->name('campaigns.running');
         Route::post('/campaigns/{campaign}/approve', [AdminController::class, 'approveCampaign'])->name('campaigns.approve');
         Route::post('/campaigns/{campaign}/reject', [AdminController::class, 'rejectCampaign'])->name('campaigns.reject');
 
