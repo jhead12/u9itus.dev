@@ -267,12 +267,15 @@
     const videoId       = '{{ $videoId ?? '' }}';
     const dashboardUrl  = '{{ route('voter.dashboard') }}';
 
-    let sessionId      = null;
-    let heartbeatTimer = null;
-    let antiSkipTimer  = null;
-    let completed      = false;
-    let lastTime       = 0;
-    let ytPlayer       = null;
+    let sessionId        = null;
+    let heartbeatTimer   = null;
+    let antiSkipTimer    = null;
+    let watchTicker      = null;   // wall-clock seconds actually watched
+    let completed        = false;
+    let lastTime         = 0;
+    let ytPlayer         = null;
+    let wallClockWatched = 0;      // increments only while video is truly playing
+    const minWatchSeconds = Math.ceil(duration * (mustWatch / 100));
 
     /* ── helpers ─────────────────────────────────────────────────── */
     function showStatus(msg, type = 'info') {
@@ -294,11 +297,23 @@
         }).then(r => r.json());
     }
 
-    function startHeartbeat(getCurrentTime) {
+    /* ── wall-clock ticker: counts real seconds played ──────────── */
+    function startWatchTicker() {
+        if (watchTicker) return;
+        watchTicker = setInterval(() => {
+            if (!completed) wallClockWatched++;
+        }, 1000);
+    }
+
+    function stopWatchTicker() {
+        if (watchTicker) { clearInterval(watchTicker); watchTicker = null; }
+    }
+
+    function startHeartbeat() {
         if (heartbeatTimer) return;
         heartbeatTimer = setInterval(async () => {
             if (!sessionId || completed) return;
-            const watched = Math.floor(getCurrentTime());
+            const watched = wallClockWatched;
             try {
                 const res = await post(`/voter/session/${sessionId}/progress`, { seconds_watched: watched });
                 // Update progress bar from server-reported percentage if available, else calculate locally
@@ -312,6 +327,7 @@
                     completed = true;
                     clearInterval(heartbeatTimer);
                     clearInterval(antiSkipTimer);
+                    stopWatchTicker();
                     if (res.qualified) {
                         showStatus(`\u{1F389} You earned $${parseFloat(res.payout_earned).toFixed(2)}! Payment is being processed.`, 'success');
                         statusMsg.innerHTML += ` <a href="${dashboardUrl}" class="underline text-emerald-400 ml-2">View earnings \u2192</a>`;
@@ -333,6 +349,7 @@
         completed = true;
         clearInterval(heartbeatTimer);
         clearInterval(antiSkipTimer);
+        stopWatchTicker();
         // Use actual playback time if provided, fallback to the server-side duration
         const total = Math.floor(actualPlaybackSeconds > 0 ? actualPlaybackSeconds : duration);
         try {
@@ -368,13 +385,15 @@
                     modestbranding: 1,
                     playsinline:    1,
                     controls:       1,
+                    disablekb:      1,       // block keyboard seeking
                     origin:         window.location.origin,
                 },
                 events: {
                     onStateChange: function (e) {
                         if (e.data === YT.PlayerState.PLAYING) {
-                            startHeartbeat(() => ytPlayer.getCurrentTime() || 0);
-                            // Anti-skip: poll every second
+                            startWatchTicker();
+                            startHeartbeat();
+                            // Anti-skip: poll every second and reset forward seeks
                             if (!antiSkipTimer) {
                                 antiSkipTimer = setInterval(() => {
                                     if (!ytPlayer || completed) return;
@@ -386,8 +405,23 @@
                                     }
                                 }, 1000);
                             }
+                        } else if (
+                            e.data === YT.PlayerState.PAUSED ||
+                            e.data === YT.PlayerState.BUFFERING
+                        ) {
+                            stopWatchTicker();
                         } else if (e.data === YT.PlayerState.ENDED) {
-                            handleVideoEnded(ytPlayer.getCurrentTime() || 0);
+                            stopWatchTicker();
+                            // Guard: if the user skipped to the end without actually watching,
+                            // the wall-clock counter will be far below the required threshold.
+                            // In that case, seek back to where they were and resume instead of
+                            // crediting the payout.
+                            if (wallClockWatched < minWatchSeconds) {
+                                ytPlayer.seekTo(lastTime, true);
+                                ytPlayer.playVideo();
+                                return;
+                            }
+                            handleVideoEnded(wallClockWatched);
                         }
                     }
                 }
@@ -430,14 +464,18 @@
                 if (res.error) { showStatus(res.error, 'error'); overlay.style.display = ''; return; }
                 sessionId = res.session_id;
                 video.play();
-                startHeartbeat(() => video.currentTime || 0);
+                startWatchTicker();
+                startHeartbeat();
             } catch (e) {
                 showStatus('Could not start session. Please try again.', 'error');
                 overlay.style.display = '';
             }
         });
 
-        video.addEventListener('ended', () => handleVideoEnded(video.currentTime || 0));
+        video.addEventListener('ended', () => handleVideoEnded(wallClockWatched));
+
+        video.addEventListener('pause', () => stopWatchTicker());
+        video.addEventListener('play',  () => startWatchTicker());
 
         // Prevent skipping forward
         video.addEventListener('timeupdate', () => {
