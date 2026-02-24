@@ -121,7 +121,7 @@ class VoterController extends Controller
         // Voter's stored governance-level preferences
         $voterPrefs = $voter->preferred_governance_levels ?? [];
 
-        $query = PoliticalCampaign::with('politician:id,full_name,political_office,governance_level,profile_photo_url,verified_official')
+        $query = PoliticalCampaign::with('politician:id,full_name,political_office,governance_level,profile_photo_url,verified_official,slug,page_published')
             ->where('status', CampaignStatus::Active)
             ->where('approval_status', ApprovalStatus::Approved)
             ->whereColumn('views_completed', '<', 'total_views_requested')

@@ -193,42 +193,98 @@
         </section>
         @endif
 
-        {{-- Active Campaigns Section --}}
+        {{-- Active Campaigns Section (Phase 13 — video embeds + platform CTA) --}}
         @if($page->show_campaigns && $campaigns->isNotEmpty())
         <section>
-            <h2 class="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                <span class="w-1 h-6 rounded-full inline-block" style="background:var(--p13-accent,#f59e0b)"></span>
-                Active Campaign Messages
-            </h2>
-            <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div class="flex items-end justify-between mb-4">
+                <h2 class="text-xl font-bold text-white flex items-center gap-2">
+                    <span class="w-1 h-6 rounded-full inline-block" style="background:var(--p13-accent,#f59e0b)"></span>
+                    Campaign Videos
+                </h2>
+                <span class="text-xs text-slate-400">
+                    {{ $campaigns->count() }} active {{ \Illuminate\Support\Str::plural('message', $campaigns->count()) }}
+                </span>
+            </div>
+
+            {{-- Integrated U9itus platform pitch --}}
+            <div class="mb-6 flex items-center gap-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-5 py-4">
+                <div class="text-2xl flex-shrink-0">💰</div>
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-semibold text-emerald-400">Earn $0.25 every time you watch a message like these</p>
+                    <p class="text-xs text-slate-400 mt-0.5">U9itus pays voters real money for watching political ads in full. Free to join, no card needed.</p>
+                </div>
+                <a href="{{ route('register.voter') }}"
+                   class="flex-shrink-0 bg-emerald-500 hover:bg-emerald-400 text-white text-xs font-bold px-4 py-2 rounded-lg transition whitespace-nowrap shadow-lg">
+                    Start Earning →
+                </a>
+            </div>
+
+            <div class="grid sm:grid-cols-2 gap-6">
                 @foreach($campaigns as $campaign)
+                @php
+                    $_ytId  = null;
+                    $_mUrl  = $campaign->media_url ?? '';
+                    if      (preg_match('/youtu\.be\/([a-zA-Z0-9_-]+)/', $_mUrl, $_m))    { $_ytId = $_m[1]; }
+                    elseif  (preg_match('/[?&]v=([a-zA-Z0-9_-]+)/', $_mUrl, $_m))         { $_ytId = $_m[1]; }
+                    elseif  (preg_match('/\/embed\/([a-zA-Z0-9_-]+)/', $_mUrl, $_m))       { $_ytId = $_m[1]; }
+                @endphp
                 <div class="bg-slate-800/40 border border-slate-700/40 rounded-xl overflow-hidden hover:border-slate-500 transition group">
-                    {{-- Thumbnail --}}
-                    @if($campaign->thumbnail_url)
-                        <div class="relative aspect-video overflow-hidden">
+
+                    {{-- Video embed (YouTube nocookie) or thumbnail fallback --}}
+                    <div class="relative aspect-video bg-black">
+                        @if($_ytId)
+                            {{-- YouTube privacy-enhanced embed — publicly previewable --}}
+                            <iframe
+                                src="https://www.youtube-nocookie.com/embed/{{ $_ytId }}?rel=0&modestbranding=1&color=white&iv_load_policy=3"
+                                title="{{ e($campaign->title) }}"
+                                class="w-full h-full"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                allowfullscreen
+                                loading="lazy"
+                            ></iframe>
+                        @elseif($campaign->thumbnail_url)
                             <img src="{{ $campaign->thumbnail_url }}" alt="{{ $campaign->title }}"
                                  class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                            <div class="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition">
-                                <span class="text-3xl">▶</span>
+                            <div class="absolute inset-0 flex flex-col items-center justify-center bg-black/50">
+                                <div class="w-14 h-14 rounded-full bg-white/10 border-2 border-white/40 flex items-center justify-center">
+                                    <svg class="w-7 h-7 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                                </div>
+                                <span class="mt-3 text-xs text-white/70 bg-black/40 px-3 py-1 rounded-full">Sign up to watch &amp; earn</span>
                             </div>
+                        @else
+                            <div class="w-full h-full flex flex-col items-center justify-center bg-slate-900/60">
+                                <svg class="w-12 h-12 text-slate-600 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                                          d="M15 10l4.553-2.853A1 1 0 0121 8.004v7.992a1 1 0 01-1.447.857L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/>
+                                </svg>
+                                <span class="text-xs text-slate-500">Video · register to earn</span>
+                            </div>
+                        @endif
+
+                        {{-- Floating earnings badge --}}
+                        <div class="absolute top-2 right-2 bg-emerald-500 text-white text-xs font-bold px-2 py-0.5 rounded-full shadow-lg pointer-events-none select-none z-10">
+                            Earn $0.25
                         </div>
-                    @endif
+                    </div>
+
                     <div class="p-4">
                         <h3 class="font-semibold text-white text-sm mb-1 line-clamp-2">{{ $campaign->title }}</h3>
                         @if($campaign->message_summary)
                             <p class="text-xs text-slate-400 line-clamp-2 mb-3">{{ $campaign->message_summary }}</p>
                         @endif
                         <a href="{{ route('register.voter') }}"
-                           class="p13-btn-primary inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition">
-                            Watch &amp; Earn $0.25
+                           class="p13-btn-primary inline-flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg transition w-full">
+                            <svg class="w-3.5 h-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                            Watch on U9itus &amp; Earn $0.25
                         </a>
                     </div>
                 </div>
                 @endforeach
             </div>
-            <p class="mt-4 text-center text-sm text-slate-400">
+
+            <p class="mt-5 text-center text-sm text-slate-400">
                 <a href="{{ route('register.voter') }}" class="p13-accent hover:underline font-medium">
-                    Create a free account to watch all messages and earn money →
+                    Create a free account to watch all of {{ $politician->full_name }}'s messages and earn real money →
                 </a>
             </p>
         </section>
@@ -274,6 +330,44 @@
             <a href="{{ route('register.politician') }}" class="hover:text-slate-300 transition">Register as a Politician</a>
         </p>
     </footer>
+
+    {{-- ── Sticky Earn Bar (unauthenticated visitors only) ── --}}
+    @guest
+    <div id="earn-bar"
+         class="fixed bottom-0 inset-x-0 z-50 shadow-2xl"
+         style="background:linear-gradient(90deg,#059669,#10b981);transform:translateY(120%);transition:transform .45s cubic-bezier(.4,0,.2,1)">
+        <div class="max-w-5xl mx-auto px-4 py-3 flex items-center gap-3">
+            <span class="text-xl flex-shrink-0 hidden sm:block">💰</span>
+            <div class="flex-1 min-w-0">
+                <p class="text-sm font-bold text-white leading-tight">Get paid $0.25 to watch political ads like these</p>
+                <p class="text-xs text-emerald-100 hidden sm:block">U9itus is free to join. No credit card. Start earning today.</p>
+            </div>
+            <div class="flex items-center gap-2 flex-shrink-0">
+                <a href="{{ route('register.voter') }}"
+                   class="bg-white text-emerald-700 font-bold text-xs sm:text-sm px-4 py-2 rounded-lg hover:bg-emerald-50 transition whitespace-nowrap shadow-md">
+                    Create Free Account
+                </a>
+                <button onclick="var b=document.getElementById('earn-bar');b.style.transform='translateY(120%)';b.setAttribute('data-closed','1')"
+                        class="text-white/60 hover:text-white transition p-1.5 rounded flex-shrink-0"
+                        aria-label="Dismiss">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+    <script>
+        (function() {
+            setTimeout(function() {
+                var b = document.getElementById('earn-bar');
+                if (b && !b.getAttribute('data-closed')) {
+                    b.style.transform = 'translateY(0)';
+                }
+            }, 3000);
+        })();
+    </script>
+    @endguest
 
 </body>
 </html>

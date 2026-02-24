@@ -76,4 +76,7 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
-require __DIR__.'/auth.php';
+// auth.php routes are intentionally excluded — all auth/verification/logout
+// routes are handled by routes/standalone.php (standalone architecture).
+// Keeping this file required causes duplicate route name conflicts.
+// require __DIR__.'/auth.php';
