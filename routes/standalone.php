@@ -14,6 +14,7 @@ use App\Http\Controllers\Standalone\DashboardController;
 use App\Http\Controllers\Standalone\PoliticianController;
 use App\Http\Controllers\Standalone\VoterController;
 use App\Http\Controllers\Standalone\AdminController;
+use App\Http\Controllers\Standalone\PublicProfileController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -116,6 +117,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         // KYC Document Upload
         Route::post('/kyc/upload', [PoliticianController::class, 'uploadKycDocument'])->name('kyc.upload');
+
+        // Phase 13 — Public Profile Page Management
+        Route::get('/public-page', [PoliticianController::class, 'publicPage'])->name('public-page');
+        Route::put('/public-page', [PoliticianController::class, 'updatePublicPage'])->name('public-page.update');
+
+        // Phase 13 — Platform Initiatives (CRUD)
+        Route::post('/initiatives', [PoliticianController::class, 'storeInitiative'])->name('initiatives.store');
+        Route::put('/initiatives/{initiative}', [PoliticianController::class, 'updateInitiative'])->name('initiatives.update');
+        Route::delete('/initiatives/{initiative}', [PoliticianController::class, 'destroyInitiative'])->name('initiatives.destroy');
     });
     
     /*
@@ -244,3 +254,6 @@ Route::get('/how-it-works', fn() => view('standalone.how-it-works'))->name('how-
 Route::get('/pricing', fn() => view('standalone.pricing'))->name('pricing');
 Route::get('/contact', fn() => view('standalone.contact'))->name('contact');
 Route::post('/contact', [DashboardController::class, 'submitContact'])->name('contact.submit');
+
+// Phase 13 — Politician Public Profile Page
+Route::get('/p/{slug}', [PublicProfileController::class, 'show'])->name('politician.public.show');

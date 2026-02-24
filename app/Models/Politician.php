@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Support\Str;
 use App\Models\ReferralEarning;
+use App\Models\PoliticianPage;
+use App\Models\PoliticianInitiative;
 
 /**
  * A politician or local governance official who creates campaigns
@@ -42,6 +44,10 @@ class Politician extends Model
         'is_active',
         'referred_by_voter_id',
         'referred_by_politician_id',
+        // Phase 13
+        'slug',
+        'page_settings',
+        'page_published',
     ];
 
     protected function casts(): array
@@ -50,8 +56,11 @@ class Politician extends Model
             'credit_balance'   => 'decimal:2',
             'pending_earnings' => 'decimal:4',
             'total_spent'      => 'decimal:2',
-            'verified_official'=> 'boolean',
-            'is_active'        => 'boolean',
+            'verified_official' => 'boolean',
+            'is_active'         => 'boolean',
+            // Phase 13
+            'page_settings'     => 'array',
+            'page_published'    => 'boolean',
         ];
     }
 
@@ -69,7 +78,43 @@ class Politician extends Model
                 } while (self::where('referral_code', $code)->exists());
                 $politician->referral_code = $code;
             }
+            if (empty($politician->slug)) {
+                $politician->slug = static::generateSlug($politician);
+            }
         });
+
+        static::updating(function (Politician $politician): void {
+            // Regenerate slug if profile fields that feed it have changed
+            if ($politician->isDirty(['full_name', 'political_office', 'city']) && ! $politician->isDirty('slug')) {
+                $politician->slug = static::generateSlug($politician);
+            }
+        });
+    }
+
+    /**
+     * Generate a unique slug: {5-char-uuid-prefix}-{seo-readable-name}
+     * e.g. a3f9b-mayor-john-smith-chicago
+     */
+    public static function generateSlug(Politician $politician): string
+    {
+        $uuid   = $politician->uuid ?: (string) Str::uuid();
+        $prefix = substr($uuid, 0, 5);
+        $office = $politician->political_office ?? 'official';
+        $city   = $politician->city ?? '';
+        $base   = Str::slug("{$office} {$politician->full_name} {$city}");
+        $cand   = "{$prefix}-{$base}";
+
+        // Guarantee uniqueness
+        $counter = 0;
+        $exists = fn(string $s) => static::where('slug', $s)
+            ->when($politician->id, fn($q) => $q->where('id', '!=', $politician->id))
+            ->exists();
+
+        while ($exists($cand)) {
+            $counter++;
+            $cand = "{$prefix}-{$base}-{$counter}";
+        }
+        return $cand;
     }
 
     /**
@@ -148,11 +193,38 @@ class Politician extends Model
         return $this->hasMany(ReferralEarning::class, 'referrer_politician_id');
     }
 
+    // ── Phase 13: Public Profile Page ─────────────────────────────────────
+
+    /**
+     * Public profile page theme configuration (one-to-one).
+     */
+    public function page(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(PoliticianPage::class);
+    }
+
+    /**
+     * Policy / platform initiatives shown on the public page.
+     */
+    public function initiatives(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(PoliticianInitiative::class)->orderBy('sort_order')->orderBy('id');
+    }
+
+    /**
+     * Return the page config, creating one with defaults if it doesn't exist yet.
+     */
+    public function getOrCreatePage(): PoliticianPage
+    {
+        return $this->page ?? PoliticianPage::create(PoliticianPage::defaults($this->id));
+    }
+
+    // ── Campaign & credit relationships ────────────────────────────────────
+
     public function campaigns(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(PoliticalCampaign::class);
     }
-
     public function credits(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(PoliticianCredit::class);

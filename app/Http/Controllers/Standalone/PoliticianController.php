@@ -553,4 +553,109 @@ class PoliticianController extends Controller
             'totalProcurementEarnings'
         ));
     }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // Phase 13 — Public Profile Page Management
+    // ─────────────────────────────────────────────────────────────────────
+
+    /** Show the "Public Page" settings editor. */
+    public function publicPage()
+    {
+        $politician = Auth::user()->politician;
+        abort_unless($politician, 403);
+
+        $page = $politician->page ?? new \App\Models\PoliticianPage(\App\Models\PoliticianPage::defaults($politician->id));
+        $initiatives = $politician->initiatives()->get();
+
+        return view('standalone.politician.public-page', compact('politician', 'page', 'initiatives'));
+    }
+
+    /** Save theme / layout / visibility settings for the public profile page. */
+    public function updatePublicPage(Request $request)
+    {
+        $politician = Auth::user()->politician;
+        abort_unless($politician, 403);
+
+        $validated = $request->validate([
+            'layout_preset'    => 'required|in:classic,modern,bold,minimal',
+            'primary_color'    => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+            'accent_color'     => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+            'background_style' => 'required|in:dark,light,gradient,image',
+            'hero_banner_url'  => 'nullable|url|max:500',
+            'show_bio'         => 'boolean',
+            'show_initiatives' => 'boolean',
+            'show_campaigns'   => 'boolean',
+            'show_contact'     => 'boolean',
+            'custom_cta_text'  => 'nullable|string|max:80',
+            'custom_cta_url'   => 'nullable|url|max:500',
+            'page_published'   => 'boolean',
+        ]);
+
+        // Cast checkbox booleans (checkboxes are absent when unchecked)
+        foreach (['show_bio', 'show_initiatives', 'show_campaigns', 'show_contact', 'page_published'] as $flag) {
+            $validated[$flag] = $request->boolean($flag);
+        }
+
+        // Upsert politician_pages
+        \App\Models\PoliticianPage::updateOrCreate(
+            ['politician_id' => $politician->id],
+            \Illuminate\Support\Arr::except($validated, ['page_published'])
+        );
+
+        // Update page_published on the politician itself
+        $politician->update(['page_published' => $validated['page_published']]);
+
+        return back()->with('success', 'Public page settings saved.');
+    }
+
+    // ── Initiatives ────────────────────────────────────────────────────────
+
+    /** Store a new platform initiative. */
+    public function storeInitiative(Request $request)
+    {
+        $politician = Auth::user()->politician;
+        abort_unless($politician, 403);
+
+        $validated = $request->validate([
+            'title'        => 'required|string|max:120',
+            'description'  => 'nullable|string|max:800',
+            'icon'         => 'nullable|string|max:64',
+            'sort_order'   => 'nullable|integer|min:0|max:9999',
+            'is_published' => 'boolean',
+        ]);
+        $validated['is_published'] = $request->boolean('is_published', true);
+
+        $politician->initiatives()->create($validated);
+
+        return back()->with('success', 'Initiative added.');
+    }
+
+    /** Update an existing initiative. */
+    public function updateInitiative(Request $request, \App\Models\PoliticianInitiative $initiative)
+    {
+        abort_unless($initiative->politician_id === Auth::user()->politician?->id, 403);
+
+        $validated = $request->validate([
+            'title'        => 'required|string|max:120',
+            'description'  => 'nullable|string|max:800',
+            'icon'         => 'nullable|string|max:64',
+            'sort_order'   => 'nullable|integer|min:0|max:9999',
+            'is_published' => 'boolean',
+        ]);
+        $validated['is_published'] = $request->boolean('is_published', true);
+
+        $initiative->update($validated);
+
+        return back()->with('success', 'Initiative updated.');
+    }
+
+    /** Delete an initiative. */
+    public function destroyInitiative(\App\Models\PoliticianInitiative $initiative)
+    {
+        abort_unless($initiative->politician_id === Auth::user()->politician?->id, 403);
+
+        $initiative->delete();
+
+        return back()->with('success', 'Initiative removed.');
+    }
 }
