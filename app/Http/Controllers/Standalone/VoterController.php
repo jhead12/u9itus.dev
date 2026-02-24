@@ -8,6 +8,7 @@ use App\Models\PoliticalCampaign;
 use App\Models\Voter;
 use App\Models\ViewSession;
 use App\Services\PoliticalViewService;
+use App\Services\ReverbBroadcastService;
 use App\Enums\CampaignStatus;
 use App\Enums\ApprovalStatus;
 use Illuminate\Http\Request;
@@ -238,6 +239,10 @@ class VoterController extends Controller
             'campaign_id' => $campaign->id,
             'token'       => substr($token->token, 0, 8) . '…',
         ]);
+
+        // Notify the voter's WebSocket channel (Phase 11 — useful when voter
+        // has the dashboard open on a second tab or device)
+        app(ReverbBroadcastService::class)->adTokenDelivered($token);
 
         return redirect()->route('voter.watch', $token->token);
     }

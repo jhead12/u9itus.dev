@@ -6,6 +6,7 @@ use App\Enums\ViewPaymentStatus;
 use App\Enums\ViewSessionStatus;
 use App\Models\PoliticalCampaign;
 use App\Services\CampaignBillingService;
+use App\Services\ReverbBroadcastService;
 use App\Models\ReferralEarning;
 use App\Models\Voter;
 use App\Models\ViewSession;
@@ -25,7 +26,10 @@ class PoliticalViewService
     public function __construct(
         protected FraudPreventionService $fraudService,
         protected CampaignBillingService $billingService,
-    ) {}
+        protected ?ReverbBroadcastService $broadcastService = null,
+    ) {
+        $this->broadcastService ??= app(ReverbBroadcastService::class);
+    }
 
     /**
      * Assign a campaign to a voter (create a view session).
@@ -88,7 +92,7 @@ class PoliticalViewService
             return $session;
         }
 
-        return DB::transaction(function () use ($session, $totalWatchTimeSeconds): ViewSession {
+        $completed = DB::transaction(function () use ($session, $totalWatchTimeSeconds): ViewSession {
             $campaign = $session->campaign;
 
             $completionPct = $this->calculateCompletionPercentage(
@@ -142,6 +146,12 @@ class PoliticalViewService
 
             return $session->fresh();
         });
+
+        // Broadcast outside the transaction so the event only fires on commit (Phase 11)
+        // Notifies the voter's private channel + admin monitor channel.
+        $this->broadcastService->viewSessionCompleted($completed);
+
+        return $completed;
     }
 
     /**

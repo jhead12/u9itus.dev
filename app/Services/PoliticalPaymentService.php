@@ -9,6 +9,7 @@ use App\Models\Voter;
 use App\Models\ViewSession;
 use App\Services\CampaignBillingService;
 use App\Services\PayPalPayoutService;
+use App\Services\ReverbBroadcastService;
 use App\Services\StripePaymentService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -27,15 +28,18 @@ class PoliticalPaymentService
     protected ?CampaignBillingService $billingService;
     protected ?StripePaymentService $stripeService;
     protected ?PayPalPayoutService $paypalService;
+    protected ReverbBroadcastService $broadcastService;
 
     public function __construct(
         ?CampaignBillingService $billingService = null,
         ?StripePaymentService $stripeService = null,
         ?PayPalPayoutService $paypalService = null,
+        ?ReverbBroadcastService $broadcastService = null,
     ) {
-        $this->billingService = $billingService;
-        $this->stripeService  = $stripeService;
-        $this->paypalService  = $paypalService;
+        $this->billingService   = $billingService;
+        $this->stripeService    = $stripeService;
+        $this->paypalService    = $paypalService;
+        $this->broadcastService = $broadcastService ?? app(ReverbBroadcastService::class);
     }
 
     /**
@@ -170,6 +174,14 @@ class PoliticalPaymentService
 
             $results['processed']++;
             $results['total_paid'] += $approvedEarnings;
+
+            // Notify the voter via WebSocket (Phase 11)
+            $this->broadcastService->payoutProcessed(
+                $voter,
+                $approvedEarnings,
+                $hasPayPal ? 'PayPal' : 'Wallet',
+                'u9itus_' . $voter->uuid . '_' . now()->format('Ymd_His'),
+            );
 
             Log::info("Payout processed for voter {$voter->uuid}: \${$approvedEarnings}", [
                 'method' => $hasPayPal ? 'paypal' : 'wallet',
