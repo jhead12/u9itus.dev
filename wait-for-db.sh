@@ -171,5 +171,21 @@ echo "PORT: $PORT"
 echo "Command: php artisan serve --host=0.0.0.0 --port=$PORT"
 echo "==================================="
 
+# ── Phase 11: Start Reverb WebSocket server in the background ──────────────
+# Reverb runs on REVERB_PORT (default 8080) alongside the web server.
+# In production, REVERB_HOST/REVERB_PORT should point to a dedicated Railway
+# service running: php artisan reverb:start --host=0.0.0.0 --port=8080
+if [ -n "$REVERB_APP_KEY" ]; then
+  echo "Starting Reverb WebSocket server on port ${REVERB_PORT:-8080}..."
+  nohup php artisan reverb:start \
+    --host=0.0.0.0 \
+    --port="${REVERB_PORT:-8080}" \
+    --no-interaction \
+    > storage/logs/reverb.log 2>&1 &
+  echo "Reverb PID: $!"
+else
+  echo "REVERB_APP_KEY not set — skipping Reverb startup (broadcasts will use 'log' driver)"
+fi
+
 # Use exec to replace shell with PHP process
 exec php artisan serve --host=0.0.0.0 --port=$PORT 2>&1

@@ -458,7 +458,7 @@ npm run dev:all   # Start Laravel + Vite together
 | Phase 8  | Security & Fraud (advanced scoring, VPN detection, device fingerprinting, bot UA detection, Tor/datacenter IP blocklist, `fraud_signals` audit table, `IpReputationService`, `DeviceFingerprintService`, auto-flag + `FraudFlagRaised` broadcast, `releasePayouts`/`clearFlag`/`updateTrustScore` methods) | ✅ Complete    |
 | Phase 9  | Testing (unit tests for all services, feature tests for admin approval workflow, CI coverage reporting)                                                                                            | ✅ Complete    |
 | Phase 10 | Deployment (Railway production config, env hardening)                                                                                                                                              | ⬜ Pending     |
-| Phase 11 | Real-time Notifications — Laravel Reverb/WebSockets (private voter/politician channels, admin broadcast, ad-delivery push, payout alerts, live presence; WebRTC signaling foundation for Phase 12) | 🚧 In Progress |
+| Phase 11 | Real-time Notifications — Laravel Reverb/WebSockets (private voter/politician channels, admin broadcast, ad-delivery push, payout alerts, live presence; WebRTC signaling foundation for Phase 12) | ✅ Complete    |
 | Phase 12 | Live Feed Streaming — WebRTC (politician → voter HLS/WebRTC live video, presence channel viewer counts, live chat via Reverb, built on Phase 11 Reverb server)                                     | ⬜ Pending     |
 | Phase 13 | Politician Public Profile Pages — public `/p/{slug}` campaign pages with custom color themes (CSS variables, not raw CSS), layout presets, initiative/platform section, active campaign video feed, verified badge, Open Graph meta for social sharing; slug format: `{5-char-uuid-prefix}-{seo-readable-name}` (e.g. `a3f9b-mayor-john-smith-chicago`) | ⬜ Pending     |
 
@@ -468,7 +468,7 @@ npm run dev:all   # Start Laravel + Vite together
 - Mobile app (React Native)
 - Expand campaign video sources beyond YouTube v1 (Vimeo, Cloudflare Stream, HLS, S3 — see [Campaign Video Media](#campaign-video-media))
 - ~~Live feed streaming via WebRTC~~ → Phase 12 (built on Phase 11 Reverb signaling layer)
-- ~~Real-time notifications via Laravel Reverb/WebSockets~~ → Phase 11 (🚧 In Progress)
+- ~~Real-time notifications via Laravel Reverb/WebSockets~~ → Phase 11 (✅ Complete)
 - ~~Allow admin to stop campaigns, if there are errors, such as video not playing, incorrect locations~~ ✅ Implemented (stop/reactivate with required reason, full immutable audit log; real-time WebSocket push via Phase 11)
 - Multi-language support
 - Advanced analytics dashboard
