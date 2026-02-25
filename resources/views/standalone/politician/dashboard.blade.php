@@ -78,16 +78,17 @@
                     {{-- Status badge --}}
                     <div class="flex-shrink-0">
                         @php
-                            $statusColor = match($campaign->status ?? 'draft') {
+                            $statusColor = match($campaign->status?->value ?? 'draft') {
                                 'active' => 'bg-emerald-500/15 text-emerald-400',
                                 'paused' => 'bg-yellow-500/15 text-yellow-400',
                                 'completed' => 'bg-slate-500/15 text-slate-400',
                                 'pending_approval' => 'bg-blue-500/15 text-blue-400',
+                                'scheduled' => 'bg-purple-500/15 text-purple-400',
                                 default => 'bg-slate-700/50 text-slate-400',
                             };
                         @endphp
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $statusColor }}">
-                            {{ ucfirst(str_replace('_', ' ', $campaign->status ?? 'draft')) }}
+                            {{ ucfirst(str_replace('_', ' ', $campaign->status?->value ?? 'draft')) }}
                         </span>
                     </div>
 
