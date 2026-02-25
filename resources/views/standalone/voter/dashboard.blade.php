@@ -126,6 +126,76 @@
         </a>
     </div>
 
+    {{-- Voter Registration Prompt (shown if status unknown or not registered) --}}
+    @if(is_null($voter->is_registered_voter) || $voter->is_registered_voter === false)
+    <div class="bg-blue-500/10 border border-blue-500/30 rounded-2xl p-5 flex items-start gap-4">
+        <div class="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center shrink-0 mt-0.5">
+            <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+            </svg>
+        </div>
+        <div class="flex-1 min-w-0">
+            @if($voter->is_registered_voter === false)
+            <p class="text-blue-200 font-semibold text-sm">You're not registered to vote yet</p>
+            <p class="text-slate-400 text-xs mt-0.5 mb-3">
+                Registering takes just a few minutes and may unlock additional campaigns in your area targeted at registered voters.
+            </p>
+            @else
+            <p class="text-blue-200 font-semibold text-sm">Are you registered to vote?</p>
+            <p class="text-slate-400 text-xs mt-0.5 mb-3">
+                You haven't confirmed your voter registration status yet. Let us know &mdash; registered voters may receive more targeted campaigns.
+            </p>
+            @endif
+            <div class="flex flex-wrap gap-2">
+                <a href="https://vote.gov" target="_blank" rel="noopener noreferrer"
+                   class="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                    Register to vote at vote.gov
+                </a>
+                <a href="{{ route('voter.profile') }}"
+                   class="inline-flex items-center gap-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs font-medium px-3 py-1.5 rounded-lg transition">
+                    Update registration status in profile &rarr;
+                </a>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    {{-- Voter Registration Prompt (shown if status unknown or not registered) --}}
+    @if(is_null($voter->is_registered_voter) || $voter->is_registered_voter === false)
+    <div class="bg-blue-500/10 border border-blue-500/30 rounded-2xl p-5 flex items-start gap-4">
+        <div class="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center shrink-0 mt-0.5">
+            <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+            </svg>
+        </div>
+        <div class="flex-1 min-w-0">
+            @if($voter->is_registered_voter === false)
+            <p class="text-blue-200 font-semibold text-sm">You're not registered to vote yet</p>
+            <p class="text-slate-400 text-xs mt-0.5 mb-3">
+                Registering takes just a few minutes and may unlock additional campaigns targeted at registered voters in your area.
+            </p>
+            @else
+            <p class="text-blue-200 font-semibold text-sm">Are you registered to vote?</p>
+            <p class="text-slate-400 text-xs mt-0.5 mb-3">
+                You haven't confirmed your voter registration status yet. Registered voters may receive more targeted campaigns.
+            </p>
+            @endif
+            <div class="flex flex-wrap gap-2">
+                <a href="https://vote.gov" target="_blank" rel="noopener noreferrer"
+                   class="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                    Register to vote at vote.gov
+                </a>
+                <a href="{{ route('voter.profile') }}"
+                   class="inline-flex items-center gap-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs font-medium px-3 py-1.5 rounded-lg transition">
+                    Update registration status in profile &rarr;
+                </a>
+            </div>
+        </div>
+    </div>
+    @endif
+
     {{-- Recent Sessions --}}
     @if($recentSessions->isNotEmpty())
     <div>

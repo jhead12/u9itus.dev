@@ -187,36 +187,36 @@ php artisan serve
 
 ### Database Schema
 
-| Table                          | Purpose                                                                                    |
-| ------------------------------ | ------------------------------------------------------------------------------------------ |
+| Table                          | Purpose                                                                                                                                                                                                                         |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **politicians**                | Politician profiles, governance level, office, district, party; includes `slug` (5-char UUID prefix + SEO-friendly name, e.g. `a3f9b-mayor-john-smith-chicago`), `page_settings` (JSON theme config), and `page_published` flag |
-| **politician_pages**           | _(Phase 13)_ Public-facing campaign page theme config — layout preset, primary/accent colors, background style, hero banner, section toggles, custom CTA |
-| **politician_initiatives**     | _(Phase 13)_ Policy positions and platform planks displayed on the politician's public page — title, description, icon, sort order, published flag |
-| **voters**                     | Voter profiles, wallet balance, referral codes, trust score                                |
-| **political_campaigns**        | Video/live-feed campaigns with per-view pricing and targeting                              |
-| **view_sessions**              | Individual view tracking — watch time, fraud score, payouts                                |
-| **referral_earnings**          | Referral commission records — voter-view (recurring) and politician-procurement (one-time) |
-| **ad_view_tokens**             | One-time secure tokens for ad delivery via notifications                                   |
-| **campaign_transactions**      | Stripe payment records per politician                                                      |
-| **politician_credits**         | Credit balance ledger for per-view billing                                                 |
-| **politician_payment_methods** | Stored Stripe payment methods per politician                                               |
-| **campaign_audit_logs**        | Immutable admin action log — field-level diffs for approve/reject/edit/stop/reactivate     |
-| **fraud_signals**              | _(Phase 8)_ Per-event fraud signal log — signal type, score impact, IP/fingerprint context, admin resolution |
+| **politician_pages**           | _(Phase 13)_ Public-facing campaign page theme config — layout preset, primary/accent colors, background style, hero banner, section toggles, custom CTA                                                                        |
+| **politician_initiatives**     | _(Phase 13)_ Policy positions and platform planks displayed on the politician's public page — title, description, icon, sort order, published flag                                                                              |
+| **voters**                     | Voter profiles, wallet balance, referral codes, trust score                                                                                                                                                                     |
+| **political_campaigns**        | Video/live-feed campaigns with per-view pricing and targeting                                                                                                                                                                   |
+| **view_sessions**              | Individual view tracking — watch time, fraud score, payouts                                                                                                                                                                     |
+| **referral_earnings**          | Referral commission records — voter-view (recurring) and politician-procurement (one-time)                                                                                                                                      |
+| **ad_view_tokens**             | One-time secure tokens for ad delivery via notifications                                                                                                                                                                        |
+| **campaign_transactions**      | Stripe payment records per politician                                                                                                                                                                                           |
+| **politician_credits**         | Credit balance ledger for per-view billing                                                                                                                                                                                      |
+| **politician_payment_methods** | Stored Stripe payment methods per politician                                                                                                                                                                                    |
+| **campaign_audit_logs**        | Immutable admin action log — field-level diffs for approve/reject/edit/stop/reactivate                                                                                                                                          |
+| **fraud_signals**              | _(Phase 8)_ Per-event fraud signal log — signal type, score impact, IP/fingerprint context, admin resolution                                                                                                                    |
 
 ### Services
 
-| Service                         | Purpose                                                                          |
-| ------------------------------- | -------------------------------------------------------------------------------- |
-| **PoliticalViewService**        | View lifecycle: assign → start → track → complete                                |
-| **PoliticalPaymentService**     | Campaign billing, batch payouts, per-view profit calculation                     |
+| Service                         | Purpose                                                                                                                                                            |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **PoliticalViewService**        | View lifecycle: assign → start → track → complete                                                                                                                  |
+| **PoliticalPaymentService**     | Campaign billing, batch payouts, per-view profit calculation                                                                                                       |
 | **FraudPreventionService**      | Multi-signal fraud scoring: rate limits, device fingerprinting, bot UA detection, IP anomalies, VPN/Tor/datacenter detection, auto-flag, `fraud_signals` audit log |
-| **CampaignBillingService**      | Stripe PaymentIntent creation, credit top-up, credit deduction                   |
-| **StripePaymentService**        | Low-level Stripe SDK wrapper (customers, payment methods, intents)               |
-| **StandardNotificationService** | Email/SMS notification delivery                                                  |
-| **StandardAuthService**         | Laravel session-based authentication                                             |
-| **IpReputationService**         | VPN / proxy / Tor exit-node / datacenter IP detection via CIDR blocklist + optional ipinfo.io enrichment (Phase 8) |
-| **DeviceFingerprintService**    | Server-side composite fingerprint generation, bot user-agent analysis, fingerprint compare/store (Phase 8) |
-| **ReverbBroadcastService**      | WebSocket event dispatch — ad delivery, payout alerts, campaign status, presence |
+| **CampaignBillingService**      | Stripe PaymentIntent creation, credit top-up, credit deduction                                                                                                     |
+| **StripePaymentService**        | Low-level Stripe SDK wrapper (customers, payment methods, intents)                                                                                                 |
+| **StandardNotificationService** | Email/SMS notification delivery                                                                                                                                    |
+| **StandardAuthService**         | Laravel session-based authentication                                                                                                                               |
+| **IpReputationService**         | VPN / proxy / Tor exit-node / datacenter IP detection via CIDR blocklist + optional ipinfo.io enrichment (Phase 8)                                                 |
+| **DeviceFingerprintService**    | Server-side composite fingerprint generation, bot user-agent analysis, fingerprint compare/store (Phase 8)                                                         |
+| **ReverbBroadcastService**      | WebSocket event dispatch — ad delivery, payout alerts, campaign status, presence                                                                                   |
 
 ### Controllers
 
@@ -408,21 +408,21 @@ php artisan test --coverage
 
 **Test Suite Overview (187 tests, 405 assertions)**
 
-| Suite                                      | Tests | Coverage                                                                             |
-| ------------------------------------------ | ----- | ------------------------------------------------------------------------------------ |
-| `Unit/Services/FraudPreventionServiceTest` | 14    | Score calculation, all fraud flags (incl. VPN/bot UA), signal persistence, `flagVoter`, `holdPayouts`, `releasePayouts`, `updateTrustScore`, `clearFlag` |
-| `Unit/Services/CampaignBillingServiceTest` | 9     | `recordTransaction`, credit ledger, procurement commissions, `finalizePaymentIntent` |
-| `Unit/Services/PoliticalViewServiceTest`   | 11    | Full view lifecycle, idempotency, state-targeted campaigns, earnings summary         |
-| `Unit/Services/StripePaymentServiceTest`   | 6     | No-key error path, `ensureCustomer` null-safe, `parseWebhook` fallback               |
-| `Unit/Services/IpReputationServiceTest`    | 9     | CIDR datacenter detection, Tor prefix match, score cap, cache, ipinfo.io mock        |
-| `Unit/Services/DeviceFingerprintServiceTest` | 14  | `generate` stability, `compare` cases, `storeIfNew`, bot UA keyword/marker detection |
-| `Feature/Campaign/AdminApprovalTest`       | 10    | Admin access control, approve/reject/stop/reactivate campaign workflow               |
-| `Feature/Campaign/CampaignCrudTest`        | 20    | Campaign CRUD, validation, submit-for-review, analytics, billing views               |
-| `Feature/Api/ViewSessionLifecycleTest`     | 13    | View session assign → start → progress → complete, referral earnings                 |
-| `Feature/Api/*`                            | 25    | Politician API, Voter API, Admin API, Health endpoint                                |
-| `Feature/Billing/*`                        | 7     | Credit purchase, Stripe webhook (success/failure/idempotency/sig-verify)             |
-| `Feature/Auth/*`                           | 19    | Registration, login, email verification, password reset/update                       |
-| `Feature/Standalone/VoterWatchTest`        | 16    | Token delivery, watch session, heartbeat, payout, voter dashboard                    |
+| Suite                                        | Tests | Coverage                                                                                                                                                 |
+| -------------------------------------------- | ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Unit/Services/FraudPreventionServiceTest`   | 14    | Score calculation, all fraud flags (incl. VPN/bot UA), signal persistence, `flagVoter`, `holdPayouts`, `releasePayouts`, `updateTrustScore`, `clearFlag` |
+| `Unit/Services/CampaignBillingServiceTest`   | 9     | `recordTransaction`, credit ledger, procurement commissions, `finalizePaymentIntent`                                                                     |
+| `Unit/Services/PoliticalViewServiceTest`     | 11    | Full view lifecycle, idempotency, state-targeted campaigns, earnings summary                                                                             |
+| `Unit/Services/StripePaymentServiceTest`     | 6     | No-key error path, `ensureCustomer` null-safe, `parseWebhook` fallback                                                                                   |
+| `Unit/Services/IpReputationServiceTest`      | 9     | CIDR datacenter detection, Tor prefix match, score cap, cache, ipinfo.io mock                                                                            |
+| `Unit/Services/DeviceFingerprintServiceTest` | 14    | `generate` stability, `compare` cases, `storeIfNew`, bot UA keyword/marker detection                                                                     |
+| `Feature/Campaign/AdminApprovalTest`         | 10    | Admin access control, approve/reject/stop/reactivate campaign workflow                                                                                   |
+| `Feature/Campaign/CampaignCrudTest`          | 20    | Campaign CRUD, validation, submit-for-review, analytics, billing views                                                                                   |
+| `Feature/Api/ViewSessionLifecycleTest`       | 13    | View session assign → start → progress → complete, referral earnings                                                                                     |
+| `Feature/Api/*`                              | 25    | Politician API, Voter API, Admin API, Health endpoint                                                                                                    |
+| `Feature/Billing/*`                          | 7     | Credit purchase, Stripe webhook (success/failure/idempotency/sig-verify)                                                                                 |
+| `Feature/Auth/*`                             | 19    | Registration, login, email verification, password reset/update                                                                                           |
+| `Feature/Standalone/VoterWatchTest`          | 16    | Token delivery, watch session, heartbeat, payout, voter dashboard                                                                                        |
 
 ### Code Style
 
@@ -446,21 +446,23 @@ npm run dev:all   # Start Laravel + Vite together
 
 ## Implementation Progress
 
-| Phase    | Description                                                                                                                                                                                        | Status         |
-| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
-| Phase 1  | Auth & Foundation (auth views, dashboard layout, middleware, email verification)                                                                                                                   | ✅ Complete    |
-| Phase 2  | Campaign Management (full CRUD, video upload, analytics, billing, profile views)                                                                                                                   | ✅ Complete    |
-| Phase 3  | Analytics & Tracking (ViewSession lifecycle API, fraud detection, payout dispatch)                                                                                                                 | ✅ Complete    |
-| Phase 4  | Billing scaffold (Stripe service, webhook, credit ledger, billing views)                                                                                                                           | ✅ Complete    |
-| Phase 5  | Voter watch experience (token-based video delivery, JS heartbeat)                                                                                                                                  | ✅ Complete    |
-| Phase 6  | Admin features (campaign approval queue, edit/stop/reactivate campaigns, KYC management, fraud review, immutable audit log)                                                                        | ✅ Complete    |
-| Phase 7  | Notifications (email on approval/rejection/ - Admin signup notification email,User Signed up Email, Admin Email notification, managment system, completion)                                        | ✅ Complete    |
-| Phase 8  | Security & Fraud (advanced scoring, VPN detection, device fingerprinting, bot UA detection, Tor/datacenter IP blocklist, `fraud_signals` audit table, `IpReputationService`, `DeviceFingerprintService`, auto-flag + `FraudFlagRaised` broadcast, `releasePayouts`/`clearFlag`/`updateTrustScore` methods) | ✅ Complete    |
-| Phase 9  | Testing (unit tests for all services, feature tests for admin approval workflow, CI coverage reporting)                                                                                            | ✅ Complete    |
-| Phase 10 | Deployment (Railway production config, env hardening)                                                                                                                                              | ⬜ Pending     |
-| Phase 11 | Real-time Notifications — Laravel Reverb/WebSockets (private voter/politician channels, admin broadcast, ad-delivery push, payout alerts, live presence; WebRTC signaling foundation for Phase 12) | ✅ Complete    |
-| Phase 12 | Live Feed Streaming — WebRTC (politician → voter HLS/WebRTC live video, presence channel viewer counts, live chat via Reverb, built on Phase 11 Reverb server)                                     | ⬜ Pending     |
-| Phase 13 | Politician Public Profile Pages — public `/p/{slug}` campaign pages with custom color themes (CSS variables, not raw CSS), layout presets, initiative/platform section, active campaign video feed, verified badge, Open Graph meta for social sharing; slug format: `{5-char-uuid-prefix}-{seo-readable-name}` (e.g. `a3f9b-mayor-john-smith-chicago`) | ✅ Complete    |
+| Phase    | Description                                                                                                                                                                                                                                                                                                                                                                                            | Status      |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------- |
+| Phase 1  | Auth & Foundation (auth views, dashboard layout, middleware, email verification)                                                                                                                                                                                                                                                                                                                       | ✅ Complete |
+| Phase 2  | Campaign Management (full CRUD, video upload, analytics, billing, profile views)                                                                                                                                                                                                                                                                                                                       | ✅ Complete |
+| Phase 3  | Analytics & Tracking (ViewSession lifecycle API, fraud detection, payout dispatch)                                                                                                                                                                                                                                                                                                                     | ✅ Complete |
+| Phase 4  | Billing scaffold (Stripe service, webhook, credit ledger, billing views)                                                                                                                                                                                                                                                                                                                               | ✅ Complete |
+| Phase 5  | Voter watch experience (token-based video delivery, JS heartbeat)                                                                                                                                                                                                                                                                                                                                      | ✅ Complete |
+| Phase 6  | Admin features (campaign approval queue, edit/stop/reactivate campaigns, KYC management, fraud review, immutable audit log)                                                                                                                                                                                                                                                                            | ✅ Complete |
+| Phase 7  | Notifications (email on approval/rejection/ - Admin signup notification email,User Signed up Email, Admin Email notification, managment system, completion)                                                                                                                                                                                                                                            | ✅ Complete |
+| Phase 8  | Security & Fraud (advanced scoring, VPN detection, device fingerprinting, bot UA detection, Tor/datacenter IP blocklist, `fraud_signals` audit table, `IpReputationService`, `DeviceFingerprintService`, auto-flag + `FraudFlagRaised` broadcast, `releasePayouts`/`clearFlag`/`updateTrustScore` methods)                                                                                             | ✅ Complete |
+| Phase 9  | Testing (unit tests for all services, feature tests for admin approval workflow, CI coverage reporting)                                                                                                                                                                                                                                                                                                | ✅ Complete |
+| Phase 10 | Deployment (Railway production config, env hardening)                                                                                                                                                                                                                                                                                                                                                  | ⬜ Pending  |
+| Phase 11 | Real-time Notifications — Laravel Reverb/WebSockets (private voter/politician channels, admin broadcast, ad-delivery push, payout alerts, live presence; WebRTC signaling foundation for Phase 12)                                                                                                                                                                                                     | ✅ Complete |
+| Phase 12 | Live Feed Streaming — WebRTC (politician → voter HLS/WebRTC live video, presence channel viewer counts, live chat via Reverb, built on Phase 11 Reverb server)                                                                                                                                                                                                                                         | ⬜ Pending  |
+| Phase 13 | Politician Public Profile Pages — public `/p/{slug}` campaign pages with custom color themes (CSS variables, not raw CSS), layout presets, initiative/platform section, active campaign video feed, verified badge, Open Graph meta for social sharing; slug format: `{5-char-uuid-prefix}-{seo-readable-name}` (e.g. `a3f9b-mayor-john-smith-chicago`)                                                | ✅ Complete |
+| Phase 14 | Repeat Viewing + Campaign Scheduling — politician-controlled repeat-view toggle (cooldown hours, max views/voter cap, unique voter stats, repeat-view stats), campaign delivery window (`scheduled_start_at` / `scheduled_end_at`), `Scheduled` status, `campaigns:apply-schedule` Artisan command (every 5 min), scheduler-written audit log entries (`activated_by_schedule` / `paused_by_schedule`) | ✅ Complete |
+| Phase 15 | Voter Benefits & Registration — expanded earnings callout (ad views + voter-referral recurring commission + politician-referral one-time bonus), voter registration status questionnaire on sign-up form with vote.gov link, registration status field stored on voter profile, dashboard registration prompt + voter registration status card in profile                                              | ✅ Complete |
 
 ## Future Enhancements
 

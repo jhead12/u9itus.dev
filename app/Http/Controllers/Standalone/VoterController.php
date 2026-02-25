@@ -639,12 +639,19 @@ class VoterController extends Controller
     public function updateProfile(Request $request)
     {
         $validated = $request->validate([
-            'full_name' => 'required|string|max:255',
-            'phone'     => 'nullable|string|max:30',
-            'state'     => 'nullable|string|max:2',
-            'city'      => 'nullable|string|max:100',
-            'zip_code'  => 'nullable|string|max:10',
+            'full_name'           => 'required|string|max:255',
+            'phone'               => 'nullable|string|max:30',
+            'state'               => 'nullable|string|max:2',
+            'city'                => 'nullable|string|max:100',
+            'zip_code'            => 'nullable|string|max:10',
+            'is_registered_voter' => 'nullable|boolean',
         ]);
+
+        // Allow explicit false (unchecked radio) to be stored
+        if ($request->has('is_registered_voter')) {
+            $validated['is_registered_voter'] = $request->input('is_registered_voter') === '1' ? true
+                : ($request->input('is_registered_voter') === '0' ? false : null);
+        }
 
         $voter = $this->resolveVoter();
         $voter->update($validated);

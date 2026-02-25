@@ -48,6 +48,7 @@ class Voter extends Model
         'is_verified',
         'is_active',
         'flagged_for_fraud',
+        'is_registered_voter',
         'last_view_at',
     ];
 
@@ -62,6 +63,7 @@ class Voter extends Model
             'is_verified' => 'boolean',
             'is_active' => 'boolean',
             'flagged_for_fraud' => 'boolean',
+            'is_registered_voter' => 'boolean',
             'last_view_at' => 'datetime',
         ];
     }

@@ -118,7 +118,43 @@
             </div>
         </div>
 
-        {{-- Referral Code (read-only) --}}
+        {{-- Voter Registration Status --}}
+        <div class="bg-slate-800/50 border border-slate-700/60 rounded-2xl px-6 py-5 space-y-3">
+            <h2 class="text-base font-semibold text-white flex items-center gap-2">
+                🗳️ Voter Registration Status
+            </h2>
+            <p class="text-slate-400 text-xs">Let us know if you are registered to vote. Registered voters may receive additional targeted campaigns in their area.</p>
+            <div class="flex flex-col gap-2">
+                <label class="flex items-center gap-3 cursor-pointer group">
+                    <input type="radio" name="is_registered_voter" value="1"
+                           {{ old('is_registered_voter', $voter->is_registered_voter === true ? '1' : ($voter->is_registered_voter === false ? '0' : '')) === '1' ? 'checked' : '' }}
+                           onchange="document.getElementById('profile_register_link').classList.add('hidden')"
+                           class="w-4 h-4 text-emerald-500 border-slate-600 bg-slate-700 focus:ring-emerald-500/50">
+                    <span class="text-slate-300 text-sm group-hover:text-white transition">Yes, I am registered to vote ✅</span>
+                </label>
+                <label class="flex items-center gap-3 cursor-pointer group">
+                    <input type="radio" name="is_registered_voter" value="0"
+                           {{ old('is_registered_voter', $voter->is_registered_voter === true ? '1' : ($voter->is_registered_voter === false ? '0' : '')) === '0' ? 'checked' : '' }}
+                           onchange="document.getElementById('profile_register_link').classList.remove('hidden')"
+                           class="w-4 h-4 text-red-500 border-slate-600 bg-slate-700 focus:ring-red-500/50">
+                    <span class="text-slate-300 text-sm group-hover:text-white transition">No, I am not registered</span>
+                </label>
+                <label class="flex items-center gap-3 cursor-pointer group">
+                    <input type="radio" name="is_registered_voter" value=""
+                           {{ old('is_registered_voter', $voter->is_registered_voter === true ? '1' : ($voter->is_registered_voter === false ? '0' : '')) === '' ? 'checked' : '' }}
+                           onchange="document.getElementById('profile_register_link').classList.remove('hidden')"
+                           class="w-4 h-4 text-slate-400 border-slate-600 bg-slate-700 focus:ring-slate-400/50">
+                    <span class="text-slate-300 text-sm group-hover:text-white transition">I'm not sure</span>
+                </label>
+            </div>
+            <div id="profile_register_link" class="{{ !is_null($voter->is_registered_voter) && $voter->is_registered_voter === false || is_null($voter->is_registered_voter) ? '' : 'hidden' }} mt-1">
+                <a href="https://vote.gov" target="_blank" rel="noopener noreferrer"
+                   class="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                    Register to vote at vote.gov
+                </a>
+            </div>
+        </div>
         @if($voter->referral_code)
         <div class="bg-slate-800/50 border border-slate-700/60 rounded-2xl px-6 py-5 flex items-center justify-between gap-4">
             <div>

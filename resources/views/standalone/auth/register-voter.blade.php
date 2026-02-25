@@ -37,12 +37,37 @@
     </div>
 
     {{-- Earnings callout --}}
-    <div class="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4 mb-6 flex items-start gap-3">
-        <span class="text-2xl">💰</span>
-        <div>
-            <p class="text-blue-400 font-medium text-sm">Earn $0.25 per verified view</p>
-            <p class="text-slate-400 text-xs mt-0.5">Watch political messages in your area at your own pace. Cash out anytime above $10.</p>
-        </div>
+    <div class="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4 mb-4">
+        <p class="text-blue-300 font-semibold text-sm mb-3 flex items-center gap-2">💰 How you earn on U9itus</p>
+        <ul class="space-y-2.5">
+            <li class="flex items-start gap-3">
+                <span class="mt-0.5 w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0">
+                    <svg class="w-3 h-3 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                </span>
+                <div>
+                    <p class="text-slate-200 text-sm font-medium">$0.25 per verified view</p>
+                    <p class="text-slate-400 text-xs mt-0.5">Watch political messages at your own pace. Cash out anytime above $10.</p>
+                </div>
+            </li>
+            <li class="flex items-start gap-3">
+                <span class="mt-0.5 w-5 h-5 rounded-full bg-purple-500/20 flex items-center justify-center shrink-0">
+                    <svg class="w-3 h-3 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                </span>
+                <div>
+                    <p class="text-slate-200 text-sm font-medium">10% commission on every referral's views<span class="text-slate-400 font-normal"> (recurring)</span></p>
+                    <p class="text-slate-400 text-xs mt-0.5">Refer another voter — earn 10% of their $0.25 payout every time they watch an ad.</p>
+                </div>
+            </li>
+            <li class="flex items-start gap-3">
+                <span class="mt-0.5 w-5 h-5 rounded-full bg-amber-500/20 flex items-center justify-center shrink-0">
+                    <svg class="w-3 h-3 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                </span>
+                <div>
+                    <p class="text-slate-200 text-sm font-medium">10% commission on a Politician's first credit purchase<span class="text-slate-400 font-normal"> (one-time bonus)</span></p>
+                    <p class="text-slate-400 text-xs mt-0.5">Recruit a politician to the platform — earn 10% of their very first credit buy automatically sent to your wallet.</p>
+                </div>
+            </li>
+        </ul>
     </div>
 
     <div class="bg-slate-800/60 border border-blue-500/20 rounded-2xl p-8 shadow-2xl">
@@ -134,6 +159,52 @@
                 <input id="referral_code" type="text" name="referral_code" value="{{ old('referral_code', request('ref')) }}"
                     class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition"
                     placeholder="e.g. JANE2024" />
+            </div>
+
+            {{-- Voter Registration Status Questionnaire --}}
+            <div class="bg-slate-900/60 border border-slate-600/50 rounded-xl p-4 space-y-3">
+                <p class="text-slate-200 text-sm font-semibold flex items-center gap-2">
+                    🗳️ Are you currently registered to vote?
+                </p>
+                <div class="flex flex-col gap-2">
+                    <label class="flex items-center gap-3 cursor-pointer group">
+                        <input type="radio" name="is_registered_voter" value="1"
+                               id="registered_yes"
+                               {{ old('is_registered_voter') === '1' ? 'checked' : '' }}
+                               onchange="document.getElementById('register_link_box').classList.add('hidden')"
+                               class="w-4 h-4 text-emerald-500 border-slate-600 bg-slate-700 focus:ring-emerald-500/50">
+                        <span class="text-slate-300 text-sm group-hover:text-white transition">Yes, I am registered to vote ✅</span>
+                    </label>
+                    <label class="flex items-center gap-3 cursor-pointer group">
+                        <input type="radio" name="is_registered_voter" value="0"
+                               id="registered_no"
+                               {{ old('is_registered_voter') === '0' ? 'checked' : '' }}
+                               onchange="document.getElementById('register_link_box').classList.remove('hidden')"
+                               class="w-4 h-4 text-red-500 border-slate-600 bg-slate-700 focus:ring-red-500/50">
+                        <span class="text-slate-300 text-sm group-hover:text-white transition">No, I am not registered</span>
+                    </label>
+                    <label class="flex items-center gap-3 cursor-pointer group">
+                        <input type="radio" name="is_registered_voter" value=""
+                               id="registered_unsure"
+                               {{ old('is_registered_voter') === null ? 'checked' : '' }}
+                               onchange="document.getElementById('register_link_box').classList.remove('hidden')"
+                               class="w-4 h-4 text-slate-400 border-slate-600 bg-slate-700 focus:ring-slate-400/50">
+                        <span class="text-slate-300 text-sm group-hover:text-white transition">I'm not sure</span>
+                    </label>
+                </div>
+                {{-- Register to vote prompt --}}
+                <div id="register_link_box" class="hidden bg-blue-500/10 border border-blue-500/30 rounded-lg p-3 mt-1">
+                    <p class="text-blue-300 text-xs font-medium mb-1">📋 Register to vote — it only takes a few minutes!</p>
+                    <p class="text-slate-400 text-xs mb-2">
+                        Being a registered voter may unlock additional campaigns in your area.
+                        Use the official U.S. government voter registration portal:
+                    </p>
+                    <a href="https://vote.gov" target="_blank" rel="noopener noreferrer"
+                       class="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                        Register at vote.gov
+                    </a>
+                </div>
             </div>
 
             {{-- ToS --}}

@@ -251,8 +251,9 @@ class AuthController extends Controller
             'phone'         => ['nullable', 'string', 'max:20'],
             'state'         => ['nullable', 'string', 'size:2'],
             'zip_code'      => ['nullable', 'string', 'max:10'],
-            'referral_code' => ['nullable', 'string', 'max:20'],
-            'terms'         => ['accepted'],
+            'referral_code'        => ['nullable', 'string', 'max:20'],
+            'is_registered_voter' => ['nullable', 'boolean'],
+            'terms'               => ['accepted'],
         ]);
 
         $user = User::create([
@@ -299,6 +300,8 @@ class AuthController extends Controller
             'trust_score'               => 100,
             'is_active'                 => true,
             'is_verified'               => false,
+            'is_registered_voter'       => $request->input('is_registered_voter') === '1' ? true
+                                           : ($request->input('is_registered_voter') === '0' ? false : null),
         ];
 
         // Search by email so that any orphaned voter row (user_id = NULL) created
