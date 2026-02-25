@@ -13,6 +13,7 @@ class RecoverStuckTransactions extends Command
 {
     protected $signature = 'billing:recover-stuck
                             {--dry-run : List affected transactions without applying credits}
+                            {--force : Skip confirmation prompt (required for non-interactive environments like Railway)}
                             {--politician= : Limit recovery to a specific politician ID}';
 
     protected $description = 'Find succeeded Stripe transactions with no credit ledger entry and re-apply the credits.';
@@ -58,7 +59,8 @@ class RecoverStuckTransactions extends Command
             return self::SUCCESS;
         }
 
-        if (! $this->confirm("Apply credits for {$stuck->count()} transaction(s)?", true)) {
+        if (! $this->option('force') && ! $this->confirm("Apply credits for {$stuck->count()} transaction(s)?", true)) {
+            $this->warn('Aborted. Re-run with --force to skip this prompt in non-interactive environments.');
             return self::SUCCESS;
         }
 
