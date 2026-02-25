@@ -39,4 +39,14 @@ class CampaignTransaction extends Model
             }
         });
     }
+
+    /**
+     * Credit ledger entries that reference this Stripe transaction.
+     * Used to detect whether a payment has already been credited
+     * (billing:recover-stuck and finalizePaymentIntent idempotency).
+     */
+    public function credits(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(PoliticianCredit::class, 'related_transaction_id');
+    }
 }

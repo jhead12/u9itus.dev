@@ -47,6 +47,19 @@ class CampaignBillingService
      */
     public function addCredits(Politician $politician, float $amount, array $opts = []): PoliticianCredit
     {
+        return DB::transaction(function () use ($politician, $amount, $opts): PoliticianCredit {
+            return $this->addCreditsInTransaction($politician, $amount, $opts);
+        });
+    }
+
+    /** Internal: must always be called inside an active DB transaction. */
+    private function addCreditsInTransaction(Politician $politician, float $amount, array $opts): PoliticianCredit
+    {
+        // Lock the politician row so that concurrent calls (e.g. two views
+        // completing at the same instant) cannot both read the same
+        // balance_after and produce an incorrect running total.
+        $politician = Politician::lockForUpdate()->findOrFail($politician->id);
+
         // Calculate new balance
         $current = PoliticianCredit::where('politician_id', $politician->id)->orderBy('created_at', 'desc')->value('balance_after') ?: 0.00;
         $newBalance = $current + $amount;

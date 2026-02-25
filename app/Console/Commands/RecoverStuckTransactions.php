@@ -26,11 +26,7 @@ class RecoverStuckTransactions extends Command
         // Find succeeded transactions that have no matching politician_credits row
         $query = CampaignTransaction::where('status', 'succeeded')
             ->whereNotNull('politician_id')
-            ->whereNotExists(function ($q) {
-                $q->select(DB::raw(1))
-                  ->from('politician_credits')
-                  ->whereColumn('politician_credits.related_transaction_id', 'campaign_transactions.id');
-            });
+            ->whereDoesntHave('credits');
 
         if ($politicianId) {
             $query->where('politician_id', $politicianId);

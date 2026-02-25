@@ -454,16 +454,18 @@ class PoliticianController extends Controller
         $redirectStatus = $request->query('redirect_status');
 
         if ($piId && $redirectStatus === 'succeeded') {
+            $finalized = false;
             try {
                 /** @var \App\Services\CampaignBillingService $billing */
                 $billing = app(\App\Services\CampaignBillingService::class);
                 $billing->finalizePaymentIntent($piId);
+                $finalized = true;
             } catch (\Exception $e) {
-                \Illuminate\Support\Facades\Log::error('confirmPayment: ' . $e->getMessage());
+                \Illuminate\Support\Facades\Log::error('confirmPayment finalizePaymentIntent failed: ' . $e->getMessage());
             }
 
             return redirect()->route('politician.billing')
-                ->with('payment_confirmed', true);
+                ->with($finalized ? 'payment_confirmed' : 'payment_failed', true);
         }
 
         if (in_array($redirectStatus, ['failed', 'canceled'])) {
