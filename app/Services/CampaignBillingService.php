@@ -6,6 +6,7 @@ use App\Models\CampaignTransaction;
 use App\Models\Politician;
 use App\Models\PoliticianCredit;
 use App\Models\ReferralEarning;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class CampaignBillingService
@@ -245,15 +246,19 @@ class CampaignBillingService
             }
         }
 
-        $tx->status = $status;
-        if ($chargeId) {
-            $tx->stripe_charge_id = $chargeId;
-        }
-        $tx->save();
+        // Wrap the status update + credit addition atomically so that
+        // a failed addCredits() cannot leave the transaction as 'succeeded'
+        // with no credits applied (which would prevent any retry via the
+        // idempotency guard above).
+        DB::transaction(function () use ($tx, $status, $chargeId, $amount) {
+            $tx->status = $status;
+            if ($chargeId) {
+                $tx->stripe_charge_id = $chargeId;
+            }
+            $tx->save();
 
-        // If succeeded, credit the politician's balance
-        if ($status === 'succeeded') {
-            try {
+            // If succeeded, credit the politician's balance
+            if ($status === 'succeeded') {
                 $politician = null;
                 if ($tx->politician_id) {
                     $politician = \App\Models\Politician::find($tx->politician_id);
@@ -268,10 +273,8 @@ class CampaignBillingService
                 } else {
                     Log::warning('Politician not found when finalizing PaymentIntent', ['tx' => $tx->id]);
                 }
-            } catch (\Exception $e) {
-                Log::error('Failed to add credits after payment intent succeeded: ' . $e->getMessage());
             }
-        }
+        });
 
         Log::info('Finalized PaymentIntent', ['payment_intent' => $paymentIntentId, 'tx_id' => $tx->id, 'status' => $status]);
 

@@ -257,16 +257,35 @@
         btn.textContent = 'Processing…';
         $msg.classList.add('hidden');
 
-        const { error } = await stripe.confirmPayment({
+        const { error, paymentIntent } = await stripe.confirmPayment({
             elements,
             confirmParams: { return_url: btn.dataset.returnUrl },
+            // Do not redirect automatically for payment methods that succeed
+            // in-browser without a redirect step (e.g. saved cards). We handle
+            // both outcomes ourselves so the confirmPayment server route always runs.
+            redirect: 'if_required',
         });
 
-        // Only reached if confirmPayment fails immediately (e.g. validation error)
         if (error) {
+            // Validation or payment error — show message and re-enable form.
             showError(error.message);
             btn.disabled = false;
             btn.textContent = 'Pay Now';
+        } else if (paymentIntent && paymentIntent.status === 'succeeded') {
+            // Payment succeeded without a browser redirect — navigate to the
+            // confirm route so the server can finalize the transaction and
+            // credit the politician's balance.
+            const returnUrl = new URL(btn.dataset.returnUrl);
+            returnUrl.searchParams.set('payment_intent', paymentIntent.id);
+            returnUrl.searchParams.set('redirect_status', 'succeeded');
+            window.location.href = returnUrl.toString();
+        } else if (paymentIntent) {
+            // Payment is in an unexpected state (requires_action, etc.).
+            // Redirect to confirm route so the server can inspect and handle it.
+            const returnUrl = new URL(btn.dataset.returnUrl);
+            returnUrl.searchParams.set('payment_intent', paymentIntent.id);
+            returnUrl.searchParams.set('redirect_status', paymentIntent.status);
+            window.location.href = returnUrl.toString();
         }
     });
 
