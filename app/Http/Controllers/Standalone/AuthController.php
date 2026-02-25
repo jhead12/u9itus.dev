@@ -13,6 +13,7 @@ use Illuminate\Auth\Events\Verified;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Validation\Rules;
@@ -204,9 +205,13 @@ class AuthController extends Controller
 
         // Send welcome email (non-fatal if SMTP not yet configured)
         try {
-            Mail::to($user->email)->queue(new WelcomeMail($user));
-        } catch (\Exception) {
-            // silently skip — email config may not be set up yet
+            Mail::to($user->email)->send(new WelcomeMail($user));
+        } catch (\Exception $e) {
+            Log::error('WelcomeMail failed for politician', [
+                'user_id' => $user->id,
+                'email'   => $user->email,
+                'error'   => $e->getMessage(),
+            ]);
         }
 
         // Notify all admins of the new politician signup
@@ -214,10 +219,13 @@ class AuthController extends Controller
             $user->loadMissing('politician');
             $admins = User::where('user_type', 'admin')->whereNotNull('email')->get();
             foreach ($admins as $admin) {
-                Mail::to($admin->email)->queue(new AdminNewUserNotificationMail($user));
+                Mail::to($admin->email)->send(new AdminNewUserNotificationMail($user));
             }
-        } catch (\Exception) {
-            // Non-fatal
+        } catch (\Exception $e) {
+            Log::error('AdminNewUserNotificationMail failed for politician', [
+                'user_id' => $user->id,
+                'error'   => $e->getMessage(),
+            ]);
         }
 
         Auth::login($user);
@@ -305,19 +313,26 @@ class AuthController extends Controller
 
         // Send welcome email (non-fatal if SMTP not yet configured)
         try {
-            Mail::to($user->email)->queue(new WelcomeMail($user));
-        } catch (\Exception) {
-            // silently skip — email config may not be set up yet
+            Mail::to($user->email)->send(new WelcomeMail($user));
+        } catch (\Exception $e) {
+            Log::error('WelcomeMail failed for voter', [
+                'user_id' => $user->id,
+                'email'   => $user->email,
+                'error'   => $e->getMessage(),
+            ]);
         }
 
         // Notify all admins of the new voter signup
         try {
             $admins = User::where('user_type', 'admin')->whereNotNull('email')->get();
             foreach ($admins as $admin) {
-                Mail::to($admin->email)->queue(new AdminNewUserNotificationMail($user));
+                Mail::to($admin->email)->send(new AdminNewUserNotificationMail($user));
             }
-        } catch (\Exception) {
-            // Non-fatal
+        } catch (\Exception $e) {
+            Log::error('AdminNewUserNotificationMail failed for voter', [
+                'user_id' => $user->id,
+                'error'   => $e->getMessage(),
+            ]);
         }
 
         Auth::login($user);
