@@ -224,9 +224,13 @@ test('politician cannot delete an active campaign', function () {
 test('politician can submit a draft campaign with video for review', function () {
     $politician = makePolitician();
 
+    // Seed sufficient credit balance so the credit gate passes.
+    $politician->politician->update(['credit_balance' => 100.00]);
+
     $campaign = makeCampaign($politician->politician, [
-        'status'    => 'draft',
-        'media_url' => 'https://cdn.example.com/video.mp4',
+        'status'       => 'draft',
+        'media_url'    => 'https://cdn.example.com/video.mp4',
+        'total_budget' => 60.00,
     ]);
 
     $this->actingAs($politician)

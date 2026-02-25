@@ -86,6 +86,7 @@ class PoliticianController extends Controller
         abort_unless($politician, 403);
 
         $revenuePerView = config('u9itus.revenue_per_view', 0.60);
+        $creditBalance  = (float) ($politician->credit_balance ?? 0.00);
         $states = config('u9itus.us_states', []);
         $governanceLevels = config('u9itus.governance_levels', [
             'Federal' => 'Federal', 'State' => 'State', 'County' => 'County',
@@ -93,7 +94,7 @@ class PoliticianController extends Controller
         ]);
 
         return view('standalone.politician.campaigns.create', compact(
-            'politician', 'revenuePerView', 'states', 'governanceLevels'
+            'politician', 'revenuePerView', 'creditBalance', 'states', 'governanceLevels'
         ));
     }
 
@@ -134,9 +135,11 @@ class PoliticianController extends Controller
             ->count();
         $repeatViews    = max(0, $completedViews - $uniqueVoters);
 
+        $creditBalance  = (float) ($politician->credit_balance ?? 0.00);
+
         return view('standalone.politician.campaigns.show', compact(
             'campaign', 'politician', 'completedViews', 'budgetUsed', 'budgetLeft',
-            'uniqueVoters', 'repeatViews'
+            'uniqueVoters', 'repeatViews', 'creditBalance'
         ));
     }
 
@@ -239,6 +242,16 @@ class PoliticianController extends Controller
             422,
             'Please upload a video or set a live stream URL before submitting.'
         );
+
+        // Credit gate: politician must hold enough balance to cover the full campaign budget.
+        $balance = (float) ($politician->credit_balance ?? 0.00);
+        $budget  = (float) ($campaign->total_budget ?? 0.00);
+        if ($balance < $budget) {
+            $needed = number_format($budget - $balance, 2);
+            return back()->withErrors([
+                'credits' => "Insufficient credit balance. You need \${$needed} more to submit this campaign. Add credits and try again.",
+            ]);
+        }
 
         $campaign->update(['status' => 'pending_approval', 'approval_status' => 'pending']);
 

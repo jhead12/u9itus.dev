@@ -93,8 +93,27 @@
 
         {{-- Budget --}}
         <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6 space-y-4">
-            <h2 class="text-sm font-semibold text-slate-200 mb-1">Budget & Views</h2>
-            <p class="text-xs text-slate-500 mb-4">Rate: <span class="text-emerald-400 font-medium">${{ number_format($revenuePerView, 2) }}</span> per completed view</p>
+            <div class="flex items-start justify-between gap-3">
+                <div>
+                    <h2 class="text-sm font-semibold text-slate-200 mb-1">Budget & Views</h2>
+                    <p class="text-xs text-slate-500">Rate: <span class="text-emerald-400 font-medium">${{ number_format($revenuePerView, 2) }}</span> per completed view</p>
+                </div>
+                <div class="text-right shrink-0">
+                    <p class="text-xs text-slate-500 uppercase tracking-wide font-medium">Your Credit Balance</p>
+                    <p class="text-lg font-bold {{ $creditBalance > 0 ? 'text-emerald-400' : 'text-red-400' }} mt-0.5">
+                        ${{ number_format($creditBalance, 2) }}
+                    </p>
+                    @if($creditBalance <= 0)
+                        <a href="{{ route('politician.billing') }}" class="text-xs text-blue-400 hover:text-blue-300">Add credits →</a>
+                    @endif
+                </div>
+            </div>
+
+            {{-- Live balance warning (shown by JS when budget > balance) --}}
+            <div id="balanceWarning" class="hidden rounded-lg px-4 py-3 bg-amber-500/10 border border-amber-500/30 text-sm text-amber-300 flex items-start gap-2">
+                <svg class="w-4 h-4 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+                <span>Your campaign budget exceeds your credit balance. You can save this as a draft, but you'll need to <a href="{{ route('politician.billing') }}" class="underline hover:text-amber-200">add credits</a> before submitting for review.</span>
+            </div>
 
             <div class="grid grid-cols-2 gap-4">
                 <div>
@@ -219,19 +238,31 @@
 
 @push('scripts')
 <script>
-const revenuePerView = {{ $revenuePerView }};
-const viewsInput  = document.getElementById('viewsInput');
-const budgetInput = document.getElementById('budgetInput');
-const campaignType = document.getElementById('campaignType');
-const liveFeedFields = document.getElementById('liveFeedFields');
+const revenuePerView  = {{ $revenuePerView }};
+const creditBalance   = {{ $creditBalance }};
+const viewsInput      = document.getElementById('viewsInput');
+const budgetInput     = document.getElementById('budgetInput');
+const campaignType    = document.getElementById('campaignType');
+const liveFeedFields  = document.getElementById('liveFeedFields');
+const balanceWarning  = document.getElementById('balanceWarning');
+
+function syncBalanceWarning() {
+    const budget = parseFloat(budgetInput.value || 0);
+    balanceWarning.classList.toggle('hidden', budget <= creditBalance);
+}
 
 // Sync views ↔ budget
 viewsInput.addEventListener('input', () => {
     budgetInput.value = (parseFloat(viewsInput.value || 0) * revenuePerView).toFixed(2);
+    syncBalanceWarning();
 });
 budgetInput.addEventListener('input', () => {
     viewsInput.value = Math.floor(parseFloat(budgetInput.value || 0) / revenuePerView);
+    syncBalanceWarning();
 });
+
+// Run on load in case old() repopulates the fields
+syncBalanceWarning();
 
 // Show/hide video vs live feed fields
 const videoFields = document.getElementById('videoFields');

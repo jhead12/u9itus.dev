@@ -6,12 +6,36 @@
 @section('content')
 <div class="space-y-6">
 
+    @php $status = $campaign->status?->value ?? $campaign->status ?? 'draft'; @endphp
+
+    {{-- Credit error flash (from submitForReview credit gate) --}}
+    @if($errors->has('credits'))
+    <div class="bg-red-500/10 border border-red-500/30 rounded-xl px-5 py-4 flex items-start gap-3">
+        <svg class="w-5 h-5 text-red-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+        <div class="flex-1 text-sm text-red-300">
+            {{ $errors->first('credits') }}
+            <a href="{{ route('politician.billing') }}" class="ml-2 font-semibold underline hover:text-red-200">Add Credits →</a>
+        </div>
+    </div>
+    @endif
+
+    {{-- Proactive low-balance notice for draft campaigns --}}
+    @php $isInsufficientBalance = ($status === 'draft') && ($creditBalance < ($campaign->total_budget ?? 0)); @endphp
+    @if($isInsufficientBalance && !$errors->has('credits'))
+    <div class="bg-amber-500/10 border border-amber-500/30 rounded-xl px-5 py-4 flex items-start gap-3">
+        <svg class="w-5 h-5 text-amber-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+        <div class="flex-1 text-sm text-amber-300">
+            <strong>Insufficient credits.</strong>
+            This campaign requires <strong>${{ number_format($campaign->total_budget, 2) }}</strong> but your balance is <strong>${{ number_format($creditBalance, 2) }}</strong>.
+            <a href="{{ route('politician.billing') }}" class="ml-1 underline hover:text-amber-200">Add ${{ number_format(max(0, $campaign->total_budget - $creditBalance), 2) }} to submit →</a>
+        </div>
+    </div>
+    @endif
+
     {{-- Back + actions --}}
     <div class="flex items-center gap-3">
         <a href="{{ route('politician.campaigns.index') }}" class="text-sm text-slate-400 hover:text-white transition">← Campaigns</a>
         <div class="flex-1"></div>
-
-        @php $status = $campaign->status?->value ?? $campaign->status ?? 'draft'; @endphp
 
         @if(in_array($status, ['draft', 'paused', 'scheduled']))
             <a href="{{ route('politician.campaigns.edit', $campaign) }}"
@@ -21,13 +45,23 @@
         @endif
 
         @if($status === 'draft' && ($campaign->media_url || $campaign->live_feed_url))
-            <form method="POST" action="{{ route('politician.campaigns.submit-review', $campaign) }}" class="inline">
-                @csrf
-                <button type="submit"
-                    class="text-sm font-medium text-blue-400 hover:text-blue-300 bg-blue-500/10 hover:bg-blue-500/20 rounded-lg px-4 py-2 transition">
-                    Submit for Review
-                </button>
-            </form>
+            @if($isInsufficientBalance)
+                {{-- Disabled submit — balance too low --}}
+                <a href="{{ route('politician.billing') }}"
+                   class="inline-flex items-center gap-1.5 text-sm font-medium text-amber-400 hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 rounded-lg px-4 py-2 transition"
+                   title="Add credits to submit this campaign">
+                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+                    Add Credits to Submit
+                </a>
+            @else
+                <form method="POST" action="{{ route('politician.campaigns.submit-review', $campaign) }}" class="inline">
+                    @csrf
+                    <button type="submit"
+                        class="text-sm font-medium text-blue-400 hover:text-blue-300 bg-blue-500/10 hover:bg-blue-500/20 rounded-lg px-4 py-2 transition">
+                        Submit for Review
+                    </button>
+                </form>
+            @endif
         @endif
 
         @if($status === 'active')
