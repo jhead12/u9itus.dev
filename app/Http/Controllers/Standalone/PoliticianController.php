@@ -430,13 +430,48 @@ class PoliticianController extends Controller
         }
 
         // Always return JSON — the billing view submits via fetch() and handles the response.
+        // return_url points to billing/confirm so the redirect immediately finalizes the
+        // transaction and credits the politician without waiting for the Stripe webhook.
         return response()->json([
             'client_secret'   => $intentData['client_secret'],
             'payment_intent'  => $intentData['payment_intent_id'],
             'amount'          => $validated['amount'],
             'publishable_key' => config('services.stripe.public'),
-            'return_url'      => route('politician.billing'),
+            'return_url'      => route('politician.billing.confirm'),
         ]);
+    }
+
+    /**
+     * Handle the Stripe redirect after a PaymentIntent completes.
+     *
+     * Stripe appends: ?payment_intent=pi_xxx&redirect_status=succeeded|failed|canceled
+     * We immediately finalize the transaction and credit the politician so the balance
+     * updates without waiting for the webhook.
+     */
+    public function confirmPayment(Request $request)
+    {
+        $piId           = $request->query('payment_intent');
+        $redirectStatus = $request->query('redirect_status');
+
+        if ($piId && $redirectStatus === 'succeeded') {
+            try {
+                /** @var \App\Services\CampaignBillingService $billing */
+                $billing = app(\App\Services\CampaignBillingService::class);
+                $billing->finalizePaymentIntent($piId);
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::error('confirmPayment: ' . $e->getMessage());
+            }
+
+            return redirect()->route('politician.billing')
+                ->with('payment_confirmed', true);
+        }
+
+        if (in_array($redirectStatus, ['failed', 'canceled'])) {
+            return redirect()->route('politician.billing')
+                ->with('payment_failed', true);
+        }
+
+        return redirect()->route('politician.billing');
     }
 
     /** Invoice / transaction history page. */

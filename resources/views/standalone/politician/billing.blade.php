@@ -6,12 +6,12 @@
 @section('content')
 <div class="space-y-6">
 
-    {{-- Payment result notices — shown by JS after Stripe redirect (redirect_status param) --}}
-    <div id="notice-success" class="hidden bg-emerald-500/10 border border-emerald-500/30 rounded-xl px-5 py-4 flex items-center gap-3">
+    {{-- Payment result notices — shown after Stripe redirect + server-side confirmation --}}
+    <div id="notice-success" class="{{ session('payment_confirmed') ? '' : 'hidden' }} bg-emerald-500/10 border border-emerald-500/30 rounded-xl px-5 py-4 flex items-center gap-3">
         <svg class="w-5 h-5 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-        <p class="text-sm text-emerald-300">Payment successful! Credits will appear in your ledger momentarily.</p>
+        <p class="text-sm text-emerald-300">Payment successful! Your credit balance has been updated.</p>
     </div>
-    <div id="notice-failed" class="hidden bg-red-500/10 border border-red-500/30 rounded-xl px-5 py-4 flex items-center gap-3">
+    <div id="notice-failed" class="{{ session('payment_failed') ? '' : 'hidden' }} bg-red-500/10 border border-red-500/30 rounded-xl px-5 py-4 flex items-center gap-3">
         <svg class="w-5 h-5 text-red-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
         <p class="text-sm text-red-300">Payment failed or was cancelled. Please try again.</p>
     </div>
@@ -276,18 +276,6 @@
         hide('step-payment');
         show('step-amount');
     });
-
-    // ── Handle redirect-back from Stripe (redirect_status param) ────────
-    const urlParams = new URLSearchParams(window.location.search);
-    const redirectStatus = urlParams.get('redirect_status');
-    if (redirectStatus === 'succeeded') {
-        document.getElementById('notice-success').classList.remove('hidden');
-        // Clean up the URL without a reload
-        history.replaceState({}, '', @json(route('politician.billing')));
-    } else if (redirectStatus === 'failed' || redirectStatus === 'canceled') {
-        document.getElementById('notice-failed').classList.remove('hidden');
-        history.replaceState({}, '', @json(route('politician.billing')));
-    }
 })();
 </script>
 @endpush

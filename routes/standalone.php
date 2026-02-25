@@ -106,6 +106,7 @@ Route::middleware(['auth', 'verified', 'check.role'])->group(function () {
         // Billing & Payments
         Route::get('/billing', [PoliticianController::class, 'billing'])->name('billing');
         Route::post('/billing/add-funds', [PoliticianController::class, 'addFunds'])->name('billing.add-funds');
+        Route::get('/billing/confirm', [PoliticianController::class, 'confirmPayment'])->name('billing.confirm');
         Route::get('/billing/invoices', [PoliticianController::class, 'invoices'])->name('billing.invoices');
         
         // Profile & Settings
