@@ -102,12 +102,19 @@
                     </button>
                 </div>
             </div>
+@php
+                $voterRefUrl = route('register.voter') . '?ref=' . ($politician->referral_code ?? '');
+                $voterQrSrc  = 'https://api.qrserver.com/v1/create-qr-code/?size=120x120&color=059669&bgcolor=FFFFFF&data=' . rawurlencode($voterRefUrl) . '&qzone=1';
+            @endphp
             <div class="flex flex-col items-center gap-2">
-                <div id="voter-qr" class="bg-white rounded-xl p-1.5 w-24 h-24"></div>
-                <button onclick="downloadQR('voter-qr', 'voter-referral-qr.png')"
-                    class="text-xs text-emerald-400 hover:text-emerald-300 underline underline-offset-2 transition">
+                <img src="{{ $voterQrSrc }}"
+                     alt="Voter Referral QR Code"
+                     class="bg-white rounded-xl p-1.5 w-24 h-24 object-contain">
+                <a href="{{ $voterQrSrc }}&download=1"
+                   download="voter-referral-qr.png"
+                   class="text-xs text-emerald-400 hover:text-emerald-300 underline underline-offset-2 transition">
                     Download PNG
-                </button>
+                </a>
             </div>
         </div>
 
@@ -128,12 +135,19 @@
                     </button>
                 </div>
             </div>
+@php
+                $politicianRefUrl = route('register.politician') . '?ref=' . ($politician->referral_code ?? '');
+                $politicianQrSrc  = 'https://api.qrserver.com/v1/create-qr-code/?size=120x120&color=d97706&bgcolor=FFFFFF&data=' . rawurlencode($politicianRefUrl) . '&qzone=1';
+            @endphp
             <div class="flex flex-col items-center gap-2">
-                <div id="politician-qr" class="bg-white rounded-xl p-1.5 w-24 h-24"></div>
-                <button onclick="downloadQR('politician-qr', 'politician-referral-qr.png')"
-                    class="text-xs text-amber-400 hover:text-amber-300 underline underline-offset-2 transition">
+                <img src="{{ $politicianQrSrc }}"
+                     alt="Politician Referral QR Code"
+                     class="bg-white rounded-xl p-1.5 w-24 h-24 object-contain">
+                <a href="{{ $politicianQrSrc }}&download=1"
+                   download="politician-referral-qr.png"
+                   class="text-xs text-amber-400 hover:text-amber-300 underline underline-offset-2 transition">
                     Download PNG
-                </button>
+                </a>
             </div>
         </div>
     </div>
