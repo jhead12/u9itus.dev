@@ -29,6 +29,7 @@ class PoliticianCredit extends Model
         'metadata' => 'array',
         'amount' => 'decimal:2',
         'balance_after' => 'decimal:2',
+        'created_at' => 'datetime',
     ];
 
     protected static function boot(): void
