@@ -129,7 +129,11 @@ class AdminController extends Controller
                     AND status = \'completed\') as avg_completion_pct'
             )
             ->with('politician.user')
-            ->whereIn('status', [CampaignStatus::Active->value, CampaignStatus::Paused->value]);
+            ->whereIn('status', [
+                CampaignStatus::Active->value,
+                CampaignStatus::Paused->value,
+                CampaignStatus::Scheduled->value,
+            ]);
 
         if ($search = $request->get('search')) {
             $query->whereHas('politician', fn ($q) =>
@@ -147,16 +151,17 @@ class AdminController extends Controller
         }
 
         $campaigns = $query
-            ->orderByRaw("CASE WHEN status = 'active' THEN 0 ELSE 1 END")
+            ->orderByRaw("CASE WHEN status = 'active' THEN 0 WHEN status = 'scheduled' THEN 1 ELSE 2 END")
             ->latest('started_at')
             ->paginate(25)
             ->withQueryString();
 
         $summary = [
-            'total_active'  => PoliticalCampaign::where('status', CampaignStatus::Active->value)->count(),
-            'total_paused'  => PoliticalCampaign::where('status', CampaignStatus::Paused->value)->count(),
-            'total_spend'   => PoliticalCampaign::whereIn('status', [CampaignStatus::Active->value, CampaignStatus::Paused->value])->sum('amount_spent'),
-            'total_views'   => PoliticalCampaign::whereIn('status', [CampaignStatus::Active->value, CampaignStatus::Paused->value])->sum('views_completed'),
+            'total_active'    => PoliticalCampaign::where('status', CampaignStatus::Active->value)->count(),
+            'total_scheduled' => PoliticalCampaign::where('status', CampaignStatus::Scheduled->value)->count(),
+            'total_paused'    => PoliticalCampaign::where('status', CampaignStatus::Paused->value)->count(),
+            'total_spend'     => PoliticalCampaign::whereIn('status', [CampaignStatus::Active->value, CampaignStatus::Paused->value, CampaignStatus::Scheduled->value])->sum('amount_spent'),
+            'total_views'     => PoliticalCampaign::whereIn('status', [CampaignStatus::Active->value, CampaignStatus::Paused->value, CampaignStatus::Scheduled->value])->sum('views_completed'),
         ];
 
         return view('standalone.admin.campaigns-running', compact('campaigns', 'summary'));
@@ -164,12 +169,20 @@ class AdminController extends Controller
 
     /**
      * Approve a campaign.
+     * If the campaign has a scheduled_start_at in the future it is placed in
+     * 'scheduled' status so the campaigns:apply-schedule command activates it
+     * at the right time.  Otherwise it goes straight to 'active'.
      */
     public function approveCampaign(PoliticalCampaign $campaign)
     {
+        $scheduledStart = $campaign->scheduled_start_at;
+        $newStatus = ($scheduledStart && $scheduledStart->isFuture())
+            ? CampaignStatus::Scheduled
+            : CampaignStatus::Active;
+
         $campaign->update([
             'approval_status' => ApprovalStatus::Approved,
-            'status'          => CampaignStatus::Active,
+            'status'          => $newStatus,
         ]);
 
         CampaignAuditLog::create([
@@ -192,7 +205,11 @@ class AdminController extends Controller
         // Phase 11 — real-time WebSocket push to politician dashboard
         app(ReverbBroadcastService::class)->campaignApproved($campaign);
 
-        return back()->with('success', 'Campaign "' . $campaign->title . '" has been approved and set to active.');
+        $label = $newStatus === CampaignStatus::Scheduled
+            ? 'approved and scheduled (activates ' . $scheduledStart->format('M j, Y H:i') . ')'
+            : 'approved and set to active';
+
+        return back()->with('success', 'Campaign "' . $campaign->title . '" has been ' . $label . '.');
     }
 
     /**
@@ -279,7 +296,7 @@ class AdminController extends Controller
             'live_feed_url'            => ['nullable', 'url'],
             'live_scheduled_at'        => ['nullable', 'date'],
             'min_watch_time_percent'   => ['nullable', 'integer', 'min:50', 'max:100'],
-            'status'                   => ['required', 'in:draft,pending_approval,active,paused,completed,cancelled'],
+            'status'                   => ['required', 'in:draft,pending_approval,scheduled,active,paused,completed,cancelled'],
             'approval_status'          => ['required', 'in:pending,approved,rejected'],
             'rejection_reason'         => ['nullable', 'string', 'max:500'],
             'edit_reason'              => ['nullable', 'string', 'max:500'],

@@ -30,8 +30,15 @@ class UpdateCampaignRequest extends FormRequest
             'target_districts.*'       => ['string', 'max:100'],
             'target_governance_levels' => ['nullable', 'array'],
             'min_watch_time_percent'   => ['nullable', 'integer', 'min:50', 'max:100'],
-            'live_scheduled_at'        => ['nullable', 'date', 'after:now'],
-            'live_feed_url'            => ['nullable', 'url'],
+            'live_scheduled_at'          => ['nullable', 'date', 'after:now'],
+            'live_feed_url'              => ['nullable', 'url'],
+            // Phase 14 — Scheduling
+            'scheduled_start_at'         => ['nullable', 'date'],
+            'scheduled_end_at'           => ['nullable', 'date', 'after:scheduled_start_at'],
+            // Phase 14 — Repeat Viewing
+            'allow_repeat_views'         => ['nullable', 'boolean'],
+            'repeat_view_cooldown_hours' => ['nullable', 'integer', 'min:1', 'max:720'],
+            'max_views_per_voter'        => ['nullable', 'integer', 'min:1', 'max:10'],
         ];
     }
 }

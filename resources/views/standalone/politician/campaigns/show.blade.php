@@ -13,7 +13,7 @@
 
         @php $status = $campaign->status?->value ?? $campaign->status ?? 'draft'; @endphp
 
-        @if(in_array($status, ['draft', 'paused']))
+        @if(in_array($status, ['draft', 'paused', 'scheduled']))
             <a href="{{ route('politician.campaigns.edit', $campaign) }}"
                class="inline-flex items-center gap-1.5 text-sm font-medium text-slate-300 hover:text-white bg-slate-700/50 hover:bg-slate-700 rounded-lg px-4 py-2 transition">
                 Edit
@@ -66,6 +66,7 @@
                     @php
                         $statusColor = match($status) {
                             'active'           => 'bg-emerald-500/15 text-emerald-400',
+                            'scheduled'        => 'bg-sky-500/15 text-sky-400',
                             'paused'           => 'bg-yellow-500/15 text-yellow-400',
                             'completed'        => 'bg-slate-500/15 text-slate-300',
                             'pending_approval' => 'bg-blue-500/15 text-blue-400',
@@ -89,7 +90,11 @@
         <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
             <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Views Completed</p>
             <p class="text-2xl font-bold text-white">{{ number_format($completedViews) }}</p>
-            <p class="text-xs text-slate-500 mt-0.5">of {{ number_format($campaign->total_views_requested) }}</p>
+            <p class="text-xs text-slate-500 mt-0.5">of {{ number_format($campaign->total_views_requested) }}
+                @if($campaign->allow_repeat_views && $uniqueVoters > 0)
+                    &nbsp;&bull;&nbsp;<span class="text-slate-400">{{ number_format($uniqueVoters) }} unique</span>
+                @endif
+            </p>
         </div>
         <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
             <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Budget Spent</p>
@@ -138,10 +143,65 @@
                 <dt class="text-slate-500">Approval Status</dt>
                 <dd class="text-slate-200">{{ ucfirst($campaign->approval_status?->value ?? $campaign->approval_status ?? 'pending') }}</dd>
             </div>
+            {{-- Phase 14 — Repeat Viewing --}}
+            <div class="flex justify-between border-b border-slate-700/40 pb-2">
+                <dt class="text-slate-500">Repeat Viewing</dt>
+                <dd class="text-slate-200">
+                    @if($campaign->allow_repeat_views)
+                        <span class="inline-flex items-center gap-1 text-emerald-400">
+                            <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                            Enabled
+                        </span>
+                    @else
+                        <span class="text-slate-500">Off</span>
+                    @endif
+                </dd>
+            </div>
+            @if($campaign->allow_repeat_views)
+            <div class="flex justify-between border-b border-slate-700/40 pb-2">
+                <dt class="text-slate-500">Cooldown</dt>
+                <dd class="text-slate-200">{{ $campaign->repeat_view_cooldown_hours }}h between re-watches</dd>
+            </div>
+            <div class="flex justify-between border-b border-slate-700/40 pb-2">
+                <dt class="text-slate-500">Max Views / Voter</dt>
+                <dd class="text-slate-200">{{ $campaign->max_views_per_voter }}</dd>
+            </div>
+            <div class="flex justify-between border-b border-slate-700/40 pb-2">
+                <dt class="text-slate-500">Unique Voters</dt>
+                <dd class="text-slate-200">{{ number_format($uniqueVoters) }}</dd>
+            </div>
+            <div class="flex justify-between border-b border-slate-700/40 pb-2">
+                <dt class="text-slate-500">Repeat Views</dt>
+                <dd class="text-slate-200">{{ number_format($repeatViews) }}</dd>
+            </div>
+            @endif
             <div class="flex justify-between border-b border-slate-700/40 pb-2">
                 <dt class="text-slate-500">Created</dt>
                 <dd class="text-slate-200">{{ $campaign->created_at->format('M j, Y') }}</dd>
             </div>
+            {{-- Phase 14 — Scheduling --}}
+            @if($campaign->scheduled_start_at || $campaign->scheduled_end_at)
+            <div class="col-span-2 bg-sky-500/10 border border-sky-500/20 rounded-lg px-4 py-3 flex flex-wrap gap-6 text-sm">
+                @if($campaign->scheduled_start_at)
+                <div>
+                    <span class="text-sky-400 font-medium">Starts</span>
+                    <span class="text-slate-200 ml-2">{{ $campaign->scheduled_start_at->format('M j, Y g:i A') }}</span>
+                    @if($campaign->scheduled_start_at->isFuture())
+                        <span class="ml-1 text-xs text-sky-400">(in {{ $campaign->scheduled_start_at->diffForHumans() }})</span>
+                    @endif
+                </div>
+                @endif
+                @if($campaign->scheduled_end_at)
+                <div>
+                    <span class="text-amber-400 font-medium">Ends</span>
+                    <span class="text-slate-200 ml-2">{{ $campaign->scheduled_end_at->format('M j, Y g:i A') }}</span>
+                    @if($campaign->scheduled_end_at->isFuture())
+                        <span class="ml-1 text-xs text-amber-400">(in {{ $campaign->scheduled_end_at->diffForHumans() }})</span>
+                    @endif
+                </div>
+                @endif
+            </div>
+            @endif
             @if($campaign->media_url)
             <div class="flex justify-between border-b border-slate-700/40 pb-2">
                 <dt class="text-slate-500">Video</dt>

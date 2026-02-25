@@ -43,8 +43,15 @@ class CreateCampaignRequest extends FormRequest
             'target_states.*'       => 'string|max:2',
             'target_cities'         => 'nullable|array',
             'target_cities.*'       => 'string|max:255',
-            'target_districts'      => 'nullable|array',
-            'target_districts.*'    => 'string|max:255',
+            'target_districts'           => 'nullable|array',
+            'target_districts.*'         => 'string|max:255',
+            // Phase 14 — Scheduling
+            'scheduled_start_at'         => 'nullable|date|after:now',
+            'scheduled_end_at'           => 'nullable|date|after:scheduled_start_at',
+            // Phase 14 — Repeat Viewing
+            'allow_repeat_views'         => 'nullable|boolean',
+            'repeat_view_cooldown_hours' => 'nullable|integer|min:1|max:720',
+            'max_views_per_voter'        => 'nullable|integer|min:1|max:10',
         ];
     }
 

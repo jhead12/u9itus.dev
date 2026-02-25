@@ -157,26 +157,90 @@ class PoliticalViewService
     /**
      * Get available campaigns for a voter based on location & preferences.
      *
+     * Phase 14: respects campaign-level repeat-view settings.
+     *   - allow_repeat_views = false  → exclude campaigns the voter already completed (original behaviour)
+     *   - allow_repeat_views = true   → include BUT enforce cooldown + per-voter view cap via PHP filter
+     *
      * @return \Illuminate\Database\Eloquent\Collection<PoliticalCampaign>
      */
     public function availableCampaigns(Voter $voter): \Illuminate\Database\Eloquent\Collection
     {
-        return PoliticalCampaign::needingViews()
+        $candidates = PoliticalCampaign::needingViews()
             ->with('politician:id,full_name,political_office')
             ->where(function ($q) use ($voter): void {
-                // Match by state, or show campaigns with no state targeting
                 if ($voter->state) {
                     $q->whereJsonContains('target_states', $voter->state)
                       ->orWhereNull('target_states');
                 }
             })
-            ->whereDoesntHave('viewSessions', function ($q) use ($voter): void {
-                // Exclude campaigns voter already completed
-                $q->where('voter_id', $voter->id)
-                  ->where('status', ViewSessionStatus::Completed);
+            // Hard-exclude non-repeatable campaigns the voter already completed.
+            // Repeatable campaigns (allow_repeat_views = true) pass through here
+            // and are subject to the PHP filter below.
+            ->where(function ($q) use ($voter): void {
+                $q->where('allow_repeat_views', true)
+                  ->orWhereDoesntHave('viewSessions', function ($q2) use ($voter): void {
+                      $q2->where('voter_id', $voter->id)
+                         ->where('status', ViewSessionStatus::Completed);
+                  });
             })
             ->orderByDesc('revenue_per_view')
             ->get();
+
+        // PHP-level filter for repeat-view rules (cap + cooldown)
+        return $candidates->filter(function (PoliticalCampaign $campaign) use ($voter): bool {
+            if (!$campaign->allow_repeat_views) {
+                return true; // already handled by the SQL exclusion above
+            }
+
+            $completedCount = $campaign->voterCompletedViewCount($voter->id);
+
+            // Under the per-voter cap?
+            if ($completedCount >= $campaign->max_views_per_voter) {
+                return false;
+            }
+
+            // First-time viewer — always eligible
+            if ($completedCount === 0) {
+                return true;
+            }
+
+            // Cooldown check — last completed view must be old enough
+            $lastCompleted = $campaign->voterLastCompletedAt($voter->id);
+            if ($lastCompleted === null) {
+                return true;
+            }
+
+            $cooldownHours = max(1, (int) $campaign->repeat_view_cooldown_hours);
+            return $lastCompleted->addHours($cooldownHours)->isPast();
+        })->values();
+    }
+
+    /**
+     * Check whether a specific voter is currently allowed to watch (or re-watch)
+     * a campaign.  Used by VoterController token-watch flow.
+     */
+    public function voterCanWatch(PoliticalCampaign $campaign, Voter $voter): bool
+    {
+        if (!$campaign->allow_repeat_views) {
+            return $campaign->voterCompletedViewCount($voter->id) === 0;
+        }
+
+        $completedCount = $campaign->voterCompletedViewCount($voter->id);
+
+        if ($completedCount >= $campaign->max_views_per_voter) {
+            return false;
+        }
+
+        if ($completedCount === 0) {
+            return true;
+        }
+
+        $lastCompleted = $campaign->voterLastCompletedAt($voter->id);
+        if ($lastCompleted === null) {
+            return true;
+        }
+
+        return $lastCompleted->addHours(max(1, (int) $campaign->repeat_view_cooldown_hours))->isPast();
     }
 
     /**

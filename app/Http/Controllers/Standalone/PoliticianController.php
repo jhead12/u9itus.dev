@@ -127,8 +127,16 @@ class PoliticianController extends Controller
         $budgetUsed     = $campaign->amount_spent ?? 0;
         $budgetLeft     = ($campaign->total_budget ?? 0) - $budgetUsed;
 
+        // Phase 14 — Repeat Viewing stats
+        $uniqueVoters   = $campaign->viewSessions
+            ->where('status', 'completed')
+            ->unique('voter_id')
+            ->count();
+        $repeatViews    = max(0, $completedViews - $uniqueVoters);
+
         return view('standalone.politician.campaigns.show', compact(
-            'campaign', 'politician', 'completedViews', 'budgetUsed', 'budgetLeft'
+            'campaign', 'politician', 'completedViews', 'budgetUsed', 'budgetLeft',
+            'uniqueVoters', 'repeatViews'
         ));
     }
 
@@ -138,7 +146,7 @@ class PoliticianController extends Controller
         $politician = Auth::user()->politician;
         abort_unless(
             $politician && (int) $campaign->politician_id === (int) $politician->id
-            && in_array($campaign->status?->value ?? $campaign->status, ['draft', 'paused']),
+            && in_array($campaign->status?->value ?? $campaign->status, ['draft', 'paused', 'scheduled']),
             403
         );
 
@@ -159,7 +167,7 @@ class PoliticianController extends Controller
         $politician = Auth::user()->politician;
         abort_unless(
             $politician && (int) $campaign->politician_id === (int) $politician->id
-            && in_array($campaign->status?->value ?? $campaign->status, ['draft', 'paused']),
+            && in_array($campaign->status?->value ?? $campaign->status, ['draft', 'paused', 'scheduled']),
             403
         );
 

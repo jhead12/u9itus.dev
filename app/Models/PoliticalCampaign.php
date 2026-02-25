@@ -57,6 +57,13 @@ class PoliticalCampaign extends Model
         'approved_at',
         'started_at',
         'completed_at',
+        // Phase 14 — Scheduling
+        'scheduled_start_at',
+        'scheduled_end_at',
+        // Phase 14 — Repeat Viewing
+        'allow_repeat_views',
+        'repeat_view_cooldown_hours',
+        'max_views_per_voter',
     ];
 
     protected $table = 'political_campaigns';
@@ -87,6 +94,13 @@ class PoliticalCampaign extends Model
             'approved_at'                => 'datetime',
             'started_at'                 => 'datetime',
             'completed_at'               => 'datetime',
+            // Phase 14 — Scheduling
+            'scheduled_start_at'         => 'datetime',
+            'scheduled_end_at'           => 'datetime',
+            // Phase 14 — Repeat Viewing
+            'allow_repeat_views'         => 'boolean',
+            'repeat_view_cooldown_hours' => 'integer',
+            'max_views_per_voter'        => 'integer',
         ];
     }
 
@@ -146,6 +160,30 @@ class PoliticalCampaign extends Model
     }
 
     /**
+     * How many times a specific voter has completed a view of this campaign.
+     */
+    public function voterCompletedViewCount(int $voterId): int
+    public function voterCompletedViewCount(int $voterId): int
+    {
+        return $this->viewSessions()
+            ->where('voter_id', $voterId)
+            ->where('status', \App\Enums\ViewSessionStatus::Completed)
+            ->count();
+    }
+
+    /**
+     * Timestamp of the voter's most recent completed view of this campaign.
+     */
+    public function voterLastCompletedAt(int $voterId): ?\Carbon\Carbon
+    {
+        return $this->viewSessions()
+            ->where('voter_id', $voterId)
+            ->where('status', \App\Enums\ViewSessionStatus::Completed)
+            ->latest('completed_at')
+            ->value('completed_at');
+    }
+
+    /**
      * Remaining views needed.
      */
     public function remainingViews(): int
@@ -159,6 +197,22 @@ class PoliticalCampaign extends Model
     public function remainingBudget(): float
     {
         return max(0, $this->total_budget - $this->amount_spent);
+    }
+
+    /**
+     * Is the campaign within its scheduled delivery window right now?
+     * (True even for 'active' campaigns that have no schedule set.)
+     */
+    public function isWithinScheduleWindow(): bool
+    {
+        $now = \Carbon\Carbon::now();
+        if ($this->scheduled_start_at && $this->scheduled_start_at->gt($now)) {
+            return false;
+        }
+        if ($this->scheduled_end_at && $this->scheduled_end_at->lte($now)) {
+            return false;
+        }
+        return true;
     }
 
     /**
@@ -179,7 +233,26 @@ class PoliticalCampaign extends Model
     public function scopeNeedingViews($query): void
     {
         $query->active()
-              ->whereColumn('views_completed', '<', 'total_views_requested');
+              ->whereColumn('views_completed', '<', 'total_views_requested')
+              // Respect scheduled delivery window
+              ->where(function ($q): void {
+                  $q->whereNull('scheduled_start_at')
+                    ->orWhere('scheduled_start_at', '<=', now());
+              })
+              ->where(function ($q): void {
+                  $q->whereNull('scheduled_end_at')
+                    ->orWhere('scheduled_end_at', '>', now());
+              });
+    }
+
+    /** Include 'scheduled' alongside active/paused for admin campaign list queries. */
+    public function scopeManageable($query): void
+    {
+        $query->whereIn('status', [
+            CampaignStatus::Active->value,
+            CampaignStatus::Paused->value,
+            CampaignStatus::Scheduled->value,
+        ]);
     }
 
     public function scopeLive($query): void

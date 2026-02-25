@@ -137,6 +137,70 @@
             </div>
         </div>
 
+        {{-- Campaign Window --}}
+        <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6 space-y-4">
+            <div>
+                <h2 class="text-sm font-semibold text-slate-200 mb-1">Campaign Window <span class="text-slate-500 font-normal text-xs">(optional)</span></h2>
+                <p class="text-xs text-slate-500 mb-4">Leave blank to start immediately when approved. Dates are inclusive — the campaign activates at <em>Start</em> and auto-pauses at <em>End</em>.</p>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-300 mb-1.5">Start Date &amp; Time</label>
+                    <input type="datetime-local" name="scheduled_start_at"
+                        value="{{ old('scheduled_start_at') }}"
+                        class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition" />
+                    <p class="text-xs text-slate-500 mt-1">Campaign activates at this time</p>
+                    @error('scheduled_start_at')<p class="text-xs text-red-400 mt-1">{{ $message }}</p>@enderror
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-300 mb-1.5">End Date &amp; Time</label>
+                    <input type="datetime-local" name="scheduled_end_at"
+                        value="{{ old('scheduled_end_at') }}"
+                        class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition" />
+                    <p class="text-xs text-slate-500 mt-1">Campaign auto-pauses at this time</p>
+                    @error('scheduled_end_at')<p class="text-xs text-red-400 mt-1">{{ $message }}</p>@enderror
+                </div>
+            </div>
+        </div>
+
+        {{-- Repeat Viewing --}}
+            <div class="flex items-center justify-between">
+                <div>
+                    <h2 class="text-sm font-semibold text-slate-200">Repeat Viewing</h2>
+                    <p class="text-xs text-slate-500 mt-0.5">Allow the same voter to watch this ad more than once and earn each time</p>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="hidden" name="allow_repeat_views" value="0">
+                    <input type="checkbox" name="allow_repeat_views" id="allowRepeatViews" value="1"
+                        {{ old('allow_repeat_views') ? 'checked' : '' }}
+                        class="sr-only peer">
+                    <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-emerald-500/50 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+                </label>
+            </div>
+
+            <div id="repeatViewingOptions" class="hidden space-y-4 pt-2 border-t border-slate-700/40">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-300 mb-1.5">Cooldown Period (hours)</label>
+                        <input type="number" name="repeat_view_cooldown_hours" value="{{ old('repeat_view_cooldown_hours', 24) }}"
+                            min="1" max="720" step="1"
+                            class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition" />
+                        <p class="text-xs text-slate-500 mt-1">Min. hours between re-watches (1–720)</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-300 mb-1.5">Max Views Per Voter</label>
+                        <input type="number" name="max_views_per_voter" value="{{ old('max_views_per_voter', 2) }}"
+                            min="2" max="10" step="1"
+                            class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition" />
+                        <p class="text-xs text-slate-500 mt-1">Lifetime cap per voter (2–10)</p>
+                    </div>
+                </div>
+                <p class="text-xs text-amber-400/80 bg-amber-500/10 rounded-lg px-3 py-2">
+                    Each repeat view costs <strong>${{ number_format($revenuePerView, 2) }}</strong> and pays the voter <strong>$0.25</strong> — ensure your budget covers the additional views.
+                </p>
+            </div>
+        </div>
+
         {{-- Submit --}}
         <div class="flex gap-3">
             <button type="submit"
@@ -176,6 +240,15 @@ campaignType.addEventListener('change', () => {
     liveFeedFields.classList.toggle('hidden', !isLive);
     videoFields.classList.toggle('hidden', isLive);
 });
+
+// Repeat Viewing toggle
+const allowRepeatCheckbox = document.getElementById('allowRepeatViews');
+const repeatOptions = document.getElementById('repeatViewingOptions');
+function syncRepeatPanel() {
+    repeatOptions.classList.toggle('hidden', !allowRepeatCheckbox.checked);
+}
+allowRepeatCheckbox.addEventListener('change', syncRepeatPanel);
+syncRepeatPanel();
 
 // Convert comma-separated text to array inputs before submit
 document.getElementById('campaignForm').addEventListener('submit', function(e) {
