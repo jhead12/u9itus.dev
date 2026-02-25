@@ -163,7 +163,6 @@ class PoliticalCampaign extends Model
      * How many times a specific voter has completed a view of this campaign.
      */
     public function voterCompletedViewCount(int $voterId): int
-    public function voterCompletedViewCount(int $voterId): int
     {
         return $this->viewSessions()
             ->where('voter_id', $voterId)
