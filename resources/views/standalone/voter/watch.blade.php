@@ -93,6 +93,191 @@
     {{-- Status messages --}}
     <div id="status-msg" class="mt-5 hidden text-center py-4 px-6 rounded-2xl"></div>
 
+    {{-- Report Actions --}}
+    <div x-data="{ reportModal: false, messageModal: false, submitting: false }" class="mt-5">
+        {{-- Action Buttons --}}
+        <div class="flex items-center justify-center gap-3">
+            <button @click="reportModal = true" type="button"
+                class="inline-flex items-center gap-2 px-4 py-2 bg-slate-800/60 hover:bg-slate-700/60 border border-slate-700/60 rounded-lg text-slate-300 hover:text-white text-sm transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                </svg>
+                Report Issue
+            </button>
+
+            <button @click="messageModal = true" type="button"
+                class="inline-flex items-center gap-2 px-4 py-2 bg-slate-800/60 hover:bg-slate-700/60 border border-slate-700/60 rounded-lg text-slate-300 hover:text-white text-sm transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
+                </svg>
+                Message Politician
+            </button>
+        </div>
+
+        {{-- Report Issue Modal --}}
+        <div x-show="reportModal"
+            x-transition:enter="transition ease-out duration-200"
+            x-transition:enter-start="opacity-0"
+            x-transition:enter-end="opacity-100"
+            x-transition:leave="transition ease-in duration-150"
+            x-transition:leave-start="opacity-100"
+            x-transition:leave-end="opacity-0"
+            class="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/60 backdrop-blur-sm"
+            @click.self="reportModal = false"
+            style="display: none;">
+            
+            <div class="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl max-w-md w-full p-6"
+                @click.stop>
+                
+                <div class="flex items-start justify-between mb-4">
+                    <div>
+                        <h3 class="text-lg font-bold text-white">Report Issue</h3>
+                        <p class="text-sm text-slate-400 mt-0.5">Help us improve quality</p>
+                    </div>
+                    <button @click="reportModal = false" class="text-slate-500 hover:text-slate-300 transition">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+
+                <form @submit.prevent="
+                    if (!submitting) {
+                        submitting = true;
+                        const formData = new FormData($event.target);
+                        fetch('{{ route('voter.watch.report-issue', $adToken->token) }}', {
+                            method: 'POST',
+                            headers: {
+                                'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content,
+                                'Accept': 'application/json'
+                            },
+                            body: formData
+                        })
+                        .then(r => r.json())
+                        .then(data => {
+                            if (data.success) {
+                                alert(data.message || 'Report submitted successfully!');
+                                reportModal = false;
+                                $event.target.reset();
+                            }
+                        })
+                        .catch(() => alert('Failed to submit report. Please try again.'))
+                        .finally(() => submitting = false);
+                    }
+                ">
+                    <input type="hidden" name="view_session_uuid" :value="window.sessionId || ''">
+
+                    <div class="mb-4">
+                        <label for="issue-category" class="block text-sm font-medium text-slate-300 mb-2">Issue Category *</label>
+                        <select name="issue_category" id="issue-category" required
+                            class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition">
+                            <option value="">Select a category...</option>
+                            <option value="video_not_playing">Video Not Playing</option>
+                            <option value="incorrect_info">Incorrect Information</option>
+                            <option value="offensive_content">Offensive Content</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-5">
+                        <label for="issue-body" class="block text-sm font-medium text-slate-300 mb-2">Description (optional)</label>
+                        <textarea name="body" id="issue-body" rows="3" maxlength="1000"
+                            placeholder="Provide additional details about the issue..."
+                            class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition resize-none"></textarea>
+                    </div>
+
+                    <div class="flex gap-3">
+                        <button type="button" @click="reportModal = false"
+                            class="flex-1 px-4 py-2 bg-slate-700/60 hover:bg-slate-600/60 border border-slate-600 rounded-lg text-slate-300 hover:text-white text-sm transition">
+                            Cancel
+                        </button>
+                        <button type="submit" :disabled="submitting"
+                            class="flex-1 px-4 py-2 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-white font-medium text-sm transition">
+                            <span x-show="!submitting">Submit Report</span>
+                            <span x-show="submitting">Submitting...</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        {{-- Message Politician Modal --}}
+        <div x-show="messageModal"
+            x-transition:enter="transition ease-out duration-200"
+            x-transition:enter-start="opacity-0"
+            x-transition:enter-end="opacity-100"
+            x-transition:leave="transition ease-in duration-150"
+            x-transition:leave-start="opacity-100"
+            x-transition:leave-end="opacity-0"
+            class="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/60 backdrop-blur-sm"
+            @click.self="messageModal = false"
+            style="display: none;">
+            
+            <div class="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl max-w-md w-full p-6"
+                @click.stop>
+                
+                <div class="flex items-start justify-between mb-4">
+                    <div>
+                        <h3 class="text-lg font-bold text-white">Message Politician</h3>
+                        <p class="text-sm text-slate-400 mt-0.5">Send to {{ $campaign->politician->full_name ?? 'the campaign' }}</p>
+                    </div>
+                    <button @click="messageModal = false" class="text-slate-500 hover:text-slate-300 transition">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+
+                <form @submit.prevent="
+                    if (!submitting) {
+                        submitting = true;
+                        const formData = new FormData($event.target);
+                        fetch('{{ route('voter.watch.message-politician', $adToken->token) }}', {
+                            method: 'POST',
+                            headers: {
+                                'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content,
+                                'Accept': 'application/json'
+                            },
+                            body: formData
+                        })
+                        .then(r => r.json())
+                        .then(data => {
+                            if (data.success) {
+                                alert(data.message || 'Message sent successfully!');
+                                messageModal = false;
+                                $event.target.reset();
+                            }
+                        })
+                        .catch(() => alert('Failed to send message. Please try again.'))
+                        .finally(() => submitting = false);
+                    }
+                ">
+                    <input type="hidden" name="view_session_uuid" :value="window.sessionId || ''">
+
+                    <div class="mb-5">
+                        <label for="message-body" class="block text-sm font-medium text-slate-300 mb-2">Your Message *</label>
+                        <textarea name="body" id="message-body" rows="5" maxlength="1000" required
+                            placeholder="Share your thoughts, questions, or feedback with this politician..."
+                            class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition resize-none"></textarea>
+                        <p class="text-xs text-slate-500 mt-1">Your message will be sent directly to the politician's email</p>
+                    </div>
+
+                    <div class="flex gap-3">
+                        <button type="button" @click="messageModal = false"
+                            class="flex-1 px-4 py-2 bg-slate-700/60 hover:bg-slate-600/60 border border-slate-600 rounded-lg text-slate-300 hover:text-white text-sm transition">
+                            Cancel
+                        </button>
+                        <button type="submit" :disabled="submitting"
+                            class="flex-1 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-white font-medium text-sm transition">
+                            <span x-show="!submitting">Send Message</span>
+                            <span x-show="submitting">Sending...</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     {{-- Disclaimer --}}
     <p class="mt-6 text-xs text-slate-600 text-center">This political advertisement was paid for by the campaign of {{ $campaign->politician->full_name ?? 'the sponsoring campaign' }}. Earnings are credited to your wallet upon verified completion and processed in your next batch payout.</p>
 
@@ -255,6 +440,7 @@
                 const res = await post(startUrl, {});
                 if (res.error) { showStatus(res.error, 'error'); overlay.style.display = ''; return; }
                 sessionId = res.session_id;
+                window.sessionId = sessionId; // Expose for report forms
                 if (ytPlayer && typeof ytPlayer.playVideo === 'function') {
                     ytPlayer.playVideo();
                 }
@@ -277,6 +463,7 @@
                 const res = await post(startUrl, {});
                 if (res.error) { showStatus(res.error, 'error'); overlay.style.display = ''; return; }
                 sessionId = res.session_id;
+                window.sessionId = sessionId; // Expose for report forms
                 video.play();
                 startHeartbeat(() => video.currentTime || 0);
             } catch (e) {
