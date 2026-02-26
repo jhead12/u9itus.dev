@@ -437,13 +437,41 @@
         if (role === 'politician') {
             window.Echo.private('politician.' + userId)
                 .listen('.campaign.approved', e => {
-                    push('✓ Your campaign "' + (e.campaign_title ?? 'Campaign') + '" was approved!', 'success');
+                    const title = e.title ?? 'Campaign';
+                    const msg = e.status === 'scheduled' 
+                        ? `✅ Campaign "${title}" approved and scheduled!`
+                        : `✅ Campaign "${title}" approved and is now live!`;
+                    push(msg, 'success');
+                    // Update UI if on campaigns page
+                    if (window.location.pathname.includes('/politician/campaigns')) {
+                        setTimeout(() => window.location.reload(), 2000);
+                    }
                 })
                 .listen('.campaign.rejected', e => {
-                    push('✗ Your campaign "' + (e.campaign_title ?? 'Campaign') + '" was rejected.', 'error');
+                    const title = e.title ?? 'Campaign';
+                    const reason = e.reason ? ` Reason: ${e.reason}` : '';
+                    push(`❌ Campaign "${title}" was rejected.${reason}`, 'error');
+                    // Update UI if on campaigns page
+                    if (window.location.pathname.includes('/politician/campaigns')) {
+                        setTimeout(() => window.location.reload(), 2000);
+                    }
                 })
                 .listen('.campaign.stopped', e => {
-                    push('⏹ Your campaign "' + (e.campaign_title ?? 'Campaign') + '" was stopped.', 'warning');
+                    const title = e.title ?? 'Campaign';
+                    const reason = e.reason ? ` Reason: ${e.reason}` : '';
+                    push(`⏸️ Campaign "${title}" has been paused by admin.${reason}`, 'warning');
+                    // Update UI if on campaigns page
+                    if (window.location.pathname.includes('/politician/campaigns')) {
+                        setTimeout(() => window.location.reload(), 2000);
+                    }
+                })
+                .listen('.campaign.reactivated', e => {
+                    const title = e.title ?? 'Campaign';
+                    push(`▶️ Campaign "${title}" has been reactivated!`, 'success');
+                    // Update UI if on campaigns page
+                    if (window.location.pathname.includes('/politician/campaigns')) {
+                        setTimeout(() => window.location.reload(), 2000);
+                    }
                 });
         }
 

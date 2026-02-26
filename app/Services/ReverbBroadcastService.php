@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Events\AdTokenDelivered;
 use App\Events\CampaignApproved;
 use App\Events\CampaignLiveStarted;
+use App\Events\CampaignReactivated;
 use App\Events\CampaignRejected;
 use App\Events\CampaignStopped;
 use App\Events\FraudFlagRaised;
@@ -62,6 +63,14 @@ class ReverbBroadcastService
     public function campaignStopped(PoliticalCampaign $campaign, string $reason): void
     {
         $this->dispatch(fn () => broadcast(new CampaignStopped($campaign, $reason)), 'campaign.stopped', $campaign->id);
+    }
+
+    /**
+     * Notify a politician that their stopped campaign has been reactivated.
+     */
+    public function campaignReactivated(PoliticalCampaign $campaign): void
+    {
+        $this->dispatch(fn () => broadcast(new CampaignReactivated($campaign)), 'campaign.reactivated', $campaign->id);
     }
 
     // -----------------------------------------------------------------------

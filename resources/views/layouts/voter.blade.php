@@ -4,6 +4,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta name="auth-user-id" content="{{ auth()->id() }}">
+    <meta name="auth-user-role" content="{{ auth()->user()?->getRoleNames()->first() }}">
     <title>@yield('title', 'Voter Portal') · {{ config('app.name', 'U9itus') }}</title>
 
     <link rel="preconnect" href="https://fonts.bunny.net">
@@ -44,6 +46,51 @@
         </a>
 
         <div class="flex-1"></div>
+
+        {{-- Notifications bell (Alpine.js) --}}
+        <div x-data="notificationBell()" x-cloak class="relative">
+            <button @click="open = !open"
+                class="relative text-slate-400 hover:text-white transition p-2 rounded-lg hover:bg-slate-800"
+                aria-label="Notifications">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+                </svg>
+                <span x-show="unread > 0"
+                      x-text="unread > 9 ? '9+' : unread"
+                      class="absolute top-0 right-0 min-w-[16px] h-4 rounded-full bg-emerald-500 text-white text-[10px] font-bold flex items-center justify-center px-0.5"
+                      style="display:none;"></span>
+            </button>
+
+            {{-- Dropdown panel --}}
+            <div x-show="open"
+                 @click.outside="open = false"
+                 x-transition
+                 class="absolute right-0 mt-2 w-80 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl overflow-hidden z-50"
+                 style="display:none;">
+                <div class="px-4 py-3 border-b border-slate-700 flex items-center justify-between">
+                    <p class="text-sm font-semibold text-white">Notifications</p>
+                    <button @click="markAllRead()" class="text-xs text-emerald-400 hover:text-emerald-300 transition">Mark all read</button>
+                </div>
+
+                <ul class="max-h-72 overflow-y-auto divide-y divide-slate-700/50">
+                    <template x-if="notifications.length === 0">
+                        <li class="px-4 py-6 text-sm text-slate-500 text-center">No notifications yet.</li>
+                    </template>
+                    <template x-for="(n, i) in notifications" :key="i">
+                        <li class="px-4 py-3 flex gap-3 hover:bg-slate-700/40 transition"
+                            :class="n.read ? 'opacity-60' : ''">
+                            <div class="mt-0.5 w-2 h-2 rounded-full shrink-0 mt-1.5"
+                                 :class="n.type === 'success' ? 'bg-emerald-400' : (n.type === 'warning' ? 'bg-amber-400' : 'bg-red-400')"></div>
+                            <div class="min-w-0 flex-1">
+                                <p class="text-sm text-slate-200 leading-snug" x-text="n.message"></p>
+                                <p class="text-xs text-slate-500 mt-0.5" x-text="n.time"></p>
+                            </div>
+                        </li>
+                    </template>
+                </ul>
+            </div>
+        </div>
 
         {{-- Wallet balance pill --}}
         @auth
@@ -277,6 +324,31 @@
     </div>{{-- end flex body --}}
 </div>{{-- end min-h-screen --}}
 
+{{-- ── Toast notifications (Alpine.js) ──────────────────────────────── --}}
+<div
+    id="toast-container"
+    x-data="toaster()"
+    x-cloak
+    class="fixed bottom-6 right-6 z-[9999] flex flex-col gap-3 pointer-events-none"
+    style="max-width:24rem;">
+    <template x-for="(t, i) in toasts" :key="t.id">
+        <div
+            x-show="t.visible"
+            x-transition:enter="transition ease-out duration-200"
+            x-transition:enter-start="opacity-0 translate-y-2"
+            x-transition:enter-end="opacity-100 translate-y-0"
+            :class="{
+                'bg-emerald-500/10 border-emerald-500/30 text-emerald-300': t.type === 'success',
+                'bg-red-500/10 border-red-500/30 text-red-300':             t.type === 'error',
+                'bg-amber-500/10 border-amber-500/30 text-amber-300':       t.type === 'warning',
+                'bg-blue-500/10 border-blue-500/30 text-blue-300':          t.type === 'info'
+            }"
+            class="pointer-events-auto border rounded-xl px-4 py-3 shadow-xl text-sm flex items-center gap-3">
+            <span x-text="t.message" class="flex-1 leading-snug"></span>
+        </div>
+    </template>
+</div>
+
 <script>
     function toggleSidebar() {
         const sidebar  = document.getElementById('voter-sidebar');
@@ -286,6 +358,120 @@
         sidebar.classList.toggle('-translate-x-full', !isHidden);
         overlay.classList.toggle('hidden', !isHidden);
     }
+</script>
+
+{{-- ── Alpine.js components + Echo boot ───────────────────────────────── --}}
+<script>
+(function () {
+    'use strict';
+
+    // ── Toast notifications ────────────────────────────────────────────
+    window.toaster = function () {
+        return {
+            toasts: [],
+            nextId: 1,
+            add(message, type = 'info') {
+                const id = this.nextId++;
+                this.toasts.push({ id, message, type, visible: true });
+                setTimeout(() => {
+                    const toast = this.toasts.find(t => t.id === id);
+                    if (toast) toast.visible = false;
+                    setTimeout(() => {
+                        const idx = this.toasts.findIndex(t => t.id === id);
+                        if (idx !== -1) this.toasts.splice(idx, 1);
+                    }, 300);
+                }, 4000);
+            }
+        };
+    };
+
+    window.toast = function (message, type = 'info') {
+        // If not yet Alpine-ready, queue until it boots
+        if (!document.querySelector('#toast-container')?._x_dataStack) {
+            document.addEventListener('alpine:initialized', () => {
+                if (document.querySelector('#toast-container')?._x_dataStack?.[0]) {
+                    const el = document.querySelector('#toast-container');
+                    el._x_dataStack[0].add(message, type);
+                }
+            }, { once: true });
+        } else {
+            const el = document.querySelector('#toast-container');
+            if (el?._x_dataStack?.[0]) {
+                el._x_dataStack[0].add(message, type);
+            }
+        }
+    };
+
+    // ── Notification bell ──────────────────────────────────────────────
+    window.notificationBell = function () {
+        return {
+            open: false,
+            unread: 0,
+            notifications: [],
+            init() {
+                // Expose push() so Echo listeners can reach it
+                window._notificationBell = this;
+            },
+            push(message, type = 'info') {
+                const now = new Date();
+                this.notifications.unshift({
+                    message,
+                    type,
+                    read: false,
+                    time: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                });
+                this.unread++;
+                // Also show a toast
+                window.toast(message, type);
+            },
+            markAllRead() {
+                this.notifications.forEach(n => n.read = true);
+                this.unread = 0;
+            }
+        };
+    };
+
+    // ── Wire up Echo listeners after DOM is ready ──────────────────────
+    document.addEventListener('DOMContentLoaded', function () {
+        const userId = document.querySelector('meta[name="auth-user-id"]')?.content;
+        const role   = document.querySelector('meta[name="auth-user-role"]')?.content;
+
+        if (!window.Echo || !userId || !role) return;
+
+        const push = (msg, type) => {
+            if (window._notificationBell) window._notificationBell.push(msg, type);
+            else window.toast(msg, type);
+        };
+
+        if (role === 'voter') {
+            window.Echo.private('voter.' + userId)
+                .listen('.ad.token.delivered', e => {
+                    const amount = e.earning_amount ?? '0.25';
+                    push(`📨 New ad available — watch and earn $${amount}!`, 'success');
+                    // Update UI if on dashboard or ad room
+                    if (window.location.pathname.includes('/voter/dashboard') || window.location.pathname.includes('/voter/ad-room')) {
+                        setTimeout(() => window.location.reload(), 1500);
+                    }
+                })
+                .listen('.session.completed', e => {
+                    const amount = e.payout_amount ?? '0.25';
+                    push(`💰 Earned $${amount}! Payment credited to your wallet.`, 'success');
+                    // Update wallet balance display
+                    if (window.location.pathname.includes('/voter')) {
+                        setTimeout(() => window.location.reload(), 2000);
+                    }
+                })
+                .listen('.payout.processed', e => {
+                    const amount = e.amount ?? '?';
+                    push(`🏦 Batch payout of $${amount} has been processed and sent!`, 'success');
+                    // Refresh earnings page
+                    if (window.location.pathname.includes('/voter/earnings')) {
+                        setTimeout(() => window.location.reload(), 2000);
+                    }
+                });
+        }
+    });
+}());
 </script>
 
 @stack('scripts')

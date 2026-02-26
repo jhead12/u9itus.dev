@@ -367,6 +367,9 @@ class AdminController extends Controller
             'reason'      => $request->input('reason'),
         ]);
 
+        // Phase 11 — real-time WebSocket push to politician dashboard
+        app(ReverbBroadcastService::class)->campaignReactivated($campaign);
+
         return back()->with('success', 'Campaign "' . $campaign->title . '" has been reactivated.');
     }
 
