@@ -36,6 +36,8 @@ class Voter extends Model
         'referred_by_voter_id',
         'referred_by_politician_id',
         'referral_code',
+        'user_tier',               // 'early_adopter', 'regular', null
+        'early_adopter_until',     // Expiry timestamp for early adopter status
         'payment_method',
         'paypal_email',
         'cashapp_tag',
@@ -65,6 +67,7 @@ class Voter extends Model
             'flagged_for_fraud' => 'boolean',
             'is_registered_voter' => 'boolean',
             'last_view_at' => 'datetime',
+            'early_adopter_until' => 'datetime',
         ];
     }
 

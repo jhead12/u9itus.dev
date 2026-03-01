@@ -49,6 +49,11 @@ return [
     'min_payout_amount' => env('MIN_PAYOUT_AMOUNT', 5.00),
 
     /**
+     * Batch payout minimum threshold (simplified config key for views/controllers).
+     */
+    'batch_payout_min' => env('PAYOUT_THRESHOLD_AMOUNT', 5.00),
+
+    /**
      * Default payment per view if not specified in campaign.
      */
     'default_payment_per_view' => env('DEFAULT_PAYMENT_PER_VIEW', 0.25),
@@ -104,7 +109,7 @@ return [
     */
     'payout' => [
         'batch_frequency'  => env('PAYOUT_BATCH_FREQUENCY', 'weekly'),
-        'threshold_amount' => env('PAYOUT_THRESHOLD_AMOUNT', 10.00),
+        'threshold_amount' => env('PAYOUT_THRESHOLD_AMOUNT', 5.00),
     ],
 
     /*

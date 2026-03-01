@@ -231,6 +231,12 @@ Route::middleware(['auth', 'verified', 'check.role'])->group(function () {
         Route::put('/settings', [AdminController::class, 'updateSettings'])->name('settings.update');
         Route::post('/settings/test-email', [AdminController::class, 'testEmail'])->name('settings.test-email');
 
+        // Platform Settings (Dynamic Pricing/Commissions)
+        Route::get('/platform-settings', [AdminController::class, 'platformSettings'])->name('platform-settings');
+        Route::post('/platform-settings', [AdminController::class, 'updatePlatformSetting'])->name('platform-settings.update');
+        Route::delete('/platform-settings', [AdminController::class, 'deletePlatformSetting'])->name('platform-settings.delete');
+        Route::post('/platform-settings/clear-cache', [AdminController::class, 'clearSettingsCache'])->name('platform-settings.clear-cache');
+
         // Email Template Management (Phase 7b)
         Route::get('/email-templates', [AdminController::class, 'emailTemplates'])->name('email-templates.index');
         Route::get('/email-templates/{template}/edit', [AdminController::class, 'editEmailTemplate'])->name('email-templates.edit');

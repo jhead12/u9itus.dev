@@ -370,7 +370,7 @@ Key values in `config/u9itus.php`:
 'min_watch_percent'             => 100,
 'video_duration_min'            => 10,
 'video_duration_max'            => 20,
-'batch_payout_min'              => 10.00,
+'batch_payout_min'              => 5.00,
 'fraud_daily_view_limit'        => 50,
 'fraud_payout_hold_hours'       => 48,
 ```

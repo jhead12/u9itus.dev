@@ -1013,4 +1013,127 @@ class AdminController extends Controller
 
         return back()->with('success', 'Profile updated successfully.');
     }
+
+    // ── Platform Settings ─────────────────────────────────────────────
+
+    /**
+     * Show the platform settings dashboard (pricing, commissions, thresholds).
+     */
+    public function platformSettings()
+    {
+        $service = new \App\Services\PlatformSettingsService();
+        
+        // Get all active settings grouped by category
+        $settingsByCategory = \App\Models\PlatformSetting::active()
+            ->orderBy('category')
+            ->orderBy('key')
+            ->get()
+            ->groupBy('category');
+
+        // Get current effective values for key settings
+        $currentValues = [
+            'revenue_per_view' => $service->get('revenue_per_view'),
+            'viewer_payout_per_view' => $service->get('viewer_payout_per_view'),
+            'referral_commission_percent' => $service->get('referral_commission_percent'),
+            'procurement_commission_percent' => $service->get('procurement_commission_percent'),
+            'batch_payout_min' => $service->get('batch_payout_min'),
+            'fraud_max_views_per_day' => $service->get('fraud_max_views_per_day'),
+            'fraud_payout_hold_hours' => $service->get('fraud_payout_hold_hours'),
+        ];
+
+        // Get active promotions
+        $activePromotions = \App\Models\PlatformSetting::active()
+            ->whereNotNull('effective_until')
+            ->orderBy('effective_until')
+            ->get();
+
+        return view('standalone.admin.platform-settings', compact(
+            'settingsByCategory',
+            'currentValues',
+            'activePromotions'
+        ));
+    }
+
+    /**
+     * Update a platform setting.
+     */
+    public function updatePlatformSetting(Request $request)
+    {
+        $validated = $request->validate([
+            'key' => 'required|string|max:255',
+            'value' => 'required',
+            'description' => 'nullable|string|max:500',
+            'category' => 'nullable|string|in:pricing,fraud,video,referral,general',
+            'user_tier' => 'nullable|string|in:early_adopter,regular',
+            'effective_from' => 'nullable|date',
+            'effective_until' => 'nullable|date|after:effective_from',
+            'metadata' => 'nullable|array',
+        ]);
+
+        $options = array_filter([
+            'description' => $validated['description'] ?? null,
+            'category' => $validated['category'] ?? null,
+            'user_tier' => $validated['user_tier'] ?? null,
+            'effective_from' => isset($validated['effective_from']) ? \Carbon\Carbon::parse($validated['effective_from']) : null,
+            'effective_until' => isset($validated['effective_until']) ? \Carbon\Carbon::parse($validated['effective_until']) : null,
+            'metadata' => $validated['metadata'] ?? null,
+        ], fn($v) => $v !== null);
+
+        \App\Services\PlatformSettingsService::set(
+            $validated['key'],
+            $validated['value'],
+            $options
+        );
+
+        Log::info('Admin updated platform setting', [
+            'admin_id' => auth()->id(),
+            'key' => $validated['key'],
+            'value' => $validated['value'],
+            'user_tier' => $validated['user_tier'] ?? null,
+        ]);
+
+        return back()->with('success', 'Platform setting updated successfully.');
+    }
+
+    /**
+     * Delete a platform setting (revert to config default).
+     */
+    public function deletePlatformSetting(Request $request)
+    {
+        $validated = $request->validate([
+            'key' => 'required|string|max:255',
+            'user_tier' => 'nullable|string|in:early_adopter,regular',
+        ]);
+
+        $deleted = \App\Services\PlatformSettingsService::delete(
+            $validated['key'],
+            $validated['user_tier'] ?? null
+        );
+
+        if ($deleted) {
+            Log::info('Admin deleted platform setting', [
+                'admin_id' => auth()->id(),
+                'key' => $validated['key'],
+                'user_tier' => $validated['user_tier'] ?? null,
+            ]);
+
+            return back()->with('success', 'Setting deleted — reverted to default value.');
+        }
+
+        return back()->withErrors(['key' => 'Setting not found.']);
+    }
+
+    /**
+     * Clear platform settings cache.
+     */
+    public function clearSettingsCache()
+    {
+        \App\Services\PlatformSettingsService::clearAllCache();
+
+        Log::info('Admin cleared platform settings cache', [
+            'admin_id' => auth()->id(),
+        ]);
+
+        return back()->with('success', 'Settings cache cleared successfully.');
+    }
 }
