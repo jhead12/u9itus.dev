@@ -48,7 +48,7 @@
                 </div>
                 <div>
                     <p class="text-slate-400 text-xs">Revenue Per View</p>
-                    <p class="text-white text-2xl font-bold">${{ number_format($current Values['revenue_per_view'] ?? 0.60, 2) }}</p>
+                    <p class="text-white text-2xl font-bold">${{ number_format($currentValues['revenue_per_view'] ?? 0.60, 2) }}</p>
                 </div>
             </div>
             <p class="text-slate-500 text-xs">Charged to politicians</p>
