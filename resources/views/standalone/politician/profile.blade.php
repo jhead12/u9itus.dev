@@ -176,7 +176,7 @@
                 </svg>
                 <span class="truncate">{{ basename(auth()->user()->kyc_document_path) }}</span>
             </div>
-            <a href="{{ Storage::disk('public')->url(auth()->user()->kyc_document_path) }}" target="_blank"
+            <a href="{{ route('politician.kyc.view') }}" target="_blank"
                class="shrink-0 text-xs text-emerald-400 hover:text-emerald-300 transition ml-3">
                 View →
             </a>

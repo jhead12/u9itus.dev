@@ -530,6 +530,31 @@ class PoliticianController extends Controller
         return back()->with('kyc_success', 'Document uploaded successfully. Your identity is now pending review.');
     }
 
+    /**
+     * View KYC document (self-service - politicians can only view their own).
+     */
+    public function viewKycDocument()
+    {
+        $user = Auth::user();
+
+        if (!$user->kyc_document_path) {
+            abort(404, 'No KYC document found.');
+        }
+
+        $path = storage_path('app/public/' . $user->kyc_document_path);
+
+        if (!file_exists($path)) {
+            abort(404, 'KYC document file not found on server.');
+        }
+
+        $mimeType = mime_content_type($path);
+        
+        return response()->file($path, [
+            'Content-Type' => $mimeType,
+            'Content-Disposition' => 'inline; filename="' . basename($path) . '"',
+        ]);
+    }
+
     /** Show profile edit form. */
     public function profile()
     {

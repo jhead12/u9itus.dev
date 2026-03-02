@@ -710,6 +710,29 @@ class AdminController extends Controller
     }
 
     /**
+     * View a user's KYC document (admin only).
+     */
+    public function viewKycDocument(User $user)
+    {
+        if (!$user->kyc_document_path) {
+            abort(404, 'No KYC document found for this user.');
+        }
+
+        $path = storage_path('app/public/' . $user->kyc_document_path);
+
+        if (!file_exists($path)) {
+            abort(404, 'KYC document file not found on server.');
+        }
+
+        $mimeType = mime_content_type($path);
+        
+        return response()->file($path, [
+            'Content-Type' => $mimeType,
+            'Content-Disposition' => 'inline; filename="' . basename($path) . '"',
+        ]);
+    }
+
+    /**
      * Show analytics dashboard.
      */
     public function analytics()

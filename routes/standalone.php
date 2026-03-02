@@ -118,6 +118,7 @@ Route::middleware(['auth', 'verified', 'check.role'])->group(function () {
 
         // KYC Document Upload
         Route::post('/kyc/upload', [PoliticianController::class, 'uploadKycDocument'])->name('kyc.upload');
+        Route::get('/kyc/document', [PoliticianController::class, 'viewKycDocument'])->name('kyc.view');
 
         // Phase 13 — Public Profile Page Management
         Route::get('/public-page', [PoliticianController::class, 'publicPage'])->name('public-page');
@@ -172,6 +173,7 @@ Route::middleware(['auth', 'verified', 'check.role'])->group(function () {
 
         // KYC Document Upload
         Route::post('/kyc/upload', [VoterController::class, 'uploadKycDocument'])->name('kyc.upload');
+        Route::get('/kyc/document', [VoterController::class, 'viewKycDocument'])->name('kyc.view');
     });
     
     /*
@@ -215,6 +217,7 @@ Route::middleware(['auth', 'verified', 'check.role'])->group(function () {
         Route::get('/kyc', [AdminController::class, 'kycQueue'])->name('kyc.index');
         Route::post('/kyc/{user}/approve', [AdminController::class, 'approveKyc'])->name('kyc.approve');
         Route::post('/kyc/{user}/reject', [AdminController::class, 'rejectKyc'])->name('kyc.reject');
+        Route::get('/kyc/{user}/document', [AdminController::class, 'viewKycDocument'])->name('kyc.view');
         
         // Payouts Management
         Route::get('/payouts', [AdminController::class, 'payouts'])->name('payouts.index');
