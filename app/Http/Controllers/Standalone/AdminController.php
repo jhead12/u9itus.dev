@@ -20,6 +20,7 @@ use App\Models\Voter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
@@ -844,6 +845,38 @@ class AdminController extends Controller
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
         }
+    }
+
+    /**
+     * Update admin password from settings page.
+     */
+    public function updatePassword(Request $request)
+    {
+        $request->validateWithBag('updatePassword', [
+            'current_password'          => ['required', 'current_password'],
+            'new_password'              => ['required', 'min:8', 'confirmed'],
+            'new_password_confirmation' => ['required'],
+        ], [
+            'current_password.current_password' => 'The current password is incorrect.',
+            'new_password.min'                  => 'The new password must be at least 8 characters.',
+            'new_password.confirmed'            => 'The password confirmation does not match.',
+        ]);
+
+        $user = auth()->user();
+        $user->forceFill([
+            'password' => Hash::make($request->input('new_password')),
+        ])->save();
+
+        // Send notification email (non-fatal)
+        try {
+            Mail::to($user->email)
+                ->send(new \App\Mail\AdminPasswordResetMail($user));
+        } catch (\Exception $e) {
+            // Log but don't fail
+            \Log::warning('Failed to send password change notification: ' . $e->getMessage());
+        }
+
+        return back()->with('password_success', 'Password updated successfully.');
     }
 
     // ── Private helpers ─────────────────────────────────────────────────────

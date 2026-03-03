@@ -9,7 +9,97 @@
     {{-- ── Section header ─────────────────────────────────────────────── --}}
     <div>
         <h2 class="text-lg font-semibold text-white">System Settings</h2>
-        <p class="mt-1 text-sm text-slate-400">Manage platform-wide configuration including outgoing email (SMTP).</p>
+        <p class="mt-1 text-sm text-slate-400">Manage your account security and platform-wide configuration.</p>
+    </div>
+
+    {{-- ── Change Password ──────────────────────────────────────────────── --}}
+    <div class="bg-slate-800/60 border border-slate-700/50 rounded-2xl overflow-hidden">
+
+        <div class="px-6 py-4 border-b border-slate-700/50 flex items-center gap-3">
+            <div class="w-9 h-9 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                </svg>
+            </div>
+            <div>
+                <p class="text-sm font-semibold text-white">Change Password</p>
+                <p class="text-xs text-slate-400">Update your admin account password for enhanced security.</p>
+            </div>
+        </div>
+
+        <form method="POST" action="{{ route('admin.settings.password') }}" class="px-6 py-6 space-y-5">
+            @csrf
+            @method('PUT')
+
+            @if(session('password_success'))
+                <div class="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-sm">
+                    {{ session('password_success') }}
+                </div>
+            @endif
+
+            @if($errors->updatePassword->any())
+                <div class="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm space-y-1">
+                    <ul class="list-disc list-inside">
+                        @foreach($errors->updatePassword->all() as $error)
+                            <li>{{ $error }}</li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
+
+            <div>
+                <label for="current_password" class="block text-sm font-medium text-slate-300 mb-1.5">
+                    Current password <span class="text-red-400">*</span>
+                </label>
+                <x-password-input
+                    id="current_password"
+                    name="current_password"
+                    required
+                    autocomplete="current-password"
+                    class="w-full pr-16 bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition"
+                    placeholder="Enter your current password"
+                />
+                <p class="mt-1 text-xs text-slate-500">Verify your identity before changing your password.</p>
+            </div>
+
+            <div>
+                <label for="new_password" class="block text-sm font-medium text-slate-300 mb-1.5">
+                    New password <span class="text-red-400">*</span>
+                </label>
+                <x-password-input
+                    id="new_password"
+                    name="new_password"
+                    required
+                    autocomplete="new-password"
+                    class="w-full pr-16 bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition"
+                    placeholder="Enter new password (min. 8 characters)"
+                />
+            </div>
+
+            <div>
+                <label for="new_password_confirmation" class="block text-sm font-medium text-slate-300 mb-1.5">
+                    Confirm new password <span class="text-red-400">*</span>
+                </label>
+                <x-password-input
+                    id="new_password_confirmation"
+                    name="new_password_confirmation"
+                    required
+                    autocomplete="new-password"
+                    class="w-full pr-16 bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition"
+                    placeholder="Confirm new password"
+                />
+            </div>
+
+            <div class="flex items-center justify-between pt-4 border-t border-slate-700/50">
+                <p class="text-xs text-slate-500">Password must be at least 8 characters long.</p>
+                <button type="submit"
+                    class="bg-amber-500 hover:bg-amber-400 text-slate-900 font-semibold rounded-lg px-5 py-2.5 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-amber-500/50">
+                    Update Password
+                </button>
+            </div>
+        </form>
+
     </div>
 
     {{-- ── SMTP / Email Settings ───────────────────────────────────────── --}}

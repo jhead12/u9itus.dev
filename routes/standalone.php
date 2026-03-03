@@ -232,6 +232,7 @@ Route::middleware(['auth', 'verified', 'check.role'])->group(function () {
         // System Settings
         Route::get('/settings', [AdminController::class, 'settings'])->name('settings');
         Route::put('/settings', [AdminController::class, 'updateSettings'])->name('settings.update');
+        Route::put('/settings/password', [AdminController::class, 'updatePassword'])->name('settings.password');
         Route::post('/settings/test-email', [AdminController::class, 'testEmail'])->name('settings.test-email');
 
         // Platform Settings (Dynamic Pricing/Commissions)
