@@ -290,6 +290,20 @@ Password: _(set via `railway run php artisan admin:create`)_
 
 Requires `auth`, `verified`, and `role:admin` middleware. Access via `/admin/login`.
 
+**Admin Password Management:**
+
+Create or update admin account:
+```bash
+php artisan admin:create --email=admin@u9itus.com --name="Admin User"
+```
+
+Reset admin password (CLI):
+```bash
+php artisan admin:reset-password --email=admin@u9itus.com
+```
+
+Reset password (Web): Admins can also use the standard password reset flow at `/forgot-password` — a "Forgot password?" link is available on the admin login page.
+
 | Method | URL                                | Purpose                                    |
 | ------ | ---------------------------------- | ------------------------------------------ |
 | `GET`  | `/admin/dashboard`                 | Admin overview                             |

@@ -65,7 +65,12 @@
             </div>
 
             <div>
-                <label for="password" class="block text-sm font-medium text-slate-300 mb-1.5">Password</label>
+                <div class="flex items-center justify-between mb-1.5">
+                    <label for="password" class="block text-sm font-medium text-slate-300">Password</label>
+                    <a href="{{ route('password.request') }}" class="text-xs text-amber-400 hover:text-amber-300 transition-colors">
+                        Forgot password?
+                    </a>
+                </div>
                 <x-password-input
                     id="password"
                     name="password"
