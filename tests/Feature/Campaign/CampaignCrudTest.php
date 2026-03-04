@@ -32,6 +32,9 @@ function makePolitician(): User
 
     Politician::factory()->create(['user_id' => $user->id]);
 
+    // Skip onboarding for test
+    skipOnboarding($user, 'politician');
+
     return $user->load('politician');
 }
 

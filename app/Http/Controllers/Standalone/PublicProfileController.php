@@ -15,6 +15,73 @@ use Illuminate\Http\Request;
 class PublicProfileController extends Controller
 {
     /**
+     * Display a directory of all active politicians on the platform.
+     * 
+     * Allows voters to browse and research politicians before watching their campaigns.
+     */
+    public function index(Request $request)
+    {
+        $query = Politician::where('page_published', true)
+            ->where('is_active', true)
+            ->with(['campaigns' => function($q) {
+                $q->where('status', 'active')->where('approval_status', 'approved');
+            }]);
+
+        // Search filter
+        if ($search = $request->input('q')) {
+            $query->where(function($q) use ($search) {
+                $q->where('full_name', 'like', '%' . $search . '%')
+                  ->orWhere('political_office', 'like', '%' . $search . '%')
+                  ->orWhere('bio', 'like', '%' . $search . '%');
+            });
+        }
+
+        // Governance level filter
+        if ($level = $request->input('level')) {
+            $query->where('governance_level', $level);
+        }
+
+        // State filter
+        if ($state = $request->input('state')) {
+            $query->where('state', $state);
+        }
+
+        // Party filter
+        if ($party = $request->input('party')) {
+            $query->where('party_affiliation', $party);
+        }
+
+        // Sorting
+        $sortBy = $request->input('sort', 'name');
+        switch ($sortBy) {
+            case 'name':
+                $query->orderBy('full_name', 'asc');
+                break;
+            case 'recent':
+                $query->orderByDesc('created_at');
+                break;
+            case 'verified':
+                $query->orderByDesc('verified_official')->orderBy('full_name', 'asc');
+                break;
+            default:
+                $query->orderBy('full_name', 'asc');
+        }
+
+        $politicians = $query->paginate(24);
+
+        $states = config('u9itus.us_states', []);
+        $governanceLevels = ['Federal', 'State', 'County', 'City', 'School Board', 'Judicial'];
+        $parties = ['Democratic', 'Republican', 'Independent', 'Libertarian', 'Green'];
+
+        return view('standalone.public.politicians-directory', compact(
+            'politicians',
+            'states',
+            'governanceLevels',
+            'parties'
+        ));
+    }
+
+    /**
      * Display the politician's public profile page.
      *
      * Slug format: {5-char-uuid-prefix}-{seo-readable-name}
@@ -42,6 +109,27 @@ class PublicProfileController extends Controller
 
         $initiatives = $politician->initiatives;
 
+        // Phase 16: Fetch transparency data if politician is verified
+        $transparencyData = [];
+        if ($politician->verification_status === 'verified') {
+            if ($politician->show_ballotpedia_data) {
+                $ballotpediaService = app(\App\Services\BallotpediaService::class);
+                $transparencyData['ballotpedia'] = $ballotpediaService->getDisplayData($politician);
+            }
+            if ($politician->show_opensecrets_data) {
+                $openSecretsService = app(\App\Services\OpenSecretsService::class);
+                $transparencyData['opensecrets'] = $openSecretsService->getDisplayData($politician);
+            }
+            if ($politician->show_votesmart_data) {
+                $voteSmartService = app(\App\Services\VoteSmartService::class);
+                $transparencyData['votesmart'] = $voteSmartService->getDisplayData($politician);
+            }
+            if ($politician->show_fec_data) {
+                $fecService = app(\App\Services\FECService::class);
+                $transparencyData['fec'] = $fecService->getDisplayData($politician);
+            }
+        }
+
         // Build Open Graph meta
         $ogTitle       = $politician->full_name . ' — ' . ($politician->political_office ?? 'Politician');
         $ogDescription = $politician->bio
@@ -55,6 +143,7 @@ class PublicProfileController extends Controller
             'page',
             'campaigns',
             'initiatives',
+            'transparencyData',
             'ogTitle',
             'ogDescription',
             'ogImage',

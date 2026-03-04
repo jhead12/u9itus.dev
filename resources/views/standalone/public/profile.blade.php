@@ -290,6 +290,121 @@
         </section>
         @endif
 
+        {{-- Phase 16: Public Records & Transparency --}}
+        @if(!empty($transparencyData) && $politician->verification_status === 'verified')
+        <section>
+            <div class="flex items-start justify-between mb-4">
+                <div>
+                    <h2 class="text-xl font-bold text-white flex items-center gap-2">
+                        <span class="w-1 h-6 rounded-full inline-block" style="background:var(--p13-accent,#f59e0b)"></span>
+                        Public Records & Transparency
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-1">Official data from trusted public sources</p>
+                </div>
+                <span class="inline-flex items-center gap-1.5 bg-green-900/30 border border-green-700/50 text-green-300 text-xs font-medium px-3 py-1.5 rounded-full">
+                    <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                    </svg>
+                    Verified Profile
+                </span>
+            </div>
+
+            <div class="space-y-6">
+                @foreach($transparencyData as $source => $data)
+                    @if($data)
+                    <div class="bg-slate-800/40 border border-slate-700/40 rounded-xl p-6">
+                        <div class="flex items-start justify-between mb-4">
+                            <h3 class="text-lg font-semibold text-white">{{ $data['source'] }}</h3>
+                            @if(isset($data['source_url']))
+                            <a href="{{ $data['source_url'] }}" target="_blank" rel="noopener" 
+                               class="text-xs text-blue-400 hover:text-blue-300 transition inline-flex items-center gap-1">
+                                View on {{ $data['source'] }} ↗
+                            </a>
+                            @endif
+                        </div>
+
+                        {{-- Financial Summary (for OpenSecrets/FEC) --}}
+                        @if(isset($data['summary']) && !empty($data['summary']))
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6 p-4 bg-slate-900/40 border border-slate-700/30 rounded-lg">
+                            @foreach($data['summary'] as $key => $value)
+                                <div>
+                                    <p class="text-xs text-slate-400 mb-1">{{ ucwords(str_replace('_', ' ', $key)) }}</p>
+                                    <p class="text-sm font-semibold text-white">{{ $value }}</p>
+                                </div>
+                            @endforeach
+                        </div>
+                        @endif
+
+                        {{-- Data Sections --}}
+                        @if(isset($data['sections']) && !empty($data['sections']))
+                        <div class="space-y-5">
+                            @foreach($data['sections'] as $section)
+                                @if(!empty($section['items']))
+                                <div>
+                                    <h4 class="text-sm font-semibold text-slate-300 mb-3 flex items-center justify-between">
+                                        <span>{{ $section['title'] }}</span>
+                                        @if(isset($section['show_more_url']))
+                                        <a href="{{ $section['show_more_url'] }}" target="_blank" rel="noopener" 
+                                           class="text-xs text-blue-400 hover:text-blue-300 transition">
+                                            See all ↗
+                                        </a>
+                                        @endif
+                                    </h4>
+                                    <div class="space-y-2">
+                                        @foreach($section['items'] as $item)
+                                        <div class="bg-slate-900/30 border border-slate-700/30 rounded-lg px-4 py-3">
+                                            @if(is_array($item))
+                                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                                                    @foreach($item as $key => $value)
+                                                        @if($value && $key !== 'id' && $key !== 'pdf_url' && $key !== 'fec_url')
+                                                        <div>
+                                                            <span class="text-slate-500">{{ ucwords(str_replace('_', ' ', $key)) }}:</span>
+                                                            <span class="text-slate-300 ml-1">{{ $value }}</span>
+                                                        </div>
+                                                        @endif
+                                                    @endforeach
+                                                    {{-- PDF/FEC links for filings --}}
+                                                    @if(isset($item['pdf_url']) || isset($item['fec_url']))
+                                                        <div class="col-span-full mt-1">
+                                                            @if(isset($item['pdf_url']))
+                                                            <a href="{{ $item['pdf_url'] }}" target="_blank" 
+                                                               class="text-blue-400 hover:text-blue-300 text-xs mr-3">
+                                                                View PDF ↗
+                                                            </a>
+                                                            @endif
+                                                            @if(isset($item['fec_url']))
+                                                            <a href="{{ $item['fec_url'] }}" target="_blank" 
+                                                               class="text-blue-400 hover:text-blue-300 text-xs">
+                                                                View on FEC ↗
+                                                            </a>
+                                                            @endif
+                                                        </div>
+                                                    @endif
+                                                </div>
+                                            @else
+                                                <p class="text-sm text-slate-300">{{ $item }}</p>
+                                            @endif
+                                        </div>
+                                        @endforeach
+                                    </div>
+                                </div>
+                                @endif
+                            @endforeach
+                        </div>
+                        @endif
+                    </div>
+                    @endif
+                @endforeach
+            </div>
+
+            <div class="mt-4 bg-blue-900/20 border border-blue-700/30 rounded-lg p-4">
+                <p class="text-xs text-slate-400">
+                    <strong class="text-slate-300">Data Attribution:</strong> All information above is sourced from public government databases and independent watchdog organizations. Click the source links to verify data directly.
+                </p>
+            </div>
+        </section>
+        @endif
+
         {{-- Contact / Connect Section --}}
         @if($page->show_contact && ($politician->website_url || $politician->city))
         <section>

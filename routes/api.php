@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\PoliticianController;
 use App\Http\Controllers\Api\VoterController;
 use App\Http\Controllers\Api\StripeWebhookController;
+use App\Http\Controllers\Api\NotificationController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -82,6 +83,16 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
     |----------------------------------------------------------------------
     */
     Route::middleware('auth:sanctum')->group(function () {
+        // Notification endpoints (available to all authenticated users)
+        Route::prefix('/notifications')->name('notifications.')->group(function () {
+            Route::get('/', [NotificationController::class, 'index'])->name('index');
+            Route::get('/unread-count', [NotificationController::class, 'unreadCount'])->name('unread-count');
+            Route::post('/{id}/mark-as-read', [NotificationController::class, 'markAsRead'])->name('mark-as-read');
+            Route::post('/mark-all-as-read', [NotificationController::class, 'markAllAsRead'])->name('mark-all-as-read');
+            Route::delete('/{id}', [NotificationController::class, 'destroy'])->name('destroy');
+            Route::delete('/delete-all-read', [NotificationController::class, 'deleteAllRead'])->name('delete-all-read');
+        });
+
         Route::post('/politicians', [PoliticianController::class, 'store'])->name('politicians.store');
 
         Route::prefix('/politicians/{politician:uuid}')->name('politicians.')->group(function () {

@@ -28,6 +28,10 @@ function makeAdmin(): User
     if (method_exists($user, 'assignRole')) {
         $user->assignRole('admin');
     }
+    
+    // Skip onboarding for test
+    skipOnboarding($user, 'admin');
+    
     return $user;
 }
 
@@ -51,6 +55,9 @@ test('non-admin politician is denied access to admin routes', function () {
 
     $politician = User::factory()->create(['platform' => 'standalone']);
     $politician->assignRole('politician');
+    
+    // Skip onboarding for test
+    skipOnboarding($politician, 'politician');
 
     $this->actingAs($politician)
          ->get(route('admin.campaigns.pending'))

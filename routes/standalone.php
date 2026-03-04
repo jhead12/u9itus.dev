@@ -15,6 +15,9 @@ use App\Http\Controllers\Standalone\PoliticianController;
 use App\Http\Controllers\Standalone\VoterController;
 use App\Http\Controllers\Standalone\AdminController;
 use App\Http\Controllers\Standalone\PublicProfileController;
+use App\Http\Controllers\Standalone\VoterOnboardingController;
+use App\Http\Controllers\Standalone\PoliticianOnboardingController;
+use App\Http\Controllers\Standalone\AdminOnboardingController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -67,6 +70,81 @@ Route::middleware('auth')->group(function () {
 
 /*
 |--------------------------------------------------------------------------
+| Phase 16: Profile Verification (Public Route)
+|--------------------------------------------------------------------------
+*/
+
+// Public verification link from email (no auth required)
+Route::get('/politician/verify/{token}', [PoliticianController::class, 'verifyProfile'])->name('politician.verify-profile');
+
+/*
+|--------------------------------------------------------------------------
+| Onboarding Routes
+|--------------------------------------------------------------------------
+*/
+
+Route::middleware(['auth', 'verified'])->group(function () {
+    
+    // Voter Onboarding
+    Route::prefix('voter/onboarding')->name('voter.onboarding.')->group(function () {
+        Route::get('/welcome', [VoterOnboardingController::class, 'welcome'])->name('welcome');
+        Route::post('/welcome', [VoterOnboardingController::class, 'completeWelcome'])->name('complete-welcome');
+        
+        Route::get('/profile', [VoterOnboardingController::class, 'profileSetup'])->name('profile');
+        Route::post('/profile', [VoterOnboardingController::class, 'completeProfileSetup'])->name('complete-profile');
+        
+        Route::get('/first-watch', [VoterOnboardingController::class, 'firstWatch'])->name('first-watch');
+        Route::post('/first-watch', [VoterOnboardingController::class, 'completeFirstWatch'])->name('complete-first-watch');
+        
+        Route::get('/payout', [VoterOnboardingController::class, 'payoutSetup'])->name('payout');
+        Route::post('/payout', [VoterOnboardingController::class, 'completePayoutSetup'])->name('complete-payout');
+        
+        Route::get('/referrals', [VoterOnboardingController::class, 'referralSetup'])->name('referrals');
+        Route::post('/referrals', [VoterOnboardingController::class, 'completeReferralSetup'])->name('complete-referrals');
+        
+        Route::post('/skip', [VoterOnboardingController::class, 'skip'])->name('skip');
+    });
+
+    // Politician Onboarding
+    Route::prefix('politician/onboarding')->name('politician.onboarding.')->group(function () {
+        Route::get('/welcome', [PoliticianOnboardingController::class, 'welcome'])->name('welcome');
+        Route::post('/welcome', [PoliticianOnboardingController::class, 'completeWelcome'])->name('complete-welcome');
+        
+        Route::get('/profile', [PoliticianOnboardingController::class, 'politicalProfile'])->name('profile');
+        Route::post('/profile', [PoliticianOnboardingController::class, 'completePoliticalProfile'])->name('complete-profile');
+        
+        Route::get('/payment', [PoliticianOnboardingController::class, 'paymentMethod'])->name('payment');
+        Route::post('/payment', [PoliticianOnboardingController::class, 'completePaymentMethod'])->name('complete-payment');
+        
+        Route::get('/campaign', [PoliticianOnboardingController::class, 'firstCampaign'])->name('campaign');
+        Route::post('/campaign', [PoliticianOnboardingController::class, 'completeFirstCampaign'])->name('complete-campaign');
+        
+        Route::get('/credits', [PoliticianOnboardingController::class, 'addCredits'])->name('credits');
+        Route::post('/credits', [PoliticianOnboardingController::class, 'completeAddCredits'])->name('complete-credits');
+        
+        Route::post('/skip', [PoliticianOnboardingController::class, 'skip'])->name('skip');
+    });
+
+    // Admin Onboarding
+    Route::prefix('admin/onboarding')->name('admin.onboarding.')->group(function () {
+        Route::get('/welcome', [AdminOnboardingController::class, 'welcome'])->name('welcome');
+        Route::post('/welcome', [AdminOnboardingController::class, 'completeWelcome'])->name('complete-welcome');
+        
+        Route::get('/campaigns', [AdminOnboardingController::class, 'campaignApproval'])->name('campaigns');
+        Route::post('/campaigns', [AdminOnboardingController::class, 'completeCampaignApproval'])->name('complete-campaigns');
+        
+        Route::get('/fraud', [AdminOnboardingController::class, 'fraudManagement'])->name('fraud');
+        Route::post('/fraud', [AdminOnboardingController::class, 'completeFraudManagement'])->name('complete-fraud');
+        
+        Route::get('/payouts', [AdminOnboardingController::class, 'payoutProcessing'])->name('payouts');
+        Route::post('/payouts', [AdminOnboardingController::class, 'completePayoutProcessing'])->name('complete-payouts');
+        
+        Route::post('/skip', [AdminOnboardingController::class, 'skip'])->name('skip');
+    });
+});
+
+/*
+|--------------------------------------------------------------------------
 | Protected Application Routes
 |--------------------------------------------------------------------------
 */
@@ -81,7 +159,7 @@ Route::middleware(['auth', 'verified', 'check.role'])->group(function () {
     | Politician Dashboard & Campaign Management
     |--------------------------------------------------------------------------
     */
-    Route::prefix('politician')->name('politician.')->middleware('role:politician')->group(function () {
+    Route::prefix('politician')->name('politician.')->middleware(['role:politician', 'check.politician.onboarding'])->group(function () {
         Route::get('/dashboard', [PoliticianController::class, 'dashboard'])->name('dashboard');
         
         // Campaign Management
@@ -128,6 +206,11 @@ Route::middleware(['auth', 'verified', 'check.role'])->group(function () {
         Route::post('/initiatives', [PoliticianController::class, 'storeInitiative'])->name('initiatives.store');
         Route::put('/initiatives/{initiative}', [PoliticianController::class, 'updateInitiative'])->name('initiatives.update');
         Route::delete('/initiatives/{initiative}', [PoliticianController::class, 'destroyInitiative'])->name('initiatives.destroy');
+
+        // Phase 16 — Transparency Settings & Profile Verification
+        Route::get('/transparency-settings', [PoliticianController::class, 'transparencySettings'])->name('transparency-settings');
+        Route::post('/transparency-settings/verify', [PoliticianController::class, 'initiateVerification'])->name('transparency-settings.verify');
+        Route::put('/transparency-settings', [PoliticianController::class, 'updateTransparencySettings'])->name('transparency-settings.update');
     });
     
     /*
@@ -135,7 +218,7 @@ Route::middleware(['auth', 'verified', 'check.role'])->group(function () {
     | Voter Dashboard & Earnings
     |--------------------------------------------------------------------------
     */
-    Route::prefix('voter')->name('voter.')->middleware('role:voter')->group(function () {
+    Route::prefix('voter')->name('voter.')->middleware(['role:voter', 'check.voter.onboarding'])->group(function () {
         Route::get('/dashboard', [VoterController::class, 'dashboard'])->name('dashboard');
 
         // ── Ad Viewing Room ──────────────────────────────────────────────────
@@ -181,7 +264,7 @@ Route::middleware(['auth', 'verified', 'check.role'])->group(function () {
     | Admin Dashboard & Management
     |--------------------------------------------------------------------------
     */
-    Route::prefix('admin')->name('admin.')->middleware('role:admin')->group(function () {
+    Route::prefix('admin')->name('admin.')->middleware(['role:admin', 'check.admin.onboarding'])->group(function () {
         Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
         
         // Campaign Approval
@@ -266,5 +349,6 @@ Route::get('/pricing', fn() => view('standalone.pricing'))->name('pricing');
 Route::get('/contact', fn() => view('standalone.contact'))->name('contact');
 Route::post('/contact', [DashboardController::class, 'submitContact'])->name('contact.submit');
 
-// Phase 13 — Politician Public Profile Page
+// Phase 13 — Politician Public Profile Pages
+Route::get('/politicians', [PublicProfileController::class, 'index'])->name('politicians.directory');
 Route::get('/p/{slug}', [PublicProfileController::class, 'show'])->name('politician.public.show');

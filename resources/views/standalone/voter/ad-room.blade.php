@@ -101,6 +101,27 @@
     </div>
     @endif
 
+    {{-- Browse Politicians Banner --}}
+    <div class="bg-blue-500/10 border border-blue-500/30 rounded-2xl p-4 flex items-center gap-4 justify-between hover:border-blue-400/50 transition group">
+        <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-xl bg-blue-500/20 flex items-center justify-center shrink-0 group-hover:bg-blue-500/30 transition">
+                <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+                </svg>
+            </div>
+            <div>
+                <p class="text-blue-200 font-semibold text-sm">Want to learn more about these politicians?</p>
+                <p class="text-slate-400 text-xs mt-0.5">
+                    Browse our directory to research verified officials, view their profiles &amp; transparency data before watching.
+                </p>
+            </div>
+        </div>
+        <a href="{{ route('politicians.directory') }}"
+           class="shrink-0 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-xl text-sm font-medium transition whitespace-nowrap">
+            Browse Politicians →
+        </a>
+    </div>
+
     {{-- ── Filter bar ──────────────────────────────────────── --}}
     <div class="flex flex-wrap items-center gap-3">
         <form method="GET" action="{{ route('voter.ad-room') }}" class="flex flex-wrap items-center gap-3 flex-1">

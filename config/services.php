@@ -55,4 +55,32 @@ return [
         'sandbox'       => env('PAYPAL_SANDBOX', true),
     ],
 
+    'fcm' => [
+        'project_id'        => env('FCM_PROJECT_ID'),
+        'credentials_path'  => env('FCM_CREDENTIALS_PATH'),
+    ],
+
+    'twilio' => [
+        'account_sid'  => env('TWILIO_ACCOUNT_SID'),
+        'auth_token'   => env('TWILIO_AUTH_TOKEN'),
+        'from_number'  => env('TWILIO_FROM_NUMBER'),
+    ],
+
+    // Phase 16: Public Data Integration Services
+    'ballotpedia' => [
+        'api_key' => env('BALLOTPEDIA_API_KEY'),
+    ],
+
+    'opensecrets' => [
+        'api_key' => env('OPENSECRETS_API_KEY'),
+    ],
+
+    'votesmart' => [
+        'api_key' => env('VOTESMART_API_KEY'),
+    ],
+
+    'fec' => [
+        'api_key' => env('FEC_API_KEY'),
+    ],
+
 ];

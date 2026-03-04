@@ -741,4 +741,112 @@ class PoliticianController extends Controller
 
         return back()->with('success', 'Initiative removed.');
     }
+
+    // ─── Phase 16: Profile Verification & Transparency Settings ───────────────
+
+    /**
+     * Show transparency settings page
+     */
+    public function transparencySettings()
+    {
+        $politician = Auth::user()->politician;
+        abort_unless($politician, 403);
+
+        $verificationService = app(\App\Services\ProfileVerificationService::class);
+        $verificationStatus = $verificationService->getVerificationStatus($politician);
+
+        return view('standalone.politician.transparency-settings', compact(
+            'politician',
+            'verificationStatus'
+        ));
+    }
+
+    /**
+     * Initiate profile verification
+     */
+    public function initiateVerification(Request $request)
+    {
+        $politician = Auth::user()->politician;
+        abort_unless($politician, 403);
+
+        $validated = $request->validate([
+            'government_email' => 'required|email',
+        ]);
+
+        $verificationService = app(\App\Services\ProfileVerificationService::class);
+
+        try {
+            $verificationService->initiateVerification(
+                $politician,
+                $validated['government_email']
+            );
+
+            return back()->with('success', 'Verification email sent! Please check ' . $validated['government_email']);
+        } catch (\Exception $e) {
+            return back()->withErrors(['government_email' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Verify profile with token (from email link)
+     */
+    public function verifyProfile(string $token)
+    {
+        $verificationService = app(\App\Services\ProfileVerificationService::class);
+        $politician = $verificationService->verifyToken($token);
+
+        if (!$politician) {
+            return redirect()->route('politician.transparency-settings')
+                ->withErrors(['error' => 'Invalid or expired verification token']);
+        }
+
+        return redirect()->route('politician.transparency-settings')
+            ->with('success', 'Profile verified successfully! You can now enable transparency data sources.');
+    }
+
+    /**
+     * Update transparency data source toggles
+     */
+    public function updateTransparencySettings(Request $request)
+    {
+        $politician = Auth::user()->politician;
+        abort_unless($politician, 403);
+
+        // Only verified politicians can update transparency settings
+        if ($politician->verification_status !== 'verified') {
+            return back()->withErrors(['error' => 'You must verify your profile before enabling transparency features']);
+        }
+
+        $validated = $request->validate([
+            'show_ballotpedia_data' => 'boolean',
+            'show_opensecrets_data' => 'boolean',
+            'show_votesmart_data' => 'boolean',
+            'show_fec_data' => 'boolean',
+        ]);
+
+        // Convert null to false for checkboxes
+        $validated['show_ballotpedia_data'] = $request->boolean('show_ballotpedia_data', false);
+        $validated['show_opensecrets_data'] = $request->boolean('show_opensecrets_data', false);
+        $validated['show_votesmart_data'] = $request->boolean('show_votesmart_data', false);
+        $validated['show_fec_data'] = $request->boolean('show_fec_data', false);
+
+        $politician->update($validated);
+
+        // Clear cache for all enabled services
+        if ($validated['show_ballotpedia_data']) {
+            app(\App\Services\BallotpediaService::class)->clearCache($politician);
+        }
+        if ($validated['show_opensecrets_data']) {
+            app(\App\Services\OpenSecretsService::class)->clearCache($politician);
+        }
+        if ($validated['show_votesmart_data']) {
+            app(\App\Services\VoteSmartService::class)->clearCache($politician);
+        }
+        if ($validated['show_fec_data']) {
+            app(\App\Services\FECService::class)->clearCache($politician);
+        }
+
+        return back()->with('success', 'Transparency settings updated');
+    }
 }
+

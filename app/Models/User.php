@@ -143,6 +143,14 @@ class User extends Authenticatable
         return $this->hasOne(Voter::class);
     }
 
+    /**
+     * Notification preferences for this user.
+     */
+    public function notificationPreference(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(NotificationPreference::class);
+    }
+
     // ── Scopes ───────────────────────────────────────────────
 
     /**

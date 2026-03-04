@@ -126,6 +126,27 @@
         </a>
     </div>
 
+    {{-- Browse Politicians Directory --}}
+    <div class="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-5 flex items-center gap-4 justify-between hover:border-blue-500/40 transition group">
+        <div class="flex items-center gap-4">
+            <div class="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center shrink-0 group-hover:bg-blue-500/30 transition">
+                <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                </svg>
+            </div>
+            <div>
+                <p class="text-white font-semibold text-sm">Browse Politicians</p>
+                <p class="text-slate-400 text-xs mt-0.5">
+                    Research verified officials &amp; view their profiles before watching their campaigns
+                </p>
+            </div>
+        </div>
+        <a href="{{ route('politicians.directory') }}"
+           class="shrink-0 bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-xl text-sm font-medium transition">
+            View Directory →
+        </a>
+    </div>
+
     {{-- Earnings Calculator Widget --}}
     <x-earnings-calculator />
 

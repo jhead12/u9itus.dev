@@ -202,6 +202,7 @@ Route::prefix('campaigns')->name('campaigns.')->group(function () {
 Phase 2.2 is responsible for ensuring all campaign videos work consistently across browsers and devices, regardless of the source format.
 
 **Current Implementation:**
+
 - Politicians paste YouTube URLs or direct video links (MP4, WebM)
 - Platform supports YouTube IFrame API and HTML5 `<video>` element
 - Video preview players in campaign forms let politicians test playback before submission
@@ -211,23 +212,24 @@ Phase 2.2 is responsible for ensuring all campaign videos work consistently acro
 **Planned Enhancements:**
 
 1. **Format Normalization:**
-   - Accept various source formats (MOV, AVI, MKV, etc.)
-   - Automatically convert to H.264/AAC MP4 (most compatible format)
-   - Use ffmpeg queue job for background processing: `php artisan queue:work`
+    - Accept various source formats (MOV, AVI, MKV, etc.)
+    - Automatically convert to H.264/AAC MP4 (most compatible format)
+    - Use ffmpeg queue job for background processing: `php artisan queue:work`
 
 2. **Quality Optimization:**
-   - Compress videos to reduce bandwidth (target: ~2 Mbps for 720p)
-   - Generate multiple quality levels (480p, 720p) for adaptive streaming
-   - Extract thumbnail at 2-second mark as campaign cover image
+    - Compress videos to reduce bandwidth (target: ~2 Mbps for 720p)
+    - Generate multiple quality levels (480p, 720p) for adaptive streaming
+    - Extract thumbnail at 2-second mark as campaign cover image
 
 3. **Streaming Delivery:**
-   - Generate HLS/DASH manifests for adaptive bitrate streaming
-   - Upload processed videos to CDN (CloudFlare Stream recommended)
-   - Provide secure signed URLs with expiration
+    - Generate HLS/DASH manifests for adaptive bitrate streaming
+    - Upload processed videos to CDN (CloudFlare Stream recommended)
+    - Provide secure signed URLs with expiration
 
 **ffmpeg Integration:**
 
 Install ffmpeg on your server:
+
 ```bash
 # Ubuntu/Debian
 apt install ffmpeg
@@ -237,6 +239,7 @@ brew install ffmpeg
 ```
 
 Example queue job for video processing:
+
 ```php
 // app/Jobs/ProcessCampaignVideo.php
 use Illuminate\Support\Facades\Storage;
@@ -266,6 +269,7 @@ public function handle()
 **Video Preview Feature (✅ Implemented):**
 
 Politicians can now test their videos directly in the campaign forms:
+
 - **Create Form:** Paste URL → instant preview appears below
 - **Edit Form:** See current video + change URL with live preview
 - **Show Page:** Full preview player with "Test Play" button
@@ -275,6 +279,7 @@ Politicians can now test their videos directly in the campaign forms:
 **Testing Your Video:**
 
 Before submitting campaigns, politicians should:
+
 1. Enter video URL in create/edit form
 2. Wait for preview to load
 3. Click "Test Play" to ensure smooth playback

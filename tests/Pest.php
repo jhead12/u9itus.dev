@@ -44,6 +44,38 @@ expect()->extend('toBeOne', function () {
 |
 */
 
+/**
+ * Skip onboarding for a test user
+ * This prevents onboarding middleware from redirecting during tests
+ */
+function skipOnboarding(\App\Models\User $user, ?string $userType = null): void
+{
+    // Auto-detect user type if not provided
+    if (!$userType) {
+        if ($user->hasRole('voter')) {
+            $userType = 'voter';
+        } elseif ($user->hasRole('politician')) {
+            $userType = 'politician';
+        } elseif ($user->hasRole('admin')) {
+            $userType = 'admin';
+        } else {
+            $userType = 'voter'; // default
+        }
+    }
+
+    \App\Models\OnboardingProgress::updateOrCreate(
+        ['user_id' => $user->id],
+        [
+            'user_type' => $userType,
+            'current_phase' => 'welcome',
+            'completed_phases' => [],
+            'is_completed' => true,
+            'skipped' => true,
+            'completed_at' => now(),
+        ]
+    );
+}
+
 function something()
 {
     // ..

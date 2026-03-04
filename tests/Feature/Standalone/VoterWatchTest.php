@@ -24,6 +24,9 @@ function voterUser(array $voterOverrides = []): array
     $user  = User::factory()->create();
     $user->assignRole('voter');
 
+    // Skip onboarding for test
+    skipOnboarding($user, 'voter');
+
     $voter = Voter::factory()->create(array_merge([
         'user_id'    => $user->id,
         'is_verified' => true,

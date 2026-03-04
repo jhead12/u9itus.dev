@@ -21,6 +21,9 @@ return Application::configure(basePath: dirname(__DIR__))
             'permission'        => \Spatie\Permission\Middleware\PermissionMiddleware::class,
             'role_or_permission'=> \Spatie\Permission\Middleware\RoleOrPermissionMiddleware::class,
             'check.role'        => \App\Http\Middleware\CheckUserRole::class,
+            'check.voter.onboarding' => \App\Http\Middleware\CheckVoterOnboarding::class,
+            'check.politician.onboarding' => \App\Http\Middleware\CheckPoliticianOnboarding::class,
+            'check.admin.onboarding' => \App\Http\Middleware\CheckAdminOnboarding::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
