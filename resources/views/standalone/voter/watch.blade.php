@@ -61,10 +61,12 @@
             <video
                 id="ad-video"
                 class="w-full aspect-video"
-                controlsList="nodownload nofullscreen"
+                controlsList="nodownload nofullscreen noplaybackrate"
                 disablePictureInPicture
+                disableRemotePlayback
                 playsinline
                 preload="metadata"
+                oncontextmenu="return false;"
             >
                 @if($campaign->media_url)
                     <source src="{{ $campaign->media_url }}" type="video/mp4">
@@ -72,6 +74,9 @@
                 Your browser does not support HTML5 video.
             </video>
         @endif
+
+        {{-- Fraud Prevention: Transparent blocker prevents seeking/interaction with video controls --}}
+        <div id="control-blocker" class="hidden absolute inset-0 z-10" style="pointer-events: auto; cursor: not-allowed;"></div>
 
         {{-- Overlay before play --}}
         <div id="play-overlay" class="absolute inset-0 flex flex-col items-center justify-center bg-black/60 cursor-pointer">
@@ -400,24 +405,37 @@
                     fs:             0,       // disable fullscreen button
                     modestbranding: 1,
                     playsinline:    1,
-                    controls:       1,
+                    controls:       0,       // 🔒 FRAUD PREVENTION: Hide all controls to prevent seeking
+                    disablekb:      1,       // disable keyboard controls (spacebar, arrow keys)
+                    iv_load_policy: 3,       // hide video annotations
                     origin:         window.location.origin,
                 },
                 events: {
                     onStateChange: function (e) {
                         if (e.data === YT.PlayerState.PLAYING) {
+                            // Show control blocker to prevent any clicking on video
+                            document.getElementById('control-blocker').classList.remove('hidden');
                             startHeartbeat(() => ytPlayer.getCurrentTime() || 0);
-                            // Anti-skip: poll every second
+                            // Anti-skip: poll every 500ms for aggressive detection
                             if (!antiSkipTimer) {
                                 antiSkipTimer = setInterval(() => {
                                     if (!ytPlayer || completed) return;
                                     const t = ytPlayer.getCurrentTime() || 0;
-                                    if (t > lastTime + 3) {
+                                    // If user somehow skips forward more than 1.5 seconds, rewind
+                                    if (t > lastTime + 1.5) {
+                                        console.warn('⚠️ Skip detected - rewinding');
                                         ytPlayer.seekTo(lastTime, true);
+                                        ytPlayer.playVideo(); // ensure it continues playing
                                     } else {
                                         lastTime = t;
                                     }
-                                }, 1000);
+                                }, 500);
+                            }
+                        } else if (e.data === YT.PlayerState.PAUSED) {
+                            // Prevent manual pausing - auto-resume
+                            if (!completed && ytPlayer) {
+                                console.warn('⚠️ Pause detected - auto-resuming');
+                                setTimeout(() => ytPlayer.playVideo(), 100);
                             }
                         } else if (e.data === YT.PlayerState.ENDED) {
                             handleVideoEnded(ytPlayer.getCurrentTime() || 0);
@@ -456,6 +474,32 @@
         const video = document.getElementById('ad-video');
         let nativeLastTime = 0;
 
+        // Prevent seeking on native video
+        video.addEventListener('seeking', function() {
+            if (!completed && nativeLastTime > 0) {
+                const delta = Math.abs(this.currentTime - nativeLastTime);
+                if (delta > 1.5) {
+                    console.warn('⚠️ Seek detected - blocking');
+                    this.currentTime = nativeLastTime;
+                }
+            }
+        });
+
+        // Track time and prevent skipping
+        video.addEventListener('timeupdate', function() {
+            if (!completed) {
+                nativeLastTime = this.currentTime;
+            }
+        });
+
+        // Prevent pausing
+        video.addEventListener('pause', function() {
+            if (!completed && video.currentTime > 0 && video.currentTime < video.duration - 1) {
+                console.warn('⚠️ Pause detected - auto-resuming');
+                setTimeout(() => video.play(), 100);
+            }
+        });
+
         overlay.addEventListener('click', async () => {
             overlay.style.display = 'none';
             try {
@@ -464,6 +508,8 @@
                 if (res.error) { showStatus(res.error, 'error'); overlay.style.display = ''; return; }
                 sessionId = res.session_id;
                 window.sessionId = sessionId; // Expose for report forms
+                // Show control blocker
+                document.getElementById('control-blocker').classList.remove('hidden');
                 video.play();
                 startHeartbeat(() => video.currentTime || 0);
             } catch (e) {
