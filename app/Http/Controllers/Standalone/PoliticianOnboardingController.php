@@ -68,7 +68,16 @@ class PoliticianOnboardingController extends Controller
         // Update politician profile
         $politician = Politician::where('user_id', auth()->id())->first();
         if ($politician) {
-            $politician->update($validated);
+            // Map office_title to political_office for database storage
+            $updateData = [
+                'governance_level' => $validated['governance_level'],
+                'political_office' => $validated['office_title'], // Map to correct field
+                'party_affiliation' => $validated['party_affiliation'],
+                'bio' => $validated['bio'] ?? null,
+                'state' => $validated['state'] ?? null,
+                'district' => $validated['district'] ?? null,
+            ];
+            $politician->update($updateData);
         }
 
         $progress = $this->onboardingService->getOrCreate(auth()->user(), 'politician');

@@ -128,9 +128,14 @@
                         </div>
                         <div>
                             <label for="party" class="block text-sm font-medium text-slate-300 mb-1.5">Political party <span class="text-red-400">*</span></label>
-                            <input id="party" type="text" name="party" value="{{ old('party') }}" required
-                                class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition"
-                                placeholder="e.g. Democratic" />
+                            <select id="party" name="party" required
+                                class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition">
+                                <option value="">Select...</option>
+                                <option value="Democratic" {{ old('party') === 'Democratic' ? 'selected' : '' }}>Democratic</option>
+                                <option value="Republican" {{ old('party') === 'Republican' ? 'selected' : '' }}>Republican</option>
+                                <option value="Independent" {{ old('party') === 'Independent' ? 'selected' : '' }}>Independent</option>
+                                <option value="Other" {{ old('party') === 'Other' ? 'selected' : '' }}>Other</option>
+                            </select>
                         </div>
                     </div>
 
