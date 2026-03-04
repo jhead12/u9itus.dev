@@ -17,7 +17,147 @@
 @endpush
 
 @push('scripts')
-<script src="https://cdn.scaleflex.it/plugins/filerobot-image-editor/4/latest/filerobot-image-editor.min.js" id="filerobot-script"></script>
+<script src="https://cdn.scaleflex.it/plugins/filerobot-image-editor/4/latest/filerobot-image-editor.min.js"></script>
+<script>
+// ─── Filerobot Image Editor Initialization ────────────────────────────
+(function() {
+    console.log('Filerobot initialization script loaded');
+    console.log('FilerobotImageEditor available:', !!window.FilerobotImageEditor);
+    
+    const openEditorBtn = document.getElementById('openImageEditor');
+    
+    if (!openEditorBtn) {
+        console.error('Image editor button not found');
+        return;
+    }
+
+    if (!window.FilerobotImageEditor) {
+        console.error('Filerobot Image Editor library not loaded');
+        return;
+    }
+    
+    console.log('Attaching click event to image editor button');
+    
+    openEditorBtn.addEventListener('click', function() {
+        console.log('Image editor button clicked');
+        
+        const { TABS, TOOLS } = window.FilerobotImageEditor;
+        
+        // If no image exists, create a blank canvas with recommended dimensions
+        const imageSource = currentHeroBannerUrl && currentHeroBannerUrl.trim() !== ''
+            ? currentHeroBannerUrl
+            : undefined; // Undefined will create blank canvas
+
+        const config = {
+            source: imageSource,
+            defaultSavedImageName: 'hero-banner',
+            defaultSavedImageType: 'png',
+            useBackendTranslations: false,
+            onSave: (editedImageObject, designState) => {
+                // Update preview with edited image
+                currentHeroBannerUrl = editedImageObject.imageBase64;
+                updateHeroBannerPreview(currentHeroBannerUrl);
+
+                // Store edited image data in hidden input
+                document.getElementById('heroBannerEditedData').value = editedImageObject.imageBase64;
+
+                // Clear file input and URL input since we have edited data
+                document.getElementById('heroBannerFile').value = '';
+                document.getElementById('heroBannerUrlInput').value = '';
+
+                filerobotImageEditor.terminate();
+            },
+            onClose: (closingReason) => {
+                filerobotImageEditor.terminate();
+            },
+            annotationsCommon: {
+                fill: '#10b981'
+            },
+            Text: {
+                text: 'Your Text Here',
+                fontSize: 48,
+                fontFamily: 'Arial',
+                fill: '#ffffff'
+            },
+            Rotate: { angle: 90, componentType: 'slider' },
+            Crop: {
+                presetsItems: [
+                    {
+                        titleKey: 'classicTv',
+                        descriptionKey: '4:3',
+                        ratio: 4 / 3,
+                    },
+                    {
+                        titleKey: 'cinemascope',
+                        descriptionKey: '21:9',
+                        ratio: 21 / 9,
+                    },
+                    {
+                        titleKey: 'widescreen',
+                        descriptionKey: '16:9',
+                        ratio: 16 / 9,
+                    },
+                    {
+                        titleKey: 'banner',
+                        descriptionKey: '1920:600',
+                        ratio: 1920 / 600,
+                    },
+                ],
+                presetsFolders: [
+                    {
+                        titleKey: 'socialMedia',
+                        groups: [
+                            {
+                                titleKey: 'facebook',
+                                items: [
+                                    {
+                                        titleKey: 'profile',
+                                        width: 180,
+                                        height: 180,
+                                        descriptionKey: 'fbProfileSize',
+                                    },
+                                    {
+                                        titleKey: 'cover',
+                                        width: 820,
+                                        height: 312,
+                                        descriptionKey: 'fbCoverSize',
+                                    },
+                                ],
+                            },
+                        ],
+                    },
+                ],
+            },
+            tabsIds: [TABS.ADJUST, TABS.ANNOTATE, TABS.FILTERS, TABS.FINETUNE, TABS.RESIZE],
+            // Start with annotation tools for blank canvas, or adjust tools for existing images
+            defaultTabId: imageSource ? TABS.ADJUST : TABS.ANNOTATE,
+            defaultToolId: imageSource ? TOOLS.CROP : TOOLS.TEXT,
+            theme: {
+                palette: {
+                    'bg-primary': '#0f172a',
+                    'bg-secondary': '#1e293b',
+                    'accent-primary': '#10b981',
+                },
+            },
+        };
+
+        // Create or reuse container element
+        let container = document.getElementById('filerobot-image-editor-container');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'filerobot-image-editor-container';
+            document.body.appendChild(container);
+        }
+
+        filerobotImageEditor = new window.FilerobotImageEditor.default(
+            container,
+            config
+        );
+
+        filerobotImageEditor.render();
+    });
+})();
+</script>
 @endpush
 
 @section('content')
@@ -544,173 +684,6 @@ function removeHeroBanner() {
     }
 }
 
-/**
- * Wait for Filerobot library to load, then initialize
- */
-function waitForFilerobotAndInitialize() {
-    const maxAttempts = 50; // Wait up to 5 seconds
-    let attempts = 0;
-    
-    const checkLibrary = setInterval(() => {
-        attempts++;
-        
-        if (window.FilerobotImageEditor) {
-            clearInterval(checkLibrary);
-            console.log('Filerobot Image Editor library loaded successfully');
-            initializeImageEditor();
-        } else if (attempts >= maxAttempts) {
-            clearInterval(checkLibrary);
-            console.error('Filerobot Image Editor library failed to load after 5 seconds');
-        }
-    }, 100);
-}
-
-/**
- * Initialize Filerobot Image Editor
- */
-function initializeImageEditor() {
-    const openEditorBtn = document.getElementById('openImageEditor');
-    
-    if (!openEditorBtn) {
-        console.error('Image editor button not found');
-        return;
-    }
-
-    if (!window.FilerobotImageEditor) {
-        console.error('Filerobot Image Editor library not loaded');
-        return;
-    }
-    
-    console.log('Attaching click event to image editor button');
-    
-    openEditorBtn.addEventListener('click', function() {
-        console.log('Image editor button clicked');
-        // Initialize Filerobot Image Editor
-        const { TABS, TOOLS } = window.FilerobotImageEditor;
-            
-            // If no image exists, create a blank canvas with recommended dimensions
-            const imageSource = currentHeroBannerUrl && currentHeroBannerUrl.trim() !== ''
-                ? currentHeroBannerUrl
-                : undefined; // Undefined will create blank canvas
-
-            const config = {
-                source: imageSource,
-                defaultSavedImageName: 'hero-banner',
-                defaultSavedImageType: 'png',
-                useBackendTranslations: false,
-                onSave: (editedImageObject, designState) => {
-                    // Update preview with edited image
-                    currentHeroBannerUrl = editedImageObject.imageBase64;
-                    updateHeroBannerPreview(currentHeroBannerUrl);
-
-                    // Store edited image data in hidden input
-                    document.getElementById('heroBannerEditedData').value = editedImageObject.imageBase64;
-
-                    // Clear file input and URL input since we have edited data
-                    document.getElementById('heroBannerFile').value = '';
-                    document.getElementById('heroBannerUrlInput').value = '';
-
-                    filerobotImageEditor.terminate();
-                },
-                onClose: (closingReason) => {
-                    filerobotImageEditor.terminate();
-                },
-                annotationsCommon: {
-                    fill: '#10b981'
-                },
-                Text: {
-                    text: 'Your Text Here',
-                    fontSize: 48,
-                    fontFamily: 'Arial',
-                    fill: '#ffffff'
-                },
-                Rotate: { angle: 90, componentType: 'slider' },
-                Crop: {
-                    presetsItems: [
-                        {
-                            titleKey: 'classicTv',
-                            descriptionKey: '4:3',
-                            ratio: 4 / 3,
-                        },
-                        {
-                            titleKey: 'cinemascope',
-                            descriptionKey: '21:9',
-                            ratio: 21 / 9,
-                        },
-                        {
-                            titleKey: 'widescreen',
-                            descriptionKey: '16:9',
-                            ratio: 16 / 9,
-                        },
-                        {
-                            titleKey: 'banner',
-                            descriptionKey: '1920:600',
-                            ratio: 1920 / 600,
-                        },
-                    ],
-                    presetsFolders: [
-                        {
-                            titleKey: 'socialMedia',
-                            groups: [
-                                {
-                                    titleKey: 'facebook',
-                                    items: [
-                                        {
-                                            titleKey: 'profile',
-                                            width: 180,
-                                            height: 180,
-                                            descriptionKey: 'fbProfileSize',
-                                        },
-                                        {
-                                            titleKey: 'cover',
-                                            width: 820,
-                                            height: 312,
-                                            descriptionKey: 'fbCoverSize',
-                                        },
-                                    ],
-                                },
-                            ],
-                        },
-                    ],
-                },
-                tabsIds: [TABS.ADJUST, TABS.ANNOTATE, TABS.FILTERS, TABS.FINETUNE, TABS.RESIZE],
-                // Start with annotation tools for blank canvas, or adjust tools for existing images
-                defaultTabId: imageSource ? TABS.ADJUST : TABS.ANNOTATE,
-                defaultToolId: imageSource ? TOOLS.CROP : TOOLS.TEXT,
-                theme: {
-                    palette: {
-                        'bg-primary': '#0f172a',
-                        'bg-secondary': '#1e293b',
-                        'accent-primary': '#10b981',
-                    },
-                },
-            };
-
-            // Create or reuse container element
-            let container = document.getElementById('filerobot-image-editor-container');
-            if (!container) {
-                container = document.createElement('div');
-                container.id = 'filerobot-image-editor-container';
-                document.body.appendChild(container);
-            }
-
-            filerobotImageEditor = new window.FilerobotImageEditor.default(
-                container,
-                config
-            );
-
-            filerobotImageEditor.render();
-        });
-}
-
-// Wait for DOM and Filerobot library to be ready
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', waitForFilerobotAndInitialize);
-} else {
-    // DOM is already loaded, wait for library
-    waitForFilerobotAndInitialize();
-}
-
 // ─── Layout & Style Button Visual Feedback ────────────────────────────
 /**
  * Add instant visual feedback to radio button selections
@@ -745,7 +718,7 @@ const addRadioFeedback = (radioName) => {
     });
 };
 
-// Apply instant feedback to layout preset and background style selections
+// Apply instant feedback when DOM is ready
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function() {
         addRadioFeedback('layout_preset');
