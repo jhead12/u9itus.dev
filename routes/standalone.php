@@ -253,6 +253,7 @@ Route::middleware(['auth', 'verified', 'check.role'])->group(function () {
         // Profile
         Route::get('/profile', [VoterController::class, 'profile'])->name('profile');
         Route::put('/profile', [VoterController::class, 'updateProfile'])->name('profile.update');
+        Route::put('/profile/password', [VoterController::class, 'updatePassword'])->name('profile.password.update');
 
         // KYC Document Upload
         Route::post('/kyc/upload', [VoterController::class, 'uploadKycDocument'])->name('kyc.upload');

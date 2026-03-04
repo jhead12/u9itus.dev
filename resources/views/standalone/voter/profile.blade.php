@@ -262,6 +262,70 @@
         @endif
     </div>
 
+    {{-- Password Change Section --}}
+    <div class="bg-slate-800/50 border border-slate-700/60 rounded-2xl overflow-hidden">
+        <div class="px-6 py-4 border-b border-slate-700/60">
+            <h2 class="text-base font-semibold text-white">Change Password</h2>
+            <p class="text-slate-500 text-xs mt-0.5">Update your account password</p>
+        </div>
+
+        @if(session('password_success'))
+        <div class="mx-6 mt-5 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-sm rounded-lg px-4 py-3">
+            {{ session('password_success') }}
+        </div>
+        @endif
+
+        @if($errors->has('current_password') || $errors->has('new_password'))
+        <div class="mx-6 mt-5 bg-red-500/10 border border-red-500/30 text-red-400 text-sm rounded-lg px-4 py-3">
+            @if($errors->has('current_password'))
+                {{ $errors->first('current_password') }}
+            @endif
+            @if($errors->has('new_password'))
+                {{ $errors->first('new_password') }}
+            @endif
+        </div>
+        @endif
+
+        <form action="{{ route('voter.profile.password.update') }}" method="POST" class="px-6 py-5 space-y-4">
+            @csrf
+            @method('PUT')
+
+            <div>
+                <label class="block text-sm font-medium text-slate-300 mb-1.5" for="current_password">Current Password</label>
+                <input
+                    id="current_password" name="current_password" type="password"
+                    required
+                    class="w-full bg-slate-900 border border-slate-600 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 transition"
+                >
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-slate-300 mb-1.5" for="new_password">New Password</label>
+                <input
+                    id="new_password" name="new_password" type="password"
+                    required minlength="8"
+                    class="w-full bg-slate-900 border border-slate-600 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 transition"
+                >
+                <p class="text-xs text-slate-500 mt-1">Must be at least 8 characters</p>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-slate-300 mb-1.5" for="new_password_confirmation">Confirm New Password</label>
+                <input
+                    id="new_password_confirmation" name="new_password_confirmation" type="password"
+                    required minlength="8"
+                    class="w-full bg-slate-900 border border-slate-600 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 transition"
+                >
+            </div>
+
+            <div class="flex justify-end pt-2">
+                <button type="submit" class="bg-emerald-600 hover:bg-emerald-500 text-white px-8 py-2.5 rounded-xl font-semibold transition text-sm">
+                    Update Password
+                </button>
+            </div>
+        </form>
+    </div>
+
     @else
     <div class="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-10 text-center">
         <p class="text-slate-400">No voter profile found. Contact support.</p>
