@@ -122,6 +122,11 @@ class PoliticianController extends Controller
         $data['status']        = 'draft';
         $data['revenue_per_view'] = config('u9itus.revenue_per_view', 0.60);
         $data['voter_payout_per_view'] = config('u9itus.viewer_payout_per_view', 0.25);
+        
+        // Set default media_duration if not provided (will be auto-detected from video later)
+        if (empty($data['media_duration']) && $data['campaign_type'] === 'video') {
+            $data['media_duration'] = config('u9itus.min_video_duration', 10);
+        }
 
         $campaign = PoliticalCampaign::create($data);
 
@@ -143,6 +148,11 @@ class PoliticianController extends Controller
         $data['status'] = 'draft';
         $data['revenue_per_view'] = config('u9itus.revenue_per_view', 0.60);
         $data['voter_payout_per_view'] = config('u9itus.viewer_payout_per_view', 0.25);
+        
+        // Set default media_duration if not provided
+        if (empty($data['media_duration']) && ($data['campaign_type'] ?? '') === 'video') {
+            $data['media_duration'] = config('u9itus.min_video_duration', 10);
+        }
         
         // Ensure we have at least a title for the draft
         if (!isset($data['title']) || empty($data['title'])) {

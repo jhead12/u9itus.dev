@@ -99,13 +99,12 @@
                     </p>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-slate-300 mb-1.5">Video Duration (seconds) <span class="text-red-400">*</span></label>
-                    <input type="number" name="media_duration" value="{{ old('media_duration') }}"
-                        min="{{ config('u9itus.min_video_duration', 30) }}"
-                        max="{{ config('u9itus.max_video_duration', 300) }}"
-                        class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition"
-                        placeholder="e.g. 60" />
-                    <p class="text-xs text-slate-500 mt-1">Between {{ config('u9itus.min_video_duration', 30) }}–{{ config('u9itus.max_video_duration', 300) }} seconds</p>
+                    <label class="block text-sm font-medium text-slate-300 mb-1.5">Video Duration (seconds)</label>
+                    <input type="number" name="media_duration" value="{{ old('media_duration', config('u9itus.min_video_duration', 10)) }}"
+                        min="{{ config('u9itus.min_video_duration', 10) }}"
+                        max="{{ config('u9itus.max_video_duration', 20) }}"
+                        class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition" />
+                    <p class="text-xs text-slate-500 mt-1">Defaults to {{ config('u9itus.min_video_duration', 10) }}s. System will auto-detect from video metadata if available ({{ config('u9itus.min_video_duration', 10) }}–{{ config('u9itus.max_video_duration', 20) }}s)</p>
                     @error('media_duration')<p class="text-xs text-red-400 mt-1">{{ $message }}</p>@enderror
                 </div>
             </div>

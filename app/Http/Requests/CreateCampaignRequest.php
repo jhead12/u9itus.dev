@@ -34,7 +34,7 @@ class CreateCampaignRequest extends FormRequest
             'campaign_type'         => 'required|in:video,live_feed',
             'governance_level'      => 'nullable|string|in:' . implode(',', array_keys(config('u9itus.governance_levels', []))),
             'media_url'             => 'required_if:campaign_type,video|nullable|url',
-            'media_duration'        => "required_if:campaign_type,video|nullable|integer|min:{$minDuration}|max:{$maxDuration}",
+            'media_duration'        => "nullable|integer|min:{$minDuration}|max:{$maxDuration}",
             'live_feed_url'         => 'required_if:campaign_type,live_feed|nullable|url',
             'live_scheduled_at'     => 'required_if:campaign_type,live_feed|nullable|date|after:now',
             'total_budget'          => "required|numeric|min:{$minBudget}",
