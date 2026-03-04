@@ -245,6 +245,43 @@
         </dl>
     </div>
 
+    {{-- Video Preview Panel (when media_url exists) --}}
+    @if($campaign->media_url)
+    <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-sm font-semibold text-slate-200">Video Preview</h2>
+            <button type="button" onclick="testShowPagePreview()" 
+                class="text-xs text-emerald-400 hover:text-emerald-300 flex items-center gap-1 transition">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                Test Play
+            </button>
+        </div>
+        <div class="bg-black rounded-xl overflow-hidden border border-slate-700/50">
+            <div id="ytShowContainer" class="hidden w-full aspect-video"></div>
+            <video id="nativeShowPlayer" class="hidden w-full aspect-video"
+                controls controlsList="nodownload" preload="metadata">
+                <source id="nativeShowSource" src="" type="video/mp4">
+                Your browser does not support video preview.
+            </video>
+            <div id="showPlaceholder" class="w-full aspect-video flex flex-col items-center justify-center gap-3 text-slate-500">
+                <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.069A1 1 0 0121 8.882v6.236a1 1 0 01-1.447.894L15 14M3 8a2 2 0 00-2 2v4a2 2 0 002 2h9a2 2 0 002-2v-4a2 2 0 00-2-2H3z"/>
+                </svg>
+                <p class="text-sm">Loading video preview...</p>
+            </div>
+        </div>
+        <p class="text-xs text-slate-500 mt-3">
+            <svg class="w-3.5 h-3.5 inline-block -mt-0.5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            This is how voters will see your campaign video. Video URL: <a href="{{ $campaign->media_url }}" target="_blank" class="text-emerald-400 hover:underline">{{ Str::limit($campaign->media_url, 60) }}</a>
+        </p>
+    </div>
+    @endif
+
     {{-- Video Upload Panel (draft/paused only) --}}
     @if(in_array($status, ['draft', 'paused']))
     <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
@@ -305,3 +342,90 @@
 
 </div>
 @endsection
+
+@push('scripts')
+<script>
+// Video Preview for Show Page
+(function() {
+    const mediaUrl = @json($campaign->media_url ?? null);
+    if (!mediaUrl) return;
+
+    let ytShowPlayer = null;
+    const ytContainer = document.getElementById('ytShowContainer');
+    const nativePlayer = document.getElementById('nativeShowPlayer');
+    const nativeSource = document.getElementById('nativeShowSource');
+    const placeholder = document.getElementById('showPlaceholder');
+
+    // Extract YouTube video ID
+    function extractYouTubeId(url) {
+        if (!url) return null;
+        const patterns = [
+            /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
+            /^([a-zA-Z0-9_-]{11})$/
+        ];
+        for (const pattern of patterns) {
+            const match = url.match(pattern);
+            if (match) return match[1];
+        }
+        return null;
+    }
+
+    function initYouTubeShow(videoId) {
+        nativePlayer.classList.add('hidden');
+        ytContainer.classList.remove('hidden');
+        placeholder.classList.add('hidden');
+
+        if (!window.YT) {
+            const tag = document.createElement('script');
+            tag.src = 'https://www.youtube.com/iframe_api';
+            const firstScriptTag = document.getElementsByTagName('script')[0];
+            firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+            
+            window.onYouTubeIframeAPIReady = () => createYTShowPlayer(videoId);
+        } else {
+            createYTShowPlayer(videoId);
+        }
+    }
+
+    function createYTShowPlayer(videoId) {
+        ytShowPlayer = new YT.Player('ytShowContainer', {
+            height: '100%',
+            width: '100%',
+            videoId: videoId,
+            playerVars: {
+                autoplay: 0,
+                controls: 1,
+                modestbranding: 1,
+                rel: 0
+            }
+        });
+    }
+
+    function initNativeShow(url) {
+        ytContainer.classList.add('hidden');
+        nativePlayer.classList.remove('hidden');
+        placeholder.classList.add('hidden');
+        
+        nativeSource.src = url;
+        nativePlayer.load();
+    }
+
+    // Initialize on page load
+    const youtubeId = extractYouTubeId(mediaUrl);
+    if (youtubeId) {
+        initYouTubeShow(youtubeId);
+    } else if (mediaUrl.startsWith('http')) {
+        initNativeShow(mediaUrl);
+    }
+
+    // Test button
+    window.testShowPagePreview = function() {
+        if (ytShowPlayer && ytShowPlayer.playVideo) {
+            ytShowPlayer.playVideo();
+        } else if (!nativePlayer.classList.contains('hidden')) {
+            nativePlayer.play();
+        }
+    };
+})();
+</script>
+@endpush

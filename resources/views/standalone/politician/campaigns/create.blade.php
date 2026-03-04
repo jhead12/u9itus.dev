@@ -57,11 +57,46 @@
             <div id="videoFields" class="{{ old('campaign_type', 'video') === 'live_feed' ? 'hidden' : '' }} space-y-4">
                 <div>
                     <label class="block text-sm font-medium text-slate-300 mb-1.5">Video URL <span class="text-red-400">*</span></label>
-                    <input type="url" name="media_url" value="{{ old('media_url') }}"
+                    <input type="url" name="media_url" id="videoUrlInput" value="{{ old('media_url') }}"
                         class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition"
-                        placeholder="https://example.com/your-video.mp4" />
-                    <p class="text-xs text-slate-500 mt-1">Direct link to an MP4, WebM, or hosted video URL</p>
+                        placeholder="https://youtube.com/watch?v=... or https://example.com/video.mp4" />
+                    <p class="text-xs text-slate-500 mt-1">YouTube URL or direct link to MP4/WebM video</p>
                     @error('media_url')<p class="text-xs text-red-400 mt-1">{{ $message }}</p>@enderror
+                </div>
+                
+                {{-- Video Preview Section --}}
+                <div id="videoPreviewSection" class="hidden">
+                    <div class="flex items-center justify-between mb-2">
+                        <label class="block text-sm font-medium text-slate-300">Video Preview</label>
+                        <button type="button" onclick="testVideoPreview()" 
+                            class="text-xs text-emerald-400 hover:text-emerald-300 flex items-center gap-1 transition">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            Test Play
+                        </button>
+                    </div>
+                    <div class="bg-black rounded-xl overflow-hidden border border-slate-700/50">
+                        <div id="ytPreviewContainer" class="hidden w-full aspect-video"></div>
+                        <video id="nativePreviewPlayer" class="hidden w-full aspect-video"
+                            controls controlsList="nodownload" preload="metadata">
+                            <source id="nativePreviewSource" src="" type="video/mp4">
+                            Your browser does not support video preview.
+                        </video>
+                        <div id="previewPlaceholder" class="w-full aspect-video flex flex-col items-center justify-center gap-3 text-slate-500">
+                            <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.069A1 1 0 0121 8.882v6.236a1 1 0 01-1.447.894L15 14M3 8a2 2 0 00-2 2v4a2 2 0 002 2h9a2 2 0 002-2v-4a2 2 0 00-2-2H3z"/>
+                            </svg>
+                            <p class="text-sm">Enter a valid video URL to preview</p>
+                        </div>
+                    </div>
+                    <p class="text-xs text-slate-500 mt-2">
+                        <svg class="w-3.5 h-3.5 inline-block -mt-0.5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        This is how voters will see your video. Test it to ensure proper playback.
+                    </p>
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-slate-300 mb-1.5">Video Duration (seconds) <span class="text-red-400">*</span></label>
@@ -315,6 +350,122 @@ document.getElementById('campaignForm').addEventListener('submit', function(e) {
         input.value = s;
         this.appendChild(input);
     });
+});
+
+// ── Video Preview Functionality ──────────────────────────────────────
+let ytPreviewPlayer = null;
+const videoUrlInput = document.getElementById('videoUrlInput');
+const previewSection = document.getElementById('videoPreviewSection');
+const ytContainer = document.getElementById('ytPreviewContainer');
+const nativePlayer = document.getElementById('nativePreviewPlayer');
+const nativeSource = document.getElementById('nativePreviewSource');
+const placeholder = document.getElementById('previewPlaceholder');
+
+// Extract YouTube video ID from various URL formats
+function extractYouTubeId(url) {
+    if (!url) return null;
+    const patterns = [
+        /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
+        /^([a-zA-Z0-9_-]{11})$/  // Direct ID
+    ];
+    for (const pattern of patterns) {
+        const match = url.match(pattern);
+        if (match) return match[1];
+    }
+    return null;
+}
+
+// Initialize YouTube player for preview
+function initYouTubePreview(videoId) {
+    // Clean up existing players
+    if (ytPreviewPlayer) {
+        ytPreviewPlayer.destroy();
+        ytPreviewPlayer = null;
+    }
+    nativePlayer.classList.add('hidden');
+    ytContainer.classList.remove('hidden');
+    placeholder.classList.add('hidden');
+
+    // Load YouTube IFrame API if not already loaded
+    if (!window.YT) {
+        const tag = document.createElement('script');
+        tag.src = 'https://www.youtube.com/iframe_api';
+        const firstScriptTag = document.getElementsByTagName('script')[0];
+        firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+        
+        window.onYouTubeIframeAPIReady = () => createYTPlayer(videoId);
+    } else {
+        createYTPlayer(videoId);
+    }
+}
+
+function createYTPlayer(videoId) {
+    ytPreviewPlayer = new YT.Player('ytPreviewContainer', {
+        height: '100%',
+        width: '100%',
+        videoId: videoId,
+        playerVars: {
+            autoplay: 0,
+            controls: 1,
+            modestbranding: 1,
+            rel: 0
+        }
+    });
+}
+
+// Initialize native video player for direct URLs
+function initNativePreview(url) {
+    if (ytPreviewPlayer) {
+        ytPreviewPlayer.destroy();
+        ytPreviewPlayer = null;
+    }
+    ytContainer.classList.add('hidden');
+    nativePlayer.classList.remove('hidden');
+    placeholder.classList.add('hidden');
+    
+    nativeSource.src = url;
+    nativePlayer.load();
+}
+
+// Handle video URL changes
+videoUrlInput.addEventListener('input', () => {
+    const url = videoUrlInput.value.trim();
+    
+    if (!url) {
+        previewSection.classList.add('hidden');
+        return;
+    }
+    
+    previewSection.classList.remove('hidden');
+    const youtubeId = extractYouTubeId(url);
+    
+    if (youtubeId) {
+        initYouTubePreview(youtubeId);
+    } else if (url.startsWith('http')) {
+        initNativePreview(url);
+    } else {
+        // Show placeholder for invalid URLs
+        if (ytPreviewPlayer) ytPreviewPlayer.destroy();
+        ytContainer.classList.add('hidden');
+        nativePlayer.classList.add('hidden');
+        placeholder.classList.remove('hidden');
+    }
+});
+
+// Test preview button
+function testVideoPreview() {
+    if (ytPreviewPlayer && ytPreviewPlayer.playVideo) {
+        ytPreviewPlayer.playVideo();
+    } else if (!nativePlayer.classList.contains('hidden')) {
+        nativePlayer.play();
+    }
+}
+
+// Trigger preview on page load if URL already exists
+window.addEventListener('DOMContentLoaded', () => {
+    if (videoUrlInput.value) {
+        videoUrlInput.dispatchEvent(new Event('input'));
+    }
 });
 </script>
 @endpush

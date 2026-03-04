@@ -179,20 +179,107 @@ Route::prefix('campaigns')->name('campaigns.')->group(function () {
 - `app/Http/Controllers/Standalone/MediaController.php`
 - `config/media.php`
 
+**Current Status: ✅ Partially Complete**
+
 **Tasks:**
 
-- [ ] Implement chunked video upload for large files
-- [ ] Add video validation (format: MP4, max size: 500MB, max duration: 5 min)
+- [x] Basic video file upload (MP4, MOV, WebM) via `PoliticianController::uploadVideo()`
+- [x] Video validation (max size, formats)
+- [x] Duration extraction via ffprobe (strict 10-20 second enforcement)
+- [x] Video preview functionality in create/edit/show forms (YouTube + direct URLs)
+- [ ] Implement chunked video upload for large files (>100MB)
 - [ ] Create video processing queue job for:
     - Thumbnail generation
-    - Duration extraction
-    - Format conversion (if needed)
+    - Format conversion (if needed — normalize to H.264/AAC MP4)
     - Compression/optimization
-- [ ] Setup video storage (AWS S3, DO Spaces, or local storage)
-- [ ] Generate streaming-friendly URLs
-- [ ] Implement video preview player
-- [ ] Add video replacement feature
+- [ ] Setup CDN delivery (CloudFlare Stream, AWS CloudFront, or similar)
+- [ ] Generate streaming-friendly URLs (HLS/DASH manifests)
+- [ ] Add video replacement feature with versioning
 - [ ] Create video usage tracking
+
+**Video Format Handling & Compatibility:**
+
+Phase 2.2 is responsible for ensuring all campaign videos work consistently across browsers and devices, regardless of the source format.
+
+**Current Implementation:**
+- Politicians paste YouTube URLs or direct video links (MP4, WebM)
+- Platform supports YouTube IFrame API and HTML5 `<video>` element
+- Video preview players in campaign forms let politicians test playback before submission
+- Basic duration validation via ffprobe on file uploads
+- File uploads stored on default disk (local or S3)
+
+**Planned Enhancements:**
+
+1. **Format Normalization:**
+   - Accept various source formats (MOV, AVI, MKV, etc.)
+   - Automatically convert to H.264/AAC MP4 (most compatible format)
+   - Use ffmpeg queue job for background processing: `php artisan queue:work`
+
+2. **Quality Optimization:**
+   - Compress videos to reduce bandwidth (target: ~2 Mbps for 720p)
+   - Generate multiple quality levels (480p, 720p) for adaptive streaming
+   - Extract thumbnail at 2-second mark as campaign cover image
+
+3. **Streaming Delivery:**
+   - Generate HLS/DASH manifests for adaptive bitrate streaming
+   - Upload processed videos to CDN (CloudFlare Stream recommended)
+   - Provide secure signed URLs with expiration
+
+**ffmpeg Integration:**
+
+Install ffmpeg on your server:
+```bash
+# Ubuntu/Debian
+apt install ffmpeg
+
+# macOS
+brew install ffmpeg
+```
+
+Example queue job for video processing:
+```php
+// app/Jobs/ProcessCampaignVideo.php
+use Illuminate\Support\Facades\Storage;
+use Symfony\Component\Process\Process;
+
+public function handle()
+{
+    $inputPath = Storage::path($this->campaign->media_url);
+    $outputPath = storage_path("app/processed/{$this->campaign->id}.mp4");
+
+    // Convert + compress
+    $process = new Process([
+        'ffmpeg', '-i', $inputPath,
+        '-c:v', 'libx264', '-preset', 'medium', '-crf', '23',
+        '-c:a', 'aac', '-b:a', '128k',
+        '-movflags', '+faststart',
+        '-y', $outputPath
+    ]);
+    $process->setTimeout(300)->run();
+
+    if ($process->isSuccessful()) {
+        // Upload to CDN, update campaign->media_url
+    }
+}
+```
+
+**Video Preview Feature (✅ Implemented):**
+
+Politicians can now test their videos directly in the campaign forms:
+- **Create Form:** Paste URL → instant preview appears below
+- **Edit Form:** See current video + change URL with live preview
+- **Show Page:** Full preview player with "Test Play" button
+- Supports YouTube (IFrame API) and direct video URLs (HTML5)
+- Shows voters' exact playback experience
+
+**Testing Your Video:**
+
+Before submitting campaigns, politicians should:
+1. Enter video URL in create/edit form
+2. Wait for preview to load
+3. Click "Test Play" to ensure smooth playback
+4. Verify duration is 10-20 seconds (strict requirement)
+5. Confirm audio/video quality meets expectations
 
 **Storage Configuration:**
 
