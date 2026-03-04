@@ -280,6 +280,13 @@
 
         {{-- Submit --}}
         <div class="flex gap-3">
+            <button type="button" id="saveDraftBtn"
+                class="px-6 py-2.5 text-sm font-medium text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 rounded-lg transition flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/>
+                </svg>
+                Save as Draft
+            </button>
             <button type="submit"
                 class="flex-1 bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-semibold rounded-lg px-6 py-2.5 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500/50">
                 Create Campaign (Draft)
@@ -290,6 +297,16 @@
             </a>
         </div>
     </form>
+
+    {{-- Auto-save indicator --}}
+    <div id="autoSaveIndicator" class="fixed bottom-4 right-4 bg-slate-800 border border-slate-700 text-slate-300 px-4 py-2 rounded-lg shadow-lg text-xs opacity-0 transition-opacity pointer-events-none">
+        <span class="flex items-center gap-2">
+            <svg class="w-3 h-3 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+            </svg>
+            Progress auto-saved
+        </span>
+    </div>
 
 </div>
 @endsection
@@ -303,6 +320,131 @@ const budgetInput     = document.getElementById('budgetInput');
 const campaignType    = document.getElementById('campaignType');
 const liveFeedFields  = document.getElementById('liveFeedFields');
 const balanceWarning  = document.getElementById('balanceWarning');
+const campaignForm    = document.getElementById('campaignForm');
+const saveDraftBtn    = document.getElementById('saveDraftBtn');
+const autoSaveIndicator = document.getElementById('autoSaveIndicator');
+
+// ── LocalStorage Draft Management ───────────────────────────────────
+const DRAFT_KEY = 'campaign_draft_{{ Auth::user()->politician->id ?? "temp" }}';
+let autoSaveTimeout;
+
+// Save form data to localStorage
+function saveDraftToLocalStorage() {
+    const formData = new FormData(campaignForm);
+    const data = {};
+    for (const [key, value] of formData.entries()) {
+        if (key.includes('[]')) {
+            // Handle array fields
+            const baseKey = key.replace('[]', '');
+            if (!data[baseKey]) data[baseKey] = [];
+            data[baseKey].push(value);
+        } else {
+            data[key] = value;
+        }
+    }
+    
+    localStorage.setItem(DRAFT_KEY, JSON.stringify({
+        data: data,
+        timestamp: Date.now()
+    }));
+    
+    // Show indicator
+    autoSaveIndicator.style.opacity = '1';
+    setTimeout(() => {
+        autoSaveIndicator.style.opacity = '0';
+    }, 2000);
+}
+
+// Restore form data from localStorage
+function restoreDraftFromLocalStorage() {
+    const saved = localStorage.getItem(DRAFT_KEY);
+    if (!saved) return;
+    
+    try {
+        const { data, timestamp } = JSON.parse(saved);
+        
+        // Check if draft is less than 7 days old
+        const daysSaved = (Date.now() - timestamp) / (1000 * 60 * 60 * 24);
+        if (daysSaved > 7) {
+            localStorage.removeItem(DRAFT_KEY);
+            return;
+        }
+        
+        // Restore form fields
+        for (const [key, value] of Object.entries(data)) {
+            const input = campaignForm.querySelector(`[name="${key}"]`);
+            if (input) {
+                if (input.type === 'checkbox') {
+                    input.checked = value === '1';
+                } else {
+                    input.value = value;
+                }
+            }
+        }
+        
+        // Trigger change events to update UI
+        campaignType.dispatchEvent(new Event('change'));
+        viewsInput.dispatchEvent(new Event('input'));
+        if (document.getElementById('allowRepeatViews').checked) {
+            syncRepeatPanel();
+        }
+        if (videoUrlInput.value) {
+            videoUrlInput.dispatchEvent(new Event('input'));
+        }
+        
+        console.log('Draft restored from localStorage');
+    } catch (error) {
+        console.error('Failed to restore draft:', error);
+        localStorage.removeItem(DRAFT_KEY);
+    }
+}
+
+// Auto-save every 10 seconds when user is typing
+function scheduleAutoSave() {
+    clearTimeout(autoSaveTimeout);
+    autoSaveTimeout = setTimeout(saveDraftToLocalStorage, 10000);
+}
+
+// Save Draft button handler
+saveDraftBtn.addEventListener('click', function() {
+    // Change form action to draft endpoint
+    const originalAction = campaignForm.action;
+    campaignForm.action = '{{ route('politician.campaigns.save-draft') }}';
+    
+    // Remove required attributes temporarily
+    const requiredFields = campaignForm.querySelectorAll('[required]');
+    requiredFields.forEach(field => field.removeAttribute('required'));
+    
+    // Submit form
+    campaignForm.submit();
+    
+    // Clear localStorage after successful save
+    localStorage.removeItem(DRAFT_KEY);
+});
+
+// Attach auto-save to form inputs
+campaignForm.querySelectorAll('input, textarea, select').forEach(input => {
+    input.addEventListener('input', scheduleAutoSave);
+    input.addEventListener('change', scheduleAutoSave);
+});
+
+// Clear draft from localStorage on successful form submission
+campaignForm.addEventListener('submit', function(e) {
+    // Only clear if it's the main submit (not draft save)
+    if (this.action.includes('campaigns/store') || !this.action.includes('save-draft')) {
+        localStorage.removeItem(DRAFT_KEY);
+    }
+});
+
+// Restore draft on page load (only if no old() data)
+window.addEventListener('DOMContentLoaded', () => {
+    const hasOldData = {{ old('title') ? 'true' : 'false' }};
+    if (!hasOldData) {
+        restoreDraftFromLocalStorage();
+    }
+});
+
+// ── End Draft Management ─────────────────────────────────────────────
 
 function syncBalanceWarning() {
     const budget = parseFloat(budgetInput.value || 0);
@@ -340,7 +482,7 @@ allowRepeatCheckbox.addEventListener('change', syncRepeatPanel);
 syncRepeatPanel();
 
 // Convert comma-separated text to array inputs before submit
-document.getElementById('campaignForm').addEventListener('submit', function(e) {
+campaignForm.addEventListener('submit', function(e) {
     const statesRaw = document.getElementById('targetStates').value;
     const states = statesRaw.split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
     states.forEach(s => {

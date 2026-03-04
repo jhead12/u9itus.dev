@@ -9,7 +9,16 @@
     {{-- Header --}}
     <div class="flex flex-col sm:flex-row sm:items-center gap-3">
         <div class="flex-1">
-            <p class="text-slate-400 text-sm">{{ $campaigns->total() }} campaign{{ $campaigns->total() !== 1 ? 's' : '' }} total</p>
+            <p class="text-slate-400 text-sm">
+                {{ $campaigns->total() }} campaign{{ $campaigns->total() !== 1 ? 's' : '' }} total
+                @php
+                    $draftsCount = $campaigns->where('status', 'draft')->count();
+                @endphp
+                @if($draftsCount > 0)
+                    <span class="mx-2">•</span>
+                    <span class="text-amber-400">{{ $draftsCount }} draft{{ $draftsCount !== 1 ? 's' : '' }}</span>
+                @endif
+            </p>
         </div>
         <div class="flex items-center gap-2">
             @if($politician->page_published && $politician->slug)
@@ -35,6 +44,34 @@
                 New Campaign
             </a>
         </div>
+    </div>
+
+    {{-- Quick Filters --}}
+    @php
+        $statusFilter = request('status', 'all');
+        $draftCampaigns = $campaigns->where('status', 'draft');
+        $activeCampaigns = $campaigns->whereIn('status', ['active', 'paused', 'scheduled']);
+        $completedCampaigns = $campaigns->whereIn('status', ['completed', 'cancelled']);
+    @endphp
+    <div class="flex gap-2 overflow-x-auto pb-2">
+        <a href="{{ route('politician.campaigns.index') }}" 
+           class="px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition {{ $statusFilter === 'all' ? 'bg-slate-700 text-white' : 'bg-slate-800/50 text-slate-400 hover:text-white hover:bg-slate-800' }}">
+            All ({{ $campaigns->count() }})
+        </a>
+        @if($draftCampaigns->count() > 0)
+        <a href="{{ route('politician.campaigns.index', ['status' => 'draft']) }}" 
+           class="px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition {{ $statusFilter === 'draft' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-slate-800/50 text-slate-400 hover:text-white hover:bg-slate-800' }}">
+            📝 Drafts ({{ $draftCampaigns->count() }})
+        </a>
+        @endif
+        <a href="{{ route('politician.campaigns.index', ['status' => 'active']) }}" 
+           class="px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition {{ $statusFilter === 'active' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-slate-800/50 text-slate-400 hover:text-white hover:bg-slate-800' }}">
+            Active ({{ $activeCampaigns->count() }})
+        </a>
+        <a href="{{ route('politician.campaigns.index', ['status' => 'completed']) }}" 
+           class="px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition {{ $statusFilter === 'completed' ? 'bg-slate-600/50 text-slate-300' : 'bg-slate-800/50 text-slate-400 hover:text-white hover:bg-slate-800' }}">
+            Completed ({{ $completedCampaigns->count() }})
+        </a>
     </div>
 
     @if($campaigns->isEmpty())
@@ -78,7 +115,17 @@
                 </div>
 
                 <div class="p-4 flex-1 flex flex-col">
-                    <h3 class="text-sm font-semibold text-slate-200 truncate">{{ $campaign->title }}</h3>
+                    <div class="flex items-start justify-between gap-2 mb-1">
+                        <h3 class="text-sm font-semibold text-slate-200 truncate flex-1">{{ $campaign->title }}</h3>
+                        @if(($campaign->status?->value ?? $campaign->status) === 'draft')
+                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20 shrink-0">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                            </svg>
+                            Draft
+                        </span>
+                        @endif
+                    </div>
                     <p class="text-xs text-slate-500 mt-0.5 line-clamp-2">{{ $campaign->message_summary ?? '—' }}</p>
 
                     {{-- Progress --}}

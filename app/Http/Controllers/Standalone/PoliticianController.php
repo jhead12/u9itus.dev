@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Standalone;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CreateCampaignRequest;
+use App\Http\Requests\SaveCampaignDraftRequest;
 use App\Http\Requests\UpdateCampaignRequest;
 use App\Models\CampaignTransaction;
 use App\Models\PoliticalCampaign;
@@ -68,14 +69,25 @@ class PoliticianController extends Controller
     // ─── Campaign CRUD ────────────────────────────────────────────────────────
 
     /** List all campaigns for this politician. */
-    public function campaigns()
+    public function campaigns(Request $request)
     {
         $politician = Auth::user()->politician;
         abort_unless($politician, 403);
 
-        $campaigns = $politician->campaigns()
-            ->orderByDesc('created_at')
-            ->paginate(12);
+        $query = $politician->campaigns()->orderByDesc('created_at');
+        
+        // Apply status filter if provided
+        if ($statusFilter = $request->get('status')) {
+            if ($statusFilter === 'draft') {
+                $query->where('status', 'draft');
+            } elseif ($statusFilter === 'active') {
+                $query->whereIn('status', ['active', 'paused', 'scheduled']);
+            } elseif ($statusFilter === 'completed') {
+                $query->whereIn('status', ['completed', 'cancelled']);
+            }
+        }
+
+        $campaigns = $query->paginate(12)->appends($request->query());
 
         return view('standalone.politician.campaigns.index', compact('campaigns', 'politician'));
     }
@@ -116,6 +128,32 @@ class PoliticianController extends Controller
         return redirect()
             ->route('politician.campaigns.show', $campaign)
             ->with('success', 'Campaign created! Upload a video and submit for review when ready.');
+    }
+
+    /** Save campaign as draft with partial data. */
+    public function saveDraft(SaveCampaignDraftRequest $request)
+    {
+        $politician = Auth::user()->politician;
+        abort_unless($politician, 403);
+
+        $data = array_filter($request->validated(), fn($value) => $value !== null);
+        
+        // Set defaults for draft campaigns
+        $data['politician_id'] = $politician->id;
+        $data['status'] = 'draft';
+        $data['revenue_per_view'] = config('u9itus.revenue_per_view', 0.60);
+        $data['voter_payout_per_view'] = config('u9itus.viewer_payout_per_view', 0.25);
+        
+        // Ensure we have at least a title for the draft
+        if (!isset($data['title']) || empty($data['title'])) {
+            $data['title'] = 'Draft Campaign - ' . now()->format('M d, Y g:i A');
+        }
+
+        $campaign = PoliticalCampaign::create($data);
+
+        return redirect()
+            ->route('politician.campaigns.edit', $campaign)
+            ->with('success', 'Draft saved! You can complete it anytime.');
     }
 
     /** Show campaign detail. */

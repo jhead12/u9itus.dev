@@ -166,6 +166,7 @@ Route::middleware(['auth', 'verified', 'check.role'])->group(function () {
         Route::get('/campaigns', [PoliticianController::class, 'campaigns'])->name('campaigns.index');
         Route::get('/campaigns/create', [PoliticianController::class, 'createCampaign'])->name('campaigns.create');
         Route::post('/campaigns', [PoliticianController::class, 'storeCampaign'])->name('campaigns.store');
+        Route::post('/campaigns/save-draft', [PoliticianController::class, 'saveDraft'])->name('campaigns.save-draft');
         Route::get('/campaigns/{campaign}', [PoliticianController::class, 'showCampaign'])->name('campaigns.show');
         Route::get('/campaigns/{campaign}/edit', [PoliticianController::class, 'editCampaign'])->name('campaigns.edit');
         Route::put('/campaigns/{campaign}', [PoliticianController::class, 'updateCampaign'])->name('campaigns.update');
