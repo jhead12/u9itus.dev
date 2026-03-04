@@ -12,6 +12,12 @@
     .initiative-row { transition: background .15s; }
     .initiative-row:hover { background: rgb(51 65 85 / 0.4); }
 </style>
+{{-- Filerobot Image Editor --}}
+<link rel="stylesheet" href="https://cdn.scaleflex.it/plugins/filerobot-image-editor/4/latest/filerobot-image-editor.min.css">
+@endpush
+
+@push('scripts')
+<script src="https://cdn.scaleflex.it/plugins/filerobot-image-editor/4/latest/filerobot-image-editor.min.js"></script>
 @endpush
 
 @section('content')
@@ -21,6 +27,33 @@
     @if(session('success'))
     <div class="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-xl px-5 py-3 text-sm font-medium flex items-center gap-2">
         ✓ {{ session('success') }}
+    </div>
+    @endif
+
+    {{-- Directory Visibility Info Banner --}}
+    @if(!$politician->page_published)
+    <div class="bg-blue-900/30 border border-blue-600/50 rounded-xl p-5">
+        <div class="flex items-start gap-4">
+            <div class="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center shrink-0">
+                <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+            </div>
+            <div class="flex-1">
+                <h3 class="text-white font-semibold text-sm mb-1.5">Your Profile is Hidden from the Public Directory</h3>
+                <p class="text-slate-300 text-sm leading-relaxed mb-3">
+                    To appear in the <strong>Browse Politicians & Officials</strong> directory where voters can discover your profile, you must:
+                </p>
+                <ul class="text-slate-300 text-sm space-y-1.5 ml-4 list-disc">
+                    <li>Enable the <strong>"Page Visibility"</strong> toggle below</li>
+                    <li>Ensure your account status is <strong>active</strong></li>
+                    <li>Save your settings</li>
+                </ul>
+                <p class="text-slate-400 text-xs mt-3 italic">
+                    💡 Even verified politicians must explicitly publish their public page to appear in the directory. This gives you control over when your profile goes live.
+                </p>
+            </div>
+        </div>
     </div>
     @endif
 
@@ -41,7 +74,7 @@
     {{-- ════════════════════════════════════════ --}}
     {{-- Page Settings Form                       --}}
     {{-- ════════════════════════════════════════ --}}
-    <form method="POST" action="{{ route('politician.public-page.update') }}">
+    <form method="POST" action="{{ route('politician.public-page.update') }}" enctype="multipart/form-data">
         @csrf @method('PUT')
 
         <div class="space-y-6">
@@ -162,14 +195,67 @@
             </div>
 
             {{-- ── Hero Banner ── --}}
-            <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6 space-y-3">
-                <h2 class="text-sm font-semibold text-slate-200">Hero Banner URL</h2>
-                <p class="text-xs text-slate-400">Optional image shown behind the hero section when background style is "image".</p>
-                <input type="url" name="hero_banner_url"
-                       value="{{ old('hero_banner_url', $page->hero_banner_url) }}"
-                       placeholder="https://example.com/banner.jpg"
-                       class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm
-                              focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition" />
+            <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6 space-y-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h2 class="text-sm font-semibold text-slate-200">Hero Banner Image</h2>
+                        <p class="text-xs text-slate-400 mt-1">Optional image shown behind the hero section when background style is "image".</p>
+                    </div>
+                </div>
+
+                {{-- Current Banner Preview --}}
+                <div id="heroBannerPreview" class="{{ $page->hero_banner_url ? '' : 'hidden' }} relative rounded-lg overflow-hidden border border-slate-700">
+                    <img id="heroBannerPreviewImg" src="{{ $page->hero_banner_url ?? '' }}" alt="Hero banner preview" class="w-full h-40 object-cover">
+                    <div class="absolute top-2 right-2">
+                        <button type="button" onclick="removeHeroBanner()"
+                                class="bg-red-500/90 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition">
+                            Remove
+                        </button>
+                    </div>
+                </div>
+
+                {{-- Upload Options --}}
+                <div class="grid sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-400 mb-2">Upload Image</label>
+                        <div class="relative">
+                            <input type="file" id="heroBannerFile" name="hero_banner_file" accept="image/jpeg,image/png,image/jpg,image/webp"
+                                   class="hidden" onchange="handleHeroBannerUpload(this)">
+                            <button type="button" onclick="document.getElementById('heroBannerFile').click()"
+                                    class="w-full bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 px-4 py-2.5 rounded-lg text-sm font-medium transition flex items-center justify-center gap-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                                </svg>
+                                Choose Image
+                            </button>
+                        </div>
+                        <p class="text-xs text-slate-500 mt-1.5">Recommended: 1920x600px, max 5MB</p>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-400 mb-2">Or Enter Image URL</label>
+                        <input type="url" id="heroBannerUrlInput" name="hero_banner_url"
+                               value="{{ old('hero_banner_url', $page->hero_banner_url) }}"
+                               placeholder="https://example.com/banner.jpg"
+                               class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm
+                                      focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition"
+                               onchange="updateHeroBannerPreview(this.value)" />
+                        <p class="text-xs text-slate-500 mt-1.5">Direct link to your hosted image</p>
+                    </div>
+                </div>
+
+                {{-- Image Editor Button --}}
+                <div class="pt-2">
+                    <button type="button" id="openImageEditor"
+                            class="w-full bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 text-blue-400 px-4 py-2.5 rounded-lg text-sm font-medium transition flex items-center justify-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                        </svg>
+                        Edit Image with Advanced Editor
+                    </button>
+                </div>
+
+                {{-- Hidden input to store edited image --}}
+                <input type="hidden" id="heroBannerEditedData" name="hero_banner_edited">
             </div>
 
             {{-- ── Section Visibility ── --}}
@@ -380,4 +466,185 @@
     </div>
 
 </div>
+
+<script>
+// ─── Hero Banner Management ───────────────────────────────────────────────
+let currentHeroBannerUrl = '{{ old('hero_banner_url', $page->hero_banner_url ?? '') }}';
+let filerobotImageEditor = null;
+
+/**
+ * Handle file selection for hero banner
+ */
+function handleHeroBannerUpload(input) {
+    if (input.files && input.files[0]) {
+        const file = input.files[0];
+        
+        // Validate file size (5MB max)
+        if (file.size > 5 * 1024 * 1024) {
+            alert('Image file size must be less than 5MB');
+            input.value = '';
+            return;
+        }
+
+        // Validate file type
+        if (!['image/jpeg', 'image/jpg', 'image/png', 'image/webp'].includes(file.type)) {
+            alert('Please upload a valid image file (JPEG, PNG, or WebP)');
+            input.value = '';
+            return;
+        }
+
+        // Create a preview URL
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            currentHeroBannerUrl = e.target.result;
+            updateHeroBannerPreview(currentHeroBannerUrl);
+            // Clear the URL input since we're using an uploaded file
+            document.getElementById('heroBannerUrlInput').value = '';
+        };
+        reader.readAsDataURL(file);
+    }
+}
+
+/**
+ * Update hero banner preview
+ */
+function updateHeroBannerPreview(url) {
+    const preview = document.getElementById('heroBannerPreview');
+    const previewImg = document.getElementById('heroBannerPreviewImg');
+    
+    if (url && url.trim() !== '') {
+        currentHeroBannerUrl = url;
+        if (previewImg) {
+            previewImg.src = url;
+        }
+        if (preview) {
+            preview.classList.remove('hidden');
+        }
+    }
+}
+
+/**
+ * Remove hero banner
+ */
+function removeHeroBanner() {
+    if (confirm('Are you sure you want to remove the hero banner?')) {
+        currentHeroBannerUrl = '';
+        document.getElementById('heroBannerUrlInput').value = '';
+        document.getElementById('heroBannerFile').value = '';
+        document.getElementById('heroBannerEditedData').value = '';
+        document.getElementById('heroBannerPreview').classList.add('hidden');
+    }
+}
+
+/**
+ * Initialize Filerobot Image Editor
+ */
+document.addEventListener('DOMContentLoaded', function() {
+    const openEditorBtn = document.getElementById('openImageEditor');
+    
+    if (openEditorBtn && window.FilerobotImageEditor) {
+        openEditorBtn.addEventListener('click', function() {
+            // Check if there's an image to edit
+            if (!currentHeroBannerUrl || currentHeroBannerUrl.trim() === '') {
+                alert('Please upload or enter an image URL first before editing.');
+                return;
+            }
+
+            // Initialize Filerobot Image Editor
+            const { TABS, TOOLS } = window.FilerobotImageEditor;
+            const config = {
+                source: currentHeroBannerUrl,
+                onSave: (editedImageObject, designState) => {
+                    // Update preview with edited image
+                    currentHeroBannerUrl = editedImageObject.imageBase64;
+                    updateHeroBannerPreview(currentHeroBannerUrl);
+                    
+                    // Store edited image data in hidden input
+                    document.getElementById('heroBannerEditedData').value = editedImageObject.imageBase64;
+                    
+                    // Clear file input and URL input since we have edited data
+                    document.getElementById('heroBannerFile').value = '';
+                    document.getElementById('heroBannerUrlInput').value = '';
+                    
+                    filerobotImageEditor.terminate();
+                },
+                onClose: (closingReason) => {
+                    filerobotImageEditor.terminate();
+                },
+                annotationsCommon: {
+                    fill: '#10b981'
+                },
+                Text: { text: 'Add text...' },
+                Rotate: { angle: 90, componentType: 'slider' },
+                Crop: {
+                    presetsItems: [
+                        {
+                            titleKey: 'classicTv',
+                            descriptionKey: '4:3',
+                            ratio: 4 / 3,
+                        },
+                        {
+                            titleKey: 'cinemascope',
+                            descriptionKey: '21:9',
+                            ratio: 21 / 9,
+                        },
+                        {
+                            titleKey: 'widescreen',
+                            descriptionKey: '16:9',
+                            ratio: 16 / 9,
+                        },
+                        {
+                            titleKey: 'banner',
+                            descriptionKey: '1920:600',
+                            ratio: 1920 / 600,
+                        },
+                    ],
+                    presetsFolders: [
+                        {
+                            titleKey: 'socialMedia',
+                            groups: [
+                                {
+                                    titleKey: 'facebook',
+                                    items: [
+                                        {
+                                            titleKey: 'profile',
+                                            width: 180,
+                                            height: 180,
+                                            descriptionKey: 'fbProfileSize',
+                                        },
+                                        {
+                                            titleKey: 'cover',
+                                            width: 820,
+                                            height: 312,
+                                            descriptionKey: 'fbCoverSize',
+                                        },
+                                    ],
+                                },
+                            ],
+                        },
+                    ],
+                },
+                tabsIds: [TABS.ADJUST, TABS.ANNOTATE, TABS.FILTERS, TABS.FINETUNE, TABS.RESIZE],
+                defaultTabId: TABS.ADJUST,
+                defaultToolId: TOOLS.CROP,
+                theme: {
+                    palette: {
+                        'bg-primary': '#0f172a',
+                        'bg-secondary': '#1e293b',
+                        'accent-primary': '#10b981',
+                    },
+                },
+            };
+
+            filerobotImageEditor = new window.FilerobotImageEditor.default(
+                document.createElement('div'),
+                config
+            );
+
+            filerobotImageEditor.render();
+        });
+    }
+});
+</script>
+
 @endsection
