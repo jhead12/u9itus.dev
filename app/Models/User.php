@@ -74,6 +74,42 @@ class User extends Authenticatable
     // ── Helpers ───────────────────────────────────────────────
 
     /**
+     * Get the user's full name by combining first and last name.
+     * Falls back to the name column if first_name/last_name are not set.
+     */
+    public function getNameAttribute($value): string
+    {
+        // If name column has a value, use it (legacy support)
+        if ($value) {
+            return $value;
+        }
+
+        // Otherwise, combine first_name and last_name
+        $parts = array_filter([
+            $this->attributes['first_name'] ?? null,
+            $this->attributes['last_name'] ?? null
+        ]);
+
+        return implode(' ', $parts);
+    }
+
+    /**
+     * Set the user's name by splitting into first and last name.
+     * This allows backward compatibility with code that sets 'name' directly.
+     */
+    public function setNameAttribute($value): void
+    {
+        // Split the name into parts
+        $parts = explode(' ', trim($value), 2);
+        
+        $this->attributes['first_name'] = $parts[0] ?? '';
+        $this->attributes['last_name'] = $parts[1] ?? '';
+        
+        // Keep the name column in sync for backward compatibility
+        $this->attributes['name'] = $value;
+    }
+
+    /**
      * Whether this user account is currently suspended.
      */
     public function isSuspended(): bool

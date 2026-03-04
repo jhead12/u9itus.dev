@@ -48,18 +48,33 @@
             @method('PUT')
 
             {{-- Name --}}
-            <div>
-                <label for="name" class="block text-sm font-medium text-slate-300 mb-1.5">
-                    Full name <span class="text-red-400">*</span>
-                </label>
-                <input id="name" type="text" name="name"
-                    value="{{ old('name', $user->name) }}"
-                    placeholder="Admin name"
-                    required
-                    class="w-full bg-slate-900/60 border {{ $errors->has('name') ? 'border-red-500' : 'border-slate-700' }} rounded-lg px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition" />
-                @error('name')
-                    <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
-                @enderror
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label for="first_name" class="block text-sm font-medium text-slate-300 mb-1.5">
+                        First name <span class="text-red-400">*</span>
+                    </label>
+                    <input id="first_name" type="text" name="first_name"
+                        value="{{ old('first_name', $user->first_name) }}"
+                        placeholder="First name"
+                        required
+                        class="w-full bg-slate-900/60 border {{ $errors->has('first_name') ? 'border-red-500' : 'border-slate-700' }} rounded-lg px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition" />
+                    @error('first_name')
+                        <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
+                    @enderror
+                </div>
+                <div>
+                    <label for="last_name" class="block text-sm font-medium text-slate-300 mb-1.5">
+                        Last name <span class="text-red-400">*</span>
+                    </label>
+                    <input id="last_name" type="text" name="last_name"
+                        value="{{ old('last_name', $user->last_name) }}"
+                        placeholder="Last name"
+                        required
+                        class="w-full bg-slate-900/60 border {{ $errors->has('last_name') ? 'border-red-500' : 'border-slate-700' }} rounded-lg px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition" />
+                    @error('last_name')
+                        <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
+                    @enderror
+                </div>
             </div>
 
             {{-- Email --}}

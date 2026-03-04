@@ -128,7 +128,8 @@ class AuthController extends Controller
     public function registerPolitician(Request $request)
     {
         $request->validate([
-            'name'             => ['required', 'string', 'max:255'],
+            'first_name'       => ['required', 'string', 'max:255'],
+            'last_name'        => ['required', 'string', 'max:255'],
             'email'            => ['required', 'string', 'email', 'max:255', 'unique:users'],
             'password'         => ['required', 'confirmed', Rules\Password::defaults()],
             'phone'            => ['required', 'string', 'max:20'],
@@ -141,14 +142,9 @@ class AuthController extends Controller
             'terms'            => ['accepted'],
         ]);
 
-        $nameParts = explode(' ', trim($request->name), 2);
-        $firstName = $nameParts[0];
-        $lastName  = $nameParts[1] ?? '';
-
         $user = User::create([
-            'name'       => $request->name,
-            'first_name' => $firstName,
-            'last_name'  => $lastName,
+            'first_name' => $request->first_name,
+            'last_name'  => $request->last_name,
             'email'      => $request->email,
             'password'   => Hash::make($request->password),
             'phone'      => $request->phone,
@@ -185,7 +181,7 @@ class AuthController extends Controller
 
         // Normalize keys to match the politicians table
         $politicianPayload = [
-            'full_name'                 => $request->input('name'),
+            'full_name'                 => trim($request->first_name . ' ' . $request->last_name),
             'political_office'          => $politicianData['political_office'] ?? null,
             'party_affiliation'         => $politicianData['party'] ?? null,
             'governance_level'          => $politicianData['governance_level'] ?? null,
@@ -245,7 +241,8 @@ class AuthController extends Controller
     public function registerVoter(Request $request)
     {
         $request->validate([
-            'name'          => ['required', 'string', 'max:255'],
+            'first_name'    => ['required', 'string', 'max:255'],
+            'last_name'     => ['required', 'string', 'max:255'],
             'email'         => ['required', 'string', 'email', 'max:255', 'unique:users'],
             'password'      => ['required', 'confirmed', Rules\Password::defaults()],
             'phone'         => ['nullable', 'string', 'max:20'],
@@ -257,12 +254,13 @@ class AuthController extends Controller
         ]);
 
         $user = User::create([
-            'name'      => $request->name,
-            'email'     => $request->email,
-            'password'  => Hash::make($request->password),
-            'phone'     => $request->phone,
-            'platform'  => 'standalone',
-            'user_type' => 'voter',
+            'first_name' => $request->first_name,
+            'last_name'  => $request->last_name,
+            'email'      => $request->email,
+            'password'   => Hash::make($request->password),
+            'phone'      => $request->phone,
+            'platform'   => 'standalone',
+            'user_type'  => 'voter',
         ]);
 
         $user->assignRole('voter');
@@ -289,7 +287,7 @@ class AuthController extends Controller
         ]);
 
         $voterPayload = [
-            'full_name'                 => $request->input('name'),
+            'full_name'                 => trim($request->first_name . ' ' . $request->last_name),
             'email'                     => $user->email,
             'phone'                     => $voterData['phone'] ?? $request->input('phone'),
             'state'                     => $voterData['state'] ?? null,

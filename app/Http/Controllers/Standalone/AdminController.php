@@ -1052,14 +1052,16 @@ class AdminController extends Controller
         $user = auth()->user();
 
         $validated = $request->validate([
-            'name'                  => ['required', 'string', 'max:255'],
+            'first_name'            => ['required', 'string', 'max:255'],
+            'last_name'             => ['required', 'string', 'max:255'],
             'email'                 => ['required', 'email', 'max:255', 'unique:users,email,' . $user->id],
             'current_password'      => ['nullable', 'current_password'],
             'password'              => ['nullable', 'min:8', 'confirmed'],
         ]);
 
-        $user->name  = $validated['name'];
-        $user->email = $validated['email'];
+        $user->first_name = $validated['first_name'];
+        $user->last_name  = $validated['last_name'];
+        $user->email      = $validated['email'];
 
         if (! empty($validated['password'])) {
             $user->password = bcrypt($validated['password']);

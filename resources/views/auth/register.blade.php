@@ -9,20 +9,36 @@
             @csrf
 
             <!-- Name -->
-            <div>
-                <label for="name" class="block text-sm font-medium text-slate-300 mb-2">Full Name</label>
-                <input id="name" 
-                       type="text" 
-                       name="name" 
-                       value="{{ old('name') }}" 
-                       required 
-                       autofocus 
-                       autocomplete="name"
-                       class="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition" 
-                       placeholder="John Doe" />
-                @error('name')
-                    <p class="mt-2 text-sm text-red-400">{{ $message }}</p>
-                @enderror
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label for="first_name" class="block text-sm font-medium text-slate-300 mb-2">First Name</label>
+                    <input id="first_name" 
+                           type="text" 
+                           name="first_name" 
+                           value="{{ old('first_name') }}" 
+                           required 
+                           autofocus 
+                           autocomplete="given-name"
+                           class="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition" 
+                           placeholder="John" />
+                    @error('first_name')
+                        <p class="mt-2 text-sm text-red-400">{{ $message }}</p>
+                    @enderror
+                </div>
+                <div>
+                    <label for="last_name" class="block text-sm font-medium text-slate-300 mb-2">Last Name</label>
+                    <input id="last_name" 
+                           type="text" 
+                           name="last_name" 
+                           value="{{ old('last_name') }}" 
+                           required 
+                           autocomplete="family-name"
+                           class="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition" 
+                           placeholder="Doe" />
+                    @error('last_name')
+                        <p class="mt-2 text-sm text-red-400">{{ $message }}</p>
+                    @enderror
+                </div>
             </div>
 
             <!-- Email Address -->
