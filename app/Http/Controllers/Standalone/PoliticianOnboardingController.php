@@ -11,9 +11,8 @@ class PoliticianOnboardingController extends Controller
 {
     public function __construct(
         protected OnboardingService $onboardingService
-    ) {
-        $this->middleware(['auth', 'verified', 'role:politician']);
-    }
+    ) {}
+
 
     /**
      * Welcome phase

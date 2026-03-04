@@ -10,9 +10,8 @@ class AdminOnboardingController extends Controller
 {
     public function __construct(
         protected OnboardingService $onboardingService
-    ) {
-        $this->middleware(['auth', 'verified', 'role:admin']);
-    }
+    ) {}
+
 
     /**
      * Welcome phase
