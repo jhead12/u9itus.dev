@@ -17,7 +17,7 @@
 @endpush
 
 @push('scripts')
-<script src="https://cdn.scaleflex.it/plugins/filerobot-image-editor/4/latest/filerobot-image-editor.min.js"></script>
+<script src="https://cdn.scaleflex.it/plugins/filerobot-image-editor/4/latest/filerobot-image-editor.min.js" id="filerobot-script"></script>
 @endpush
 
 @section('content')
@@ -545,6 +545,27 @@ function removeHeroBanner() {
 }
 
 /**
+ * Wait for Filerobot library to load, then initialize
+ */
+function waitForFilerobotAndInitialize() {
+    const maxAttempts = 50; // Wait up to 5 seconds
+    let attempts = 0;
+    
+    const checkLibrary = setInterval(() => {
+        attempts++;
+        
+        if (window.FilerobotImageEditor) {
+            clearInterval(checkLibrary);
+            console.log('Filerobot Image Editor library loaded successfully');
+            initializeImageEditor();
+        } else if (attempts >= maxAttempts) {
+            clearInterval(checkLibrary);
+            console.error('Filerobot Image Editor library failed to load after 5 seconds');
+        }
+    }, 100);
+}
+
+/**
  * Initialize Filerobot Image Editor
  */
 function initializeImageEditor() {
@@ -560,7 +581,10 @@ function initializeImageEditor() {
         return;
     }
     
+    console.log('Attaching click event to image editor button');
+    
     openEditorBtn.addEventListener('click', function() {
+        console.log('Image editor button clicked');
         // Initialize Filerobot Image Editor
         const { TABS, TOOLS } = window.FilerobotImageEditor;
             
@@ -679,12 +703,12 @@ function initializeImageEditor() {
         });
 }
 
-// Initialize the editor when DOM is ready
+// Wait for DOM and Filerobot library to be ready
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initializeImageEditor);
+    document.addEventListener('DOMContentLoaded', waitForFilerobotAndInitialize);
 } else {
-    // DOM is already loaded
-    initializeImageEditor();
+    // DOM is already loaded, wait for library
+    waitForFilerobotAndInitialize();
 }
 
 // ─── Layout & Style Button Visual Feedback ────────────────────────────
