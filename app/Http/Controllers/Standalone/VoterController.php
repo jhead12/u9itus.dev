@@ -122,6 +122,14 @@ class VoterController extends Controller
         $voterPrefs = $voter->preferred_governance_levels ?? [];
 
         $query = PoliticalCampaign::with('politician:id,full_name,political_office,governance_level,profile_photo_url,verified_official,slug,page_published')
+            // Count recent open issue reports (last 7 days) for visual warning indicator
+            ->withCount([
+                'voterWatchReports as recent_reports_count' => function ($q) {
+                    $q->where('type', 'issue')
+                      ->where('status', 'open')
+                      ->where('created_at', '>=', now()->subDays(7));
+                }
+            ])
             ->where('status', CampaignStatus::Active)
             ->where('approval_status', ApprovalStatus::Approved)
             ->whereColumn('views_completed', '<', 'total_views_requested')

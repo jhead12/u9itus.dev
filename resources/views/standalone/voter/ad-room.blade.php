@@ -174,6 +174,7 @@
             $fillPct       = $campaign->total_views_requested > 0
                 ? min(100, round(($campaign->views_completed / $campaign->total_views_requested) * 100))
                 : 0;
+            $hasRecentReports = ($campaign->recent_reports_count ?? 0) > 0;
             $levelColors   = [
                 'Federal'      => ['bg' => 'bg-blue-900/40 border-blue-700/40',    'text' => 'text-blue-400'],
                 'State'        => ['bg' => 'bg-purple-900/40 border-purple-700/40','text' => 'text-purple-400'],
@@ -187,7 +188,20 @@
             $payout = (float) ($campaign->voter_payout_per_view ?? 0.25);
             $dur    = (int) ($campaign->media_duration ?? 0);
         @endphp
-        <div class="flex flex-col bg-slate-800/50 border border-slate-700/60 rounded-2xl overflow-hidden hover:border-slate-600 transition group">
+        <div class="flex flex-col bg-slate-800/50 rounded-2xl overflow-hidden hover:border-slate-600 transition group
+            {{ $hasRecentReports ? 'border-2 border-red-500/60' : 'border border-slate-700/60' }}">
+
+            {{-- Recent Report Warning Banner --}}
+            @if($hasRecentReports)
+            <div class="bg-red-900/40 border-b border-red-500/40 px-3 py-2 flex items-center gap-2">
+                <svg class="w-4 h-4 text-red-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                </svg>
+                <span class="text-red-300 text-xs font-medium">
+                    {{ $campaign->recent_reports_count }} recent issue {{ Str::plural('report', $campaign->recent_reports_count) }}
+                </span>
+            </div>
+            @endif
 
             {{-- Thumbnail --}}
             <div class="relative bg-slate-900 aspect-video overflow-hidden">
