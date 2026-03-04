@@ -200,6 +200,9 @@
                     <div>
                         <h2 class="text-sm font-semibold text-slate-200">Hero Banner Image</h2>
                         <p class="text-xs text-slate-400 mt-1">Optional image shown behind the hero section when background style is "image".</p>
+                        <p class="text-xs text-emerald-400 font-medium mt-1.5">
+                            📐 Recommended: <span class="font-semibold">1920×600px</span> (16:5 ratio) • Max 5MB
+                        </p>
                     </div>
                 </div>
 
@@ -229,7 +232,7 @@
                                 Choose Image
                             </button>
                         </div>
-                        <p class="text-xs text-slate-500 mt-1.5">Recommended: 1920x600px, max 5MB</p>
+                        <p class="text-xs text-slate-500 mt-1.5">JPEG, PNG, WebP • Wide format works best</p>
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-slate-400 mb-2">Or Enter Image URL</label>
@@ -250,8 +253,9 @@
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
                         </svg>
-                        Edit Image with Advanced Editor
+                        Create or Edit Banner with Advanced Editor
                     </button>
+                    <p class="text-xs text-slate-500 mt-1.5 text-center">Design from scratch or edit uploaded images • Add text, filters, adjustments & more</p>
                 </div>
 
                 {{-- Hidden input to store edited image --}}
@@ -544,28 +548,31 @@ document.addEventListener('DOMContentLoaded', function() {
     
     if (openEditorBtn && window.FilerobotImageEditor) {
         openEditorBtn.addEventListener('click', function() {
-            // Check if there's an image to edit
-            if (!currentHeroBannerUrl || currentHeroBannerUrl.trim() === '') {
-                alert('Please upload or enter an image URL first before editing.');
-                return;
-            }
-
             // Initialize Filerobot Image Editor
             const { TABS, TOOLS } = window.FilerobotImageEditor;
+            
+            // If no image exists, create a blank canvas with recommended dimensions
+            const imageSource = currentHeroBannerUrl && currentHeroBannerUrl.trim() !== ''
+                ? currentHeroBannerUrl
+                : undefined; // Undefined will create blank canvas
+
             const config = {
-                source: currentHeroBannerUrl,
+                source: imageSource,
+                defaultSavedImageName: 'hero-banner',
+                defaultSavedImageType: 'png',
+                useBackendTranslations: false,
                 onSave: (editedImageObject, designState) => {
                     // Update preview with edited image
                     currentHeroBannerUrl = editedImageObject.imageBase64;
                     updateHeroBannerPreview(currentHeroBannerUrl);
-                    
+
                     // Store edited image data in hidden input
                     document.getElementById('heroBannerEditedData').value = editedImageObject.imageBase64;
-                    
+
                     // Clear file input and URL input since we have edited data
                     document.getElementById('heroBannerFile').value = '';
                     document.getElementById('heroBannerUrlInput').value = '';
-                    
+
                     filerobotImageEditor.terminate();
                 },
                 onClose: (closingReason) => {
@@ -574,7 +581,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 annotationsCommon: {
                     fill: '#10b981'
                 },
-                Text: { text: 'Add text...' },
+                Text: {
+                    text: 'Your Text Here',
+                    fontSize: 48,
+                    fontFamily: 'Arial',
+                    fill: '#ffffff'
+                },
                 Rotate: { angle: 90, componentType: 'slider' },
                 Crop: {
                     presetsItems: [
@@ -625,8 +637,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     ],
                 },
                 tabsIds: [TABS.ADJUST, TABS.ANNOTATE, TABS.FILTERS, TABS.FINETUNE, TABS.RESIZE],
-                defaultTabId: TABS.ADJUST,
-                defaultToolId: TOOLS.CROP,
+                // Start with annotation tools for blank canvas, or adjust tools for existing images
+                defaultTabId: imageSource ? TABS.ADJUST : TABS.ANNOTATE,
+                defaultToolId: imageSource ? TOOLS.CROP : TOOLS.TEXT,
                 theme: {
                     palette: {
                         'bg-primary': '#0f172a',
