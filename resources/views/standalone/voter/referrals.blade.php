@@ -75,6 +75,9 @@
         </div>
     </div>
 
+    {{-- ── Earnings Calculator Widget ────────────────────────────── --}}
+    <x-earnings-calculator />
+
     {{-- ── Share Links ──────────────────────────────────────────── --}}
     @php
         $voterRefUrl      = route('register.voter')      . '?ref=' . $voter->referral_code;

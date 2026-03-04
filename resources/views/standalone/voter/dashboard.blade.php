@@ -126,6 +126,9 @@
         </a>
     </div>
 
+    {{-- Earnings Calculator Widget --}}
+    <x-earnings-calculator />
+
     {{-- Voter Registration Prompt (shown if status unknown or not registered) --}}
     @if(is_null($voter->is_registered_voter) || $voter->is_registered_voter === false)
     <div class="bg-blue-500/10 border border-blue-500/30 rounded-2xl p-5 flex items-start gap-4">
