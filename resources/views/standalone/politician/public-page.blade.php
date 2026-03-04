@@ -644,6 +644,44 @@ document.addEventListener('DOMContentLoaded', function() {
             filerobotImageEditor.render();
         });
     }
+
+    // ─── Layout & Style Button Visual Feedback ────────────────────────────
+    /**
+     * Add instant visual feedback to radio button selections
+     */
+    const addRadioFeedback = (radioName) => {
+        const radios = document.querySelectorAll(`input[name="${radioName}"]`);
+        
+        radios.forEach(radio => {
+            radio.addEventListener('change', function() {
+                // Get all radio buttons with the same name
+                const allRadios = document.querySelectorAll(`input[name="${radioName}"]`);
+                
+                // Update all buttons in this group
+                allRadios.forEach(r => {
+                    const label = r.closest('label');
+                    if (!label) return;
+                    
+                    const styledDiv = label.querySelector('.rounded-xl.border-2');
+                    if (!styledDiv) return;
+                    
+                    if (r.checked) {
+                        // Active state
+                        styledDiv.classList.remove('border-slate-700', 'hover:border-slate-500');
+                        styledDiv.classList.add('border-emerald-500', 'bg-emerald-500/10');
+                    } else {
+                        // Inactive state
+                        styledDiv.classList.remove('border-emerald-500', 'bg-emerald-500/10');
+                        styledDiv.classList.add('border-slate-700', 'hover:border-slate-500');
+                    }
+                });
+            });
+        });
+    };
+
+    // Apply instant feedback to layout preset and background style selections
+    addRadioFeedback('layout_preset');
+    addRadioFeedback('background_style');
 });
 </script>
 
