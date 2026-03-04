@@ -547,13 +547,22 @@ function removeHeroBanner() {
 /**
  * Initialize Filerobot Image Editor
  */
-document.addEventListener('DOMContentLoaded', function() {
+function initializeImageEditor() {
     const openEditorBtn = document.getElementById('openImageEditor');
     
-    if (openEditorBtn && window.FilerobotImageEditor) {
-        openEditorBtn.addEventListener('click', function() {
-            // Initialize Filerobot Image Editor
-            const { TABS, TOOLS } = window.FilerobotImageEditor;
+    if (!openEditorBtn) {
+        console.error('Image editor button not found');
+        return;
+    }
+
+    if (!window.FilerobotImageEditor) {
+        console.error('Filerobot Image Editor library not loaded');
+        return;
+    }
+    
+    openEditorBtn.addEventListener('click', function() {
+        // Initialize Filerobot Image Editor
+        const { TABS, TOOLS } = window.FilerobotImageEditor;
             
             // If no image exists, create a blank canvas with recommended dimensions
             const imageSource = currentHeroBannerUrl && currentHeroBannerUrl.trim() !== ''
@@ -653,53 +662,75 @@ document.addEventListener('DOMContentLoaded', function() {
                 },
             };
 
+            // Create or reuse container element
+            let container = document.getElementById('filerobot-image-editor-container');
+            if (!container) {
+                container = document.createElement('div');
+                container.id = 'filerobot-image-editor-container';
+                document.body.appendChild(container);
+            }
+
             filerobotImageEditor = new window.FilerobotImageEditor.default(
-                document.createElement('div'),
+                container,
                 config
             );
 
             filerobotImageEditor.render();
         });
-    }
+}
 
-    // ─── Layout & Style Button Visual Feedback ────────────────────────────
-    /**
-     * Add instant visual feedback to radio button selections
-     */
-    const addRadioFeedback = (radioName) => {
-        const radios = document.querySelectorAll(`input[name="${radioName}"]`);
-        
-        radios.forEach(radio => {
-            radio.addEventListener('change', function() {
-                // Get all radio buttons with the same name
-                const allRadios = document.querySelectorAll(`input[name="${radioName}"]`);
+// Initialize the editor when DOM is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeImageEditor);
+} else {
+    // DOM is already loaded
+    initializeImageEditor();
+}
+
+// ─── Layout & Style Button Visual Feedback ────────────────────────────
+/**
+ * Add instant visual feedback to radio button selections
+ */
+const addRadioFeedback = (radioName) => {
+    const radios = document.querySelectorAll(`input[name="${radioName}"]`);
+    
+    radios.forEach(radio => {
+        radio.addEventListener('change', function() {
+            // Get all radio buttons with the same name
+            const allRadios = document.querySelectorAll(`input[name="${radioName}"]`);
+            
+            // Update all buttons in this group
+            allRadios.forEach(r => {
+                const label = r.closest('label');
+                if (!label) return;
                 
-                // Update all buttons in this group
-                allRadios.forEach(r => {
-                    const label = r.closest('label');
-                    if (!label) return;
-                    
-                    const styledDiv = label.querySelector('.rounded-xl.border-2');
-                    if (!styledDiv) return;
-                    
-                    if (r.checked) {
-                        // Active state
-                        styledDiv.classList.remove('border-slate-700', 'hover:border-slate-500');
-                        styledDiv.classList.add('border-emerald-500', 'bg-emerald-500/10');
-                    } else {
-                        // Inactive state
-                        styledDiv.classList.remove('border-emerald-500', 'bg-emerald-500/10');
-                        styledDiv.classList.add('border-slate-700', 'hover:border-slate-500');
-                    }
-                });
+                const styledDiv = label.querySelector('.rounded-xl.border-2');
+                if (!styledDiv) return;
+                
+                if (r.checked) {
+                    // Active state
+                    styledDiv.classList.remove('border-slate-700', 'hover:border-slate-500');
+                    styledDiv.classList.add('border-emerald-500', 'bg-emerald-500/10');
+                } else {
+                    // Inactive state
+                    styledDiv.classList.remove('border-emerald-500', 'bg-emerald-500/10');
+                    styledDiv.classList.add('border-slate-700', 'hover:border-slate-500');
+                }
             });
         });
-    };
+    });
+};
 
-    // Apply instant feedback to layout preset and background style selections
+// Apply instant feedback to layout preset and background style selections
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function() {
+        addRadioFeedback('layout_preset');
+        addRadioFeedback('background_style');
+    });
+} else {
     addRadioFeedback('layout_preset');
     addRadioFeedback('background_style');
-});
+}
 </script>
 
 @endsection
