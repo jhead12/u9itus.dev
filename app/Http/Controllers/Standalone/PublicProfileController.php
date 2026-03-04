@@ -89,10 +89,27 @@ class PublicProfileController extends Controller
      */
     public function show(Request $request, string $slug)
     {
+        // Try to find a published page first
         $politician = Politician::where('slug', $slug)
             ->where('page_published', true)
             ->where('is_active', true)
-            ->firstOrFail();
+            ->first();
+
+        // If not published, check if the authenticated user owns this page (preview mode)
+        if (!$politician && auth()->check()) {
+            $user = auth()->user();
+            if ($user->user_type === 'politician' && $user->politician) {
+                $politician = Politician::where('slug', $slug)
+                    ->where('id', $user->politician->id)
+                    ->where('is_active', true)
+                    ->first();
+            }
+        }
+
+        // If still not found, throw 404
+        if (!$politician) {
+            abort(404);
+        }
 
         // Eager-load what we need for the public page
         $politician->load(['page', 'initiatives' => fn($q) => $q->published()->ordered()]);

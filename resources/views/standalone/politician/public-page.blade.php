@@ -58,10 +58,14 @@
     @endif
 
     {{-- Page Preview Link --}}
-    @if($politician->page_published && $politician->slug)
+    @if($politician->slug)
     <div class="bg-blue-500/10 border border-blue-500/20 rounded-xl px-5 py-3 flex items-center justify-between">
         <div>
+            @if($politician->page_published)
             <p class="text-sm font-medium text-blue-300">Your public page is <span class="text-emerald-400 font-bold">live</span></p>
+            @else
+            <p class="text-sm font-medium text-blue-300">Page Preview <span class="text-amber-400 font-bold">(draft mode)</span></p>
+            @endif
             <p class="text-xs text-slate-400 mt-0.5">{{ url('/p/' . $politician->slug) }}</p>
         </div>
         <a href="{{ route('politician.public.show', $politician->slug) }}" target="_blank"
