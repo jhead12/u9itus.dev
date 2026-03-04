@@ -150,13 +150,70 @@
 
         {{-- Targeting --}}
         <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6 space-y-4">
-            <h2 class="text-sm font-semibold text-slate-200 mb-4">Geographic Targeting</h2>
+            <h2 class="text-sm font-semibold text-slate-200 mb-4">Geographic Targeting <span class="text-slate-500 font-normal text-xs">(optional)</span></h2>
+
             <div>
-                <label class="block text-sm font-medium text-slate-300 mb-1.5">Target States</label>
-                <input type="text" name="target_states_raw"
-                    value="{{ $campaign->target_states ? implode(', ', $campaign->target_states) : '' }}"
-                    class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition"
-                    placeholder="CA, TX, FL..." />
+                <label class="block text-sm font-medium text-slate-300 mb-2">Target States</label>
+                <div class="relative">
+                    <button type="button" id="statesDropdownBtn" 
+                        class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-left text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition flex items-center justify-between">
+                        <span id="statesSelectedText" class="text-slate-400">Select states...</span>
+                        <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                        </svg>
+                    </button>
+                    <div id="statesDropdown" class="hidden absolute z-10 w-full mt-1 bg-slate-800 border border-slate-600 rounded-lg shadow-xl max-h-60 overflow-y-auto">
+                        <div class="p-2 border-b border-slate-700 flex gap-2">
+                            <button type="button" onclick="selectAllStates()" class="text-xs text-emerald-400 hover:text-emerald-300">Select All</button>
+                            <button type="button" onclick="clearAllStates()" class="text-xs text-slate-400 hover:text-white">Clear All</button>
+                        </div>
+                        <div class="p-2 space-y-1">
+                            @foreach($states as $abbr => $stateName)
+                            <label class="flex items-center gap-2 px-2 py-1.5 hover:bg-slate-700/50 rounded cursor-pointer transition">
+                                <input type="checkbox" name="target_states[]" value="{{ $abbr }}" 
+                                    class="state-checkbox w-4 h-4 rounded border-slate-600 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-slate-900"
+                                    {{ is_array($campaign->target_states) && in_array($abbr, $campaign->target_states) ? 'checked' : '' }}>
+                                <span class="text-sm text-slate-200">{{ $abbr }} - {{ $stateName }}</span>
+                            </label>
+                            @endforeach
+                        </div>
+                    </div>
+                </div>
+                <p class="text-xs text-slate-500 mt-1">Leave blank to target all states</p>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-slate-300 mb-2">Target Cities</label>
+                <div class="relative">
+                    <button type="button" id="citiesDropdownBtn" 
+                        class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-left text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition flex items-center justify-between">
+                        <span id="citiesSelectedText" class="text-slate-400">Select cities...</span>
+                        <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                        </svg>
+                    </button>
+                    <div id="citiesDropdown" class="hidden absolute z-10 w-full mt-1 bg-slate-800 border border-slate-600 rounded-lg shadow-xl max-h-60 overflow-y-auto">
+                        <div class="p-2 border-b border-slate-700">
+                            <input type="text" id="citySearch" placeholder="Search cities..." 
+                                class="w-full bg-slate-900/60 border border-slate-700 rounded px-3 py-1.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                        </div>
+                        <div class="p-2 border-b border-slate-700 flex gap-2">
+                            <button type="button" onclick="selectAllCities()" class="text-xs text-emerald-400 hover:text-emerald-300">Select All</button>
+                            <button type="button" onclick="clearAllCities()" class="text-xs text-slate-400 hover:text-white">Clear All</button>
+                        </div>
+                        <div class="p-2 space-y-1" id="citiesCheckboxList">
+                            @foreach(config('u9itus.major_cities', []) as $city)
+                            <label class="city-option flex items-center gap-2 px-2 py-1.5 hover:bg-slate-700/50 rounded cursor-pointer transition">
+                                <input type="checkbox" name="target_cities[]" value="{{ $city }}" 
+                                    class="city-checkbox w-4 h-4 rounded border-slate-600 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-slate-900"
+                                    {{ is_array($campaign->target_cities) && in_array($city, $campaign->target_cities) ? 'checked' : '' }}>
+                                <span class="text-sm text-slate-200">{{ $city }}</span>
+                            </label>
+                            @endforeach
+                        </div>
+                    </div>
+                </div>
+                <p class="text-xs text-slate-500 mt-1">Select major cities or leave blank to target all areas</p>
             </div>
         </div>
 
@@ -274,15 +331,112 @@
     allowRepeatEdit.addEventListener('change', () => {
         repeatOptionsEdit.classList.toggle('hidden', !allowRepeatEdit.checked);
     });
-    // Convert comma-separated states to target_states[] before submit
-    document.getElementById('editCampaignForm').addEventListener('submit', function () {
-        const raw = this.querySelector('[name="target_states_raw"]')?.value || '';
-        raw.split(',').map(s => s.trim().toUpperCase()).filter(Boolean).forEach(s => {
-            const input = document.createElement('input');
-            input.type = 'hidden'; input.name = 'target_states[]'; input.value = s;
-            this.appendChild(input);
+    
+    // ── Geographic Targeting Dropdowns ──────────────────────────────────
+    // States dropdown
+    const statesBtn = document.getElementById('statesDropdownBtn');
+    const statesDropdown = document.getElementById('statesDropdown');
+    const statesSelectedText = document.getElementById('statesSelectedText');
+    const stateCheckboxes = document.querySelectorAll('.state-checkbox');
+
+    statesBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        statesDropdown.classList.toggle('hidden');
+        citiesDropdown.classList.add('hidden');
+    });
+
+    function updateStatesDisplay() {
+        const checked = Array.from(stateCheckboxes).filter(cb => cb.checked);
+        if (checked.length === 0) {
+            statesSelectedText.textContent = 'Select states...';
+            statesSelectedText.classList.add('text-slate-400');
+        } else if (checked.length === stateCheckboxes.length) {
+            statesSelectedText.textContent = 'All states selected';
+            statesSelectedText.classList.remove('text-slate-400');
+        } else {
+            statesSelectedText.textContent = `${checked.length} state${checked.length > 1 ? 's' : ''} selected`;
+            statesSelectedText.classList.remove('text-slate-400');
+        }
+    }
+
+    stateCheckboxes.forEach(cb => cb.addEventListener('change', updateStatesDisplay));
+
+    function selectAllStates() {
+        stateCheckboxes.forEach(cb => cb.checked = true);
+        updateStatesDisplay();
+    }
+
+    function clearAllStates() {
+        stateCheckboxes.forEach(cb => cb.checked = false);
+        updateStatesDisplay();
+    }
+
+    // Cities dropdown
+    const citiesBtn = document.getElementById('citiesDropdownBtn');
+    const citiesDropdown = document.getElementById('citiesDropdown');
+    const citiesSelectedText = document.getElementById('citiesSelectedText');
+    const cityCheckboxes = document.querySelectorAll('.city-checkbox');
+    const citySearch = document.getElementById('citySearch');
+    const cityOptions = document.querySelectorAll('.city-option');
+
+    citiesBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        citiesDropdown.classList.toggle('hidden');
+        statesDropdown.classList.add('hidden');
+    });
+
+    function updateCitiesDisplay() {
+        const checked = Array.from(cityCheckboxes).filter(cb => cb.checked);
+        if (checked.length === 0) {
+            citiesSelectedText.textContent = 'Select cities...';
+            citiesSelectedText.classList.add('text-slate-400');
+        } else if (checked.length === cityCheckboxes.length) {
+            citiesSelectedText.textContent = 'All cities selected';
+            citiesSelectedText.classList.remove('text-slate-400');
+        } else {
+            citiesSelectedText.textContent = `${checked.length} ${checked.length > 1 ? 'cities' : 'city'} selected`;
+            citiesSelectedText.classList.remove('text-slate-400');
+        }
+    }
+
+    cityCheckboxes.forEach(cb => cb.addEventListener('change', updateCitiesDisplay));
+
+    function selectAllCities() {
+        cityCheckboxes.forEach(cb => {
+            if (!cb.closest('.city-option').classList.contains('hidden')) {
+                cb.checked = true;
+            }
+        });
+        updateCitiesDisplay();
+    }
+
+    function clearAllCities() {
+        cityCheckboxes.forEach(cb => cb.checked = false);
+        updateCitiesDisplay();
+    }
+
+    // City search functionality
+    citySearch.addEventListener('input', (e) => {
+        const searchTerm = e.target.value.toLowerCase();
+        cityOptions.forEach(option => {
+            const text = option.textContent.toLowerCase();
+            option.classList.toggle('hidden', !text.includes(searchTerm));
         });
     });
+
+    // Close dropdowns when clicking outside
+    document.addEventListener('click', () => {
+        statesDropdown.classList.add('hidden');
+        citiesDropdown.classList.add('hidden');
+    });
+
+    // Prevent dropdown close when clicking inside
+    statesDropdown.addEventListener('click', (e) => e.stopPropagation());
+    citiesDropdown.addEventListener('click', (e) => e.stopPropagation());
+
+    // Initialize displays
+    updateStatesDisplay();
+    updateCitiesDisplay();
     
     // ── Video Preview Functionality ──────────────────────────────────────
     let ytPreviewPlayer = null;
