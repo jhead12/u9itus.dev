@@ -1031,6 +1031,26 @@ class AdminController extends Controller
         ];
 
         // Template-specific variable names (matching each Mail class's constructor)
+
+        // Campaign templates expect a $campaign object (PoliticalCampaign), not flat strings.
+        if (in_array($template->key, ['campaign_approved', 'campaign_rejected', 'campaign_completed'], true)) {
+            $fakePoliticianUser             = new \stdClass();
+            $fakePoliticianUser->first_name = 'Jane';
+
+            $fakePolitician             = new \stdClass();
+            $fakePolitician->user       = $fakePoliticianUser;
+            $fakePolitician->full_name  = 'Jane Doe';
+
+            $fakeCampaign                   = new \stdClass();
+            $fakeCampaign->id               = 0;
+            $fakeCampaign->title            = 'Re-elect Mayor Johnson 2026 (Preview)';
+            $fakeCampaign->governance_level = 'local';
+            $fakeCampaign->target_state     = 'CA';
+            $fakeCampaign->politician       = $fakePolitician;
+
+            $sharedData['campaign'] = $fakeCampaign;
+        }
+
         if ($template->key === 'admin_new_user') {
             $sharedData['newUser'] = $fakeUser;
         }
