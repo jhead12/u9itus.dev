@@ -43,6 +43,7 @@
                     <a href="#platform" class="text-slate-300 hover:text-white transition text-sm font-medium">Platform</a>
                     <a href="#revenue" class="text-slate-300 hover:text-white transition text-sm font-medium">Revenue</a>
                     <a href="#how-it-works" class="text-slate-300 hover:text-white transition text-sm font-medium">How It Works</a>
+                    <a href="{{ route('about') }}" class="text-slate-300 hover:text-white transition text-sm font-medium">About Us</a>
                 </div>
                 
                 @if (Route::has('login'))
@@ -465,6 +466,7 @@
                         <li><a href="#platform" class="hover:text-white transition">How It Works</a></li>
                         <li><a href="#revenue" class="hover:text-white transition">Revenue Model</a></li>
                         <li><a href="#how-it-works" class="hover:text-white transition">Features</a></li>
+                        <li><a href="{{ route('about') }}" class="hover:text-white transition">About Us</a></li>
                     </ul>
                 </div>
                 
