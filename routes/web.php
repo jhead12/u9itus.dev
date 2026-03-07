@@ -50,6 +50,10 @@ Route::get('/about', function () {
     return view('about');
 })->name('about');
 
+Route::get('/terms', function () {
+    return view('terms');
+})->name('terms');
+
 Route::get('/debug-info', function () {
     return response()->json([
         'status' => 'ok',
