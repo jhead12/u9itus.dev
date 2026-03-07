@@ -1027,6 +1027,11 @@ class AdminController extends Controller
             'totalSpent'    => 275.00,
         ];
 
+        // Template-specific variable names (for backwards compatibility with mail classes)
+        if ($template->key === 'admin_new_user') {
+            $sharedData['newUser'] = $fakeUser;
+        }
+
         return view($view, $sharedData);
     }
 
