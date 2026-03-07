@@ -991,16 +991,19 @@ class AdminController extends Controller
 
         // Otherwise render the corresponding Blade view directly
         $viewMap = [
-            'kyc_approved'      => 'emails.kyc-approved',
-            'kyc_rejected'      => 'emails.kyc-rejected',
-            'campaign_approved' => 'emails.campaign-approved',
-            'campaign_rejected' => 'emails.campaign-rejected',
-            'campaign_completed'=> 'emails.campaign-completed',
-            'credits_purchased' => 'emails.credits-purchased',
-            'low_balance_alert' => 'emails.low-balance-alert',
-            'payout_processed'  => 'emails.payout-processed',
-            'welcome'           => 'emails.welcome',
-            'admin_new_user'    => 'emails.admin-new-user',
+            'kyc_approved'          => 'emails.kyc-approved',
+            'kyc_rejected'          => 'emails.kyc-rejected',
+            'campaign_approved'     => 'emails.campaign-approved',
+            'campaign_rejected'     => 'emails.campaign-rejected',
+            'campaign_completed'    => 'emails.campaign-completed',
+            'credits_purchased'     => 'emails.credits-purchased',
+            'low_balance_alert'     => 'emails.low-balance-alert',
+            'payout_processed'      => 'emails.payout-processed',
+            'welcome'               => 'emails.welcome',
+            'admin_new_user'        => 'emails.admin-new-user',
+            'admin_password_reset'  => 'emails.admin-password-reset',
+            'admin_account_created' => 'emails.admin-account-created',
+            'profile_verification'  => 'emails.profile-verification',
         ];
 
         $view = $viewMap[$template->key] ?? null;
@@ -1027,9 +1030,24 @@ class AdminController extends Controller
             'totalSpent'    => 275.00,
         ];
 
-        // Template-specific variable names (for backwards compatibility with mail classes)
+        // Template-specific variable names (matching each Mail class's constructor)
         if ($template->key === 'admin_new_user') {
             $sharedData['newUser'] = $fakeUser;
+        }
+
+        if (in_array($template->key, ['admin_password_reset', 'admin_account_created'], true)) {
+            $sharedData['admin'] = $fakeUser;
+        }
+
+        if ($template->key === 'admin_account_created') {
+            $sharedData['isNew']    = true;
+            $sharedData['tempPass'] = 'Pr3view#Pass!';
+        }
+
+        if ($template->key === 'profile_verification') {
+            $sharedData['politicianName']    = 'Jane Doe (Preview)';
+            $sharedData['verificationUrl']   = url('/preview/verify-profile/fake-token');
+            $sharedData['expiryHours']       = 48;
         }
 
         return view($view, $sharedData);
