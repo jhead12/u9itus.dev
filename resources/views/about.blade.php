@@ -392,6 +392,89 @@
         </div>
     </section>
 
+    <!-- Meet the Founders -->
+    <section class="relative py-24 bg-slate-900">
+        <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <span class="text-emerald-400 font-semibold text-sm tracking-wider uppercase">— The Team</span>
+                <h2 class="mt-4 text-4xl sm:text-5xl font-bold">
+                    Curious About the <span class="text-emerald-400">Minds Behind U9itus?</span>
+                </h2>
+                <p class="mt-4 text-slate-400 text-lg max-w-2xl mx-auto">Let's take a closer look.</p>
+            </div>
+
+            <!-- John E. Head -->
+            <div class="relative bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl p-8 md:p-10 border border-slate-700 mb-8 overflow-hidden">
+                <div class="absolute top-0 right-0 w-72 h-72 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none"></div>
+                <div class="relative">
+                    <div class="flex items-start space-x-5 mb-6">
+                        <div class="flex-shrink-0 w-16 h-16 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-xl flex items-center justify-center text-3xl shadow-lg shadow-emerald-500/30">
+                            👤
+                        </div>
+                        <div>
+                            <h3 class="text-2xl font-bold text-white">John E. Head</h3>
+                            <p class="text-emerald-400 text-sm font-medium mt-0.5">Founder &amp; CEO — Head Enterprises</p>
+                            <p class="text-slate-500 text-xs mt-0.5">Est. October 2007 &bull; Los Angeles, California</p>
+                        </div>
+                    </div>
+
+                    <div class="space-y-4 text-slate-300 text-sm leading-relaxed">
+                        <p>
+                            Head Enterprises, founded by <strong class="text-white">John E. Head</strong>, is the driving force behind the U9itus venture — and the latest chapter in John's long and varied career as a serial entrepreneur.
+                        </p>
+                        <p>
+                            Before launching Head Enterprises, John built and operated several successful businesses. He ran <strong class="text-white">AAA Process Service</strong>, which supported numerous real estate firms throughout the Los Angeles area. He also founded <strong class="text-white">Governmental Benefits Consultants, Inc.</strong>, a company that provided uncompensated care services to some of Southern California's most respected medical institutions, including Children's Hospital Los Angeles, St. Mary Medical Center in Long Beach, and St. Joseph Medical Center in Burbank.
+                        </p>
+                        <p>
+                            From <strong class="text-white">1985 to 2002</strong>, John held a contract with the <strong class="text-white">Los Angeles County Department of Health Services</strong>, further cementing his reputation in public service and healthcare support.
+                        </p>
+                        <p>
+                            In the digital space, he launched multiple internet-based companies — including <strong class="text-white">Online Persuasion</strong>, <strong class="text-white">Early Bank</strong>, and <strong class="text-white">Dial4dough</strong> — pioneering pay-to-view advertising long before it became mainstream.
+                        </p>
+                        <p>
+                            Now, John has teamed up with his two sons to introduce their latest innovation: <strong class="text-white">U9itus.com</strong>. A natural evolution of Dial4dough, this platform reflects the Heads' commitment to identifying and solving real-world problems — something John has done throughout his entire career.
+                        </p>
+                    </div>
+
+                    <!-- Belief Callout -->
+                    <div class="mt-8 p-5 bg-emerald-900/20 border border-emerald-500/20 rounded-xl flex items-start space-x-4">
+                        <div class="flex-shrink-0 text-2xl">💡</div>
+                        <p class="text-slate-300 text-sm leading-relaxed italic">
+                            "At the heart of every Head Enterprises venture is a simple but powerful belief: <strong class="text-white not-italic">honesty and integrity are the foundations of a great company.</strong> With U9itus.com, John and his sons have built a system that places those values front and center, aiming to address pressing needs in communities across the country."
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Josh & Jonathan — Coming Soon placeholders -->
+            <div class="grid md:grid-cols-2 gap-8">
+                <div class="relative bg-gradient-to-br from-slate-800/50 to-slate-900/50 rounded-2xl p-8 border border-slate-700/50 border-dashed overflow-hidden">
+                    <div class="absolute top-0 right-0 w-48 h-48 bg-teal-500/5 rounded-full blur-3xl pointer-events-none"></div>
+                    <div class="relative text-center">
+                        <div class="w-16 h-16 bg-gradient-to-br from-teal-500/40 to-blue-500/40 rounded-xl flex items-center justify-center text-3xl mx-auto mb-4 shadow-lg">
+                            👤
+                        </div>
+                        <h3 class="text-xl font-bold text-white mb-1">Josh</h3>
+                        <p class="text-teal-400 text-sm font-medium mb-4">Co-Founder — JEldon LLC</p>
+                        <p class="text-slate-500 text-sm italic">Bio coming soon — Josh's story and expertise will be shared here.</p>
+                    </div>
+                </div>
+
+                <div class="relative bg-gradient-to-br from-slate-800/50 to-slate-900/50 rounded-2xl p-8 border border-slate-700/50 border-dashed overflow-hidden">
+                    <div class="absolute top-0 right-0 w-48 h-48 bg-blue-500/5 rounded-full blur-3xl pointer-events-none"></div>
+                    <div class="relative text-center">
+                        <div class="w-16 h-16 bg-gradient-to-br from-blue-500/40 to-purple-500/40 rounded-xl flex items-center justify-center text-3xl mx-auto mb-4 shadow-lg">
+                            👤
+                        </div>
+                        <h3 class="text-xl font-bold text-white mb-1">Jonathan</h3>
+                        <p class="text-blue-400 text-sm font-medium mb-4">Co-Founder — HeadisHere</p>
+                        <p class="text-slate-500 text-sm italic">Bio coming soon — Jonathan's story and expertise will be shared here.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <!-- Who Can Join -->
     <section class="relative py-24 bg-slate-900">
         <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
