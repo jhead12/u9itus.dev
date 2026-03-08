@@ -44,7 +44,21 @@
 
             {{-- Step 2: Stripe PaymentElement (hidden until client_secret is loaded) --}}
             <div id="step-payment" class="hidden">
-                <p class="text-xs text-slate-400 mb-3">Paying <span id="pay-display"></span></p>
+                {{-- Fee breakdown --}}
+                <div class="bg-slate-900/60 border border-slate-700/50 rounded-lg px-3 py-2.5 mb-3 text-xs space-y-1">
+                    <div class="flex justify-between text-slate-400">
+                        <span>Credits added</span>
+                        <span id="pay-credits"></span>
+                    </div>
+                    <div class="flex justify-between text-slate-500">
+                        <span>Stripe processing fee (<span id="pay-fee-pct"></span>%)</span>
+                        <span id="pay-fee"></span>
+                    </div>
+                    <div class="flex justify-between text-slate-200 font-semibold border-t border-slate-700/50 pt-1 mt-1">
+                        <span>Total charged</span>
+                        <span id="pay-display"></span>
+                    </div>
+                </div>
                 <div id="payment-element" class="mb-3"></div>
                 <div id="payment-message" class="hidden text-xs text-red-400 mb-2"></div>
                 <button id="btn-pay"
@@ -133,7 +147,8 @@
                             <th class="text-left px-5 py-2.5 text-xs font-medium text-slate-500">Date</th>
                             <th class="text-left px-5 py-2.5 text-xs font-medium text-slate-500">Description</th>
                             <th class="text-left px-5 py-2.5 text-xs font-medium text-slate-500">Status</th>
-                            <th class="text-right px-5 py-2.5 text-xs font-medium text-slate-500">Amount</th>
+                            <th class="text-right px-5 py-2.5 text-xs font-medium text-slate-500">Credits</th>
+                            <th class="text-right px-5 py-2.5 text-xs font-medium text-slate-500">Charged</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-700/30">
@@ -154,6 +169,13 @@
                                 <span class="inline-flex px-2 py-0.5 rounded text-xs font-medium {{ $txColor }}">
                                     {{ ucfirst($tx->status) }}
                                 </span>
+                            </td>
+                            <td class="px-5 py-3 text-right font-mono text-emerald-400">
+                                @if(isset($tx->metadata['credits_amount']))
+                                    ${{ number_format($tx->metadata['credits_amount'], 2) }}
+                                @else
+                                    —
+                                @endif
                             </td>
                             <td class="px-5 py-3 text-right font-mono text-slate-300">${{ number_format($tx->amount, 2) }}</td>
                         </tr>
@@ -235,7 +257,10 @@
             const paymentEl = elements.create('payment');
             paymentEl.mount('#payment-element');
 
-            document.getElementById('pay-display').textContent = '$' + parseFloat(data.amount).toFixed(2);
+            document.getElementById('pay-credits').textContent  = '$' + parseFloat(data.credits_amount).toFixed(2);
+            document.getElementById('pay-fee').textContent       = '$' + parseFloat(data.stripe_fee).toFixed(2);
+            document.getElementById('pay-fee-pct').textContent   = parseFloat(data.stripe_fee_percent).toFixed(1);
+            document.getElementById('pay-display').textContent   = '$' + parseFloat(data.amount).toFixed(2);
 
             hide('step-loading');
             show('step-payment');

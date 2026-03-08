@@ -17,6 +17,14 @@ return [
      */
     'head_enterprises_fee_percent' => env('HEAD_ENTERPRISES_FEE_PERCENT', 15.0),
 
+    /**
+     * Stripe card processing fee (%) applied on every credit top-up.
+     * The politician is charged a gross-up amount so the platform always
+     * receives the full credit value requested:
+     *   gross_charge = requested_credits / (1 - stripe_fee_percent / 100)
+     */
+    'stripe_fee_percent' => env('STRIPE_FEE_PERCENT', 2.5),
+
     /*
     |--------------------------------------------------------------------------
     | Pay-Per-View Pricing (per single view)
@@ -26,6 +34,9 @@ return [
     | Direct viewer/voter payout:                $0.25
     | Referral commission (10 % of $0.25):       $0.025
     | Politician-procurement commission (10 %):  $0.06 (one-time, amortised)
+    |
+    | Stripe processing fee (on credit top-ups): 2.5% of gross charge
+    | Gross-up formula: gross = credits / (1 - 0.025)
     |
     */
     'revenue_per_view'              => env('REVENUE_PER_VIEW', 0.60),

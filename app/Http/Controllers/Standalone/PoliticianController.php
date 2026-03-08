@@ -482,11 +482,14 @@ class PoliticianController extends Controller
         // return_url points to billing/confirm so the redirect immediately finalizes the
         // transaction and credits the politician without waiting for the Stripe webhook.
         return response()->json([
-            'client_secret'   => $intentData['client_secret'],
-            'payment_intent'  => $intentData['payment_intent_id'],
-            'amount'          => $validated['amount'],
-            'publishable_key' => config('services.stripe.public'),
-            'return_url'      => route('politician.billing.confirm'),
+            'client_secret'      => $intentData['client_secret'],
+            'payment_intent'     => $intentData['payment_intent_id'],
+            'amount'             => $intentData['gross_amount'],      // total charged to card
+            'credits_amount'     => $intentData['credits_amount'],    // credits added to account
+            'stripe_fee'         => $intentData['stripe_fee'],        // 2.5% processing fee
+            'stripe_fee_percent' => $intentData['stripe_fee_percent'],
+            'publishable_key'    => config('services.stripe.public'),
+            'return_url'         => route('politician.billing.confirm'),
         ]);
     }
 

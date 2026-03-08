@@ -155,19 +155,42 @@ class CampaignBillingService
 
     /**
      * Create a purchase PaymentIntent for politician credit purchase and record a pending transaction.
-     * Returns array with keys: payment_intent_id and client_secret (when Stripe available).
+     *
+     * Stripe charges 2.5% per transaction. To ensure the platform always receives
+     * the full credit value the politician requested, we gross-up the charge:
+     *   gross_charge = requested_credits / (1 - stripe_fee_percent / 100)
+     *
+     * The gross_charge is what Stripe processes. The original `$amount` (credits_amount)
+     * is stored in the transaction metadata and applied to the politician's balance
+     * when the payment is finalised.
+     *
+     * Returns array with keys:
+     *   payment_intent_id, client_secret, gross_amount, credits_amount, stripe_fee, stripe_fee_percent
      */
     public function createPurchaseIntent(Politician $politician, float $amount, array $opts = []): array
     {
-        $result = ['payment_intent_id' => null, 'client_secret' => null];
+        $feePercent   = (float) config('u9itus.stripe_fee_percent', 2.5);
+        $grossAmount  = round($amount / (1 - $feePercent / 100), 2);
+        $stripeFee    = round($grossAmount - $amount, 2);
+
+        $result = [
+            'payment_intent_id'  => null,
+            'client_secret'      => null,
+            'gross_amount'       => $grossAmount,
+            'credits_amount'     => $amount,
+            'stripe_fee'         => $stripeFee,
+            'stripe_fee_percent' => $feePercent,
+        ];
 
         try {
             if ($this->stripe) {
                 // Auto-create the Stripe Customer if one doesn't exist yet.
                 $customerId = $this->stripe->ensureCustomer($politician);
 
+                // Charge the gross amount so the platform receives the full credits_amount
+                // after Stripe deducts its 2.5% processing fee.
                 $pi = $this->stripe->createPaymentIntent(
-                    $amount,
+                    $grossAmount,
                     'usd',
                     [
                         'politician_id'   => $politician->id,
@@ -177,26 +200,30 @@ class CampaignBillingService
                     $opts['payment_method_id'] ?? null,
                 );
 
-                $piId = $pi->id ?? null;
+                $piId         = $pi->id ?? null;
                 $clientSecret = $pi->client_secret ?? null;
 
-                // Record campaign transaction placeholder
-                if ($this) {
-                    $this->recordTransaction([
-                        'campaign_id' => null,
-                        'politician_id' => $politician->id,
-                        'transaction_type' => 'charge',
-                        'amount' => $amount,
-                        'currency' => 'USD',
-                        'stripe_payment_intent_id' => $piId,
-                        'status' => 'pending',
-                        'description' => 'Credit purchase',
-                        'metadata' => ['client_secret' => $clientSecret],
-                    ]);
-                }
+                // Record pending transaction — store credits_amount and fee so
+                // finalizePaymentIntent() knows exactly how much to credit.
+                $this->recordTransaction([
+                    'campaign_id'              => null,
+                    'politician_id'            => $politician->id,
+                    'transaction_type'         => 'charge',
+                    'amount'                   => $grossAmount,
+                    'currency'                 => 'USD',
+                    'stripe_payment_intent_id' => $piId,
+                    'status'                   => 'pending',
+                    'description'              => 'Credit purchase (incl. 2.5% Stripe processing fee)',
+                    'metadata'                 => [
+                        'client_secret'      => $clientSecret,
+                        'credits_amount'     => $amount,
+                        'stripe_fee'         => $stripeFee,
+                        'stripe_fee_percent' => $feePercent,
+                    ],
+                ]);
 
                 $result['payment_intent_id'] = $piId;
-                $result['client_secret'] = $clientSecret;
+                $result['client_secret']     = $clientSecret;
             }
         } catch (\Exception $e) {
             Log::error('createPurchaseIntent failed: ' . $e->getMessage());
@@ -270,7 +297,9 @@ class CampaignBillingService
             }
             $tx->save();
 
-            // If succeeded, credit the politician's balance
+            // If succeeded, credit the politician's balance.
+            // Use the stored credits_amount (net of Stripe fee) if available;
+            // otherwise fall back to the gross amount recorded on the transaction.
             if ($status === 'succeeded') {
                 $politician = null;
                 if ($tx->politician_id) {
@@ -278,10 +307,18 @@ class CampaignBillingService
                 }
 
                 if ($politician) {
-                    $this->addCredits($politician, $amount, [
-                        'transaction_type' => 'purchase',
+                    $creditsAmount = isset($tx->metadata['credits_amount'])
+                        ? (float) $tx->metadata['credits_amount']
+                        : $amount;
+
+                    $feeNote = isset($tx->metadata['stripe_fee'])
+                        ? ' (net of $' . number_format((float) $tx->metadata['stripe_fee'], 2) . ' Stripe processing fee)'
+                        : '';
+
+                    $this->addCredits($politician, $creditsAmount, [
+                        'transaction_type'       => 'purchase',
                         'related_transaction_id' => $tx->id,
-                        'description' => 'Credits added from Stripe payment',
+                        'description'            => 'Credits added from Stripe payment' . $feeNote,
                     ]);
                 } else {
                     Log::warning('Politician not found when finalizing PaymentIntent', ['tx' => $tx->id]);
