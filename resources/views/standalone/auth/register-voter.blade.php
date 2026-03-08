@@ -221,7 +221,7 @@
                     class="mt-0.5 w-4 h-4 rounded border-slate-600 bg-slate-700 text-blue-500 focus:ring-blue-500/50">
                 <label for="terms" class="text-sm text-slate-400">
                     I agree to the <a href="{{ route('terms') }}" class="text-blue-400 hover:text-blue-300 underline">Terms of Service</a>
-                    and <a href="#" class="text-blue-400 hover:text-blue-300 underline">Privacy Policy</a>.
+                    and <a href="{{ route('privacy-policy') }}" class="text-blue-400 hover:text-blue-300 underline">Privacy Policy</a>.
                     I understand I must watch the full video to earn the $0.25 reward.
                 </label>
             </div>

@@ -473,7 +473,7 @@
                 <div>
                     <h3 class="font-semibold mb-4">Legal</h3>
                     <ul class="space-y-2 text-slate-400 text-sm">
-                        <li><a href="https://www.ageofmentality.com/story/privacy-policy-for-age-of-mentality" target="_blank" rel="noopener noreferrer" class="hover:text-white transition">Privacy Policy</a></li>
+                        <li><a href="{{ route('privacy-policy') }}" class="hover:text-white transition">Privacy Policy</a></li>
                         <li><a href="{{ route('terms') }}" class="hover:text-white transition">Terms of Service</a></li>
                         <li><a href="#" class="hover:text-white transition">Compliance</a></li>
                     </ul>

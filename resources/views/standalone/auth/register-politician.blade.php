@@ -179,7 +179,7 @@
                     class="mt-0.5 w-4 h-4 rounded border-slate-600 bg-slate-700 text-emerald-500 focus:ring-emerald-500/50">
                 <label for="terms" class="text-sm text-slate-400">
                     I agree to the <a href="{{ route('terms') }}" class="text-emerald-400 hover:text-emerald-300 underline">Terms of Service</a>
-                    and <a href="#" class="text-emerald-400 hover:text-emerald-300 underline">Privacy Policy</a>.
+                    and <a href="{{ route('privacy-policy') }}" class="text-emerald-400 hover:text-emerald-300 underline">Privacy Policy</a>.
                     I understand that <strong class="text-slate-300">campaigns cost $0.60 per verified view</strong> and require approval before going live.
                 </label>
             </div>
