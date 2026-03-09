@@ -222,12 +222,23 @@
                             <button type="button" onclick="clearAllCities()" class="text-xs text-slate-400 hover:text-white">Clear All</button>
                         </div>
                         <div class="p-2 space-y-1" id="citiesCheckboxList">
-                            @foreach(config('u9itus.major_cities', []) as $city)
-                            <label class="city-option flex items-center gap-2 px-2 py-1.5 hover:bg-slate-700/50 rounded cursor-pointer transition">
-                                <input type="checkbox" name="target_cities[]" value="{{ $city }}" 
+                            @php
+                                $citiesByState = config('u9itus.cities_by_state', []);
+                                $allCities = [];
+                                foreach ($citiesByState as $stateAbbr => $cities) {
+                                    foreach ($cities as $city) {
+                                        $allCities[] = ['city' => $city, 'state' => $stateAbbr, 'display' => "$city, $stateAbbr"];
+                                    }
+                                }
+                                // Sort alphabetically by display name
+                                usort($allCities, fn($a, $b) => strcmp($a['display'], $b['display']));
+                            @endphp
+                            @foreach($allCities as $cityData)
+                            <label class="city-option flex items-center gap-2 px-2 py-1.5 hover:bg-slate-700/50 rounded cursor-pointer transition" data-state="{{ $cityData['state'] }}">
+                                <input type="checkbox" name="target_cities[]" value="{{ $cityData['display'] }}" 
                                     class="city-checkbox w-4 h-4 rounded border-slate-600 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-slate-900"
-                                    {{ is_array(old('target_cities')) && in_array($city, old('target_cities')) ? 'checked' : '' }}>
-                                <span class="text-sm text-slate-200">{{ $city }}</span>
+                                    {{ is_array(old('target_cities')) && in_array($cityData['display'], old('target_cities')) ? 'checked' : '' }}>
+                                <span class="text-sm text-slate-200">{{ $cityData['display'] }}</span>
                             </label>
                             @endforeach
                         </div>
@@ -566,16 +577,21 @@ function updateStatesDisplay() {
     }
 }
 
-stateCheckboxes.forEach(cb => cb.addEventListener('change', updateStatesDisplay));
+stateCheckboxes.forEach(cb => cb.addEventListener('change', () => {
+    updateStatesDisplay();
+    filterCitiesByState();
+}));
 
 function selectAllStates() {
     stateCheckboxes.forEach(cb => cb.checked = true);
     updateStatesDisplay();
+    filterCitiesByState();
 }
 
 function clearAllStates() {
     stateCheckboxes.forEach(cb => cb.checked = false);
     updateStatesDisplay();
+    filterCitiesByState();
 }
 
 // Cities dropdown
@@ -591,6 +607,42 @@ citiesBtn.addEventListener('click', (e) => {
     citiesDropdown.classList.toggle('hidden');
     statesDropdown.classList.add('hidden');
 });
+
+function filterCitiesByState() {
+    const checkedStates = Array.from(stateCheckboxes)
+        .filter(cb => cb.checked)
+        .map(cb => cb.value);
+    
+    // If no states selected, show all cities
+    if (checkedStates.length === 0) {
+        cityOptions.forEach(option => {
+            option.classList.remove('hidden');
+        });
+    } else {
+        // Only show cities from selected states
+        cityOptions.forEach(option => {
+            const cityState = option.getAttribute('data-state');
+            if (checkedStates.includes(cityState)) {
+                option.classList.remove('hidden');
+            } else {
+                option.classList.add('hidden');
+            }
+        });
+    }
+    
+    // Re-apply search filter if there's a search term
+    const searchTerm = citySearch.value.toLowerCase();
+    if (searchTerm) {
+        cityOptions.forEach(option => {
+            const text = option.textContent.toLowerCase();
+            if (!option.classList.contains('hidden') && !text.includes(searchTerm)) {
+                option.classList.add('hidden');
+            }
+        });
+    }
+    
+    updateCitiesDisplay();
+}
 
 function updateCitiesDisplay() {
     const checked = Array.from(cityCheckboxes).filter(cb => cb.checked);
@@ -625,9 +677,19 @@ function clearAllCities() {
 // City search functionality
 citySearch.addEventListener('input', (e) => {
     const searchTerm = e.target.value.toLowerCase();
+    const checkedStates = Array.from(stateCheckboxes)
+        .filter(cb => cb.checked)
+        .map(cb => cb.value);
+    
     cityOptions.forEach(option => {
         const text = option.textContent.toLowerCase();
-        option.classList.toggle('hidden', !text.includes(searchTerm));
+        const cityState = option.getAttribute('data-state');
+        
+        // Show if: matches search AND (no states selected OR matches selected state)
+        const matchesSearch = text.includes(searchTerm);
+        const matchesState = checkedStates.length === 0 || checkedStates.includes(cityState);
+        
+        option.classList.toggle('hidden', !(matchesSearch && matchesState));
     });
 });
 
