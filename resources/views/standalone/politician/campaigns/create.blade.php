@@ -160,7 +160,7 @@
                     <label class="block text-sm font-medium text-slate-300 mb-1.5">Total Budget (USD) <span class="text-red-400">*</span></label>
                     <div class="relative">
                         <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
-                        <input type="number" name="total_budget" id="budgetInput" value="{{ old('total_budget', number_format(100 * $revenuePerView, 2)) }}"
+                        <input type="number" name="total_budget" id="budgetInput" value="{{ old('total_budget', '100.00') }}"
                             min="6" step="0.01" required
                             class="w-full bg-slate-900/60 border border-slate-700 rounded-lg pl-7 pr-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition" />
                     </div>
