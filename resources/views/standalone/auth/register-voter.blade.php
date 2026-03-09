@@ -63,8 +63,8 @@
                     <svg class="w-3 h-3 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
                 </span>
                 <div>
-                    <p class="text-slate-200 text-sm font-medium">10% commission on a Politician's first credit purchase<span class="text-slate-400 font-normal"> (one-time bonus)</span></p>
-                    <p class="text-slate-400 text-xs mt-0.5">Recruit a politician to the platform — earn 10% of their very first credit buy automatically sent to your wallet.</p>
+                    <p class="text-slate-200 text-sm font-medium">10% residual income for Founding Members<span class="text-slate-400 font-normal"> (ongoing)</span></p>
+                    <p class="text-slate-400 text-xs mt-0.5">Recruit a politician to the platform — earn 10% residual income on their spending as a Founding Member.</p>
                 </div>
             </li>
         </ul>

@@ -81,11 +81,19 @@ class VoterController extends Controller
             ->take(10)
             ->get();
 
+        // Get active promotions relevant to voters
+        $activePromotions = \App\Models\PlatformSetting::active()
+            ->whereNotNull('effective_until')
+            ->whereIn('category', ['pricing', 'referral'])
+            ->orderBy('effective_until')
+            ->get();
+
         return view('standalone.voter.dashboard', [
-            'user'           => Auth::user(),
-            'voter'          => $voter,
-            'summary'        => $summary,
-            'recentSessions' => $recentSessions,
+            'user'            => Auth::user(),
+            'voter'           => $voter,
+            'summary'         => $summary,
+            'recentSessions'  => $recentSessions,
+            'activePromotions' => $activePromotions,
         ]);
     }
 

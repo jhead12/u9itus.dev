@@ -44,6 +44,41 @@
         @endforeach
     </div>
 
+    {{-- Active Promotions --}}
+    @if(isset($activePromotions) && $activePromotions->isNotEmpty())
+    <div class="bg-gradient-to-r from-amber-900/20 to-orange-900/20 border border-amber-500/30 rounded-2xl p-5">
+        <div class="flex items-start gap-3 mb-4">
+            <div class="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center shrink-0">
+                <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/>
+                </svg>
+            </div>
+            <div class="flex-1">
+                <h3 class="text-white font-semibold text-base">🎉 Active Promotions</h3>
+                <p class="text-slate-400 text-sm mt-0.5">Limited-time bonuses &amp; special rates currently running</p>
+            </div>
+        </div>
+        <div class="space-y-2.5">
+            @foreach($activePromotions as $promo)
+            <div class="bg-slate-800/60 rounded-lg p-3.5 border border-slate-700/50">
+                <div class="flex items-start justify-between gap-3">
+                    <div class="flex-1">
+                        <p class="text-white font-medium text-sm">{{ $promo->description ?? ucfirst(str_replace('_', ' ', $promo->key)) }}</p>
+                        @if($promo->user_tier)
+                            <span class="inline-block mt-1.5 px-2 py-0.5 bg-blue-500/20 text-blue-400 text-xs rounded font-medium">{{ ucfirst($promo->user_tier) }} Only</span>
+                        @endif
+                    </div>
+                    <div class="text-right shrink-0">
+                        <p class="text-emerald-400 font-bold text-lg">{{ $promo->getTypedValue() }}{{ in_array($promo->key, ['referral_commission_percent', 'procurement_commission_percent']) ? '%' : '' }}</p>
+                        <p class="text-slate-500 text-xs mt-0.5">Ends {{ $promo->effective_until->diffForHumans() }}</p>
+                    </div>
+                </div>
+            </div>
+            @endforeach
+        </div>
+    </div>
+    @endif
+
     {{-- Ad Viewing Room CTA -- primary earn action --}}
     <a href="{{ route('voter.ad-room') }}"
        class="group block bg-gradient-to-br from-emerald-900/50 via-teal-900/40 to-slate-800/60

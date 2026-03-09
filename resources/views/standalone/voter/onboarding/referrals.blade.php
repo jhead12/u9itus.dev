@@ -24,9 +24,9 @@
                 <div>
                     <div class="flex items-center space-x-2 mb-2">
                         <span class="text-2xl">🏛️</span>
-                        <h4 class="font-semibold text-white">Refer Politicians (One-Time Bonus)</h4>
+                        <h4 class="font-semibold text-white">Refer Politicians (Residual Income)</h4>
                     </div>
-                    <p class="text-gray-200">Earn 10% commission on their first credit purchase (typically $60+)</p>
+                    <p class="text-gray-200">Earn 10% residual income as a Founding Member (ongoing commissions)</p>
                 </div>
             </div>
         </div>

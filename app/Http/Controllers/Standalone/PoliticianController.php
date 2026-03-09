@@ -58,11 +58,19 @@ class PoliticianController extends Controller
             'credit_balance'    => $creditBalance,
         ];
 
+        // Get active promotions relevant to politicians
+        $activePromotions = \App\Models\PlatformSetting::active()
+            ->whereNotNull('effective_until')
+            ->whereIn('category', ['pricing', 'referral'])
+            ->orderBy('effective_until')
+            ->get();
+
         return view('standalone.politician.dashboard', [
-            'user'            => $user,
-            'politician'      => $politician,
-            'recentCampaigns' => $recentCampaigns,
-            'stats'           => $stats,
+            'user'             => $user,
+            'politician'       => $politician,
+            'recentCampaigns'  => $recentCampaigns,
+            'stats'            => $stats,
+            'activePromotions' => $activePromotions,
         ]);
     }
 

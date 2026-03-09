@@ -48,12 +48,12 @@
                 </div>
                 <div>
                     <p class="text-white font-semibold text-sm">Recruit a Politician</p>
-                    <p class="text-amber-400 text-xs font-mono">10% of first credit purchase</p>
+                    <p class="text-amber-400 text-xs font-mono">10% residual income</p>
                 </div>
             </div>
             <p class="text-slate-400 text-xs leading-relaxed">
-                Earn <strong class="text-amber-400">10%</strong> of the first credit purchase when a politician
-                you recruited funds their first campaign. One-time bonus per politician.
+                Earn <strong class="text-amber-400">10% residual income</strong> as a Founding Member when you recruit a politician.
+                Ongoing commissions on their spending.
             </p>
             <p class="text-slate-500 text-xs mt-2">
                 {{ $referredPoliticians->count() }} politician{{ $referredPoliticians->count() === 1 ? '' : 's' }} recruited
@@ -124,7 +124,7 @@
         <div class="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-6 items-start">
             <div class="space-y-2">
                 <p class="text-sm font-medium text-amber-400">Politician Registration Link</p>
-                <p class="text-slate-400 text-xs">Earn 10% of the first credit purchase when a politician you recruit funds their campaign.</p>
+                <p class="text-slate-400 text-xs">Earn 10% residual income as a Founding Member when you recruit a politician.</p>
                 <div class="flex gap-2">
                     <input id="politician-referral-link" type="text" readonly
                         value="{{ route('register.politician') }}?ref={{ $politician->referral_code }}"
