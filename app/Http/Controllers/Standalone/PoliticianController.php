@@ -130,7 +130,9 @@ class PoliticianController extends Controller
         $data['status']        = 'draft';
         $data['revenue_per_view'] = config('u9itus.revenue_per_view', 0.60);
         $data['voter_payout_per_view'] = config('u9itus.viewer_payout_per_view', 0.25);
-        
+        // Always recompute total_budget from views × rate (never trust form input)
+        $data['total_budget'] = round((float)($data['total_views_requested'] ?? 0) * $data['revenue_per_view'], 2);
+
         // Set default media_duration if not provided (will be auto-detected from video later)
         if (empty($data['media_duration']) && $data['campaign_type'] === 'video') {
             $data['media_duration'] = config('u9itus.min_video_duration', 10);
@@ -231,7 +233,15 @@ class PoliticianController extends Controller
             403
         );
 
-        $campaign->update($request->validated());
+        $validated = $request->validated();
+        // Always recompute total_budget from views × rate (never trust form input)
+        $validated['total_budget'] = round(
+            (float)($validated['total_views_requested'] ?? $campaign->total_views_requested)
+            * config('u9itus.revenue_per_view', 0.60),
+            2
+        );
+
+        $campaign->update($validated);
 
         return redirect()
             ->route('politician.campaigns.show', $campaign)

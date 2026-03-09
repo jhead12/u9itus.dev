@@ -320,6 +320,19 @@
 
 @push('scripts')
 <script>
+    // Sync views ↔ budget on edit
+    const revenuePerViewEdit = {{ config('u9itus.revenue_per_view', 0.60) }};
+    const viewsEditInput  = document.querySelector('[name="total_views_requested"]');
+    const budgetEditInput = document.querySelector('[name="total_budget"]');
+    if (viewsEditInput && budgetEditInput) {
+        viewsEditInput.addEventListener('input', () => {
+            budgetEditInput.value = (parseFloat(viewsEditInput.value || 0) * revenuePerViewEdit).toFixed(2);
+        });
+        budgetEditInput.addEventListener('input', () => {
+            viewsEditInput.value = Math.floor(parseFloat(budgetEditInput.value || 0) / revenuePerViewEdit);
+        });
+    }
+
     document.getElementById('campaignType').addEventListener('change', function() {
         const isLive = this.value === 'live_feed';
         document.getElementById('liveFeedFields').classList.toggle('hidden', !isLive);

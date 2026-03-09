@@ -50,10 +50,10 @@
                     </div>
                     <div class="text-right shrink-0">
                         <p class="text-emerald-400 font-bold text-lg">
-                            @if(str_contains($promo->key, 'revenue') || str_contains($promo->key, 'payout'))
-                                ${{ number_format($promo->getTypedValue(), 2) }}
-                            @elseif(str_contains($promo->key, 'percent'))
+                            @if(str_contains($promo->key, 'percent'))
                                 {{ $promo->getTypedValue() }}%
+                            @elseif(str_contains($promo->key, 'revenue') || str_contains($promo->key, 'payout'))
+                                ${{ number_format($promo->getTypedValue(), 2) }}
                             @else
                                 {{ $promo->getTypedValue() }}
                             @endif
