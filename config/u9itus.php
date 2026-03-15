@@ -61,8 +61,9 @@ return [
 
     /**
      * Batch payout minimum threshold (simplified config key for views/controllers).
+     * Falls back to MIN_PAYOUT_AMOUNT so request and processing thresholds stay aligned.
      */
-    'batch_payout_min' => env('PAYOUT_THRESHOLD_AMOUNT', 5.00),
+    'batch_payout_min' => env('PAYOUT_THRESHOLD_AMOUNT', env('MIN_PAYOUT_AMOUNT', 5.00)),
 
     /**
      * Default payment per view if not specified in campaign.
