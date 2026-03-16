@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\PlatformSetting;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
@@ -101,22 +102,44 @@ class PlatformSettingsService
         $category = $options['category'] ?? self::inferCategory($key);
         $userTier = $options['user_tier'] ?? null;
 
-        $setting = PlatformSetting::updateOrCreate(
-            [
-                'key' => $key,
+        $attributes = [
+            'value' => (string) $value,
+            'type' => $type,
+            'description' => $options['description'] ?? null,
+            'category' => $category,
+            'effective_from' => $options['effective_from'] ?? null,
+            'effective_until' => $options['effective_until'] ?? null,
+            'is_active' => $options['is_active'] ?? true,
+            'metadata' => $options['metadata'] ?? null,
+        ];
+
+        try {
+            $setting = PlatformSetting::updateOrCreate(
+                [
+                    'key' => $key,
+                    'user_tier' => $userTier,
+                ],
+                $attributes
+            );
+        } catch (UniqueConstraintViolationException $e) {
+            // Handle legacy schemas where `key` is globally unique.
+            $setting = PlatformSetting::where('key', $key)->first();
+
+            if (!$setting) {
+                throw $e;
+            }
+
+            $setting->fill(array_merge($attributes, [
                 'user_tier' => $userTier,
-            ],
-            [
-                'value' => (string) $value,
-                'type' => $type,
-                'description' => $options['description'] ?? null,
-                'category' => $category,
-                'effective_from' => $options['effective_from'] ?? null,
-                'effective_until' => $options['effective_until'] ?? null,
-                'is_active' => $options['is_active'] ?? true,
-                'metadata' => $options['metadata'] ?? null,
-            ]
-        );
+            ]));
+            $setting->save();
+
+            Log::warning('Platform setting unique key conflict resolved via key-level update fallback', [
+                'key' => $key,
+                'requested_user_tier' => $userTier,
+                'existing_setting_id' => $setting->id,
+            ]);
+        }
 
         // Clear cache
         self::clearCache($key, $userTier);
