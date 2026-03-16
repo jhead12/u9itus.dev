@@ -212,9 +212,14 @@
                     Wikipedia
                 </a>
 
-                {{-- Ballotpedia --}}
-                @if($pol->ballotpedia_id && ($pol->show_ballotpedia_data ?? true))
-                <a href="https://ballotpedia.org/{{ rawurlencode($pol->ballotpedia_id) }}"
+                {{-- Ballotpedia: use stored ID for direct page, else fall back to name search --}}
+                @if($pol->show_ballotpedia_data ?? true)
+                @php
+                    $ballotpediaUrl = $pol->ballotpedia_id
+                        ? 'https://ballotpedia.org/' . rawurlencode($pol->ballotpedia_id)
+                        : 'https://ballotpedia.org/wiki/index.php?search=' . urlencode($pol->full_name);
+                @endphp
+                <a href="{{ $ballotpediaUrl }}"
                    target="_blank" rel="noopener noreferrer"
                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-700/60 hover:bg-slate-700 border border-slate-600/60 text-slate-300 hover:text-white text-xs font-medium transition">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -248,15 +253,20 @@
                 </a>
                 @endif
 
-                {{-- FEC --}}
-                @if($pol->fec_candidate_id && ($pol->show_fec_data ?? true))
-                <a href="https://www.fec.gov/data/candidate/{{ urlencode($pol->fec_candidate_id) }}/"
+                {{-- FEC: use stored candidate ID for direct record, else fall back to name search --}}
+                @if($pol->show_fec_data ?? true)
+                @php
+                    $fecUrl = $pol->fec_candidate_id
+                        ? 'https://www.fec.gov/data/candidate/' . urlencode($pol->fec_candidate_id) . '/'
+                        : 'https://www.fec.gov/data/candidates/?q=' . urlencode($pol->full_name);
+                @endphp
+                <a href="{{ $fecUrl }}"
                    target="_blank" rel="noopener noreferrer"
                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-700/60 hover:bg-slate-700 border border-slate-600/60 text-slate-300 hover:text-white text-xs font-medium transition">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/>
                     </svg>
-                    FEC Records
+                    FEC Filings
                 </a>
                 @endif
 
