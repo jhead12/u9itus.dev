@@ -37,7 +37,7 @@
                     <a href="{{ route('dashboard') }}" class="text-sm text-slate-300 hover:text-white transition">Dashboard</a>
                 @else
                     <a href="{{ route('register.voter') }}" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-4 py-2 rounded-lg transition">
-                        Earn Money Watching
+                        Create Free Account
                     </a>
                     <a href="{{ route('login') }}" class="text-sm text-slate-300 hover:text-white transition">Sign In</a>
                 @endauth
@@ -58,9 +58,19 @@
                     Browse Politicians & Officials
                 </h1>
                 <p class="text-slate-400 text-base leading-relaxed">
-                    Research verified politicians and local governance officials on U9itus. 
-                    View their profiles, campaign messages, and transparency data before watching their ads.
+                    Research verified politicians and local governance officials on U9itus.
+                    View their profiles, campaign messages, and transparency data in a public, view-only directory.
                 </p>
+                @if($isGuestBrowsing)
+                <div class="mt-5 inline-flex max-w-2xl items-start gap-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
+                    <svg class="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <p>
+                        Public directory is view-only. Guests can research politicians here, but watching campaigns on U9itus still requires an account.
+                    </p>
+                </div>
+                @endif
             </div>
         </div>
     </div>
@@ -121,7 +131,7 @@
                 </button>
 
                 @if(request()->hasAny(['q', 'level', 'state', 'party', 'sort']))
-                <a href="{{ route('politicians.directory') }}" 
+                     <a href="{{ route('politicians.directory') }}"
                    class="text-slate-400 hover:text-white text-sm flex items-center gap-1 px-3 py-2 transition">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
@@ -176,7 +186,7 @@
                 {{-- Profile Photo --}}
                 <div class="relative bg-gradient-to-br from-slate-700 to-slate-800 aspect-square overflow-hidden">
                     @if($politician->profile_photo_url)
-                        <img src="{{ $politician->profile_photo_url }}" 
+                            <img src="{{ $politician->profile_photo_url }}"
                              alt="{{ $politician->full_name }}"
                              class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                     @else

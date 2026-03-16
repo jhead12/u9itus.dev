@@ -61,8 +61,9 @@ class PublicProfileController extends Controller
 
     /**
      * Display a directory of all active politicians on the platform.
-     * 
-     * Allows voters to browse and research politicians before watching their campaigns.
+        *
+        * Public browsing is view-only. Guests may research profiles and transparency
+        * data without entering any earning flow.
      */
     public function index(Request $request)
     {
@@ -117,12 +118,14 @@ class PublicProfileController extends Controller
         $states = config('u9itus.us_states', []);
         $governanceLevels = ['Federal', 'State', 'County', 'City', 'School Board', 'Judicial'];
         $parties = ['Democratic', 'Republican', 'Independent', 'Libertarian', 'Green'];
+        $isGuestBrowsing = ! auth()->check();
 
         return view('standalone.public.politicians-directory', compact(
             'politicians',
             'states',
             'governanceLevels',
-            'parties'
+            'parties',
+            'isGuestBrowsing'
         ));
     }
 
@@ -134,27 +137,14 @@ class PublicProfileController extends Controller
      */
     public function show(Request $request, string $slug)
     {
-        // Try to find a published page first
-        $politician = Politician::where('slug', $slug)
-            ->where('page_published', true)
-            ->where('is_active', true)
-            ->first();
-
-        // If not published, check if the authenticated user owns this page (preview mode)
-        if (!$politician && auth()->check()) {
-            $user = auth()->user();
-            if ($user->user_type === 'politician' && $user->politician) {
-                $politician = Politician::where('slug', $slug)
-                    ->where('id', $user->politician->id)
-                    ->where('is_active', true)
-                    ->first();
-            }
-        }
+        $politician = $this->resolvePublicPolitician($slug);
 
         // If still not found, throw 404
         if (!$politician) {
             abort(404);
         }
+
+        $isGuestBrowsing = ! auth()->check();
 
         // Eager-load what we need for the public page
         $politician->load(['page', 'initiatives' => fn($q) => $q->published()->ordered()]);
@@ -171,32 +161,13 @@ class PublicProfileController extends Controller
 
         $initiatives = $politician->initiatives;
 
-        // Phase 16: Fetch transparency data if politician is verified
-        $transparencyData = [];
-        if ($politician->verification_status === 'verified') {
-            if ($politician->show_ballotpedia_data) {
-                $ballotpediaService = app(\App\Services\BallotpediaService::class);
-                $transparencyData['ballotpedia'] = $ballotpediaService->getDisplayData($politician);
-            }
-            if ($politician->show_opensecrets_data) {
-                $openSecretsService = app(\App\Services\OpenSecretsService::class);
-                $transparencyData['opensecrets'] = $openSecretsService->getDisplayData($politician);
-            }
-            if ($politician->show_votesmart_data) {
-                $voteSmartService = app(\App\Services\VoteSmartService::class);
-                $transparencyData['votesmart'] = $voteSmartService->getDisplayData($politician);
-            }
-            if ($politician->show_fec_data) {
-                $fecService = app(\App\Services\FECService::class);
-                $transparencyData['fec'] = $fecService->getDisplayData($politician);
-            }
-        }
+        $transparencyData = $this->buildTransparencyData($politician);
 
         // Build Open Graph meta
         $ogTitle       = $politician->full_name . ' — ' . ($politician->political_office ?? 'Politician');
         $ogDescription = $politician->bio
             ? \Illuminate\Support\Str::limit($politician->bio, 160)
-            : "Watch {$politician->full_name}'s political messages and earn money on U9itus.";
+            : "Research {$politician->full_name}'s campaign messages, profile, and public records on U9itus.";
         $ogImage       = $page->hero_banner_url ?? $politician->profile_photo_url ?? null;
         $ogUrl         = route('politician.public.show', $slug);
 
@@ -209,8 +180,58 @@ class PublicProfileController extends Controller
             'ogTitle',
             'ogDescription',
             'ogImage',
-            'ogUrl'
+            'ogUrl',
+            'isGuestBrowsing'
         ));
+    }
+
+    protected function resolvePublicPolitician(string $slug): ?Politician
+    {
+        $politician = Politician::where('slug', $slug)
+            ->where('page_published', true)
+            ->where('is_active', true)
+            ->first();
+
+        if ($politician || ! auth()->check()) {
+            return $politician;
+        }
+
+        $user = auth()->user();
+
+        if ($user->user_type !== 'politician' || ! $user->politician) {
+            return null;
+        }
+
+        return Politician::where('slug', $slug)
+            ->where('id', $user->politician->id)
+            ->where('is_active', true)
+            ->first();
+    }
+
+    protected function buildTransparencyData(Politician $politician): array
+    {
+        if ($politician->verification_status !== 'verified') {
+            return [];
+        }
+
+        $services = [
+            'ballotpedia' => [$politician->show_ballotpedia_data, \App\Services\BallotpediaService::class],
+            'opensecrets' => [$politician->show_opensecrets_data, \App\Services\OpenSecretsService::class],
+            'votesmart' => [$politician->show_votesmart_data, \App\Services\VoteSmartService::class],
+            'fec' => [$politician->show_fec_data, \App\Services\FECService::class],
+        ];
+
+        $transparencyData = [];
+
+        foreach ($services as $key => [$enabled, $serviceClass]) {
+            if (! $enabled) {
+                continue;
+            }
+
+            $transparencyData[$key] = app($serviceClass)->getDisplayData($politician);
+        }
+
+        return $transparencyData;
     }
 
     /**

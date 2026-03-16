@@ -73,7 +73,7 @@
                     <a href="{{ route('dashboard') }}" class="text-sm text-slate-300 hover:text-white transition">Dashboard</a>
                 @else
                     <a href="{{ route('register.voter') }}" class="p13-btn-primary text-xs font-semibold px-4 py-2 rounded-lg transition">
-                        Earn Money Watching
+                        Create Free Account
                     </a>
                     <a href="{{ route('login') }}" class="text-sm text-slate-300 hover:text-white transition">Sign In</a>
                 @endauth
@@ -137,10 +137,17 @@
                             {{ $page->custom_cta_text }} →
                         </a>
                     @else
+                        @auth
+                        <a href="{{ route('dashboard') }}"
+                           class="p13-btn-primary inline-flex items-center gap-2 text-sm font-semibold px-5 py-2.5 rounded-lg transition">
+                            Open Dashboard →
+                        </a>
+                        @else
                         <a href="{{ route('register.voter') }}"
                            class="p13-btn-primary inline-flex items-center gap-2 text-sm font-semibold px-5 py-2.5 rounded-lg transition">
-                            Watch &amp; Earn $0.25 per Ad →
+                            Create Free Account to Watch on U9itus →
                         </a>
+                        @endauth
                     @endif
 
                     @if($politician->website_url)
@@ -208,14 +215,14 @@
 
             {{-- Integrated U9itus platform pitch --}}
             <div class="mb-6 flex items-center gap-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-5 py-4">
-                <div class="text-2xl flex-shrink-0">💰</div>
+                <div class="text-2xl flex-shrink-0">👁️</div>
                 <div class="flex-1 min-w-0">
-                    <p class="text-sm font-semibold text-emerald-400">Earn $0.25 every time you watch a message like these</p>
-                    <p class="text-xs text-slate-400 mt-0.5">U9itus pays voters real money for watching political ads in full. Free to join, no card needed.</p>
+                    <p class="text-sm font-semibold text-emerald-400">Guest preview mode</p>
+                    <p class="text-xs text-slate-400 mt-0.5">This public page is for research and browsing. Watching campaigns on U9itus happens inside an account-enabled voter flow.</p>
                 </div>
                 <a href="{{ route('register.voter') }}"
                    class="flex-shrink-0 bg-emerald-500 hover:bg-emerald-400 text-white text-xs font-bold px-4 py-2 rounded-lg transition whitespace-nowrap shadow-lg">
-                    Start Earning →
+                    Create Account →
                 </a>
             </div>
 
@@ -249,7 +256,7 @@
                                 <div class="w-14 h-14 rounded-full bg-white/10 border-2 border-white/40 flex items-center justify-center">
                                     <svg class="w-7 h-7 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
                                 </div>
-                                <span class="mt-3 text-xs text-white/70 bg-black/40 px-3 py-1 rounded-full">Sign up to watch &amp; earn</span>
+                                <span class="mt-3 text-xs text-white/70 bg-black/40 px-3 py-1 rounded-full">Create an account to watch on U9itus</span>
                             </div>
                         @else
                             <div class="w-full h-full flex flex-col items-center justify-center bg-slate-900/60">
@@ -257,13 +264,13 @@
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
                                           d="M15 10l4.553-2.853A1 1 0 0121 8.004v7.992a1 1 0 01-1.447.857L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/>
                                 </svg>
-                                <span class="text-xs text-slate-500">Video · register to earn</span>
+                                <span class="text-xs text-slate-500">Video · account required on U9itus</span>
                             </div>
                         @endif
 
-                        {{-- Floating earnings badge --}}
-                        <div class="absolute top-2 right-2 bg-emerald-500 text-white text-xs font-bold px-2 py-0.5 rounded-full shadow-lg pointer-events-none select-none z-10">
-                            Earn $0.25
+                        {{-- Floating preview badge --}}
+                        <div class="absolute top-2 right-2 bg-slate-900/85 text-white text-xs font-bold px-2 py-0.5 rounded-full shadow-lg pointer-events-none select-none z-10 border border-white/10">
+                            Public Preview
                         </div>
                     </div>
 
@@ -272,10 +279,10 @@
                         @if($campaign->message_summary)
                             <p class="text-xs text-slate-400 line-clamp-2 mb-3">{{ $campaign->message_summary }}</p>
                         @endif
-                        <a href="{{ route('register.voter') }}"
+                        <a href="{{ auth()->check() ? route('dashboard') : route('register.voter') }}"
                            class="p13-btn-primary inline-flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg transition w-full">
                             <svg class="w-3.5 h-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-                            Watch on U9itus &amp; Earn $0.25
+                            {{ auth()->check() ? 'Open dashboard to continue' : 'Create account to watch on U9itus' }}
                         </a>
                     </div>
                 </div>
@@ -283,8 +290,8 @@
             </div>
 
             <p class="mt-5 text-center text-sm text-slate-400">
-                <a href="{{ route('register.voter') }}" class="p13-accent hover:underline font-medium">
-                    Create a free account to watch all of {{ $politician->full_name }}'s messages and earn real money →
+                <a href="{{ auth()->check() ? route('dashboard') : route('register.voter') }}" class="p13-accent hover:underline font-medium">
+                    {{ auth()->check() ? 'Return to your dashboard to continue inside U9itus →' : "Create a free account to continue from public browsing to full campaign viewing →" }}
                 </a>
             </p>
         </section>
@@ -316,7 +323,7 @@
                         <div class="flex items-start justify-between mb-4">
                             <h3 class="text-lg font-semibold text-white">{{ $data['source'] }}</h3>
                             @if(isset($data['source_url']))
-                            <a href="{{ $data['source_url'] }}" target="_blank" rel="noopener" 
+                                     <a href="{{ $data['source_url'] }}" target="_blank" rel="noopener"
                                class="text-xs text-blue-400 hover:text-blue-300 transition inline-flex items-center gap-1">
                                 View on {{ $data['source'] }} ↗
                             </a>
@@ -344,7 +351,7 @@
                                     <h4 class="text-sm font-semibold text-slate-300 mb-3 flex items-center justify-between">
                                         <span>{{ $section['title'] }}</span>
                                         @if(isset($section['show_more_url']))
-                                        <a href="{{ $section['show_more_url'] }}" target="_blank" rel="noopener" 
+                                                     <a href="{{ $section['show_more_url'] }}" target="_blank" rel="noopener"
                                            class="text-xs text-blue-400 hover:text-blue-300 transition">
                                             See all ↗
                                         </a>
@@ -367,13 +374,13 @@
                                                     @if(isset($item['pdf_url']) || isset($item['fec_url']))
                                                         <div class="col-span-full mt-1">
                                                             @if(isset($item['pdf_url']))
-                                                            <a href="{{ $item['pdf_url'] }}" target="_blank" 
+                                                                                <a href="{{ $item['pdf_url'] }}" target="_blank"
                                                                class="text-blue-400 hover:text-blue-300 text-xs mr-3">
                                                                 View PDF ↗
                                                             </a>
                                                             @endif
                                                             @if(isset($item['fec_url']))
-                                                            <a href="{{ $item['fec_url'] }}" target="_blank" 
+                                                                                <a href="{{ $item['fec_url'] }}" target="_blank"
                                                                class="text-blue-400 hover:text-blue-300 text-xs">
                                                                 View on FEC ↗
                                                             </a>
@@ -446,16 +453,16 @@
         </p>
     </footer>
 
-    {{-- ── Sticky Earn Bar (unauthenticated visitors only) ── --}}
+    {{-- ── Sticky Guest Mode Bar (unauthenticated visitors only) ── --}}
     @guest
     <div id="earn-bar"
          class="fixed bottom-0 inset-x-0 z-50 shadow-2xl"
          style="background:linear-gradient(90deg,#059669,#10b981);transform:translateY(120%);transition:transform .45s cubic-bezier(.4,0,.2,1)">
         <div class="max-w-5xl mx-auto px-4 py-3 flex items-center gap-3">
-            <span class="text-xl flex-shrink-0 hidden sm:block">💰</span>
+            <span class="text-xl flex-shrink-0 hidden sm:block">🔎</span>
             <div class="flex-1 min-w-0">
-                <p class="text-sm font-bold text-white leading-tight">Get paid $0.25 to watch political ads like these</p>
-                <p class="text-xs text-emerald-100 hidden sm:block">U9itus is free to join. No credit card. Start earning today.</p>
+                <p class="text-sm font-bold text-white leading-tight">You’re browsing in public preview mode</p>
+                <p class="text-xs text-emerald-100 hidden sm:block">Research profiles and campaign messages here. Create a free account when you want to continue inside U9itus.</p>
             </div>
             <div class="flex items-center gap-2 flex-shrink-0">
                 <a href="{{ route('register.voter') }}"
