@@ -225,7 +225,8 @@ class ImportCaliforniaUnclaimedPoliticians extends Command
     protected function districtLabel(array $term): ?string
     {
         if (($term['type'] ?? '') === 'sen') {
-            return 'CA-At Large';
+            // Senators represent the entire state — no district label
+            return null;
         }
 
         $district = (string) ($term['district'] ?? '');
@@ -308,10 +309,9 @@ class ImportCaliforniaUnclaimedPoliticians extends Command
             'total_views_requested' => 0,
             'views_completed' => 0,
             'min_watch_time_percent' => 100,
-            'status' => CampaignStatus::Active->value,
-            'approval_status' => ApprovalStatus::Approved->value,
+            'status' => CampaignStatus::Draft->value,
+            'approval_status' => ApprovalStatus::Pending->value,
             'payment_status' => PaymentStatus::Pending->value,
-            'started_at' => now(),
             'target_states' => ['CA'],
             'target_governance_levels' => ['Federal'],
         ]);

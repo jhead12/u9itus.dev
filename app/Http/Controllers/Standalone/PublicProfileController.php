@@ -190,6 +190,26 @@ class PublicProfileController extends Controller
 
         $transparencyData = $this->buildTransparencyData($politician);
 
+        // Load candidate record (e.g. congress_legislators import) to show term/election status
+        $termInfo = null;
+        $candidateRecord = \App\Models\ElectionCandidateRecord::where('state', $politician->state)
+            ->whereRaw('LOWER(full_name) = ?', [strtolower((string) $politician->full_name)])
+            ->orderByDesc('last_seen_at')
+            ->first();
+
+        if ($candidateRecord && is_array($candidateRecord->payload['terms'] ?? null)) {
+            $terms = collect($candidateRecord->payload['terms'])
+                ->sortByDesc('start')
+                ->first();
+            if ($terms) {
+                $termInfo = [
+                    'start' => $terms['start'] ?? null,
+                    'end'   => $terms['end']   ?? null,
+                    'type'  => $terms['type']  ?? null,
+                ];
+            }
+        }
+
         // Build Open Graph meta
         $ogTitle       = $politician->full_name . ' — ' . ($politician->political_office ?? 'Politician');
         $ogDescription = $politician->bio
@@ -205,6 +225,7 @@ class PublicProfileController extends Controller
             'pastCampaigns',
             'initiatives',
             'transparencyData',
+            'termInfo',
             'ogTitle',
             'ogDescription',
             'ogImage',

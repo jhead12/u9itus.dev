@@ -127,10 +127,34 @@
                     </p>
 
                     @if($politician->city || $politician->state)
-                        <p class="text-sm text-slate-400 mb-3">
+                        <p class="text-sm text-slate-400 mb-1">
                             📍 {{ implode(', ', array_filter([$politician->city, $politician->state])) }}
+                            @if($politician->district)
+                                · {{ $politician->district }}
+                            @endif
                             @if($politician->party_affiliation)
                                 · {{ $politician->party_affiliation }}
+                            @endif
+                        </p>
+                    @endif
+
+                    @if($termInfo)
+                        @php
+                            $termEndDate = $termInfo['end'] ? \Carbon\Carbon::parse($termInfo['end']) : null;
+                            $isServing = $termEndDate && $termEndDate->isFuture();
+                        @endphp
+                        <p class="text-sm mb-3">
+                            @if($isServing)
+                                <span class="inline-flex items-center gap-1 text-emerald-400">
+                                    🏛️ Currently Serving
+                                </span>
+                                <span class="text-slate-400">
+                                    · Term: {{ \Carbon\Carbon::parse($termInfo['start'])->format('M Y') }} – {{ $termEndDate->format('M Y') }}
+                                </span>
+                            @elseif($termEndDate)
+                                <span class="text-slate-400">
+                                    🏛️ Served through {{ $termEndDate->format('M Y') }}
+                                </span>
                             @endif
                         </p>
                     @endif
