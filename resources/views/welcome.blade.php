@@ -42,7 +42,7 @@
                 <div class="hidden md:flex items-center space-x-8">
                     <a href="#platform" class="text-slate-300 hover:text-white transition text-sm font-medium">Journeys</a>
                     <a href="{{ route('politicians.directory') }}" class="text-slate-300 hover:text-white transition text-sm font-medium">Browse Candidates</a>
-                    <a href="#revenue" class="text-slate-300 hover:text-white transition text-sm font-medium">Money Flow</a>
+                    <a href="#revenue" class="text-slate-300 hover:text-white transition text-sm font-medium">Voter Value</a>
                     <a href="#how-it-works" class="text-slate-300 hover:text-white transition text-sm font-medium">Transparency</a>
                     <a href="{{ route('about') }}" class="text-slate-300 hover:text-white transition text-sm font-medium">About Us</a>
                 </div>
@@ -94,49 +94,52 @@
                 </div>
                 
                 <h1 class="animate-fade-in-up delay-100 opacity-0 text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight">
-                    One Place For Voters To<br/>
-                    <span class="bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent">Learn, Verify, and Earn</span>
+                    Know Who Is Running<br/>
+                    <span class="bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent">Before You Vote</span>
                 </h1>
                 
                 <p class="animate-fade-in-up delay-200 opacity-0 text-xl sm:text-2xl text-slate-300 max-w-3xl mx-auto leading-relaxed">
-                    U9itus unites politicians and voters with paid, verified engagement and public accountability data at district level.
+                    Enter your address, see every candidate in your district, watch direct video introductions, and verify what they claim with trusted public data.
                 </p>
                 
                 <div class="animate-fade-in-up delay-300 opacity-0 flex flex-col sm:flex-row items-center justify-center gap-4 pt-8">
-                    @guest
-                        <a href="{{ route('register') }}" 
-                           class="inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-white bg-gradient-to-r from-emerald-500 to-teal-500 rounded-xl hover:from-emerald-600 hover:to-teal-600 transition shadow-2xl shadow-emerald-500/40 hover:shadow-emerald-500/60 hover:-translate-y-0.5 transform">
-                            Get Started
-                            <svg class="ml-2 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/>
-                            </svg>
-                        </a>
-                    @endguest
+                    <a href="{{ route('district.lookup') }}"
+                       class="inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-white bg-gradient-to-r from-emerald-500 to-teal-500 rounded-xl hover:from-emerald-600 hover:to-teal-600 transition shadow-2xl shadow-emerald-500/40 hover:shadow-emerald-500/60 hover:-translate-y-0.5 transform">
+                        Find My District
+                        <svg class="ml-2 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/>
+                        </svg>
+                    </a>
 
                     <a href="{{ route('politicians.directory') }}"
                        class="inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-white bg-slate-800 border border-slate-700 rounded-xl hover:bg-slate-700 transition">
                         Browse Candidates
                     </a>
-                    
-                    <a href="#platform" 
-                       class="inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-white bg-slate-800 border border-slate-700 rounded-xl hover:bg-slate-700 transition">
-                        See The Journey
-                    </a>
+
+                    @guest
+                        <a href="{{ route('register') }}" 
+                           class="inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-white bg-slate-800 border border-slate-700 rounded-xl hover:bg-slate-700 transition">
+                            Create Free Account
+                            <svg class="ml-2 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/>
+                            </svg>
+                        </a>
+                    @endguest
                 </div>
                 
                 <!-- Stats -->
                 <div class="animate-fade-in-up delay-400 opacity-0 grid grid-cols-3 gap-8 pt-16 max-w-3xl mx-auto">
                     <div>
-                        <div class="text-4xl font-bold text-emerald-400">$1.00</div>
-                        <div class="text-sm text-slate-400 mt-1">Politician Pays</div>
+                        <div class="text-4xl font-bold text-emerald-400">ZIP</div>
+                        <div class="text-sm text-slate-400 mt-1">Find your district fast</div>
                     </div>
                     <div>
-                        <div class="text-4xl font-bold text-teal-400">$0.50</div>
-                        <div class="text-sm text-slate-400 mt-1">Voter Earns</div>
+                        <div class="text-4xl font-bold text-teal-400">No Login</div>
+                        <div class="text-sm text-slate-400 mt-1">Browse candidates publicly</div>
                     </div>
                     <div>
-                        <div class="text-4xl font-bold text-blue-400">$0.50</div>
-                        <div class="text-sm text-slate-400 mt-1">Platform Keeps</div>
+                        <div class="text-4xl font-bold text-blue-400">4 Sources</div>
+                        <div class="text-sm text-slate-400 mt-1">Verify claims with public data</div>
                     </div>
                 </div>
             </div>
@@ -202,11 +205,11 @@
                     <div class="absolute top-0 right-0 w-64 h-64 bg-teal-500/5 rounded-full blur-3xl group-hover:bg-teal-500/10 transition"></div>
                     <div class="relative">
                         <div class="w-16 h-16 bg-gradient-to-br from-teal-500 to-blue-500 rounded-xl flex items-center justify-center text-3xl mb-6 shadow-lg shadow-teal-500/30">
-                            💰
+                            🗳️
                         </div>
                         <h3 class="text-2xl font-bold mb-4">Voter Journey</h3>
                         <p class="text-slate-300 leading-relaxed mb-6">
-                            Discover candidates before signup, then watch verified campaign messages and topic-based Q&A videos to earn while staying informed.
+                            Discover who is on your ballot before signup, then learn through direct candidate videos and issue-based answers built around your district.
                         </p>
                         <ul class="space-y-3">
                             <li class="flex items-center text-slate-300">
@@ -219,13 +222,13 @@
                                 <svg class="w-5 h-5 mr-3 text-teal-400" fill="currentColor" viewBox="0 0 20 20">
                                     <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
                                 </svg>
-                                V3-V5: Sign up, watch intro, then watch Q&A by topic
+                                V3-V5: Watch intro videos and issue-by-issue Q&A in one place
                             </li>
                             <li class="flex items-center text-slate-300">
                                 <svg class="w-5 h-5 mr-3 text-teal-400" fill="currentColor" viewBox="0 0 20 20">
                                     <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
                                 </svg>
-                                Earn from verified views and referral activity
+                                Stay informed first, with compensated engagement as a secondary benefit
                             </li>
                         </ul>
                     </div>
@@ -238,12 +241,12 @@
     <section id="revenue" class="relative py-24 bg-gradient-to-b from-slate-900 to-slate-800">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="text-center mb-16">
-                <span class="text-emerald-400 font-semibold text-sm tracking-wider uppercase">— Per Verified View</span>
+                <span class="text-emerald-400 font-semibold text-sm tracking-wider uppercase">— Why Voters Use It</span>
                 <h2 class="mt-4 text-4xl sm:text-5xl font-bold">
-                    How Money <span class="text-emerald-400">Moves</span>
+                    What Voters <span class="text-emerald-400">Actually Gain</span>
                 </h2>
                 <p class="mt-4 text-xl text-slate-300 max-w-2xl mx-auto">
-                    No impressions. No CPM. Every dollar maps to a real person who watched.
+                    U9itus reduces the work it normally takes to understand local races and upcoming elections.
                 </p>
             </div>
 
@@ -254,26 +257,25 @@
                 </div>
                 
                 <div class="relative space-y-8">
-                    <!-- Money Flow Breakdown -->
                     <div class="grid md:grid-cols-3 gap-4">
-                        <div class="p-6 bg-slate-800/60 rounded-xl border border-slate-700 text-center">
-                            <p class="text-slate-400 text-sm uppercase tracking-wide">Politician Pays</p>
-                            <p class="text-4xl font-bold text-white mt-2">$1.00</p>
+                        <div class="p-6 bg-slate-800/60 rounded-xl border border-slate-700">
+                            <p class="text-emerald-300 text-sm uppercase tracking-wide">See Your Ballot Context</p>
+                            <p class="text-xl font-semibold text-white mt-2">Enter an address and instantly see your district and who is running.</p>
                         </div>
-                        <div class="p-6 bg-gradient-to-br from-emerald-900/30 to-teal-900/30 rounded-xl border border-emerald-500/30 text-center">
-                            <p class="text-emerald-300 text-sm uppercase tracking-wide">Voter Earns</p>
-                            <p class="text-4xl font-bold text-emerald-400 mt-2">$0.50</p>
+                        <div class="p-6 bg-slate-800/60 rounded-xl border border-slate-700">
+                            <p class="text-teal-300 text-sm uppercase tracking-wide">Hear Candidates Directly</p>
+                            <p class="text-xl font-semibold text-white mt-2">Watch intro videos and issue-based answers instead of guessing from ads.</p>
                         </div>
-                        <div class="p-6 bg-slate-800/60 rounded-xl border border-slate-700 text-center">
-                            <p class="text-slate-400 text-sm uppercase tracking-wide">Platform Keeps</p>
-                            <p class="text-4xl font-bold text-blue-400 mt-2">$0.50</p>
+                        <div class="p-6 bg-slate-800/60 rounded-xl border border-slate-700">
+                            <p class="text-blue-300 text-sm uppercase tracking-wide">Verify What They Say</p>
+                            <p class="text-xl font-semibold text-white mt-2">Cross-check claims with finance, voting, donor, and election-history sources.</p>
                         </div>
                     </div>
 
                     <div class="bg-gradient-to-r from-emerald-500/10 to-teal-500/10 rounded-xl p-8 border border-emerald-500/20 text-center">
-                        <div class="text-sm text-emerald-400 font-semibold mb-2">VERIFIED VIEW STANDARD</div>
-                        <div class="text-xl font-semibold text-white">10-second heartbeat + one-time secure token + 24-hour expiry</div>
-                        <div class="text-slate-300 mt-2">Every payout is tied to confirmed watch behavior.</div>
+                        <div class="text-sm text-emerald-400 font-semibold mb-2">INFORMED PARTICIPATION, NOT JUST ATTENTION</div>
+                        <div class="text-xl font-semibold text-white">The platform rewards engagement, but the main value is understanding your upcoming elections faster.</div>
+                        <div class="text-slate-300 mt-2">Compensation supports participation; it does not replace the civic value of learning who represents you.</div>
                     </div>
                 </div>
             </div>
@@ -332,7 +334,7 @@
                     <div class="relative">
                         <div class="text-5xl mb-4">🤖</div>
                         <h3 class="text-xl font-bold mb-3">Voter Growth Loop</h3>
-                        <p class="text-slate-300">Surveys, referrals (10%), and simple cash-out thresholds keep voters engaged.</p>
+                        <p class="text-slate-300">Surveys, referrals, and follow-up content keep voters returning to learn more over time.</p>
                     </div>
                 </div>
 
@@ -353,22 +355,22 @@
     <section class="relative py-24 bg-gradient-to-b from-slate-800 to-slate-900">
         <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
             <h2 class="text-4xl sm:text-5xl font-bold mb-6">
-                Ready to Get Started?
+                Start With Your District
             </h2>
             <p class="text-xl text-slate-300 mb-10 max-w-2xl mx-auto">
-                Join the future of political engagement. Whether you're a politician looking to reach voters or a voter ready to earn, we've got you covered.
+                Researching candidates should not feel hidden, boring, or hard to access. Start by seeing who is running where you live.
             </p>
             <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
-                <a href="{{ route('register') }}" 
+                <a href="{{ route('district.lookup') }}" 
                    class="inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-white bg-gradient-to-r from-emerald-500 to-teal-500 rounded-xl hover:from-emerald-600 hover:to-teal-600 transition shadow-2xl shadow-emerald-500/40 hover:shadow-emerald-500/60 hover:-translate-y-0.5 transform">
-                    Create Account
+                    Find My District
                     <svg class="ml-2 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/>
                     </svg>
                 </a>
-                <a href="{{ route('login') }}" 
+                <a href="{{ route('politicians.directory') }}" 
                    class="inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-white bg-slate-800 border border-slate-700 rounded-xl hover:bg-slate-700 transition">
-                    Sign In
+                    Browse Candidates
                 </a>
             </div>
         </div>
@@ -392,7 +394,7 @@
                     <h3 class="font-semibold mb-4">Platform</h3>
                     <ul class="space-y-2 text-slate-400 text-sm">
                         <li><a href="#platform" class="hover:text-white transition">Journeys</a></li>
-                        <li><a href="#revenue" class="hover:text-white transition">Money Flow</a></li>
+                        <li><a href="#revenue" class="hover:text-white transition">Voter Value</a></li>
                         <li><a href="#how-it-works" class="hover:text-white transition">Transparency Layer</a></li>
                         <li><a href="{{ route('about') }}" class="hover:text-white transition">About Us</a></li>
                     </ul>
