@@ -75,6 +75,38 @@ class VoterController extends Controller
         $voter   = $this->resolveVoter();
         $summary = $this->viewService->voterEarningsSummary($voter);
 
+        // Surface watchable campaigns directly on dashboard so voters can start earning immediately.
+        $completedCampaignIds = $voter->viewSessions()
+            ->where('status', 'completed')
+            ->pluck('political_campaign_id')
+            ->all();
+
+        $voterPrefs = $voter->preferred_governance_levels ?? [];
+
+        $availableCampaignsQuery = PoliticalCampaign::with('politician:id,full_name,political_office,governance_level,profile_photo_url,verified_official,slug,page_published')
+            ->where('status', CampaignStatus::Active)
+            ->where('approval_status', ApprovalStatus::Approved)
+            ->whereColumn('views_completed', '<', 'total_views_requested')
+            ->whereNotIn('id', $completedCampaignIds);
+
+        if (! empty($voterPrefs)) {
+            $availableCampaignsQuery->whereIn('governance_level', $voterPrefs);
+        }
+
+        if ($voter->state) {
+            $availableCampaignsQuery->where(function ($q) use ($voter) {
+                $q->whereNull('target_states')
+                  ->orWhereJsonContains('target_states', $voter->state);
+            });
+        }
+
+        $availableCampaignsCount = (clone $availableCampaignsQuery)->count();
+        $availableCampaigns = $availableCampaignsQuery
+            ->orderByDesc('revenue_per_view')
+            ->orderByDesc('updated_at')
+            ->take(6)
+            ->get();
+
         $recentSessions = $voter->viewSessions()
             ->with('campaign.politician')
             ->latest()
@@ -92,6 +124,8 @@ class VoterController extends Controller
             'user'            => Auth::user(),
             'voter'           => $voter,
             'summary'         => $summary,
+            'availableCampaigns' => $availableCampaigns,
+            'availableCampaignsCount' => $availableCampaignsCount,
             'recentSessions'  => $recentSessions,
             'activePromotions' => $activePromotions,
         ]);

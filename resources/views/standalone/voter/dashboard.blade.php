@@ -16,6 +16,63 @@
         </span>
     </div>
 
+    {{-- Running Campaigns -- primary action shown first for better accessibility and task clarity --}}
+    <div class="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-5">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+            <div>
+                <h2 class="text-white font-semibold text-lg">Running Campaigns</h2>
+                <p class="text-slate-400 text-sm mt-0.5">
+                    {{ number_format($availableCampaignsCount ?? 0) }} available. Start watching to earn
+                    <span class="text-emerald-400 font-semibold">$0.25</span> per completed view.
+                </p>
+            </div>
+            <a href="{{ route('voter.ad-room') }}"
+               class="inline-flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl text-sm font-semibold transition whitespace-nowrap">
+                View All Campaigns
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                </svg>
+            </a>
+        </div>
+
+        @if(($availableCampaignsCount ?? 0) === 0)
+            <div class="rounded-xl border border-slate-700 bg-slate-900/30 p-4">
+                <p class="text-slate-300 font-medium text-sm">No campaigns available right now</p>
+                <p class="text-slate-500 text-xs mt-1">New campaigns are added regularly. Check back soon.</p>
+            </div>
+        @else
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                @foreach($availableCampaigns as $campaign)
+                    @php
+                        $remainingViews = max(0, ($campaign->total_views_requested ?? 0) - ($campaign->views_completed ?? 0));
+                        $payout = (float) ($campaign->voter_payout_per_view ?? 0.25);
+                    @endphp
+                    <article class="rounded-xl border border-slate-700 bg-slate-900/30 p-4 flex items-start justify-between gap-3">
+                        <div class="min-w-0">
+                            <h3 class="text-white font-semibold text-sm truncate">{{ $campaign->title }}</h3>
+                            <p class="text-slate-400 text-xs mt-1 truncate">{{ $campaign->politician->full_name ?? 'Verified politician' }}</p>
+                            <div class="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                                @if($campaign->governance_level)
+                                    <span class="px-2 py-0.5 rounded-full bg-slate-700 text-slate-300">{{ $campaign->governance_level }}</span>
+                                @endif
+                                <span class="px-2 py-0.5 rounded-full bg-emerald-900/30 text-emerald-400">${{ number_format($payout, 2) }} / view</span>
+                                <span class="px-2 py-0.5 rounded-full bg-slate-700 text-slate-300">{{ number_format($remainingViews) }} left</span>
+                            </div>
+                        </div>
+                        <a href="{{ route('voter.ad-room') }}"
+                           aria-label="Open running campaigns dashboard"
+                           class="shrink-0 inline-flex items-center gap-1 text-emerald-400 hover:text-emerald-300 text-xs font-semibold transition">
+                            Open
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                            </svg>
+                        </a>
+                    </article>
+                @endforeach
+            </div>
+        @endif
+    </div>
+
     {{-- Earnings Stats --}}
     @if($voter)
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -78,42 +135,6 @@
         </div>
     </div>
     @endif
-
-    {{-- Ad Viewing Room CTA -- primary earn action --}}
-    <a href="{{ route('voter.ad-room') }}"
-       class="group block bg-gradient-to-br from-emerald-900/50 via-teal-900/40 to-slate-800/60
-              border border-emerald-500/30 hover:border-emerald-400/60
-              rounded-2xl p-6 transition">
-        <div class="flex items-center justify-between gap-4">
-            <div class="flex items-center gap-4">
-                <div class="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-500/30
-                            flex items-center justify-center shrink-0
-                            group-hover:scale-105 transition-transform">
-                    <svg class="w-6 h-6 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M15 10l4.553-2.069A1 1 0 0121 8.882v6.236a1 1 0 01-1.447.894L15 14M3 8a2 2 0 00-2 2v4a2 2 0 002 2h9a2 2 0 002-2v-4a2 2 0 00-2-2H3z"/>
-                    </svg>
-                </div>
-                <div>
-                    <p class="text-white font-bold text-base flex items-center gap-2">
-                        Ad Viewing Room
-                        <span class="text-[10px] bg-emerald-600/30 border border-emerald-500/30 text-emerald-400
-                                     rounded-full px-2 py-0.5 font-semibold leading-none">LIVE</span>
-                    </p>
-                    <p class="text-slate-400 text-sm mt-0.5">
-                        Browse available campaigns &amp; earn
-                        <span class="text-emerald-400 font-semibold">$0.25</span> per completed view
-                    </p>
-                </div>
-            </div>
-            <div class="flex items-center gap-2 text-emerald-400 group-hover:translate-x-1 transition-transform shrink-0">
-                <span class="text-sm font-semibold hidden sm:block">Start earning</span>
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                </svg>
-            </div>
-        </div>
-    </a>
 
     {{-- Payout CTA --}}
     @if(($summary['pending_earnings'] ?? 0) >= config('u9itus.batch_payout_min', 10))

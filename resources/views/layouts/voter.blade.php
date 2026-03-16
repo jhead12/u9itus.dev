@@ -207,7 +207,7 @@
                     $navItems = [
                         ['route' => 'voter.dashboard',        'label' => 'Dashboard',           'pattern' => 'voter.dashboard',
                          'icon' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>'],
-                        ['route' => 'voter.ad-room',          'label' => 'Ad Viewing Room',      'pattern' => 'voter.ad-room',
+                        ['route' => 'voter.ad-room',          'label' => 'Running Campaigns',    'pattern' => 'voter.ad-room',
                          'icon' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.069A1 1 0 0121 8.882v6.236a1 1 0 01-1.447.894L15 14M3 8a2 2 0 00-2 2v4a2 2 0 002 2h9a2 2 0 002-2v-4a2 2 0 00-2-2H3z"/>'],
                         ['route' => 'politicians.directory',  'label' => 'Browse Politicians',   'pattern' => 'politicians.directory',
                          'icon' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>'],
@@ -237,7 +237,7 @@
                         {!! $item['icon'] !!}
                     </svg>
                     {{ $item['label'] }}
-                    {{-- "New" pill on Ad Viewing Room when there are available campaigns --}}
+                    {{-- "New" pill on Running Campaigns when there are available campaigns --}}
                     @if($item['route'] === 'voter.ad-room' && ! $isActive)
                     <span class="ml-auto text-[10px] bg-emerald-600/30 border border-emerald-500/30 text-emerald-400 rounded-full px-1.5 py-0.5 leading-none font-semibold">LIVE</span>
                     @elseif($isActive)
