@@ -92,6 +92,47 @@
             </div>
         </div>
 
+        {{-- Videos & Appearances --}}
+        <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6"
+             x-data="{
+                videos: {{ json_encode(old('video_links', $politician?->video_links ?? [])) }},
+                addVideo() {
+                    this.videos.push({ url: '', title: '' });
+                },
+                removeVideo(i) {
+                    this.videos.splice(i, 1);
+                }
+             }">
+            <h2 class="text-sm font-semibold text-slate-200 mb-1">Videos &amp; Appearances</h2>
+            <p class="text-xs text-slate-500 mb-4">Add YouTube or C-SPAN video links to feature on your public profile. Voters will see these when they visit your page.</p>
+
+            <div class="space-y-3">
+                <template x-for="(video, i) in videos" :key="i">
+                    <div class="flex gap-2 items-start">
+                        <div class="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <input type="url"
+                                :name="`video_links[${i}][url]`"
+                                x-model="video.url"
+                                placeholder="https://www.youtube.com/watch?v=... or https://www.c-span.org/video/..."
+                                class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition" />
+                            <input type="text"
+                                :name="`video_links[${i}][title]`"
+                                x-model="video.title"
+                                placeholder="Label (optional)"
+                                class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition" />
+                        </div>
+                        <button type="button" @click="removeVideo(i)"
+                            class="mt-0.5 text-slate-500 hover:text-red-400 transition text-lg leading-none">✕</button>
+                    </div>
+                </template>
+            </div>
+
+            <button type="button" @click="addVideo()"
+                class="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-emerald-400 hover:text-emerald-300 transition">
+                + Add Video Link
+            </button>
+        </div>
+
         <button type="submit"
             class="w-full sm:w-auto bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-semibold rounded-lg px-8 py-2.5 text-sm transition">
             Save Profile

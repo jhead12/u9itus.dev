@@ -644,16 +644,26 @@ class PoliticianController extends Controller
         abort_unless($politician, 403);
 
         $validated = $request->validate([
-            'full_name'         => 'required|string|max:255',
-            'political_office'  => 'nullable|string|max:255',
-            'governance_level'  => 'nullable|string|max:100',
-            'district'          => 'nullable|string|max:100',
-            'party_affiliation' => 'nullable|string|max:100',
-            'state'             => 'nullable|string|max:2',
-            'city'              => 'nullable|string|max:100',
-            'website_url'       => 'nullable|url|max:255',
-            'bio'               => 'nullable|string|max:2000',
+            'full_name'              => 'required|string|max:255',
+            'political_office'       => 'nullable|string|max:255',
+            'governance_level'       => 'nullable|string|max:100',
+            'district'               => 'nullable|string|max:100',
+            'party_affiliation'      => 'nullable|string|max:100',
+            'state'                  => 'nullable|string|max:2',
+            'city'                   => 'nullable|string|max:100',
+            'website_url'            => 'nullable|url|max:255',
+            'bio'                    => 'nullable|string|max:2000',
+            'video_links'            => 'nullable|array|max:20',
+            'video_links.*.url'      => 'required|url|max:500',
+            'video_links.*.title'    => 'nullable|string|max:200',
         ]);
+
+        // Filter out any rows where url is empty (safety for the repeater UI)
+        if (isset($validated['video_links'])) {
+            $validated['video_links'] = array_values(
+                array_filter($validated['video_links'], fn($v) => !empty($v['url']))
+            );
+        }
 
         $politician->update($validated);
 

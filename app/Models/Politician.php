@@ -62,6 +62,7 @@ class Politician extends Model
         'opensecrets_id',
         'votesmart_id',
         'fec_candidate_id',
+        'video_links',
     ];
 
     protected function casts(): array
@@ -81,6 +82,7 @@ class Politician extends Model
             'show_opensecrets_data' => 'boolean',
             'show_votesmart_data' => 'boolean',
             'show_fec_data' => 'boolean',
+            'video_links'   => 'array',
         ];
     }
 

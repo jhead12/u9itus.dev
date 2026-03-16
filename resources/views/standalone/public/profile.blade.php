@@ -418,6 +418,80 @@
         </section>
         @endif
 
+        {{-- Videos & Appearances Section --}}
+        @php
+            $storedVideos   = $politician->video_links ?? [];
+            $polNameEncoded = rawurlencode($politician->full_name);
+
+            // Helper: extract YouTube video ID from watch or short URL
+            $ytIdOf = function(string $url): ?string {
+                if (preg_match('/(?:youtube\.com\/watch\?(?:[^&]*&)*v=|youtu\.be\/)([A-Za-z0-9_\-]{11})/', $url, $m)) {
+                    return $m[1];
+                }
+                return null;
+            };
+
+            $youtubeVideos = array_filter($storedVideos ?? [], fn($v) => $ytIdOf($v['url'] ?? '') !== null);
+            $cspanVideos   = array_filter($storedVideos ?? [], fn($v) => str_contains($v['url'] ?? '', 'c-span.org'));
+        @endphp
+        <section>
+            <h2 class="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                <span class="w-1 h-6 rounded-full inline-block" style="background:var(--p13-accent,#f59e0b)"></span>
+                Videos &amp; Appearances
+            </h2>
+
+            {{-- Stored YouTube embeds --}}
+            @if(!empty($youtubeVideos))
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                @foreach($youtubeVideos as $vid)
+                @php $ytId = $ytIdOf($vid['url']); @endphp
+                <div class="bg-slate-800/40 border border-slate-700/40 rounded-xl overflow-hidden">
+                    <div class="aspect-video">
+                        <iframe
+                            src="https://www.youtube-nocookie.com/embed/{{ $ytId }}"
+                            title="{{ e($vid['title'] ?? 'Campaign Video') }}"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowfullscreen
+                            class="w-full h-full border-0">
+                        </iframe>
+                    </div>
+                    @if(!empty($vid['title']))
+                    <p class="px-3 py-2 text-xs text-slate-400">{{ $vid['title'] }}</p>
+                    @endif
+                </div>
+                @endforeach
+            </div>
+            @endif
+
+            {{-- Stored C-SPAN links --}}
+            @if(!empty($cspanVideos))
+            <div class="space-y-2 mb-4">
+                @foreach($cspanVideos as $vid)
+                <a href="{{ $vid['url'] }}" target="_blank" rel="noopener"
+                   class="flex items-center gap-3 bg-slate-800/40 border border-slate-700/40 rounded-xl px-4 py-3 hover:border-slate-600/60 transition">
+                    <span class="text-lg">📺</span>
+                    <span class="text-sm text-slate-300 hover:text-white transition">{{ $vid['title'] ?? 'C-SPAN Appearance' }} ↗</span>
+                </a>
+                @endforeach
+            </div>
+            @endif
+
+            {{-- Always-present search fallbacks --}}
+            <div class="bg-slate-800/40 border border-slate-700/40 rounded-xl p-4 flex flex-wrap gap-3 items-center">
+                <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Find more on:</span>
+                <a href="https://www.youtube.com/results?search_query={{ $polNameEncoded }}+speech+interview"
+                   target="_blank" rel="noopener"
+                   class="inline-flex items-center gap-1.5 text-xs font-medium bg-red-900/30 border border-red-700/40 text-red-300 hover:text-red-200 rounded-lg px-3 py-1.5 transition">
+                    ▶ YouTube Search ↗
+                </a>
+                <a href="https://www.c-span.org/search/?searchtype=Videos&query={{ $polNameEncoded }}"
+                   target="_blank" rel="noopener"
+                   class="inline-flex items-center gap-1.5 text-xs font-medium bg-blue-900/30 border border-blue-700/40 text-blue-300 hover:text-blue-200 rounded-lg px-3 py-1.5 transition">
+                    📺 C-SPAN Search ↗
+                </a>
+            </div>
+        </section>
+
         {{-- Contact / Connect Section --}}
         @if($page->show_contact && ($politician->website_url || $politician->city))
         <section>
