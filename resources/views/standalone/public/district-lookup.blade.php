@@ -37,6 +37,7 @@
             <p class="text-slate-400 max-w-2xl">
                 Enter your home address to identify your congressional district and see candidates currently published on U9itus in your area.
             </p>
+            <p class="text-slate-500 text-sm mt-2">Tip: you can enter a full address or ZIP code.</p>
         </section>
 
         <section class="bg-slate-900/70 border border-slate-700/50 rounded-2xl p-4 sm:p-6 mb-6">
@@ -45,7 +46,7 @@
                     type="text"
                     name="address"
                     value="{{ $address }}"
-                    placeholder="123 Main St, Los Angeles, CA 90012"
+                    placeholder="123 Main St, Los Angeles, CA 90012 or 92555"
                     class="flex-1 bg-slate-800 border border-slate-700 text-white placeholder-slate-500 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
                     required
                     maxlength="255"

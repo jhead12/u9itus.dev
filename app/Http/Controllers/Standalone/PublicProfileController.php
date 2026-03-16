@@ -5,9 +5,13 @@ namespace App\Http\Controllers\Standalone;
 use App\Http\Controllers\Controller;
 use App\Enums\ApprovalStatus;
 use App\Enums\CampaignStatus;
+use App\Models\DistrictLookupSearch;
+use App\Models\ElectionCandidateRecord;
 use App\Models\Politician;
+use App\Services\GoogleCivicService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 
 /**
@@ -31,6 +35,7 @@ class PublicProfileController extends Controller
         $address = (string) $request->query('address', '');
         $lookupResult = null;
         $candidates = collect();
+        $discoveredOfficials = collect();
         $error = null;
 
         if ($address !== '') {
@@ -48,7 +53,21 @@ class PublicProfileController extends Controller
                     $error = 'We could not resolve that address. Try including street, city, state, and ZIP.';
                 } else {
                     $candidates = $this->findCandidatesForDistrict($lookupResult, $states);
+
+                    // Discover and persist officials not yet in the local profile set.
+                    $discoveredOfficials = $this->discoverCandidatesFromGoogleCivic($address, $lookupResult);
+                    if ($discoveredOfficials->isNotEmpty()) {
+                        $candidates = $this->mergeCandidates($candidates, $discoveredOfficials);
+                    }
                 }
+
+                $this->recordDistrictLookupSearch(
+                    request: $request,
+                    address: $address,
+                    lookupResult: $lookupResult,
+                    error: $error,
+                    discoveredOfficialsCount: $discoveredOfficials->count(),
+                );
             }
         }
 
@@ -59,6 +78,192 @@ class PublicProfileController extends Controller
             'states' => $states,
             'error' => $error,
         ]);
+    }
+
+    /**
+     * @param array<string, mixed> $lookupResult
+     */
+    protected function discoverCandidatesFromGoogleCivic(string $address, array $lookupResult): Collection
+    {
+        /** @var GoogleCivicService $googleCivic */
+        $googleCivic = app(GoogleCivicService::class);
+        $officials = [];
+
+        if ($googleCivic->isConfigured()) {
+            $result = $googleCivic->getOfficialsByAddress($address);
+            if (is_array($result)) {
+                $officials = $result;
+            }
+        }
+
+        if (empty($officials)) {
+            return collect();
+        }
+
+        $profileIds = [];
+
+        foreach ($officials as $official) {
+            $profileId = $this->persistDiscoveredOfficial($official, $lookupResult, $address);
+            if ($profileId !== null) {
+                $profileIds[] = $profileId;
+            }
+        }
+
+        if (empty($profileIds)) {
+            return collect();
+        }
+
+        return Politician::query()
+            ->whereIn('id', array_values(array_unique($profileIds)))
+            ->where('page_published', true)
+            ->where('is_active', true)
+            ->withCount([
+                'campaigns as active_campaigns_count' => function ($q) {
+                    $q->where('status', 'active')
+                      ->where('approval_status', 'approved');
+                },
+            ])
+            ->get();
+    }
+
+    /**
+     * @param array<string, mixed> $official
+     * @param array<string, mixed> $lookupResult
+     */
+    protected function persistDiscoveredOfficial(array $official, array $lookupResult, string $address): ?int
+    {
+        $fullName = trim((string) ($official['full_name'] ?? ''));
+        $state = strtoupper((string) ($official['state'] ?? ($lookupResult['state'] ?? '')));
+        if ($fullName === '' || $state === '') {
+            return null;
+        }
+
+        $office = trim((string) ($official['political_office'] ?? 'Public Official'));
+        $districtCode = trim((string) ($official['district_code'] ?? ($lookupResult['district_code'] ?? '')));
+        $district = $districtCode !== '' ? $districtCode : null;
+        if ($district === null && ($official['district_number'] ?? null) !== null) {
+            $district = $state . '-' . str_pad((string) ((int) $official['district_number']), 2, '0', STR_PAD_LEFT);
+        }
+
+        $externalId = trim((string) ($official['external_id'] ?? ''));
+        if ($externalId === '') {
+            $externalId = 'google_civic_' . md5(strtolower($fullName . '|' . $office . '|' . $state));
+        }
+
+        ElectionCandidateRecord::updateOrCreate(
+            [
+                'source' => 'google_civic',
+                'external_candidate_id' => $externalId,
+            ],
+            [
+                'full_name' => $fullName,
+                'political_office' => $office,
+                'governance_level' => (string) ($official['governance_level'] ?? 'Local'),
+                'state' => $state,
+                'district' => $district,
+                'party_affiliation' => $official['party_affiliation'] ?? null,
+                'payload' => [
+                    'official' => $official,
+                    'lookup_context' => [
+                        'input_address' => $address,
+                        'lookup_result' => $lookupResult,
+                    ],
+                ],
+                'last_seen_at' => now(),
+            ],
+        );
+
+        $profileData = [
+            'full_name' => $fullName,
+            'political_office' => $office,
+            'governance_level' => (string) ($official['governance_level'] ?? 'Local'),
+            'district' => $district,
+            'party_affiliation' => $official['party_affiliation'] ?? null,
+            'state' => $state,
+            'website_url' => $official['website'] ?? null,
+            'profile_photo_url' => $official['photo_url'] ?? null,
+            'bio' => 'Imported from Google Civic Information API based on district lookup discovery.',
+            'verified_official' => true,
+            'is_active' => true,
+            'page_published' => true,
+        ];
+
+        $existing = Politician::query()
+            ->whereNull('user_id')
+            ->whereRaw('LOWER(full_name) = ?', [strtolower($fullName)])
+            ->whereRaw("LOWER(COALESCE(political_office, '')) = ?", [strtolower($office)])
+            ->whereRaw("UPPER(COALESCE(state, '')) = ?", [$state])
+            ->first();
+
+        $profileId = null;
+
+        if ($existing) {
+            $existing->fill($profileData);
+            $existing->save();
+            $profileId = $existing->id;
+        } else {
+            $profileId = Politician::create($profileData)->id;
+        }
+
+        return $profileId;
+    }
+
+    protected function mergeCandidates(Collection $existingCandidates, Collection $discoveredCandidates): Collection
+    {
+        return $existingCandidates
+            ->merge($discoveredCandidates)
+            ->unique('id')
+            ->sort(function ($left, $right) {
+                $leftActive = (int) ($left->active_campaigns_count ?? 0);
+                $rightActive = (int) ($right->active_campaigns_count ?? 0);
+                if ($leftActive !== $rightActive) {
+                    return $rightActive <=> $leftActive;
+                }
+
+                $leftVerified = (int) ($left->verified_official ?? 0);
+                $rightVerified = (int) ($right->verified_official ?? 0);
+                if ($leftVerified !== $rightVerified) {
+                    return $rightVerified <=> $leftVerified;
+                }
+
+                return strcasecmp((string) ($left->full_name ?? ''), (string) ($right->full_name ?? ''));
+            })
+            ->values();
+    }
+
+    /**
+     * @param array<string, mixed>|null $lookupResult
+     */
+    protected function recordDistrictLookupSearch(
+        Request $request,
+        string $address,
+        ?array $lookupResult,
+        ?string $error,
+        int $discoveredOfficialsCount
+    ): void {
+        try {
+            DistrictLookupSearch::create([
+                'query_address' => $address,
+                'matched_address' => $lookupResult['matched_address'] ?? null,
+                'state' => $lookupResult['state'] ?? null,
+                'district_number' => $lookupResult['district_number'] ?? null,
+                'district_code' => $lookupResult['district_code'] ?? null,
+                'resolved' => $lookupResult !== null,
+                'source' => $lookupResult['source'] ?? null,
+                'error_message' => $error,
+                'discovered_officials_count' => max(0, $discoveredOfficialsCount),
+                'ip_address' => $request->ip(),
+                'user_agent' => substr((string) $request->userAgent(), 0, 65535),
+                'payload' => [
+                    'lookup_result' => $lookupResult,
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('Failed to record district lookup search', [
+                'address' => $address,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     /**

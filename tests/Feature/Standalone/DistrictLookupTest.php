@@ -1,6 +1,8 @@
 <?php
 
 use App\Models\Politician;
+use App\Models\DistrictLookupSearch;
+use App\Models\ElectionCandidateRecord;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 
@@ -175,4 +177,66 @@ test('district lookup without address does not call geocoder', function () {
 
     $response->assertOk();
     Http::assertNothingSent();
+});
+
+test('district lookup falls back to google civic for zip-only searches', function () {
+    $officialName = 'Priya Sharma';
+
+    config()->set('services.google.civic_api_key', 'test-key');
+
+    Http::fake([
+        'https://geocoding.geo.census.gov/*' => Http::response([
+            'result' => [
+                'addressMatches' => [],
+            ],
+        ], 200),
+        'https://www.googleapis.com/civicinfo/v2/representatives*' => Http::response([
+            'offices' => [
+                [
+                    'name' => 'United States House of Representatives',
+                    'level' => ['federal'],
+                    'divisionId' => 'ocd-division/country:us/state:ca/cd:18',
+                    'officialIndices' => [0],
+                ],
+            ],
+            'officials' => [
+                [
+                    'name' => $officialName,
+                    'party' => 'Democratic',
+                    'urls' => ['https://example.test/priya'],
+                ],
+            ],
+            'divisions' => [
+                'ocd-division/country:us/state:ca/cd:18' => [
+                    'name' => 'California Congressional District 18',
+                ],
+            ],
+        ], 200),
+    ]);
+
+    $response = $this->get(route('district.lookup', [
+        'address' => '92555',
+    ]));
+
+    $response->assertOk();
+    $response->assertSee('CA-18');
+    $response->assertSee($officialName);
+
+    expect(Politician::query()
+        ->where('full_name', $officialName)
+        ->whereNull('user_id')
+        ->where('page_published', true)
+        ->exists())->toBeTrue();
+
+    expect(ElectionCandidateRecord::query()
+        ->where('source', 'google_civic')
+        ->where('full_name', $officialName)
+        ->exists())->toBeTrue();
+
+    expect(DistrictLookupSearch::query()
+        ->where('query_address', '92555')
+        ->where('resolved', true)
+        ->where('district_code', 'CA-18')
+        ->where('source', 'google_civic')
+        ->exists())->toBeTrue();
 });

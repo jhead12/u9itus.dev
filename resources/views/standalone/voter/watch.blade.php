@@ -93,6 +93,11 @@
         <div id="progress-track" class="absolute bottom-0 left-0 right-0 h-1 bg-slate-700">
             <div id="progress-bar" class="h-full bg-emerald-500 transition-all duration-500" style="width:0%"></div>
         </div>
+
+        {{-- Live timer overlay --}}
+        <div id="watch-timer" class="absolute top-3 right-3 px-2.5 py-1 rounded-md bg-slate-900/75 border border-slate-600/70 text-[11px] text-slate-200 font-medium tracking-wide">
+            0:00 / {{ floor(($duration ?? 0) / 60) }}:{{ str_pad((string)(($duration ?? 0) % 60), 2, '0', STR_PAD_LEFT) }}
+        </div>
     </div>
 
     {{-- Status messages --}}
@@ -486,6 +491,7 @@
 (function () {
     const overlay     = document.getElementById('play-overlay');
     const progressBar = document.getElementById('progress-bar');
+    const timerText   = document.getElementById('watch-timer');
     const statusMsg   = document.getElementById('status-msg');
     const token       = document.querySelector('meta[name="watch-token"]').content;
     const csrf        = document.querySelector('meta[name="csrf-token"]').content;
@@ -498,6 +504,7 @@
     let sessionId      = null;
     let heartbeatTimer = null;
     let antiSkipTimer  = null;
+    let uiTimer        = null;
     let completed      = false;
     let lastTime       = 0;
     let ytPlayer       = null;
@@ -522,11 +529,43 @@
         }).then(r => r.json());
     }
 
+    function formatTime(seconds) {
+        const safe = Math.max(0, Math.floor(seconds || 0));
+        const mins = Math.floor(safe / 60);
+        const secs = safe % 60;
+        return `${mins}:${String(secs).padStart(2, '0')}`;
+    }
+
+    function updateProgressUi(currentSeconds) {
+        const watched = Math.max(0, Math.floor(currentSeconds || 0));
+        const clamped = duration > 0 ? Math.min(duration, watched) : watched;
+        const pct = duration > 0 ? Math.min(100, (clamped / duration) * 100) : 0;
+        progressBar.style.width = pct + '%';
+        if (timerText) {
+            timerText.textContent = `${formatTime(clamped)} / ${formatTime(duration)}`;
+        }
+    }
+
+    function startUiTimer(getCurrentTime) {
+        if (uiTimer) return;
+        uiTimer = setInterval(() => {
+            if (completed) return;
+            updateProgressUi(getCurrentTime());
+        }, 250);
+    }
+
+    function stopUiTimer() {
+        if (!uiTimer) return;
+        clearInterval(uiTimer);
+        uiTimer = null;
+    }
+
     function startHeartbeat(getCurrentTime) {
         if (heartbeatTimer) return;
         heartbeatTimer = setInterval(async () => {
             if (!sessionId || completed) return;
             const watched = Math.floor(getCurrentTime());
+            updateProgressUi(watched);
             try {
                 const res = await post(`/voter/session/${sessionId}/progress`, { seconds_watched: watched });
                 // Update progress bar from server-reported percentage if available, else calculate locally
@@ -540,6 +579,8 @@
                     completed = true;
                     clearInterval(heartbeatTimer);
                     clearInterval(antiSkipTimer);
+                    stopUiTimer();
+                    updateProgressUi(duration);
                     if (res.qualified) {
                         showStatus(`\u{1F389} You earned $${parseFloat(res.payout_earned).toFixed(2)}! Payment is being processed.`, 'success');
                         statusMsg.innerHTML += ` <a href="${dashboardUrl}" class="underline text-emerald-400 ml-2">View earnings \u2192</a>`;
@@ -561,8 +602,10 @@
         completed = true;
         clearInterval(heartbeatTimer);
         clearInterval(antiSkipTimer);
+        stopUiTimer();
         // Use actual playback time if provided, fallback to the server-side duration
         const total = Math.floor(actualPlaybackSeconds > 0 ? actualPlaybackSeconds : duration);
+        updateProgressUi(total);
         try {
             const baseUrl = '{{ url("/voter/session") }}';
             const res = await post(`${baseUrl}/${sessionId}/complete`, { total_seconds_watched: total });
@@ -606,6 +649,7 @@
                             // Show control blocker to prevent any clicking on video
                             document.getElementById('control-blocker').classList.remove('hidden');
                             startHeartbeat(() => ytPlayer.getCurrentTime() || 0);
+                            startUiTimer(() => ytPlayer.getCurrentTime() || 0);
                             // Anti-skip: poll every 500ms for aggressive detection
                             if (!antiSkipTimer) {
                                 antiSkipTimer = setInterval(() => {
@@ -702,6 +746,7 @@
                 document.getElementById('control-blocker').classList.remove('hidden');
                 video.play();
                 startHeartbeat(() => video.currentTime || 0);
+                startUiTimer(() => video.currentTime || 0);
             } catch (e) {
                 showStatus('Could not start session. Please try again.', 'error');
                 overlay.style.display = '';

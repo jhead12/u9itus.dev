@@ -8,13 +8,13 @@ use Illuminate\Support\Facades\Log;
 
 /**
  * Google Civic Information API Integration Service
- * 
+ *
  * Fetches elected officials, election information, and polling locations
  * for a given address. Perfect for local government representatives.
- * 
+ *
  * API Documentation: https://developers.google.com/civic-information/docs/v2
  * Rate Limits: 10,000 queries per day (free tier)
- * 
+ *
  * Setup:
  * 1. Create a Google Cloud API key at https://console.cloud.google.com
  * 2. Enable Civic Information API
@@ -40,10 +40,10 @@ class GoogleCivicService
     }
 
     /**
-     * Get elected officials for a given address
-     * 
+    * Get elected officials for a given address
+    *
      * Returns federal, state, and local representatives for an address.
-     * 
+    *
      * @param string $address Full address (e.g., "123 Main St, Austin, TX 78701")
      * @return array|null Array of officials or null on error
      */
@@ -73,6 +73,7 @@ class GoogleCivicService
                 }
 
                 $data = $response->json();
+
                 return $this->parseOfficials($data);
 
             } catch (\Exception $e) {
@@ -86,8 +87,64 @@ class GoogleCivicService
     }
 
     /**
-     * Get election information for an address
-     * 
+     * Resolve district metadata from Google Civic representatives endpoint.
+     *
+     * Useful fallback when geocoding-only services cannot resolve ZIP-only input.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function resolveDistrictByAddress(string $address): ?array
+    {
+        if (! $this->isConfigured()) {
+            return null;
+        }
+
+        $cacheKey = 'google_civic.district.' . md5(strtolower($address));
+
+        return Cache::remember($cacheKey, $this->cacheDuration, function () use ($address) {
+            $resolved = null;
+
+            try {
+                $response = Http::timeout(10)
+                    ->get("{$this->baseUrl}/representatives", [
+                        'address' => $address,
+                        'key' => $this->apiKey,
+                    ]);
+
+                if ($response->successful()) {
+                    $data = $response->json();
+                    $fromOffice = $this->extractDistrictFromOffices((array) ($data['offices'] ?? []));
+                    $fromDivisions = $this->extractDistrictFromDivisionKeys(array_keys((array) ($data['divisions'] ?? [])));
+                    $districtData = $fromOffice ?? $fromDivisions;
+
+                    if (is_array($districtData) && ! empty($districtData['state'])) {
+                        $districtNumber = $this->normalizeDistrictNumber($districtData['district_number'] ?? null);
+                        $state = strtoupper((string) ($districtData['state'] ?? ''));
+
+                        $resolved = [
+                            'input_address' => trim($address),
+                            'matched_address' => trim($address),
+                            'state' => $state,
+                            'district_number' => $districtNumber,
+                            'district_code' => $this->buildDistrictCode($state, $districtNumber),
+                            'district_label' => $this->buildDistrictLabel($state, $districtNumber),
+                        ];
+                    }
+                }
+            } catch (\Throwable $e) {
+                Log::error('GoogleCivicService: Failed to resolve district', [
+                    'address' => $address,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+
+            return $resolved;
+        });
+    }
+
+    /**
+    * Get election information for an address
+    *
      * @param string $address Full address
      * @return array|null Election data or null on error
      */
@@ -124,8 +181,8 @@ class GoogleCivicService
     }
 
     /**
-     * Parse officials response into candidate-like records
-     * 
+    * Parse officials response into candidate-like records
+    *
      * @param array $data API response from Google Civic
      * @return array Parsed officials as candidate records
      */
@@ -138,7 +195,11 @@ class GoogleCivicService
         foreach ($offices as $office) {
             $name = $office['name'] ?? 'Unknown Office';
             $level = $office['level'] ?? null; // 'federal', 'state', 'local'
+            if (is_array($level)) {
+                $level = $level[0] ?? null;
+            }
             $divisionId = $office['divisionId'] ?? null;
+            $division = $this->parseDivision($divisionId);
 
             foreach ($office['officialIndices'] ?? [] as $idx) {
                 if (!isset($officials[$idx])) {
@@ -150,8 +211,10 @@ class GoogleCivicService
                     'full_name' => $this->buildFullName($official),
                     'political_office' => $name,
                     'governance_level' => $this->mapGovernanceLevel($level),
-                    'state' => $this->extractState($divisionId),
-                    'party_affiliation' => $official['party'][0] ?? null,
+                    'state' => $division['state'],
+                    'district_number' => $division['district_number'],
+                    'district_code' => $division['district_code'],
+                    'party_affiliation' => $official['party'] ?? null,
                     'phone' => $official['phones'][0] ?? null,
                     'email' => $official['emails'][0] ?? null,
                     'website' => $official['urls'][0] ?? null,
@@ -188,6 +251,22 @@ class GoogleCivicService
     }
 
     /**
+     * @return array{state: string|null, district_number: string|null, district_code: string|null}
+     */
+    protected function parseDivision(?string $divisionId): array
+    {
+        $state = $this->extractState($divisionId);
+        $districtNumber = $this->extractDistrictToken($divisionId);
+        $districtNumber = $this->normalizeDistrictNumber($districtNumber);
+
+        return [
+            'state' => $state,
+            'district_number' => $districtNumber,
+            'district_code' => $this->buildDistrictCode((string) $state, $districtNumber),
+        ];
+    }
+
+    /**
      * Extract state from division ID (e.g., "ocd-division/country:us/state:tx")
      */
     protected function extractState(?string $divisionId): ?string
@@ -201,6 +280,126 @@ class GoogleCivicService
         }
 
         return null;
+    }
+
+    protected function extractDistrictToken(?string $divisionId): ?string
+    {
+        if (! $divisionId) {
+            return null;
+        }
+
+        if (preg_match('/\/cd:([a-z0-9\-]+)/i', $divisionId, $matches)) {
+            return strtoupper($matches[1]);
+        }
+
+        return null;
+    }
+
+    protected function normalizeDistrictNumber(?string $district): ?string
+    {
+        $district = strtoupper(trim((string) $district));
+        $normalized = null;
+
+        if ($district !== '') {
+            if (in_array($district, ['AL', 'AT-LARGE', 'AT_LARGE', '00'], true)) {
+                $normalized = 'AL';
+            } elseif (preg_match('/^\d+$/', $district) === 1) {
+                $normalized = (string) ((int) $district);
+            }
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $offices
+     * @return array{state: string, district_number: string|null}|null
+     */
+    protected function extractDistrictFromOffices(array $offices): ?array
+    {
+        foreach ($offices as $office) {
+            $officeName = strtolower((string) ($office['name'] ?? ''));
+            $divisionId = (string) ($office['divisionId'] ?? '');
+            if ($divisionId === '') {
+                continue;
+            }
+
+            if (str_contains($officeName, 'house of representatives') || str_contains($officeName, 'u.s. representative')) {
+                $division = $this->parseDivision($divisionId);
+                if (! empty($division['state'])) {
+                    return [
+                        'state' => (string) $division['state'],
+                        'district_number' => $division['district_number'],
+                    ];
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array<int, string> $divisionKeys
+     * @return array{state: string, district_number: string|null}|null
+     */
+    protected function extractDistrictFromDivisionKeys(array $divisionKeys): ?array
+    {
+        foreach ($divisionKeys as $divisionKey) {
+            $division = $this->parseDivision($divisionKey);
+            if (! empty($division['state']) && $division['district_number'] !== null) {
+                return [
+                    'state' => (string) $division['state'],
+                    'district_number' => $division['district_number'],
+                ];
+            }
+        }
+
+        return null;
+    }
+
+    protected function buildDistrictCode(string $state, ?string $districtNumber): ?string
+    {
+        $state = strtoupper(trim($state));
+        if ($state === '' || $districtNumber === null) {
+            return null;
+        }
+
+        if ($districtNumber === 'AL') {
+            return $state . '-AL';
+        }
+
+        return sprintf('%s-%02d', $state, (int) $districtNumber);
+    }
+
+    protected function buildDistrictLabel(string $state, ?string $districtNumber): ?string
+    {
+        $state = strtoupper(trim($state));
+        if ($state === '' || $districtNumber === null) {
+            return null;
+        }
+
+        if ($districtNumber === 'AL') {
+            return $state . ' At-Large Congressional District';
+        }
+
+        $num = (int) $districtNumber;
+
+        return sprintf('%s %s Congressional District', $state, $this->ordinal($num));
+    }
+
+    protected function ordinal(int $number): string
+    {
+        $mod100 = $number % 100;
+        if ($mod100 >= 11 && $mod100 <= 13) {
+            return $number . 'th';
+        }
+
+        return match ($number % 10) {
+            1 => $number . 'st',
+            2 => $number . 'nd',
+            3 => $number . 'rd',
+            default => $number . 'th',
+        };
     }
 
     /**

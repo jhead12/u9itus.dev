@@ -30,41 +30,85 @@ class DistrictLookupService
         $cacheKey = 'district.lookup.' . md5(strtolower($normalizedAddress));
 
         return Cache::remember($cacheKey, now()->addHours(12), function () use ($normalizedAddress) {
-            $resolved = null;
+            $resolved = $this->lookupViaCensus($normalizedAddress);
 
-            try {
-                $response = Http::timeout(10)->get($this->baseUrl, [
-                    'address' => $normalizedAddress,
-                    'benchmark' => 'Public_AR_Current',
-                    'vintage' => 'Current_Current',
-                    'format' => 'json',
-                ]);
+            if ($resolved !== null) {
+                $resolved['source'] = 'census_geocoder';
 
-                if ($response->successful()) {
-                    $match = $response->json('result.addressMatches.0');
-                    if (is_array($match) && ! empty($match)) {
-                        $state = strtoupper((string) data_get($match, 'addressComponents.state', ''));
-                        $districtNumber = $this->extractDistrictNumber((array) data_get($match, 'geographies', []));
-
-                        $resolved = [
-                            'input_address' => $normalizedAddress,
-                            'matched_address' => (string) ($match['matchedAddress'] ?? $normalizedAddress),
-                            'state' => $state,
-                            'district_number' => $districtNumber,
-                            'district_code' => $this->buildDistrictCode($state, $districtNumber),
-                            'district_label' => $this->buildDistrictLabel($state, $districtNumber),
-                        ];
-                    }
-                }
-            } catch (\Throwable $e) {
-                Log::warning('DistrictLookupService lookup failed', [
-                    'address' => $normalizedAddress,
-                    'error' => $e->getMessage(),
-                ]);
+                return $resolved;
             }
 
-            return $resolved;
+            $fallback = $this->lookupViaGoogleCivic($normalizedAddress);
+            if ($fallback !== null) {
+                $fallback['source'] = 'google_civic';
+            }
+
+            return $fallback;
         });
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    protected function lookupViaCensus(string $normalizedAddress): ?array
+    {
+        $resolved = null;
+
+        try {
+            $response = Http::timeout(10)->get($this->baseUrl, [
+                'address' => $normalizedAddress,
+                'benchmark' => 'Public_AR_Current',
+                'vintage' => 'Current_Current',
+                'format' => 'json',
+            ]);
+
+            if ($response->successful()) {
+                $match = $response->json('result.addressMatches.0');
+                if (is_array($match) && ! empty($match)) {
+                    $state = strtoupper((string) data_get($match, 'addressComponents.state', ''));
+                    $districtNumber = $this->extractDistrictNumber((array) data_get($match, 'geographies', []));
+
+                    $resolved = [
+                        'input_address' => $normalizedAddress,
+                        'matched_address' => (string) ($match['matchedAddress'] ?? $normalizedAddress),
+                        'state' => $state,
+                        'district_number' => $districtNumber,
+                        'district_code' => $this->buildDistrictCode($state, $districtNumber),
+                        'district_label' => $this->buildDistrictLabel($state, $districtNumber),
+                    ];
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::warning('DistrictLookupService Census lookup failed', [
+                'address' => $normalizedAddress,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return $resolved;
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    protected function lookupViaGoogleCivic(string $normalizedAddress): ?array
+    {
+        try {
+            /** @var GoogleCivicService $googleCivic */
+            $googleCivic = app(GoogleCivicService::class);
+            if (! $googleCivic->isConfigured()) {
+                return null;
+            }
+
+            return $googleCivic->resolveDistrictByAddress($normalizedAddress);
+        } catch (\Throwable $e) {
+            Log::warning('DistrictLookupService Google Civic fallback failed', [
+                'address' => $normalizedAddress,
+                'error' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
     }
 
     /**
