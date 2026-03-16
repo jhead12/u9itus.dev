@@ -15,6 +15,7 @@ class WebRoutesTest extends TestCase
         $response = $this->get('/');
 
         $response->assertStatus(200);
+        $response->assertSee(route('politicians.directory'), false);
     }
 
     public function test_dashboard_redirects_unauthenticated_users(): void

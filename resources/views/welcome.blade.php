@@ -41,6 +41,7 @@
                 
                 <div class="hidden md:flex items-center space-x-8">
                     <a href="#platform" class="text-slate-300 hover:text-white transition text-sm font-medium">Platform</a>
+                    <a href="{{ route('politicians.directory') }}" class="text-slate-300 hover:text-white transition text-sm font-medium">Browse Campaigns</a>
                     <a href="#revenue" class="text-slate-300 hover:text-white transition text-sm font-medium">Revenue</a>
                     <a href="#how-it-works" class="text-slate-300 hover:text-white transition text-sm font-medium">How It Works</a>
                     <a href="{{ route('about') }}" class="text-slate-300 hover:text-white transition text-sm font-medium">About Us</a>
@@ -111,6 +112,11 @@
                             </svg>
                         </a>
                     @endguest
+
+                    <a href="{{ route('politicians.directory') }}"
+                       class="inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-white bg-slate-800 border border-slate-700 rounded-xl hover:bg-slate-700 transition">
+                        Browse Campaigns
+                    </a>
                     
                     <a href="#how-it-works" 
                        class="inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-white bg-slate-800 border border-slate-700 rounded-xl hover:bg-slate-700 transition">
