@@ -230,7 +230,7 @@
 
             {{-- Notifications bell (Alpine.js) --}}
             <div x-data="notificationBell()" x-cloak class="relative">
-                <button @click="open = !open"
+                <button @click="toggle()"
                     class="relative text-slate-400 hover:text-white transition"
                     aria-label="Notifications">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -258,9 +258,10 @@
                         <template x-if="notifications.length === 0">
                             <li class="px-4 py-6 text-sm text-slate-500 text-center">No notifications yet.</li>
                         </template>
-                        <template x-for="(n, i) in notifications" :key="i">
+                        <template x-for="(n, i) in notifications" :key="n.id ?? i">
                             <li class="px-4 py-3 flex gap-3 hover:bg-slate-700/40 transition"
-                                :class="n.read ? 'opacity-60' : ''">
+                                :class="n.read ? 'opacity-60' : ''"
+                                @click="markRead(n)">
                                 <div class="mt-0.5 w-2 h-2 rounded-full shrink-0 mt-1.5"
                                      :class="n.type === 'success' ? 'bg-emerald-400' : (n.type === 'warning' ? 'bg-amber-400' : 'bg-red-400')"></div>
                                 <div class="min-w-0 flex-1">
@@ -394,13 +395,50 @@
             open: false,
             unread: 0,
             notifications: [],
-            init() {
+            async init() {
                 // Expose push() so Echo listeners can reach it
                 window._notificationBell = this;
+                await this.loadFromServer();
+            },
+            toggle() {
+                this.open = !this.open;
+                if (this.open) this.loadFromServer();
+            },
+            async loadFromServer() {
+                try {
+                    const res = await fetch('/api/notifications', {
+                        headers: {
+                            'Accept': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest',
+                        },
+                        credentials: 'same-origin',
+                    });
+
+                    if (!res.ok) return;
+
+                    const payload = await res.json();
+                    const rows = Array.isArray(payload?.data) ? payload.data : [];
+
+                    this.notifications = rows.map((row) => {
+                        const data = row?.data ?? {};
+                        return {
+                            id: row?.id ?? null,
+                            message: data?.message ?? 'Notification',
+                            type: this.mapType(data?.type),
+                            read: !!row?.read_at,
+                            time: this.formatTime(row?.created_at),
+                        };
+                    });
+
+                    this.unread = this.notifications.reduce((sum, n) => sum + (n.read ? 0 : 1), 0);
+                } catch (_) {
+                    // Keep bell usable in degraded mode when notifications API is unavailable.
+                }
             },
             push(message, type = 'info') {
                 const now = new Date();
                 this.notifications.unshift({
+                    id: null,
                     message,
                     type,
                     read: false,
@@ -410,9 +448,78 @@
                 // Also show a toast
                 window.toast(message, type);
             },
-            markAllRead() {
+            async markRead(notification) {
+                if (!notification || notification.read) return;
+
+                notification.read = true;
+                this.unread = Math.max(0, this.unread - 1);
+
+                if (!notification.id) return;
+
+                try {
+                    await fetch('/api/notifications/' + notification.id + '/mark-as-read', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content ?? '',
+                        },
+                        credentials: 'same-origin',
+                    });
+                } catch (_) {
+                    // Ignore network errors; UI state is still updated locally.
+                }
+            },
+            async markAllRead() {
                 this.notifications.forEach(n => n.read = true);
                 this.unread = 0;
+
+                try {
+                    await fetch('/api/notifications/mark-all-as-read', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content ?? '',
+                        },
+                        credentials: 'same-origin',
+                    });
+                } catch (_) {
+                    // Ignore network errors; UI state is still updated locally.
+                }
+            },
+            mapType(serverType) {
+                if (!serverType) return 'info';
+                if (serverType === 'low_balance') return 'warning';
+                if (serverType === 'campaign_rejected' || serverType === 'fraud_alert') return 'error';
+                if (serverType === 'campaign_approved' || serverType === 'payout_processed') return 'success';
+                return 'info';
+            },
+            formatTime(timestamp) {
+                if (!timestamp) {
+                    return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                }
+
+                const date = new Date(timestamp);
+                if (Number.isNaN(date.getTime())) {
+                    return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                }
+
+                const diffMs = Date.now() - date.getTime();
+                const diffMin = Math.floor(diffMs / 60000);
+
+                if (diffMin < 1) return 'Just now';
+                if (diffMin < 60) return diffMin + 'm ago';
+
+                const diffHour = Math.floor(diffMin / 60);
+                if (diffHour < 24) return diffHour + 'h ago';
+
+                const diffDay = Math.floor(diffHour / 24);
+                if (diffDay < 7) return diffDay + 'd ago';
+
+                return date.toLocaleDateString();
             }
         };
     };
@@ -443,7 +550,7 @@
             window.Echo.private('politician.' + userId)
                 .listen('.campaign.approved', e => {
                     const title = e.title ?? 'Campaign';
-                    const msg = e.status === 'scheduled' 
+                    const msg = e.status === 'scheduled'
                         ? `✅ Campaign "${title}" approved and scheduled!`
                         : `✅ Campaign "${title}" approved and is now live!`;
                     push(msg, 'success');
