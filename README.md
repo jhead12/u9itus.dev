@@ -509,6 +509,12 @@ npm run dev:all   # Start Laravel + Vite together
 - Twilio SMS integration — the **5-character UUID prefix** embedded in every politician's `slug` (e.g. `a3f9b` from `a3f9b-mayor-john-smith-chicago`) is intentionally designed as a stable short-ID that can serve as a lookup key for SMS verification, phone-based 2FA, and any future telephony service (Twilio Verify, short-code campaigns, etc.) without exposing the full UUID in a text message
 - Firebase Cloud Messaging for push notifications
 
+### Public Politician Profile Next Steps
+
+- Add voter-facing filters or tabs for `Intro`, `Issues`, and `Past Updates` inside the public campaign section on `/p/{slug}` pages
+- Surface a "latest update" summary card above the running campaigns list so voters can quickly see what is new in the race
+- Expand the transparency block into a simpler voter-friendly format that summarizes FEC, Vote Smart, OpenSecrets, and Ballotpedia data before linking to the full source detail
+
 ## Support
 
 - **[Development Documentation](DEVELOPMENT.md)** — Development workflow

@@ -112,6 +112,11 @@
                                 ✓ Verified Official
                             </span>
                         @endif
+                        @if(is_null($politician->user_id))
+                            <span class="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/20">
+                                Unclaimed Profile
+                            </span>
+                        @endif
                     </div>
 
                     <p class="text-base font-medium p13-accent mb-1">
@@ -127,6 +132,12 @@
                             @if($politician->party_affiliation)
                                 · {{ $politician->party_affiliation }}
                             @endif
+                        </p>
+                    @endif
+
+                    @if(is_null($politician->user_id))
+                        <p class="text-xs text-amber-200/90 mb-3">
+                            This public profile is currently unclaimed and generated from public records. Verified campaign staff can claim and manage it after registration.
                         </p>
                     @endif
 
@@ -200,104 +211,69 @@
         </section>
         @endif
 
-        {{-- Active Campaigns Section (Phase 13 — video embeds + platform CTA) --}}
-        @if($page->show_campaigns && $campaigns->isNotEmpty())
+        {{-- Campaigns Section (running + past campaign archive) --}}
+        @if($page->show_campaigns && ($runningCampaigns->isNotEmpty() || $pastCampaigns->isNotEmpty()))
         <section>
             <div class="flex items-end justify-between mb-4">
                 <h2 class="text-xl font-bold text-white flex items-center gap-2">
                     <span class="w-1 h-6 rounded-full inline-block" style="background:var(--p13-accent,#f59e0b)"></span>
-                    Campaign Videos
+                    Campaign Videos &amp; Updates
                 </h2>
                 <span class="text-xs text-slate-400">
-                    {{ $campaigns->count() }} active {{ \Illuminate\Support\Str::plural('message', $campaigns->count()) }}
+                    {{ $runningCampaigns->count() + $pastCampaigns->count() }} public {{ \Illuminate\Support\Str::plural('campaign', $runningCampaigns->count() + $pastCampaigns->count()) }}
                 </span>
             </div>
 
-            {{-- Integrated U9itus platform pitch --}}
+            {{-- Public preview context --}}
             <div class="mb-6 flex items-center gap-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-5 py-4">
                 <div class="text-2xl flex-shrink-0">👁️</div>
                 <div class="flex-1 min-w-0">
                     <p class="text-sm font-semibold text-emerald-400">Guest preview mode</p>
-                    <p class="text-xs text-slate-400 mt-0.5">Guests can watch active public campaign content here. Commissions and paid ad-view earnings are only unlocked after signup.</p>
+                    <p class="text-xs text-slate-400 mt-0.5">Guests can browse current and past public campaign videos here to learn how this candidate is communicating over time.</p>
                 </div>
                 <a href="{{ route('register.voter') }}"
                    class="flex-shrink-0 bg-emerald-500 hover:bg-emerald-400 text-white text-xs font-bold px-4 py-2 rounded-lg transition whitespace-nowrap shadow-lg">
-                    Unlock Paid Viewing →
+                    Create Free Account →
                 </a>
             </div>
 
-            <div class="grid sm:grid-cols-2 gap-6">
-                @foreach($campaigns as $campaign)
-                @php
-                    $_ytId  = null;
-                    $_mUrl  = $campaign->media_url ?? '';
-                    $_isDirectVideo = preg_match('/\.(mp4|webm|ogg)(\?.*)?$/i', $_mUrl) === 1;
-                    if      (preg_match('/youtu\.be\/([a-zA-Z0-9_-]+)/', $_mUrl, $_m))    { $_ytId = $_m[1]; }
-                    elseif  (preg_match('/[?&]v=([a-zA-Z0-9_-]+)/', $_mUrl, $_m))         { $_ytId = $_m[1]; }
-                    elseif  (preg_match('/\/embed\/([a-zA-Z0-9_-]+)/', $_mUrl, $_m))       { $_ytId = $_m[1]; }
-                @endphp
-                <div class="bg-slate-800/40 border border-slate-700/40 rounded-xl overflow-hidden hover:border-slate-500 transition group">
-
-                    {{-- Video embed (YouTube nocookie) or thumbnail fallback --}}
-                    <div class="relative aspect-video bg-black">
-                        @if($_ytId)
-                            {{-- YouTube privacy-enhanced embed — publicly previewable --}}
-                            <iframe
-                                src="https://www.youtube-nocookie.com/embed/{{ $_ytId }}?rel=0&modestbranding=1&color=white&iv_load_policy=3"
-                                title="{{ e($campaign->title) }}"
-                                class="w-full h-full"
-                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                allowfullscreen
-                                loading="lazy"
-                            ></iframe>
-                        @elseif($_isDirectVideo)
-                            <video class="w-full h-full object-cover" controls preload="metadata" playsinline>
-                                <source src="{{ $_mUrl }}">
-                                Your browser does not support this video format.
-                            </video>
-                        @elseif($campaign->thumbnail_url)
-                            <img src="{{ $campaign->thumbnail_url }}" alt="{{ $campaign->title }}"
-                                 class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                            <div class="absolute inset-0 flex flex-col items-center justify-center bg-black/50">
-                                <div class="w-14 h-14 rounded-full bg-white/10 border-2 border-white/40 flex items-center justify-center">
-                                    <svg class="w-7 h-7 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-                                </div>
-                                <span class="mt-3 text-xs text-white/70 bg-black/40 px-3 py-1 rounded-full">Create an account to watch on U9itus</span>
-                            </div>
-                        @else
-                            <div class="w-full h-full flex flex-col items-center justify-center bg-slate-900/60">
-                                <svg class="w-12 h-12 text-slate-600 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                                          d="M15 10l4.553-2.853A1 1 0 0121 8.004v7.992a1 1 0 01-1.447.857L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/>
-                                </svg>
-                                <span class="text-xs text-slate-500">Video · account required on U9itus</span>
-                            </div>
-                        @endif
-
-                        {{-- Floating preview badge --}}
-                        <div class="absolute top-2 right-2 bg-slate-900/85 text-white text-xs font-bold px-2 py-0.5 rounded-full shadow-lg pointer-events-none select-none z-10 border border-white/10">
-                            Public Preview
-                        </div>
+            @if($runningCampaigns->isNotEmpty())
+            <div class="mb-8">
+                <div class="flex items-center justify-between gap-3 mb-4">
+                    <div>
+                        <h3 class="text-lg font-semibold text-white">Running Campaigns</h3>
+                        <p class="text-xs text-slate-400 mt-1">Current campaign messages, live issues, and recent public-facing updates.</p>
                     </div>
-
-                    <div class="p-4">
-                        <h3 class="font-semibold text-white text-sm mb-1 line-clamp-2">{{ $campaign->title }}</h3>
-                        @if($campaign->message_summary)
-                            <p class="text-xs text-slate-400 line-clamp-2 mb-3">{{ $campaign->message_summary }}</p>
-                        @endif
-                        <a href="{{ auth()->check() ? route('dashboard') : route('register.voter') }}"
-                           class="p13-btn-primary inline-flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg transition w-full">
-                            <svg class="w-3.5 h-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-                            {{ auth()->check() ? 'Open dashboard to continue' : 'Sign up to earn commissions from views' }}
-                        </a>
-                    </div>
+                    <span class="text-xs text-slate-500">{{ $runningCampaigns->count() }} live now</span>
                 </div>
-                @endforeach
+                <div class="grid sm:grid-cols-2 gap-6">
+                    @foreach($runningCampaigns as $campaign)
+                        @include('standalone.public.partials.campaign-preview-card', ['campaign' => $campaign])
+                    @endforeach
+                </div>
             </div>
+            @endif
+
+            @if($pastCampaigns->isNotEmpty())
+            <div>
+                <div class="flex items-center justify-between gap-3 mb-4">
+                    <div>
+                        <h3 class="text-lg font-semibold text-white">Past Campaigns</h3>
+                        <p class="text-xs text-slate-400 mt-1">Archived videos and previous campaign updates so voters can review the record over time.</p>
+                    </div>
+                    <span class="text-xs text-slate-500">{{ $pastCampaigns->count() }} in archive</span>
+                </div>
+                <div class="grid sm:grid-cols-2 gap-6">
+                    @foreach($pastCampaigns as $campaign)
+                        @include('standalone.public.partials.campaign-preview-card', ['campaign' => $campaign])
+                    @endforeach
+                </div>
+            </div>
+            @endif
 
             <p class="mt-5 text-center text-sm text-slate-400">
                 <a href="{{ auth()->check() ? route('dashboard') : route('register.voter') }}" class="p13-accent hover:underline font-medium">
-                    {{ auth()->check() ? 'Return to your dashboard to continue inside U9itus →' : "Watch public content now, then create a free account when you want paid viewing and commissions →" }}
+                    {{ auth()->check() ? 'Return to your dashboard to continue inside U9itus →' : 'Create a free account to follow candidates, save your place, and continue inside U9itus →' }}
                 </a>
             </p>
         </section>

@@ -124,13 +124,20 @@
                     <option value="verified" {{ request('sort') === 'verified' ? 'selected' : '' }}>Verified First</option>
                 </select>
 
+                {{-- Unclaimed only --}}
+                <label class="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-slate-300 cursor-pointer">
+                    <input type="checkbox" name="unclaimed" value="1" {{ request()->boolean('unclaimed') ? 'checked' : '' }}
+                        class="h-3.5 w-3.5 rounded border-slate-600 bg-slate-900 text-emerald-500 focus:ring-emerald-500" />
+                    Unclaimed only
+                </label>
+
                 {{-- Action Buttons --}}
                 <button type="submit"
                     class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition">
                     Filter
                 </button>
 
-                @if(request()->hasAny(['q', 'level', 'state', 'party', 'sort']))
+                                @if(request()->hasAny(['q', 'level', 'state', 'party', 'sort', 'unclaimed']))
                      <a href="{{ route('politicians.directory') }}"
                    class="text-slate-400 hover:text-white text-sm flex items-center gap-1 px-3 py-2 transition">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -163,13 +170,13 @@
             </div>
             <h3 class="text-white font-semibold mb-1">No politicians found</h3>
             <p class="text-slate-500 text-sm max-w-xs mx-auto">
-                @if(request()->hasAny(['q', 'level', 'state', 'party']))
+                @if(request()->hasAny(['q', 'level', 'state', 'party', 'unclaimed']))
                     No politicians match your current filters. Try adjusting your search criteria.
                 @else
                     No politicians are currently available in the directory.
                 @endif
             </p>
-            @if(request()->hasAny(['q', 'level', 'state', 'party']))
+            @if(request()->hasAny(['q', 'level', 'state', 'party', 'unclaimed']))
             <a href="{{ route('politicians.directory') }}" class="inline-block mt-4 text-emerald-400 hover:text-emerald-300 text-sm transition">
                 Clear filters →
             </a>
@@ -225,6 +232,14 @@
                     <h3 class="text-white font-semibold text-sm mb-1 group-hover:text-emerald-400 transition truncate">
                         {{ $politician->full_name }}
                     </h3>
+
+                    @if(is_null($politician->user_id))
+                    <div class="mb-2">
+                        <span class="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-300">
+                            Unclaimed Profile
+                        </span>
+                    </div>
+                    @endif
                     
                     @if($politician->political_office)
                     <p class="text-slate-400 text-xs mb-2 truncate">

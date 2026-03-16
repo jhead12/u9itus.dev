@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Standalone;
 
 use App\Http\Controllers\Controller;
+use App\Enums\ApprovalStatus;
+use App\Enums\CampaignStatus;
 use App\Models\Politician;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -97,6 +99,11 @@ class PublicProfileController extends Controller
             $query->where('party_affiliation', $party);
         }
 
+        // Unclaimed-only filter
+        if ($request->boolean('unclaimed')) {
+            $query->whereNull('user_id');
+        }
+
         // Sorting
         $sortBy = $request->input('sort', 'name');
         switch ($sortBy) {
@@ -152,11 +159,31 @@ class PublicProfileController extends Controller
         // Page config (use defaults if politician hasn't saved one yet)
         $page = $politician->page ?? new \App\Models\PoliticianPage(\App\Models\PoliticianPage::defaults($politician->id));
 
-        // Active campaigns to feature on the page
-        $campaigns = $politician->campaigns()
-            ->where('status', 'active')
-            ->orderByDesc('created_at')
+        // Separate current campaign activity from archived campaign history.
+        $runningCampaigns = $politician->campaigns()
+            ->where('approval_status', ApprovalStatus::Approved)
+            ->whereIn('status', [
+                CampaignStatus::Active,
+                CampaignStatus::Scheduled,
+                CampaignStatus::Paused,
+            ])
+            ->orderByRaw("case when status = ? then 0 when status = ? then 1 else 2 end", [
+                CampaignStatus::Active->value,
+                CampaignStatus::Scheduled->value,
+            ])
+            ->orderByDesc('updated_at')
             ->take(6)
+            ->get();
+
+        $pastCampaigns = $politician->campaigns()
+            ->where('approval_status', ApprovalStatus::Approved)
+            ->whereIn('status', [
+                CampaignStatus::Completed,
+                CampaignStatus::Cancelled,
+            ])
+            ->orderByDesc('completed_at')
+            ->orderByDesc('updated_at')
+            ->take(8)
             ->get();
 
         $initiatives = $politician->initiatives;
@@ -174,7 +201,8 @@ class PublicProfileController extends Controller
         return view('standalone.public.profile', compact(
             'politician',
             'page',
-            'campaigns',
+            'runningCampaigns',
+            'pastCampaigns',
             'initiatives',
             'transparencyData',
             'ogTitle',

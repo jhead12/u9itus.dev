@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Models\Voter;
 use App\Mail\AdminNewUserNotificationMail;
 use App\Mail\WelcomeMail;
+use App\Services\UnclaimedPoliticianProfileService;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Auth\Events\Verified;
 use Illuminate\Http\Request;
@@ -191,11 +192,8 @@ class AuthController extends Controller
             'referred_by_politician_id' => $referredByPoliticianId,
         ];
 
-        // Use updateOrCreate to ensure fields are written deterministically
-        \App\Models\Politician::updateOrCreate(
-            ['user_id' => $user->id],
-            $politicianPayload
-        );
+        app(UnclaimedPoliticianProfileService::class)
+            ->claimOrCreate($user, $politicianPayload);
 
         event(new Registered($user));
 
