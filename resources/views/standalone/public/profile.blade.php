@@ -66,7 +66,7 @@
     <nav class="sticky top-0 z-40 bg-slate-900/80 backdrop-blur-md border-b border-slate-700/50">
         <div class="max-w-5xl mx-auto px-4 sm:px-6 flex items-center justify-between h-14">
             <a href="{{ url('/') }}" class="flex items-center space-x-1 text-lg font-bold hover:opacity-80 transition">
-                <span>U9</span><span class="p13-accent">itus</span>
+                <span class="text-white">U9</span><span class="text-emerald-400">itus</span>
             </a>
             <div class="flex items-center gap-3">
                 @auth
@@ -479,7 +479,7 @@
     <footer class="border-t border-slate-800 py-8 text-center text-sm text-slate-500">
         <p>
             <a href="{{ url('/') }}" class="font-bold text-slate-300 hover:text-white transition">
-                U9<span class="p13-accent">itus</span>
+                <span class="text-white">U9</span><span class="text-emerald-400">itus</span>
             </a>
             — Political Loyalty Ads Platform
         </p>
