@@ -218,11 +218,11 @@
                 <div class="text-2xl flex-shrink-0">👁️</div>
                 <div class="flex-1 min-w-0">
                     <p class="text-sm font-semibold text-emerald-400">Guest preview mode</p>
-                    <p class="text-xs text-slate-400 mt-0.5">This public page is for research and browsing. Watching campaigns on U9itus happens inside an account-enabled voter flow.</p>
+                    <p class="text-xs text-slate-400 mt-0.5">Guests can watch active public campaign content here. Commissions and paid ad-view earnings are only unlocked after signup.</p>
                 </div>
                 <a href="{{ route('register.voter') }}"
                    class="flex-shrink-0 bg-emerald-500 hover:bg-emerald-400 text-white text-xs font-bold px-4 py-2 rounded-lg transition whitespace-nowrap shadow-lg">
-                    Create Account →
+                    Unlock Paid Viewing →
                 </a>
             </div>
 
@@ -231,6 +231,7 @@
                 @php
                     $_ytId  = null;
                     $_mUrl  = $campaign->media_url ?? '';
+                    $_isDirectVideo = preg_match('/\.(mp4|webm|ogg)(\?.*)?$/i', $_mUrl) === 1;
                     if      (preg_match('/youtu\.be\/([a-zA-Z0-9_-]+)/', $_mUrl, $_m))    { $_ytId = $_m[1]; }
                     elseif  (preg_match('/[?&]v=([a-zA-Z0-9_-]+)/', $_mUrl, $_m))         { $_ytId = $_m[1]; }
                     elseif  (preg_match('/\/embed\/([a-zA-Z0-9_-]+)/', $_mUrl, $_m))       { $_ytId = $_m[1]; }
@@ -249,6 +250,11 @@
                                 allowfullscreen
                                 loading="lazy"
                             ></iframe>
+                        @elseif($_isDirectVideo)
+                            <video class="w-full h-full object-cover" controls preload="metadata" playsinline>
+                                <source src="{{ $_mUrl }}">
+                                Your browser does not support this video format.
+                            </video>
                         @elseif($campaign->thumbnail_url)
                             <img src="{{ $campaign->thumbnail_url }}" alt="{{ $campaign->title }}"
                                  class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
@@ -282,7 +288,7 @@
                         <a href="{{ auth()->check() ? route('dashboard') : route('register.voter') }}"
                            class="p13-btn-primary inline-flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg transition w-full">
                             <svg class="w-3.5 h-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-                            {{ auth()->check() ? 'Open dashboard to continue' : 'Create account to watch on U9itus' }}
+                            {{ auth()->check() ? 'Open dashboard to continue' : 'Sign up to earn commissions from views' }}
                         </a>
                     </div>
                 </div>
@@ -291,7 +297,7 @@
 
             <p class="mt-5 text-center text-sm text-slate-400">
                 <a href="{{ auth()->check() ? route('dashboard') : route('register.voter') }}" class="p13-accent hover:underline font-medium">
-                    {{ auth()->check() ? 'Return to your dashboard to continue inside U9itus →' : "Create a free account to continue from public browsing to full campaign viewing →" }}
+                    {{ auth()->check() ? 'Return to your dashboard to continue inside U9itus →' : "Watch public content now, then create a free account when you want paid viewing and commissions →" }}
                 </a>
             </p>
         </section>

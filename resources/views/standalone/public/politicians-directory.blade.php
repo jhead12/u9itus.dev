@@ -67,7 +67,7 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                     </svg>
                     <p>
-                        Public directory is view-only. Guests can research politicians here, but watching campaigns on U9itus still requires an account.
+                        Public directory is view-only for earnings. Guests can browse profiles and watch active public campaign videos, but commissions are only available after creating a voter account.
                     </p>
                 </div>
                 @endif

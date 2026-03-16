@@ -27,7 +27,9 @@ test('guest can browse politician directory in view only mode', function () {
     $response->assertOk();
     $response->assertSee('Avery Stone');
     $response->assertDontSee('Hidden Candidate');
-    $response->assertSee('Public directory is view-only', false);
+    $response->assertSee('Public directory is view-only for earnings.', false);
+    $response->assertSee('watch active public campaign videos', false);
+    $response->assertSee('commissions are only available after creating a voter account', false);
     $response->assertSee('Create Free Account');
     $response->assertDontSee('Earn Money Watching');
 });
@@ -52,7 +54,9 @@ test('guest public politician profile stays in preview mode without earning copy
     $response->assertOk();
     $response->assertSee('Guest preview mode');
     $response->assertSee('Public Preview');
-    $response->assertSee('Create account to watch on U9itus');
+    $response->assertSee('Guests can watch active public campaign content here.', false);
+    $response->assertSee('Commissions and paid ad-view earnings are only unlocked after signup.', false);
+    $response->assertSee('Sign up to earn commissions from views');
     $response->assertDontSee('Earn $0.25');
     $response->assertDontSee('Start Earning');
 });
