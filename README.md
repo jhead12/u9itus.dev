@@ -476,7 +476,7 @@ npm run dev:all   # Start Laravel + Vite together
 | Phase    | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | Status      |
 | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
 | Phase 1  | Auth & Foundation (auth views, dashboard layout, middleware, email verification)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | ✅ Complete |
-| Phase 2  | Campaign Management (full CRUD, video upload, analytics, billing, profile views)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | ✅ Complete |
+| Phase 2  | Campaign Management (full CRUD, video upload, analytics, billing, profile views) + public campaign discovery entry points and district-first browse pathways for guest users                                                                                                                                                                                                                                                                                                                                                                                                               | ✅ Complete |
 | Phase 3  | Analytics & Tracking (ViewSession lifecycle API, fraud detection, payout dispatch)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | ✅ Complete |
 | Phase 4  | Billing scaffold (Stripe service, webhook, credit ledger, billing views)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | ✅ Complete |
 | Phase 5  | Voter watch experience (token-based video delivery, JS heartbeat)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | ✅ Complete |
@@ -487,12 +487,77 @@ npm run dev:all   # Start Laravel + Vite together
 | Phase 10 | Deployment (Railway production config, env hardening)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | ⬜ Pending  |
 | Phase 11 | Real-time Notifications — Laravel Reverb/WebSockets (private voter/politician channels, admin broadcast, ad-delivery push, payout alerts, live presence; WebRTC signaling foundation for Phase 12)                                                                                                                                                                                                                                                                                                                                                                                           | ✅ Complete |
 | Phase 12 | Live Feed Streaming — WebRTC (politician → voter HLS/WebRTC live video, presence channel viewer counts, live chat via Reverb, built on Phase 11 Reverb server)                                                                                                                                                                                                                                                                                                                                                                                                                               | ⬜ Pending  |
-| Phase 13 | Politician Public Profile Pages — public `/p/{slug}` campaign pages with custom color themes (CSS variables, not raw CSS), layout presets, initiative/platform section, active campaign video feed, verified badge, Open Graph meta for social sharing; slug format: `{5-char-uuid-prefix}-{seo-readable-name}` (e.g. `a3f9b-mayor-john-smith-chicago`)                                                                                                                                                                                                                                      | ✅ Complete |
+| Phase 13 | Politician Public Profile Pages — public `/p/{slug}` campaign pages with custom color themes (CSS variables, not raw CSS), layout presets, initiative/platform section, running + past campaign video/update sections, reusable public preview campaign cards with status/update badges, verified badge, Open Graph meta for social sharing; slug format: `{5-char-uuid-prefix}-{seo-readable-name}` (e.g. `a3f9b-mayor-john-smith-chicago`)                                                                                                                                             | ✅ Complete |
 | Phase 14 | Repeat Viewing + Campaign Scheduling — politician-controlled repeat-view toggle (cooldown hours, max views/voter cap, unique voter stats, repeat-view stats), campaign delivery window (`scheduled_start_at` / `scheduled_end_at`), `Scheduled` status, `campaigns:apply-schedule` Artisan command (every 5 min), scheduler-written audit log entries (`activated_by_schedule` / `paused_by_schedule`)                                                                                                                                                                                       | ✅ Complete |
-| Phase 15 | Voter Benefits & Registration — expanded earnings callout (ad views + voter-referral recurring commission + politician-referral one-time bonus), voter registration status questionnaire on sign-up form with vote.gov link, registration status field stored on voter profile, dashboard registration prompt + voter registration status card in profile                                                                                                                                                                                                                                    | ✅ Complete |
+| Phase 15 | Voter Benefits & Registration — expanded earnings callout (ad views + voter-referral recurring commission + politician-referral one-time bonus), voter registration status questionnaire on sign-up form with vote.gov link, registration status field stored on voter profile, dashboard registration prompt + voter registration status card in profile, and accessibility-focused voter dashboard updates (running campaigns prioritized first; clearer "Running Campaigns" navigation label)                                                                                                         | ✅ Complete |
 | Phase 16 | Public Records & Transparency — earned transparency model where only verified politicians can display integrated public data on their `/p/{slug}` profile page; government email verification system (.gov, .mil domains); opt-in toggles per data source (Ballotpedia voting record, OpenSecrets campaign finance, Vote Smart issue ratings, FEC filing data); API integration services with 24-hour caching; ProfileVerificationService with email verification flow; transparent data attribution (direct links to source platforms); display section on public profile below initiatives | ✅ Complete |
 | Phase 17 | User Onboarding System — role-specific multi-phase onboarding flows with progress tracking (`user_onboarding_progress` table, `OnboardingService`, role-based middleware); Voter onboarding (5 phases: welcome, profile setup, first watch tutorial, payout setup, referral links); Politician onboarding (5 phases: welcome, political profile, payment method, first campaign, add credits); Admin onboarding (4 phases: welcome, campaign approval tutorial, fraud management, payout processing); skip option available                                                                  | ✅ Complete |
 | Phase 18 | In-App Notification System — Laravel Notification classes for all event types, database-backed notification center, real-time notification bell UI component (Alpine.js), notification preferences per channel (email/in-app/push/SMS), mark-as-read/archive functionality, Firebase Cloud Messaging service for push notifications, Twilio SMS service integration, notification API endpoints (`/api/notifications/*`), per-user preferences management UI                                                                                                                                 | ✅ Complete |
+
+## Roadmap Sprint Snapshot (Synced From Changelog)
+
+This section mirrors the sprint-level implementation tracking in [doc/CHANGELOG.md](doc/CHANGELOG.md).
+
+### 2026-03-15 — Roadmap Alignment Update
+
+- Product-level U9itus changelog replaced framework placeholder release notes
+- Sprint-by-sprint tracking format added
+- Explicit status markers added (`Complete`, `In Progress`, `Planned`)
+
+### Sprint 0 — Decision Sprint (Week of Mar 16, 2026)
+
+Status: `In Progress`
+
+- Implemented: guest browsing recommendation (directory/profile view-only flow)
+- Pending decision lock-in: `$0.50` voter payout, `$1.00` politician charge, Stripe line-item transparency, `$5.00` payout threshold, Q&A rate model
+
+### Sprint 1 — Pilot-Ready Stabilization (Week of Mar 23, 2026)
+
+Status: `Partially Complete`
+
+- Implemented: Notification API coverage (list, unread count, mark one/all, auth guards)
+- Implemented: notification bell hydration on dashboard UI
+- Remaining: amount updates after Sprint 0 lock, Stripe fee transparency in billing UI, payout threshold enforcement, logout `419` fix, 30-second hard max campaign duration enforcement
+
+### Sprint 2 — Pilot Launch + District Foundation (Week of Mar 30, 2026)
+
+Status: `Partially Complete`
+
+- Implemented: district lookup by address
+- Implemented: guest view-only politician directory browsing
+- Implemented: guest public profile preview mode
+- Implemented: homepage public browse entry points
+- Implemented: candidate matching review/admin approval and import workflows
+- Remaining: California profile seeding from API data; deeper profile auto-population from public sources
+
+### Sprint 3 — Virtual Town Hall: Q&A Videos (Week of Apr 6, 2026)
+
+Status: `Planned`
+
+- Planned: Q&A campaign type, topic-based voter browsing, intro + Q&A combined profile layout, hosted media expansion beyond YouTube, post-view engagement prompt
+
+### Sprint 4 — Transparency Layer (Week of Apr 13, 2026)
+
+Status: `In Progress`
+
+- Delivered/partially delivered: transparency controls on politician profiles, FEC integration in current configuration
+- Planned: harden/expand Ballotpedia, OpenSecrets, Vote Smart integrations; add consolidated `Dig Deeper` research tab/section
+
+### Sprint 5 — Engagement + Growth Loop (Week of Apr 20, 2026)
+
+Status: `Planned`
+
+- Planned: compensated micro-surveys, post-view verification prompt/quiz, automated approval criteria for scaling moderation, homepage/domain refinements, FAQ/support scaffolding
+
+### Validation Snapshot (Current)
+
+- Public politician directory guest browsing: passing
+- Guest public profile preview mode: passing
+- District lookup flow: passing
+- Homepage public campaign browse entry path: passing
+- Notification API flow: passing
+- Notification bell UI hydration: passing
+- Candidate matching admin review/import flow: passing
 
 ## Future Enhancements
 

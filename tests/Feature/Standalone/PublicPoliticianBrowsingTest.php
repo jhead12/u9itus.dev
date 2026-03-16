@@ -84,12 +84,54 @@ test('guest public politician profile stays in preview mode without earning copy
     $response->assertSee('Campaign Videos & Updates');
     $response->assertSee('Running Campaigns');
     $response->assertSee('Past Campaigns');
+    $response->assertSee('Research &amp; Records', false);
+    $response->assertSee('C-SPAN Video Search');
     $response->assertSee('Guests can browse current and past public campaign videos here to learn how this candidate is communicating over time.', false);
     $response->assertSee('Create free account for full access');
     $response->assertSee('Jordan Vale Town Hall Recap');
     $response->assertDontSee('Earn $0.25');
     $response->assertDontSee('Start Earning');
     $response->assertDontSee('Sign up to earn commissions from views');
+});
+
+test('guest can filter directory by district and topic', function () {
+    $housingCandidate = Politician::factory()->create([
+        'full_name' => 'Taylor Housing',
+        'slug' => 'taylor-housing',
+        'district' => 'CA-12',
+        'page_published' => true,
+        'is_active' => true,
+    ]);
+
+    PoliticalCampaign::factory()->active()->create([
+        'politician_id' => $housingCandidate->id,
+        'title' => 'Affordable Housing Now',
+        'message_summary' => 'Housing affordability and zoning reform.',
+    ]);
+
+    $otherCandidate = Politician::factory()->create([
+        'full_name' => 'Robin Transport',
+        'slug' => 'robin-transport',
+        'district' => 'CA-30',
+        'page_published' => true,
+        'is_active' => true,
+    ]);
+
+    PoliticalCampaign::factory()->active()->create([
+        'politician_id' => $otherCandidate->id,
+        'title' => 'Transit Expansion',
+        'message_summary' => 'Public transportation and mobility.',
+    ]);
+
+    $districtResponse = $this->get(route('politicians.directory', ['district' => 'CA-12']));
+    $districtResponse->assertOk();
+    $districtResponse->assertSee('Taylor Housing');
+    $districtResponse->assertDontSee('Robin Transport');
+
+    $topicResponse = $this->get(route('politicians.directory', ['topic' => 'housing']));
+    $topicResponse->assertOk();
+    $topicResponse->assertSee('Taylor Housing');
+    $topicResponse->assertDontSee('Robin Transport');
 });
 
 test('claimed politician profile does not show unclaimed badge', function () {

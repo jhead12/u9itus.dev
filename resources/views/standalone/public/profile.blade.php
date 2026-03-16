@@ -439,6 +439,37 @@
                     <span class="text-sm text-slate-400">🏛️ {{ ucfirst(str_replace('_', ' ', $politician->governance_level)) }}</span>
                 @endif
             </div>
+
+            @php
+                $researchLinks = [];
+                if (!empty($transparencyData['votesmart']['source_url'] ?? null)) {
+                    $researchLinks[] = ['label' => 'Vote Smart Voting Record', 'url' => $transparencyData['votesmart']['source_url']];
+                }
+                if (!empty($transparencyData['fec']['source_url'] ?? null)) {
+                    $researchLinks[] = ['label' => 'FEC Filings', 'url' => $transparencyData['fec']['source_url']];
+                }
+                if (!empty($transparencyData['opensecrets']['source_url'] ?? null)) {
+                    $researchLinks[] = ['label' => 'OpenSecrets Funding', 'url' => $transparencyData['opensecrets']['source_url']];
+                }
+                if (!empty($transparencyData['ballotpedia']['source_url'] ?? null)) {
+                    $researchLinks[] = ['label' => 'Ballotpedia Profile', 'url' => $transparencyData['ballotpedia']['source_url']];
+                }
+                $researchLinks[] = ['label' => 'C-SPAN Video Search', 'url' => 'https://www.c-span.org/search/?searchtype=Videos&query=' . rawurlencode($politician->full_name)];
+            @endphp
+
+            @if(!empty($researchLinks))
+            <div class="mt-4 border-t border-slate-700/40 pt-4">
+                <p class="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-2">Research &amp; Records</p>
+                <div class="flex flex-wrap gap-3">
+                    @foreach($researchLinks as $link)
+                        <a href="{{ $link['url'] }}" target="_blank" rel="noopener"
+                           class="inline-flex items-center gap-1.5 text-xs font-medium text-slate-300 hover:text-white transition">
+                            🔎 {{ $link['label'] }} ↗
+                        </a>
+                    @endforeach
+                </div>
+            </div>
+            @endif
         </section>
         @endif
 

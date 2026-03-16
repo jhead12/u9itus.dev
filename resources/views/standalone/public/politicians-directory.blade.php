@@ -89,6 +89,26 @@
                         class="w-full bg-slate-800 border border-slate-700 text-white placeholder-slate-500 rounded-lg pl-9 pr-4 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition"/>
                 </div>
 
+                {{-- Topic Filter --}}
+                <div class="relative min-w-[190px]">
+                    <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h8m-8 4h6"/>
+                    </svg>
+                    <input type="text" name="topic" value="{{ request('topic') }}"
+                        placeholder="Topic (e.g. housing)"
+                        class="w-full bg-slate-800 border border-slate-700 text-white placeholder-slate-500 rounded-lg pl-9 pr-4 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition"/>
+                </div>
+
+                {{-- District Filter --}}
+                <div class="relative min-w-[180px]">
+                    <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 01.553-.894L9 2m0 18l6-3m-6 3V2m6 15l5.447 2.724A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 2"/>
+                    </svg>
+                    <input type="text" name="district" value="{{ request('district') }}"
+                        placeholder="District"
+                        class="w-full bg-slate-800 border border-slate-700 text-white placeholder-slate-500 rounded-lg pl-9 pr-4 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition"/>
+                </div>
+
                 {{-- Governance Level --}}
                 <select name="level"
                     class="bg-slate-800 border border-slate-700 text-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 appearance-none cursor-pointer">
@@ -137,7 +157,7 @@
                     Filter
                 </button>
 
-                                @if(request()->hasAny(['q', 'level', 'state', 'party', 'sort', 'unclaimed']))
+                                                                @if(request()->hasAny(['q', 'topic', 'district', 'level', 'state', 'party', 'sort', 'unclaimed']))
                      <a href="{{ route('politicians.directory') }}"
                    class="text-slate-400 hover:text-white text-sm flex items-center gap-1 px-3 py-2 transition">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -170,13 +190,13 @@
             </div>
             <h3 class="text-white font-semibold mb-1">No politicians found</h3>
             <p class="text-slate-500 text-sm max-w-xs mx-auto">
-                @if(request()->hasAny(['q', 'level', 'state', 'party', 'unclaimed']))
+                @if(request()->hasAny(['q', 'topic', 'district', 'level', 'state', 'party', 'unclaimed']))
                     No politicians match your current filters. Try adjusting your search criteria.
                 @else
                     No politicians are currently available in the directory.
                 @endif
             </p>
-            @if(request()->hasAny(['q', 'level', 'state', 'party', 'unclaimed']))
+            @if(request()->hasAny(['q', 'topic', 'district', 'level', 'state', 'party', 'unclaimed']))
             <a href="{{ route('politicians.directory') }}" class="inline-block mt-4 text-emerald-400 hover:text-emerald-300 text-sm transition">
                 Clear filters →
             </a>

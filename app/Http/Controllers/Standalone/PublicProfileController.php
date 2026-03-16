@@ -84,6 +84,32 @@ class PublicProfileController extends Controller
             });
         }
 
+        // District filter (free-text, tolerant of formatting differences)
+        if ($district = trim((string) $request->input('district', ''))) {
+            $query->where('district', 'like', '%' . $district . '%');
+        }
+
+        // Topic filter: match profile bio + campaign titles/summaries + initiative text
+        if ($topic = trim((string) $request->input('topic', ''))) {
+            $query->where(function ($q) use ($topic) {
+                $q->where('bio', 'like', '%' . $topic . '%')
+                  ->orWhereHas('campaigns', function ($cq) use ($topic) {
+                      $cq->where('approval_status', 'approved')
+                         ->where(function ($sq) use ($topic) {
+                             $sq->where('title', 'like', '%' . $topic . '%')
+                                ->orWhere('message_summary', 'like', '%' . $topic . '%');
+                         });
+                  })
+                  ->orWhereHas('initiatives', function ($iq) use ($topic) {
+                      $iq->where('is_published', true)
+                         ->where(function ($sq) use ($topic) {
+                             $sq->where('title', 'like', '%' . $topic . '%')
+                                ->orWhere('description', 'like', '%' . $topic . '%');
+                         });
+                  });
+            });
+        }
+
         // Governance level filter
         if ($level = $request->input('level')) {
             $query->where('governance_level', $level);
