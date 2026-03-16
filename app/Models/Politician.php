@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Jobs\MatchPoliticianToElectionData;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Support\Str;
@@ -48,6 +49,19 @@ class Politician extends Model
         'slug',
         'page_settings',
         'page_published',
+        // Profile verification/transparency IDs
+        'verification_status',
+        'verification_email',
+        'verified_at',
+        'verification_token',
+        'show_ballotpedia_data',
+        'show_opensecrets_data',
+        'show_votesmart_data',
+        'show_fec_data',
+        'ballotpedia_id',
+        'opensecrets_id',
+        'votesmart_id',
+        'fec_candidate_id',
     ];
 
     protected function casts(): array
@@ -61,6 +75,12 @@ class Politician extends Model
             // Phase 13
             'page_settings'     => 'array',
             'page_published'    => 'boolean',
+            // Phase 16
+            'verified_at' => 'datetime',
+            'show_ballotpedia_data' => 'boolean',
+            'show_opensecrets_data' => 'boolean',
+            'show_votesmart_data' => 'boolean',
+            'show_fec_data' => 'boolean',
         ];
     }
 
@@ -87,6 +107,24 @@ class Politician extends Model
             // Regenerate slug if profile fields that feed it have changed
             if ($politician->isDirty(['full_name', 'political_office', 'city']) && ! $politician->isDirty('slug')) {
                 $politician->slug = static::generateSlug($politician);
+            }
+        });
+
+        static::created(function (Politician $politician): void {
+            MatchPoliticianToElectionData::dispatch($politician->id);
+        });
+
+        static::updated(function (Politician $politician): void {
+            if ($politician->wasChanged([
+                'full_name',
+                'political_office',
+                'governance_level',
+                'state',
+                'city',
+                'district',
+                'party_affiliation',
+            ])) {
+                MatchPoliticianToElectionData::dispatch($politician->id);
             }
         });
     }
@@ -225,6 +263,7 @@ class Politician extends Model
     {
         return $this->hasMany(PoliticalCampaign::class);
     }
+
     public function credits(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(PoliticianCredit::class);

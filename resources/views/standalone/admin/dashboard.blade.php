@@ -142,6 +142,15 @@
             </div>
             <p class="text-xs font-medium text-slate-300 group-hover:text-white transition">Manage Users</p>
         </a>
+        <a href="{{ route('admin.candidate-matches.index') }}" class="bg-slate-800/50 border border-slate-700/50 hover:border-indigo-500/40 rounded-xl p-4 text-center transition group relative">
+            @if(($stats['pending_candidate_matches'] ?? 0) > 0)
+            <span class="absolute top-2 right-2 w-5 h-5 rounded-full bg-indigo-500 text-white text-xs font-bold flex items-center justify-center">{{ $stats['pending_candidate_matches'] }}</span>
+            @endif
+            <div class="text-indigo-400 mb-2 flex justify-center">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9h8M8 13h6m5 8H5a2 2 0 01-2-2V5a2 2 0 012-2h6.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            </div>
+            <p class="text-xs font-medium text-slate-300 group-hover:text-white transition">Candidate Matches</p>
+        </a>
         <a href="{{ route('admin.payouts.index') }}" class="bg-slate-800/50 border border-slate-700/50 hover:border-emerald-500/40 rounded-xl p-4 text-center transition group">
             <div class="text-emerald-400 mb-2 flex justify-center">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>

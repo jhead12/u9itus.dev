@@ -291,6 +291,13 @@ Route::middleware(['auth', 'verified', 'check.role'])->group(function () {
         Route::get('/users/{user}', [AdminController::class, 'showUser'])->name('users.show');
         Route::put('/users/{user}/suspend', [AdminController::class, 'suspendUser'])->name('users.suspend');
         Route::put('/users/{user}/unsuspend', [AdminController::class, 'unsuspendUser'])->name('users.unsuspend');
+
+        // Candidate Matching Review
+        Route::get('/candidate-matches', [AdminController::class, 'candidateMatchReviews'])->name('candidate-matches.index');
+        Route::post('/candidate-matches/{review}/approve', [AdminController::class, 'approveCandidateMatch'])->name('candidate-matches.approve');
+        Route::post('/candidate-matches/{review}/reject', [AdminController::class, 'rejectCandidateMatch'])->name('candidate-matches.reject');
+        Route::post('/candidate-matches/retry/{politician}', [AdminController::class, 'retryCandidateMatch'])->name('candidate-matches.retry');
+        Route::post('/candidate-matches/import', [AdminController::class, 'importElectionCandidates'])->name('candidate-matches.import');
         
         // Fraud Detection
         Route::get('/fraud', [AdminController::class, 'fraud'])->name('fraud.index');
