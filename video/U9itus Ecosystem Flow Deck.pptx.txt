@@ -1,0 +1,122 @@
+1
+
+2
+
+3
+
+PHASE 1
+Get on the platform
+Politician journey
+P1
+Create account
+LIVE
+Name, office, governance level, district. Pending admin approval.
+P2
+Load credits via Stripe
+LIVE
+Top up balance. Post-fee amount shown transparently. Held in escrow until views occur.
+Voter journey
+V1
+Enter address
+NEW
+Type your address. Instantly see your district and every candidate running in it.
+V2
+Browse candidates
+NEW
+See all politicians in your district — no login required. Photos, office, party, district.
+4
+
+PHASE 2
+The town hall
+Politician
+P3
+Upload intro video
+LIVE
+30s max. Real, authentic. "Hi, I'm running for X because Y." This is the handshake.
+P4
+Answer Q&A videos
+NEW
+Pre-set questions voters care about: guns, education, housing. Each is a separate paid view.
+P5
+Target district
+LIVE
+Geographic targeting by ZIP and governance level. Videos only shown to voters who can vote for you.
+Voter
+V3
+Sign up to earn
+LIVE
+Email + ZIP. Now you can watch and earn. You already know what's here from browsing.
+V4
+Watch intro → earn $0.50
+LIVE
+Watch 10+ seconds. $0.50 instantly credited. One-to-one — every view counts.
+V5
+Watch Q&A → earn more
+NEW
+Browse by topic in your district. Watch answers, earn per view. This is the town hall.
+5
+
+How money moves
+Per verified view — simultaneous debit and credit
+$1.00
+Politician pays
+$0.50
+Voter earns
+$0.50
+Platform keeps
+→
++
+No impressions. No CPM. Every dollar goes to a real person who actually watched. Verified by 10-second heartbeat, one-time secure token, 24-hour expiry.
+6
+
+PHASE 3
+Dig deeper — transparency layer
+What makes U9itus different from every other political platform: voters can verify what politicians claim.
+FEC
+Campaign finance — donations received, money spent, donor lists
+Vote Smart
+Voting history, issue positions, interest group ratings
+Open Secrets
+Donor and lobbyist information — who's really funding this candidate
+Ballotpedia
+Electoral history, biographical data, past races and results
+"He can't dance. He's got to come clean."  — John Head, March 11
+7
+
+PHASE 4
+Grow the ecosystem
+Politician growth loop
+P8
+Get real feedback
+See survey results from your district. What do voters actually care about?
+P9
+Create more content
+Answer more questions. The more you engage, the more voters see you.
+Voter growth loop
+V8
+Take surveys → earn
+"What frustrates you about voting?" Compensated micro-surveys.
+V9
+Refer friends → earn
+10% commission on every view your referrals complete.
+V10
+Cash out at $5
+Request payout via PayPal or CashApp. Real money for being informed.
+8
+
+Why this works
+For voters
+One place to learn everything real about your candidates — who funds them, what they stand for — and get paid to engage.
+For politicians
+Every dollar goes to a real constituent who actually watched your message. No wasted impressions. Direct, verified engagement.
+The problem it solves
+Researching candidates is cumbersome, boring, and inaccessible. Nobody does it. TV ads are ignored. Town halls are at 5pm on a Tuesday.
+What makes it different
+No other platform combines video-first introductions, public accountability data, paid engagement, and district-level targeting in one place.
+9
+
+Unite the politician and the voter.
+U9itus — The Virtual Town Hall
+Head Enterprises  ·  JEldon LLC  ·  HeadisHere
+un9itus.com
+10
