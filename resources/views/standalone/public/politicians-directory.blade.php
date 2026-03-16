@@ -32,6 +32,7 @@
                 <span class="text-white">U9</span><span class="text-emerald-400">itus</span>
             </a>
             <div class="flex items-center gap-3">
+                <a href="{{ route('district.lookup') }}" class="text-sm text-slate-300 hover:text-white transition">Find My District</a>
                 @auth
                     <a href="{{ route('dashboard') }}" class="text-sm text-slate-300 hover:text-white transition">Dashboard</a>
                 @else

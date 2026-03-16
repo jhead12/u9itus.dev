@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Standalone;
 use App\Http\Controllers\Controller;
 use App\Models\Politician;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Validator;
 
 /**
  * Phase 13 — Public Politician Profile Pages
@@ -14,6 +16,49 @@ use Illuminate\Http\Request;
  */
 class PublicProfileController extends Controller
 {
+    /**
+     * Public district lookup by address.
+     *
+     * Lets a voter enter a street address and find their district
+     * plus currently published candidates in that district/state.
+     */
+    public function districtLookup(Request $request)
+    {
+        $states = config('u9itus.us_states', []);
+
+        $address = (string) $request->query('address', '');
+        $lookupResult = null;
+        $candidates = collect();
+        $error = null;
+
+        if ($address !== '') {
+            $validator = Validator::make($request->query(), [
+                'address' => ['required', 'string', 'max:255'],
+            ]);
+
+            if ($validator->fails()) {
+                $error = 'Please enter a valid street address.';
+            } else {
+                $lookupService = app(\App\Services\DistrictLookupService::class);
+                $lookupResult = $lookupService->lookup($address);
+
+                if (! $lookupResult) {
+                    $error = 'We could not resolve that address. Try including street, city, state, and ZIP.';
+                } else {
+                    $candidates = $this->findCandidatesForDistrict($lookupResult, $states);
+                }
+            }
+        }
+
+        return view('standalone.public.district-lookup', [
+            'address' => $address,
+            'lookupResult' => $lookupResult,
+            'candidates' => $candidates,
+            'states' => $states,
+            'error' => $error,
+        ]);
+    }
+
     /**
      * Display a directory of all active politicians on the platform.
      * 
@@ -166,5 +211,91 @@ class PublicProfileController extends Controller
             'ogImage',
             'ogUrl'
         ));
+    }
+
+    /**
+     * @param array<string, mixed> $lookupResult
+     * @param array<string, string> $states
+     */
+    protected function findCandidatesForDistrict(array $lookupResult, array $states): Collection
+    {
+        $state = strtoupper((string) ($lookupResult['state'] ?? ''));
+        $districtNumber = $lookupResult['district_number'] ?? null;
+
+        $query = Politician::query()
+            ->where('page_published', true)
+            ->where('is_active', true)
+            ->withCount([
+                'campaigns as active_campaigns_count' => function ($q) {
+                    $q->where('status', 'active')
+                      ->where('approval_status', 'approved');
+                },
+            ]);
+
+        if ($state !== '') {
+            $stateName = $states[$state] ?? null;
+
+            $query->where(function ($q) use ($state, $stateName) {
+                $q->whereRaw('UPPER(state) = ?', [$state]);
+
+                if ($stateName) {
+                    $q->orWhereRaw('LOWER(state) = ?', [strtolower($stateName)]);
+                }
+            });
+        }
+
+        if ($districtNumber) {
+            $variants = $this->districtVariants($state, (string) $districtNumber);
+
+            $query->where(function ($q) use ($variants) {
+                foreach ($variants as $variant) {
+                    $q->orWhere('district', 'like', '%' . $variant . '%');
+                }
+            });
+        }
+
+        return $query
+            ->orderByDesc('active_campaigns_count')
+            ->orderByDesc('verified_official')
+            ->orderBy('full_name')
+            ->limit(50)
+            ->get();
+    }
+
+    /**
+     * Build flexible district match strings to handle inconsistent formatting.
+     *
+     * @return array<int, string>
+     */
+    protected function districtVariants(string $state, string $districtNumber): array
+    {
+        $districtNumber = strtoupper(trim($districtNumber));
+        $variants = [$districtNumber];
+
+        if ($districtNumber !== 'AL') {
+            $numeric = (string) ((int) $districtNumber);
+            $padded = str_pad($numeric, 2, '0', STR_PAD_LEFT);
+
+            $variants = array_merge($variants, [
+                $numeric,
+                $padded,
+                'District ' . $numeric,
+                'CD ' . $numeric,
+                'CD-' . $numeric,
+            ]);
+
+            if ($state !== '') {
+                $variants[] = $state . '-' . $padded;
+                $variants[] = $state . '-' . $numeric;
+            }
+        } else {
+            $variants = array_merge($variants, ['At-Large', 'At Large']);
+
+            if ($state !== '') {
+                $variants[] = $state . '-AL';
+            }
+        }
+
+        return array_values(array_unique($variants));
     }
 }
