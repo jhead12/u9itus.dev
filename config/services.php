@@ -66,7 +66,8 @@ return [
         'from_number'  => env('TWILIO_FROM_NUMBER'),
     ],
 
-    // Phase 16: Public Data Integration Services
+    // Phase 16: Public Data Integration Services — Election Candidates & Officials
+
     'ballotpedia' => [
         'api_key' => env('BALLOTPEDIA_API_KEY'),
     ],
@@ -81,6 +82,10 @@ return [
 
     'fec' => [
         'api_key' => env('FEC_API_KEY'),
+    ],
+
+    'google' => [
+        'civic_api_key' => env('GOOGLE_CIVIC_API_KEY'),
     ],
 
 ];

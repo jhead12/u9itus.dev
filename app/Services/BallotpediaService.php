@@ -94,6 +94,59 @@ class BallotpediaService
     }
 
     /**
+     * Search for local candidates by address and election filters
+     * 
+     * @param string $address Full address or state
+     * @param array $filters Optional filters (election_year, office_type, etc.)
+     * @return array Candidate records
+     */
+    public function searchLocalCandidates(string $address, array $filters = []): array
+    {
+        if (!$this->isConfigured()) {
+            return [];
+        }
+
+        try {
+            $response = Http::timeout(10)
+                ->withHeaders([
+                    'Authorization' => "Bearer {$this->apiKey}",
+                    'Accept' => 'application/json',
+                ])
+                ->get("{$this->baseUrl}/candidates/search", [
+                    'query' => $address,
+                    'limit' => $filters['limit'] ?? 50,
+                ]);
+
+            if (!$response->successful()) {
+                Log::warning('BallotpediaService: Local candidate search failed', [
+                    'address' => $address,
+                    'status' => $response->status(),
+                ]);
+                return [];
+            }
+
+            $results = $response->json('data', []);
+
+            // Filter by governance level if specified
+            if (!empty($filters['governance_levels'])) {
+                $results = array_filter($results, function ($candidate) use ($filters) {
+                    $officeType = strtolower($candidate['office_type'] ?? '');
+                    return in_array($officeType, array_map('strtolower', $filters['governance_levels']));
+                });
+            }
+
+            return array_values($results);
+
+        } catch (\Exception $e) {
+            Log::error('BallotpediaService: Local candidate search error', [
+                'address' => $address,
+                'error' => $e->getMessage(),
+            ]);
+            return [];
+        }
+    }
+
+    /**
      * Search for a candidate by name and state
      * 
      * @param string $name
@@ -157,6 +210,60 @@ class BallotpediaService
             'bio' => $data['biography'] ?? null,
             'source_url' => $data['url'] ?? null,
         ];
+    }
+
+    /**
+     * Convert Ballotpedia candidate to standard candidate record format
+     * 
+     * @param array $candidate Ballotpedia candidate data
+     * @return array Standardized record
+     */
+    public function convertToStandardFormat(array $candidate): array
+    {
+        return [
+            'external_candidate_id' => 'ballotpedia_' . ($candidate['id'] ?? md5($candidate['name'] ?? '')),
+            'full_name' => $candidate['name'] ?? 'Unknown',
+            'political_office' => $candidate['office'] ?? 'Unknown',
+            'state' => $this->extractStateFromOffice($candidate['office'] ?? ''),
+            'party_affiliation' => $candidate['party'] ?? null,
+            'governance_level' => $this->mapOfficeToGovernanceLevel($candidate['office'] ?? ''),
+            'source' => 'ballotpedia',
+            'payload' => $candidate,
+        ];
+    }
+
+    /**
+     * Extract state from office string
+     */
+    protected function extractStateFromOffice(string $office): ?string
+    {
+        if (preg_match('/\b([A-Z]{2})\b/', $office, $matches)) {
+            return $matches[1];
+        }
+        return null;
+    }
+
+    /**
+     * Map Ballotpedia office type to governance level
+     */
+    protected function mapOfficeToGovernanceLevel(string $office): string
+    {
+        $office = strtolower($office);
+
+        if (strpos($office, 'congress') !== false || strpos($office, 'representative') !== false || strpos($office, 'senator') !== false) {
+            return 'Federal';
+        }
+        if (strpos($office, 'state') !== false) {
+            return 'State';
+        }
+        if (strpos($office, 'county') !== false) {
+            return 'County';
+        }
+        if (strpos($office, 'city') !== false || strpos($office, 'mayor') !== false || strpos($office, 'council') !== false) {
+            return 'City';
+        }
+
+        return 'Local';
     }
 
     /**
