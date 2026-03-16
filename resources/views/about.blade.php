@@ -290,23 +290,23 @@
             <!-- Earnings Example -->
             <div class="bg-gradient-to-br from-teal-900/40 to-emerald-900/40 rounded-2xl p-8 border-2 border-teal-500/30 mb-8">
                 <h3 class="text-2xl font-bold mb-2 text-center">Earnings Example</h3>
-                <p class="text-slate-300 text-center text-sm mb-8">If an ad viewer earns $0.25 per 10-second ad:</p>
+                <p class="text-slate-300 text-center text-sm mb-8">Realistic earnings assuming viewers watch 2-3 minutes of ads per hour:</p>
                 <div class="grid sm:grid-cols-3 gap-4 text-center">
                     <div class="bg-slate-800/60 rounded-xl p-6">
-                        <div class="text-3xl font-bold text-emerald-400">$90</div>
-                        <div class="text-slate-400 text-sm mt-2">per hour<br/>(360 ads × $0.25)</div>
+                        <div class="text-3xl font-bold text-emerald-400">$6-12</div>
+                        <div class="text-slate-400 text-sm mt-2">per hour<br/>(8-12 ads × $0.75)</div>
                     </div>
                     <div class="bg-slate-800/60 rounded-xl p-6 border border-teal-500/30">
-                        <div class="text-3xl font-bold text-teal-400">$720</div>
-                        <div class="text-slate-400 text-sm mt-2">per day<br/>(8 hours)</div>
+                        <div class="text-3xl font-bold text-teal-400">$48-96</div>
+                        <div class="text-slate-400 text-sm mt-2">per day<br/>(8 hours active)</div>
                     </div>
                     <div class="bg-slate-800/60 rounded-xl p-6">
-                        <div class="text-3xl font-bold text-blue-400">$15,200</div>
+                        <div class="text-3xl font-bold text-blue-400">$250-500</div>
                         <div class="text-slate-400 text-sm mt-2">per month<br/>(5 days/wk × 4.2 wks)</div>
                     </div>
                 </div>
                 <p class="text-xs text-slate-400 text-center mt-6 italic">
-                    Many of us already see the equivalent of 360 product promotions every hour watching our favorite TV shows. What if you could be paid $0.25 each time?
+                    Most viewers participate 2-4 hours daily. Engagement and payout vary based on available campaigns and viewership. Actual earnings depend on campaign availability, your location, and viewing habits.
                 </p>
             </div>
 
