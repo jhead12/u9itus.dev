@@ -1,7 +1,7 @@
 # U9itus Production Dockerfile for Railway Metal Build
 # Uses PHP CLI since we run php artisan serve (not FPM)
 
-FROM php:8.2-cli-alpine
+FROM php:8.4-cli-alpine
 
 # Install system dependencies
 RUN apk add --no-cache \
