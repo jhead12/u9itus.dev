@@ -605,10 +605,12 @@
         if (role === 'voter') {
             window.Echo.private('voter.' + userId)
                 .listen('.ad.token.delivered', e => {
-                    push('📨 New ad available — earn $0.25!', 'success');
+                    const payout = Number(e?.payout_amount ?? 0.25).toFixed(2);
+                    push('📨 New ad available — earn $' + payout + '!', 'success');
                 })
                 .listen('.session.completed', e => {
-                    push('💰 Payout of $0.25 credited to your wallet.', 'success');
+                    const payout = Number(e?.voter_payout ?? e?.payout_earned ?? e?.payout_amount ?? 0.25).toFixed(2);
+                    push('💰 Payout of $' + payout + ' credited to your wallet.', 'success');
                 })
                 .listen('.payout.processed', e => {
                     push('🏦 Batch payout of $' + (e.amount ?? '?') + ' processed.', 'success');

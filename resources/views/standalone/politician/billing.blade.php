@@ -21,7 +21,7 @@
         <div class="sm:col-span-2 bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
             <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Credit Balance</p>
             <p class="text-4xl font-bold text-emerald-400">${{ number_format($creditBalance, 2) }}</p>
-            <p class="text-xs text-slate-500 mt-2">Used to fund active campaigns at ${{ number_format(config('u9itus.revenue_per_view', 0.60), 2) }}/view</p>
+            <p class="text-xs text-slate-500 mt-2">Used to fund active campaigns at ${{ number_format((float) \App\Services\PlatformSettingsService::get('revenue_per_view', null, 0.60), 2) }}/view</p>
         </div>
 
         {{-- Add Funds card — Stripe.js PaymentElement flow --}}
@@ -148,6 +148,7 @@
                             <th class="text-left px-5 py-2.5 text-xs font-medium text-slate-500">Description</th>
                             <th class="text-left px-5 py-2.5 text-xs font-medium text-slate-500">Status</th>
                             <th class="text-right px-5 py-2.5 text-xs font-medium text-slate-500">Credits</th>
+                            <th class="text-right px-5 py-2.5 text-xs font-medium text-slate-500">Fee</th>
                             <th class="text-right px-5 py-2.5 text-xs font-medium text-slate-500">Charged</th>
                         </tr>
                     </thead>
@@ -173,6 +174,16 @@
                             <td class="px-5 py-3 text-right font-mono text-emerald-400">
                                 @if(isset($tx->metadata['credits_amount']))
                                     ${{ number_format($tx->metadata['credits_amount'], 2) }}
+                                @else
+                                    —
+                                @endif
+                            </td>
+                            <td class="px-5 py-3 text-right font-mono text-slate-400">
+                                @if(isset($tx->metadata['stripe_fee']))
+                                    ${{ number_format($tx->metadata['stripe_fee'], 2) }}
+                                    @if(isset($tx->metadata['stripe_fee_percent']))
+                                        <span class="text-slate-500 text-xs">({{ number_format($tx->metadata['stripe_fee_percent'], 1) }}%)</span>
+                                    @endif
                                 @else
                                     —
                                 @endif

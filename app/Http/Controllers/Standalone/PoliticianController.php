@@ -10,6 +10,7 @@ use App\Models\CampaignTransaction;
 use App\Models\PoliticalCampaign;
 use App\Models\Politician;
 use App\Models\PoliticianCredit;
+use App\Services\PlatformSettingsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
@@ -106,7 +107,7 @@ class PoliticianController extends Controller
         $politician = Auth::user()->politician;
         abort_unless($politician, 403);
 
-        $revenuePerView = config('u9itus.revenue_per_view', 0.60);
+        $revenuePerView = (float) PlatformSettingsService::get('revenue_per_view', null, 0.60);
         $creditBalance  = (float) ($politician->credit_balance ?? 0.00);
         $states = config('u9itus.us_states', []);
         $governanceLevels = config('u9itus.governance_levels', [
@@ -128,8 +129,8 @@ class PoliticianController extends Controller
         $data = $request->validated();
         $data['politician_id'] = $politician->id;
         $data['status']        = 'draft';
-        $data['revenue_per_view'] = config('u9itus.revenue_per_view', 0.60);
-        $data['voter_payout_per_view'] = config('u9itus.viewer_payout_per_view', 0.25);
+        $data['revenue_per_view'] = (float) PlatformSettingsService::get('revenue_per_view', null, 0.60);
+        $data['voter_payout_per_view'] = (float) PlatformSettingsService::get('viewer_payout_per_view', null, 0.25);
         // Always recompute total_budget from views × rate (never trust form input)
         $data['total_budget'] = round((float)($data['total_views_requested'] ?? 0) * $data['revenue_per_view'], 2);
 
@@ -156,8 +157,8 @@ class PoliticianController extends Controller
         // Set defaults for draft campaigns
         $data['politician_id'] = $politician->id;
         $data['status'] = 'draft';
-        $data['revenue_per_view'] = config('u9itus.revenue_per_view', 0.60);
-        $data['voter_payout_per_view'] = config('u9itus.viewer_payout_per_view', 0.25);
+        $data['revenue_per_view'] = (float) PlatformSettingsService::get('revenue_per_view', null, 0.60);
+        $data['voter_payout_per_view'] = (float) PlatformSettingsService::get('viewer_payout_per_view', null, 0.25);
         
         // Set default media_duration if not provided
         if (empty($data['media_duration']) && ($data['campaign_type'] ?? '') === 'video') {
@@ -234,10 +235,11 @@ class PoliticianController extends Controller
         );
 
         $validated = $request->validated();
+        $revenuePerView = (float) PlatformSettingsService::get('revenue_per_view', null, 0.60);
         // Always recompute total_budget from views × rate (never trust form input)
         $validated['total_budget'] = round(
             (float)($validated['total_views_requested'] ?? $campaign->total_views_requested)
-            * config('u9itus.revenue_per_view', 0.60),
+            * $revenuePerView,
             2
         );
 
@@ -413,9 +415,22 @@ class PoliticianController extends Controller
             ->unique('id')
             ->count();
 
+        $transactionsWithFeeSummary = CampaignTransaction::where('politician_id', $politician->id)
+            ->where('transaction_type', 'charge')
+            ->get()
+            ->map(function (CampaignTransaction $tx): array {
+                $metadata = is_array($tx->metadata) ? $tx->metadata : [];
+
+                return [
+                    'credits' => (float) ($metadata['credits_amount'] ?? 0),
+                    'fee' => (float) ($metadata['stripe_fee'] ?? 0),
+                    'gross' => (float) $tx->amount,
+                ];
+            });
+
         return view('standalone.politician.analytics', compact(
             'politician', 'campaigns',
-            'totalViews', 'totalSpent', 'totalBudget', 'activeCampaigns'
+            'totalViews', 'totalSpent', 'totalBudget', 'activeCampaigns', 'transactionsWithFeeSummary'
         ));
     }
 

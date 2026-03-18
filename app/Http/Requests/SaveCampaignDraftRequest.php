@@ -28,7 +28,7 @@ class SaveCampaignDraftRequest extends FormRequest
         return [
             'title'                 => 'nullable|string|max:255',
             'message_summary'       => 'nullable|string|max:2000',
-            'campaign_type'         => 'nullable|in:video,live_feed',
+            'campaign_type'         => 'nullable|in:video,live_feed,q_and_a',
             'governance_level'      => 'nullable|string|in:' . implode(',', array_keys(config('u9itus.governance_levels', []))),
             'media_url'             => 'nullable|url',
             'media_duration'        => "nullable|integer|min:{$minDuration}|max:{$maxDuration}",

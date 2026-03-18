@@ -290,7 +290,7 @@ class AdminController extends Controller
         $validated = $request->validate([
             'title'                    => ['required', 'string', 'max:255'],
             'message_summary'          => ['nullable', 'string', 'max:2000'],
-            'campaign_type'            => ['required', 'in:video,live_feed'],
+            'campaign_type'            => ['required', 'in:video,live_feed,q_and_a'],
             'governance_level'         => ['nullable', 'string', 'max:100'],
             'total_budget'             => ['required', 'numeric', 'min:0'],
             'total_views_requested'    => ['required', 'integer', 'min:0'],
@@ -1309,7 +1309,7 @@ class AdminController extends Controller
             'viewer_payout_per_view' => $service->get('viewer_payout_per_view'),
             'referral_commission_percent' => $service->get('referral_commission_percent'),
             'procurement_commission_percent' => $service->get('procurement_commission_percent'),
-            'batch_payout_min' => $service->get('batch_payout_min'),
+            'min_payout_amount' => $service->get('min_payout_amount'),
             'fraud_max_views_per_day' => $service->get('fraud_max_views_per_day'),
             'fraud_payout_hold_hours' => $service->get('fraud_payout_hold_hours'),
         ];

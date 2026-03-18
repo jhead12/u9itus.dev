@@ -73,7 +73,7 @@ return new class extends Migration
             $table->foreignId('politician_id')->constrained()->cascadeOnDelete();
             $table->string('title');
             $table->text('message_summary')->nullable();
-            $table->enum('campaign_type', ['video', 'live_feed'])->default('video');
+            $table->enum('campaign_type', ['video', 'live_feed', 'q_and_a'])->default('video');
             $table->string('governance_level')->nullable();
             $table->string('media_url')->nullable();
             $table->unsignedInteger('media_duration')->nullable()->comment('seconds');

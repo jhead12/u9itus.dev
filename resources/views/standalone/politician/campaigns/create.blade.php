@@ -37,6 +37,7 @@
                     <select name="campaign_type" required id="campaignType"
                         class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition">
                         <option value="video" {{ old('campaign_type', 'video') === 'video' ? 'selected' : '' }}>🎬 Video</option>
+                        <option value="q_and_a" {{ old('campaign_type') === 'q_and_a' ? 'selected' : '' }}>❓ Q&A</option>
                         <option value="live_feed" {{ old('campaign_type') === 'live_feed' ? 'selected' : '' }}>📡 Live Feed</option>
                     </select>
                 </div>
@@ -330,7 +331,7 @@
                     </div>
                 </div>
                 <p class="text-xs text-amber-400/80 bg-amber-500/10 rounded-lg px-3 py-2">
-                    Each repeat view costs <strong>${{ number_format($revenuePerView, 2) }}</strong> and pays the voter <strong>$0.25</strong> — ensure your budget covers the additional views.
+                    Each repeat view costs <strong>${{ number_format($revenuePerView, 2) }}</strong> and pays the voter <strong>${{ number_format((float) \App\Services\PlatformSettingsService::get('viewer_payout_per_view', null, 0.25), 2) }}</strong> — ensure your budget covers the additional views.
                 </p>
             </div>
         </div>

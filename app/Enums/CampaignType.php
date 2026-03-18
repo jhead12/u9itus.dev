@@ -9,4 +9,5 @@ enum CampaignType: string
 {
     case Video    = 'video';
     case LiveFeed = 'live_feed';
+    case QAndA    = 'q_and_a';
 }

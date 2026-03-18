@@ -35,6 +35,7 @@
                     <select name="campaign_type" id="campaignType"
                         class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition">
                         <option value="video" {{ old('campaign_type', $campaign->campaign_type?->value ?? $campaign->campaign_type) === 'video' ? 'selected' : '' }}>🎬 Video</option>
+                        <option value="q_and_a" {{ old('campaign_type', $campaign->campaign_type?->value ?? $campaign->campaign_type) === 'q_and_a' ? 'selected' : '' }}>❓ Q&A</option>
                         <option value="live_feed" {{ old('campaign_type', $campaign->campaign_type?->value ?? $campaign->campaign_type) === 'live_feed' ? 'selected' : '' }}>📡 Live Feed</option>
                     </select>
                 </div>
@@ -332,7 +333,7 @@
 @push('scripts')
 <script>
     // Sync views ↔ budget on edit
-    const revenuePerViewEdit = {{ config('u9itus.revenue_per_view', 0.60) }};
+    const revenuePerViewEdit = {{ (float) ($campaign->revenue_per_view ?? 0.60) }};
     const viewsEditInput  = document.querySelector('[name="total_views_requested"]');
     const budgetEditInput = document.querySelector('[name="total_budget"]');
     if (viewsEditInput && budgetEditInput) {

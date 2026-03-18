@@ -7,6 +7,7 @@ use App\Models\AdViewToken;
 use App\Models\PoliticalCampaign;
 use App\Models\Voter;
 use App\Models\ViewSession;
+use App\Services\PlatformSettingsService;
 use App\Services\PoliticalViewService;
 use App\Services\ReverbBroadcastService;
 use App\Enums\CampaignStatus;
@@ -340,7 +341,7 @@ class VoterController extends Controller
 
         $duration  = (int) ($campaign->media_duration ?? config('u9itus.max_video_duration', 20));
         $mustWatch = (int) ($campaign->min_watch_time_percent ?? config('u9itus.min_watch_time_percent', 80));
-        $payout    = (float) ($campaign->voter_payout_per_view ?? config('u9itus.voter_payout_per_view', 0.25));
+        $payout    = (float) ($campaign->voter_payout_per_view ?? PlatformSettingsService::get('viewer_payout_per_view', null, 0.25));
 
         return view('standalone.voter.watch', compact(
             'adToken', 'campaign', 'duration', 'mustWatch', 'payout'
@@ -583,7 +584,7 @@ class VoterController extends Controller
     public function requestPayout(Request $request)
     {
         $voter     = $this->resolveVoter();
-        $minPayout = (float) config('u9itus.batch_payout_min', 10.00);
+        $minPayout = (float) PlatformSettingsService::get('min_payout_amount', null, 5.00);
 
         if ((float) $voter->pending_earnings < $minPayout) {
             return back()->withErrors([

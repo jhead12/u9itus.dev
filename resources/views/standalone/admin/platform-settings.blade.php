@@ -150,7 +150,7 @@
             ])
 
             @include('standalone.admin.partials.setting-form', [
-                'key' => 'batch_payout_min',
+                'key' => 'min_payout_amount',
                 'label' => 'Minimum Payout Threshold',
                 'description' => 'Minimum balance before voter can request payout',
                 'type' => 'number',

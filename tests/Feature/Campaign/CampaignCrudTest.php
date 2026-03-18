@@ -108,6 +108,31 @@ test('politician can create a campaign', function () {
     ]);
 });
 
+test('politician can create a q_and_a campaign', function () {
+    $politician = makePolitician();
+
+    $payload = [
+        'title'                  => 'Town Hall Q&A: Public Safety',
+        'campaign_type'          => 'q_and_a',
+        'total_views_requested'  => 100,
+        'total_budget'           => 60.00,
+        'message_summary'        => 'Answers to most common district questions.',
+        'media_url'              => 'https://cdn.example.com/qa-answer.mp4',
+        'media_duration'         => config('u9itus.min_video_duration', 30) + 5,
+    ];
+
+    $response = $this->actingAs($politician)
+        ->post(route('politician.campaigns.store'), $payload);
+
+    $response->assertRedirect();
+    $response->assertSessionHasNoErrors();
+
+    $this->assertDatabaseHas('political_campaigns', [
+        'title' => 'Town Hall Q&A: Public Safety',
+        'campaign_type' => 'q_and_a',
+    ]);
+});
+
 test('campaign store requires title', function () {
     $politician = makePolitician();
 

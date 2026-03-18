@@ -18,7 +18,7 @@ class UpdateCampaignRequest extends FormRequest
         return [
             'title'                    => ['sometimes', 'required', 'string', 'max:255'],
             'message_summary'          => ['nullable', 'string', 'max:2000'],
-            'campaign_type'            => ['sometimes', 'required', 'in:video,live_feed'],
+            'campaign_type'            => ['sometimes', 'required', 'in:video,live_feed,q_and_a'],
             'governance_level'         => ['nullable', 'string', 'max:100'],
             'total_budget'             => ['sometimes', 'required', 'numeric', 'min:6.00'],
             'total_views_requested'    => ['sometimes', 'required', 'integer', 'min:10'],

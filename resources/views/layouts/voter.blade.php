@@ -251,7 +251,8 @@
             {{-- Payout shortcut --}}
             @auth
             @php $voter = $voter ?? auth()->user()->voter; @endphp
-            @if($voter && ($voter->pending_earnings ?? 0) >= config('u9itus.batch_payout_min', 10))
+            @php $minPayout = (float) \App\Services\PlatformSettingsService::get('min_payout_amount', null, 5.00); @endphp
+            @if($voter && ($voter->pending_earnings ?? 0) >= $minPayout)
             <div class="p-3 border-t border-slate-800">
                 <form action="{{ route('voter.earnings.payout') }}" method="POST">
                     @csrf
@@ -264,7 +265,7 @@
                     </button>
                 </form>
                 <p class="text-center text-slate-500 text-xs mt-1.5">
-                    ${{ number_format($voter->pending_earnings, 2) }} available
+                    ${{ number_format($voter->pending_earnings, 2) }} available (${{ number_format($minPayout, 2) }} minimum)
                 </p>
             </div>
             @endif

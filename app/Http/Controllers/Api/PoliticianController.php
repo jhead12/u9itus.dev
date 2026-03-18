@@ -12,6 +12,7 @@ use App\Http\Resources\CampaignResource;
 use App\Http\Resources\PoliticianResource;
 use App\Models\Politician;
 use App\Models\PoliticalCampaign;
+use App\Services\PlatformSettingsService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -87,9 +88,9 @@ class PoliticianController extends Controller
         $validated = $request->validated();
 
         $validated['politician_id']                = $politician->id;
-        $validated['revenue_per_view']             = config('u9itus.revenue_per_view', 0.60);
-        $validated['voter_payout_per_view']        = config('u9itus.viewer_payout_per_view', 0.25);
-        $validated['head_enterprises_fee_percent'] = config('u9itus.head_enterprises_fee_percent', 15);
+        $validated['revenue_per_view']             = (float) PlatformSettingsService::get('revenue_per_view', null, 0.60);
+        $validated['voter_payout_per_view']        = (float) PlatformSettingsService::get('viewer_payout_per_view', null, 0.25);
+        $validated['head_enterprises_fee_percent'] = (float) PlatformSettingsService::get('head_enterprises_fee_percent', null, 15);
         $validated['status']                       = CampaignStatus::Draft;
         $validated['approval_status']              = ApprovalStatus::Pending;
 

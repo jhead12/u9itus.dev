@@ -19,21 +19,21 @@ https://jonathan-head.com/un9itus/
 
 ## Sprint 0 - Decision Sprint (Week of Mar 16, 2026)
 
-Status: In Progress
+Status: Complete
 
-### Decision Log (Target)
+### Decision Log (Locked)
 
-- Per-view voter payout recommendation: $0.50/view.
-- Per-view politician charge recommendation: $1.00/view.
-- Stripe fee handling recommendation: transparent line-item display.
-- Voter payout threshold recommendation: $5.00 minimum.
-- Guest browsing recommendation: allow directory browsing without login, require login to watch and earn.
-- Q&A payment model recommendation: same rate as intro video for V1.
+- Existing campaigns policy: keep historical campaign rates unchanged; only new campaigns use updated defaults (Option A).
+- Q&A campaign naming: `q_and_a`.
+- Q&A payment model: same rate model as intro/video for V1.
+- Stripe fee handling scope: transparent fee line-item visibility across billing, invoices, and analytics (Option B).
+- Voter payout threshold canonical key: `min_payout_amount`.
+- Guest browsing policy: allow directory browsing without login; require login to watch and earn.
 
 ### Repository Status
 
 - Guest browsing recommendation is implemented in public directory/profile flows.
-- Remaining items are pending final product decision lock-in and rollout.
+- Decision outcomes above are locked and reflected in current implementation scope.
 
 ---
 
@@ -45,12 +45,13 @@ Status: Partially Complete
 
 - Notification API coverage is implemented and passing for list, unread count, mark one, mark all, and auth guards.
 - Notification bell hydration wiring is implemented and passing on politician dashboard UI.
+- Dynamic amount propagation was implemented for campaign creation, payouts, notifications, and amount-related messaging paths using `PlatformSettingsService`.
+- Payout threshold usage was unified to the canonical key `min_payout_amount` in key runtime and UI surfaces.
+- Stripe fee transparency is implemented in politician billing, invoices, and analytics summaries.
+- `q_and_a` campaign type support is implemented (enum, request validation, forms, migration coverage, and feature test path).
 
 ### Remaining Scope
 
-- Update atomic transaction amounts to Sprint 0 finalized values.
-- Add Stripe fee transparency to politician billing UI.
-- Enforce $5 payout threshold for voter cashout.
 - Resolve 419 logout session issue.
 - Enforce 30-second hard max campaign video length.
 
@@ -81,11 +82,11 @@ Status: Planned
 
 ### Planned Scope
 
-- Q&A campaign type for politician answer videos.
 - Voter-facing Q&A browsing by topic within district.
 - Enhanced profile layout combining intro + Q&A content.
 - Hosted media path expansion beyond YouTube links.
 - Post-view engagement prompt (simple positive feedback flow).
+- Note: `q_and_a` campaign type foundation is already delivered in Sprint 1 enablement work.
 
 ---
 
@@ -143,3 +144,4 @@ Status: Planned
 - Notification API feature flow is passing.
 - Notification bell UI hydration flow is passing.
 - Candidate matching admin review and import flow is passing.
+- Campaign CRUD Q&A campaign creation path is passing.

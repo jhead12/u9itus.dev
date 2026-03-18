@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Services\PlatformSettingsService;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
@@ -24,16 +25,17 @@ class CreateCampaignRequest extends FormRequest
      */
     public function rules(): array
     {
-        $minBudget   = config('u9itus.revenue_per_view', 0.60) * 10;
+        $revenuePerView = (float) PlatformSettingsService::get('revenue_per_view', null, 0.60);
+        $minBudget   = $revenuePerView * 10;
         $minDuration = config('u9itus.min_video_duration', 30);
         $maxDuration = config('u9itus.max_video_duration', 300);
 
         return [
             'title'                 => 'required|string|max:255',
             'message_summary'       => 'nullable|string|max:2000',
-            'campaign_type'         => 'required|in:video,live_feed',
+            'campaign_type'         => 'required|in:video,live_feed,q_and_a',
             'governance_level'      => 'nullable|string|in:' . implode(',', array_keys(config('u9itus.governance_levels', []))),
-            'media_url'             => 'required_if:campaign_type,video|nullable|url',
+            'media_url'             => 'required_if:campaign_type,video,q_and_a|nullable|url',
             'media_duration'        => "nullable|integer|min:{$minDuration}|max:{$maxDuration}",
             'live_feed_url'         => 'required_if:campaign_type,live_feed|nullable|url',
             'live_scheduled_at'     => 'required_if:campaign_type,live_feed|nullable|date|after:now',
@@ -60,8 +62,10 @@ class CreateCampaignRequest extends FormRequest
      */
     public function messages(): array
     {
+        $minBudget = (float) PlatformSettingsService::get('revenue_per_view', null, 0.60) * 10;
+
         return [
-            'total_budget.min'          => 'Minimum campaign budget is $' . (config('u9itus.revenue_per_view', 0.60) * 10) . ' (10 views).',
+            'total_budget.min'          => 'Minimum campaign budget is $' . $minBudget . ' (10 views).',
             'total_views_requested.min' => 'You must request at least 10 views.',
             'media_duration.min'        => 'Video must be at least ' . config('u9itus.min_video_duration', 30) . ' seconds.',
             'media_duration.max'        => 'Video cannot exceed ' . config('u9itus.max_video_duration', 300) . ' seconds.',

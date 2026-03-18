@@ -12,10 +12,10 @@ Level:    {{ ucfirst($campaign->governance_level) }}
 @if($campaign->target_state)
 State:    {{ strtoupper($campaign->target_state) }}
 @endif
-Revenue per view: ${{ number_format(config('u9itus.revenue_per_view', 0.60), 2) }}
+Revenue per view: ${{ number_format($revenuePerView ?? config('u9itus.revenue_per_view', 0.60), 2) }}
 
 Voters will begin receiving secure notification tokens to watch your video. You'll be
-charged ${{ number_format(config('u9itus.revenue_per_view', 0.60), 2) }} per verified full view from your credit balance.
+charged ${{ number_format($revenuePerView ?? config('u9itus.revenue_per_view', 0.60), 2) }} per verified full view from your credit balance.
 
 View campaign analytics:
 {{ route('politician.campaigns.show', $campaign->id) }}

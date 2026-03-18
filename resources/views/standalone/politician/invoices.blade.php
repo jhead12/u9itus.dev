@@ -26,6 +26,8 @@
                             <th class="text-left px-5 py-2.5 text-xs font-medium text-slate-500">Reference</th>
                             <th class="text-left px-5 py-2.5 text-xs font-medium text-slate-500">Description</th>
                             <th class="text-left px-5 py-2.5 text-xs font-medium text-slate-500">Status</th>
+                            <th class="text-right px-5 py-2.5 text-xs font-medium text-slate-500">Credits</th>
+                            <th class="text-right px-5 py-2.5 text-xs font-medium text-slate-500">Fee</th>
                             <th class="text-right px-5 py-2.5 text-xs font-medium text-slate-500">Amount</th>
                         </tr>
                     </thead>
@@ -52,6 +54,23 @@
                                 <span class="inline-flex px-2 py-0.5 rounded text-xs font-medium {{ $txColor }}">
                                     {{ ucfirst($tx->status) }}
                                 </span>
+                            </td>
+                            <td class="px-5 py-3 text-right font-mono text-emerald-400">
+                                @if(isset($tx->metadata['credits_amount']))
+                                    ${{ number_format($tx->metadata['credits_amount'], 2) }}
+                                @else
+                                    —
+                                @endif
+                            </td>
+                            <td class="px-5 py-3 text-right font-mono text-slate-400">
+                                @if(isset($tx->metadata['stripe_fee']))
+                                    ${{ number_format($tx->metadata['stripe_fee'], 2) }}
+                                    @if(isset($tx->metadata['stripe_fee_percent']))
+                                        <span class="text-slate-500 text-xs">({{ number_format($tx->metadata['stripe_fee_percent'], 1) }}%)</span>
+                                    @endif
+                                @else
+                                    —
+                                @endif
                             </td>
                             <td class="px-5 py-3 text-right font-mono text-slate-200">
                                 ${{ number_format($tx->amount, 2) }}

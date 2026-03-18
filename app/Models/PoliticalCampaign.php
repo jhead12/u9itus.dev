@@ -6,6 +6,7 @@ use App\Enums\ApprovalStatus;
 use App\Enums\CampaignStatus;
 use App\Enums\CampaignType;
 use App\Enums\PaymentStatus;
+use App\Services\PlatformSettingsService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Support\Str;
@@ -112,10 +113,10 @@ class PoliticalCampaign extends Model
                 $campaign->uuid = (string) Str::uuid();
             }
             if (is_null($campaign->revenue_per_view)) {
-                $campaign->revenue_per_view = config('u9itus.revenue_per_view', 0.60);
+                $campaign->revenue_per_view = (float) PlatformSettingsService::get('revenue_per_view', null, 0.60);
             }
             if (empty($campaign->voter_payout_per_view)) {
-                $campaign->voter_payout_per_view = config('u9itus.viewer_payout_per_view', 0.25);
+                $campaign->voter_payout_per_view = (float) PlatformSettingsService::get('viewer_payout_per_view', null, 0.25);
             }
         });
     }

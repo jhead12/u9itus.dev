@@ -5,6 +5,10 @@
 @section('content')
 <div class="px-4 sm:px-6 lg:px-8 py-8 max-w-6xl mx-auto space-y-7">
 
+    @php
+        $defaultPayout = (float) \App\Services\PlatformSettingsService::get('viewer_payout_per_view', null, 0.25);
+    @endphp
+
     {{-- ── Page Header ──────────────────────────────────────── --}}
     <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
@@ -18,7 +22,7 @@
             </h1>
             <p class="text-slate-400 text-sm mt-1">
                 Watch political messages from verified officials and earn
-                <span class="text-emerald-400 font-semibold">$0.25</span> per completed view.
+                <span class="text-emerald-400 font-semibold">${{ number_format($defaultPayout, 2) }}</span> per completed view.
             </p>
         </div>
 
@@ -206,7 +210,7 @@
             ];
             $lvl    = $campaign->governance_level ?? '';
             $lvlCss = $levelColors[$lvl] ?? ['bg' => 'bg-slate-800/60 border-slate-700/60', 'text' => 'text-slate-400'];
-            $payout = (float) ($campaign->voter_payout_per_view ?? 0.25);
+            $payout = (float) ($campaign->voter_payout_per_view ?? $defaultPayout);
             $dur    = (int) ($campaign->media_duration ?? 0);
         @endphp
         <div class="flex flex-col bg-slate-800/50 rounded-2xl overflow-hidden hover:border-slate-600 transition group

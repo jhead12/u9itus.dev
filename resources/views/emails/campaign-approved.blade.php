@@ -75,13 +75,13 @@
         @endif
         <div class="info-row">
           <span class="info-label">Revenue per View</span>
-          <span class="info-value">${{ number_format(config('u9itus.revenue_per_view', 0.60), 2) }}</span>
+          <span class="info-value">${{ number_format($revenuePerView ?? config('u9itus.revenue_per_view', 0.60), 2) }}</span>
         </div>
       </div>
 
       <p>
         Voters will begin receiving secure notification tokens to watch your video. You'll be
-        charged <span class="highlight">${{ number_format(config('u9itus.revenue_per_view', 0.60), 2) }}</span>
+        charged <span class="highlight">${{ number_format($revenuePerView ?? config('u9itus.revenue_per_view', 0.60), 2) }}</span>
         per verified full view from your credit balance.
       </p>
 

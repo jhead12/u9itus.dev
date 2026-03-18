@@ -6,6 +6,11 @@
 @section('content')
 <div class="space-y-6">
 
+    @php
+        $stripeFeeTotal = (float) ($transactionsWithFeeSummary->sum('fee') ?? 0);
+        $creditsTotal = (float) ($transactionsWithFeeSummary->sum('credits') ?? 0);
+    @endphp
+
     {{-- Overview stats --}}
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
@@ -23,6 +28,21 @@
         <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
             <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Active Campaigns</p>
             <p class="text-2xl font-bold text-emerald-400">{{ $activeCampaigns }}</p>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
+            <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Credits Purchased</p>
+            <p class="text-2xl font-bold text-emerald-400">${{ number_format($creditsTotal, 2) }}</p>
+        </div>
+        <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
+            <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Stripe Fees Paid</p>
+            <p class="text-2xl font-bold text-amber-400">${{ number_format($stripeFeeTotal, 2) }}</p>
+        </div>
+        <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
+            <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Gross Card Charges</p>
+            <p class="text-2xl font-bold text-white">${{ number_format($creditsTotal + $stripeFeeTotal, 2) }}</p>
         </div>
     </div>
 

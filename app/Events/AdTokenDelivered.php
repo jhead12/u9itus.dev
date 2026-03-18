@@ -3,6 +3,7 @@
 namespace App\Events;
 
 use App\Models\AdViewToken;
+use App\Services\PlatformSettingsService;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PrivateChannel;
@@ -38,15 +39,16 @@ class AdTokenDelivered implements ShouldBroadcastNow
     public function broadcastWith(): array
     {
         $campaign = $this->token->campaign;
+        $payoutAmount = (float) PlatformSettingsService::get('viewer_payout_per_view', null, 0.25);
 
         return [
             'token'            => $this->token->token,
             'watch_url'        => route('voter.watch', ['token' => $this->token->token]),
             'campaign_id'      => $campaign->id,
             'campaign_title'   => $campaign->title,
-            'payout_amount'    => config('u9itus.viewer_payout_per_view'),
+            'payout_amount'    => $payoutAmount,
             'expires_at'       => $this->token->expires_at->toIso8601String(),
-            'message'          => 'A new political ad is available — watch it to earn $' . number_format(config('u9itus.viewer_payout_per_view'), 2),
+            'message'          => 'A new political ad is available — watch it to earn $' . number_format($payoutAmount, 2),
         ];
     }
 

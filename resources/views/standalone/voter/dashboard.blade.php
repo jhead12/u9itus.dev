@@ -5,6 +5,11 @@
 @section('content')
 <div class="px-4 sm:px-6 lg:px-8 py-8 max-w-5xl mx-auto space-y-7">
 
+    @php
+        $minPayout = (float) \App\Services\PlatformSettingsService::get('min_payout_amount', null, 5.00);
+        $defaultPayout = (float) \App\Services\PlatformSettingsService::get('viewer_payout_per_view', null, 0.25);
+    @endphp
+
     {{-- Page Header --}}
     <div class="flex items-start justify-between gap-4">
         <div>
@@ -23,7 +28,7 @@
                 <h2 class="text-white font-semibold text-lg">Running Campaigns</h2>
                 <p class="text-slate-400 text-sm mt-0.5">
                     {{ number_format($availableCampaignsCount ?? 0) }} available. Start watching to earn
-                    <span class="text-emerald-400 font-semibold">$0.25</span> per completed view.
+                    <span class="text-emerald-400 font-semibold">${{ number_format($defaultPayout, 2) }}</span> per completed view.
                 </p>
             </div>
             <a href="{{ route('voter.ad-room') }}"
@@ -45,7 +50,7 @@
                 @foreach($availableCampaigns as $campaign)
                     @php
                         $remainingViews = max(0, ($campaign->total_views_requested ?? 0) - ($campaign->views_completed ?? 0));
-                        $payout = (float) ($campaign->voter_payout_per_view ?? 0.25);
+                        $payout = (float) ($campaign->voter_payout_per_view ?? $defaultPayout);
                     @endphp
                     <article class="rounded-xl border border-slate-700 bg-slate-900/30 p-4 flex items-start justify-between gap-3">
                         <div class="min-w-0">
@@ -137,7 +142,7 @@
     @endif
 
     {{-- Payout CTA --}}
-    @if(($summary['pending_earnings'] ?? 0) >= config('u9itus.batch_payout_min', 10))
+    @if(($summary['pending_earnings'] ?? 0) >= $minPayout)
     <div class="bg-gradient-to-r from-emerald-900/40 to-teal-900/30 border border-emerald-500/30 rounded-2xl p-5 flex items-center gap-5 justify-between">
         <div class="flex items-center gap-4">
             <div class="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center shrink-0">

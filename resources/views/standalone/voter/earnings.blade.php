@@ -5,6 +5,10 @@
 @section('content')
 <div class="px-4 sm:px-6 lg:px-8 py-8 max-w-5xl mx-auto space-y-7">
 
+    @php
+        $minPayout = (float) \App\Services\PlatformSettingsService::get('min_payout_amount', null, 5.00);
+    @endphp
+
     {{-- Page Header --}}
     <div>
         <h1 class="text-2xl font-bold text-white">My Earnings</h1>
@@ -61,7 +65,6 @@
             <h2 class="text-base font-semibold text-white">Request Payout</h2>
         </div>
         <div class="px-6 py-5">
-            @php $minPayout = config('u9itus.batch_payout_min', 10); @endphp
             @php $pending = $summary['pending_earnings'] ?? 0; @endphp
 
             @if($pending >= $minPayout)

@@ -3,10 +3,10 @@
      Shows potential earnings from ads, voter referrals, and politician bonuses
      ======================================================================== --}}
 @php
-    // Economic constants from config
-    $payoutPerView = config('u9itus.viewer_payout_per_view', 0.25);
-    $voterCommissionPercent = config('u9itus.referral_commission_percent', 10);
-    $politicianCommissionPercent = config('u9itus.procurement_commission_percent', 10);
+    // Use passed values or fallback to service defaults
+    $payoutPerView = $payoutPerView ?? (float) \App\Services\PlatformSettingsService::get('viewer_payout_per_view', null, 0.25);
+    $voterCommissionPercent = $voterCommissionPercent ?? (float) \App\Services\PlatformSettingsService::get('referral_commission_percent', null, 10);
+    $politicianCommissionPercent = $politicianCommissionPercent ?? (float) \App\Services\PlatformSettingsService::get('procurement_commission_percent', null, 10);
     
     // Assumptions for calculations
     $avgAdsPerReferredVoter = 3; // Assume each referred voter watches 3 ads/day

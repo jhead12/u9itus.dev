@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Mail\LowBalanceAlertMail;
 use App\Models\Politician;
 use App\Models\User;
+use App\Services\PlatformSettingsService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -46,7 +47,7 @@ class SendLowBalanceAlerts extends Command
         $sent   = 0;
         $failed = 0;
 
-        $revenuePerView = (float) config('u9itus.revenue_per_view', 0.60);
+        $revenuePerView = (float) PlatformSettingsService::get('revenue_per_view', null, 0.60);
 
         foreach ($politicians as $politician) {
             $user = $politician->user;

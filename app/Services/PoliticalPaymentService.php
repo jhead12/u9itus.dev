@@ -111,8 +111,8 @@ class PoliticalPaymentService
      */
     public function processBatchPayouts(): array
     {
-        $minPayout  = config('u9itus.min_payout_amount', 5.00);
-        $holdHours  = config('u9itus.fraud.payout_hold_hours', 48);
+        $minPayout  = (float) PlatformSettingsService::get('min_payout_amount', null, 5.00);
+        $holdHours  = (int) PlatformSettingsService::get('fraud_payout_hold_hours', null, 48);
 
         $eligibleVoters = Voter::where('pending_earnings', '>=', $minPayout)
             ->where('flagged_for_fraud', false)
@@ -208,10 +208,10 @@ class PoliticalPaymentService
         float $processingFee = 0.02,
         float $opsCost = 0.05
     ): array {
-        $revenuePerView ??= (float) config('u9itus.revenue_per_view', 0.60);
-        $voterPayout    ??= (float) config('u9itus.viewer_payout_per_view', 0.25);
+        $revenuePerView ??= (float) PlatformSettingsService::get('revenue_per_view', null, 0.60);
+        $voterPayout    ??= (float) PlatformSettingsService::get('viewer_payout_per_view', null, 0.25);
         $referralCommission = $hasReferral
-            ? $voterPayout * (config('u9itus.referral_commission_percent', 10) / 100)
+            ? $voterPayout * (PlatformSettingsService::get('referral_commission_percent', null, 10) / 100)
             : 0;
 
         $totalCost = $voterPayout + $referralCommission + $processingFee + $opsCost;
