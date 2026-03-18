@@ -9,6 +9,7 @@ use App\Jobs\MatchPoliticianToElectionData;
 use App\Mail\CampaignApprovedMail;
 use App\Mail\CampaignRejectedMail;
 use App\Models\CandidateMatchReview;
+use App\Models\DistrictLookupSearch;
 use App\Services\ReverbBroadcastService;
 use App\Services\PoliticianElectionMatcher;
 use App\Mail\KycApprovedMail;
@@ -872,6 +873,54 @@ class AdminController extends Controller
         ];
 
         return view('standalone.admin.analytics', compact('stats'));
+    }
+
+    /**
+     * Review district lookup traffic and discovery effectiveness.
+     */
+    public function districtSearches(Request $request)
+    {
+        $query = DistrictLookupSearch::query();
+
+        if ($q = trim((string) $request->query('q', ''))) {
+            $query->where(function ($inner) use ($q) {
+                $inner->where('query_address', 'like', "%{$q}%")
+                    ->orWhere('matched_address', 'like', "%{$q}%")
+                    ->orWhere('district_code', 'like', "%{$q}%");
+            });
+        }
+
+        if (($resolved = $request->query('resolved')) !== null && $resolved !== '') {
+            $query->where('resolved', filter_var($resolved, FILTER_VALIDATE_BOOLEAN));
+        }
+
+        if ($source = trim((string) $request->query('source', ''))) {
+            $query->where('source', $source);
+        }
+
+        if ($state = strtoupper(trim((string) $request->query('state', '')))) {
+            $query->whereRaw("UPPER(COALESCE(state, '')) = ?", [$state]);
+        }
+
+        $searches = $query
+            ->orderByDesc('created_at')
+            ->paginate(50)
+            ->withQueryString();
+
+        $stats = [
+            'total' => DistrictLookupSearch::count(),
+            'resolved' => DistrictLookupSearch::where('resolved', true)->count(),
+            'unresolved' => DistrictLookupSearch::where('resolved', false)->count(),
+            'officials_discovered' => (int) DistrictLookupSearch::sum('discovered_officials_count'),
+        ];
+
+        $sourceCounts = DistrictLookupSearch::query()
+            ->select('source', DB::raw('COUNT(*) as total'))
+            ->groupBy('source')
+            ->orderByDesc('total')
+            ->pluck('total', 'source');
+
+        return view('standalone.admin.district-searches', compact('searches', 'stats', 'sourceCounts'));
     }
 
     /**

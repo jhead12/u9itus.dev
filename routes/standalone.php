@@ -318,6 +318,7 @@ Route::middleware(['auth', 'verified', 'check.role'])->group(function () {
         
         // Analytics & Reports
         Route::get('/analytics', [AdminController::class, 'analytics'])->name('analytics');
+        Route::get('/district-searches', [AdminController::class, 'districtSearches'])->name('district-searches.index');
         Route::get('/reports/revenue', [AdminController::class, 'revenueReport'])->name('reports.revenue');
         Route::get('/reports/engagement', [AdminController::class, 'engagementReport'])->name('reports.engagement');
         
