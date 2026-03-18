@@ -6,6 +6,12 @@
 @section('content')
 <div class="max-w-2xl space-y-8">
 
+    @if(session('success'))
+        <div class="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-sm">
+            {{ session('success') }}
+        </div>
+    @endif
+
     {{-- ── Section header ────────────────────────────────────────────── --}}
     <div>
         <h2 class="text-lg font-semibold text-white">Account Settings</h2>
@@ -25,6 +31,21 @@
                 Administrator
             </span>
         </div>
+    </div>
+
+    <div class="bg-slate-800/60 border border-slate-700/50 rounded-2xl px-6 py-5 flex items-center justify-between gap-4">
+        <div>
+            <p class="text-sm font-semibold text-white">Authenticator Security</p>
+            <p class="text-xs text-slate-400 mt-1">
+                Status: {{ $user->hasAdminTwoFactorEnabled() ? 'Enabled' : 'Disabled' }}
+                @if(!empty($adminTwoFactorEnforced))
+                    · Global policy is currently enabled
+                @endif
+            </p>
+        </div>
+        <a href="{{ route('admin.2fa.setup') }}" class="inline-flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white text-sm font-medium rounded-lg transition">
+            Manage 2FA
+        </a>
     </div>
 
     {{-- ── Profile update form ─────────────────────────────────────────── --}}

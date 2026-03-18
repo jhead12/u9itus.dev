@@ -2,39 +2,49 @@
 
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
+use Spatie\Permission\Models\Role;
 
-test('password can be updated', function () {
-    $user = User::factory()->create();
+beforeEach(function () {
+    Role::findOrCreate('admin', 'web');
+});
+
+test('admin password can be updated from settings', function () {
+    $user = User::factory()->create(['platform' => 'standalone', 'user_type' => 'admin']);
+    $user->assignRole('admin');
+    skipOnboarding($user, 'admin');
 
     $response = $this
         ->actingAs($user)
-        ->from('/profile')
-        ->put('/password', [
+        ->from(route('admin.settings'))
+        ->put(route('admin.settings.password'), [
             'current_password' => 'password',
-            'password' => 'new-password',
-            'password_confirmation' => 'new-password',
+            'new_password' => 'new-password-123',
+            'new_password_confirmation' => 'new-password-123',
         ]);
 
     $response
         ->assertSessionHasNoErrors()
-        ->assertRedirect('/profile');
+        ->assertSessionHas('password_success')
+        ->assertRedirect(route('admin.settings'));
 
-    $this->assertTrue(Hash::check('new-password', $user->refresh()->password));
-})->skip('Breeze PUT /password route replaced by standalone POST /reset-password');
+    $this->assertTrue(Hash::check('new-password-123', $user->refresh()->password));
+});
 
-test('correct password must be provided to update password', function () {
-    $user = User::factory()->create();
+test('current password is required to update admin password', function () {
+    $user = User::factory()->create(['platform' => 'standalone', 'user_type' => 'admin']);
+    $user->assignRole('admin');
+    skipOnboarding($user, 'admin');
 
     $response = $this
         ->actingAs($user)
-        ->from('/profile')
-        ->put('/password', [
+        ->from(route('admin.settings'))
+        ->put(route('admin.settings.password'), [
             'current_password' => 'wrong-password',
-            'password' => 'new-password',
-            'password_confirmation' => 'new-password',
+            'new_password' => 'new-password-123',
+            'new_password_confirmation' => 'new-password-123',
         ]);
 
     $response
         ->assertSessionHasErrorsIn('updatePassword', 'current_password')
-        ->assertRedirect('/profile');
-})->skip('Breeze PUT /password route replaced by standalone POST /reset-password');
+        ->assertRedirect(route('admin.settings'));
+});

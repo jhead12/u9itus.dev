@@ -1,5 +1,8 @@
 <?php
 
+use App\Models\User;
+use Spatie\Permission\Models\Role;
+
 test('registration screen can be rendered', function () {
     $response = $this->get('/register');
 
@@ -7,22 +10,29 @@ test('registration screen can be rendered', function () {
 });
 
 test('new users can register', function () {
-    // TODO: Fix registration - requires proper role/permission setup
-    $this->markTestIncomplete('Registration test needs database and role setup');
-    
-    // Run role seeder for permission package
-    $this->artisan('db:seed', ['--class' => 'RoleSeeder']);
-    
-    $response = $this->post('/register', [
-        'name' => 'Test User',
-        'email' => 'test@example.com',
-        'password' => 'password',
-        'password_confirmation' => 'password',
+    Role::findOrCreate('voter', 'web');
+    $email = 'test-voter@example.com';
+
+    $response = $this->post('/register/voter', [
+        'first_name' => 'Test',
+        'last_name' => 'Voter',
+        'email' => $email,
+        'password' => 'Password123!',
+        'password_confirmation' => 'Password123!',
+        'terms' => '1',
     ]);
 
-    expect($response->status())->toBe(302); // Ensure it redirects
+    $response->assertRedirect(route('verification.notice', absolute: false));
+
     $this->assertDatabaseHas('users', [
-        'email' => 'test@example.com',
+        'email' => $email,
+        'user_type' => 'voter',
     ]);
+
+    $user = User::where('email', $email)->first();
+
+    expect($user)->not->toBeNull();
+    expect($user->hasRole('voter'))->toBeTrue();
+
     $this->assertAuthenticated();
 });

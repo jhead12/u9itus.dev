@@ -150,6 +150,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
 */
 
 Route::middleware(['auth', 'verified', 'check.role'])->group(function () {
+
+    // Admin security routes (kept outside onboarding + enforcement middleware
+    // so admins can complete TOTP setup/challenge when required).
+    Route::prefix('admin')->name('admin.')->middleware(['role:admin'])->group(function () {
+        Route::get('/2fa/challenge', [AuthController::class, 'showAdminTwoFactorChallenge'])->name('2fa.challenge');
+        Route::post('/2fa/challenge', [AuthController::class, 'verifyAdminTwoFactorChallenge'])->name('2fa.challenge.verify');
+
+        Route::get('/security/2fa', [AdminController::class, 'twoFactorSetup'])->name('2fa.setup');
+        Route::post('/security/2fa/enable', [AdminController::class, 'enableTwoFactor'])->name('2fa.setup.enable');
+        Route::post('/security/2fa/disable', [AdminController::class, 'disableTwoFactor'])->name('2fa.setup.disable');
+        Route::post('/security/2fa/recovery-codes/rotate', [AdminController::class, 'rotateRecoveryCodes'])->name('2fa.setup.recovery.rotate');
+    });
     
     // Main Dashboard (role-based redirect)
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
@@ -266,7 +278,7 @@ Route::middleware(['auth', 'verified', 'check.role'])->group(function () {
     | Admin Dashboard & Management
     |--------------------------------------------------------------------------
     */
-    Route::prefix('admin')->name('admin.')->middleware(['role:admin', 'check.admin.onboarding'])->group(function () {
+    Route::prefix('admin')->name('admin.')->middleware(['role:admin', 'check.admin.onboarding', 'admin.2fa'])->group(function () {
         Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
         
         // Campaign Approval
@@ -325,6 +337,7 @@ Route::middleware(['auth', 'verified', 'check.role'])->group(function () {
         // System Settings
         Route::get('/settings', [AdminController::class, 'settings'])->name('settings');
         Route::put('/settings', [AdminController::class, 'updateSettings'])->name('settings.update');
+        Route::put('/settings/security', [AdminController::class, 'updateSecuritySettings'])->name('settings.security');
         Route::put('/settings/password', [AdminController::class, 'updatePassword'])->name('settings.password');
         Route::post('/settings/test-email', [AdminController::class, 'testEmail'])->name('settings.test-email');
 

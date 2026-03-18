@@ -269,6 +269,7 @@ class PlatformSettingsService
             // Other
             'assignment_expiry_hours' => 'u9itus.assignment_expiry_hours',
             'head_enterprises_fee_percent' => 'u9itus.head_enterprises_fee_percent',
+            'admin_2fa_enforced' => 'platform.standalone.auth.admin_2fa.enabled_default',
         ];
 
         return $map[$key] ?? null;

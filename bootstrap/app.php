@@ -24,6 +24,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'check.voter.onboarding' => \App\Http\Middleware\CheckVoterOnboarding::class,
             'check.politician.onboarding' => \App\Http\Middleware\CheckPoliticianOnboarding::class,
             'check.admin.onboarding' => \App\Http\Middleware\CheckAdminOnboarding::class,
+            'admin.2fa' => \App\Http\Middleware\EnsureAdminTwoFactorVerified::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

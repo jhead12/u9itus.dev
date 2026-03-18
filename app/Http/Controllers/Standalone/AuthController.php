@@ -8,6 +8,9 @@ use App\Models\User;
 use App\Models\Voter;
 use App\Mail\AdminNewUserNotificationMail;
 use App\Mail\WelcomeMail;
+use App\Models\AdminSecurityAuditLog;
+use App\Services\AdminTwoFactorService;
+use App\Services\PlatformSettingsService;
 use App\Services\UnclaimedPoliticianProfileService;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Auth\Events\Verified;
@@ -100,12 +103,91 @@ class AuthController extends Controller
             }
 
             $request->session()->regenerate();
+            $request->session()->forget([
+                'admin_2fa_verified_user_id',
+                'admin_2fa_verified_at',
+            ]);
             return redirect()->route('admin.dashboard');
         }
 
         return back()->withErrors([
             'email' => 'The provided credentials do not match our records.',
         ])->onlyInput('email');
+    }
+
+    public function showAdminTwoFactorChallenge(Request $request)
+    {
+        $user = $request->user();
+
+        if (!$user || !$user->hasRole('admin')) {
+            abort(403);
+        }
+
+        $isEnforced = filter_var(
+            PlatformSettingsService::get('admin_2fa_enforced', null, false),
+            FILTER_VALIDATE_BOOLEAN
+        );
+
+        if (!$isEnforced) {
+            return redirect()->route('admin.dashboard');
+        }
+
+        if (!$user->hasAdminTwoFactorEnabled()) {
+            return redirect()->route('admin.2fa.setup')
+                ->with('warning', 'Two-factor authentication is required before continuing.');
+        }
+
+        return view('standalone.auth.admin-2fa-challenge');
+    }
+
+    public function verifyAdminTwoFactorChallenge(Request $request, AdminTwoFactorService $twoFactorService)
+    {
+        $request->validate([
+            'code' => ['required', 'string', 'max:32'],
+        ]);
+
+        $user = $request->user();
+
+        if (!$user || !$user->hasRole('admin') || !$user->hasAdminTwoFactorEnabled()) {
+            abort(403);
+        }
+
+        $inputCode = (string) $request->input('code');
+        $verifiedBy = null;
+
+        if (preg_match('/^\d{6}$/', $inputCode) === 1) {
+            if ($twoFactorService->verifyCode((string) $user->admin_two_factor_secret, $inputCode)) {
+                $verifiedBy = 'totp';
+            }
+        } else {
+            $existingCodes = (array) ($user->admin_two_factor_recovery_codes ?? []);
+            $remainingCodes = $twoFactorService->consumeRecoveryCode($existingCodes, $inputCode);
+
+            if ($remainingCodes !== null) {
+                $user->forceFill([
+                    'admin_two_factor_recovery_codes' => $remainingCodes,
+                ])->save();
+
+                $verifiedBy = 'recovery_code';
+            }
+        }
+
+        if ($verifiedBy === null) {
+            AdminSecurityAuditLog::record($user, 'admin.2fa.challenge.failed', [], $request);
+            return back()->withErrors(['code' => 'Invalid authenticator or recovery code. Please try again.']);
+        }
+
+        $request->session()->put('admin_2fa_verified_user_id', (int) $user->id);
+        $request->session()->put('admin_2fa_verified_at', now()->toIso8601String());
+
+        AdminSecurityAuditLog::record(
+            $user,
+            'admin.2fa.challenge.passed',
+            ['verified_by' => $verifiedBy],
+            $request
+        );
+
+        return redirect()->route('admin.dashboard')->with('success', 'Two-factor verification complete.');
     }
 
     // -------------------------------------------------------------------------

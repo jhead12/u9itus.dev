@@ -6,10 +6,67 @@
 @section('content')
 <div class="max-w-3xl space-y-8">
 
+    @if(session('success'))
+        <div class="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-sm">
+            {{ session('success') }}
+        </div>
+    @endif
+
+    @if(session('warning'))
+        <div class="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 text-sm">
+            {{ session('warning') }}
+        </div>
+    @endif
+
     {{-- ── Section header ─────────────────────────────────────────────── --}}
     <div>
         <h2 class="text-lg font-semibold text-white">System Settings</h2>
         <p class="mt-1 text-sm text-slate-400">Manage your account security and platform-wide configuration.</p>
+    </div>
+
+    {{-- ── Admin Security Policy ───────────────────────────────────────── --}}
+    <div class="bg-slate-800/60 border border-slate-700/50 rounded-2xl overflow-hidden">
+
+        <div class="px-6 py-4 border-b border-slate-700/50 flex items-center gap-3">
+            <div class="w-9 h-9 rounded-lg bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5-2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+            </div>
+            <div>
+                <p class="text-sm font-semibold text-white">Admin Two-Factor Policy</p>
+                <p class="text-xs text-slate-400">Global switch that controls whether every admin must pass TOTP at login.</p>
+            </div>
+        </div>
+
+        <form method="POST" action="{{ route('admin.settings.security') }}" class="px-6 py-6 space-y-5">
+            @csrf
+            @method('PUT')
+
+            <input type="hidden" name="admin_2fa_enforced" value="0" />
+
+            <label class="flex items-start gap-3 cursor-pointer">
+                <input
+                    type="checkbox"
+                    name="admin_2fa_enforced"
+                    value="1"
+                    {{ !empty($adminTwoFactorEnforced) ? 'checked' : '' }}
+                    class="mt-1 h-4 w-4 rounded border-slate-600 bg-slate-900 text-cyan-500 focus:ring-cyan-500/50"
+                />
+                <span>
+                    <span class="block text-sm font-medium text-slate-200">Require authenticator code for all admin logins</span>
+                    <span class="block mt-1 text-xs text-slate-500">When enabled, admins without setup are redirected to complete enrollment before accessing admin dashboard pages.</span>
+                </span>
+            </label>
+
+            <div class="flex items-center justify-between pt-4 border-t border-slate-700/50">
+                <a href="{{ route('admin.2fa.setup') }}" class="text-sm text-cyan-400 hover:text-cyan-300">Manage my authenticator setup</a>
+                <button type="submit"
+                    class="bg-cyan-600 hover:bg-cyan-500 text-white font-semibold rounded-lg px-5 py-2.5 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500/50">
+                    Save Security Policy
+                </button>
+            </div>
+        </form>
     </div>
 
     {{-- ── Change Password ──────────────────────────────────────────────── --}}

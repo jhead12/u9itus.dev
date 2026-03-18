@@ -14,6 +14,7 @@ use App\Services\ReverbBroadcastService;
 use App\Services\PoliticianElectionMatcher;
 use App\Mail\KycApprovedMail;
 use App\Mail\KycRejectedMail;
+use App\Models\AdminSecurityAuditLog;
 use App\Models\CampaignAuditLog;
 use App\Models\EmailTemplate;
 use App\Models\PoliticalCampaign;
@@ -21,6 +22,8 @@ use App\Models\Politician;
 use App\Models\User;
 use App\Models\ViewSession;
 use App\Models\Voter;
+use App\Services\AdminTwoFactorService;
+use App\Services\PlatformSettingsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
@@ -965,7 +968,52 @@ class AdminController extends Controller
             $smtp[$key] = env($key, '');
         }
 
-        return view('standalone.admin.settings', compact('smtp'));
+        $adminTwoFactorEnforced = filter_var(
+            PlatformSettingsService::get('admin_2fa_enforced', null, false),
+            FILTER_VALIDATE_BOOLEAN
+        );
+
+        return view('standalone.admin.settings', compact('smtp', 'adminTwoFactorEnforced'));
+    }
+
+    /**
+     * Update global security settings controlled from the admin settings page.
+     */
+    public function updateSecuritySettings(Request $request)
+    {
+        $validated = $request->validate([
+            'admin_2fa_enforced' => ['required', 'boolean'],
+        ]);
+
+        $newValue = (bool) $validated['admin_2fa_enforced'];
+        $currentValue = filter_var(
+            PlatformSettingsService::get('admin_2fa_enforced', null, false),
+            FILTER_VALIDATE_BOOLEAN
+        );
+
+        PlatformSettingsService::set('admin_2fa_enforced', $newValue, [
+            'description' => 'Global policy toggle requiring TOTP for all admin logins.',
+            'category' => 'general',
+        ]);
+
+        Log::info('Admin security policy updated', [
+            'admin_id' => auth()->id(),
+            'key' => 'admin_2fa_enforced',
+            'old_value' => $currentValue,
+            'new_value' => $newValue,
+        ]);
+
+        AdminSecurityAuditLog::record(
+            $request->user(),
+            'policy.admin_2fa.updated',
+            [
+                'old_value' => $currentValue,
+                'new_value' => $newValue,
+            ],
+            $request
+        );
+
+        return back()->with('success', 'Security policy updated successfully.');
     }
 
     /**
@@ -1256,7 +1304,192 @@ class AdminController extends Controller
     {
         $user = auth()->user();
 
-        return view('standalone.admin.profile', compact('user'));
+        $adminTwoFactorEnforced = filter_var(
+            PlatformSettingsService::get('admin_2fa_enforced', null, false),
+            FILTER_VALIDATE_BOOLEAN
+        );
+
+        return view('standalone.admin.profile', compact('user', 'adminTwoFactorEnforced'));
+    }
+
+    /**
+     * Show admin TOTP setup page.
+     */
+    public function twoFactorSetup(Request $request, AdminTwoFactorService $twoFactorService)
+    {
+        $user = $request->user();
+        $isEnabled = $user->hasAdminTwoFactorEnabled();
+        $setupSecret = null;
+        $otpAuthUrl = null;
+        $newRecoveryCodes = $request->session()->get('admin_2fa_new_recovery_codes', []);
+
+        if (!$isEnabled) {
+            $setupSecret = (string) $request->session()->get('admin_2fa_setup_secret');
+
+            if ($setupSecret === '') {
+                $setupSecret = $twoFactorService->generateSecret();
+                $request->session()->put('admin_2fa_setup_secret', $setupSecret);
+            }
+
+            $otpAuthUrl = $twoFactorService->getOtpAuthUrl($user, $setupSecret);
+        }
+
+        return view('standalone.admin.security.2fa-setup', compact('isEnabled', 'setupSecret', 'otpAuthUrl', 'newRecoveryCodes'));
+    }
+
+    /**
+     * Confirm and enable admin TOTP.
+     */
+    public function enableTwoFactor(Request $request, AdminTwoFactorService $twoFactorService)
+    {
+        $request->validate([
+            'code' => ['required', 'digits:6'],
+        ]);
+
+        $user = $request->user();
+
+        if ($user->hasAdminTwoFactorEnabled()) {
+            return back()->withErrors(['code' => 'Two-factor authentication is already enabled.']);
+        }
+
+        $secret = (string) $request->session()->get('admin_2fa_setup_secret', '');
+
+        if ($secret === '') {
+            return back()->withErrors(['code' => 'Setup secret expired. Reload the page and try again.']);
+        }
+
+        if (!$twoFactorService->verifyCode($secret, (string) $request->input('code'))) {
+            return back()->withErrors(['code' => 'Invalid authenticator code for setup confirmation.']);
+        }
+
+        $recoveryCodes = $twoFactorService->generateRecoveryCodes();
+
+        $user->forceFill([
+            'admin_two_factor_secret' => $secret,
+            'admin_two_factor_confirmed_at' => now(),
+            'admin_two_factor_recovery_codes' => $recoveryCodes,
+        ])->save();
+
+        $request->session()->forget('admin_2fa_setup_secret');
+        $request->session()->put('admin_2fa_verified_user_id', (int) $user->id);
+        $request->session()->put('admin_2fa_verified_at', now()->toIso8601String());
+        $request->session()->flash('admin_2fa_new_recovery_codes', $recoveryCodes);
+
+        Log::info('Admin enabled two-factor authentication', [
+            'admin_id' => $user->id,
+        ]);
+
+        AdminSecurityAuditLog::record(
+            $user,
+            'admin.2fa.enabled',
+            ['recovery_code_count' => count($recoveryCodes)],
+            $request
+        );
+
+        return back()->with('success', 'Two-factor authentication enabled successfully.');
+    }
+
+    /**
+     * Disable admin TOTP after credential verification.
+     */
+    public function disableTwoFactor(Request $request, AdminTwoFactorService $twoFactorService)
+    {
+        $request->validate([
+            'current_password' => ['required', 'current_password'],
+            'code' => ['required', 'digits:6'],
+        ]);
+
+        $isEnforced = filter_var(
+            PlatformSettingsService::get('admin_2fa_enforced', null, false),
+            FILTER_VALIDATE_BOOLEAN
+        );
+
+        if ($isEnforced) {
+            return back()->withErrors(['code' => 'Global admin 2FA policy is enabled. Disable policy before disabling your authenticator.']);
+        }
+
+        $user = $request->user();
+
+        if (!$user->hasAdminTwoFactorEnabled()) {
+            return back()->withErrors(['code' => 'Two-factor authentication is not enabled for this account.']);
+        }
+
+        if (!$twoFactorService->verifyCode((string) $user->admin_two_factor_secret, (string) $request->input('code'))) {
+            return back()->withErrors(['code' => 'Invalid authenticator code.']);
+        }
+
+        $user->forceFill([
+            'admin_two_factor_secret' => null,
+            'admin_two_factor_confirmed_at' => null,
+            'admin_two_factor_recovery_codes' => null,
+        ])->save();
+
+        $request->session()->forget(['admin_2fa_verified_user_id', 'admin_2fa_verified_at']);
+
+        Log::info('Admin disabled two-factor authentication', [
+            'admin_id' => $user->id,
+        ]);
+
+        AdminSecurityAuditLog::record($user, 'admin.2fa.disabled', [], $request);
+
+        return back()->with('success', 'Two-factor authentication disabled successfully.');
+    }
+
+    /**
+     * Rotate recovery codes after password + authenticator verification.
+     */
+    public function rotateRecoveryCodes(Request $request, AdminTwoFactorService $twoFactorService)
+    {
+        $request->validate([
+            'current_password' => ['required', 'current_password'],
+            'code' => ['required', 'string', 'max:32'],
+        ]);
+
+        $user = $request->user();
+
+        if (!$user->hasAdminTwoFactorEnabled()) {
+            return back()->withErrors(['code' => 'Two-factor authentication must be enabled before rotating recovery codes.']);
+        }
+
+        $inputCode = (string) $request->input('code');
+        $method = null;
+
+        if (preg_match('/^\d{6}$/', $inputCode) === 1) {
+            if (!$twoFactorService->verifyCode((string) $user->admin_two_factor_secret, $inputCode)) {
+                return back()->withErrors(['code' => 'Invalid authenticator code.']);
+            }
+
+            $method = 'totp';
+        } else {
+            $existingCodes = (array) ($user->admin_two_factor_recovery_codes ?? []);
+            $remainingCodes = $twoFactorService->consumeRecoveryCode($existingCodes, $inputCode);
+
+            if ($remainingCodes === null) {
+                return back()->withErrors(['code' => 'Invalid recovery code.']);
+            }
+
+            $method = 'recovery_code';
+        }
+
+        $newRecoveryCodes = $twoFactorService->generateRecoveryCodes();
+
+        $user->forceFill([
+            'admin_two_factor_recovery_codes' => $newRecoveryCodes,
+        ])->save();
+
+        $request->session()->flash('admin_2fa_new_recovery_codes', $newRecoveryCodes);
+
+        AdminSecurityAuditLog::record(
+            $user,
+            'admin.2fa.recovery_codes.rotated',
+            [
+                'verified_by' => $method,
+                'recovery_code_count' => count($newRecoveryCodes),
+            ],
+            $request
+        );
+
+        return back()->with('success', 'Recovery codes rotated successfully. Save your new codes now.');
     }
 
     /**

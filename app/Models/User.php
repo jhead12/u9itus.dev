@@ -22,6 +22,9 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'admin_two_factor_secret',
+        'admin_two_factor_confirmed_at',
+        'admin_two_factor_recovery_codes',
         'user_type',
         'first_name',
         'last_name',
@@ -52,6 +55,8 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
+        'admin_two_factor_secret',
+        'admin_two_factor_recovery_codes',
     ];
 
     /**
@@ -66,6 +71,9 @@ class User extends Authenticatable
             'phone_verified_at'  => 'datetime',
             'kyc_reviewed_at'    => 'datetime',
             'suspended_at'       => 'datetime',
+            'admin_two_factor_confirmed_at' => 'datetime',
+            'admin_two_factor_secret' => 'encrypted',
+            'admin_two_factor_recovery_codes' => 'encrypted:array',
             'password'           => 'hashed',
             'is_verified'        => 'boolean',
         ];
@@ -180,6 +188,22 @@ class User extends Authenticatable
     public function scopeVoters($query): void
     {
         $query->where('user_type', 'voter');
+    }
+
+    /**
+     * Determine whether the user is an admin.
+     */
+    public function isAdmin(): bool
+    {
+        return $this->hasRole('admin') || $this->user_type === 'admin';
+    }
+
+    /**
+     * Determine whether admin two-factor is configured and confirmed.
+     */
+    public function hasAdminTwoFactorEnabled(): bool
+    {
+        return !empty($this->admin_two_factor_secret) && $this->admin_two_factor_confirmed_at !== null;
     }
 
 }
