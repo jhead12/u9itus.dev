@@ -1,7 +1,7 @@
 # U9itus Platform - Test Scenarios
 
 **Version:** 3.0.0  
-**Last Updated:** March 3, 2026  
+**Last Updated:** March 18, 2026  
 **Framework:** Laravel 12 + Pest/PHPUnit
 
 ## Overview
@@ -40,6 +40,18 @@ This document outlines comprehensive test scenarios for the U9itus Political Loy
 - **Then:** 2FA code requested, sent via email/SMS
 - **Verify:** Login fails with wrong code, succeeds with valid code
 
+### **Test Scenario 1.4: Logout with Stale CSRF Token**
+
+- **Given:** An authenticated user (politician or admin) with a valid session
+- **When:** They attempt to logout with an expired/stale CSRF token
+- **Then:** Session is invalidated, user is logged out, redirected to login page with 302 status
+- **Verify:** 
+    - 302 redirect to login (not 419 error)
+    - Session properly destroyed
+    - Token regenerated on login page
+    - No error message displayed to user
+- **Context:** Resolves previous issue where stale CSRF tokens on logout routes returned 419 errors instead of gracefully handling session cleanup
+
 ---
 
 ## **2. Campaign Management**
@@ -70,6 +82,19 @@ This document outlines comprehensive test scenarios for the U9itus Political Loy
 - **When:** 10 voters watch the video
 - **Then:** Campaign automatically paused, politician notified
 - **Verify:** No additional views assigned when balance = $0
+
+### **Test Scenario 2.4: Campaign Media Duration Boundary Enforcement**
+
+- **Given:** Politician attempts to create/upload campaign video
+- **When:** They submit video with duration outside configured range (< 30s or > 300s)
+- **Then:** Form submission rejected with validation error
+- **Verify:**
+    - Minimum boundary: 30 seconds enforced (reject 29s)
+    - Maximum boundary: 300 seconds enforced (reject 301s)
+    - Valid range 30-300: accepted without error
+    - UI constraints match server validation (min/max attributes, helper text)
+    - Error message clearly states duration requirements
+- **Context:** Ensures consistent video duration policy across all config, controllers, validators, and UI surfaces
 
 ---
 
@@ -273,6 +298,18 @@ This document outlines comprehensive test scenarios for the U9itus Political Loy
     - New value saved to `platform_settings`
     - Takes effect immediately for new views
     - Existing sessions use original rate
+
+### **Test Scenario 8.4: Admin Logout with Session Expiry Safeguard**
+
+- **Given:** Admin user is authenticated in dashboard
+- **When:** They logout OR session token expires on logout request
+- **Then:** Session is cleanly invalidated, admin redirected to login page
+- **Verify:**
+    - Stale/expired CSRF tokens handled gracefully (no 419 error)
+    - Session destroyed and regenerated on subsequent login
+    - Audit log records logout event
+    - Admin cannot access protected routes after logout
+- **Context:** Ensures admin users can logout reliably even with network delays or token expiration, maintaining security without exposing technical errors
 
 ---
 

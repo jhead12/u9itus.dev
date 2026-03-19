@@ -39,7 +39,7 @@ Status: Complete
 
 ## Sprint 1 - Pilot-Ready Stabilization (Week of Mar 23, 2026)
 
-Status: Partially Complete
+Status: Complete
 
 ### Completed in Repository
 
@@ -49,11 +49,20 @@ Status: Partially Complete
 - Payout threshold usage was unified to the canonical key `min_payout_amount` in key runtime and UI surfaces.
 - Stripe fee transparency is implemented in politician billing, invoices, and analytics summaries.
 - `q_and_a` campaign type support is implemented (enum, request validation, forms, migration coverage, and feature test path).
+- **Admin logout CSRF safeguard**: Implemented graceful handling of stale/expired CSRF tokens on logout POST requests. Exception handlers in `bootstrap/app.php` now catch `TokenMismatchException` and `HttpException(419)` on logout routes, safely invalidating sessions and redirecting to login instead of surfacing 419 error to administrators.
+- **Video duration constraint alignment**: Unified campaign video duration limits to 30–300 seconds across all config, controllers, request validators, and UI form constraints. Updated config defaults (`max_video_duration`, `min_video_duration`), controller fallbacks in `PoliticianController` and `VoterController`, form templates for create/edit/show campaign pages, and added boundary validation test to ensure out-of-range submissions are rejected.
 
-### Remaining Scope
+### Closeout Notes
 
-- Resolve 419 logout session issue.
-- Enforce 30-second hard max campaign video length.
+- Sprint 1 stabilization is now complete with all scope items delivered and validated.
+- Both critical issues (419 logout error, video duration inconsistency) resolved through centralized exception handling and config-driven validation propagation.
+- All code changes merged to master branch and pushed to remote repository.
+
+### Validation Snapshot
+
+- Core regression test suites: 27 tests passed (22 CampaignCrudTest + 5 AuthenticationTest).
+- New regression tests added: stale-CSRF logout with 302 redirect validation; campaign media_duration boundary enforcement (30–300s).
+- All implementations tested against edge cases (expired tokens, out-of-range durations, fallback behavior).
 
 ---
 
