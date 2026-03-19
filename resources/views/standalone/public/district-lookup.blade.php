@@ -126,6 +126,59 @@
                     </div>
                 @endif
             </section>
+
+            <section class="mt-10">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-xl font-bold text-white">Current Running Candidates (Public Records)</h2>
+                    <span class="text-sm text-slate-400">{{ $runningCandidates->count() }} found</span>
+                </div>
+
+                @if($runningCandidates->isEmpty())
+                    <div class="bg-slate-900/60 border border-slate-700/50 rounded-xl p-6">
+                        <p class="text-slate-300">No current election-record candidates were found for this district yet.</p>
+                    </div>
+                @else
+                    @if($topContenders->isNotEmpty())
+                        <div class="mb-4">
+                            <h3 class="text-sm font-semibold uppercase tracking-wide text-amber-300 mb-2">Top Contenders</h3>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                @foreach($topContenders as $candidate)
+                                    <div class="bg-amber-900/20 border border-amber-600/30 rounded-lg p-4">
+                                        <p class="text-white font-semibold">{{ $candidate['full_name'] }}</p>
+                                        <p class="text-slate-300 text-sm mt-1">{{ $candidate['political_office'] ?: 'Candidate' }}</p>
+                                        <p class="text-xs text-slate-400 mt-2">
+                                            {{ $candidate['party_affiliation'] ?: 'Party not listed' }}
+                                            @if(!empty($candidate['election_date']))
+                                                • Election: {{ $candidate['election_date'] }}
+                                            @endif
+                                        </p>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endif
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        @foreach($runningCandidates as $candidate)
+                            <div class="bg-slate-900/60 border border-slate-700/50 rounded-xl p-5">
+                                <p class="text-white font-semibold">{{ $candidate['full_name'] }}</p>
+                                <p class="text-slate-400 text-sm mt-1">{{ $candidate['political_office'] ?: 'Candidate' }}</p>
+
+                                <div class="mt-3 space-y-1 text-xs text-slate-400">
+                                    @if(!empty($candidate['district']))
+                                        <p>District: {{ $candidate['district'] }}</p>
+                                    @endif
+                                    <p>Party: {{ $candidate['party_affiliation'] ?: 'Not listed' }}</p>
+                                    @if(!empty($candidate['election_date']))
+                                        <p>Election date: {{ $candidate['election_date'] }}</p>
+                                    @endif
+                                    <p>Source: {{ $candidate['source_label'] }}</p>
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
+            </section>
         @endif
     </main>
 </body>

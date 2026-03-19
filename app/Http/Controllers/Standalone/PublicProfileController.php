@@ -36,6 +36,8 @@ class PublicProfileController extends Controller
         $address = (string) $request->query('address', '');
         $lookupResult = null;
         $candidates = collect();
+        $runningCandidates = collect();
+        $topContenders = collect();
         $discoveredOfficials = collect();
         $voterInfo = null;
         $error = null;
@@ -55,6 +57,8 @@ class PublicProfileController extends Controller
                     $error = $this->unresolvedLookupMessage($address);
                 } else {
                     $candidates = $this->findCandidatesForDistrict($lookupResult, $states);
+                    $runningCandidates = $this->findRunningCandidatesForDistrict($lookupResult, $states);
+                    $topContenders = $runningCandidates->take(3)->values();
                     $voterInfo = $this->fetchVoterInfoFromGoogleCivic($address);
 
                     // Discover and persist officials not yet in the local profile set.
@@ -79,6 +83,8 @@ class PublicProfileController extends Controller
             'address' => $address,
             'lookupResult' => $lookupResult,
             'candidates' => $candidates,
+            'runningCandidates' => $runningCandidates,
+            'topContenders' => $topContenders,
             'states' => $states,
             'error' => $error,
         ]);
@@ -637,5 +643,100 @@ class PublicProfileController extends Controller
         }
 
         return array_values(array_unique($variants));
+    }
+
+    /**
+     * @param array<string, mixed> $lookupResult
+     * @param array<string, string> $states
+     * @return Collection<int, array<string, mixed>>
+     */
+    protected function findRunningCandidatesForDistrict(array $lookupResult, array $states): Collection
+    {
+        $state = strtoupper((string) ($lookupResult['state'] ?? ''));
+        $districtNumber = trim((string) ($lookupResult['district_number'] ?? ''));
+
+        if ($state === '' || $districtNumber === '') {
+            return collect();
+        }
+
+        $stateName = $states[$state] ?? null;
+        $variants = $this->districtVariants($state, $districtNumber);
+        $recentThreshold = now()->subDays(30)->toDateString();
+
+        $records = ElectionCandidateRecord::query()
+            ->where(function ($q) use ($state, $stateName) {
+                $q->whereRaw('UPPER(state) = ?', [$state]);
+
+                if ($stateName) {
+                    $q->orWhereRaw('LOWER(state) = ?', [strtolower($stateName)]);
+                }
+            })
+            ->where(function ($q) use ($variants) {
+                foreach ($variants as $variant) {
+                    $q->orWhere('district', 'like', '%' . $variant . '%');
+                }
+            })
+            ->where(function ($q) use ($recentThreshold) {
+                $q->whereNull('election_date')
+                    ->orWhereDate('election_date', '>=', $recentThreshold);
+            })
+            ->orderBy('election_date')
+            ->orderByDesc('last_seen_at')
+            ->limit(150)
+            ->get();
+
+        return $records
+            ->map(function (ElectionCandidateRecord $record): array {
+                $party = strtolower(trim((string) ($record->party_affiliation ?? '')));
+                $payload = is_array($record->payload) ? $record->payload : [];
+                $isIncumbent = (bool) data_get($payload, 'incumbent', false)
+                    || (bool) data_get($payload, 'is_incumbent', false);
+
+                $score = 0;
+                if ($isIncumbent) {
+                    $score += 35;
+                }
+
+                if (in_array($party, ['democratic', 'republican'], true)) {
+                    $score += 25;
+                }
+
+                if (! empty($record->election_date)) {
+                    $score += 10;
+                }
+
+                if (($record->source ?? '') === 'google_civic') {
+                    $score += 8;
+                }
+
+                return [
+                    'full_name' => $record->full_name,
+                    'political_office' => $record->political_office,
+                    'district' => $record->district,
+                    'party_affiliation' => $record->party_affiliation,
+                    'election_date' => optional($record->election_date)->toDateString(),
+                    'source' => $record->source,
+                    'source_label' => $this->formatCandidateSourceLabel($record->source),
+                    'contender_score' => $score,
+                ];
+            })
+            ->unique(function (array $candidate): string {
+                return strtolower(trim((string) ($candidate['full_name'] ?? '')))
+                    . '|' . strtolower(trim((string) ($candidate['political_office'] ?? '')))
+                    . '|' . strtolower(trim((string) ($candidate['district'] ?? '')));
+            })
+            ->sortByDesc('contender_score')
+            ->values();
+    }
+
+    protected function formatCandidateSourceLabel(?string $source): string
+    {
+        return match ($source) {
+            'census_geocoder' => 'Census Geocoder',
+            'google_civic' => 'Google Civic',
+            'google_civic_voterinfo' => 'Google Civic Voter Info',
+            null, '' => 'Unknown',
+            default => ucwords(str_replace('_', ' ', $source)),
+        };
     }
 }

@@ -57,9 +57,18 @@
 
         @if(!$isEnabled)
             <div class="p-4 rounded-xl bg-slate-900/60 border border-slate-700 space-y-3">
-                <p class="text-sm text-slate-300">1. Add this secret key to Google Authenticator/Authy.</p>
+                <p class="text-sm text-slate-300">1. Scan this QR code with Google Authenticator/Authy.</p>
+                @if(!empty($otpQrSvg))
+                    <div class="bg-white rounded-lg border border-slate-700 p-3 inline-block">
+                        {!! $otpQrSvg !!}
+                    </div>
+                @else
+                    <div class="text-xs text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2">
+                        QR code preview is unavailable right now. Use the secret key below to add your account manually.
+                    </div>
+                @endif
                 <div class="bg-slate-950 rounded-lg border border-slate-700 p-3">
-                    <p class="text-xs text-slate-400">Secret key</p>
+                    <p class="text-xs text-slate-400">Manual setup secret key (fallback)</p>
                     <p class="text-emerald-300 font-mono tracking-[0.12em] text-sm mt-1 break-all">{{ $setupSecret }}</p>
                 </div>
                 <div class="bg-slate-950 rounded-lg border border-slate-700 p-3">

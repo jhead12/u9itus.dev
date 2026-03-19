@@ -151,3 +151,28 @@ test('admin can rotate recovery codes with password and authenticator check', fu
 
     expect($admin->admin_two_factor_recovery_codes)->toBe(['WXYZ-2345', '6789-BCDF']);
 });
+
+test('admin 2fa setup page shows qr code when renderer succeeds', function () {
+    $admin = makeStandaloneAdmin([
+        'admin_two_factor_secret' => null,
+        'admin_two_factor_confirmed_at' => null,
+    ]);
+
+    $mock = Mockery::mock(AdminTwoFactorService::class);
+    $mock->shouldReceive('getOtpAuthUrl')
+        ->once()
+        ->andReturn('otpauth://totp/U9itus:test@example.com?secret=' . fakeTwoFactorSecret() . '&issuer=U9itus');
+    $mock->shouldReceive('renderOtpAuthQrSvg')
+        ->once()
+        ->andReturn('<svg viewBox="0 0 100 100"><rect width="100" height="100" fill="#000"/></svg>');
+    $this->app->instance(AdminTwoFactorService::class, $mock);
+
+    $response = $this->actingAs($admin)
+        ->withSession(['admin_2fa_setup_secret' => fakeTwoFactorSecret()])
+        ->get(route('admin.2fa.setup'));
+
+    $response->assertOk();
+    $response->assertSee('Scan this QR code with Google Authenticator/Authy.');
+    $response->assertSee('<svg viewBox="0 0 100 100">', false);
+    $response->assertDontSee('QR code preview is unavailable right now.');
+});

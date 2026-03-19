@@ -481,3 +481,67 @@ test('district lookup voterinfo picks earliest election from otherElections and 
     expect(data_get($search?->payload, 'voter_info.polling_locations.0.name'))->toBe('Main Voting Center');
     expect(data_get($search?->payload, 'voter_info.contests.0.office'))->toBe('Mayor');
 });
+
+    test('district lookup shows all running candidates and top contenders from election records', function () {
+        Http::fake([
+            'https://geocoding.geo.census.gov/*' => Http::response([
+                'result' => [
+                    'addressMatches' => [
+                        [
+                            'matchedAddress' => '1600 PENNSYLVANIA AVE NW, WASHINGTON, DC, 20500',
+                            'addressComponents' => [
+                                'state' => 'CA',
+                            ],
+                            'geographies' => [
+                                '119th Congressional Districts' => [
+                                    [
+                                        'CD119FP' => '12',
+                                        'NAME' => 'Congressional District 12',
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ], 200),
+        ]);
+
+        ElectionCandidateRecord::factory()->create([
+            'full_name' => 'Dana Carter',
+            'state' => 'CA',
+            'district' => 'CA-12',
+            'political_office' => 'U.S. Representative',
+            'party_affiliation' => 'Democratic',
+            'election_date' => now()->addMonths(2)->toDateString(),
+            'payload' => ['incumbent' => true],
+        ]);
+
+        ElectionCandidateRecord::factory()->create([
+            'full_name' => 'Chris Nolan',
+            'state' => 'CA',
+            'district' => 'District 12',
+            'political_office' => 'U.S. Representative',
+            'party_affiliation' => 'Republican',
+            'election_date' => now()->addMonths(2)->toDateString(),
+        ]);
+
+        ElectionCandidateRecord::factory()->create([
+            'full_name' => 'Morgan Lee',
+            'state' => 'CA',
+            'district' => '12',
+            'political_office' => 'U.S. Representative',
+            'party_affiliation' => 'Independent',
+            'election_date' => now()->addMonths(2)->toDateString(),
+        ]);
+
+        $response = $this->get(route('district.lookup', [
+            'address' => '1600 Pennsylvania Ave NW, Washington, DC 20500',
+        ]));
+
+        $response->assertOk();
+        $response->assertSee('Current Running Candidates (Public Records)');
+        $response->assertSee('Top Contenders');
+        $response->assertSee('Dana Carter');
+        $response->assertSee('Chris Nolan');
+        $response->assertSee('Morgan Lee');
+    });

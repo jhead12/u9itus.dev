@@ -1407,6 +1407,7 @@ class AdminController extends Controller
         $isEnabled = $user->hasAdminTwoFactorEnabled();
         $setupSecret = null;
         $otpAuthUrl = null;
+        $otpQrSvg = null;
         $newRecoveryCodes = $request->session()->get('admin_2fa_new_recovery_codes', []);
 
         if (!$isEnabled) {
@@ -1418,9 +1419,10 @@ class AdminController extends Controller
             }
 
             $otpAuthUrl = $twoFactorService->getOtpAuthUrl($user, $setupSecret);
+            $otpQrSvg = $twoFactorService->renderOtpAuthQrSvg($otpAuthUrl);
         }
 
-        return view('standalone.admin.security.2fa-setup', compact('isEnabled', 'setupSecret', 'otpAuthUrl', 'newRecoveryCodes'));
+        return view('standalone.admin.security.2fa-setup', compact('isEnabled', 'setupSecret', 'otpAuthUrl', 'otpQrSvg', 'newRecoveryCodes'));
     }
 
     /**

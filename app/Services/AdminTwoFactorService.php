@@ -3,6 +3,10 @@
 namespace App\Services;
 
 use App\Models\User;
+use BaconQrCode\Renderer\Image\SvgImageBackEnd;
+use BaconQrCode\Renderer\ImageRenderer;
+use BaconQrCode\Renderer\RendererStyle\RendererStyle;
+use BaconQrCode\Writer;
 
 class AdminTwoFactorService
 {
@@ -38,6 +42,23 @@ class AdminTwoFactorService
             $secret,
             $issuer
         );
+    }
+
+    /**
+     * Render an SVG QR code for authenticator app enrollment.
+     */
+    public function renderOtpAuthQrSvg(string $otpAuthUrl, int $size = 220): ?string
+    {
+        try {
+            $renderer = new ImageRenderer(
+                new RendererStyle($size),
+                new SvgImageBackEnd()
+            );
+
+            return (new Writer($renderer))->writeString($otpAuthUrl);
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     /**
