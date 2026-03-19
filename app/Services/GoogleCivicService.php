@@ -23,6 +23,10 @@ use Illuminate\Support\Facades\Log;
 class GoogleCivicService
 {
     protected string $baseUrl = 'https://www.googleapis.com/civicinfo/v2';
+    /**
+     * Alternate endpoint used when www.googleapis.com returns 404/4xx.
+     */
+    protected string $alternateBaseUrl = 'https://civicinfo.googleapis.com/civicinfo/v2';
     protected ?string $apiKey;
     protected int $cacheDuration = 604800; // 7 days (not often changed)
 
@@ -57,32 +61,34 @@ class GoogleCivicService
         $cacheKey = 'google_civic.officials.' . md5(strtolower($address));
 
         return Cache::remember($cacheKey, $this->cacheDuration, function () use ($address) {
-            try {
-                $response = Http::timeout(10)
-                    ->get("{$this->baseUrl}/representatives", [
-                        'address' => $address,
-                        'key' => $this->apiKey,
-                    ]);
+            $parsedOfficials = null;
 
-                if (!$response->successful()) {
+            try {
+                $response = $this->requestRepresentatives($address, 'officials_lookup');
+
+                if ($response !== null && !$response->successful()) {
                     Log::warning('GoogleCivicService: API request failed', [
                         'status' => $response->status(),
                         'address' => $address,
+                        'endpoint' => 'representatives',
+                        'context' => 'officials_lookup',
+                        'body_excerpt' => mb_substr($response->body(), 0, 500),
                     ]);
-                    return null;
                 }
 
-                $data = $response->json();
-
-                return $this->parseOfficials($data);
+                if ($response !== null && $response->successful()) {
+                    $data = $response->json();
+                    $parsedOfficials = $this->parseOfficials($data);
+                }
 
             } catch (\Exception $e) {
                 Log::error('GoogleCivicService: Failed to fetch officials', [
                     'address' => $address,
                     'error' => $e->getMessage(),
                 ]);
-                return null;
             }
+
+            return $parsedOfficials;
         });
     }
 
@@ -105,31 +111,45 @@ class GoogleCivicService
             $resolved = null;
 
             try {
-                $response = Http::timeout(10)
-                    ->get("{$this->baseUrl}/representatives", [
+                $response = $this->requestRepresentatives($address, 'district_lookup');
+
+                if ($response === null) {
+                    return null;
+                }
+
+                if (! $response->successful()) {
+                    Log::warning('GoogleCivicService: District lookup API request failed', [
+                        'status' => $response->status(),
                         'address' => $address,
-                        'key' => $this->apiKey,
+                        'endpoint' => 'representatives',
+                        'context' => 'district_lookup',
+                        'body_excerpt' => mb_substr($response->body(), 0, 500),
                     ]);
 
-                if ($response->successful()) {
-                    $data = $response->json();
-                    $fromOffice = $this->extractDistrictFromOffices((array) ($data['offices'] ?? []));
-                    $fromDivisions = $this->extractDistrictFromDivisionKeys(array_keys((array) ($data['divisions'] ?? [])));
-                    $districtData = $fromOffice ?? $fromDivisions;
+                    return null;
+                }
 
-                    if (is_array($districtData) && ! empty($districtData['state'])) {
-                        $districtNumber = $this->normalizeDistrictNumber($districtData['district_number'] ?? null);
-                        $state = strtoupper((string) ($districtData['state'] ?? ''));
+                $data = $response->json();
+                $fromOffice = $this->extractDistrictFromOffices((array) ($data['offices'] ?? []));
+                $fromDivisions = $this->extractDistrictFromDivisionKeys(array_keys((array) ($data['divisions'] ?? [])));
+                $districtData = $fromOffice ?? $fromDivisions;
 
-                        $resolved = [
-                            'input_address' => trim($address),
-                            'matched_address' => trim($address),
-                            'state' => $state,
-                            'district_number' => $districtNumber,
-                            'district_code' => $this->buildDistrictCode($state, $districtNumber),
-                            'district_label' => $this->buildDistrictLabel($state, $districtNumber),
-                        ];
-                    }
+                if (is_array($districtData) && ! empty($districtData['state'])) {
+                    $districtNumber = $this->normalizeDistrictNumber($districtData['district_number'] ?? null);
+                    $state = strtoupper((string) ($districtData['state'] ?? ''));
+
+                    $resolved = [
+                        'input_address' => trim($address),
+                        'matched_address' => trim($address),
+                        'state' => $state,
+                        'district_number' => $districtNumber,
+                        'district_code' => $this->buildDistrictCode($state, $districtNumber),
+                        'district_label' => $this->buildDistrictLabel($state, $districtNumber),
+                    ];
+                } else {
+                    Log::info('GoogleCivicService: District lookup returned no congressional district', [
+                        'address' => $address,
+                    ]);
                 }
             } catch (\Throwable $e) {
                 Log::error('GoogleCivicService: Failed to resolve district', [
@@ -140,6 +160,53 @@ class GoogleCivicService
 
             return $resolved;
         });
+    }
+
+    protected function requestRepresentatives(string $address, string $context): ?\Illuminate\Http\Client\Response
+    {
+        $urls = [$this->baseUrl, $this->alternateBaseUrl];
+        $lastResponse = null;
+
+        foreach ($urls as $url) {
+            try {
+                $response = Http::timeout(10)
+                    ->get("{$url}/representatives", [
+                        'address' => $address,
+                        'key' => $this->apiKey,
+                    ]);
+
+                if ($response->successful()) {
+                    if ($url !== $this->baseUrl) {
+                        Log::info('GoogleCivicService: Using alternate Civic API host', [
+                            'address' => $address,
+                            'context' => $context,
+                            'host' => $url,
+                        ]);
+                    }
+
+                    return $response;
+                }
+
+                $lastResponse = $response;
+
+                Log::warning('GoogleCivicService: Request attempt failed', [
+                    'address' => $address,
+                    'context' => $context,
+                    'host' => $url,
+                    'status' => $response->status(),
+                    'body_excerpt' => mb_substr($response->body(), 0, 500),
+                ]);
+            } catch (\Throwable $e) {
+                Log::warning('GoogleCivicService: Request attempt threw exception', [
+                    'address' => $address,
+                    'context' => $context,
+                    'host' => $url,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        return $lastResponse;
     }
 
     /**
