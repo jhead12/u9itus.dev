@@ -136,7 +136,7 @@ class PoliticianController extends Controller
 
         // Set default media_duration if not provided (will be auto-detected from video later)
         if (empty($data['media_duration']) && $data['campaign_type'] === 'video') {
-            $data['media_duration'] = config('u9itus.min_video_duration', 10);
+            $data['media_duration'] = config('u9itus.min_video_duration', 30);
         }
 
         $campaign = PoliticalCampaign::create($data);
@@ -162,7 +162,7 @@ class PoliticianController extends Controller
         
         // Set default media_duration if not provided
         if (empty($data['media_duration']) && ($data['campaign_type'] ?? '') === 'video') {
-            $data['media_duration'] = config('u9itus.min_video_duration', 10);
+            $data['media_duration'] = config('u9itus.min_video_duration', 30);
         }
         
         // Ensure we have at least a title for the draft
@@ -338,8 +338,8 @@ class PoliticianController extends Controller
         );
 
         $maxMb  = config('u9itus.max_video_size_mb', 100);
-        $minSec = config('u9itus.min_video_duration', 10);
-        $maxSec = config('u9itus.max_video_duration', 20);
+        $minSec = config('u9itus.min_video_duration', 30);
+        $maxSec = config('u9itus.max_video_duration', 300);
 
         $request->validate([
             'video' => [

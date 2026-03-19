@@ -3,7 +3,11 @@
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Request;
+use Illuminate\Session\TokenMismatchException;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -28,5 +32,36 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        $safeLogoutRedirect = function (Request $request) {
+            if (Auth::check()) {
+                Auth::guard('web')->logout();
+            }
+
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            return redirect()
+                ->route('login')
+                ->with('status', 'Your session expired. You have been signed out. Please sign in again.');
+        };
+
+        $exceptions->render(function (TokenMismatchException $e, Request $request) use ($safeLogoutRedirect) {
+            if ($request->isMethod('POST') && ($request->routeIs('logout') || $request->is('logout'))) {
+                return $safeLogoutRedirect($request);
+            }
+
+            return null;
+        });
+
+        $exceptions->render(function (HttpExceptionInterface $e, Request $request) use ($safeLogoutRedirect) {
+            if (
+                $e->getStatusCode() === 419
+                && $request->isMethod('POST')
+                && ($request->routeIs('logout') || $request->is('logout'))
+            ) {
+                return $safeLogoutRedirect($request);
+            }
+
+            return null;
+        });
     })->create();

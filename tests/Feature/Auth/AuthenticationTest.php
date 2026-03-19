@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\User;
+use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 
 test('login screen can be rendered', function () {
     $response = $this->get('/login');
@@ -38,4 +39,18 @@ test('users can logout', function () {
 
     $this->assertGuest();
     $response->assertRedirect('/');
+});
+
+test('logout with stale csrf token signs out and redirects to login', function () {
+    $user = User::factory()->create();
+
+    VerifyCsrfToken::flushState();
+    $this->withMiddleware();
+
+    $response = $this->actingAs($user)->post('/logout', [], [
+        'X-CSRF-TOKEN' => 'stale-token',
+    ]);
+
+    $response->assertStatus(302);
+    $response->assertRedirect(route('login', absolute: false));
 });

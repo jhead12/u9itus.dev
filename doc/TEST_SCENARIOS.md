@@ -45,7 +45,7 @@ This document outlines comprehensive test scenarios for the U9itus Political Loy
 - **Given:** An authenticated user (politician or admin) with a valid session
 - **When:** They attempt to logout with an expired/stale CSRF token
 - **Then:** Session is invalidated, user is logged out, redirected to login page with 302 status
-- **Verify:** 
+- **Verify:**
     - 302 redirect to login (not 419 error)
     - Session properly destroyed
     - Token regenerated on login page

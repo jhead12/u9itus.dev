@@ -158,6 +158,22 @@ test('campaign store requires at least 10 views', function () {
          ->assertSessionHasErrors('total_views_requested');
 });
 
+test('campaign store rejects media_duration above configured max', function () {
+    $politician = makePolitician();
+    $maxDuration = (int) config('u9itus.max_video_duration', 300);
+
+    $this->actingAs($politician)
+         ->post(route('politician.campaigns.store'), [
+             'title'                 => 'Too Long Video Campaign',
+             'campaign_type'         => 'video',
+             'total_views_requested' => 100,
+             'total_budget'          => 60,
+             'media_url'             => 'https://cdn.example.com/video.mp4',
+             'media_duration'        => $maxDuration + 1,
+         ])
+         ->assertSessionHasErrors('media_duration');
+});
+
 test('campaign store requires minimum budget of 6 dollars', function () {
     $politician = makePolitician();
 
