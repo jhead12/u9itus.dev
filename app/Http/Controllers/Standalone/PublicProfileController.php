@@ -9,6 +9,7 @@ use App\Models\DistrictLookupSearch;
 use App\Models\ElectionCandidateRecord;
 use App\Models\Politician;
 use App\Services\GoogleCivicService;
+use App\Services\GoogleCivicVoterInfoService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
@@ -36,6 +37,7 @@ class PublicProfileController extends Controller
         $lookupResult = null;
         $candidates = collect();
         $discoveredOfficials = collect();
+        $voterInfo = null;
         $error = null;
 
         if ($address !== '') {
@@ -53,6 +55,7 @@ class PublicProfileController extends Controller
                     $error = 'We could not resolve that address. Try including street, city, state, and ZIP.';
                 } else {
                     $candidates = $this->findCandidatesForDistrict($lookupResult, $states);
+                    $voterInfo = $this->fetchVoterInfoFromGoogleCivic($address);
 
                     // Discover and persist officials not yet in the local profile set.
                     $discoveredOfficials = $this->discoverCandidatesFromGoogleCivic($address, $lookupResult);
@@ -67,6 +70,7 @@ class PublicProfileController extends Controller
                     lookupResult: $lookupResult,
                     error: $error,
                     discoveredOfficialsCount: $discoveredOfficials->count(),
+                    voterInfo: $voterInfo,
                 );
             }
         }
@@ -78,6 +82,25 @@ class PublicProfileController extends Controller
             'states' => $states,
             'error' => $error,
         ]);
+    }
+
+    /**
+     * Fetches voter info enrichment data. Failures are non-fatal to district lookup UX.
+     *
+     * @return array<string, mixed>|null
+     */
+    protected function fetchVoterInfoFromGoogleCivic(string $address): ?array
+    {
+        /** @var GoogleCivicVoterInfoService $googleCivicVoterInfo */
+        $googleCivicVoterInfo = app(GoogleCivicVoterInfoService::class);
+
+        if (! $googleCivicVoterInfo->isConfigured()) {
+            return null;
+        }
+
+        $result = $googleCivicVoterInfo->getByAddress($address);
+
+        return is_array($result) ? $result : null;
     }
 
     /**
@@ -239,7 +262,8 @@ class PublicProfileController extends Controller
         string $address,
         ?array $lookupResult,
         ?string $error,
-        int $discoveredOfficialsCount
+        int $discoveredOfficialsCount,
+        ?array $voterInfo = null
     ): void {
         try {
             DistrictLookupSearch::create([
@@ -256,6 +280,7 @@ class PublicProfileController extends Controller
                 'user_agent' => substr((string) $request->userAgent(), 0, 65535),
                 'payload' => [
                     'lookup_result' => $lookupResult,
+                    'voter_info' => $voterInfo,
                 ],
             ]);
         } catch (\Throwable $e) {

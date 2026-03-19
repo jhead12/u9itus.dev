@@ -3,6 +3,7 @@
 use App\Models\Politician;
 use App\Models\DistrictLookupSearch;
 use App\Models\ElectionCandidateRecord;
+use Illuminate\Http\Client\Request as HttpRequest;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 
@@ -181,6 +182,10 @@ test('district lookup without address does not call geocoder', function () {
 
 test('district lookup falls back to google civic for zip-only searches', function () {
     $officialName = 'Priya Sharma';
+    $zip = '92555';
+    $state = 'CA';
+    $city = 'Moreno Valley';
+    $electionDay = '2026-11-03';
 
     config()->set('services.google.civic_api_key', 'test-key');
 
@@ -188,6 +193,56 @@ test('district lookup falls back to google civic for zip-only searches', functio
         'https://geocoding.geo.census.gov/*' => Http::response([
             'result' => [
                 'addressMatches' => [],
+            ],
+        ], 200),
+        'https://civicinfo.googleapis.com/civicinfo/v2/divisionsByAddress*' => Http::response([
+            'normalizedInput' => [
+                'state' => $state,
+            ],
+            'divisions' => [
+                'ocd-division/country:us/state:ca/cd:18' => [
+                    'name' => 'California Congressional District 18',
+                ],
+            ],
+        ], 200),
+        'https://www.googleapis.com/civicinfo/v2/voterinfo*' => Http::response([
+            'election' => [
+                'id' => '9000',
+                'name' => 'General Election',
+                'electionDay' => $electionDay,
+            ],
+            'normalizedInput' => [
+                'line1' => $zip,
+                'state' => $state,
+                'zip' => $zip,
+            ],
+            'pollingLocations' => [
+                [
+                    'name' => 'Community Center',
+                    'pollingHours' => '7AM-8PM',
+                    'address' => [
+                        'line1' => '123 Main St',
+                        'city' => $city,
+                        'state' => $state,
+                        'zip' => $zip,
+                    ],
+                ],
+            ],
+            'contests' => [
+                [
+                    'type' => 'General',
+                    'office' => 'United States Representative, District 18',
+                    'district' => [
+                        'scope' => 'congressional',
+                        'id' => '18',
+                    ],
+                    'candidates' => [
+                        [
+                            'name' => $officialName,
+                            'party' => 'Democratic',
+                        ],
+                    ],
+                ],
             ],
         ], 200),
         'https://www.googleapis.com/civicinfo/v2/representatives*' => Http::response([
@@ -215,7 +270,7 @@ test('district lookup falls back to google civic for zip-only searches', functio
     ]);
 
     $response = $this->get(route('district.lookup', [
-        'address' => '92555',
+        'address' => $zip,
     ]));
 
     $response->assertOk();
@@ -234,9 +289,142 @@ test('district lookup falls back to google civic for zip-only searches', functio
         ->exists())->toBeTrue();
 
     expect(DistrictLookupSearch::query()
-        ->where('query_address', '92555')
+        ->where('query_address', $zip)
         ->where('resolved', true)
         ->where('district_code', 'CA-18')
         ->where('source', 'google_civic')
         ->exists())->toBeTrue();
+
+    $search = DistrictLookupSearch::query()
+        ->where('query_address', $zip)
+        ->latest('id')
+        ->first();
+
+    expect(data_get($search?->payload, 'voter_info.normalized_input.state'))->toBe('CA');
+    expect(data_get($search?->payload, 'voter_info.polling_locations.0.name'))->toBe('Community Center');
+    expect(data_get($search?->payload, 'voter_info.contests.0.office'))->toBe('United States Representative, District 18');
+});
+
+test('district lookup voterinfo picks earliest election from otherElections and re-queries with electionId', function () {
+    $zip = '92555';
+    $city = 'Moreno Valley';
+    $state = 'CA';
+    $earliestElectionDay = '2026-11-03';
+
+    config()->set('services.google.civic_api_key', 'test-key');
+
+    Http::fake([
+        'https://geocoding.geo.census.gov/*' => Http::response([
+            'result' => [
+                'addressMatches' => [],
+            ],
+        ], 200),
+        'https://civicinfo.googleapis.com/civicinfo/v2/divisionsByAddress*' => Http::response([
+            'normalizedInput' => [
+                'state' => $state,
+            ],
+            'divisions' => [
+                'ocd-division/country:us/state:ca/cd:39' => [
+                    'name' => "California's 39th congressional district",
+                ],
+            ],
+        ], 200),
+        'https://www.googleapis.com/civicinfo/v2/voterinfo*' => function (HttpRequest $request) use ($zip, $city, $state, $earliestElectionDay) {
+            $electionId = (string) ($request->data()['electionId'] ?? '');
+
+            if ($electionId === '') {
+                return Http::response([
+                    'election' => [
+                        'id' => '9000',
+                        'name' => 'Default Election',
+                        'electionDay' => '2028-11-07',
+                    ],
+                    'normalizedInput' => [
+                        'line1' => '14747 Grandview Drive',
+                        'city' => $city,
+                        'state' => $state,
+                        'zip' => $zip,
+                    ],
+                    'otherElections' => [
+                        [
+                            'id' => '2000',
+                            'name' => 'Later Election',
+                            'electionDay' => '2028-11-07',
+                        ],
+                        [
+                            'id' => '1000',
+                            'name' => 'Earlier Election',
+                            'electionDay' => $earliestElectionDay,
+                        ],
+                    ],
+                ], 200);
+            }
+
+            return Http::response([
+                'election' => [
+                    'id' => $electionId,
+                    'name' => 'Earlier Election',
+                    'electionDay' => $earliestElectionDay,
+                ],
+                'normalizedInput' => [
+                    'line1' => '14747 Grandview Drive',
+                    'city' => $city,
+                    'state' => $state,
+                    'zip' => $zip,
+                ],
+                'pollingLocations' => [
+                    [
+                        'name' => 'Main Voting Center',
+                        'address' => [
+                            'line1' => '100 Civic Plz',
+                            'city' => $city,
+                            'state' => $state,
+                            'zip' => '92553',
+                        ],
+                    ],
+                ],
+                'contests' => [
+                    [
+                        'office' => 'Mayor',
+                        'district' => [
+                            'scope' => 'citywide',
+                            'id' => '1',
+                        ],
+                    ],
+                ],
+            ], 200);
+        },
+        'https://www.googleapis.com/civicinfo/v2/representatives*' => Http::response([
+            'offices' => [],
+            'officials' => [],
+            'divisions' => [],
+        ], 200),
+    ]);
+
+    $response = $this->get(route('district.lookup', [
+        'address' => '14747 Grandview Dr, Moreno Valley, CA 92555',
+    ]));
+
+    $response->assertOk();
+    $response->assertSee('CA-39');
+
+    Http::assertSent(function (HttpRequest $request) {
+        return str_contains($request->url(), '/voterinfo')
+            && ! array_key_exists('electionId', $request->data());
+    });
+
+    Http::assertSent(function (HttpRequest $request) {
+        return str_contains($request->url(), '/voterinfo')
+            && (string) ($request->data()['electionId'] ?? '') === '1000';
+    });
+
+    $search = DistrictLookupSearch::query()
+        ->where('query_address', '14747 Grandview Dr, Moreno Valley, CA 92555')
+        ->latest('id')
+        ->first();
+
+    expect(data_get($search?->payload, 'voter_info.selection_reason'))->toBe('earliest_other_election');
+    expect(data_get($search?->payload, 'voter_info.selected_election_id'))->toBe('1000');
+    expect(data_get($search?->payload, 'voter_info.polling_locations.0.name'))->toBe('Main Voting Center');
+    expect(data_get($search?->payload, 'voter_info.contests.0.office'))->toBe('Mayor');
 });

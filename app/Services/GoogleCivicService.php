@@ -22,11 +22,7 @@ use Illuminate\Support\Facades\Log;
  */
 class GoogleCivicService
 {
-    protected string $baseUrl = 'https://www.googleapis.com/civicinfo/v2';
-    /**
-     * Alternate endpoint used when www.googleapis.com returns 404/4xx.
-     */
-    protected string $alternateBaseUrl = 'https://civicinfo.googleapis.com/civicinfo/v2';
+    protected string $baseUrl = 'https://civicinfo.googleapis.com/civicinfo/v2';
     protected ?string $apiKey;
     protected int $cacheDuration = 604800; // 7 days (not often changed)
 
@@ -111,7 +107,7 @@ class GoogleCivicService
             $resolved = null;
 
             try {
-                $response = $this->requestRepresentatives($address, 'district_lookup');
+                $response = $this->requestDivisionsByAddress($address, 'district_lookup');
 
                 if ($response === null) {
                     return null;
@@ -121,7 +117,7 @@ class GoogleCivicService
                     Log::warning('GoogleCivicService: District lookup API request failed', [
                         'status' => $response->status(),
                         'address' => $address,
-                        'endpoint' => 'representatives',
+                        'endpoint' => 'divisionsByAddress',
                         'context' => 'district_lookup',
                         'body_excerpt' => mb_substr($response->body(), 0, 500),
                     ]);
@@ -130,9 +126,12 @@ class GoogleCivicService
                 }
 
                 $data = $response->json();
-                $fromOffice = $this->extractDistrictFromOffices((array) ($data['offices'] ?? []));
                 $fromDivisions = $this->extractDistrictFromDivisionKeys(array_keys((array) ($data['divisions'] ?? [])));
-                $districtData = $fromOffice ?? $fromDivisions;
+                $districtData = $fromDivisions;
+
+                if (is_array($districtData)) {
+                    $districtData['state'] = strtoupper((string) ($districtData['state'] ?? data_get($data, 'normalizedInput.state', '')));
+                }
 
                 if (is_array($districtData) && ! empty($districtData['state'])) {
                     $districtNumber = $this->normalizeDistrictNumber($districtData['district_number'] ?? null);
@@ -162,9 +161,31 @@ class GoogleCivicService
         });
     }
 
+    protected function requestDivisionsByAddress(string $address, string $context): ?\Illuminate\Http\Client\Response
+    {
+        try {
+            return Http::timeout(10)
+                ->get("{$this->baseUrl}/divisionsByAddress", [
+                    'address' => $address,
+                    'key' => $this->apiKey,
+                ]);
+        } catch (\Throwable $e) {
+            Log::warning('GoogleCivicService: divisionsByAddress request threw exception', [
+                'address' => $address,
+                'context' => $context,
+                'error' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
     protected function requestRepresentatives(string $address, string $context): ?\Illuminate\Http\Client\Response
     {
-        $urls = [$this->baseUrl, $this->alternateBaseUrl];
+        $urls = [
+            'https://www.googleapis.com/civicinfo/v2',
+            $this->baseUrl,
+        ];
         $lastResponse = null;
 
         foreach ($urls as $url) {
