@@ -37,7 +37,7 @@ test('admin can view district search insights page', function () {
     $response->assertSee('District Search Insights');
     $response->assertSee($zip);
     $response->assertSee('CA-18');
-    $response->assertSee('google_civic');
+    $response->assertSee('Google Civic');
 });
 
 test('district search insights filter by state', function () {

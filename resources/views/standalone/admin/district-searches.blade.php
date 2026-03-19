@@ -4,6 +4,16 @@
 @section('page-title', 'District Search Insights')
 
 @section('content')
+@php
+    $sourceLabel = static function (?string $source): string {
+        return match ($source) {
+            'census_geocoder' => 'Census Geocoder',
+            'google_civic' => 'Google Civic',
+            null, '' => 'unknown',
+            default => ucwords(str_replace('_', ' ', $source)),
+        };
+    };
+@endphp
 <div class="px-6 py-8 max-w-7xl mx-auto space-y-6">
     <div>
         <h1 class="text-3xl font-bold text-white">District Search Insights</h1>
@@ -64,7 +74,7 @@
                 <option value="">All sources</option>
                 @foreach($sourceCounts as $source => $count)
                     <option value="{{ $source }}" @selected(request('source') === $source)>
-                        {{ $source ?: 'unknown' }} ({{ $count }})
+                        {{ $sourceLabel($source) }} ({{ $count }})
                     </option>
                 @endforeach
             </select>
@@ -118,7 +128,7 @@
                                     <span class="px-2 py-1 rounded-full text-xs bg-rose-500/20 text-rose-400 border border-rose-500/30">Unresolved</span>
                                 @endif
                             </td>
-                            <td class="px-4 py-3 text-slate-300 whitespace-nowrap">{{ $search->source ?: 'unknown' }}</td>
+                            <td class="px-4 py-3 text-slate-300 whitespace-nowrap">{{ $sourceLabel($search->source) }}</td>
                             <td class="px-4 py-3 text-slate-300 whitespace-nowrap">{{ number_format($search->discovered_officials_count) }}</td>
                             <td class="px-4 py-3 text-slate-500 whitespace-nowrap">{{ $search->ip_address ?: 'n/a' }}</td>
                         </tr>
