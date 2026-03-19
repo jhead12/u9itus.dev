@@ -129,6 +129,46 @@
 
             <section class="mt-10">
                 <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-xl font-bold text-white">Current Politicians For This Location</h2>
+                    <span class="text-sm text-slate-400">{{ $currentOfficials->count() }} found</span>
+                </div>
+
+                @if($currentOfficials->isEmpty())
+                    <div class="bg-slate-900/60 border border-slate-700/50 rounded-xl p-6">
+                        <p class="text-slate-300">No current officeholders were returned for this address.</p>
+                    </div>
+                @else
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        @foreach($currentOfficials as $official)
+                            <div class="bg-slate-900/60 border border-slate-700/50 rounded-xl p-5">
+                                <p class="text-white font-semibold">{{ $official['full_name'] }}</p>
+                                <p class="text-slate-400 text-sm mt-1">{{ $official['political_office'] ?: 'Public Official' }}</p>
+
+                                <div class="mt-3 space-y-1 text-xs text-slate-400">
+                                    @if(!empty($official['party_affiliation']))
+                                        <p>Party: {{ $official['party_affiliation'] }}</p>
+                                    @endif
+                                    @if(!empty($official['district_code']))
+                                        <p>District: {{ $official['district_code'] }}</p>
+                                    @endif
+                                    @if(!empty($official['state']))
+                                        <p>State: {{ $official['state'] }}</p>
+                                    @endif
+                                    <p>Source: Google Civic</p>
+                                    @if(!empty($official['website']))
+                                        <a href="{{ $official['website'] }}" target="_blank" rel="noopener" class="inline-block text-emerald-400 hover:text-emerald-300">
+                                            Official website ->
+                                        </a>
+                                    @endif
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
+            </section>
+
+            <section class="mt-10">
+                <div class="flex items-center justify-between mb-4">
                     <h2 class="text-xl font-bold text-white">Current Running Candidates (Public Records)</h2>
                     <span class="text-sm text-slate-400">{{ $runningCandidates->count() }} found</span>
                 </div>

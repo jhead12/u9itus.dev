@@ -545,3 +545,75 @@ test('district lookup voterinfo picks earliest election from otherElections and 
         $response->assertSee('Chris Nolan');
         $response->assertSee('Morgan Lee');
     });
+
+    test('district lookup shows current politicians for searched location from google civic officials', function () {
+        Http::fake([
+            'https://geocoding.geo.census.gov/*' => Http::response([
+                'result' => [
+                    'addressMatches' => [
+                        [
+                            'matchedAddress' => '6840 S PAXTON AVE, CHICAGO, IL, 60649',
+                            'addressComponents' => [
+                                'state' => 'IL',
+                            ],
+                            'geographies' => [
+                                '119th Congressional Districts' => [
+                                    [
+                                        'CD119FP' => '02',
+                                        'NAME' => 'Illinois Congressional District 2',
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ], 200),
+            'https://www.googleapis.com/civicinfo/v2/voterinfo*' => Http::response([
+                'normalizedInput' => [
+                    'line1' => '6840 S PAXTON AVE',
+                    'city' => 'CHICAGO',
+                    'state' => 'IL',
+                    'zip' => '60649',
+                ],
+            ], 200),
+            'https://www.googleapis.com/civicinfo/v2/representatives*' => Http::response([
+                'offices' => [
+                    [
+                        'name' => 'President of the United States',
+                        'level' => ['federal'],
+                        'divisionId' => 'ocd-division/country:us',
+                        'officialIndices' => [0],
+                    ],
+                    [
+                        'name' => 'United States House of Representatives',
+                        'level' => ['federal'],
+                        'divisionId' => 'ocd-division/country:us/state:il/cd:2',
+                        'officialIndices' => [1],
+                    ],
+                ],
+                'officials' => [
+                    [
+                        'name' => 'Jordan Adams',
+                        'party' => 'Independent',
+                        'urls' => ['https://example.test/president'],
+                    ],
+                    [
+                        'name' => 'Casey Monroe',
+                        'party' => 'Democratic',
+                        'urls' => ['https://example.test/representative'],
+                    ],
+                ],
+            ], 200),
+        ]);
+
+        config()->set('services.google.civic_api_key', 'test-key');
+
+        $response = $this->get(route('district.lookup', [
+            'address' => '6840 S Paxton Ave, Chicago, IL 60649',
+        ]));
+
+        $response->assertOk();
+        $response->assertSee('Current Politicians For This Location');
+        $response->assertSee('Jordan Adams');
+        $response->assertSee('Casey Monroe');
+    });

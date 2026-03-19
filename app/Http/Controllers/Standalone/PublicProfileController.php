@@ -38,6 +38,7 @@ class PublicProfileController extends Controller
         $candidates = collect();
         $runningCandidates = collect();
         $topContenders = collect();
+        $currentOfficials = collect();
         $discoveredOfficials = collect();
         $voterInfo = null;
         $error = null;
@@ -56,6 +57,7 @@ class PublicProfileController extends Controller
                 if (! $lookupResult) {
                     $error = $this->unresolvedLookupMessage($address);
                 } else {
+                    $currentOfficials = $this->fetchCurrentOfficialsForLocation($address);
                     $candidates = $this->findCandidatesForDistrict($lookupResult, $states);
                     $runningCandidates = $this->findRunningCandidatesForDistrict($lookupResult, $states);
                     $topContenders = $runningCandidates->take(3)->values();
@@ -85,6 +87,7 @@ class PublicProfileController extends Controller
             'candidates' => $candidates,
             'runningCandidates' => $runningCandidates,
             'topContenders' => $topContenders,
+            'currentOfficials' => $currentOfficials,
             'states' => $states,
             'error' => $error,
         ]);
@@ -107,6 +110,47 @@ class PublicProfileController extends Controller
         $result = $googleCivicVoterInfo->getByAddress($address);
 
         return is_array($result) ? $result : null;
+    }
+
+    /**
+     * Fetch current officeholders for the exact searched location from Google Civic.
+     *
+     * @return Collection<int, array<string, mixed>>
+     */
+    protected function fetchCurrentOfficialsForLocation(string $address): Collection
+    {
+        /** @var GoogleCivicService $googleCivic */
+        $googleCivic = app(GoogleCivicService::class);
+
+        if (! $googleCivic->isConfigured()) {
+            return collect();
+        }
+
+        $officials = $googleCivic->getOfficialsByAddress($address);
+
+        if (! is_array($officials) || empty($officials)) {
+            return collect();
+        }
+
+        return collect($officials)
+            ->map(function (array $official): array {
+                return [
+                    'full_name' => trim((string) ($official['full_name'] ?? '')),
+                    'political_office' => trim((string) ($official['political_office'] ?? '')),
+                    'party_affiliation' => trim((string) ($official['party_affiliation'] ?? '')),
+                    'state' => strtoupper(trim((string) ($official['state'] ?? ''))),
+                    'district_code' => trim((string) ($official['district_code'] ?? '')),
+                    'website' => trim((string) ($official['website'] ?? '')),
+                    'source' => trim((string) ($official['source'] ?? 'google_civic')),
+                ];
+            })
+            ->filter(function (array $official): bool {
+                return ($official['full_name'] ?? '') !== '';
+            })
+            ->unique(function (array $official): string {
+                return strtolower(($official['full_name'] ?? '') . '|' . ($official['political_office'] ?? ''));
+            })
+            ->values();
     }
 
     protected function unresolvedLookupMessage(string $address): string
