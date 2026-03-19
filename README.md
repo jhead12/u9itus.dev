@@ -486,7 +486,7 @@ npm run dev:all   # Start Laravel + Vite together
 | Phase 9  | Testing (unit tests for all services, feature tests for admin approval workflow, CI coverage reporting)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | ✅ Complete |
 | Phase 10 | Deployment (Railway production config, env hardening)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | ⬜ Pending  |
 | Phase 11 | Real-time Notifications — Laravel Reverb/WebSockets (private voter/politician channels, admin broadcast, ad-delivery push, payout alerts, live presence; WebRTC signaling foundation for Phase 12)                                                                                                                                                                                                                                                                                                                                                                                           | ✅ Complete |
-| Phase 12 | Live Feed Streaming — WebRTC (politician → voter HLS/WebRTC live video, presence channel viewer counts, live chat via Reverb, built on Phase 11 Reverb server)                                                                                                                                                                                                                                                                                                                                                                                                                               | ⬜ Pending  |
+| Phase 12 | **Mobile Application — React Native with Metro** (Android & iOS native apps; live feed streaming via WebRTC, politician → voter HLS/WebRTC live video built on Phase 11 Reverb server; Metro bundler for optimized app builds; native in-app notifications, token-based ad delivery, real-time earnings/payout updates; iOS deployment via Xcode, Android via Android Studio)              | ⬜ Pending  |
 | Phase 13 | Politician Public Profile Pages — public `/p/{slug}` campaign pages with custom color themes (CSS variables, not raw CSS), layout presets, initiative/platform section, running + past campaign video/update sections, reusable public preview campaign cards with status/update badges, verified badge, Open Graph meta for social sharing; slug format: `{5-char-uuid-prefix}-{seo-readable-name}` (e.g. `a3f9b-mayor-john-smith-chicago`)                                                                                                                                                 | ✅ Complete |
 | Phase 14 | Repeat Viewing + Campaign Scheduling — politician-controlled repeat-view toggle (cooldown hours, max views/voter cap, unique voter stats, repeat-view stats), campaign delivery window (`scheduled_start_at` / `scheduled_end_at`), `Scheduled` status, `campaigns:apply-schedule` Artisan command (every 5 min), scheduler-written audit log entries (`activated_by_schedule` / `paused_by_schedule`)                                                                                                                                                                                       | ✅ Complete |
 | Phase 15 | Voter Benefits & Registration — expanded earnings callout (ad views + voter-referral recurring commission + politician-referral one-time bonus), voter registration status questionnaire on sign-up form with vote.gov link, registration status field stored on voter profile, dashboard registration prompt + voter registration status card in profile, and accessibility-focused voter dashboard updates (running campaigns prioritized first; clearer "Running Campaigns" navigation label)                                                                                             | ✅ Complete |
@@ -569,10 +569,38 @@ Status: `Planned`
 
 ## Future Enhancements
 
+### Mobile Application Development (Phase 12)
+
+**Framework:** React Native with Metro bundler (web & web-native code reuse)
+
+**Target Platforms:**
+- **Android:** Native app via Android Studio, Metro bundler optimization
+- **iOS:** Native app via Xcode, Metro bundler optimization  
+- **macOS:** Native desktop app support via Metro
+
+**Mobile-First Features:**
+- ~~Live feed streaming via WebRTC~~ → Phase 12 (politician → voter HLS/WebRTC streams built on Phase 11 Reverb)
+- Native push notifications via Firebase Cloud Messaging (FCM) and Apple Push Notification (APN)
+- Offline-first token-based ad delivery with background sync
+- Native in-app notification center with badge counts
+- Biometric authentication (Face ID, Touch ID, fingerprint)
+- Photos app integration for profile pictures
+- System camera integration for politician video uploads (mobile-optimized)
+- Real-time wallet/earnings updates via WebSocket channels
+- Payout request management with native payment sheet integration
+- Metro bundle size optimization for mobile networks
+
+**Shared Codebase:**
+- API layer (voter registration, campaign browsing, view sessions, earnings)
+- Business logic (referral commission calculation, fraud prevention scoring)
+- Event handling (Reverb WebSocket subscriptions, Stripe webhooks)
+- Authentication (Laravel Sanctum token management)
+- Notification preferences (channel toggles, delivery methods)
+
+### Web Platform Enhancements
+
 - Advanced fraud detection with ML scoring
-- Mobile app (React Native)
 - Expand campaign video sources beyond YouTube v1 (Vimeo, Cloudflare Stream, HLS, S3 — see [Campaign Video Media](#campaign-video-media))
-- ~~Live feed streaming via WebRTC~~ → Phase 12 (built on Phase 11 Reverb signaling layer)
 - ~~Real-time notifications via Laravel Reverb/WebSockets~~ → Phase 11 (✅ Complete)
 - ~~Allow admin to stop campaigns, if there are errors, such as video not playing, incorrect locations~~ ✅ Implemented (stop/reactivate with required reason, full immutable audit log; real-time WebSocket push via Phase 11)
 - Multi-language support
@@ -580,7 +608,7 @@ Status: `Planned`
 - ~~Automated Stripe Connect for politician billing~~ ✅ Implemented (auto-customer creation, saved payment methods)
 - ~~PayPal Mass Pay API for batch voter payouts~~ ✅ Implemented (`PayPalPayoutService` wired into `processBatchPayouts`)
 - Twilio SMS integration — the **5-character UUID prefix** embedded in every politician's `slug` (e.g. `a3f9b` from `a3f9b-mayor-john-smith-chicago`) is intentionally designed as a stable short-ID that can serve as a lookup key for SMS verification, phone-based 2FA, and any future telephony service (Twilio Verify, short-code campaigns, etc.) without exposing the full UUID in a text message
-- Firebase Cloud Messaging for push notifications
+- ~~Firebase Cloud Messaging for push notifications~~ → Phase 18 (✅ Complete on web; Phase 12 native integration for mobile)
 
 ### Public Politician Profile Next Steps
 
@@ -602,11 +630,16 @@ MIT License — See LICENSE file for details
 ## Credits
 
 Developed by Head Enterprises  
-Version 3.0.0 — Standalone Laravel 12 Architecture  
-Last updated: March 4, 2026  
-Phase 16 complete: Public Records & Transparency — Government email verification system, API integrations (Ballotpedia, OpenSecrets, Vote Smart, FEC), opt-in transparency controls, public data display on politician profiles  
-Phase 18 complete: In-App Notification System — Laravel Notification classes, database-backed notification center with real-time UI, channel preferences (email/in-app/push/SMS), Firebase Cloud Messaging + Twilio SMS services  
-Phase 17 complete: User Onboarding System with role-specific multi-phase flows (voter: 5 phases, politician: 5 phases, admin: 4 phases), `OnboardingService`, progress tracking, middleware integration  
-Phase 11 complete: Laravel Reverb/WebSockets real-time notification system with 9 broadcast events (`ReverbBroadcastService`, private channels for voter/politician/admin, presence channel foundation for Phase 12 WebRTC)  
-Phase 8 complete: `IpReputationService`, `DeviceFingerprintService`, enhanced `FraudPreventionService`, `fraud_signals` table  
-Route fix: `admin.payouts` → `admin.payouts.index` in `payouts-pending.blade.php`
+**Version 3.0.0 — Standalone Laravel 12 Architecture (Web) + React Native with Metro (Mobile, Phase 12)**  
+Last updated: March 18, 2026
+
+**Development Timeline & Phase Completion:**
+
+- **Phase 12 (Upcoming):** Mobile Application — React Native with Metro bundler for Android, iOS, and macOS; live feed streaming via WebRTC; native push notifications (FCM/APN); offline-first token delivery; biometric authentication
+- **Phase 18 (Complete):** In-App Notification System — Laravel Notification classes, database-backed notification center, real-time UI, channel preferences (email/in-app/push/SMS), Firebase Cloud Messaging, Twilio SMS services
+- **Phase 17 (Complete):** User Onboarding System with role-specific multi-phase flows (voter: 5 phases, politician: 5 phases, admin: 4 phases), `OnboardingService`, progress tracking, middleware integration
+- **Phase 16 (Complete):** Public Records & Transparency — Government email verification system, API integrations (Ballotpedia, OpenSecrets, Vote Smart, FEC), opt-in transparency controls, public data display on politician profiles
+- **Phase 11 (Complete):** Laravel Reverb/WebSockets real-time notification system with 9 broadcast events (`ReverbBroadcastService`, private channels for voter/politician/admin, presence channel foundation for Phase 12 WebRTC)
+- **Phase 8 (Complete):** `IpReputationService`, `DeviceFingerprintService`, enhanced `FraudPreventionService`, `fraud_signals` table
+- **Phases 1–7, 9–10, 13–15 (Complete):** Auth & Foundation, Campaign Management, Analytics, Billing, Voter Watch, Admin Features, Notifications, Testing, Deployment, Profile Pages, Repeat Viewing, Voter Benefits
+- **Route Fix:** `admin.payouts` → `admin.payouts.index` in `payouts-pending.blade.php`
