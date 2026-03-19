@@ -9,6 +9,9 @@ use Illuminate\Support\Facades\Http;
 
 uses(RefreshDatabase::class);
 
+const DISTRICT_LOOKUP_TEST_CITY = 'Moreno Valley';
+const DISTRICT_LOOKUP_TEST_ZIP = '92555';
+
 test('district lookup page renders for guests', function () {
     $response = $this->get(route('district.lookup'));
 
@@ -63,6 +66,7 @@ test('district lookup resolves address and lists matching candidates', function 
     $response->assertOk();
     $response->assertSee('CA-12');
     $response->assertSee('Alex Rivera');
+    $response->assertSee('Source: Census Geocoder');
     $response->assertDontSee('Jordan Hall');
 });
 
@@ -81,6 +85,54 @@ test('district lookup shows helpful error when address cannot be resolved', func
 
     $response->assertOk();
     $response->assertSee('could not resolve that address', false);
+});
+
+test('district lookup shows zip specific guidance when zip cannot resolve district', function () {
+    $city = DISTRICT_LOOKUP_TEST_CITY;
+    $zip = DISTRICT_LOOKUP_TEST_ZIP;
+
+    config()->set('services.google.civic_api_key', 'test-key');
+
+    Http::fake([
+        'https://geocoding.geo.census.gov/*' => Http::response([
+            'result' => [
+                'addressMatches' => [],
+            ],
+        ], 200),
+        'https://civicinfo.googleapis.com/civicinfo/v2/divisionsByAddress*' => Http::response([
+            'normalizedInput' => [
+                'city' => $city,
+                'state' => 'CA',
+                'zip' => $zip,
+            ],
+            'divisions' => [
+                'ocd-division/country:us' => [
+                    'name' => 'United States',
+                ],
+                'ocd-division/country:us/state:ca' => [
+                    'name' => 'California',
+                ],
+                'ocd-division/country:us/state:ca/county:riverside' => [
+                    'name' => 'Riverside County',
+                ],
+            ],
+        ], 200),
+        'https://www.googleapis.com/civicinfo/v2/voterinfo*' => Http::response([
+            'normalizedInput' => [
+                'city' => $city,
+                'state' => 'CA',
+                'zip' => $zip,
+            ],
+        ], 200),
+    ]);
+
+    $response = $this->get(route('district.lookup', [
+        'address' => $zip,
+    ]));
+
+    $response->assertOk();
+    $response->assertSee('could not determine a congressional district from ZIP alone', false);
+    $response->assertDontSee('Try including street, city, state, and ZIP', false);
 });
 
 test('district lookup matches state full name and district code variants', function () {
@@ -182,9 +234,9 @@ test('district lookup without address does not call geocoder', function () {
 
 test('district lookup falls back to google civic for zip-only searches', function () {
     $officialName = 'Priya Sharma';
-    $zip = '92555';
+    $zip = DISTRICT_LOOKUP_TEST_ZIP;
     $state = 'CA';
-    $city = 'Moreno Valley';
+    $city = DISTRICT_LOOKUP_TEST_CITY;
     $electionDay = '2026-11-03';
 
     config()->set('services.google.civic_api_key', 'test-key');
@@ -276,6 +328,7 @@ test('district lookup falls back to google civic for zip-only searches', functio
     $response->assertOk();
     $response->assertSee('CA-18');
     $response->assertSee($officialName);
+    $response->assertSee('Source: Google Civic');
 
     expect(Politician::query()
         ->where('full_name', $officialName)

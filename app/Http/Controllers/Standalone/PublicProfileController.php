@@ -52,7 +52,7 @@ class PublicProfileController extends Controller
                 $lookupResult = $lookupService->lookup($address);
 
                 if (! $lookupResult) {
-                    $error = 'We could not resolve that address. Try including street, city, state, and ZIP.';
+                    $error = $this->unresolvedLookupMessage($address);
                 } else {
                     $candidates = $this->findCandidatesForDistrict($lookupResult, $states);
                     $voterInfo = $this->fetchVoterInfoFromGoogleCivic($address);
@@ -101,6 +101,20 @@ class PublicProfileController extends Controller
         $result = $googleCivicVoterInfo->getByAddress($address);
 
         return is_array($result) ? $result : null;
+    }
+
+    protected function unresolvedLookupMessage(string $address): string
+    {
+        if ($this->isZipOnlyInput($address)) {
+            return 'We found your city/state from ZIP, but could not determine a congressional district from ZIP alone. Please enter your full street address to see complete district details.';
+        }
+
+        return 'We could not resolve that address. Try including street, city, state, and ZIP.';
+    }
+
+    protected function isZipOnlyInput(string $address): bool
+    {
+        return preg_match('/^\d{5}(?:-\d{4})?$/', trim($address)) === 1;
     }
 
     /**

@@ -37,7 +37,7 @@
             <p class="text-slate-400 max-w-2xl">
                 Enter your home address to identify your congressional district and see candidates currently published on U9itus in your area.
             </p>
-            <p class="text-slate-500 text-sm mt-2">Tip: you can enter a full address or ZIP code.</p>
+            <p class="text-slate-500 text-sm mt-2">For best results, enter a full address with street, city, and state. ZIP-only lookups may not return full district detail.</p>
         </section>
 
         <section class="bg-slate-900/70 border border-slate-700/50 rounded-2xl p-4 sm:p-6 mb-6">
@@ -75,6 +75,16 @@
                     <p class="text-white text-lg font-semibold">
                         {{ $lookupResult['district_code'] ?? 'Not available' }}
                     </p>
+                    @if(!empty($lookupResult['source']))
+                        @php
+                            $sourceLabel = match ($lookupResult['source']) {
+                                'census_geocoder' => 'Census Geocoder',
+                                'google_civic' => 'Google Civic',
+                                default => ucwords(str_replace('_', ' ', (string) $lookupResult['source'])),
+                            };
+                        @endphp
+                        <p class="text-slate-400 text-xs mt-1 uppercase tracking-wide">Source: {{ $sourceLabel }}</p>
+                    @endif
                     @if(!empty($lookupResult['district_label']))
                         <p class="text-slate-400 text-sm mt-1">{{ $lookupResult['district_label'] }}</p>
                     @endif
