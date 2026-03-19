@@ -72,3 +72,42 @@ test('district search insights filter by state', function () {
     $response->assertSee($caZip);
     $response->assertDontSee('10001');
 });
+
+test('admin can export district searches csv with source labels', function () {
+    Role::firstOrCreate(['name' => 'admin', 'guard_name' => 'web']);
+
+    $admin = User::factory()->create([
+        'user_type' => 'admin',
+    ]);
+    $admin->assignRole('admin');
+    skipOnboarding($admin, 'admin');
+
+    DistrictLookupSearch::create([
+        'query_address' => '92557',
+        'state' => 'CA',
+        'district_code' => 'CA-39',
+        'resolved' => true,
+        'source' => 'google_civic',
+        'discovered_officials_count' => 3,
+    ]);
+
+    DistrictLookupSearch::create([
+        'query_address' => '10001',
+        'state' => 'NY',
+        'district_code' => 'NY-10',
+        'resolved' => true,
+        'source' => 'census_geocoder',
+        'discovered_officials_count' => 1,
+    ]);
+
+    $response = $this->actingAs($admin)
+        ->get(route('admin.district-searches.export', ['state' => 'CA']));
+
+    $response->assertOk();
+
+    $csv = $response->streamedContent();
+    expect($csv)->toContain('Source Label');
+    expect($csv)->toContain('Google Civic');
+    expect($csv)->toContain('92557');
+    expect($csv)->not->toContain('10001');
+});

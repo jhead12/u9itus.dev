@@ -86,6 +86,9 @@
                 <a href="{{ route('admin.district-searches.index') }}" class="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg text-sm transition">
                     Reset
                 </a>
+                <a href="{{ route('admin.district-searches.export', request()->query()) }}" class="bg-cyan-700 hover:bg-cyan-600 text-white px-4 py-2 rounded-lg text-sm transition">
+                    Export CSV
+                </a>
             </div>
         </form>
     </div>

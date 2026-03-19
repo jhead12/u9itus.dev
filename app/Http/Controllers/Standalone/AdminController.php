@@ -25,6 +25,7 @@ use App\Models\Voter;
 use App\Services\AdminTwoFactorService;
 use App\Services\PlatformSettingsService;
 use Illuminate\Http\Request;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -883,6 +884,96 @@ class AdminController extends Controller
      */
     public function districtSearches(Request $request)
     {
+        $query = $this->buildDistrictSearchesQuery($request);
+
+        $searches = $query
+            ->orderByDesc('created_at')
+            ->paginate(50)
+            ->withQueryString();
+
+        $stats = [
+            'total' => DistrictLookupSearch::count(),
+            'resolved' => DistrictLookupSearch::where('resolved', true)->count(),
+            'unresolved' => DistrictLookupSearch::where('resolved', false)->count(),
+            'officials_discovered' => (int) DistrictLookupSearch::sum('discovered_officials_count'),
+        ];
+
+        $sourceCounts = DistrictLookupSearch::query()
+            ->select('source', DB::raw('COUNT(*) as total'))
+            ->groupBy('source')
+            ->orderByDesc('total')
+            ->pluck('total', 'source');
+
+        return view('standalone.admin.district-searches', compact('searches', 'stats', 'sourceCounts'));
+    }
+
+    /**
+     * Export district search results as CSV.
+     */
+    public function exportDistrictSearches(Request $request)
+    {
+        $searches = $this->buildDistrictSearchesQuery($request)
+            ->orderByDesc('created_at')
+            ->limit(5000)
+            ->get([
+                'created_at',
+                'query_address',
+                'matched_address',
+                'state',
+                'district_code',
+                'resolved',
+                'source',
+                'discovered_officials_count',
+                'ip_address',
+                'error_message',
+            ]);
+
+        $filename = 'district-searches-' . now()->format('Ymd_His') . '.csv';
+
+        return response()->streamDownload(function () use ($searches) {
+            $output = fopen('php://output', 'w');
+
+            fputcsv($output, [
+                'When',
+                'Query Address',
+                'Matched Address',
+                'State',
+                'District Code',
+                'Resolved',
+                'Source',
+                'Source Label',
+                'Officials Discovered',
+                'IP Address',
+                'Error Message',
+            ]);
+
+            foreach ($searches as $search) {
+                fputcsv($output, [
+                    optional($search->created_at)->toDateTimeString(),
+                    $search->query_address,
+                    $search->matched_address,
+                    $search->state,
+                    $search->district_code,
+                    $search->resolved ? 'Yes' : 'No',
+                    $search->source,
+                    $this->formatDistrictSearchSourceLabel($search->source),
+                    $search->discovered_officials_count,
+                    $search->ip_address,
+                    $search->error_message,
+                ]);
+            }
+
+            fclose($output);
+        }, $filename, [
+            'Content-Type' => 'text/csv',
+        ]);
+    }
+
+    /**
+     * Build district searches query with filters shared by list and export.
+     */
+    private function buildDistrictSearchesQuery(Request $request): Builder
+    {
         $query = DistrictLookupSearch::query();
 
         if ($q = trim((string) $request->query('q', ''))) {
@@ -905,25 +996,20 @@ class AdminController extends Controller
             $query->whereRaw("UPPER(COALESCE(state, '')) = ?", [$state]);
         }
 
-        $searches = $query
-            ->orderByDesc('created_at')
-            ->paginate(50)
-            ->withQueryString();
+        return $query;
+    }
 
-        $stats = [
-            'total' => DistrictLookupSearch::count(),
-            'resolved' => DistrictLookupSearch::where('resolved', true)->count(),
-            'unresolved' => DistrictLookupSearch::where('resolved', false)->count(),
-            'officials_discovered' => (int) DistrictLookupSearch::sum('discovered_officials_count'),
-        ];
-
-        $sourceCounts = DistrictLookupSearch::query()
-            ->select('source', DB::raw('COUNT(*) as total'))
-            ->groupBy('source')
-            ->orderByDesc('total')
-            ->pluck('total', 'source');
-
-        return view('standalone.admin.district-searches', compact('searches', 'stats', 'sourceCounts'));
+    /**
+     * Convert district search source key to a readable label.
+     */
+    private function formatDistrictSearchSourceLabel(?string $source): string
+    {
+        return match ($source) {
+            'census_geocoder' => 'Census Geocoder',
+            'google_civic' => 'Google Civic',
+            null, '' => 'Unknown',
+            default => ucwords(str_replace('_', ' ', $source)),
+        };
     }
 
     /**
