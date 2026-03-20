@@ -8,6 +8,7 @@ use App\Enums\CampaignStatus;
 use App\Models\DistrictLookupSearch;
 use App\Models\ElectionCandidateRecord;
 use App\Models\Politician;
+use App\Services\CongressGovService;
 use App\Services\GoogleCivicService;
 use App\Services\GoogleCivicVoterInfoService;
 use Illuminate\Http\Request;
@@ -58,6 +59,12 @@ class PublicProfileController extends Controller
                     $error = $this->unresolvedLookupMessage($address);
                 } else {
                     $currentOfficials = $this->fetchCurrentOfficialsForLocation($address);
+                    if ($currentOfficials->isEmpty()) {
+                        $currentOfficials = $this->findCurrentOfficialsForDistrictFromCongress($lookupResult);
+                    }
+                    if ($currentOfficials->isEmpty()) {
+                        $currentOfficials = $this->findCurrentOfficialsForDistrictFromRecords($lookupResult, $states);
+                    }
                     $candidates = $this->findCandidatesForDistrict($lookupResult, $states);
                     $runningCandidates = $this->findRunningCandidatesForDistrict($lookupResult, $states);
                     $topContenders = $runningCandidates->take(3)->values();
@@ -134,14 +141,144 @@ class PublicProfileController extends Controller
 
         return collect($officials)
             ->map(function (array $official): array {
+                $fullName = trim((string) ($official['full_name'] ?? ''));
+                $office = trim((string) ($official['political_office'] ?? ''));
+                $state = strtoupper(trim((string) ($official['state'] ?? '')));
+
                 return [
-                    'full_name' => trim((string) ($official['full_name'] ?? '')),
-                    'political_office' => trim((string) ($official['political_office'] ?? '')),
+                    'full_name' => $fullName,
+                    'political_office' => $office,
                     'party_affiliation' => trim((string) ($official['party_affiliation'] ?? '')),
-                    'state' => strtoupper(trim((string) ($official['state'] ?? ''))),
+                    'state' => $state,
                     'district_code' => trim((string) ($official['district_code'] ?? '')),
                     'website' => trim((string) ($official['website'] ?? '')),
                     'source' => trim((string) ($official['source'] ?? 'google_civic')),
+                    'discovery_links' => $this->buildDiscoveryLinks($fullName, $office, $state),
+                ];
+            })
+            ->filter(function (array $official): bool {
+                return ($official['full_name'] ?? '') !== '';
+            })
+            ->unique(function (array $official): string {
+                return strtolower(($official['full_name'] ?? '') . '|' . ($official['political_office'] ?? ''));
+            })
+            ->values();
+    }
+
+    /**
+     * Fallback current officeholders from Congress.gov for the resolved district.
+     *
+     * @param array<string, mixed> $lookupResult
+     * @return Collection<int, array<string, mixed>>
+     */
+    protected function findCurrentOfficialsForDistrictFromCongress(array $lookupResult): Collection
+    {
+        $state = strtoupper((string) ($lookupResult['state'] ?? ''));
+        $districtNumber = trim((string) ($lookupResult['district_number'] ?? ''));
+
+        if ($state === '' || $districtNumber === '') {
+            return collect();
+        }
+
+        /** @var CongressGovService $congress */
+        $congress = app(CongressGovService::class);
+
+        if (! $congress->isConfigured()) {
+            return collect();
+        }
+
+        $officials = $congress->getCurrentHouseMembersByDistrict($state, $districtNumber);
+
+        if (! is_array($officials) || empty($officials)) {
+            return collect();
+        }
+
+        foreach ($officials as $official) {
+            if (! is_array($official)) {
+                continue;
+            }
+
+            $this->persistDiscoveredOfficial($official, $lookupResult, (string) ($lookupResult['matched_address'] ?? 'district-lookup'));
+        }
+
+        return collect($officials)
+            ->map(function (array $official): array {
+                $fullName = trim((string) ($official['full_name'] ?? ''));
+                $office = trim((string) ($official['political_office'] ?? ''));
+                $state = strtoupper(trim((string) ($official['state'] ?? '')));
+
+                return [
+                    'full_name' => $fullName,
+                    'political_office' => $office,
+                    'party_affiliation' => trim((string) ($official['party_affiliation'] ?? '')),
+                    'state' => $state,
+                    'district_code' => trim((string) ($official['district_code'] ?? '')),
+                    'website' => trim((string) ($official['website'] ?? '')),
+                    'source' => trim((string) ($official['source'] ?? 'congress_gov')),
+                    'discovery_links' => $this->buildDiscoveryLinks($fullName, $office, $state),
+                ];
+            })
+            ->filter(function (array $official): bool {
+                return trim((string) ($official['full_name'] ?? '')) !== '';
+            })
+            ->unique(function (array $official): string {
+                return strtolower((string) ($official['full_name'] ?? ''));
+            })
+            ->values();
+    }
+
+    /**
+     * Fallback current officeholders from local election records for the resolved district.
+     *
+     * @param array<string, mixed> $lookupResult
+     * @param array<string, string> $states
+     * @return Collection<int, array<string, mixed>>
+     */
+    protected function findCurrentOfficialsForDistrictFromRecords(array $lookupResult, array $states): Collection
+    {
+        $state = strtoupper((string) ($lookupResult['state'] ?? ''));
+        $districtNumber = trim((string) ($lookupResult['district_number'] ?? ''));
+
+        if ($state === '' || $districtNumber === '') {
+            return collect();
+        }
+
+        $stateName = $states[$state] ?? null;
+        $variants = $this->districtVariants($state, $districtNumber);
+        $recentThreshold = now()->subYears(2)->toDateString();
+
+        $records = ElectionCandidateRecord::query()
+            ->where(function ($q) use ($state, $stateName) {
+                $q->whereRaw('UPPER(state) = ?', [$state]);
+
+                if ($stateName) {
+                    $q->orWhereRaw('LOWER(state) = ?', [strtolower($stateName)]);
+                }
+            })
+            ->where(function ($q) use ($variants) {
+                foreach ($variants as $variant) {
+                    $q->orWhere('district', 'like', '%' . $variant . '%');
+                }
+            })
+            ->where(function ($q) use ($recentThreshold) {
+                $q->whereNull('election_date')
+                    ->orWhereDate('election_date', '>=', $recentThreshold);
+            })
+            ->orderByDesc('last_seen_at')
+            ->orderBy('election_date')
+            ->limit(100)
+            ->get();
+
+        return $records
+            ->map(function (ElectionCandidateRecord $record): array {
+                return [
+                    'full_name' => trim((string) $record->full_name),
+                    'political_office' => trim((string) ($record->political_office ?? '')),
+                    'party_affiliation' => trim((string) ($record->party_affiliation ?? '')),
+                    'state' => strtoupper(trim((string) ($record->state ?? ''))),
+                    'district_code' => trim((string) ($record->district ?? '')),
+                    'website' => '',
+                    'source' => (string) ($record->source ?? 'local_record'),
                 ];
             })
             ->filter(function (array $official): bool {
@@ -239,7 +376,7 @@ class PublicProfileController extends Controller
 
         ElectionCandidateRecord::updateOrCreate(
             [
-                'source' => 'google_civic',
+                'source' => (string) ($official['source'] ?? 'google_civic'),
                 'external_candidate_id' => $externalId,
             ],
             [
@@ -251,6 +388,7 @@ class PublicProfileController extends Controller
                 'party_affiliation' => $official['party_affiliation'] ?? null,
                 'payload' => [
                     'official' => $official,
+                    'research_links' => $this->buildDiscoveryLinks($fullName, $office, $state),
                     'lookup_context' => [
                         'input_address' => $address,
                         'lookup_result' => $lookupResult,
@@ -293,6 +431,28 @@ class PublicProfileController extends Controller
         }
 
         return $profileId;
+    }
+
+    /**
+     * Build public research links for newly discovered officials.
+     *
+     * @return array{wikipedia:string,youtube:string,cspan:string}
+     */
+    protected function buildDiscoveryLinks(string $fullName, ?string $office = null, ?string $state = null): array
+    {
+        $queryParts = array_values(array_filter([
+            trim($fullName),
+            trim((string) $office),
+            trim((string) $state),
+        ], fn ($value) => $value !== ''));
+
+        $query = implode(' ', $queryParts);
+
+        return [
+            'wikipedia' => 'https://en.wikipedia.org/w/index.php?search=' . rawurlencode($query),
+            'youtube' => 'https://www.youtube.com/results?search_query=' . rawurlencode($query),
+            'cspan' => 'https://www.c-span.org/search/?searchtype=Videos&ssearch=' . rawurlencode($query),
+        ];
     }
 
     protected function mergeCandidates(Collection $existingCandidates, Collection $discoveredCandidates): Collection
@@ -779,6 +939,7 @@ class PublicProfileController extends Controller
             'census_geocoder' => 'Census Geocoder',
             'google_civic' => 'Google Civic',
             'google_civic_voterinfo' => 'Google Civic Voter Info',
+            'congress_gov' => 'Congress.gov',
             null, '' => 'Unknown',
             default => ucwords(str_replace('_', ' ', $source)),
         };

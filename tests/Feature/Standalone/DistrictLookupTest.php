@@ -617,3 +617,138 @@ test('district lookup voterinfo picks earliest election from otherElections and 
         $response->assertSee('Jordan Adams');
         $response->assertSee('Casey Monroe');
     });
+
+    test('district lookup falls back to local records for current politicians when google civic is empty', function () {
+        Http::fake([
+            'https://geocoding.geo.census.gov/*' => Http::response([
+                'result' => [
+                    'addressMatches' => [
+                        [
+                            'matchedAddress' => '6840 S PAXTON AVE, CHICAGO, IL, 60649',
+                            'addressComponents' => [
+                                'state' => 'IL',
+                            ],
+                            'geographies' => [
+                                '119th Congressional Districts' => [
+                                    [
+                                        'CD119FP' => '02',
+                                        'NAME' => 'Illinois Congressional District 2',
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ], 200),
+            'https://www.googleapis.com/civicinfo/v2/voterinfo*' => Http::response([
+                'normalizedInput' => [
+                    'line1' => '6840 S PAXTON AVE',
+                    'city' => 'CHICAGO',
+                    'state' => 'IL',
+                    'zip' => '60649',
+                ],
+            ], 200),
+            'https://www.googleapis.com/civicinfo/v2/representatives*' => Http::response([
+                'offices' => [],
+                'officials' => [],
+                'divisions' => [],
+            ], 200),
+        ]);
+
+        config()->set('services.google.civic_api_key', 'test-key');
+        config()->set('services.congress.api_key', null);
+
+        ElectionCandidateRecord::factory()->create([
+            'source' => 'congress_legislators',
+            'full_name' => 'Robin Kelly',
+            'state' => 'IL',
+            'district' => 'IL-02',
+            'political_office' => 'United States Representative',
+            'party_affiliation' => 'Democratic',
+            'election_date' => now()->addMonths(8)->toDateString(),
+        ]);
+
+        $response = $this->get(route('district.lookup', [
+            'address' => '6840 S Paxton Ave, Chicago, IL 60649',
+        ]));
+
+        $response->assertOk();
+        $response->assertSee('Current Politicians For This Location');
+        $response->assertSee('Robin Kelly');
+        $response->assertSee('Congress Legislators Import');
+    });
+
+    test('district lookup falls back to congress gov for current politicians when configured', function () {
+        Http::fake([
+            'https://geocoding.geo.census.gov/*' => Http::response([
+                'result' => [
+                    'addressMatches' => [
+                        [
+                            'matchedAddress' => '6840 S PAXTON AVE, CHICAGO, IL, 60649',
+                            'addressComponents' => [
+                                'state' => 'IL',
+                            ],
+                            'geographies' => [
+                                '119th Congressional Districts' => [
+                                    [
+                                        'CD119FP' => '02',
+                                        'NAME' => 'Illinois Congressional District 2',
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ], 200),
+            'https://www.googleapis.com/civicinfo/v2/voterinfo*' => Http::response([
+                'normalizedInput' => [
+                    'line1' => '6840 S PAXTON AVE',
+                    'city' => 'CHICAGO',
+                    'state' => 'IL',
+                    'zip' => '60649',
+                ],
+            ], 200),
+            'https://www.googleapis.com/civicinfo/v2/representatives*' => Http::response([
+                'offices' => [],
+                'officials' => [],
+                'divisions' => [],
+            ], 200),
+            'https://api.congress.gov/v3/member/IL/2*' => Http::response([
+                'members' => [
+                    [
+                        'name' => 'Robin L. Kelly',
+                        'partyName' => 'Democratic',
+                        'state' => 'IL',
+                        'district' => 2,
+                        'url' => 'https://api.congress.gov/v3/member/K000385',
+                    ],
+                ],
+            ], 200),
+        ]);
+
+        config()->set('services.google.civic_api_key', 'test-key');
+        config()->set('services.congress.api_key', 'test-congress-key');
+
+        $response = $this->get(route('district.lookup', [
+            'address' => '6840 S Paxton Ave, Chicago, IL 60649',
+        ]));
+
+        $response->assertOk();
+        $response->assertSee('Current Politicians For This Location');
+        $response->assertSee('Robin L. Kelly');
+        $response->assertSee('Congress.gov');
+        $response->assertSee('Wikipedia');
+        $response->assertSee('YouTube');
+        $response->assertSee('C-SPAN');
+
+        expect(Politician::query()
+            ->where('full_name', 'Robin L. Kelly')
+            ->whereNull('user_id')
+            ->where('page_published', true)
+            ->exists())->toBeTrue();
+
+        expect(ElectionCandidateRecord::query()
+            ->where('source', 'congress_gov')
+            ->where('full_name', 'Robin L. Kelly')
+            ->exists())->toBeTrue();
+    });

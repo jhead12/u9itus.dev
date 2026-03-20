@@ -88,4 +88,9 @@ return [
         'civic_api_key' => env('GOOGLE_CIVIC_API_KEY'),
     ],
 
+    'congress' => [
+        'api_key' => env('CONGRESS_API_KEY'),
+        'base_url' => env('CONGRESS_API_BASE_URL', 'https://api.congress.gov/v3'),
+    ],
+
 ];

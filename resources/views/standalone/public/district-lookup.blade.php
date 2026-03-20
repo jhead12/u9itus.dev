@@ -140,6 +140,15 @@
                 @else
                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                         @foreach($currentOfficials as $official)
+                            @php
+                                $officialSourceLabel = match ($official['source'] ?? null) {
+                                    'google_civic' => 'Google Civic',
+                                    'congress_gov' => 'Congress.gov',
+                                    'congress_legislators' => 'Congress Legislators Import',
+                                    null, '' => 'Local Record',
+                                    default => ucwords(str_replace('_', ' ', (string) $official['source'])),
+                                };
+                            @endphp
                             <div class="bg-slate-900/60 border border-slate-700/50 rounded-xl p-5">
                                 <p class="text-white font-semibold">{{ $official['full_name'] }}</p>
                                 <p class="text-slate-400 text-sm mt-1">{{ $official['political_office'] ?: 'Public Official' }}</p>
@@ -154,7 +163,26 @@
                                     @if(!empty($official['state']))
                                         <p>State: {{ $official['state'] }}</p>
                                     @endif
-                                    <p>Source: Google Civic</p>
+                                    <p>Source: {{ $officialSourceLabel }}</p>
+                                    @if(!empty($official['discovery_links']['wikipedia']) || !empty($official['discovery_links']['youtube']) || !empty($official['discovery_links']['cspan']))
+                                        <div class="pt-1 flex flex-wrap gap-3">
+                                            @if(!empty($official['discovery_links']['wikipedia']))
+                                                <a href="{{ $official['discovery_links']['wikipedia'] }}" target="_blank" rel="noopener" class="inline-block text-emerald-400 hover:text-emerald-300">
+                                                    Wikipedia
+                                                </a>
+                                            @endif
+                                            @if(!empty($official['discovery_links']['youtube']))
+                                                <a href="{{ $official['discovery_links']['youtube'] }}" target="_blank" rel="noopener" class="inline-block text-emerald-400 hover:text-emerald-300">
+                                                    YouTube
+                                                </a>
+                                            @endif
+                                            @if(!empty($official['discovery_links']['cspan']))
+                                                <a href="{{ $official['discovery_links']['cspan'] }}" target="_blank" rel="noopener" class="inline-block text-emerald-400 hover:text-emerald-300">
+                                                    C-SPAN
+                                                </a>
+                                            @endif
+                                        </div>
+                                    @endif
                                     @if(!empty($official['website']))
                                         <a href="{{ $official['website'] }}" target="_blank" rel="noopener" class="inline-block text-emerald-400 hover:text-emerald-300">
                                             Official website ->
