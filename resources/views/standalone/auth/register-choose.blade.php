@@ -30,11 +30,18 @@
         <p class="mt-2 text-slate-400">Choose your account type to get started. Each portal is tailored to your role.</p>
     </div>
 
+    @if(!empty($referralCode))
+        <div class="mb-6 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-center">
+            <p class="text-sm font-semibold text-emerald-300">You were invited to join U9itus.</p>
+            <p class="mt-1 text-xs text-slate-300">Referral code: <span class="font-semibold text-white">{{ $referralCode }}</span></p>
+        </div>
+    @endif
+
     {{-- Role choice cards --}}
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
 
         {{-- Politician card --}}
-        <a href="{{ route('register.politician') }}"
+        <a href="{{ !empty($referralCode) ? route('register.politician', ['ref' => $referralCode]) : route('register.politician') }}"
            class="group block bg-slate-800/60 border border-slate-700/50 hover:border-emerald-500/60 rounded-2xl p-8 shadow-2xl transition-all duration-200 hover:-translate-y-1 hover:shadow-emerald-500/10">
             <div class="text-5xl mb-4">🏛️</div>
             <h2 class="text-xl font-semibold text-white mb-2 group-hover:text-emerald-400 transition-colors">Politician / Candidate</h2>
@@ -54,7 +61,7 @@
         </a>
 
         {{-- Voter card --}}
-        <a href="{{ route('register.voter') }}"
+        <a href="{{ !empty($referralCode) ? route('register.voter', ['ref' => $referralCode]) : route('register.voter') }}"
            class="group block bg-slate-800/60 border border-slate-700/50 hover:border-blue-500/60 rounded-2xl p-8 shadow-2xl transition-all duration-200 hover:-translate-y-1 hover:shadow-blue-500/10">
             <div class="text-5xl mb-4">🗳️</div>
             <h2 class="text-xl font-semibold text-white mb-2 group-hover:text-blue-400 transition-colors">Voter / Citizen</h2>

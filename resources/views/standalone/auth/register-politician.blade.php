@@ -36,6 +36,13 @@
         </div>
     </div>
 
+    @if(!empty($referralCode))
+        <div class="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 mb-4">
+            <p class="text-xs font-semibold uppercase tracking-wide text-emerald-300">Referral Applied</p>
+            <p class="mt-1 text-sm text-slate-200">You were invited to join U9itus with code <span class="font-semibold text-white">{{ $referralCode }}</span>.</p>
+        </div>
+    @endif
+
     <div class="bg-slate-800/60 border border-emerald-500/20 rounded-2xl p-8 shadow-2xl">
 
         @if($errors->any())
@@ -52,7 +59,7 @@
             @csrf
 
             {{-- Capture referral code from ?ref= query param --}}
-            <input type="hidden" name="referral_code" value="{{ request()->query('ref', old('referral_code')) }}">
+            <input type="hidden" name="referral_code" value="{{ old('referral_code', $referralCode ?? request()->query('ref')) }}">
 
             <div class="pb-4 border-b border-slate-700/50">
                 <p class="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-4">Account Credentials</p>

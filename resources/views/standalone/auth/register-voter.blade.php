@@ -36,6 +36,13 @@
         </div>
     </div>
 
+    @if(!empty($referralCode))
+        <div class="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 mb-4">
+            <p class="text-xs font-semibold uppercase tracking-wide text-emerald-300">Referral Applied</p>
+            <p class="mt-1 text-sm text-slate-200">You were invited to join U9itus with code <span class="font-semibold text-white">{{ $referralCode }}</span>.</p>
+        </div>
+    @endif
+
     {{-- Earnings callout --}}
     <div class="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4 mb-4">
         <p class="text-blue-300 font-semibold text-sm mb-3 flex items-center gap-2">💰 How you earn on U9itus</p>
@@ -164,7 +171,7 @@
             {{-- Optional referral code --}}
             <div>
                 <label for="referral_code" class="block text-sm font-medium text-slate-300 mb-1.5">Referral code <span class="text-slate-500">(optional)</span></label>
-                <input id="referral_code" type="text" name="referral_code" value="{{ old('referral_code', request('ref')) }}"
+                <input id="referral_code" type="text" name="referral_code" value="{{ old('referral_code', $referralCode ?? request('ref')) }}"
                     class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition"
                     placeholder="e.g. JANE2024" />
             </div>

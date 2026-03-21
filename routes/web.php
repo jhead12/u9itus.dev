@@ -43,7 +43,12 @@ require __DIR__.'/standalone.php';
 */
 
 Route::get('/', function () {
-    return view('welcome');
+    $referralCode = request()->session()->get('referral.code')
+        ?: request()->cookie('u9_referral_code');
+
+    return view('welcome', [
+        'referralCode' => $referralCode,
+    ]);
 });
 
 Route::get('/about', function () {

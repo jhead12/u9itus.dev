@@ -19,6 +19,10 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         // Trust Railway proxies for proper HTTPS URL generation
         $middleware->trustProxies(at: '*');
+
+        $middleware->appendToGroup('web', [
+            \App\Http\Middleware\CaptureReferralContext::class,
+        ]);
         
         $middleware->alias([
             'role'              => \Spatie\Permission\Middleware\RoleMiddleware::class,

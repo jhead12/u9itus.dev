@@ -194,18 +194,22 @@ class AuthController extends Controller
     // Registration — Role Chooser
     // -------------------------------------------------------------------------
 
-    public function showRegisterChoose()
+    public function showRegisterChoose(Request $request)
     {
-        return view('standalone.auth.register-choose');
+        return view('standalone.auth.register-choose', [
+            'referralCode' => $this->resolveIncomingReferralCode($request),
+        ]);
     }
 
     // -------------------------------------------------------------------------
     // Politician Registration
     // -------------------------------------------------------------------------
 
-    public function showRegisterPolitician()
+    public function showRegisterPolitician(Request $request)
     {
-        return view('standalone.auth.register-politician');
+        return view('standalone.auth.register-politician', [
+            'referralCode' => $this->resolveIncomingReferralCode($request),
+        ]);
     }
 
     public function registerPolitician(Request $request)
@@ -251,7 +255,7 @@ class AuthController extends Controller
         // Resolve referral code — could belong to a voter OR a politician
         $referredByVoterId      = null;
         $referredByPoliticianId = null;
-        $refCode = $request->input('referral_code') ?: $request->query('ref');
+        $refCode = $this->resolveIncomingReferralCode($request);
         if ($refCode) {
             $voterReferrer = Voter::where('referral_code', $refCode)->first();
             if ($voterReferrer) {
@@ -313,9 +317,11 @@ class AuthController extends Controller
     // Voter Registration
     // -------------------------------------------------------------------------
 
-    public function showRegisterVoter()
+    public function showRegisterVoter(Request $request)
     {
-        return view('standalone.auth.register-voter');
+        return view('standalone.auth.register-voter', [
+            'referralCode' => $this->resolveIncomingReferralCode($request),
+        ]);
     }
 
     public function registerVoter(Request $request)
@@ -348,7 +354,7 @@ class AuthController extends Controller
         // Resolve referral code — could belong to a voter OR a politician
         $referredByVoterId      = null;
         $referredByPoliticianId = null;
-        $refCode = $request->input('referral_code') ?: $request->query('ref');
+        $refCode = $this->resolveIncomingReferralCode($request);
         if ($refCode) {
             $voterReferrer = Voter::where('referral_code', $refCode)->first();
             if ($voterReferrer) {
@@ -515,6 +521,21 @@ class AuthController extends Controller
         }
 
         return redirect()->intended(route('dashboard') . '?verified=1');
+    }
+
+    private function resolveIncomingReferralCode(Request $request): ?string
+    {
+        $refCode = $request->input('referral_code')
+            ?: $request->query('ref')
+            ?: $request->query('referral_code')
+            ?: $request->session()->get('referral.code')
+            ?: $request->cookie('u9_referral_code');
+
+        if (!is_string($refCode) || trim($refCode) === '') {
+            return null;
+        }
+
+        return strtoupper(trim($refCode));
     }
 
     public function resendVerification(Request $request)

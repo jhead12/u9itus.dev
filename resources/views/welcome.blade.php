@@ -29,6 +29,10 @@
     </style>
 </head>
 <body class="bg-slate-900 text-white antialiased">
+    @php
+        $activeReferralCode = !empty($referralCode) ? strtoupper(trim($referralCode)) : null;
+    @endphp
+
     <!-- Navigation -->
     <nav class="fixed w-full z-50 bg-slate-900/90 backdrop-blur-lg border-b border-slate-800">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -50,18 +54,18 @@
                 @if (Route::has('login'))
                     <div class="flex items-center space-x-4">
                         @auth
-                            <a href="{{ url('/dashboard') }}" 
+                            <a href="{{ url('/dashboard') }}"
                                class="inline-flex items-center justify-center px-5 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-emerald-500 to-teal-500 rounded-lg hover:from-emerald-600 hover:to-teal-600 transition shadow-lg shadow-emerald-500/30">
                                 <span class="mr-2">👤</span> Dashboard
                             </a>
                         @else
-                            <a href="{{ route('login') }}" 
+                            <a href="{{ route('login') }}"
                                class="text-slate-300 hover:text-white transition text-sm font-medium">
                                 Sign In
                             </a>
                             
                             @if (Route::has('register'))
-                                <a href="{{ route('register') }}" 
+                                <a href="{{ $activeReferralCode ? route('register', ['ref' => $activeReferralCode]) : route('register') }}"
                                    class="inline-flex items-center justify-center px-5 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-emerald-500 to-teal-500 rounded-lg hover:from-emerald-600 hover:to-teal-600 transition shadow-lg shadow-emerald-500/30">
                                     Get Started
                                 </a>
@@ -101,6 +105,18 @@
                 <p class="animate-fade-in-up delay-200 opacity-0 text-xl sm:text-2xl text-slate-300 max-w-3xl mx-auto leading-relaxed">
                     Enter your address, see every candidate in your district, watch direct video introductions, and verify what they claim with trusted public data.
                 </p>
+
+                @if ($activeReferralCode)
+                    <div class="animate-fade-in-up delay-200 opacity-0 max-w-3xl mx-auto rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-6 py-5">
+                        <p class="text-xs uppercase tracking-wide font-semibold text-emerald-300">Referral Program</p>
+                        <p class="mt-2 text-base text-slate-200">You were invited by a U9itus member. Explore how the platform works before creating your account.</p>
+                        <p class="mt-2 text-sm text-slate-300">Referral code: <span class="font-semibold text-white">{{ $activeReferralCode }}</span></p>
+                        <div class="mt-4 flex flex-col sm:flex-row gap-3 justify-center">
+                            <a href="{{ route('register.voter', ['ref' => $activeReferralCode]) }}" class="inline-flex items-center justify-center px-5 py-2.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-500 rounded-lg transition">Join as Voter</a>
+                            <a href="{{ route('register.politician', ['ref' => $activeReferralCode]) }}" class="inline-flex items-center justify-center px-5 py-2.5 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-500 rounded-lg transition">Join as Politician</a>
+                        </div>
+                    </div>
+                @endif
                 
                 <div class="animate-fade-in-up delay-300 opacity-0 flex flex-col sm:flex-row items-center justify-center gap-4 pt-8">
                     <a href="{{ route('district.lookup') }}"
@@ -117,7 +133,7 @@
                     </a>
 
                     @guest
-                        <a href="{{ route('register') }}" 
+                        <a href="{{ $activeReferralCode ? route('register', ['ref' => $activeReferralCode]) : route('register') }}"
                            class="inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-white bg-slate-800 border border-slate-700 rounded-xl hover:bg-slate-700 transition">
                             Create Free Account
                             <svg class="ml-2 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -361,14 +377,14 @@
                 Researching candidates should not feel hidden, boring, or hard to access. Start by seeing who is running where you live.
             </p>
             <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
-                <a href="{{ route('district.lookup') }}" 
+                <a href="{{ route('district.lookup') }}"
                    class="inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-white bg-gradient-to-r from-emerald-500 to-teal-500 rounded-xl hover:from-emerald-600 hover:to-teal-600 transition shadow-2xl shadow-emerald-500/40 hover:shadow-emerald-500/60 hover:-translate-y-0.5 transform">
                     Find My District
                     <svg class="ml-2 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/>
                     </svg>
                 </a>
-                <a href="{{ route('politicians.directory') }}" 
+                <a href="{{ route('politicians.directory') }}"
                    class="inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-white bg-slate-800 border border-slate-700 rounded-xl hover:bg-slate-700 transition">
                     Browse Candidates
                 </a>
