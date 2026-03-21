@@ -199,6 +199,8 @@ Route::middleware(['auth', 'verified', 'check.role'])->group(function () {
         Route::post('/billing/add-funds', [PoliticianController::class, 'addFunds'])->name('billing.add-funds');
         Route::get('/billing/confirm', [PoliticianController::class, 'confirmPayment'])->name('billing.confirm');
         Route::get('/billing/invoices', [PoliticianController::class, 'invoices'])->name('billing.invoices');
+        Route::post('/billing/invoices/{transaction}/send-receipt', [PoliticianController::class, 'sendReceipt'])
+            ->name('billing.invoices.send-receipt');
         
         // Profile & Settings
         Route::get('/profile', [PoliticianController::class, 'profile'])->name('profile');

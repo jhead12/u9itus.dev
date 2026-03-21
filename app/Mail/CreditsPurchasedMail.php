@@ -16,7 +16,7 @@ class CreditsPurchasedMail extends Mailable
     public function __construct(
         public readonly User $user,
         public readonly float $amount,
-        public readonly int $credits,
+        public readonly float $credits,
         public readonly float $newBalance,
         public readonly string $transactionId = ''
     ) {

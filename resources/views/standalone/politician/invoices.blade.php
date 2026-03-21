@@ -29,6 +29,7 @@
                             <th class="text-right px-5 py-2.5 text-xs font-medium text-slate-500">Credits</th>
                             <th class="text-right px-5 py-2.5 text-xs font-medium text-slate-500">Fee</th>
                             <th class="text-right px-5 py-2.5 text-xs font-medium text-slate-500">Amount</th>
+                            <th class="text-right px-5 py-2.5 text-xs font-medium text-slate-500">Receipt</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-700/30">
@@ -74,6 +75,19 @@
                             </td>
                             <td class="px-5 py-3 text-right font-mono text-slate-200">
                                 ${{ number_format($tx->amount, 2) }}
+                            </td>
+                            <td class="px-5 py-3 text-right">
+                                @if($tx->transaction_type === 'charge' && $tx->status === 'succeeded')
+                                    <form method="POST" action="{{ route('politician.billing.invoices.send-receipt', $tx) }}">
+                                        @csrf
+                                        <button type="submit"
+                                            class="inline-flex items-center px-2.5 py-1 rounded text-xs font-medium bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition">
+                                            Send Receipt
+                                        </button>
+                                    </form>
+                                @else
+                                    <span class="text-slate-500 text-xs">—</span>
+                                @endif
                             </td>
                         </tr>
                         @endforeach

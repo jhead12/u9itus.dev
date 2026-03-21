@@ -2,12 +2,14 @@
 
 namespace App\Services;
 
+use App\Mail\CreditsPurchasedMail;
 use App\Models\CampaignTransaction;
 use App\Models\Politician;
 use App\Models\PoliticianCredit;
 use App\Models\ReferralEarning;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 class CampaignBillingService
 {
@@ -16,6 +18,40 @@ class CampaignBillingService
     public function __construct(StripePaymentService $stripe)
     {
         $this->stripe = $stripe;
+    }
+
+    /**
+     * Fallback detector that does not depend on Stripe service mocks.
+     */
+    private function configuredPaymentModeFromConfig(): string
+    {
+        $key = (string) config('services.stripe.secret', '');
+
+        if (str_starts_with($key, 'sk_live_')) {
+            return 'live';
+        }
+
+        if (str_starts_with($key, 'sk_test_')) {
+            return 'test';
+        }
+
+        return 'unknown';
+    }
+
+    /**
+     * Resolve payment mode from Stripe payload/object when livemode is present.
+     */
+    private function paymentModeFromStripePayload($payload, string $fallback): string
+    {
+        if (is_object($payload) && isset($payload->livemode)) {
+            return $payload->livemode ? 'live' : 'test';
+        }
+
+        if (is_array($payload) && array_key_exists('livemode', $payload)) {
+            return $payload['livemode'] ? 'live' : 'test';
+        }
+
+        return $fallback;
     }
 
     /**
@@ -428,7 +464,7 @@ class CampaignBillingService
         $status = 'succeeded';
         $chargeId = null;
         $amount = (float) $tx->amount;
-        $resolvedPaymentMode = $tx->metadata['payment_mode'] ?? $this->stripe->configuredMode();
+        $resolvedPaymentMode = $tx->metadata['payment_mode'] ?? $this->configuredPaymentModeFromConfig();
         $resolvedLiveMode = isset($tx->metadata['stripe_livemode'])
             ? (bool) $tx->metadata['stripe_livemode']
             : $resolvedPaymentMode === 'live';
@@ -440,7 +476,7 @@ class CampaignBillingService
                     $obj = $event->data->object ?? null;
                     if ($obj) {
                         $amount = isset($obj->amount) ? ((float) $obj->amount) / 100.0 : $amount;
-                        $resolvedPaymentMode = $this->stripe->modeFromStripeObject($obj, $resolvedPaymentMode);
+                        $resolvedPaymentMode = $this->paymentModeFromStripePayload($obj, $resolvedPaymentMode);
                         $resolvedLiveMode = $resolvedPaymentMode === 'live';
                         // charges is a nested object
                         if (isset($obj->charges) && isset($obj->charges->data[0]->id)) {
@@ -454,7 +490,7 @@ class CampaignBillingService
                     $obj = $event['data']['object'] ?? null;
                     if ($obj) {
                         $amount = isset($obj['amount']) ? ((float) $obj['amount']) / 100.0 : $amount;
-                        $resolvedPaymentMode = $this->stripe->modeFromStripeObject($obj, $resolvedPaymentMode);
+                        $resolvedPaymentMode = $this->paymentModeFromStripePayload($obj, $resolvedPaymentMode);
                         $resolvedLiveMode = $resolvedPaymentMode === 'live';
                         if (!empty($obj['charges']['data'][0]['id'])) {
                             $chargeId = $obj['charges']['data'][0]['id'];
@@ -519,6 +555,73 @@ class CampaignBillingService
 
         Log::info('Finalized PaymentIntent', ['payment_intent' => $paymentIntentId, 'tx_id' => $tx->id, 'status' => $status]);
 
+        // Send purchase receipt email (best-effort) after transaction commit.
+        if ($status === 'succeeded') {
+            $this->sendCreditsPurchaseReceiptForTransaction($tx);
+        }
+
         return $tx;
+    }
+
+    /**
+     * Send credit purchase receipt for a succeeded charge transaction.
+     * Returns true when delivery was attempted successfully.
+     */
+    public function sendCreditsPurchaseReceiptForTransaction(CampaignTransaction $tx): bool
+    {
+        if ($tx->transaction_type !== 'charge' || $tx->status !== 'succeeded') {
+            return false;
+        }
+
+        if (! $tx->politician_id) {
+            return false;
+        }
+
+        $politician = Politician::with('user')->find($tx->politician_id);
+        if (! $politician || ! $politician->user || ! $politician->user->email) {
+            return false;
+        }
+
+        $creditsAmount = isset($tx->metadata['credits_amount'])
+            ? (float) $tx->metadata['credits_amount']
+            : (float) $tx->amount;
+
+        // Balance right after this purchase credit entry.
+        $newBalance = (float) (PoliticianCredit::query()
+            ->where('politician_id', $politician->id)
+            ->where('transaction_type', 'purchase')
+            ->where('related_transaction_id', $tx->id)
+            ->value('balance_after')
+            ?? PoliticianCredit::query()
+                ->where('politician_id', $politician->id)
+                ->orderByDesc('created_at')
+                ->value('balance_after')
+            ?? 0.0);
+
+        try {
+            Mail::to($politician->user->email)->send(new CreditsPurchasedMail(
+                user: $politician->user,
+                amount: (float) $tx->amount,
+                credits: $creditsAmount,
+                newBalance: $newBalance,
+                transactionId: (string) ($tx->uuid ?? $tx->id),
+            ));
+
+            Log::info('Sent credits purchase receipt email', [
+                'transaction_id' => $tx->id,
+                'politician_id' => $politician->id,
+                'email' => $politician->user->email,
+            ]);
+
+            return true;
+        } catch (\Throwable $e) {
+            Log::warning('Failed to send credits purchase receipt email', [
+                'transaction_id' => $tx->id,
+                'politician_id' => $politician->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return false;
+        }
     }
 }

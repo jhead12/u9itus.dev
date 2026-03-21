@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use App\Services\CampaignBillingService;
 
 /**
  * Standalone Politician Controller
@@ -572,6 +573,27 @@ class PoliticianController extends Controller
             ->paginate(25);
 
         return view('standalone.politician.invoices', compact('politician', 'transactions'));
+    }
+
+    /**
+     * Re-send receipt email for a past succeeded credit-purchase transaction.
+     */
+    public function sendReceipt(CampaignTransaction $transaction, CampaignBillingService $billingService)
+    {
+        $politician = Auth::user()->politician;
+        abort_unless($politician && (int) $transaction->politician_id === (int) $politician->id, 403);
+
+        if ($transaction->transaction_type !== 'charge' || $transaction->status !== 'succeeded') {
+            return back()->withErrors(['receipt' => 'Receipts are available only for succeeded credit purchases.']);
+        }
+
+        $sent = $billingService->sendCreditsPurchaseReceiptForTransaction($transaction);
+
+        if (! $sent) {
+            return back()->withErrors(['receipt' => 'Unable to send receipt right now. Please try again later.']);
+        }
+
+        return back()->with('success', 'Receipt email sent successfully.');
     }
 
     /**

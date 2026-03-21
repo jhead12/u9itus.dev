@@ -56,20 +56,20 @@
       <div class="amount-hero">
         <div class="label">Credits Purchased</div>
         <div class="value">{{ number_format($credits) }}</div>
-        <div class="sub">views · ${{ number_format($amount, 2) }} charged</div>
+        <div class="sub">credits · ${{ number_format($amount, 2) }} charged</div>
       </div>
 
       <div class="info-box">
         <div class="info-row">
           <span class="info-label">Credits Purchased</span>
-          <span class="info-value">{{ number_format($credits) }} views</span>
+          <span class="info-value">{{ number_format($credits) }} credits</span>
         </div>
         <div class="info-row">
           <span class="info-label">Amount Charged</span>
           <span class="info-value">${{ number_format($amount, 2) }}</span>
         </div>
         <div class="info-row">
-          <span class="info-label">Cost Per View</span>
+          <span class="info-label">Cost Per Credit</span>
           <span class="info-value">${{ $credits > 0 ? number_format($amount / $credits, 4) : '—' }}</span>
         </div>
         <div class="info-row">

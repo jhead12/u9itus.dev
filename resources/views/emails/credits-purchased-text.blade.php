@@ -6,9 +6,9 @@ Hi {{ $user->first_name ?? $user->name }},
 Your payment was processed successfully. Your campaign view credits
 have been added to your balance and are ready to use.
 
-  Credits Purchased : {{ number_format($credits) }} views
+  Credits Purchased : {{ number_format($credits) }} credits
   Amount Charged    : ${{ number_format($amount, 2) }}
-  Cost Per View     : ${{ $credits > 0 ? number_format($amount / $credits, 4) : '—' }}
+  Cost Per Credit   : ${{ $credits > 0 ? number_format($amount / $credits, 4) : '—' }}
   New Balance       : ${{ number_format($newBalance, 2) }}
 @if($transactionId)
   Transaction ID    : {{ $transactionId }}
