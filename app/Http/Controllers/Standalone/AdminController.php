@@ -16,6 +16,7 @@ use App\Mail\KycApprovedMail;
 use App\Mail\KycRejectedMail;
 use App\Models\AdminSecurityAuditLog;
 use App\Models\CampaignAuditLog;
+use App\Models\CampaignTransaction;
 use App\Models\EmailTemplate;
 use App\Models\PoliticalCampaign;
 use App\Models\Politician;
@@ -23,6 +24,7 @@ use App\Models\User;
 use App\Models\ViewSession;
 use App\Models\Voter;
 use App\Services\AdminTwoFactorService;
+use App\Services\CampaignBillingService;
 use App\Services\PlatformSettingsService;
 use Illuminate\Http\Request;
 use Illuminate\Database\Eloquent\Builder;
@@ -737,6 +739,64 @@ class AdminController extends Controller
             $results['total_paid'],
             $results['skipped'],
         ));
+    }
+
+    /**
+     * Refund only UNUSED credits for a succeeded politician purchase transaction.
+     */
+    public function refundUnusedCredits(Request $request, CampaignTransaction $transaction, CampaignBillingService $billingService)
+    {
+        $request->validate([
+            'credits_amount' => ['nullable', 'numeric', 'gt:0'],
+            'reason' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $admin = $request->user();
+        $requestedCredits = $request->filled('credits_amount')
+            ? (float) $request->input('credits_amount')
+            : null;
+        $reason = $request->input('reason');
+
+        try {
+            $summary = $billingService->getUnusedRefundSummary($transaction);
+            $refundTx = $billingService->refundUnusedCredits(
+                $transaction,
+                (int) $admin->id,
+                $requestedCredits,
+                $reason
+            );
+
+            AdminSecurityAuditLog::record(
+                $admin,
+                'admin.refund.unused_credits.success',
+                [
+                    'purchase_transaction_id' => $transaction->id,
+                    'refund_transaction_id' => $refundTx->id,
+                    'requested_credits' => $requestedCredits,
+                    'max_refundable_before' => $summary['refundable_credits_now'] ?? null,
+                ],
+                $request
+            );
+
+            $refundedCredits = (float) ($refundTx->metadata['refunded_credits_amount'] ?? 0);
+            return back()->with('success', sprintf(
+                'Refund created successfully. Refunded %.2f unused credits.',
+                $refundedCredits
+            ));
+        } catch (\Throwable $e) {
+            AdminSecurityAuditLog::record(
+                $admin,
+                'admin.refund.unused_credits.failed',
+                [
+                    'purchase_transaction_id' => $transaction->id,
+                    'requested_credits' => $requestedCredits,
+                    'error' => $e->getMessage(),
+                ],
+                $request
+            );
+
+            return back()->withErrors(['refund' => $e->getMessage()]);
+        }
     }
 
     // ── KYC Management ──────────────────────────────────────────────────────

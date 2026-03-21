@@ -327,6 +327,10 @@ Route::middleware(['auth', 'verified', 'check.role'])->group(function () {
         Route::get('/payouts', [AdminController::class, 'payouts'])->name('payouts.index');
         Route::get('/payouts/pending', [AdminController::class, 'pendingPayouts'])->name('payouts.pending');
         Route::post('/payouts/batch-process', [AdminController::class, 'processBatchPayouts'])->name('payouts.batch');
+
+        // Billing Refunds (unused politician credits only)
+        Route::post('/billing/transactions/{transaction}/refund-unused', [AdminController::class, 'refundUnusedCredits'])
+            ->name('billing.refund-unused');
         
         // Analytics & Reports
         Route::get('/analytics', [AdminController::class, 'analytics'])->name('analytics');

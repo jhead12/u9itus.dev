@@ -178,4 +178,25 @@ class StripePaymentService
 
         return $fallback ?? $this->configuredMode();
     }
+
+    /**
+     * Create a Stripe refund by PaymentIntent id.
+     */
+    public function createRefundForPaymentIntent(string $paymentIntentId, float $amount, array $metadata = [])
+    {
+        if (! $this->client) {
+            throw new \LogicException('Stripe SDK not available. Run `composer require stripe/stripe-php`.');
+        }
+
+        $amountCents = (int) round($amount * 100);
+        if ($amountCents <= 0) {
+            throw new \InvalidArgumentException('Refund amount must be greater than zero.');
+        }
+
+        return $this->client->refunds->create([
+            'payment_intent' => $paymentIntentId,
+            'amount' => $amountCents,
+            'metadata' => $metadata,
+        ]);
+    }
 }

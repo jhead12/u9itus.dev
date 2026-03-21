@@ -31,6 +31,7 @@ class CampaignBillingService
             'currency' => $data['currency'] ?? 'USD',
             'stripe_payment_intent_id' => $data['stripe_payment_intent_id'] ?? null,
             'stripe_charge_id' => $data['stripe_charge_id'] ?? null,
+            'stripe_refund_id' => $data['stripe_refund_id'] ?? null,
             'status' => $data['status'] ?? 'pending',
             'description' => $data['description'] ?? null,
             'metadata' => $data['metadata'] ?? null,
@@ -236,6 +237,174 @@ class CampaignBillingService
         }
 
         return $result;
+    }
+
+    /**
+     * Get refundability summary for an already-succeeded purchase transaction.
+     *
+     * Refund cap is constrained by BOTH:
+     *  1) remaining credits from this original purchase (purchased - already refunded)
+     *  2) politician's currently available on-platform balance (unused credits)
+     */
+    public function getUnusedRefundSummary(CampaignTransaction $purchaseTx): array
+    {
+        if ($purchaseTx->transaction_type !== 'charge' || $purchaseTx->status !== 'succeeded') {
+            throw new \InvalidArgumentException('Only succeeded charge transactions are refundable.');
+        }
+
+        if (!$purchaseTx->politician_id) {
+            throw new \InvalidArgumentException('Purchase transaction has no associated politician.');
+        }
+
+        $creditsPurchased = isset($purchaseTx->metadata['credits_amount'])
+            ? (float) $purchaseTx->metadata['credits_amount']
+            : (float) $purchaseTx->amount;
+
+        if ($creditsPurchased <= 0) {
+            throw new \InvalidArgumentException('Purchase transaction has invalid credits amount.');
+        }
+
+        $currentBalance = (float) (PoliticianCredit::where('politician_id', $purchaseTx->politician_id)
+            ->orderByDesc('created_at')
+            ->value('balance_after') ?? 0.00);
+
+        $refundRows = CampaignTransaction::query()
+            ->where('transaction_type', 'refund')
+            ->whereIn('status', ['pending', 'succeeded'])
+            ->where('metadata->original_transaction_id', (int) $purchaseTx->id)
+            ->get(['amount', 'metadata']);
+
+        $alreadyRefundedCredits = 0.0;
+        $alreadyRefundedGross = 0.0;
+        foreach ($refundRows as $row) {
+            $alreadyRefundedCredits += isset($row->metadata['refunded_credits_amount'])
+                ? (float) $row->metadata['refunded_credits_amount']
+                : 0.0;
+            $alreadyRefundedGross += (float) $row->amount;
+        }
+
+        $remainingByPurchase = max(0.0, round($creditsPurchased - $alreadyRefundedCredits, 2));
+        $refundableCreditsNow = max(0.0, round(min($remainingByPurchase, max(0.0, $currentBalance)), 2));
+
+        return [
+            'credits_purchased' => round($creditsPurchased, 2),
+            'current_balance' => round($currentBalance, 2),
+            'already_refunded_credits' => round($alreadyRefundedCredits, 2),
+            'already_refunded_gross' => round($alreadyRefundedGross, 2),
+            'remaining_by_purchase' => round($remainingByPurchase, 2),
+            'refundable_credits_now' => round($refundableCreditsNow, 2),
+        ];
+    }
+
+    /**
+     * Process admin refund for unused credits tied to a politician purchase.
+     */
+    public function refundUnusedCredits(
+        CampaignTransaction $purchaseTx,
+        int $adminId,
+        ?float $requestedCredits = null,
+        ?string $reason = null
+    ): CampaignTransaction {
+        if (empty($purchaseTx->stripe_payment_intent_id)) {
+            throw new \InvalidArgumentException('Purchase transaction is missing Stripe payment intent id.');
+        }
+
+        $summary = $this->getUnusedRefundSummary($purchaseTx);
+        $maxRefundableCredits = (float) $summary['refundable_credits_now'];
+
+        if ($maxRefundableCredits <= 0) {
+            throw new \LogicException('No unused credits are available to refund.');
+        }
+
+        $creditsToRefund = $requestedCredits === null
+            ? $maxRefundableCredits
+            : round((float) $requestedCredits, 2);
+
+        if ($creditsToRefund <= 0) {
+            throw new \InvalidArgumentException('Refund credits must be greater than zero.');
+        }
+
+        if ($creditsToRefund > $maxRefundableCredits) {
+            throw new \InvalidArgumentException('Requested refund exceeds unused refundable credits.');
+        }
+
+        $purchaseGross = (float) $purchaseTx->amount;
+        $creditsPurchased = (float) $summary['credits_purchased'];
+        $remainingGross = max(0.0, round($purchaseGross - (float) $summary['already_refunded_gross'], 2));
+        $grossPerCredit = $creditsPurchased > 0 ? ($purchaseGross / $creditsPurchased) : 0.0;
+        $grossToRefund = round($creditsToRefund * $grossPerCredit, 2);
+        $grossToRefund = min($grossToRefund, $remainingGross);
+
+        if ($grossToRefund <= 0) {
+            throw new \LogicException('Unable to compute refundable gross amount.');
+        }
+
+        $paymentMode = $purchaseTx->metadata['payment_mode'] ?? $this->stripe->configuredMode();
+        $stripeRefund = $this->stripe->createRefundForPaymentIntent(
+            $purchaseTx->stripe_payment_intent_id,
+            $grossToRefund,
+            [
+                'source' => 'admin_unused_credits_refund',
+                'original_transaction_id' => (string) $purchaseTx->id,
+                'admin_id' => (string) $adminId,
+            ]
+        );
+
+        $refundStatus = (string) ($stripeRefund->status ?? 'pending');
+        if (in_array($refundStatus, ['failed', 'canceled'], true)) {
+            throw new \LogicException('Stripe refund failed: ' . $refundStatus);
+        }
+
+        return DB::transaction(function () use (
+            $purchaseTx,
+            $adminId,
+            $reason,
+            $creditsToRefund,
+            $grossToRefund,
+            $paymentMode,
+            $stripeRefund,
+            $refundStatus
+        ): CampaignTransaction {
+            $refundTx = $this->recordTransaction([
+                'campaign_id' => null,
+                'politician_id' => $purchaseTx->politician_id,
+                'transaction_type' => 'refund',
+                'amount' => $grossToRefund,
+                'currency' => $purchaseTx->currency ?: 'USD',
+                'stripe_payment_intent_id' => $purchaseTx->stripe_payment_intent_id,
+                'stripe_refund_id' => $stripeRefund->id ?? null,
+                'status' => $refundStatus === 'succeeded' ? 'succeeded' : 'pending',
+                'description' => 'Admin refund for unused credits',
+                'metadata' => [
+                    'original_transaction_id' => $purchaseTx->id,
+                    'refunded_credits_amount' => $creditsToRefund,
+                    'refunded_gross_amount' => $grossToRefund,
+                    'reason' => $reason,
+                    'admin_id' => $adminId,
+                    'payment_mode' => $paymentMode,
+                    'stripe_livemode' => $paymentMode === 'live',
+                ],
+            ]);
+
+            // Deduct refunded credits from on-platform wallet balance.
+            $politician = Politician::findOrFail((int) $purchaseTx->politician_id);
+            $this->addCredits($politician, -$creditsToRefund, [
+                'transaction_type' => 'refund',
+                'related_transaction_id' => $refundTx->id,
+                'description' => 'Admin refund of unused credits',
+                'metadata' => [
+                    'original_transaction_id' => $purchaseTx->id,
+                    'stripe_refund_id' => $stripeRefund->id ?? null,
+                    'refunded_credits_amount' => $creditsToRefund,
+                    'reason' => $reason,
+                    'admin_id' => $adminId,
+                    'payment_mode' => $paymentMode,
+                    'stripe_livemode' => $paymentMode === 'live',
+                ],
+            ]);
+
+            return $refundTx;
+        });
     }
 
     /**
