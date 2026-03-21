@@ -10,6 +10,14 @@
         <a href="{{ route('politician.billing') }}" class="text-sm text-slate-400 hover:text-white transition">← Billing</a>
     </div>
 
+    @if(!empty($activePaymentMode))
+    <div class="bg-blue-500/10 border border-blue-500/30 rounded-xl px-5 py-3">
+        <p class="text-sm text-blue-300">
+            Invoices filtered to <span class="font-semibold uppercase">{{ $activePaymentMode }}</span> mode transactions.
+        </p>
+    </div>
+    @endif
+
     <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl overflow-hidden">
         <div class="px-5 py-4 border-b border-slate-700/50">
             <h3 class="text-sm font-semibold text-slate-200">All Transactions</h3>

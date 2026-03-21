@@ -6,6 +6,14 @@
 @section('content')
 <div class="space-y-6">
 
+    @if(!empty($activePaymentMode))
+    <div class="bg-blue-500/10 border border-blue-500/30 rounded-xl px-5 py-3 flex items-center justify-between">
+        <p class="text-sm text-blue-300">
+            Billing view filtered to <span class="font-semibold uppercase">{{ $activePaymentMode }}</span> mode transactions.
+        </p>
+    </div>
+    @endif
+
     {{-- Payment result notices — shown after Stripe redirect + server-side confirmation --}}
     <div id="notice-success" class="{{ session('payment_confirmed') ? '' : 'hidden' }} bg-emerald-500/10 border border-emerald-500/30 rounded-xl px-5 py-4 flex items-center gap-3">
         <svg class="w-5 h-5 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>

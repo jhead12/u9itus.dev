@@ -10,6 +10,7 @@ use App\Models\CampaignTransaction;
 use App\Models\PoliticalCampaign;
 use App\Models\Politician;
 use App\Models\PoliticianCredit;
+use App\Services\StripePaymentService;
 use App\Services\PlatformSettingsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -29,6 +30,27 @@ use App\Services\CampaignBillingService;
  */
 class PoliticianController extends Controller
 {
+    /**
+     * Active app payment mode derived from configured Stripe secret.
+     */
+    private function activePaymentMode(): ?string
+    {
+        $mode = app(StripePaymentService::class)->configuredMode();
+        return in_array($mode, ['live', 'test'], true) ? $mode : null;
+    }
+
+    /**
+     * Apply mode-aware filter to ledger/transaction style queries.
+     */
+    private function applyPaymentModeFilter($query, ?string $mode)
+    {
+        if (! $mode) {
+            return $query;
+        }
+
+        return $query->where('metadata->payment_mode', $mode);
+    }
+
     /**
      * Show the politician dashboard.
      */
@@ -468,17 +490,25 @@ class PoliticianController extends Controller
         $politician = Auth::user()->politician;
         abort_unless($politician, 403);
 
-        $creditBalance = PoliticianCredit::where('politician_id', $politician->id)
-            ->orderByDesc('created_at')->value('balance_after') ?? 0.00;
+        $activePaymentMode = $this->activePaymentMode();
 
-        $credits = PoliticianCredit::where('politician_id', $politician->id)
-            ->orderByDesc('created_at')->paginate(15);
+        $creditBalance = (float) $this->applyPaymentModeFilter(
+            PoliticianCredit::where('politician_id', $politician->id),
+            $activePaymentMode
+        )->sum('amount');
 
-        $transactions = CampaignTransaction::where('politician_id', $politician->id)
-            ->orderByDesc('created_at')->paginate(15);
+        $credits = $this->applyPaymentModeFilter(
+            PoliticianCredit::where('politician_id', $politician->id),
+            $activePaymentMode
+        )->orderByDesc('created_at')->paginate(15);
+
+        $transactions = $this->applyPaymentModeFilter(
+            CampaignTransaction::where('politician_id', $politician->id),
+            $activePaymentMode
+        )->orderByDesc('created_at')->paginate(15);
 
         return view('standalone.politician.billing', compact(
-            'politician', 'creditBalance', 'credits', 'transactions'
+            'politician', 'creditBalance', 'credits', 'transactions', 'activePaymentMode'
         ));
     }
 
@@ -568,11 +598,15 @@ class PoliticianController extends Controller
         $politician = Auth::user()->politician;
         abort_unless($politician, 403);
 
-        $transactions = CampaignTransaction::where('politician_id', $politician->id)
-            ->orderByDesc('created_at')
-            ->paginate(25);
+        $activePaymentMode = $this->activePaymentMode();
 
-        return view('standalone.politician.invoices', compact('politician', 'transactions'));
+        $transactions = $this->applyPaymentModeFilter(
+            CampaignTransaction::where('politician_id', $politician->id),
+            $activePaymentMode
+        )->orderByDesc('created_at')
+         ->paginate(25);
+
+        return view('standalone.politician.invoices', compact('politician', 'transactions', 'activePaymentMode'));
     }
 
     /**
@@ -582,6 +616,12 @@ class PoliticianController extends Controller
     {
         $politician = Auth::user()->politician;
         abort_unless($politician && (int) $transaction->politician_id === (int) $politician->id, 403);
+
+        $activePaymentMode = $this->activePaymentMode();
+        $txMode = $transaction->metadata['payment_mode'] ?? null;
+        if ($activePaymentMode && $txMode && $txMode !== $activePaymentMode) {
+            return back()->withErrors(['receipt' => 'Transaction is outside the active payment mode view.']);
+        }
 
         if ($transaction->transaction_type !== 'charge' || $transaction->status !== 'succeeded') {
             return back()->withErrors(['receipt' => 'Receipts are available only for succeeded credit purchases.']);
