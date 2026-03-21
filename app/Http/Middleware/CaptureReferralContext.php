@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Models\Politician;
+use App\Models\ReferralVisit;
 use App\Models\Voter;
 use Closure;
 use Illuminate\Http\Request;
@@ -25,6 +26,7 @@ class CaptureReferralContext
             if ($this->hasValidFormat($normalizedCode) && $this->referralExists($normalizedCode)) {
                 $request->session()->put(self::SESSION_KEY, $normalizedCode);
                 Cookie::queue($this->makeCookie($normalizedCode, $request));
+                $this->trackReferralVisit($request, $normalizedCode);
             } else {
                 // Invalid or unknown code should never block browsing.
                 $request->session()->forget(self::SESSION_KEY);
@@ -69,5 +71,38 @@ class CaptureReferralContext
             false,
             'lax'
         );
+    }
+
+    private function trackReferralVisit(Request $request, string $code): void
+    {
+        $sessionId = $request->session()->getId();
+
+        if (!is_string($sessionId) || $sessionId === '') {
+            return;
+        }
+
+        $referrerVoter = Voter::select('id')->where('referral_code', $code)->first();
+        $referrerPolitician = null;
+
+        if (!$referrerVoter) {
+            $referrerPolitician = Politician::select('id')->where('referral_code', $code)->first();
+        }
+
+        $now = now();
+
+        $visit = ReferralVisit::firstOrNew([
+            'referral_code' => $code,
+            'session_id' => $sessionId,
+        ]);
+
+        if (!$visit->exists) {
+            $visit->first_seen_at = $now;
+            $visit->referrer_voter_id = $referrerVoter?->id;
+            $visit->referrer_politician_id = $referrerPolitician?->id;
+            $visit->landing_path = $request->fullUrl();
+        }
+
+        $visit->last_seen_at = $now;
+        $visit->save();
     }
 }

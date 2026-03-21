@@ -9,6 +9,7 @@ use App\Models\Voter;
 use App\Mail\AdminNewUserNotificationMail;
 use App\Mail\WelcomeMail;
 use App\Models\AdminSecurityAuditLog;
+use App\Models\ReferralVisit;
 use App\Services\AdminTwoFactorService;
 use App\Services\PlatformSettingsService;
 use App\Services\UnclaimedPoliticianProfileService;
@@ -281,6 +282,8 @@ class AuthController extends Controller
         app(UnclaimedPoliticianProfileService::class)
             ->claimOrCreate($user, $politicianPayload);
 
+        $this->markReferralConversion($request, $refCode, $user);
+
         event(new Registered($user));
 
         // Send welcome email (non-fatal if SMTP not yet configured)
@@ -395,6 +398,8 @@ class AuthController extends Controller
             ['email' => $user->email],
             array_merge($voterPayload, ['user_id' => $user->id])
         );
+
+        $this->markReferralConversion($request, $refCode, $user);
 
         event(new Registered($user));
 
@@ -536,6 +541,41 @@ class AuthController extends Controller
         }
 
         return strtoupper(trim($refCode));
+    }
+
+    private function markReferralConversion(Request $request, ?string $refCode, User $user): void
+    {
+        if (!is_string($refCode) || trim($refCode) === '') {
+            return;
+        }
+
+        $sessionId = $request->session()->getId();
+
+        if (!is_string($sessionId) || $sessionId === '') {
+            return;
+        }
+
+        $visit = ReferralVisit::where('referral_code', strtoupper(trim($refCode)))
+            ->where('session_id', $sessionId)
+            ->latest('id')
+            ->first();
+
+        if (!$visit) {
+            $visit = ReferralVisit::where('referral_code', strtoupper(trim($refCode)))
+                ->whereNull('converted_user_id')
+                ->latest('id')
+                ->first();
+        }
+
+        if (!$visit || $visit->converted_user_id) {
+            return;
+        }
+
+        $visit->update([
+            'converted_user_id' => $user->id,
+            'converted_user_type' => $user->user_type,
+            'converted_at' => now(),
+        ]);
     }
 
     public function resendVerification(Request $request)

@@ -83,6 +83,25 @@
         </div>
     </div>
 
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div class="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-4">
+            <p class="text-slate-400 text-xs font-medium uppercase tracking-wide">Referral Visits</p>
+            <p class="text-xl font-bold text-white mt-2">{{ number_format($totalReferralVisits) }}</p>
+        </div>
+        <div class="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-4">
+            <p class="text-slate-400 text-xs font-medium uppercase tracking-wide">Unique Visitors</p>
+            <p class="text-xl font-bold text-white mt-2">{{ number_format($uniqueReferralVisitors) }}</p>
+        </div>
+        <div class="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-4">
+            <p class="text-slate-400 text-xs font-medium uppercase tracking-wide">Conversions</p>
+            <p class="text-xl font-bold text-emerald-400 mt-2">{{ number_format($referralConversions) }}</p>
+        </div>
+        <div class="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-4">
+            <p class="text-slate-400 text-xs font-medium uppercase tracking-wide">Conversion Rate</p>
+            <p class="text-xl font-bold text-emerald-400 mt-2">{{ number_format($referralConversionRate, 1) }}%</p>
+        </div>
+    </div>
+
     {{-- ── Share Links ───────────────────────────────────────────── --}}
     <div class="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-6 space-y-6">
         <h2 class="text-base font-semibold text-white">Your Referral Links</h2>

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Standalone;
 use App\Http\Controllers\Controller;
 use App\Models\AdViewToken;
 use App\Models\PoliticalCampaign;
+use App\Models\ReferralVisit;
 use App\Models\Voter;
 use App\Models\ViewSession;
 use App\Services\PlatformSettingsService;
@@ -638,10 +639,23 @@ class VoterController extends Controller
         $totalReferralEarnings  = (float) $voter->referralEarnings()->voterViews()->sum('commission_amount');
         $totalProcurementEarnings = (float) $voter->referralEarnings()->procurements()->sum('commission_amount');
 
+        $visitQuery = ReferralVisit::where('referrer_voter_id', $voter->id);
+        $totalReferralVisits = (clone $visitQuery)->count();
+        $uniqueReferralVisitors = (clone $visitQuery)
+            ->whereNotNull('session_id')
+            ->distinct('session_id')
+            ->count('session_id');
+        $referralConversions = (clone $visitQuery)->whereNotNull('converted_at')->count();
+        $referralConversionRate = $totalReferralVisits > 0
+            ? round(($referralConversions / $totalReferralVisits) * 100, 1)
+            : 0.0;
+
         return view('standalone.voter.referrals', compact(
             'voter', 'referrals', 'referredPoliticians',
             'referralEarnings', 'procurementEarnings',
-            'totalReferralEarnings', 'totalProcurementEarnings'
+            'totalReferralEarnings', 'totalProcurementEarnings',
+            'totalReferralVisits', 'uniqueReferralVisitors',
+            'referralConversions', 'referralConversionRate'
         ));
     }
 

@@ -1,23 +1,30 @@
 <?php
 
 use App\Models\Politician;
+use App\Models\ReferralVisit;
 use App\Models\User;
 use App\Models\Voter;
 use Spatie\Permission\Models\Role;
 
 const TEST_PASSWORD = 'Password123!';
+const REF_QUERY_PREFIX = '/?ref=';
 
 test('home page shows referral program message for valid referral code', function () {
     $referrer = Voter::factory()->create([
         'referral_code' => 'INVITE123',
     ]);
 
-    $response = $this->get('/?ref='.$referrer->referral_code);
+    $response = $this->get(REF_QUERY_PREFIX.$referrer->referral_code);
 
     $response->assertOk();
     $response->assertSee('You were invited by a U9itus member.');
     $response->assertSee($referrer->referral_code);
     $response->assertSessionHas('referral.code', $referrer->referral_code);
+
+    $this->assertDatabaseHas('referral_visits', [
+        'referral_code' => $referrer->referral_code,
+        'referrer_voter_id' => $referrer->id,
+    ]);
 });
 
 test('registration chooser preserves referral links', function () {
@@ -25,7 +32,7 @@ test('registration chooser preserves referral links', function () {
         'referral_code' => 'VOTER777',
     ]);
 
-    $this->get('/?ref='.$referrer->referral_code)->assertOk();
+    $this->get(REF_QUERY_PREFIX.$referrer->referral_code)->assertOk();
 
     $response = $this->get('/register');
 
@@ -97,9 +104,43 @@ test('politician registration can use stored referral context when query is miss
 });
 
 test('invalid referral code does not activate referral program state', function () {
-    $response = $this->get('/?ref=NOTFOUND1');
+    $response = $this->get(REF_QUERY_PREFIX.'NOTFOUND1');
 
     $response->assertOk();
     $response->assertDontSee('You were invited by a U9itus member.');
     $response->assertSessionMissing('referral.code');
+    expect(ReferralVisit::count())->toBe(0);
+});
+
+test('voter registration marks referral visit as converted', function () {
+    Role::findOrCreate('voter', 'web');
+
+    $referrer = Voter::factory()->create([
+        'referral_code' => 'TRACK123',
+    ]);
+
+    $this->get(REF_QUERY_PREFIX.$referrer->referral_code)->assertOk();
+
+    $email = 'conversion-voter@example.com';
+
+    $response = $this->post('/register/voter', [
+        'first_name' => 'Track',
+        'last_name' => 'Conversion',
+        'email' => $email,
+        'password' => TEST_PASSWORD,
+        'password_confirmation' => TEST_PASSWORD,
+        'terms' => '1',
+    ]);
+
+    $response->assertRedirect(route('verification.notice', absolute: false));
+
+    $user = User::where('email', $email)->first();
+
+    expect($user)->not->toBeNull();
+
+    $this->assertDatabaseHas('referral_visits', [
+        'referral_code' => $referrer->referral_code,
+        'converted_user_id' => $user->id,
+        'converted_user_type' => 'voter',
+    ]);
 });
