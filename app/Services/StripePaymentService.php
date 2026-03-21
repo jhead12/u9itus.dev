@@ -79,7 +79,19 @@ class StripePaymentService
         }
 
         if (! empty($politician->stripe_customer_id)) {
-            return $politician->stripe_customer_id;
+            try {
+                // Verify the saved customer still exists in the active Stripe account.
+                $this->client->customers->retrieve($politician->stripe_customer_id, []);
+                return $politician->stripe_customer_id;
+            } catch (\Stripe\Exception\InvalidRequestException $e) {
+                // Common when a customer id belongs to another Stripe account/mode
+                // or was deleted; recreate and persist a fresh customer id.
+                Log::warning('Stored Stripe customer missing, recreating customer.', [
+                    'politician_id'      => $politician->id,
+                    'stripe_customer_id' => $politician->stripe_customer_id,
+                    'error'              => $e->getMessage(),
+                ]);
+            }
         }
 
         // Resolve the best available email from the related User.
@@ -131,5 +143,39 @@ class StripePaymentService
             Log::error('Stripe webhook signature verification failed: ' . $e->getMessage());
             throw $e;
         }
+    }
+
+    /**
+     * Detect configured Stripe mode from the secret key prefix.
+     */
+    public function configuredMode(): string
+    {
+        $key = (string) config('services.stripe.secret', '');
+
+        if (str_starts_with($key, 'sk_live_')) {
+            return 'live';
+        }
+
+        if (str_starts_with($key, 'sk_test_')) {
+            return 'test';
+        }
+
+        return 'unknown';
+    }
+
+    /**
+     * Resolve payment mode from a Stripe object that includes a livemode flag.
+     */
+    public function modeFromStripeObject($stripeObject, ?string $fallback = null): string
+    {
+        if (is_object($stripeObject) && isset($stripeObject->livemode)) {
+            return $stripeObject->livemode ? 'live' : 'test';
+        }
+
+        if (is_array($stripeObject) && array_key_exists('livemode', $stripeObject)) {
+            return $stripeObject['livemode'] ? 'live' : 'test';
+        }
+
+        return $fallback ?? $this->configuredMode();
     }
 }

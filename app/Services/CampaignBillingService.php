@@ -172,6 +172,7 @@ class CampaignBillingService
         $feePercent   = (float) config('u9itus.stripe_fee_percent', 2.5);
         $grossAmount  = round($amount / (1 - $feePercent / 100), 2);
         $stripeFee    = round($grossAmount - $amount, 2);
+        $configuredMode = $this->stripe->configuredMode();
 
         $result = [
             'payment_intent_id'  => null,
@@ -202,6 +203,8 @@ class CampaignBillingService
 
                 $piId         = $pi->id ?? null;
                 $clientSecret = $pi->client_secret ?? null;
+                $paymentMode  = $this->stripe->modeFromStripeObject($pi, $configuredMode);
+                $isLiveMode   = $paymentMode === 'live';
 
                 // Record pending transaction — store credits_amount and fee so
                 // finalizePaymentIntent() knows exactly how much to credit.
@@ -219,11 +222,14 @@ class CampaignBillingService
                         'credits_amount'     => $amount,
                         'stripe_fee'         => $stripeFee,
                         'stripe_fee_percent' => $feePercent,
+                        'payment_mode'       => $paymentMode,
+                        'stripe_livemode'    => $isLiveMode,
                     ],
                 ]);
 
                 $result['payment_intent_id'] = $piId;
                 $result['client_secret']     = $clientSecret;
+                $result['payment_mode']      = $paymentMode;
             }
         } catch (\Exception $e) {
             Log::error('createPurchaseIntent failed: ' . $e->getMessage());
@@ -253,6 +259,10 @@ class CampaignBillingService
         $status = 'succeeded';
         $chargeId = null;
         $amount = (float) $tx->amount;
+        $resolvedPaymentMode = $tx->metadata['payment_mode'] ?? $this->stripe->configuredMode();
+        $resolvedLiveMode = isset($tx->metadata['stripe_livemode'])
+            ? (bool) $tx->metadata['stripe_livemode']
+            : $resolvedPaymentMode === 'live';
 
         // Try to extract details from Stripe event if available
         if ($event) {
@@ -261,6 +271,8 @@ class CampaignBillingService
                     $obj = $event->data->object ?? null;
                     if ($obj) {
                         $amount = isset($obj->amount) ? ((float) $obj->amount) / 100.0 : $amount;
+                        $resolvedPaymentMode = $this->stripe->modeFromStripeObject($obj, $resolvedPaymentMode);
+                        $resolvedLiveMode = $resolvedPaymentMode === 'live';
                         // charges is a nested object
                         if (isset($obj->charges) && isset($obj->charges->data[0]->id)) {
                             $chargeId = $obj->charges->data[0]->id;
@@ -273,6 +285,8 @@ class CampaignBillingService
                     $obj = $event['data']['object'] ?? null;
                     if ($obj) {
                         $amount = isset($obj['amount']) ? ((float) $obj['amount']) / 100.0 : $amount;
+                        $resolvedPaymentMode = $this->stripe->modeFromStripeObject($obj, $resolvedPaymentMode);
+                        $resolvedLiveMode = $resolvedPaymentMode === 'live';
                         if (!empty($obj['charges']['data'][0]['id'])) {
                             $chargeId = $obj['charges']['data'][0]['id'];
                         }
@@ -290,11 +304,15 @@ class CampaignBillingService
         // a failed addCredits() cannot leave the transaction as 'succeeded'
         // with no credits applied (which would prevent any retry via the
         // idempotency guard above).
-        DB::transaction(function () use ($tx, $status, $chargeId, $amount) {
+        DB::transaction(function () use ($tx, $status, $chargeId, $amount, $resolvedPaymentMode, $resolvedLiveMode) {
             $tx->status = $status;
             if ($chargeId) {
                 $tx->stripe_charge_id = $chargeId;
             }
+            $tx->metadata = array_merge($tx->metadata ?? [], [
+                'payment_mode'    => $resolvedPaymentMode,
+                'stripe_livemode' => $resolvedLiveMode,
+            ]);
             $tx->save();
 
             // If succeeded, credit the politician's balance.
@@ -319,6 +337,10 @@ class CampaignBillingService
                         'transaction_type'       => 'purchase',
                         'related_transaction_id' => $tx->id,
                         'description'            => 'Credits added from Stripe payment' . $feeNote,
+                        'metadata'               => [
+                            'payment_mode'    => $resolvedPaymentMode,
+                            'stripe_livemode' => $resolvedLiveMode,
+                        ],
                     ]);
                 } else {
                     Log::warning('Politician not found when finalizing PaymentIntent', ['tx' => $tx->id]);

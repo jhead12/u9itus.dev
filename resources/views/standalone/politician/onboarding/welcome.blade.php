@@ -6,6 +6,8 @@
     title="Welcome to U9itus!"
     description="Reach voters directly with your political message"
 >
+    @php($revenuePerView = (float) \App\Services\PlatformSettingsService::get('revenue_per_view', null, 0.60))
+
     <div class="space-y-6">
         <div class="text-center py-6">
             <div class="text-6xl mb-4">🏛️</div>
@@ -25,7 +27,7 @@
                 </div>
                 <div class="flex items-start space-x-3">
                     <span class="text-blue-500">✓</span>
-                    <span class="text-gray-300">$0.60 per guaranteed view</span>
+                    <span class="text-gray-300">${{ number_format($revenuePerView, 2) }} per guaranteed view</span>
                 </div>
                 <div class="flex items-start space-x-3">
                     <span class="text-blue-500">✓</span>
