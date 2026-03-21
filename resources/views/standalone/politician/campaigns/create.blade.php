@@ -391,6 +391,9 @@ function saveDraftToLocalStorage() {
     const formData = new FormData(campaignForm);
     const data = {};
     for (const [key, value] of formData.entries()) {
+        // Never persist framework/security fields in local drafts.
+        if (key === '_token' || key === '_method') continue;
+
         if (key.includes('[]')) {
             // Handle array fields
             const baseKey = key.replace('[]', '');
@@ -430,6 +433,8 @@ function restoreDraftFromLocalStorage() {
         
         // Restore form fields
         for (const [key, value] of Object.entries(data)) {
+            if (key === '_token' || key === '_method') continue;
+
             // Handle checkbox arrays (e.g., target_states, target_cities)
             if (Array.isArray(value)) {
                 value.forEach(val => {
