@@ -784,6 +784,35 @@ class AdminController extends Controller
     }
 
     /**
+     * Show billing refunds management page.
+     */
+    public function billingRefunds(Request $request)
+    {
+        $activePaymentMode = $this->activePaymentMode();
+        
+        // Query all succeeded charge transactions
+        $query = CampaignTransaction::where('transaction_type', 'charge')
+            ->where('status', 'succeeded')
+            ->with('politician.user')
+            ->latest();
+
+        // Apply payment mode filter
+        $query = $this->applyPaymentModeFilter($query, $activePaymentMode);
+
+        // Allow search by politician email or name
+        if ($search = $request->get('search')) {
+            $query->whereHas('politician', function ($q) use ($search) {
+                $q->where('full_name', 'like', "%{$search}%")
+                  ->orWhereHas('user', fn($q2) => $q2->where('email', 'like', "%{$search}%"));
+            });
+        }
+
+        $transactions = $query->paginate(20);
+
+        return view('standalone.admin.billing-refunds', compact('transactions', 'activePaymentMode'));
+    }
+
+    /**
      * Refund only UNUSED credits for a succeeded politician purchase transaction.
      */
     public function refundUnusedCredits(Request $request, CampaignTransaction $transaction, CampaignBillingService $billingService)

@@ -157,6 +157,12 @@
             </div>
             <p class="text-xs font-medium text-slate-300 group-hover:text-white transition">Payouts</p>
         </a>
+        <a href="{{ route('admin.billing.refunds') }}" class="bg-slate-800/50 border border-slate-700/50 hover:border-amber-500/40 rounded-xl p-4 text-center transition group">
+            <div class="text-amber-400 mb-2 flex justify-center">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 15a3 3 0 11-6 0 3 3 0 016 0zM21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0h4m-2-2v4"/></svg>
+            </div>
+            <p class="text-xs font-medium text-slate-300 group-hover:text-white transition">Billing Refunds</p>
+        </a>
     </div>
 
 </div>

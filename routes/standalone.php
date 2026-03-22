@@ -332,6 +332,7 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         Route::post('/payouts/batch-process', [AdminController::class, 'processBatchPayouts'])->name('payouts.batch');
 
         // Billing Refunds (unused politician credits only)
+        Route::get('/billing/refunds', [AdminController::class, 'billingRefunds'])->name('billing.refunds');
         Route::post('/billing/transactions/{transaction}/refund-unused', [AdminController::class, 'refundUnusedCredits'])
             ->name('billing.refund-unused');
         
