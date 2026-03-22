@@ -15,6 +15,11 @@
 </head>
 <body class="min-h-screen bg-slate-900 flex items-center justify-center px-4 py-10 antialiased">
 
+@php
+    $voterPayoutPerView = number_format((float) \App\Services\PlatformSettingsService::get('viewer_payout_per_view', null, 0.25), 2);
+    $referralCommissionPct = (int) config('u9itus.referral_commission_percent', 10);
+@endphp
+
 <div class="w-full max-w-md">
 
     {{-- Logo --}}
@@ -52,7 +57,7 @@
                     <svg class="w-3 h-3 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
                 </span>
                 <div>
-                    <p class="text-slate-200 text-sm font-medium">$0.25 per verified view</p>
+                    <p class="text-slate-200 text-sm font-medium">${{ $voterPayoutPerView }} per verified view</p>
                     <p class="text-slate-400 text-xs mt-0.5">Watch political messages at your own pace. Cash out anytime above $10.</p>
                 </div>
             </li>
@@ -61,8 +66,8 @@
                     <svg class="w-3 h-3 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
                 </span>
                 <div>
-                    <p class="text-slate-200 text-sm font-medium">10% commission on every referral's views<span class="text-slate-400 font-normal"> (recurring)</span></p>
-                    <p class="text-slate-400 text-xs mt-0.5">Refer another voter — earn 10% of their $0.25 payout every time they watch an ad.</p>
+                    <p class="text-slate-200 text-sm font-medium">{{ $referralCommissionPct }}% commission on every referral's views<span class="text-slate-400 font-normal"> (recurring)</span></p>
+                    <p class="text-slate-400 text-xs mt-0.5">Refer another voter — earn {{ $referralCommissionPct }}% of their ${{ $voterPayoutPerView }} payout every time they watch an ad.</p>
                 </div>
             </li>
             <li class="flex items-start gap-3">
@@ -229,7 +234,7 @@
                 <label for="terms" class="text-sm text-slate-400">
                     I agree to the <a href="{{ route('terms') }}" class="text-blue-400 hover:text-blue-300 underline">Terms of Service</a>
                     and <a href="{{ route('privacy-policy') }}" class="text-blue-400 hover:text-blue-300 underline">Privacy Policy</a>.
-                    I understand I must watch the full video to earn the $0.25 reward.
+                    I understand I must watch the full video to earn the ${{ $voterPayoutPerView }} reward.
                 </label>
             </div>
 

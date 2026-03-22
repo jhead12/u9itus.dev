@@ -1,3 +1,7 @@
+@php
+    $voterPayoutPerView = number_format((float) \App\Services\PlatformSettingsService::get('viewer_payout_per_view', null, 0.25), 2);
+@endphp
+
 <x-onboarding-layout
     :progress="$progress"
     :phases="$phases"
@@ -21,7 +25,7 @@
                 </li>
                 <li class="flex items-start space-x-2">
                     <span class="text-blue-500">✓</span>
-                    <span>Watch the full video to earn $0.25</span>
+                    <span>Watch the full video to earn ${{ $voterPayoutPerView }}</span>
                 </li>
                 <li class="flex items-start space-x-2">
                     <span class="text-blue-500">✓</span>

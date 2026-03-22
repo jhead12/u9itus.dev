@@ -14,7 +14,9 @@
     <style>* { font-family: 'Inter', sans-serif; }</style>
 </head>
 <body class="min-h-screen bg-slate-900 flex items-center justify-center px-4 py-12 antialiased">
-
+@php
+    $voterPayoutPerView = number_format((float) \App\Services\PlatformSettingsService::get('viewer_payout_per_view', null, 0.25), 2);
+@endphp
 <div class="w-full max-w-2xl">
 
     {{-- Logo --}}
@@ -69,7 +71,7 @@
                 Watch short political messages from candidates in your area and earn money for your time. Stay informed and get paid.
             </p>
             <ul class="space-y-2 text-sm text-slate-400 mb-6">
-                <li class="flex items-center gap-2"><span class="text-blue-400">✓</span> Earn $0.25 per completed view</li>
+                <li class="flex items-center gap-2"><span class="text-blue-400">✓</span> Earn ${{ $voterPayoutPerView }} per completed view</li>
                 <li class="flex items-center gap-2"><span class="text-blue-400">✓</span> Referral bonuses for invites</li>
                 <li class="flex items-center gap-2"><span class="text-blue-400">✓</span> Watch on your schedule</li>
                 <li class="flex items-center gap-2"><span class="text-blue-400">✓</span> Instant earnings dashboard</li>
