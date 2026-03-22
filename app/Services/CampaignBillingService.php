@@ -630,6 +630,9 @@ class CampaignBillingService
                 'email' => $receiptEmail,
             ]);
 
+                // Mark receipt as sent for tracking
+                $tx->update(['receipt_sent_at' => now()]);
+
             return true;
         } catch (\Throwable $e) {
             Log::warning('Failed to send credits purchase receipt email', [
