@@ -662,7 +662,7 @@ class VoterController extends Controller
     public function getReferralLink()
     {
         $voter = $this->resolveVoter();
-        $link  = url('/register/voter') . '?ref=' . $voter->referral_code;
+        $link  = url('/?ref=' . $voter->referral_code . '&target=voter');
 
         return response()->json(['link' => $link, 'code' => $voter->referral_code]);
     }

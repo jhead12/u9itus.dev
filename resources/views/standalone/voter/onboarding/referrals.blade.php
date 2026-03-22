@@ -6,6 +6,10 @@
     title="Get Your Referral Links"
     description="Earn passive income by referring others"
 >
+    @php
+        $voterLandingReferralUrl = url('/?ref=' . ($voter->referral_code ?? '') . '&target=voter');
+        $politicianLandingReferralUrl = url('/?ref=' . ($voter->referral_code ?? '') . '&target=politician');
+    @endphp
     <div class="space-y-6">
         <!-- Referral Benefits -->
         <div class="bg-gradient-to-r from-green-900 to-blue-900 rounded-lg p-6">
@@ -34,12 +38,12 @@
         <!-- Referral Links -->
         <div class="bg-gray-700 rounded-lg p-6 space-y-4">
             <div>
-                <label class="block text-sm font-medium text-gray-300 mb-2">Voter Referral Link</label>
+                <label for="onboarding-voter-ref-link" class="block text-sm font-medium text-gray-300 mb-2">Voter Referral Link</label>
                 <div class="flex space-x-2">
-                    <input type="text" readonly
-                           value="{{ route('register.voter', ['ref' => $voter->referral_code ?? '']) }}"
+                    <input id="onboarding-voter-ref-link" type="text" readonly
+                           value="{{ $voterLandingReferralUrl }}"
                            class="flex-1 bg-gray-800 border border-gray-600 rounded-lg px-4 py-2 text-gray-300 text-sm">
-                    <button type="button" onclick="copyToClipboard(this, '{{ route('register.voter', ['ref' => $voter->referral_code ?? '']) }}')"
+                    <button type="button" onclick="copyToClipboard(this, '{{ $voterLandingReferralUrl }}')"
                             class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">
                         Copy
                     </button>
@@ -47,12 +51,12 @@
             </div>
 
             <div>
-                <label class="block text-sm font-medium text-gray-300 mb-2">Politician Referral Link</label>
+                <label for="onboarding-politician-ref-link" class="block text-sm font-medium text-gray-300 mb-2">Politician Referral Link</label>
                 <div class="flex space-x-2">
-                    <input type="text" readonly
-                           value="{{ route('register.politician', ['ref' => $voter->referral_code ?? '']) }}"
+                    <input id="onboarding-politician-ref-link" type="text" readonly
+                           value="{{ $politicianLandingReferralUrl }}"
                            class="flex-1 bg-gray-800 border border-gray-600 rounded-lg px-4 py-2 text-gray-300 text-sm">
-                    <button type="button" onclick="copyToClipboard(this, '{{ route('register.politician', ['ref' => $voter->referral_code ?? '']) }}')"
+                    <button type="button" onclick="copyToClipboard(this, '{{ $politicianLandingReferralUrl }}')"
                             class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">
                         Copy
                     </button>

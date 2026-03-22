@@ -103,6 +103,12 @@
     </div>
 
     {{-- ── Share Links ───────────────────────────────────────────── --}}
+    @php
+        $voterRefUrl = url('/?ref=' . ($politician->referral_code ?? '') . '&target=voter');
+        $politicianRefUrl = url('/?ref=' . ($politician->referral_code ?? '') . '&target=politician');
+        $voterQrSrc  = 'https://api.qrserver.com/v1/create-qr-code/?size=120x120&color=059669&bgcolor=FFFFFF&data=' . rawurlencode($voterRefUrl) . '&qzone=1';
+        $politicianQrSrc  = 'https://api.qrserver.com/v1/create-qr-code/?size=120x120&color=d97706&bgcolor=FFFFFF&data=' . rawurlencode($politicianRefUrl) . '&qzone=1';
+    @endphp
     <div class="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-6 space-y-6">
         <h2 class="text-base font-semibold text-white">Your Referral Links</h2>
 
@@ -113,7 +119,7 @@
                 <p class="text-slate-400 text-xs">Earn 10% of each view payout from every voter you recruit.</p>
                 <div class="flex gap-2">
                     <input id="voter-referral-link" type="text" readonly
-                        value="{{ route('register.voter') }}?ref={{ $politician->referral_code }}"
+                        value="{{ $voterRefUrl }}"
                         class="flex-1 bg-slate-900 border border-slate-600 rounded-lg px-4 py-2.5 text-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
                     <button onclick="copyLink('voter-referral-link')"
                         class="shrink-0 px-4 py-2.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 text-sm rounded-lg transition border border-emerald-500/30 font-medium">
@@ -121,10 +127,6 @@
                     </button>
                 </div>
             </div>
-@php
-                $voterRefUrl = route('register.voter') . '?ref=' . ($politician->referral_code ?? '');
-                $voterQrSrc  = 'https://api.qrserver.com/v1/create-qr-code/?size=120x120&color=059669&bgcolor=FFFFFF&data=' . rawurlencode($voterRefUrl) . '&qzone=1';
-            @endphp
             <div class="flex flex-col items-center gap-2">
                 <img src="{{ $voterQrSrc }}"
                      alt="Voter Referral QR Code"
@@ -146,7 +148,7 @@
                 <p class="text-slate-400 text-xs">Earn 10% residual income as a Founding Member when you recruit a politician.</p>
                 <div class="flex gap-2">
                     <input id="politician-referral-link" type="text" readonly
-                        value="{{ route('register.politician') }}?ref={{ $politician->referral_code }}"
+                        value="{{ $politicianRefUrl }}"
                         class="flex-1 bg-slate-900 border border-slate-600 rounded-lg px-4 py-2.5 text-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
                     <button onclick="copyLink('politician-referral-link')"
                         class="shrink-0 px-4 py-2.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 text-sm rounded-lg transition border border-amber-500/30 font-medium">
@@ -154,10 +156,6 @@
                     </button>
                 </div>
             </div>
-@php
-                $politicianRefUrl = route('register.politician') . '?ref=' . ($politician->referral_code ?? '');
-                $politicianQrSrc  = 'https://api.qrserver.com/v1/create-qr-code/?size=120x120&color=d97706&bgcolor=FFFFFF&data=' . rawurlencode($politicianRefUrl) . '&qzone=1';
-            @endphp
             <div class="flex flex-col items-center gap-2">
                 <img src="{{ $politicianQrSrc }}"
                      alt="Politician Referral QR Code"

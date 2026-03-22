@@ -99,8 +99,8 @@
 
     {{-- ── Share Links ──────────────────────────────────────────── --}}
     @php
-        $voterRefUrl      = route('register.voter')      . '?ref=' . $voter->referral_code;
-        $politicianRefUrl = route('register.politician') . '?ref=' . $voter->referral_code;
+        $voterRefUrl      = url('/?ref=' . $voter->referral_code . '&target=voter');
+        $politicianRefUrl = url('/?ref=' . $voter->referral_code . '&target=politician');
         $voterQrSrc       = 'https://api.qrserver.com/v1/create-qr-code/?size=120x120&color=059669&bgcolor=FFFFFF&data=' . rawurlencode($voterRefUrl)      . '&qzone=1';
         $politicianQrSrc  = 'https://api.qrserver.com/v1/create-qr-code/?size=120x120&color=d97706&bgcolor=FFFFFF&data=' . rawurlencode($politicianRefUrl) . '&qzone=1';
     @endphp
