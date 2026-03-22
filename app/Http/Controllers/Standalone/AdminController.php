@@ -164,6 +164,9 @@ class AdminController extends Controller
      */
     public function runningCampaigns(Request $request)
     {
+        $activePaymentMode = $this->activePaymentMode();
+        $campaignIds = $this->modeScopedCampaignIds($activePaymentMode);
+
         $query = PoliticalCampaign::select('political_campaigns.*')
             ->selectRaw(
                 '(SELECT COUNT(DISTINCT voter_id) FROM view_sessions
@@ -180,6 +183,7 @@ class AdminController extends Controller
                     AND status = \'completed\') as avg_completion_pct'
             )
             ->with('politician.user')
+            ->whereIn('id', $campaignIds)
             ->whereIn('status', [
                 CampaignStatus::Active->value,
                 CampaignStatus::Paused->value,
@@ -208,11 +212,11 @@ class AdminController extends Controller
             ->withQueryString();
 
         $summary = [
-            'total_active'    => PoliticalCampaign::where('status', CampaignStatus::Active->value)->count(),
-            'total_scheduled' => PoliticalCampaign::where('status', CampaignStatus::Scheduled->value)->count(),
-            'total_paused'    => PoliticalCampaign::where('status', CampaignStatus::Paused->value)->count(),
-            'total_spend'     => PoliticalCampaign::whereIn('status', [CampaignStatus::Active->value, CampaignStatus::Paused->value, CampaignStatus::Scheduled->value])->sum('amount_spent'),
-            'total_views'     => PoliticalCampaign::whereIn('status', [CampaignStatus::Active->value, CampaignStatus::Paused->value, CampaignStatus::Scheduled->value])->sum('views_completed'),
+            'total_active'    => PoliticalCampaign::where('status', CampaignStatus::Active->value)->whereIn('id', $campaignIds)->count(),
+            'total_scheduled' => PoliticalCampaign::where('status', CampaignStatus::Scheduled->value)->whereIn('id', $campaignIds)->count(),
+            'total_paused'    => PoliticalCampaign::where('status', CampaignStatus::Paused->value)->whereIn('id', $campaignIds)->count(),
+            'total_spend'     => PoliticalCampaign::whereIn('status', [CampaignStatus::Active->value, CampaignStatus::Paused->value, CampaignStatus::Scheduled->value])->whereIn('id', $campaignIds)->sum('amount_spent'),
+            'total_views'     => PoliticalCampaign::whereIn('status', [CampaignStatus::Active->value, CampaignStatus::Paused->value, CampaignStatus::Scheduled->value])->whereIn('id', $campaignIds)->sum('views_completed'),
         ];
 
         return view('standalone.admin.campaigns-running', compact('campaigns', 'summary'));
