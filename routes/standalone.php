@@ -62,7 +62,7 @@ Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->n
 |--------------------------------------------------------------------------
 */
 
-Route::middleware('auth')->group(function () {
+Route::middleware(['auth', 'no.cache'])->group(function () {
     Route::get('/email/verify', [AuthController::class, 'showVerifyEmail'])->name('verification.notice');
     Route::get('/email/verify/{id}/{hash}', [AuthController::class, 'verifyEmail'])->middleware('signed')->name('verification.verify');
     Route::post('/email/resend', [AuthController::class, 'resendVerification'])->name('verification.send');
@@ -83,7 +83,7 @@ Route::get('/politician/verify/{token}', [PoliticianController::class, 'verifyPr
 |--------------------------------------------------------------------------
 */
 
-Route::middleware(['auth', 'verified'])->group(function () {
+Route::middleware(['auth', 'verified', 'no.cache'])->group(function () {
     
     // Voter Onboarding
     Route::prefix('voter/onboarding')->name('voter.onboarding.')->group(function () {
@@ -149,7 +149,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 |--------------------------------------------------------------------------
 */
 
-Route::middleware(['auth', 'verified', 'check.role'])->group(function () {
+Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(function () {
 
     // Admin security routes (kept outside onboarding + enforcement middleware
     // so admins can complete TOTP setup/challenge when required).

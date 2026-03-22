@@ -33,6 +33,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'check.politician.onboarding' => \App\Http\Middleware\CheckPoliticianOnboarding::class,
             'check.admin.onboarding' => \App\Http\Middleware\CheckAdminOnboarding::class,
             'admin.2fa' => \App\Http\Middleware\EnsureAdminTwoFactorVerified::class,
+            'no.cache' => \App\Http\Middleware\DisableAuthPageCache::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
