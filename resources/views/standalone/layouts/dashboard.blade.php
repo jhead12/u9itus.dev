@@ -509,7 +509,7 @@
                 if (!serverType) return 'info';
                 if (serverType === 'low_balance') return 'warning';
                 if (serverType === 'campaign_rejected' || serverType === 'fraud_alert') return 'error';
-                if (serverType === 'campaign_approved' || serverType === 'payout_processed') return 'success';
+                if (serverType === 'campaign_approved' || serverType === 'payout_processed' || serverType === 'refund_processed') return 'success';
                 return 'info';
             },
             formatTime(timestamp) {

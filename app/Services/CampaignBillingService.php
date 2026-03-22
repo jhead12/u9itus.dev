@@ -2,11 +2,14 @@
 
 namespace App\Services;
 
+use App\Mail\CreditsRefundedMail;
 use App\Mail\CreditsPurchasedMail;
+use App\Models\EmailTemplate;
 use App\Models\CampaignTransaction;
 use App\Models\Politician;
 use App\Models\PoliticianCredit;
 use App\Models\ReferralEarning;
+use App\Notifications\RefundCompletedNotification;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -405,7 +408,7 @@ class CampaignBillingService
             throw new \LogicException('Stripe refund failed: ' . $refundStatus);
         }
 
-        return DB::transaction(function () use (
+        $refundTx = DB::transaction(function () use (
             $purchaseTx,
             $adminId,
             $reason,
@@ -455,6 +458,22 @@ class CampaignBillingService
 
             return $refundTx;
         });
+
+        // Send refund receipt and in-app notification only when Stripe confirms success.
+        if ($refundTx->status === 'succeeded') {
+            $this->sendCreditsRefundReceiptForTransaction($refundTx);
+
+            $politician = Politician::with('user')->find($refundTx->politician_id);
+            if ($politician?->user) {
+                $politician->user->notify(new RefundCompletedNotification(
+                    amount: (float) $refundTx->amount,
+                    refundedCredits: (float) ($refundTx->metadata['refunded_credits_amount'] ?? 0),
+                    transactionId: (string) ($refundTx->uuid ?? $refundTx->id),
+                ));
+            }
+        }
+
+        return $refundTx;
     }
 
     /**
@@ -643,5 +662,76 @@ class CampaignBillingService
 
             return false;
         }
+    }
+
+    /**
+     * Send refund receipt for a succeeded refund transaction.
+     */
+    public function sendCreditsRefundReceiptForTransaction(CampaignTransaction $tx): bool
+    {
+        $result = false;
+        $skipAsSuccess = false;
+
+        $isRefundSucceeded = $tx->transaction_type === 'refund' && $tx->status === 'succeeded';
+        $canProcess = $isRefundSucceeded && (bool) $tx->politician_id;
+
+        if ($canProcess && $tx->receipt_sent_at) {
+            $skipAsSuccess = true;
+        }
+
+        $template = EmailTemplate::forKey('credits_refunded');
+        if ($canProcess && ! $skipAsSuccess && $template && ! $template->is_active) {
+            Log::info('Skipped refund receipt because template is disabled', ['transaction_id' => $tx->id]);
+            $skipAsSuccess = true;
+        }
+
+        $politician = $canProcess && ! $skipAsSuccess
+            ? Politician::with('user')->find($tx->politician_id)
+            : null;
+
+        if ($politician && $politician->user && $politician->user->email) {
+            $newBalance = (float) (PoliticianCredit::query()
+                ->where('politician_id', $politician->id)
+                ->orderByDesc('created_at')
+                ->value('balance_after')
+                ?? 0.0);
+
+            $receiptEmail = $politician->receipt_email ?? $politician->user->email;
+            $refundedCredits = (float) ($tx->metadata['refunded_credits_amount'] ?? 0);
+            $reason = isset($tx->metadata['reason']) ? (string) $tx->metadata['reason'] : null;
+
+            try {
+                Mail::to($receiptEmail)->send(new CreditsRefundedMail(
+                    user: $politician->user,
+                    amount: (float) $tx->amount,
+                    refundedCredits: $refundedCredits,
+                    newBalance: $newBalance,
+                    transactionId: (string) ($tx->uuid ?? $tx->id),
+                    reason: $reason,
+                ));
+
+                $tx->update(['receipt_sent_at' => now()]);
+
+                Log::info('Sent credits refund receipt email', [
+                    'transaction_id' => $tx->id,
+                    'politician_id' => $politician->id,
+                    'email' => $receiptEmail,
+                ]);
+
+                $result = true;
+            } catch (\Throwable $e) {
+                Log::warning('Failed to send credits refund receipt email', [
+                    'transaction_id' => $tx->id,
+                    'politician_id' => $politician->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        if ($skipAsSuccess) {
+            return true;
+        }
+
+        return $result;
     }
 }
