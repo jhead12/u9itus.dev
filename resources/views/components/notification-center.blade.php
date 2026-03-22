@@ -144,7 +144,7 @@ document.addEventListener('alpine:init', () => {
 
         async loadNotifications() {
             try {
-                const response = await fetch('/api/notifications');
+                const response = await fetch('/api/v1/notifications');
                 const data = await response.json();
                 this.notifications = data.data || [];
             } catch (error) {
@@ -154,7 +154,7 @@ document.addEventListener('alpine:init', () => {
 
         async loadUnreadCount() {
             try {
-                const response = await fetch('/api/notifications/unread-count');
+                const response = await fetch('/api/v1/notifications/unread-count');
                 const data = await response.json();
                 this.unreadCount = data.count || 0;
             } catch (error) {
@@ -184,7 +184,7 @@ document.addEventListener('alpine:init', () => {
 
         async markAllAsRead() {
             try {
-                await fetch('/api/notifications/mark-all-as-read', {
+                await fetch('/api/v1/notifications/mark-all-as-read', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -201,7 +201,7 @@ document.addEventListener('alpine:init', () => {
 
         async deleteAllRead() {
             try {
-                await fetch('/api/notifications/delete-all-read', {
+                await fetch('/api/v1/notifications/delete-all-read', {
                     method: 'DELETE',
                     headers: {
                         'Content-Type': 'application/json',

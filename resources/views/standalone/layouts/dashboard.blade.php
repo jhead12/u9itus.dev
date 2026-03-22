@@ -421,7 +421,7 @@
             },
             async loadFromServer() {
                 try {
-                    const res = await fetch('/api/notifications', {
+                    const res = await fetch('/api/v1/notifications', {
                         headers: {
                             'Accept': 'application/json',
                             'X-Requested-With': 'XMLHttpRequest',
@@ -472,7 +472,7 @@
                 if (!notification.id) return;
 
                 try {
-                    await fetch('/api/notifications/' + notification.id + '/mark-as-read', {
+                    await fetch('/api/v1/notifications/' + notification.id + '/mark-as-read', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -491,7 +491,7 @@
                 this.unread = 0;
 
                 try {
-                    await fetch('/api/notifications/mark-all-as-read', {
+                    await fetch('/api/v1/notifications/mark-all-as-read', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
