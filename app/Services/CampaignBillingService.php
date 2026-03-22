@@ -97,17 +97,31 @@ class CampaignBillingService
         // balance_after and produce an incorrect running total.
         $politician = Politician::lockForUpdate()->findOrFail($politician->id);
 
+        $relatedTransactionId = $opts['related_transaction_id'] ?? null;
+        $transactionType = $opts['transaction_type'] ?? 'purchase';
+
+        if ($relatedTransactionId !== null && in_array($transactionType, ['purchase', 'refund'], true)) {
+            $existing = PoliticianCredit::where('politician_id', $politician->id)
+                ->where('transaction_type', $transactionType)
+                ->where('related_transaction_id', $relatedTransactionId)
+                ->first();
+
+            if ($existing) {
+                return $existing;
+            }
+        }
+
         // Calculate new balance
         $current = PoliticianCredit::where('politician_id', $politician->id)->orderBy('created_at', 'desc')->value('balance_after') ?: 0.00;
         $newBalance = $current + $amount;
 
         $credit = PoliticianCredit::create([
             'politician_id' => $politician->id,
-            'transaction_type' => $opts['transaction_type'] ?? 'purchase',
+            'transaction_type' => $transactionType,
             'amount' => $amount,
             'balance_after' => $newBalance,
             'campaign_id' => $opts['campaign_id'] ?? null,
-            'related_transaction_id' => $opts['related_transaction_id'] ?? null,
+            'related_transaction_id' => $relatedTransactionId,
             'description' => $opts['description'] ?? 'Purchased credits',
             'metadata' => $opts['metadata'] ?? null,
         ]);
@@ -116,7 +130,7 @@ class CampaignBillingService
         $politician->syncCreditBalance();
 
         // Fire one-time procurement commission on the politician's first purchase.
-        if (($opts['transaction_type'] ?? null) === 'purchase') {
+        if ($transactionType === 'purchase') {
             $this->triggerProcurementCommission($politician, $amount);
         }
 

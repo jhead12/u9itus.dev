@@ -53,6 +53,53 @@ class PoliticianController extends Controller
     }
 
     /**
+     * Compute balance from filtered ledger rows while ignoring duplicate rows
+     * generated for the same related transaction id.
+     */
+    private function computeModeAwareCreditBalance(int $politicianId, ?string $mode): float
+    {
+        $entries = $this->applyPaymentModeFilter(
+            PoliticianCredit::where('politician_id', $politicianId),
+            $mode
+        )
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->get(['id', 'transaction_type', 'amount', 'related_transaction_id']);
+
+        if ($entries->isEmpty()) {
+            $hasAnyLedgerRows = PoliticianCredit::where('politician_id', $politicianId)->exists();
+
+            if ($hasAnyLedgerRows) {
+                return 0.0;
+            }
+
+            return round((float) (Politician::whereKey($politicianId)->value('credit_balance') ?? 0.0), 2);
+        }
+
+        $seenRelated = [];
+        $balance = 0.0;
+
+        foreach ($entries as $entry) {
+            $relatedId = $entry->related_transaction_id;
+            $shouldDedupe = $relatedId !== null && in_array($entry->transaction_type, ['purchase', 'refund'], true);
+
+            if ($shouldDedupe) {
+                $dedupeKey = $entry->transaction_type . ':' . $relatedId;
+
+                if (isset($seenRelated[$dedupeKey])) {
+                    continue;
+                }
+
+                $seenRelated[$dedupeKey] = true;
+            }
+
+            $balance += (float) $entry->amount;
+        }
+
+        return round($balance, 2);
+    }
+
+    /**
      * Show the politician dashboard.
      */
     public function dashboard()
@@ -70,10 +117,10 @@ class PoliticianController extends Controller
             ->take(5)
             ->get();
 
-        // Compute credit balance from latest ledger entry
-        $creditBalance = PoliticianCredit::where('politician_id', $politician->id)
-            ->orderByDesc('created_at')
-            ->value('balance_after') ?? 0.00;
+        $activePaymentMode = $this->activePaymentMode();
+
+        // Keep dashboard balance consistent with billing by mode-filtering the ledger.
+        $creditBalance = $this->computeModeAwareCreditBalance($politician->id, $activePaymentMode);
 
         $stats = [
             'active_campaigns'  => $politician->campaigns()->where('status', 'active')->count(),
@@ -132,7 +179,10 @@ class PoliticianController extends Controller
         abort_unless($politician, 403);
 
         $revenuePerView = (float) PlatformSettingsService::get('revenue_per_view', null, 0.60);
-        $creditBalance  = (float) ($politician->credit_balance ?? 0.00);
+        $creditBalance  = $this->computeModeAwareCreditBalance(
+            $politician->id,
+            $this->activePaymentMode()
+        );
         $states = config('u9itus.us_states', []);
         $governanceLevels = config('u9itus.governance_levels', [
             'Federal' => 'Federal', 'State' => 'State', 'County' => 'County',
@@ -219,7 +269,10 @@ class PoliticianController extends Controller
             ->count();
         $repeatViews    = max(0, $completedViews - $uniqueVoters);
 
-        $creditBalance  = (float) ($politician->credit_balance ?? 0.00);
+        $creditBalance  = $this->computeModeAwareCreditBalance(
+            $politician->id,
+            $this->activePaymentMode()
+        );
 
         return view('standalone.politician.campaigns.show', compact(
             'campaign', 'politician', 'completedViews', 'budgetUsed', 'budgetLeft',
@@ -337,7 +390,10 @@ class PoliticianController extends Controller
         );
 
         // Credit gate: politician must hold enough balance to cover the full campaign budget.
-        $balance = (float) ($politician->credit_balance ?? 0.00);
+        $balance = $this->computeModeAwareCreditBalance(
+            $politician->id,
+            $this->activePaymentMode()
+        );
         $budget  = (float) ($campaign->total_budget ?? 0.00);
         if ($balance < $budget) {
             $needed = number_format($budget - $balance, 2);
@@ -493,10 +549,7 @@ class PoliticianController extends Controller
 
         $activePaymentMode = $this->activePaymentMode();
 
-        $creditBalance = (float) $this->applyPaymentModeFilter(
-            PoliticianCredit::where('politician_id', $politician->id),
-            $activePaymentMode
-        )->sum('amount');
+        $creditBalance = $this->computeModeAwareCreditBalance($politician->id, $activePaymentMode);
 
         $credits = $this->applyPaymentModeFilter(
             PoliticianCredit::where('politician_id', $politician->id),

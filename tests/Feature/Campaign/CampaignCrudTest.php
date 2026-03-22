@@ -1,7 +1,9 @@
 <?php
 
 use App\Models\User;
+use App\Models\CampaignTransaction;
 use App\Models\Politician;
+use App\Models\PoliticianCredit;
 use App\Models\PoliticalCampaign;
 use App\Enums\PaymentStatus;
 use App\Enums\CampaignStatus;
@@ -322,6 +324,86 @@ test('politician can view the analytics page', function () {
          ->get(route('politician.analytics'))
          ->assertOk()
          ->assertViewIs('standalone.politician.analytics');
+});
+
+test('politician dashboard balance excludes test mode credits when stripe is live', function () {
+    config()->set('services.stripe.secret', 'sk_live_fake_dashboard_mode_filter');
+
+    $user = makePolitician();
+    $politician = $user->politician;
+
+    PoliticianCredit::create([
+        'politician_id' => $politician->id,
+        'transaction_type' => 'credit_purchase',
+        'amount' => 48.20,
+        'balance_after' => 48.20,
+        'description' => 'Sandbox credit',
+        'metadata' => ['payment_mode' => 'test'],
+        'created_at' => now()->subMinute(),
+    ]);
+
+    PoliticianCredit::create([
+        'politician_id' => $politician->id,
+        'transaction_type' => 'credit_purchase',
+        'amount' => 12.50,
+        'balance_after' => 12.50,
+        'description' => 'Live credit',
+        'metadata' => ['payment_mode' => 'live'],
+        'created_at' => now(),
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('politician.dashboard'))
+        ->assertOk()
+        ->assertViewHas('stats', function (array $stats) {
+            return (float) ($stats['credit_balance'] ?? -1) === 12.5;
+        });
+});
+
+test('politician dashboard dedupes duplicate purchase rows with same related transaction', function () {
+    config()->set('services.stripe.secret', 'sk_live_fake_dashboard_dedupe');
+
+    $user = makePolitician();
+    $politician = $user->politician;
+
+    $relatedTx = CampaignTransaction::create([
+        'politician_id' => $politician->id,
+        'transaction_type' => 'charge',
+        'amount' => 100.00,
+        'currency' => 'USD',
+        'status' => 'succeeded',
+        'description' => 'Linked payment intent transaction',
+        'metadata' => ['payment_mode' => 'live'],
+    ]);
+
+    PoliticianCredit::create([
+        'politician_id' => $politician->id,
+        'transaction_type' => 'purchase',
+        'amount' => 100.00,
+        'balance_after' => 100.00,
+        'related_transaction_id' => $relatedTx->id,
+        'description' => 'Live credit #1',
+        'metadata' => ['payment_mode' => 'live'],
+        'created_at' => now()->subMinute(),
+    ]);
+
+    PoliticianCredit::create([
+        'politician_id' => $politician->id,
+        'transaction_type' => 'purchase',
+        'amount' => 100.00,
+        'balance_after' => 200.00,
+        'related_transaction_id' => $relatedTx->id,
+        'description' => 'Live credit duplicate',
+        'metadata' => ['payment_mode' => 'live'],
+        'created_at' => now(),
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('politician.dashboard'))
+        ->assertOk()
+        ->assertViewHas('stats', function (array $stats) {
+            return (float) ($stats['credit_balance'] ?? -1) === 100.0;
+        });
 });
 
 test('politician can view the billing page', function () {
