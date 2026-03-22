@@ -495,8 +495,13 @@ class PoliticianController extends Controller
             ->unique('id')
             ->count();
 
-        $transactionsWithFeeSummary = CampaignTransaction::where('politician_id', $politician->id)
-            ->where('transaction_type', 'charge')
+        // Apply payment mode filter to transactions (same as billing page)
+        $activePaymentMode = $this->activePaymentMode();
+        $transactionsWithFeeSummary = $this->applyPaymentModeFilter(
+            CampaignTransaction::where('politician_id', $politician->id)
+                ->where('transaction_type', 'charge'),
+            $activePaymentMode
+        )
             ->get()
             ->map(function (CampaignTransaction $tx): array {
                 $metadata = is_array($tx->metadata) ? $tx->metadata : [];
