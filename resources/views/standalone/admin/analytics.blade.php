@@ -6,6 +6,12 @@
 @section('content')
 <div class="space-y-6">
 
+    <div class="flex items-center justify-end">
+        <span class="inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide {{ ($activePaymentMode ?? null) === 'live' ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300' : 'border-amber-500/40 bg-amber-500/10 text-amber-300' }}">
+            {{ ($activePaymentMode ?? 'test') === 'live' ? 'Live Mode Analytics' : 'Test Mode Analytics' }}
+        </span>
+    </div>
+
     {{-- KPIs --}}
     <div class="grid grid-cols-2 lg:grid-cols-3 gap-4">
         <div class="stat-card">

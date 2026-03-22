@@ -26,6 +26,7 @@ use App\Models\Voter;
 use App\Services\AdminTwoFactorService;
 use App\Services\CampaignBillingService;
 use App\Services\PlatformSettingsService;
+use App\Services\StripePaymentService;
 use Illuminate\Http\Request;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Artisan;
@@ -80,20 +81,57 @@ class AdminController extends Controller
     ];
 
     /**
+     * Active app payment mode derived from configured Stripe secret.
+     */
+    private function activePaymentMode(): ?string
+    {
+        $mode = app(StripePaymentService::class)->configuredMode();
+        return in_array($mode, ['live', 'test'], true) ? $mode : null;
+    }
+
+    /**
+     * Apply mode-aware filter to transaction queries.
+     */
+    private function applyPaymentModeFilter($query, ?string $mode)
+    {
+        if (! $mode) {
+            return $query;
+        }
+
+        return $query->where('metadata->payment_mode', $mode);
+    }
+
+    /**
+     * Campaign ids that have transaction activity in the active payment mode.
+     */
+    private function modeScopedCampaignIds(?string $mode)
+    {
+        return $this->applyPaymentModeFilter(
+            CampaignTransaction::query()->select('campaign_id')->whereNotNull('campaign_id')->distinct(),
+            $mode
+        );
+    }
+
+    /**
      * Show the admin dashboard.
      */
     public function dashboard()
     {
+        $activePaymentMode = $this->activePaymentMode();
+        $campaignIds = $this->modeScopedCampaignIds($activePaymentMode);
+        $completedViewQuery = ViewSession::where('status', 'completed')
+            ->whereIn('political_campaign_id', $campaignIds);
+
         $stats = [
             'total_users'       => User::count(),
             'total_politicians' => User::where('user_type', 'politician')->count(),
             'total_voters'      => User::where('user_type', 'voter')->count(),
             'pending_campaigns' => PoliticalCampaign::where('approval_status', 'pending')->count(),
-            'total_campaigns'   => PoliticalCampaign::count(),
-            'active_campaigns'  => PoliticalCampaign::where('status', 'active')->count(),
-            'total_views'       => ViewSession::where('status', 'completed')->count(),
-            'total_revenue'     => ViewSession::where('status', 'completed')->sum('platform_revenue') ?? 0,
-            'total_payouts'     => ViewSession::where('status', 'completed')->sum('voter_payout_amount') ?? 0,
+            'total_campaigns'   => PoliticalCampaign::whereIn('id', $campaignIds)->count(),
+            'active_campaigns'  => PoliticalCampaign::where('status', 'active')->whereIn('id', $campaignIds)->count(),
+            'total_views'       => (clone $completedViewQuery)->count(),
+            'total_revenue'     => (clone $completedViewQuery)->sum('platform_revenue') ?? 0,
+            'total_payouts'     => (clone $completedViewQuery)->sum('voter_payout_amount') ?? 0,
             'kyc_pending'       => User::where('kyc_status', 'pending')
                                         ->whereIn('user_type', ['politician', 'voter'])->count(),
             'pending_candidate_matches' => CandidateMatchReview::where('status', CandidateMatchReview::STATUS_PENDING)->count(),
@@ -926,17 +964,22 @@ class AdminController extends Controller
      */
     public function analytics()
     {
+        $activePaymentMode = $this->activePaymentMode();
+        $campaignIds = $this->modeScopedCampaignIds($activePaymentMode);
+        $completedViewQuery = ViewSession::where('status', 'completed')
+            ->whereIn('political_campaign_id', $campaignIds);
+
         $stats = [
-            'total_views'    => ViewSession::where('status', 'completed')->count(),
-            'total_revenue'  => ViewSession::where('status', 'completed')->sum('platform_revenue') ?? 0,
-            'total_payouts'  => ViewSession::where('status', 'completed')->sum('voter_payout_amount') ?? 0,
-            'total_profit'   => (ViewSession::where('status', 'completed')->sum('platform_revenue') ?? 0)
-                                - (ViewSession::where('status', 'completed')->sum('voter_payout_amount') ?? 0),
-            'total_campaigns' => PoliticalCampaign::count(),
-            'active_campaigns' => PoliticalCampaign::where('status', 'active')->count(),
+            'total_views'    => (clone $completedViewQuery)->count(),
+            'total_revenue'  => (clone $completedViewQuery)->sum('platform_revenue') ?? 0,
+            'total_payouts'  => (clone $completedViewQuery)->sum('voter_payout_amount') ?? 0,
+            'total_profit'   => ((clone $completedViewQuery)->sum('platform_revenue') ?? 0)
+                                - ((clone $completedViewQuery)->sum('voter_payout_amount') ?? 0),
+            'total_campaigns' => PoliticalCampaign::whereIn('id', $campaignIds)->count(),
+            'active_campaigns' => PoliticalCampaign::where('status', 'active')->whereIn('id', $campaignIds)->count(),
         ];
 
-        return view('standalone.admin.analytics', compact('stats'));
+        return view('standalone.admin.analytics', compact('stats', 'activePaymentMode'));
     }
 
     /**

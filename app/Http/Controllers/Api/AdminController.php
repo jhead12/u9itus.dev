@@ -9,11 +9,13 @@ use App\Enums\ViewSessionStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\CampaignResource;
 use App\Http\Resources\VoterResource;
+use App\Models\CampaignTransaction;
 use App\Models\PoliticalCampaign;
 use App\Models\Politician;
 use App\Models\Voter;
 use App\Models\ViewSession;
 use App\Services\PoliticalPaymentService;
+use App\Services\StripePaymentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -29,24 +31,54 @@ class AdminController extends Controller
         protected PoliticalPaymentService $paymentService,
     ) {}
 
+    private function activePaymentMode(): ?string
+    {
+        $mode = app(StripePaymentService::class)->configuredMode();
+        return in_array($mode, ['live', 'test'], true) ? $mode : null;
+    }
+
+    private function applyPaymentModeFilter($query, ?string $mode)
+    {
+        if (! $mode) {
+            return $query;
+        }
+
+        return $query->where('metadata->payment_mode', $mode);
+    }
+
     /**
      * Platform-wide analytics.
      */
     public function analytics(): JsonResponse
     {
-        $totalRevenue   = ViewSession::where('status', ViewSessionStatus::Completed)->sum('platform_revenue');
-        $totalPayouts   = ViewSession::where('payment_status', ViewPaymentStatus::Paid)->sum('voter_payout_amount');
+        $activePaymentMode = $this->activePaymentMode();
+        $campaignIds = $this->applyPaymentModeFilter(
+            CampaignTransaction::query()->select('campaign_id')->whereNotNull('campaign_id')->distinct(),
+            $activePaymentMode
+        );
+
+        $completedViewQuery = ViewSession::where('status', ViewSessionStatus::Completed)
+            ->whereIn('political_campaign_id', $campaignIds);
+
+        $paidViewQuery = ViewSession::where('payment_status', ViewPaymentStatus::Paid)
+            ->whereIn('political_campaign_id', $campaignIds);
+
+        $totalRevenue   = (clone $completedViewQuery)->sum('platform_revenue');
+        $totalPayouts   = (clone $paidViewQuery)->sum('voter_payout_amount');
         $totalReferrals = \App\Models\ReferralEarning::sum('commission_amount');
 
         return response()->json([
             'overview' => [
                 'total_politicians'          => Politician::count(),
                 'total_voters'               => Voter::count(),
-                'active_campaigns'           => PoliticalCampaign::where('status', CampaignStatus::Active)->count(),
-                'completed_views'            => ViewSession::where('status', ViewSessionStatus::Completed)->count(),
+                'active_campaigns'           => PoliticalCampaign::where('status', CampaignStatus::Active)
+                    ->whereIn('id', $campaignIds)
+                    ->count(),
+                'completed_views'            => (clone $completedViewQuery)->count(),
                 'total_platform_revenue'     => $totalRevenue,
                 'total_voter_payouts'        => $totalPayouts,
                 'total_referral_commissions' => $totalReferrals,
+                'payment_mode'               => $activePaymentMode,
             ],
             'per_view_economics' => $this->paymentService->perViewProfit(),
             'fraud_stats' => [
