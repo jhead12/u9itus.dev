@@ -37,6 +37,7 @@ class Politician extends Model
         'verified_official',
         'kyc_status',
         'stripe_customer_id',
+        'receipt_email',
         'credit_balance',
         'pending_earnings',
         'total_spent',

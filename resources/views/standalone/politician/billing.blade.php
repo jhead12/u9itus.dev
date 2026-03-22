@@ -32,8 +32,22 @@
             <p class="text-xs text-slate-500 mt-2">Used to fund active campaigns at ${{ number_format((float) \App\Services\PlatformSettingsService::get('revenue_per_view', null, 0.60), 2) }}/view</p>
         </div>
 
-        {{-- Add Funds card — Stripe.js PaymentElement flow --}}
+        {{-- Receipt Email Settings --}}
         <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
+            <form method="POST" action="{{ route('politician.billing.update-receipt-email') }}" class="space-y-3">
+                @csrf
+                <div>
+                    <label class="text-sm font-semibold text-slate-200 block mb-2">Receipt Email</label>
+                    <input type="email" name="receipt_email" value="{{ $politician->receipt_email ?? $politician->user->email }}"
+                        placeholder="{{ $politician->user->email }}"
+                        class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition" />
+                    <p class="text-xs text-slate-500 mt-1">For Stripe receipts (e.g., when using someone else's card)</p>
+                </div>
+                <button type="submit" class="w-full bg-slate-700 hover:bg-slate-600 text-slate-200 font-medium rounded-lg py-2 text-sm transition">
+                    Save
+                </button>
+            </form>
+        </div>
             <p class="text-sm font-semibold text-slate-200 mb-3">Add Funds</p>
 
             {{-- Step 1: amount selection --}}

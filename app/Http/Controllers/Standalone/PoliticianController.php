@@ -691,6 +691,26 @@ class PoliticianController extends Controller
     }
 
     /**
+     * Update the receipt email address for a politician.
+     * Allows specifying a different email for receipt delivery (e.g., when using someone else's card).
+     */
+    public function updateReceiptEmail(Request $request)
+    {
+        $request->validate([
+            'receipt_email' => ['nullable', 'email'],
+        ]);
+
+        $politician = Auth::user()->politician;
+        abort_unless($politician, 403);
+
+        $politician->update([
+            'receipt_email' => $request->input('receipt_email') ?: null,
+        ]);
+
+        return back()->with('success', 'Receipt email updated successfully.');
+    }
+
+    /**
      * Upload a government-issued ID document for KYC (Know Your Customer) verification.
      *
      * Accepts jpg/jpeg/png/pdf up to 5 MB. Stores on the `public` disk under

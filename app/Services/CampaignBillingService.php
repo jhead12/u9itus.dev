@@ -612,8 +612,11 @@ class CampaignBillingService
                 ->value('balance_after')
             ?? 0.0);
 
+        // Use receipt_email override if set; otherwise use account email
+        $receiptEmail = $politician->receipt_email ?? $politician->user->email;
+
         try {
-            Mail::to($politician->user->email)->send(new CreditsPurchasedMail(
+            Mail::to($receiptEmail)->send(new CreditsPurchasedMail(
                 user: $politician->user,
                 amount: (float) $tx->amount,
                 credits: $creditsAmount,
@@ -624,7 +627,7 @@ class CampaignBillingService
             Log::info('Sent credits purchase receipt email', [
                 'transaction_id' => $tx->id,
                 'politician_id' => $politician->id,
-                'email' => $politician->user->email,
+                'email' => $receiptEmail,
             ]);
 
             return true;
