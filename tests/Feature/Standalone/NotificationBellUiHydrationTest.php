@@ -40,9 +40,9 @@ test('notification bell open action is wired to API hydration on dashboard', fun
     $response->assertSee('if (this.open) this.loadFromServer();', false);
 
     // Hydration path calls notifications API endpoint.
-    $response->assertSee("fetch('/api/notifications'", false);
+    $response->assertSee("fetch('/api/v1/notifications'", false);
 
     // Read-state actions are wired to API routes used by the bell.
-    $response->assertSee("fetch('/api/notifications/mark-all-as-read'", false);
-    $response->assertSee("'/api/notifications/' + notification.id + '/mark-as-read'", false);
+    $response->assertSee("fetch('/api/v1/notifications/mark-all-as-read'", false);
+    $response->assertSee("'/api/v1/notifications/' + notification.id + '/mark-as-read'", false);
 });
