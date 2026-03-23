@@ -15,6 +15,7 @@ use App\Models\PoliticalCampaign;
 use App\Services\PlatformSettingsService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
 
 /**
@@ -25,6 +26,8 @@ use Illuminate\Support\Facades\Validator;
  */
 class PoliticianController extends Controller
 {
+    private const CAMPAIGN_NOT_FOUND_MESSAGE = 'Campaign not found for this politician';
+
     /**
      * Register / create a politician profile.
      */
@@ -120,6 +123,10 @@ class PoliticianController extends Controller
      */
     public function campaignShow(Politician $politician, PoliticalCampaign $campaign): JsonResponse
     {
+        if ((int) $campaign->politician_id !== (int) $politician->id) {
+            return response()->json(['message' => self::CAMPAIGN_NOT_FOUND_MESSAGE], 404);
+        }
+
         $campaign->loadCount(['viewSessions', 'viewSessions as completed_views_count' => function ($q) {
             $q->where('status', ViewSessionStatus::Completed);
         }]);
@@ -135,5 +142,61 @@ class PoliticianController extends Controller
                     : 0,
             ],
         ]);
+    }
+
+    /**
+     * Pause a politician campaign.
+     */
+    public function pauseCampaign(Politician $politician, PoliticalCampaign $campaign): JsonResponse
+    {
+        $status = 200;
+
+        if ((int) $campaign->politician_id !== (int) $politician->id) {
+            $status  = 404;
+            $payload = ['message' => self::CAMPAIGN_NOT_FOUND_MESSAGE];
+        } elseif ((int) $politician->user_id !== (int) Auth::id()) {
+            $status  = 403;
+            $payload = ['message' => 'Forbidden'];
+        } elseif ($campaign->status !== CampaignStatus::Active) {
+            $status  = 422;
+            $payload = ['message' => 'Only active campaigns can be paused'];
+        } else {
+            $campaign->update(['status' => CampaignStatus::Paused]);
+
+            $payload = [
+                'message'  => 'Campaign paused',
+                'campaign' => new CampaignResource($campaign->fresh()),
+            ];
+        }
+
+        return response()->json($payload, $status);
+    }
+
+    /**
+     * Resume a paused politician campaign.
+     */
+    public function resumeCampaign(Politician $politician, PoliticalCampaign $campaign): JsonResponse
+    {
+        $status = 200;
+
+        if ((int) $campaign->politician_id !== (int) $politician->id) {
+            $status  = 404;
+            $payload = ['message' => self::CAMPAIGN_NOT_FOUND_MESSAGE];
+        } elseif ((int) $politician->user_id !== (int) Auth::id()) {
+            $status  = 403;
+            $payload = ['message' => 'Forbidden'];
+        } elseif ($campaign->status !== CampaignStatus::Paused) {
+            $status  = 422;
+            $payload = ['message' => 'Only paused campaigns can be resumed'];
+        } else {
+            $campaign->update(['status' => CampaignStatus::Active]);
+
+            $payload = [
+                'message'  => 'Campaign resumed',
+                'campaign' => new CampaignResource($campaign->fresh()),
+            ];
+        }
+
+        return response()->json($payload, $status);
     }
 }

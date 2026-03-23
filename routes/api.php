@@ -101,6 +101,8 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::post('/campaigns', [PoliticianController::class, 'createCampaign'])->name('campaigns.store');
             Route::get('/campaigns', [PoliticianController::class, 'campaigns'])->name('campaigns.index');
             Route::get('/campaigns/{campaign:uuid}', [PoliticianController::class, 'campaignShow'])->name('campaigns.show');
+            Route::post('/campaigns/{campaign:uuid}/pause', [PoliticianController::class, 'pauseCampaign'])->name('campaigns.pause');
+            Route::post('/campaigns/{campaign:uuid}/resume', [PoliticianController::class, 'resumeCampaign'])->name('campaigns.resume');
 
             // Billing endpoints for politician
             Route::get('/billing/balance', [\App\Http\Controllers\Api\BillingController::class, 'balance'])->name('billing.balance');
@@ -117,6 +119,8 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::get('/campaigns/pending', [AdminController::class, 'pendingCampaigns'])->name('campaigns.pending');
             Route::post('/campaigns/{campaign:uuid}/approve', [AdminController::class, 'approveCampaign'])->name('campaigns.approve');
             Route::post('/campaigns/{campaign:uuid}/reject', [AdminController::class, 'rejectCampaign'])->name('campaigns.reject');
+            Route::post('/campaigns/{campaign:uuid}/stop', [AdminController::class, 'stopCampaign'])->name('campaigns.stop');
+            Route::post('/campaigns/{campaign:uuid}/reactivate', [AdminController::class, 'reactivateCampaign'])->name('campaigns.reactivate');
             Route::post('/payouts/process', [AdminController::class, 'processBatchPayouts'])->name('payouts.process');
             Route::get('/voters/flagged', [AdminController::class, 'flaggedVoters'])->name('voters.flagged');
             Route::post('/voters/{voter:uuid}/clear-flag', [AdminController::class, 'clearFraudFlag'])->name('voters.clear-flag');

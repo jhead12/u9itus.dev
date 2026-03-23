@@ -138,6 +138,52 @@ class AdminController extends Controller
     }
 
     /**
+     * Force-stop (pause) an active campaign.
+     */
+    public function stopCampaign(Request $request, PoliticalCampaign $campaign): JsonResponse
+    {
+        $request->validate([
+            'reason' => ['required', 'string', 'max:500'],
+        ]);
+
+        if ($campaign->status !== CampaignStatus::Active) {
+            return response()->json([
+                'message' => 'Only active campaigns can be stopped',
+            ], 422);
+        }
+
+        $campaign->update(['status' => CampaignStatus::Paused]);
+
+        return response()->json([
+            'message'  => 'Campaign stopped',
+            'campaign' => new CampaignResource($campaign->fresh()),
+        ]);
+    }
+
+    /**
+     * Reactivate a stopped/paused campaign.
+     */
+    public function reactivateCampaign(Request $request, PoliticalCampaign $campaign): JsonResponse
+    {
+        $request->validate([
+            'reason' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        if ($campaign->status !== CampaignStatus::Paused) {
+            return response()->json([
+                'message' => 'Only paused campaigns can be reactivated',
+            ], 422);
+        }
+
+        $campaign->update(['status' => CampaignStatus::Active]);
+
+        return response()->json([
+            'message'  => 'Campaign reactivated',
+            'campaign' => new CampaignResource($campaign->fresh()),
+        ]);
+    }
+
+    /**
      * Process batch payouts for eligible voters.
      */
     public function processBatchPayouts(): JsonResponse

@@ -34,7 +34,7 @@ class UserFactory extends Factory
             'email_verified_at' => now(),
             'password' => static::$password ??= Hash::make('password'),
             'remember_token' => Str::random(10),
-            'user_type' => 'viewer',
+            'user_type' => 'voter',
             'kyc_status' => 'approved',
             'is_verified' => true,
             'is_available_for_assignment' => true,
