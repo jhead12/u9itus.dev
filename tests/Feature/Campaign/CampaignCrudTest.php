@@ -135,6 +135,33 @@ test('politician can create a q_and_a campaign', function () {
     ]);
 });
 
+test('politician can save a partial campaign draft', function () {
+    $politician = makePolitician();
+
+    $response = $this->actingAs($politician)
+        ->post(route('politician.campaigns.save-draft'), [
+            'campaign_type' => 'video',
+            'message_summary' => 'Draft message only',
+        ]);
+
+    $campaign = PoliticalCampaign::query()->latest('id')->first();
+
+    expect($campaign)->not->toBeNull();
+
+    $response->assertRedirect(route('politician.campaigns.edit', $campaign));
+    $response->assertSessionHasNoErrors();
+
+    $this->assertDatabaseHas('political_campaigns', [
+        'id' => $campaign->id,
+        'politician_id' => $politician->politician->id,
+        'status' => 'draft',
+        'campaign_type' => 'video',
+        'message_summary' => 'Draft message only',
+    ]);
+
+    expect((string) $campaign->title)->toContain('Draft Campaign -');
+});
+
 test('campaign store requires title', function () {
     $politician = makePolitician();
 

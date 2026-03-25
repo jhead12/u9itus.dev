@@ -10,6 +10,17 @@
         <a href="{{ route('politician.campaigns.index') }}" class="text-sm text-slate-400 hover:text-white transition">← Back to campaigns</a>
     </div>
 
+    @if($errors->any())
+    <div class="mb-6 rounded-xl border border-red-500/30 bg-red-500/10 p-4">
+        <p class="text-sm font-medium text-red-300">Please fix the following before submitting:</p>
+        <ul class="mt-2 list-disc pl-5 text-xs text-red-200 space-y-1">
+            @foreach($errors->all() as $error)
+                <li>{{ $error }}</li>
+            @endforeach
+        </ul>
+    </div>
+    @endif
+
     <form method="POST" action="{{ route('politician.campaigns.store') }}" class="space-y-6" id="campaignForm">
         @csrf
 
@@ -22,6 +33,7 @@
                 <input type="text" name="title" value="{{ old('title') }}" required maxlength="255"
                     class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition"
                     placeholder="e.g. Vote Yes on Proposition 1" />
+                @error('title')<p class="text-xs text-red-400 mt-1">{{ $message }}</p>@enderror
             </div>
 
             <div>
@@ -40,6 +52,7 @@
                         <option value="q_and_a" {{ old('campaign_type') === 'q_and_a' ? 'selected' : '' }}>❓ Q&A</option>
                         <option value="live_feed" {{ old('campaign_type') === 'live_feed' ? 'selected' : '' }}>📡 Live Feed</option>
                     </select>
+                    @error('campaign_type')<p class="text-xs text-red-400 mt-1">{{ $message }}</p>@enderror
                 </div>
 
                 <div>
@@ -117,11 +130,13 @@
                     <input type="url" name="live_feed_url" value="{{ old('live_feed_url') }}"
                         class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition"
                         placeholder="https://stream.example.com/live/..." />
+                    @error('live_feed_url')<p class="text-xs text-red-400 mt-1">{{ $message }}</p>@enderror
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-slate-300 mb-1.5">Scheduled Start Time <span class="text-red-400">*</span></label>
                     <input type="datetime-local" name="live_scheduled_at" value="{{ old('live_scheduled_at') }}"
                         class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition" />
+                    @error('live_scheduled_at')<p class="text-xs text-red-400 mt-1">{{ $message }}</p>@enderror
                 </div>
             </div>
         </div>
@@ -156,6 +171,7 @@
                     <input type="number" name="total_views_requested" id="viewsInput" value="{{ old('total_views_requested', 100) }}" min="10" step="10" required
                         class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition" />
                     <p class="text-xs text-slate-500 mt-1">Minimum 10 views</p>
+                    @error('total_views_requested')<p class="text-xs text-red-400 mt-1">{{ $message }}</p>@enderror
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-slate-300 mb-1.5">Total Budget (USD) <span class="text-red-400">*</span></label>
@@ -165,6 +181,7 @@
                             min="6" step="0.01" required
                             class="w-full bg-slate-900/60 border border-slate-700 rounded-lg pl-7 pr-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition" />
                     </div>
+                    @error('total_budget')<p class="text-xs text-red-400 mt-1">{{ $message }}</p>@enderror
                 </div>
             </div>
         </div>
@@ -442,13 +459,15 @@ function restoreDraftFromLocalStorage() {
                     if (checkbox) checkbox.checked = true;
                 });
             } else {
+                const checkbox = campaignForm.querySelector(`input[type="checkbox"][name="${key}"]`);
+                if (checkbox) {
+                    checkbox.checked = value === '1' || value === 'true' || value === true;
+                    continue;
+                }
+
                 const input = campaignForm.querySelector(`[name="${key}"]`);
                 if (input) {
-                    if (input.type === 'checkbox') {
-                        input.checked = value === '1';
-                    } else {
-                        input.value = value;
-                    }
+                    input.value = value;
                 }
             }
         }
@@ -506,7 +525,7 @@ campaignForm.querySelectorAll('input, textarea, select').forEach(input => {
 // Clear draft from localStorage on successful form submission
 campaignForm.addEventListener('submit', function(e) {
     // Only clear if it's the main submit (not draft save)
-    if (this.action.includes('campaigns/store') || !this.action.includes('save-draft')) {
+    if (!this.action.includes('save-draft')) {
         localStorage.removeItem(DRAFT_KEY);
     }
 });
