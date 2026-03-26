@@ -22,6 +22,7 @@ class UpdateCampaignRequest extends FormRequest
             'message_summary'          => ['nullable', 'string', 'max:2000'],
             'campaign_type'            => ['sometimes', 'required', 'in:video,live_feed,q_and_a'],
             'governance_level'         => ['nullable', 'string', 'max:100'],
+            'video'                    => ['nullable', 'file', 'mimetypes:video/mp4,video/quicktime,video/webm', 'max:' . ((int) config('u9itus.max_video_size_mb', 100) * 1024)],
             'total_budget'             => ['sometimes', 'required', 'numeric', 'min:' . number_format($minBudget, 2, '.', '')],
             'total_views_requested'    => ['sometimes', 'required', 'integer', 'min:10'],
             'target_states'            => ['nullable', 'array'],

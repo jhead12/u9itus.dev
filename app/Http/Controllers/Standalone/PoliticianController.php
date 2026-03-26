@@ -201,6 +201,8 @@ class PoliticianController extends Controller
         abort_unless($politician, 403);
 
         $data = $request->validated();
+        $uploadedVideo = $request->file('video');
+        unset($data['video']);
         $data['politician_id'] = $politician->id;
         $data['status']        = 'draft';
         $data['revenue_per_view'] = (float) PlatformSettingsService::get('revenue_per_view', null, (float) config('u9itus.revenue_per_view', 1.00));
@@ -214,6 +216,12 @@ class PoliticianController extends Controller
         }
 
         $campaign = PoliticalCampaign::create($data);
+
+        if ($uploadedVideo) {
+            $disk = config('filesystems.default', 'local');
+            $path = $uploadedVideo->store("campaigns/{$campaign->id}/video", $disk);
+            $campaign->update(['media_url' => Storage::disk($disk)->url($path)]);
+        }
 
         return redirect()
             ->route('politician.campaigns.show', $campaign)
@@ -312,6 +320,8 @@ class PoliticianController extends Controller
         );
 
         $validated = $request->validated();
+        $uploadedVideo = $request->file('video');
+        unset($validated['video']);
         $revenuePerView = (float) PlatformSettingsService::get('revenue_per_view', null, (float) config('u9itus.revenue_per_view', 1.00));
         // Always recompute total_budget from views × rate (never trust form input)
         $validated['total_budget'] = round(
@@ -321,6 +331,12 @@ class PoliticianController extends Controller
         );
 
         $campaign->update($validated);
+
+        if ($uploadedVideo) {
+            $disk = config('filesystems.default', 'local');
+            $path = $uploadedVideo->store("campaigns/{$campaign->id}/video", $disk);
+            $campaign->update(['media_url' => Storage::disk($disk)->url($path)]);
+        }
 
         return redirect()
             ->route('politician.campaigns.show', $campaign)

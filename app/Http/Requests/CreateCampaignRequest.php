@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Services\PlatformSettingsService;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Validator;
 
 /**
  * Validates campaign creation requests.
@@ -35,7 +36,8 @@ class CreateCampaignRequest extends FormRequest
             'message_summary'       => 'nullable|string|max:2000',
             'campaign_type'         => 'required|in:video,live_feed,q_and_a',
             'governance_level'      => 'nullable|string|in:' . implode(',', array_keys(config('u9itus.governance_levels', []))),
-            'media_url'             => 'required_if:campaign_type,video,q_and_a|nullable|url',
+            'media_url'             => 'nullable|url',
+            'video'                 => 'nullable|file|mimetypes:video/mp4,video/quicktime,video/webm|max:' . ((int) config('u9itus.max_video_size_mb', 100) * 1024),
             'media_duration'        => "nullable|integer|min:{$minDuration}|max:{$maxDuration}",
             'live_feed_url'         => 'required_if:campaign_type,live_feed|nullable|url',
             'live_scheduled_at'     => 'required_if:campaign_type,live_feed|nullable|date|after:now',
@@ -70,5 +72,17 @@ class CreateCampaignRequest extends FormRequest
             'media_duration.min'        => 'Video must be at least ' . config('u9itus.min_video_duration', 30) . ' seconds.',
             'media_duration.max'        => 'Video cannot exceed ' . config('u9itus.max_video_duration', 300) . ' seconds.',
         ];
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            $campaignType = (string) $this->input('campaign_type', '');
+            $needsVideoAsset = in_array($campaignType, ['video', 'q_and_a'], true);
+
+            if ($needsVideoAsset && ! $this->filled('media_url') && ! $this->hasFile('video')) {
+                $validator->errors()->add('media_url', 'Provide a video URL or upload a video file.');
+            }
+        });
     }
 }

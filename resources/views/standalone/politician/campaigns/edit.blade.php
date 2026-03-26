@@ -10,7 +10,7 @@
         <a href="{{ route('politician.campaigns.show', $campaign) }}" class="text-sm text-slate-400 hover:text-white transition">← Back to campaign</a>
     </div>
 
-    <form method="POST" action="{{ route('politician.campaigns.update', $campaign) }}" class="space-y-6" id="editCampaignForm">
+    <form method="POST" action="{{ route('politician.campaigns.update', $campaign) }}" enctype="multipart/form-data" class="space-y-6" id="editCampaignForm">
         @csrf @method('PUT')
 
         {{-- Basic Info --}}
@@ -65,6 +65,14 @@
                         placeholder="https://youtube.com/watch?v=... or https://example.com/video.mp4" />
                     <p class="text-xs text-slate-500 mt-1">YouTube URL or direct link to MP4/WebM video</p>
                     @error('media_url')<p class="text-xs text-red-400 mt-1">{{ $message }}</p>@enderror
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-slate-300 mb-1.5">Upload New Video File</label>
+                    <input type="file" name="video" id="videoFileInput" accept="video/mp4,video/webm,video/quicktime"
+                        class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm file:mr-3 file:rounded file:border-0 file:bg-emerald-500 file:px-3 file:py-1.5 file:text-slate-900 file:font-medium hover:file:bg-emerald-400" />
+                    <p class="text-xs text-slate-500 mt-1">Optional alternative to URL. Uploading a file replaces the current video URL.</p>
+                    @error('video')<p class="text-xs text-red-400 mt-1">{{ $message }}</p>@enderror
                 </div>
                 
                 {{-- Video Preview Section --}}
@@ -524,6 +532,7 @@
         const nativePlayer = document.getElementById('nativePreviewPlayer');
         const nativeSource = document.getElementById('nativePreviewSource');
         const placeholder = document.getElementById('previewPlaceholder');
+        const videoFileInput = document.getElementById('videoFileInput');
 
         // Extract YouTube video ID from various URL formats
         function extractYouTubeId(url) {
@@ -586,6 +595,18 @@
             
             nativeSource.src = url;
             nativePlayer.load();
+        }
+
+        if (videoFileInput) {
+            videoFileInput.addEventListener('change', () => {
+                const file = videoFileInput.files && videoFileInput.files[0];
+                if (!file) {
+                    return;
+                }
+
+                previewSection.classList.remove('hidden');
+                initNativePreview(URL.createObjectURL(file));
+            });
         }
 
         videoUrlInput.addEventListener('input', () => {

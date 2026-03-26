@@ -21,7 +21,7 @@
     </div>
     @endif
 
-    <form method="POST" action="{{ route('politician.campaigns.store') }}" class="space-y-6" id="campaignForm">
+    <form method="POST" action="{{ route('politician.campaigns.store') }}" enctype="multipart/form-data" class="space-y-6" id="campaignForm">
         @csrf
 
         {{-- Basic Info --}}
@@ -76,6 +76,14 @@
                         placeholder="https://youtube.com/watch?v=... or https://example.com/video.mp4" />
                     <p class="text-xs text-slate-500 mt-1">YouTube URL or direct link to MP4/WebM video</p>
                     @error('media_url')<p class="text-xs text-red-400 mt-1">{{ $message }}</p>@enderror
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-slate-300 mb-1.5">Upload Video File</label>
+                    <input type="file" name="video" id="videoFileInput" accept="video/mp4,video/webm,video/quicktime"
+                        class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm file:mr-3 file:rounded file:border-0 file:bg-emerald-500 file:px-3 file:py-1.5 file:text-slate-900 file:font-medium hover:file:bg-emerald-400" />
+                    <p class="text-xs text-slate-500 mt-1">Optional alternative to URL upload (max {{ config('u9itus.max_video_size_mb', 100) }}MB).</p>
+                    @error('video')<p class="text-xs text-red-400 mt-1">{{ $message }}</p>@enderror
                 </div>
                 
                 {{-- Video Preview Section --}}
@@ -740,6 +748,7 @@ const ytContainer = document.getElementById('ytPreviewContainer');
 const nativePlayer = document.getElementById('nativePreviewPlayer');
 const nativeSource = document.getElementById('nativePreviewSource');
 const placeholder = document.getElementById('previewPlaceholder');
+const videoFileInput = document.getElementById('videoFileInput');
 
 // Extract YouTube video ID from various URL formats
 function extractYouTubeId(url) {
@@ -805,6 +814,19 @@ function initNativePreview(url) {
     
     nativeSource.src = url;
     nativePlayer.load();
+}
+
+// Handle local file uploads preview
+if (videoFileInput) {
+    videoFileInput.addEventListener('change', () => {
+        const file = videoFileInput.files && videoFileInput.files[0];
+        if (!file) {
+            return;
+        }
+
+        previewSection.classList.remove('hidden');
+        initNativePreview(URL.createObjectURL(file));
+    });
 }
 
 // Handle video URL changes
