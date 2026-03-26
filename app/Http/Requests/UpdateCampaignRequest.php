@@ -15,12 +15,14 @@ class UpdateCampaignRequest extends FormRequest
 
     public function rules(): array
     {
+        $minBudget = (float) config('u9itus.revenue_per_view', 1.00) * 10;
+
         return [
             'title'                    => ['sometimes', 'required', 'string', 'max:255'],
             'message_summary'          => ['nullable', 'string', 'max:2000'],
             'campaign_type'            => ['sometimes', 'required', 'in:video,live_feed,q_and_a'],
             'governance_level'         => ['nullable', 'string', 'max:100'],
-            'total_budget'             => ['sometimes', 'required', 'numeric', 'min:6.00'],
+            'total_budget'             => ['sometimes', 'required', 'numeric', 'min:' . number_format($minBudget, 2, '.', '')],
             'total_views_requested'    => ['sometimes', 'required', 'integer', 'min:10'],
             'target_states'            => ['nullable', 'array'],
             'target_states.*'          => ['string', 'max:2'],

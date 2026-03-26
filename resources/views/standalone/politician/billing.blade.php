@@ -29,7 +29,7 @@
         <div class="sm:col-span-2 bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
             <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Credit Balance</p>
             <p class="text-4xl font-bold text-emerald-400">${{ number_format($creditBalance, 2) }}</p>
-            <p class="text-xs text-slate-500 mt-2">Used to fund active campaigns at ${{ number_format((float) \App\Services\PlatformSettingsService::get('revenue_per_view', null, 0.60), 2) }}/view</p>
+            <p class="text-xs text-slate-500 mt-2">Used to fund active campaigns at ${{ number_format((float) \App\Services\PlatformSettingsService::get('revenue_per_view', null, (float) config('u9itus.revenue_per_view', 1.00)), 2) }}/view</p>
         </div>
 
         {{-- Receipt Email Settings --}}

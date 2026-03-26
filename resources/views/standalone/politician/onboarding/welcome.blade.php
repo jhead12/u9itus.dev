@@ -6,7 +6,7 @@
     title="Welcome to U9itus!"
     description="Reach voters directly with your political message"
 >
-    @php($revenuePerView = (float) \App\Services\PlatformSettingsService::get('revenue_per_view', null, 0.60))
+    @php($revenuePerView = (float) \App\Services\PlatformSettingsService::get('revenue_per_view', null, (float) config('u9itus.revenue_per_view', 1.00)))
 
     <div class="space-y-6">
         <div class="text-center py-6">

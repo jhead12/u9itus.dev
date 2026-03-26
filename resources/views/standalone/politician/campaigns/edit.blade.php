@@ -142,7 +142,7 @@
                     <label class="block text-sm font-medium text-slate-300 mb-1.5">Total Budget (USD)</label>
                     <div class="relative">
                         <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
-                        <input type="number" name="total_budget" value="{{ old('total_budget', $campaign->total_budget) }}" min="6" step="0.01"
+                        <input type="number" name="total_budget" value="{{ old('total_budget', $campaign->total_budget) }}" min="{{ number_format((float) config('u9itus.revenue_per_view', 1.00) * 10, 2, '.', '') }}" step="0.01"
                             class="w-full bg-slate-900/60 border border-slate-700 rounded-lg pl-7 pr-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition" />
                     </div>
                 </div>
@@ -333,7 +333,7 @@
 @push('scripts')
 <script>
     // Sync views ↔ budget on edit
-    const revenuePerViewEdit = {{ (float) ($campaign->revenue_per_view ?? 0.60) }};
+    const revenuePerViewEdit = {{ (float) ($campaign->revenue_per_view ?? config('u9itus.revenue_per_view', 1.00)) }};
     const viewsEditInput  = document.querySelector('[name="total_views_requested"]');
     const budgetEditInput = document.querySelector('[name="total_budget"]');
     if (viewsEditInput && budgetEditInput) {

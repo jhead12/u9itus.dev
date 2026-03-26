@@ -30,7 +30,7 @@ return [
     | Pay-Per-View Pricing (per single view)
     |--------------------------------------------------------------------------
     |
-    | Revenue from politician per view:          $0.60
+    | Revenue from politician per view:          $1.00
     | Direct viewer/voter payout:                $0.25
     | Referral commission (10 % of $0.25):       $0.025
     | Politician-procurement commission (10 %):  $0.06 (one-time, amortised)
@@ -39,7 +39,7 @@ return [
     | Gross-up formula: gross = credits / (1 - 0.025)
     |
     */
-    'revenue_per_view'              => env('REVENUE_PER_VIEW', 0.60),
+    'revenue_per_view'              => env('REVENUE_PER_VIEW', 1.00),
     'viewer_payout_per_view'        => env('VIEWER_PAYOUT_PER_VIEW', 0.25),
     'referral_commission_percent'   => env('REFERRAL_COMMISSION_PERCENT', 10),
     'procurement_commission_percent'=> env('PROCUREMENT_COMMISSION_PERCENT', 10),

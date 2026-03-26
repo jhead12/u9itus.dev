@@ -1,4 +1,4 @@
-@php($revenuePerView = (float) \App\Services\PlatformSettingsService::get('revenue_per_view', null, 0.60))
+@php($revenuePerView = (float) \App\Services\PlatformSettingsService::get('revenue_per_view', null, (float) config('u9itus.revenue_per_view', 1.00)))
 
 <x-onboarding-layout :progress="$progress" :phases="$phases" :total-phases="$totalPhases" current-phase="payment_method" title="Add Payment Method" description="Set up Stripe for campaign billing">
     <div class="space-y-6">

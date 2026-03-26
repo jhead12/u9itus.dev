@@ -1,0 +1,214 @@
+[
+    {
+        "external_candidate_id": "ca-2026-gov-001",
+        "full_name": "Gavin Newsom",
+        "political_office": "Governor",
+        "governance_level": "State",
+        "state": "CA",
+        "district": "Statewide",
+        "party_affiliation": "Democratic",
+        "election_date": "2026-06-02"
+    },
+    {
+        "external_candidate_id": "ca-2026-gov-002",
+        "full_name": "Chad Bianco",
+        "political_office": "Governor",
+        "governance_level": "State",
+        "state": "CA",
+        "district": "Statewide",
+        "party_affiliation": "Republican",
+        "election_date": "2026-06-02"
+    },
+    {
+        "external_candidate_id": "ca-2026-ltgov-001",
+        "full_name": "Eleni Kounalakis",
+        "political_office": "Lieutenant Governor",
+        "governance_level": "State",
+        "state": "CA",
+        "district": "Statewide",
+        "party_affiliation": "Democratic",
+        "election_date": "2026-06-02"
+    },
+    {
+        "external_candidate_id": "ca-2026-ag-001",
+        "full_name": "Rob Bonta",
+        "political_office": "Attorney General",
+        "governance_level": "State",
+        "state": "CA",
+        "district": "Statewide",
+        "party_affiliation": "Democratic",
+        "election_date": "2026-06-02"
+    },
+    {
+        "external_candidate_id": "ca-2026-sos-001",
+        "full_name": "Shirley Weber",
+        "political_office": "Secretary of State",
+        "governance_level": "State",
+        "state": "CA",
+        "district": "Statewide",
+        "party_affiliation": "Democratic",
+        "election_date": "2026-06-02"
+    },
+    {
+        "external_candidate_id": "ca-2026-controller-001",
+        "full_name": "Malia Cohen",
+        "political_office": "State Controller",
+        "governance_level": "State",
+        "state": "CA",
+        "district": "Statewide",
+        "party_affiliation": "Democratic",
+        "election_date": "2026-06-02"
+    },
+    {
+        "external_candidate_id": "ca-2026-treasurer-001",
+        "full_name": "Fiona Ma",
+        "political_office": "State Treasurer",
+        "governance_level": "State",
+        "state": "CA",
+        "district": "Statewide",
+        "party_affiliation": "Democratic",
+        "election_date": "2026-06-02"
+    },
+    {
+        "external_candidate_id": "ca-2026-insurance-001",
+        "full_name": "Ricardo Lara",
+        "political_office": "Insurance Commissioner",
+        "governance_level": "State",
+        "state": "CA",
+        "district": "Statewide",
+        "party_affiliation": "Democratic",
+        "election_date": "2026-06-02"
+    },
+    {
+        "external_candidate_id": "ca-2026-rep-011-001",
+        "full_name": "Nancy Pelosi",
+        "political_office": "U.S. Representative",
+        "governance_level": "Federal",
+        "state": "CA",
+        "city": "San Francisco",
+        "district": "CA-11",
+        "party_affiliation": "Democratic",
+        "election_date": "2026-06-02"
+    },
+    {
+        "external_candidate_id": "ca-2026-rep-017-001",
+        "full_name": "Ro Khanna",
+        "political_office": "U.S. Representative",
+        "governance_level": "Federal",
+        "state": "CA",
+        "city": "Fremont",
+        "district": "CA-17",
+        "party_affiliation": "Democratic",
+        "election_date": "2026-06-02"
+    },
+    {
+        "external_candidate_id": "ca-2026-rep-003-001",
+        "full_name": "Kevin Kiley",
+        "political_office": "U.S. Representative",
+        "governance_level": "Federal",
+        "state": "CA",
+        "city": "Rocklin",
+        "district": "CA-03",
+        "party_affiliation": "Republican",
+        "election_date": "2026-06-02"
+    },
+    {
+        "external_candidate_id": "ca-2026-rep-049-001",
+        "full_name": "Mike Levin",
+        "political_office": "U.S. Representative",
+        "governance_level": "Federal",
+        "state": "CA",
+        "city": "San Juan Capistrano",
+        "district": "CA-49",
+        "party_affiliation": "Democratic",
+        "election_date": "2026-06-02"
+    },
+    {
+        "external_candidate_id": "ca-2026-sen-sd14-001",
+        "full_name": "Anna Caballero",
+        "political_office": "State Senator",
+        "governance_level": "State",
+        "state": "CA",
+        "city": "Salinas",
+        "district": "SD-14",
+        "party_affiliation": "Democratic",
+        "election_date": "2026-06-02"
+    },
+    {
+        "external_candidate_id": "ca-2026-sen-sd16-001",
+        "full_name": "Shannon Grove",
+        "political_office": "State Senator",
+        "governance_level": "State",
+        "state": "CA",
+        "city": "Bakersfield",
+        "district": "SD-16",
+        "party_affiliation": "Republican",
+        "election_date": "2026-06-02"
+    },
+    {
+        "external_candidate_id": "ca-2026-asm-ad31-001",
+        "full_name": "Joaquin Arambula",
+        "political_office": "State Assembly Member",
+        "governance_level": "State",
+        "state": "CA",
+        "city": "Fresno",
+        "district": "AD-31",
+        "party_affiliation": "Democratic",
+        "election_date": "2026-06-02"
+    },
+    {
+        "external_candidate_id": "ca-2026-asm-ad08-001",
+        "full_name": "David Tangipa",
+        "political_office": "State Assembly Member",
+        "governance_level": "State",
+        "state": "CA",
+        "city": "Fresno",
+        "district": "AD-08",
+        "party_affiliation": "Republican",
+        "election_date": "2026-06-02"
+    },
+    {
+        "external_candidate_id": "ca-2026-mayor-la-001",
+        "full_name": "Karen Bass",
+        "political_office": "Mayor",
+        "governance_level": "Local",
+        "state": "CA",
+        "city": "Los Angeles",
+        "district": "Citywide",
+        "party_affiliation": "Democratic",
+        "election_date": "2026-06-02"
+    },
+    {
+        "external_candidate_id": "ca-2026-mayor-sd-001",
+        "full_name": "Todd Gloria",
+        "political_office": "Mayor",
+        "governance_level": "Local",
+        "state": "CA",
+        "city": "San Diego",
+        "district": "Citywide",
+        "party_affiliation": "Democratic",
+        "election_date": "2026-06-02"
+    },
+    {
+        "external_candidate_id": "ca-2026-mayor-sf-001",
+        "full_name": "London Breed",
+        "political_office": "Mayor",
+        "governance_level": "Local",
+        "state": "CA",
+        "city": "San Francisco",
+        "district": "Citywide",
+        "party_affiliation": "Democratic",
+        "election_date": "2026-06-02"
+    },
+    {
+        "external_candidate_id": "ca-2026-da-la-001",
+        "full_name": "George Gascon",
+        "political_office": "District Attorney",
+        "governance_level": "Local",
+        "state": "CA",
+        "city": "Los Angeles",
+        "district": "Los Angeles County",
+        "party_affiliation": "Nonpartisan",
+        "election_date": "2026-06-02"
+    }
+]

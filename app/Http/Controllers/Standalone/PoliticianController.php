@@ -178,7 +178,7 @@ class PoliticianController extends Controller
         $politician = Auth::user()->politician;
         abort_unless($politician, 403);
 
-        $revenuePerView = (float) PlatformSettingsService::get('revenue_per_view', null, 0.60);
+        $revenuePerView = (float) PlatformSettingsService::get('revenue_per_view', null, (float) config('u9itus.revenue_per_view', 1.00));
         $creditBalance  = $this->computeModeAwareCreditBalance(
             $politician->id,
             $this->activePaymentMode()
@@ -203,7 +203,7 @@ class PoliticianController extends Controller
         $data = $request->validated();
         $data['politician_id'] = $politician->id;
         $data['status']        = 'draft';
-        $data['revenue_per_view'] = (float) PlatformSettingsService::get('revenue_per_view', null, 0.60);
+        $data['revenue_per_view'] = (float) PlatformSettingsService::get('revenue_per_view', null, (float) config('u9itus.revenue_per_view', 1.00));
         $data['voter_payout_per_view'] = (float) PlatformSettingsService::get('viewer_payout_per_view', null, 0.25);
         // Always recompute total_budget from views × rate (never trust form input)
         $data['total_budget'] = round((float)($data['total_views_requested'] ?? 0) * $data['revenue_per_view'], 2);
@@ -231,7 +231,7 @@ class PoliticianController extends Controller
         // Set defaults for draft campaigns
         $data['politician_id'] = $politician->id;
         $data['status'] = 'draft';
-        $data['revenue_per_view'] = (float) PlatformSettingsService::get('revenue_per_view', null, 0.60);
+        $data['revenue_per_view'] = (float) PlatformSettingsService::get('revenue_per_view', null, (float) config('u9itus.revenue_per_view', 1.00));
         $data['voter_payout_per_view'] = (float) PlatformSettingsService::get('viewer_payout_per_view', null, 0.25);
         
         // Set default media_duration if not provided
@@ -312,7 +312,7 @@ class PoliticianController extends Controller
         );
 
         $validated = $request->validated();
-        $revenuePerView = (float) PlatformSettingsService::get('revenue_per_view', null, 0.60);
+        $revenuePerView = (float) PlatformSettingsService::get('revenue_per_view', null, (float) config('u9itus.revenue_per_view', 1.00));
         // Always recompute total_budget from views × rate (never trust form input)
         $validated['total_budget'] = round(
             (float)($validated['total_views_requested'] ?? $campaign->total_views_requested)

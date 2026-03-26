@@ -9,7 +9,7 @@ use Illuminate\Foundation\Http\FormRequest;
  * Validates campaign creation requests.
  *
  * Business rules:
- *   - Minimum budget: 10 views × $0.60 = $6
+ *   - Minimum budget: 10 views × configured rate
  *   - Minimum views: 10
  *   - Video duration: 30–300 seconds
  */
@@ -25,7 +25,7 @@ class CreateCampaignRequest extends FormRequest
      */
     public function rules(): array
     {
-        $revenuePerView = (float) PlatformSettingsService::get('revenue_per_view', null, 0.60);
+        $revenuePerView = (float) PlatformSettingsService::get('revenue_per_view', null, (float) config('u9itus.revenue_per_view', 1.00));
         $minBudget   = $revenuePerView * 10;
         $minDuration = config('u9itus.min_video_duration', 30);
         $maxDuration = config('u9itus.max_video_duration', 300);
@@ -62,7 +62,7 @@ class CreateCampaignRequest extends FormRequest
      */
     public function messages(): array
     {
-        $minBudget = (float) PlatformSettingsService::get('revenue_per_view', null, 0.60) * 10;
+        $minBudget = (float) PlatformSettingsService::get('revenue_per_view', null, (float) config('u9itus.revenue_per_view', 1.00)) * 10;
 
         return [
             'total_budget.min'          => 'Minimum campaign budget is $' . $minBudget . ' (10 views).',
