@@ -9,6 +9,10 @@
     @php
         $voterLandingReferralUrl = url('/?ref=' . ($voter->referral_code ?? '') . '&target=voter');
         $politicianLandingReferralUrl = url('/?ref=' . ($voter->referral_code ?? '') . '&target=politician');
+        $viewerPayoutPerView = (float) \App\Services\PlatformSettingsService::get('viewer_payout_per_view', null, 0.25);
+        $referralCommissionPercent = (float) \App\Services\PlatformSettingsService::get('referral_commission_percent', null, config('u9itus.referral_commission_percent', 10));
+        $referralPerViewAmount = $viewerPayoutPerView * ($referralCommissionPercent / 100);
+        $referralPerViewAmountDecimals = $referralPerViewAmount < 0.1 ? 3 : 2;
     @endphp
     <div class="space-y-6">
         <!-- Referral Benefits -->
@@ -21,7 +25,7 @@
                         <span class="text-2xl">👥</span>
                         <h4 class="font-semibold text-white">Refer Voters (Recurring)</h4>
                     </div>
-                    <p class="text-gray-200">Earn 10% commission ($0.025) on every ad your referrals watch - forever!</p>
+                    <p class="text-gray-200">Earn {{ number_format($referralCommissionPercent, 0) }}% commission (${{ number_format($referralPerViewAmount, $referralPerViewAmountDecimals) }}) on every ad your referrals watch - forever!</p>
                     <p class="text-green-400 font-bold mt-1">Your Code: {{ $voter->referral_code ?? 'N/A' }}</p>
                 </div>
 

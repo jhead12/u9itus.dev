@@ -4,6 +4,12 @@
 @section('page-title', 'Referrals')
 
 @section('content')
+@php
+    $viewerPayoutPerView = (float) \App\Services\PlatformSettingsService::get('viewer_payout_per_view', null, 0.25);
+    $referralCommissionPercent = (float) \App\Services\PlatformSettingsService::get('referral_commission_percent', null, config('u9itus.referral_commission_percent', 10));
+    $referralPerViewAmount = $viewerPayoutPerView * ($referralCommissionPercent / 100);
+    $referralPerViewAmountDecimals = $referralPerViewAmount < 0.1 ? 3 : 2;
+@endphp
 <div class="space-y-7 max-w-4xl">
 
     <div>
@@ -24,11 +30,11 @@
                 </div>
                 <div>
                     <p class="text-white font-semibold text-sm">Recruit a Voter</p>
-                    <p class="text-emerald-400 text-xs font-mono">10% of their payout per view</p>
+                    <p class="text-emerald-400 text-xs font-mono">{{ number_format($referralCommissionPercent, 0) }}% of their payout per view</p>
                 </div>
             </div>
             <p class="text-slate-400 text-xs leading-relaxed">
-                Earn <strong class="text-emerald-400">$0.025</strong> every time a voter you recruited
+                Earn <strong class="text-emerald-400">${{ number_format($referralPerViewAmount, $referralPerViewAmountDecimals) }}</strong> every time a voter you recruited
                 completes a qualifying view. Recurring — pays as long as your recruit is active.
             </p>
             <p class="text-slate-500 text-xs mt-2">

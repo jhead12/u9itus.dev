@@ -3,6 +3,12 @@
 @section('title', 'My Referrals')
 
 @section('content')
+@php
+    $viewerPayoutPerView = (float) \App\Services\PlatformSettingsService::get('viewer_payout_per_view', null, 0.25);
+    $referralCommissionPercent = (float) \App\Services\PlatformSettingsService::get('referral_commission_percent', null, config('u9itus.referral_commission_percent', 10));
+    $referralPerViewAmount = $viewerPayoutPerView * ($referralCommissionPercent / 100);
+    $referralPerViewAmountDecimals = $referralPerViewAmount < 0.1 ? 3 : 2;
+@endphp
 <div class="px-4 sm:px-6 lg:px-8 py-8 max-w-4xl mx-auto space-y-7">
 
     <div>
@@ -24,11 +30,11 @@
                 </div>
                 <div>
                     <p class="text-white font-semibold text-sm">Refer a Voter</p>
-                    <p class="text-emerald-400 text-xs font-mono">10% per view completed</p>
+                    <p class="text-emerald-400 text-xs font-mono">{{ number_format($referralCommissionPercent, 0) }}% per view completed</p>
                 </div>
             </div>
             <p class="text-slate-400 text-xs leading-relaxed">
-                Earn <strong class="text-emerald-400">$0.025</strong> every time someone you referred watches a full ad.
+                Earn <strong class="text-emerald-400">${{ number_format($referralPerViewAmount, $referralPerViewAmountDecimals) }}</strong> every time someone you referred watches a full ad.
                 Recurring — pays as long as your referral is active.
             </p>
             <p class="text-slate-500 text-xs mt-2">{{ $referrals->count() }} voter{{ $referrals->count() === 1 ? '' : 's' }} referred &nbsp;·&nbsp; <span class="text-emerald-400">${{ number_format($totalReferralEarnings, 2) }} earned</span></p>
@@ -111,7 +117,7 @@
         <div class="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-6 items-start">
             <div class="space-y-2">
                 <p class="text-sm font-medium text-emerald-400">Voter Registration Link</p>
-                <p class="text-slate-400 text-xs">Earn $0.025 per view forever for every voter you refer.</p>
+                <p class="text-slate-400 text-xs">Earn ${{ number_format($referralPerViewAmount, $referralPerViewAmountDecimals) }} per view forever for every voter you refer.</p>
                 <div class="flex gap-2">
                     <input id="voter-referral-link" type="text" readonly
                         value="{{ $voterRefUrl }}"
