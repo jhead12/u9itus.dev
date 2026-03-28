@@ -211,7 +211,7 @@ php artisan serve
 ### Services
 
 | Service                         | Purpose                                                                                                                                                            |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --- | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **PoliticalViewService**        | View lifecycle: assign → start → track → complete                                                                                                                  |
 | **PoliticalPaymentService**     | Campaign billing, batch payouts, per-view profit calculation                                                                                                       |
 | **FraudPreventionService**      | Multi-signal fraud scoring: rate limits, device fingerprinting, bot UA detection, IP anomalies, VPN/Tor/datacenter detection, auto-flag, `fraud_signals` audit log |
@@ -222,11 +222,13 @@ php artisan serve
 | **IpReputationService**         | VPN / proxy / Tor exit-node / datacenter IP detection via CIDR blocklist + optional ipinfo.io enrichment (Phase 8)                                                 |
 | **DeviceFingerprintService**    | Server-side composite fingerprint generation, bot user-agent analysis, fingerprint compare/store (Phase 8)                                                         |
 | **ReverbBroadcastService**      | WebSocket event dispatch — ad delivery, payout alerts, campaign status, presence                                                                                   |
-| **OnboardingService**           | _(Phase 17)_ Multi-phase user onboarding management — phase definitions per role, progress tracking, completion logic, skip handling, onboarding stats             |     | **BallotpediaService**            | _(Phase 16)_ Ballotpedia API integration — fetch voting records, committee assignments, sponsored legislation; 24-hour cache, government domain validation |
+| **OnboardingService**           | _(Phase 17)_ Multi-phase user onboarding management — phase definitions per role, progress tracking, completion logic, skip handling, onboarding stats             |
+| **BallotpediaService**          | _(Phase 16)_ Ballotpedia API integration — fetch voting records, committee assignments, sponsored legislation; 24-hour cache, government domain validation          |
 | **OpenSecretsService**          | _(Phase 16)_ OpenSecrets API integration — campaign finance data, top contributors, industry breakdown, sector totals; 24-hour cache                               |
 | **VoteSmartService**            | _(Phase 16)_ Vote Smart API integration — interest group ratings, issue positions, key votes, biographical data; 24-hour cache                                     |
 | **FECService**                  | _(Phase 16)_ Federal Election Commission API integration — official FEC filings, financial summaries, committee data; federal candidates only; 24-hour cache       |
-| **ProfileVerificationService**  | _(Phase 16)_ Government email verification — .gov/.mil domain validation, verification token generation/validation, transparency eligibility checks                |     | **FirebaseCloudMessagingService** | _(Phase 18)_ FCM push notification delivery — OAuth 2.0 authentication, notification payload assembly, FCM token management, delivery logging              |
+| **ProfileVerificationService**  | _(Phase 16)_ Government email verification — .gov/.mil domain validation, verification token generation/validation, transparency eligibility checks                 |
+| **FirebaseCloudMessagingService** | _(Phase 18)_ FCM push notification delivery — OAuth 2.0 authentication, notification payload assembly, FCM token management, delivery logging                    |
 | **TwilioSmsService**            | _(Phase 18)_ Twilio SMS delivery — API authentication, phone number validation, E.164 formatting, delivery tracking                                                |
 
 ### Controllers
@@ -516,14 +518,15 @@ Status: `Complete`
 
 ### Sprint 1 — Pilot-Ready Stabilization (Week of Mar 23, 2026)
 
-Status: `Partially Complete`
+Status: `Complete`
 
 - Implemented: Notification API coverage (list, unread count, mark one/all, auth guards)
 - Implemented: notification bell hydration on dashboard UI
 - Implemented: dynamic settings propagation for campaign pricing/payout and payout threshold usage in key voter and payout paths
 - Implemented: fee transparency in politician billing, invoices, and analytics summaries
 - Implemented: `q_and_a` campaign type enablement (enum, validation, forms, migration, and campaign CRUD test coverage)
-- Remaining: logout `419` fix and 30-second hard max campaign duration enforcement
+- Implemented: logout `419` safeguard for stale/expired CSRF tokens on logout (safe sign-out + redirect)
+- Implemented: campaign duration guardrails aligned and enforced using configurable min/max validation bounds
 
 ### Sprint 2 — Pilot Launch + District Foundation (Week of Mar 30, 2026)
 

@@ -86,11 +86,16 @@ test('politician can view the create campaign form', function () {
 
 test('politician can create a campaign', function () {
     $politician = makePolitician();
+    $requestedViews = 100;
+    $expectedBudget = round(
+        $requestedViews * (float) config('u9itus.revenue_per_view', 1.00),
+        2
+    );
 
     $payload = [
         'title'                  => 'Test Campaign',
         'campaign_type'          => 'video',
-        'total_views_requested'  => 100,
+        'total_views_requested'  => $requestedViews,
         'total_budget'           => 60.00,
         'message_summary'        => 'A short description.',
         'media_url'              => 'https://cdn.example.com/video.mp4',
@@ -105,8 +110,8 @@ test('politician can create a campaign', function () {
 
     $this->assertDatabaseHas('political_campaigns', [
         'title'                 => 'Test Campaign',
-        'total_views_requested' => 100,
-        'total_budget'          => 60.00,
+        'total_views_requested' => $requestedViews,
+        'total_budget'          => $expectedBudget,
     ]);
 });
 
