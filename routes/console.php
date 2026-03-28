@@ -21,3 +21,6 @@ Schedule::command('notifications:voter-digest')->weeklyOn(1, '08:00');
 // Daily low-balance alerts to politicians whose credit balance is running low
 Schedule::command('notifications:low-balance-alerts')->dailyAt('09:00');
 
+// Sprint 2 — Daily California candidate/profile sync with run logging + failure alerts
+Schedule::command('imports:sync-california')->dailyAt('02:00');
+

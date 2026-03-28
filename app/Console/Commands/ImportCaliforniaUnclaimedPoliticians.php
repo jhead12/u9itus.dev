@@ -50,16 +50,33 @@ class ImportCaliforniaUnclaimedPoliticians extends Command
         $updated = 0;
         $skipped = 0;
         $campaignsCreated = 0;
+        $dryRunReport = [];
 
-        foreach ($rows as $row) {
+        foreach ($rows as $index => $row) {
             if (! is_array($row)) {
                 $skipped++;
+                if ($dryRun) {
+                    $dryRunReport[] = [
+                        'status' => 'skipped',
+                        'row' => $index,
+                        'entity' => 'row',
+                        'reason' => 'not an object',
+                    ];
+                }
                 continue;
             }
 
             $latestTerm = $this->latestTerm($row);
             if (! is_array($latestTerm)) {
                 $skipped++;
+                if ($dryRun) {
+                    $dryRunReport[] = [
+                        'status' => 'skipped',
+                        'row' => $index,
+                        'entity' => 'row',
+                        'reason' => 'missing terms',
+                    ];
+                }
                 continue;
             }
 
@@ -70,6 +87,14 @@ class ImportCaliforniaUnclaimedPoliticians extends Command
             $fullName = $this->fullName($row);
             if ($fullName === '') {
                 $skipped++;
+                if ($dryRun) {
+                    $dryRunReport[] = [
+                        'status' => 'skipped',
+                        'row' => $index,
+                        'entity' => 'row',
+                        'reason' => 'missing full name',
+                    ];
+                }
                 continue;
             }
 
@@ -77,9 +102,11 @@ class ImportCaliforniaUnclaimedPoliticians extends Command
             $district = $this->districtLabel($latestTerm);
             $party = $this->nullableString($latestTerm['party'] ?? null);
             $website = $this->nullableString($latestTerm['url'] ?? null);
+            $city = $this->extractCityFromAddress($latestTerm);
             $bioguide = $this->nullableString($row['id']['bioguide'] ?? null);
             $photoUrl = $bioguide ? 'https://unitedstates.github.io/images/congress/225x275/' . $bioguide . '.jpg' : null;
             $bio = $this->buildExperienceSummary($row, $latestTerm);
+            $videoLinks = $this->buildVideoLinks($row);
 
             $externalId = $bioguide
                 ?: $this->nullableString($row['id']['govtrack'] ?? null)
@@ -98,6 +125,11 @@ class ImportCaliforniaUnclaimedPoliticians extends Command
                 'last_seen_at' => now(),
             ];
 
+            $existingCandidate = ElectionCandidateRecord::query()
+                ->where('source', 'congress_legislators')
+                ->where('external_candidate_id', $externalId)
+                ->first();
+
             if (! $dryRun) {
                 ElectionCandidateRecord::updateOrCreate(
                     [
@@ -106,6 +138,17 @@ class ImportCaliforniaUnclaimedPoliticians extends Command
                     ],
                     $candidatePayload,
                 );
+            }
+
+            if ($dryRun) {
+                $dryRunReport[] = [
+                    'status' => $existingCandidate ? 'updated' : 'created',
+                    'row' => $index,
+                    'entity' => 'candidate',
+                    'key' => 'congress_legislators:' . $externalId,
+                    'name' => $fullName,
+                    'changes' => $this->buildCandidateDiff($existingCandidate, $candidatePayload),
+                ];
             }
 
             $existing = Politician::query()
@@ -122,7 +165,9 @@ class ImportCaliforniaUnclaimedPoliticians extends Command
                 'district' => $district,
                 'party_affiliation' => $party,
                 'state' => 'CA',
+                'city' => $city,
                 'website_url' => $website,
+                'video_links' => $videoLinks,
                 'bio' => $bio,
                 'profile_photo_url' => $photoUrl,
                 'verified_official' => true,
@@ -131,6 +176,17 @@ class ImportCaliforniaUnclaimedPoliticians extends Command
             ];
 
             if ($existing) {
+                if ($dryRun) {
+                    $dryRunReport[] = [
+                        'status' => 'updated',
+                        'row' => $index,
+                        'entity' => 'politician',
+                        'key' => (string) $existing->id,
+                        'name' => $fullName,
+                        'changes' => $this->buildPoliticianDiff($existing, $politicianPayload),
+                    ];
+                }
+
                 if (! $dryRun) {
                     $existing->fill($politicianPayload);
                     $existing->save();
@@ -141,6 +197,17 @@ class ImportCaliforniaUnclaimedPoliticians extends Command
                 }
                 $updated++;
                 continue;
+            }
+
+            if ($dryRun) {
+                $dryRunReport[] = [
+                    'status' => 'created',
+                    'row' => $index,
+                    'entity' => 'politician',
+                    'key' => 'new',
+                    'name' => $fullName,
+                    'changes' => [],
+                ];
             }
 
             if (! $dryRun) {
@@ -154,6 +221,10 @@ class ImportCaliforniaUnclaimedPoliticians extends Command
             $created++;
         }
 
+        if ($dryRun) {
+            $this->renderDryRunReport($dryRunReport);
+        }
+
         $this->info(sprintf(
             'California import complete%s: %d created, %d updated, %d skipped, %d campaigns created.',
             $dryRun ? ' (dry-run)' : '',
@@ -164,6 +235,143 @@ class ImportCaliforniaUnclaimedPoliticians extends Command
         ));
 
         return self::SUCCESS;
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $report
+     */
+    protected function renderDryRunReport(array $report): void
+    {
+        foreach ($report as $entry) {
+            $status = strtoupper((string) ($entry['status'] ?? 'SKIPPED'));
+            $row = (int) ($entry['row'] ?? -1);
+            $entity = (string) ($entry['entity'] ?? 'row');
+
+            if ($status === 'SKIPPED') {
+                $reason = (string) ($entry['reason'] ?? 'unknown');
+                $this->line("[DRY-RUN][SKIP][{$entity}] row={$row} reason={$reason}");
+                continue;
+            }
+
+            $key = (string) ($entry['key'] ?? 'unknown');
+            $name = (string) ($entry['name'] ?? '');
+            $changes = $this->formatChanges($entry['changes'] ?? []);
+
+            if ($status === 'UPDATED') {
+                $this->line("[DRY-RUN][UPDATE][{$entity}] row={$row} key={$key} name=\"{$name}\" changes={$changes}");
+                continue;
+            }
+
+            $this->line("[DRY-RUN][CREATE][{$entity}] row={$row} key={$key} name=\"{$name}\"");
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>|mixed  $changes
+     */
+    protected function formatChanges(mixed $changes): string
+    {
+        if (! is_array($changes) || $changes === []) {
+            return 'none';
+        }
+
+        $parts = [];
+        foreach ($changes as $field => $delta) {
+            if (! is_array($delta)) {
+                continue;
+            }
+
+            $from = $this->formatScalar($delta['from'] ?? null);
+            $to = $this->formatScalar($delta['to'] ?? null);
+            $parts[] = $field . ':' . $from . '=>'. $to;
+        }
+
+        return $parts === [] ? 'none' : implode(';', $parts);
+    }
+
+    protected function formatScalar(mixed $value): string
+    {
+        if ($value === null || $value === '') {
+            return 'null';
+        }
+
+        if (is_array($value)) {
+            return json_encode($value, JSON_UNESCAPED_SLASHES) ?: 'array';
+        }
+
+        return str_replace(['\n', '\r', ';'], [' ', ' ', ','], (string) $value);
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array<string, array{from: mixed, to: mixed}>
+     */
+    protected function buildCandidateDiff(?ElectionCandidateRecord $existing, array $payload): array
+    {
+        if (! $existing) {
+            return [];
+        }
+
+        $fields = [
+            'full_name',
+            'political_office',
+            'governance_level',
+            'state',
+            'district',
+            'party_affiliation',
+        ];
+
+        $changes = [];
+        foreach ($fields as $field) {
+            $from = $existing->getAttribute($field);
+            $to = $payload[$field] ?? null;
+
+            if ((string) ($from ?? '') === (string) ($to ?? '')) {
+                continue;
+            }
+
+            $changes[$field] = ['from' => $from, 'to' => $to];
+        }
+
+        return $changes;
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array<string, array{from: mixed, to: mixed}>
+     */
+    protected function buildPoliticianDiff(Politician $existing, array $payload): array
+    {
+        $fields = [
+            'full_name',
+            'political_office',
+            'district',
+            'party_affiliation',
+            'state',
+            'city',
+            'website_url',
+            'bio',
+            'profile_photo_url',
+            'video_links',
+        ];
+
+        $changes = [];
+        foreach ($fields as $field) {
+            $from = $existing->getAttribute($field);
+            $to = $payload[$field] ?? null;
+
+            if (is_array($from) || is_array($to)) {
+                if (json_encode($from) === json_encode($to)) {
+                    continue;
+                }
+            } elseif ((string) ($from ?? '') === (string) ($to ?? '')) {
+                continue;
+            }
+
+            $changes[$field] = ['from' => $from, 'to' => $to];
+        }
+
+        return $changes;
     }
 
     /**
@@ -248,6 +456,9 @@ class ImportCaliforniaUnclaimedPoliticians extends Command
         $party = $this->nullableString($latestTerm['party'] ?? null);
         $start = $this->nullableString($latestTerm['start'] ?? null);
         $end = $this->nullableString($latestTerm['end'] ?? null);
+        $contactForm = $this->nullableString($latestTerm['contact_form'] ?? null);
+        $phone = $this->nullableString($latestTerm['phone'] ?? null);
+        $birthday = $this->nullableString($row['bio']['birthday'] ?? null);
 
         $parts = [];
 
@@ -263,9 +474,93 @@ class ImportCaliforniaUnclaimedPoliticians extends Command
             $parts[] = 'Current listed term: ' . $start . ' to ' . $end . '.';
         }
 
+        if ($birthday) {
+            $parts[] = 'Date of birth (public record): ' . $birthday . '.';
+        }
+
+        if ($phone) {
+            $parts[] = 'Congressional office phone: ' . $phone . '.';
+        }
+
+        if ($contactForm) {
+            $parts[] = 'Official contact form: ' . $contactForm . '.';
+        }
+
         $parts[] = 'This is an unclaimed profile generated from public legislative data and available for verified claim by the official campaign.';
 
         return implode(' ', $parts);
+    }
+
+    /**
+     * @param  array<string, mixed>  $term
+     */
+    protected function extractCityFromAddress(array $term): ?string
+    {
+        $address = $this->nullableString($term['address'] ?? null);
+        if ($address === null) {
+            return null;
+        }
+
+        // Typical source format: "123 Main St, City, ST 12345"
+        $parts = array_map('trim', explode(',', $address));
+
+        if (count($parts) < 2) {
+            return null;
+        }
+
+        return $this->nullableString($parts[1] ?? null);
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     * @return array<int, array{url: string, title: string}>
+     */
+    protected function buildVideoLinks(array $row): array
+    {
+        $social = $row['social'] ?? null;
+        if (! is_array($social)) {
+            return [];
+        }
+
+        $links = [];
+
+        $youtubeHandle = $this->nullableString($social['youtube'] ?? null);
+        if ($youtubeHandle) {
+            $links[] = [
+                'url' => 'https://www.youtube.com/@' . ltrim($youtubeHandle, '@'),
+                'title' => 'Official YouTube Channel',
+            ];
+        }
+
+        $youtubeId = $this->nullableString($social['youtube_id'] ?? null);
+        if ($youtubeId) {
+            $links[] = [
+                'url' => 'https://www.youtube.com/channel/' . $youtubeId,
+                'title' => 'Official YouTube Channel',
+            ];
+        }
+
+        $cspan = $this->nullableString($social['cspan'] ?? null);
+        if ($cspan) {
+            $links[] = [
+                'url' => 'https://www.c-span.org/person/?' . $cspan,
+                'title' => 'C-SPAN Appearances',
+            ];
+        }
+
+        // De-duplicate links by URL while preserving order.
+        $seen = [];
+
+        return array_values(array_filter($links, function (array $link) use (&$seen): bool {
+            $url = $link['url'];
+            if (isset($seen[$url])) {
+                return false;
+            }
+
+            $seen[$url] = true;
+
+            return true;
+        }));
     }
 
     protected function nullableString(mixed $value): ?string

@@ -77,11 +77,12 @@ Status: Partially Complete
 - Public politician profile guest preview mode is implemented.
 - Home page includes direct campaign browsing entry points for guests.
 - Candidate matching review/admin approval and import workflows are implemented with passing feature coverage.
+- California unclaimed profile import command is implemented using API-backed congressional data (`politicians:import-unclaimed-ca`).
+- Imported California profiles now auto-populate deeper public details from source payloads (city, contact metadata in bio, and seeded video links).
 
 ### Remaining Scope
 
-- Seed California politician profiles from API-backed data.
-- Auto-populate additional politician profile details from public sources.
+- Run and monitor recurring California profile seeding in production operations.
 
 ---
 

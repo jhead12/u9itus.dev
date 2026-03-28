@@ -210,26 +210,26 @@ php artisan serve
 
 ### Services
 
-| Service                         | Purpose                                                                                                                                                            |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **PoliticalViewService**        | View lifecycle: assign → start → track → complete                                                                                                                  |
-| **PoliticalPaymentService**     | Campaign billing, batch payouts, per-view profit calculation                                                                                                       |
-| **FraudPreventionService**      | Multi-signal fraud scoring: rate limits, device fingerprinting, bot UA detection, IP anomalies, VPN/Tor/datacenter detection, auto-flag, `fraud_signals` audit log |
-| **CampaignBillingService**      | Stripe PaymentIntent creation, credit top-up, credit deduction                                                                                                     |
-| **StripePaymentService**        | Low-level Stripe SDK wrapper (customers, payment methods, intents)                                                                                                 |
-| **StandardNotificationService** | Email/SMS notification delivery                                                                                                                                    |
-| **StandardAuthService**         | Laravel session-based authentication                                                                                                                               |
-| **IpReputationService**         | VPN / proxy / Tor exit-node / datacenter IP detection via CIDR blocklist + optional ipinfo.io enrichment (Phase 8)                                                 |
-| **DeviceFingerprintService**    | Server-side composite fingerprint generation, bot user-agent analysis, fingerprint compare/store (Phase 8)                                                         |
-| **ReverbBroadcastService**      | WebSocket event dispatch — ad delivery, payout alerts, campaign status, presence                                                                                   |
-| **OnboardingService**           | _(Phase 17)_ Multi-phase user onboarding management — phase definitions per role, progress tracking, completion logic, skip handling, onboarding stats             |
-| **BallotpediaService**          | _(Phase 16)_ Ballotpedia API integration — fetch voting records, committee assignments, sponsored legislation; 24-hour cache, government domain validation          |
-| **OpenSecretsService**          | _(Phase 16)_ OpenSecrets API integration — campaign finance data, top contributors, industry breakdown, sector totals; 24-hour cache                               |
-| **VoteSmartService**            | _(Phase 16)_ Vote Smart API integration — interest group ratings, issue positions, key votes, biographical data; 24-hour cache                                     |
-| **FECService**                  | _(Phase 16)_ Federal Election Commission API integration — official FEC filings, financial summaries, committee data; federal candidates only; 24-hour cache       |
-| **ProfileVerificationService**  | _(Phase 16)_ Government email verification — .gov/.mil domain validation, verification token generation/validation, transparency eligibility checks                 |
-| **FirebaseCloudMessagingService** | _(Phase 18)_ FCM push notification delivery — OAuth 2.0 authentication, notification payload assembly, FCM token management, delivery logging                    |
-| **TwilioSmsService**            | _(Phase 18)_ Twilio SMS delivery — API authentication, phone number validation, E.164 formatting, delivery tracking                                                |
+| Service                           | Purpose                                                                                                                                                            |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **PoliticalViewService**          | View lifecycle: assign → start → track → complete                                                                                                                  |
+| **PoliticalPaymentService**       | Campaign billing, batch payouts, per-view profit calculation                                                                                                       |
+| **FraudPreventionService**        | Multi-signal fraud scoring: rate limits, device fingerprinting, bot UA detection, IP anomalies, VPN/Tor/datacenter detection, auto-flag, `fraud_signals` audit log |
+| **CampaignBillingService**        | Stripe PaymentIntent creation, credit top-up, credit deduction                                                                                                     |
+| **StripePaymentService**          | Low-level Stripe SDK wrapper (customers, payment methods, intents)                                                                                                 |
+| **StandardNotificationService**   | Email/SMS notification delivery                                                                                                                                    |
+| **StandardAuthService**           | Laravel session-based authentication                                                                                                                               |
+| **IpReputationService**           | VPN / proxy / Tor exit-node / datacenter IP detection via CIDR blocklist + optional ipinfo.io enrichment (Phase 8)                                                 |
+| **DeviceFingerprintService**      | Server-side composite fingerprint generation, bot user-agent analysis, fingerprint compare/store (Phase 8)                                                         |
+| **ReverbBroadcastService**        | WebSocket event dispatch — ad delivery, payout alerts, campaign status, presence                                                                                   |
+| **OnboardingService**             | _(Phase 17)_ Multi-phase user onboarding management — phase definitions per role, progress tracking, completion logic, skip handling, onboarding stats             |
+| **BallotpediaService**            | _(Phase 16)_ Ballotpedia API integration — fetch voting records, committee assignments, sponsored legislation; 24-hour cache, government domain validation         |
+| **OpenSecretsService**            | _(Phase 16)_ OpenSecrets API integration — campaign finance data, top contributors, industry breakdown, sector totals; 24-hour cache                               |
+| **VoteSmartService**              | _(Phase 16)_ Vote Smart API integration — interest group ratings, issue positions, key votes, biographical data; 24-hour cache                                     |
+| **FECService**                    | _(Phase 16)_ Federal Election Commission API integration — official FEC filings, financial summaries, committee data; federal candidates only; 24-hour cache       |
+| **ProfileVerificationService**    | _(Phase 16)_ Government email verification — .gov/.mil domain validation, verification token generation/validation, transparency eligibility checks                |
+| **FirebaseCloudMessagingService** | _(Phase 18)_ FCM push notification delivery — OAuth 2.0 authentication, notification payload assembly, FCM token management, delivery logging                      |
+| **TwilioSmsService**              | _(Phase 18)_ Twilio SMS delivery — API authentication, phone number validation, E.164 formatting, delivery tracking                                                |
 
 ### Controllers
 
@@ -488,7 +488,7 @@ npm run dev:all   # Start Laravel + Vite together
 | Phase 9  | Testing (unit tests for all services, feature tests for admin approval workflow, CI coverage reporting)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | ✅ Complete |
 | Phase 10 | Deployment (Railway production config, env hardening)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | ⬜ Pending  |
 | Phase 11 | Real-time Notifications — Laravel Reverb/WebSockets (private voter/politician channels, admin broadcast, ad-delivery push, payout alerts, live presence; WebRTC signaling foundation for Phase 12)                                                                                                                                                                                                                                                                                                                                                                                           | ✅ Complete |
-| Phase 12 | **Mobile Application — React Native with Metro*                        * (Android & iOS native apps; live feed streaming via WebRTC, politician → voter HLS/WebRTC live video built on Phase 11 Reverb server; Metro bundler for optimized app builds; native in-app notifications, token-based ad delivery, real-time earnings/payout updates; iOS deployment via Xcode, Android via Android Studio)              | ⬜ Pending  |
+| Phase 12 | \*_Mobile Application — React Native with Metro_ \* (Android & iOS native apps; live feed streaming via WebRTC, politician → voter HLS/WebRTC live video built on Phase 11 Reverb server; Metro bundler for optimized app builds; native in-app notifications, token-based ad delivery, real-time earnings/payout updates; iOS deployment via Xcode, Android via Android Studio)                                                                                                                                                                                                             | ⬜ Pending  |
 | Phase 13 | Politician Public Profile Pages — public `/p/{slug}` campaign pages with custom color themes (CSS variables, not raw CSS), layout presets, initiative/platform section, running + past campaign video/update sections, reusable public preview campaign cards with status/update badges, verified badge, Open Graph meta for social sharing; slug format: `{5-char-uuid-prefix}-{seo-readable-name}` (e.g. `a3f9b-mayor-john-smith-chicago`)                                                                                                                                                 | ✅ Complete |
 | Phase 14 | Repeat Viewing + Campaign Scheduling — politician-controlled repeat-view toggle (cooldown hours, max views/voter cap, unique voter stats, repeat-view stats), campaign delivery window (`scheduled_start_at` / `scheduled_end_at`), `Scheduled` status, `campaigns:apply-schedule` Artisan command (every 5 min), scheduler-written audit log entries (`activated_by_schedule` / `paused_by_schedule`)                                                                                                                                                                                       | ✅ Complete |
 | Phase 15 | Voter Benefits & Registration — expanded earnings callout (ad views + voter-referral recurring commission + politician-referral one-time bonus), voter registration status questionnaire on sign-up form with vote.gov link, registration status field stored on voter profile, dashboard registration prompt + voter registration status card in profile, and accessibility-focused voter dashboard updates (running campaigns prioritized first; clearer "Running Campaigns" navigation label)                                                                                             | ✅ Complete |
@@ -537,7 +537,9 @@ Status: `Partially Complete`
 - Implemented: guest public profile preview mode
 - Implemented: homepage public browse entry points
 - Implemented: candidate matching review/admin approval and import workflows
-- Remaining: California profile seeding from API data; deeper profile auto-population from public sources
+- Implemented: California unclaimed profile import command using API-backed congressional data (`politicians:import-unclaimed-ca`)
+- Implemented: deeper auto-population from public source payloads (city, contact metadata in bio, and video link seed data)
+- Remaining: execute and monitor scheduled/operational California data refresh in production
 
 ### Sprint 3 — Virtual Town Hall: Q&A Videos (Week of Apr 6, 2026)
 
@@ -577,11 +579,13 @@ Status: `Planned`
 **Framework:** React Native with Metro bundler (web & web-native code reuse)
 
 **Target Platforms:**
+
 - **Android:** Native app via Android Studio, Metro bundler optimization
-- **iOS:** Native app via Xcode, Metro bundler optimization  
+- **iOS:** Native app via Xcode, Metro bundler optimization
 - **macOS:** Native desktop app support via Metro
 
 **Mobile-First Features:**
+
 - ~~Live feed streaming via WebRTC~~ → Phase 12 (politician → voter HLS/WebRTC streams built on Phase 11 Reverb)
 - Native push notifications via Firebase Cloud Messaging (FCM) and Apple Push Notification (APN)
 - Offline-first token-based ad delivery with background sync
@@ -594,6 +598,7 @@ Status: `Planned`
 - Metro bundle size optimization for mobile networks
 
 **Shared Codebase:**
+
 - API layer (voter registration, campaign browsing, view sessions, earnings)
 - Business logic (referral commission calculation, fraud prevention scoring)
 - Event handling (Reverb WebSocket subscriptions, Stripe webhooks)
