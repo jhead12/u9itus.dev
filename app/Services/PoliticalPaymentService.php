@@ -195,11 +195,11 @@ class PoliticalPaymentService
      * Per-view profit calculation helper.
      *
      * Revenue:   $0.60 (politician pays)
-     * Payout:    $0.25 (voter receives)
-     * Referral:  $0.025 (10% of payout, if referred)
+     * Payout:    $0.50 (voter receives)
+     * Referral:  $0.050 (10% of payout, if referred)
      * Processing: ~$0.02
-     * Ops:       $0.03–$0.12
-     * Net margin: 25%–50%
+     * Ops:       $0.03–$0.08
+     * Net margin: 20%–35%
      */
     public function perViewProfit(
         ?float $revenuePerView = null,

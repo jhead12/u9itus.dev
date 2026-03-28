@@ -17,9 +17,9 @@ use Illuminate\Support\Str;
  *
  * Revenue model per view:
  *   Politician pays          $0.60
- *   Voter receives           $0.25
- *   Referral commission      $0.025  (10% of voter payout, if referred)
- *   Platform keeps           $0.325  (before ops / payment fees)
+ *   Voter receives           $0.50
+ *   Referral commission      $0.050  (10% of voter payout, if referred)
+ *   Platform keeps           $0.45  (before ops / payment fees)
  */
 class PoliticalCampaign extends Model
 {

@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
  * Tracks referral earnings — two distinct commission types:
  *
  *  voter_view             : 10% of voter payout each time a referred voter
- *                           completes a qualifying view ($0.025 / view)
+ *                           completes a qualifying view ($0.050 / view)
  *  politician_procurement : 10% of a referred politician's first credit
  *                           purchase (one-time bonus)
  */

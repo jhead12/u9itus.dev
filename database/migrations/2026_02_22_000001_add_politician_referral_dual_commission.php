@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Schema;
 /**
  * Dual referral incentive structure:
  *
- *  Voter  → refers → Voter      : earns 10% of voter payout per completed view  ($0.025/view)
+ *  Voter  → refers → Voter      : earns 10% of voter payout per completed view  ($0.050/view)
  *  Voter  → refers → Politician : earns 10% of politician's first credit purchase (one-time)
  *
  * Changes:

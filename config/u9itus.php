@@ -31,16 +31,16 @@ return [
     |--------------------------------------------------------------------------
     |
     | Revenue from politician per view:          $1.00
-    | Direct viewer/voter payout:                $0.25
-    | Referral commission (10 % of $0.25):       $0.025
+    | Direct viewer/voter payout:                $0.50
+    | Referral commission (10 % of $0.50):       $0.050
     | Politician-procurement commission (10 %):  $0.06 (one-time, amortised)
     |
     | Stripe processing fee (on credit top-ups): 2.5% of gross charge
-    | Gross-up formula: gross = credits / (1 - 0.025)
+    | Gross-up formula: gross = credits / (1 - 0.050)
     |
     */
     'revenue_per_view'              => env('REVENUE_PER_VIEW', 1.00),
-    'viewer_payout_per_view'        => env('VIEWER_PAYOUT_PER_VIEW', 0.25),
+    'viewer_payout_per_view'        => env('VIEWER_PAYOUT_PER_VIEW', 0.50),
     'referral_commission_percent'   => env('REFERRAL_COMMISSION_PERCENT', 10),
     'procurement_commission_percent'=> env('PROCUREMENT_COMMISSION_PERCENT', 10),
 
@@ -68,7 +68,7 @@ return [
     /**
      * Default payment per view if not specified in campaign.
      */
-    'default_payment_per_view' => env('DEFAULT_PAYMENT_PER_VIEW', 0.25),
+    'default_payment_per_view' => env('DEFAULT_PAYMENT_PER_VIEW', 0.50),
 
     /*
     |--------------------------------------------------------------------------

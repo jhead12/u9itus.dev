@@ -139,7 +139,7 @@ class PoliticalViewService
                     'voter_id'            => $session->voter_id,
                     'revenue_per_view'    => (float) $campaign->revenue_per_view,  // $0.60 charged to politician
                     'voter_payout'        => $voterPayout,                          // $0.25 credited to voter
-                    'referral_commission' => $referralCommission,                   // $0.025 if referred, else 0
+                    'referral_commission' => $referralCommission,                   // $0.050 if referred, else 0
                     'platform_margin'     => $platformRevenue,                      // $0.35 (or $0.325 w/ referral)
                 ]);
             }
