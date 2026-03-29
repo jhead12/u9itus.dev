@@ -40,6 +40,13 @@ return [
             'driver' => 'session',
             'provider' => 'users',
         ],
+
+        // Keep api routes using auth:sanctum functional even when
+        // session-authenticated dashboard requests call /api/v1/* endpoints.
+        'sanctum' => [
+            'driver' => 'session',
+            'provider' => 'users',
+        ],
     ],
 
     /*

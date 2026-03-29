@@ -432,6 +432,13 @@ class PublicProfileController extends Controller
                 unset($profileData['profile_photo_url']);
             }
 
+            // Keep richer existing bios; district lookup discovery should not replace them.
+            $incomingBio = trim((string) ($profileData['bio'] ?? ''));
+            $existingBio = trim((string) ($existing->bio ?? ''));
+            if ($existingBio !== '' && str_contains($incomingBio, 'Imported from Google Civic Information API based on district lookup discovery.')) {
+                unset($profileData['bio']);
+            }
+
             $existing->fill($profileData);
             $existing->save();
             $profileId = $existing->id;
