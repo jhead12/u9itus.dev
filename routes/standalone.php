@@ -331,6 +331,9 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         Route::get('/payouts/pending', [AdminController::class, 'pendingPayouts'])->name('payouts.pending');
         Route::post('/payouts/batch-process', [AdminController::class, 'processBatchPayouts'])->name('payouts.batch');
 
+        // Data Imports Monitoring (Sprint 2)
+        Route::get('/imports', [AdminController::class, 'imports'])->name('imports');
+
         // Billing Refunds (unused politician credits only)
         Route::get('/billing/refunds', [AdminController::class, 'billingRefunds'])->name('billing.refunds');
         Route::post('/billing/transactions/{transaction}/refund-unused', [AdminController::class, 'refundUnusedCredits'])

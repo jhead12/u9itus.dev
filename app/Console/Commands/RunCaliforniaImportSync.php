@@ -5,10 +5,12 @@ namespace App\Console\Commands;
 use App\Mail\CaliforniaImportSyncFailedMail;
 use App\Models\ImportRunLog;
 use App\Models\User;
+use App\Notifications\CaliforniaImportNotification;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Notification;
 
 class RunCaliforniaImportSync extends Command
 {
@@ -46,6 +48,7 @@ class RunCaliforniaImportSync extends Command
 
             if ($exitCode === self::SUCCESS) {
                 $runLog->markSuccess($exitCode, $output, $this->extractCounts($output));
+                $this->notifyAdmins($runLog, 'success');
 
                 $this->info('California sync completed successfully.');
 
@@ -55,6 +58,7 @@ class RunCaliforniaImportSync extends Command
             $errorMessage = $this->extractErrorMessage($output);
             $runLog->markFailed($exitCode, $output, $errorMessage);
             $this->sendFailureAlert($runLog);
+            $this->notifyAdmins($runLog, 'failure');
 
             $this->error('California sync failed. Alert email queued for admins.');
 
@@ -65,6 +69,7 @@ class RunCaliforniaImportSync extends Command
 
             $runLog->markFailed(-1, $output, $errorMessage);
             $this->sendFailureAlert($runLog);
+            $this->notifyAdmins($runLog, 'failure');
 
             Log::error('California sync wrapper crashed', [
                 'exception' => $errorMessage,
@@ -126,6 +131,15 @@ class RunCaliforniaImportSync extends Command
         foreach ($recipients as $email) {
             Mail::to($email)->queue(new CaliforniaImportSyncFailedMail($runLog));
         }
+    }
+
+    protected function notifyAdmins(ImportRunLog $runLog, string $eventType): void
+    {
+        $admins = User::query()
+            ->where('user_type', 'admin')
+            ->get();
+
+        Notification::send($admins, new CaliforniaImportNotification($runLog, $eventType));
     }
 
     /**

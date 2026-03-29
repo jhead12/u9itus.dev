@@ -187,5 +187,24 @@ else
   echo "REVERB_APP_KEY not set — skipping Reverb startup (broadcasts will use 'log' driver)"
 fi
 
+# Start scheduler worker for recurring jobs (including California import sync).
+if [ "${ENABLE_SCHEDULER:-true}" = "true" ]; then
+  echo "Starting Laravel scheduler worker..."
+  nohup php artisan schedule:work --no-interaction > storage/logs/scheduler.log 2>&1 &
+  echo "Scheduler PID: $!"
+else
+  echo "ENABLE_SCHEDULER=false — skipping scheduler worker startup"
+fi
+
+# Start queue worker so queued failure alerts are delivered.
+if [ "${ENABLE_QUEUE_WORKER:-true}" = "true" ]; then
+  echo "Starting Laravel queue worker..."
+  nohup php artisan queue:work --queue=default --sleep=3 --tries=3 --timeout=600 --no-interaction \
+    > storage/logs/queue-worker.log 2>&1 &
+  echo "Queue Worker PID: $!"
+else
+  echo "ENABLE_QUEUE_WORKER=false — skipping queue worker startup"
+fi
+
 # Use exec to replace shell with PHP process
 exec php artisan serve --host=0.0.0.0 --port=$PORT 2>&1

@@ -1868,4 +1868,24 @@ class AdminController extends Controller
 
         return back()->with('success', 'Settings cache cleared successfully.');
     }
+
+    /**
+     * Show California import logs and monitoring dashboard.
+     *
+     * Displays all scheduled import runs with status, counts, and error details.
+     */
+    public function imports()
+    {
+        $imports = \App\Models\ImportRunLog::query()
+            ->where('command_name', 'politicians:import-unclaimed-ca')
+            ->latest('started_at')
+            ->paginate(20);
+
+        $latestRun = \App\Models\ImportRunLog::query()
+            ->where('command_name', 'politicians:import-unclaimed-ca')
+            ->latest('started_at')
+            ->first();
+
+        return view('standalone.admin.imports.index', compact('imports', 'latestRun'));
+    }
 }

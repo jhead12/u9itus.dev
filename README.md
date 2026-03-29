@@ -335,6 +335,7 @@ Reset password (Web): Admins can also use the standard password reset flow at `/
 | `GET`  | `/admin/payouts`                   | Payout overview (`admin.payouts.index`)    |
 | `GET`  | `/admin/payouts/pending`           | Pending payout sessions                    |
 | `POST` | `/admin/payouts/batch-process`     | Run batch payout processing                |
+| `GET`  | `/admin/imports`                   | California import run logs + health status |
 | `GET`  | `/admin/analytics`                 | Platform analytics                         |
 | `GET`  | `/admin/settings`                  | System settings                            |
 
@@ -530,7 +531,7 @@ Status: `Complete`
 
 ### Sprint 2 — Pilot Launch + District Foundation (Week of Mar 30, 2026)
 
-Status: `Partially Complete`
+Status: `Complete`
 
 - Implemented: district lookup by address
 - Implemented: guest view-only politician directory browsing
@@ -539,7 +540,10 @@ Status: `Partially Complete`
 - Implemented: candidate matching review/admin approval and import workflows
 - Implemented: California unclaimed profile import command using API-backed congressional data (`politicians:import-unclaimed-ca`)
 - Implemented: deeper auto-population from public source payloads (city, contact metadata in bio, and video link seed data)
-- Remaining: execute and monitor scheduled/operational California data refresh in production
+- Implemented: scheduled California sync at `02:00` America/Los_Angeles via `imports:sync-california`
+- Implemented: hourly freshness health check via `imports:check-california-health`
+- Implemented: admin monitoring dashboard at `/admin/imports` for run logs, status, counts, and errors
+- Implemented: admin in-app bell notifications (database + broadcast) for import `success`, `failure`, and `stale` states
 
 ### Sprint 3 — Virtual Town Hall: Q&A Videos (Week of Apr 6, 2026)
 
@@ -561,6 +565,16 @@ Status: `Planned`
 
 - Planned: compensated micro-surveys, post-view verification prompt/quiz, automated approval criteria for scaling moderation, homepage/domain refinements, FAQ/support scaffolding
 
+### Sprint 6 — National Seeding Expansion (Week of Apr 27, 2026)
+
+Status: `Planned`
+
+- Planned: generalize California-only seeding commands into reusable state-parameterized import commands
+- Planned: support recurring imports for all 50 states with staged rollout controls and idempotent upserts
+- Planned: add aggregate and per-state operational health checks for scheduled import freshness/failure detection
+- Planned: add run-log summaries for state-level created/updated/skipped metrics and failure triage
+- Planned: retain backward-compatible California aliases during transition to national scheduling
+
 ### Validation Snapshot (Current)
 
 - Public politician directory guest browsing: passing
@@ -570,6 +584,7 @@ Status: `Planned`
 - Notification API flow: passing
 - Notification bell UI hydration: passing
 - Candidate matching admin review/import flow: passing
+- California import command + health-check simulation flow: passing
 - Campaign CRUD Q&A campaign creation path: passing
 
 ## Future Enhancements
@@ -629,6 +644,7 @@ Status: `Planned`
 - **[Development Documentation](DEVELOPMENT.md)** — Development workflow
 - **[Migration Notes](doc/MIGRATION_NOTES.md)** — Upgrade and migration history
 - **[Changelog](doc/CHANGELOG.md)** — Version history
+- **[California Import Operations Runbook](doc/CALIFORNIA_IMPORT_OPERATIONS.md)** — Scheduler, health check, and incident response steps
 - GitHub Issues: https://github.com/jhead12/u9itus.dev/issues
 
 ## License
@@ -639,7 +655,7 @@ MIT License — See LICENSE file for details
 
 Developed by Head Enterprises  
 **Version 3.0.0 — Standalone Laravel 12 Architecture (Web) + React Native with Metro (Mobile, Phase 12)**  
-Last updated: March 18, 2026
+Last updated: March 28, 2026
 
 **Development Timeline & Phase Completion:**
 

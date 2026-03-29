@@ -22,5 +22,11 @@ Schedule::command('notifications:voter-digest')->weeklyOn(1, '08:00');
 Schedule::command('notifications:low-balance-alerts')->dailyAt('09:00');
 
 // Sprint 2 — Daily California candidate/profile sync with run logging + failure alerts
-Schedule::command('imports:sync-california')->dailyAt('02:00');
+Schedule::command('imports:sync-california')
+    ->timezone('America/Los_Angeles')
+    ->dailyAt('02:00');
+
+// Sprint 2 — Hourly California import health check (alerts if data is stale)
+Schedule::command('imports:check-california-health')
+    ->hourly();
 
