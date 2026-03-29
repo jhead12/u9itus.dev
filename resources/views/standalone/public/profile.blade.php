@@ -195,6 +195,11 @@
                            class="ml-3 text-sm text-slate-400 hover:text-white transition underline">
                             Website ↗
                         </a>
+                    @elseif($publicWebsiteUrl && $isUnsafeApiWebsite)
+                        <span class="ml-3 inline-flex items-center gap-1 text-sm text-slate-500 border border-slate-700/60 rounded-md px-2.5 py-1 cursor-not-allowed"
+                              title="Website unavailable">
+                            Website unavailable
+                        </span>
                     @endif
                 </div>
             </div>
@@ -601,7 +606,7 @@
         </section>
 
         {{-- Contact / Connect Section --}}
-        @if($page->show_contact && (($publicWebsiteUrl && ! $isUnsafeApiWebsite) || $politician->city))
+        @if($page->show_contact && ($publicWebsiteUrl || $politician->city))
         <section>
             <h2 class="text-xl font-bold text-white mb-4 flex items-center gap-2">
                 <span class="w-1 h-6 rounded-full inline-block" style="background:var(--p13-accent,#f59e0b)"></span>
@@ -613,6 +618,11 @@
                        class="inline-flex items-center gap-2 text-sm font-medium text-slate-300 hover:text-white transition">
                         🌐 Official Website ↗
                     </a>
+                @elseif($publicWebsiteUrl && $isUnsafeApiWebsite)
+                    <span class="inline-flex items-center gap-2 text-sm font-medium text-slate-500 border border-slate-700/60 rounded-md px-3 py-1.5 cursor-not-allowed"
+                          title="Website unavailable">
+                        🌐 Website unavailable
+                    </span>
                 @endif
                 @if($politician->district)
                     <span class="text-sm text-slate-400">🗳️ District: {{ $politician->district }}</span>

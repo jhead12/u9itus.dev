@@ -424,6 +424,14 @@ class PublicProfileController extends Controller
         $profileId = null;
 
         if ($existing) {
+            if (empty(trim((string) ($profileData['website_url'] ?? '')))) {
+                unset($profileData['website_url']);
+            }
+
+            if (empty(trim((string) ($profileData['profile_photo_url'] ?? '')))) {
+                unset($profileData['profile_photo_url']);
+            }
+
             $existing->fill($profileData);
             $existing->save();
             $profileId = $existing->id;

@@ -101,6 +101,7 @@ class CongressGovService
                         'party_affiliation' => (string) ($member['partyName'] ?? $member['party'] ?? ''),
                         'state' => strtoupper((string) ($member['state'] ?? $state)),
                         'district_code' => strtoupper((string) ($member['state'] ?? $state)) . '-' . str_pad((string) ((int) $districtNumber), 2, '0', STR_PAD_LEFT),
+                        'photo_url' => $bioguideId !== '' ? 'https://unitedstates.github.io/images/congress/225x275/' . $bioguideId . '.jpg' : null,
                         'website' => null,
                         'source' => 'congress_gov',
                         'external_id' => $bioguideId !== '' ? 'congress_gov_' . $bioguideId : '',
