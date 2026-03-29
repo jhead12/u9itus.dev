@@ -71,7 +71,7 @@
                         <div class="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-slate-500">
                             <span>Budget: <span class="text-white">${{ number_format($campaign->total_budget ?? 0, 2) }}</span></span>
                             <span>Target views: <span class="text-white">{{ number_format($campaign->total_views_requested ?? 0) }}</span></span>
-                            <span>Per-view payout: <span class="text-white">${{ number_format($campaign->voter_payout_per_view ?? 0.25, 2) }}</span></span>
+                            <span>Per-view payout: <span class="text-white">${{ number_format($campaign->voter_payout_per_view ?? config('u9itus.viewer_payout_per_view', 0.50), 2) }}</span></span>
                             <span>Submitted: <span class="text-white">{{ $campaign->created_at->diffForHumans() }}</span></span>
                         </div>
                         <button type="button"
@@ -150,7 +150,7 @@
                         </div>
                         <div>
                             <p class="text-slate-500 font-semibold">Revenue / View</p>
-                            <p class="text-slate-300 mt-0.5">${{ number_format($campaign->revenue_per_view ?? 0.60, 2) }}</p>
+                            <p class="text-slate-300 mt-0.5">${{ number_format($campaign->revenue_per_view ?? config('u9itus.revenue_per_view', 1.00), 2) }}</p>
                         </div>
                     </div>
                     @if($campaign->media_url)

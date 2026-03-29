@@ -1,6 +1,7 @@
-@extends('layouts.admin')
+@extends('standalone.layouts.dashboard')
 
-@section('title', 'Data Imports - Admin')
+@section('title', 'Data Imports')
+@section('page-title', 'Data Imports')
 
 @section('content')
 <div class="min-h-screen bg-gray-950 text-gray-100 py-12 px-6 sm:px-8">

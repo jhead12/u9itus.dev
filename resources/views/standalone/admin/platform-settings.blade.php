@@ -48,7 +48,7 @@
                 </div>
                 <div>
                     <p class="text-slate-400 text-xs">Revenue Per View</p>
-                    <p class="text-white text-2xl font-bold">${{ number_format($currentValues['revenue_per_view'] ?? 0.60, 2) }}</p>
+                    <p class="text-white text-2xl font-bold">${{ number_format($currentValues['revenue_per_view'] ?? config('u9itus.revenue_per_view', 1.00), 2) }}</p>
                 </div>
             </div>
             <p class="text-slate-500 text-xs">Charged to politicians</p>
@@ -63,7 +63,7 @@
                 </div>
                 <div>
                     <p class="text-slate-400 text-xs">Voter Payout Per View</p>
-                    <p class="text-white text-2xl font-bold">${{ number_format($currentValues['viewer_payout_per_view'] ?? 0.25, 2) }}</p>
+                    <p class="text-white text-2xl font-bold">${{ number_format($currentValues['viewer_payout_per_view'] ?? config('u9itus.viewer_payout_per_view', 0.50), 2) }}</p>
                 </div>
             </div>
             <p class="text-slate-500 text-xs">Paid to voters</p>

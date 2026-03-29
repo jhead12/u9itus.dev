@@ -90,7 +90,7 @@ The following source types are currently supported or planned:
 | AWS S3 / CloudFront                | Implemented via `media_type=s3_cloudfront` + native player |
 | Wistia                             | Planned                                                    |
 | Cloudflare Stream                  | Planned                                                    |
-| HLS live streams                   | Implemented (`media_type=hls_stream` + `hls.js`)          |
+| HLS live streams                   | Implemented (`media_type=hls_stream` + `hls.js`)           |
 
 > **Implementation note:** Add a new `elseif` branch in the `@php` block at the top of the player section and a matching `if` block in the JavaScript section for each new source type.
 
@@ -287,18 +287,18 @@ Requires `auth`, `verified`, and `role:politician` middleware.
 
 Requires `auth`, `verified`, and `role:voter` middleware.
 
-| Method | URL                              | Purpose                                      |
-| ------ | -------------------------------- | -------------------------------------------- |
-| `GET`  | `/voter/dashboard`               | Earnings overview                            |
-| `GET`  | `/voter/watch/{token}`           | Load ad via secure token                     |
-| `POST` | `/voter/watch/{token}/start`     | Start secure watch session                   |
-| `POST` | `/voter/session/{uuid}/progress` | Heartbeat progress tracking                  |
-| `POST` | `/voter/session/{uuid}/complete` | Mark session complete, trigger payout        |
-| `POST` | `/voter/session/{uuid}/survey`   | Submit post-view engagement survey response  |
-| `GET`  | `/voter/earnings`                | Earnings summary                             |
-| `POST` | `/voter/earnings/request-payout` | Request cash payout                          |
-| `GET`  | `/voter/referrals`               | Referral overview                            |
-| `GET`  | `/voter/profile`                 | Profile page                                 |
+| Method | URL                              | Purpose                                     |
+| ------ | -------------------------------- | ------------------------------------------- |
+| `GET`  | `/voter/dashboard`               | Earnings overview                           |
+| `GET`  | `/voter/watch/{token}`           | Load ad via secure token                    |
+| `POST` | `/voter/watch/{token}/start`     | Start secure watch session                  |
+| `POST` | `/voter/session/{uuid}/progress` | Heartbeat progress tracking                 |
+| `POST` | `/voter/session/{uuid}/complete` | Mark session complete, trigger payout       |
+| `POST` | `/voter/session/{uuid}/survey`   | Submit post-view engagement survey response |
+| `GET`  | `/voter/earnings`                | Earnings summary                            |
+| `POST` | `/voter/earnings/request-payout` | Request cash payout                         |
+| `GET`  | `/voter/referrals`               | Referral overview                           |
+| `GET`  | `/voter/profile`                 | Profile page                                |
 
 ### Admin Dashboard (`/admin/*`)
 
@@ -445,23 +445,23 @@ composer test:release-hardening
 
 **Test Suite Overview (275 tests, 776 assertions)**
 
-| Suite                                               | Tests | Coverage                                                                                                                                                 |
-| --------------------------------------------------- | ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Unit/Services/FraudPreventionServiceTest`         | 14    | Score calculation, all fraud flags (incl. VPN/bot UA), signal persistence, `flagVoter`, `holdPayouts`, `releasePayouts`, `updateTrustScore`, `clearFlag` |
-| `Unit/Services/CampaignBillingServiceTest`         | 9     | `recordTransaction`, credit ledger, procurement commissions, `finalizePaymentIntent`                                                                     |
-| `Unit/Services/PoliticalViewServiceTest`           | 11    | Full view lifecycle, idempotency, state-targeted campaigns, earnings summary                                                                             |
-| `Unit/Services/StripePaymentServiceTest`           | 6     | No-key error path, `ensureCustomer` null-safe, `parseWebhook` fallback                                                                                   |
-| `Unit/Services/IpReputationServiceTest`            | 9     | CIDR datacenter detection, Tor prefix match, score cap, cache, ipinfo.io mock                                                                            |
-| `Unit/Services/DeviceFingerprintServiceTest`       | 14    | `generate` stability, `compare` cases, `storeIfNew`, bot UA keyword/marker detection                                                                     |
-| `Unit/Standalone/PublicProfileControllerDigDeeperTest` | 9    | Dig Deeper summary normalization, transparency data gate, local-candidate context fail-safe (Sprint 4 addition)                                        |
-| `Feature/Campaign/AdminApprovalTest`               | 10    | Admin access control, approve/reject/stop/reactivate campaign workflow                                                                                   |
-| `Feature/Campaign/CampaignCrudTest`                | 20    | Campaign CRUD, validation, submit-for-review, analytics, billing views                                                                                   |
-| `Feature/Api/ViewSessionLifecycleTest`             | 13    | View session assign → start → progress → complete, referral earnings                                                                                     |
-| `Feature/Api/*`                                    | 25    | Politician API, Voter API, Admin API, Health endpoint                                                                                                    |
-| `Feature/Billing/*`                                | 7     | Credit purchase, Stripe webhook (success/failure/idempotency/sig-verify)                                                                                 |
-| `Feature/Auth/*`                                   | 19    | Registration, login, email verification, password reset/update                                                                                           |
-| `Feature/Standalone/VoterWatchTest`                | 20    | Token delivery, watch session lifecycle (start/progress/complete), post-view survey response capture, payout, voter dashboard                           |
-| `Feature/Console/RunCaliforniaImportSyncCommandTest` | 2     | California import sync wrapper success/failure flows with broadcast mock (Sprint 4 broadcast fix)                                                      |
+| Suite                                                  | Tests | Coverage                                                                                                                                                 |
+| ------------------------------------------------------ | ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Unit/Services/FraudPreventionServiceTest`             | 14    | Score calculation, all fraud flags (incl. VPN/bot UA), signal persistence, `flagVoter`, `holdPayouts`, `releasePayouts`, `updateTrustScore`, `clearFlag` |
+| `Unit/Services/CampaignBillingServiceTest`             | 9     | `recordTransaction`, credit ledger, procurement commissions, `finalizePaymentIntent`                                                                     |
+| `Unit/Services/PoliticalViewServiceTest`               | 11    | Full view lifecycle, idempotency, state-targeted campaigns, earnings summary                                                                             |
+| `Unit/Services/StripePaymentServiceTest`               | 6     | No-key error path, `ensureCustomer` null-safe, `parseWebhook` fallback                                                                                   |
+| `Unit/Services/IpReputationServiceTest`                | 9     | CIDR datacenter detection, Tor prefix match, score cap, cache, ipinfo.io mock                                                                            |
+| `Unit/Services/DeviceFingerprintServiceTest`           | 14    | `generate` stability, `compare` cases, `storeIfNew`, bot UA keyword/marker detection                                                                     |
+| `Unit/Standalone/PublicProfileControllerDigDeeperTest` | 9     | Dig Deeper summary normalization, transparency data gate, local-candidate context fail-safe (Sprint 4 addition)                                          |
+| `Feature/Campaign/AdminApprovalTest`                   | 10    | Admin access control, approve/reject/stop/reactivate campaign workflow                                                                                   |
+| `Feature/Campaign/CampaignCrudTest`                    | 20    | Campaign CRUD, validation, submit-for-review, analytics, billing views                                                                                   |
+| `Feature/Api/ViewSessionLifecycleTest`                 | 13    | View session assign → start → progress → complete, referral earnings                                                                                     |
+| `Feature/Api/*`                                        | 25    | Politician API, Voter API, Admin API, Health endpoint                                                                                                    |
+| `Feature/Billing/*`                                    | 7     | Credit purchase, Stripe webhook (success/failure/idempotency/sig-verify)                                                                                 |
+| `Feature/Auth/*`                                       | 19    | Registration, login, email verification, password reset/update                                                                                           |
+| `Feature/Standalone/VoterWatchTest`                    | 20    | Token delivery, watch session lifecycle (start/progress/complete), post-view survey response capture, payout, voter dashboard                            |
+| `Feature/Console/RunCaliforniaImportSyncCommandTest`   | 2     | California import sync wrapper success/failure flows with broadcast mock (Sprint 4 broadcast fix)                                                        |
 
 ### Code Style
 
