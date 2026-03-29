@@ -768,24 +768,6 @@ class PublicProfileController extends Controller
         $services = [
             'ballotpedia' => [$politician->show_ballotpedia_data, \App\Services\BallotpediaService::class],
             'opensecrets' => [$politician->show_opensecrets_data, \App\Services\OpenSecretsService::class],
-
-        protected function sanitizePublicWebsiteUrl(mixed $value): ?string
-        {
-            $url = trim((string) $value);
-            if ($url === '') {
-                return null;
-            }
-
-            $host = strtolower((string) parse_url($url, PHP_URL_HOST));
-            $path = strtolower((string) parse_url($url, PHP_URL_PATH));
-
-            // Never expose API endpoints as public "website" links.
-            if ($host === 'api.congress.gov' || str_starts_with($path, '/v3')) {
-                return null;
-            }
-
-            return $url;
-        }
             'votesmart' => [$politician->show_votesmart_data, \App\Services\VoteSmartService::class],
             'fec' => [$politician->show_fec_data, \App\Services\FECService::class],
         ];
@@ -814,6 +796,24 @@ class PublicProfileController extends Controller
         }
 
         return $transparencyData;
+    }
+
+    protected function sanitizePublicWebsiteUrl(mixed $value): ?string
+    {
+        $url = trim((string) $value);
+        if ($url === '') {
+            return null;
+        }
+
+        $host = strtolower((string) parse_url($url, PHP_URL_HOST));
+        $path = strtolower((string) parse_url($url, PHP_URL_PATH));
+
+        // Never expose API endpoints as public "website" links.
+        if ($host === 'api.congress.gov' || str_starts_with($path, '/v3')) {
+            return null;
+        }
+
+        return $url;
     }
 
     /**
