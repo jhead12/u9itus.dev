@@ -152,7 +152,7 @@ class PublicProfileController extends Controller
                     'party_affiliation' => trim((string) ($official['party_affiliation'] ?? '')),
                     'state' => $state,
                     'district_code' => trim((string) ($official['district_code'] ?? '')),
-                    'website' => trim((string) ($official['website'] ?? '')),
+                    'website' => $this->sanitizePublicWebsiteUrl($official['website'] ?? null) ?? '',
                     'source' => trim((string) ($official['source'] ?? 'google_civic')),
                     'discovery_links' => $this->buildDiscoveryLinks($fullName, $office, $state),
                 ];
@@ -214,7 +214,7 @@ class PublicProfileController extends Controller
                     'party_affiliation' => trim((string) ($official['party_affiliation'] ?? '')),
                     'state' => $state,
                     'district_code' => trim((string) ($official['district_code'] ?? '')),
-                    'website' => trim((string) ($official['website'] ?? '')),
+                    'website' => $this->sanitizePublicWebsiteUrl($official['website'] ?? null) ?? '',
                     'source' => trim((string) ($official['source'] ?? 'congress_gov')),
                     'discovery_links' => $this->buildDiscoveryLinks($fullName, $office, $state),
                 ];
@@ -406,7 +406,7 @@ class PublicProfileController extends Controller
             'district' => $district,
             'party_affiliation' => $official['party_affiliation'] ?? null,
             'state' => $state,
-            'website_url' => $official['website'] ?? null,
+            'website_url' => $this->sanitizePublicWebsiteUrl($official['website'] ?? null),
             'profile_photo_url' => $official['photo_url'] ?? null,
             'bio' => 'Imported from Google Civic Information API based on district lookup discovery.',
             'verified_official' => true,
@@ -768,6 +768,24 @@ class PublicProfileController extends Controller
         $services = [
             'ballotpedia' => [$politician->show_ballotpedia_data, \App\Services\BallotpediaService::class],
             'opensecrets' => [$politician->show_opensecrets_data, \App\Services\OpenSecretsService::class],
+
+        protected function sanitizePublicWebsiteUrl(mixed $value): ?string
+        {
+            $url = trim((string) $value);
+            if ($url === '') {
+                return null;
+            }
+
+            $host = strtolower((string) parse_url($url, PHP_URL_HOST));
+            $path = strtolower((string) parse_url($url, PHP_URL_PATH));
+
+            // Never expose API endpoints as public "website" links.
+            if ($host === 'api.congress.gov' || str_starts_with($path, '/v3')) {
+                return null;
+            }
+
+            return $url;
+        }
             'votesmart' => [$politician->show_votesmart_data, \App\Services\VoteSmartService::class],
             'fec' => [$politician->show_fec_data, \App\Services\FECService::class],
         ];

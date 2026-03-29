@@ -101,7 +101,7 @@ class ImportCaliforniaUnclaimedPoliticians extends Command
             $office = $this->politicalOffice($latestTerm);
             $district = $this->districtLabel($latestTerm);
             $party = $this->nullableString($latestTerm['party'] ?? null);
-            $website = $this->nullableString($latestTerm['url'] ?? null);
+            $website = $this->sanitizePublicWebsiteUrl($latestTerm['url'] ?? null);
             $city = $this->extractCityFromAddress($latestTerm);
             $bioguide = $this->nullableString($row['id']['bioguide'] ?? null);
             $photoUrl = $bioguide ? 'https://unitedstates.github.io/images/congress/225x275/' . $bioguide . '.jpg' : null;
@@ -568,6 +568,23 @@ class ImportCaliforniaUnclaimedPoliticians extends Command
         $str = trim((string) $value);
 
         return $str === '' ? null : $str;
+    }
+
+    protected function sanitizePublicWebsiteUrl(mixed $value): ?string
+    {
+        $url = $this->nullableString($value);
+        if ($url === null) {
+            return null;
+        }
+
+        $host = strtolower((string) parse_url($url, PHP_URL_HOST));
+        $path = strtolower((string) parse_url($url, PHP_URL_PATH));
+
+        if ($host === 'api.congress.gov' || str_starts_with($path, '/v3')) {
+            return null;
+        }
+
+        return $url;
     }
 
     /**

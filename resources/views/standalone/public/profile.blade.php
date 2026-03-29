@@ -185,8 +185,13 @@
                         @endauth
                     @endif
 
-                    @if($politician->website_url)
-                        <a href="{{ $politician->website_url }}" target="_blank" rel="noopener"
+                    @php
+                        $publicWebsiteUrl = $politician->website_url;
+                        $publicWebsiteHost = strtolower((string) parse_url((string) $publicWebsiteUrl, PHP_URL_HOST));
+                        $isUnsafeApiWebsite = $publicWebsiteHost === 'api.congress.gov';
+                    @endphp
+                    @if($publicWebsiteUrl && ! $isUnsafeApiWebsite)
+                        <a href="{{ $publicWebsiteUrl }}" target="_blank" rel="noopener"
                            class="ml-3 text-sm text-slate-400 hover:text-white transition underline">
                             Website ↗
                         </a>
@@ -596,15 +601,15 @@
         </section>
 
         {{-- Contact / Connect Section --}}
-        @if($page->show_contact && ($politician->website_url || $politician->city))
+        @if($page->show_contact && (($publicWebsiteUrl && ! $isUnsafeApiWebsite) || $politician->city))
         <section>
             <h2 class="text-xl font-bold text-white mb-4 flex items-center gap-2">
                 <span class="w-1 h-6 rounded-full inline-block" style="background:var(--p13-accent,#f59e0b)"></span>
                 Connect
             </h2>
             <div class="bg-slate-800/40 border border-slate-700/40 rounded-xl p-6 flex flex-wrap gap-4 items-center">
-                @if($politician->website_url)
-                    <a href="{{ $politician->website_url }}" target="_blank" rel="noopener"
+                @if($publicWebsiteUrl && ! $isUnsafeApiWebsite)
+                    <a href="{{ $publicWebsiteUrl }}" target="_blank" rel="noopener"
                        class="inline-flex items-center gap-2 text-sm font-medium text-slate-300 hover:text-white transition">
                         🌐 Official Website ↗
                     </a>
