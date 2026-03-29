@@ -3,6 +3,12 @@
 use App\Models\User;
 use App\Models\Politician;
 use App\Models\PoliticalCampaign;
+use App\Models\Voter;
+use App\Models\VoterWatchReport;
+use App\Services\BallotpediaService;
+use App\Services\FECService;
+use App\Services\OpenSecretsService;
+use App\Services\VoteSmartService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
@@ -201,4 +207,179 @@ test('authenticated politician can still preview their unpublished page', functi
     $response->assertOk();
     $response->assertSee('Morgan Reed');
     $response->assertSee('Open Dashboard');
+});
+
+test('public profile shows answered voter questions', function () {
+    $politician = Politician::factory()->create([
+        'full_name' => 'Jamie Rivera',
+        'slug' => 'jamie-rivera',
+        'page_published' => true,
+        'is_active' => true,
+    ]);
+
+    $campaign = PoliticalCampaign::factory()->active()->create([
+        'politician_id' => $politician->id,
+        'title' => 'Jamie Rivera Town Hall',
+        'approval_status' => 'approved',
+    ]);
+
+    $voter = Voter::factory()->create();
+
+    VoterWatchReport::create([
+        'voter_id' => $voter->id,
+        'campaign_id' => $campaign->id,
+        'type' => 'message',
+        'body' => 'How will you improve local transit access?',
+        'status' => 'resolved',
+        'admin_notes' => 'We will expand evening routes and reduce transfer times.',
+        'resolved_at' => now()->subDay(),
+    ]);
+
+    VoterWatchReport::create([
+        'voter_id' => $voter->id,
+        'campaign_id' => $campaign->id,
+        'type' => 'message',
+        'body' => 'Will you support weekend service?',
+        'status' => 'open',
+        'admin_notes' => null,
+    ]);
+
+    $response = $this->get(route('politician.public.show', ['slug' => $politician->slug]));
+
+    $response->assertOk();
+    $response->assertSee('Answered Questions');
+    $response->assertSee('How will you improve local transit access?');
+    $response->assertSee('We will expand evening routes and reduce transfer times.');
+    $response->assertDontSee('Will you support weekend service?');
+});
+
+test('verified public profile shows dig deeper source panels', function () {
+    $politician = Politician::factory()->create([
+        'full_name' => 'Morgan Hale',
+        'slug' => 'morgan-hale',
+        'page_published' => true,
+        'is_active' => true,
+        'verification_status' => 'verified',
+        'show_ballotpedia_data' => true,
+        'show_opensecrets_data' => true,
+        'show_votesmart_data' => true,
+        'show_fec_data' => true,
+        'political_office' => 'US Senator',
+    ]);
+
+    app()->instance(BallotpediaService::class, new class {
+        public function getDisplayData($politician): array
+        {
+            unset($politician);
+
+            return [
+                'source' => 'Ballotpedia',
+                'source_url' => 'https://ballotpedia.org/example',
+                'sections' => [
+                    ['title' => 'Voting Record', 'items' => ['Record 1']],
+                ],
+            ];
+        }
+    });
+
+    app()->instance(OpenSecretsService::class, new class {
+        public function getDisplayData($politician): array
+        {
+            unset($politician);
+
+            return [
+                'source' => 'OpenSecrets',
+                'source_url' => 'https://www.opensecrets.org/example',
+                'summary' => ['receipts' => '$1,000,000'],
+                'sections' => [
+                    ['title' => 'Top Contributors', 'items' => [['name' => 'Group A']]],
+                ],
+            ];
+        }
+    });
+
+    app()->instance(VoteSmartService::class, new class {
+        public function getDisplayData($politician): array
+        {
+            unset($politician);
+
+            return [
+                'source' => 'Vote Smart',
+                'source_url' => 'https://justfacts.votesmart.org/candidate/example',
+                'sections' => [
+                    ['title' => 'Issue Positions', 'items' => [['issue' => 'Housing', 'position' => 'Support']]],
+                ],
+            ];
+        }
+    });
+
+    app()->instance(FECService::class, new class {
+        public function getDisplayData($politician): array
+        {
+            unset($politician);
+
+            return [
+                'source' => 'Federal Election Commission',
+                'source_url' => 'https://www.fec.gov/data/candidate/H0XX00000/',
+                'summary' => ['receipts' => '$250,000'],
+                'sections' => [
+                    ['title' => 'Recent Filings', 'items' => [['form_type' => 'F3']]],
+                ],
+            ];
+        }
+
+        public function isFederalCandidate($politician): bool
+        {
+            unset($politician);
+
+            return true;
+        }
+    });
+
+    $response = $this->get(route('politician.public.show', ['slug' => $politician->slug]));
+
+    $response->assertOk();
+    $response->assertSee('Dig Deeper');
+    $response->assertSee('Sources available');
+    $response->assertSee('4 / 4');
+    $response->assertSee('Ballotpedia');
+    $response->assertSee('OpenSecrets');
+    $response->assertSee('Vote Smart');
+    $response->assertSee('Federal Election Commission');
+});
+
+test('dig deeper shows federal-only message when fec is enabled for non-federal office', function () {
+    $politician = Politician::factory()->create([
+        'full_name' => 'Dana Price',
+        'slug' => 'dana-price',
+        'page_published' => true,
+        'is_active' => true,
+        'verification_status' => 'verified',
+        'show_fec_data' => true,
+        'political_office' => 'Mayor',
+    ]);
+
+    app()->instance(FECService::class, new class {
+        public function getDisplayData($politician): ?array
+        {
+            unset($politician);
+
+            return null;
+        }
+
+        public function isFederalCandidate($politician): bool
+        {
+            unset($politician);
+
+            return false;
+        }
+    });
+
+    $response = $this->get(route('politician.public.show', ['slug' => $politician->slug]));
+
+    $response->assertOk();
+    $response->assertSee('Dig Deeper');
+    $response->assertSee('Federal Election Commission');
+    $response->assertSee('FEC reporting applies to federal offices only.');
+    $response->assertSee('0 / 1');
 });

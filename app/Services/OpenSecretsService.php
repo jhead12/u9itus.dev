@@ -81,11 +81,11 @@ class OpenSecretsService
                     'sector_totals' => $this->getSectorTotals($candidateId),
                 ];
 
-            } catch (\Exception $e) {
-                Log::error('OpenSecretsService: Failed to fetch data', [
+            } catch (\Throwable $e) {
+                $this->logProviderException('fetch_campaign_finance_data', $e, [
                     'politician_id' => $politician->id,
-                    'error' => $e->getMessage(),
                 ]);
+
                 return null;
             }
         });
@@ -108,6 +108,10 @@ class OpenSecretsService
         ]);
 
         if (!$response->successful()) {
+            $this->logHttpFailure('find_candidate_id', $response->status(), [
+                'state' => $state,
+            ]);
+
             return null;
         }
 
@@ -140,6 +144,10 @@ class OpenSecretsService
         ]);
 
         if (!$response->successful()) {
+            $this->logHttpFailure('get_candidate_summary', $response->status(), [
+                'candidate_id' => $candidateId,
+            ]);
+
             return [];
         }
 
@@ -171,6 +179,10 @@ class OpenSecretsService
         ]);
 
         if (!$response->successful()) {
+            $this->logHttpFailure('get_top_contributors', $response->status(), [
+                'candidate_id' => $candidateId,
+            ]);
+
             return [];
         }
 
@@ -203,6 +215,10 @@ class OpenSecretsService
         ]);
 
         if (!$response->successful()) {
+            $this->logHttpFailure('get_top_industries', $response->status(), [
+                'candidate_id' => $candidateId,
+            ]);
+
             return [];
         }
 
@@ -235,6 +251,10 @@ class OpenSecretsService
         ]);
 
         if (!$response->successful()) {
+            $this->logHttpFailure('get_sector_totals', $response->status(), [
+                'candidate_id' => $candidateId,
+            ]);
+
             return [];
         }
 
@@ -260,6 +280,23 @@ class OpenSecretsService
     protected function formatCurrency($amount): string
     {
         return '$' . number_format((float)$amount, 0);
+    }
+
+    protected function logHttpFailure(string $operation, int $status, array $context = []): void
+    {
+        Log::warning('OpenSecretsService telemetry: HTTP request failed', array_merge($context, [
+            'operation' => $operation,
+            'status' => $status,
+            'is_rate_limited' => $status === 429,
+        ]));
+    }
+
+    protected function logProviderException(string $operation, \Throwable $exception, array $context = []): void
+    {
+        Log::warning('OpenSecretsService telemetry: provider exception', array_merge($context, [
+            'operation' => $operation,
+            'error' => $exception->getMessage(),
+        ]));
     }
 
     /**

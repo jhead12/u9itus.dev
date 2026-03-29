@@ -303,6 +303,42 @@
         </section>
         @endif
 
+        {{-- Answered Questions Section (public town hall responses) --}}
+        @if($answeredQuestions->isNotEmpty())
+        <section>
+            <div class="flex items-end justify-between mb-4">
+                <h2 class="text-xl font-bold text-white flex items-center gap-2">
+                    <span class="w-1 h-6 rounded-full inline-block" style="background:var(--p13-accent,#f59e0b)"></span>
+                    Answered Questions
+                </h2>
+                <span class="text-xs text-slate-400">{{ $answeredQuestions->count() }} published responses</span>
+            </div>
+
+            <p class="text-xs text-slate-400 mb-4">Questions from voters with published responses from this campaign's team.</p>
+
+            <div class="space-y-4">
+                @foreach($answeredQuestions as $entry)
+                    <article class="bg-slate-800/40 border border-slate-700/40 rounded-xl p-5">
+                        <div class="flex items-center justify-between gap-3 mb-2">
+                            <p class="text-xs text-slate-500">Campaign: {{ $entry->campaign->title ?? 'Campaign' }}</p>
+                            <p class="text-xs text-slate-500">Answered {{ optional($entry->resolved_at ?? $entry->updated_at)->format('M j, Y') }}</p>
+                        </div>
+
+                        <div class="rounded-lg border border-slate-700/50 bg-slate-900/40 px-4 py-3 mb-3">
+                            <p class="text-[11px] uppercase tracking-wide text-slate-500 mb-1">Voter Question</p>
+                            <p class="text-sm text-slate-200 leading-relaxed whitespace-pre-line">{{ $entry->body }}</p>
+                        </div>
+
+                        <div class="rounded-lg border border-emerald-500/25 bg-emerald-500/10 px-4 py-3">
+                            <p class="text-[11px] uppercase tracking-wide text-emerald-300 mb-1">Campaign Response</p>
+                            <p class="text-sm text-emerald-100 leading-relaxed whitespace-pre-line">{{ $entry->admin_notes }}</p>
+                        </div>
+                    </article>
+                @endforeach
+            </div>
+        </section>
+        @endif
+
         {{-- Phase 16: Public Records & Transparency --}}
         @if(!empty($transparencyData) && $politician->verification_status === 'verified')
         <section>
@@ -414,6 +450,73 @@
                 <p class="text-xs text-slate-400">
                     <strong class="text-slate-300">Data Attribution:</strong> All information above is sourced from public government databases and independent watchdog organizations. Click the source links to verify data directly.
                 </p>
+            </div>
+        </section>
+        @endif
+
+        {{-- Sprint 4: Dig Deeper research section --}}
+        @if(!empty($digDeeperData['panels'] ?? []) && $politician->verification_status === 'verified')
+        <section id="dig-deeper">
+            <div class="flex items-end justify-between gap-4 mb-4">
+                <div>
+                    <h2 class="text-xl font-bold text-white flex items-center gap-2">
+                        <span class="w-1 h-6 rounded-full inline-block" style="background:var(--p13-accent,#f59e0b)"></span>
+                        Dig Deeper
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-1">
+                        Quick source snapshots with direct links to underlying public records.
+                    </p>
+                </div>
+                <div class="text-right">
+                    <p class="text-xs text-slate-400">Sources available</p>
+                    <p class="text-sm font-semibold text-white">
+                        {{ $digDeeperData['available_sources_count'] }} / {{ $digDeeperData['enabled_sources_count'] }}
+                    </p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                @foreach(($digDeeperData['panels'] ?? []) as $panel)
+                <article class="bg-slate-800/40 border border-slate-700/40 rounded-xl p-5">
+                    <div class="flex items-start justify-between gap-3 mb-3">
+                        <h3 class="text-base font-semibold text-white">{{ $panel['label'] }}</h3>
+                        @if(($panel['status'] ?? null) === 'available')
+                            <span class="inline-flex items-center gap-1 text-[11px] bg-emerald-900/30 border border-emerald-700/50 text-emerald-300 px-2 py-1 rounded-full">Available</span>
+                        @else
+                            <span class="inline-flex items-center gap-1 text-[11px] bg-amber-900/30 border border-amber-700/50 text-amber-300 px-2 py-1 rounded-full">Unavailable</span>
+                        @endif
+                    </div>
+
+                    @if(($panel['status'] ?? null) === 'available')
+                        <p class="text-sm text-slate-300 mb-3">{{ $panel['summary'] ?? 'Source connected' }}</p>
+                        <p class="text-xs text-slate-400 mb-3">{{ $panel['section_count'] ?? 0 }} detail panel(s) available.</p>
+
+                        @if(!empty($panel['sections'] ?? []))
+                        <details class="group rounded-lg border border-slate-700/30 bg-slate-900/35 px-4 py-3">
+                            <summary class="cursor-pointer text-xs font-semibold text-slate-300 group-open:text-white transition">
+                                View source detail panels
+                            </summary>
+                            <div class="mt-3 space-y-2">
+                                @foreach(($panel['sections'] ?? []) as $section)
+                                    @if(!empty($section['title']))
+                                        <div class="text-xs text-slate-400">{{ $section['title'] }}</div>
+                                    @endif
+                                @endforeach
+                            </div>
+                        </details>
+                        @endif
+
+                        @if(!empty($panel['source_url'] ?? null))
+                        <a href="{{ $panel['source_url'] }}" target="_blank" rel="noopener"
+                           class="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-blue-400 hover:text-blue-300 transition">
+                            View source records ↗
+                        </a>
+                        @endif
+                    @else
+                        <p class="text-sm text-slate-400">{{ $panel['unavailable_reason'] ?? 'No data available yet.' }}</p>
+                    @endif
+                </article>
+                @endforeach
             </div>
         </section>
         @endif

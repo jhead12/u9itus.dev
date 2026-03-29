@@ -79,6 +79,13 @@
             "@php artisan config:clear --ansi",
             "@php artisan test"
         ],
+        "test:release-hardening": [
+            "@php artisan config:clear --ansi",
+            "@php artisan test --filter='VoterWatchTest|PublicPoliticianBrowsingTest|AdminEngagementReportTest' --stop-on-failure"
+        ],
+        "test:phase7": [
+            "@composer test:release-hardening"
+        ],
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
             "@php artisan package:discover --ansi"

@@ -92,6 +92,11 @@ class ViewSession extends Model
         return $this->belongsTo(Voter::class);
     }
 
+    public function surveyResponse(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(EngagementSurveyResponse::class);
+    }
+
     // ── State Transitions ───────────────────────────────────
 
     /**

@@ -82,11 +82,11 @@ class VoteSmartService
                     'key_votes' => $this->getKeyVotes($candidateId),
                 ];
 
-            } catch (\Exception $e) {
-                Log::error('VoteSmartService: Failed to fetch data', [
+            } catch (\Throwable $e) {
+                $this->logProviderException('fetch_politician_ratings', $e, [
                     'politician_id' => $politician->id,
-                    'error' => $e->getMessage(),
                 ]);
+
                 return null;
             }
         });
@@ -109,6 +109,10 @@ class VoteSmartService
         ]);
 
         if (!$response->successful()) {
+            $this->logHttpFailure('find_candidate_id', $response->status(), [
+                'state' => $state,
+            ]);
+
             return null;
         }
 
@@ -159,6 +163,10 @@ class VoteSmartService
         ]);
 
         if (!$response->successful()) {
+            $this->logHttpFailure('get_candidate_bio', $response->status(), [
+                'candidate_id' => $candidateId,
+            ]);
+
             return [];
         }
 
@@ -188,6 +196,10 @@ class VoteSmartService
         ]);
 
         if (!$response->successful()) {
+            $this->logHttpFailure('get_ratings', $response->status(), [
+                'candidate_id' => $candidateId,
+            ]);
+
             return [];
         }
 
@@ -228,6 +240,10 @@ class VoteSmartService
         ]);
 
         if (!$response->successful()) {
+            $this->logHttpFailure('get_issue_positions', $response->status(), [
+                'candidate_id' => $candidateId,
+            ]);
+
             return [];
         }
 
@@ -266,6 +282,10 @@ class VoteSmartService
         ]);
 
         if (!$response->successful()) {
+            $this->logHttpFailure('get_key_votes', $response->status(), [
+                'candidate_id' => $candidateId,
+            ]);
+
             return [];
         }
 
@@ -300,6 +320,23 @@ class VoteSmartService
     protected function formatIssueKey(string $key): string
     {
         return ucwords(str_replace('_', ' ', $key));
+    }
+
+    protected function logHttpFailure(string $operation, int $status, array $context = []): void
+    {
+        Log::warning('VoteSmartService telemetry: HTTP request failed', array_merge($context, [
+            'operation' => $operation,
+            'status' => $status,
+            'is_rate_limited' => $status === 429,
+        ]));
+    }
+
+    protected function logProviderException(string $operation, \Throwable $exception, array $context = []): void
+    {
+        Log::warning('VoteSmartService telemetry: provider exception', array_merge($context, [
+            'operation' => $operation,
+            'error' => $exception->getMessage(),
+        ]));
     }
 
     /**

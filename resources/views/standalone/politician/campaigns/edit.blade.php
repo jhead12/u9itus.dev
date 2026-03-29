@@ -157,6 +157,210 @@
             </div>
         </div>
 
+        {{-- Sprint 3: Topics & Q&A Section --}}
+        <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6 space-y-6">
+            <div>
+                <h2 class="text-sm font-semibold text-slate-200 mb-1">Virtual Town Hall Content <span class="text-slate-500 font-normal text-xs">(optional)</span></h2>
+                <p class="text-xs text-slate-500 mt-1">Add topics, Q&A pairs, engagement surveys, and media customization to create an interactive town hall experience.</p>
+            </div>
+
+            {{-- Media Type --}}
+            <div class="border-t border-slate-700/50 pt-6">
+                <label class="block text-sm font-medium text-slate-300 mb-2.5">Media Type</label>
+                <div class="grid grid-cols-2 gap-3">
+                    <label class="relative flex items-center group cursor-pointer">
+                        <input type="radio" name="media_type" value="youtube" {{ old('media_type', $campaign->media_type) === 'youtube' ? 'checked' : '' }}
+                            class="sr-only peer">
+                        <div class="flex-1 bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-3 peer-checked:border-emerald-500 peer-checked:bg-emerald-500/10 transition">
+                            <p class="text-sm font-medium text-slate-200">🎬 YouTube</p>
+                            <p class="text-xs text-slate-500 mt-0.5">YouTube video link</p>
+                        </div>
+                    </label>
+                    <label class="relative flex items-center group cursor-pointer">
+                        <input type="radio" name="media_type" value="vimeo" {{ old('media_type', $campaign->media_type) === 'vimeo' ? 'checked' : '' }}
+                            class="sr-only peer">
+                        <div class="flex-1 bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-3 peer-checked:border-emerald-500 peer-checked:bg-emerald-500/10 transition">
+                            <p class="text-sm font-medium text-slate-200">🎥 Vimeo</p>
+                            <p class="text-xs text-slate-500 mt-0.5">Vimeo video link</p>
+                        </div>
+                    </label>
+                    <label class="relative flex items-center group cursor-pointer">
+                        <input type="radio" name="media_type" value="direct_file" {{ old('media_type', $campaign->media_type) === 'direct_file' ? 'checked' : '' }}
+                            class="sr-only peer">
+                        <div class="flex-1 bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-3 peer-checked:border-emerald-500 peer-checked:bg-emerald-500/10 transition">
+                            <p class="text-sm font-medium text-slate-200">📁 Direct File</p>
+                            <p class="text-xs text-slate-500 mt-0.5">MP4 or WebM URL</p>
+                        </div>
+                    </label>
+                    <label class="relative flex items-center group cursor-pointer">
+                        <input type="radio" name="media_type" value="s3_cloudfront" {{ old('media_type', $campaign->media_type) === 's3_cloudfront' ? 'checked' : '' }}
+                            class="sr-only peer">
+                        <div class="flex-1 bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-3 peer-checked:border-emerald-500 peer-checked:bg-emerald-500/10 transition">
+                            <p class="text-sm font-medium text-slate-200">☁️ S3/CloudFront</p>
+                            <p class="text-xs text-slate-500 mt-0.5">S3 CloudFront URL</p>
+                        </div>
+                    </label>
+                    <label class="relative flex items-center group cursor-pointer">
+                        <input type="radio" name="media_type" value="hls_stream" {{ old('media_type', $campaign->media_type) === 'hls_stream' ? 'checked' : '' }}
+                            class="sr-only peer">
+                        <div class="flex-1 bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-3 peer-checked:border-emerald-500 peer-checked:bg-emerald-500/10 transition">
+                            <p class="text-sm font-medium text-slate-200">📺 HLS Stream</p>
+                            <p class="text-xs text-slate-500 mt-0.5">.m3u8 live or VOD playlist</p>
+                        </div>
+                    </label>
+                </div>
+            </div>
+
+            {{-- Topics Multi-Select --}}
+            <div class="border-t border-slate-700/50 pt-6">
+                <label class="block text-sm font-medium text-slate-300 mb-2.5">Campaign Topics <span class="text-slate-500 font-normal text-xs">(max 5)</span></label>
+                <div class="relative">
+                    <button type="button" id="topicsDropdownBtn" 
+                        class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-left text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition flex items-center justify-between gap-2">
+                        <span id="topicsSelectedText" class="text-slate-400">Select topics...</span>
+                        <svg class="w-4 h-4 text-slate-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                        </svg>
+                    </button>
+                    <div id="topicsDropdown" class="hidden absolute z-10 w-full mt-1 bg-slate-800 border border-slate-600 rounded-lg shadow-xl max-h-60 overflow-y-auto">
+                        <div class="p-3 border-b border-slate-700 space-y-3">
+                            @php
+                                use App\Models\PoliticianTopic;
+                                $topics = PoliticianTopic::active()->orderBy('sort_order')->get();
+                                $campaignTopicIds = $campaign->topics()->pluck('id')->toArray();
+                            @endphp
+                            @foreach($topics as $topic)
+                            <label class="flex items-center gap-2 px-2 py-1.5 hover:bg-slate-700/50 rounded cursor-pointer transition">
+                                <input type="checkbox" name="topic_ids[]" value="{{ $topic->id }}" 
+                                    class="topic-checkbox w-4 h-4 rounded border-slate-600 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-slate-900"
+                                    {{ in_array($topic->id, $campaignTopicIds) || (is_array(old('topic_ids')) && in_array($topic->id, old('topic_ids'))) ? 'checked' : '' }}>
+                                <span class="text-lg mr-2">{{ $topic->icon }}</span>
+                                <span class="text-sm text-slate-200">{{ $topic->name }}</span>
+                            </label>
+                            @endforeach
+                        </div>
+                    </div>
+                </div>
+                <div id="selectedTopicsDisplay" class="mt-3 flex flex-wrap gap-2">
+                    {{-- Selected topics will be displayed here --}}
+                </div>
+                <p class="text-xs text-slate-500 mt-2">Help voters discover your campaign by assigning relevant topics</p>
+                @error('topic_ids')<p class="text-xs text-red-400 mt-1">{{ $message }}</p>@enderror
+            </div>
+
+            {{-- Intro Text --}}
+            <div class="border-t border-slate-700/50 pt-6">
+                <label class="block text-sm font-medium text-slate-300 mb-2.5">Politician's Opening Statement <span class="text-slate-500 font-normal text-xs">(max 1000 chars)</span></label>
+                <textarea name="intro_text" maxlength="1000" rows="3"
+                    class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition resize-none"
+                    placeholder="Start your town hall with a brief introduction or statement...">{{ old('intro_text', $campaign->intro_text) }}</textarea>
+                <p class="text-xs text-slate-500 mt-1"><span id="introCharCount">{{ strlen(old('intro_text', $campaign->intro_text ?? '')) }}</span>/1000 characters</p>
+                @error('intro_text')<p class="text-xs text-red-400 mt-1">{{ $message }}</p>@enderror
+            </div>
+
+            {{-- Q&A Section --}}
+            <div class="border-t border-slate-700/50 pt-6">
+                <div class="flex items-center justify-between mb-3">
+                    <label class="block text-sm font-medium text-slate-300">Questions & Answers</label>
+                    <button type="button" id="addQABtn"
+                        class="text-xs text-emerald-400 hover:text-emerald-300 flex items-center gap-1 transition">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                        </svg>
+                        Add Q&A Pair
+                    </button>
+                </div>
+                <div id="qaItemsContainer" class="space-y-3">
+                    {{-- Q&A pairs will be added here dynamically --}}
+                    @php
+                        $existingQA = $campaign->qa_items ?? [];
+                    @endphp
+                    @forelse($existingQA as $index => $item)
+                    <div class="qa-item bg-slate-900/60 border border-slate-700 rounded-lg overflow-hidden">
+                        <button type="button" class="w-full qa-toggle px-4 py-3 flex items-center justify-between hover:bg-slate-700/50 transition text-left">
+                            <span class="text-sm font-medium text-slate-200" id="qa-label-{{ $index }}">
+                                Q{{ $index + 1 }}: {{ \Illuminate\Support\Str::limit($item['question'] ?? '', 50) }}
+                            </span>
+                            <svg class="w-4 h-4 text-slate-400 transition-transform qa-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                            </svg>
+                        </button>
+                        <div class="qa-content hidden px-4 pb-3 space-y-2 border-t border-slate-700">
+                            <input type="hidden" name="qa_items[{{ $index }}][question]" value="{{ $item['question'] ?? '' }}">
+                            <input type="hidden" name="qa_items[{{ $index }}][answer]" value="{{ $item['answer'] ?? '' }}">
+                            <div>
+                                <label class="block text-xs font-medium text-slate-300 mb-1">Question</label>
+                                <textarea class="w-full bg-slate-800/60 border border-slate-600 rounded px-3 py-2 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 resize-none qa-question" rows="2" placeholder="Enter question...">{{ $item['question'] ?? '' }}</textarea>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-slate-300 mb-1">Answer</label>
+                                <textarea class="w-full bg-slate-800/60 border border-slate-600 rounded px-3 py-2 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 resize-none qa-answer" rows="3" placeholder="Enter answer...">{{ $item['answer'] ?? '' }}</textarea>
+                            </div>
+                            <button type="button" class="text-xs text-red-400 hover:text-red-300 flex items-center gap-1 mt-2 qa-remove">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                </svg>
+                                Remove
+                            </button>
+                        </div>
+                    </div>
+                    @empty
+                    <p class="text-xs text-slate-500 text-center py-3">No Q&A pairs yet. Click "Add Q&A Pair" to get started.</p>
+                    @endforelse
+                </div>
+                @error('qa_items')<p class="text-xs text-red-400 mt-2">{{ $message }}</p>@enderror
+            </div>
+
+            {{-- Engagement Survey Section --}}
+            <div class="border-t border-slate-700/50 pt-6">
+                <label class="block text-sm font-medium text-slate-300 mb-2.5">Post-View Survey <span class="text-slate-500 font-normal text-xs">(optional)</span></label>
+                <p class="text-xs text-slate-500 mb-3">Ask voters a single question after they watch. Responses help with engagement metrics.</p>
+                
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-1.5">Survey Question</label>
+                        <input type="text" name="engagement_survey[question]" maxlength="200"
+                            value="{{ old('engagement_survey.question', $campaign->engagement_survey['question'] ?? '') }}"
+                            class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition"
+                            placeholder="e.g., Do you support this proposal?" />
+                    </div>
+
+                    <div id="surveyOptionsContainer">
+                        <label class="block text-xs font-medium text-slate-300 mb-1.5">Answer Options <span class="text-slate-500 font-normal">(minimum 2)</span></label>
+                        <div class="space-y-2">
+                            @php
+                                $existingSurvey = $campaign->engagement_survey['options'] ?? [];
+                            @endphp
+                            @for($i = 0; $i < max(2, count($existingSurvey)); $i++)
+                                @php $option = $existingSurvey[$i] ?? null; @endphp
+                            <div class="flex gap-2 items-end">
+                                <div class="flex-1">
+                                    <input type="text" name="engagement_survey[options][{{ $i }}][text]"
+                                        value="{{ $option['text'] ?? '' }}"
+                                        maxlength="100"
+                                        class="w-full bg-slate-900/60 border border-slate-700 rounded px-3 py-2 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition survey-option-text"
+                                        placeholder="Option {{ $i + 1 }}" />
+                                </div>
+                                <input type="hidden" name="engagement_survey[options][{{ $i }}][value]" value="{{ $option['value'] ?? chr(65 + $i) }}">
+                                <button type="button" class="text-xs text-slate-400 hover:text-red-400 transition remove-survey-option {{ $i < 2 ? 'invisible' : '' }}">
+                                    Remove
+                                </button>
+                            </div>
+                            @endfor
+                        </div>
+                        <button type="button" id="addSurveyOptionBtn"
+                            class="mt-2 text-xs text-emerald-400 hover:text-emerald-300 flex items-center gap-1 transition">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                            </svg>
+                            Add Option
+                        </button>
+                    </div>
+                </div>
+                @error('engagement_survey')<p class="text-xs text-red-400 mt-2">{{ $message }}</p>@enderror
+            </div>
+        </div>
+
         {{-- Targeting --}}
         <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6 space-y-4">
             <h2 class="text-sm font-semibold text-slate-200 mb-4">Geographic Targeting <span class="text-slate-500 font-normal text-xs">(optional)</span></h2>
@@ -647,6 +851,264 @@
                 videoUrlInput.dispatchEvent(new Event('input'));
             }
         });
+
+        // ── Sprint 3: Q&A & Survey Management ──────────────────────────────
+
+        // Intro text character counter
+        const introText = document.querySelector('textarea[name="intro_text"]');
+        const introCharCount = document.getElementById('introCharCount');
+        if (introText) {
+            introText.addEventListener('input', () => {
+                introCharCount.textContent = introText.value.length;
+            });
+            // Initialize on page load
+            introCharCount.textContent = introText.value.length;
+        }
+
+        // Topics dropdown management
+        const topicsBtn = document.getElementById('topicsDropdownBtn');
+        const topicsDropdown = document.getElementById('topicsDropdown');
+        const topicsSelectedText = document.getElementById('topicsSelectedText');
+        const topicCheckboxes = document.querySelectorAll('.topic-checkbox');
+        const selectedTopicsDisplay = document.getElementById('selectedTopicsDisplay');
+        const MAX_TOPICS = 5;
+
+        topicsBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            topicsDropdown.classList.toggle('hidden');
+        });
+
+        function updateTopicsDisplay() {
+            const checked = Array.from(topicCheckboxes).filter(cb => cb.checked);
+            
+            // Prevent selecting more than MAX_TOPICS
+            if (checked.length > MAX_TOPICS) {
+                event.target.checked = false;
+                return;
+            }
+            
+            if (checked.length === 0) {
+                topicsSelectedText.textContent = 'Select topics...';
+                topicsSelectedText.classList.add('text-slate-400');
+            } else {
+                topicsSelectedText.textContent = checked.length + ' topic' + (checked.length > 1 ? 's' : '') + ' selected';
+                topicsSelectedText.classList.remove('text-slate-400');
+            }
+            
+            // Display selected topics
+            selectedTopicsDisplay.innerHTML = checked.map(cb => {
+                const label = cb.closest('label').textContent.trim();
+                const [icon, ...nameParts] = label.split(' ');
+                const name = nameParts.join(' ');
+                return `<div class="inline-flex items-center gap-2 bg-emerald-500/20 border border-emerald-500/40 rounded-full px-3 py-1.5 text-xs text-emerald-300">
+                    <span class="text-sm">${icon}</span>
+                    <span>${name}</span>
+                </div>`;
+            }).join('');
+        }
+
+        topicCheckboxes.forEach(cb => {
+            cb.addEventListener('change', updateTopicsDisplay);
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('#topicsDropdownBtn') && !e.target.closest('#topicsDropdown')) {
+                topicsDropdown.classList.add('hidden');
+            }
+        });
+
+        topicsDropdown.addEventListener('click', (e) => e.stopPropagation());
+        updateTopicsDisplay();
+
+        // Q&A Accordion Management
+        const addQABtn = document.getElementById('addQABtn');
+        const qaContainer = document.getElementById('qaItemsContainer');
+        let qaIndex = document.querySelectorAll('.qa-item').length;
+        const editCampaignForm = document.getElementById('editCampaignForm');
+
+        function createQAItem(index) {
+            const div = document.createElement('div');
+            div.className = 'qa-item bg-slate-900/60 border border-slate-700 rounded-lg overflow-hidden';
+            div.innerHTML = `
+                <button type="button" class="qa-toggle w-full px-4 py-3 flex items-center justify-between hover:bg-slate-700/50 transition text-left">
+                    <span class="text-sm font-medium text-slate-200" id="qa-label-${index}">New Q&A Pair</span>
+                    <svg class="w-4 h-4 text-slate-400 transition-transform qa-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </button>
+                <div class="qa-content hidden px-4 pb-3 space-y-2 border-t border-slate-700">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-1">Question</label>
+                        <textarea class="w-full bg-slate-800/60 border border-slate-600 rounded px-3 py-2 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 resize-none qa-question" rows="2" placeholder="Enter question..."></textarea>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-1">Answer</label>
+                        <textarea class="w-full bg-slate-800/60 border border-slate-600 rounded px-3 py-2 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 resize-none qa-answer" rows="3" placeholder="Enter answer..."></textarea>
+                    </div>
+                    <button type="button" class="text-xs text-red-400 hover:text-red-300 flex items-center gap-1 mt-2 qa-remove">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                        </svg>
+                        Remove
+                    </button>
+                </div>
+            `;
+            
+            // Add event listeners
+            const toggle = div.querySelector('.qa-toggle');
+            const content = div.querySelector('.qa-content');
+            const chevron = div.querySelector('.qa-chevron');
+            const removeBtn = div.querySelector('.qa-remove');
+            const questionField = div.querySelector('.qa-question');
+            const answerField = div.querySelector('.qa-answer');
+            const label = div.querySelector(`#qa-label-${index}`);
+            
+            toggle.addEventListener('click', () => {
+                content.classList.toggle('hidden');
+                chevron.classList.toggle('rotate-180');
+            });
+            
+            // Update label when fields change
+            const updateLabel = () => {
+                const q = questionField.value || 'New Q&A Pair';
+                label.textContent = `Q${index + 1}: ` + (q.length > 50 ? q.substring(0, 50) + '...' : q);
+            };
+            
+            questionField.addEventListener('input', updateLabel);
+            questionField.addEventListener('blur', updateLabel);
+            
+            // Remove button
+            removeBtn.addEventListener('click', () => {
+                div.remove();
+                renderQAFieldsFromDOM();
+            });
+            
+            return div;
+        }
+
+        function renderQAFieldsFromDOM() {
+            // Regenerate hidden form fields from edit textareas
+            const items = document.querySelectorAll('.qa-item');
+            let html = '';
+            
+            items.forEach((item, idx) => {
+                const question = item.querySelector('.qa-question').value;
+                const answer = item.querySelector('.qa-answer').value;
+                html += `<input type="hidden" name="qa_items[${idx}][question]" value="${escapeHtml(question)}">`;
+                html += `<input type="hidden" name="qa_items[${idx}][answer]" value="${escapeHtml(answer)}">`;
+            });
+            
+            // Find or create a container for hidden fields
+            let hiddenContainer = document.getElementById('qa-hidden-fields');
+            if (!hiddenContainer) {
+                hiddenContainer = document.createElement('div');
+                hiddenContainer.id = 'qa-hidden-fields';
+                hiddenContainer.style.display = 'none';
+                editCampaignForm.appendChild(hiddenContainer);
+            }
+            hiddenContainer.innerHTML = html;
+        }
+
+        function escapeHtml(text) {
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text.replace(/[&<>"']/g, m => map[m]);
+        }
+
+        if (addQABtn) {
+            addQABtn.addEventListener('click', () => {
+                const newItem = createQAItem(qaIndex);
+                qaContainer.querySelector('p.text-xs') && qaContainer.querySelector('p.text-xs').remove();
+                qaContainer.appendChild(newItem);
+                qaIndex++;
+                newItem.querySelector('.qa-toggle').click(); // Auto-open new item
+                newItem.querySelector('.qa-question').focus();
+                renderQAFieldsFromDOM();
+            });
+        }
+
+        // Initialize Q&A toggle buttons for existing items
+        document.querySelectorAll('.qa-toggle').forEach(toggle => {
+            toggle.addEventListener('click', () => {
+                const content = toggle.nextElementSibling;
+                const chevron = toggle.querySelector('.qa-chevron');
+                content.classList.toggle('hidden');
+                chevron.classList.toggle('rotate-180');
+            });
+        });
+
+        // Initialize Q&A remove buttons for existing items
+        document.querySelectorAll('.qa-remove').forEach(btn => {
+            btn.addEventListener('click', () => {
+                btn.closest('.qa-item').remove();
+                renderQAFieldsFromDOM();
+            });
+        });
+
+        // Track updates to existing Q&A items
+        document.querySelectorAll('.qa-question, .qa-answer').forEach(field => {
+            field.addEventListener('input', () => {
+                renderQAFieldsFromDOM();
+                const label = field.closest('.qa-item').querySelector('[id^="qa-label-"]');
+                if (field.classList.contains('qa-question') && label) {
+                    const idx = label.id.match(/\d+/)[0];
+                    const q = field.value || 'Q&A Pair';
+                    label.textContent = `Q${parseInt(idx) + 1}: ` + (q.length > 50 ? q.substring(0, 50) + '...' : q);
+                }
+            });
+        });
+
+        // Survey Option Management
+        const addSurveyOptionBtn = document.getElementById('addSurveyOptionBtn');
+        const surveyOptionsContainer = document.getElementById('surveyOptionsContainer');
+
+        if (addSurveyOptionBtn) {
+            addSurveyOptionBtn.addEventListener('click', () => {
+                const optionCount = surveyOptionsContainer.querySelectorAll('.flex.gap-2').length;
+                const charCode = 65 + optionCount;
+                
+                const div = document.createElement('div');
+                div.className = 'flex gap-2 items-end';
+                div.innerHTML = `
+                    <div class="flex-1">
+                        <input type="text" name="engagement_survey[options][${optionCount}][text]"
+                            maxlength="100"
+                            class="w-full bg-slate-900/60 border border-slate-700 rounded px-3 py-2 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition survey-option-text"
+                            placeholder="Option ${optionCount + 1}" />
+                    </div>
+                    <input type="hidden" name="engagement_survey[options][${optionCount}][value]" value="${String.fromCharCode(charCode)}">
+                    <button type="button" class="text-xs text-slate-400 hover:text-red-400 transition remove-survey-option">
+                        Remove
+                    </button>
+                `;
+                
+                surveyOptionsContainer.querySelector('[id^="surveyOptionsContainer"] > div').appendChild(div);
+                
+                // Add remove listener
+                div.querySelector('.remove-survey-option').addEventListener('click', () => {
+                    div.remove();
+                });
+            });
+        }
+
+        // Remove survey option buttons
+        document.querySelectorAll('.remove-survey-option').forEach(btn => {
+            btn.addEventListener('click', () => {
+                btn.closest('.flex.gap-2').remove();
+            });
+        });
+
+        // Final form submission - sync Q&A fields from textarea values
+        if (editCampaignForm) {
+            editCampaignForm.addEventListener('submit', (e) => {
+                renderQAFieldsFromDOM();
+            });
+        }
     }
 </script>
 @endpush

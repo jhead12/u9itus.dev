@@ -46,6 +46,40 @@
         </div>
     </div>
 
+    <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
+        <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Open Voter Questions</p>
+        <p class="text-2xl font-bold text-cyan-300">{{ number_format($openVoterQuestionsCount ?? 0) }}</p>
+        <p class="text-xs text-slate-500 mt-1">Questions submitted by voters during watch sessions.</p>
+    </div>
+
+    <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl overflow-hidden">
+        <div class="px-5 py-4 border-b border-slate-700/50">
+            <h3 class="text-sm font-semibold text-slate-200">Recent Voter Questions</h3>
+        </div>
+        @if(($recentVoterQuestions ?? collect())->isEmpty())
+            <p class="text-slate-500 text-sm text-center py-8">No voter questions yet.</p>
+        @else
+            <div class="divide-y divide-slate-700/30">
+                @foreach($recentVoterQuestions as $question)
+                    <div class="px-5 py-4">
+                        <div class="flex items-center justify-between gap-3">
+                            <p class="text-xs text-slate-500">
+                                {{ $question->campaign->title ?? 'Campaign' }}
+                                <span class="mx-1">·</span>
+                                {{ $question->created_at?->format('M j, Y H:i') }}
+                            </p>
+                            <span class="text-[11px] px-2 py-0.5 rounded-full {{ $question->status === 'open' ? 'bg-cyan-500/15 text-cyan-300' : 'bg-slate-600/40 text-slate-300' }}">
+                                {{ ucfirst(str_replace('_', ' ', $question->status)) }}
+                            </span>
+                        </div>
+                        <p class="text-slate-200 text-sm mt-1.5">{{ $question->body }}</p>
+                        <p class="text-xs text-slate-500 mt-1">From: {{ $question->voter->full_name ?? 'Voter' }} {{ ($question->voter->email ?? null) ? '(' . $question->voter->email . ')' : '' }}</p>
+                    </div>
+                @endforeach
+            </div>
+        @endif
+    </div>
+
     {{-- Campaign breakdown table --}}
     <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl overflow-hidden">
         <div class="px-5 py-4 border-b border-slate-700/50">

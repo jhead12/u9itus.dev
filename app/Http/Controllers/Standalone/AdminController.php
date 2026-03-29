@@ -10,6 +10,7 @@ use App\Mail\CampaignApprovedMail;
 use App\Mail\CampaignRejectedMail;
 use App\Models\CandidateMatchReview;
 use App\Models\DistrictLookupSearch;
+use App\Models\EngagementSurveyResponse;
 use App\Services\ReverbBroadcastService;
 use App\Services\PoliticianElectionMatcher;
 use App\Mail\KycApprovedMail;
@@ -22,6 +23,7 @@ use App\Models\PoliticalCampaign;
 use App\Models\Politician;
 use App\Models\User;
 use App\Models\ViewSession;
+use App\Models\VoterWatchReport;
 use App\Models\Voter;
 use App\Services\AdminTwoFactorService;
 use App\Services\CampaignBillingService;
@@ -1166,16 +1168,105 @@ class AdminController extends Controller
     /**
      * Show engagement report.
      */
-    public function engagementReport()
+    public function engagementReport(Request $request)
     {
+        $activePaymentMode = $this->activePaymentMode();
+        $campaignIds = $this->modeScopedCampaignIds($activePaymentMode);
+
+        $days = (int) $request->query('days', 30);
+        if (!in_array($days, [7, 30, 90], true)) {
+            $days = 30;
+        }
+
+        $questionStatus = (string) $request->query('question_status', 'all');
+        $allowedStatuses = ['all', 'open', 'in_review', 'resolved', 'dismissed'];
+        if (!in_array($questionStatus, $allowedStatuses, true)) {
+            $questionStatus = 'all';
+        }
+
+        $since = now()->subDays($days);
+        $sessionQuery = ViewSession::whereIn('political_campaign_id', $campaignIds);
+        $completedSessionsQuery = (clone $sessionQuery)->where('status', 'completed');
+
         $engagement = [
-            'total_sessions'     => ViewSession::count(),
-            'completed_sessions' => ViewSession::where('status', 'completed')->count(),
-            'flagged_sessions'   => ViewSession::where('fraud_score', '>', 50)->count(),
-            'avg_watch_percent'  => ViewSession::where('status', 'completed')->avg('completion_percentage') ?? 0,
+            'total_sessions'      => (clone $sessionQuery)->count(),
+            'completed_sessions'  => (clone $completedSessionsQuery)->count(),
+            'flagged_sessions'    => (clone $sessionQuery)->where('fraud_score', '>', 50)->count(),
+            'avg_watch_percent'   => (clone $completedSessionsQuery)->avg('completion_percentage') ?? 0,
+            'survey_responses'    => EngagementSurveyResponse::whereIn('campaign_id', $campaignIds)->count(),
+            'voter_questions'     => VoterWatchReport::query()->messages()->whereIn('campaign_id', $campaignIds)->count(),
+            'survey_last_window'  => EngagementSurveyResponse::whereIn('campaign_id', $campaignIds)
+                ->where('created_at', '>=', $since)
+                ->count(),
+            'questions_last_window' => VoterWatchReport::query()->messages()
+                ->whereIn('campaign_id', $campaignIds)
+                ->where('created_at', '>=', $since)
+                ->count(),
         ];
 
-        return view('standalone.admin.reports-engagement', compact('engagement'));
+        $questionBaseQuery = VoterWatchReport::query()
+            ->messages()
+            ->whereIn('campaign_id', $campaignIds);
+
+        $questionStatusCounts = (clone $questionBaseQuery)
+            ->select('status', DB::raw('COUNT(*) as total'))
+            ->groupBy('status')
+            ->pluck('total', 'status');
+
+        $questionsQuery = (clone $questionBaseQuery)->with([
+            'campaign:id,title',
+            'voter.user:id,name',
+        ]);
+
+        if ($questionStatus !== 'all') {
+            $questionsQuery->where('status', $questionStatus);
+        }
+
+        $recentQuestions = $questionsQuery
+            ->latest()
+            ->paginate(15)
+            ->withQueryString();
+
+        $surveyBaseQuery = EngagementSurveyResponse::query()
+            ->whereIn('engagement_survey_responses.campaign_id', $campaignIds)
+            ->where('engagement_survey_responses.created_at', '>=', $since);
+
+        $surveyOptionBreakdown = (clone $surveyBaseQuery)
+            ->select('response_value', DB::raw('COUNT(*) as total'))
+            ->groupBy('response_value')
+            ->orderByDesc('total')
+            ->limit(10)
+            ->get();
+
+        $surveyCampaignBreakdown = (clone $surveyBaseQuery)
+            ->join('political_campaigns', 'political_campaigns.id', '=', 'engagement_survey_responses.campaign_id')
+            ->select(
+                'engagement_survey_responses.campaign_id',
+                'political_campaigns.title',
+                DB::raw('COUNT(*) as total')
+            )
+            ->groupBy('engagement_survey_responses.campaign_id', 'political_campaigns.title')
+            ->orderByDesc('total')
+            ->limit(10)
+            ->get();
+
+        $questionStats = [
+            'all' => (clone $questionBaseQuery)->count(),
+            'open' => (int) ($questionStatusCounts->get('open') ?? 0),
+            'in_review' => (int) ($questionStatusCounts->get('in_review') ?? 0),
+            'resolved' => (int) ($questionStatusCounts->get('resolved') ?? 0),
+            'dismissed' => (int) ($questionStatusCounts->get('dismissed') ?? 0),
+        ];
+
+        return view('standalone.admin.reports-engagement', compact(
+            'engagement',
+            'questionStatus',
+            'questionStats',
+            'recentQuestions',
+            'days',
+            'surveyOptionBreakdown',
+            'surveyCampaignBreakdown'
+        ));
     }
 
     // ── Settings ────────────────────────────────────────────────────────────

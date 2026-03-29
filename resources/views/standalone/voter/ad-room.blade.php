@@ -146,7 +146,18 @@
                 @endforeach
             </select>
 
-            @if(request('q') || request('level'))
+            {{-- Sprint 3: Topic filter --}}
+            <select name="topic_id"
+                class="bg-slate-800 border border-slate-700 text-slate-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 appearance-none cursor-pointer">
+                <option value="">All topics</option>
+                @foreach($topics as $topic)
+                <option value="{{ $topic->id }}" {{ request('topic_id') == $topic->id ? 'selected' : '' }}>
+                    {{ $topic->name }} {{ $topic->icon ? $topic->icon : '' }}
+                </option>
+                @endforeach
+            </select>
+
+            @if(request('q') || request('level') || request('topic_id'))
             <a href="{{ route('voter.ad-room') }}" class="text-slate-400 hover:text-white text-sm flex items-center gap-1 transition">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
@@ -313,6 +324,25 @@
                     <p class="text-slate-500 text-xs mt-1 line-clamp-2">{{ $campaign->message_summary }}</p>
                     @endif
                 </div>
+
+                {{-- Sprint 3: Topic tags --}}
+                @if($campaign->topics && $campaign->topics->count() > 0)
+                <div class="flex flex-wrap gap-1">
+                    @foreach($campaign->topics->take(3) as $topic)
+                    <span class="inline-flex items-center gap-1 text-xs bg-slate-700/60 text-slate-300 px-2.5 py-1 rounded-full">
+                        @if($topic->icon)
+                            {{ $topic->icon }}
+                        @endif
+                        {{ $topic->name }}
+                    </span>
+                    @endforeach
+                    @if($campaign->topics->count() > 3)
+                    <span class="inline-flex items-center gap-1 text-xs bg-slate-700/60 text-slate-400 px-2.5 py-1 rounded-full">
+                        +{{ $campaign->topics->count() - 3 }}
+                    </span>
+                    @endif
+                </div>
+                @endif
 
                 {{-- Payout highlight --}}
                 <div class="flex items-center justify-between bg-emerald-900/25 border border-emerald-500/20 rounded-xl px-3 py-2">

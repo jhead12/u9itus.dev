@@ -5,9 +5,11 @@ use App\Enums\ApprovalStatus;
 use App\Enums\PaymentStatus;
 use App\Enums\ViewSessionStatus;
 use App\Models\AdViewToken;
+use App\Models\EngagementSurveyResponse;
 use App\Models\PoliticalCampaign;
 use App\Models\User;
 use App\Models\ViewSession;
+use App\Models\VoterWatchReport;
 use App\Models\Voter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
@@ -116,6 +118,21 @@ test('expired token shows expired error', function () {
         ->assertViewHas('reason', 'expired');
 });
 
+test('hls media type watch page renders HLS player mode', function () {
+    [$user, $voter] = voterUser();
+    $campaign = watchableCampaign([
+        'media_type' => 'hls_stream',
+        'media_url' => 'https://example.com/stream/index.m3u8',
+    ]);
+    $adToken = validToken($voter, $campaign);
+
+    $this->actingAs($user)
+        ->get(route('voter.watch', ['token' => $adToken->token]))
+        ->assertOk()
+        ->assertSee("const playerMode    = 'hls';", false)
+        ->assertSee('hls.js@1.5.15', false);
+});
+
 // ── startWatching ─────────────────────────────────────────────────────────────
 
 test('startWatching creates view session and marks token used', function () {
@@ -194,10 +211,83 @@ test('markComplete returns qualified and payout fields', function () {
         ->assertJsonStructure(['qualified', 'payout_earned', 'status']);
 });
 
+test('submitSurvey stores response for completed session', function () {
+    [$user, $voter] = voterUser();
+    $campaign = watchableCampaign([
+        'engagement_survey' => [
+            'question' => 'Do you support this proposal?',
+            'options' => [
+                ['text' => 'Yes', 'value' => 'A'],
+                ['text' => 'No', 'value' => 'B'],
+            ],
+        ],
+    ]);
+
+    $session = ViewSession::factory()->create([
+        'voter_id'              => $voter->id,
+        'political_campaign_id' => $campaign->id,
+        'status'                => ViewSessionStatus::Completed->value,
+    ]);
+
+    $this->actingAs($user)
+        ->postJson(route('voter.session.survey', ['sessionUuid' => $session->uuid]), [
+            'response_value' => 'A',
+            'response_text' => 'Strong support',
+        ])
+        ->assertOk()
+        ->assertJson(['success' => true]);
+
+    expect(EngagementSurveyResponse::where('view_session_id', $session->id)->exists())->toBeTrue();
+});
+
+test('submitSurvey rejects responses before session completion', function () {
+    [$user, $voter] = voterUser();
+    $campaign = watchableCampaign([
+        'engagement_survey' => [
+            'question' => 'Do you support this proposal?',
+            'options' => [
+                ['text' => 'Yes', 'value' => 'A'],
+                ['text' => 'No', 'value' => 'B'],
+            ],
+        ],
+    ]);
+
+    $session = ViewSession::factory()->create([
+        'voter_id'              => $voter->id,
+        'political_campaign_id' => $campaign->id,
+        'status'                => ViewSessionStatus::InProgress->value,
+    ]);
+
+    $this->actingAs($user)
+        ->postJson(route('voter.session.survey', ['sessionUuid' => $session->uuid]), [
+            'response_value' => 'A',
+        ])
+        ->assertStatus(422)
+        ->assertJsonStructure(['error']);
+});
+
+test('askQuestion stores voter question for politician campaign', function () {
+    [$user, $voter] = voterUser();
+    $campaign = watchableCampaign();
+    $adToken = validToken($voter, $campaign);
+
+    $this->actingAs($user)
+        ->postJson(route('voter.watch.ask-question', ['token' => $adToken->token]), [
+            'body' => 'What specific policy steps will you take in your first 100 days?',
+        ])
+        ->assertOk()
+        ->assertJson(['success' => true]);
+
+    expect(VoterWatchReport::where('campaign_id', $campaign->id)
+        ->where('voter_id', $voter->id)
+        ->where('type', 'message')
+        ->exists())->toBeTrue();
+});
+
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 
 test('voter dashboard loads successfully', function () {
-    [$user, $voter] = voterUser(['wallet_balance' => 1.25, 'total_views' => 5]);
+    [$user] = voterUser(['wallet_balance' => 1.25, 'total_views' => 5]);
 
     $this->actingAs($user)
         ->get(route('voter.dashboard'))

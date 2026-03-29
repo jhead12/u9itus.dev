@@ -1,13 +1,26 @@
 @php
     $_ytId  = null;
+    $_vimeoId = null;
     $_mUrl  = $campaign->media_url ?? '';
+    $_mediaType = (string) ($campaign->media_type ?? 'youtube');
     $_isDirectVideo = preg_match('/\.(mp4|webm|ogg)(\?.*)?$/i', $_mUrl) === 1;
+    $_qaItems = collect($campaign->qa_items ?? [])->filter(function ($item) {
+        return is_array($item)
+            && filled($item['question'] ?? null)
+            && filled($item['answer'] ?? null);
+    })->values();
+    $_showTownHall = filled($campaign->intro_text) || $_qaItems->isNotEmpty();
+
     if (preg_match('/youtu\.be\/([a-zA-Z0-9_-]+)/', $_mUrl, $_m)) {
         $_ytId = $_m[1];
     } elseif (preg_match('/[?&]v=([a-zA-Z0-9_-]+)/', $_mUrl, $_m)) {
         $_ytId = $_m[1];
     } elseif (preg_match('/\/embed\/([a-zA-Z0-9_-]+)/', $_mUrl, $_m)) {
         $_ytId = $_m[1];
+    }
+
+    if (preg_match('/vimeo\.com\/(?:video\/)?(\d+)/', $_mUrl, $_m)) {
+        $_vimeoId = $_m[1];
     }
 
     $statusValue = $campaign->status?->value ?? (string) $campaign->status;
@@ -32,7 +45,7 @@
 
 <article class="bg-slate-800/40 border border-slate-700/40 rounded-xl overflow-hidden hover:border-slate-500 transition group">
     <div class="relative aspect-video bg-black">
-        @if($_ytId)
+        @if($_mediaType === 'youtube' && $_ytId)
             <iframe
                 src="https://www.youtube-nocookie.com/embed/{{ $_ytId }}?rel=0&modestbranding=1&color=white&iv_load_policy=3"
                 title="{{ e($campaign->title) }}"
@@ -41,11 +54,29 @@
                 allowfullscreen
                 loading="lazy"
             ></iframe>
-        @elseif($_isDirectVideo)
+        @elseif($_mediaType === 'vimeo' && $_vimeoId)
+            <iframe
+                src="https://player.vimeo.com/video/{{ $_vimeoId }}"
+                title="{{ e($campaign->title) }}"
+                class="w-full h-full"
+                allow="autoplay; fullscreen; picture-in-picture"
+                allowfullscreen
+                loading="lazy"
+            ></iframe>
+        @elseif(in_array($_mediaType, ['direct_file', 's3_cloudfront'], true) || $_isDirectVideo)
             <video class="w-full h-full object-cover" controls preload="metadata" playsinline>
                 <source src="{{ $_mUrl }}">
                 Your browser does not support this video format.
             </video>
+        @elseif($_ytId)
+            <iframe
+                src="https://www.youtube-nocookie.com/embed/{{ $_ytId }}?rel=0&modestbranding=1&color=white&iv_load_policy=3"
+                title="{{ e($campaign->title) }}"
+                class="w-full h-full"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowfullscreen
+                loading="lazy"
+            ></iframe>
         @elseif($campaign->thumbnail_url)
             <img src="{{ $campaign->thumbnail_url }}" alt="{{ $campaign->title }}"
                  class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
@@ -81,6 +112,36 @@
 
         @if($campaign->message_summary)
             <p class="text-xs text-slate-400 line-clamp-3 mb-3">{{ $campaign->message_summary }}</p>
+        @endif
+
+        @if($_showTownHall)
+            <div class="rounded-lg border border-slate-700/70 bg-slate-900/45 p-3 mb-3 space-y-3">
+                <div class="flex items-center justify-between gap-2">
+                    <p class="text-[11px] font-semibold uppercase tracking-wide text-emerald-300">Virtual Town Hall</p>
+                    @if($_qaItems->isNotEmpty())
+                        <span class="text-[11px] text-slate-400">{{ $_qaItems->count() }} Q&amp;A</span>
+                    @endif
+                </div>
+
+                @if(filled($campaign->intro_text))
+                    <p class="text-xs text-slate-300 leading-relaxed">{{ \Illuminate\Support\Str::limit($campaign->intro_text, 180) }}</p>
+                @endif
+
+                @if($_qaItems->isNotEmpty())
+                    <div class="space-y-2">
+                        @foreach($_qaItems->take(3) as $idx => $qa)
+                            <details class="group rounded-md border border-slate-700/70 bg-slate-800/40 px-3 py-2">
+                                <summary class="cursor-pointer list-none flex items-center justify-between gap-3">
+                                    <span class="text-xs font-medium text-slate-200">Q{{ $idx + 1 }}. {{ $qa['question'] }}</span>
+                                    <span class="text-[10px] text-slate-500 group-open:hidden">Show</span>
+                                    <span class="text-[10px] text-slate-500 hidden group-open:inline">Hide</span>
+                                </summary>
+                                <p class="mt-2 text-xs text-slate-400 leading-relaxed">{{ $qa['answer'] }}</p>
+                            </details>
+                        @endforeach
+                    </div>
+                @endif
+            </div>
         @endif
 
         <div class="flex items-center justify-between gap-3 text-xs text-slate-500 mb-3">

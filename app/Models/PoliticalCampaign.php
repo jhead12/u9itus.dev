@@ -30,9 +30,10 @@ class PoliticalCampaign extends Model
         'politician_id',
         'title',
         'message_summary',
-        'campaign_type',           // video | live_feed
+        'campaign_type',           // video | live_feed | q_and_a
         'governance_level',
         'media_url',
+        'media_type',              // youtube | vimeo | direct_file | s3_cloudfront
         'media_duration',
         'thumbnail_url',
         'live_feed_url',
@@ -65,6 +66,10 @@ class PoliticalCampaign extends Model
         'allow_repeat_views',
         'repeat_view_cooldown_hours',
         'max_views_per_voter',
+        // Phase 3 (Sprint 3) — Q&A and Topics
+        'intro_text',              // Q&A intro/key message
+        'qa_items',                // Q&A pairs JSON
+        'engagement_survey',       // Post-view survey payload JSON
     ];
 
     protected $table = 'political_campaigns';
@@ -102,6 +107,9 @@ class PoliticalCampaign extends Model
             'allow_repeat_views'         => 'boolean',
             'repeat_view_cooldown_hours' => 'integer',
             'max_views_per_voter'        => 'integer',
+            // Phase 3 (Sprint 3) — Q&A Topics and Survey
+            'qa_items'                   => 'json',     // [{question, answer}, ...]
+            'engagement_survey'          => 'json',     // {question, options: [{text, value}], ...}
         ];
     }
 
@@ -124,6 +132,16 @@ class PoliticalCampaign extends Model
     public function politician(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(Politician::class);
+    }
+
+    public function topics(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(
+            PoliticianTopic::class,
+            'campaign_topic',
+            'campaign_id',
+            'topic_id'
+        )->withTimestamps();
     }
 
     public function viewSessions(): \Illuminate\Database\Eloquent\Relations\HasMany

@@ -57,7 +57,7 @@
         </a>
         <a href="{{ route('admin.reports.engagement') }}" class="bg-slate-800/50 border border-slate-700/50 hover:border-emerald-500/30 rounded-xl p-5 transition group">
             <p class="text-sm font-semibold text-white group-hover:text-emerald-400 transition">Engagement Report →</p>
-            <p class="text-xs text-slate-500 mt-1">View sessions, completion rates, fraud rates</p>
+            <p class="text-xs text-slate-500 mt-1">View sessions, survey response trends, and voter question moderation queue</p>
         </a>
     </div>
 

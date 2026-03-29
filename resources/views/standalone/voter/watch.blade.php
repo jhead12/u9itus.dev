@@ -48,15 +48,37 @@
     {{-- Video Player --}}
     @php
         $videoId  = null;
+        $vimeoId  = null;
         $mediaUrl = $campaign->media_url ?? '';
+        $mediaType = (string) ($campaign->media_type ?? 'youtube');
+        $isHlsUrl = preg_match('/\.m3u8(\?.*)?$/i', $mediaUrl) === 1;
+
         if (preg_match('/youtu\.be\/([a-zA-Z0-9_-]+)/', $mediaUrl, $_m))         { $videoId = $_m[1]; }
         elseif (preg_match('/[?&]v=([a-zA-Z0-9_-]+)/', $mediaUrl, $_m))         { $videoId = $_m[1]; }
         elseif (preg_match('/\/embed\/([a-zA-Z0-9_-]+)/', $mediaUrl, $_m))     { $videoId = $_m[1]; }
-        $isYouTube = !empty($videoId);
+        if (preg_match('/vimeo\.com\/(?:video\/)?(\d+)/', $mediaUrl, $_m))   { $vimeoId = $_m[1]; }
+
+        $playerMode = 'native';
+        if ($mediaType === 'youtube' && ! empty($videoId)) {
+            $playerMode = 'youtube';
+        } elseif ($mediaType === 'vimeo' && ! empty($vimeoId)) {
+            $playerMode = 'vimeo';
+        } elseif ($mediaType === 'hls_stream' && ! empty($mediaUrl)) {
+            $playerMode = 'hls';
+        } elseif ($isHlsUrl) {
+            $playerMode = 'hls';
+        } elseif (! empty($vimeoId)) {
+            // Fallback for legacy campaigns missing media_type.
+            $playerMode = 'vimeo';
+        } elseif (! empty($videoId)) {
+            $playerMode = 'youtube';
+        }
     @endphp
     <div class="relative bg-black rounded-2xl overflow-hidden shadow-2xl ring-1 ring-slate-700/50" id="player-wrapper">
-        @if($isYouTube)
+        @if($playerMode === 'youtube')
             <div id="yt-player-container" class="w-full aspect-video"></div>
+        @elseif($playerMode === 'vimeo')
+            <div id="vimeo-player-container" class="w-full aspect-video"></div>
         @else
             <video
                 id="ad-video"
@@ -69,7 +91,7 @@
                 oncontextmenu="return false;"
             >
                 @if($campaign->media_url)
-                    <source src="{{ $campaign->media_url }}" type="video/mp4">
+                    <source src="{{ $campaign->media_url }}" type="{{ $playerMode === 'hls' ? 'application/x-mpegURL' : 'video/mp4' }}">
                 @endif
                 Your browser does not support HTML5 video.
             </video>
@@ -102,6 +124,56 @@
 
     {{-- Status messages --}}
     <div id="status-msg" class="mt-5 hidden text-center py-4 px-6 rounded-2xl"></div>
+
+    @php
+        $engagementSurvey = is_array($campaign->engagement_survey ?? null) ? $campaign->engagement_survey : null;
+        $surveyOptions = collect($engagementSurvey['options'] ?? [])->filter(function ($option) {
+            return is_array($option)
+                && filled($option['text'] ?? null)
+                && filled($option['value'] ?? null);
+        })->values();
+    @endphp
+
+    @if($engagementSurvey && filled($engagementSurvey['question'] ?? null) && $surveyOptions->count() >= 2)
+    <div id="engagement-survey-panel" class="hidden mt-5 bg-slate-800/70 border border-slate-700/60 rounded-2xl p-5">
+        <div class="flex items-start justify-between gap-3 mb-3">
+            <div>
+                <p class="text-xs uppercase tracking-wider text-slate-500 font-semibold">Post-View Survey</p>
+                <h3 class="text-white font-semibold mt-1">{{ $engagementSurvey['question'] }}</h3>
+            </div>
+            <span id="survey-badge" class="text-[11px] px-2 py-1 rounded-full bg-slate-700/70 text-slate-300">Optional</span>
+        </div>
+
+        <div id="survey-options" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            @foreach($surveyOptions as $option)
+            <button type="button"
+                class="survey-option-btn text-left px-3.5 py-2.5 rounded-xl border border-slate-600 bg-slate-900/60 text-slate-300 hover:border-emerald-500/50 hover:text-white transition"
+                data-value="{{ $option['value'] }}">
+                {{ $option['text'] }}
+            </button>
+            @endforeach
+        </div>
+
+        <div class="mt-3">
+            <label for="survey-response-text" class="block text-xs text-slate-500 mb-1">Optional note</label>
+            <textarea id="survey-response-text" rows="2" maxlength="400"
+                class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500 transition"
+                placeholder="Share additional feedback..."></textarea>
+        </div>
+
+        <div class="mt-3 flex items-center gap-2">
+            <button id="survey-submit-btn" type="button" disabled
+                class="px-4 py-2 rounded-lg bg-emerald-600/60 text-white text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-emerald-500 transition">
+                Submit Response
+            </button>
+            <button id="survey-skip-btn" type="button"
+                class="px-3 py-2 rounded-lg bg-slate-700/70 text-slate-300 text-sm hover:text-white hover:bg-slate-600 transition">
+                Skip
+            </button>
+            <span id="survey-status-msg" class="text-xs text-slate-400"></span>
+        </div>
+    </div>
+    @endif
 
     {{-- ── About the Candidate ──────────────────────────────────── --}}
     @php $pol = $campaign->politician; @endphp
@@ -310,7 +382,7 @@
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
                 </svg>
-                Message Politician
+                Ask a Question
             </button>
         </div>
 
@@ -401,7 +473,7 @@
             </div>
         </div>
 
-        {{-- Message Politician Modal --}}
+        {{-- Ask Politician a Question Modal --}}
         <div x-show="messageModal"
             x-transition:enter="transition ease-out duration-200"
             x-transition:enter-start="opacity-0"
@@ -418,7 +490,7 @@
                 
                 <div class="flex items-start justify-between mb-4">
                     <div>
-                        <h3 class="text-lg font-bold text-white">Message Politician</h3>
+                        <h3 class="text-lg font-bold text-white">Ask a Question</h3>
                         <p class="text-sm text-slate-400 mt-0.5">Send to {{ $campaign->politician->full_name ?? 'the campaign' }}</p>
                     </div>
                     <button @click="messageModal = false" class="text-slate-500 hover:text-slate-300 transition">
@@ -432,7 +504,7 @@
                     if (!submitting) {
                         submitting = true;
                         const formData = new FormData($event.target);
-                        fetch('{{ route('voter.watch.message-politician', $adToken->token) }}', {
+                        fetch('{{ route('voter.watch.ask-question', $adToken->token) }}', {
                             method: 'POST',
                             headers: {
                                 'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content,
@@ -443,23 +515,23 @@
                         .then(r => r.json())
                         .then(data => {
                             if (data.success) {
-                                alert(data.message || 'Message sent successfully!');
+                                alert(data.message || 'Question sent successfully!');
                                 messageModal = false;
                                 $event.target.reset();
                             }
                         })
-                        .catch(() => alert('Failed to send message. Please try again.'))
+                        .catch(() => alert('Failed to send question. Please try again.'))
                         .finally(() => submitting = false);
                     }
                 ">
                     <input type="hidden" name="view_session_uuid" :value="window.sessionId || ''">
 
                     <div class="mb-5">
-                        <label for="message-body" class="block text-sm font-medium text-slate-300 mb-2">Your Message *</label>
+                        <label for="message-body" class="block text-sm font-medium text-slate-300 mb-2">Your Question *</label>
                         <textarea name="body" id="message-body" rows="5" maxlength="1000" required
-                            placeholder="Share your thoughts, questions, or feedback with this politician..."
+                            placeholder="Ask this politician a question you want answered in the town hall..."
                             class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition resize-none"></textarea>
-                        <p class="text-xs text-slate-500 mt-1">Your message will be sent directly to the politician's email</p>
+                        <p class="text-xs text-slate-500 mt-1">Your question will be emailed and shown in campaign analytics.</p>
                     </div>
 
                     <div class="flex gap-3">
@@ -469,7 +541,7 @@
                         </button>
                         <button type="submit" :disabled="submitting"
                             class="flex-1 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-white font-medium text-sm transition">
-                            <span x-show="!submitting">Send Message</span>
+                            <span x-show="!submitting">Send Question</span>
                             <span x-show="submitting">Sending...</span>
                         </button>
                     </div>
@@ -497,8 +569,14 @@
     const csrf        = document.querySelector('meta[name="csrf-token"]').content;
     const duration      = {{ $duration ?? 0 }};
     const mustWatch     = {{ $mustWatch ?? 100 }};
-    const isYouTube     = {{ $isYouTube ? 'true' : 'false' }};
+    const playerMode    = '{{ $playerMode }}';
+    const isYouTube     = playerMode === 'youtube';
+    const isVimeo       = playerMode === 'vimeo';
+    const isHls         = playerMode === 'hls';
     const videoId       = '{{ $videoId ?? '' }}';
+    const vimeoId       = '{{ $vimeoId ?? '' }}';
+    const mediaStreamUrl = @json($campaign->media_url ?? null);
+    const surveyPayload = @json($engagementSurvey);
     const dashboardUrl  = '{{ route('voter.dashboard') }}';
 
     let sessionId      = null;
@@ -508,6 +586,20 @@
     let completed      = false;
     let lastTime       = 0;
     let ytPlayer       = null;
+    let vimeoPlayer    = null;
+    let hlsPlayer      = null;
+    let vimeoCurrentTime = 0;
+    let vimeoLastTime = 0;
+    let surveySubmitted = false;
+    let selectedSurveyValue = null;
+
+    const surveyPanel = document.getElementById('engagement-survey-panel');
+    const surveySubmitBtn = document.getElementById('survey-submit-btn');
+    const surveySkipBtn = document.getElementById('survey-skip-btn');
+    const surveyStatusMsg = document.getElementById('survey-status-msg');
+    const surveyResponseText = document.getElementById('survey-response-text');
+    const surveyBadge = document.getElementById('survey-badge');
+    const surveyOptionButtons = Array.from(document.querySelectorAll('.survey-option-btn'));
 
     /* ── helpers ─────────────────────────────────────────────────── */
     function showStatus(msg, type = 'info') {
@@ -560,6 +652,59 @@
         uiTimer = null;
     }
 
+    function updateSurveySelectionUi() {
+        surveyOptionButtons.forEach((btn) => {
+            const isSelected = btn.dataset.value === selectedSurveyValue;
+            btn.classList.toggle('border-emerald-500', isSelected);
+            btn.classList.toggle('bg-emerald-500/10', isSelected);
+            btn.classList.toggle('text-white', isSelected);
+        });
+        if (surveySubmitBtn) {
+            surveySubmitBtn.disabled = !selectedSurveyValue || surveySubmitted;
+        }
+    }
+
+    function revealSurveyPanel() {
+        if (!surveyPanel || surveySubmitted) return;
+        if (!surveyPayload || !Array.isArray(surveyPayload.options) || surveyPayload.options.length < 2) return;
+        surveyPanel.classList.remove('hidden');
+        surveyStatusMsg.textContent = 'Pick an option, then submit.';
+    }
+
+    async function submitSurveyResponse() {
+        if (!sessionId || !selectedSurveyValue || surveySubmitted) return;
+
+        surveySubmitBtn.disabled = true;
+        surveyStatusMsg.textContent = 'Submitting...';
+
+        try {
+            const res = await post(`/voter/session/${sessionId}/survey`, {
+                response_value: selectedSurveyValue,
+                response_text: surveyResponseText?.value || null,
+            });
+
+            if (res.error) {
+                surveyStatusMsg.textContent = res.error;
+                updateSurveySelectionUi();
+                return;
+            }
+
+            surveySubmitted = true;
+            if (surveyBadge) {
+                surveyBadge.textContent = 'Submitted';
+                surveyBadge.className = 'text-[11px] px-2 py-1 rounded-full bg-emerald-900/50 text-emerald-300 border border-emerald-500/40';
+            }
+            surveyStatusMsg.textContent = res.message || 'Response submitted.';
+            surveyOptionButtons.forEach((btn) => btn.disabled = true);
+            if (surveyResponseText) surveyResponseText.disabled = true;
+            if (surveySubmitBtn) surveySubmitBtn.disabled = true;
+            if (surveySkipBtn) surveySkipBtn.disabled = true;
+        } catch (e) {
+            surveyStatusMsg.textContent = 'Could not submit right now. Please try again.';
+            updateSurveySelectionUi();
+        }
+    }
+
     function startHeartbeat(getCurrentTime) {
         if (heartbeatTimer) return;
         heartbeatTimer = setInterval(async () => {
@@ -581,6 +726,7 @@
                     clearInterval(antiSkipTimer);
                     stopUiTimer();
                     updateProgressUi(duration);
+                    revealSurveyPanel();
                     if (res.qualified) {
                         showStatus(`\u{1F389} You earned $${parseFloat(res.payout_earned).toFixed(2)}! Payment is being processed.`, 'success');
                         statusMsg.innerHTML += ` <a href="${dashboardUrl}" class="underline text-emerald-400 ml-2">View earnings \u2192</a>`;
@@ -609,6 +755,7 @@
         try {
             const baseUrl = '{{ url("/voter/session") }}';
             const res = await post(`${baseUrl}/${sessionId}/complete`, { total_seconds_watched: total });
+            revealSurveyPanel();
             if (res.already_completed) {
                 // Heartbeat beat us to it — earnings already recorded
                 showStatus('\u2713 Video finished \u2014 earnings already credited to your wallet.', 'success');
@@ -703,10 +850,163 @@
         });
     }
 
+    /* ── Vimeo Player API path ───────────────────────────────────── */
+    function loadVimeoApi() {
+        if (window.Vimeo && window.Vimeo.Player) {
+            return Promise.resolve();
+        }
+
+        return new Promise((resolve, reject) => {
+            const existing = document.querySelector('script[data-vimeo-api="1"]');
+            if (existing) {
+                existing.addEventListener('load', () => resolve(), { once: true });
+                existing.addEventListener('error', () => reject(new Error('Vimeo API failed to load')), { once: true });
+                return;
+            }
+
+            const script = document.createElement('script');
+            script.src = 'https://player.vimeo.com/api/player.js';
+            script.setAttribute('data-vimeo-api', '1');
+            script.onload = () => resolve();
+            script.onerror = () => reject(new Error('Vimeo API failed to load'));
+            document.head.appendChild(script);
+        });
+    }
+
+    async function initVimeoPlayer() {
+        if (vimeoPlayer || !isVimeo || !vimeoId) return;
+
+        await loadVimeoApi();
+        vimeoPlayer = new window.Vimeo.Player('vimeo-player-container', {
+            id: parseInt(vimeoId, 10),
+            controls: false,
+            byline: false,
+            title: false,
+            portrait: false,
+            playsinline: true,
+            dnt: true,
+        });
+
+        vimeoPlayer.on('timeupdate', async ({ seconds }) => {
+            if (completed) return;
+            vimeoCurrentTime = seconds || 0;
+
+            // Anti-skip enforcement for Vimeo player.
+            if (vimeoCurrentTime > vimeoLastTime + 1.5) {
+                try {
+                    await vimeoPlayer.setCurrentTime(vimeoLastTime);
+                } catch (_) {
+                    // Ignore transient seek errors from the player.
+                }
+            } else {
+                vimeoLastTime = vimeoCurrentTime;
+            }
+        });
+
+        vimeoPlayer.on('pause', () => {
+            if (!completed) {
+                setTimeout(() => {
+                    if (!completed && vimeoPlayer) {
+                        vimeoPlayer.play().catch(() => {});
+                    }
+                }, 100);
+            }
+        });
+
+        vimeoPlayer.on('ended', async () => {
+            const played = await vimeoPlayer.getCurrentTime().catch(() => vimeoCurrentTime || duration);
+            handleVideoEnded(played || duration);
+        });
+    }
+
+    if (isVimeo) {
+        initVimeoPlayer().catch(() => {
+            showStatus('Could not load Vimeo player. Please refresh and try again.', 'error');
+        });
+
+        overlay.addEventListener('click', async () => {
+            overlay.style.display = 'none';
+            try {
+                const startUrl = '{{ url("/voter/watch") }}/' + encodeURIComponent(token) + '/start';
+                const res = await post(startUrl, {});
+                if (res.error) { showStatus(res.error, 'error'); overlay.style.display = ''; return; }
+                sessionId = res.session_id;
+                window.sessionId = sessionId;
+                document.getElementById('control-blocker').classList.remove('hidden');
+
+                await initVimeoPlayer();
+                if (vimeoPlayer) {
+                    vimeoPlayer.play().catch(() => {});
+                }
+
+                startHeartbeat(() => vimeoCurrentTime || 0);
+                startUiTimer(() => vimeoCurrentTime || 0);
+            } catch (e) {
+                showStatus('Could not start session. Please try again.', 'error');
+                overlay.style.display = '';
+            }
+        });
+    }
+
+    /* ── HLS player helpers ─────────────────────────────────────── */
+    function loadHlsApi() {
+        if (window.Hls) {
+            return Promise.resolve();
+        }
+
+        return new Promise((resolve, reject) => {
+            const existing = document.querySelector('script[data-hls-api="1"]');
+            if (existing) {
+                existing.addEventListener('load', () => resolve(), { once: true });
+                existing.addEventListener('error', () => reject(new Error('HLS API failed to load')), { once: true });
+                return;
+            }
+
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/hls.js@1.5.15/dist/hls.min.js';
+            script.setAttribute('data-hls-api', '1');
+            script.onload = () => resolve();
+            script.onerror = () => reject(new Error('HLS API failed to load'));
+            document.head.appendChild(script);
+        });
+    }
+
+    async function initHls(video) {
+        if (!isHls || !video || !mediaStreamUrl) return;
+
+        if (video.canPlayType('application/vnd.apple.mpegurl')) {
+            video.src = mediaStreamUrl;
+            return;
+        }
+
+        await loadHlsApi();
+        if (!window.Hls || !window.Hls.isSupported()) {
+            throw new Error('HLS playback not supported by this browser');
+        }
+
+        if (hlsPlayer) {
+            hlsPlayer.destroy();
+        }
+
+        hlsPlayer = new window.Hls({
+            enableWorker: true,
+            lowLatencyMode: true,
+            backBufferLength: 90,
+        });
+        hlsPlayer.loadSource(mediaStreamUrl);
+        hlsPlayer.attachMedia(video);
+    }
+
     /* ── Native HTML5 video path ─────────────────────────────────── */
-    if (!isYouTube) {
+    if (playerMode === 'native' || playerMode === 'hls') {
         const video = document.getElementById('ad-video');
         let nativeLastTime = 0;
+
+        if (isHls) {
+            initHls(video).catch(() => {
+                showStatus('Could not load HLS stream. Please refresh and try again.', 'error');
+            });
+        }
 
         // Prevent seeking on native video
         video.addEventListener('seeking', function() {
@@ -744,6 +1044,9 @@
                 window.sessionId = sessionId; // Expose for report forms
                 // Show control blocker
                 document.getElementById('control-blocker').classList.remove('hidden');
+                if (isHls) {
+                    await initHls(video);
+                }
                 video.play();
                 startHeartbeat(() => video.currentTime || 0);
                 startUiTimer(() => video.currentTime || 0);
@@ -762,6 +1065,25 @@
             } else {
                 nativeLastTime = video.currentTime;
             }
+        });
+    }
+
+    surveyOptionButtons.forEach((btn) => {
+        btn.addEventListener('click', () => {
+            if (surveySubmitted) return;
+            selectedSurveyValue = btn.dataset.value || null;
+            updateSurveySelectionUi();
+        });
+    });
+
+    if (surveySubmitBtn) {
+        surveySubmitBtn.addEventListener('click', submitSurveyResponse);
+    }
+
+    if (surveySkipBtn) {
+        surveySkipBtn.addEventListener('click', () => {
+            if (!surveyPanel || surveySubmitted) return;
+            surveyPanel.classList.add('hidden');
         });
     }
 })();

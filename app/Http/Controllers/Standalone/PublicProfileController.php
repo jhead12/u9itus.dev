@@ -8,6 +8,7 @@ use App\Enums\CampaignStatus;
 use App\Models\DistrictLookupSearch;
 use App\Models\ElectionCandidateRecord;
 use App\Models\Politician;
+use App\Models\VoterWatchReport;
 use App\Services\CongressGovService;
 use App\Services\GoogleCivicService;
 use App\Services\GoogleCivicVoterInfoService;
@@ -641,6 +642,7 @@ class PublicProfileController extends Controller
 
         // Separate current campaign activity from archived campaign history.
         $runningCampaigns = $politician->campaigns()
+            ->with('topics')
             ->where('approval_status', ApprovalStatus::Approved)
             ->whereIn('status', [
                 CampaignStatus::Active,
@@ -656,6 +658,7 @@ class PublicProfileController extends Controller
             ->get();
 
         $pastCampaigns = $politician->campaigns()
+            ->with('topics')
             ->where('approval_status', ApprovalStatus::Approved)
             ->whereIn('status', [
                 CampaignStatus::Completed,
@@ -666,9 +669,26 @@ class PublicProfileController extends Controller
             ->take(8)
             ->get();
 
+        $answeredQuestions = VoterWatchReport::query()
+            ->messages()
+            ->where('status', 'resolved')
+            ->whereNotNull('admin_notes')
+            ->whereHas('campaign', function ($query) use ($politician) {
+                $query->where('politician_id', $politician->id)
+                    ->where('approval_status', ApprovalStatus::Approved);
+            })
+            ->with([
+                'campaign:id,title',
+            ])
+            ->orderByDesc('resolved_at')
+            ->orderByDesc('updated_at')
+            ->take(12)
+            ->get();
+
         $initiatives = $politician->initiatives;
 
         $transparencyData = $this->buildTransparencyData($politician);
+        $digDeeperData = $this->buildDigDeeperData($politician, $transparencyData);
 
         // Load candidate record (e.g. congress_legislators import) to show term/election status
         $termInfo = null;
@@ -703,8 +723,10 @@ class PublicProfileController extends Controller
             'page',
             'runningCampaigns',
             'pastCampaigns',
+                'answeredQuestions',
             'initiatives',
             'transparencyData',
+            'digDeeperData',
             'termInfo',
             'ogTitle',
             'ogDescription',
@@ -757,10 +779,178 @@ class PublicProfileController extends Controller
                 continue;
             }
 
-            $transparencyData[$key] = app($serviceClass)->getDisplayData($politician);
+            try {
+                $data = app($serviceClass)->getDisplayData($politician);
+            } catch (\Throwable $e) {
+                Log::warning('Transparency provider failed for public profile', [
+                    'provider' => $key,
+                    'politician_id' => $politician->id,
+                    'error' => $e->getMessage(),
+                ]);
+                $data = null;
+            }
+
+            if (is_array($data) && ! empty($data['source'])) {
+                $transparencyData[$key] = $data;
+            }
         }
 
         return $transparencyData;
+    }
+
+    /**
+     * Build voter-friendly transparency summaries and source panel states.
+     *
+     * @param array<string, array<string, mixed>> $transparencyData
+     * @return array<string, mixed>
+     */
+    protected function buildDigDeeperData(Politician $politician, array $transparencyData): array
+    {
+        if ($politician->verification_status !== 'verified') {
+            return [];
+        }
+
+        $fecService = app(\App\Services\FECService::class);
+        $sources = [
+            'ballotpedia' => [
+                'label' => 'Ballotpedia',
+                'enabled' => (bool) $politician->show_ballotpedia_data,
+                'unavailable_reason' => 'No public profile data was available from Ballotpedia yet.',
+            ],
+            'opensecrets' => [
+                'label' => 'OpenSecrets',
+                'enabled' => (bool) $politician->show_opensecrets_data,
+                'unavailable_reason' => 'No campaign finance summary was available from OpenSecrets yet.',
+            ],
+            'votesmart' => [
+                'label' => 'Vote Smart',
+                'enabled' => (bool) $politician->show_votesmart_data,
+                'unavailable_reason' => 'No issue positions or ratings were available from Vote Smart yet.',
+            ],
+            'fec' => [
+                'label' => 'Federal Election Commission',
+                'enabled' => (bool) $politician->show_fec_data,
+                'unavailable_reason' => $fecService->isFederalCandidate($politician)
+                    ? 'No current filing summary was available from the FEC yet.'
+                    : 'FEC reporting applies to federal offices only.',
+            ],
+        ];
+
+        $panels = [];
+        $enabledCount = 0;
+        $availableCount = 0;
+
+        foreach ($sources as $key => $source) {
+            if (! $source['enabled']) {
+                continue;
+            }
+
+            $enabledCount++;
+            $details = $transparencyData[$key] ?? null;
+
+            if (is_array($details)) {
+                $availableCount++;
+            }
+
+            $panels[] = [
+                'key' => $key,
+                'label' => $source['label'],
+                'status' => is_array($details) ? 'available' : 'unavailable',
+                'source_url' => is_array($details) ? ($details['source_url'] ?? null) : null,
+                'summary' => is_array($details) ? $this->buildDigDeeperSummary($details) : null,
+                'section_count' => is_array($details) ? count($details['sections'] ?? []) : 0,
+                'sections' => is_array($details) ? ($details['sections'] ?? []) : [],
+                'unavailable_reason' => is_array($details) ? null : $source['unavailable_reason'],
+            ];
+        }
+
+        $localCandidateContext = $this->buildLocalCandidateDigDeeperContext($politician);
+
+        return [
+            'enabled_sources_count' => $enabledCount,
+            'available_sources_count' => $availableCount,
+            'panels' => $panels,
+            'local_candidate_context' => $localCandidateContext,
+        ];
+    }
+
+    /**
+     * Build optional local candidate context for Dig Deeper.
+     *
+     * This enrichment is fail-safe and will never block profile rendering.
+     *
+     * @return array<string, mixed>|null
+     */
+    protected function buildLocalCandidateDigDeeperContext(Politician $politician): ?array
+    {
+        if ($politician->state === null || $politician->state === '') {
+            return null;
+        }
+
+        try {
+            /** @var \App\Services\LocalCandidateAggregator $aggregator */
+            $aggregator = app(\App\Services\LocalCandidateAggregator::class);
+
+            $records = $aggregator->findByState(
+                state: (string) $politician->state,
+                governanceLevels: [],
+                options: [
+                    'exclude_federal' => false,
+                ],
+            );
+
+            return [
+                'state' => strtoupper((string) $politician->state),
+                'candidate_count' => $records->count(),
+                'sources' => $records
+                    ->pluck('source')
+                    ->filter(fn ($source) => is_string($source) && $source !== '')
+                    ->unique()
+                    ->values()
+                    ->all(),
+            ];
+        } catch (\Throwable $e) {
+            Log::info('Local candidate Dig Deeper context unavailable', [
+                'politician_id' => $politician->id,
+                'state' => $politician->state,
+                'error' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $details
+     */
+    protected function buildDigDeeperSummary(array $details): string
+    {
+        $summaryValues = collect($details['summary'] ?? [])
+            ->filter(fn ($value) => is_scalar($value) && trim((string) $value) !== '')
+            ->take(2)
+            ->map(fn ($value) => (string) $value)
+            ->values();
+
+        if ($summaryValues->isNotEmpty()) {
+            return $summaryValues->implode(' • ');
+        }
+
+        $itemCount = collect($details['sections'] ?? [])
+            ->sum(function ($section) {
+                if (! is_array($section)) {
+                    return 0;
+                }
+
+                $items = $section['items'] ?? [];
+
+                return is_array($items) ? count($items) : 0;
+            });
+
+        if ($itemCount > 0) {
+            return $itemCount . ' public records available';
+        }
+
+        return 'Source connected';
     }
 
     /**

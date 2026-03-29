@@ -83,11 +83,11 @@ class BallotpediaService
                 // Fetch detailed candidate data
                 return $this->getCandidateDetails($candidateId);
 
-            } catch (\Exception $e) {
-                Log::error('BallotpediaService: Failed to fetch data', [
+            } catch (\Throwable $e) {
+                $this->logProviderException('fetch_politician_data', $e, [
                     'politician_id' => $politician->id,
-                    'error' => $e->getMessage(),
                 ]);
+
                 return null;
             }
         });
@@ -118,10 +118,10 @@ class BallotpediaService
                 ]);
 
             if (!$response->successful()) {
-                Log::warning('BallotpediaService: Local candidate search failed', [
+                $this->logHttpFailure('search_local_candidates', $response->status(), [
                     'address' => $address,
-                    'status' => $response->status(),
                 ]);
+
                 return [];
             }
 
@@ -137,11 +137,11 @@ class BallotpediaService
 
             return array_values($results);
 
-        } catch (\Exception $e) {
-            Log::error('BallotpediaService: Local candidate search error', [
+        } catch (\Throwable $e) {
+            $this->logProviderException('search_local_candidates', $e, [
                 'address' => $address,
-                'error' => $e->getMessage(),
             ]);
+
             return [];
         }
     }
@@ -167,10 +167,10 @@ class BallotpediaService
             ]);
 
         if (!$response->successful()) {
-            Log::warning('BallotpediaService: Search API request failed', [
-                'status' => $response->status(),
+            $this->logHttpFailure('search_candidate', $response->status(), [
                 'body' => $response->body(),
             ]);
+
             return [];
         }
 
@@ -193,6 +193,10 @@ class BallotpediaService
             ->get("{$this->baseUrl}/candidates/{$candidateId}");
 
         if (!$response->successful()) {
+            $this->logHttpFailure('get_candidate_details', $response->status(), [
+                'candidate_id' => $candidateId,
+            ]);
+
             return null;
         }
 
@@ -210,6 +214,23 @@ class BallotpediaService
             'bio' => $data['biography'] ?? null,
             'source_url' => $data['url'] ?? null,
         ];
+    }
+
+    protected function logHttpFailure(string $operation, int $status, array $context = []): void
+    {
+        Log::warning('BallotpediaService telemetry: HTTP request failed', array_merge($context, [
+            'operation' => $operation,
+            'status' => $status,
+            'is_rate_limited' => $status === 429,
+        ]));
+    }
+
+    protected function logProviderException(string $operation, \Throwable $exception, array $context = []): void
+    {
+        Log::warning('BallotpediaService telemetry: provider exception', array_merge($context, [
+            'operation' => $operation,
+            'error' => $exception->getMessage(),
+        ]));
     }
 
     /**

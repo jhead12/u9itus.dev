@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Standalone;
 
 use App\Http\Controllers\Controller;
 use App\Models\AdViewToken;
+use App\Models\EngagementSurveyResponse;
 use App\Models\PoliticalCampaign;
 use App\Models\ReferralVisit;
 use App\Models\Voter;
@@ -166,7 +167,7 @@ class VoterController extends Controller
         // Voter's stored governance-level preferences
         $voterPrefs = $voter->preferred_governance_levels ?? [];
 
-        $query = PoliticalCampaign::with('politician:id,full_name,political_office,governance_level,profile_photo_url,verified_official,slug,page_published')
+        $query = PoliticalCampaign::with(['politician:id,full_name,political_office,governance_level,profile_photo_url,verified_official,slug,page_published', 'topics'])
             // Count recent open issue reports (last 7 days) for visual warning indicator
             ->withCount([
                 'voterWatchReports as recent_reports_count' => function ($q) {
@@ -204,6 +205,13 @@ class VoterController extends Controller
             });
         }
 
+        // Sprint 3: Topic filter from URL (?topic_id=)
+        if ($topicId = $request->input('topic_id')) {
+            $query->whereHas('topics', function ($q) use ($topicId) {
+                $q->where('politician_topics.id', $topicId);
+            });
+        }
+
         $campaigns = $query
             ->orderByDesc('revenue_per_view')
             ->orderByDesc('updated_at')
@@ -218,6 +226,9 @@ class VoterController extends Controller
         $dailyLimit  = (int) config('u9itus.fraud.max_views_per_voter_per_day', 50);
         $canViewMore = $viewsToday < $dailyLimit && ! $voter->flagged_for_fraud && $voter->is_active;
 
+        // Sprint 3: Get all active topics for the filter dropdown
+        $topics = \App\Models\PoliticianTopic::active()->orderBy('sort_order')->get();
+
         return view('standalone.voter.ad-room', [
             'voter'                    => $voter,
             'campaigns'                => $campaigns,
@@ -226,6 +237,7 @@ class VoterController extends Controller
             'canViewMore'              => $canViewMore,
             'inProgressTokenCampaignIds' => $inProgressTokenCampaignIds,
             'completedCampaignIds'     => $completedCampaignIds,
+            'topics'                   => $topics,
         ]);
     }
 
@@ -465,6 +477,61 @@ class VoterController extends Controller
         ]);
     }
 
+    /**
+     * POST /voter/session/{sessionUuid}/survey
+     * Persist a post-view engagement survey response.
+     */
+    public function submitSurvey(Request $request, string $sessionUuid)
+    {
+        $validated = $request->validate([
+            'response_value' => 'required|string|max:255',
+            'response_text' => 'nullable|string|max:2000',
+        ]);
+
+        $session = ViewSession::where('uuid', $sessionUuid)
+            ->with('campaign', 'voter')
+            ->firstOrFail();
+
+        $voter = $this->resolveVoter();
+        if ($session->voter_id !== $voter->id) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        if ($session->status !== \App\Enums\ViewSessionStatus::Completed) {
+            return response()->json(['error' => 'You can submit a survey only after completing the watch session.'], 422);
+        }
+
+        $campaign = $session->campaign;
+        $survey = $campaign?->engagement_survey;
+
+        if (! is_array($survey) || empty($survey['options']) || ! is_array($survey['options'])) {
+            return response()->json(['error' => 'No engagement survey configured for this campaign.'], 422);
+        }
+
+        $validValues = collect($survey['options'])
+            ->pluck('value')
+            ->filter(fn ($value) => is_string($value) && $value !== '')
+            ->values()
+            ->all();
+
+        if (! in_array($validated['response_value'], $validValues, true)) {
+            return response()->json(['error' => 'Invalid survey response option.'], 422);
+        }
+
+        EngagementSurveyResponse::recordResponse(
+            $session,
+            $voter,
+            $campaign,
+            $validated['response_value'],
+            $validated['response_text'] ?? null
+        );
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Thanks for sharing your response.',
+        ]);
+    }
+
     // ── In-Watch Interactions ────────────────────────────────
 
     /**
@@ -510,8 +577,16 @@ class VoterController extends Controller
     }
 
     /**
-     * Send a direct message from the voter to the politician running the campaign.
-     * Stores the message and notifies the politician via email.
+     * Send a voter-submitted question to the politician running the campaign.
+     * Stores the question and notifies the politician via email.
+     */
+    public function askQuestion(Request $request, string $token)
+    {
+        return $this->messagePolitician($request, $token);
+    }
+
+    /**
+     * Backward-compatible endpoint for voter-to-politician questions.
      */
     public function messagePolitician(Request $request, string $token)
     {
@@ -540,19 +615,19 @@ class VoterController extends Controller
         if ($politicianEmail) {
             try {
                 \Illuminate\Support\Facades\Mail::raw(
-                    "A voter has sent you a message regarding your campaign \"{$campaign->title}\".\n\n"
-                    . "Message:\n" . $validated['body'] . "\n\n"
+                    "A voter asked you a question regarding your campaign \"{$campaign->title}\".\n\n"
+                    . "Question:\n" . $validated['body'] . "\n\n"
                     . "Sent by voter: {$voter->full_name} ({$voter->email})\n"
                     . "Platform: U9itus",
                     fn ($m) => $m->to($politicianEmail)
-                                  ->subject('[U9itus] Voter Message – ' . $campaign->title)
+                                  ->subject('[U9itus] Voter Question – ' . $campaign->title)
                 );
             } catch (\Throwable $e) {
                 Log::warning('messagePolitician: mail failed', ['error' => $e->getMessage()]);
             }
         }
 
-        return response()->json(['success' => true, 'message' => 'Your message has been sent to the campaign team!']);
+        return response()->json(['success' => true, 'message' => 'Your question has been sent to the campaign team.']);
     }
 
     // ── Earnings ─────────────────────────────────────────────

@@ -11,8 +11,10 @@ use App\Models\PoliticalCampaign;
 use App\Models\Politician;
 use App\Models\PoliticianCredit;
 use App\Models\ReferralVisit;
+use App\Models\VoterWatchReport;
 use App\Services\StripePaymentService;
 use App\Services\PlatformSettingsService;
+use App\Services\CampaignQandAService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
@@ -217,6 +219,23 @@ class PoliticianController extends Controller
 
         $campaign = PoliticalCampaign::create($data);
 
+        // Handle Sprint 3 - Topic syncing and Q&A parsing
+        $qaService = app(CampaignQandAService::class);
+        
+        if (!empty($data['topic_ids'])) {
+            $qaService->syncTopics($campaign, $data['topic_ids']);
+        }
+        
+        if (!empty($data['qa_items'])) {
+            $parsedQA = $qaService->parseQAItems($data['qa_items']);
+            $campaign->update(['qa_items' => $parsedQA]);
+        }
+        
+        if (!empty($data['engagement_survey'])) {
+            $parsedSurvey = $qaService->parseEngagementSurvey($data['engagement_survey']);
+            $campaign->update(['engagement_survey' => $parsedSurvey]);
+        }
+
         if ($uploadedVideo) {
             $disk = config('filesystems.default', 'local');
             $path = $uploadedVideo->store("campaigns/{$campaign->id}/video", $disk);
@@ -253,6 +272,23 @@ class PoliticianController extends Controller
         }
 
         $campaign = PoliticalCampaign::create($data);
+
+        // Handle Sprint 3 - Topic syncing and Q&A parsing in drafts
+        $qaService = app(CampaignQandAService::class);
+        
+        if (!empty($data['topic_ids'])) {
+            $qaService->syncTopics($campaign, $data['topic_ids']);
+        }
+        
+        if (!empty($data['qa_items'])) {
+            $parsedQA = $qaService->parseQAItems($data['qa_items']);
+            $campaign->update(['qa_items' => $parsedQA]);
+        }
+        
+        if (!empty($data['engagement_survey'])) {
+            $parsedSurvey = $qaService->parseEngagementSurvey($data['engagement_survey']);
+            $campaign->update(['engagement_survey' => $parsedSurvey]);
+        }
 
         return redirect()
             ->route('politician.campaigns.edit', $campaign)
@@ -329,6 +365,24 @@ class PoliticianController extends Controller
             * $revenuePerView,
             2
         );
+
+        // Handle Sprint 3 - Topic syncing and Q&A parsing
+        $qaService = app(CampaignQandAService::class);
+        
+        if (isset($validated['topic_ids'])) {
+            $qaService->syncTopics($campaign, $validated['topic_ids']);
+            unset($validated['topic_ids']); // Remove from update array as topics are synced separately
+        }
+        
+        if (!empty($validated['qa_items'])) {
+            $parsedQA = $qaService->parseQAItems($validated['qa_items']);
+            $validated['qa_items'] = $parsedQA;
+        }
+        
+        if (!empty($validated['engagement_survey'])) {
+            $parsedSurvey = $qaService->parseEngagementSurvey($validated['engagement_survey']);
+            $validated['engagement_survey'] = $parsedSurvey;
+        }
 
         $campaign->update($validated);
 
@@ -529,9 +583,29 @@ class PoliticianController extends Controller
                 ];
             });
 
+        $voterQuestionsQuery = VoterWatchReport::query()
+            ->where('type', 'message')
+            ->whereHas('campaign', function ($query) use ($politician) {
+                $query->where('politician_id', $politician->id);
+            });
+
+        $openVoterQuestionsCount = (clone $voterQuestionsQuery)
+            ->where('status', 'open')
+            ->count();
+
+        $recentVoterQuestions = (clone $voterQuestionsQuery)
+            ->with([
+                'campaign:id,title',
+                'voter:id,full_name,email',
+            ])
+            ->latest('created_at')
+            ->take(5)
+            ->get();
+
         return view('standalone.politician.analytics', compact(
             'politician', 'campaigns',
-            'totalViews', 'totalSpent', 'totalBudget', 'activeCampaigns', 'transactionsWithFeeSummary'
+            'totalViews', 'totalSpent', 'totalBudget', 'activeCampaigns', 'transactionsWithFeeSummary',
+            'openVoterQuestionsCount', 'recentVoterQuestions'
         ));
     }
 
@@ -556,9 +630,29 @@ class PoliticianController extends Controller
         $budgetUsed     = $campaign->amount_spent ?? 0;
         $budgetLeft     = ($campaign->total_budget ?? 0) - $budgetUsed;
 
+        $voterQuestionsBaseQuery = VoterWatchReport::query()
+            ->where('campaign_id', $campaign->id)
+            ->where('type', 'message');
+
+        $openVoterQuestions = (clone $voterQuestionsBaseQuery)
+            ->where('status', 'open')
+            ->count();
+
+        $voterQuestionCounts = (clone $voterQuestionsBaseQuery)
+            ->selectRaw('status, count(*) as total')
+            ->groupBy('status')
+            ->orderByDesc('total')
+            ->get();
+
+        $voterQuestions = (clone $voterQuestionsBaseQuery)
+            ->with('voter:id,full_name,email')
+            ->latest('created_at')
+            ->paginate(10, ['*'], 'questions_page');
+
         return view('standalone.politician.analytics.campaign', compact(
             'campaign', 'politician', 'sessions', 'byStatus',
-            'completedViews', 'budgetUsed', 'budgetLeft'
+            'completedViews', 'budgetUsed', 'budgetLeft',
+            'voterQuestions', 'voterQuestionCounts', 'openVoterQuestions'
         ));
     }
 

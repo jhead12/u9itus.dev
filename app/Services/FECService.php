@@ -49,14 +49,30 @@ class FECService
      */
     public function isFederalCandidate(Politician $politician): bool
     {
-        $federalOffices = [
-            'US Representative',
-            'US Senator',
-            'President',
-            'Vice President',
+        $office = strtolower((string) ($politician->political_office ?? $politician->office_position ?? ''));
+
+        if ($office === '') {
+            return false;
+        }
+
+        $markers = [
+            'us representative',
+            'representative',
+            'member of congress',
+            'us senator',
+            'senator',
+            'president',
+            'vice president',
+            'house of representatives',
         ];
 
-        return in_array($politician->office_position, $federalOffices);
+        foreach ($markers as $marker) {
+            if (str_contains($office, $marker)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -81,8 +97,17 @@ class FECService
         return Cache::remember($cacheKey, $this->cacheDuration, function () use ($politician) {
             try {
                 // Find candidate by name
+                $candidateName = trim((string) (
+                    optional($politician->user)->first_name
+                    . ' '
+                    . optional($politician->user)->last_name
+                ));
+                if ($candidateName === '') {
+                    $candidateName = (string) $politician->full_name;
+                }
+
                 $candidateId = $politician->fec_candidate_id ?? $this->findCandidateId(
-                    $politician->user->first_name . ' ' . $politician->user->last_name,
+                    $candidateName,
                     $politician->state
                 );
 
@@ -101,11 +126,11 @@ class FECService
                     'committees' => $this->getCandidateCommittees($candidateId),
                 ];
 
-            } catch (\Exception $e) {
-                Log::error('FECService: Failed to fetch data', [
+            } catch (\Throwable $e) {
+                $this->logProviderException('fetch_candidate_filings', $e, [
                     'politician_id' => $politician->id,
-                    'error' => $e->getMessage(),
                 ]);
+
                 return null;
             }
         });
@@ -128,6 +153,10 @@ class FECService
         ]);
 
         if (!$response->successful()) {
+            $this->logHttpFailure('find_candidate_id', $response->status(), [
+                'state' => $state,
+            ]);
+
             return null;
         }
 
@@ -150,6 +179,10 @@ class FECService
         ]);
 
         if (!$response->successful()) {
+            $this->logHttpFailure('get_candidate_info', $response->status(), [
+                'candidate_id' => $candidateId,
+            ]);
+
             return [];
         }
 
@@ -157,6 +190,7 @@ class FECService
         $info = $results[0] ?? [];
 
         return [
+            'candidate_id' => $info['candidate_id'] ?? $candidateId,
             'name' => $info['name'] ?? null,
             'party' => $info['party_full'] ?? $info['party'] ?? null,
             'office' => $info['office_full'] ?? null,
@@ -186,6 +220,11 @@ class FECService
         ]);
 
         if (!$response->successful()) {
+            $this->logHttpFailure('get_financial_summary', $response->status(), [
+                'candidate_id' => $candidateId,
+                'cycle' => $cycle,
+            ]);
+
             return [];
         }
 
@@ -217,6 +256,10 @@ class FECService
         ]);
 
         if (!$response->successful()) {
+            $this->logHttpFailure('get_recent_filings', $response->status(), [
+                'candidate_id' => $candidateId,
+            ]);
+
             return [];
         }
 
@@ -248,6 +291,10 @@ class FECService
         ]);
 
         if (!$response->successful()) {
+            $this->logHttpFailure('get_candidate_committees', $response->status(), [
+                'candidate_id' => $candidateId,
+            ]);
+
             return [];
         }
 
@@ -272,6 +319,23 @@ class FECService
     protected function formatCurrency($amount): string
     {
         return '$' . number_format((float)$amount, 0);
+    }
+
+    protected function logHttpFailure(string $operation, int $status, array $context = []): void
+    {
+        Log::warning('FECService telemetry: HTTP request failed', array_merge($context, [
+            'operation' => $operation,
+            'status' => $status,
+            'is_rate_limited' => $status === 429,
+        ]));
+    }
+
+    protected function logProviderException(string $operation, \Throwable $exception, array $context = []): void
+    {
+        Log::warning('FECService telemetry: provider exception', array_merge($context, [
+            'operation' => $operation,
+            'error' => $exception->getMessage(),
+        ]));
     }
 
     /**
@@ -299,9 +363,15 @@ class FECService
             return null;
         }
 
+        $candidateId = $data['candidate_info']['candidate_id']
+            ?? $politician->fec_candidate_id
+            ?? null;
+
         return [
             'source' => 'Federal Election Commission',
-            'source_url' => "https://www.fec.gov/data/candidate/{$politician->fec_candidate_id}/",
+            'source_url' => $candidateId
+                ? "https://www.fec.gov/data/candidate/{$candidateId}/"
+                : 'https://www.fec.gov/data/',
             'summary' => $data['financial_summary'] ?? [],
             'sections' => [
                 [
