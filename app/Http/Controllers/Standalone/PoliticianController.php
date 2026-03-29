@@ -16,11 +16,13 @@ use App\Services\StripePaymentService;
 use App\Services\PlatformSettingsService;
 use App\Services\CampaignQandAService;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use App\Services\CampaignBillingService;
+use Throwable;
 
 /**
  * Standalone Politician Controller
@@ -33,6 +35,47 @@ use App\Services\CampaignBillingService;
  */
 class PoliticianController extends Controller
 {
+    /**
+     * Store a campaign video on the configured disk and return its public URL.
+     */
+    private function storeCampaignVideoAndGetUrl(UploadedFile $video, PoliticalCampaign $campaign): ?string
+    {
+        $disk = (string) config('filesystems.default', 'local');
+        $disks = (array) config('filesystems.disks', []);
+
+        if (! array_key_exists($disk, $disks)) {
+            Log::error('Campaign video upload failed: filesystem disk is not configured', [
+                'campaign_id' => $campaign->id,
+                'disk' => $disk,
+            ]);
+
+            return null;
+        }
+
+        try {
+            $path = $video->store("campaigns/{$campaign->id}/video", $disk);
+
+            if (! is_string($path) || $path === '') {
+                Log::error('Campaign video upload failed: storage returned empty path', [
+                    'campaign_id' => $campaign->id,
+                    'disk' => $disk,
+                ]);
+
+                return null;
+            }
+
+            return Storage::disk($disk)->url($path);
+        } catch (Throwable $e) {
+            Log::error('Campaign video upload failed with exception', [
+                'campaign_id' => $campaign->id,
+                'disk' => $disk,
+                'error' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
     /**
      * Active app payment mode derived from configured Stripe secret.
      */
@@ -237,9 +280,15 @@ class PoliticianController extends Controller
         }
 
         if ($uploadedVideo) {
-            $disk = config('filesystems.default', 'local');
-            $path = $uploadedVideo->store("campaigns/{$campaign->id}/video", $disk);
-            $campaign->update(['media_url' => Storage::disk($disk)->url($path)]);
+            $mediaUrl = $this->storeCampaignVideoAndGetUrl($uploadedVideo, $campaign);
+
+            if (! $mediaUrl) {
+                return redirect()
+                    ->route('politician.campaigns.show', $campaign)
+                    ->withErrors(['video' => 'Campaign created, but video upload failed. Please check storage settings and try again.']);
+            }
+
+            $campaign->update(['media_url' => $mediaUrl]);
         }
 
         return redirect()
@@ -387,9 +436,15 @@ class PoliticianController extends Controller
         $campaign->update($validated);
 
         if ($uploadedVideo) {
-            $disk = config('filesystems.default', 'local');
-            $path = $uploadedVideo->store("campaigns/{$campaign->id}/video", $disk);
-            $campaign->update(['media_url' => Storage::disk($disk)->url($path)]);
+            $mediaUrl = $this->storeCampaignVideoAndGetUrl($uploadedVideo, $campaign);
+
+            if (! $mediaUrl) {
+                return redirect()
+                    ->route('politician.campaigns.show', $campaign)
+                    ->withErrors(['video' => 'Campaign updated, but video upload failed. Please check storage settings and try again.']);
+            }
+
+            $campaign->update(['media_url' => $mediaUrl]);
         }
 
         return redirect()
@@ -535,8 +590,13 @@ class PoliticianController extends Controller
             Storage::disk($disk)->delete(ltrim($oldPath, '/'));
         }
 
-        $path = $file->store("campaigns/{$campaign->id}/video", $disk);
-        $url  = Storage::disk($disk)->url($path);
+        $url = $this->storeCampaignVideoAndGetUrl($file, $campaign);
+
+        if (! $url) {
+            return back()->withErrors([
+                'video' => 'Video upload failed due to a storage configuration issue. Please contact support or try again later.',
+            ]);
+        }
 
         $campaign->update(array_filter([
             'media_url'      => $url,
