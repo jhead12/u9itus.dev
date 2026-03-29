@@ -8,8 +8,16 @@ use App\Models\Voter;
 use App\Services\FraudPreventionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
 
-uses(RefreshDatabase::class);
+uses(RefreshDatabase::class)
+    ->beforeEach(function () {
+        // Mock all HTTP requests to prevent external API calls
+        Http::fake();
+        
+        // Disable IP reputation checking globally to prevent service initialization delays
+        config(['u9itus.fraud.ip_reputation_enabled' => false]);
+    });
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
