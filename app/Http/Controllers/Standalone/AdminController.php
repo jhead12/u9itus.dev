@@ -1058,8 +1058,7 @@ class AdminController extends Controller
                 'error'   => $e->getMessage(),
             ]);
             $user->update([
-                'kyc_status'           => 'rejected',
-                'kyc_rejection_reason' => $request->input('reason', 'Identity could not be verified.'),
+                'kyc_status' => 'rejected',
             ]);
         }
 
