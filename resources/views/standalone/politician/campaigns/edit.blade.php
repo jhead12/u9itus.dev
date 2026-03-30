@@ -7,7 +7,7 @@
     $qaItems = is_array($campaign->qa_items ?? null) ? $campaign->qa_items : [];
     $surveyPayload = is_array($campaign->engagement_survey ?? null) ? $campaign->engagement_survey : [];
     $surveyOptions = is_array($surveyPayload['options'] ?? null) ? $surveyPayload['options'] : [];
-    $campaignTopicIds = $campaign->topics()->pluck('id')->toArray();
+    $campaignTopicIds = is_array($campaignTopicIds ?? null) ? $campaignTopicIds : [];
     $campaignTargetStates = is_array($campaign->target_states ?? null) ? $campaign->target_states : [];
     $campaignTargetCities = is_array($campaign->target_cities ?? null) ? $campaign->target_cities : [];
 @endphp
@@ -233,10 +233,7 @@
                     </button>
                     <div id="topicsDropdown" class="hidden absolute z-10 w-full mt-1 bg-slate-800 border border-slate-600 rounded-lg shadow-xl max-h-60 overflow-y-auto">
                         <div class="p-3 border-b border-slate-700 space-y-3">
-                            @php
-                                $topics = \App\Models\PoliticianTopic::active()->orderBy('sort_order')->get();
-                            @endphp
-                            @foreach($topics as $topic)
+                            @foreach(($topics ?? collect()) as $topic)
                             <label class="flex items-center gap-2 px-2 py-1.5 hover:bg-slate-700/50 rounded cursor-pointer transition">
                                 <input type="checkbox" name="topic_ids[]" value="{{ $topic->id }}" 
                                     class="topic-checkbox w-4 h-4 rounded border-slate-600 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-slate-900"

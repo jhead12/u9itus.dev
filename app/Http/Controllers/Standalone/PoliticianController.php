@@ -14,6 +14,7 @@ use App\Models\CampaignTransaction;
 use App\Models\PoliticalCampaign;
 use App\Models\Politician;
 use App\Models\PoliticianCredit;
+use App\Models\PoliticianTopic;
 use App\Models\ReferralVisit;
 use App\Models\VoterWatchReport;
 use App\Services\StripePaymentService;
@@ -39,6 +40,22 @@ use Throwable;
  */
 class PoliticianController extends Controller
 {
+    /**
+     * Load active campaign topics for form dropdowns without hard-failing the page.
+     */
+    private function safeActiveTopics()
+    {
+        try {
+            return PoliticianTopic::active()->orderBy('sort_order')->get();
+        } catch (Throwable $e) {
+            Log::warning('Unable to load politician topics for campaign form', [
+                'error' => $e->getMessage(),
+            ]);
+
+            return collect();
+        }
+    }
+
     /**
      * Store a campaign video on the configured disk and return its public URL.
      */
@@ -254,13 +271,14 @@ class PoliticianController extends Controller
             $this->activePaymentMode()
         );
         $states = config('u9itus.us_states', []);
+        $topics = $this->safeActiveTopics();
         $governanceLevels = config('u9itus.governance_levels', [
             'Federal' => 'Federal', 'State' => 'State', 'County' => 'County',
             'City' => 'City', 'School Board' => 'School Board',
         ]);
 
         return view('standalone.politician.campaigns.create', compact(
-            'politician', 'revenuePerView', 'creditBalance', 'states', 'governanceLevels'
+            'politician', 'revenuePerView', 'creditBalance', 'states', 'governanceLevels', 'topics'
         ));
     }
 
@@ -409,13 +427,23 @@ class PoliticianController extends Controller
         );
 
         $states = config('u9itus.us_states', []);
+        $topics = $this->safeActiveTopics();
+        $campaignTopicIds = [];
+        try {
+            $campaignTopicIds = $campaign->topics()->pluck('id')->toArray();
+        } catch (Throwable $e) {
+            Log::warning('Unable to load campaign topics for edit form', [
+                'campaign_id' => $campaign->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
         $governanceLevels = config('u9itus.governance_levels', [
             'Federal' => 'Federal', 'State' => 'State', 'County' => 'County',
             'City' => 'City', 'School Board' => 'School Board',
         ]);
 
         return view('standalone.politician.campaigns.edit', compact(
-            'campaign', 'politician', 'states', 'governanceLevels'
+            'campaign', 'politician', 'states', 'governanceLevels', 'topics', 'campaignTopicIds'
         ));
     }
 
