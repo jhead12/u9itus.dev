@@ -2,6 +2,10 @@
 
 namespace App\Http\Controllers\Standalone;
 
+use App\Enums\ApprovalStatus;
+use App\Enums\CampaignStatus;
+use App\Enums\CampaignType;
+use App\Enums\PaymentStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CreateCampaignRequest;
 use App\Http\Requests\SaveCampaignDraftRequest;
@@ -199,7 +203,28 @@ class PoliticianController extends Controller
         $politician = Auth::user()->politician;
         abort_unless($politician, 403);
 
-        $query = $politician->campaigns()->orderByDesc('created_at');
+        $validCampaignStatuses = array_column(CampaignStatus::cases(), 'value');
+        $validCampaignTypes = array_column(CampaignType::cases(), 'value');
+        $validApprovalStatuses = array_column(ApprovalStatus::cases(), 'value');
+        $validPaymentStatuses = array_column(PaymentStatus::cases(), 'value');
+
+        // Guard against legacy/invalid enum values in staging data that can
+        // throw ValueError during Eloquent enum casting.
+        $query = $politician->campaigns()
+            ->whereIn('status', $validCampaignStatuses)
+            ->where(function ($q) use ($validCampaignTypes): void {
+                $q->whereNull('campaign_type')
+                    ->orWhereIn('campaign_type', $validCampaignTypes);
+            })
+            ->where(function ($q) use ($validApprovalStatuses): void {
+                $q->whereNull('approval_status')
+                    ->orWhereIn('approval_status', $validApprovalStatuses);
+            })
+            ->where(function ($q) use ($validPaymentStatuses): void {
+                $q->whereNull('payment_status')
+                    ->orWhereIn('payment_status', $validPaymentStatuses);
+            })
+            ->orderByDesc('created_at');
         
         // Apply status filter if provided
         if ($statusFilter = $request->get('status')) {
