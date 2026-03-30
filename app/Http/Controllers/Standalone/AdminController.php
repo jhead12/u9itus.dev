@@ -7,7 +7,9 @@ use App\Enums\CampaignStatus;
 use App\Http\Controllers\Controller;
 use App\Jobs\MatchPoliticianToElectionData;
 use App\Mail\CampaignApprovedMail;
+use App\Mail\CampaignReactivatedMail;
 use App\Mail\CampaignRejectedMail;
+use App\Mail\AccountUnsuspendedMail;
 use App\Models\CandidateMatchReview;
 use App\Models\DistrictLookupSearch;
 use App\Models\EngagementSurveyResponse;
@@ -26,6 +28,8 @@ use App\Models\User;
 use App\Models\ViewSession;
 use App\Models\VoterWatchReport;
 use App\Models\Voter;
+use App\Notifications\CampaignStatusChangedNotification;
+use App\Notifications\SystemAnnouncementNotification;
 use App\Services\AdminTwoFactorService;
 use App\Services\CampaignBillingService;
 use App\Services\PlatformSettingsService;
@@ -460,6 +464,31 @@ class AdminController extends Controller
         // Phase 11 — real-time WebSocket push to politician dashboard
         app(ReverbBroadcastService::class)->campaignReactivated($campaign);
 
+        // Notify campaign owner (non-fatal)
+        try {
+            $politicianUser = $campaign->politician?->user;
+
+            if ($politicianUser?->email) {
+                Mail::to($politicianUser->email)
+                    ->queue(new CampaignReactivatedMail($campaign));
+            }
+
+            if ($politicianUser) {
+                $politicianUser->notify(
+                    new CampaignStatusChangedNotification(
+                        $campaign,
+                        'reactivated',
+                        $request->input('reason')
+                    )
+                );
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Failed to send campaign reactivation notifications', [
+                'campaign_id' => $campaign->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
         return back()->with('success', 'Campaign "' . $campaign->title . '" has been reactivated.');
     }
 
@@ -665,6 +694,32 @@ class AdminController extends Controller
         }
         if ($user->politician) {
             $user->politician->update(['is_active' => true]);
+        }
+
+        // Notify user their account access has been restored (non-fatal)
+        try {
+            if ($user->email) {
+                Mail::to($user->email)->queue(new AccountUnsuspendedMail($user));
+            }
+
+            $dashboardRoute = match ($user->user_type) {
+                'admin' => route('admin.dashboard'),
+                'politician' => route('politician.dashboard'),
+                'voter' => route('voter.dashboard'),
+                default => route('dashboard'),
+            };
+
+            $user->notify(new SystemAnnouncementNotification(
+                'Your account has been reactivated',
+                'An administrator restored your account access. You can now sign in and continue using the platform.',
+                $dashboardRoute,
+                'Open Dashboard'
+            ));
+        } catch (\Throwable $e) {
+            Log::warning('Failed to send account unsuspension notifications', [
+                'user_id' => $user->id,
+                'error' => $e->getMessage(),
+            ]);
         }
 
         return back()->with('success', 'User "' . $user->name . '" has been unsuspended.');
@@ -1586,11 +1641,13 @@ class AdminController extends Controller
             'campaign_approved'     => 'emails.campaign-approved',
             'campaign_rejected'     => 'emails.campaign-rejected',
             'campaign_completed'    => 'emails.campaign-completed',
+            'campaign_reactivated'  => 'emails.campaign-reactivated',
             'credits_purchased'     => 'emails.credits-purchased',
             'credits_refunded'      => 'emails.credits-refunded',
             'low_balance_alert'     => 'emails.low-balance-alert',
             'payout_processed'      => 'emails.payout-processed',
             'welcome'               => 'emails.welcome',
+            'account_unsuspended'   => 'emails.account-unsuspended',
             'admin_new_user'        => 'emails.admin-new-user',
             'admin_password_reset'  => 'emails.admin-password-reset',
             'admin_account_created' => 'emails.admin-account-created',
@@ -1625,7 +1682,7 @@ class AdminController extends Controller
         // Template-specific variable names (matching each Mail class's constructor)
 
         // Campaign templates expect a $campaign object (PoliticalCampaign), not flat strings.
-        if (in_array($template->key, ['campaign_approved', 'campaign_rejected', 'campaign_completed'], true)) {
+        if (in_array($template->key, ['campaign_approved', 'campaign_rejected', 'campaign_completed', 'campaign_reactivated'], true)) {
             $fakePoliticianUser             = new \stdClass();
             $fakePoliticianUser->first_name = 'Jane';
 

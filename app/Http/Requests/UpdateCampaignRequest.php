@@ -17,12 +17,13 @@ class UpdateCampaignRequest extends FormRequest
     public function rules(): array
     {
         $minBudget = (float) config('u9itus.revenue_per_view', 1.00) * 10;
+        $governanceLevels = implode(',', array_keys(config('u9itus.governance_levels', [])));
 
         return [
             'title'                    => ['sometimes', 'required', 'string', 'max:255'],
             'message_summary'          => ['nullable', 'string', 'max:2000'],
             'campaign_type'            => ['sometimes', 'required', 'in:video,live_feed,q_and_a'],
-            'governance_level'         => ['nullable', 'string', 'max:100'],
+            'governance_level'         => ['sometimes', 'required', 'string', 'in:' . $governanceLevels],
             'media_url'                => ['nullable', 'url'],
             'media_type'               => ['nullable', 'in:youtube,vimeo,direct_file,s3_cloudfront,hls_stream'],
             'video'                    => ['nullable', 'file', 'mimetypes:video/mp4,video/quicktime,video/webm', 'max:' . ((int) config('u9itus.max_video_size_mb', 100) * 1024)],
