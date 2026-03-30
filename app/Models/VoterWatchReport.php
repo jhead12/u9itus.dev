@@ -21,6 +21,9 @@ class VoterWatchReport extends Model
         'type',
         'issue_category',
         'body',
+        'media_url',
+        'media_duration',
+        'message_type',
         'status',
         'admin_notes',
         'resolved_by',
@@ -29,6 +32,7 @@ class VoterWatchReport extends Model
 
     protected $casts = [
         'resolved_at' => 'datetime',
+        'media_duration' => 'integer',
     ];
 
     // ── Relationships ──────────────────────────────────────────────
@@ -65,11 +69,25 @@ class VoterWatchReport extends Model
         return $query->where('status', 'open');
     }
 
+    public function scopeTextQuestions($query)
+    {
+        return $query->where('message_type', 'text');
+    }
+
+    public function scopeVideoQuestions($query)
+    {
+        return $query->where('message_type', 'video');
+    }
+
     // ── Helpers ────────────────────────────────────────────────────
 
     public function isIssue(): bool  { return $this->type === 'issue'; }
     public function isMessage(): bool { return $this->type === 'message'; }
     public function isOpen(): bool   { return $this->status === 'open'; }
+
+    public function isTextQuestion(): bool { return $this->message_type === 'text'; }
+    public function isVideoQuestion(): bool { return $this->message_type === 'video'; }
+    public function hasMedia(): bool { return !empty($this->media_url); }
 
     public function categoryLabel(): string
     {

@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+
+# Native build directories
+ios/Pods/
+android/build/
+android/.gradle/
+
+# Xcode
+*.ipa
+*.xcarchive
+build/
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+*.xcworkspace/xcuserdata/
+DerivedData/
+
+# Android
+.gradle/
+*.apk
+*.aab
+local.properties
+*.jks
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Misc
+.DS_Store
+.env
+.env.local
+dist/

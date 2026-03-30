@@ -98,14 +98,34 @@
             <div class="divide-y divide-slate-700/30">
                 @foreach($voterQuestions as $question)
                     <div class="px-5 py-4">
-                        <div class="flex flex-wrap items-center justify-between gap-2">
-                            <p class="text-xs text-slate-500">{{ $question->created_at?->format('M j, Y H:i') }}</p>
+                        <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs text-slate-500">{{ $question->created_at?->format('M j, Y H:i') }}</span>
+                                {{-- Message Type Badge --}}
+                                <span class="text-[11px] px-2 py-0.5 rounded-full {{ $question->message_type === 'video' ? 'bg-blue-500/15 text-blue-300' : 'bg-slate-600/40 text-slate-300' }}">
+                                    {{ $question->message_type === 'video' ? '🎥 Video' : '📝 Text' }}
+                                </span>
+                            </div>
                             <span class="text-[11px] px-2 py-0.5 rounded-full {{ $question->status === 'open' ? 'bg-cyan-500/15 text-cyan-300' : 'bg-slate-600/40 text-slate-300' }}">
                                 {{ ucfirst(str_replace('_', ' ', $question->status)) }}
                             </span>
                         </div>
-                        <p class="text-slate-200 text-sm mt-1.5">{{ $question->body }}</p>
-                        <p class="text-xs text-slate-500 mt-1">From: {{ $question->voter->full_name ?? 'Voter' }} {{ ($question->voter->email ?? null) ? '(' . $question->voter->email . ')' : '' }}</p>
+
+                        {{-- Video Question Display --}}
+                        @if($question->isVideoQuestion() && $question->media_url)
+                            <div class="mb-3">
+                                <video controls class="w-full max-h-48 rounded-lg bg-slate-900/60">
+                                    <source src="{{ $question->media_url }}" type="video/mp4">
+                                    Your browser does not support the video tag.
+                                </video>
+                                @if($question->media_duration)
+                                    <p class="text-xs text-slate-500 mt-1">Duration: {{ intval($question->media_duration) }}s</p>
+                                @endif
+                            </div>
+                        @endif
+
+                        <p class="text-slate-200 text-sm mt-1.5">{{ $question->body ?: ($question->isVideoQuestion() ? '(Video question without caption)' : $question->body) }}</p>
+                        <p class="text-xs text-slate-500 mt-2">From: {{ $question->voter->full_name ?? 'Voter' }} {{ ($question->voter->email ?? null) ? '(' . $question->voter->email . ')' : '' }}</p>
                     </div>
                 @endforeach
             </div>

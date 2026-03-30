@@ -254,6 +254,7 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         Route::post('/watch/{token}/report-issue', [VoterController::class, 'reportIssue'])->name('watch.report-issue');
         Route::post('/watch/{token}/ask-question', [VoterController::class, 'askQuestion'])->name('watch.ask-question');
         Route::post('/watch/{token}/message-politician', [VoterController::class, 'messagePolitician'])->name('watch.message-politician');
+        Route::post('/watch/{token}/video-question', [VoterController::class, 'uploadVideoQuestion'])->name('watch.video-question');
         
         // Earnings & Payouts
         Route::get('/earnings', [VoterController::class, 'earnings'])->name('earnings');

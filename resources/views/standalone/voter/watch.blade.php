@@ -473,7 +473,7 @@
             </div>
         </div>
 
-        {{-- Ask Politician a Question Modal --}}
+        {{-- Ask Politician a Question Modal (Text + Video) --}}
         <div x-show="messageModal"
             x-transition:enter="transition ease-out duration-200"
             x-transition:enter-start="opacity-0"
@@ -485,10 +485,10 @@
             @click.self="messageModal = false"
             style="display: none;">
             
-            <div class="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl max-w-md w-full p-6"
+            <div class="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl max-w-2xl w-full p-6"
                 @click.stop>
                 
-                <div class="flex items-start justify-between mb-4">
+                <div class="flex items-start justify-between mb-6">
                     <div>
                         <h3 class="text-lg font-bold text-white">Ask a Question</h3>
                         <p class="text-sm text-slate-400 mt-0.5">Send to {{ $campaign->politician->full_name ?? 'the campaign' }}</p>
@@ -500,52 +500,133 @@
                     </button>
                 </div>
 
-                <form @submit.prevent="
-                    if (!submitting) {
-                        submitting = true;
-                        const formData = new FormData($event.target);
-                        fetch('{{ route('voter.watch.ask-question', $adToken->token) }}', {
-                            method: 'POST',
-                            headers: {
-                                'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content,
-                                'Accept': 'application/json'
-                            },
-                            body: formData
-                        })
-                        .then(r => r.json())
-                        .then(data => {
-                            if (data.success) {
-                                alert(data.message || 'Question sent successfully!');
-                                messageModal = false;
-                                $event.target.reset();
-                            }
-                        })
-                        .catch(() => alert('Failed to send question. Please try again.'))
-                        .finally(() => submitting = false);
-                    }
-                ">
-                    <input type="hidden" name="view_session_uuid" :value="window.sessionId || ''">
-
-                    <div class="mb-5">
-                        <label for="message-body" class="block text-sm font-medium text-slate-300 mb-2">Your Question *</label>
-                        <textarea name="body" id="message-body" rows="5" maxlength="1000" required
-                            placeholder="Ask this politician a question you want answered in the town hall..."
-                            class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition resize-none"></textarea>
-                        <p class="text-xs text-slate-500 mt-1">Your question will be emailed and shown in campaign analytics.</p>
-                    </div>
-
-                    <div class="flex gap-3">
-                        <button type="button" @click="messageModal = false"
-                            class="flex-1 px-4 py-2 bg-slate-700/60 hover:bg-slate-600/60 border border-slate-600 rounded-lg text-slate-300 hover:text-white text-sm transition">
-                            Cancel
+                {{-- Question Type Tabs --}}
+                <div x-data="{ questionType: 'text' }" class="space-y-4">
+                    <div class="flex gap-2 border-b border-slate-700">
+                        <button type="button" @click="questionType = 'text'"
+                            :class="questionType === 'text' ? 'border-b-2 border-emerald-400 text-white' : 'text-slate-400 hover:text-slate-300'"
+                            class="px-4 py-2 font-medium text-sm transition">
+                            📝 Text Question
                         </button>
-                        <button type="submit" :disabled="submitting"
-                            class="flex-1 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-white font-medium text-sm transition">
-                            <span x-show="!submitting">Send Question</span>
-                            <span x-show="submitting">Sending...</span>
+                        <button type="button" @click="questionType = 'video'"
+                            :class="questionType === 'video' ? 'border-b-2 border-emerald-400 text-white' : 'text-slate-400 hover:text-slate-300'"
+                            class="px-4 py-2 font-medium text-sm transition">
+                            🎥 Video Question
                         </button>
                     </div>
-                </form>
+
+                    {{-- Text Question Form --}}
+                    <form x-show="questionType === 'text'" @submit.prevent="
+                        if (!submitting) {
+                            submitting = true;
+                            const formData = new FormData($event.target);
+                            fetch('{{ route('voter.watch.ask-question', $adToken->token) }}', {
+                                method: 'POST',
+                                headers: {
+                                    'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content,
+                                    'Accept': 'application/json'
+                                },
+                                body: formData
+                            })
+                            .then(r => r.json())
+                            .then(data => {
+                                if (data.success) {
+                                    alert(data.message || 'Question sent successfully!');
+                                    messageModal = false;
+                                    $event.target.reset();
+                                } else {
+                                    alert(data.message || 'Failed to send question.');
+                                }
+                            })
+                            .catch(err => {
+                                console.error(err);
+                                alert('Failed to send question. Please try again.');
+                            })
+                            .finally(() => submitting = false);
+                        }
+                    ">
+                        <input type="hidden" name="view_session_uuid" :value="window.sessionId || ''">
+
+                        <div class="mb-5">
+                            <label for="message-body" class="block text-sm font-medium text-slate-300 mb-2">Your Question *</label>
+                            <textarea name="body" id="message-body" rows="5" maxlength="1000" required
+                                placeholder="Ask this politician a question you want answered in the town hall..."
+                                class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition resize-none"></textarea>
+                            <p class="text-xs text-slate-500 mt-1">Your question will be emailed and shown in campaign analytics.</p>
+                        </div>
+
+                        <div class="flex gap-3">
+                            <button type="button" @click="messageModal = false"
+                                class="flex-1 px-4 py-2 bg-slate-700/60 hover:bg-slate-600/60 border border-slate-600 rounded-lg text-slate-300 hover:text-white text-sm transition">
+                                Cancel
+                            </button>
+                            <button type="submit" :disabled="submitting"
+                                class="flex-1 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-white font-medium text-sm transition">
+                                <span x-show="!submitting">Send Question</span>
+                                <span x-show="submitting">Sending...</span>
+                            </button>
+                        </div>
+                    </form>
+
+                    {{-- Video Question Form --}}
+                    <form x-show="questionType === 'video'" @submit.prevent="
+                        if (!submitting) {
+                            submitting = true;
+                            const formData = new FormData($event.target);
+                            fetch('{{ route('voter.watch.video-question', $adToken->token) }}', {
+                                method: 'POST',
+                                headers: {
+                                    'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content,
+                                },
+                                body: formData
+                            })
+                            .then(r => r.json())
+                            .then(data => {
+                                if (data.success) {
+                                    alert(data.message || 'Video question submitted successfully!');
+                                    messageModal = false;
+                                    $event.target.reset();
+                                } else {
+                                    alert(data.message || 'Failed to submit video question.');
+                                }
+                            })
+                            .catch(err => {
+                                console.error(err);
+                                alert('Failed to submit video question. Please try again.');
+                            })
+                            .finally(() => submitting = false);
+                        }
+                    " enctype="multipart/form-data">
+                        <input type="hidden" name="view_session_uuid" :value="window.sessionId || ''">
+
+                        <div class="mb-5">
+                            <label for="video-file" class="block text-sm font-medium text-slate-300 mb-2">Upload Your Video *</label>
+                            <input type="file" name="video" id="video-file" accept="video/mp4,video/webm,video/quicktime" required
+                                class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm file:mr-3 file:rounded file:border-0 file:bg-emerald-500 file:px-3 file:py-1.5 file:text-slate-900 file:font-medium hover:file:bg-emerald-400 transition cursor-pointer" />
+                            <p class="text-xs text-slate-500 mt-1">MP4, WebM, or MOV · Max 50MB · Any length</p>
+                        </div>
+
+                        <div class="mb-5">
+                            <label for="video-caption" class="block text-sm font-medium text-slate-300 mb-2">Optional Caption</label>
+                            <textarea name="body" id="video-caption" rows="3" maxlength="500"
+                                placeholder="Add context to your video question (optional)..."
+                                class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition resize-none"></textarea>
+                            <p class="text-xs text-slate-500 mt-1">Optional text to accompany your video.</p>
+                        </div>
+
+                        <div class="flex gap-3">
+                            <button type="button" @click="messageModal = false"
+                                class="flex-1 px-4 py-2 bg-slate-700/60 hover:bg-slate-600/60 border border-slate-600 rounded-lg text-slate-300 hover:text-white text-sm transition">
+                                Cancel
+                            </button>
+                            <button type="submit" :disabled="submitting"
+                                class="flex-1 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-white font-medium text-sm transition">
+                                <span x-show="!submitting">Submit Video</span>
+                                <span x-show="submitting">Uploading...</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
     </div>

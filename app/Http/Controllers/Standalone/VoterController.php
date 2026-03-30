@@ -607,6 +607,7 @@ class VoterController extends Controller
             'type'              => 'message',
             'issue_category'    => null,
             'body'              => $validated['body'],
+            'message_type'      => 'text',
             'status'            => 'open',
         ]);
 
@@ -628,6 +629,138 @@ class VoterController extends Controller
         }
 
         return response()->json(['success' => true, 'message' => 'Your question has been sent to the campaign team.']);
+    }
+
+    /**
+     * Handle video question upload from voter.
+     * Stores video question and notifies politician.
+     */
+    public function uploadVideoQuestion(Request $request, string $token)
+    {
+        $maxMb = config('u9itus.max_video_size_mb', 50);  // Voter video questions: 50MB max
+        
+        $validated = $request->validate([
+            'video'             => "required|file|mimes:mp4,webm,quicktime|max:{$maxMb * 1024}",
+            'body'              => 'nullable|string|max:500',  // Optional text accompaniment
+            'view_session_uuid' => 'nullable|string|max:36',
+        ]);
+
+        $adToken   = \App\Models\AdViewToken::where('token', $token)->firstOrFail();
+        $voter     = $this->resolveVoter();
+        $campaign  = \App\Models\PoliticalCampaign::with('politician.user')->findOrFail($adToken->political_campaign_id);
+        $politician = $campaign->politician;
+
+        // Store video
+        $videoUrl = $this->storeVoterQuestionVideo($validated['video'], $voter, $campaign);
+        
+        if (!$videoUrl) {
+            return back()->withErrors([
+                'video' => 'Video upload failed due to a storage issue. Please try again or contact support.',
+            ]);
+        }
+
+        // Extract duration using ffprobe if available
+        $duration = $this->extractVideoDuration($validated['video']);
+
+        // Create the question record
+        $question = \App\Models\VoterWatchReport::create([
+            'voter_id'          => $voter->id,
+            'campaign_id'       => $campaign->id,
+            'view_session_uuid' => $validated['view_session_uuid'] ?? null,
+            'type'              => 'message',
+            'issue_category'    => null,
+            'body'              => $validated['body'] ?? null,
+            'media_url'         => $videoUrl,
+            'media_duration'    => $duration,
+            'message_type'      => 'video',
+            'status'            => 'open',
+        ]);
+
+        // Notify politician
+        $politicianEmail = $politician?->user?->email ?? null;
+        if ($politicianEmail) {
+            try {
+                $messageBody = "A voter submitted a VIDEO QUESTION regarding your campaign \"{$campaign->title}\".\n\n";
+                if ($validated['body'] ?? null) {
+                    $messageBody .= "Question text:\n" . $validated['body'] . "\n\n";
+                }
+                $messageBody .= "Video: " . $videoUrl . "\n"
+                              . "Sent by voter: {$voter->full_name} ({$voter->email})\n"
+                              . "Platform: U9itus";
+                
+                \Illuminate\Support\Facades\Mail::raw(
+                    $messageBody,
+                    fn ($m) => $m->to($politicianEmail)
+                                  ->subject('[U9itus] 🎥 Voter Video Question – ' . $campaign->title)
+                );
+            } catch (\Throwable $e) {
+                Log::warning('uploadVideoQuestion: mail notification failed', ['error' => $e->getMessage()]);
+            }
+        }
+
+        return back()->with('success', 'Your video question has been submitted! Thank you for engaging with this campaign.');
+    }
+
+    /**
+     * Store voter video question on the configured disk.
+     */
+    private function storeVoterQuestionVideo(\Illuminate\Http\UploadedFile $video, \App\Models\Voter $voter, \App\Models\PoliticalCampaign $campaign): ?string
+    {
+        $disk = config('filesystems.default', 'local');
+        $disks = (array) config('filesystems.disks', []);
+
+        if (!array_key_exists($disk, $disks)) {
+            Log::error('Voter video question upload failed: filesystem disk not configured', [
+                'voter_id'   => $voter->id,
+                'campaign_id' => $campaign->id,
+            ]);
+            return null;
+        }
+
+        try {
+            $path = $video->store("voter-questions/{$voter->id}/{$campaign->id}", $disk);
+            
+            if (!is_string($path) || $path === '') {
+                Log::error('Voter video question upload failed: storage returned empty path', [
+                    'voter_id'    => $voter->id,
+                    'campaign_id' => $campaign->id,
+                ]);
+                return null;
+            }
+
+            return \Illuminate\Support\Facades\Storage::disk($disk)->url($path);
+        } catch (\Throwable $e) {
+            Log::error('Voter video question upload failed', [
+                'voter_id'    => $voter->id,
+                'campaign_id' => $campaign->id,
+                'error'       => $e->getMessage(),
+            ]);
+            return null;
+        }
+    }
+
+    /**
+     * Extract video duration using ffprobe (if available).
+     */
+    private function extractVideoDuration(\Illuminate\Http\UploadedFile $video): ?int
+    {
+        try {
+            $tmpPath = $video->getRealPath();
+            
+            // Try to get duration from ffprobe
+            if (command_exists('ffprobe')) {
+                $duration = (int) shell_exec(
+                    'ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1:nokey=1 '
+                    . escapeshellarg($tmpPath)
+                    . ' 2>/dev/null'
+                );
+                return $duration > 0 ? $duration : null;
+            }
+        } catch (\Throwable $e) {
+            Log::debug('extractVideoDuration: ffprobe unavailable or failed', ['error' => $e->getMessage()]);
+        }
+        
+        return null;
     }
 
     // ── Earnings ─────────────────────────────────────────────
