@@ -289,6 +289,7 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         // Campaign Approval
         Route::get('/campaigns/pending', [AdminController::class, 'pendingCampaigns'])->name('campaigns.pending');
         Route::get('/campaigns/running', [AdminController::class, 'runningCampaigns'])->name('campaigns.running');
+        Route::post('/campaigns/bulk-action', [AdminController::class, 'bulkCampaignAction'])->name('campaigns.bulk-action');
         Route::post('/campaigns/{campaign}/approve', [AdminController::class, 'approveCampaign'])->name('campaigns.approve');
         Route::post('/campaigns/{campaign}/reject', [AdminController::class, 'rejectCampaign'])->name('campaigns.reject');
 

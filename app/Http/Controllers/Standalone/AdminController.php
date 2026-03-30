@@ -494,6 +494,90 @@ class AdminController extends Controller
     }
 
     /**
+     * Apply bulk actions from the Live Campaign Monitor.
+     */
+    public function bulkCampaignAction(Request $request)
+    {
+        $validated = $request->validate([
+            'action' => ['required', 'in:stop,reactivate'],
+            'campaign_ids' => ['required', 'array', 'min:1'],
+            'campaign_ids.*' => ['integer', 'exists:political_campaigns,id'],
+            'reason' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $action = (string) $validated['action'];
+        $reason = trim((string) ($validated['reason'] ?? ''));
+
+        $campaignIds = collect($validated['campaign_ids'])
+            ->map(static fn ($id) => (int) $id)
+            ->unique()
+            ->values();
+
+        $campaigns = PoliticalCampaign::query()
+            ->whereIn('id', $campaignIds)
+            ->get();
+
+        if ($campaigns->isEmpty()) {
+            return back()->withErrors(['error' => 'No campaigns were selected.']);
+        }
+
+        $updated = 0;
+        $defaultReason = $action === 'stop'
+            ? 'Stopped by administrator (bulk action).'
+            : 'Reactivated by administrator (bulk action).';
+        $logReason = $reason !== '' ? $reason : $defaultReason;
+
+        foreach ($campaigns as $campaign) {
+            $statusValue = $campaign->status instanceof \BackedEnum
+                ? $campaign->status->value
+                : (string) $campaign->status;
+
+            if ($action === 'stop') {
+                if ($statusValue === CampaignStatus::Paused->value) {
+                    continue;
+                }
+
+                $campaign->update(['status' => CampaignStatus::Paused]);
+
+                CampaignAuditLog::create([
+                    'campaign_id' => $campaign->id,
+                    'admin_id' => auth()->id(),
+                    'action' => 'stopped',
+                    'reason' => $logReason,
+                ]);
+
+                app(ReverbBroadcastService::class)->campaignStopped($campaign, $logReason);
+                $updated++;
+                continue;
+            }
+
+            if ($statusValue === CampaignStatus::Active->value) {
+                continue;
+            }
+
+            $campaign->update(['status' => CampaignStatus::Active]);
+
+            CampaignAuditLog::create([
+                'campaign_id' => $campaign->id,
+                'admin_id' => auth()->id(),
+                'action' => 'reactivated',
+                'reason' => $logReason,
+            ]);
+
+            app(ReverbBroadcastService::class)->campaignReactivated($campaign);
+            $updated++;
+        }
+
+        if ($updated === 0) {
+            return back()->withErrors(['error' => 'No selected campaigns were eligible for that action.']);
+        }
+
+        $messageAction = $action === 'stop' ? 'stopped' : 'reactivated';
+
+        return back()->with('success', $updated . ' campaign(s) ' . $messageAction . '.');
+    }
+
+    /**
      * Paginated audit log for a single campaign.
      */
     public function campaignAuditLog(PoliticalCampaign $campaign)
@@ -1228,14 +1312,13 @@ class AdminController extends Controller
      */
     public function rejectKyc(Request $request, $userId)
     {
-        $request->validate([
-            'reason' => ['nullable', 'string', 'max:500'],
-        ]);
-
-        $user = User::with(['politician', 'voter'])->findOrFail($userId);
-
         try {
-            $reason = $request->input('reason', 'Identity could not be verified.');
+            $request->validate([
+                'reason' => ['nullable', 'string', 'max:500'],
+            ]);
+
+            $user = User::with(['politician', 'voter'])->findOrFail($userId);
+            $reason = (string) $request->input('reason', 'Identity could not be verified.');
 
             $userUpdate = [
                 'kyc_status' => 'rejected',
@@ -1251,14 +1334,17 @@ class AdminController extends Controller
                 $userUpdate['kyc_rejection_reason'] = $reason;
             }
 
-            $user->update($userUpdate);
+            DB::table('users')->where('id', $user->id)->update($userUpdate);
+            $user->refresh();
 
             if ($user->politician) {
                 try {
                     if (Schema::hasColumn('politicians', 'kyc_status')) {
-                        $user->politician->update(['kyc_status' => 'rejected']);
+                        DB::table('politicians')
+                            ->where('id', $user->politician->id)
+                            ->update(['kyc_status' => 'rejected']);
                     }
-                } catch (\Exception $e) {
+                } catch (\Throwable $e) {
                     Log::warning('Failed to sync politician KYC rejection status', [
                         'user_id' => $user->id,
                         'politician_id' => $user->politician->id,
@@ -1270,7 +1356,7 @@ class AdminController extends Controller
             // Notify the user their KYC has been rejected with the reason
             try {
                 Mail::to($user->email)->queue(new KycRejectedMail($user, $reason));
-            } catch (\Exception $e) {
+            } catch (\Throwable $e) {
                 \Illuminate\Support\Facades\Log::warning('Failed to send KYC rejected email', [
                     'user_id' => $user->id,
                     'error'   => $e->getMessage(),
@@ -1283,10 +1369,14 @@ class AdminController extends Controller
                 'error' => $e->getMessage(),
             ]);
 
-            return back()->withErrors(['error' => 'Unable to reject KYC right now. Please try again.']);
+            return redirect()
+                ->route('admin.kyc.index')
+                ->withErrors(['error' => 'Unable to reject KYC right now. Please try again.']);
         }
 
-        return back()->with('success', 'KYC rejected for ' . $user->name . '.');
+        return redirect()
+            ->route('admin.kyc.index')
+            ->with('success', 'KYC rejected for ' . ($user->name ?: 'user') . '.');
     }
 
     /**
