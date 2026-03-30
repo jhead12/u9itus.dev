@@ -104,6 +104,35 @@
             </div>
         </div>
 
+        <form id="bulk-campaign-form" method="POST" action="{{ route('admin.campaigns.bulk-action') }}" class="px-5 py-3 border-b border-slate-700/50 bg-slate-900/30">
+            @csrf
+            <div class="flex flex-col lg:flex-row lg:items-center gap-2 lg:gap-3">
+                <div class="flex items-center gap-2">
+                    <input id="select-all-campaigns" type="checkbox"
+                        class="rounded border-slate-600 bg-slate-900 text-emerald-500 focus:ring-emerald-500/40">
+                    <span class="text-xs text-slate-400">Select all on this page</span>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <select id="bulk-campaign-action-select" name="action"
+                        class="bg-slate-900/60 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-300 focus:outline-none focus:border-emerald-500/50 transition">
+                        <option value="">Bulk Actions</option>
+                        <option value="stop">Stop Campaigns</option>
+                        <option value="reactivate">Reactivate Campaigns</option>
+                    </select>
+                    <input id="bulk-campaign-reason" type="text" name="reason"
+                        placeholder="Reason (optional)"
+                        class="bg-slate-900/60 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500/50 transition">
+                    <button id="bulk-campaign-apply-btn" type="submit" disabled
+                        class="px-3 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold transition">
+                        Apply
+                    </button>
+                </div>
+
+                <p id="selected-campaign-count" class="text-xs text-slate-500">0 selected</p>
+            </div>
+        </form>
+
         @if($campaigns->isEmpty())
         <div class="px-5 py-14 text-center">
             <svg class="w-10 h-10 text-slate-600 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -141,6 +170,12 @@
 
                 {{-- ── Row header ──────────────────────────────────────────── --}}
                 <div class="flex flex-col sm:flex-row sm:items-start gap-4">
+
+                    <div class="pt-1">
+                        <input type="checkbox"
+                            class="campaign-row-checkbox rounded border-slate-600 bg-slate-900 text-emerald-500 focus:ring-emerald-500/40"
+                            value="{{ $campaign->id }}">
+                    </div>
 
                     {{-- Left: Politician + Campaign info --}}
                     <div class="flex-1 min-w-0">
@@ -305,3 +340,80 @@
 
 </div>
 @endsection
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const form = document.getElementById('bulk-campaign-form');
+    const selectAll = document.getElementById('select-all-campaigns');
+    const actionSelect = document.getElementById('bulk-campaign-action-select');
+    const applyButton = document.getElementById('bulk-campaign-apply-btn');
+    const selectedCountText = document.getElementById('selected-campaign-count');
+
+    if (!form || !selectAll || !actionSelect || !applyButton || !selectedCountText) {
+        return;
+    }
+
+    const rowCheckboxes = Array.from(document.querySelectorAll('.campaign-row-checkbox'));
+
+    const updateSelectionState = function () {
+        const checkedCount = rowCheckboxes.filter((checkbox) => checkbox.checked).length;
+        const allChecked = checkedCount > 0 && checkedCount === rowCheckboxes.length;
+
+        selectAll.checked = allChecked;
+        selectAll.indeterminate = checkedCount > 0 && !allChecked;
+        selectedCountText.textContent = checkedCount + ' selected';
+        applyButton.disabled = checkedCount === 0;
+    };
+
+    selectAll.addEventListener('change', function () {
+        rowCheckboxes.forEach((checkbox) => {
+            checkbox.checked = selectAll.checked;
+        });
+
+        updateSelectionState();
+    });
+
+    rowCheckboxes.forEach((checkbox) => {
+        checkbox.addEventListener('change', updateSelectionState);
+    });
+
+    form.addEventListener('submit', function (event) {
+        const checked = rowCheckboxes.filter((checkbox) => checkbox.checked);
+
+        if (checked.length === 0) {
+            event.preventDefault();
+            alert('Select at least one campaign.');
+            return;
+        }
+
+        if (!actionSelect.value) {
+            event.preventDefault();
+            alert('Choose a bulk action.');
+            return;
+        }
+
+        const existingHiddenIds = form.querySelectorAll('input[name="campaign_ids[]"]');
+        existingHiddenIds.forEach((input) => input.remove());
+
+        checked.forEach((checkbox) => {
+            const hidden = document.createElement('input');
+            hidden.type = 'hidden';
+            hidden.name = 'campaign_ids[]';
+            hidden.value = checkbox.value;
+            form.appendChild(hidden);
+        });
+
+        if (actionSelect.value === 'stop') {
+            const confirmed = confirm('Stop ' + checked.length + ' selected campaign(s)?');
+
+            if (!confirmed) {
+                event.preventDefault();
+            }
+        }
+    });
+
+    updateSelectionState();
+});
+</script>
+@endpush

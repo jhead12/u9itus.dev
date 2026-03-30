@@ -56,14 +56,15 @@
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-slate-300 mb-1.5">Governance Level</label>
-                    <select name="governance_level"
+                    <label class="block text-sm font-medium text-slate-300 mb-1.5">Governance Level <span class="text-red-400">*</span></label>
+                    <select name="governance_level" required
                         class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition">
-                        <option value="">— Any —</option>
+                        <option value="" disabled {{ old('governance_level') ? '' : 'selected' }}>Select governance level</option>
                         @foreach($governanceLevels as $value => $label)
                             <option value="{{ $value }}" {{ old('governance_level') === $value ? 'selected' : '' }}>{{ $label }}</option>
                         @endforeach
                     </select>
+                    @error('governance_level')<p class="text-xs text-red-400 mt-1">{{ $message }}</p>@enderror
                 </div>
             </div>
 
@@ -261,12 +262,7 @@
                     </button>
                     <div id="topicsDropdown" class="hidden absolute z-10 w-full mt-1 bg-slate-800 border border-slate-600 rounded-lg shadow-xl max-h-60 overflow-y-auto">
                         <div class="p-3 border-b border-slate-700 space-y-3">
-                            {{-- Topics will be populated by PHP/Alpine --}}
-                            @php
-                                use App\Models\PoliticianTopic;
-                                $topics = PoliticianTopic::active()->orderBy('sort_order')->get();
-                            @endphp
-                            @foreach($topics as $topic)
+                            @foreach(($topics ?? collect()) as $topic)
                             <label class="flex items-center gap-2 px-2 py-1.5 hover:bg-slate-700/50 rounded cursor-pointer transition">
                                 <input type="checkbox" name="topic_ids[]" value="{{ $topic->id }}" 
                                     class="topic-checkbox w-4 h-4 rounded border-slate-600 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-slate-900"

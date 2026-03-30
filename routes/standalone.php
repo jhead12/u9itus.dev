@@ -290,6 +290,7 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         // Campaign Approval
         Route::get('/campaigns/pending', [AdminController::class, 'pendingCampaigns'])->name('campaigns.pending');
         Route::get('/campaigns/running', [AdminController::class, 'runningCampaigns'])->name('campaigns.running');
+        Route::post('/campaigns/bulk-action', [AdminController::class, 'bulkCampaignAction'])->name('campaigns.bulk-action');
         Route::post('/campaigns/{campaign}/approve', [AdminController::class, 'approveCampaign'])->name('campaigns.approve');
         Route::post('/campaigns/{campaign}/reject', [AdminController::class, 'rejectCampaign'])->name('campaigns.reject');
 
@@ -306,9 +307,10 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         
         // User Management
         Route::get('/users', [AdminController::class, 'users'])->name('users.index');
+        Route::post('/users/bulk-action', [AdminController::class, 'bulkUserAction'])->name('users.bulk-action');
         Route::get('/users/{user}', [AdminController::class, 'showUser'])->name('users.show');
-        Route::put('/users/{user}/suspend', [AdminController::class, 'suspendUser'])->name('users.suspend');
-        Route::put('/users/{user}/unsuspend', [AdminController::class, 'unsuspendUser'])->name('users.unsuspend');
+        Route::match(['PUT', 'POST'], '/users/{user}/suspend', [AdminController::class, 'suspendUser'])->name('users.suspend');
+        Route::match(['PUT', 'POST'], '/users/{user}/unsuspend', [AdminController::class, 'unsuspendUser'])->name('users.unsuspend');
 
         // Candidate Matching Review
         Route::get('/candidate-matches', [AdminController::class, 'candidateMatchReviews'])->name('candidate-matches.index');

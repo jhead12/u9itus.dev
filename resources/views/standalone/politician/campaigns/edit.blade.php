@@ -3,6 +3,53 @@
 @section('title', 'Edit Campaign')
 @section('page-title', 'Edit Campaign')
 
+@php
+    $campaignTypeRaw = (string) ($campaign->getRawOriginal('campaign_type') ?? '');
+    $campaignType = in_array($campaignTypeRaw, ['video', 'q_and_a', 'live_feed'], true) ? $campaignTypeRaw : 'video';
+    $qaItems = is_array($campaign->qa_items ?? null) ? $campaign->qa_items : [];
+    $surveyPayload = is_array($campaign->engagement_survey ?? null) ? $campaign->engagement_survey : [];
+    $surveyOptions = is_array($surveyPayload['options'] ?? null) ? $surveyPayload['options'] : [];
+    $campaignTopicIds = is_array($campaignTopicIds ?? null) ? $campaignTopicIds : [];
+    $campaignTargetStates = is_array($campaign->target_states ?? null) ? $campaign->target_states : [];
+    $campaignTargetCities = is_array($campaign->target_cities ?? null) ? $campaign->target_cities : [];
+
+    $liveScheduledAtValue = old('live_scheduled_at');
+    if (blank($liveScheduledAtValue)) {
+        $liveScheduledAtRaw = (string) ($campaign->getRawOriginal('live_scheduled_at') ?? '');
+        if ($liveScheduledAtRaw !== '') {
+            try {
+                $liveScheduledAtValue = \Illuminate\Support\Carbon::parse($liveScheduledAtRaw)->format('Y-m-d\\TH:i');
+            } catch (\Throwable $e) {
+                $liveScheduledAtValue = '';
+            }
+        }
+    }
+
+    $scheduledStartAtValue = old('scheduled_start_at');
+    if (blank($scheduledStartAtValue)) {
+        $scheduledStartAtRaw = (string) ($campaign->getRawOriginal('scheduled_start_at') ?? '');
+        if ($scheduledStartAtRaw !== '') {
+            try {
+                $scheduledStartAtValue = \Illuminate\Support\Carbon::parse($scheduledStartAtRaw)->format('Y-m-d\\TH:i');
+            } catch (\Throwable $e) {
+                $scheduledStartAtValue = '';
+            }
+        }
+    }
+
+    $scheduledEndAtValue = old('scheduled_end_at');
+    if (blank($scheduledEndAtValue)) {
+        $scheduledEndAtRaw = (string) ($campaign->getRawOriginal('scheduled_end_at') ?? '');
+        if ($scheduledEndAtRaw !== '') {
+            try {
+                $scheduledEndAtValue = \Illuminate\Support\Carbon::parse($scheduledEndAtRaw)->format('Y-m-d\\TH:i');
+            } catch (\Throwable $e) {
+                $scheduledEndAtValue = '';
+            }
+        }
+    }
+@endphp
+
 @section('content')
 <div class="max-w-2xl">
 
@@ -34,26 +81,27 @@
                     <label class="block text-sm font-medium text-slate-300 mb-1.5">Campaign Type</label>
                     <select name="campaign_type" id="campaignType"
                         class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition">
-                        <option value="video" {{ old('campaign_type', $campaign->campaign_type?->value ?? $campaign->campaign_type) === 'video' ? 'selected' : '' }}>🎬 Video</option>
-                        <option value="q_and_a" {{ old('campaign_type', $campaign->campaign_type?->value ?? $campaign->campaign_type) === 'q_and_a' ? 'selected' : '' }}>❓ Q&A</option>
-                        <option value="live_feed" {{ old('campaign_type', $campaign->campaign_type?->value ?? $campaign->campaign_type) === 'live_feed' ? 'selected' : '' }}>📡 Live Feed</option>
+                        <option value="video" {{ old('campaign_type', $campaignType) === 'video' ? 'selected' : '' }}>🎬 Video</option>
+                        <option value="q_and_a" {{ old('campaign_type', $campaignType) === 'q_and_a' ? 'selected' : '' }}>❓ Q&A</option>
+                        <option value="live_feed" {{ old('campaign_type', $campaignType) === 'live_feed' ? 'selected' : '' }}>📡 Live Feed</option>
                     </select>
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-slate-300 mb-1.5">Governance Level</label>
-                    <select name="governance_level"
+                    <label class="block text-sm font-medium text-slate-300 mb-1.5">Governance Level <span class="text-red-400">*</span></label>
+                    <select name="governance_level" required
                         class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition">
-                        <option value="">— Any —</option>
+                        <option value="" disabled {{ old('governance_level', $campaign->governance_level) ? '' : 'selected' }}>Select governance level</option>
                         @foreach($governanceLevels as $value => $label)
                             <option value="{{ $value }}" {{ old('governance_level', $campaign->governance_level) === $value ? 'selected' : '' }}>{{ $label }}</option>
                         @endforeach
                     </select>
+                    @error('governance_level')<p class="text-xs text-red-400 mt-1">{{ $message }}</p>@enderror
                 </div>
             </div>
 
 @php
-    $editType = old('campaign_type', $campaign->campaign_type?->value ?? $campaign->campaign_type);
+    $editType = old('campaign_type', $campaignType);
 @endphp
 
             {{-- Video fields --}}
@@ -130,7 +178,7 @@
                 <div>
                     <label class="block text-sm font-medium text-slate-300 mb-1.5">Scheduled Start</label>
                     <input type="datetime-local" name="live_scheduled_at"
-                        value="{{ old('live_scheduled_at', $campaign->live_scheduled_at?->format('Y-m-d\TH:i')) }}"
+                        value="{{ $liveScheduledAtValue }}"
                         class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition" />
                 </div>
             </div>
@@ -224,12 +272,7 @@
                     </button>
                     <div id="topicsDropdown" class="hidden absolute z-10 w-full mt-1 bg-slate-800 border border-slate-600 rounded-lg shadow-xl max-h-60 overflow-y-auto">
                         <div class="p-3 border-b border-slate-700 space-y-3">
-                            @php
-                                use App\Models\PoliticianTopic;
-                                $topics = PoliticianTopic::active()->orderBy('sort_order')->get();
-                                $campaignTopicIds = $campaign->topics()->pluck('id')->toArray();
-                            @endphp
-                            @foreach($topics as $topic)
+                            @foreach(($topics ?? collect()) as $topic)
                             <label class="flex items-center gap-2 px-2 py-1.5 hover:bg-slate-700/50 rounded cursor-pointer transition">
                                 <input type="checkbox" name="topic_ids[]" value="{{ $topic->id }}" 
                                     class="topic-checkbox w-4 h-4 rounded border-slate-600 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-slate-900"
@@ -272,10 +315,7 @@
                 </div>
                 <div id="qaItemsContainer" class="space-y-3">
                     {{-- Q&A pairs will be added here dynamically --}}
-                    @php
-                        $existingQA = $campaign->qa_items ?? [];
-                    @endphp
-                    @forelse($existingQA as $index => $item)
+                    @forelse($qaItems as $index => $item)
                     <div class="qa-item bg-slate-900/60 border border-slate-700 rounded-lg overflow-hidden">
                         <button type="button" class="w-full qa-toggle px-4 py-3 flex items-center justify-between hover:bg-slate-700/50 transition text-left">
                             <span class="text-sm font-medium text-slate-200" id="qa-label-{{ $index }}">
@@ -320,7 +360,7 @@
                     <div>
                         <label class="block text-xs font-medium text-slate-300 mb-1.5">Survey Question</label>
                         <input type="text" name="engagement_survey[question]" maxlength="200"
-                            value="{{ old('engagement_survey.question', $campaign->engagement_survey['question'] ?? '') }}"
+                            value="{{ old('engagement_survey.question', $surveyPayload['question'] ?? '') }}"
                             class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition"
                             placeholder="e.g., Do you support this proposal?" />
                     </div>
@@ -328,11 +368,8 @@
                     <div id="surveyOptionsContainer">
                         <label class="block text-xs font-medium text-slate-300 mb-1.5">Answer Options <span class="text-slate-500 font-normal">(minimum 2)</span></label>
                         <div class="space-y-2">
-                            @php
-                                $existingSurvey = $campaign->engagement_survey['options'] ?? [];
-                            @endphp
-                            @for($i = 0; $i < max(2, count($existingSurvey)); $i++)
-                                @php $option = $existingSurvey[$i] ?? null; @endphp
+                            @for($i = 0; $i < max(2, count($surveyOptions)); $i++)
+                                @php $option = $surveyOptions[$i] ?? null; @endphp
                             <div class="flex gap-2 items-end">
                                 <div class="flex-1">
                                     <input type="text" name="engagement_survey[options][{{ $i }}][text]"
@@ -385,7 +422,7 @@
                             <label class="flex items-center gap-2 px-2 py-1.5 hover:bg-slate-700/50 rounded cursor-pointer transition">
                                 <input type="checkbox" name="target_states[]" value="{{ $abbr }}" 
                                     class="state-checkbox w-4 h-4 rounded border-slate-600 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-slate-900"
-                                    {{ is_array($campaign->target_states) && in_array($abbr, $campaign->target_states) ? 'checked' : '' }}>
+                                    {{ in_array($abbr, $campaignTargetStates) ? 'checked' : '' }}>
                                 <span class="text-sm text-slate-200">{{ $abbr }} - {{ $stateName }}</span>
                             </label>
                             @endforeach
@@ -430,7 +467,7 @@
                             <label class="city-option flex items-center gap-2 px-2 py-1.5 hover:bg-slate-700/50 rounded cursor-pointer transition" data-state="{{ $cityData['state'] }}">
                                 <input type="checkbox" name="target_cities[]" value="{{ $cityData['display'] }}" 
                                     class="city-checkbox w-4 h-4 rounded border-slate-600 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-slate-900"
-                                    {{ is_array($campaign->target_cities) && in_array($cityData['display'], $campaign->target_cities) ? 'checked' : '' }}>
+                                    {{ in_array($cityData['display'], $campaignTargetCities) ? 'checked' : '' }}>
                                 <span class="text-sm text-slate-200">{{ $cityData['display'] }}</span>
                             </label>
                             @endforeach
@@ -451,7 +488,7 @@
                 <div>
                     <label class="block text-sm font-medium text-slate-300 mb-1.5">Start Date &amp; Time</label>
                     <input type="datetime-local" name="scheduled_start_at"
-                        value="{{ old('scheduled_start_at', $campaign->scheduled_start_at?->format('Y-m-d\TH:i')) }}"
+                        value="{{ $scheduledStartAtValue }}"
                         class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition" />
                     <p class="text-xs text-slate-500 mt-1">Campaign activates at this time</p>
                     @error('scheduled_start_at')<p class="text-xs text-red-400 mt-1">{{ $message }}</p>@enderror
@@ -459,7 +496,7 @@
                 <div>
                     <label class="block text-sm font-medium text-slate-300 mb-1.5">End Date &amp; Time</label>
                     <input type="datetime-local" name="scheduled_end_at"
-                        value="{{ old('scheduled_end_at', $campaign->scheduled_end_at?->format('Y-m-d\TH:i')) }}"
+                        value="{{ $scheduledEndAtValue }}"
                         class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition" />
                     <p class="text-xs text-slate-500 mt-1">Campaign auto-pauses at this time</p>
                     @error('scheduled_end_at')<p class="text-xs text-red-400 mt-1">{{ $message }}</p>@enderror

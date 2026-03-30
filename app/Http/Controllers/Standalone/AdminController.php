@@ -7,7 +7,9 @@ use App\Enums\CampaignStatus;
 use App\Http\Controllers\Controller;
 use App\Jobs\MatchPoliticianToElectionData;
 use App\Mail\CampaignApprovedMail;
+use App\Mail\CampaignReactivatedMail;
 use App\Mail\CampaignRejectedMail;
+use App\Mail\AccountUnsuspendedMail;
 use App\Models\CandidateMatchReview;
 use App\Models\DistrictLookupSearch;
 use App\Models\EngagementSurveyResponse;
@@ -20,11 +22,14 @@ use App\Models\CampaignAuditLog;
 use App\Models\CampaignTransaction;
 use App\Models\EmailTemplate;
 use App\Models\PoliticalCampaign;
+use App\Models\PoliticianCredit;
 use App\Models\Politician;
 use App\Models\User;
 use App\Models\ViewSession;
 use App\Models\VoterWatchReport;
 use App\Models\Voter;
+use App\Notifications\CampaignStatusChangedNotification;
+use App\Notifications\SystemAnnouncementNotification;
 use App\Services\AdminTwoFactorService;
 use App\Services\CampaignBillingService;
 use App\Services\PlatformSettingsService;
@@ -36,6 +41,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 
 /**
@@ -115,6 +121,25 @@ class AdminController extends Controller
     }
 
     /**
+     * Politician ids that have billing activity in the active payment mode.
+     * Used to ensure campaign monitoring reflects the currently configured Stripe mode.
+     */
+    private function modeScopedPoliticianIds(?string $mode)
+    {
+        $txPoliticianIds = $this->applyPaymentModeFilter(
+            CampaignTransaction::query()->select('politician_id')->whereNotNull('politician_id')->distinct(),
+            $mode
+        );
+
+        $creditPoliticianIds = $this->applyPaymentModeFilter(
+            PoliticianCredit::query()->select('politician_id')->whereNotNull('politician_id')->distinct(),
+            $mode
+        );
+
+        return $txPoliticianIds->union($creditPoliticianIds);
+    }
+
+    /**
      * Show the admin dashboard.
      */
     public function dashboard()
@@ -167,7 +192,7 @@ class AdminController extends Controller
     public function runningCampaigns(Request $request)
     {
         $activePaymentMode = $this->activePaymentMode();
-        $campaignIds = $this->modeScopedCampaignIds($activePaymentMode);
+        $modePoliticianIds = $this->modeScopedPoliticianIds($activePaymentMode);
 
         $query = PoliticalCampaign::select('political_campaigns.*')
             ->selectRaw(
@@ -185,12 +210,15 @@ class AdminController extends Controller
                     AND status = \'completed\') as avg_completion_pct'
             )
             ->with('politician.user')
-            ->whereIn('id', $campaignIds)
             ->whereIn('status', [
                 CampaignStatus::Active->value,
                 CampaignStatus::Paused->value,
                 CampaignStatus::Scheduled->value,
             ]);
+
+        if ($activePaymentMode) {
+            $query->whereIn('politician_id', $modePoliticianIds);
+        }
 
         if ($search = $request->get('search')) {
             $query->whereHas('politician', fn ($q) =>
@@ -213,12 +241,22 @@ class AdminController extends Controller
             ->paginate(25)
             ->withQueryString();
 
+        $summaryBase = PoliticalCampaign::whereIn('status', [
+            CampaignStatus::Active->value,
+            CampaignStatus::Paused->value,
+            CampaignStatus::Scheduled->value,
+        ]);
+
+        if ($activePaymentMode) {
+            $summaryBase->whereIn('politician_id', $modePoliticianIds);
+        }
+
         $summary = [
-            'total_active'    => PoliticalCampaign::where('status', CampaignStatus::Active->value)->whereIn('id', $campaignIds)->count(),
-            'total_scheduled' => PoliticalCampaign::where('status', CampaignStatus::Scheduled->value)->whereIn('id', $campaignIds)->count(),
-            'total_paused'    => PoliticalCampaign::where('status', CampaignStatus::Paused->value)->whereIn('id', $campaignIds)->count(),
-            'total_spend'     => PoliticalCampaign::whereIn('status', [CampaignStatus::Active->value, CampaignStatus::Paused->value, CampaignStatus::Scheduled->value])->whereIn('id', $campaignIds)->sum('amount_spent'),
-            'total_views'     => PoliticalCampaign::whereIn('status', [CampaignStatus::Active->value, CampaignStatus::Paused->value, CampaignStatus::Scheduled->value])->whereIn('id', $campaignIds)->sum('views_completed'),
+            'total_active'    => (clone $summaryBase)->where('status', CampaignStatus::Active->value)->count(),
+            'total_scheduled' => (clone $summaryBase)->where('status', CampaignStatus::Scheduled->value)->count(),
+            'total_paused'    => (clone $summaryBase)->where('status', CampaignStatus::Paused->value)->count(),
+            'total_spend'     => (clone $summaryBase)->sum('amount_spent'),
+            'total_views'     => (clone $summaryBase)->sum('views_completed'),
         ];
 
         return view('standalone.admin.campaigns-running', compact('campaigns', 'summary'));
@@ -427,7 +465,116 @@ class AdminController extends Controller
         // Phase 11 — real-time WebSocket push to politician dashboard
         app(ReverbBroadcastService::class)->campaignReactivated($campaign);
 
+        // Notify campaign owner (non-fatal)
+        try {
+            $politicianUser = $campaign->politician?->user;
+
+            if ($politicianUser?->email) {
+                Mail::to($politicianUser->email)
+                    ->queue(new CampaignReactivatedMail($campaign));
+            }
+
+            if ($politicianUser) {
+                $politicianUser->notify(
+                    new CampaignStatusChangedNotification(
+                        $campaign,
+                        'reactivated',
+                        $request->input('reason')
+                    )
+                );
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Failed to send campaign reactivation notifications', [
+                'campaign_id' => $campaign->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
         return back()->with('success', 'Campaign "' . $campaign->title . '" has been reactivated.');
+    }
+
+    /**
+     * Apply bulk actions from the Live Campaign Monitor.
+     */
+    public function bulkCampaignAction(Request $request)
+    {
+        $validated = $request->validate([
+            'action' => ['required', 'in:stop,reactivate'],
+            'campaign_ids' => ['required', 'array', 'min:1'],
+            'campaign_ids.*' => ['integer', 'exists:political_campaigns,id'],
+            'reason' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $action = (string) $validated['action'];
+        $reason = trim((string) ($validated['reason'] ?? ''));
+
+        $campaignIds = collect($validated['campaign_ids'])
+            ->map(static fn ($id) => (int) $id)
+            ->unique()
+            ->values();
+
+        $campaigns = PoliticalCampaign::query()
+            ->whereIn('id', $campaignIds)
+            ->get();
+
+        if ($campaigns->isEmpty()) {
+            return back()->withErrors(['error' => 'No campaigns were selected.']);
+        }
+
+        $updated = 0;
+        $defaultReason = $action === 'stop'
+            ? 'Stopped by administrator (bulk action).'
+            : 'Reactivated by administrator (bulk action).';
+        $logReason = $reason !== '' ? $reason : $defaultReason;
+
+        foreach ($campaigns as $campaign) {
+            $statusValue = $campaign->status instanceof \BackedEnum
+                ? $campaign->status->value
+                : (string) $campaign->status;
+
+            if ($action === 'stop') {
+                if ($statusValue === CampaignStatus::Paused->value) {
+                    continue;
+                }
+
+                $campaign->update(['status' => CampaignStatus::Paused]);
+
+                CampaignAuditLog::create([
+                    'campaign_id' => $campaign->id,
+                    'admin_id' => auth()->id(),
+                    'action' => 'stopped',
+                    'reason' => $logReason,
+                ]);
+
+                app(ReverbBroadcastService::class)->campaignStopped($campaign, $logReason);
+                $updated++;
+                continue;
+            }
+
+            if ($statusValue === CampaignStatus::Active->value) {
+                continue;
+            }
+
+            $campaign->update(['status' => CampaignStatus::Active]);
+
+            CampaignAuditLog::create([
+                'campaign_id' => $campaign->id,
+                'admin_id' => auth()->id(),
+                'action' => 'reactivated',
+                'reason' => $logReason,
+            ]);
+
+            app(ReverbBroadcastService::class)->campaignReactivated($campaign);
+            $updated++;
+        }
+
+        if ($updated === 0) {
+            return back()->withErrors(['error' => 'No selected campaigns were eligible for that action.']);
+        }
+
+        $messageAction = $action === 'stop' ? 'stopped' : 'reactivated';
+
+        return back()->with('success', $updated . ' campaign(s) ' . $messageAction . '.');
     }
 
     /**
@@ -448,13 +595,202 @@ class AdminController extends Controller
     /**
      * List all users.
      */
-    public function users()
+    public function users(Request $request)
     {
-        $users = User::with(['politician', 'voter'])
+        $search = trim((string) $request->query('search', ''));
+        $role = (string) $request->query('role', '');
+        $kyc = (string) $request->query('kyc', '');
+        $accountStatus = (string) $request->query('account_status', '');
+
+        $allowedRoles = ['admin', 'politician', 'voter'];
+        $allowedKycStatuses = ['approved', 'pending', 'rejected'];
+        $allowedAccountStatuses = ['active', 'unverified', 'suspended'];
+
+        $usersQuery = User::query()->with(['politician', 'voter']);
+
+        if ($search !== '') {
+            $likeSearch = '%' . str_replace(['%', '_'], ['\\%', '\\_'], $search) . '%';
+
+            $usersQuery->where(function (Builder $query) use ($search, $likeSearch) {
+                $query->where('name', 'like', $likeSearch)
+                    ->orWhere('email', 'like', $likeSearch)
+                    ->orWhere('phone', 'like', $likeSearch)
+                    ->orWhereHas('politician', function (Builder $politicianQuery) use ($likeSearch) {
+                        $politicianQuery->where('full_name', 'like', $likeSearch)
+                            ->orWhere('political_office', 'like', $likeSearch)
+                            ->orWhere('city', 'like', $likeSearch)
+                            ->orWhere('state', 'like', $likeSearch);
+                    })
+                    ->orWhereHas('voter', function (Builder $voterQuery) use ($likeSearch) {
+                        $voterQuery->where('email', 'like', $likeSearch)
+                            ->orWhere('city', 'like', $likeSearch)
+                            ->orWhere('state', 'like', $likeSearch);
+                    });
+
+                if (ctype_digit($search)) {
+                    $query->orWhere('id', (int) $search);
+                }
+            });
+        }
+
+        if (in_array($role, $allowedRoles, true)) {
+            $usersQuery->where('user_type', $role);
+        }
+
+        if (in_array($kyc, $allowedKycStatuses, true)) {
+            $usersQuery->where('kyc_status', $kyc);
+        }
+
+        if (in_array($accountStatus, $allowedAccountStatuses, true)) {
+            $usersQuery->where(function (Builder $query) use ($accountStatus) {
+                if ($accountStatus === 'suspended') {
+                    $query->whereNotNull('suspended_at');
+                    return;
+                }
+
+                if ($accountStatus === 'active') {
+                    $query->whereNull('suspended_at')
+                        ->whereNotNull('email_verified_at');
+                    return;
+                }
+
+                $query->whereNull('suspended_at')
+                    ->whereNull('email_verified_at');
+            });
+        }
+
+        $users = $usersQuery
             ->latest()
-            ->paginate(30);
+            ->paginate(30)
+            ->withQueryString();
 
         return view('standalone.admin.users', compact('users'));
+    }
+
+    /**
+     * Apply a bulk action to selected users from the users index page.
+     */
+    public function bulkUserAction(Request $request)
+    {
+        $validated = $request->validate([
+            'action' => ['required', 'in:suspend,unsuspend,kyc_approve,kyc_reject'],
+            'user_ids' => ['required', 'array', 'min:1'],
+            'user_ids.*' => ['integer', 'exists:users,id'],
+        ]);
+
+        $action = (string) $validated['action'];
+        $userIds = collect($validated['user_ids'])
+            ->map(static fn ($id) => (int) $id)
+            ->unique()
+            ->values();
+
+        $users = User::query()
+            ->with(['politician', 'voter'])
+            ->whereIn('id', $userIds)
+            ->get();
+
+        if ($users->isEmpty()) {
+            return back()->withErrors(['error' => 'No users were selected.']);
+        }
+
+        $updated = 0;
+        $skippedAdmins = 0;
+        $reviewedAt = now();
+
+        foreach ($users as $user) {
+            if ($user->user_type === 'admin' && in_array($action, ['suspend', 'kyc_approve', 'kyc_reject'], true)) {
+                $skippedAdmins++;
+                continue;
+            }
+
+            if ($action === 'suspend') {
+                if ($user->isSuspended()) {
+                    continue;
+                }
+
+                $user->update([
+                    'suspended_at' => now(),
+                    'suspension_reason' => 'Suspended by administrator (bulk action).',
+                ]);
+
+                if ($user->voter) {
+                    $user->voter->update(['is_active' => false]);
+                }
+                if ($user->politician) {
+                    $user->politician->update(['is_active' => false]);
+                }
+
+                $updated++;
+                continue;
+            }
+
+            if ($action === 'unsuspend') {
+                if (! $user->isSuspended()) {
+                    continue;
+                }
+
+                $user->update([
+                    'suspended_at' => null,
+                    'suspension_reason' => null,
+                ]);
+
+                if ($user->voter) {
+                    $user->voter->update(['is_active' => true]);
+                }
+                if ($user->politician) {
+                    $user->politician->update(['is_active' => true]);
+                }
+
+                $updated++;
+                continue;
+            }
+
+            if ($action === 'kyc_approve') {
+                $user->update([
+                    'kyc_status' => 'approved',
+                    'kyc_reviewed_at' => $reviewedAt,
+                    'kyc_reviewer_id' => auth()->id(),
+                    'kyc_rejection_reason' => null,
+                ]);
+
+                $updated++;
+                continue;
+            }
+
+            $user->update([
+                'kyc_status' => 'rejected',
+                'kyc_reviewed_at' => $reviewedAt,
+                'kyc_reviewer_id' => auth()->id(),
+                'kyc_rejection_reason' => 'Rejected by administrator (bulk action).',
+            ]);
+
+            $updated++;
+        }
+
+        $labels = [
+            'suspend' => 'suspended',
+            'unsuspend' => 'unsuspended',
+            'kyc_approve' => 'KYC approved for',
+            'kyc_reject' => 'KYC rejected for',
+        ];
+
+        if ($updated === 0) {
+            $noneAppliedMessage = 'No selected users were eligible for that action.';
+
+            if ($skippedAdmins > 0) {
+                $noneAppliedMessage .= ' Admin accounts were skipped.';
+            }
+
+            return back()->withErrors(['error' => $noneAppliedMessage]);
+        }
+
+        $message = $updated . ' user(s) ' . $labels[$action] . '.';
+
+        if ($skippedAdmins > 0) {
+            $message .= ' ' . $skippedAdmins . ' admin account(s) skipped.';
+        }
+
+        return back()->with('success', $message);
     }
 
     /**
@@ -632,6 +968,32 @@ class AdminController extends Controller
         }
         if ($user->politician) {
             $user->politician->update(['is_active' => true]);
+        }
+
+        // Notify user their account access has been restored (non-fatal)
+        try {
+            if ($user->email) {
+                Mail::to($user->email)->queue(new AccountUnsuspendedMail($user));
+            }
+
+            $dashboardRoute = match ($user->user_type) {
+                'admin' => route('admin.dashboard'),
+                'politician' => route('politician.dashboard'),
+                'voter' => route('voter.dashboard'),
+                default => route('dashboard'),
+            };
+
+            $user->notify(new SystemAnnouncementNotification(
+                'Your account has been reactivated',
+                'An administrator restored your account access. You can now sign in and continue using the platform.',
+                $dashboardRoute,
+                'Open Dashboard'
+            ));
+        } catch (\Throwable $e) {
+            Log::warning('Failed to send account unsuspension notifications', [
+                'user_id' => $user->id,
+                'error' => $e->getMessage(),
+            ]);
         }
 
         return back()->with('success', 'User "' . $user->name . '" has been unsuspended.');
@@ -906,12 +1268,24 @@ class AdminController extends Controller
     {
         $user = User::with(['politician', 'voter'])->findOrFail($userId);
 
-        $user->update([
-            'kyc_status'      => 'approved',
-            'is_verified'     => true,
-            'kyc_reviewed_at' => now(),
-            'kyc_reviewer_id' => auth()->id(),
-        ]);
+        try {
+            $user->update([
+                'kyc_status'      => 'approved',
+                'is_verified'     => true,
+                'kyc_reviewed_at' => now(),
+                'kyc_reviewer_id' => auth()->id(),
+            ]);
+        } catch (\Exception $e) {
+            // Fallback if kyc_reviewed_at or kyc_reviewer_id columns don't exist in staging
+            Log::warning('KYC approval partial update (missing migration columns)', [
+                'user_id' => $userId,
+                'error'   => $e->getMessage(),
+            ]);
+            $user->update([
+                'kyc_status'  => 'approved',
+                'is_verified' => true,
+            ]);
+        }
 
         if ($user->politician) {
             $user->politician->update(['kyc_status' => 'approved', 'verified_official' => true]);
@@ -938,37 +1312,71 @@ class AdminController extends Controller
      */
     public function rejectKyc(Request $request, $userId)
     {
-        $request->validate([
-            'reason' => ['nullable', 'string', 'max:500'],
-        ]);
-
-        $user = User::with(['politician', 'voter'])->findOrFail($userId);
-
-        $user->update([
-            'kyc_status'           => 'rejected',
-            'kyc_reviewed_at'      => now(),
-            'kyc_reviewer_id'      => auth()->id(),
-            'kyc_rejection_reason' => $request->input('reason', 'Identity could not be verified.'),
-        ]);
-
-        if ($user->politician) {
-            $user->politician->update(['kyc_status' => 'rejected']);
-        }
-
-        // Notify the user their KYC has been rejected with the reason
         try {
-            Mail::to($user->email)->queue(new KycRejectedMail(
-                $user,
-                $request->input('reason', 'Identity could not be verified.')
-            ));
-        } catch (\Exception $e) {
-            \Illuminate\Support\Facades\Log::warning('Failed to send KYC rejected email', [
-                'user_id' => $user->id,
-                'error'   => $e->getMessage(),
+            $request->validate([
+                'reason' => ['nullable', 'string', 'max:500'],
             ]);
+
+            $user = User::with(['politician', 'voter'])->findOrFail($userId);
+            $reason = (string) $request->input('reason', 'Identity could not be verified.');
+
+            $userUpdate = [
+                'kyc_status' => 'rejected',
+            ];
+
+            if (Schema::hasColumn('users', 'kyc_reviewed_at')) {
+                $userUpdate['kyc_reviewed_at'] = now();
+            }
+            if (Schema::hasColumn('users', 'kyc_reviewer_id')) {
+                $userUpdate['kyc_reviewer_id'] = auth()->id();
+            }
+            if (Schema::hasColumn('users', 'kyc_rejection_reason')) {
+                $userUpdate['kyc_rejection_reason'] = $reason;
+            }
+
+            DB::table('users')->where('id', $user->id)->update($userUpdate);
+            $user->refresh();
+
+            if ($user->politician) {
+                try {
+                    if (Schema::hasColumn('politicians', 'kyc_status')) {
+                        DB::table('politicians')
+                            ->where('id', $user->politician->id)
+                            ->update(['kyc_status' => 'rejected']);
+                    }
+                } catch (\Throwable $e) {
+                    Log::warning('Failed to sync politician KYC rejection status', [
+                        'user_id' => $user->id,
+                        'politician_id' => $user->politician->id,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+
+            // Notify the user their KYC has been rejected with the reason
+            try {
+                Mail::to($user->email)->queue(new KycRejectedMail($user, $reason));
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('Failed to send KYC rejected email', [
+                    'user_id' => $user->id,
+                    'error'   => $e->getMessage(),
+                ]);
+            }
+        } catch (\Throwable $e) {
+            Log::error('KYC rejection failed', [
+                'user_id' => $userId,
+                'admin_id' => auth()->id(),
+                'error' => $e->getMessage(),
+            ]);
+
+            return redirect()
+                ->route('admin.kyc.index')
+                ->withErrors(['error' => 'Unable to reject KYC right now. Please try again.']);
         }
 
-        return back()->with('success', 'KYC rejected for ' . $user->name . '.');
+        return redirect()
+            ->route('admin.kyc.index')
+            ->with('success', 'KYC rejected for ' . ($user->name ?: 'user') . '.');
     }
 
     /**
@@ -1529,11 +1937,13 @@ class AdminController extends Controller
             'campaign_approved'     => 'emails.campaign-approved',
             'campaign_rejected'     => 'emails.campaign-rejected',
             'campaign_completed'    => 'emails.campaign-completed',
+            'campaign_reactivated'  => 'emails.campaign-reactivated',
             'credits_purchased'     => 'emails.credits-purchased',
             'credits_refunded'      => 'emails.credits-refunded',
             'low_balance_alert'     => 'emails.low-balance-alert',
             'payout_processed'      => 'emails.payout-processed',
             'welcome'               => 'emails.welcome',
+            'account_unsuspended'   => 'emails.account-unsuspended',
             'admin_new_user'        => 'emails.admin-new-user',
             'admin_password_reset'  => 'emails.admin-password-reset',
             'admin_account_created' => 'emails.admin-account-created',
@@ -1568,7 +1978,7 @@ class AdminController extends Controller
         // Template-specific variable names (matching each Mail class's constructor)
 
         // Campaign templates expect a $campaign object (PoliticalCampaign), not flat strings.
-        if (in_array($template->key, ['campaign_approved', 'campaign_rejected', 'campaign_completed'], true)) {
+        if (in_array($template->key, ['campaign_approved', 'campaign_rejected', 'campaign_completed', 'campaign_reactivated'], true)) {
             $fakePoliticianUser             = new \stdClass();
             $fakePoliticianUser->first_name = 'Jane';
 

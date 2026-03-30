@@ -50,21 +50,42 @@ return Application::configure(basePath: dirname(__DIR__))
                 ->with('status', 'Your session expired. You have been signed out. Please sign in again.');
         };
 
+        $safePageExpiredRedirect = function (Request $request) {
+            $target = url()->previous();
+
+            if (empty($target) || $target === $request->fullUrl()) {
+                $target = route('login');
+            }
+
+            return redirect()
+                ->to($target)
+                ->withInput($request->except(['_token', 'password', 'password_confirmation']))
+                ->withErrors(['session' => 'Page expired. Please refresh and try again.']);
+        };
+
         $exceptions->render(function (TokenMismatchException $e, Request $request) use ($safeLogoutRedirect) {
             if ($request->isMethod('POST') && ($request->routeIs('logout') || $request->is('logout'))) {
                 return $safeLogoutRedirect($request);
             }
 
+            if ($request->isMethod('POST') && !$request->expectsJson()) {
+                return $safePageExpiredRedirect($request);
+            }
+
             return null;
         });
 
-        $exceptions->render(function (HttpExceptionInterface $e, Request $request) use ($safeLogoutRedirect) {
+        $exceptions->render(function (HttpExceptionInterface $e, Request $request) use ($safeLogoutRedirect, $safePageExpiredRedirect) {
             if (
                 $e->getStatusCode() === 419
                 && $request->isMethod('POST')
                 && ($request->routeIs('logout') || $request->is('logout'))
             ) {
                 return $safeLogoutRedirect($request);
+            }
+
+            if ($e->getStatusCode() === 419 && $request->isMethod('POST') && !$request->expectsJson()) {
+                return $safePageExpiredRedirect($request);
             }
 
             return null;

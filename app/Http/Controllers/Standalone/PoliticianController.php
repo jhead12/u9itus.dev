@@ -2,6 +2,10 @@
 
 namespace App\Http\Controllers\Standalone;
 
+use App\Enums\ApprovalStatus;
+use App\Enums\CampaignStatus;
+use App\Enums\CampaignType;
+use App\Enums\PaymentStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CreateCampaignRequest;
 use App\Http\Requests\SaveCampaignDraftRequest;
@@ -10,6 +14,7 @@ use App\Models\CampaignTransaction;
 use App\Models\PoliticalCampaign;
 use App\Models\Politician;
 use App\Models\PoliticianCredit;
+use App\Models\PoliticianTopic;
 use App\Models\ReferralVisit;
 use App\Models\VoterWatchReport;
 use App\Services\StripePaymentService;
@@ -35,6 +40,22 @@ use Throwable;
  */
 class PoliticianController extends Controller
 {
+    /**
+     * Load active campaign topics for form dropdowns without hard-failing the page.
+     */
+    private function safeActiveTopics()
+    {
+        try {
+            return PoliticianTopic::active()->orderBy('sort_order')->get();
+        } catch (Throwable $e) {
+            Log::warning('Unable to load politician topics for campaign form', [
+                'error' => $e->getMessage(),
+            ]);
+
+            return collect();
+        }
+    }
+
     /**
      * Store a campaign video on the configured disk and return its public URL.
      */
@@ -199,7 +220,28 @@ class PoliticianController extends Controller
         $politician = Auth::user()->politician;
         abort_unless($politician, 403);
 
-        $query = $politician->campaigns()->orderByDesc('created_at');
+        $validCampaignStatuses = array_column(CampaignStatus::cases(), 'value');
+        $validCampaignTypes = array_column(CampaignType::cases(), 'value');
+        $validApprovalStatuses = array_column(ApprovalStatus::cases(), 'value');
+        $validPaymentStatuses = array_column(PaymentStatus::cases(), 'value');
+
+        // Guard against legacy/invalid enum values in staging data that can
+        // throw ValueError during Eloquent enum casting.
+        $query = $politician->campaigns()
+            ->whereIn('status', $validCampaignStatuses)
+            ->where(function ($q) use ($validCampaignTypes): void {
+                $q->whereNull('campaign_type')
+                    ->orWhereIn('campaign_type', $validCampaignTypes);
+            })
+            ->where(function ($q) use ($validApprovalStatuses): void {
+                $q->whereNull('approval_status')
+                    ->orWhereIn('approval_status', $validApprovalStatuses);
+            })
+            ->where(function ($q) use ($validPaymentStatuses): void {
+                $q->whereNull('payment_status')
+                    ->orWhereIn('payment_status', $validPaymentStatuses);
+            })
+            ->orderByDesc('created_at');
         
         // Apply status filter if provided
         if ($statusFilter = $request->get('status')) {
@@ -229,13 +271,14 @@ class PoliticianController extends Controller
             $this->activePaymentMode()
         );
         $states = config('u9itus.us_states', []);
+        $topics = $this->safeActiveTopics();
         $governanceLevels = config('u9itus.governance_levels', [
             'Federal' => 'Federal', 'State' => 'State', 'County' => 'County',
             'City' => 'City', 'School Board' => 'School Board',
         ]);
 
         return view('standalone.politician.campaigns.create', compact(
-            'politician', 'revenuePerView', 'creditBalance', 'states', 'governanceLevels'
+            'politician', 'revenuePerView', 'creditBalance', 'states', 'governanceLevels', 'topics'
         ));
     }
 
@@ -377,20 +420,31 @@ class PoliticianController extends Controller
     public function editCampaign(PoliticalCampaign $campaign)
     {
         $politician = Auth::user()->politician;
+        $rawStatus = (string) ($campaign->getRawOriginal('status') ?? '');
         abort_unless(
             $politician && (int) $campaign->politician_id === (int) $politician->id
-            && in_array($campaign->status?->value ?? $campaign->status, ['draft', 'paused', 'scheduled']),
+            && in_array($rawStatus, ['draft', 'paused', 'scheduled'], true),
             403
         );
 
         $states = config('u9itus.us_states', []);
+        $topics = $this->safeActiveTopics();
+        $campaignTopicIds = [];
+        try {
+            $campaignTopicIds = $campaign->topics()->pluck('id')->toArray();
+        } catch (Throwable $e) {
+            Log::warning('Unable to load campaign topics for edit form', [
+                'campaign_id' => $campaign->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
         $governanceLevels = config('u9itus.governance_levels', [
             'Federal' => 'Federal', 'State' => 'State', 'County' => 'County',
             'City' => 'City', 'School Board' => 'School Board',
         ]);
 
         return view('standalone.politician.campaigns.edit', compact(
-            'campaign', 'politician', 'states', 'governanceLevels'
+            'campaign', 'politician', 'states', 'governanceLevels', 'topics', 'campaignTopicIds'
         ));
     }
 
@@ -398,9 +452,10 @@ class PoliticianController extends Controller
     public function updateCampaign(UpdateCampaignRequest $request, PoliticalCampaign $campaign)
     {
         $politician = Auth::user()->politician;
+        $rawStatus = (string) ($campaign->getRawOriginal('status') ?? '');
         abort_unless(
             $politician && (int) $campaign->politician_id === (int) $politician->id
-            && in_array($campaign->status?->value ?? $campaign->status, ['draft', 'paused', 'scheduled']),
+            && in_array($rawStatus, ['draft', 'paused', 'scheduled'], true),
             403
         );
 
@@ -513,6 +568,12 @@ class PoliticianController extends Controller
             422,
             'Please upload a video or set a live stream URL before submitting.'
         );
+
+        if (! $campaign->governance_level) {
+            return back()->withErrors([
+                'governance_level' => 'Please select a governance level before submitting this campaign for review.',
+            ]);
+        }
 
         // Credit gate: politician must hold enough balance to cover the full campaign budget.
         $balance = $this->computeModeAwareCreditBalance(
