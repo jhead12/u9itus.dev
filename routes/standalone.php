@@ -305,6 +305,7 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         
         // User Management
         Route::get('/users', [AdminController::class, 'users'])->name('users.index');
+        Route::post('/users/bulk-action', [AdminController::class, 'bulkUserAction'])->name('users.bulk-action');
         Route::get('/users/{user}', [AdminController::class, 'showUser'])->name('users.show');
         Route::match(['PUT', 'POST'], '/users/{user}/suspend', [AdminController::class, 'suspendUser'])->name('users.suspend');
         Route::match(['PUT', 'POST'], '/users/{user}/unsuspend', [AdminController::class, 'unsuspendUser'])->name('users.unsuspend');

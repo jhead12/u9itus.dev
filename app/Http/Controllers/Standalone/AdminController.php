@@ -583,6 +583,132 @@ class AdminController extends Controller
     }
 
     /**
+     * Apply a bulk action to selected users from the users index page.
+     */
+    public function bulkUserAction(Request $request)
+    {
+        $validated = $request->validate([
+            'action' => ['required', 'in:suspend,unsuspend,kyc_approve,kyc_reject'],
+            'user_ids' => ['required', 'array', 'min:1'],
+            'user_ids.*' => ['integer', 'exists:users,id'],
+        ]);
+
+        $action = (string) $validated['action'];
+        $userIds = collect($validated['user_ids'])
+            ->map(static fn ($id) => (int) $id)
+            ->unique()
+            ->values();
+
+        $users = User::query()
+            ->with(['politician', 'voter'])
+            ->whereIn('id', $userIds)
+            ->get();
+
+        if ($users->isEmpty()) {
+            return back()->withErrors(['error' => 'No users were selected.']);
+        }
+
+        $updated = 0;
+        $skippedAdmins = 0;
+        $reviewedAt = now();
+
+        foreach ($users as $user) {
+            if ($user->user_type === 'admin' && in_array($action, ['suspend', 'kyc_approve', 'kyc_reject'], true)) {
+                $skippedAdmins++;
+                continue;
+            }
+
+            if ($action === 'suspend') {
+                if ($user->isSuspended()) {
+                    continue;
+                }
+
+                $user->update([
+                    'suspended_at' => now(),
+                    'suspension_reason' => 'Suspended by administrator (bulk action).',
+                ]);
+
+                if ($user->voter) {
+                    $user->voter->update(['is_active' => false]);
+                }
+                if ($user->politician) {
+                    $user->politician->update(['is_active' => false]);
+                }
+
+                $updated++;
+                continue;
+            }
+
+            if ($action === 'unsuspend') {
+                if (! $user->isSuspended()) {
+                    continue;
+                }
+
+                $user->update([
+                    'suspended_at' => null,
+                    'suspension_reason' => null,
+                ]);
+
+                if ($user->voter) {
+                    $user->voter->update(['is_active' => true]);
+                }
+                if ($user->politician) {
+                    $user->politician->update(['is_active' => true]);
+                }
+
+                $updated++;
+                continue;
+            }
+
+            if ($action === 'kyc_approve') {
+                $user->update([
+                    'kyc_status' => 'approved',
+                    'kyc_reviewed_at' => $reviewedAt,
+                    'kyc_reviewer_id' => auth()->id(),
+                    'kyc_rejection_reason' => null,
+                ]);
+
+                $updated++;
+                continue;
+            }
+
+            $user->update([
+                'kyc_status' => 'rejected',
+                'kyc_reviewed_at' => $reviewedAt,
+                'kyc_reviewer_id' => auth()->id(),
+                'kyc_rejection_reason' => 'Rejected by administrator (bulk action).',
+            ]);
+
+            $updated++;
+        }
+
+        $labels = [
+            'suspend' => 'suspended',
+            'unsuspend' => 'unsuspended',
+            'kyc_approve' => 'KYC approved for',
+            'kyc_reject' => 'KYC rejected for',
+        ];
+
+        if ($updated === 0) {
+            $noneAppliedMessage = 'No selected users were eligible for that action.';
+
+            if ($skippedAdmins > 0) {
+                $noneAppliedMessage .= ' Admin accounts were skipped.';
+            }
+
+            return back()->withErrors(['error' => $noneAppliedMessage]);
+        }
+
+        $message = $updated . ' user(s) ' . $labels[$action] . '.';
+
+        if ($skippedAdmins > 0) {
+            $message .= ' ' . $skippedAdmins . ' admin account(s) skipped.';
+        }
+
+        return back()->with('success', $message);
+    }
+
+    /**
      * Show user details.
      */
     public function showUser($userId)

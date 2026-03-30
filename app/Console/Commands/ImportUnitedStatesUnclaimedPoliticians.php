@@ -10,6 +10,7 @@ use App\Enums\PaymentStatus;
 use App\Models\ElectionCandidateRecord;
 use App\Models\PoliticalCampaign;
 use App\Models\Politician;
+use App\Services\PoliticianFetchers\CongressCombinedLegislatorsFetcher;
 use App\Services\PoliticianFetchers\CongressCurrentLegislatorsFetcher;
 use App\Services\PoliticianFetchers\CongressHistoricalLegislatorsFetcher;
 use Carbon\Carbon;
@@ -18,7 +19,7 @@ use Illuminate\Console\Command;
 class ImportUnitedStatesUnclaimedPoliticians extends Command
 {
     protected $signature = 'politicians:import-unclaimed-us
-        {--fetcher=current : Comma-separated fetchers: current,historical}
+        {--fetcher=current : Comma-separated fetchers: current,historical,combined}
         {--state=* : Two-letter state filters (repeat option to include multiple states)}
         {--include-former : Include officials whose latest term has ended}
         {--current-url=https://unitedstates.github.io/congress-legislators/legislators-current.json : Override current legislators URL}
@@ -34,6 +35,7 @@ class ImportUnitedStatesUnclaimedPoliticians extends Command
     protected array $availableFetchers = [
         'current' => CongressCurrentLegislatorsFetcher::class,
         'historical' => CongressHistoricalLegislatorsFetcher::class,
+        'combined' => CongressCombinedLegislatorsFetcher::class,
     ];
 
     public function handle(): int
@@ -44,7 +46,7 @@ class ImportUnitedStatesUnclaimedPoliticians extends Command
 
         $selectedFetchers = $this->parseFetcherSelection((string) $this->option('fetcher'));
         if ($selectedFetchers === []) {
-            $this->error('No valid fetchers selected. Supported fetchers: current,historical');
+            $this->error('No valid fetchers selected. Supported fetchers: current,historical,combined');
 
             return self::FAILURE;
         }
@@ -142,6 +144,8 @@ class ImportUnitedStatesUnclaimedPoliticians extends Command
             'url' => $fetcherKey === 'historical'
                 ? (string) $this->option('historical-url')
                 : (string) $this->option('current-url'),
+            'current_url' => (string) $this->option('current-url'),
+            'historical_url' => (string) $this->option('historical-url'),
         ];
 
         try {
@@ -469,21 +473,23 @@ class ImportUnitedStatesUnclaimedPoliticians extends Command
 
     protected function formatScalar(mixed $value): string
     {
-        $formatted = 'null';
-
         if ($value === null || $value === '') {
-            $formatted = 'null';
-        } elseif (is_array($value)) {
-            $formatted = json_encode($value, JSON_UNESCAPED_SLASHES) ?: 'array';
-        } elseif (is_bool($value)) {
-            $formatted = $value ? 'true' : 'false';
-        } elseif (is_numeric($value)) {
-            $formatted = (string) $value;
-        } else {
-            $formatted = str_replace(['\n', '\r', ';'], [' ', ' ', ','], (string) $value);
+            return 'null';
         }
 
-        return $formatted;
+        if (is_array($value)) {
+            return json_encode($value, JSON_UNESCAPED_SLASHES) ?: 'array';
+        }
+
+        if (is_bool($value)) {
+            return $value ? 'true' : 'false';
+        }
+
+        if (is_numeric($value)) {
+            return (string) $value;
+        }
+
+        return str_replace(['\n', '\r', ';'], [' ', ' ', ','], (string) $value);
     }
 
     /**

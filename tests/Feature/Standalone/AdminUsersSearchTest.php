@@ -93,3 +93,56 @@ test('admin can filter users by role kyc and account status', function () {
         ->assertDontSee('Approved Suspended Politician')
         ->assertDontSee('Approved Active Voter');
 });
+
+test('admin can bulk suspend selected users while skipping admins', function () {
+    $admin = makeAdminForUserSearchTests();
+
+    $targetUser = User::factory()->create([
+        'name' => 'Bulk Suspend Target',
+        'email' => 'bulk.suspend.target@example.org',
+        'user_type' => 'voter',
+        'suspended_at' => null,
+    ]);
+
+    $otherAdmin = User::factory()->create([
+        'name' => 'Should Not Suspend Admin',
+        'email' => 'should.not.suspend.admin@example.org',
+        'user_type' => 'admin',
+        'suspended_at' => null,
+    ]);
+
+    $this->actingAs($admin)
+        ->post(route('admin.users.bulk-action'), [
+            'action' => 'suspend',
+            'user_ids' => [$targetUser->id, $otherAdmin->id],
+        ])
+        ->assertRedirect();
+
+    expect($targetUser->fresh()->suspended_at)->not->toBeNull();
+    expect($otherAdmin->fresh()->suspended_at)->toBeNull();
+});
+
+test('admin can bulk approve kyc for selected users', function () {
+    $admin = makeAdminForUserSearchTests();
+
+    $targetUser = User::factory()->create([
+        'name' => 'Bulk KYC Approve Target',
+        'email' => 'bulk.kyc.target@example.org',
+        'user_type' => 'voter',
+        'kyc_status' => 'pending',
+        'kyc_reviewed_at' => null,
+    ]);
+
+    $this->actingAs($admin)
+        ->post(route('admin.users.bulk-action'), [
+            'action' => 'kyc_approve',
+            'user_ids' => [$targetUser->id],
+        ])
+        ->assertRedirect();
+
+    $targetUser = $targetUser->fresh();
+
+    expect($targetUser->kyc_status)->toBe('approved');
+    expect($targetUser->kyc_reviewed_at)->not->toBeNull();
+    expect($targetUser->kyc_reviewer_id)->toBe($admin->id);
+});
