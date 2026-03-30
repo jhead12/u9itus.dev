@@ -12,6 +12,56 @@
     </div>
     @endif
 
+    <form method="GET" action="{{ route('admin.users.index') }}"
+        class="flex flex-col lg:flex-row gap-3 bg-slate-800/50 border border-slate-700/50 rounded-xl px-5 py-4">
+        <div class="flex-1 min-w-0">
+            <input
+                type="text"
+                name="search"
+                value="{{ request('search') }}"
+                placeholder="Search by name, email, phone, ID, city, state, or office..."
+                class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/20 transition"
+            >
+        </div>
+        <div>
+            <select name="role"
+                class="w-full lg:w-auto bg-slate-900/60 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-300 focus:outline-none focus:border-emerald-500/50 transition">
+                <option value="">All Roles</option>
+                <option value="admin" {{ request('role') === 'admin' ? 'selected' : '' }}>Admin</option>
+                <option value="politician" {{ request('role') === 'politician' ? 'selected' : '' }}>Politician</option>
+                <option value="voter" {{ request('role') === 'voter' ? 'selected' : '' }}>Voter</option>
+            </select>
+        </div>
+        <div>
+            <select name="kyc"
+                class="w-full lg:w-auto bg-slate-900/60 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-300 focus:outline-none focus:border-emerald-500/50 transition">
+                <option value="">All KYC</option>
+                <option value="approved" {{ request('kyc') === 'approved' ? 'selected' : '' }}>Approved</option>
+                <option value="pending" {{ request('kyc') === 'pending' ? 'selected' : '' }}>Pending</option>
+                <option value="rejected" {{ request('kyc') === 'rejected' ? 'selected' : '' }}>Rejected</option>
+            </select>
+        </div>
+        <div>
+            <select name="account_status"
+                class="w-full lg:w-auto bg-slate-900/60 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-300 focus:outline-none focus:border-emerald-500/50 transition">
+                <option value="">All Account Status</option>
+                <option value="active" {{ request('account_status') === 'active' ? 'selected' : '' }}>Active</option>
+                <option value="unverified" {{ request('account_status') === 'unverified' ? 'selected' : '' }}>Unverified</option>
+                <option value="suspended" {{ request('account_status') === 'suspended' ? 'selected' : '' }}>Suspended</option>
+            </select>
+        </div>
+        <button type="submit"
+            class="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-white text-sm font-semibold transition shrink-0">
+            Apply
+        </button>
+        @if(request('search') || request('role') || request('kyc') || request('account_status'))
+        <a href="{{ route('admin.users.index') }}"
+            class="px-3 py-2 rounded-lg bg-slate-700/50 hover:bg-slate-700 text-slate-400 text-sm transition shrink-0 text-center">
+            Clear
+        </a>
+        @endif
+    </form>
+
     <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl overflow-hidden">
         <div class="px-5 py-4 border-b border-slate-700/50 flex items-center justify-between">
             <h3 class="text-sm font-semibold text-white">All Users</h3>
@@ -76,7 +126,12 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="6" class="px-5 py-8 text-center text-sm text-slate-500">No users found.</td>
+                        <td colspan="6" class="px-5 py-8 text-center text-sm text-slate-500">
+                            No users found.
+                            @if(request('search') || request('role') || request('kyc') || request('account_status'))
+                                Try clearing or adjusting your filters.
+                            @endif
+                        </td>
                     </tr>
                     @endforelse
                 </tbody>

@@ -510,11 +510,74 @@ class AdminController extends Controller
     /**
      * List all users.
      */
-    public function users()
+    public function users(Request $request)
     {
-        $users = User::with(['politician', 'voter'])
+        $search = trim((string) $request->query('search', ''));
+        $role = (string) $request->query('role', '');
+        $kyc = (string) $request->query('kyc', '');
+        $accountStatus = (string) $request->query('account_status', '');
+
+        $allowedRoles = ['admin', 'politician', 'voter'];
+        $allowedKycStatuses = ['approved', 'pending', 'rejected'];
+        $allowedAccountStatuses = ['active', 'unverified', 'suspended'];
+
+        $usersQuery = User::query()->with(['politician', 'voter']);
+
+        if ($search !== '') {
+            $likeSearch = '%' . str_replace(['%', '_'], ['\\%', '\\_'], $search) . '%';
+
+            $usersQuery->where(function (Builder $query) use ($search, $likeSearch) {
+                $query->where('name', 'like', $likeSearch)
+                    ->orWhere('email', 'like', $likeSearch)
+                    ->orWhere('phone', 'like', $likeSearch)
+                    ->orWhereHas('politician', function (Builder $politicianQuery) use ($likeSearch) {
+                        $politicianQuery->where('full_name', 'like', $likeSearch)
+                            ->orWhere('political_office', 'like', $likeSearch)
+                            ->orWhere('city', 'like', $likeSearch)
+                            ->orWhere('state', 'like', $likeSearch);
+                    })
+                    ->orWhereHas('voter', function (Builder $voterQuery) use ($likeSearch) {
+                        $voterQuery->where('email', 'like', $likeSearch)
+                            ->orWhere('city', 'like', $likeSearch)
+                            ->orWhere('state', 'like', $likeSearch);
+                    });
+
+                if (ctype_digit($search)) {
+                    $query->orWhere('id', (int) $search);
+                }
+            });
+        }
+
+        if (in_array($role, $allowedRoles, true)) {
+            $usersQuery->where('user_type', $role);
+        }
+
+        if (in_array($kyc, $allowedKycStatuses, true)) {
+            $usersQuery->where('kyc_status', $kyc);
+        }
+
+        if (in_array($accountStatus, $allowedAccountStatuses, true)) {
+            $usersQuery->where(function (Builder $query) use ($accountStatus) {
+                if ($accountStatus === 'suspended') {
+                    $query->whereNotNull('suspended_at');
+                    return;
+                }
+
+                if ($accountStatus === 'active') {
+                    $query->whereNull('suspended_at')
+                        ->whereNotNull('email_verified_at');
+                    return;
+                }
+
+                $query->whereNull('suspended_at')
+                    ->whereNull('email_verified_at');
+            });
+        }
+
+        $users = $usersQuery
             ->latest()
-            ->paginate(30);
+            ->paginate(30)
+            ->withQueryString();
 
         return view('standalone.admin.users', compact('users'));
     }
