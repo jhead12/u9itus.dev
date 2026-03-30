@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Validator;
 
 class UpdateCampaignRequest extends FormRequest
 {
@@ -48,8 +49,107 @@ class UpdateCampaignRequest extends FormRequest
             'topic_ids'                  => ['nullable', 'array', 'max:5'],
             'topic_ids.*'                => ['integer', 'exists:politician_topics,id'],
             'intro_text'                 => ['nullable', 'string', 'max:1000'],
-            'qa_items'                   => ['nullable', 'json'],
-            'engagement_survey'          => ['nullable', 'json'],
+            'qa_items'                   => ['nullable', 'array'],
+            'qa_items.*.question'        => ['nullable', 'string', 'max:500'],
+            'qa_items.*.answer'          => ['nullable', 'string', 'max:2000'],
+            'engagement_survey'          => ['nullable', 'array'],
+            'engagement_survey.question' => ['nullable', 'string', 'max:200'],
+            'engagement_survey.options'  => ['nullable', 'array'],
+            'engagement_survey.options.*.text'  => ['nullable', 'string', 'max:100'],
+            'engagement_survey.options.*.value' => ['nullable', 'string', 'max:10'],
         ];
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            $this->validateQaItems($validator);
+            $this->validateEngagementSurvey($validator);
+        });
+    }
+
+    private function validateQaItems(Validator $validator): void
+    {
+        $qaItems = $this->parseArrayInput($this->input('qa_items'));
+        if ($this->has('qa_items') && ! is_array($qaItems)) {
+            $validator->errors()->add('qa_items', 'Q&A items must be valid structured data.');
+            return;
+        }
+
+        if (! is_array($qaItems)) {
+            return;
+        }
+
+        $nonEmptyItems = collect($qaItems)
+            ->filter(fn ($item) => is_array($item))
+            ->map(fn ($item) => [
+                'question' => trim((string) ($item['question'] ?? '')),
+                'answer'   => trim((string) ($item['answer'] ?? '')),
+            ])
+            ->filter(fn ($item) => $item['question'] !== '' || $item['answer'] !== '')
+            ->values();
+
+        foreach ($nonEmptyItems as $idx => $item) {
+            if ($item['question'] === '' || $item['answer'] === '') {
+                $validator->errors()->add('qa_items', "Q&A pair at index {$idx} must include both a question and an answer.");
+                break;
+            }
+        }
+    }
+
+    private function validateEngagementSurvey(Validator $validator): void
+    {
+        $survey = $this->parseArrayInput($this->input('engagement_survey'));
+        if ($this->has('engagement_survey') && ! is_array($survey)) {
+            $validator->errors()->add('engagement_survey', 'Engagement survey must be valid structured data.');
+            return;
+        }
+
+        if (! is_array($survey)) {
+            return;
+        }
+
+        $question = trim((string) ($survey['question'] ?? ''));
+        $options = collect($survey['options'] ?? [])
+            ->filter(fn ($option) => is_array($option))
+            ->map(fn ($option) => trim((string) ($option['text'] ?? '')))
+            ->filter(fn ($text) => $text !== '')
+            ->values();
+
+        // Survey is optional. Ignore untouched/default empty survey fields.
+        if ($question === '' && $options->isEmpty()) {
+            return;
+        }
+
+        if ($question === '') {
+            $validator->errors()->add('engagement_survey', 'Survey question is required when adding a survey.');
+        }
+
+        if ($options->count() < 2) {
+            $validator->errors()->add('engagement_survey', 'Survey must have at least 2 answer options.');
+        }
+    }
+
+    /**
+     * @param mixed $input
+     * @return array<int|string, mixed>|null
+     */
+    private function parseArrayInput($input): ?array
+    {
+        $parsed = null;
+
+        if (is_array($input)) {
+            $parsed = $input;
+        } elseif (is_string($input)) {
+            $trimmed = trim($input);
+            if ($trimmed !== '') {
+                $decoded = json_decode($trimmed, true);
+                if (is_array($decoded)) {
+                    $parsed = $decoded;
+                }
+            }
+        }
+
+        return $parsed;
     }
 }
