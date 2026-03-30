@@ -1,18 +1,18 @@
 {
-  "name": "U9itusMobile",
-  "displayName": "U9itus",
-  "version": "1.0.0",
-  "description": "U9itus - Political Loyalty Ads Platform",
-  "main": "index.ts",
-  "scripts": {
-    "android": "react-native run-android",
-    "ios": "react-native run-ios",
-    "start": "react-native start",
-    "test": "jest",
-    "lint": "eslint .",
-    "format": "prettier --write \"src/**/*.{ts,tsx}\""
-  },
-  "keywords": [],
-  "author": "Head Enterprises",
-  "license": "PROPRIETARY"
+    "name": "U9itusMobile",
+    "displayName": "U9itus",
+    "version": "1.0.0",
+    "description": "U9itus - Political Loyalty Ads Platform",
+    "main": "index.ts",
+    "scripts": {
+        "android": "react-native run-android",
+        "ios": "react-native run-ios",
+        "start": "react-native start",
+        "test": "jest",
+        "lint": "eslint .",
+        "format": "prettier --write \"src/**/*.{ts,tsx}\""
+    },
+    "keywords": [],
+    "author": "Head Enterprises",
+    "license": "PROPRIETARY"
 }

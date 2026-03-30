@@ -1,85 +1,86 @@
 {
-  "name": "u9itus-mobile",
-  "version": "1.0.0",
-  "description": "U9itus Mobile App - Political Loyalty Ads Platform (iOS, Android, macOS)",
-  "private": true,
-  "scripts": {
-    "start": "react-native start",
-    "android": "react-native run-android",
-    "ios": "react-native run-ios",
-    "macos": "react-native run-macos",
-    "web": "react-native-web start",
-    "build:android": "cd android && ./gradlew assembleRelease",
-    "build:ios": "xcodebuild -workspace ios/U9itusMobile.xcworkspace -scheme U9itusMobile -configuration Release",
-    "test": "jest",
-    "test:watch": "jest --watch",
-    "lint": "eslint .",
-    "format": "prettier --write \"src/**/*.{js,jsx,ts,tsx}\"",
-    "pods": "cd ios && pod install && cd .."
-  },
-  "keywords": [
-    "react-native",
-    "politics",
-    "voter-engagement",
-    "video-streaming",
-    "webrtc"
-  ],
-  "author": "Head Enterprises",
-  "license": "PROPRIETARY",
-  "dependencies": {
-    "react": "^18.2.0",
-    "react-native": "^0.73.0",
-    "@react-native-camera-roll/camera-roll": "^7.5.0",
-    "@react-native-community/video": "^6.0.0",
-    "react-native-camera": "^4.2.1",
-    "react-native-video": "^5.2.1",
-    "react-native-gesture-handler": "^2.14.0",
-    "react-native-reanimated": "^3.5.0",
-    "@react-navigation/native": "^6.1.9",
-    "@react-navigation/bottom-tabs": "^6.5.11",
-    "@react-navigation/stack": "^6.3.19",
-    "react-native-screens": "^3.26.0",
-    "react-native-safe-area-context": "^4.7.2",
-    "axios": "^1.6.0",
-    "@react-native-async-storage/async-storage": "^1.21.0",
-    "@react-native-firebase/app": "^18.0.0",
-    "@react-native-firebase/messaging": "^18.0.0",
-    "react-native-webrtc": "^111.0.0",
-    "react-native-permissions": "^3.10.0",
-    "react-native-fs": "^2.20.0",
-    "lodash": "^4.17.21",
-    "zustand": "^4.4.1",
-    "luxon": "^3.4.1"
-  },
-  "devDependencies": {
-    "@babel/core": "^7.23.0",
-    "@babel/preset-env": "^7.23.0",
-    "@babel/preset-react": "^7.23.0",
-    "@babel/preset-typescript": "^7.23.0",
-    "@react-native-community/eslint-config": "^3.2.0",
-    "@testing-library/react-native": "^12.3.0",
-    "babel-jest": "^29.7.0",
-    "eslint": "^8.51.0",
-    "jest": "^29.7.0",
-    "prettier": "^3.0.3",
-    "typescript": "^5.2.2",
-    "@types/react": "^18.2.31",
-    "@types/react-native": "^0.73.0"
-  },
-  "browserslist": {
-    "production": [
-      ">0.2%",
-      "not dead",
-      "not op_mini all"
+    "name": "u9itus-mobile",
+    "version": "1.0.0",
+    "description": "U9itus Mobile App - Political Loyalty Ads Platform (iOS, Android, macOS)",
+    "private": true,
+    "scripts": {
+        "start": "react-native start",
+        "android": "react-native run-android",
+        "ios": "react-native run-ios",
+        "macos": "react-native run-macos",
+        "web": "react-native-web start",
+        "build:android": "cd android && ./gradlew assembleRelease",
+        "build:ios": "xcodebuild -workspace ios/U9itusMobile.xcworkspace -scheme U9itusMobile -configuration Release",
+        "test": "jest",
+        "test:watch": "jest --watch",
+        "lint": "eslint .",
+        "format": "prettier --write \"src/**/*.{js,jsx,ts,tsx}\"",
+        "pods": "cd ios && pod install && cd .."
+    },
+    "keywords": [
+        "react-native",
+        "politics",
+        "voter-engagement",
+        "video-streaming",
+        "webrtc"
     ],
-    "development": [
-      "last 1 chrome version",
-      "last 1 firefox version",
-      "last 1 safari version"
-    ]
-  },
-  "engines": {
-    "node": ">=18.0.0",
-    "npm": ">=9.0.0"
-  }
+    "author": "Head Enterprises",
+    "license": "PROPRIETARY",
+    "dependencies": {
+        "react": "^18.2.0",
+        "react-native": "^0.73.0",
+        "@react-native-camera-roll/camera-roll": "^7.5.0",
+        "react-native-camera": "^4.2.1",
+        "react-native-video": "^5.2.1",
+        "react-native-gesture-handler": "^2.14.0",
+        "react-native-reanimated": "3.6.2",
+        "@react-navigation/native": "^6.1.9",
+        "@react-navigation/bottom-tabs": "^6.5.11",
+        "@react-navigation/stack": "^6.3.19",
+        "react-native-screens": "^3.26.0",
+        "react-native-safe-area-context": "^4.7.2",
+        "axios": "^1.6.0",
+        "@react-native-async-storage/async-storage": "^1.21.0",
+        "@react-native-firebase/app": "^18.0.0",
+        "@react-native-firebase/messaging": "^18.0.0",
+        "react-native-webrtc": "^111.0.0",
+        "react-native-permissions": "^3.10.0",
+        "react-native-fs": "^2.20.0",
+        "lodash": "^4.17.21",
+        "zustand": "^4.4.1",
+        "luxon": "^3.4.1"
+    },
+    "devDependencies": {
+        "@babel/core": "^7.23.0",
+        "@babel/preset-env": "^7.23.0",
+        "@babel/preset-react": "^7.23.0",
+        "@babel/preset-typescript": "^7.23.0",
+        "@react-native-community/eslint-config": "^3.2.0",
+        "@react-native/metro-config": "^0.73.0",
+        "@testing-library/react-native": "^12.3.0",
+        "babel-jest": "^29.7.0",
+        "eslint": "^8.51.0",
+        "jest": "^29.7.0",
+        "metro-minify-terser": "^0.80.9",
+        "prettier": "^3.0.3",
+        "typescript": "^5.2.2",
+        "@types/react": "^18.2.31",
+        "@types/react-native": "^0.73.0"
+    },
+    "browserslist": {
+        "production": [
+            ">0.2%",
+            "not dead",
+            "not op_mini all"
+        ],
+        "development": [
+            "last 1 chrome version",
+            "last 1 firefox version",
+            "last 1 safari version"
+        ]
+    },
+    "engines": {
+        "node": ">=18.0.0",
+        "npm": ">=9.0.0"
+    }
 }

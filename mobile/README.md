@@ -5,6 +5,7 @@
 ## 📱 Overview
 
 U9itus Mobile brings the platform to native devices with:
+
 - **Video question submission** from native camera or gallery
 - **Politician profile browsing** with live video questions
 - **Real-time notifications** via Firebase Cloud Messaging (FCM) & Apple Push Notifications (APN)
@@ -36,6 +37,7 @@ mobile/
 ## 🚀 Getting Started
 
 ### Prerequisites
+
 - **Node.js** ≥ 18.0.0
 - **npm** ≥ 9.0.0
 - **React Native CLI** (`npm install -g react-native`)
@@ -74,15 +76,17 @@ npm run macos
 ## 📡 API Integration
 
 ### Base Configuration
+
 The app communicates with the Laravel backend via `/api` endpoints:
 
 ```typescript
 // src/services/ApiClient.ts
-const baseURL = 'http://localhost:8000/api';  // Development
-const baseURL = 'https://u9itus.dev/api';     // Production
+const baseURL = "http://localhost:8000/api"; // Development
+const baseURL = "https://u9itus.dev/api"; // Production
 ```
 
 ### Authentication
+
 - Uses **Laravel Sanctum tokens**
 - Tokens stored in **AsyncStorage** (encrypted on device)
 - Auto-refresh on 401 (Unauthorized)
@@ -95,9 +99,11 @@ const { token, voter, isAuthenticated } = useAuthStore();
 ## 🎥 Video Question Camera Integration
 
 ### Component: `VideoQuestionForm`
+
 Located in `src/components/VideoQuestionForm.tsx`
 
 **Props:**
+
 - `token` (string) — Watch token from backend
 - `campaignTitle` (string) — Campaign name for UI
 - `politicianName` (string) — Politician name for UI
@@ -105,6 +111,7 @@ Located in `src/components/VideoQuestionForm.tsx`
 - `onCancel?` (callback) — Called when user cancels
 
 **Features:**
+
 - 📷 **Native camera** integration (via `react-native-camera`)
 - 📤 **Gallery picker** for video selection
 - 🎬 **Video preview** before upload
@@ -112,6 +119,7 @@ Located in `src/components/VideoQuestionForm.tsx`
 - 🎨 **Dark theme UI** (matches web app)
 
 **Example Usage:**
+
 ```typescript
 import { VideoQuestionForm } from '@/components/VideoQuestionForm';
 
@@ -127,45 +135,50 @@ import { VideoQuestionForm } from '@/components/VideoQuestionForm';
 ### Services
 
 #### VideoCaptureService
+
 ```typescript
-import VideoCaptureService from '@/services/VideoCaptureService';
+import VideoCaptureService from "@/services/VideoCaptureService";
 
 // Request permissions
 const granted = await VideoCaptureService.requestCameraPermission();
 
 // Get video metadata
-const metadata = await VideoCaptureService.getVideoMetadata('/path/to/video.mp4');
+const metadata =
+    await VideoCaptureService.getVideoMetadata("/path/to/video.mp4");
 
 // Save to temp location
-const tempPath = await VideoCaptureService.saveTempVideo('/original/path');
+const tempPath = await VideoCaptureService.saveTempVideo("/original/path");
 
 // Cleanup
 await VideoCaptureService.deleteTempVideo(tempPath);
 ```
 
 #### ApiClient
+
 ```typescript
-import ApiClient from '@/services/ApiClient';
+import ApiClient from "@/services/ApiClient";
 
 // Upload video question
 const response = await ApiClient.uploadVideoQuestion(watchToken, {
-  videoPath: '/path/to/video.mp4',
-  caption: 'Optional question text',
-  sessionUuid: 'session-uuid',
+    videoPath: "/path/to/video.mp4",
+    caption: "Optional question text",
+    sessionUuid: "session-uuid",
 });
 
 if (response.success) {
-  console.log('Video submitted!');
+    console.log("Video submitted!");
 }
 ```
 
 ## 🗂️ State Management (Zustand)
 
 ### useAuthStore
-```typescript
-import { useAuthStore } from '@/stores/authStore';
 
-const { voter, token, isAuthenticated, register, login, logout } = useAuthStore();
+```typescript
+import { useAuthStore } from "@/stores/authStore";
+
+const { voter, token, isAuthenticated, register, login, logout } =
+    useAuthStore();
 
 // Register new voter
 await useAuthStore.getState().register(email, password, fullName);
@@ -180,7 +193,9 @@ await useAuthStore.getState().logout();
 ## 🖼️ Screens
 
 ### PoliticianProfileScreen
+
 Displays:
+
 - Politician avatar, name, office, district
 - Bio section
 - Statistics (campaigns count, video questions)
@@ -188,32 +203,35 @@ Displays:
 - "Ask a Video Question" button
 
 **Props:**
+
 ```typescript
 interface PoliticianProfileScreenProps {
-  campaignId: number;
-  route?: { params?: { campaignId: number } };
-  navigation?: any;
+    campaignId: number;
+    route?: { params?: { campaignId: number } };
+    navigation?: any;
 }
 ```
 
 ## 📦 Dependencies (Key)
 
-| Package | Purpose | Version |
-|---------|---------|---------|
-| `react-native` | Framework | 0.73.0 |
-| `@react-navigation/*` | Navigation | 6.x |
-| `axios` | HTTP client | 1.6.0 |
-| `zustand` | State management | 4.4.1 |
-| `react-native-camera` | Camera access | 4.2.1 |
-| `react-native-video` | Video playback | 5.2.1 |
-| `@react-native-firebase/*` | Push notifications | 18.0.0 |
-| `react-native-webrtc` | WebRTC (Phase 12.2) | 111.0.0 |
-| `react-native-permissions` | Permissions handling | 3.10.0 |
+| Package                    | Purpose              | Version |
+| -------------------------- | -------------------- | ------- |
+| `react-native`             | Framework            | 0.73.0  |
+| `@react-navigation/*`      | Navigation           | 6.x     |
+| `axios`                    | HTTP client          | 1.6.0   |
+| `zustand`                  | State management     | 4.4.1   |
+| `react-native-camera`      | Camera access        | 4.2.1   |
+| `react-native-video`       | Video playback       | 5.2.1   |
+| `@react-native-firebase/*` | Push notifications   | 18.0.0  |
+| `react-native-webrtc`      | WebRTC (Phase 12.2)  | 111.0.0 |
+| `react-native-permissions` | Permissions handling | 3.10.0  |
 
 ## 🔧 Configuration
 
 ### Environment Variables
+
 Create `.env` file in mobile root:
+
 ```env
 API_URL=http://localhost:8000/api
 FIREBASE_PROJECT_ID=u9itus-project
@@ -221,7 +239,9 @@ FIREBASE_API_KEY=xxxxx
 ```
 
 ### TypeScript Paths
+
 Aliases configured in `tsconfig.json`:
+
 ```typescript
 "@/*": ["src/*"]
 "@components/*": ["src/components/*"]
@@ -258,6 +278,7 @@ Use platform extensions for device-specific implementations:
 ## 🚢 Building for Release
 
 ### iOS Production Build
+
 ```bash
 cd ios
 xcodebuild -workspace U9itusMobile.xcworkspace \
@@ -267,6 +288,7 @@ xcodebuild -workspace U9itusMobile.xcworkspace \
 ```
 
 ### Android Production Build
+
 ```bash
 cd android
 ./gradlew assembleRelease
@@ -275,11 +297,13 @@ cd android
 ## 📱 App Store Deployment
 
 ### iOS (App Store)
+
 1. Update version in `Info.plist`
 2. Build in Xcode: Product → Archive
 3. Validate & upload using Organizer
 
 ### Android (Google Play)
+
 1. Generate signed APK/AAB in Android Studio
 2. Upload to Google Play Console
 3. Configure release notes & rollout
@@ -287,17 +311,20 @@ cd android
 ## 🐛 Troubleshooting
 
 ### "Metro bundler crash"
+
 ```bash
 npm start -- --reset-cache
 ```
 
 ### "Native module not found"
+
 ```bash
 npm run pods        # iOS
 cd android && ./gradlew clean  # Android
 ```
 
 ### "Permission denied (camera/storage)"
+
 Ensure app has permissions in `AndroidManifest.xml` and `Info.plist`.
 
 ## 📖 Documentation
@@ -328,6 +355,7 @@ PROPRIETARY — Head Enterprises
 ---
 
 **Phase 12 Timeline:**
+
 - ✅ Mobile app scaffolding & video question foundation
 - 🔲 WebRTC integration for live feeds (Phase 12.2)
 - 🔲 Push notifications (FCM/APN) (Phase 12.3)
