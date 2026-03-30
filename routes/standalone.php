@@ -306,8 +306,8 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         // User Management
         Route::get('/users', [AdminController::class, 'users'])->name('users.index');
         Route::get('/users/{user}', [AdminController::class, 'showUser'])->name('users.show');
-        Route::put('/users/{user}/suspend', [AdminController::class, 'suspendUser'])->name('users.suspend');
-        Route::put('/users/{user}/unsuspend', [AdminController::class, 'unsuspendUser'])->name('users.unsuspend');
+        Route::match(['PUT', 'POST'], '/users/{user}/suspend', [AdminController::class, 'suspendUser'])->name('users.suspend');
+        Route::match(['PUT', 'POST'], '/users/{user}/unsuspend', [AdminController::class, 'unsuspendUser'])->name('users.unsuspend');
 
         // Candidate Matching Review
         Route::get('/candidate-matches', [AdminController::class, 'candidateMatchReviews'])->name('candidate-matches.index');

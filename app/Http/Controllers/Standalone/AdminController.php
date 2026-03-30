@@ -906,12 +906,24 @@ class AdminController extends Controller
     {
         $user = User::with(['politician', 'voter'])->findOrFail($userId);
 
-        $user->update([
-            'kyc_status'      => 'approved',
-            'is_verified'     => true,
-            'kyc_reviewed_at' => now(),
-            'kyc_reviewer_id' => auth()->id(),
-        ]);
+        try {
+            $user->update([
+                'kyc_status'      => 'approved',
+                'is_verified'     => true,
+                'kyc_reviewed_at' => now(),
+                'kyc_reviewer_id' => auth()->id(),
+            ]);
+        } catch (\Exception $e) {
+            // Fallback if kyc_reviewed_at or kyc_reviewer_id columns don't exist in staging
+            Log::warning('KYC approval partial update (missing migration columns)', [
+                'user_id' => $userId,
+                'error'   => $e->getMessage(),
+            ]);
+            $user->update([
+                'kyc_status'  => 'approved',
+                'is_verified' => true,
+            ]);
+        }
 
         if ($user->politician) {
             $user->politician->update(['kyc_status' => 'approved', 'verified_official' => true]);
@@ -944,12 +956,24 @@ class AdminController extends Controller
 
         $user = User::with(['politician', 'voter'])->findOrFail($userId);
 
-        $user->update([
-            'kyc_status'           => 'rejected',
-            'kyc_reviewed_at'      => now(),
-            'kyc_reviewer_id'      => auth()->id(),
-            'kyc_rejection_reason' => $request->input('reason', 'Identity could not be verified.'),
-        ]);
+        try {
+            $user->update([
+                'kyc_status'           => 'rejected',
+                'kyc_reviewed_at'      => now(),
+                'kyc_reviewer_id'      => auth()->id(),
+                'kyc_rejection_reason' => $request->input('reason', 'Identity could not be verified.'),
+            ]);
+        } catch (\Exception $e) {
+            // Fallback if kyc_reviewed_at, kyc_reviewer_id, or kyc_rejection_reason columns don't exist in staging
+            Log::warning('KYC rejection partial update (missing migration columns)', [
+                'user_id' => $userId,
+                'error'   => $e->getMessage(),
+            ]);
+            $user->update([
+                'kyc_status'           => 'rejected',
+                'kyc_rejection_reason' => $request->input('reason', 'Identity could not be verified.'),
+            ]);
+        }
 
         if ($user->politician) {
             $user->politician->update(['kyc_status' => 'rejected']);
