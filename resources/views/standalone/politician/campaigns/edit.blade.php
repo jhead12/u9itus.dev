@@ -4,6 +4,8 @@
 @section('page-title', 'Edit Campaign')
 
 @php
+    $campaignTypeRaw = (string) ($campaign->getRawOriginal('campaign_type') ?? '');
+    $campaignType = in_array($campaignTypeRaw, ['video', 'q_and_a', 'live_feed'], true) ? $campaignTypeRaw : 'video';
     $qaItems = is_array($campaign->qa_items ?? null) ? $campaign->qa_items : [];
     $surveyPayload = is_array($campaign->engagement_survey ?? null) ? $campaign->engagement_survey : [];
     $surveyOptions = is_array($surveyPayload['options'] ?? null) ? $surveyPayload['options'] : [];
@@ -43,9 +45,9 @@
                     <label class="block text-sm font-medium text-slate-300 mb-1.5">Campaign Type</label>
                     <select name="campaign_type" id="campaignType"
                         class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition">
-                        <option value="video" {{ old('campaign_type', $campaign->campaign_type?->value ?? $campaign->campaign_type) === 'video' ? 'selected' : '' }}>🎬 Video</option>
-                        <option value="q_and_a" {{ old('campaign_type', $campaign->campaign_type?->value ?? $campaign->campaign_type) === 'q_and_a' ? 'selected' : '' }}>❓ Q&A</option>
-                        <option value="live_feed" {{ old('campaign_type', $campaign->campaign_type?->value ?? $campaign->campaign_type) === 'live_feed' ? 'selected' : '' }}>📡 Live Feed</option>
+                        <option value="video" {{ old('campaign_type', $campaignType) === 'video' ? 'selected' : '' }}>🎬 Video</option>
+                        <option value="q_and_a" {{ old('campaign_type', $campaignType) === 'q_and_a' ? 'selected' : '' }}>❓ Q&A</option>
+                        <option value="live_feed" {{ old('campaign_type', $campaignType) === 'live_feed' ? 'selected' : '' }}>📡 Live Feed</option>
                     </select>
                 </div>
 
@@ -62,7 +64,7 @@
             </div>
 
 @php
-    $editType = old('campaign_type', $campaign->campaign_type?->value ?? $campaign->campaign_type);
+    $editType = old('campaign_type', $campaignType);
 @endphp
 
             {{-- Video fields --}}

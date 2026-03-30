@@ -420,9 +420,10 @@ class PoliticianController extends Controller
     public function editCampaign(PoliticalCampaign $campaign)
     {
         $politician = Auth::user()->politician;
+        $rawStatus = (string) ($campaign->getRawOriginal('status') ?? '');
         abort_unless(
             $politician && (int) $campaign->politician_id === (int) $politician->id
-            && in_array($campaign->status?->value ?? $campaign->status, ['draft', 'paused', 'scheduled']),
+            && in_array($rawStatus, ['draft', 'paused', 'scheduled'], true),
             403
         );
 
@@ -451,9 +452,10 @@ class PoliticianController extends Controller
     public function updateCampaign(UpdateCampaignRequest $request, PoliticalCampaign $campaign)
     {
         $politician = Auth::user()->politician;
+        $rawStatus = (string) ($campaign->getRawOriginal('status') ?? '');
         abort_unless(
             $politician && (int) $campaign->politician_id === (int) $politician->id
-            && in_array($campaign->status?->value ?? $campaign->status, ['draft', 'paused', 'scheduled']),
+            && in_array($rawStatus, ['draft', 'paused', 'scheduled'], true),
             403
         );
 
