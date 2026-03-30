@@ -12,6 +12,42 @@
     $campaignTopicIds = is_array($campaignTopicIds ?? null) ? $campaignTopicIds : [];
     $campaignTargetStates = is_array($campaign->target_states ?? null) ? $campaign->target_states : [];
     $campaignTargetCities = is_array($campaign->target_cities ?? null) ? $campaign->target_cities : [];
+
+    $liveScheduledAtValue = old('live_scheduled_at');
+    if (blank($liveScheduledAtValue)) {
+        $liveScheduledAtRaw = (string) ($campaign->getRawOriginal('live_scheduled_at') ?? '');
+        if ($liveScheduledAtRaw !== '') {
+            try {
+                $liveScheduledAtValue = \Illuminate\Support\Carbon::parse($liveScheduledAtRaw)->format('Y-m-d\\TH:i');
+            } catch (\Throwable $e) {
+                $liveScheduledAtValue = '';
+            }
+        }
+    }
+
+    $scheduledStartAtValue = old('scheduled_start_at');
+    if (blank($scheduledStartAtValue)) {
+        $scheduledStartAtRaw = (string) ($campaign->getRawOriginal('scheduled_start_at') ?? '');
+        if ($scheduledStartAtRaw !== '') {
+            try {
+                $scheduledStartAtValue = \Illuminate\Support\Carbon::parse($scheduledStartAtRaw)->format('Y-m-d\\TH:i');
+            } catch (\Throwable $e) {
+                $scheduledStartAtValue = '';
+            }
+        }
+    }
+
+    $scheduledEndAtValue = old('scheduled_end_at');
+    if (blank($scheduledEndAtValue)) {
+        $scheduledEndAtRaw = (string) ($campaign->getRawOriginal('scheduled_end_at') ?? '');
+        if ($scheduledEndAtRaw !== '') {
+            try {
+                $scheduledEndAtValue = \Illuminate\Support\Carbon::parse($scheduledEndAtRaw)->format('Y-m-d\\TH:i');
+            } catch (\Throwable $e) {
+                $scheduledEndAtValue = '';
+            }
+        }
+    }
 @endphp
 
 @section('content')
@@ -141,7 +177,7 @@
                 <div>
                     <label class="block text-sm font-medium text-slate-300 mb-1.5">Scheduled Start</label>
                     <input type="datetime-local" name="live_scheduled_at"
-                        value="{{ old('live_scheduled_at', $campaign->live_scheduled_at?->format('Y-m-d\TH:i')) }}"
+                        value="{{ $liveScheduledAtValue }}"
                         class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition" />
                 </div>
             </div>
@@ -451,7 +487,7 @@
                 <div>
                     <label class="block text-sm font-medium text-slate-300 mb-1.5">Start Date &amp; Time</label>
                     <input type="datetime-local" name="scheduled_start_at"
-                        value="{{ old('scheduled_start_at', $campaign->scheduled_start_at?->format('Y-m-d\TH:i')) }}"
+                        value="{{ $scheduledStartAtValue }}"
                         class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition" />
                     <p class="text-xs text-slate-500 mt-1">Campaign activates at this time</p>
                     @error('scheduled_start_at')<p class="text-xs text-red-400 mt-1">{{ $message }}</p>@enderror
@@ -459,7 +495,7 @@
                 <div>
                     <label class="block text-sm font-medium text-slate-300 mb-1.5">End Date &amp; Time</label>
                     <input type="datetime-local" name="scheduled_end_at"
-                        value="{{ old('scheduled_end_at', $campaign->scheduled_end_at?->format('Y-m-d\TH:i')) }}"
+                        value="{{ $scheduledEndAtValue }}"
                         class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition" />
                     <p class="text-xs text-slate-500 mt-1">Campaign auto-pauses at this time</p>
                     @error('scheduled_end_at')<p class="text-xs text-red-400 mt-1">{{ $message }}</p>@enderror
