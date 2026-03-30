@@ -20,6 +20,7 @@ use App\Models\CampaignAuditLog;
 use App\Models\CampaignTransaction;
 use App\Models\EmailTemplate;
 use App\Models\PoliticalCampaign;
+use App\Models\PoliticianCredit;
 use App\Models\Politician;
 use App\Models\User;
 use App\Models\ViewSession;
@@ -115,6 +116,25 @@ class AdminController extends Controller
     }
 
     /**
+     * Politician ids that have billing activity in the active payment mode.
+     * Used to ensure campaign monitoring reflects the currently configured Stripe mode.
+     */
+    private function modeScopedPoliticianIds(?string $mode)
+    {
+        $txPoliticianIds = $this->applyPaymentModeFilter(
+            CampaignTransaction::query()->select('politician_id')->whereNotNull('politician_id')->distinct(),
+            $mode
+        );
+
+        $creditPoliticianIds = $this->applyPaymentModeFilter(
+            PoliticianCredit::query()->select('politician_id')->whereNotNull('politician_id')->distinct(),
+            $mode
+        );
+
+        return $txPoliticianIds->union($creditPoliticianIds);
+    }
+
+    /**
      * Show the admin dashboard.
      */
     public function dashboard()
@@ -166,6 +186,9 @@ class AdminController extends Controller
      */
     public function runningCampaigns(Request $request)
     {
+        $activePaymentMode = $this->activePaymentMode();
+        $modePoliticianIds = $this->modeScopedPoliticianIds($activePaymentMode);
+
         $query = PoliticalCampaign::select('political_campaigns.*')
             ->selectRaw(
                 '(SELECT COUNT(DISTINCT voter_id) FROM view_sessions
@@ -188,6 +211,10 @@ class AdminController extends Controller
                 CampaignStatus::Scheduled->value,
             ]);
 
+        if ($activePaymentMode) {
+            $query->whereIn('politician_id', $modePoliticianIds);
+        }
+
         if ($search = $request->get('search')) {
             $query->whereHas('politician', fn ($q) =>
                 $q->where('full_name', 'like', "%{$search}%")
@@ -209,12 +236,22 @@ class AdminController extends Controller
             ->paginate(25)
             ->withQueryString();
 
+        $summaryBase = PoliticalCampaign::whereIn('status', [
+            CampaignStatus::Active->value,
+            CampaignStatus::Paused->value,
+            CampaignStatus::Scheduled->value,
+        ]);
+
+        if ($activePaymentMode) {
+            $summaryBase->whereIn('politician_id', $modePoliticianIds);
+        }
+
         $summary = [
-            'total_active'    => PoliticalCampaign::where('status', CampaignStatus::Active->value)->count(),
-            'total_scheduled' => PoliticalCampaign::where('status', CampaignStatus::Scheduled->value)->count(),
-            'total_paused'    => PoliticalCampaign::where('status', CampaignStatus::Paused->value)->count(),
-            'total_spend'     => PoliticalCampaign::whereIn('status', [CampaignStatus::Active->value, CampaignStatus::Paused->value, CampaignStatus::Scheduled->value])->sum('amount_spent'),
-            'total_views'     => PoliticalCampaign::whereIn('status', [CampaignStatus::Active->value, CampaignStatus::Paused->value, CampaignStatus::Scheduled->value])->sum('views_completed'),
+            'total_active'    => (clone $summaryBase)->where('status', CampaignStatus::Active->value)->count(),
+            'total_scheduled' => (clone $summaryBase)->where('status', CampaignStatus::Scheduled->value)->count(),
+            'total_paused'    => (clone $summaryBase)->where('status', CampaignStatus::Paused->value)->count(),
+            'total_spend'     => (clone $summaryBase)->sum('amount_spent'),
+            'total_views'     => (clone $summaryBase)->sum('views_completed'),
         ];
 
         return view('standalone.admin.campaigns-running', compact('campaigns', 'summary'));
