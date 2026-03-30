@@ -3,6 +3,15 @@
 @section('title', 'Edit Campaign')
 @section('page-title', 'Edit Campaign')
 
+@php
+    $qaItems = is_array($campaign->qa_items ?? null) ? $campaign->qa_items : [];
+    $surveyPayload = is_array($campaign->engagement_survey ?? null) ? $campaign->engagement_survey : [];
+    $surveyOptions = is_array($surveyPayload['options'] ?? null) ? $surveyPayload['options'] : [];
+    $campaignTopicIds = $campaign->topics()->pluck('id')->toArray();
+    $campaignTargetStates = is_array($campaign->target_states ?? null) ? $campaign->target_states : [];
+    $campaignTargetCities = is_array($campaign->target_cities ?? null) ? $campaign->target_cities : [];
+@endphp
+
 @section('content')
 <div class="max-w-2xl">
 
@@ -226,7 +235,6 @@
                         <div class="p-3 border-b border-slate-700 space-y-3">
                             @php
                                 $topics = \App\Models\PoliticianTopic::active()->orderBy('sort_order')->get();
-                                $campaignTopicIds = $campaign->topics()->pluck('id')->toArray();
                             @endphp
                             @foreach($topics as $topic)
                             <label class="flex items-center gap-2 px-2 py-1.5 hover:bg-slate-700/50 rounded cursor-pointer transition">
@@ -271,10 +279,7 @@
                 </div>
                 <div id="qaItemsContainer" class="space-y-3">
                     {{-- Q&A pairs will be added here dynamically --}}
-                    @php
-                        $existingQA = $campaign->qa_items ?? [];
-                    @endphp
-                    @forelse($existingQA as $index => $item)
+                    @forelse($qaItems as $index => $item)
                     <div class="qa-item bg-slate-900/60 border border-slate-700 rounded-lg overflow-hidden">
                         <button type="button" class="w-full qa-toggle px-4 py-3 flex items-center justify-between hover:bg-slate-700/50 transition text-left">
                             <span class="text-sm font-medium text-slate-200" id="qa-label-{{ $index }}">
@@ -319,7 +324,7 @@
                     <div>
                         <label class="block text-xs font-medium text-slate-300 mb-1.5">Survey Question</label>
                         <input type="text" name="engagement_survey[question]" maxlength="200"
-                            value="{{ old('engagement_survey.question', $campaign->engagement_survey['question'] ?? '') }}"
+                            value="{{ old('engagement_survey.question', $surveyPayload['question'] ?? '') }}"
                             class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition"
                             placeholder="e.g., Do you support this proposal?" />
                     </div>
@@ -327,11 +332,8 @@
                     <div id="surveyOptionsContainer">
                         <label class="block text-xs font-medium text-slate-300 mb-1.5">Answer Options <span class="text-slate-500 font-normal">(minimum 2)</span></label>
                         <div class="space-y-2">
-                            @php
-                                $existingSurvey = $campaign->engagement_survey['options'] ?? [];
-                            @endphp
-                            @for($i = 0; $i < max(2, count($existingSurvey)); $i++)
-                                @php $option = $existingSurvey[$i] ?? null; @endphp
+                            @for($i = 0; $i < max(2, count($surveyOptions)); $i++)
+                                @php $option = $surveyOptions[$i] ?? null; @endphp
                             <div class="flex gap-2 items-end">
                                 <div class="flex-1">
                                     <input type="text" name="engagement_survey[options][{{ $i }}][text]"
@@ -384,7 +386,7 @@
                             <label class="flex items-center gap-2 px-2 py-1.5 hover:bg-slate-700/50 rounded cursor-pointer transition">
                                 <input type="checkbox" name="target_states[]" value="{{ $abbr }}" 
                                     class="state-checkbox w-4 h-4 rounded border-slate-600 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-slate-900"
-                                    {{ is_array($campaign->target_states) && in_array($abbr, $campaign->target_states) ? 'checked' : '' }}>
+                                    {{ in_array($abbr, $campaignTargetStates) ? 'checked' : '' }}>
                                 <span class="text-sm text-slate-200">{{ $abbr }} - {{ $stateName }}</span>
                             </label>
                             @endforeach
@@ -429,7 +431,7 @@
                             <label class="city-option flex items-center gap-2 px-2 py-1.5 hover:bg-slate-700/50 rounded cursor-pointer transition" data-state="{{ $cityData['state'] }}">
                                 <input type="checkbox" name="target_cities[]" value="{{ $cityData['display'] }}" 
                                     class="city-checkbox w-4 h-4 rounded border-slate-600 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-slate-900"
-                                    {{ is_array($campaign->target_cities) && in_array($cityData['display'], $campaign->target_cities) ? 'checked' : '' }}>
+                                    {{ in_array($cityData['display'], $campaignTargetCities) ? 'checked' : '' }}>
                                 <span class="text-sm text-slate-200">{{ $cityData['display'] }}</span>
                             </label>
                             @endforeach
