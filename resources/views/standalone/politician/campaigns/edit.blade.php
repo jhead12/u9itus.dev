@@ -88,14 +88,15 @@
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-slate-300 mb-1.5">Governance Level</label>
-                    <select name="governance_level"
+                    <label class="block text-sm font-medium text-slate-300 mb-1.5">Governance Level <span class="text-red-400">*</span></label>
+                    <select name="governance_level" required
                         class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition">
-                        <option value="">— Any —</option>
+                        <option value="" disabled {{ old('governance_level', $campaign->governance_level) ? '' : 'selected' }}>Select governance level</option>
                         @foreach($governanceLevels as $value => $label)
                             <option value="{{ $value }}" {{ old('governance_level', $campaign->governance_level) === $value ? 'selected' : '' }}>{{ $label }}</option>
                         @endforeach
                     </select>
+                    @error('governance_level')<p class="text-xs text-red-400 mt-1">{{ $message }}</p>@enderror
                 </div>
             </div>
 

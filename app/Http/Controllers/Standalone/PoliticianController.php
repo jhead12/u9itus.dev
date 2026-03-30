@@ -569,6 +569,12 @@ class PoliticianController extends Controller
             'Please upload a video or set a live stream URL before submitting.'
         );
 
+        if (! $campaign->governance_level) {
+            return back()->withErrors([
+                'governance_level' => 'Please select a governance level before submitting this campaign for review.',
+            ]);
+        }
+
         // Credit gate: politician must hold enough balance to cover the full campaign budget.
         $balance = $this->computeModeAwareCreditBalance(
             $politician->id,
