@@ -263,8 +263,7 @@
                         <div class="p-3 border-b border-slate-700 space-y-3">
                             {{-- Topics will be populated by PHP/Alpine --}}
                             @php
-                                use App\Models\PoliticianTopic;
-                                $topics = PoliticianTopic::active()->orderBy('sort_order')->get();
+                                $topics = \App\Models\PoliticianTopic::active()->orderBy('sort_order')->get();
                             @endphp
                             @foreach($topics as $topic)
                             <label class="flex items-center gap-2 px-2 py-1.5 hover:bg-slate-700/50 rounded cursor-pointer transition">

@@ -225,8 +225,7 @@
                     <div id="topicsDropdown" class="hidden absolute z-10 w-full mt-1 bg-slate-800 border border-slate-600 rounded-lg shadow-xl max-h-60 overflow-y-auto">
                         <div class="p-3 border-b border-slate-700 space-y-3">
                             @php
-                                use App\Models\PoliticianTopic;
-                                $topics = PoliticianTopic::active()->orderBy('sort_order')->get();
+                                $topics = \App\Models\PoliticianTopic::active()->orderBy('sort_order')->get();
                                 $campaignTopicIds = $campaign->topics()->pluck('id')->toArray();
                             @endphp
                             @foreach($topics as $topic)
