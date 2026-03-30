@@ -1,6 +1,7 @@
 # Voter Video Questions Feature - Phase 12 Mobile Branch
 
 ## Overview
+
 Implemented a complete voter-to-politician video question system that allows voters to upload video messages alongside text questions on the campaign watch page. This feature enhances voter engagement and creates richer interaction data for politicians.
 
 ---
@@ -8,6 +9,7 @@ Implemented a complete voter-to-politician video question system that allows vot
 ## Architecture
 
 ### Data Model
+
 The feature extends the existing `voter_watch_reports` table with video support:
 
 ```
@@ -25,6 +27,7 @@ voter_watch_reports
 ```
 
 ### Relationships
+
 - **Voter** → has many VoterWatchReport
 - **VoterWatchReport** → belongs to Voter, Campaign, PoliticalCampaign
 
@@ -33,31 +36,38 @@ voter_watch_reports
 ## Implementation Details
 
 ### 1. Database Migration
+
 **File:** `database/migrations/2026_03_29_000001_add_video_questions_to_voter_watch_reports.php`
 
 Adds three columns to existing table:
+
 - `media_url` (text, nullable) - stores full URL to uploaded video
 - `media_duration` (integer, nullable) - video length in seconds
 - `message_type` (string, default='text') - distinguishes between text and video
 
 ⚠️ **Run migration:**
+
 ```bash
 php artisan migrate
 ```
 
 ### 2. Model Enhancements
+
 **File:** `app/Models/VoterWatchReport.php`
 
 **New Helper Methods:**
+
 - `isTextQuestion()` - is this a text question?
 - `isVideoQuestion()` - is this a video question?
 - `hasMedia()` - does it have an attached video?
 
 **New Scopes:**
+
 - `scopeTextQuestions()` - filters to text-only questions
 - `scopeVideoQuestions()` - filters to video-only questions
 
 **Example Usage:**
+
 ```php
 // Get all video questions for a campaign
 $videos = VoterWatchReport::videoQuestions()
@@ -71,16 +81,19 @@ $open = VoterWatchReport::videoQuestions()
 ```
 
 ### 3. Controller: Video Upload Handler
+
 **File:** `app/Http/Controllers/Standalone/VoterController.php`
 
 **New Method:** `uploadVideoQuestion(Request $request, string $token)`
 
 **Validates:**
+
 - Video file: MP4, WebM, MOV (MIME types)
 - File size: ≤ 50MB (configurable)
 - Optional caption: max 500 characters
 
 **Process:**
+
 1. Extract video file and caption
 2. Store video in `storage/app/voter-questions/{voter_id}/{campaign_id}/`
 3. Extract video duration using ffprobe (if available)
@@ -88,6 +101,7 @@ $open = VoterWatchReport::videoQuestions()
 5. Send notification email to politician
 
 **Example Request:**
+
 ```bash
 POST /voter/watch/{token}/video-question
 Content-Type: multipart/form-data
@@ -98,6 +112,7 @@ view_session_uuid: "uuid-string"
 ```
 
 **Example Handling (in VoterController):**
+
 ```php
 public function uploadVideoQuestion(Request $request, string $token)
 {
@@ -111,20 +126,24 @@ public function uploadVideoQuestion(Request $request, string $token)
 ```
 
 ### 4. Routes
+
 **File:** `routes/standalone.php`
 
 **New Route:**
+
 ```php
 Route::post('/watch/{token}/video-question', [VoterController::class, 'uploadVideoQuestion'])
     ->name('voter.watch.video-question');
 ```
 
 Requires:
+
 - Valid watch token (confirms ad viewing session)
 - Voter middleware authentication
 - Multipart form-data encoding
 
 ### 5. UI: Voter Watch Page
+
 **File:** `resources/views/standalone/voter/watch.blade.php`
 
 **Enhanced Modal** with tabbed interface:
@@ -150,6 +169,7 @@ Requires:
 ```
 
 **Features:**
+
 - Alpine.js tab switching
 - Real-time form submission via fetch API
 - Error and success alerts
@@ -164,21 +184,22 @@ Requires:
 Voter questions section now displays:
 
 - **Message Type Badges:**
-  - 📝 Text: Gray badge
-  - 🎥 Video: Blue badge
+    - 📝 Text: Gray badge
+    - 🎥 Video: Blue badge
 
 - **Video Questions Include:**
-  - Embedded HTML5 video player (controls enabled)
-  - Max height: 192px (responsive)
-  - Duration metadata (if available)
-  - Optional caption text below
+    - Embedded HTML5 video player (controls enabled)
+    - Max height: 192px (responsive)
+    - Duration metadata (if available)
+    - Optional caption text below
 
 - **Sorting & Filtering:**
-  - Displayed chronologically (newest first)
-  - Pagination (10 per page)
-  - Status indicators (Open, In Review, Resolved, Dismissed)
+    - Displayed chronologically (newest first)
+    - Pagination (10 per page)
+    - Status indicators (Open, In Review, Resolved, Dismissed)
 
 **Example Display:**
+
 ```
 Voter Questions
 ───────────────────────────────────────────
@@ -200,11 +221,13 @@ From: John Smith (john@example.com)
 **Location:** `storage/app/voter-questions/{voter_id}/{campaign_id}/`
 
 **Example Path:**
+
 ```
 storage/app/voter-questions/42/157/filename.mp4
 ```
 
 **Configuration:**
+
 ```php
 // config/filesystems.php (default disk)
 'default' => env('FILESYSTEM_DISK', 'local'),
@@ -228,6 +251,7 @@ When a voter submits a video question, politician receives:
 **Subject:** `[U9itus] 🎥 Voter Video Question – [Campaign Title]`
 
 **Body:**
+
 ```
 A voter submitted a VIDEO QUESTION regarding your campaign "[Campaign Title]".
 
@@ -246,6 +270,7 @@ Platform: U9itus
 ## Query Examples
 
 ### Fetch all video questions for a politician
+
 ```php
 $videoQuestions = VoterWatchReport::query()
     ->videoQuestions()
@@ -256,6 +281,7 @@ $videoQuestions = VoterWatchReport::query()
 ```
 
 ### Count text vs video for analytics
+
 ```php
 $textCount = VoterWatchReport::textQuestions()
     ->where('campaign_id', $campaign->id)
@@ -267,6 +293,7 @@ $videoCount = VoterWatchReport::videoQuestions()
 ```
 
 ### Get open video questions requiring response
+
 ```php
 $open = VoterWatchReport::videoQuestions()
     ->where('status', 'open')
@@ -322,14 +349,18 @@ All configurable defaults in `config/u9itus.php`:
 ## Troubleshooting
 
 ### Video upload fails with storage error
+
 **Solution:** Verify `config/filesystems.php` disk is configured and writable:
+
 ```bash
 php artisan storage:link
 chmod -R 775 storage/app/voter-questions
 ```
 
 ### FFprobe not found (duration extraction fails)
+
 **Solution:** Install ffmpeg (includes ffprobe):
+
 ```bash
 # macOS
 brew install ffmpeg
@@ -337,10 +368,13 @@ brew install ffmpeg
 # Ubuntu/Debian
 sudo apt-get install ffmpeg
 ```
+
 If unavailable, duration will be `null` (non-blocking).
 
 ### Video not playing in politician dashboard
+
 **Solution:** Check CORS headers if S3 is used:
+
 ```php
 // config/aws.php
 'cors' => [

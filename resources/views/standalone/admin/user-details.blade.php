@@ -29,7 +29,7 @@
             <p class="font-semibold">Account Suspended</p>
             <p class="text-xs text-orange-400/80 mt-0.5">{{ $user->suspension_reason }} — Suspended {{ $user->suspended_at->diffForHumans() }}</p>
         </div>
-        <form method="PUT" action="{{ route('admin.users.unsuspend', $user) }}">
+        <form method="POST" action="{{ route('admin.users.unsuspend', $user) }}">
             @csrf
             @method('PUT')
             <button type="submit" class="px-3 py-1.5 rounded-lg bg-orange-500 hover:bg-orange-400 text-white text-xs font-semibold transition shrink-0">
@@ -250,7 +250,7 @@
                 </button>
             </div>
             <div id="suspend-form" class="hidden">
-                <form method="PUT" action="{{ route('admin.users.suspend', $user) }}" class="flex gap-2 items-start">
+                <form method="POST" action="{{ route('admin.users.suspend', $user) }}" class="flex gap-2 items-start">
                     @csrf
                     @method('PUT')
                     <input type="text" name="reason"
@@ -263,7 +263,7 @@
                 </form>
             </div>
             @else
-            <form method="PUT" action="{{ route('admin.users.unsuspend', $user) }}">
+            <form method="POST" action="{{ route('admin.users.unsuspend', $user) }}">
                 @csrf
                 @method('PUT')
                 <button type="submit"
