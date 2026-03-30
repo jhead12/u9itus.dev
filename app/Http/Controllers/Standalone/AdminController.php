@@ -41,6 +41,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 
 /**
@@ -1234,38 +1235,55 @@ class AdminController extends Controller
         $user = User::with(['politician', 'voter'])->findOrFail($userId);
 
         try {
-            $user->update([
-                'kyc_status'           => 'rejected',
-                'kyc_reviewed_at'      => now(),
-                'kyc_reviewer_id'      => auth()->id(),
-                'kyc_rejection_reason' => $request->input('reason', 'Identity could not be verified.'),
-            ]);
-        } catch (\Exception $e) {
-            // Fallback if kyc_reviewed_at, kyc_reviewer_id, or kyc_rejection_reason columns don't exist in staging
-            Log::warning('KYC rejection partial update (missing migration columns)', [
-                'user_id' => $userId,
-                'error'   => $e->getMessage(),
-            ]);
-            $user->update([
+            $reason = $request->input('reason', 'Identity could not be verified.');
+
+            $userUpdate = [
                 'kyc_status' => 'rejected',
-            ]);
-        }
+            ];
 
-        if ($user->politician) {
-            $user->politician->update(['kyc_status' => 'rejected']);
-        }
+            if (Schema::hasColumn('users', 'kyc_reviewed_at')) {
+                $userUpdate['kyc_reviewed_at'] = now();
+            }
+            if (Schema::hasColumn('users', 'kyc_reviewer_id')) {
+                $userUpdate['kyc_reviewer_id'] = auth()->id();
+            }
+            if (Schema::hasColumn('users', 'kyc_rejection_reason')) {
+                $userUpdate['kyc_rejection_reason'] = $reason;
+            }
 
-        // Notify the user their KYC has been rejected with the reason
-        try {
-            Mail::to($user->email)->queue(new KycRejectedMail(
-                $user,
-                $request->input('reason', 'Identity could not be verified.')
-            ));
-        } catch (\Exception $e) {
-            \Illuminate\Support\Facades\Log::warning('Failed to send KYC rejected email', [
-                'user_id' => $user->id,
-                'error'   => $e->getMessage(),
+            $user->update($userUpdate);
+
+            if ($user->politician) {
+                try {
+                    if (Schema::hasColumn('politicians', 'kyc_status')) {
+                        $user->politician->update(['kyc_status' => 'rejected']);
+                    }
+                } catch (\Exception $e) {
+                    Log::warning('Failed to sync politician KYC rejection status', [
+                        'user_id' => $user->id,
+                        'politician_id' => $user->politician->id,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+
+            // Notify the user their KYC has been rejected with the reason
+            try {
+                Mail::to($user->email)->queue(new KycRejectedMail($user, $reason));
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::warning('Failed to send KYC rejected email', [
+                    'user_id' => $user->id,
+                    'error'   => $e->getMessage(),
+                ]);
+            }
+        } catch (\Throwable $e) {
+            Log::error('KYC rejection failed', [
+                'user_id' => $userId,
+                'admin_id' => auth()->id(),
+                'error' => $e->getMessage(),
             ]);
+
+            return back()->withErrors(['error' => 'Unable to reject KYC right now. Please try again.']);
         }
 
         return back()->with('success', 'KYC rejected for ' . $user->name . '.');
