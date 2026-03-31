@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { NavigationContainer } from "@react-navigation/native";
+import { DarkTheme, NavigationContainer } from "@react-navigation/native";
 import { createStackNavigator } from "@react-navigation/stack";
 import { ActivityIndicator, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -10,6 +10,18 @@ import { LoginScreen } from "../screens/LoginScreen";
 import { RegisterScreen } from "../screens/RegisterScreen";
 
 const Stack = createStackNavigator();
+
+const navTheme = {
+    ...DarkTheme,
+    colors: {
+        ...DarkTheme.colors,
+        background: "#020617",
+        card: "#0f172a",
+        text: "#ffffff",
+        border: "#1e293b",
+        primary: "#10b981",
+    },
+};
 
 /**
  * Root Navigator for U9itus Mobile App
@@ -30,23 +42,20 @@ export const RootNavigator: React.FC = () => {
     if (isLoading) {
         return (
             <SafeAreaProvider>
-                <Stack.Navigator
-                    screenOptions={{
-                        headerShown: false,
-                    }}
-                >
-                    <Stack.Screen name="Splash" component={SplashScreen} />
-                </Stack.Navigator>
+                <SplashScreen />
             </SafeAreaProvider>
         );
     }
 
     return (
         <SafeAreaProvider>
-            <NavigationContainer>
+            <NavigationContainer theme={navTheme}>
                 <Stack.Navigator
                     screenOptions={{
                         headerShown: true,
+                        cardStyle: {
+                            backgroundColor: "#020617",
+                        },
                         headerStyle: {
                             backgroundColor: "#0f172a",
                         },

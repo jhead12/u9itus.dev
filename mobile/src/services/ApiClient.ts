@@ -53,6 +53,28 @@ export interface PoliticianProfile {
     video_questions: VideoQuestion[];
 }
 
+export interface AvailableCampaign {
+    uuid: string;
+    title: string;
+    message_summary?: string;
+    campaign_type: string;
+    governance_level?: string;
+    politician?: string;
+    political_office?: string | null;
+    payout?: number;
+    media_duration?: number | null;
+    thumbnail_url?: string | null;
+    is_live?: boolean;
+    live_scheduled_at?: string | null;
+}
+
+export interface StartViewResult {
+    message?: string;
+    session?: any;
+    media_url?: string;
+    must_watch?: number;
+}
+
 export type UserRole = "voter" | "politician";
 
 class ApiClient {
@@ -183,6 +205,38 @@ class ApiClient {
         } catch (error) {
             console.error("Failed to fetch video questions:", error);
             return [];
+        }
+    }
+
+    /**
+     * Get campaigns available to a voter in the ad viewing room.
+     */
+    async getAvailableCampaigns(voterUuid: string): Promise<AvailableCampaign[]> {
+        try {
+            const response = await this.client.get(`/voters/${voterUuid}/campaigns`);
+            const campaigns = (response.data as { campaigns?: AvailableCampaign[] })?.campaigns;
+            return campaigns || [];
+        } catch (error) {
+            console.error("Failed to fetch available campaigns:", error);
+            return [];
+        }
+    }
+
+    /**
+     * Start a voter campaign watch session from the ad room.
+     */
+    async startCampaignView(
+        voterUuid: string,
+        campaignUuid: string,
+    ): Promise<StartViewResult | null> {
+        try {
+            const response = await this.client.post<StartViewResult>(
+                `/voters/${voterUuid}/campaigns/${campaignUuid}/watch`,
+            );
+            return response.data;
+        } catch (error) {
+            console.error("Failed to start campaign view:", error);
+            return null;
         }
     }
 
