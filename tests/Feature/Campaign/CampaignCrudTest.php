@@ -95,6 +95,7 @@ test('politician can create a campaign', function () {
     $payload = [
         'title'                  => 'Test Campaign',
         'campaign_type'          => 'video',
+        'governance_level'       => 'city',
         'total_views_requested'  => $requestedViews,
         'total_budget'           => 60.00,
         'message_summary'        => 'A short description.',
@@ -121,6 +122,7 @@ test('politician can create a q_and_a campaign', function () {
     $payload = [
         'title'                  => 'Town Hall Q&A: Public Safety',
         'campaign_type'          => 'q_and_a',
+        'governance_level'       => 'city',
         'total_views_requested'  => 100,
         'total_budget'           => 60.00,
         'message_summary'        => 'Answers to most common district questions.',
@@ -173,6 +175,7 @@ test('campaign store requires title', function () {
     $this->actingAs($politician)
          ->post(route('politician.campaigns.store'), [
              'campaign_type'         => 'video',
+             'governance_level'      => 'city',
              'total_views_requested' => 100,
              'total_budget'          => 60,
          ])
@@ -186,6 +189,7 @@ test('campaign store requires at least 10 views', function () {
          ->post(route('politician.campaigns.store'), [
              'title'                 => 'Too Few Views',
              'campaign_type'         => 'video',
+             'governance_level'      => 'city',
              'total_views_requested' => 5,
              'total_budget'          => 10,
          ])
@@ -200,6 +204,7 @@ test('campaign store rejects media_duration above configured max', function () {
          ->post(route('politician.campaigns.store'), [
              'title'                 => 'Too Long Video Campaign',
              'campaign_type'         => 'video',
+             'governance_level'      => 'city',
              'total_views_requested' => 100,
              'total_budget'          => 60,
              'media_url'             => 'https://cdn.example.com/video.mp4',
@@ -215,6 +220,7 @@ test('campaign store requires minimum budget of 6 dollars', function () {
          ->post(route('politician.campaigns.store'), [
              'title'                 => 'Too Low Budget',
              'campaign_type'         => 'video',
+             'governance_level'      => 'city',
              'total_views_requested' => 10,
              'total_budget'          => 2,
          ])
@@ -228,6 +234,7 @@ test('live feed campaign requires live_feed_url', function () {
          ->post(route('politician.campaigns.store'), [
              'title'                 => 'Live Campaign',
              'campaign_type'         => 'live_feed',
+             'governance_level'      => 'city',
              'total_views_requested' => 50,
              'total_budget'          => 30,
              // missing live_feed_url

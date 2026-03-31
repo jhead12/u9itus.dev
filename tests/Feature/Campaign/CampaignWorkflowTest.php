@@ -57,6 +57,7 @@ test('create campaign workflow creates draft then submits for review', function 
         ->post(route('politician.campaigns.store'), [
             'title' => 'Workflow Test Campaign',
             'campaign_type' => 'video',
+            'governance_level' => 'city',
             'total_views_requested' => $requestedViews,
             'total_budget' => 10000.00,
             'message_summary' => 'Create campaign workflow regression test',
@@ -96,6 +97,7 @@ test('create campaign then upload video then submit for review', function () {
         ->post(route('politician.campaigns.store'), [
             'title' => 'Workflow Upload Campaign',
             'campaign_type' => 'video',
+            'governance_level' => 'city',
             'total_views_requested' => 100,
             'total_budget' => 10000.00,
             'message_summary' => 'Workflow regression for upload endpoint',
