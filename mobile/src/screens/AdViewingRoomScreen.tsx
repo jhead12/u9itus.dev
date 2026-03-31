@@ -16,7 +16,9 @@ export const AdViewingRoomScreen: React.FC = () => {
     const [campaigns, setCampaigns] = useState<AvailableCampaign[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-    const [claimingCampaignUuid, setClaimingCampaignUuid] = useState<string | null>(null);
+    const [claimingCampaignUuid, setClaimingCampaignUuid] = useState<
+        string | null
+    >(null);
     const [error, setError] = useState<string | null>(null);
     const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
@@ -59,7 +61,10 @@ export const AdViewingRoomScreen: React.FC = () => {
 
         setStatusMessage(null);
         setClaimingCampaignUuid(campaignUuid);
-        const result = await ApiClient.startCampaignView(voterUuid, campaignUuid);
+        const result = await ApiClient.startCampaignView(
+            voterUuid,
+            campaignUuid,
+        );
         setClaimingCampaignUuid(null);
 
         if (!result) {
@@ -74,7 +79,9 @@ export const AdViewingRoomScreen: React.FC = () => {
     return (
         <View style={styles.container}>
             <Text style={styles.title}>Ad Viewing Room</Text>
-            <Text style={styles.subtitle}>Choose a campaign and start watching</Text>
+            <Text style={styles.subtitle}>
+                Choose a campaign and start watching
+            </Text>
 
             {statusMessage ? (
                 <View style={styles.statusBar}>
@@ -94,15 +101,25 @@ export const AdViewingRoomScreen: React.FC = () => {
                     data={campaigns}
                     keyExtractor={(item) => item.uuid}
                     contentContainerStyle={
-                        campaigns.length === 0 ? styles.emptyContainer : styles.listContainer
+                        campaigns.length === 0
+                            ? styles.emptyContainer
+                            : styles.listContainer
                     }
                     refreshControl={
-                        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#10b981" />
+                        <RefreshControl
+                            refreshing={refreshing}
+                            onRefresh={onRefresh}
+                            tintColor="#10b981"
+                        />
                     }
                     ListEmptyComponent={
                         <View>
-                            <Text style={styles.emptyTitle}>No campaigns available</Text>
-                            <Text style={styles.emptySubtitle}>Pull down to refresh and check again.</Text>
+                            <Text style={styles.emptyTitle}>
+                                No campaigns available
+                            </Text>
+                            <Text style={styles.emptySubtitle}>
+                                Pull down to refresh and check again.
+                            </Text>
                         </View>
                     }
                     renderItem={({ item }) => (
@@ -110,10 +127,15 @@ export const AdViewingRoomScreen: React.FC = () => {
                             <Text style={styles.cardTitle}>{item.title}</Text>
                             <Text style={styles.cardMeta}>
                                 {item.politician || "Unknown Politician"}
-                                {item.payout === undefined ? "" : ` • $${Number(item.payout).toFixed(2)}`}
+                                {item.payout === undefined
+                                    ? ""
+                                    : ` • $${Number(item.payout).toFixed(2)}`}
                             </Text>
                             {item.message_summary ? (
-                                <Text style={styles.cardSummary} numberOfLines={2}>
+                                <Text
+                                    style={styles.cardSummary}
+                                    numberOfLines={2}
+                                >
                                     {item.message_summary}
                                 </Text>
                             ) : null}
@@ -126,7 +148,9 @@ export const AdViewingRoomScreen: React.FC = () => {
                                 {claimingCampaignUuid === item.uuid ? (
                                     <ActivityIndicator color="#ffffff" />
                                 ) : (
-                                    <Text style={styles.claimButtonText}>Start Ad</Text>
+                                    <Text style={styles.claimButtonText}>
+                                        Start Ad
+                                    </Text>
                                 )}
                             </TouchableOpacity>
                         </View>

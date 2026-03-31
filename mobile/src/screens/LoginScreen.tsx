@@ -78,7 +78,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                 </View>
                 <View style={styles.container}>
                     <Text style={styles.title}>Welcome back</Text>
-                    <Text style={styles.subtitle}>Sign in as voter or politician</Text>
+                    <Text style={styles.subtitle}>
+                        Sign in as voter or politician
+                    </Text>
 
                     <View style={styles.roleRow}>
                         <TouchableOpacity
@@ -92,7 +94,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                             <Text
                                 style={[
                                     styles.roleButtonText,
-                                    role === "voter" && styles.roleButtonTextActive,
+                                    role === "voter" &&
+                                        styles.roleButtonTextActive,
                                 ]}
                             >
                                 Voter
@@ -102,7 +105,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                         <TouchableOpacity
                             style={[
                                 styles.roleButton,
-                                role === "politician" && styles.roleButtonActive,
+                                role === "politician" &&
+                                    styles.roleButtonActive,
                             ]}
                             onPress={() => setRole("politician")}
                             disabled={isLoading}
@@ -110,7 +114,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                             <Text
                                 style={[
                                     styles.roleButtonText,
-                                    role === "politician" && styles.roleButtonTextActive,
+                                    role === "politician" &&
+                                        styles.roleButtonTextActive,
                                 ]}
                             >
                                 Politician
@@ -137,10 +142,15 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                         onChangeText={setPassword}
                     />
 
-                    {error ? <Text style={styles.errorText}>{error}</Text> : null}
+                    {error ? (
+                        <Text style={styles.errorText}>{error}</Text>
+                    ) : null}
 
                     <TouchableOpacity
-                        style={[styles.button, isLoading && styles.buttonDisabled]}
+                        style={[
+                            styles.button,
+                            isLoading && styles.buttonDisabled,
+                        ]}
                         onPress={handleLogin}
                         disabled={isLoading}
                     >
@@ -156,7 +166,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                         onPress={() => navigation.navigate("Register")}
                         disabled={isLoading}
                     >
-                        <Text style={styles.linkText}>Create a voter account</Text>
+                        <Text style={styles.linkText}>
+                            Create a voter account
+                        </Text>
                     </TouchableOpacity>
                 </View>
             </View>

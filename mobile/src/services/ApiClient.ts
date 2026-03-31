@@ -211,10 +211,16 @@ class ApiClient {
     /**
      * Get campaigns available to a voter in the ad viewing room.
      */
-    async getAvailableCampaigns(voterUuid: string): Promise<AvailableCampaign[]> {
+    async getAvailableCampaigns(
+        voterUuid: string,
+    ): Promise<AvailableCampaign[]> {
         try {
-            const response = await this.client.get(`/voters/${voterUuid}/campaigns`);
-            const campaigns = (response.data as { campaigns?: AvailableCampaign[] })?.campaigns;
+            const response = await this.client.get(
+                `/voters/${voterUuid}/campaigns`,
+            );
+            const campaigns = (
+                response.data as { campaigns?: AvailableCampaign[] }
+            )?.campaigns;
             return campaigns || [];
         } catch (error) {
             console.error("Failed to fetch available campaigns:", error);

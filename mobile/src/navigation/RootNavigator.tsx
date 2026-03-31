@@ -6,6 +6,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { useAuthStore } from "../stores/authStore";
 import { PoliticianProfileScreen } from "../screens/PoliticianProfileScreen";
 import { AdViewingRoomScreen } from "../screens/AdViewingRoomScreen";
+import { CreateCampaignScreen } from "../screens/CreateCampaignScreen";
 import { LoginScreen } from "../screens/LoginScreen";
 import { RegisterScreen } from "../screens/RegisterScreen";
 
@@ -80,13 +81,20 @@ export const RootNavigator: React.FC = () => {
                                 />
                             ) : (
                                 <Stack.Screen
-                                    name="Home"
-                                    component={PoliticianProfileScreen}
+                                    name="CreateCampaign"
+                                    component={CreateCampaignScreen}
                                     options={{
-                                        title: "Politician Profile",
+                                        title: "Create Campaign",
                                     }}
                                 />
                             )}
+                            <Stack.Screen
+                                name="Home"
+                                component={PoliticianProfileScreen}
+                                options={{
+                                    title: "Politician Profile",
+                                }}
+                            />
                             {/* More screens would be added here */}
                         </Stack.Group>
                     ) : (
