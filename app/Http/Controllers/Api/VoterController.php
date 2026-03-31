@@ -178,4 +178,25 @@ class VoterController extends Controller
             'referred_voters'   => $voter->referrals()->select('uuid', 'full_name', 'created_at')->get(),
         ]);
     }
+
+    /**
+     * Return campaign timer settings used for payout-eligibility displays.
+     */
+    public function campaignTimerSettings(PoliticalCampaign $campaign): JsonResponse
+    {
+        $duration = (int) ($campaign->media_duration ?? 0);
+        $minWatchPercent = max(0, min(100, (int) ($campaign->min_watch_time_percent ?? 100)));
+        $thresholdSeconds = $duration > 0
+            ? (int) min($duration, (int) ceil($duration * ($minWatchPercent / 100)))
+            : 0;
+
+        return response()->json([
+            'campaign_id' => $campaign->id,
+            'campaign_uuid' => $campaign->uuid,
+            'media_duration' => $duration,
+            'min_watch_time_percent' => $minWatchPercent,
+            'voter_payout_per_view' => (float) ($campaign->voter_payout_per_view ?? 0),
+            'threshold_seconds' => $thresholdSeconds,
+        ]);
+    }
 }

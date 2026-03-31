@@ -30,6 +30,8 @@ export interface VideoQuestion {
     campaign_id: number;
     media_url: string;
     media_duration?: number;
+    min_watch_time_percent?: number;
+    voter_payout_per_view?: number;
     body?: string;
     message_type: "video" | "text";
     status: "open" | "in_review" | "resolved";
@@ -49,6 +51,9 @@ export interface PoliticianProfile {
     district: string;
     bio?: string;
     avatar_url?: string;
+    min_watch_time_percent?: number;
+    voter_payout_per_view?: number;
+    media_duration?: number;
     total_campaigns: number;
     video_questions: VideoQuestion[];
 }
@@ -73,6 +78,15 @@ export interface StartViewResult {
     session?: any;
     media_url?: string;
     must_watch?: number;
+}
+
+export interface CampaignTimerSettings {
+    campaign_id: number;
+    campaign_uuid: string;
+    media_duration: number;
+    min_watch_time_percent: number;
+    voter_payout_per_view: number;
+    threshold_seconds: number;
 }
 
 export interface CreateCampaignPayload {
@@ -236,6 +250,23 @@ class ApiClient {
         } catch (error) {
             console.error("Failed to fetch video questions:", error);
             return [];
+        }
+    }
+
+    /**
+     * Get payout timer settings for a campaign.
+     */
+    async getCampaignTimerSettings(
+        campaignId: number,
+    ): Promise<CampaignTimerSettings | null> {
+        try {
+            const response = await this.client.get<CampaignTimerSettings>(
+                `/v1/campaign-timer-settings/${campaignId}`,
+            );
+            return response.data;
+        } catch (error) {
+            console.error("Failed to fetch campaign timer settings:", error);
+            return null;
         }
     }
 

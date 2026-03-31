@@ -9,9 +9,10 @@ import {
     TouchableOpacity,
     SafeAreaView,
     Image,
-    SectionList,
 } from "react-native";
+import Video from "react-native-video";
 import ApiClient, {
+    CampaignTimerSettings,
     PoliticianProfile,
     VideoQuestion,
 } from "../services/ApiClient";
@@ -24,7 +25,6 @@ interface PoliticianProfileScreenProps {
             campaignId: number;
         };
     };
-    navigation?: any;
 }
 
 export const PoliticianProfileScreen: React.FC<
@@ -38,6 +38,10 @@ export const PoliticianProfileScreen: React.FC<
     const [selectedVideo, setSelectedVideo] = useState<VideoQuestion | null>(
         null,
     );
+    const [campaignTimer, setCampaignTimer] =
+        useState<CampaignTimerSettings | null>(null);
+    const [playbackSeconds, setPlaybackSeconds] = useState(0);
+    const [playbackDuration, setPlaybackDuration] = useState(0);
     const [error, setError] = useState<string | null>(null);
 
     const campaignId = propsCampaignId || route?.params?.campaignId;
@@ -56,9 +60,10 @@ export const PoliticianProfileScreen: React.FC<
                 return;
             }
 
-            const [profileData, questionsData] = await Promise.all([
+            const [profileData, questionsData, timerData] = await Promise.all([
                 ApiClient.getPoliticianProfile(campaignId),
                 ApiClient.getVideoQuestions(campaignId),
+                ApiClient.getCampaignTimerSettings(campaignId),
             ]);
 
             if (!profileData) {
@@ -68,6 +73,7 @@ export const PoliticianProfileScreen: React.FC<
 
             setPolitician(profileData);
             setVideoQuestions(questionsData);
+            setCampaignTimer(timerData);
         } catch (err) {
             const errorMsg =
                 err instanceof Error ? err.message : "Failed to load data";
@@ -80,7 +86,66 @@ export const PoliticianProfileScreen: React.FC<
 
     const handlePlayVideo = (video: VideoQuestion) => {
         setSelectedVideo(video);
+        setPlaybackSeconds(0);
+        setPlaybackDuration(video.media_duration || 0);
     };
+
+    const closeVideoModal = () => {
+        setSelectedVideo(null);
+        setPlaybackSeconds(0);
+        setPlaybackDuration(0);
+    };
+
+    const formatTime = (seconds: number): string => {
+        const safe = Number.isFinite(seconds) && seconds > 0 ? Math.floor(seconds) : 0;
+        const mm = Math.floor(safe / 60);
+        const ss = String(safe % 60).padStart(2, "0");
+        return `${mm}:${ss}`;
+    };
+
+    const effectiveDuration =
+        playbackDuration > 0
+            ? playbackDuration
+            : selectedVideo?.media_duration ||
+              campaignTimer?.media_duration ||
+              politician?.media_duration ||
+              0;
+
+    const minWatchPercent = Math.max(
+        0,
+        Math.min(
+            100,
+            selectedVideo?.min_watch_time_percent ||
+                campaignTimer?.min_watch_time_percent ||
+                politician?.min_watch_time_percent ||
+                100,
+        ),
+    );
+
+    const payoutAmount =
+        selectedVideo?.voter_payout_per_view ||
+        campaignTimer?.voter_payout_per_view ||
+        politician?.voter_payout_per_view ||
+        0;
+
+    const thresholdSeconds =
+        effectiveDuration > 0
+            ? Math.min(
+                  effectiveDuration,
+                  Math.ceil((effectiveDuration * minWatchPercent) / 100),
+              )
+            : 0;
+
+    const remainingThresholdSeconds = Math.max(
+        0,
+        thresholdSeconds - playbackSeconds,
+    );
+
+    const thresholdReached = thresholdSeconds > 0 && playbackSeconds >= thresholdSeconds;
+    const timerProgressPct =
+        thresholdSeconds > 0
+            ? Math.min(100, Math.max(0, (playbackSeconds / thresholdSeconds) * 100))
+            : 0;
 
     const getStatusIcon = (status: string) => {
         switch (status) {
@@ -307,17 +372,71 @@ export const PoliticianProfileScreen: React.FC<
                 <View style={styles.videoModal}>
                     <TouchableOpacity
                         style={styles.closeButton}
-                        onPress={() => setSelectedVideo(null)}
+                        onPress={closeVideoModal}
                     >
                         <Text style={styles.closeButtonText}>✕</Text>
                     </TouchableOpacity>
                     <View style={styles.videoPlayer}>
-                        {/* Actual video player component would be integrated here */}
-                        <View style={styles.videoPlaceholder}>
-                            <PlayIcon size={64} color="#ffffff" />
-                            <Text style={styles.videoPlaceholderText}>
-                                Video from {selectedVideo.voter.full_name}
+                        <Video
+                            source={{ uri: selectedVideo.media_url }}
+                            style={styles.nativeVideo}
+                            controls
+                            resizeMode="contain"
+                            paused={false}
+                            onLoad={(payload: any) => {
+                                if (payload?.duration) {
+                                    setPlaybackDuration(payload.duration);
+                                }
+                            }}
+                            onProgress={(payload: any) => {
+                                setPlaybackSeconds(payload?.currentTime || 0);
+                            }}
+                            onEnd={() => {
+                                setPlaybackSeconds(effectiveDuration || thresholdSeconds || 0);
+                            }}
+                            onError={(videoError: any) => {
+                                console.error("Video playback failed:", videoError);
+                            }}
+                        />
+                        <View style={styles.videoTimerPanel}>
+                            <Text style={styles.videoTimerTitle}>Payout Eligibility Timer</Text>
+                            <Text style={styles.videoTimerSubtitle}>
+                                Voter becomes payout-eligible at {thresholdSeconds > 0 ? formatTime(thresholdSeconds) : "--:--"} ({minWatchPercent}% watched)
                             </Text>
+                            <View style={styles.timerMetaRow}>
+                                <Text style={styles.timerMetaText}>
+                                    Elapsed: <Text style={styles.timerMetaValue}>{formatTime(playbackSeconds)}</Text>
+                                </Text>
+                                <Text style={styles.timerMetaText}>
+                                    Payout: <Text style={styles.timerMetaValue}>${payoutAmount.toFixed(2)}</Text>
+                                </Text>
+                            </View>
+                            <View style={styles.timerTrack}>
+                                <View
+                                    style={[
+                                        styles.timerProgress,
+                                        { width: `${timerProgressPct}%` },
+                                    ]}
+                                />
+                            </View>
+                            {thresholdSeconds > 0 ? (
+                                <Text
+                                    style={[
+                                        styles.timerStatus,
+                                        thresholdReached
+                                            ? styles.timerStatusReached
+                                            : styles.timerStatusPending,
+                                    ]}
+                                >
+                                    {thresholdReached
+                                        ? "Threshold status: Reached"
+                                        : `Remaining to eligibility: ${formatTime(remainingThresholdSeconds)}`}
+                                </Text>
+                            ) : (
+                                <Text style={styles.timerStatusUnknown}>
+                                    Timer is unavailable until video duration metadata is loaded.
+                                </Text>
+                            )}
                         </View>
                     </View>
                 </View>
@@ -551,6 +670,73 @@ const styles = StyleSheet.create({
         backgroundColor: "#0f172a",
         borderRadius: 8,
         overflow: "hidden",
+    },
+    nativeVideo: {
+        width: "100%",
+        height: "100%",
+    },
+    videoTimerPanel: {
+        position: "absolute",
+        left: 10,
+        right: 10,
+        bottom: 10,
+        borderRadius: 8,
+        backgroundColor: "rgba(15, 23, 42, 0.88)",
+        borderWidth: 1,
+        borderColor: "rgba(100, 116, 139, 0.5)",
+        paddingHorizontal: 10,
+        paddingVertical: 8,
+    },
+    videoTimerTitle: {
+        color: "#e2e8f0",
+        fontSize: 12,
+        fontWeight: "700",
+    },
+    videoTimerSubtitle: {
+        color: "#94a3b8",
+        fontSize: 10,
+        marginTop: 2,
+    },
+    timerMetaRow: {
+        marginTop: 6,
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+    },
+    timerMetaText: {
+        color: "#94a3b8",
+        fontSize: 10,
+    },
+    timerMetaValue: {
+        color: "#e2e8f0",
+        fontWeight: "700",
+    },
+    timerTrack: {
+        marginTop: 6,
+        height: 4,
+        borderRadius: 99,
+        backgroundColor: "rgba(51, 65, 85, 0.95)",
+        overflow: "hidden",
+    },
+    timerProgress: {
+        height: "100%",
+        backgroundColor: "#10b981",
+    },
+    timerStatus: {
+        marginTop: 6,
+        fontSize: 10,
+        fontWeight: "600",
+    },
+    timerStatusPending: {
+        color: "#7dd3fc",
+    },
+    timerStatusReached: {
+        color: "#34d399",
+    },
+    timerStatusUnknown: {
+        marginTop: 6,
+        color: "#94a3b8",
+        fontSize: 10,
     },
     videoPlaceholder: {
         flex: 1,

@@ -12,6 +12,7 @@ export interface User {
 
 export interface Campaign {
     id: number;
+    uuid?: string;
     title: string;
     politician_id: number;
     politician: {
@@ -20,6 +21,8 @@ export interface Campaign {
     };
     media_url: string;
     media_duration: number;
+    min_watch_time_percent?: number;
+    voter_payout_per_view?: number;
     campaign_type: "video" | "q_and_a" | "live_feed";
     status: "draft" | "active" | "paused" | "completed";
     views_completed: number;
@@ -32,6 +35,8 @@ export interface VideoQuestion {
     campaign_id: number;
     media_url: string;
     media_duration?: number;
+    min_watch_time_percent?: number;
+    voter_payout_per_view?: number;
     body?: string;
     message_type: "text" | "video" | "audio";
     status: "open" | "in_review" | "resolved" | "dismissed";

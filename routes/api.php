@@ -67,6 +67,9 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
     |----------------------------------------------------------------------
     */
     Route::middleware('throttle:60,1')->group(function () {
+        Route::get('/campaign-timer-settings/{campaign}', [VoterController::class, 'campaignTimerSettings'])
+            ->name('campaigns.timer-settings');
+
         // Registration (stricter rate limit)
         Route::post('/voters', [VoterController::class, 'store'])
             ->middleware('throttle:10,1')

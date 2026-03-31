@@ -30,6 +30,7 @@ class CampaignResource extends JsonResource
             'live_scheduled_at'      => $this->live_scheduled_at,
             'revenue_per_view'       => $this->revenue_per_view,
             'voter_payout_per_view'  => $this->voter_payout_per_view,
+            'min_watch_time_percent' => $this->min_watch_time_percent,
             'total_budget'           => $this->total_budget,
             'amount_spent'           => $this->amount_spent,
             'total_views_requested'  => $this->total_views_requested,
