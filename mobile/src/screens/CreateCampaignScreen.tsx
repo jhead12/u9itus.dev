@@ -17,7 +17,9 @@ interface CreateCampaignScreenProps {
     };
 }
 
-export const CreateCampaignScreen: React.FC<CreateCampaignScreenProps> = ({ navigation }) => {
+export const CreateCampaignScreen: React.FC<CreateCampaignScreenProps> = ({
+    navigation,
+}) => {
     const { voter } = useAuthStore();
     const [title, setTitle] = useState("");
     const [summary, setSummary] = useState("");
@@ -35,7 +37,9 @@ export const CreateCampaignScreen: React.FC<CreateCampaignScreenProps> = ({ navi
 
         const politicianUuid = (voter as { uuid?: string } | null)?.uuid;
         if (!politicianUuid) {
-            setError("Missing politician profile UUID. Please log out and back in.");
+            setError(
+                "Missing politician profile UUID. Please log out and back in.",
+            );
             return;
         }
 
@@ -102,7 +106,10 @@ export const CreateCampaignScreen: React.FC<CreateCampaignScreenProps> = ({ navi
                 {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
                 <TouchableOpacity
-                    style={[styles.primaryButton, isSubmitting && styles.buttonDisabled]}
+                    style={[
+                        styles.primaryButton,
+                        isSubmitting && styles.buttonDisabled,
+                    ]}
                     onPress={handleContinue}
                     disabled={isSubmitting}
                 >

@@ -79,9 +79,20 @@ export interface CreateCampaignPayload {
     title: string;
     message_summary?: string;
     campaign_type: "video" | "live_feed" | "q_and_a";
-    governance_level: "federal" | "state" | "county" | "city" | "school" | "special";
+    governance_level:
+        | "federal"
+        | "state"
+        | "county"
+        | "city"
+        | "school"
+        | "special";
     media_url?: string;
-    media_type?: "youtube" | "vimeo" | "direct_file" | "s3_cloudfront" | "hls_stream";
+    media_type?:
+        | "youtube"
+        | "vimeo"
+        | "direct_file"
+        | "s3_cloudfront"
+        | "hls_stream";
     media_duration?: number;
     live_feed_url?: string;
     live_scheduled_at?: string;
