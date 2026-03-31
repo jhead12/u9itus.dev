@@ -13,7 +13,10 @@ export const CreateCampaignScreen: React.FC = () => {
     const [summary, setSummary] = useState("");
 
     return (
-        <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+        <ScrollView
+            style={styles.container}
+            contentContainerStyle={styles.content}
+        >
             <Text style={styles.heading}>Create Campaign</Text>
             <Text style={styles.subheading}>
                 Start a new campaign to reach voters in your target district.
