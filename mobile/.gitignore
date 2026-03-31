@@ -1,0 +1,37 @@
+# Node / JS dependencies and caches
+node_modules/
+.npm/
+.yarn/
+yarn-error.log*
+npm-debug.log*
+
+# General local OS/editor artifacts
+.DS_Store
+*.iml
+.idea/
+.vscode/
+
+# Android build and local machine files
+android/.gradle/
+android/**/build/
+android/local.properties
+android/.cxx/
+android/.externalNativeBuild/
+android/captures/
+android/**/*.apk
+android/**/*.aab
+android/**/*.ap_
+android/**/*.keystore
+android/**/*.jks
+
+# iOS build and local machine files
+ios/build/
+ios/DerivedData/
+ios/Pods/
+ios/**/*.xcworkspace/xcuserdata/
+ios/**/*.xcodeproj/xcuserdata/
+ios/**/*.xcuserstate
+ios/.xcode.env.local
+
+# React Native / Metro temp output
+.metro-cache/
