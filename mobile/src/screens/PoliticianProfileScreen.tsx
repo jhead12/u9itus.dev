@@ -97,7 +97,8 @@ export const PoliticianProfileScreen: React.FC<
     };
 
     const formatTime = (seconds: number): string => {
-        const safe = Number.isFinite(seconds) && seconds > 0 ? Math.floor(seconds) : 0;
+        const safe =
+            Number.isFinite(seconds) && seconds > 0 ? Math.floor(seconds) : 0;
         const mm = Math.floor(safe / 60);
         const ss = String(safe % 60).padStart(2, "0");
         return `${mm}:${ss}`;
@@ -141,10 +142,14 @@ export const PoliticianProfileScreen: React.FC<
         thresholdSeconds - playbackSeconds,
     );
 
-    const thresholdReached = thresholdSeconds > 0 && playbackSeconds >= thresholdSeconds;
+    const thresholdReached =
+        thresholdSeconds > 0 && playbackSeconds >= thresholdSeconds;
     const timerProgressPct =
         thresholdSeconds > 0
-            ? Math.min(100, Math.max(0, (playbackSeconds / thresholdSeconds) * 100))
+            ? Math.min(
+                  100,
+                  Math.max(0, (playbackSeconds / thresholdSeconds) * 100),
+              )
             : 0;
 
     const getStatusIcon = (status: string) => {
@@ -392,23 +397,40 @@ export const PoliticianProfileScreen: React.FC<
                                 setPlaybackSeconds(payload?.currentTime || 0);
                             }}
                             onEnd={() => {
-                                setPlaybackSeconds(effectiveDuration || thresholdSeconds || 0);
+                                setPlaybackSeconds(
+                                    effectiveDuration || thresholdSeconds || 0,
+                                );
                             }}
                             onError={(videoError: any) => {
-                                console.error("Video playback failed:", videoError);
+                                console.error(
+                                    "Video playback failed:",
+                                    videoError,
+                                );
                             }}
                         />
                         <View style={styles.videoTimerPanel}>
-                            <Text style={styles.videoTimerTitle}>Payout Eligibility Timer</Text>
+                            <Text style={styles.videoTimerTitle}>
+                                Payout Eligibility Timer
+                            </Text>
                             <Text style={styles.videoTimerSubtitle}>
-                                Voter becomes payout-eligible at {thresholdSeconds > 0 ? formatTime(thresholdSeconds) : "--:--"} ({minWatchPercent}% watched)
+                                Voter becomes payout-eligible at{" "}
+                                {thresholdSeconds > 0
+                                    ? formatTime(thresholdSeconds)
+                                    : "--:--"}{" "}
+                                ({minWatchPercent}% watched)
                             </Text>
                             <View style={styles.timerMetaRow}>
                                 <Text style={styles.timerMetaText}>
-                                    Elapsed: <Text style={styles.timerMetaValue}>{formatTime(playbackSeconds)}</Text>
+                                    Elapsed:{" "}
+                                    <Text style={styles.timerMetaValue}>
+                                        {formatTime(playbackSeconds)}
+                                    </Text>
                                 </Text>
                                 <Text style={styles.timerMetaText}>
-                                    Payout: <Text style={styles.timerMetaValue}>${payoutAmount.toFixed(2)}</Text>
+                                    Payout:{" "}
+                                    <Text style={styles.timerMetaValue}>
+                                        ${payoutAmount.toFixed(2)}
+                                    </Text>
                                 </Text>
                             </View>
                             <View style={styles.timerTrack}>
@@ -434,7 +456,8 @@ export const PoliticianProfileScreen: React.FC<
                                 </Text>
                             ) : (
                                 <Text style={styles.timerStatusUnknown}>
-                                    Timer is unavailable until video duration metadata is loaded.
+                                    Timer is unavailable until video duration
+                                    metadata is loaded.
                                 </Text>
                             )}
                         </View>
