@@ -250,7 +250,7 @@
     <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
         <div class="flex items-center justify-between mb-4">
             <h2 class="text-sm font-semibold text-slate-200">Video Preview</h2>
-            <button type="button" onclick="testShowPagePreview()" 
+            <button type="button" onclick="testShowPagePreview()"
                 class="text-xs text-emerald-400 hover:text-emerald-300 flex items-center gap-1 transition">
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
@@ -273,6 +273,28 @@
                 <p class="text-sm">Loading video preview...</p>
             </div>
         </div>
+
+        <div id="payoutTimerPanel" class="mt-3 rounded-lg border border-slate-700/60 bg-slate-900/50 p-3">
+            <div class="flex flex-wrap items-center justify-between gap-2 text-xs">
+                <p class="text-slate-400">
+                    Voter becomes payout-eligible at
+                    <span id="payoutThresholdTime" class="font-semibold text-emerald-400">--:--</span>
+                    (<span id="payoutThresholdPercent" class="font-semibold text-slate-300">--</span>% watched)
+                </p>
+                <span class="text-slate-500">
+                    Payout amount: <span id="payoutAmount" class="font-semibold text-slate-300">$0.00</span>
+                </span>
+            </div>
+            <div class="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-700/70">
+                <div id="payoutTimerProgress" class="h-full w-0 bg-emerald-500 transition-all duration-200"></div>
+            </div>
+            <div class="mt-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500">
+                <span>Elapsed: <span id="payoutElapsedTime" class="font-semibold text-slate-300">0:00</span></span>
+                <span id="payoutRemainingLabel"><span id="payoutRemainingText">Remaining to eligibility:</span> <span id="payoutRemainingTime" class="font-semibold text-sky-300">--:--</span></span>
+            </div>
+            <p id="payoutTimerNotice" class="mt-2 text-[11px] text-slate-500 hidden"></p>
+        </div>
+
         <p class="text-xs text-slate-500 mt-3">
             <svg class="w-3.5 h-3.5 inline-block -mt-0.5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
@@ -350,11 +372,160 @@
     const mediaUrl = @json($campaign->media_url ?? null);
     if (!mediaUrl) return;
 
+    const configuredDuration = Number(@json((int) ($campaign->media_duration ?? 0)));
+    const minWatchPercent = Number(@json((int) ($campaign->min_watch_time_percent ?? 100)));
+    const payoutAmount = Number(@json((float) ($campaign->voter_payout_per_view ?? 0)));
+
     let ytShowPlayer = null;
+    let ytProgressInterval = null;
+    let nativeProgressBound = false;
+    let activeDuration = configuredDuration > 0 ? configuredDuration : 0;
     const ytContainer = document.getElementById('ytShowContainer');
     const nativePlayer = document.getElementById('nativeShowPlayer');
     const nativeSource = document.getElementById('nativeShowSource');
     const placeholder = document.getElementById('showPlaceholder');
+    const payoutThresholdTime = document.getElementById('payoutThresholdTime');
+    const payoutThresholdPercent = document.getElementById('payoutThresholdPercent');
+    const payoutAmountEl = document.getElementById('payoutAmount');
+    const payoutElapsedTime = document.getElementById('payoutElapsedTime');
+    const payoutRemainingTime = document.getElementById('payoutRemainingTime');
+    const payoutRemainingText = document.getElementById('payoutRemainingText');
+    const payoutProgress = document.getElementById('payoutTimerProgress');
+    const payoutNotice = document.getElementById('payoutTimerNotice');
+
+    function formatTime(seconds) {
+        const safe = Number.isFinite(seconds) && seconds > 0 ? Math.floor(seconds) : 0;
+        const mm = Math.floor(safe / 60);
+        const ss = String(safe % 60).padStart(2, '0');
+        return `${mm}:${ss}`;
+    }
+
+    function getThresholdSeconds(durationSeconds) {
+        if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) {
+            return 0;
+        }
+
+        return Math.min(
+            durationSeconds,
+            Math.ceil(durationSeconds * (Math.max(0, Math.min(100, minWatchPercent)) / 100))
+        );
+    }
+
+    function setTimerNotice(message) {
+        payoutNotice.textContent = message;
+        payoutNotice.classList.remove('hidden');
+    }
+
+    function clearTimerNotice() {
+        payoutNotice.textContent = '';
+        payoutNotice.classList.add('hidden');
+    }
+
+    function renderTimer(currentSeconds) {
+        const elapsed = Number.isFinite(currentSeconds) && currentSeconds > 0 ? currentSeconds : 0;
+        const thresholdSeconds = getThresholdSeconds(activeDuration);
+
+        payoutElapsedTime.textContent = formatTime(elapsed);
+        payoutThresholdPercent.textContent = String(Math.max(0, Math.min(100, minWatchPercent)));
+        payoutAmountEl.textContent = `$${payoutAmount.toFixed(2)}`;
+
+        if (thresholdSeconds <= 0) {
+            payoutThresholdTime.textContent = '--:--';
+            payoutRemainingTime.textContent = '--:--';
+            payoutProgress.style.width = '0%';
+            setTimerNotice('Payout timer is unavailable until the video duration is known.');
+            return;
+        }
+
+        clearTimerNotice();
+        payoutThresholdTime.textContent = formatTime(thresholdSeconds);
+        const remaining = Math.max(0, thresholdSeconds - elapsed);
+
+        if (remaining > 0) {
+            payoutRemainingText.textContent = 'Remaining to eligibility:';
+            payoutRemainingTime.textContent = formatTime(remaining);
+            payoutRemainingTime.classList.remove('text-emerald-300');
+            payoutRemainingTime.classList.add('text-sky-300');
+        } else {
+            payoutRemainingText.textContent = 'Threshold status:';
+            payoutRemainingTime.textContent = 'Reached';
+            payoutRemainingTime.classList.remove('text-sky-300');
+            payoutRemainingTime.classList.add('text-emerald-300');
+        }
+
+        const progressPct = Math.max(0, Math.min(100, (elapsed / thresholdSeconds) * 100));
+        payoutProgress.style.width = `${progressPct}%`;
+    }
+
+    function setActiveDuration(durationSeconds) {
+        const previousDuration = activeDuration;
+        if (Number.isFinite(durationSeconds) && durationSeconds > 0) {
+            activeDuration = durationSeconds;
+        }
+
+        if (activeDuration !== previousDuration) {
+            renderTimer(0);
+        }
+    }
+
+    function bindNativeProgress() {
+        if (nativeProgressBound) {
+            return;
+        }
+
+        nativeProgressBound = true;
+
+        nativePlayer.addEventListener('loadedmetadata', () => {
+            setActiveDuration(nativePlayer.duration);
+            renderTimer(nativePlayer.currentTime || 0);
+        });
+
+        nativePlayer.addEventListener('timeupdate', () => {
+            renderTimer(nativePlayer.currentTime || 0);
+        });
+
+        nativePlayer.addEventListener('seeked', () => {
+            renderTimer(nativePlayer.currentTime || 0);
+        });
+
+        nativePlayer.addEventListener('ended', () => {
+            renderTimer(nativePlayer.currentTime || activeDuration || 0);
+        });
+    }
+
+    function stopYouTubeProgressWatcher() {
+        if (!ytProgressInterval) {
+            return;
+        }
+
+        window.clearInterval(ytProgressInterval);
+        ytProgressInterval = null;
+    }
+
+    function startYouTubeProgressWatcher() {
+        stopYouTubeProgressWatcher();
+
+        ytProgressInterval = window.setInterval(() => {
+            if (!ytShowPlayer || typeof ytShowPlayer.getCurrentTime !== 'function') {
+                return;
+            }
+
+            const current = ytShowPlayer.getCurrentTime();
+            const duration = typeof ytShowPlayer.getDuration === 'function' ? ytShowPlayer.getDuration() : 0;
+
+            if (duration > 0) {
+                setActiveDuration(duration);
+            }
+
+            renderTimer(current);
+        }, 250);
+    }
+
+    if (activeDuration > 0) {
+        renderTimer(0);
+    } else {
+        renderTimer(0);
+    }
 
     // Extract YouTube video ID
     function extractYouTubeId(url) {
@@ -397,14 +568,30 @@
                 controls: 1,
                 modestbranding: 1,
                 rel: 0
+            },
+            events: {
+                onReady: () => {
+                    if (typeof ytShowPlayer.getDuration === 'function') {
+                        const duration = ytShowPlayer.getDuration();
+                        if (duration > 0) {
+                            setActiveDuration(duration);
+                        }
+                    }
+                    startYouTubeProgressWatcher();
+                },
+                onStateChange: () => {
+                    startYouTubeProgressWatcher();
+                }
             }
         });
     }
 
     function initNativeShow(url) {
+        stopYouTubeProgressWatcher();
         ytContainer.classList.add('hidden');
         nativePlayer.classList.remove('hidden');
         placeholder.classList.add('hidden');
+        bindNativeProgress();
         
         nativeSource.src = url;
         nativePlayer.load();
@@ -416,6 +603,8 @@
         initYouTubeShow(youtubeId);
     } else if (mediaUrl.startsWith('http')) {
         initNativeShow(mediaUrl);
+    } else {
+        setTimerNotice('Payout timer is unavailable for this media format.');
     }
 
     // Test button
