@@ -1,11 +1,15 @@
 import React, { useEffect } from "react";
 import { NavigationContainer } from "@react-navigation/native";
-import { createNativeStackNavigator } from "@react-navigation/stack";
+import { createStackNavigator } from "@react-navigation/stack";
+import { ActivityIndicator, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { useAuthStore } from "@/stores/authStore";
-import { PoliticianProfileScreen } from "@/screens/PoliticianProfileScreen";
+import { useAuthStore } from "../stores/authStore";
+import { PoliticianProfileScreen } from "../screens/PoliticianProfileScreen";
+import { AdViewingRoomScreen } from "../screens/AdViewingRoomScreen";
+import { LoginScreen } from "../screens/LoginScreen";
+import { RegisterScreen } from "../screens/RegisterScreen";
 
-const Stack = createNativeStackNavigator();
+const Stack = createStackNavigator();
 
 /**
  * Root Navigator for U9itus Mobile App
@@ -17,7 +21,7 @@ const Stack = createNativeStackNavigator();
  * - Video question submission
  */
 export const RootNavigator: React.FC = () => {
-    const { isAuthenticated, isLoading, restoreToken } = useAuthStore();
+    const { isAuthenticated, isLoading, restoreToken, role } = useAuthStore();
 
     useEffect(() => {
         restoreToken();
@@ -57,13 +61,23 @@ export const RootNavigator: React.FC = () => {
                     {isAuthenticated ? (
                         // Authenticated Stack
                         <Stack.Group>
-                            <Stack.Screen
-                                name="Home"
-                                component={PoliticianProfileScreen}
-                                options={{
-                                    title: "Politician Profile",
-                                }}
-                            />
+                            {role === "voter" ? (
+                                <Stack.Screen
+                                    name="AdViewingRoom"
+                                    component={AdViewingRoomScreen}
+                                    options={{
+                                        title: "Ad Viewing Room",
+                                    }}
+                                />
+                            ) : (
+                                <Stack.Screen
+                                    name="Home"
+                                    component={PoliticianProfileScreen}
+                                    options={{
+                                        title: "Politician Profile",
+                                    }}
+                                />
+                            )}
                             {/* More screens would be added here */}
                         </Stack.Group>
                     ) : (
@@ -89,19 +103,19 @@ export const RootNavigator: React.FC = () => {
     );
 };
 
-/**
- * Placeholder Screens (to be implemented)
- */
 const SplashScreen: React.FC = () => {
-    return null; // Use native splash screen
-};
-
-const LoginScreen: React.FC = () => {
-    return null; // To be implemented
-};
-
-const RegisterScreen: React.FC = () => {
-    return null; // To be implemented
+    return (
+        <View
+            style={{
+                flex: 1,
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: "#0b1220",
+            }}
+        >
+            <ActivityIndicator size="large" color="#10b981" />
+        </View>
+    );
 };
 
 export default RootNavigator;

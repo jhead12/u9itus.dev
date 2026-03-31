@@ -73,6 +73,40 @@ npm run android
 npm run macos
 ```
 
+### Recommended Startup Process (iOS)
+
+Use this flow for the most reliable startup in development:
+
+```bash
+# 1) From mobile root, start Metro with a clean cache
+cd mobile
+npm start -- --reset-cache
+```
+
+```bash
+# 2) In a second terminal, run on simulator explicitly
+cd mobile
+npx react-native run-ios --simulator "iPhone 16 Pro"
+```
+
+Notes:
+
+- `npm run ios` may target a connected physical iPhone first.
+- If you want a real device build from CLI, install `ios-deploy` first:
+
+```bash
+brew install ios-deploy
+```
+
+### First-Run iOS Native Reset (when Pods/build files are stale)
+
+```bash
+cd mobile
+rm -rf ios/Pods ios/Podfile.lock ios/build
+cd ios && pod install
+xcodebuild -workspace U9itusMobile.xcworkspace -scheme U9itusMobile -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' clean
+```
+
 ## 📡 API Integration
 
 ### Base Configuration
@@ -314,6 +348,26 @@ cd android
 
 ```bash
 npm start -- --reset-cache
+```
+
+If port 8081 is stuck:
+
+```bash
+lsof -ti :8081 | xargs kill -9
+```
+
+Then restart Metro and re-run the simulator command.
+
+### "Failed to install on device: ios-deploy command"
+
+```bash
+brew install ios-deploy
+```
+
+Or run on simulator explicitly:
+
+```bash
+npx react-native run-ios --simulator "iPhone 16 Pro"
 ```
 
 ### "Native module not found"

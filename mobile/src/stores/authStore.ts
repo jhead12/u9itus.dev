@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import ApiClient from "@/services/ApiClient";
+import ApiClient, { UserRole } from "../services/ApiClient";
 
 interface Voter {
     id: number;
@@ -15,6 +15,7 @@ interface AuthState {
     isAuthenticated: boolean;
     isLoading: boolean;
     error: string | null;
+    role: UserRole | null;
 
     // Actions
     register: (
@@ -22,7 +23,7 @@ interface AuthState {
         password: string,
         fullName: string,
     ) => Promise<boolean>;
-    login: (email: string, password: string) => Promise<boolean>;
+    login: (role: UserRole, email: string, password: string) => Promise<boolean>;
     logout: () => Promise<void>;
     restoreToken: () => Promise<void>;
     setError: (error: string | null) => void;
@@ -34,6 +35,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     isAuthenticated: false,
     isLoading: true,
     error: null,
+    role: null,
 
     register: async (email, password, fullName) => {
         try {
@@ -45,10 +47,12 @@ export const useAuthStore = create<AuthState>((set) => ({
             );
 
             if (result) {
+                await AsyncStorage.setItem("auth_role", "voter");
                 set({
                     voter: result.voter,
                     token: result.token,
                     isAuthenticated: true,
+                    role: "voter",
                 });
                 return true;
             }
@@ -63,16 +67,18 @@ export const useAuthStore = create<AuthState>((set) => ({
         }
     },
 
-    login: async (email, password) => {
+    login: async (role, email, password) => {
         try {
             set({ isLoading: true, error: null });
-            const result = await ApiClient.loginVoter(email, password);
+            const result = await ApiClient.loginByRole(role, email, password);
 
             if (result) {
+                await AsyncStorage.setItem("auth_role", role);
                 set({
-                    voter: result.voter,
+                    voter: result.user,
                     token: result.token,
                     isAuthenticated: true,
+                    role,
                 });
                 return true;
             }
@@ -93,11 +99,13 @@ export const useAuthStore = create<AuthState>((set) => ({
         } catch (error) {
             console.error("Logout error:", error);
         } finally {
+            await AsyncStorage.removeItem("auth_role");
             set({
                 voter: null,
                 token: null,
                 isAuthenticated: false,
                 error: null,
+                role: null,
             });
         }
     },
@@ -105,10 +113,12 @@ export const useAuthStore = create<AuthState>((set) => ({
     restoreToken: async () => {
         try {
             const token = await AsyncStorage.getItem("auth_token");
+            const role = await AsyncStorage.getItem("auth_role");
             if (token) {
                 set({
                     token,
                     isAuthenticated: true,
+                    role: role === "politician" ? "politician" : "voter",
                 });
             }
         } catch (error) {

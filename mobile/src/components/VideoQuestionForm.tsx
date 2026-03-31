@@ -11,8 +11,8 @@ import {
     Platform,
 } from "react-native";
 import { CameraIcon, UploadIcon } from "./Icons";
-import VideoCaptureService from "@/services/VideoCaptureService";
-import ApiClient from "@/services/ApiClient";
+import VideoCaptureService from "../services/VideoCaptureService";
+import ApiClient from "../services/ApiClient";
 
 interface VideoQuestionFormProps {
     token: string; // Watch token from backend

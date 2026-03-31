@@ -14,8 +14,8 @@ import {
 import ApiClient, {
     PoliticianProfile,
     VideoQuestion,
-} from "@/services/ApiClient";
-import { PlayIcon, CheckIcon, ErrorIcon } from "@/components/Icons";
+} from "../services/ApiClient";
+import { PlayIcon, CheckIcon, ErrorIcon } from "../components/Icons";
 
 interface PoliticianProfileScreenProps {
     campaignId: number;
@@ -160,7 +160,6 @@ export const PoliticianProfileScreen: React.FC<
                         <Image
                             source={{ uri: politician.avatar_url }}
                             style={styles.avatar}
-                            defaultSource={require("@/assets/placeholder-avatar.png")}
                         />
                     )}
                     <View style={styles.headerInfo}>

@@ -53,6 +53,8 @@ export interface PoliticianProfile {
     video_questions: VideoQuestion[];
 }
 
+export type UserRole = "voter" | "politician";
+
 class ApiClient {
     private client: AxiosInstance;
     private baseURL: string = "http://localhost:8000/api"; // Development
@@ -237,6 +239,61 @@ class ApiClient {
             console.error("Login failed:", error);
             return null;
         }
+    }
+
+    /**
+     * Login politician
+     */
+    async loginPolitician(
+        email: string,
+        password: string,
+    ): Promise<{ token: string; politician: any } | null> {
+        try {
+            const response = await this.client.post<ApiResponse>(
+                "/politician/login",
+                { email, password },
+            );
+
+            if (response.data.success && response.data.data?.token) {
+                await AsyncStorage.setItem(
+                    "auth_token",
+                    response.data.data.token,
+                );
+                return response.data.data;
+            }
+            return null;
+        } catch (error) {
+            console.error("Politician login failed:", error);
+            return null;
+        }
+    }
+
+    async loginByRole(
+        role: UserRole,
+        email: string,
+        password: string,
+    ): Promise<{ token: string; user: any } | null> {
+        if (role === "politician") {
+            const result = await this.loginPolitician(email, password);
+            if (!result) {
+                return null;
+            }
+
+            return {
+                token: result.token,
+                user: result.politician,
+            };
+        }
+
+        const result = await this.loginVoter(email, password);
+        if (!result) {
+            return null;
+        }
+
+        return {
+            token: result.token,
+            user: result.voter,
+        };
     }
 
     /**
