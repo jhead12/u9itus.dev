@@ -1,6 +1,7 @@
 import axios, { AxiosInstance, AxiosError } from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import RNFS from "react-native-fs";
+import { NativeModules, Platform } from "react-native";
 
 /**
  * API Client for U9itus Backend
@@ -121,9 +122,45 @@ export interface CreatedCampaignResult {
 
 export type UserRole = "voter" | "politician";
 
+const API_PORT = 8000;
+const PRODUCTION_API_BASE_URL = "https://u9itus.dev/api";
+
+function getMetroHost(): string | null {
+    const scriptURL = NativeModules.SourceCode?.scriptURL as string | undefined;
+    if (!scriptURL) {
+        return null;
+    }
+
+    try {
+        const { hostname } = new URL(scriptURL);
+        return hostname || null;
+    } catch {
+        return null;
+    }
+}
+
+function getDevelopmentApiBaseURL(): string {
+    const metroHost = getMetroHost();
+
+    if (metroHost && metroHost !== "localhost" && metroHost !== "127.0.0.1") {
+        return `http://${metroHost}:${API_PORT}/api`;
+    }
+
+    if (Platform.OS === "android") {
+        // Android emulator maps host localhost to 10.0.2.2.
+        return `http://10.0.2.2:${API_PORT}/api`;
+    }
+
+    return `http://127.0.0.1:${API_PORT}/api`;
+}
+
+function getDefaultApiBaseURL(): string {
+    return __DEV__ ? getDevelopmentApiBaseURL() : PRODUCTION_API_BASE_URL;
+}
+
 class ApiClient {
     private readonly client: AxiosInstance;
-    private baseURL: string = "http://localhost:8000/api"; // Development
+    private baseURL: string = getDefaultApiBaseURL();
 
     constructor() {
         this.client = axios.create({

@@ -1,0 +1,6 @@
+# Copy this file to android/key.properties and fill in release credentials.
+# Do not commit android/key.properties.
+storeFile=release-key.keystore
+storePassword=CHANGE_ME
+keyAlias=u9itus-upload
+keyPassword=CHANGE_ME

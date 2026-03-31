@@ -1,6 +1,7 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { StatusBar } from "react-native";
 import RootNavigator from "./navigation/RootNavigator";
+import NotificationService from "./services/NotificationService";
 
 /**
  * Main App Entry Point
@@ -20,6 +21,14 @@ import RootNavigator from "./navigation/RootNavigator";
  * - Push notifications (FCM/APN)
  */
 const App: React.FC = () => {
+    useEffect(() => {
+        void NotificationService.initialize();
+
+        return () => {
+            NotificationService.teardown();
+        };
+    }, []);
+
     return (
         <>
             <StatusBar

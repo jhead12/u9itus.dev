@@ -26,6 +26,8 @@ DerivedData/
 *.aab
 local.properties
 *.jks
+android/key.properties
+android/app/google-services.json
 
 # IDE
 .vscode/

@@ -1,5 +1,4 @@
-import { CameraRoll } from "@react-native-camera-roll/camera-roll";
-import { Platform, PermissionsAndroid, Alert } from "react-native";
+import { Platform, Alert } from "react-native";
 import RNFS from "react-native-fs";
 import { check, request, PERMISSIONS, RESULTS } from "react-native-permissions";
 
@@ -46,9 +45,12 @@ class VideoCaptureService {
     static async requestPhotoLibraryPermission(): Promise<boolean> {
         try {
             if (Platform.OS === "android") {
-                const permission = await request(
-                    PERMISSIONS.ANDROID.READ_EXTERNAL_STORAGE,
-                );
+                const androidPermission =
+                    Platform.Version >= 33
+                        ? PERMISSIONS.ANDROID.READ_MEDIA_VIDEO
+                        : PERMISSIONS.ANDROID.READ_EXTERNAL_STORAGE;
+
+                const permission = await request(androidPermission);
                 return permission === RESULTS.GRANTED;
             } else if (Platform.OS === "ios") {
                 const permission = await request(PERMISSIONS.IOS.PHOTO_LIBRARY);
@@ -180,7 +182,11 @@ class VideoCaptureService {
         const k = 1024;
         const sizes = ["Bytes", "KB", "MB", "GB"];
         const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+        return (
+            Number.parseFloat((bytes / Math.pow(k, i)).toFixed(2)) +
+            " " +
+            sizes[i]
+        );
     }
 }
 
