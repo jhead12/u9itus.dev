@@ -75,12 +75,30 @@ export interface StartViewResult {
     must_watch?: number;
 }
 
+export interface CreateCampaignPayload {
+    title: string;
+    message_summary?: string;
+    campaign_type: "video" | "live_feed" | "q_and_a";
+    governance_level: "federal" | "state" | "county" | "city" | "school" | "special";
+    media_url?: string;
+    media_type?: "youtube" | "vimeo" | "direct_file" | "s3_cloudfront" | "hls_stream";
+    media_duration?: number;
+    live_feed_url?: string;
+    live_scheduled_at?: string;
+    total_budget: number;
+    total_views_requested: number;
+}
+
+export interface CreatedCampaignResult {
+    message?: string;
+    campaign?: any;
+}
+
 export type UserRole = "voter" | "politician";
 
 class ApiClient {
-    private client: AxiosInstance;
+    private readonly client: AxiosInstance;
     private baseURL: string = "http://localhost:8000/api"; // Development
-    private token: string | null = null;
 
     constructor() {
         this.client = axios.create({
@@ -101,7 +119,9 @@ class ApiClient {
                 }
                 return config;
             },
-            (error) => Promise.reject(error),
+            (error) => {
+                throw error;
+            },
         );
 
         // Interceptor for error handling
@@ -112,7 +132,7 @@ class ApiClient {
                     // Token expired or invalid
                     await AsyncStorage.removeItem("auth_token");
                 }
-                return Promise.reject(error);
+                throw error;
             },
         );
     }
@@ -354,6 +374,25 @@ class ApiClient {
             token: result.token,
             user: result.voter,
         };
+    }
+
+    /**
+     * Create a new campaign for the authenticated politician.
+     */
+    async createPoliticianCampaign(
+        politicianUuid: string,
+        payload: CreateCampaignPayload,
+    ): Promise<CreatedCampaignResult | null> {
+        try {
+            const response = await this.client.post<CreatedCampaignResult>(
+                `/politicians/${politicianUuid}/campaigns`,
+                payload,
+            );
+            return response.data;
+        } catch (error) {
+            console.error("Create campaign failed:", error);
+            return null;
+        }
     }
 
     /**

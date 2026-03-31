@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import {
+    ActivityIndicator,
     ScrollView,
     StyleSheet,
     Text,
@@ -7,10 +8,66 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
+import ApiClient, { CreateCampaignPayload } from "../services/ApiClient";
+import { useAuthStore } from "../stores/authStore";
 
-export const CreateCampaignScreen: React.FC = () => {
+interface CreateCampaignScreenProps {
+    navigation: {
+        navigate: (screen: string, params?: Record<string, unknown>) => void;
+    };
+}
+
+export const CreateCampaignScreen: React.FC<CreateCampaignScreenProps> = ({ navigation }) => {
+    const { voter } = useAuthStore();
     const [title, setTitle] = useState("");
     const [summary, setSummary] = useState("");
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    const handleContinue = async () => {
+        const trimmedTitle = title.trim();
+        const trimmedSummary = summary.trim();
+
+        if (!trimmedTitle) {
+            setError("Campaign title is required.");
+            return;
+        }
+
+        const politicianUuid = (voter as { uuid?: string } | null)?.uuid;
+        if (!politicianUuid) {
+            setError("Missing politician profile UUID. Please log out and back in.");
+            return;
+        }
+
+        setError(null);
+        setIsSubmitting(true);
+
+        const payload: CreateCampaignPayload = {
+            title: trimmedTitle,
+            message_summary: trimmedSummary || undefined,
+            campaign_type: "video",
+            governance_level: "city",
+            media_url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+            media_type: "youtube",
+            media_duration: 30,
+            total_budget: 10,
+            total_views_requested: 10,
+        };
+
+        const result = await ApiClient.createPoliticianCampaign(
+            politicianUuid,
+            payload,
+        );
+
+        setIsSubmitting(false);
+
+        if (!result) {
+            setError("Could not create campaign. Please try again.");
+            return;
+        }
+
+        navigation.navigate("Home");
+    };
 
     return (
         <ScrollView
@@ -42,8 +99,18 @@ export const CreateCampaignScreen: React.FC = () => {
                     multiline
                 />
 
-                <TouchableOpacity style={styles.primaryButton}>
-                    <Text style={styles.primaryButtonText}>Continue</Text>
+                {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+                <TouchableOpacity
+                    style={[styles.primaryButton, isSubmitting && styles.buttonDisabled]}
+                    onPress={handleContinue}
+                    disabled={isSubmitting}
+                >
+                    {isSubmitting ? (
+                        <ActivityIndicator color="#ffffff" />
+                    ) : (
+                        <Text style={styles.primaryButtonText}>Continue</Text>
+                    )}
                 </TouchableOpacity>
             </View>
         </ScrollView>
@@ -104,10 +171,17 @@ const styles = StyleSheet.create({
         alignItems: "center",
         marginTop: 2,
     },
+    buttonDisabled: {
+        opacity: 0.7,
+    },
     primaryButtonText: {
         color: "#ffffff",
         fontSize: 16,
         fontWeight: "700",
+    },
+    errorText: {
+        color: "#fb7185",
+        marginBottom: 10,
     },
 });
 
