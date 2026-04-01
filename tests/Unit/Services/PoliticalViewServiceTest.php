@@ -6,6 +6,8 @@ use App\Enums\PaymentStatus;
 use App\Enums\ViewPaymentStatus;
 use App\Enums\ViewSessionStatus;
 use App\Models\PoliticalCampaign;
+use App\Models\Politician;
+use App\Models\User;
 use App\Models\ViewSession;
 use App\Models\Voter;
 use App\Services\CampaignBillingService;
@@ -38,10 +40,18 @@ function readyRequest(array $serverVars = []): Request
 
 function activeCampaignForView(array $overrides = []): PoliticalCampaign
 {
+    $user = User::factory()->create(['user_type' => 'politician']);
+    $politician = Politician::factory()->create([
+        'user_id' => $user->id,
+        'is_active' => true,
+    ]);
+
     return PoliticalCampaign::factory()->create(array_merge([
+        'politician_id'           => $politician->id,
         'status'                 => CampaignStatus::Active->value,
         'approval_status'        => ApprovalStatus::Approved->value,
-        'payment_status'         => PaymentStatus::Pending->value,
+        'payment_status'         => PaymentStatus::Captured->value,
+        'stripe_payment_intent_id' => 'pi_test_campaign_default',
         'media_duration'         => 60,
         'min_watch_time_percent' => 80,
         'revenue_per_view'       => 0.60,
@@ -250,6 +260,29 @@ test('availableCampaigns respects state targeting', function () {
     $results = viewService()->availableCampaigns($voter);
 
     expect($results)->toHaveCount(2);
+});
+
+test('availableCampaigns excludes campaigns without Stripe capture', function () {
+    config(['u9itus.fraud.device_fingerprint_required' => false]);
+
+    $voter = cleanVoter(['state' => null]);
+
+    activeCampaignForView([
+        'title' => 'Paid campaign',
+        'payment_status' => PaymentStatus::Captured->value,
+        'stripe_payment_intent_id' => 'pi_test_paid_campaign',
+    ]);
+
+    activeCampaignForView([
+        'title' => 'Unpaid campaign',
+        'payment_status' => PaymentStatus::Pending->value,
+        'stripe_payment_intent_id' => null,
+    ]);
+
+    $results = viewService()->availableCampaigns($voter);
+
+    expect($results)->toHaveCount(1)
+        ->and($results->first()->title)->toBe('Paid campaign');
 });
 
 // ── voterEarningsSummary() ────────────────────────────────────────────────────

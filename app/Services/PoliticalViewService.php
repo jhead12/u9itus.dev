@@ -166,6 +166,11 @@ class PoliticalViewService
     public function availableCampaigns(Voter $voter): \Illuminate\Database\Eloquent\Collection
     {
         $candidates = PoliticalCampaign::needingViews()
+            ->whereHas('politician', function ($q): void {
+                $q->where('is_active', true)
+                  ->whereNotNull('user_id')
+                  ->whereHas('user');
+            })
             ->with('politician:id,full_name,political_office')
             ->where(function ($q) use ($voter): void {
                 if ($voter->state) {

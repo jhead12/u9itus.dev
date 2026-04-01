@@ -6,6 +6,8 @@ use App\Enums\PaymentStatus;
 use App\Enums\ViewSessionStatus;
 use App\Enums\ViewPaymentStatus;
 use App\Models\PoliticalCampaign;
+use App\Models\Politician;
+use App\Models\User;
 use App\Models\ReferralEarning;
 use App\Models\ViewSession;
 use App\Models\Voter;
@@ -20,10 +22,18 @@ uses(RefreshDatabase::class);
  */
 function activeCampaign(array $overrides = []): PoliticalCampaign
 {
+    $user = User::factory()->create(['user_type' => 'politician']);
+    $politician = Politician::factory()->create([
+        'user_id' => $user->id,
+        'is_active' => true,
+    ]);
+
     return PoliticalCampaign::factory()->create(array_merge([
+        'politician_id' => $politician->id,
         'status'          => CampaignStatus::Active->value,
         'approval_status' => ApprovalStatus::Approved->value,
-        'payment_status'  => PaymentStatus::Pending->value,
+        'payment_status'  => PaymentStatus::Captured->value,
+        'stripe_payment_intent_id' => 'pi_test_campaign_lifecycle',
         'media_duration'  => 60,
         'min_watch_time_percent' => 80,
         'total_views_requested'  => 100,
