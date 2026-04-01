@@ -6,6 +6,12 @@
     title="Welcome to U9itus!"
     description="Get paid to watch political messages and make your voice heard"
 >
+    @php
+        $voterPayoutPerView = number_format(
+            (float) \App\Services\PlatformSettingsService::get('viewer_payout_per_view', null, (float) config('u9itus.viewer_payout_per_view', 0.50)),
+            2
+        );
+    @endphp
     <div class="space-y-6">
         <!-- Welcome Content -->
         <div class="text-center py-6">
@@ -31,7 +37,7 @@
             <div class="flex items-start space-x-3">
                 <div class="flex-shrink-0 w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold">2</div>
                 <div>
-                    <h4 class="font-semibold text-white">Earn $0.25 Per View</h4>
+                    <h4 class="font-semibold text-white">Earn ${{ $voterPayoutPerView }} Per View</h4>
                     <p class="text-gray-300">Get paid for every complete video you watch</p>
                 </div>
             </div>

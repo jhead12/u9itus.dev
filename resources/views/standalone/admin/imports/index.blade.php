@@ -8,7 +8,7 @@
     <div class="max-w-6xl mx-auto">
         <!-- Header -->
         <div class="mb-8">
-            <h1 class="text-3xl font-bold text-white mb-2">California Data Imports</h1>
+            <h1 class="text-3xl font-bold text-white mb-2">State Data Imports</h1>
             <p class="text-gray-400">Monitor scheduled politician profile syncs and import health</p>
         </div>
 
@@ -58,6 +58,7 @@
                     <thead>
                         <tr class="border-b border-gray-800 bg-gray-800">
                             <th class="px-6 py-4 text-left text-gray-300 font-semibold">Date</th>
+                            <th class="px-6 py-4 text-left text-gray-300 font-semibold">State</th>
                             <th class="px-6 py-4 text-left text-gray-300 font-semibold">Status</th>
                             <th class="px-6 py-4 text-center text-gray-300 font-semibold">Created</th>
                             <th class="px-6 py-4 text-center text-gray-300 font-semibold">Updated</th>
@@ -69,9 +70,18 @@
                     </thead>
                     <tbody class="divide-y divide-gray-800">
                         @forelse ($imports as $import)
+                            @php
+                                $stateCode = null;
+                                if (preg_match('/\[state=([A-Z]{2})\]/', (string) $import->output, $stateMatch) === 1) {
+                                    $stateCode = $stateMatch[1];
+                                }
+                            @endphp
                             <tr class="hover:bg-gray-800/50 transition-colors">
                                 <td class="px-6 py-4 font-mono text-gray-400 whitespace-nowrap">
                                     {{ $import->started_at?->setTimezone('America/Los_Angeles')->format('M d, Y H:i PT') ?? 'N/A' }}
+                                </td>
+                                <td class="px-6 py-4 font-mono text-gray-300 whitespace-nowrap">
+                                    {{ $stateCode ?? 'N/A' }}
                                 </td>
                                 <td class="px-6 py-4">
                                     @if ($import->status === 'success')
@@ -115,7 +125,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="8" class="px-6 py-8 text-center text-gray-500">
+                                <td colspan="9" class="px-6 py-8 text-center text-gray-500">
                                     No import runs found. Imports will appear here after the first scheduled run at 02:00 PT.
                                 </td>
                             </tr>
@@ -137,10 +147,10 @@
             <div class="flex items-start gap-3">
                 <div class="text-blue-400 text-lg">i</div>
                 <div>
-                    <h3 class="font-semibold text-blue-300 mb-1">About California Imports</h3>
+                    <h3 class="font-semibold text-blue-300 mb-1">About State Rotation Imports</h3>
                     <p class="text-sm text-gray-400">
-                        This dashboard displays all California politician profile imports. Imports are scheduled daily at <strong>02:00 PT</strong>
-                        and sync unclaimed politician profiles from the congress-legislators API.
+                        This dashboard displays daily state-rotation politician profile imports. Imports are scheduled daily at <strong>02:00 PT</strong>
+                        and sync one U.S. state per day from the congress-legislators API.
                         The health check runs hourly to ensure freshness. For operational details, see the
                         <a href="{{ route('admin.dashboard') }}" class="text-blue-400 hover:text-blue-300 underline">operations documentation</a>.
                     </p>

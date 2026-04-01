@@ -256,10 +256,18 @@ class PoliticalCampaign extends Model
     public function scopeNeedingViews($query): void
     {
         $query->active()
-                            // Live-mode voter inventory must be backed by a Stripe payment.
-                            ->where('payment_status', PaymentStatus::Captured)
-                            ->whereNotNull('stripe_payment_intent_id')
-                            ->where('stripe_payment_intent_id', '!=', '')
+              // Live-mode voter inventory must be backed by Stripe payment.
+              ->where('payment_status', PaymentStatus::Captured)
+              ->whereNotNull('stripe_payment_intent_id')
+              ->where('stripe_payment_intent_id', '!=', '')
+              // Exclude seed/demo politician accounts from voter-facing inventory.
+              ->whereHas('politician', function ($q): void {
+                  $q->where('is_active', true)
+                    ->whereNotNull('user_id')
+                    ->whereHas('user', function ($u): void {
+                        $u->where('email', 'not like', '%@seed.u9itus.test');
+                    });
+              })
               ->whereColumn('views_completed', '<', 'total_views_requested')
               // Respect scheduled delivery window
               ->where(function ($q): void {

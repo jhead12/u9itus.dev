@@ -6,6 +6,7 @@ use App\Mail\CaliforniaImportSyncFailedMail;
 use App\Models\ImportRunLog;
 use App\Models\User;
 use App\Notifications\CaliforniaImportNotification;
+use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Log;
@@ -16,14 +17,37 @@ class RunCaliforniaImportSync extends Command
 {
     protected $signature = 'imports:sync-california
         {--source-url=https://unitedstates.github.io/congress-legislators/legislators-current.json : JSON feed URL}
+        {--state= : Two-letter state override (defaults to daily rotation)}
+        {--rotation-date= : Date used for state rotation (YYYY-MM-DD, defaults to today in PT)}
         {--with-campaigns : Create preview campaigns during sync}
         {--dry-run : Parse and report only}';
 
-    protected $description = 'Run California unclaimed politician import with run logging and failure alerts.';
+    protected $description = 'Run daily rotating-state unclaimed politician import with run logging and failure alerts.';
+
+    /**
+     * @var array<int, string>
+     */
+    protected array $rotationStates = [
+        'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA',
+        'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD',
+        'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ',
+        'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC',
+        'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY',
+    ];
 
     public function handle(): int
     {
         $sourceUrl = (string) $this->option('source-url');
+        try {
+            $targetState = $this->resolveTargetState(
+                $this->option('state'),
+                $this->option('rotation-date'),
+            );
+        } catch (\InvalidArgumentException $exception) {
+            $this->error($exception->getMessage());
+
+            return self::FAILURE;
+        }
         $withCampaigns = (bool) $this->option('with-campaigns');
         $dryRun = (bool) $this->option('dry-run');
 
@@ -37,37 +61,41 @@ class RunCaliforniaImportSync extends Command
         ]);
 
         $arguments = [
-            '--source-url' => $sourceUrl,
+            '--fetcher' => 'current',
+            '--current-url' => $sourceUrl,
+            '--state' => [$targetState],
             '--with-campaigns' => $withCampaigns,
             '--dry-run' => $dryRun,
         ];
 
         try {
-            $exitCode = Artisan::call('politicians:import-unclaimed-ca', $arguments);
+            $exitCode = Artisan::call('politicians:import-unclaimed-us', $arguments);
             $output = trim(Artisan::output());
+            $stateOutput = "[state={$targetState}]\n" . $output;
 
             if ($exitCode === self::SUCCESS) {
-                $runLog->markSuccess($exitCode, $output, $this->extractCounts($output));
+                $runLog->markSuccess($exitCode, $stateOutput, $this->extractCounts($output));
                 $this->notifyAdmins($runLog, 'success');
 
-                $this->info('California sync completed successfully.');
+                $this->info("State sync completed successfully for {$targetState}.");
 
                 return self::SUCCESS;
             }
 
             $errorMessage = $this->extractErrorMessage($output);
-            $runLog->markFailed($exitCode, $output, $errorMessage);
+            $runLog->markFailed($exitCode, $stateOutput, $errorMessage);
             $this->sendFailureAlert($runLog);
             $this->notifyAdmins($runLog, 'failure');
 
-            $this->error('California sync failed. Alert email queued for admins.');
+            $this->error("State sync failed for {$targetState}. Alert email queued for admins.");
 
             return self::FAILURE;
         } catch (\Throwable $exception) {
             $output = trim(Artisan::output());
+            $stateOutput = "[state={$targetState}]\n" . $output;
             $errorMessage = $exception->getMessage();
 
-            $runLog->markFailed(-1, $output, $errorMessage);
+            $runLog->markFailed(-1, $stateOutput, $errorMessage);
             $this->sendFailureAlert($runLog);
             $this->notifyAdmins($runLog, 'failure');
 
@@ -76,10 +104,31 @@ class RunCaliforniaImportSync extends Command
                 'trace' => $exception->getTraceAsString(),
             ]);
 
-            $this->error('California sync crashed. Alert email queued for admins.');
+            $this->error("State sync crashed for {$targetState}. Alert email queued for admins.");
 
             return self::FAILURE;
         }
+    }
+
+    protected function resolveTargetState(mixed $stateOption, mixed $rotationDateOption): string
+    {
+        $manualState = strtoupper(trim((string) $stateOption));
+        if ($manualState !== '') {
+            if (! in_array($manualState, $this->rotationStates, true)) {
+                throw new \InvalidArgumentException('Invalid --state option. Expected one of the 50 U.S. state codes.');
+            }
+
+            return $manualState;
+        }
+
+        $rotationDate = trim((string) $rotationDateOption);
+        $date = $rotationDate !== ''
+            ? Carbon::parse($rotationDate, 'America/Los_Angeles')
+            : now('America/Los_Angeles');
+
+        $index = ($date->dayOfYear - 1) % count($this->rotationStates);
+
+        return $this->rotationStates[$index];
     }
 
     /**

@@ -34,6 +34,7 @@ test('sync wrapper logs successful california import run', function () {
 
     $exitCode = Artisan::call('imports:sync-california', [
         '--source-url' => 'https://example.test/legislators-current.json',
+        '--state' => 'CA',
     ]);
 
     expect($exitCode)->toBe(0);
@@ -50,7 +51,8 @@ test('sync wrapper logs successful california import run', function () {
     expect($runLog->campaigns_created_count)->toBe(0);
     expect($runLog->started_at)->not->toBeNull();
     expect($runLog->finished_at)->not->toBeNull();
-    expect((string) $runLog->output)->toContain('California import complete');
+    expect((string) $runLog->output)->toContain('[state=CA]');
+    expect((string) $runLog->output)->toContain('U.S. import complete');
 });
 
 test('sync wrapper logs failure and emails admins when california import fails', function () {
@@ -67,6 +69,7 @@ test('sync wrapper logs failure and emails admins when california import fails',
 
     $exitCode = Artisan::call('imports:sync-california', [
         '--source-url' => 'https://example.test/legislators-current.json',
+        '--state' => 'CA',
     ]);
 
     expect($exitCode)->toBe(1);
@@ -76,7 +79,7 @@ test('sync wrapper logs failure and emails admins when california import fails',
     expect($runLog)->not->toBeNull();
     expect($runLog->status)->toBe('failed');
     expect($runLog->exit_code)->toBe(1);
-    expect($runLog->error_message)->toContain('Unable to fetch source JSON');
+    expect($runLog->error_message)->toContain('Unable to fetch current legislators feed');
     expect($runLog->finished_at)->not->toBeNull();
 
     Mail::assertQueued(CaliforniaImportSyncFailedMail::class, function (CaliforniaImportSyncFailedMail $mail) use ($runLog) {

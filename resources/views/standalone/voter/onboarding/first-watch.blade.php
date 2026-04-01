@@ -1,5 +1,5 @@
 @php
-    $voterPayoutPerView = number_format((float) \App\Services\PlatformSettingsService::get('viewer_payout_per_view', null, 0.25), 2);
+    $voterPayoutPerView = number_format((float) \App\Services\PlatformSettingsService::get('viewer_payout_per_view', null, (float) config('u9itus.viewer_payout_per_view', 0.50)), 2);
 @endphp
 
 <x-onboarding-layout

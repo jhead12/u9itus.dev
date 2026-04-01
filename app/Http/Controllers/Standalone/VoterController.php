@@ -86,10 +86,8 @@ class VoterController extends Controller
 
         $voterPrefs = $voter->preferred_governance_levels ?? [];
 
-        $availableCampaignsQuery = PoliticalCampaign::with('politician:id,full_name,political_office,governance_level,profile_photo_url,verified_official,slug,page_published')
-            ->where('status', CampaignStatus::Active)
-            ->where('approval_status', ApprovalStatus::Approved)
-            ->whereColumn('views_completed', '<', 'total_views_requested')
+        $availableCampaignsQuery = PoliticalCampaign::needingViews()
+            ->with('politician:id,full_name,political_office,governance_level,profile_photo_url,verified_official,slug,page_published')
             ->whereNotIn('id', $completedCampaignIds);
 
         if (! empty($voterPrefs)) {
@@ -167,7 +165,8 @@ class VoterController extends Controller
         // Voter's stored governance-level preferences
         $voterPrefs = $voter->preferred_governance_levels ?? [];
 
-        $query = PoliticalCampaign::with(['politician:id,full_name,political_office,governance_level,profile_photo_url,verified_official,slug,page_published', 'topics'])
+        $query = PoliticalCampaign::needingViews()
+            ->with(['politician:id,full_name,political_office,governance_level,profile_photo_url,verified_official,slug,page_published', 'topics'])
             // Count recent open issue reports (last 7 days) for visual warning indicator
             ->withCount([
                 'voterWatchReports as recent_reports_count' => function ($q) {
@@ -176,9 +175,6 @@ class VoterController extends Controller
                       ->where('created_at', '>=', now()->subDays(7));
                 }
             ])
-            ->where('status', CampaignStatus::Active)
-            ->where('approval_status', ApprovalStatus::Approved)
-            ->whereColumn('views_completed', '<', 'total_views_requested')
             ->whereNotIn('id', $completedCampaignIds);
 
         // Text search (title / message summary)

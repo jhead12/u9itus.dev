@@ -9,7 +9,7 @@
     @php
         $voterLandingReferralUrl = url('/?ref=' . ($voter->referral_code ?? '') . '&target=voter');
         $politicianLandingReferralUrl = url('/?ref=' . ($voter->referral_code ?? '') . '&target=politician');
-        $viewerPayoutPerView = (float) \App\Services\PlatformSettingsService::get('viewer_payout_per_view', null, 0.25);
+        $viewerPayoutPerView = (float) \App\Services\PlatformSettingsService::get('viewer_payout_per_view', null, (float) config('u9itus.viewer_payout_per_view', 0.50));
         $referralCommissionPercent = (float) \App\Services\PlatformSettingsService::get('referral_commission_percent', null, config('u9itus.referral_commission_percent', 10));
         $referralPerViewAmount = $viewerPayoutPerView * ($referralCommissionPercent / 100);
         $referralPerViewAmountDecimals = $referralPerViewAmount < 0.1 ? 3 : 2;
