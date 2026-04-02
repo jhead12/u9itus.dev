@@ -765,10 +765,21 @@ class PoliticianController extends Controller
     {
         $politician = Auth::user()->politician;
         abort_unless(
-            $politician && (int) $campaign->politician_id === (int) $politician->id
-            && in_array($campaign->status?->value ?? $campaign->status, ['draft', 'paused']),
+            $politician && (int) $campaign->politician_id === (int) $politician->id,
             403
         );
+
+        $rawStatus = (string) ($campaign->getRawOriginal('status') ?? $campaign->status?->value ?? $campaign->status);
+        if (! in_array($rawStatus, ['draft', 'paused'], true)) {
+            $statusLabel = ucfirst(str_replace('_', ' ', $rawStatus ?: 'unknown'));
+            $message = "Video uploads are only allowed when the campaign is Draft or Paused. Current status: {$statusLabel}.";
+
+            if ($request->expectsJson()) {
+                return response()->json(['message' => $message], 422);
+            }
+
+            return back()->withErrors(['video' => $message]);
+        }
 
         $maxMb  = config('u9itus.max_video_size_mb', 1024);
         [$minSec, $maxSec] = $this->videoDurationBounds();
