@@ -9,6 +9,9 @@ import { AdViewingRoomScreen } from "../screens/AdViewingRoomScreen";
 import { CreateCampaignScreen } from "../screens/CreateCampaignScreen";
 import { LoginScreen } from "../screens/LoginScreen";
 import { RegisterScreen } from "../screens/RegisterScreen";
+import { VoterOnboardingWelcomeScreen } from "../screens/VoterOnboardingWelcomeScreen";
+import { VoterOnboardingProfileScreen } from "../screens/VoterOnboardingProfileScreen";
+import { VoterOnboardingVerificationScreen } from "../screens/VoterOnboardingVerificationScreen";
 
 const Stack = createStackNavigator();
 
@@ -34,7 +37,13 @@ const navTheme = {
  * - Video question submission
  */
 export const RootNavigator: React.FC = () => {
-    const { isAuthenticated, isLoading, restoreToken, role } = useAuthStore();
+    const {
+        isAuthenticated,
+        isLoading,
+        restoreToken,
+        role,
+        hasCompletedVoterOnboarding,
+    } = useAuthStore();
 
     useEffect(() => {
         restoreToken();
@@ -71,7 +80,34 @@ export const RootNavigator: React.FC = () => {
                     {isAuthenticated ? (
                         // Authenticated Stack
                         <Stack.Group>
-                            {role === "voter" ? (
+                            {role === "voter" &&
+                            !hasCompletedVoterOnboarding ? (
+                                <>
+                                    <Stack.Screen
+                                        name="VoterOnboardingWelcome"
+                                        component={VoterOnboardingWelcomeScreen}
+                                        options={{
+                                            title: "Voter Onboarding",
+                                        }}
+                                    />
+                                    <Stack.Screen
+                                        name="VoterOnboardingProfile"
+                                        component={VoterOnboardingProfileScreen}
+                                        options={{
+                                            title: "Profile Setup",
+                                        }}
+                                    />
+                                    <Stack.Screen
+                                        name="VoterOnboardingVerification"
+                                        component={
+                                            VoterOnboardingVerificationScreen
+                                        }
+                                        options={{
+                                            title: "Verification",
+                                        }}
+                                    />
+                                </>
+                            ) : role === "voter" ? (
                                 <Stack.Screen
                                     name="AdViewingRoom"
                                     component={AdViewingRoomScreen}

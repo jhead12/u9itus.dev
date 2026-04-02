@@ -63,17 +63,48 @@ npm start
 ### Run on Device/Emulator
 
 ```bash
-# iOS
-npm run ios
+# One-command iOS dev (starts Metro if needed + launches simulator)
+npm run dev:ios
 
-# Android
-npm run android
+# One-command Android dev (starts Metro if needed + launches emulator/device)
+npm run dev:android
+
+# Generic one-command runner
+npm run dev -- ios
+npm run dev -- android
+
+# Pass through native run args
+npm run dev -- ios --simulator "iPhone 16 Pro"
+npm run dev -- android --deviceId emulator-5554
 
 # macOS
 npm run macos
 ```
 
-### Recommended Startup Process (iOS)
+### Recommended Day-to-Day Workflow (iOS/Android)
+
+Use a single command when switching platforms:
+
+```bash
+cd mobile
+npm run dev:ios
+```
+
+or
+
+```bash
+cd mobile
+npm run dev:android
+```
+
+How it works:
+
+- Reuses Metro if it's already running on port `8081`
+- Starts Metro automatically if it's not running
+- Launches `run-ios`/`run-android` with `--no-packager` to avoid duplicate bundlers
+- Defaults iOS to simulator `iPhone 16 Pro` (override with `--simulator`)
+
+### Manual Startup Process (fallback)
 
 Use this flow for the most reliable startup in development:
 
@@ -368,6 +399,23 @@ Or run on simulator explicitly:
 
 ```bash
 npx react-native run-ios --simulator "iPhone 16 Pro"
+```
+
+### "No Firebase App '[DEFAULT]' has been created"
+
+This means Firebase native config files are missing for your app target.
+
+Required files:
+
+- iOS: `ios/U9itusMobile/GoogleService-Info.plist`
+- Android: `android/app/google-services.json`
+
+After adding them:
+
+```bash
+cd mobile/ios && pod install
+cd ../..
+npm run dev:ios
 ```
 
 ### "Native module not found"

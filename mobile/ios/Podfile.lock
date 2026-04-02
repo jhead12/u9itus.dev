@@ -1042,7 +1042,7 @@ PODS:
     - glog
     - RCT-Folly (= 2022.05.16.00)
     - React-Core
-  - react-native-safe-area-context (4.14.1):
+  - react-native-safe-area-context (4.7.2):
     - React-Core
   - react-native-video (5.2.2):
     - React-Core
@@ -1231,7 +1231,7 @@ PODS:
     - RNFBApp
   - RNFS (2.20.0):
     - React-Core
-  - RNGestureHandler (2.30.1):
+  - RNGestureHandler (2.14.0):
     - glog
     - RCT-Folly (= 2022.05.16.00)
     - React-Core
@@ -1242,11 +1242,10 @@ PODS:
     - RCT-Folly (= 2022.05.16.00)
     - React-Core
     - ReactCommon/turbomodule/core
-  - RNScreens (3.37.0):
+  - RNScreens (3.29.0):
     - glog
     - RCT-Folly (= 2022.05.16.00)
     - React-Core
-    - React-RCTImage
   - SocketRocket (0.6.1)
   - Yoga (1.14.0)
 
@@ -1256,8 +1255,6 @@ DEPENDENCIES:
   - FBLazyVector (from `../node_modules/react-native/Libraries/FBLazyVector`)
   - FBReactNativeSpec (from `../node_modules/react-native/React/FBReactNativeSpec`)
   - FirebaseCore
-  - FirebaseCoreExtension
-  - FirebaseCoreInternal
   - Flipper (= 0.201.0)
   - Flipper-Boost-iOSX (= 1.76.0.1.11)
   - Flipper-DoubleConversion (= 3.2.0.1)
@@ -1551,7 +1548,7 @@ SPEC CHECKSUMS:
   react-native-camera: 079d80421f0572d6b4e836908114d614d0adb553
   react-native-cameraroll: fc61080d4409a68c428f9b232264f7fb9fc4a07d
   react-native-geolocation: 49ea939d13f095705a71891555cc76215e63ec6a
-  react-native-safe-area-context: 758e894ca5a9bd1868d2a9cfbca7326a2b6bf9dc
+  react-native-safe-area-context: 9fdf214647353ab717139d164c9e1f163045eb1c
   react-native-video: ca03eab980865b0dc199c3235f94dcb0417cb5a6
   react-native-webrtc: 4af86365df80169f1b55fc3c74ef788367b38a17
   React-nativeconfig: 8fd29a35a3e4e8c37682d976667663d834ba6165
@@ -1578,13 +1575,13 @@ SPEC CHECKSUMS:
   RNFBApp: 20bfba7e2a61a959518c1d57e5d48817c62ed3f6
   RNFBMessaging: 48579eec1f6ffaed4038b67426d7076963ab9401
   RNFS: 89de7d7f4c0f6bafa05343c578f61118c8282ed8
-  RNGestureHandler: 19a09b8e31341fab2eaed86808dc84095c5187b7
+  RNGestureHandler: 4098d1ee27ae296b910f91804937af7af6d1aeb5
   RNPermissions: e0359c2e43b55280888b2f52535fb3bddf65d228
   RNReanimated: ad6fbfef871ca6c05a4892961ae3fb272aff0c1d
-  RNScreens: 3ce54903891fd6281865ad3e7cfe4c2bb438c70c
+  RNScreens: 59f615aa0782077560c8eea46c2daec3a716dba9
   SocketRocket: f32cd54efbe0f095c4d7594881e52619cfe80b17
   Yoga: a813a6d82538ccba91c54406404e3ed80b48a692
 
-PODFILE CHECKSUM: 5a7a16ff464e32df53cc3f57991862b267621cfd
+PODFILE CHECKSUM: 2dd9d67f51e882fc0b49155eb7b57c0da77d2c71
 
 COCOAPODS: 1.16.2

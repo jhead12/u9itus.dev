@@ -22,6 +22,11 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->appendToGroup('web', [
             \App\Http\Middleware\CaptureReferralContext::class,
+            \App\Http\Middleware\TrackUserAccessContext::class,
+        ]);
+
+        $middleware->appendToGroup('api', [
+            \App\Http\Middleware\TrackUserAccessContext::class,
         ]);
         
         $middleware->alias([

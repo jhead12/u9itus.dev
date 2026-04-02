@@ -38,11 +38,9 @@ end
 target 'U9itusMobile' do
   config = use_native_modules!
 
-  # Fix Swift static library integration for Firebase pods (GoogleUtilities module map).
-  pod 'FirebaseCore', :modular_headers => true
+  # Required so FirebaseCoreInternal can be integrated in this static RN pods setup.
   pod 'GoogleUtilities', :modular_headers => true
-  pod 'FirebaseCoreInternal', :modular_headers => true
-  pod 'FirebaseCoreExtension', :modular_headers => true
+  pod 'FirebaseCore', :modular_headers => true
 
   use_react_native!(
     :path => config[:reactNativePath],
@@ -67,5 +65,28 @@ target 'U9itusMobile' do
       config[:reactNativePath],
       :mac_catalyst_enabled => false
     )
+
+    # Xcode 15+ script sandboxing can block CocoaPods rsync on external volumes.
+    installer.pods_project.targets.each do |target|
+      target.build_configurations.each do |build_configuration|
+        build_configuration.build_settings['ENABLE_USER_SCRIPT_SANDBOXING'] = 'NO'
+      end
+    end
+
+    installer.aggregate_targets.map(&:user_project).uniq.each do |project|
+      project.native_targets.each do |target|
+        target.build_configurations.each do |build_configuration|
+          build_configuration.build_settings['ENABLE_USER_SCRIPT_SANDBOXING'] = 'NO'
+        end
+      end
+      project.save
+    end
+
+    # Fix deployment target warnings: enforce minimum iOS 12.0 across all pods
+    installer.pods_project.targets.each do |target|
+      target.build_configurations.each do |config|
+        config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '12.0'
+      end
+    end
   end
 end

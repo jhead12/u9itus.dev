@@ -42,6 +42,11 @@ class User extends Authenticatable
         'country',
         'is_verified',
         'platform',
+        'last_seen_ip',
+        'last_seen_user_agent',
+        'last_seen_is_mobile',
+        'last_seen_is_vpn_suspected',
+        'last_seen_at',
         'email_verified_at',
         'suspended_at',
         'suspension_reason',
@@ -76,6 +81,9 @@ class User extends Authenticatable
             'admin_two_factor_recovery_codes' => 'encrypted:array',
             'password'           => 'hashed',
             'is_verified'        => 'boolean',
+            'last_seen_is_mobile' => 'boolean',
+            'last_seen_is_vpn_suspected' => 'boolean',
+            'last_seen_at' => 'datetime',
         ];
     }
 

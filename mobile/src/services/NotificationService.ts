@@ -1,4 +1,5 @@
 import { PermissionsAndroid, Platform } from "react-native";
+import { firebase } from "@react-native-firebase/app";
 import messaging, {
     FirebaseMessagingTypes,
 } from "@react-native-firebase/messaging";
@@ -7,6 +8,13 @@ class NotificationService {
     private foregroundUnsubscribe?: () => void;
 
     async initialize(): Promise<void> {
+        if (firebase.apps.length === 0) {
+            console.warn(
+                "Firebase is not configured yet. Skipping notification initialization.",
+            );
+            return;
+        }
+
         await this.requestPermission();
 
         // Register foreground notifications once at app bootstrap.

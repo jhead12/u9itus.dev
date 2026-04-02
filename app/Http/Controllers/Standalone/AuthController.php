@@ -12,6 +12,7 @@ use App\Models\AdminSecurityAuditLog;
 use App\Models\ReferralVisit;
 use App\Services\AdminTwoFactorService;
 use App\Services\PlatformSettingsService;
+use App\Services\UserAccessTrackingService;
 use App\Services\UnclaimedPoliticianProfileService;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Auth\Events\Verified;
@@ -32,6 +33,10 @@ use Illuminate\Validation\Rules;
  */
 class AuthController extends Controller
 {
+    public function __construct(private readonly UserAccessTrackingService $userAccessTrackingService)
+    {
+    }
+
     // -------------------------------------------------------------------------
     // Shared Login
     // -------------------------------------------------------------------------
@@ -50,6 +55,9 @@ class AuthController extends Controller
 
         if (Auth::attempt($request->only('email', 'password'), $request->boolean('remember'))) {
             $request->session()->regenerate();
+
+            $this->userAccessTrackingService->track($request, Auth::user(), 'login');
+
             return redirect()->intended($this->roleRedirect(Auth::user()));
         }
 
@@ -108,6 +116,9 @@ class AuthController extends Controller
                 'admin_2fa_verified_user_id',
                 'admin_2fa_verified_at',
             ]);
+
+            $this->userAccessTrackingService->track($request, $user, 'login');
+
             return redirect()->route('admin.dashboard');
         }
 
@@ -313,6 +324,8 @@ class AuthController extends Controller
 
         Auth::login($user);
 
+        $this->userAccessTrackingService->track($request, $user, 'register');
+
         return redirect()->route('verification.notice');
     }
 
@@ -428,6 +441,8 @@ class AuthController extends Controller
         }
 
         Auth::login($user);
+
+        $this->userAccessTrackingService->track($request, $user, 'register');
 
         return redirect()->route('verification.notice');
     }

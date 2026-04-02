@@ -352,11 +352,20 @@ class ApiClient {
         email: string,
         password: string,
         fullName: string,
+        isRegisteredVoter?: boolean,
     ): Promise<{ token: string; voter: any } | null> {
         try {
             const response = await this.client.post<ApiResponse>(
                 "/voter/register",
-                { email, password, full_name: fullName },
+                {
+                    email,
+                    password,
+                    full_name: fullName,
+                    is_registered_voter:
+                        typeof isRegisteredVoter === "boolean"
+                            ? isRegisteredVoter
+                            : undefined,
+                },
             );
 
             if (response.data.success && response.data.data?.token) {

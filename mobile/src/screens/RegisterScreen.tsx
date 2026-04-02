@@ -23,6 +23,9 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
+    const [isRegisteredToVote, setIsRegisteredToVote] = useState<
+        boolean | null
+    >(null);
 
     const handleRegister = async () => {
         setError(null);
@@ -37,7 +40,17 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
             return;
         }
 
-        await register(email.trim(), password, fullName.trim());
+        if (isRegisteredToVote === null) {
+            setError("Please answer whether you are registered to vote.");
+            return;
+        }
+
+        await register(
+            email.trim(),
+            password,
+            fullName.trim(),
+            isRegisteredToVote,
+        );
     };
 
     return (
@@ -81,6 +94,51 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                 onChangeText={setConfirmPassword}
             />
 
+            <Text style={styles.questionLabel}>
+                Are you registered to vote?
+            </Text>
+            <View style={styles.choiceRow}>
+                <TouchableOpacity
+                    style={[
+                        styles.choiceButton,
+                        isRegisteredToVote === true &&
+                            styles.choiceButtonActive,
+                    ]}
+                    onPress={() => setIsRegisteredToVote(true)}
+                    disabled={isLoading}
+                >
+                    <Text
+                        style={[
+                            styles.choiceButtonText,
+                            isRegisteredToVote === true &&
+                                styles.choiceButtonTextActive,
+                        ]}
+                    >
+                        Yes
+                    </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    style={[
+                        styles.choiceButton,
+                        isRegisteredToVote === false &&
+                            styles.choiceButtonActive,
+                    ]}
+                    onPress={() => setIsRegisteredToVote(false)}
+                    disabled={isLoading}
+                >
+                    <Text
+                        style={[
+                            styles.choiceButtonText,
+                            isRegisteredToVote === false &&
+                                styles.choiceButtonTextActive,
+                        ]}
+                    >
+                        No
+                    </Text>
+                </TouchableOpacity>
+            </View>
+
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
             <TouchableOpacity
@@ -100,7 +158,9 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                 onPress={() => navigation.navigate("Login")}
                 disabled={isLoading}
             >
-                <Text style={styles.linkText}>Already have an account? Log in</Text>
+                <Text style={styles.linkText}>
+                    Already have an account? Log in
+                </Text>
             </TouchableOpacity>
         </View>
     );
@@ -133,6 +193,38 @@ const styles = StyleSheet.create({
         paddingHorizontal: 14,
         paddingVertical: 12,
         marginBottom: 12,
+    },
+    questionLabel: {
+        color: "#cbd5e1",
+        fontSize: 14,
+        fontWeight: "600",
+        marginBottom: 8,
+        marginTop: 2,
+    },
+    choiceRow: {
+        flexDirection: "row",
+        gap: 10,
+        marginBottom: 12,
+    },
+    choiceButton: {
+        flex: 1,
+        borderWidth: 1,
+        borderColor: "#334155",
+        backgroundColor: "#111b2e",
+        borderRadius: 10,
+        paddingVertical: 10,
+        alignItems: "center",
+    },
+    choiceButtonActive: {
+        borderColor: "#10b981",
+        backgroundColor: "#063b2f",
+    },
+    choiceButtonText: {
+        color: "#cbd5e1",
+        fontWeight: "700",
+    },
+    choiceButtonTextActive: {
+        color: "#34d399",
     },
     errorText: {
         color: "#fb7185",

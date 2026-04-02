@@ -5,6 +5,9 @@
     "private": true,
     "scripts": {
         "start": "react-native start",
+        "dev": "node scripts/dev-platform.js",
+        "dev:ios": "node scripts/dev-platform.js ios",
+        "dev:android": "node scripts/dev-platform.js android",
         "android": "react-native run-android",
         "ios": "react-native run-ios",
         "macos": "react-native run-macos",

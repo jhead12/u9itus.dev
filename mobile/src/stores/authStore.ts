@@ -16,16 +16,23 @@ interface AuthState {
     isLoading: boolean;
     error: string | null;
     role: UserRole | null;
+    hasCompletedVoterOnboarding: boolean;
 
     // Actions
     register: (
         email: string,
         password: string,
         fullName: string,
+        isRegisteredVoter?: boolean,
     ) => Promise<boolean>;
-    login: (role: UserRole, email: string, password: string) => Promise<boolean>;
+    login: (
+        role: UserRole,
+        email: string,
+        password: string,
+    ) => Promise<boolean>;
     logout: () => Promise<void>;
     restoreToken: () => Promise<void>;
+    completeVoterOnboarding: () => Promise<void>;
     setError: (error: string | null) => void;
 }
 
@@ -36,23 +43,30 @@ export const useAuthStore = create<AuthState>((set) => ({
     isLoading: true,
     error: null,
     role: null,
+    hasCompletedVoterOnboarding: false,
 
-    register: async (email, password, fullName) => {
+    register: async (email, password, fullName, isRegisteredVoter) => {
         try {
             set({ isLoading: true, error: null });
             const result = await ApiClient.registerVoter(
                 email,
                 password,
                 fullName,
+                isRegisteredVoter,
             );
 
             if (result) {
                 await AsyncStorage.setItem("auth_role", "voter");
+                await AsyncStorage.setItem(
+                    "voter_onboarding_complete",
+                    "false",
+                );
                 set({
                     voter: result.voter,
                     token: result.token,
                     isAuthenticated: true,
                     role: "voter",
+                    hasCompletedVoterOnboarding: false,
                 });
                 return true;
             }
@@ -74,11 +88,18 @@ export const useAuthStore = create<AuthState>((set) => ({
 
             if (result) {
                 await AsyncStorage.setItem("auth_role", role);
+                const onboardingValue = await AsyncStorage.getItem(
+                    "voter_onboarding_complete",
+                );
+                const hasCompletedVoterOnboarding =
+                    role === "voter" ? onboardingValue === "true" : true;
+
                 set({
                     voter: result.user,
                     token: result.token,
                     isAuthenticated: true,
                     role,
+                    hasCompletedVoterOnboarding,
                 });
                 return true;
             }
@@ -100,12 +121,14 @@ export const useAuthStore = create<AuthState>((set) => ({
             console.error("Logout error:", error);
         } finally {
             await AsyncStorage.removeItem("auth_role");
+            await AsyncStorage.removeItem("voter_onboarding_complete");
             set({
                 voter: null,
                 token: null,
                 isAuthenticated: false,
                 error: null,
                 role: null,
+                hasCompletedVoterOnboarding: false,
             });
         }
     },
@@ -114,11 +137,21 @@ export const useAuthStore = create<AuthState>((set) => ({
         try {
             const token = await AsyncStorage.getItem("auth_token");
             const role = await AsyncStorage.getItem("auth_role");
+            const onboardingValue = await AsyncStorage.getItem(
+                "voter_onboarding_complete",
+            );
+
             if (token) {
+                const normalizedRole =
+                    role === "politician" ? "politician" : "voter";
                 set({
                     token,
                     isAuthenticated: true,
-                    role: role === "politician" ? "politician" : "voter",
+                    role: normalizedRole,
+                    hasCompletedVoterOnboarding:
+                        normalizedRole === "voter"
+                            ? onboardingValue === "true"
+                            : true,
                 });
             }
         } catch (error) {
@@ -126,6 +159,11 @@ export const useAuthStore = create<AuthState>((set) => ({
         } finally {
             set({ isLoading: false });
         }
+    },
+
+    completeVoterOnboarding: async () => {
+        await AsyncStorage.setItem("voter_onboarding_complete", "true");
+        set({ hasCompletedVoterOnboarding: true });
     },
 
     setError: (error) => set({ error }),
