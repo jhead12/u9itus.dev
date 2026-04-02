@@ -1,8 +1,8 @@
 <x-onboarding-layout :progress="$progress" :phases="$phases" :total-phases="$totalPhases" current-phase="first_campaign" title="Create Your First Campaign" description="Upload your video and set targeting">
     <div class="space-y-6">
         @php
-            $minVideoDuration = max(30, (int) config('u9itus.min_video_duration', 30));
-            $maxVideoDuration = max(60, (int) config('u9itus.max_video_duration', 300), $minVideoDuration);
+            $minVideoDuration = max(10, min(180, (int) config('u9itus.min_video_duration', 10)));
+            $maxVideoDuration = max($minVideoDuration, min(180, (int) config('u9itus.max_video_duration', 180)));
         @endphp
         <p class="text-gray-300">Ready to create your first campaign? You'll upload a video ({{ $minVideoDuration }}–{{ $maxVideoDuration }} seconds) and set geographic targeting.</p>
         <form method="POST" action="{{ route('politician.onboarding.complete-campaign') }}">

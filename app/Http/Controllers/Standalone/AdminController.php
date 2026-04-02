@@ -32,8 +32,10 @@ use App\Notifications\CampaignStatusChangedNotification;
 use App\Notifications\SystemAnnouncementNotification;
 use App\Services\AdminTwoFactorService;
 use App\Services\CampaignBillingService;
+use App\Services\CampaignQandAService;
 use App\Services\PlatformSettingsService;
 use App\Services\StripePaymentService;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Http\Request;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Artisan;
@@ -87,6 +89,82 @@ class AdminController extends Controller
         'MAILGUN_SECRET',
         'MAILGUN_ENDPOINT',
     ];
+
+    private function inferMediaTypeFromUrl(?string $url, ?string $fallback = null): ?string
+    {
+        $value = trim((string) ($url ?? ''));
+        if ($value === '') {
+            return $fallback;
+        }
+
+        if (preg_match('/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/))/i', $value) === 1) {
+            return 'youtube';
+        }
+
+        if (preg_match('/vimeo\.com\/(?:video\/)?\d+/i', $value) === 1) {
+            return 'vimeo';
+        }
+
+        if (preg_match('/\.m3u8(\?.*)?$/i', $value) === 1) {
+            return 'hls_stream';
+        }
+
+        return $fallback ?? 'direct_file';
+    }
+
+    private function safeActiveTopics()
+    {
+        try {
+            return \App\Models\PoliticianTopic::active()->orderBy('sort_order')->get();
+        } catch (\Throwable $e) {
+            Log::warning('Unable to load politician topics for admin campaign form', [
+                'error' => $e->getMessage(),
+            ]);
+
+            return collect();
+        }
+    }
+
+    /**
+     * Store a campaign video on the configured disk and return its public URL.
+     */
+    private function storeCampaignVideoAndGetUrl(UploadedFile $video, PoliticalCampaign $campaign): ?string
+    {
+        $disk = (string) config('filesystems.default', 'local');
+        $disks = (array) config('filesystems.disks', []);
+
+        if (! array_key_exists($disk, $disks)) {
+            Log::error('Admin campaign video upload failed: filesystem disk is not configured', [
+                'campaign_id' => $campaign->id,
+                'disk' => $disk,
+            ]);
+
+            return null;
+        }
+
+        try {
+            $path = $video->store("campaigns/{$campaign->id}/video", $disk);
+
+            if (! is_string($path) || $path === '') {
+                Log::error('Admin campaign video upload failed: storage returned empty path', [
+                    'campaign_id' => $campaign->id,
+                    'disk' => $disk,
+                ]);
+
+                return null;
+            }
+
+            return Storage::disk($disk)->url($path);
+        } catch (\Throwable $e) {
+            Log::error('Admin campaign video upload failed with exception', [
+                'campaign_id' => $campaign->id,
+                'disk' => $disk,
+                'error' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
 
     /**
      * Active app payment mode derived from configured Stripe secret.
@@ -361,12 +439,22 @@ class AdminController extends Controller
             ->get();
 
         $states = config('u9itus.us_states', []);
+        $topics = $this->safeActiveTopics();
+        $campaignTopicIds = [];
+        try {
+            $campaignTopicIds = $campaign->topics()->pluck('id')->toArray();
+        } catch (\Throwable $e) {
+            Log::warning('Unable to load campaign topics for admin edit form', [
+                'campaign_id' => $campaign->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
         $governanceLevels = config('u9itus.governance_levels', [
             'Federal' => 'Federal', 'State' => 'State', 'County' => 'County',
             'City' => 'City', 'School Board' => 'School Board',
         ]);
 
-        return view('standalone.admin.campaign-edit', compact('campaign', 'states', 'governanceLevels', 'auditLogs'));
+        return view('standalone.admin.campaign-edit', compact('campaign', 'states', 'governanceLevels', 'auditLogs', 'topics', 'campaignTopicIds'));
     }
 
     /**
@@ -375,27 +463,81 @@ class AdminController extends Controller
      */
     public function updateCampaign(Request $request, PoliticalCampaign $campaign)
     {
+        $videoMimeTypes = ['video/mp4', 'video/webm'];
+        if (preg_match('/\b(iPhone|iPad|iPod)\b/i', $request->userAgent() ?? '') === 1) {
+            $videoMimeTypes[] = 'video/quicktime';
+        }
+
+        $minVideoDuration = max(10, min(180, (int) config('u9itus.min_video_duration', 10)));
+        $maxVideoDuration = max($minVideoDuration, min(180, (int) config('u9itus.max_video_duration', 180)));
+
         $validated = $request->validate([
             'title'                    => ['required', 'string', 'max:255'],
             'message_summary'          => ['nullable', 'string', 'max:2000'],
             'campaign_type'            => ['required', 'in:video,live_feed,q_and_a'],
-            'governance_level'         => ['nullable', 'string', 'max:100'],
+            'governance_level'         => ['required', 'string', 'max:100'],
             'total_budget'             => ['required', 'numeric', 'min:0'],
             'total_views_requested'    => ['required', 'integer', 'min:0'],
             'target_states'            => ['nullable', 'array'],
             'target_states.*'          => ['string', 'max:2'],
             'target_cities'            => ['nullable', 'array'],
             'target_cities.*'          => ['string', 'max:100'],
+            'media_type'               => ['nullable', 'in:youtube,vimeo,direct_file,s3_cloudfront,hls_stream'],
             'media_url'                => ['nullable', 'url'],
-            'media_duration'           => ['nullable', 'integer', 'min:1'],
+            'video'                    => ['nullable', 'file', 'mimetypes:' . implode(',', $videoMimeTypes), 'max:' . ((int) config('u9itus.max_video_size_mb', 1024) * 1024)],
+            'media_duration'           => ['nullable', 'integer', 'min:' . $minVideoDuration, 'max:' . $maxVideoDuration],
             'live_feed_url'            => ['nullable', 'url'],
             'live_scheduled_at'        => ['nullable', 'date'],
+            'scheduled_start_at'       => ['nullable', 'date'],
+            'scheduled_end_at'         => ['nullable', 'date', 'after:scheduled_start_at'],
+            'allow_repeat_views'       => ['nullable', 'boolean'],
+            'repeat_view_cooldown_hours' => ['nullable', 'integer', 'min:1', 'max:720'],
+            'max_views_per_voter'      => ['nullable', 'integer', 'min:1', 'max:10'],
+            'topic_ids'                => ['nullable', 'array', 'max:5'],
+            'topic_ids.*'              => ['integer', 'exists:politician_topics,id'],
+            'intro_text'               => ['nullable', 'string', 'max:1000'],
+            'qa_items'                 => ['nullable', 'array'],
+            'qa_items.*.question'      => ['nullable', 'string', 'max:500'],
+            'qa_items.*.answer'        => ['nullable', 'string', 'max:2000'],
+            'engagement_survey'          => ['nullable', 'array'],
+            'engagement_survey.question' => ['nullable', 'string', 'max:200'],
+            'engagement_survey.options'  => ['nullable', 'array'],
+            'engagement_survey.options.*.text'  => ['nullable', 'string', 'max:100'],
+            'engagement_survey.options.*.value' => ['nullable', 'string', 'max:10'],
             'min_watch_time_percent'   => ['nullable', 'integer', 'min:50', 'max:100'],
             'status'                   => ['required', 'in:draft,pending_approval,scheduled,active,paused,completed,cancelled'],
             'approval_status'          => ['required', 'in:pending,approved,rejected'],
             'rejection_reason'         => ['nullable', 'string', 'max:500'],
             'edit_reason'              => ['nullable', 'string', 'max:500'],
         ]);
+
+        $uploadedVideo = $request->file('video');
+        unset($validated['video']);
+
+        if ($uploadedVideo) {
+            // File uploads take precedence over URL input to avoid mixed-source state.
+            unset($validated['media_url']);
+            $validated['media_type'] = 'direct_file';
+        } elseif (! empty($validated['media_url'])) {
+            $validated['media_type'] = $this->inferMediaTypeFromUrl(
+                $validated['media_url'],
+                $validated['media_type'] ?? 'direct_file'
+            );
+        }
+
+        $qaService = app(CampaignQandAService::class);
+        if (isset($validated['topic_ids'])) {
+            $qaService->syncTopics($campaign, $validated['topic_ids']);
+            unset($validated['topic_ids']);
+        }
+
+        if (! empty($validated['qa_items'])) {
+            $validated['qa_items'] = $qaService->parseQAItems($validated['qa_items']);
+        }
+
+        if (! empty($validated['engagement_survey'])) {
+            $validated['engagement_survey'] = $qaService->parseEngagementSurvey($validated['engagement_survey']);
+        }
 
         // Snapshot pre-update values for the diff (raw attributes, not cast)
         $trackFields = array_diff(array_keys($validated), ['edit_reason']);
@@ -404,6 +546,21 @@ class AdminController extends Controller
         unset($validated['edit_reason']);
 
         $campaign->update($validated);
+
+        if ($uploadedVideo) {
+            $mediaUrl = $this->storeCampaignVideoAndGetUrl($uploadedVideo, $campaign);
+
+            if (! $mediaUrl) {
+                return redirect()
+                    ->route('admin.campaigns.edit', $campaign)
+                    ->withErrors(['video' => 'Campaign updated, but video upload failed. Please check storage settings and try again.']);
+            }
+
+            $campaign->update([
+                'media_url' => $mediaUrl,
+                'media_type' => 'direct_file',
+            ]);
+        }
 
         $diff = CampaignAuditLog::buildDiff($before, $validated);
 

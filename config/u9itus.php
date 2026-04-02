@@ -75,13 +75,13 @@ return [
     | Video / Live-Feed Constraints
     |--------------------------------------------------------------------------
     |
-    | Business rule: political ad videos must be 30–300 seconds.
+    | Business rule: political ad videos must be 10–180 seconds.
     | This drives form validation (CreateCampaignRequest), upload hints,
     | and — when ffprobe/getID3 is available — server-side duration checks.
     |
     */
-    'max_video_duration'  => env('MAX_VIDEO_DURATION', 300),   // 300 seconds (hard cap)
-    'min_video_duration'  => env('MIN_VIDEO_DURATION', 30),    // 30 seconds minimum
+    'max_video_duration'  => env('MAX_VIDEO_DURATION', 180),   // 180 seconds (hard cap)
+    'min_video_duration'  => env('MIN_VIDEO_DURATION', 10),    // 10 seconds minimum
     'max_video_size_mb'   => env('MAX_VIDEO_SIZE_MB', 1024),   // 1 GB upload limit
     'allow_live_feed'     => env('ALLOW_LIVE_FEED', true),
 

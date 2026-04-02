@@ -22,8 +22,8 @@ class SaveCampaignDraftRequest extends FormRequest
      */
     public function rules(): array
     {
-        $minDuration = max(30, (int) config('u9itus.min_video_duration', 30));
-        $maxDuration = max(60, (int) config('u9itus.max_video_duration', 300), $minDuration);
+        $minDuration = max(10, min(180, (int) config('u9itus.min_video_duration', 10)));
+        $maxDuration = max($minDuration, min(180, (int) config('u9itus.max_video_duration', 180)));
 
         return [
             'title'                 => 'nullable|string|max:255',

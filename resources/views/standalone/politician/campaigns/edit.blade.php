@@ -212,8 +212,8 @@
                 <div>
                     <label class="block text-sm font-medium text-slate-300 mb-1.5">Video Duration (seconds)</label>
                     @php
-                        $minVideoDuration = max(30, (int) config('u9itus.min_video_duration', 30));
-                        $maxVideoDuration = max(60, (int) config('u9itus.max_video_duration', 300), $minVideoDuration);
+                        $minVideoDuration = max(10, min(180, (int) config('u9itus.min_video_duration', 10)));
+                        $maxVideoDuration = max($minVideoDuration, min(180, (int) config('u9itus.max_video_duration', 180)));
                     @endphp
                     <input type="number" name="media_duration" value="{{ old('media_duration', $campaign->media_duration ?? $minVideoDuration) }}"
                         min="{{ $minVideoDuration }}"

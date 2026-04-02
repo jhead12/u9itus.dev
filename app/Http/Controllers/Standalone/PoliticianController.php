@@ -340,7 +340,7 @@ class PoliticianController extends Controller
 
         // Set default media_duration if not provided (will be auto-detected from video later)
         if (empty($data['media_duration']) && $data['campaign_type'] === 'video') {
-            $data['media_duration'] = max(30, (int) config('u9itus.min_video_duration', 30));
+            $data['media_duration'] = max(10, min(180, (int) config('u9itus.min_video_duration', 10)));
         }
 
         $campaign = PoliticalCampaign::create($data);
@@ -398,7 +398,7 @@ class PoliticianController extends Controller
         
         // Set default media_duration if not provided
         if (empty($data['media_duration']) && ($data['campaign_type'] ?? '') === 'video') {
-            $data['media_duration'] = max(30, (int) config('u9itus.min_video_duration', 30));
+            $data['media_duration'] = max(10, min(180, (int) config('u9itus.min_video_duration', 10)));
         }
         
         // Ensure we have at least a title for the draft
@@ -711,8 +711,8 @@ class PoliticianController extends Controller
         );
 
         $maxMb  = config('u9itus.max_video_size_mb', 1024);
-        $minSec = max(30, (int) config('u9itus.min_video_duration', 30));
-        $maxSec = max(60, (int) config('u9itus.max_video_duration', 300), $minSec);
+        $minSec = max(10, min(180, (int) config('u9itus.min_video_duration', 10)));
+        $maxSec = max($minSec, min(180, (int) config('u9itus.max_video_duration', 180)));
         $videoMimeTypes = ['video/mp4', 'video/webm'];
 
         if ($this->isIosUserAgent($request->userAgent())) {
@@ -891,8 +891,8 @@ class PoliticianController extends Controller
                     );
 
                     if ($duration > 0) {
-                        $minSec = max(30, (int) config('u9itus.min_video_duration', 30));
-                        $maxSec = max(60, (int) config('u9itus.max_video_duration', 300), $minSec);
+                        $minSec = max(10, min(180, (int) config('u9itus.min_video_duration', 10)));
+                        $maxSec = max($minSec, min(180, (int) config('u9itus.max_video_duration', 180)));
 
                         if ($duration < $minSec) {
                             Storage::disk('s3')->delete($s3Path);

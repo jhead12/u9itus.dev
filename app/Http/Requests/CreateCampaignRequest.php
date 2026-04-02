@@ -12,7 +12,7 @@ use Illuminate\Validation\Validator;
  * Business rules:
  *   - Minimum budget: 10 views × configured rate
  *   - Minimum views: 10
- *   - Video duration: 30–300 seconds
+ *   - Video duration: 10–180 seconds
  */
 class CreateCampaignRequest extends FormRequest
 {
@@ -28,8 +28,8 @@ class CreateCampaignRequest extends FormRequest
     {
         $revenuePerView = (float) PlatformSettingsService::get('revenue_per_view', null, (float) config('u9itus.revenue_per_view', 1.00));
         $minBudget   = $revenuePerView * 10;
-        $minDuration = max(30, (int) config('u9itus.min_video_duration', 30));
-        $maxDuration = max(60, (int) config('u9itus.max_video_duration', 300), $minDuration);
+        $minDuration = max(10, min(180, (int) config('u9itus.min_video_duration', 10)));
+        $maxDuration = max($minDuration, min(180, (int) config('u9itus.max_video_duration', 180)));
         $videoMimeTypes = ['video/mp4', 'video/webm'];
 
         if ($this->isIosClient()) {
@@ -83,8 +83,8 @@ class CreateCampaignRequest extends FormRequest
     public function messages(): array
     {
         $minBudget = (float) PlatformSettingsService::get('revenue_per_view', null, (float) config('u9itus.revenue_per_view', 1.00)) * 10;
-        $minDuration = max(30, (int) config('u9itus.min_video_duration', 30));
-        $maxDuration = max(60, (int) config('u9itus.max_video_duration', 300), $minDuration);
+        $minDuration = max(10, min(180, (int) config('u9itus.min_video_duration', 10)));
+        $maxDuration = max($minDuration, min(180, (int) config('u9itus.max_video_duration', 180)));
 
         return [
             'total_budget.min'          => 'Minimum campaign budget is $' . $minBudget . ' (10 views).',

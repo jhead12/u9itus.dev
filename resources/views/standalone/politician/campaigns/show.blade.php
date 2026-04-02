@@ -332,8 +332,8 @@
                 </button>
             </div>
             @php
-                $minVideoDuration = max(30, (int) config('u9itus.min_video_duration', 30));
-                $maxVideoDuration = max(60, (int) config('u9itus.max_video_duration', 300), $minVideoDuration);
+                $minVideoDuration = max(10, min(180, (int) config('u9itus.min_video_duration', 10)));
+                $maxVideoDuration = max($minVideoDuration, min(180, (int) config('u9itus.max_video_duration', 180)));
             @endphp
             <p class="text-xs text-slate-600 mt-2">Max {{ config('u9itus.max_video_size_mb', 1024) }} MB · MP4, MOV, WebM · {{ $minVideoDuration }}–{{ $maxVideoDuration }}s</p>
         </form>

@@ -18,6 +18,8 @@ class UpdateCampaignRequest extends FormRequest
     {
         $minBudget = (float) config('u9itus.revenue_per_view', 1.00) * 10;
         $governanceLevels = implode(',', array_keys(config('u9itus.governance_levels', [])));
+        $minDuration = max(10, min(180, (int) config('u9itus.min_video_duration', 10)));
+        $maxDuration = max($minDuration, min(180, (int) config('u9itus.max_video_duration', 180)));
         $videoMimeTypes = ['video/mp4', 'video/webm'];
 
         if ($this->isIosClient()) {
@@ -31,6 +33,7 @@ class UpdateCampaignRequest extends FormRequest
             'governance_level'         => ['sometimes', 'required', 'string', 'in:' . $governanceLevels],
             'media_url'                => ['nullable', 'url'],
             'media_type'               => ['nullable', 'in:youtube,vimeo,direct_file,s3_cloudfront,hls_stream'],
+            'media_duration'           => ['nullable', 'integer', 'min:' . $minDuration, 'max:' . $maxDuration],
             'video'                    => ['nullable', 'file', 'mimetypes:' . implode(',', $videoMimeTypes), 'max:' . ((int) config('u9itus.max_video_size_mb', 1024) * 1024)],
             'total_budget'             => ['sometimes', 'required', 'numeric', 'min:' . number_format($minBudget, 2, '.', '')],
             'total_views_requested'    => ['sometimes', 'required', 'integer', 'min:10'],
