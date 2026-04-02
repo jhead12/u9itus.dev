@@ -9,6 +9,7 @@
             && filled($item['question'] ?? null)
             && filled($item['answer'] ?? null);
     })->values();
+    $_videoBlurbText = trim((string) strip_tags((string) ($campaign->video_blurb ?? '')));
     $_showTownHall = filled($campaign->intro_text) || $_qaItems->isNotEmpty();
 
     if (preg_match('/youtu\.be\/([a-zA-Z0-9_-]+)/', $_mUrl, $_m)) {
@@ -109,6 +110,13 @@
             <h3 class="font-semibold text-white text-sm line-clamp-2">{{ $campaign->title }}</h3>
             <span class="text-[11px] text-slate-500 whitespace-nowrap">{{ $updateLabel }}</span>
         </div>
+
+        @if($_videoBlurbText !== '')
+            <div class="mb-3 rounded-lg border border-slate-700/70 bg-slate-900/45 p-3">
+                <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mb-1">About This Video</p>
+                <p class="text-xs text-slate-300 leading-relaxed line-clamp-4">{{ $_videoBlurbText }}</p>
+            </div>
+        @endif
 
         @if($campaign->message_summary)
             <p class="text-xs text-slate-400 line-clamp-3 mb-3">{{ $campaign->message_summary }}</p>

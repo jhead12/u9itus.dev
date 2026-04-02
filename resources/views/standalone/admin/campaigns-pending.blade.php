@@ -113,101 +113,12 @@
 
                 {{-- Expandable details --}}
                 <div id="details-{{ $campaign->id }}" class="hidden bg-slate-900/50 rounded-lg p-4 space-y-3 text-xs">
-                    @php
-                        $_mediaUrl = trim((string) ($campaign->media_url ?? ''));
-                        $_mediaType = (string) ($campaign->media_type ?? 'youtube');
-                        $_ytId = null;
-                        $_vimeoId = null;
-                        $_directPreviewUrl = $_mediaUrl;
-
-                        if ($_mediaUrl !== '') {
-                            if (preg_match('~(?:youtu\.be/|youtube\.com/(?:watch\?v=|embed/|shorts/))([A-Za-z0-9_-]{6,})~', $_mediaUrl, $_m)) {
-                                $_ytId = $_m[1];
-                            }
-
-                            if (preg_match('~vimeo\.com/(?:video/)?(\d+)~', $_mediaUrl, $_m)) {
-                                $_vimeoId = $_m[1];
-                            }
-
-                            // For S3-hosted direct files, generate a fresh signed URL for playback.
-                            if (in_array($_mediaType, ['direct_file', 's3_cloudfront'], true)
-                                && (str_contains($_mediaUrl, 'amazonaws.com') || str_contains($_mediaUrl, '.s3.'))) {
-                                try {
-                                    $urlParts = parse_url($_mediaUrl);
-                                    $path = ltrim((string) ($urlParts['path'] ?? ''), '/');
-                                    $bucket = (string) config('filesystems.disks.s3.bucket', '');
-
-                                    if ($bucket !== '' && str_starts_with($path, $bucket . '/')) {
-                                        $path = substr($path, strlen($bucket) + 1);
-                                    }
-
-                                    if ($path !== '') {
-                                        $_directPreviewUrl = \Illuminate\Support\Facades\Storage::disk('s3')
-                                            ->temporaryUrl($path, now()->addHours(2));
-                                    }
-                                } catch (\Throwable $e) {
-                                    $_directPreviewUrl = $_mediaUrl;
-                                }
-                            }
-                        }
-                    @endphp
-
-                    @if($campaign->message_summary)
                     <div>
-                        <p class="text-slate-500 uppercase tracking-wide font-semibold mb-1">Summary</p>
-                        <p class="text-slate-300">{{ $campaign->message_summary }}</p>
-                    </div>
-                    @endif
-
-                    @if($_mediaUrl !== '')
-                    <div>
-                        <p class="text-slate-500 uppercase tracking-wide font-semibold mb-2">Video Preview</p>
-                        <div class="rounded-lg border border-slate-700/60 overflow-hidden bg-black">
-                            @if(($_mediaType === 'youtube' && $_ytId) || ($_ytId && !$_vimeoId && !in_array($_mediaType, ['vimeo', 'direct_file', 's3_cloudfront'], true)))
-                                <div class="relative w-full" style="padding-top:56.25%;">
-                                    <iframe
-                                        class="absolute inset-0 h-full w-full"
-                                        src="https://www.youtube-nocookie.com/embed/{{ $_ytId }}?rel=0&modestbranding=1"
-                                        title="Campaign video preview"
-                                        loading="lazy"
-                                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                                        allowfullscreen></iframe>
-                                </div>
-                            @elseif(($_mediaType === 'vimeo' && $_vimeoId) || ($_vimeoId && !$_ytId))
-                                <div class="relative w-full" style="padding-top:56.25%;">
-                                    <iframe
-                                        class="absolute inset-0 h-full w-full"
-                                        src="https://player.vimeo.com/video/{{ $_vimeoId }}"
-                                        title="Campaign video preview"
-                                        loading="lazy"
-                                        allow="autoplay; fullscreen; picture-in-picture"
-                                        allowfullscreen></iframe>
-                                </div>
-                            @elseif(in_array($_mediaType, ['direct_file', 's3_cloudfront'], true))
-                                <div class="relative w-full" style="padding-top:56.25%;">
-                                    <video
-                                        class="absolute inset-0 h-full w-full"
-                                        src="{{ $_directPreviewUrl }}"
-                                        controls
-                                        preload="metadata"
-                                        playsinline
-                                        title="Campaign video preview">
-                                        <track kind="captions" srclang="en" label="English captions" src="data:text/vtt,WEBVTT" default>
-                                        <track kind="descriptions" srclang="en" label="English descriptions" src="data:text/vtt,WEBVTT">
-                                    </video>
-                                </div>
-                            @else
-                                <div class="p-3 text-slate-400">
-                                    Preview unavailable for this media type.
-                                </div>
-                            @endif
+                        <p class="text-slate-500 uppercase tracking-wide font-semibold mb-2">Public Politician Page Preview</p>
+                        <div class="max-w-xl">
+                            @include('standalone.public.partials.campaign-preview-card', ['campaign' => $campaign])
                         </div>
-                        <p class="mt-2">
-                            <a href="{{ $_directPreviewUrl }}" target="_blank" rel="noopener"
-                               class="text-emerald-400 hover:text-emerald-300 break-all">Open media URL in new tab</a>
-                        </p>
                     </div>
-                    @endif
 
                     <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
                         @if($campaign->governance_level)
