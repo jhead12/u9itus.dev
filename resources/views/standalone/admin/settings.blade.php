@@ -69,6 +69,80 @@
         </form>
     </div>
 
+    {{-- ── Video Duration Limits ───────────────────────────────────────── --}}
+    <div class="bg-slate-800/60 border border-slate-700/50 rounded-2xl overflow-hidden">
+
+        <div class="px-6 py-4 border-b border-slate-700/50 flex items-center gap-3">
+            <div class="w-9 h-9 rounded-lg bg-pink-500/10 border border-pink-500/20 flex items-center justify-center text-pink-400">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                </svg>
+            </div>
+            <div>
+                <p class="text-sm font-semibold text-white">Video Duration Limits</p>
+                <p class="text-xs text-slate-400">Set global campaign video bounds used by upload validation and campaign forms.</p>
+            </div>
+        </div>
+
+        <div class="px-6 py-6 space-y-4">
+            <form method="POST" action="{{ route('admin.platform-settings.update') }}" class="space-y-2">
+                @csrf
+                <input type="hidden" name="key" value="min_video_duration" />
+                <input type="hidden" name="category" value="video" />
+                <input type="hidden" name="description" value="Updated from admin system settings" />
+
+                <label for="min_video_duration" class="block text-sm font-medium text-slate-300 mb-1.5">
+                    Minimum Video Duration (seconds)
+                </label>
+                <div class="flex flex-col sm:flex-row gap-3">
+                    <input
+                        id="min_video_duration"
+                        type="number"
+                        name="value"
+                        min="10"
+                        max="180"
+                        step="1"
+                        value="{{ (int) \App\Services\PlatformSettingsService::get('min_video_duration') }}"
+                        class="flex-1 bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-pink-500/50 focus:border-pink-500 transition"
+                    />
+                    <button type="submit"
+                        class="bg-pink-600 hover:bg-pink-500 text-white font-semibold rounded-lg px-5 py-2.5 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-pink-500/50">
+                        Save Minimum
+                    </button>
+                </div>
+            </form>
+
+            <form method="POST" action="{{ route('admin.platform-settings.update') }}" class="space-y-2 pt-3 border-t border-slate-700/50">
+                @csrf
+                <input type="hidden" name="key" value="max_video_duration" />
+                <input type="hidden" name="category" value="video" />
+                <input type="hidden" name="description" value="Updated from admin system settings" />
+
+                <label for="max_video_duration" class="block text-sm font-medium text-slate-300 mb-1.5">
+                    Maximum Video Duration (seconds)
+                </label>
+                <div class="flex flex-col sm:flex-row gap-3">
+                    <input
+                        id="max_video_duration"
+                        type="number"
+                        name="value"
+                        min="10"
+                        max="180"
+                        step="1"
+                        value="{{ (int) \App\Services\PlatformSettingsService::get('max_video_duration') }}"
+                        class="flex-1 bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-pink-500/50 focus:border-pink-500 transition"
+                    />
+                    <button type="submit"
+                        class="bg-slate-700 hover:bg-slate-600 text-white font-semibold rounded-lg px-5 py-2.5 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-slate-500/50">
+                        Save Maximum
+                    </button>
+                </div>
+            </form>
+
+            <p class="text-xs text-slate-500">Allowed range is 10 to 180 seconds. These settings apply to create/edit forms and upload duration checks.</p>
+        </div>
+    </div>
+
     {{-- ── Change Password ──────────────────────────────────────────────── --}}
     <div class="bg-slate-800/60 border border-slate-700/50 rounded-2xl overflow-hidden">
 
