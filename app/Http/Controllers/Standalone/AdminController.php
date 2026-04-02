@@ -22,6 +22,7 @@ use App\Models\EmailTemplate;
 use App\Models\PoliticalCampaign;
 use App\Models\PoliticianCredit;
 use App\Models\Politician;
+use App\Models\ReferralEarning;
 use App\Models\User;
 use App\Models\ViewSession;
 use App\Models\VoterWatchReport;
@@ -1699,18 +1700,483 @@ class AdminController extends Controller
     }
 
     /**
+     * Export campaign-level accounting rows and monthly rollups.
+     */
+    public function exportCampaignAccounting()
+    {
+        $activePaymentMode = $this->activePaymentMode();
+        $campaignIds = $this->modeScopedCampaignIds($activePaymentMode);
+
+        $transactions = $this->applyPaymentModeFilter(
+            CampaignTransaction::query()->whereIn('campaign_id', $campaignIds),
+            $activePaymentMode
+        )
+            ->with('politician:id,full_name')
+            ->orderBy('created_at')
+            ->limit(20000)
+            ->get();
+
+        $sessions = ViewSession::query()
+            ->with([
+                'campaign:id,title,politician_id',
+                'campaign.politician:id,full_name',
+                'voter:id,full_name',
+            ])
+            ->whereIn('political_campaign_id', $campaignIds)
+            ->orderBy('created_at')
+            ->limit(20000)
+            ->get();
+
+        $campaignTitleMap = PoliticalCampaign::query()
+            ->whereIn('id', $campaignIds)
+            ->pluck('title', 'id');
+
+        $filename = 'campaign-accounting-' . $activePaymentMode . '-' . now()->format('Ymd_His') . '.csv';
+
+        return response()->streamDownload(function () use ($transactions, $sessions, $campaignTitleMap, $activePaymentMode) {
+            $output = fopen('php://output', 'w');
+
+            fputcsv($output, [
+                'Generated At',
+                now()->toDateTimeString(),
+                'Payment Mode',
+                $activePaymentMode,
+            ]);
+            fputcsv($output, []);
+
+            fputcsv($output, [
+                'Record Type',
+                'Record ID',
+                'Record UUID',
+                'Created At',
+                'Accounting Month',
+                'Campaign ID',
+                'Campaign Title',
+                'Politician ID',
+                'Politician Name',
+                'Voter ID',
+                'Voter Name',
+                'Status',
+                'Payment Status',
+                'Transaction Type',
+                'Payment Intent ID',
+                'Charge ID',
+                'Refund ID',
+                'Currency',
+                'Transaction Amount',
+                'Platform Revenue',
+                'Voter Payout',
+                'Referral Commission',
+                'Net Platform Amount',
+            ]);
+
+            foreach ($transactions as $transaction) {
+                fputcsv($output, [
+                    'campaign_transaction',
+                    $transaction->id,
+                    $transaction->uuid,
+                    optional($transaction->created_at)->toDateTimeString(),
+                    optional($transaction->created_at)->format('Y-m'),
+                    $transaction->campaign_id,
+                    $campaignTitleMap->get($transaction->campaign_id),
+                    $transaction->politician_id,
+                    optional($transaction->politician)->full_name,
+                    '',
+                    '',
+                    $transaction->status,
+                    '',
+                    $transaction->transaction_type,
+                    $transaction->stripe_payment_intent_id,
+                    $transaction->stripe_charge_id,
+                    $transaction->stripe_refund_id,
+                    strtoupper((string) $transaction->currency),
+                    number_format((float) ($transaction->amount ?? 0), 2, '.', ''),
+                    '',
+                    '',
+                    '',
+                    '',
+                ]);
+            }
+
+            foreach ($sessions as $session) {
+                $campaign = $session->campaign;
+                $platformRevenue = (float) ($session->platform_revenue ?? 0);
+                $voterPayout = (float) ($session->voter_payout_amount ?? 0);
+                $referralCommission = (float) ($session->referral_commission ?? 0);
+                $status = (string) ($session->getRawOriginal('status') ?? '');
+                $paymentStatus = (string) ($session->getRawOriginal('payment_status') ?? '');
+                $monthDate = $session->completed_at ?? $session->created_at;
+
+                fputcsv($output, [
+                    'view_session',
+                    $session->id,
+                    $session->uuid,
+                    optional($session->created_at)->toDateTimeString(),
+                    optional($monthDate)->format('Y-m'),
+                    $session->political_campaign_id,
+                    optional($campaign)->title,
+                    optional($campaign)->politician_id,
+                    optional(optional($campaign)->politician)->full_name,
+                    $session->voter_id,
+                    optional($session->voter)->full_name,
+                    $status,
+                    $paymentStatus,
+                    '',
+                    '',
+                    '',
+                    '',
+                    'USD',
+                    '',
+                    number_format($platformRevenue, 2, '.', ''),
+                    number_format($voterPayout, 2, '.', ''),
+                    number_format($referralCommission, 2, '.', ''),
+                    number_format($platformRevenue - $voterPayout - $referralCommission, 2, '.', ''),
+                ]);
+            }
+
+            $monthly = [];
+            foreach ($transactions as $transaction) {
+                $month = optional($transaction->created_at)->format('Y-m') ?? 'unknown';
+                $campaignKey = (string) ($transaction->campaign_id ?? 0);
+                $key = $month . '|' . $campaignKey;
+
+                if (!isset($monthly[$key])) {
+                    $monthly[$key] = [
+                        'month' => $month,
+                        'campaign_id' => $transaction->campaign_id,
+                        'campaign_title' => $campaignTitleMap->get($transaction->campaign_id),
+                        'charge_total' => 0.0,
+                        'refund_total' => 0.0,
+                        'platform_revenue_total' => 0.0,
+                        'voter_payout_total' => 0.0,
+                        'referral_total' => 0.0,
+                        'session_net_total' => 0.0,
+                        'completed_sessions' => 0,
+                    ];
+                }
+
+                $amount = (float) ($transaction->amount ?? 0);
+                if ((string) $transaction->transaction_type === 'refund') {
+                    $monthly[$key]['refund_total'] += abs($amount);
+                } else {
+                    $monthly[$key]['charge_total'] += $amount;
+                }
+            }
+
+            foreach ($sessions as $session) {
+                $monthDate = $session->completed_at ?? $session->created_at;
+                $month = optional($monthDate)->format('Y-m') ?? 'unknown';
+                $campaignKey = (string) ($session->political_campaign_id ?? 0);
+                $key = $month . '|' . $campaignKey;
+
+                if (!isset($monthly[$key])) {
+                    $monthly[$key] = [
+                        'month' => $month,
+                        'campaign_id' => $session->political_campaign_id,
+                        'campaign_title' => $campaignTitleMap->get($session->political_campaign_id),
+                        'charge_total' => 0.0,
+                        'refund_total' => 0.0,
+                        'platform_revenue_total' => 0.0,
+                        'voter_payout_total' => 0.0,
+                        'referral_total' => 0.0,
+                        'session_net_total' => 0.0,
+                        'completed_sessions' => 0,
+                    ];
+                }
+
+                $platformRevenue = (float) ($session->platform_revenue ?? 0);
+                $voterPayout = (float) ($session->voter_payout_amount ?? 0);
+                $referralCommission = (float) ($session->referral_commission ?? 0);
+
+                $monthly[$key]['platform_revenue_total'] += $platformRevenue;
+                $monthly[$key]['voter_payout_total'] += $voterPayout;
+                $monthly[$key]['referral_total'] += $referralCommission;
+                $monthly[$key]['session_net_total'] += $platformRevenue - $voterPayout - $referralCommission;
+                if ((string) ($session->getRawOriginal('status') ?? '') === 'completed') {
+                    $monthly[$key]['completed_sessions']++;
+                }
+            }
+
+            ksort($monthly);
+            fputcsv($output, []);
+            fputcsv($output, ['Monthly Rollup']);
+            fputcsv($output, [
+                'Month',
+                'Campaign ID',
+                'Campaign Title',
+                'Charge Total',
+                'Refund Total',
+                'Session Platform Revenue Total',
+                'Session Voter Payout Total',
+                'Session Referral Total',
+                'Session Net Total',
+                'Completed Sessions',
+            ]);
+
+            foreach ($monthly as $row) {
+                fputcsv($output, [
+                    $row['month'],
+                    $row['campaign_id'],
+                    $row['campaign_title'],
+                    number_format((float) $row['charge_total'], 2, '.', ''),
+                    number_format((float) $row['refund_total'], 2, '.', ''),
+                    number_format((float) $row['platform_revenue_total'], 2, '.', ''),
+                    number_format((float) $row['voter_payout_total'], 2, '.', ''),
+                    number_format((float) $row['referral_total'], 2, '.', ''),
+                    number_format((float) $row['session_net_total'], 2, '.', ''),
+                    $row['completed_sessions'],
+                ]);
+            }
+
+            fclose($output);
+        }, $filename, [
+            'Content-Type' => 'text/csv',
+        ]);
+    }
+
+    /**
+     * Export voter-level accounting rows and monthly rollups.
+     */
+    public function exportVoterAccounting()
+    {
+        $activePaymentMode = $this->activePaymentMode();
+        $campaignIds = $this->modeScopedCampaignIds($activePaymentMode);
+
+        $sessions = ViewSession::query()
+            ->with([
+                'campaign:id,title',
+                'voter:id,full_name,email,payment_method,paypal_email,cashapp_tag',
+            ])
+            ->whereIn('political_campaign_id', $campaignIds)
+            ->orderBy('created_at')
+            ->limit(20000)
+            ->get();
+
+        $referralEarnings = ReferralEarning::query()
+            ->with([
+                'referrer:id,full_name,email,payment_method,paypal_email,cashapp_tag',
+                'viewSession:id,uuid,political_campaign_id,voter_id,status,payment_status,paid_at,created_at',
+                'viewSession.campaign:id,title',
+            ])
+            ->whereHas('viewSession', function ($query) use ($campaignIds) {
+                $query->whereIn('political_campaign_id', $campaignIds);
+            })
+            ->orderBy('created_at')
+            ->limit(20000)
+            ->get();
+
+        $filename = 'voter-accounting-' . $activePaymentMode . '-' . now()->format('Ymd_His') . '.csv';
+
+        return response()->streamDownload(function () use ($sessions, $referralEarnings, $activePaymentMode) {
+            $output = fopen('php://output', 'w');
+
+            fputcsv($output, [
+                'Generated At',
+                now()->toDateTimeString(),
+                'Payment Mode',
+                $activePaymentMode,
+            ]);
+            fputcsv($output, []);
+
+            fputcsv($output, [
+                'Record Type',
+                'Record ID',
+                'Created At',
+                'Accounting Month',
+                'Voter ID',
+                'Voter Name',
+                'Voter Email',
+                'Payment Method',
+                'Payment Destination',
+                'Campaign ID',
+                'Campaign Title',
+                'Session ID',
+                'Session UUID',
+                'Session Status',
+                'Session Payment Status',
+                'Voter Payout Amount',
+                'Referral Commission Amount',
+                'Referral Type',
+                'Paid',
+                'Paid At',
+                'Referrer Voter ID',
+                'Referrer Politician ID',
+            ]);
+
+            foreach ($sessions as $session) {
+                $voter = $session->voter;
+                $monthDate = $session->completed_at ?? $session->created_at;
+                $paymentDestination = $voter?->payment_method === 'cashapp'
+                    ? $voter?->cashapp_tag
+                    : $voter?->paypal_email;
+
+                fputcsv($output, [
+                    'view_session',
+                    $session->id,
+                    optional($session->created_at)->toDateTimeString(),
+                    optional($monthDate)->format('Y-m'),
+                    $session->voter_id,
+                    $voter?->full_name,
+                    $voter?->email,
+                    $voter?->payment_method,
+                    $paymentDestination,
+                    $session->political_campaign_id,
+                    optional($session->campaign)->title,
+                    $session->id,
+                    $session->uuid,
+                    (string) ($session->getRawOriginal('status') ?? ''),
+                    (string) ($session->getRawOriginal('payment_status') ?? ''),
+                    number_format((float) ($session->voter_payout_amount ?? 0), 2, '.', ''),
+                    number_format((float) ($session->referral_commission ?? 0), 2, '.', ''),
+                    '',
+                    $session->paid_at ? 'Yes' : 'No',
+                    optional($session->paid_at)->toDateTimeString(),
+                    '',
+                    '',
+                ]);
+            }
+
+            foreach ($referralEarnings as $earning) {
+                $referrer = $earning->referrer;
+                $session = $earning->viewSession;
+                $monthDate = $earning->paid_at ?? $earning->created_at;
+                $paymentDestination = $referrer?->payment_method === 'cashapp'
+                    ? $referrer?->cashapp_tag
+                    : $referrer?->paypal_email;
+
+                fputcsv($output, [
+                    'referral_earning',
+                    $earning->id,
+                    optional($earning->created_at)->toDateTimeString(),
+                    optional($monthDate)->format('Y-m'),
+                    $earning->referrer_voter_id,
+                    $referrer?->full_name,
+                    $referrer?->email,
+                    $referrer?->payment_method,
+                    $paymentDestination,
+                    $session?->political_campaign_id,
+                    optional($session?->campaign)->title,
+                    $session?->id,
+                    $session?->uuid,
+                    $session ? (string) ($session->getRawOriginal('status') ?? '') : '',
+                    $session ? (string) ($session->getRawOriginal('payment_status') ?? '') : '',
+                    '',
+                    number_format((float) ($earning->commission_amount ?? 0), 2, '.', ''),
+                    $earning->referral_type,
+                    $earning->paid ? 'Yes' : 'No',
+                    optional($earning->paid_at)->toDateTimeString(),
+                    $earning->referrer_voter_id,
+                    $earning->referrer_politician_id,
+                ]);
+            }
+
+            $monthly = [];
+            foreach ($sessions as $session) {
+                $monthDate = $session->completed_at ?? $session->created_at;
+                $month = optional($monthDate)->format('Y-m') ?? 'unknown';
+                $voterKey = (string) ($session->voter_id ?? 0);
+                $key = $month . '|' . $voterKey;
+
+                if (!isset($monthly[$key])) {
+                    $monthly[$key] = [
+                        'month' => $month,
+                        'voter_id' => $session->voter_id,
+                        'voter_name' => optional($session->voter)->full_name,
+                        'session_payout_total' => 0.0,
+                        'session_referral_total' => 0.0,
+                        'referral_earning_total' => 0.0,
+                        'paid_records' => 0,
+                        'held_records' => 0,
+                    ];
+                }
+
+                $monthly[$key]['session_payout_total'] += (float) ($session->voter_payout_amount ?? 0);
+                $monthly[$key]['session_referral_total'] += (float) ($session->referral_commission ?? 0);
+                if ((string) ($session->getRawOriginal('payment_status') ?? '') === 'paid') {
+                    $monthly[$key]['paid_records']++;
+                } else {
+                    $monthly[$key]['held_records']++;
+                }
+            }
+
+            foreach ($referralEarnings as $earning) {
+                $monthDate = $earning->paid_at ?? $earning->created_at;
+                $month = optional($monthDate)->format('Y-m') ?? 'unknown';
+                $voterKey = (string) ($earning->referrer_voter_id ?? 0);
+                $key = $month . '|' . $voterKey;
+
+                if (!isset($monthly[$key])) {
+                    $monthly[$key] = [
+                        'month' => $month,
+                        'voter_id' => $earning->referrer_voter_id,
+                        'voter_name' => optional($earning->referrer)->full_name,
+                        'session_payout_total' => 0.0,
+                        'session_referral_total' => 0.0,
+                        'referral_earning_total' => 0.0,
+                        'paid_records' => 0,
+                        'held_records' => 0,
+                    ];
+                }
+
+                $monthly[$key]['referral_earning_total'] += (float) ($earning->commission_amount ?? 0);
+                if ($earning->paid) {
+                    $monthly[$key]['paid_records']++;
+                } else {
+                    $monthly[$key]['held_records']++;
+                }
+            }
+
+            ksort($monthly);
+            fputcsv($output, []);
+            fputcsv($output, ['Monthly Rollup']);
+            fputcsv($output, [
+                'Month',
+                'Voter ID',
+                'Voter Name',
+                'Session Payout Total',
+                'Session Referral Total',
+                'Referral Earning Total',
+                'Paid Records',
+                'Held Records',
+            ]);
+
+            foreach ($monthly as $row) {
+                fputcsv($output, [
+                    $row['month'],
+                    $row['voter_id'],
+                    $row['voter_name'],
+                    number_format((float) $row['session_payout_total'], 2, '.', ''),
+                    number_format((float) $row['session_referral_total'], 2, '.', ''),
+                    number_format((float) $row['referral_earning_total'], 2, '.', ''),
+                    $row['paid_records'],
+                    $row['held_records'],
+                ]);
+            }
+
+            fclose($output);
+        }, $filename, [
+            'Content-Type' => 'text/csv',
+        ]);
+    }
+
+    /**
      * Show revenue report.
      */
     public function revenueReport()
     {
+        $activePaymentMode = $this->activePaymentMode();
+        $campaignIds = $this->modeScopedCampaignIds($activePaymentMode);
+        $completedViewQuery = ViewSession::where('status', 'completed')
+            ->whereIn('political_campaign_id', $campaignIds);
+
         $revenue = [
-            'total'   => ViewSession::where('status', 'completed')->sum('platform_revenue') ?? 0,
-            'payouts' => ViewSession::where('status', 'completed')->sum('voter_payout_amount') ?? 0,
-            'profit'  => (ViewSession::where('status', 'completed')->sum('platform_revenue') ?? 0)
-                         - (ViewSession::where('status', 'completed')->sum('voter_payout_amount') ?? 0),
+            'total'   => (clone $completedViewQuery)->sum('platform_revenue') ?? 0,
+            'payouts' => (clone $completedViewQuery)->sum('voter_payout_amount') ?? 0,
+            'profit'  => ((clone $completedViewQuery)->sum('platform_revenue') ?? 0)
+                         - ((clone $completedViewQuery)->sum('voter_payout_amount') ?? 0),
         ];
 
-        return view('standalone.admin.reports-revenue', compact('revenue'));
+        return view('standalone.admin.reports-revenue', compact('revenue', 'activePaymentMode'));
     }
 
     /**
@@ -1808,6 +2274,7 @@ class AdminController extends Controller
 
         return view('standalone.admin.reports-engagement', compact(
             'engagement',
+            'activePaymentMode',
             'questionStatus',
             'questionStats',
             'recentQuestions',

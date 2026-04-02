@@ -61,5 +61,16 @@
         </a>
     </div>
 
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <a href="{{ route('admin.analytics.export.campaign-accounting') }}" class="bg-slate-800/50 border border-slate-700/50 hover:border-sky-500/30 rounded-xl p-5 transition group">
+            <p class="text-sm font-semibold text-white group-hover:text-sky-300 transition">Export Campaign Accounting CSV →</p>
+            <p class="text-xs text-slate-500 mt-1">Transaction and session-level ledger rows with monthly campaign rollups</p>
+        </a>
+        <a href="{{ route('admin.analytics.export.voter-accounting') }}" class="bg-slate-800/50 border border-slate-700/50 hover:border-sky-500/30 rounded-xl p-5 transition group">
+            <p class="text-sm font-semibold text-white group-hover:text-sky-300 transition">Export Voter Accounting CSV →</p>
+            <p class="text-xs text-slate-500 mt-1">Session and referral earnings rows with monthly voter rollups</p>
+        </a>
+    </div>
+
 </div>
 @endsection

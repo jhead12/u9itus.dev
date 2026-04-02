@@ -10,6 +10,20 @@
         <a href="{{ route('admin.analytics') }}" class="text-sm text-slate-400 hover:text-white transition">← Back to analytics</a>
     </div>
 
+    <div class="flex items-center justify-between gap-3 flex-wrap">
+        <span class="inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide {{ ($activePaymentMode ?? null) === 'live' ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300' : 'border-amber-500/40 bg-amber-500/10 text-amber-300' }}">
+            {{ ($activePaymentMode ?? 'test') === 'live' ? 'Live Mode Engagement' : 'Test Mode Engagement' }}
+        </span>
+        <div class="flex items-center gap-2">
+            <a href="{{ route('admin.analytics.export.campaign-accounting') }}" class="inline-flex items-center rounded-lg border border-slate-600 px-3 py-2 text-xs font-semibold text-slate-200 hover:border-sky-400/50 hover:text-sky-200 transition">
+                Campaign CSV
+            </a>
+            <a href="{{ route('admin.analytics.export.voter-accounting') }}" class="inline-flex items-center rounded-lg border border-slate-600 px-3 py-2 text-xs font-semibold text-slate-200 hover:border-sky-400/50 hover:text-sky-200 transition">
+                Voter CSV
+            </a>
+        </div>
+    </div>
+
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div class="stat-card">
             <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Total Sessions</p>

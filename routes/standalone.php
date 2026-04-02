@@ -351,6 +351,8 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         Route::get('/analytics', [AdminController::class, 'analytics'])->name('analytics');
         Route::get('/district-searches', [AdminController::class, 'districtSearches'])->name('district-searches.index');
         Route::get('/district-searches/export', [AdminController::class, 'exportDistrictSearches'])->name('district-searches.export');
+        Route::get('/analytics/export/campaign-accounting', [AdminController::class, 'exportCampaignAccounting'])->name('analytics.export.campaign-accounting');
+        Route::get('/analytics/export/voter-accounting', [AdminController::class, 'exportVoterAccounting'])->name('analytics.export.voter-accounting');
         Route::get('/reports/revenue', [AdminController::class, 'revenueReport'])->name('reports.revenue');
         Route::get('/reports/engagement', [AdminController::class, 'engagementReport'])->name('reports.engagement');
         
