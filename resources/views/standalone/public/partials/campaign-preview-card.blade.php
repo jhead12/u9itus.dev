@@ -1,7 +1,7 @@
 @php
     $_ytId  = null;
     $_vimeoId = null;
-    $_mUrl  = $campaign->media_url ?? '';
+    $_mUrl  = $previewMediaUrl ?? ($campaign->media_url ?? '');
     $_mediaType = (string) ($campaign->media_type ?? 'youtube');
     $_isDirectVideo = preg_match('/\.(mp4|webm|ogg|mov|m3u8)(\?.*)?$/i', $_mUrl) === 1;
     $_qaItems = collect($campaign->qa_items ?? [])->filter(function ($item) {

@@ -115,8 +115,36 @@
                 <div id="details-{{ $campaign->id }}" class="hidden bg-slate-900/50 rounded-lg p-4 space-y-3 text-xs">
                     <div>
                         <p class="text-slate-500 uppercase tracking-wide font-semibold mb-2">Public Politician Page Preview</p>
+                        @php
+                            $pendingPreviewMediaUrl = (string) ($campaign->media_url ?? '');
+                            $pendingMediaType = (string) ($campaign->media_type ?? '');
+
+                            if ($pendingPreviewMediaUrl !== ''
+                                && in_array($pendingMediaType, ['direct_file', 's3_cloudfront'], true)
+                                && (str_contains($pendingPreviewMediaUrl, 'amazonaws.com') || str_contains($pendingPreviewMediaUrl, '.s3.'))) {
+                                try {
+                                    $urlParts = parse_url($pendingPreviewMediaUrl);
+                                    $path = ltrim((string) ($urlParts['path'] ?? ''), '/');
+                                    $bucket = (string) config('filesystems.disks.s3.bucket', '');
+
+                                    if ($bucket !== '' && str_starts_with($path, $bucket . '/')) {
+                                        $path = substr($path, strlen($bucket) + 1);
+                                    }
+
+                                    if ($path !== '') {
+                                        $pendingPreviewMediaUrl = \Illuminate\Support\Facades\Storage::disk('s3')
+                                            ->temporaryUrl($path, now()->addHours(2));
+                                    }
+                                } catch (\Throwable $e) {
+                                    // Keep original media URL as fallback for preview rendering.
+                                }
+                            }
+                        @endphp
                         <div class="max-w-xl">
-                            @include('standalone.public.partials.campaign-preview-card', ['campaign' => $campaign])
+                            @include('standalone.public.partials.campaign-preview-card', [
+                                'campaign' => $campaign,
+                                'previewMediaUrl' => $pendingPreviewMediaUrl,
+                            ])
                         </div>
                     </div>
 
