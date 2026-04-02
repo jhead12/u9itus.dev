@@ -3,7 +3,7 @@
     $_vimeoId = null;
     $_mUrl  = $campaign->media_url ?? '';
     $_mediaType = (string) ($campaign->media_type ?? 'youtube');
-    $_isDirectVideo = preg_match('/\.(mp4|webm|ogg)(\?.*)?$/i', $_mUrl) === 1;
+    $_isDirectVideo = preg_match('/\.(mp4|webm|ogg|mov|m3u8)(\?.*)?$/i', $_mUrl) === 1;
     $_qaItems = collect($campaign->qa_items ?? [])->filter(function ($item) {
         return is_array($item)
             && filled($item['question'] ?? null)
@@ -46,7 +46,7 @@
 
 <article class="bg-slate-800/40 border border-slate-700/40 rounded-xl overflow-hidden hover:border-slate-500 transition group">
     <div class="relative aspect-video bg-black">
-        @if($_mediaType === 'youtube' && $_ytId)
+        @if($_ytId)
             <iframe
                 src="https://www.youtube-nocookie.com/embed/{{ $_ytId }}?rel=0&modestbranding=1&color=white&iv_load_policy=3"
                 title="{{ e($campaign->title) }}"
@@ -55,7 +55,7 @@
                 allowfullscreen
                 loading="lazy"
             ></iframe>
-        @elseif($_mediaType === 'vimeo' && $_vimeoId)
+        @elseif($_vimeoId)
             <iframe
                 src="https://player.vimeo.com/video/{{ $_vimeoId }}"
                 title="{{ e($campaign->title) }}"
@@ -69,15 +69,6 @@
                 <source src="{{ $_mUrl }}">
                 Your browser does not support this video format.
             </video>
-        @elseif($_ytId)
-            <iframe
-                src="https://www.youtube-nocookie.com/embed/{{ $_ytId }}?rel=0&modestbranding=1&color=white&iv_load_policy=3"
-                title="{{ e($campaign->title) }}"
-                class="w-full h-full"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowfullscreen
-                loading="lazy"
-            ></iframe>
         @elseif($campaign->thumbnail_url)
             <img src="{{ $campaign->thumbnail_url }}" alt="{{ $campaign->title }}"
                  class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
