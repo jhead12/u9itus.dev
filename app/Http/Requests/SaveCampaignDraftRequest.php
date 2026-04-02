@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Services\PlatformSettingsService;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
@@ -22,8 +23,8 @@ class SaveCampaignDraftRequest extends FormRequest
      */
     public function rules(): array
     {
-        $minDuration = max(10, min(180, (int) config('u9itus.min_video_duration', 10)));
-        $maxDuration = max($minDuration, min(180, (int) config('u9itus.max_video_duration', 180)));
+        $minDuration = max(1, (int) PlatformSettingsService::get('min_video_duration', null, (int) config('u9itus.min_video_duration', 10)));
+        $maxDuration = max($minDuration, (int) PlatformSettingsService::get('max_video_duration', null, (int) config('u9itus.max_video_duration', 180)));
 
         return [
             'title'                 => 'nullable|string|max:255',

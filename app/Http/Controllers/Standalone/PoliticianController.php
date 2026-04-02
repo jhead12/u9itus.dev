@@ -69,6 +69,30 @@ class PoliticianController extends Controller
     }
 
     /**
+     * Resolve video duration bounds from dynamic platform settings.
+     *
+     * @return array{0:int,1:int} [minSeconds, maxSeconds]
+     */
+    private function videoDurationBounds(): array
+    {
+        $configuredMin = (int) PlatformSettingsService::get(
+            'min_video_duration',
+            null,
+            (int) config('u9itus.min_video_duration', 10)
+        );
+        $configuredMax = (int) PlatformSettingsService::get(
+            'max_video_duration',
+            null,
+            (int) config('u9itus.max_video_duration', 180)
+        );
+
+        $min = max(1, $configuredMin);
+        $max = max($min, $configuredMax);
+
+        return [$min, $max];
+    }
+
+    /**
      * Load active campaign topics for form dropdowns without hard-failing the page.
      */
     private function safeActiveTopics()
@@ -340,7 +364,8 @@ class PoliticianController extends Controller
 
         // Set default media_duration if not provided (will be auto-detected from video later)
         if (empty($data['media_duration']) && $data['campaign_type'] === 'video') {
-            $data['media_duration'] = max(10, min(180, (int) config('u9itus.min_video_duration', 10)));
+            [$minDuration] = $this->videoDurationBounds();
+            $data['media_duration'] = $minDuration;
         }
 
         $campaign = PoliticalCampaign::create($data);
@@ -398,7 +423,8 @@ class PoliticianController extends Controller
         
         // Set default media_duration if not provided
         if (empty($data['media_duration']) && ($data['campaign_type'] ?? '') === 'video') {
-            $data['media_duration'] = max(10, min(180, (int) config('u9itus.min_video_duration', 10)));
+            [$minDuration] = $this->videoDurationBounds();
+            $data['media_duration'] = $minDuration;
         }
         
         // Ensure we have at least a title for the draft
@@ -711,8 +737,7 @@ class PoliticianController extends Controller
         );
 
         $maxMb  = config('u9itus.max_video_size_mb', 1024);
-        $minSec = max(10, min(180, (int) config('u9itus.min_video_duration', 10)));
-        $maxSec = max($minSec, min(180, (int) config('u9itus.max_video_duration', 180)));
+        [$minSec, $maxSec] = $this->videoDurationBounds();
         $videoMimeTypes = ['video/mp4', 'video/webm'];
 
         if ($this->isIosUserAgent($request->userAgent())) {
@@ -891,8 +916,7 @@ class PoliticianController extends Controller
                     );
 
                     if ($duration > 0) {
-                        $minSec = max(10, min(180, (int) config('u9itus.min_video_duration', 10)));
-                        $maxSec = max($minSec, min(180, (int) config('u9itus.max_video_duration', 180)));
+                        [$minSec, $maxSec] = $this->videoDurationBounds();
 
                         if ($duration < $minSec) {
                             Storage::disk('s3')->delete($s3Path);

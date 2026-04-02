@@ -28,8 +28,8 @@ class CreateCampaignRequest extends FormRequest
     {
         $revenuePerView = (float) PlatformSettingsService::get('revenue_per_view', null, (float) config('u9itus.revenue_per_view', 1.00));
         $minBudget   = $revenuePerView * 10;
-        $minDuration = max(10, min(180, (int) config('u9itus.min_video_duration', 10)));
-        $maxDuration = max($minDuration, min(180, (int) config('u9itus.max_video_duration', 180)));
+        $minDuration = max(1, (int) PlatformSettingsService::get('min_video_duration', null, (int) config('u9itus.min_video_duration', 10)));
+        $maxDuration = max($minDuration, (int) PlatformSettingsService::get('max_video_duration', null, (int) config('u9itus.max_video_duration', 180)));
         $videoMimeTypes = ['video/mp4', 'video/webm'];
 
         if ($this->isIosClient()) {
@@ -84,8 +84,8 @@ class CreateCampaignRequest extends FormRequest
     public function messages(): array
     {
         $minBudget = (float) PlatformSettingsService::get('revenue_per_view', null, (float) config('u9itus.revenue_per_view', 1.00)) * 10;
-        $minDuration = max(10, min(180, (int) config('u9itus.min_video_duration', 10)));
-        $maxDuration = max($minDuration, min(180, (int) config('u9itus.max_video_duration', 180)));
+        $minDuration = max(1, (int) PlatformSettingsService::get('min_video_duration', null, (int) config('u9itus.min_video_duration', 10)));
+        $maxDuration = max($minDuration, (int) PlatformSettingsService::get('max_video_duration', null, (int) config('u9itus.max_video_duration', 180)));
 
         return [
             'total_budget.min'          => 'Minimum campaign budget is $' . $minBudget . ' (10 views).',

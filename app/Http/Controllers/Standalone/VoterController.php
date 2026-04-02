@@ -348,7 +348,8 @@ class VoterController extends Controller
             ]);
         }
 
-        $duration  = (int) ($campaign->media_duration ?? config('u9itus.max_video_duration', 180));
+        $durationFallback = (int) PlatformSettingsService::get('max_video_duration', null, (int) config('u9itus.max_video_duration', 180));
+        $duration  = (int) ($campaign->media_duration ?? max(1, $durationFallback));
         $mustWatch = (int) ($campaign->min_watch_time_percent ?? config('u9itus.min_watch_time_percent', 80));
         $payout    = (float) ($campaign->voter_payout_per_view ?? PlatformSettingsService::get('viewer_payout_per_view', null, 0.25));
 
@@ -424,7 +425,8 @@ class VoterController extends Controller
         // Auto-complete when the voter has watched enough to qualify,
         // even if the video hasn't fired the 'ended' event yet.
         $campaign      = $session->campaign;
-        $mediaDuration = (int) ($campaign->media_duration ?? config('u9itus.max_video_duration', 180));
+        $durationFallback = (int) PlatformSettingsService::get('max_video_duration', null, (int) config('u9itus.max_video_duration', 180));
+        $mediaDuration = (int) ($campaign->media_duration ?? max(1, $durationFallback));
         $minWatchPct   = (float) ($campaign->min_watch_time_percent ?? config('u9itus.min_watch_time_percent', 80));
         $watchedPct    = $mediaDuration > 0 ? ($watchedSeconds / $mediaDuration) * 100 : 0;
 
