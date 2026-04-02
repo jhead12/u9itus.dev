@@ -109,7 +109,9 @@ class PoliticianController extends Controller
     }
 
     /**
-     * Store a campaign video on the configured disk and return its public URL.
+     * Store a campaign video on the configured disk and return its URL.
+     * For S3, generates a signed URL (valid for 7 days) to work with private buckets.
+     * For local/public disks, returns a regular public URL.
      */
     private function storeCampaignVideoAndGetUrl(UploadedFile $video, PoliticalCampaign $campaign): ?string
     {
@@ -137,6 +139,12 @@ class PoliticianController extends Controller
                 return null;
             }
 
+            // For S3 (private bucket), generate a signed URL valid for 7 days
+            if ($disk === 's3') {
+                return Storage::disk($disk)->temporaryUrl($path, now()->addDays(7));
+            }
+
+            // For local/public disks, use regular public URL
             return Storage::disk($disk)->url($path);
         } catch (Throwable $e) {
             Log::error('Campaign video upload failed with exception', [
@@ -526,6 +534,32 @@ class PoliticianController extends Controller
             $politician->id,
             $this->activePaymentMode()
         );
+
+        // Refresh S3 media URLs to signed URLs (handles both new uploads and existing campaigns)
+        // If campaign has an S3 media URL, regenerate a fresh signed URL valid for 7 days
+        if ($campaign->media_url && strpos($campaign->media_url, 's3') !== false) {
+            try {
+                // Extract the S3 object path from the URL
+                // URLs typically look like: https://bucket.s3.region.amazonaws.com/campaigns/438/video/file.mp4
+                $urlParts = parse_url($campaign->media_url);
+                $path = ltrim($urlParts['path'] ?? '', '/');
+                
+                // Remove bucket prefix if it's in the path (some URL formats include it)
+                $bucketName = config('filesystems.disks.s3.bucket', '');
+                if (stripos($path, $bucketName) === 0) {
+                    $path = substr($path, strlen($bucketName) + 1);
+                }
+
+                if (!empty($path)) {
+                    $campaign->media_url = Storage::disk('s3')->temporaryUrl($path, now()->addDays(7));
+                }
+            } catch (\Throwable $e) {
+                Log::warning('Failed to refresh S3 media URL for campaign display', [
+                    'campaign_id' => $campaign->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
 
         return view('standalone.politician.campaigns.show', compact(
             'campaign', 'politician', 'completedViews', 'budgetUsed', 'budgetLeft',
