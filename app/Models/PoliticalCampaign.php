@@ -128,7 +128,7 @@ class PoliticalCampaign extends Model
 
         // Remove unsafe embedded content before allowing limited formatting tags.
         $html = preg_replace('/<(script|style|iframe|object|embed)[^>]*>.*?<\/\1>/is', '', $html) ?? '';
-        $html = strip_tags($html, '<p><br><strong><b><em><i><u><ul><ol><li><a><blockquote>');
+        $html = strip_tags($html, '<p><br><strong><b><em><i><u><ul><ol><li><a><blockquote><img>');
 
         // Remove all attributes from non-anchor tags.
         $html = preg_replace('/<(\/?)\s*(p|br|strong|b|em|i|u|ul|ol|li|blockquote)\b[^>]*>/i', '<$1$2>', $html) ?? '';
@@ -146,6 +146,31 @@ class PoliticalCampaign extends Model
             }
 
             return '<a href="' . e($href) . '" target="_blank" rel="noopener noreferrer nofollow">';
+        }, $html) ?? '';
+
+        // Allow only safe http/https src values on images.
+        $html = preg_replace_callback('/<img\b[^>]*>/i', function (array $match): string {
+            $tag = $match[0];
+
+            if (!preg_match('/src\s*=\s*("([^"]*)"|\'([^\']*)\'|([^\s>]+))/i', $tag, $srcMatch)) {
+                return '';
+            }
+
+            $src = trim((string) ($srcMatch[2] ?? $srcMatch[3] ?? $srcMatch[4] ?? ''));
+            if (!preg_match('/^https?:\/\//i', $src)) {
+                return '';
+            }
+
+            $alt = '';
+            if (preg_match('/alt\s*=\s*("([^"]*)"|\'([^\']*)\'|([^\s>]+))/i', $tag, $altMatch)) {
+                $alt = trim((string) ($altMatch[2] ?? $altMatch[3] ?? $altMatch[4] ?? ''));
+            }
+
+            if ($alt === '') {
+                $alt = 'Campaign image';
+            }
+
+            return '<img src="' . e($src) . '" alt="' . e($alt) . '" loading="lazy" decoding="async" referrerpolicy="no-referrer">';
         }, $html) ?? '';
 
         // Remove inline event handlers if any slipped through.

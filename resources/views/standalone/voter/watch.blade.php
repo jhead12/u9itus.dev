@@ -31,7 +31,7 @@
     @if(!empty($campaign->video_blurb))
     <div class="mb-5 p-4 bg-slate-800/45 border border-slate-700/60 rounded-2xl">
         <p class="text-[11px] uppercase tracking-wide text-slate-500 mb-2">About This Video</p>
-        <div class="prose prose-invert prose-sm max-w-none text-slate-200 [&_a]:text-emerald-400 [&_a:hover]:text-emerald-300">
+        <div class="prose prose-invert prose-sm max-w-none text-slate-200 [&_a]:text-emerald-400 [&_a:hover]:text-emerald-300 [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-lg">
             {!! $campaign->video_blurb !!}
         </div>
     </div>

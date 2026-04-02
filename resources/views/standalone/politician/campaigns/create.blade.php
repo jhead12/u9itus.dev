@@ -60,13 +60,15 @@
                         <button type="button" data-cmd="italic" class="px-2 py-1 text-xs text-slate-300 hover:text-white hover:bg-slate-700 rounded">I</button>
                         <button type="button" data-cmd="underline" class="px-2 py-1 text-xs text-slate-300 hover:text-white hover:bg-slate-700 rounded">U</button>
                         <button type="button" data-cmd="insertUnorderedList" class="px-2 py-1 text-xs text-slate-300 hover:text-white hover:bg-slate-700 rounded">• List</button>
+                        <button type="button" data-cmd="createLink" class="px-2 py-1 text-xs text-slate-300 hover:text-white hover:bg-slate-700 rounded">Link</button>
+                        <button type="button" data-cmd="insertImage" class="px-2 py-1 text-xs text-slate-300 hover:text-white hover:bg-slate-700 rounded">Image</button>
                     </div>
                     <div id="videoBlurbEditor"
                          contenteditable="true"
                          class="min-h-[110px] px-3 py-2 text-sm text-white focus:outline-none"></div>
                 </div>
                 <textarea name="video_blurb" id="videoBlurbInput" class="hidden">{{ old('video_blurb') }}</textarea>
-                <p class="mt-1 text-xs text-slate-500">Keep it short and clear. Basic formatting only.</p>
+                <p class="mt-1 text-xs text-slate-500">Basic rich text, links, and external image URLs are supported.</p>
                 @error('video_blurb')<p class="text-xs text-red-400 mt-1">{{ $message }}</p>@enderror
             </div>
 
@@ -657,7 +659,37 @@ function initVideoBlurbEditor() {
 
     videoBlurbEditor.innerHTML = videoBlurbInput.value || '';
 
+    const isHttpUrl = (value) => /^https?:\/\//i.test((value || '').trim());
+
+    const normalizeEditorMarkup = () => {
+        videoBlurbEditor.querySelectorAll('a').forEach((anchor) => {
+            const href = (anchor.getAttribute('href') || '').trim();
+            if (!isHttpUrl(href)) {
+                anchor.removeAttribute('href');
+                return;
+            }
+            anchor.setAttribute('target', '_blank');
+            anchor.setAttribute('rel', 'noopener noreferrer nofollow');
+        });
+
+        videoBlurbEditor.querySelectorAll('img').forEach((img) => {
+            const src = (img.getAttribute('src') || '').trim();
+            if (!isHttpUrl(src)) {
+                img.remove();
+                return;
+            }
+
+            if (!img.getAttribute('alt')) {
+                img.setAttribute('alt', 'Campaign image');
+            }
+            img.setAttribute('loading', 'lazy');
+            img.setAttribute('decoding', 'async');
+            img.setAttribute('referrerpolicy', 'no-referrer');
+        });
+    };
+
     const syncBlurb = () => {
+        normalizeEditorMarkup();
         videoBlurbInput.value = videoBlurbEditor.innerHTML.trim();
     };
 
@@ -672,7 +704,31 @@ function initVideoBlurbEditor() {
                     return;
                 }
                 videoBlurbEditor.focus();
-                document.execCommand(cmd, false);
+
+                if (cmd === 'createLink') {
+                    const url = window.prompt('Enter link URL (https://...)');
+                    if (url === null || url.trim() === '') {
+                        return;
+                    }
+                    if (!isHttpUrl(url)) {
+                        window.alert('Please enter a valid http:// or https:// URL.');
+                        return;
+                    }
+                    document.execCommand('createLink', false, url.trim());
+                } else if (cmd === 'insertImage') {
+                    const url = window.prompt('Enter image URL (https://...)');
+                    if (url === null || url.trim() === '') {
+                        return;
+                    }
+                    if (!isHttpUrl(url)) {
+                        window.alert('Please enter a valid http:// or https:// image URL.');
+                        return;
+                    }
+                    document.execCommand('insertImage', false, url.trim());
+                } else {
+                    document.execCommand(cmd, false);
+                }
+
                 syncBlurb();
             });
         });
