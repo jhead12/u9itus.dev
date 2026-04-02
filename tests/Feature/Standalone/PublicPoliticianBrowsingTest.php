@@ -348,7 +348,7 @@ test('verified public profile shows dig deeper source panels', function () {
     $response->assertSee('Federal Election Commission');
 });
 
-    test('logged in voter sees referral share modal on unverified profiles only', function () {
+    test('logged in voter sees referral share toolbar on unverified profiles only', function () {
         $user = User::factory()->create([
             'user_type' => 'voter',
         ]);
@@ -372,6 +372,7 @@ test('verified public profile shows dig deeper source panels', function () {
             ->get(route('politician.public.show', ['slug' => $unverifiedPolitician->slug]));
 
         $response->assertOk();
+        $response->assertSee('Referral Toolbar');
         $response->assertSee('Share this profile with your referral code');
         $response->assertSee("Take a look at Rowan North's U9itus profile. If you join or claim the page, please use my referral link.");
         $response->assertSee(route('politician.public.show', [
@@ -397,6 +398,7 @@ test('verified public profile shows dig deeper source panels', function () {
             ->get(route('politician.public.show', ['slug' => $verifiedPolitician->slug]));
 
         $verifiedResponse->assertOk();
+        $verifiedResponse->assertDontSee('Referral Toolbar');
         $verifiedResponse->assertDontSee('Share this profile with your referral code');
     });
 

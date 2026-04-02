@@ -119,6 +119,104 @@
         </div>
     </nav>
 
+    @if($showReferralShareModal)
+    <section id="referral-share-toolbar"
+             class="sticky top-14 z-30 border-b border-emerald-500/20 bg-slate-950/92 backdrop-blur-md shadow-lg shadow-black/20">
+        <div class="max-w-5xl mx-auto px-4 sm:px-6 py-3 space-y-3">
+            <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+                <div class="min-w-0">
+                    <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-300">Referral Toolbar</p>
+                    <div class="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
+                        <p class="text-sm font-semibold text-white">Share this profile without leaving the page</p>
+                        <p class="text-xs text-slate-400">Code: <span class="font-mono text-emerald-300">{{ $viewerReferralCode }}</span></p>
+                    </div>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-2">
+                    <button type="button"
+                            id="toolbar-copy-referral-link"
+                            data-link="{{ $referralProfileShareUrl }}"
+                            class="p13-btn-primary text-xs font-semibold px-3 py-2 rounded-lg whitespace-nowrap">
+                        Copy Link
+                    </button>
+                    <button type="button"
+                            id="toolbar-native-share-referral-link"
+                            data-link="{{ $referralProfileShareUrl }}"
+                            data-title="{{ $shareSubject }}"
+                            data-text="{{ $socialShareMessage }}"
+                            class="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-600 text-slate-200 hover:text-white hover:border-slate-500 transition text-xs font-medium">
+                        Share
+                    </button>
+                    <a href="{{ $emailShareUrl }}"
+                       class="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-sky-500/30 bg-sky-500/10 text-sky-200 hover:text-sky-100 transition text-xs font-medium whitespace-nowrap">
+                        Email Draft
+                    </a>
+                    <button type="button"
+                            id="toggle-referral-toolbar-details"
+                            aria-expanded="false"
+                            aria-controls="referral-toolbar-details"
+                            class="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-200 hover:text-amber-100 transition text-xs font-medium whitespace-nowrap">
+                        More Options
+                    </button>
+                </div>
+            </div>
+
+            <p id="toolbar-copy-status" class="text-xs text-emerald-300 hidden">Referral link copied to clipboard.</p>
+
+            <div id="referral-toolbar-details" class="hidden rounded-2xl border border-slate-800 bg-slate-900/80 p-4 space-y-4">
+                <p class="text-sm text-slate-300 leading-relaxed">
+                    If someone signs up from your shared link, their registration can be attributed to you.
+                    This includes campaign teams and congressional candidates who claim this profile.
+                </p>
+
+                <div class="rounded-xl border border-slate-700/70 bg-slate-800/60 px-4 py-3">
+                    <p class="text-xs uppercase tracking-wide text-slate-400 mb-1">Preloaded Share Message</p>
+                    <p class="text-sm text-slate-200 leading-relaxed">{{ $socialShareMessage }}</p>
+                </div>
+
+                <div>
+                    <label for="referral-profile-link" class="block text-xs font-semibold uppercase tracking-wide text-slate-400 mb-1.5">
+                        Profile Link With Your Code
+                    </label>
+                    <div class="flex items-center gap-2">
+                        <input id="referral-profile-link"
+                               type="text"
+                               readonly
+                               value="{{ $referralProfileShareUrl }}"
+                               class="w-full bg-slate-800/80 border border-slate-700 text-slate-200 text-sm rounded-lg px-3 py-2.5 focus:outline-none" />
+                        <a href="{{ $referralPoliticianSignupUrl }}"
+                           class="inline-flex items-center gap-2 px-3 py-2.5 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-200 hover:text-amber-100 transition text-xs font-medium whitespace-nowrap">
+                            Politician Signup
+                        </a>
+                    </div>
+                </div>
+
+                <div>
+                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-2">Social Share Shortcuts</p>
+                    <div class="flex flex-wrap gap-2">
+                        <a href="{{ $xShareUrl }}" target="_blank" rel="noopener noreferrer"
+                           class="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-600 text-slate-200 hover:text-white hover:border-slate-500 transition text-sm font-medium">
+                            X
+                        </a>
+                        <a href="{{ $facebookShareUrl }}" target="_blank" rel="noopener noreferrer"
+                           class="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-blue-500/30 bg-blue-500/10 text-blue-200 hover:text-blue-100 transition text-sm font-medium">
+                            Facebook
+                        </a>
+                        <a href="{{ $whatsAppShareUrl }}" target="_blank" rel="noopener noreferrer"
+                           class="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-emerald-200 hover:text-emerald-100 transition text-sm font-medium">
+                            WhatsApp
+                        </a>
+                        <a href="{{ $telegramShareUrl }}" target="_blank" rel="noopener noreferrer"
+                           class="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-cyan-500/30 bg-cyan-500/10 text-cyan-200 hover:text-cyan-100 transition text-sm font-medium">
+                            Telegram
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    @endif
+
     {{-- ── Hero Section ── --}}
     <section class="relative overflow-hidden">
         @if($page->hero_banner_url && $page->background_style === 'image')
@@ -721,154 +819,26 @@
     </footer>
 
     @if($showReferralShareModal)
-    <dialog id="referral-share-modal"
-            class="w-full max-w-xl rounded-2xl border border-emerald-500/30 bg-slate-900 shadow-2xl overflow-hidden p-0 text-left"
-            aria-labelledby="referral-share-title">
-        <div class="w-full">
-            <div class="w-full">
-                <div class="px-6 py-4 border-b border-slate-800/80 flex items-start justify-between gap-4">
-                    <div>
-                        <p class="text-xs font-semibold uppercase tracking-wide text-emerald-300">Referral Opportunity</p>
-                        <h2 id="referral-share-title" class="mt-1 text-lg font-bold text-white">Share this profile with your referral code</h2>
-                    </div>
-                    <button type="button"
-                            id="close-referral-share-modal"
-                            class="text-slate-400 hover:text-white transition"
-                            aria-label="Close">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-                        </svg>
-                    </button>
-                </div>
-
-                <div class="px-6 py-5 space-y-4">
-                    <p class="text-sm text-slate-300 leading-relaxed">
-                        If someone signs up from your shared link, their registration can be attributed to you.
-                        This includes campaign teams and congressional candidates who claim this profile.
-                    </p>
-
-                    <div class="rounded-xl border border-slate-700/70 bg-slate-800/60 px-4 py-3">
-                        <p class="text-xs uppercase tracking-wide text-slate-400 mb-1">Preloaded Share Message</p>
-                        <p class="text-sm text-slate-200 leading-relaxed">{{ $socialShareMessage }}</p>
-                    </div>
-
-                    <div class="rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-3">
-                        <p class="text-xs uppercase tracking-wide text-emerald-200 mb-1">Your Referral Code</p>
-                        <p class="text-lg font-mono font-bold text-emerald-100">{{ $viewerReferralCode }}</p>
-                    </div>
-
-                    <div>
-                        <label for="referral-profile-link" class="block text-xs font-semibold uppercase tracking-wide text-slate-400 mb-1.5">
-                            Profile Link With Your Code
-                        </label>
-                        <div class="flex items-center gap-2">
-                            <input id="referral-profile-link"
-                                   type="text"
-                                   readonly
-                                   value="{{ $referralProfileShareUrl }}"
-                                   class="w-full bg-slate-800/80 border border-slate-700 text-slate-200 text-sm rounded-lg px-3 py-2.5 focus:outline-none" />
-                            <button type="button"
-                                    id="copy-referral-profile-link"
-                                    data-link="{{ $referralProfileShareUrl }}"
-                                    class="p13-btn-primary text-xs font-semibold px-3 py-2.5 rounded-lg whitespace-nowrap">
-                                Copy
-                            </button>
-                        </div>
-                        <p id="referral-copy-status" class="mt-2 text-xs text-emerald-300 hidden">Copied to clipboard.</p>
-                    </div>
-
-                    <div class="flex flex-wrap gap-2">
-                        <button type="button"
-                                id="native-share-referral-link"
-                                data-link="{{ $referralProfileShareUrl }}"
-                                data-title="{{ $shareSubject }}"
-                                data-text="{{ $socialShareMessage }}"
-                                class="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-600 text-slate-200 hover:text-white hover:border-slate-500 transition text-sm font-medium">
-                            Share Link
-                        </button>
-                        <a href="{{ $emailShareUrl }}"
-                           class="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-sky-500/30 bg-sky-500/10 text-sky-200 hover:text-sky-100 transition text-sm font-medium">
-                            Email Draft
-                        </a>
-                        <a href="{{ $referralPoliticianSignupUrl }}"
-                           class="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-200 hover:text-amber-100 transition text-sm font-medium">
-                            Direct Politician Signup Link
-                        </a>
-                    </div>
-
-                    <div>
-                        <p class="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-2">Social Share Shortcuts</p>
-                        <div class="flex flex-wrap gap-2">
-                            <a href="{{ $xShareUrl }}" target="_blank" rel="noopener noreferrer"
-                               class="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-600 text-slate-200 hover:text-white hover:border-slate-500 transition text-sm font-medium">
-                                X
-                            </a>
-                            <a href="{{ $facebookShareUrl }}" target="_blank" rel="noopener noreferrer"
-                               class="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-blue-500/30 bg-blue-500/10 text-blue-200 hover:text-blue-100 transition text-sm font-medium">
-                                Facebook
-                            </a>
-                            <a href="{{ $whatsAppShareUrl }}" target="_blank" rel="noopener noreferrer"
-                               class="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-emerald-200 hover:text-emerald-100 transition text-sm font-medium">
-                                WhatsApp
-                            </a>
-                            <a href="{{ $telegramShareUrl }}" target="_blank" rel="noopener noreferrer"
-                               class="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-cyan-500/30 bg-cyan-500/10 text-cyan-200 hover:text-cyan-100 transition text-sm font-medium">
-                                Telegram
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </dialog>
-
-    <style>
-        #referral-share-modal::backdrop {
-            background: rgba(2, 6, 23, 0.82);
-        }
-    </style>
-
     <script>
         (function() {
-            var modal = document.getElementById('referral-share-modal');
-            if (!modal) {
+            var copyButton = document.getElementById('toolbar-copy-referral-link');
+            var shareButton = document.getElementById('toolbar-native-share-referral-link');
+            var toggleButton = document.getElementById('toggle-referral-toolbar-details');
+            var details = document.getElementById('referral-toolbar-details');
+            var copyStatus = document.getElementById('toolbar-copy-status');
+
+            if (!copyButton || !shareButton || !toggleButton || !details) {
                 return;
             }
 
-            var closeButton = document.getElementById('close-referral-share-modal');
-            var copyButton = document.getElementById('copy-referral-profile-link');
-            var shareButton = document.getElementById('native-share-referral-link');
-            var copyStatus = document.getElementById('referral-copy-status');
-
-            function closeModal() {
-                if (typeof modal.close === 'function' && modal.open) {
-                    modal.close();
-                }
+            function showCopiedState() {
+                copyStatus?.classList.remove('hidden');
+                setTimeout(function() {
+                    copyStatus?.classList.add('hidden');
+                }, 1600);
             }
 
-            function openModal() {
-                if (typeof modal.showModal === 'function' && !modal.open) {
-                    modal.showModal();
-                }
-            }
-
-            openModal();
-
-            closeButton?.addEventListener('click', closeModal);
-
-            modal.addEventListener('click', function(event) {
-                if (event.target === modal) {
-                    closeModal();
-                }
-            });
-
-            document.addEventListener('keydown', function(event) {
-                if (event.key === 'Escape' && modal.open) {
-                    closeModal();
-                }
-            });
-
-            copyButton?.addEventListener('click', async function() {
+            copyButton.addEventListener('click', async function() {
                 var link = copyButton.getAttribute('data-link');
                 if (!link) {
                     return;
@@ -886,16 +856,13 @@
                         }
                     }
 
-                    copyStatus?.classList.remove('hidden');
-                    setTimeout(function() {
-                        copyStatus?.classList.add('hidden');
-                    }, 1600);
+                    showCopiedState();
                 } catch (error) {
                     console.error('Failed to copy referral link:', error);
                 }
             });
 
-            shareButton?.addEventListener('click', async function() {
+            shareButton.addEventListener('click', async function() {
                 var link = shareButton.getAttribute('data-link');
                 var title = shareButton.getAttribute('data-title') || 'U9itus Politician Profile';
                 var text = shareButton.getAttribute('data-text') || 'Check out this politician profile on U9itus.';
@@ -905,20 +872,23 @@
 
                 if (navigator.share) {
                     try {
-                        await navigator.share({
-                            title: title,
-                            text: text,
-                            url: link
-                        });
+                        await navigator.share({ title: title, text: text, url: link });
+                        return;
                     } catch (error) {
                         if (error && error.name !== 'AbortError') {
                             console.error('Native share failed:', error);
                         }
                     }
-                    return;
                 }
 
-                copyButton?.click();
+                copyButton.click();
+            });
+
+            toggleButton.addEventListener('click', function() {
+                var isHidden = details.classList.contains('hidden');
+                details.classList.toggle('hidden', !isHidden);
+                toggleButton.setAttribute('aria-expanded', isHidden ? 'true' : 'false');
+                toggleButton.textContent = isHidden ? 'Hide Options' : 'More Options';
             });
         })();
     </script>
