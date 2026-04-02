@@ -113,12 +113,77 @@
 
                 {{-- Expandable details --}}
                 <div id="details-{{ $campaign->id }}" class="hidden bg-slate-900/50 rounded-lg p-4 space-y-3 text-xs">
+                    @php
+                        $_mediaUrl = trim((string) ($campaign->media_url ?? ''));
+                        $_mediaType = (string) ($campaign->media_type ?? 'youtube');
+                        $_ytId = null;
+                        $_vimeoId = null;
+
+                        if ($_mediaUrl !== '') {
+                            if (preg_match('~(?:youtu\.be/|youtube\.com/(?:watch\?v=|embed/|shorts/))([A-Za-z0-9_-]{6,})~', $_mediaUrl, $_m)) {
+                                $_ytId = $_m[1];
+                            }
+
+                            if (preg_match('~vimeo\.com/(?:video/)?(\d+)~', $_mediaUrl, $_m)) {
+                                $_vimeoId = $_m[1];
+                            }
+                        }
+                    @endphp
+
                     @if($campaign->message_summary)
                     <div>
                         <p class="text-slate-500 uppercase tracking-wide font-semibold mb-1">Summary</p>
                         <p class="text-slate-300">{{ $campaign->message_summary }}</p>
                     </div>
                     @endif
+
+                    @if($_mediaUrl !== '')
+                    <div>
+                        <p class="text-slate-500 uppercase tracking-wide font-semibold mb-2">Video Preview</p>
+                        <div class="rounded-lg border border-slate-700/60 overflow-hidden bg-black">
+                            @if(($_mediaType === 'youtube' && $_ytId) || ($_ytId && !$_vimeoId && !in_array($_mediaType, ['vimeo', 'direct_file', 's3_cloudfront'], true)))
+                                <div class="relative w-full" style="padding-top:56.25%;">
+                                    <iframe
+                                        class="absolute inset-0 h-full w-full"
+                                        src="https://www.youtube-nocookie.com/embed/{{ $_ytId }}?rel=0&modestbranding=1"
+                                        title="Campaign video preview"
+                                        loading="lazy"
+                                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                                        allowfullscreen></iframe>
+                                </div>
+                            @elseif(($_mediaType === 'vimeo' && $_vimeoId) || ($_vimeoId && !$_ytId))
+                                <div class="relative w-full" style="padding-top:56.25%;">
+                                    <iframe
+                                        class="absolute inset-0 h-full w-full"
+                                        src="https://player.vimeo.com/video/{{ $_vimeoId }}"
+                                        title="Campaign video preview"
+                                        loading="lazy"
+                                        allow="autoplay; fullscreen; picture-in-picture"
+                                        allowfullscreen></iframe>
+                                </div>
+                            @elseif(in_array($_mediaType, ['direct_file', 's3_cloudfront'], true))
+                                <div class="relative w-full" style="padding-top:56.25%;">
+                                    <iframe
+                                        class="absolute inset-0 h-full w-full"
+                                        src="{{ $_mediaUrl }}"
+                                        title="Campaign video preview"
+                                        loading="lazy"
+                                        allow="autoplay; fullscreen; picture-in-picture"
+                                        allowfullscreen></iframe>
+                                </div>
+                            @else
+                                <div class="p-3 text-slate-400">
+                                    Preview unavailable for this media type.
+                                </div>
+                            @endif
+                        </div>
+                        <p class="mt-2">
+                            <a href="{{ $_mediaUrl }}" target="_blank" rel="noopener"
+                               class="text-emerald-400 hover:text-emerald-300 break-all">Open media URL in new tab</a>
+                        </p>
+                    </div>
+                    @endif
+
                     <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
                         @if($campaign->governance_level)
                         <div>
@@ -153,13 +218,6 @@
                             <p class="text-slate-300 mt-0.5">${{ number_format($campaign->revenue_per_view ?? config('u9itus.revenue_per_view', 1.00), 2) }}</p>
                         </div>
                     </div>
-                    @if($campaign->media_url)
-                    <div>
-                        <p class="text-slate-500 font-semibold mb-1">Media URL</p>
-                        <a href="{{ $campaign->media_url }}" target="_blank" rel="noopener"
-                           class="text-emerald-400 hover:text-emerald-300 break-all">{{ $campaign->media_url }}</a>
-                    </div>
-                    @endif
                     @if($campaign->politician?->bio)
                     <div>
                         <p class="text-slate-500 font-semibold mb-1">Politician Bio</p>

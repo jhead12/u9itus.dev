@@ -6,7 +6,7 @@ use Illuminate\Foundation\Http\FormRequest;
 
 /**
  * Validates campaign draft save requests.
- * 
+ *
  * Draft mode allows saving incomplete campaigns with minimal validation.
  * Most fields are optional to allow users to save progress at any stage.
  */
@@ -22,8 +22,8 @@ class SaveCampaignDraftRequest extends FormRequest
      */
     public function rules(): array
     {
-        $minDuration = config('u9itus.min_video_duration', 30);
-        $maxDuration = config('u9itus.max_video_duration', 300);
+        $minDuration = max(30, (int) config('u9itus.min_video_duration', 30));
+        $maxDuration = max(60, (int) config('u9itus.max_video_duration', 300), $minDuration);
 
         return [
             'title'                 => 'nullable|string|max:255',

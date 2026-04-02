@@ -211,11 +211,15 @@
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-slate-300 mb-1.5">Video Duration (seconds)</label>
-                    <input type="number" name="media_duration" value="{{ old('media_duration', $campaign->media_duration ?? config('u9itus.min_video_duration', 30)) }}"
-                        min="{{ config('u9itus.min_video_duration', 30) }}"
-                        max="{{ config('u9itus.max_video_duration', 300) }}"
+                    @php
+                        $minVideoDuration = max(30, (int) config('u9itus.min_video_duration', 30));
+                        $maxVideoDuration = max(60, (int) config('u9itus.max_video_duration', 300), $minVideoDuration);
+                    @endphp
+                    <input type="number" name="media_duration" value="{{ old('media_duration', $campaign->media_duration ?? $minVideoDuration) }}"
+                        min="{{ $minVideoDuration }}"
+                        max="{{ $maxVideoDuration }}"
                         class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition" />
-                    <p class="text-xs text-slate-500 mt-1">System will auto-detect from video metadata if available ({{ config('u9itus.min_video_duration', 30) }}–{{ config('u9itus.max_video_duration', 300) }}s)</p>
+                    <p class="text-xs text-slate-500 mt-1">System will auto-detect from video metadata if available ({{ $minVideoDuration }}–{{ $maxVideoDuration }}s)</p>
                     @error('media_duration')<p class="text-xs text-red-400 mt-1">{{ $message }}</p>@enderror
                 </div>
             </div>

@@ -164,6 +164,24 @@
                 $statusValue   = ($campaign->status instanceof \BackedEnum) ? $campaign->status->value : $campaign->status;
 
                 $campaignType  = ($campaign->campaign_type instanceof \BackedEnum) ? $campaign->campaign_type->value : $campaign->campaign_type;
+
+                $mediaUrl      = trim((string) ($campaign->media_url ?? ''));
+                $mediaType     = (string) ($campaign->media_type ?? 'youtube');
+                $ytId          = null;
+                $vimeoId       = null;
+
+                if ($mediaUrl !== '') {
+                    if (preg_match('~(?:youtu\.be/|youtube\.com/(?:watch\?v=|embed/|shorts/))([A-Za-z0-9_-]{6,})~', $mediaUrl, $m)) {
+                        $ytId = $m[1];
+                    }
+
+                    if (preg_match('~vimeo\.com/(?:video/)?(\d+)~', $mediaUrl, $m)) {
+                        $vimeoId = $m[1];
+                    }
+                }
+
+                $runningStart  = $campaign->scheduled_start_at ?? $campaign->started_at ?? $campaign->created_at;
+                $runningEnd    = $campaign->scheduled_end_at;
             @endphp
 
             <div class="px-5 py-5 space-y-4">
@@ -222,6 +240,13 @@
                                     {{ $campaign->started_at ? $campaign->started_at->diffForHumans() : ($campaign->created_at->diffForHumans()) }}
                                 </span>
                             </span>
+                            <span>Running dates:
+                                <span class="text-slate-300">
+                                    {{ $runningStart ? $runningStart->format('M j, Y') : '—' }}
+                                    -
+                                    {{ $runningEnd ? $runningEnd->format('M j, Y') : 'Ongoing' }}
+                                </span>
+                            </span>
                             <span>Per-view rate:
                                 <span class="text-slate-300">${{ number_format($campaign->voter_payout_per_view ?? 0.25, 2) }}</span>
                             </span>
@@ -259,12 +284,62 @@
                             Edit
                         </a>
 
+                        @if($mediaUrl !== '')
+                        <button type="button"
+                                onclick="document.getElementById('preview-{{ $campaign->id }}').classList.toggle('hidden')"
+                                class="px-3 py-1.5 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 text-xs font-semibold border border-blue-500/20 transition">
+                            Preview
+                        </button>
+                        @endif
+
                         <a href="{{ route('admin.campaigns.audit', $campaign) }}"
                            class="px-3 py-1.5 rounded-lg bg-slate-700/50 hover:bg-slate-700 text-slate-400 text-xs font-semibold transition">
                             Audit Log
                         </a>
                     </div>
                 </div>
+
+                @if($mediaUrl !== '')
+                <div id="preview-{{ $campaign->id }}" class="hidden bg-slate-900/60 border border-slate-700/50 rounded-lg p-3 space-y-2">
+                    <p class="text-xs text-slate-400 font-medium">Campaign Video Preview</p>
+                    <div class="rounded-lg border border-slate-700/60 overflow-hidden bg-black">
+                        @if(($mediaType === 'youtube' && $ytId) || ($ytId && ! $vimeoId && ! in_array($mediaType, ['vimeo', 'direct_file', 's3_cloudfront'], true)))
+                            <div class="relative w-full" style="padding-top:56.25%;">
+                                <iframe
+                                    class="absolute inset-0 h-full w-full"
+                                    src="https://www.youtube-nocookie.com/embed/{{ $ytId }}?rel=0&modestbranding=1"
+                                    title="Campaign video preview"
+                                    loading="lazy"
+                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                                    allowfullscreen></iframe>
+                            </div>
+                        @elseif(($mediaType === 'vimeo' && $vimeoId) || ($vimeoId && ! $ytId))
+                            <div class="relative w-full" style="padding-top:56.25%;">
+                                <iframe
+                                    class="absolute inset-0 h-full w-full"
+                                    src="https://player.vimeo.com/video/{{ $vimeoId }}"
+                                    title="Campaign video preview"
+                                    loading="lazy"
+                                    allow="autoplay; fullscreen; picture-in-picture"
+                                    allowfullscreen></iframe>
+                            </div>
+                        @else
+                            <div class="relative w-full" style="padding-top:56.25%;">
+                                <iframe
+                                    class="absolute inset-0 h-full w-full"
+                                    src="{{ $mediaUrl }}"
+                                    title="Campaign video preview"
+                                    loading="lazy"
+                                    allow="autoplay; fullscreen; picture-in-picture"
+                                    allowfullscreen></iframe>
+                            </div>
+                        @endif
+                    </div>
+                    <a href="{{ $mediaUrl }}" target="_blank" rel="noopener" class="text-xs text-emerald-400 hover:text-emerald-300 break-all">
+                        Open media URL in new tab
+                    </a>
+                </div>
+                @endif
 
                 {{-- ── Metrics grid ─────────────────────────────────────────── --}}
                 <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">

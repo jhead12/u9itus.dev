@@ -28,8 +28,8 @@ class CreateCampaignRequest extends FormRequest
     {
         $revenuePerView = (float) PlatformSettingsService::get('revenue_per_view', null, (float) config('u9itus.revenue_per_view', 1.00));
         $minBudget   = $revenuePerView * 10;
-        $minDuration = config('u9itus.min_video_duration', 30);
-        $maxDuration = config('u9itus.max_video_duration', 300);
+        $minDuration = max(30, (int) config('u9itus.min_video_duration', 30));
+        $maxDuration = max(60, (int) config('u9itus.max_video_duration', 300), $minDuration);
         $videoMimeTypes = ['video/mp4', 'video/webm'];
 
         if ($this->isIosClient()) {
@@ -83,12 +83,14 @@ class CreateCampaignRequest extends FormRequest
     public function messages(): array
     {
         $minBudget = (float) PlatformSettingsService::get('revenue_per_view', null, (float) config('u9itus.revenue_per_view', 1.00)) * 10;
+        $minDuration = max(30, (int) config('u9itus.min_video_duration', 30));
+        $maxDuration = max(60, (int) config('u9itus.max_video_duration', 300), $minDuration);
 
         return [
             'total_budget.min'          => 'Minimum campaign budget is $' . $minBudget . ' (10 views).',
             'total_views_requested.min' => 'You must request at least 10 views.',
-            'media_duration.min'        => 'Video must be at least ' . config('u9itus.min_video_duration', 30) . ' seconds.',
-            'media_duration.max'        => 'Video cannot exceed ' . config('u9itus.max_video_duration', 300) . ' seconds.',
+            'media_duration.min'        => 'Video must be at least ' . $minDuration . ' seconds.',
+            'media_duration.max'        => 'Video cannot exceed ' . $maxDuration . ' seconds.',
         ];
     }
 
