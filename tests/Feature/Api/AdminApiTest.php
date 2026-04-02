@@ -2,11 +2,18 @@
 
 namespace Tests\Feature\Api;
 
+use App\Mail\CampaignApprovedMail;
+use App\Mail\CampaignRejectedMail;
+use App\Models\NotificationPreference;
 use App\Models\PoliticalCampaign;
+use App\Models\Politician;
 use App\Models\User;
 use App\Models\Voter;
+use App\Notifications\CampaignStatusChangedNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
 
@@ -188,5 +195,77 @@ class AdminApiTest extends TestCase
 
         $response->assertStatus(422)
             ->assertJsonPath('message', 'Only paused campaigns can be reactivated');
+    }
+
+    public function test_admin_approve_campaign_via_api_sends_bell_and_email_notifications(): void
+    {
+        Mail::fake();
+        Notification::fake();
+
+        $admin = User::factory()->create();
+        $this->actingAs($admin, 'sanctum');
+
+        $politicianUser = User::factory()->create();
+        $politician = Politician::factory()->create(['user_id' => $politicianUser->id]);
+        $campaign = PoliticalCampaign::factory()->create([
+            'politician_id' => $politician->id,
+            'status' => 'pending_approval',
+            'approval_status' => 'pending',
+        ]);
+
+        $response = $this->postJson("/api/v1/admin/campaigns/{$campaign->uuid}/approve");
+
+        $response->assertOk()
+            ->assertJsonPath('message', 'Campaign approved and activated');
+
+        Notification::assertSentTo(
+            $politicianUser,
+            CampaignStatusChangedNotification::class,
+            function (CampaignStatusChangedNotification $notification) {
+                return $notification->status === 'approved';
+            }
+        );
+
+        Mail::assertQueued(CampaignApprovedMail::class);
+    }
+
+    public function test_admin_reject_campaign_via_api_respects_email_toggle_and_sends_bell(): void
+    {
+        Mail::fake();
+        Notification::fake();
+
+        $admin = User::factory()->create();
+        $this->actingAs($admin, 'sanctum');
+
+        $politicianUser = User::factory()->create();
+        NotificationPreference::create([
+            'user_id' => $politicianUser->id,
+            'email_campaign_status' => false,
+            'inapp_campaign_status' => true,
+        ]);
+
+        $politician = Politician::factory()->create(['user_id' => $politicianUser->id]);
+        $campaign = PoliticalCampaign::factory()->create([
+            'politician_id' => $politician->id,
+            'status' => 'pending_approval',
+            'approval_status' => 'pending',
+        ]);
+
+        $response = $this->postJson("/api/v1/admin/campaigns/{$campaign->uuid}/reject", [
+            'reason' => 'Policy mismatch',
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('message', 'Campaign rejected');
+
+        Notification::assertSentTo(
+            $politicianUser,
+            CampaignStatusChangedNotification::class,
+            function (CampaignStatusChangedNotification $notification) {
+                return $notification->status === 'rejected' && $notification->reason === 'Policy mismatch';
+            }
+        );
+
+        Mail::assertNotQueued(CampaignRejectedMail::class);
     }
 }

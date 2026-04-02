@@ -6,9 +6,7 @@ use App\Enums\ApprovalStatus;
 use App\Enums\CampaignStatus;
 use App\Http\Controllers\Controller;
 use App\Jobs\MatchPoliticianToElectionData;
-use App\Mail\CampaignApprovedMail;
 use App\Mail\CampaignReactivatedMail;
-use App\Mail\CampaignRejectedMail;
 use App\Mail\AccountUnsuspendedMail;
 use App\Models\CandidateMatchReview;
 use App\Models\DistrictLookupSearch;
@@ -33,6 +31,7 @@ use App\Notifications\SystemAnnouncementNotification;
 use App\Services\AdminTwoFactorService;
 use App\Services\CampaignBillingService;
 use App\Services\CampaignQandAService;
+use App\Services\CampaignStatusNotifier;
 use App\Services\PlatformSettingsService;
 use App\Services\StripePaymentService;
 use Illuminate\Http\UploadedFile;
@@ -364,19 +363,7 @@ class AdminController extends Controller
             'action'      => 'approved',
         ]);
 
-        // Notify the politician that their campaign was approved
-        try {
-            $politicianUser = $campaign->politician?->user;
-            if ($politicianUser?->email) {
-                Mail::to($politicianUser->email)
-                    ->queue(new CampaignApprovedMail($campaign));
-            }
-        } catch (\Exception) {
-            // Non-fatal — silently skip if mail not configured
-        }
-
-        // Phase 11 — real-time WebSocket push to politician dashboard
-        app(ReverbBroadcastService::class)->campaignApproved($campaign);
+        app(CampaignStatusNotifier::class)->notifyStatusChanged($campaign, 'approved');
 
         $label = $newStatus === CampaignStatus::Scheduled
             ? 'approved and scheduled (activates ' . $scheduledStart->format('M j, Y H:i') . ')'
@@ -410,19 +397,7 @@ class AdminController extends Controller
             'reason'      => $rejectionReason,
         ]);
 
-        // Notify the politician that their campaign was rejected
-        try {
-            $politicianUser = $campaign->politician?->user;
-            if ($politicianUser?->email) {
-                Mail::to($politicianUser->email)
-                    ->queue(new CampaignRejectedMail($campaign, $rejectionReason));
-            }
-        } catch (\Exception) {
-            // Non-fatal — silently skip if mail not configured
-        }
-
-        // Phase 11 — real-time WebSocket push to politician dashboard
-        app(ReverbBroadcastService::class)->campaignRejected($campaign, $rejectionReason);
+        app(CampaignStatusNotifier::class)->notifyStatusChanged($campaign, 'rejected', $rejectionReason);
 
         return back()->with('success', 'Campaign "' . $campaign->title . '" has been rejected.');
     }

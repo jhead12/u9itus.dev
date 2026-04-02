@@ -2,12 +2,18 @@
 
 use App\Enums\ApprovalStatus;
 use App\Enums\CampaignStatus;
+use App\Mail\CampaignApprovedMail;
+use App\Mail\CampaignRejectedMail;
 use App\Models\CampaignAuditLog;
+use App\Models\EmailTemplate;
+use App\Models\NotificationPreference;
 use App\Models\PoliticalCampaign;
 use App\Models\Politician;
 use App\Models\User;
+use App\Notifications\CampaignStatusChangedNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Notification;
 
 uses(RefreshDatabase::class);
 
@@ -99,16 +105,81 @@ test('admin can approve a pending campaign', function () {
 });
 
 test('approving a campaign queues a notification email to the politician', function () {
+    Notification::fake();
+
     $admin     = makeAdmin();
-    $politician = Politician::factory()->create();
+    $politicianUser = User::factory()->create(['platform' => 'standalone']);
+    $politician = Politician::factory()->create(['user_id' => $politicianUser->id]);
     $campaign   = makePendingCampaign(['politician_id' => $politician->id]);
 
     $this->actingAs($admin)
          ->post(route('admin.campaigns.approve', $campaign));
 
-    // Mail is faked — just confirm no exception was thrown and redirect succeeded
-    // (email delivery tested in isolation in NotificationTest)
-    expect(true)->toBeTrue();
+    Mail::assertQueued(CampaignApprovedMail::class, function (CampaignApprovedMail $mail) use ($campaign) {
+        return $mail->campaign->is($campaign);
+    });
+
+    Notification::assertSentTo(
+        $politicianUser,
+        CampaignStatusChangedNotification::class,
+        function (CampaignStatusChangedNotification $notification) {
+            return $notification->status === 'approved';
+        }
+    );
+});
+
+test('approving a campaign does not queue email when campaign status email preference is disabled', function () {
+    Notification::fake();
+
+    $admin = makeAdmin();
+    $politicianUser = User::factory()->create(['platform' => 'standalone']);
+    NotificationPreference::create([
+        'user_id' => $politicianUser->id,
+        'email_campaign_status' => false,
+        'inapp_campaign_status' => true,
+    ]);
+
+    $politician = Politician::factory()->create(['user_id' => $politicianUser->id]);
+    $campaign = makePendingCampaign(['politician_id' => $politician->id]);
+
+    $this->actingAs($admin)
+        ->post(route('admin.campaigns.approve', $campaign));
+
+    Mail::assertNotQueued(CampaignApprovedMail::class);
+
+    Notification::assertSentTo(
+        $politicianUser,
+        CampaignStatusChangedNotification::class,
+        function (CampaignStatusChangedNotification $notification) {
+            return $notification->status === 'approved';
+        }
+    );
+});
+
+test('approving a campaign email uses admin template subject override when active', function () {
+    Notification::fake();
+
+    $admin = makeAdmin();
+    $politicianUser = User::factory()->create(['platform' => 'standalone']);
+    $politician = Politician::factory()->create(['user_id' => $politicianUser->id]);
+    $campaign = makePendingCampaign(['politician_id' => $politician->id]);
+
+    EmailTemplate::query()->updateOrCreate(
+        ['key' => 'campaign_approved'],
+        [
+            'name' => 'Campaign Approved',
+            'category' => 'campaign',
+            'is_active' => true,
+            'subject_override' => 'Custom Campaign Approval Subject',
+        ]
+    );
+
+    $this->actingAs($admin)
+        ->post(route('admin.campaigns.approve', $campaign));
+
+    Mail::assertQueued(CampaignApprovedMail::class, function (CampaignApprovedMail $mail) {
+        return $mail->envelope()->subject === 'Custom Campaign Approval Subject';
+    });
 });
 
 // ── rejectCampaign() ──────────────────────────────────────────────────────────
@@ -126,7 +197,7 @@ test('admin can reject a pending campaign with a reason', function () {
     $campaign->refresh();
 
     expect($campaign->approval_status)->toBe(ApprovalStatus::Rejected);
-    expect($campaign->status)->toBe(CampaignStatus::Cancelled);
+    expect($campaign->status)->toBe(CampaignStatus::Draft);
 
     $this->assertDatabaseHas('campaign_audit_logs', [
         'campaign_id' => $campaign->id,
@@ -152,6 +223,31 @@ test('rejection reason defaults to content-guidelines message when omitted', fun
     $campaign->refresh();
     expect($campaign->rejection_reason)
         ->toBe('Does not meet content guidelines.');
+});
+
+test('rejecting a campaign sends bell notification and queued email', function () {
+    Notification::fake();
+    $reason = 'Policy mismatch';
+
+    $admin = makeAdmin();
+    $politicianUser = User::factory()->create(['platform' => 'standalone']);
+    $politician = Politician::factory()->create(['user_id' => $politicianUser->id]);
+    $campaign = makePendingCampaign(['politician_id' => $politician->id]);
+
+    $this->actingAs($admin)
+        ->post(route('admin.campaigns.reject', $campaign), ['reason' => $reason]);
+
+    Mail::assertQueued(CampaignRejectedMail::class, function (CampaignRejectedMail $mail) use ($campaign, $reason) {
+        return $mail->campaign->is($campaign) && $mail->reason === $reason;
+    });
+
+    Notification::assertSentTo(
+        $politicianUser,
+        CampaignStatusChangedNotification::class,
+        function (CampaignStatusChangedNotification $notification) use ($reason) {
+            return $notification->status === 'rejected' && $notification->reason === $reason;
+        }
+    );
 });
 
 // ── stopCampaign() ────────────────────────────────────────────────────────────

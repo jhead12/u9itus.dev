@@ -2,6 +2,7 @@
 
 namespace App\Mail;
 
+use App\Models\EmailTemplate;
 use App\Models\PoliticalCampaign;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
@@ -25,8 +26,11 @@ class CampaignApprovedMail extends Mailable
      */
     public function envelope(): Envelope
     {
+        $defaultSubject = '✅ Campaign Approved — "' . $this->campaign->title . '"';
+        $template = EmailTemplate::forKey('campaign_approved');
+
         return new Envelope(
-            subject: '✅ Campaign Approved — "' . $this->campaign->title . '"',
+            subject: $template?->is_active ? $template->effectiveSubject($defaultSubject) : $defaultSubject,
         );
     }
 
@@ -35,6 +39,15 @@ class CampaignApprovedMail extends Mailable
      */
     public function content(): Content
     {
+        $template = EmailTemplate::forKey('campaign_approved');
+
+        if ($template?->is_active && $template->hasBodyOverride()) {
+            return new Content(
+                view: 'emails.template-override',
+                with: ['html' => $template->body_override],
+            );
+        }
+
         return new Content(
             view: 'emails.campaign-approved',
             text: 'emails.campaign-approved-text',

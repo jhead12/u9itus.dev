@@ -14,6 +14,7 @@ use App\Models\PoliticalCampaign;
 use App\Models\Politician;
 use App\Models\Voter;
 use App\Models\ViewSession;
+use App\Services\CampaignStatusNotifier;
 use App\Services\PoliticalPaymentService;
 use App\Services\StripePaymentService;
 use Illuminate\Http\JsonResponse;
@@ -29,6 +30,7 @@ class AdminController extends Controller
 {
     public function __construct(
         protected PoliticalPaymentService $paymentService,
+        protected CampaignStatusNotifier $campaignStatusNotifier,
     ) {}
 
     private function activePaymentMode(): ?string
@@ -118,6 +120,8 @@ class AdminController extends Controller
         // Charge the politician's campaign budget
         $this->paymentService->chargeCampaign($campaign);
 
+        $this->campaignStatusNotifier->notifyStatusChanged($campaign, 'approved');
+
         return response()->json([
             'message'  => 'Campaign approved and activated',
             'campaign' => new CampaignResource($campaign->fresh()),
@@ -129,11 +133,20 @@ class AdminController extends Controller
      */
     public function rejectCampaign(Request $request, PoliticalCampaign $campaign): JsonResponse
     {
+        $request->validate([
+            'reason' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $rejectionReason = $request->input('reason', 'Does not meet content guidelines.');
+
         $campaign->update([
             'approval_status' => ApprovalStatus::Rejected,
             // Return rejected campaigns to draft so politicians can revise or delete.
             'status'          => CampaignStatus::Draft,
+            'rejection_reason' => $rejectionReason,
         ]);
+
+        $this->campaignStatusNotifier->notifyStatusChanged($campaign, 'rejected', $rejectionReason);
 
         return response()->json(['message' => 'Campaign rejected']);
     }
