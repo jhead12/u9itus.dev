@@ -36,6 +36,12 @@ class CreateCampaignRequest extends FormRequest
             $videoMimeTypes[] = 'video/quicktime';
         }
 
+        $mediaDurationRules = ['nullable', 'integer'];
+        if (! $this->hasFile('video')) {
+            $mediaDurationRules[] = 'min:' . $minDuration;
+            $mediaDurationRules[] = 'max:' . $maxDuration;
+        }
+
         return [
             'title'                 => 'required|string|max:255',
             'message_summary'       => 'nullable|string|max:2000',
@@ -45,7 +51,7 @@ class CreateCampaignRequest extends FormRequest
             'media_url'             => 'nullable|url',
             'media_type'            => 'nullable|in:youtube,vimeo,direct_file,s3_cloudfront,hls_stream',
             'video'                 => 'nullable|file|mimetypes:' . implode(',', $videoMimeTypes) . '|max:' . ((int) config('u9itus.max_video_size_mb', 1024) * 1024),
-            'media_duration'        => "nullable|integer|min:{$minDuration}|max:{$maxDuration}",
+            'media_duration'        => $mediaDurationRules,
             'live_feed_url'         => 'required_if:campaign_type,live_feed|nullable|url',
             'live_scheduled_at'     => 'required_if:campaign_type,live_feed|nullable|date|after:now',
             'total_budget'          => "required|numeric|min:{$minBudget}",

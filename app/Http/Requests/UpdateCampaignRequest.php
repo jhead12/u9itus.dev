@@ -26,6 +26,12 @@ class UpdateCampaignRequest extends FormRequest
             $videoMimeTypes[] = 'video/quicktime';
         }
 
+        $mediaDurationRules = ['nullable', 'integer'];
+        if (! $this->hasFile('video')) {
+            $mediaDurationRules[] = 'min:' . $minDuration;
+            $mediaDurationRules[] = 'max:' . $maxDuration;
+        }
+
         return [
             'title'                    => ['sometimes', 'required', 'string', 'max:255'],
             'message_summary'          => ['nullable', 'string', 'max:2000'],
@@ -34,7 +40,7 @@ class UpdateCampaignRequest extends FormRequest
             'governance_level'         => ['sometimes', 'required', 'string', 'in:' . $governanceLevels],
             'media_url'                => ['nullable', 'url'],
             'media_type'               => ['nullable', 'in:youtube,vimeo,direct_file,s3_cloudfront,hls_stream'],
-            'media_duration'           => ['nullable', 'integer', 'min:' . $minDuration, 'max:' . $maxDuration],
+            'media_duration'           => $mediaDurationRules,
             'video'                    => ['nullable', 'file', 'mimetypes:' . implode(',', $videoMimeTypes), 'max:' . ((int) config('u9itus.max_video_size_mb', 1024) * 1024)],
             'total_budget'             => ['sometimes', 'required', 'numeric', 'min:' . number_format($minBudget, 2, '.', '')],
             'total_views_requested'    => ['sometimes', 'required', 'integer', 'min:10'],
