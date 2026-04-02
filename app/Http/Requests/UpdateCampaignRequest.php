@@ -31,7 +31,7 @@ class UpdateCampaignRequest extends FormRequest
             'governance_level'         => ['sometimes', 'required', 'string', 'in:' . $governanceLevels],
             'media_url'                => ['nullable', 'url'],
             'media_type'               => ['nullable', 'in:youtube,vimeo,direct_file,s3_cloudfront,hls_stream'],
-            'video'                    => ['nullable', 'file', 'mimetypes:' . implode(',', $videoMimeTypes), 'max:' . ((int) config('u9itus.max_video_size_mb', 100) * 1024)],
+            'video'                    => ['nullable', 'file', 'mimetypes:' . implode(',', $videoMimeTypes), 'max:' . ((int) config('u9itus.max_video_size_mb', 1024) * 1024)],
             'total_budget'             => ['sometimes', 'required', 'numeric', 'min:' . number_format($minBudget, 2, '.', '')],
             'total_views_requested'    => ['sometimes', 'required', 'integer', 'min:10'],
             'target_states'            => ['nullable', 'array'],

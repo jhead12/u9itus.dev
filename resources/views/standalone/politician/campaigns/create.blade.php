@@ -134,7 +134,10 @@
                     <label id="uploadVideoLabel" class="block text-sm font-medium text-slate-300 mb-1.5">Upload Video File</label>
                     <input type="file" name="video" id="videoFileInput" accept="{{ $videoAcceptTypes }}"
                         class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm file:mr-3 file:rounded file:border-0 file:bg-emerald-500 file:px-3 file:py-1.5 file:text-slate-900 file:font-medium hover:file:bg-emerald-400" />
-                    <p id="uploadVideoHelp" class="text-xs text-slate-500 mt-1">Optional alternative to URL upload (max {{ config('u9itus.max_video_size_mb', 100) }}MB). If both are provided, uploaded file takes priority.</p>
+                    <div class="mt-2">
+                        <p id="uploadVideoHelp" class="text-xs text-slate-500">Optional alternative to URL upload (max {{ config('u9itus.max_video_size_mb', 1024) }}MB). If both are provided, uploaded file takes priority.</p>
+                        <p class="text-xs text-amber-600/80 mt-2 bg-amber-950/30 border border-amber-800/40 rounded px-2 py-1.5">💡 <strong>Tip:</strong> For best upload reliability with large files, use H.264-encoded MP4 format. Files larger than 100 MB may take longer to process.</p>
+                    </div>
                     @error('video')<p class="text-xs text-red-400 mt-1">{{ $message }}</p>@enderror
                 </div>
                 

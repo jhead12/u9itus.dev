@@ -710,7 +710,7 @@ class PoliticianController extends Controller
             403
         );
 
-        $maxMb  = config('u9itus.max_video_size_mb', 100);
+        $maxMb  = config('u9itus.max_video_size_mb', 1024);
         $minSec = config('u9itus.min_video_duration', 30);
         $maxSec = config('u9itus.max_video_duration', 300);
         $videoMimeTypes = ['video/mp4', 'video/webm'];
@@ -784,6 +784,174 @@ class PoliticianController extends Controller
         ], fn ($v) => $v !== null));
 
         return back()->with('success', 'Video uploaded successfully.');
+    }
+
+    /**
+     * Get a presigned URL for direct browser-to-S3 upload.
+     * 
+     * Allows large file uploads to bypass the web server and upload directly to S3,
+     * then trigger background transcoding on completion.
+     */
+    public function getS3UploadUrl(Request $request, PoliticalCampaign $campaign)
+    {
+        $politician = Auth::user()->politician;
+        abort_unless(
+            $politician && (int) $campaign->politician_id === (int) $politician->id
+            && in_array($campaign->status?->value ?? $campaign->status, ['draft', 'paused']),
+            403
+        );
+
+        $request->validate([
+            'filename' => 'required|string|max:255',
+            'content_type' => 'required|in:video/mp4,video/quicktime,video/webm',
+        ]);
+
+        $filename = $request->input('filename');
+        $contentType = $request->input('content_type');
+
+        // Reject MOV on non-iOS
+        if ($contentType === 'video/quicktime' && !$this->isIosUserAgent($request->userAgent())) {
+            return response()->json([
+                'error' => 'MOV uploads are only allowed from iOS devices.',
+            ], 422);
+        }
+
+        try {
+            $s3Path = "campaigns/{$campaign->id}/uploads/" . time() . '-' . $filename;
+            
+            // Generate presigned URL valid for 1 hour
+            $s3Client = \Aws\sdk::createClient('s3');
+            $cmd = $s3Client->getCommand('PutObject', [
+                'Bucket' => config('filesystems.disks.s3.bucket'),
+                'Key' => $s3Path,
+                'ContentType' => $contentType,
+            ]);
+
+            $request = $s3Client->createPresignedRequest($cmd, '+20 minutes');
+            $presignedUrl = (string)$request->getUri();
+
+            return response()->json([
+                'presigned_url' => $presignedUrl,
+                's3_path' => $s3Path,
+                'expires_in' => 1200, // 20 minutes
+            ]);
+        } catch (\Exception $e) {
+            logger()->error('Failed to generate S3 presigned URL', [
+                'campaign_id' => $campaign->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'error' => 'Unable to generate upload URL. Please try again.',
+            ], 500);
+        }
+    }
+
+    /**
+     * Process a video that was uploaded directly to S3.
+     * 
+     * Called after the browser confirms successful S3 upload.
+     * Validates file and queues transcoding job.
+     */
+    public function processS3UploadedVideo(Request $request, PoliticalCampaign $campaign)
+    {
+        $politician = Auth::user()->politician;
+        abort_unless(
+            $politician && (int) $campaign->politician_id === (int) $politician->id
+            && in_array($campaign->status?->value ?? $campaign->status, ['draft', 'paused']),
+            403
+        );
+
+        $request->validate([
+            's3_path' => 'required|string',
+            'filename' => 'required|string|max:255',
+            'file_size' => 'required|integer|min:1|max:' . ((int) config('u9itus.max_video_size_mb', 1024) * 1024 * 1024),
+        ]);
+
+        $s3Path = $request->input('s3_path');
+        $maxMb = config('u9itus.max_video_size_mb', 1024);
+
+        try {
+            // Verify file exists in S3
+            if (!Storage::disk('s3')->exists($s3Path)) {
+                return back()->withErrors(['video' => 'Uploaded file not found in storage. Please try uploading again.']);
+            }
+
+            // Get video duration if FFprobe is available
+            $duration = null;
+            try {
+                $ffprobe = trim(shell_exec('which ffprobe 2>/dev/null') ?? '');
+                if ($ffprobe) {
+                    $s3Url = Storage::disk('s3')->url($s3Path);
+                    $duration = (float) shell_exec(
+                        escapeshellcmd($ffprobe)
+                        . ' -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 '
+                        . escapeshellarg($s3Url)
+                        . ' 2>/dev/null'
+                    );
+
+                    if ($duration > 0) {
+                        $minSec = config('u9itus.min_video_duration', 30);
+                        $maxSec = config('u9itus.max_video_duration', 300);
+
+                        if ($duration < $minSec) {
+                            Storage::disk('s3')->delete($s3Path);
+                            return back()->withErrors(['video' => "Video is too short ({$duration}s). Minimum is {$minSec} seconds."]);
+                        }
+                        if ($duration > $maxSec) {
+                            $rounded = round($duration, 1);
+                            Storage::disk('s3')->delete($s3Path);
+                            return back()->withErrors(['video' => "Video is too long ({$rounded}s). Maximum is {$maxSec} seconds."]);
+                        }
+                    }
+                }
+            } catch (\Exception $e) {
+                logger()->warning('Could not extract duration from S3 video', ['error' => $e->getMessage()]);
+            }
+
+            // Generate destination path for transcoded video
+            $transcodingService = app(\App\Services\VideoTranscodingService::class);
+            $destinationPath = $transcodingService->generateTranscodedFilename(
+                (string) $campaign->id,
+                $request->input('filename')
+            );
+
+            // Delete old video if present
+            if ($campaign->media_url) {
+                try {
+                    $oldPath = parse_url($campaign->media_url, PHP_URL_PATH);
+                    if ($oldPath) {
+                        Storage::disk('s3')->delete(ltrim($oldPath, '/'));
+                    }
+                } catch (\Exception $e) {
+                    logger()->warning('Could not delete old video from S3', ['error' => $e->getMessage()]);
+                }
+            }
+
+            // Update campaign with temporary status indicating processing
+            $campaign->update([
+                'media_url'      => Storage::disk('s3')->url($s3Path), // Temporary reference to uploaded file
+                'media_type'     => 'direct_file',
+                'media_duration' => $duration ? (int) round($duration) : null,
+            ]);
+
+            // Queue transcoding job for background processing
+            \App\Jobs\TranscodeS3VideoJob::dispatch(
+                $campaign,
+                $s3Path,
+                $destinationPath
+            );
+
+            return back()->with('success', 'Video uploaded! Your file is now being processed. This may take a few minutes for large files.');
+
+        } catch (\Exception $e) {
+            logger()->error('Failed to process S3 uploaded video', [
+                'campaign_id' => $campaign->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return back()->withErrors(['video' => 'Error processing your video. Please try again.']);
+        }
     }
 
     /** Overall analytics for this politician (all campaigns). */

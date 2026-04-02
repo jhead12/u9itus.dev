@@ -9,6 +9,8 @@ use App\Enums\PaymentStatus;
 use App\Enums\CampaignStatus;
 use App\Enums\ApprovalStatus;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 
 uses(RefreshDatabase::class);
 
@@ -114,6 +116,62 @@ test('politician can create a campaign', function () {
         'total_views_requested' => $requestedViews,
         'total_budget'          => $expectedBudget,
     ]);
+});
+
+test('campaign store infers youtube media type from url', function () {
+    $politician = makePolitician();
+
+    $response = $this->actingAs($politician)
+        ->post(route('politician.campaigns.store'), [
+            'title' => 'YouTube Source Campaign',
+            'campaign_type' => 'video',
+            'governance_level' => 'city',
+            'total_views_requested' => 100,
+            'total_budget' => 60.00,
+            'message_summary' => 'YouTube-backed campaign',
+            'media_type' => 'direct_file',
+            'media_url' => 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+            'media_duration' => config('u9itus.min_video_duration', 30) + 5,
+        ]);
+
+    $response->assertRedirect();
+    $response->assertSessionHasNoErrors();
+
+    $campaign = PoliticalCampaign::query()->where('title', 'YouTube Source Campaign')->first();
+
+    expect($campaign)->not->toBeNull();
+    expect($campaign->getRawOriginal('media_type'))->toBe('youtube');
+    expect($campaign->media_url)->toBe('https://www.youtube.com/watch?v=dQw4w9WgXcQ');
+});
+
+test('campaign store prefers uploaded file over provided media url', function () {
+    Storage::fake('public');
+    config()->set('filesystems.default', 'public');
+
+    $politician = makePolitician();
+
+    $response = $this->actingAs($politician)
+        ->post(route('politician.campaigns.store'), [
+            'title' => 'Uploaded File Wins Campaign',
+            'campaign_type' => 'video',
+            'governance_level' => 'city',
+            'total_views_requested' => 100,
+            'total_budget' => 60.00,
+            'message_summary' => 'Uploaded file should override url',
+            'media_type' => 'youtube',
+            'media_url' => 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+            'media_duration' => config('u9itus.min_video_duration', 30) + 5,
+            'video' => UploadedFile::fake()->create('stored-video.mp4', 5, 'video/mp4'),
+        ]);
+
+    $response->assertRedirect();
+    $response->assertSessionHasNoErrors();
+
+    $campaign = PoliticalCampaign::query()->where('title', 'Uploaded File Wins Campaign')->first();
+
+    expect($campaign)->not->toBeNull();
+    expect($campaign->getRawOriginal('media_type'))->toBe('direct_file');
+    expect((string) $campaign->media_url)->toContain('/storage/campaigns/' . $campaign->id . '/video/');
 });
 
 test('politician can create a q_and_a campaign', function () {
@@ -266,6 +324,35 @@ test('politician cannot edit another politicians campaign', function () {
     $this->actingAs($otherUser)
          ->put(route('politician.campaigns.update', $campaign), ['title' => 'Hacked'])
          ->assertForbidden();
+});
+
+test('campaign update infers hls media type from playlist url', function () {
+    $politician = makePolitician();
+
+    $campaign = makeCampaign($politician->politician, [
+        'status' => 'draft',
+        'media_type' => 'direct_file',
+        'media_url' => 'https://cdn.example.com/video.mp4',
+        'governance_level' => 'city',
+    ]);
+
+    $response = $this->actingAs($politician)
+        ->put(route('politician.campaigns.update', $campaign), [
+            'title' => 'Updated HLS Campaign',
+            'campaign_type' => 'video',
+            'governance_level' => 'city',
+            'total_views_requested' => 100,
+            'total_budget' => 60.00,
+            'media_type' => 'youtube',
+            'media_url' => 'https://stream.example.com/channel/main.m3u8',
+        ]);
+
+    $response->assertRedirect();
+    $response->assertSessionHasNoErrors();
+
+    $fresh = $campaign->fresh();
+    expect($fresh->getRawOriginal('media_type'))->toBe('hls_stream');
+    expect($fresh->media_url)->toBe('https://stream.example.com/channel/main.m3u8');
 });
 
 // ---------------------------------------------------------------------------

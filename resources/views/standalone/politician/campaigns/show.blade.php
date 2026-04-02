@@ -331,7 +331,7 @@
                     Upload Video
                 </button>
             </div>
-            <p class="text-xs text-slate-600 mt-2">Max {{ config('u9itus.max_video_size_mb', 500) }} MB · MP4, MOV, WebM · {{ config('u9itus.min_video_duration', 30) }}–{{ config('u9itus.max_video_duration', 300) }}s</p>
+            <p class="text-xs text-slate-600 mt-2">Max {{ config('u9itus.max_video_size_mb', 1024) }} MB · MP4, MOV, WebM · {{ config('u9itus.min_video_duration', 30) }}–{{ config('u9itus.max_video_duration', 300) }}s</p>
         </form>
     </div>
     @endif

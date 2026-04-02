@@ -82,7 +82,7 @@ return [
     */
     'max_video_duration'  => env('MAX_VIDEO_DURATION', 300),   // 300 seconds (hard cap)
     'min_video_duration'  => env('MIN_VIDEO_DURATION', 30),    // 30 seconds minimum
-    'max_video_size_mb'   => env('MAX_VIDEO_SIZE_MB', 100),    // 100 MB upload limit
+    'max_video_size_mb'   => env('MAX_VIDEO_SIZE_MB', 1024),   // 1 GB upload limit
     'allow_live_feed'     => env('ALLOW_LIVE_FEED', true),
 
     /*

@@ -190,6 +190,10 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         // Video Upload
         Route::post('/campaigns/{campaign}/upload-video', [PoliticianController::class, 'uploadVideo'])->name('campaigns.upload-video');
         
+        // S3 Direct Upload (for large files with background transcoding)
+        Route::post('/campaigns/{campaign}/s3-upload-url', [PoliticianController::class, 'getS3UploadUrl'])->name('campaigns.s3-upload-url');
+        Route::post('/campaigns/{campaign}/process-s3-video', [PoliticianController::class, 'processS3UploadedVideo'])->name('campaigns.process-s3-video');
+        
         // Analytics & Reports
         Route::get('/analytics', [PoliticianController::class, 'analytics'])->name('analytics');
         Route::get('/analytics/{campaign}', [PoliticianController::class, 'campaignAnalytics'])->name('analytics.campaign');

@@ -15,10 +15,19 @@ RUN apk add --no-cache \
     nodejs \
     npm \
     mysql-client \
-    bash
+    bash \
+    ffmpeg
 
 # Install PHP extensions
 RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd
+
+# Raise PHP body/upload limits to match 1 GB campaign video upload expectations.
+RUN {
+    echo 'upload_max_filesize=1024M';
+    echo 'post_max_size=1050M';
+    echo 'memory_limit=512M';
+    echo 'max_file_uploads=20';
+} > /usr/local/etc/php/conf.d/uploads.ini
 
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer

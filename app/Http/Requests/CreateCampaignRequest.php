@@ -43,7 +43,7 @@ class CreateCampaignRequest extends FormRequest
             'governance_level'      => 'required|string|in:' . implode(',', array_keys(config('u9itus.governance_levels', []))),
             'media_url'             => 'nullable|url',
             'media_type'            => 'nullable|in:youtube,vimeo,direct_file,s3_cloudfront,hls_stream',
-            'video'                 => 'nullable|file|mimetypes:' . implode(',', $videoMimeTypes) . '|max:' . ((int) config('u9itus.max_video_size_mb', 100) * 1024),
+            'video'                 => 'nullable|file|mimetypes:' . implode(',', $videoMimeTypes) . '|max:' . ((int) config('u9itus.max_video_size_mb', 1024) * 1024),
             'media_duration'        => "nullable|integer|min:{$minDuration}|max:{$maxDuration}",
             'live_feed_url'         => 'required_if:campaign_type,live_feed|nullable|url',
             'live_scheduled_at'     => 'required_if:campaign_type,live_feed|nullable|date|after:now',
