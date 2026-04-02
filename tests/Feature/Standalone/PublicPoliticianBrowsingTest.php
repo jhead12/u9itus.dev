@@ -348,6 +348,58 @@ test('verified public profile shows dig deeper source panels', function () {
     $response->assertSee('Federal Election Commission');
 });
 
+    test('logged in voter sees referral share modal on unverified profiles only', function () {
+        $user = User::factory()->create([
+            'user_type' => 'voter',
+        ]);
+
+        $voter = Voter::factory()->create([
+            'user_id' => $user->id,
+            'referral_code' => 'VOTERX99',
+        ]);
+
+        expect($voter->referral_code)->toBe('VOTERX99');
+
+        $unverifiedPolitician = Politician::factory()->create([
+            'full_name' => 'Rowan North',
+            'slug' => 'rowan-north',
+            'page_published' => true,
+            'is_active' => true,
+            'verification_status' => 'pending',
+        ]);
+
+        $response = $this->actingAs($user)
+            ->get(route('politician.public.show', ['slug' => $unverifiedPolitician->slug]));
+
+        $response->assertOk();
+        $response->assertSee('Share this profile with your referral code');
+        $response->assertSee("Take a look at Rowan North's U9itus profile. If you join or claim the page, please use my referral link.");
+        $response->assertSee(route('politician.public.show', [
+            'slug' => $unverifiedPolitician->slug,
+            'ref' => 'VOTERX99',
+        ], false), false);
+        $response->assertSee(route('register.politician', ['ref' => 'VOTERX99'], false), false);
+        $response->assertSee('mailto:?subject=Take%20a%20look%20at%20Rowan%20North%20on%20U9itus', false);
+        $response->assertSee('https://twitter.com/intent/tweet?text=Take%20a%20look%20at%20Rowan%20North%27s%20U9itus%20profile.', false);
+        $response->assertSee('https://www.facebook.com/sharer/sharer.php?u=', false);
+        $response->assertSee('https://api.whatsapp.com/send?text=Take%20a%20look%20at%20Rowan%20North%27s%20U9itus%20profile.', false);
+        $response->assertSee('https://t.me/share/url?url=', false);
+
+        $verifiedPolitician = Politician::factory()->create([
+            'full_name' => 'Dana South',
+            'slug' => 'dana-south',
+            'page_published' => true,
+            'is_active' => true,
+            'verification_status' => 'verified',
+        ]);
+
+        $verifiedResponse = $this->actingAs($user)
+            ->get(route('politician.public.show', ['slug' => $verifiedPolitician->slug]));
+
+        $verifiedResponse->assertOk();
+        $verifiedResponse->assertDontSee('Share this profile with your referral code');
+    });
+
 test('dig deeper shows federal-only message when fec is enabled for non-federal office', function () {
     $politician = Politician::factory()->create([
         'full_name' => 'Dana Price',

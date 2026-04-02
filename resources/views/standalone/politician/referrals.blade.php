@@ -114,6 +114,12 @@
         $politicianRefUrl = url('/?ref=' . ($politician->referral_code ?? '') . '&target=politician');
         $voterQrSrc  = 'https://api.qrserver.com/v1/create-qr-code/?size=120x120&color=059669&bgcolor=FFFFFF&data=' . rawurlencode($voterRefUrl) . '&qzone=1';
         $politicianQrSrc  = 'https://api.qrserver.com/v1/create-qr-code/?size=120x120&color=d97706&bgcolor=FFFFFF&data=' . rawurlencode($politicianRefUrl) . '&qzone=1';
+        $voterShareSubject = 'Join U9itus as a voter with my referral link';
+        $voterShareMessage = 'Join U9itus as a voter using my referral link and start participating on the platform.';
+        $voterShareBody = $voterShareMessage . "\n\n" . $voterRefUrl;
+        $politicianShareSubject = 'Join U9itus as a politician with my referral link';
+        $politicianShareMessage = 'Join U9itus as a politician using my referral link and launch your campaign presence on the platform.';
+        $politicianShareBody = $politicianShareMessage . "\n\n" . $politicianRefUrl;
     @endphp
     <div class="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-6 space-y-6">
         <h2 class="text-base font-semibold text-white">Your Referral Links</h2>
@@ -132,6 +138,12 @@
                         Copy
                     </button>
                 </div>
+                @include('standalone.shared.referral-share-actions', [
+                    'shareLink' => $voterRefUrl,
+                    'shareSubject' => $voterShareSubject,
+                    'shareMessage' => $voterShareMessage,
+                    'shareBody' => $voterShareBody,
+                ])
             </div>
             <div class="flex flex-col items-center gap-2">
                 <img src="{{ $voterQrSrc }}"
@@ -161,6 +173,12 @@
                         Copy
                     </button>
                 </div>
+                @include('standalone.shared.referral-share-actions', [
+                    'shareLink' => $politicianRefUrl,
+                    'shareSubject' => $politicianShareSubject,
+                    'shareMessage' => $politicianShareMessage,
+                    'shareBody' => $politicianShareBody,
+                ])
             </div>
             <div class="flex flex-col items-center gap-2">
                 <img src="{{ $politicianQrSrc }}"

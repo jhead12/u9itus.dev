@@ -62,6 +62,44 @@
 </head>
 <body class="bg-style-{{ $page->background_style }} min-h-screen antialiased layout-{{ $page->layout_preset }}">
 
+    @php
+        $viewer = auth()->user();
+        $viewerVoter = $viewer?->user_type === 'voter' ? $viewer->voter : null;
+        $viewerReferralCode = $viewerVoter?->referral_code;
+        $isUnverifiedProfile = $politician->verification_status !== 'verified';
+        $showReferralShareModal = $viewerVoter && $viewerReferralCode && $isUnverifiedProfile;
+        $referralProfileShareUrl = $showReferralShareModal
+            ? route('politician.public.show', ['slug' => $politician->slug, 'ref' => $viewerReferralCode])
+            : null;
+        $referralPoliticianSignupUrl = $showReferralShareModal
+            ? route('register.politician', ['ref' => $viewerReferralCode])
+            : null;
+        $shareSubject = $showReferralShareModal
+            ? "Take a look at {$politician->full_name} on U9itus"
+            : null;
+        $shareBody = $showReferralShareModal
+            ? "I came across {$politician->full_name}'s U9itus profile and thought you should see it.\n\nIf you decide to join or claim the page, please use my referral link:\n{$referralProfileShareUrl}\n\nDirect politician signup:\n{$referralPoliticianSignupUrl}"
+            : null;
+        $socialShareMessage = $showReferralShareModal
+            ? "Take a look at {$politician->full_name}'s U9itus profile. If you join or claim the page, please use my referral link."
+            : null;
+        $emailShareUrl = $showReferralShareModal
+            ? 'mailto:?subject=' . rawurlencode($shareSubject) . '&body=' . rawurlencode($shareBody)
+            : null;
+        $xShareUrl = $showReferralShareModal
+            ? 'https://twitter.com/intent/tweet?text=' . rawurlencode($socialShareMessage) . '&url=' . rawurlencode($referralProfileShareUrl)
+            : null;
+        $facebookShareUrl = $showReferralShareModal
+            ? 'https://www.facebook.com/sharer/sharer.php?u=' . rawurlencode($referralProfileShareUrl) . '&quote=' . rawurlencode($socialShareMessage)
+            : null;
+        $whatsAppShareUrl = $showReferralShareModal
+            ? 'https://api.whatsapp.com/send?text=' . rawurlencode($socialShareMessage . ' ' . $referralProfileShareUrl)
+            : null;
+        $telegramShareUrl = $showReferralShareModal
+            ? 'https://t.me/share/url?url=' . rawurlencode($referralProfileShareUrl) . '&text=' . rawurlencode($socialShareMessage)
+            : null;
+    @endphp
+
     {{-- ── Top Nav Bar ── --}}
     <nav class="sticky top-0 z-40 bg-slate-900/80 backdrop-blur-md border-b border-slate-700/50">
         <div class="max-w-5xl mx-auto px-4 sm:px-6 flex items-center justify-between h-14">
@@ -681,6 +719,210 @@
             <a href="{{ route('register.politician') }}" class="hover:text-slate-300 transition">Register as a Politician</a>
         </p>
     </footer>
+
+    @if($showReferralShareModal)
+    <dialog id="referral-share-modal"
+            class="w-full max-w-xl rounded-2xl border border-emerald-500/30 bg-slate-900 shadow-2xl overflow-hidden p-0 text-left"
+            aria-labelledby="referral-share-title">
+        <div class="w-full">
+            <div class="w-full">
+                <div class="px-6 py-4 border-b border-slate-800/80 flex items-start justify-between gap-4">
+                    <div>
+                        <p class="text-xs font-semibold uppercase tracking-wide text-emerald-300">Referral Opportunity</p>
+                        <h2 id="referral-share-title" class="mt-1 text-lg font-bold text-white">Share this profile with your referral code</h2>
+                    </div>
+                    <button type="button"
+                            id="close-referral-share-modal"
+                            class="text-slate-400 hover:text-white transition"
+                            aria-label="Close">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="px-6 py-5 space-y-4">
+                    <p class="text-sm text-slate-300 leading-relaxed">
+                        If someone signs up from your shared link, their registration can be attributed to you.
+                        This includes campaign teams and congressional candidates who claim this profile.
+                    </p>
+
+                    <div class="rounded-xl border border-slate-700/70 bg-slate-800/60 px-4 py-3">
+                        <p class="text-xs uppercase tracking-wide text-slate-400 mb-1">Preloaded Share Message</p>
+                        <p class="text-sm text-slate-200 leading-relaxed">{{ $socialShareMessage }}</p>
+                    </div>
+
+                    <div class="rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-3">
+                        <p class="text-xs uppercase tracking-wide text-emerald-200 mb-1">Your Referral Code</p>
+                        <p class="text-lg font-mono font-bold text-emerald-100">{{ $viewerReferralCode }}</p>
+                    </div>
+
+                    <div>
+                        <label for="referral-profile-link" class="block text-xs font-semibold uppercase tracking-wide text-slate-400 mb-1.5">
+                            Profile Link With Your Code
+                        </label>
+                        <div class="flex items-center gap-2">
+                            <input id="referral-profile-link"
+                                   type="text"
+                                   readonly
+                                   value="{{ $referralProfileShareUrl }}"
+                                   class="w-full bg-slate-800/80 border border-slate-700 text-slate-200 text-sm rounded-lg px-3 py-2.5 focus:outline-none" />
+                            <button type="button"
+                                    id="copy-referral-profile-link"
+                                    data-link="{{ $referralProfileShareUrl }}"
+                                    class="p13-btn-primary text-xs font-semibold px-3 py-2.5 rounded-lg whitespace-nowrap">
+                                Copy
+                            </button>
+                        </div>
+                        <p id="referral-copy-status" class="mt-2 text-xs text-emerald-300 hidden">Copied to clipboard.</p>
+                    </div>
+
+                    <div class="flex flex-wrap gap-2">
+                        <button type="button"
+                                id="native-share-referral-link"
+                                data-link="{{ $referralProfileShareUrl }}"
+                                data-title="{{ $shareSubject }}"
+                                data-text="{{ $socialShareMessage }}"
+                                class="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-600 text-slate-200 hover:text-white hover:border-slate-500 transition text-sm font-medium">
+                            Share Link
+                        </button>
+                        <a href="{{ $emailShareUrl }}"
+                           class="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-sky-500/30 bg-sky-500/10 text-sky-200 hover:text-sky-100 transition text-sm font-medium">
+                            Email Draft
+                        </a>
+                        <a href="{{ $referralPoliticianSignupUrl }}"
+                           class="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-200 hover:text-amber-100 transition text-sm font-medium">
+                            Direct Politician Signup Link
+                        </a>
+                    </div>
+
+                    <div>
+                        <p class="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-2">Social Share Shortcuts</p>
+                        <div class="flex flex-wrap gap-2">
+                            <a href="{{ $xShareUrl }}" target="_blank" rel="noopener noreferrer"
+                               class="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-600 text-slate-200 hover:text-white hover:border-slate-500 transition text-sm font-medium">
+                                X
+                            </a>
+                            <a href="{{ $facebookShareUrl }}" target="_blank" rel="noopener noreferrer"
+                               class="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-blue-500/30 bg-blue-500/10 text-blue-200 hover:text-blue-100 transition text-sm font-medium">
+                                Facebook
+                            </a>
+                            <a href="{{ $whatsAppShareUrl }}" target="_blank" rel="noopener noreferrer"
+                               class="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-emerald-200 hover:text-emerald-100 transition text-sm font-medium">
+                                WhatsApp
+                            </a>
+                            <a href="{{ $telegramShareUrl }}" target="_blank" rel="noopener noreferrer"
+                               class="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-cyan-500/30 bg-cyan-500/10 text-cyan-200 hover:text-cyan-100 transition text-sm font-medium">
+                                Telegram
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </dialog>
+
+    <style>
+        #referral-share-modal::backdrop {
+            background: rgba(2, 6, 23, 0.82);
+        }
+    </style>
+
+    <script>
+        (function() {
+            var modal = document.getElementById('referral-share-modal');
+            if (!modal) {
+                return;
+            }
+
+            var closeButton = document.getElementById('close-referral-share-modal');
+            var copyButton = document.getElementById('copy-referral-profile-link');
+            var shareButton = document.getElementById('native-share-referral-link');
+            var copyStatus = document.getElementById('referral-copy-status');
+
+            function closeModal() {
+                if (typeof modal.close === 'function' && modal.open) {
+                    modal.close();
+                }
+            }
+
+            function openModal() {
+                if (typeof modal.showModal === 'function' && !modal.open) {
+                    modal.showModal();
+                }
+            }
+
+            openModal();
+
+            closeButton?.addEventListener('click', closeModal);
+
+            modal.addEventListener('click', function(event) {
+                if (event.target === modal) {
+                    closeModal();
+                }
+            });
+
+            document.addEventListener('keydown', function(event) {
+                if (event.key === 'Escape' && modal.open) {
+                    closeModal();
+                }
+            });
+
+            copyButton?.addEventListener('click', async function() {
+                var link = copyButton.getAttribute('data-link');
+                if (!link) {
+                    return;
+                }
+
+                try {
+                    if (navigator.clipboard && window.isSecureContext) {
+                        await navigator.clipboard.writeText(link);
+                    } else {
+                        var input = document.getElementById('referral-profile-link');
+                        if (input) {
+                            input.focus();
+                            input.select();
+                            document.execCommand('copy');
+                        }
+                    }
+
+                    copyStatus?.classList.remove('hidden');
+                    setTimeout(function() {
+                        copyStatus?.classList.add('hidden');
+                    }, 1600);
+                } catch (error) {
+                    console.error('Failed to copy referral link:', error);
+                }
+            });
+
+            shareButton?.addEventListener('click', async function() {
+                var link = shareButton.getAttribute('data-link');
+                var title = shareButton.getAttribute('data-title') || 'U9itus Politician Profile';
+                var text = shareButton.getAttribute('data-text') || 'Check out this politician profile on U9itus.';
+                if (!link) {
+                    return;
+                }
+
+                if (navigator.share) {
+                    try {
+                        await navigator.share({
+                            title: title,
+                            text: text,
+                            url: link
+                        });
+                    } catch (error) {
+                        if (error && error.name !== 'AbortError') {
+                            console.error('Native share failed:', error);
+                        }
+                    }
+                    return;
+                }
+
+                copyButton?.click();
+            });
+        })();
+    </script>
+    @endif
 
     {{-- ── Sticky Guest Mode Bar (unauthenticated visitors only) ── --}}
     @guest
