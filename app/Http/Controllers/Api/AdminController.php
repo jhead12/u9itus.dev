@@ -33,18 +33,18 @@ class AdminController extends Controller
         protected CampaignStatusNotifier $campaignStatusNotifier,
     ) {}
 
-    private function activePaymentMode(): ?string
+    /**
+     * Defaults to 'test' when the key is unrecognised so the mode filter
+     * is always applied and live data is never mixed with test data.
+     */
+    private function activePaymentMode(): string
     {
         $mode = app(StripePaymentService::class)->configuredMode();
-        return in_array($mode, ['live', 'test'], true) ? $mode : null;
+        return $mode === 'live' ? 'live' : 'test';
     }
 
-    private function applyPaymentModeFilter($query, ?string $mode)
+    private function applyPaymentModeFilter($query, string $mode)
     {
-        if (! $mode) {
-            return $query;
-        }
-
         return $query->where('metadata->payment_mode', $mode);
     }
 

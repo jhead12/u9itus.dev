@@ -155,22 +155,20 @@ class PoliticianController extends Controller
 
     /**
      * Active app payment mode derived from configured Stripe secret.
+     * Defaults to 'test' when the key is unrecognised so the mode filter
+     * is always applied and live data is never mixed with test data.
      */
-    private function activePaymentMode(): ?string
+    private function activePaymentMode(): string
     {
         $mode = app(StripePaymentService::class)->configuredMode();
-        return in_array($mode, ['live', 'test'], true) ? $mode : null;
+        return $mode === 'live' ? 'live' : 'test';
     }
 
     /**
      * Apply mode-aware filter to ledger/transaction style queries.
      */
-    private function applyPaymentModeFilter($query, ?string $mode)
+    private function applyPaymentModeFilter($query, string $mode)
     {
-        if (! $mode) {
-            return $query;
-        }
-
         return $query->where('metadata->payment_mode', $mode);
     }
 
@@ -178,7 +176,7 @@ class PoliticianController extends Controller
      * Compute balance from filtered ledger rows while ignoring duplicate rows
      * generated for the same related transaction id.
      */
-    private function computeModeAwareCreditBalance(int $politicianId, ?string $mode): float
+    private function computeModeAwareCreditBalance(int $politicianId, string $mode): float
     {
         $entries = $this->applyPaymentModeFilter(
             PoliticianCredit::where('politician_id', $politicianId),

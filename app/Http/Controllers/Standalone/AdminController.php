@@ -167,29 +167,27 @@ class AdminController extends Controller
 
     /**
      * Active app payment mode derived from configured Stripe secret.
+     * Defaults to 'test' when the key is unrecognised so the mode filter
+     * is always applied and live data is never mixed with test data.
      */
-    private function activePaymentMode(): ?string
+    private function activePaymentMode(): string
     {
         $mode = app(StripePaymentService::class)->configuredMode();
-        return in_array($mode, ['live', 'test'], true) ? $mode : null;
+        return $mode === 'live' ? 'live' : 'test';
     }
 
     /**
      * Apply mode-aware filter to transaction queries.
      */
-    private function applyPaymentModeFilter($query, ?string $mode)
+    private function applyPaymentModeFilter($query, string $mode)
     {
-        if (! $mode) {
-            return $query;
-        }
-
         return $query->where('metadata->payment_mode', $mode);
     }
 
     /**
      * Campaign ids that have transaction activity in the active payment mode.
      */
-    private function modeScopedCampaignIds(?string $mode)
+    private function modeScopedCampaignIds(string $mode)
     {
         return $this->applyPaymentModeFilter(
             CampaignTransaction::query()->select('campaign_id')->whereNotNull('campaign_id')->distinct(),
@@ -201,7 +199,7 @@ class AdminController extends Controller
      * Politician ids that have billing activity in the active payment mode.
      * Used to ensure campaign monitoring reflects the currently configured Stripe mode.
      */
-    private function modeScopedPoliticianIds(?string $mode)
+    private function modeScopedPoliticianIds(string $mode)
     {
         $txPoliticianIds = $this->applyPaymentModeFilter(
             CampaignTransaction::query()->select('politician_id')->whereNotNull('politician_id')->distinct(),
