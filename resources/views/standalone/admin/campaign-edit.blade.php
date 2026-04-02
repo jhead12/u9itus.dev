@@ -24,17 +24,17 @@
         </div>
         <div class="flex items-center gap-2 text-xs">
             <span class="px-2 py-1 rounded-full bg-slate-700 text-slate-300">
-                {{ ucwords(str_replace('_', ' ', $campaign->status?->value ?? $campaign->status)) }}
+                {{ ucwords(str_replace('_', ' ', (string) ($campaignStatusValue ?? 'unknown'))) }}
             </span>
             <span class="px-2 py-1 rounded-full bg-slate-700 text-slate-300">
-                {{ ucfirst($campaign->approval_status?->value ?? $campaign->approval_status) }}
+                {{ ucfirst(str_replace('_', ' ', (string) ($campaignApprovalStatusValue ?? 'pending'))) }}
             </span>
         </div>
     </div>
 
     {{-- Stop / Reactivate quick actions --}}
     @php
-        $currentStatus = $campaign->status?->value ?? $campaign->status;
+        $currentStatus = (string) ($campaignStatusValue ?? '');
         $campaignTypeRaw = (string) ($campaign->getRawOriginal('campaign_type') ?? '');
         $campaignType = in_array($campaignTypeRaw, ['video', 'q_and_a', 'live_feed'], true) ? $campaignTypeRaw : 'video';
         $qaItems = is_array($campaign->qa_items ?? null) ? $campaign->qa_items : [];
@@ -620,7 +620,7 @@
                     <select name="status"
                         class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition">
                         @foreach(['draft', 'pending_approval', 'active', 'paused', 'completed', 'cancelled'] as $s)
-                            <option value="{{ $s }}" {{ old('status', $campaign->status?->value ?? $campaign->status) === $s ? 'selected' : '' }}>
+                            <option value="{{ $s }}" {{ old('status', (string) ($campaignStatusValue ?? '')) === $s ? 'selected' : '' }}>
                                 {{ ucwords(str_replace('_', ' ', $s)) }}
                             </option>
                         @endforeach
@@ -631,7 +631,7 @@
                     <select name="approval_status"
                         class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition">
                         @foreach(['pending', 'approved', 'rejected'] as $as)
-                            <option value="{{ $as }}" {{ old('approval_status', $campaign->approval_status?->value ?? $campaign->approval_status) === $as ? 'selected' : '' }}>
+                            <option value="{{ $as }}" {{ old('approval_status', (string) ($campaignApprovalStatusValue ?? '')) === $as ? 'selected' : '' }}>
                                 {{ ucfirst($as) }}
                             </option>
                         @endforeach
@@ -688,19 +688,25 @@
                         {{ $log->actionLabel() }}
                     </span>
                     <span class="text-xs text-slate-400">by <span class="text-slate-200">{{ $log->admin?->name ?? 'Admin' }}</span></span>
-                    <span class="text-xs text-slate-500 ml-auto">{{ $log->created_at->diffForHumans() }}</span>
+                    <span class="text-xs text-slate-500 ml-auto">{{ $log->created_at?->diffForHumans() ?? 'Unknown time' }}</span>
                 </div>
                 @if($log->reason)
                 <p class="text-xs text-slate-400 mt-2">{{ $log->reason }}</p>
                 @endif
-                @if($log->changes)
+                @if(is_array($log->changes) && !empty($log->changes))
                 <div class="mt-2 space-y-1">
                     @foreach($log->changes as $field => $change)
+                    @php
+                        $oldValue = is_array($change) && array_key_exists('old', $change) ? $change['old'] : null;
+                        $newValue = is_array($change) && array_key_exists('new', $change) ? $change['new'] : $change;
+                        $oldText = is_array($oldValue) ? implode(', ', $oldValue) : (string) ($oldValue ?? '—');
+                        $newText = is_array($newValue) ? implode(', ', $newValue) : (string) ($newValue ?? '—');
+                    @endphp
                     <p class="text-xs text-slate-500">
                         <span class="text-slate-300">{{ str_replace('_', ' ', $field) }}</span>:
-                        <span class="line-through text-red-400/70">{{ is_array($change['old']) ? implode(', ', $change['old']) : $change['old'] }}</span>
+                        <span class="line-through text-red-400/70">{{ $oldText }}</span>
                         →
-                        <span class="text-emerald-400/80">{{ is_array($change['new']) ? implode(', ', $change['new']) : $change['new'] }}</span>
+                        <span class="text-emerald-400/80">{{ $newText }}</span>
                     </p>
                     @endforeach
                 </div>

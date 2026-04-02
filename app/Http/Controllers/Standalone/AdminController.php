@@ -433,6 +433,11 @@ class AdminController extends Controller
     {
         $campaign->load('politician.user');
 
+        // Use raw DB values for enum-backed columns so legacy/invalid values
+        // do not crash the edit form rendering.
+        $campaignStatusValue = (string) ($campaign->getRawOriginal('status') ?? '');
+        $campaignApprovalStatusValue = (string) ($campaign->getRawOriginal('approval_status') ?? '');
+
         $auditLogs = CampaignAuditLog::where('campaign_id', $campaign->id)
             ->with('admin:id,name')
             ->latest()
@@ -454,7 +459,7 @@ class AdminController extends Controller
             'City' => 'City', 'School Board' => 'School Board',
         ]);
 
-        return view('standalone.admin.campaign-edit', compact('campaign', 'states', 'governanceLevels', 'auditLogs', 'topics', 'campaignTopicIds'));
+        return view('standalone.admin.campaign-edit', compact('campaign', 'states', 'governanceLevels', 'auditLogs', 'topics', 'campaignTopicIds', 'campaignStatusValue', 'campaignApprovalStatusValue'));
     }
 
     /**
