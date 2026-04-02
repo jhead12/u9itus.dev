@@ -398,7 +398,8 @@ class AdminController extends Controller
 
         $campaign->update([
             'approval_status'  => ApprovalStatus::Rejected,
-            'status'           => CampaignStatus::Cancelled,
+            // Return rejected campaigns to draft so politicians can revise or delete.
+            'status'           => CampaignStatus::Draft,
             'rejection_reason' => $rejectionReason,
         ]);
 
