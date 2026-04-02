@@ -40,6 +40,12 @@ use Throwable;
  */
 class PoliticianController extends Controller
 {
+    private function isIosUserAgent(?string $userAgent): bool
+    {
+        $ua = $userAgent ?? '';
+        return preg_match('/\b(iPhone|iPad|iPod)\b/i', $ua) === 1;
+    }
+
     /**
      * Load active campaign topics for form dropdowns without hard-failing the page.
      */
@@ -393,16 +399,64 @@ class PoliticianController extends Controller
         $politician = Auth::user()->politician;
         abort_unless($politician && (int) $campaign->politician_id === (int) $politician->id, 403);
 
-        $campaign->load('viewSessions');
+        $rawStatus = (string) ($campaign->getRawOriginal('status') ?? '');
+        $rawCampaignType = (string) ($campaign->getRawOriginal('campaign_type') ?? '');
+        $rawApprovalStatus = (string) ($campaign->getRawOriginal('approval_status') ?? '');
+
+        $campaignStatus = CampaignStatus::tryFrom($rawStatus)?->value
+            ?? ($rawStatus !== '' ? $rawStatus : CampaignStatus::Draft->value);
+        $campaignType = CampaignType::tryFrom($rawCampaignType)?->value
+            ?? ($rawCampaignType !== '' ? $rawCampaignType : CampaignType::Video->value);
+        $campaignApprovalStatus = ApprovalStatus::tryFrom($rawApprovalStatus)?->value
+            ?? ($rawApprovalStatus !== '' ? $rawApprovalStatus : ApprovalStatus::Pending->value);
+
+        if (CampaignStatus::tryFrom($rawStatus) === null && $rawStatus !== '') {
+            Log::warning('Campaign has non-standard status value', [
+                'campaign_id' => $campaign->id,
+                'status' => $rawStatus,
+            ]);
+        }
+
+        if (CampaignType::tryFrom($rawCampaignType) === null && $rawCampaignType !== '') {
+            Log::warning('Campaign has non-standard campaign_type value', [
+                'campaign_id' => $campaign->id,
+                'campaign_type' => $rawCampaignType,
+            ]);
+        }
+
+        if (ApprovalStatus::tryFrom($rawApprovalStatus) === null && $rawApprovalStatus !== '') {
+            Log::warning('Campaign has non-standard approval_status value', [
+                'campaign_id' => $campaign->id,
+                'approval_status' => $rawApprovalStatus,
+            ]);
+        }
+
         $completedViews = $campaign->views_completed ?? 0;
         $budgetUsed     = $campaign->amount_spent ?? 0;
         $budgetLeft     = ($campaign->total_budget ?? 0) - $budgetUsed;
 
         // Phase 14 — Repeat Viewing stats
-        $uniqueVoters   = $campaign->viewSessions
+        $uniqueVoters = $campaign->viewSessions()
             ->where('status', 'completed')
-            ->unique('voter_id')
-            ->count();
+            ->distinct('voter_id')
+            ->count('voter_id');
+
+        $recentViewSessions = $campaign->viewSessions()
+            ->select(['status', 'watch_time_seconds', 'completion_percentage', 'created_at'])
+            ->latest('created_at')
+            ->limit(10)
+            ->get()
+            ->map(function ($session) {
+                $rawSessionStatus = (string) ($session->getRawOriginal('status') ?? '');
+
+                return [
+                    'status' => $rawSessionStatus !== '' ? $rawSessionStatus : 'assigned',
+                    'watch_time_seconds' => (int) ($session->watch_time_seconds ?? 0),
+                    'completion_percentage' => (float) ($session->completion_percentage ?? 0),
+                    'created_at' => $session->created_at,
+                ];
+            });
+
         $repeatViews    = max(0, $completedViews - $uniqueVoters);
 
         $creditBalance  = $this->computeModeAwareCreditBalance(
@@ -412,7 +466,8 @@ class PoliticianController extends Controller
 
         return view('standalone.politician.campaigns.show', compact(
             'campaign', 'politician', 'completedViews', 'budgetUsed', 'budgetLeft',
-            'uniqueVoters', 'repeatViews', 'creditBalance'
+            'uniqueVoters', 'repeatViews', 'creditBalance', 'campaignStatus',
+            'campaignType', 'campaignApprovalStatus', 'recentViewSessions'
         ));
     }
 
@@ -606,17 +661,28 @@ class PoliticianController extends Controller
         $maxMb  = config('u9itus.max_video_size_mb', 100);
         $minSec = config('u9itus.min_video_duration', 30);
         $maxSec = config('u9itus.max_video_duration', 300);
+        $videoMimeTypes = ['video/mp4', 'video/webm'];
+
+        if ($this->isIosUserAgent($request->userAgent())) {
+            $videoMimeTypes[] = 'video/quicktime';
+        }
 
         $request->validate([
             'video' => [
                 'required',
                 'file',
-                'mimetypes:video/mp4,video/quicktime,video/webm',
+                'mimetypes:' . implode(',', $videoMimeTypes),
                 'max:' . ($maxMb * 1024),
             ],
         ]);
 
         $file = $request->file('video');
+
+        if ($file && ! $this->isIosUserAgent($request->userAgent()) && $file->getMimeType() === 'video/quicktime') {
+            return back()->withErrors([
+                'video' => 'MOV uploads are only allowed from iOS devices. Use MP4 or WebM on non-iOS devices.',
+            ]);
+        }
 
         // ── Strict duration check via ffprobe (when available) ───────────────
         // ffprobe is included with ffmpeg; install: `apt install ffmpeg` / `brew install ffmpeg`
@@ -661,6 +727,7 @@ class PoliticianController extends Controller
 
         $campaign->update(array_filter([
             'media_url'      => $url,
+            'media_type'     => 'direct_file',
             'media_duration' => $campaign->media_duration,
         ], fn ($v) => $v !== null));
 

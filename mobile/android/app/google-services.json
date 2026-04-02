@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "34052731511",
+    "project_id": "u9itus",
+    "storage_bucket": "u9itus.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:34052731511:android:d64cedfd1f4031ee800c72",
+        "android_client_info": {
+          "package_name": "U9itus.android"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC-pBTwa_Gq0K_WDMLucK9J-JyPcAPBpbg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

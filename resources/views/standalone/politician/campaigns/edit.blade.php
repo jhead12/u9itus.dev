@@ -48,6 +48,9 @@
             }
         }
     }
+
+    $allowMovUploads = preg_match('/\b(iPhone|iPad|iPod)\b/i', request()->userAgent() ?? '') === 1;
+    $videoAcceptTypes = $allowMovUploads ? 'video/mp4,video/webm,video/quicktime' : 'video/mp4,video/webm';
 @endphp
 
 @section('content')
@@ -117,7 +120,7 @@
 
                 <div>
                     <label class="block text-sm font-medium text-slate-300 mb-1.5">Upload New Video File</label>
-                    <input type="file" name="video" id="videoFileInput" accept="video/mp4,video/webm,video/quicktime"
+                    <input type="file" name="video" id="videoFileInput" accept="{{ $videoAcceptTypes }}"
                         class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm file:mr-3 file:rounded file:border-0 file:bg-emerald-500 file:px-3 file:py-1.5 file:text-slate-900 file:font-medium hover:file:bg-emerald-400" />
                     <p class="text-xs text-slate-500 mt-1">Optional alternative to URL. Uploading a file replaces the current video URL.</p>
                     @error('video')<p class="text-xs text-red-400 mt-1">{{ $message }}</p>@enderror

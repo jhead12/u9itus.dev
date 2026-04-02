@@ -30,6 +30,11 @@ class CreateCampaignRequest extends FormRequest
         $minBudget   = $revenuePerView * 10;
         $minDuration = config('u9itus.min_video_duration', 30);
         $maxDuration = config('u9itus.max_video_duration', 300);
+        $videoMimeTypes = ['video/mp4', 'video/webm'];
+
+        if ($this->isIosClient()) {
+            $videoMimeTypes[] = 'video/quicktime';
+        }
 
         return [
             'title'                 => 'required|string|max:255',
@@ -38,7 +43,7 @@ class CreateCampaignRequest extends FormRequest
             'governance_level'      => 'required|string|in:' . implode(',', array_keys(config('u9itus.governance_levels', []))),
             'media_url'             => 'nullable|url',
             'media_type'            => 'nullable|in:youtube,vimeo,direct_file,s3_cloudfront,hls_stream',
-            'video'                 => 'nullable|file|mimetypes:video/mp4,video/quicktime,video/webm|max:' . ((int) config('u9itus.max_video_size_mb', 100) * 1024),
+            'video'                 => 'nullable|file|mimetypes:' . implode(',', $videoMimeTypes) . '|max:' . ((int) config('u9itus.max_video_size_mb', 100) * 1024),
             'media_duration'        => "nullable|integer|min:{$minDuration}|max:{$maxDuration}",
             'live_feed_url'         => 'required_if:campaign_type,live_feed|nullable|url',
             'live_scheduled_at'     => 'required_if:campaign_type,live_feed|nullable|date|after:now',
@@ -96,6 +101,11 @@ class CreateCampaignRequest extends FormRequest
             // Media asset requirement
             if ($needsVideoAsset && ! $this->filled('media_url') && ! $this->hasFile('video')) {
                 $validator->errors()->add('media_url', 'Provide a video URL or upload a video file.');
+            }
+
+            $video = $this->file('video');
+            if ($video && ! $this->isIosClient() && $video->getMimeType() === 'video/quicktime') {
+                $validator->errors()->add('video', 'MOV uploads are only allowed from iOS devices. Use MP4 or WebM on non-iOS devices.');
             }
 
             $this->validateQaItems($validator);
@@ -186,5 +196,11 @@ class CreateCampaignRequest extends FormRequest
         }
 
         return $parsed;
+    }
+
+    private function isIosClient(): bool
+    {
+        $ua = $this->userAgent() ?? '';
+        return preg_match('/\b(iPhone|iPad|iPod)\b/i', $ua) === 1;
     }
 }

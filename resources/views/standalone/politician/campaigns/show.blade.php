@@ -3,10 +3,15 @@
 @section('title', $campaign->title)
 @section('page-title', 'Campaign Detail')
 
+@php
+    $allowMovUploads = preg_match('/\b(iPhone|iPad|iPod)\b/i', request()->userAgent() ?? '') === 1;
+    $videoAcceptTypes = $allowMovUploads ? 'video/mp4,video/webm,video/quicktime' : 'video/mp4,video/webm';
+@endphp
+
 @section('content')
 <div class="space-y-6">
 
-    @php $status = $campaign->status?->value ?? $campaign->status ?? 'draft'; @endphp
+    @php $status = $campaignStatus ?? 'draft'; @endphp
 
     {{-- Credit error flash (from submitForReview credit gate) --}}
     @if($errors->has('credits'))
@@ -155,7 +160,7 @@
         <dl class="grid sm:grid-cols-2 gap-x-8 gap-y-3 text-sm">
             <div class="flex justify-between border-b border-slate-700/40 pb-2">
                 <dt class="text-slate-500">Type</dt>
-                <dd class="text-slate-200">{{ ucfirst(str_replace('_', ' ', $campaign->campaign_type?->value ?? $campaign->campaign_type)) }}</dd>
+                <dd class="text-slate-200">{{ ucfirst(str_replace('_', ' ', $campaignType ?? 'video')) }}</dd>
             </div>
             <div class="flex justify-between border-b border-slate-700/40 pb-2">
                 <dt class="text-slate-500">Governance Level</dt>
@@ -175,7 +180,7 @@
             </div>
             <div class="flex justify-between border-b border-slate-700/40 pb-2">
                 <dt class="text-slate-500">Approval Status</dt>
-                <dd class="text-slate-200">{{ ucfirst($campaign->approval_status?->value ?? $campaign->approval_status ?? 'pending') }}</dd>
+                <dd class="text-slate-200">{{ ucfirst($campaignApprovalStatus ?? 'pending') }}</dd>
             </div>
             {{-- Phase 14 — Repeat Viewing --}}
             <div class="flex justify-between border-b border-slate-700/40 pb-2">
@@ -319,7 +324,7 @@
         <form method="POST" action="{{ route('politician.campaigns.upload-video', $campaign) }}" enctype="multipart/form-data">
             @csrf
             <div class="flex gap-3 flex-col sm:flex-row">
-                <input type="file" name="video" accept="video/mp4,video/quicktime,video/webm" required
+                <input type="file" name="video" accept="{{ $videoAcceptTypes }}" required
                     class="flex-1 text-sm text-slate-400 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-slate-700 file:text-slate-200 hover:file:bg-slate-600 cursor-pointer" />
                 <button type="submit"
                     class="bg-slate-700 hover:bg-slate-600 text-slate-200 font-medium rounded-lg px-5 py-2 text-sm transition">
@@ -332,7 +337,7 @@
     @endif
 
     {{-- Recent view sessions --}}
-    @if($campaign->viewSessions->isNotEmpty())
+    @if($recentViewSessions->isNotEmpty())
     <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl overflow-hidden">
         <div class="px-5 py-4 border-b border-slate-700/50">
             <h3 class="text-sm font-semibold text-slate-200">Recent View Sessions</h3>
@@ -348,12 +353,12 @@
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-700/30">
-                    @foreach($campaign->viewSessions->take(10) as $session)
+                    @foreach($recentViewSessions as $session)
                     <tr>
-                        <td class="px-5 py-3 text-slate-300">{{ ucfirst($session->status) }}</td>
-                        <td class="px-5 py-3 text-slate-300">{{ $session->watch_time_seconds }}s</td>
-                        <td class="px-5 py-3 text-slate-300">{{ $session->completion_percentage }}%</td>
-                        <td class="px-5 py-3 text-slate-500">{{ $session->created_at?->format('M j, Y') }}</td>
+                        <td class="px-5 py-3 text-slate-300">{{ ucfirst((string) ($session['status'] ?? 'assigned')) }}</td>
+                        <td class="px-5 py-3 text-slate-300">{{ (int) ($session['watch_time_seconds'] ?? 0) }}s</td>
+                        <td class="px-5 py-3 text-slate-300">{{ (float) ($session['completion_percentage'] ?? 0) }}%</td>
+                        <td class="px-5 py-3 text-slate-500">{{ ($session['created_at'] ?? null)?->format('M j, Y') }}</td>
                     </tr>
                     @endforeach
                 </tbody>
@@ -592,8 +597,19 @@
         nativePlayer.classList.remove('hidden');
         placeholder.classList.add('hidden');
         bindNativeProgress();
+
+        // Match source MIME type to common extensions so browser selection is accurate.
+        let sourceType = 'video/mp4';
+        if (/\.m3u8(\?.*)?$/i.test(url)) {
+            sourceType = 'application/x-mpegURL';
+        } else if (/\.(webm)(\?.*)?$/i.test(url)) {
+            sourceType = 'video/webm';
+        } else if (/\.(mov|qt)(\?.*)?$/i.test(url)) {
+            sourceType = 'video/quicktime';
+        }
         
         nativeSource.src = url;
+        nativeSource.type = sourceType;
         nativePlayer.load();
     }
 
@@ -601,7 +617,7 @@
     const youtubeId = extractYouTubeId(mediaUrl);
     if (youtubeId) {
         initYouTubeShow(youtubeId);
-    } else if (mediaUrl.startsWith('http')) {
+    } else if (mediaUrl.startsWith('http') || mediaUrl.startsWith('/')) {
         initNativeShow(mediaUrl);
     } else {
         setTimerNotice('Payout timer is unavailable for this media format.');

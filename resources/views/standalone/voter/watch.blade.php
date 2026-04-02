@@ -52,6 +52,15 @@
         $mediaUrl = $campaign->media_url ?? '';
         $mediaType = (string) ($campaign->media_type ?? 'youtube');
         $isHlsUrl = preg_match('/\.m3u8(\?.*)?$/i', $mediaUrl) === 1;
+        $nativeSourceType = 'video/mp4';
+
+        if ($isHlsUrl) {
+            $nativeSourceType = 'application/x-mpegURL';
+        } elseif (preg_match('/\.(webm)(\?.*)?$/i', $mediaUrl)) {
+            $nativeSourceType = 'video/webm';
+        } elseif (preg_match('/\.(mov|qt)(\?.*)?$/i', $mediaUrl)) {
+            $nativeSourceType = 'video/quicktime';
+        }
 
         if (preg_match('/youtu\.be\/([a-zA-Z0-9_-]+)/', $mediaUrl, $_m))         { $videoId = $_m[1]; }
         elseif (preg_match('/[?&]v=([a-zA-Z0-9_-]+)/', $mediaUrl, $_m))         { $videoId = $_m[1]; }
@@ -91,7 +100,7 @@
                 oncontextmenu="return false;"
             >
                 @if($campaign->media_url)
-                    <source src="{{ $campaign->media_url }}" type="{{ $playerMode === 'hls' ? 'application/x-mpegURL' : 'video/mp4' }}">
+                    <source src="{{ $campaign->media_url }}" type="{{ $playerMode === 'hls' ? 'application/x-mpegURL' : $nativeSourceType }}">
                 @endif
                 Your browser does not support HTML5 video.
             </video>

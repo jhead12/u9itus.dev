@@ -18,6 +18,11 @@ class UpdateCampaignRequest extends FormRequest
     {
         $minBudget = (float) config('u9itus.revenue_per_view', 1.00) * 10;
         $governanceLevels = implode(',', array_keys(config('u9itus.governance_levels', [])));
+        $videoMimeTypes = ['video/mp4', 'video/webm'];
+
+        if ($this->isIosClient()) {
+            $videoMimeTypes[] = 'video/quicktime';
+        }
 
         return [
             'title'                    => ['sometimes', 'required', 'string', 'max:255'],
@@ -26,7 +31,7 @@ class UpdateCampaignRequest extends FormRequest
             'governance_level'         => ['sometimes', 'required', 'string', 'in:' . $governanceLevels],
             'media_url'                => ['nullable', 'url'],
             'media_type'               => ['nullable', 'in:youtube,vimeo,direct_file,s3_cloudfront,hls_stream'],
-            'video'                    => ['nullable', 'file', 'mimetypes:video/mp4,video/quicktime,video/webm', 'max:' . ((int) config('u9itus.max_video_size_mb', 100) * 1024)],
+            'video'                    => ['nullable', 'file', 'mimetypes:' . implode(',', $videoMimeTypes), 'max:' . ((int) config('u9itus.max_video_size_mb', 100) * 1024)],
             'total_budget'             => ['sometimes', 'required', 'numeric', 'min:' . number_format($minBudget, 2, '.', '')],
             'total_views_requested'    => ['sometimes', 'required', 'integer', 'min:10'],
             'target_states'            => ['nullable', 'array'],
@@ -64,6 +69,11 @@ class UpdateCampaignRequest extends FormRequest
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator): void {
+            $video = $this->file('video');
+            if ($video && ! $this->isIosClient() && $video->getMimeType() === 'video/quicktime') {
+                $validator->errors()->add('video', 'MOV uploads are only allowed from iOS devices. Use MP4 or WebM on non-iOS devices.');
+            }
+
             $this->validateQaItems($validator);
             $this->validateEngagementSurvey($validator);
         });
@@ -152,5 +162,11 @@ class UpdateCampaignRequest extends FormRequest
         }
 
         return $parsed;
+    }
+
+    private function isIosClient(): bool
+    {
+        $ua = $this->userAgent() ?? '';
+        return preg_match('/\b(iPhone|iPad|iPod)\b/i', $ua) === 1;
     }
 }
