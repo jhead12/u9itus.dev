@@ -149,6 +149,18 @@
                     </div>
 
                     <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        @if($campaign->scheduled_start_at)
+                        <div>
+                            <p class="text-slate-500 font-semibold">Scheduled Start</p>
+                            <p class="text-slate-300 mt-0.5">{{ $campaign->scheduled_start_at->format('M j, Y g:i A T') }}</p>
+                        </div>
+                        @endif
+                        @if($campaign->scheduled_end_at)
+                        <div>
+                            <p class="text-slate-500 font-semibold">Scheduled End</p>
+                            <p class="text-slate-300 mt-0.5">{{ $campaign->scheduled_end_at->format('M j, Y g:i A T') }}</p>
+                        </div>
+                        @endif
                         @if($campaign->governance_level)
                         <div>
                             <p class="text-slate-500 font-semibold">Governance Level</p>

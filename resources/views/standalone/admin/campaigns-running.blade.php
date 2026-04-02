@@ -363,6 +363,22 @@
                     <a href="{{ $directPreviewUrl }}" target="_blank" rel="noopener" class="text-xs text-emerald-400 hover:text-emerald-300 break-all">
                         Open media URL in new tab
                     </a>
+                    @if($campaign->scheduled_start_at || $campaign->scheduled_end_at)
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                        @if($campaign->scheduled_start_at)
+                        <div>
+                            <p class="text-[11px] text-slate-500 font-semibold">Scheduled Start</p>
+                            <p class="text-xs text-slate-300 mt-0.5">{{ $campaign->scheduled_start_at->format('M j, Y g:i A T') }}</p>
+                        </div>
+                        @endif
+                        @if($campaign->scheduled_end_at)
+                        <div>
+                            <p class="text-[11px] text-slate-500 font-semibold">Scheduled End</p>
+                            <p class="text-xs text-slate-300 mt-0.5">{{ $campaign->scheduled_end_at->format('M j, Y g:i A T') }}</p>
+                        </div>
+                        @endif
+                    </div>
+                    @endif
                 </div>
                 @endif
 
