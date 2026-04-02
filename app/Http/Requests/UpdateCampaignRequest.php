@@ -29,6 +29,7 @@ class UpdateCampaignRequest extends FormRequest
         return [
             'title'                    => ['sometimes', 'required', 'string', 'max:255'],
             'message_summary'          => ['nullable', 'string', 'max:2000'],
+            'video_blurb'              => ['nullable', 'string', 'max:5000'],
             'campaign_type'            => ['sometimes', 'required', 'in:video,live_feed,q_and_a'],
             'governance_level'         => ['sometimes', 'required', 'string', 'in:' . $governanceLevels],
             'media_url'                => ['nullable', 'url'],

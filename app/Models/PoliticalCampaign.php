@@ -30,6 +30,7 @@ class PoliticalCampaign extends Model
         'politician_id',
         'title',
         'message_summary',
+        'video_blurb',
         'campaign_type',           // video | live_feed | q_and_a
         'governance_level',
         'media_url',
@@ -111,6 +112,47 @@ class PoliticalCampaign extends Model
             'qa_items'                   => 'json',     // [{question, answer}, ...]
             'engagement_survey'          => 'json',     // {question, options: [{text, value}], ...}
         ];
+    }
+
+    public function setVideoBlurbAttribute($value): void
+    {
+        $this->attributes['video_blurb'] = $this->sanitizeVideoBlurb($value);
+    }
+
+    private function sanitizeVideoBlurb($value): ?string
+    {
+        $html = trim((string) ($value ?? ''));
+        if ($html === '') {
+            return null;
+        }
+
+        // Remove unsafe embedded content before allowing limited formatting tags.
+        $html = preg_replace('/<(script|style|iframe|object|embed)[^>]*>.*?<\/\1>/is', '', $html) ?? '';
+        $html = strip_tags($html, '<p><br><strong><b><em><i><u><ul><ol><li><a><blockquote>');
+
+        // Remove all attributes from non-anchor tags.
+        $html = preg_replace('/<(\/?)\s*(p|br|strong|b|em|i|u|ul|ol|li|blockquote)\b[^>]*>/i', '<$1$2>', $html) ?? '';
+
+        // Allow only safe http/https href values on anchor tags.
+        $html = preg_replace_callback('/<a\b[^>]*>/i', function (array $match): string {
+            $tag = $match[0];
+            if (!preg_match('/href\s*=\s*("([^"]*)"|\'([^\']*)\'|([^\s>]+))/i', $tag, $hrefMatch)) {
+                return '<a>';
+            }
+
+            $href = trim((string) ($hrefMatch[2] ?? $hrefMatch[3] ?? $hrefMatch[4] ?? ''));
+            if (!preg_match('/^https?:\/\//i', $href)) {
+                return '<a>';
+            }
+
+            return '<a href="' . e($href) . '" target="_blank" rel="noopener noreferrer nofollow">';
+        }, $html) ?? '';
+
+        // Remove inline event handlers if any slipped through.
+        $html = preg_replace('/\son\w+\s*=\s*("[^"]*"|\'[^\']*\'|[^\s>]+)/i', '', $html) ?? '';
+        $html = trim($html);
+
+        return $html !== '' ? $html : null;
     }
 
     protected static function boot(): void

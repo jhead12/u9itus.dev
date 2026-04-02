@@ -48,6 +48,28 @@
                     placeholder="A short description of your campaign message...">{{ old('message_summary') }}</textarea>
             </div>
 
+            <div>
+                <div class="flex items-center gap-2 mb-1.5">
+                    <label class="block text-sm font-medium text-slate-300">Video Blurb <span class="text-slate-500 font-normal text-xs">(optional, shown to voters on ad view page)</span></label>
+                    <span class="inline-flex items-center justify-center h-4 w-4 rounded-full border border-slate-500/60 text-[10px] text-slate-300 cursor-help"
+                          title="Add a short optional explanation that appears on the voter ad viewing page only. Not shown on your public profile.">i</span>
+                </div>
+                <div class="rounded-lg border border-slate-700 bg-slate-900/60 overflow-hidden">
+                    <div id="videoBlurbToolbar" class="flex items-center gap-1 p-2 border-b border-slate-700/70 bg-slate-800/60">
+                        <button type="button" data-cmd="bold" class="px-2 py-1 text-xs text-slate-300 hover:text-white hover:bg-slate-700 rounded">B</button>
+                        <button type="button" data-cmd="italic" class="px-2 py-1 text-xs text-slate-300 hover:text-white hover:bg-slate-700 rounded">I</button>
+                        <button type="button" data-cmd="underline" class="px-2 py-1 text-xs text-slate-300 hover:text-white hover:bg-slate-700 rounded">U</button>
+                        <button type="button" data-cmd="insertUnorderedList" class="px-2 py-1 text-xs text-slate-300 hover:text-white hover:bg-slate-700 rounded">• List</button>
+                    </div>
+                    <div id="videoBlurbEditor"
+                         contenteditable="true"
+                         class="min-h-[110px] px-3 py-2 text-sm text-white focus:outline-none"></div>
+                </div>
+                <textarea name="video_blurb" id="videoBlurbInput" class="hidden">{{ old('video_blurb') }}</textarea>
+                <p class="mt-1 text-xs text-slate-500">Keep it short and clear. Basic formatting only.</p>
+                @error('video_blurb')<p class="text-xs text-red-400 mt-1">{{ $message }}</p>@enderror
+            </div>
+
             <div class="grid grid-cols-2 gap-4">
                 <div>
                     <label class="block text-sm font-medium text-slate-300 mb-1.5">Campaign Type <span class="text-red-400">*</span></label>
@@ -127,6 +149,13 @@
                         class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition"
                         placeholder="https://youtube.com/watch?v=... or https://example.com/video.mp4" />
                     <p id="mediaUrlHelp" class="text-xs text-slate-500 mt-1">YouTube URL or direct link to MP4/WebM video</p>
+                    <p id="mediaUrlCompatibilityTip" class="hidden text-xs text-amber-400 mt-1.5">
+                        <span class="inline-flex items-center gap-1">
+                            <span class="inline-flex items-center justify-center h-4 w-4 rounded-full border border-amber-500/50 text-[10px] font-semibold"
+                                  title="Google Drive share/open URLs are web pages, not direct video files. Use a direct MP4/WebM file URL instead.">i</span>
+                            Google Drive share links are not compatible here. Use a direct MP4/WebM URL, S3/CloudFront URL, or upload a file.
+                        </span>
+                    </p>
                     @error('media_url')<p class="text-xs text-red-400 mt-1">{{ $message }}</p>@enderror
                 </div>
 
@@ -362,11 +391,16 @@
                 
                 <div class="space-y-3">
                     <div>
-                        <label class="block text-xs font-medium text-slate-300 mb-1.5">Survey Question</label>
+                        <label class="block text-xs font-medium text-slate-300 mb-1.5 flex items-center gap-1.5">
+                            Survey Question
+                            <span class="inline-flex items-center justify-center h-4 w-4 rounded-full border border-slate-500/60 text-[10px] text-slate-300 cursor-help"
+                                  title="Use one clear, neutral question (max 200 chars). Avoid personal data requests and yes/no questions without context.">i</span>
+                        </label>
                         <input type="text" name="engagement_survey[question]" maxlength="200"
                             value="{{ old('engagement_survey.question', old('engagement_survey.question')) }}"
                             class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition"
                             placeholder="e.g., Do you support this proposal?" />
+                        <p class="text-xs text-slate-500 mt-1">Best practice: ask one neutral policy question and provide at least 2 clear answer options.</p>
                     </div>
 
                     <div id="surveyOptionsContainer">
@@ -621,9 +655,44 @@ const mediaTypeInputs = Array.from(document.querySelectorAll('input[name="media_
 const mediaUrlField = document.getElementById('mediaUrlField');
 const mediaUrlLabel = document.getElementById('mediaUrlLabel');
 const mediaUrlHelp = document.getElementById('mediaUrlHelp');
+const mediaUrlCompatibilityTip = document.getElementById('mediaUrlCompatibilityTip');
 const uploadVideoField = document.getElementById('uploadVideoField');
 const uploadVideoLabel = document.getElementById('uploadVideoLabel');
 const uploadVideoHelp = document.getElementById('uploadVideoHelp');
+const videoBlurbEditor = document.getElementById('videoBlurbEditor');
+const videoBlurbInput = document.getElementById('videoBlurbInput');
+const videoBlurbToolbar = document.getElementById('videoBlurbToolbar');
+
+function initVideoBlurbEditor() {
+    if (!videoBlurbEditor || !videoBlurbInput) {
+        return;
+    }
+
+    videoBlurbEditor.innerHTML = videoBlurbInput.value || '';
+
+    const syncBlurb = () => {
+        videoBlurbInput.value = videoBlurbEditor.innerHTML.trim();
+    };
+
+    videoBlurbEditor.addEventListener('input', syncBlurb);
+    campaignForm.addEventListener('submit', syncBlurb);
+
+    if (videoBlurbToolbar) {
+        videoBlurbToolbar.querySelectorAll('button[data-cmd]').forEach((button) => {
+            button.addEventListener('click', () => {
+                const cmd = button.getAttribute('data-cmd');
+                if (!cmd) {
+                    return;
+                }
+                videoBlurbEditor.focus();
+                document.execCommand(cmd, false);
+                syncBlurb();
+            });
+        });
+    }
+}
+
+initVideoBlurbEditor();
 
 // ── LocalStorage Draft Management ───────────────────────────────────
 const DRAFT_KEY = 'campaign_draft_{{ Auth::user()->politician->id ?? "temp" }}';
@@ -1119,6 +1188,10 @@ function syncMediaSourceUI() {
         mediaUrlLabel.innerHTML = 'Direct File URL <span class="text-slate-500 font-normal">(optional)</span>';
         mediaUrlInput.placeholder = 'https://example.com/video.mp4';
         mediaUrlHelp.textContent = 'Optional direct file URL. Or upload a file below.';
+    }
+
+    if (mediaUrlCompatibilityTip) {
+        mediaUrlCompatibilityTip.classList.toggle('hidden', !isDirectFile);
     }
 
     uploadVideoLabel.textContent = 'Upload Video File';

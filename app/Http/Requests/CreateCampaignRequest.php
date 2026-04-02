@@ -39,6 +39,7 @@ class CreateCampaignRequest extends FormRequest
         return [
             'title'                 => 'required|string|max:255',
             'message_summary'       => 'nullable|string|max:2000',
+            'video_blurb'           => 'nullable|string|max:5000',
             'campaign_type'         => 'required|in:video,live_feed,q_and_a',
             'governance_level'      => 'required|string|in:' . implode(',', array_keys(config('u9itus.governance_levels', []))),
             'media_url'             => 'nullable|url',

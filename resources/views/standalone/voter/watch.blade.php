@@ -28,6 +28,15 @@
         </p>
     </div>
 
+    @if(!empty($campaign->video_blurb))
+    <div class="mb-5 p-4 bg-slate-800/45 border border-slate-700/60 rounded-2xl">
+        <p class="text-[11px] uppercase tracking-wide text-slate-500 mb-2">About This Video</p>
+        <div class="prose prose-invert prose-sm max-w-none text-slate-200 [&_a]:text-emerald-400 [&_a:hover]:text-emerald-300">
+            {!! $campaign->video_blurb !!}
+        </div>
+    </div>
+    @endif
+
     {{-- Earn Banner --}}
     <div class="bg-emerald-900/30 border border-emerald-500/25 rounded-2xl px-5 py-3.5 mb-5 flex items-center gap-3">
         <div class="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0">
