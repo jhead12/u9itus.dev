@@ -79,6 +79,34 @@ class EmailTemplate extends Model
     }
 
     /**
+     * Resolve the share message text, falling back to $default when no
+     * body_override is stored.  Optionally replaces simple {{variable}}
+     * placeholders using the provided $bindings array.
+     *
+     * @param  string  $default
+     * @param  array<string,string>  $bindings  e.g. ['{{politician.name}}' => 'John Smith']
+     */
+    public function effectiveShareMessage(string $default, array $bindings = []): string
+    {
+        $text = $this->body_override ?: $default;
+
+        if ($bindings) {
+            $text = str_replace(array_keys($bindings), array_values($bindings), $text);
+        }
+
+        return $text;
+    }
+
+    /**
+     * Resolve the share title, falling back to $default when no
+     * subject_override is stored.
+     */
+    public function effectiveShareTitle(string $default): string
+    {
+        return $this->subject_override ?: $default;
+    }
+
+    /**
      * Human-readable category label.
      */
     public function categoryLabel(): string
@@ -90,6 +118,7 @@ class EmailTemplate extends Model
             'payout'   => 'Payouts',
             'account'  => 'Account / Auth',
             'admin'    => 'Admin Alerts',
+            'referral' => 'Referral / Sharing',
             default    => ucfirst($this->category),
         };
     }

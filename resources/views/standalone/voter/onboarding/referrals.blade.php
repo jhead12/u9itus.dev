@@ -13,11 +13,21 @@
         $referralCommissionPercent = (float) \App\Services\PlatformSettingsService::get('referral_commission_percent', null, config('u9itus.referral_commission_percent', 10));
         $referralPerViewAmount = $viewerPayoutPerView * ($referralCommissionPercent / 100);
         $referralPerViewAmountDecimals = $referralPerViewAmount < 0.1 ? 3 : 2;
-        $voterShareSubject = 'Join U9itus as a voter with my referral link';
-        $voterShareMessage = 'Join U9itus as a voter using my referral link and start participating on the platform.';
+        $voterTpl = \App\Models\EmailTemplate::forKey('referral_voter_share');
+        $politicianTpl = \App\Models\EmailTemplate::forKey('referral_politician_share');
+        $voterShareSubject = ($voterTpl && $voterTpl->is_active && $voterTpl->subject_override)
+            ? $voterTpl->subject_override
+            : 'Join U9itus as a voter with my referral link';
+        $voterShareMessage = ($voterTpl && $voterTpl->is_active && $voterTpl->body_override)
+            ? $voterTpl->body_override
+            : 'Join U9itus as a voter using my referral link and start participating on the platform.';
         $voterShareBody = $voterShareMessage . "\n\n" . $voterLandingReferralUrl;
-        $politicianShareSubject = 'Join U9itus as a politician with my referral link';
-        $politicianShareMessage = 'Join U9itus as a politician using my referral link and launch your campaign presence on the platform.';
+        $politicianShareSubject = ($politicianTpl && $politicianTpl->is_active && $politicianTpl->subject_override)
+            ? $politicianTpl->subject_override
+            : 'Join U9itus as a politician with my referral link';
+        $politicianShareMessage = ($politicianTpl && $politicianTpl->is_active && $politicianTpl->body_override)
+            ? $politicianTpl->body_override
+            : 'Join U9itus as a politician using my referral link and launch your campaign presence on the platform.';
         $politicianShareBody = $politicianShareMessage . "\n\n" . $politicianLandingReferralUrl;
     @endphp
     <div class="space-y-6">

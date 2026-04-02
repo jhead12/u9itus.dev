@@ -2087,6 +2087,75 @@ class AdminController extends Controller
         $fakeUser->email    = 'preview@example.com';
         $fakeUser->user_type = 'voter';
 
+                // Referral / Sharing templates: render a lightweight browser preview card.
+                if ($template->category === 'referral') {
+                        $sampleBindings = [
+                                '{{politician.name}}' => 'Jane Smith',
+                                '{{referral_code}}'   => 'VOTER-PREVIEW',
+                                '{{referral_link}}'   => url('/?ref=VOTER-PREVIEW&target=voter'),
+                                '{{platform_name}}'   => config('app.name', 'U9itus'),
+                        ];
+                        $shareMessage = $template->body_override
+                                ? str_replace(array_keys($sampleBindings), array_values($sampleBindings), $template->body_override)
+                                : '(using built-in default)';
+
+                        $html = <<<HTML
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Preview: {$template->name}</title>
+<style>
+    body{font-family:system-ui,sans-serif;background:#1e293b;color:#e2e8f0;margin:0;padding:2rem}
+    .card{background:#0f172a;border:1px solid #334155;border-radius:12px;max-width:540px;margin:0 auto;padding:1.5rem}
+    h1{font-size:1rem;color:#94a3b8;margin:0 0 1.25rem}
+    .row{margin-bottom:1rem}
+    .label{font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:#64748b;margin-bottom:.3rem}
+    .value{background:#1e293b;border:1px solid #334155;border-radius:8px;padding:.75rem 1rem;font-size:.875rem;color:#e2e8f0;white-space:pre-wrap;word-break:break-word}
+    .badge{display:inline-block;font-size:.7rem;padding:.2rem .6rem;border-radius:9999px;border:1px solid #d97706;color:#fbbf24;background:rgba(217,119,6,.1);margin-bottom:1.25rem}
+    .empty{color:#64748b;font-style:italic}
+</style>
+</head>
+<body>
+<div class="card">
+    <h1>Share Template Preview - {$template->name}</h1>
+    <div class="badge">Referral / Sharing</div>
+    <div class="row">
+        <div class="label">Share Title / Email Subject</div>
+        <div class="value">
+HTML;
+                        $html .= $template->subject_override
+                                ? htmlspecialchars($template->subject_override)
+                                : '<span class="empty">(using built-in default - set Subject Override to customise)</span>';
+                        $html .= <<<HTML
+        </div>
+    </div>
+    <div class="row">
+        <div class="label">Share Message (with sample variables)</div>
+        <div class="value">
+HTML;
+                        $html .= $template->body_override
+                                ? htmlspecialchars($shareMessage)
+                                : '<span class="empty">(using built-in default - set Share Message to customise)</span>';
+                        $html .= <<<HTML
+        </div>
+    </div>
+    <div class="row">
+        <div class="label">Available Variables</div>
+        <div class="value">
+HTML;
+                        foreach (($template->available_variables ?? []) as $var) {
+                                $html .= '<code style="display:inline-block;margin:.15rem .25rem;background:#1e293b;border:1px solid #334155;border-radius:4px;padding:.15rem .4rem;font-size:.75rem;color:#34d399">' . htmlspecialchars($var) . '</code>';
+                        }
+                        $html .= <<<HTML
+        </div>
+    </div>
+</div>
+</body></html>
+HTML;
+
+                        return response($html)->header('Content-Type', 'text/html');
+                }
+
         // If there is a body override, render it directly
         if ($template->hasBodyOverride()) {
             return response($template->body_override)->header('Content-Type', 'text/html');

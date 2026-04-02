@@ -5,6 +5,8 @@ use App\Models\Politician;
 use App\Models\PoliticalCampaign;
 use App\Models\Voter;
 use App\Models\VoterWatchReport;
+use App\Models\EmailTemplate;
+use Spatie\Permission\Models\Role;
 use App\Services\BallotpediaService;
 use App\Services\FECService;
 use App\Services\OpenSecretsService;
@@ -373,8 +375,8 @@ test('verified public profile shows dig deeper source panels', function () {
 
         $response->assertOk();
         $response->assertSee('Referral Toolbar');
-        $response->assertSee('Share this profile with your referral code');
-        $response->assertSee("Take a look at Rowan North's U9itus profile. If you join or claim the page, please use my referral link.");
+        $response->assertSee('Share this profile without leaving the page');
+        $response->assertSee("Take a look at Rowan North's U9itus profile");
         $response->assertSee(route('politician.public.show', [
             'slug' => $unverifiedPolitician->slug,
             'ref' => 'VOTERX99',
@@ -399,7 +401,47 @@ test('verified public profile shows dig deeper source panels', function () {
 
         $verifiedResponse->assertOk();
         $verifiedResponse->assertDontSee('Referral Toolbar');
-        $verifiedResponse->assertDontSee('Share this profile with your referral code');
+        $verifiedResponse->assertDontSee('Share this profile without leaving the page');
+    });
+
+    test('referral toolbar reflects admin-overridden profile share message', function () {
+        Role::firstOrCreate(['name' => 'voter', 'guard_name' => 'web']);
+
+        $user = User::factory()->create(['user_type' => 'voter']);
+        $user->assignRole('voter');
+        skipOnboarding($user, 'voter');
+        Voter::factory()->create([
+            'user_id'       => $user->id,
+            'referral_code' => 'TPLTEST1',
+            'is_verified'   => true,
+            'is_active'     => true,
+        ]);
+
+        EmailTemplate::updateOrCreate(['key' => 'referral_profile_share'], [
+            'name'                => 'Referral: Public Profile Share',
+            'category'            => 'referral',
+            'subject_override'    => 'Admin custom profile title',
+            'body_override'       => 'Admin custom profile share message.',
+            'available_variables' => ['{{politician.name}}', '{{referral_link}}'],
+            'is_active'           => true,
+        ]);
+
+        $politician = Politician::factory()->create([
+            'full_name'           => 'Wren Eastman',
+            'slug'                => 'wren-eastman',
+            'page_published'      => true,
+            'is_active'           => true,
+            'verification_status' => 'pending',
+        ]);
+
+        $response = $this->actingAs($user)
+            ->get(route('politician.public.show', ['slug' => $politician->slug]));
+
+        $response->assertOk();
+        $response->assertSee('Referral Toolbar');
+        $response->assertSee('Admin custom profile share message.');
+        $response->assertSee('mailto:?subject=Admin%20custom%20profile%20title', false);
+        $response->assertSee('https://twitter.com/intent/tweet?text=Admin%20custom%20profile%20share%20message.', false);
     });
 
 test('dig deeper shows federal-only message when fec is enabled for non-federal office', function () {

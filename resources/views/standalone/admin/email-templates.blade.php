@@ -15,9 +15,13 @@
     {{-- Header description --}}
     <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl px-5 py-4">
         <p class="text-sm text-slate-400 leading-relaxed">
-            Manage all transactional email notifications sent by the platform. You can customise the
-            subject line, preview text, and optionally replace the entire HTML body for any notification.
-            Notifications can also be disabled individually.
+            Manage all transactional email notifications and share messaging used across the platform.
+            You can customise the subject / share title, preview text, and optionally replace the
+            message body for any entry. Transactional emails can also be disabled individually.
+            <span class="text-slate-500">
+                Referral / Sharing entries control the default copy that appears in share toolbars
+                and referral pages — they are plain-text messages, not HTML email bodies.
+            </span>
         </p>
     </div>
 
@@ -31,6 +35,7 @@
             'payout'   => 'Payouts',
             'account'  => 'Account / Auth',
             'admin'    => 'Admin Alerts',
+            'referral' => 'Referral / Sharing',
         ];
         $categoryLabel = $labelMap[$category] ?? ucfirst($category);
     @endphp
@@ -70,9 +75,16 @@
                         </td>
                         <td class="px-5 py-3">
                             @if($template->hasBodyOverride())
-                                <span class="text-xs px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">Custom HTML</span>
+                                <span class="text-xs px-2 py-0.5 rounded-full
+                                    {{ $template->category === 'referral'
+                                        ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                                        : 'bg-blue-500/10 text-blue-400 border border-blue-500/20' }}">
+                                    {{ $template->category === 'referral' ? 'Custom Text' : 'Custom HTML' }}
+                                </span>
                             @else
-                                <span class="text-xs text-slate-500 italic">Blade template</span>
+                                <span class="text-xs text-slate-500 italic">
+                                    {{ $template->category === 'referral' ? 'Default text' : 'Blade template' }}
+                                </span>
                             @endif
                         </td>
                         <td class="px-5 py-3">

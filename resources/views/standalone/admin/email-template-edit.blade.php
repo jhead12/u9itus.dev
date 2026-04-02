@@ -44,11 +44,17 @@
 
         {{-- Subject override --}}
         <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl px-5 py-5 space-y-4">
-            <h3 class="text-sm font-semibold text-white">Subject Line</h3>
+            <h3 class="text-sm font-semibold text-white">
+                {{ $template->category === 'referral' ? 'Share Title' : 'Subject Line' }}
+            </h3>
 
             <div>
                 <label for="subject_override" class="block text-xs font-medium text-slate-400 mb-1.5">
-                    Custom Subject <span class="text-slate-600">(leave blank to use the default built into the code)</span>
+                    @if($template->category === 'referral')
+                        Custom Share Title <span class="text-slate-600">(used as the email subject and native-share title — leave blank for the built-in default)</span>
+                    @else
+                        Custom Subject <span class="text-slate-600">(leave blank to use the default built into the code)</span>
+                    @endif
                 </label>
                 <input type="text"
                        id="subject_override"
@@ -63,7 +69,11 @@
 
             <div>
                 <label for="preview_text" class="block text-xs font-medium text-slate-400 mb-1.5">
-                    Preview Text <span class="text-slate-600">(the short snippet shown below the subject in email clients — optional)</span>
+                    @if($template->category === 'referral')
+                        Admin Notes <span class="text-slate-600">(internal note for your reference — not shown to users)</span>
+                    @else
+                        Preview Text <span class="text-slate-600">(the short snippet shown below the subject in email clients — optional)</span>
+                    @endif
                 </label>
                 <input type="text"
                        id="preview_text"
@@ -78,14 +88,27 @@
         <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl px-5 py-5 space-y-4">
             <div class="flex items-start justify-between">
                 <div>
-                    <h3 class="text-sm font-semibold text-white">HTML Body Override</h3>
-                    <p class="text-xs text-slate-500 mt-1">
-                        Paste a complete HTML email body to replace the default Blade template.
-                        Leave blank to use the built-in responsive template.
-                    </p>
+                    @if($template->category === 'referral')
+                        <h3 class="text-sm font-semibold text-white">Share Message</h3>
+                        <p class="text-xs text-slate-500 mt-1">
+                            Plain-text message shown in share toolbars, email drafts, and social share links.
+                            Leave blank to restore the platform default. Supports the merge variables listed below.
+                        </p>
+                    @else
+                        <h3 class="text-sm font-semibold text-white">HTML Body Override</h3>
+                        <p class="text-xs text-slate-500 mt-1">
+                            Paste a complete HTML email body to replace the default Blade template.
+                            Leave blank to use the built-in responsive template.
+                        </p>
+                    @endif
                 </div>
                 @if($template->hasBodyOverride())
-                <span class="shrink-0 text-xs px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">Custom HTML active</span>
+                <span class="shrink-0 text-xs px-2 py-0.5 rounded-full
+                    {{ $template->category === 'referral'
+                        ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                        : 'bg-blue-500/10 text-blue-400 border border-blue-500/20' }}">
+                    {{ $template->category === 'referral' ? 'Custom text active' : 'Custom HTML active' }}
+                </span>
                 @endif
             </div>
 
@@ -108,16 +131,21 @@
             <textarea id="body_override"
                       name="body_override"
                       rows="18"
-                      placeholder="Paste full HTML here, or leave blank to use the default Blade template..."
-                      class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2.5 text-xs text-slate-300 placeholder-slate-600 font-mono focus:outline-none focus:border-emerald-500/60 transition resize-y">{{ old('body_override', $template->body_override) }}</textarea>
+                      placeholder="{{ $template->category === 'referral' ? 'Enter the share message text...' : 'Paste full HTML here, or leave blank to use the default Blade template...' }}"
+                      class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2.5 {{ $template->category === 'referral' ? 'text-sm' : 'text-xs font-mono' }} text-slate-300 placeholder-slate-600 focus:outline-none focus:border-emerald-500/60 transition resize-y">{{ old('body_override', $template->body_override) }}</textarea>
         </div>
 
         {{-- Active toggle --}}
         <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl px-5 py-4">
             <label class="flex items-center justify-between cursor-pointer">
                 <div>
-                    <p class="text-sm font-medium text-white">Send this notification</p>
-                    <p class="text-xs text-slate-500 mt-0.5">When disabled, this email will be silently skipped even when the triggering event occurs.</p>
+                    @if($template->category === 'referral')
+                        <p class="text-sm font-medium text-white">Use custom share message</p>
+                        <p class="text-xs text-slate-500 mt-0.5">When disabled, share toolbars and referral pages will fall back to the built-in default text.</p>
+                    @else
+                        <p class="text-sm font-medium text-white">Send this notification</p>
+                        <p class="text-xs text-slate-500 mt-0.5">When disabled, this email will be silently skipped even when the triggering event occurs.</p>
+                    @endif
                 </div>
                 <div class="relative ml-4">
                     <input type="hidden" name="is_active" value="0" />

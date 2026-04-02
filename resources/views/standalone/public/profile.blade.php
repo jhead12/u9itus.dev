@@ -74,14 +74,31 @@
         $referralPoliticianSignupUrl = $showReferralShareModal
             ? route('register.politician', ['ref' => $viewerReferralCode])
             : null;
-        $shareSubject = $showReferralShareModal
-            ? "Take a look at {$politician->full_name} on U9itus"
+        // Load admin-editable share copy from the templates table (with fallbacks).
+        $profileShareTpl = $showReferralShareModal
+            ? \App\Models\EmailTemplate::forKey('referral_profile_share')
             : null;
-        $shareBody = $showReferralShareModal
-            ? "I came across {$politician->full_name}'s U9itus profile and thought you should see it.\n\nIf you decide to join or claim the page, please use my referral link:\n{$referralProfileShareUrl}\n\nDirect politician signup:\n{$referralPoliticianSignupUrl}"
+        $tplBindings = [
+            '{{politician.name}}' => $politician->full_name,
+            '{{referral_code}}'   => $viewerReferralCode ?? '',
+            '{{referral_link}}'   => $referralProfileShareUrl ?? '',
+            '{{platform_name}}'   => config('app.name', 'U9itus'),
+        ];
+        $shareSubject = $showReferralShareModal
+            ? ($profileShareTpl && $profileShareTpl->is_active && $profileShareTpl->subject_override
+                ? $profileShareTpl->effectiveShareTitle("Take a look at {$politician->full_name} on U9itus")
+                : "Take a look at {$politician->full_name} on U9itus")
             : null;
         $socialShareMessage = $showReferralShareModal
-            ? "Take a look at {$politician->full_name}'s U9itus profile. If you join or claim the page, please use my referral link."
+            ? ($profileShareTpl && $profileShareTpl->is_active && $profileShareTpl->body_override
+                ? $profileShareTpl->effectiveShareMessage(
+                    "Take a look at {$politician->full_name}'s U9itus profile. If you join or claim the page, please use my referral link.",
+                    $tplBindings
+                  )
+                : "Take a look at {$politician->full_name}'s U9itus profile. If you join or claim the page, please use my referral link.")
+            : null;
+        $shareBody = $showReferralShareModal
+            ? "{$socialShareMessage}\n\nProfile:\n{$referralProfileShareUrl}\n\nDirect politician signup:\n{$referralPoliticianSignupUrl}"
             : null;
         $emailShareUrl = $showReferralShareModal
             ? 'mailto:?subject=' . rawurlencode($shareSubject) . '&body=' . rawurlencode($shareBody)
