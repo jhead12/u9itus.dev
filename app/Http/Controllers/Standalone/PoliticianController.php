@@ -575,7 +575,7 @@ class PoliticianController extends Controller
         $rawStatus = (string) ($campaign->getRawOriginal('status') ?? '');
         abort_unless(
             $politician && (int) $campaign->politician_id === (int) $politician->id
-            && in_array($rawStatus, ['draft', 'paused', 'scheduled'], true),
+            && in_array($rawStatus, ['draft', 'paused', 'scheduled', 'cancelled'], true),
             403
         );
 
@@ -607,7 +607,7 @@ class PoliticianController extends Controller
         $rawStatus = (string) ($campaign->getRawOriginal('status') ?? '');
         abort_unless(
             $politician && (int) $campaign->politician_id === (int) $politician->id
-            && in_array($rawStatus, ['draft', 'paused', 'scheduled'], true),
+            && in_array($rawStatus, ['draft', 'paused', 'scheduled', 'cancelled'], true),
             403
         );
 
@@ -725,9 +725,9 @@ class PoliticianController extends Controller
         );
 
         abort_unless(
-            ($campaign->status?->value ?? $campaign->status) === 'draft',
+            in_array(($campaign->status?->value ?? $campaign->status), ['draft', 'cancelled'], true),
             422,
-            'Only draft campaigns can be submitted for review.'
+            'Only draft or cancelled campaigns can be submitted for review.'
         );
 
         abort_unless(

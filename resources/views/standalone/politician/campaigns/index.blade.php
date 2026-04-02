@@ -150,7 +150,7 @@
                            class="flex-1 text-center text-xs font-medium text-slate-300 hover:text-white bg-slate-700/50 hover:bg-slate-700 rounded-lg py-1.5 transition">
                             View
                         </a>
-                        @if(in_array($campaign->status?->value ?? $campaign->status, ['draft', 'paused']))
+                        @if(in_array($campaign->status?->value ?? $campaign->status, ['draft', 'paused', 'cancelled']))
                         <a href="{{ route('politician.campaigns.edit', $campaign) }}"
                            class="flex-1 text-center text-xs font-medium text-slate-300 hover:text-white bg-slate-700/50 hover:bg-slate-700 rounded-lg py-1.5 transition">
                             Edit

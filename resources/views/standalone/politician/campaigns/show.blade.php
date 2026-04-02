@@ -25,7 +25,7 @@
     @endif
 
     {{-- Proactive low-balance notice for draft campaigns --}}
-    @php $isInsufficientBalance = ($status === 'draft') && ($creditBalance < ($campaign->total_budget ?? 0)); @endphp
+    @php $isInsufficientBalance = in_array($status, ['draft', 'cancelled'], true) && ($creditBalance < ($campaign->total_budget ?? 0)); @endphp
     @if($isInsufficientBalance && !$errors->has('credits'))
     <div class="bg-amber-500/10 border border-amber-500/30 rounded-xl px-5 py-4 flex items-start gap-3">
         <svg class="w-5 h-5 text-amber-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
@@ -42,14 +42,14 @@
         <a href="{{ route('politician.campaigns.index') }}" class="text-sm text-slate-400 hover:text-white transition">← Campaigns</a>
         <div class="flex-1"></div>
 
-        @if(in_array($status, ['draft', 'paused', 'scheduled']))
+        @if(in_array($status, ['draft', 'paused', 'scheduled', 'cancelled']))
             <a href="{{ route('politician.campaigns.edit', $campaign) }}"
                class="inline-flex items-center gap-1.5 text-sm font-medium text-slate-300 hover:text-white bg-slate-700/50 hover:bg-slate-700 rounded-lg px-4 py-2 transition">
                 Edit
             </a>
         @endif
 
-        @if($status === 'draft' && ($campaign->media_url || $campaign->live_feed_url))
+        @if(in_array($status, ['draft', 'cancelled'], true) && ($campaign->media_url || $campaign->live_feed_url))
             @if($isInsufficientBalance)
                 {{-- Disabled submit — balance too low --}}
                 <a href="{{ route('politician.billing') }}"
