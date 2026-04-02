@@ -110,19 +110,65 @@
             {{-- Video fields --}}
             <div id="videoFields" class="{{ $editType === 'live_feed' ? 'hidden' : '' }} space-y-4">
                 <div>
-                    <label class="block text-sm font-medium text-slate-300 mb-1.5">Video URL <span class="text-red-400">*</span></label>
+                    <label class="block text-sm font-medium text-slate-300 mb-2.5">Media Type</label>
+                    <div class="grid grid-cols-2 gap-3">
+                        <label class="relative flex items-center group cursor-pointer">
+                            <input type="radio" name="media_type" value="youtube" {{ old('media_type', $campaign->media_type) === 'youtube' ? 'checked' : '' }}
+                                class="sr-only peer">
+                            <div class="flex-1 bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-3 peer-checked:border-emerald-500 peer-checked:bg-emerald-500/10 transition">
+                                <p class="text-sm font-medium text-slate-200">🎬 YouTube</p>
+                                <p class="text-xs text-slate-500 mt-0.5">YouTube video link</p>
+                            </div>
+                        </label>
+                        <label class="relative flex items-center group cursor-pointer">
+                            <input type="radio" name="media_type" value="vimeo" {{ old('media_type', $campaign->media_type) === 'vimeo' ? 'checked' : '' }}
+                                class="sr-only peer">
+                            <div class="flex-1 bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-3 peer-checked:border-emerald-500 peer-checked:bg-emerald-500/10 transition">
+                                <p class="text-sm font-medium text-slate-200">🎥 Vimeo</p>
+                                <p class="text-xs text-slate-500 mt-0.5">Vimeo video link</p>
+                            </div>
+                        </label>
+                        <label class="relative flex items-center group cursor-pointer">
+                            <input type="radio" name="media_type" value="direct_file" {{ old('media_type', $campaign->media_type) === 'direct_file' ? 'checked' : '' }}
+                                class="sr-only peer">
+                            <div class="flex-1 bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-3 peer-checked:border-emerald-500 peer-checked:bg-emerald-500/10 transition">
+                                <p class="text-sm font-medium text-slate-200">📁 Direct File</p>
+                                <p class="text-xs text-slate-500 mt-0.5">MP4 or WebM URL</p>
+                            </div>
+                        </label>
+                        <label class="relative flex items-center group cursor-pointer">
+                            <input type="radio" name="media_type" value="s3_cloudfront" {{ old('media_type', $campaign->media_type) === 's3_cloudfront' ? 'checked' : '' }}
+                                class="sr-only peer">
+                            <div class="flex-1 bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-3 peer-checked:border-emerald-500 peer-checked:bg-emerald-500/10 transition">
+                                <p class="text-sm font-medium text-slate-200">☁️ S3/CloudFront</p>
+                                <p class="text-xs text-slate-500 mt-0.5">S3 CloudFront URL</p>
+                            </div>
+                        </label>
+                        <label class="relative flex items-center group cursor-pointer">
+                            <input type="radio" name="media_type" value="hls_stream" {{ old('media_type', $campaign->media_type) === 'hls_stream' ? 'checked' : '' }}
+                                class="sr-only peer">
+                            <div class="flex-1 bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-3 peer-checked:border-emerald-500 peer-checked:bg-emerald-500/10 transition">
+                                <p class="text-sm font-medium text-slate-200">📺 HLS Stream</p>
+                                <p class="text-xs text-slate-500 mt-0.5">.m3u8 live or VOD playlist</p>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <div id="mediaUrlField">
+                    <label id="mediaUrlLabel" class="block text-sm font-medium text-slate-300 mb-1.5">Video URL <span class="text-red-400">*</span></label>
                     <input type="url" name="media_url" id="videoUrlInput" value="{{ old('media_url', $campaign->media_url) }}"
                         class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition"
                         placeholder="https://youtube.com/watch?v=... or https://example.com/video.mp4" />
-                    <p class="text-xs text-slate-500 mt-1">YouTube URL or direct link to MP4/WebM video</p>
+                    <p id="mediaUrlHelp" class="text-xs text-slate-500 mt-1">YouTube URL or direct link to MP4/WebM video</p>
                     @error('media_url')<p class="text-xs text-red-400 mt-1">{{ $message }}</p>@enderror
                 </div>
 
-                <div>
-                    <label class="block text-sm font-medium text-slate-300 mb-1.5">Upload New Video File</label>
+                <div id="uploadVideoField">
+                    <label id="uploadVideoLabel" class="block text-sm font-medium text-slate-300 mb-1.5">Upload New Video File</label>
                     <input type="file" name="video" id="videoFileInput" accept="{{ $videoAcceptTypes }}"
                         class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm file:mr-3 file:rounded file:border-0 file:bg-emerald-500 file:px-3 file:py-1.5 file:text-slate-900 file:font-medium hover:file:bg-emerald-400" />
-                    <p class="text-xs text-slate-500 mt-1">Optional alternative to URL. Uploading a file replaces the current video URL.</p>
+                    <p id="uploadVideoHelp" class="text-xs text-slate-500 mt-1">Optional alternative to URL. Uploading a file replaces the current video URL.</p>
                     @error('video')<p class="text-xs text-red-400 mt-1">{{ $message }}</p>@enderror
                 </div>
                 
@@ -213,53 +259,6 @@
             <div>
                 <h2 class="text-sm font-semibold text-slate-200 mb-1">Virtual Town Hall Content <span class="text-slate-500 font-normal text-xs">(optional)</span></h2>
                 <p class="text-xs text-slate-500 mt-1">Add topics, Q&A pairs, engagement surveys, and media customization to create an interactive town hall experience.</p>
-            </div>
-
-            {{-- Media Type --}}
-            <div class="border-t border-slate-700/50 pt-6">
-                <label class="block text-sm font-medium text-slate-300 mb-2.5">Media Type</label>
-                <div class="grid grid-cols-2 gap-3">
-                    <label class="relative flex items-center group cursor-pointer">
-                        <input type="radio" name="media_type" value="youtube" {{ old('media_type', $campaign->media_type) === 'youtube' ? 'checked' : '' }}
-                            class="sr-only peer">
-                        <div class="flex-1 bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-3 peer-checked:border-emerald-500 peer-checked:bg-emerald-500/10 transition">
-                            <p class="text-sm font-medium text-slate-200">🎬 YouTube</p>
-                            <p class="text-xs text-slate-500 mt-0.5">YouTube video link</p>
-                        </div>
-                    </label>
-                    <label class="relative flex items-center group cursor-pointer">
-                        <input type="radio" name="media_type" value="vimeo" {{ old('media_type', $campaign->media_type) === 'vimeo' ? 'checked' : '' }}
-                            class="sr-only peer">
-                        <div class="flex-1 bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-3 peer-checked:border-emerald-500 peer-checked:bg-emerald-500/10 transition">
-                            <p class="text-sm font-medium text-slate-200">🎥 Vimeo</p>
-                            <p class="text-xs text-slate-500 mt-0.5">Vimeo video link</p>
-                        </div>
-                    </label>
-                    <label class="relative flex items-center group cursor-pointer">
-                        <input type="radio" name="media_type" value="direct_file" {{ old('media_type', $campaign->media_type) === 'direct_file' ? 'checked' : '' }}
-                            class="sr-only peer">
-                        <div class="flex-1 bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-3 peer-checked:border-emerald-500 peer-checked:bg-emerald-500/10 transition">
-                            <p class="text-sm font-medium text-slate-200">📁 Direct File</p>
-                            <p class="text-xs text-slate-500 mt-0.5">MP4 or WebM URL</p>
-                        </div>
-                    </label>
-                    <label class="relative flex items-center group cursor-pointer">
-                        <input type="radio" name="media_type" value="s3_cloudfront" {{ old('media_type', $campaign->media_type) === 's3_cloudfront' ? 'checked' : '' }}
-                            class="sr-only peer">
-                        <div class="flex-1 bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-3 peer-checked:border-emerald-500 peer-checked:bg-emerald-500/10 transition">
-                            <p class="text-sm font-medium text-slate-200">☁️ S3/CloudFront</p>
-                            <p class="text-xs text-slate-500 mt-0.5">S3 CloudFront URL</p>
-                        </div>
-                    </label>
-                    <label class="relative flex items-center group cursor-pointer">
-                        <input type="radio" name="media_type" value="hls_stream" {{ old('media_type', $campaign->media_type) === 'hls_stream' ? 'checked' : '' }}
-                            class="sr-only peer">
-                        <div class="flex-1 bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-3 peer-checked:border-emerald-500 peer-checked:bg-emerald-500/10 transition">
-                            <p class="text-sm font-medium text-slate-200">📺 HLS Stream</p>
-                            <p class="text-xs text-slate-500 mt-0.5">.m3u8 live or VOD playlist</p>
-                        </div>
-                    </label>
-                </div>
             </div>
 
             {{-- Topics Multi-Select --}}
@@ -601,6 +600,7 @@
         const isLive = this.value === 'live_feed';
         document.getElementById('liveFeedFields').classList.toggle('hidden', !isLive);
         document.getElementById('videoFields').classList.toggle('hidden', isLive);
+        syncMediaSourceUI();
     });
     // Repeat Viewing toggle
     const allowRepeatEdit = document.getElementById('allowRepeatViewsEdit');
@@ -765,6 +765,18 @@
     // Initialize displays
     updateStatesDisplay();
     updateCitiesDisplay();
+
+    const mediaTypeInputs = Array.from(document.querySelectorAll('input[name="media_type"]'));
+    const mediaUrlField = document.getElementById('mediaUrlField');
+    const mediaUrlLabel = document.getElementById('mediaUrlLabel');
+    const mediaUrlHelp = document.getElementById('mediaUrlHelp');
+    const uploadVideoField = document.getElementById('uploadVideoField');
+    const uploadVideoLabel = document.getElementById('uploadVideoLabel');
+    const uploadVideoHelp = document.getElementById('uploadVideoHelp');
+
+    function getSelectedMediaType() {
+        return mediaTypeInputs.find((input) => input.checked)?.value || 'youtube';
+    }
     
     // ── Video Preview Functionality ──────────────────────────────────────
     let ytPreviewPlayer = null;
@@ -777,6 +789,17 @@
         const nativeSource = document.getElementById('nativePreviewSource');
         const placeholder = document.getElementById('previewPlaceholder');
         const videoFileInput = document.getElementById('videoFileInput');
+
+        function resetVideoPreview() {
+            if (ytPreviewPlayer) {
+                ytPreviewPlayer.destroy();
+                ytPreviewPlayer = null;
+            }
+
+            ytContainer.classList.add('hidden');
+            nativePlayer.classList.add('hidden');
+            placeholder.classList.remove('hidden');
+        }
 
         // Extract YouTube video ID from various URL formats
         function extractYouTubeId(url) {
@@ -841,6 +864,87 @@
             nativePlayer.load();
         }
 
+        function syncVideoPreview() {
+            const mediaType = getSelectedMediaType();
+            const isDirectFile = mediaType === 'direct_file';
+            const url = videoUrlInput.value.trim();
+            const file = videoFileInput.files && videoFileInput.files[0];
+
+            if (isDirectFile && file) {
+                previewSection.classList.remove('hidden');
+                initNativePreview(URL.createObjectURL(file));
+                return;
+            }
+
+            if (!url) {
+                previewSection.classList.add('hidden');
+                return;
+            }
+
+            previewSection.classList.remove('hidden');
+
+            if (mediaType === 'youtube') {
+                const youtubeId = extractYouTubeId(url);
+                if (youtubeId) {
+                    initYouTubePreview(youtubeId);
+                } else {
+                    resetVideoPreview();
+                }
+                return;
+            }
+
+            if (url.startsWith('http')) {
+                initNativePreview(url);
+            } else {
+                resetVideoPreview();
+            }
+        }
+
+        function syncMediaSourceUI() {
+            if (document.getElementById('campaignType').value === 'live_feed') {
+                return;
+            }
+
+            const mediaType = getSelectedMediaType();
+            const isDirectFile = mediaType === 'direct_file';
+
+            mediaUrlField.classList.remove('hidden');
+            uploadVideoField.classList.toggle('hidden', !isDirectFile);
+            videoUrlInput.disabled = false;
+            videoFileInput.disabled = !isDirectFile;
+
+            if (mediaType === 'youtube') {
+                mediaUrlLabel.innerHTML = 'YouTube URL <span class="text-red-400">*</span>';
+                mediaUrlInput.placeholder = 'https://youtube.com/watch?v=...';
+                mediaUrlHelp.textContent = 'Paste a YouTube watch or share URL.';
+            } else if (mediaType === 'vimeo') {
+                mediaUrlLabel.innerHTML = 'Vimeo URL <span class="text-red-400">*</span>';
+                mediaUrlInput.placeholder = 'https://vimeo.com/...';
+                mediaUrlHelp.textContent = 'Paste a Vimeo video URL.';
+            } else if (mediaType === 'hls_stream') {
+                mediaUrlLabel.innerHTML = 'HLS Playlist URL <span class="text-red-400">*</span>';
+                mediaUrlInput.placeholder = 'https://example.com/stream.m3u8';
+                mediaUrlHelp.textContent = 'Paste an HLS playlist URL ending in .m3u8.';
+            } else if (mediaType === 's3_cloudfront') {
+                mediaUrlLabel.innerHTML = 'CloudFront or S3 URL <span class="text-red-400">*</span>';
+                mediaUrlInput.placeholder = 'https://cdn.example.com/video.mp4';
+                mediaUrlHelp.textContent = 'Paste a public CloudFront or S3 asset URL.';
+            } else {
+                mediaUrlLabel.innerHTML = 'Direct File URL <span class="text-slate-500 font-normal">(optional)</span>';
+                mediaUrlInput.placeholder = 'https://example.com/video.mp4';
+                mediaUrlHelp.textContent = 'Optional direct file URL. Or upload a file below.';
+            }
+
+            uploadVideoLabel.textContent = 'Upload New Video File';
+            uploadVideoHelp.textContent = 'Choose MP4, WebM, or MOV on iOS. Upload takes priority over URL.';
+
+            if (!isDirectFile && videoFileInput.files && videoFileInput.files.length > 0) {
+                videoFileInput.value = '';
+            }
+
+            syncVideoPreview();
+        }
+
         if (videoFileInput) {
             videoFileInput.addEventListener('change', () => {
                 const file = videoFileInput.files && videoFileInput.files[0];
@@ -848,33 +952,25 @@
                     return;
                 }
 
-                previewSection.classList.remove('hidden');
-                initNativePreview(URL.createObjectURL(file));
+                if (videoUrlInput) {
+                    videoUrlInput.value = '';
+                }
+
+                syncVideoPreview();
             });
         }
 
         videoUrlInput.addEventListener('input', () => {
             const url = videoUrlInput.value.trim();
-            
-            if (!url) {
-                previewSection.classList.add('hidden');
-                return;
+
+            if (url && videoFileInput && videoFileInput.files && videoFileInput.files.length > 0) {
+                videoFileInput.value = '';
             }
             
-            previewSection.classList.remove('hidden');
-            const youtubeId = extractYouTubeId(url);
-            
-            if (youtubeId) {
-                initYouTubePreview(youtubeId);
-            } else if (url.startsWith('http')) {
-                initNativePreview(url);
-            } else {
-                if (ytPreviewPlayer) ytPreviewPlayer.destroy();
-                ytContainer.classList.add('hidden');
-                nativePlayer.classList.add('hidden');
-                placeholder.classList.remove('hidden');
-            }
+            syncVideoPreview();
         });
+
+        mediaTypeInputs.forEach((input) => input.addEventListener('change', syncMediaSourceUI));
 
         // Test preview button
         window.testVideoPreview = function() {
@@ -887,9 +983,7 @@
 
         // Trigger preview on page load if URL present
         window.addEventListener('DOMContentLoaded', () => {
-            if (videoUrlInput.value) {
-                videoUrlInput.dispatchEvent(new Event('input'));
-            }
+            syncMediaSourceUI();
         });
 
         // ── Sprint 3: Q&A & Survey Management ──────────────────────────────

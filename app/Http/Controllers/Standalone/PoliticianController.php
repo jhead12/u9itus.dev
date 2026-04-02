@@ -40,6 +40,28 @@ use Throwable;
  */
 class PoliticianController extends Controller
 {
+    private function inferMediaTypeFromUrl(?string $url, ?string $fallback = null): ?string
+    {
+        $value = trim((string) ($url ?? ''));
+        if ($value === '') {
+            return $fallback;
+        }
+
+        if (preg_match('/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/))/i', $value) === 1) {
+            return 'youtube';
+        }
+
+        if (preg_match('/vimeo\.com\/(?:video\/)?\d+/i', $value) === 1) {
+            return 'vimeo';
+        }
+
+        if (preg_match('/\.m3u8(\?.*)?$/i', $value) === 1) {
+            return 'hls_stream';
+        }
+
+        return $fallback ?? 'direct_file';
+    }
+
     private function isIosUserAgent(?string $userAgent): bool
     {
         $ua = $userAgent ?? '';
@@ -297,6 +319,18 @@ class PoliticianController extends Controller
         $data = $request->validated();
         $uploadedVideo = $request->file('video');
         unset($data['video']);
+
+        if ($uploadedVideo) {
+            // File uploads take precedence over URL input to avoid mixed-source state.
+            unset($data['media_url']);
+            $data['media_type'] = 'direct_file';
+        } elseif (!empty($data['media_url'])) {
+            $data['media_type'] = $this->inferMediaTypeFromUrl(
+                $data['media_url'],
+                $data['media_type'] ?? 'direct_file'
+            );
+        }
+
         $data['politician_id'] = $politician->id;
         $data['status']        = 'draft';
         $data['revenue_per_view'] = (float) PlatformSettingsService::get('revenue_per_view', null, (float) config('u9itus.revenue_per_view', 1.00));
@@ -337,7 +371,10 @@ class PoliticianController extends Controller
                     ->withErrors(['video' => 'Campaign created, but video upload failed. Please check storage settings and try again.']);
             }
 
-            $campaign->update(['media_url' => $mediaUrl]);
+            $campaign->update([
+                'media_url' => $mediaUrl,
+                'media_type' => 'direct_file',
+            ]);
         }
 
         return redirect()
@@ -517,6 +554,18 @@ class PoliticianController extends Controller
         $validated = $request->validated();
         $uploadedVideo = $request->file('video');
         unset($validated['video']);
+
+        if ($uploadedVideo) {
+            // File uploads take precedence over URL input to avoid mixed-source state.
+            unset($validated['media_url']);
+            $validated['media_type'] = 'direct_file';
+        } elseif (!empty($validated['media_url'])) {
+            $validated['media_type'] = $this->inferMediaTypeFromUrl(
+                $validated['media_url'],
+                $validated['media_type'] ?? 'direct_file'
+            );
+        }
+
         $revenuePerView = (float) PlatformSettingsService::get('revenue_per_view', null, (float) config('u9itus.revenue_per_view', 1.00));
         // Always recompute total_budget from views × rate (never trust form input)
         $validated['total_budget'] = round(
@@ -554,7 +603,10 @@ class PoliticianController extends Controller
                     ->withErrors(['video' => 'Campaign updated, but video upload failed. Please check storage settings and try again.']);
             }
 
-            $campaign->update(['media_url' => $mediaUrl]);
+            $campaign->update([
+                'media_url' => $mediaUrl,
+                'media_type' => 'direct_file',
+            ]);
         }
 
         return redirect()
