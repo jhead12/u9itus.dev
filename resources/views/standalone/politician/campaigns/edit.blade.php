@@ -238,20 +238,6 @@
                         This is how voters will see your video. Test it to ensure proper playback.
                     </p>
                 </div>
-                <div>
-                    <label class="block text-sm font-medium text-slate-300 mb-1.5">Video Duration (seconds)</label>
-                    @php
-                        $minVideoDuration = max(1, (int) \App\Services\PlatformSettingsService::get('min_video_duration', null, (int) config('u9itus.min_video_duration', 10)));
-                        $maxVideoDuration = max($minVideoDuration, (int) \App\Services\PlatformSettingsService::get('max_video_duration', null, (int) config('u9itus.max_video_duration', 180)));
-                    @endphp
-                    <input type="number" id="mediaDurationInput" name="media_duration" value="{{ old('media_duration', $campaign->media_duration) }}"
-                        min="{{ $minVideoDuration }}"
-                        max="{{ $maxVideoDuration }}"
-                        placeholder="Auto-detected after file selection"
-                        class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition" />
-                    <p class="text-xs text-slate-500 mt-1">Optional. Auto-detected from uploaded video metadata when available ({{ $minVideoDuration }}–{{ $maxVideoDuration }}s).</p>
-                    @error('media_duration')<p class="text-xs text-red-400 mt-1">{{ $message }}</p>@enderror
-                </div>
             </div>
 
             {{-- Live feed fields --}}
@@ -869,7 +855,6 @@
         const nativeSource = document.getElementById('nativePreviewSource');
         const placeholder = document.getElementById('previewPlaceholder');
         const videoFileInput = document.getElementById('videoFileInput');
-        const mediaDurationInput = document.getElementById('mediaDurationInput');
 
         function resetVideoPreview() {
             if (ytPreviewPlayer) {
@@ -1035,23 +1020,6 @@
                 const file = videoFileInput.files && videoFileInput.files[0];
                 if (!file) {
                     return;
-                }
-
-                if (mediaDurationInput) {
-                    const probeVideo = document.createElement('video');
-                    const probeUrl = URL.createObjectURL(file);
-                    probeVideo.preload = 'metadata';
-                    probeVideo.onloadedmetadata = () => {
-                        const detected = Math.round(probeVideo.duration || 0);
-                        if (Number.isFinite(detected) && detected > 0) {
-                            mediaDurationInput.value = String(detected);
-                        }
-                        URL.revokeObjectURL(probeUrl);
-                    };
-                    probeVideo.onerror = () => {
-                        URL.revokeObjectURL(probeUrl);
-                    };
-                    probeVideo.src = probeUrl;
                 }
 
                 if (videoUrlInput) {

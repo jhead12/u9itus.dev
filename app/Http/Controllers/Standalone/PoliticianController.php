@@ -370,12 +370,6 @@ class PoliticianController extends Controller
         // Always recompute total_budget from views × rate (never trust form input)
         $data['total_budget'] = round((float)($data['total_views_requested'] ?? 0) * $data['revenue_per_view'], 2);
 
-        // Set default media_duration if not provided (will be auto-detected from video later)
-        if (empty($data['media_duration']) && $data['campaign_type'] === 'video') {
-            [$minDuration] = $this->videoDurationBounds();
-            $data['media_duration'] = $minDuration;
-        }
-
         $campaign = PoliticalCampaign::create($data);
 
         // Handle Sprint 3 - Topic syncing and Q&A parsing
@@ -428,12 +422,6 @@ class PoliticianController extends Controller
         $data['status'] = 'draft';
         $data['revenue_per_view'] = (float) PlatformSettingsService::get('revenue_per_view', null, (float) config('u9itus.revenue_per_view', 1.00));
         $data['voter_payout_per_view'] = (float) PlatformSettingsService::get('viewer_payout_per_view', null, 0.25);
-        
-        // Set default media_duration if not provided
-        if (empty($data['media_duration']) && ($data['campaign_type'] ?? '') === 'video') {
-            [$minDuration] = $this->videoDurationBounds();
-            $data['media_duration'] = $minDuration;
-        }
         
         // Ensure we have at least a title for the draft
         if (!isset($data['title']) || empty($data['title'])) {
