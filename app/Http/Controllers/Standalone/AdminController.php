@@ -30,6 +30,7 @@ use App\Notifications\CampaignStatusChangedNotification;
 use App\Notifications\SystemAnnouncementNotification;
 use App\Services\AdminTwoFactorService;
 use App\Services\CampaignBillingService;
+use App\Services\PoliticalPaymentService;
 use App\Services\CampaignQandAService;
 use App\Services\CampaignStatusNotifier;
 use App\Services\PlatformSettingsService;
@@ -354,6 +355,9 @@ class AdminController extends Controller
             'approval_status' => ApprovalStatus::Approved,
             'status'          => $newStatus,
         ]);
+
+        // Ensure approved campaigns are funded before entering voter inventory.
+        app(PoliticalPaymentService::class)->chargeCampaign($campaign);
 
         CampaignAuditLog::create([
             'campaign_id' => $campaign->id,

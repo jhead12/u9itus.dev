@@ -88,12 +88,14 @@ class PoliticalPaymentService
         }
 
         // Fallback: mark as captured (legacy behavior) and log
+        $fallbackPaymentIntentId = 'pi_fallback_' . $campaign->uuid;
         $campaign->update([
             'payment_status' => PaymentStatus::Captured,
+            'stripe_payment_intent_id' => $fallbackPaymentIntentId,
         ]);
 
         Log::info('Campaign ' . $campaign->uuid . ' charged (fallback): $' . $amount);
-        return 'pi_fallback_' . $campaign->uuid;
+        return $fallbackPaymentIntentId;
     }
 
     /**

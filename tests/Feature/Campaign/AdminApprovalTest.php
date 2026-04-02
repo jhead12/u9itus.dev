@@ -2,6 +2,7 @@
 
 use App\Enums\ApprovalStatus;
 use App\Enums\CampaignStatus;
+use App\Enums\PaymentStatus;
 use App\Mail\CampaignApprovedMail;
 use App\Mail\CampaignRejectedMail;
 use App\Models\CampaignAuditLog;
@@ -96,6 +97,8 @@ test('admin can approve a pending campaign', function () {
 
     expect($campaign->approval_status)->toBe(ApprovalStatus::Approved);
     expect($campaign->status)->toBe(CampaignStatus::Active);
+    expect($campaign->payment_status)->toBe(PaymentStatus::Captured);
+    expect($campaign->stripe_payment_intent_id)->not->toBeNull()->not->toBe('');
 
     $this->assertDatabaseHas('campaign_audit_logs', [
         'campaign_id' => $campaign->id,
