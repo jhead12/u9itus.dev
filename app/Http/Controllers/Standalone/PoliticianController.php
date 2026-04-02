@@ -109,9 +109,11 @@ class PoliticianController extends Controller
     }
 
     /**
-     * Store a campaign video on the configured disk and return its URL.
-     * For S3, generates a signed URL (valid for 7 days) to work with private buckets.
-     * For local/public disks, returns a regular public URL.
+     * Store a campaign video on the configured disk and return its canonical URL.
+     *
+     * Persisting long temporary signed URLs can overflow the media_url column, so we
+     * store the stable disk URL here and only generate temporary signed URLs when
+     * rendering for playback.
      */
     private function storeCampaignVideoAndGetUrl(UploadedFile $video, PoliticalCampaign $campaign): ?string
     {
@@ -139,12 +141,6 @@ class PoliticianController extends Controller
                 return null;
             }
 
-            // For S3 (private bucket), generate a signed URL valid for 7 days
-            if ($disk === 's3') {
-                return Storage::disk($disk)->temporaryUrl($path, now()->addDays(7));
-            }
-
-            // For local/public disks, use regular public URL
             return Storage::disk($disk)->url($path);
         } catch (Throwable $e) {
             Log::error('Campaign video upload failed with exception', [
