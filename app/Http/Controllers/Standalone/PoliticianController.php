@@ -555,9 +555,12 @@ class PoliticianController extends Controller
     {
         $politician = Auth::user()->politician;
         $rawStatus = (string) ($campaign->getRawOriginal('status') ?? '');
+        $rawApprovalStatus = (string) ($campaign->getRawOriginal('approval_status') ?? '');
+        $canEditApprovedActive = $rawStatus === CampaignStatus::Active->value
+            && $rawApprovalStatus === ApprovalStatus::Approved->value;
         abort_unless(
             $politician && (int) $campaign->politician_id === (int) $politician->id
-            && in_array($rawStatus, ['draft', 'paused', 'scheduled', 'cancelled'], true),
+            && (in_array($rawStatus, ['draft', 'paused', 'scheduled', 'cancelled'], true) || $canEditApprovedActive),
             403
         );
 
@@ -587,9 +590,12 @@ class PoliticianController extends Controller
     {
         $politician = Auth::user()->politician;
         $rawStatus = (string) ($campaign->getRawOriginal('status') ?? '');
+        $rawApprovalStatus = (string) ($campaign->getRawOriginal('approval_status') ?? '');
+        $canEditApprovedActive = $rawStatus === CampaignStatus::Active->value
+            && $rawApprovalStatus === ApprovalStatus::Approved->value;
         abort_unless(
             $politician && (int) $campaign->politician_id === (int) $politician->id
-            && in_array($rawStatus, ['draft', 'paused', 'scheduled', 'cancelled'], true),
+            && (in_array($rawStatus, ['draft', 'paused', 'scheduled', 'cancelled'], true) || $canEditApprovedActive),
             403
         );
 
@@ -632,6 +638,24 @@ class PoliticianController extends Controller
         if (!empty($validated['engagement_survey'])) {
             $parsedSurvey = $qaService->parseEngagementSurvey($validated['engagement_survey']);
             $validated['engagement_survey'] = $parsedSurvey;
+        }
+
+        // Allow approved active campaigns to be scheduled immediately after approval.
+        if (($campaign->approval_status?->value ?? $campaign->getRawOriginal('approval_status')) === ApprovalStatus::Approved->value) {
+            $hasScheduledStartInput = array_key_exists('scheduled_start_at', $validated);
+
+            if ($hasScheduledStartInput && !empty($validated['scheduled_start_at'])) {
+                $scheduledStartAt = \Illuminate\Support\Carbon::parse((string) $validated['scheduled_start_at']);
+
+                if ($scheduledStartAt->isFuture()) {
+                    $validated['status'] = CampaignStatus::Scheduled->value;
+                } elseif (($campaign->status?->value ?? $campaign->getRawOriginal('status')) === CampaignStatus::Scheduled->value) {
+                    $validated['status'] = CampaignStatus::Active->value;
+                }
+            } elseif ($hasScheduledStartInput && (($campaign->status?->value ?? $campaign->getRawOriginal('status')) === CampaignStatus::Scheduled->value)) {
+                // Clearing the schedule should resume active delivery for approved campaigns.
+                $validated['status'] = CampaignStatus::Active->value;
+            }
         }
 
         $campaign->update($validated);

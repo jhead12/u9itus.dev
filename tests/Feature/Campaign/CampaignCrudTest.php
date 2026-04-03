@@ -355,6 +355,32 @@ test('campaign update infers hls media type from playlist url', function () {
     expect($fresh->media_url)->toBe('https://stream.example.com/channel/main.m3u8');
 });
 
+test('politician can schedule an approved active campaign immediately after approval', function () {
+    $politician = makePolitician();
+
+    $campaign = makeCampaign($politician->politician, [
+        'status' => CampaignStatus::Active->value,
+        'approval_status' => ApprovalStatus::Approved->value,
+        'governance_level' => 'city',
+    ]);
+
+    $scheduledStartAt = now()->addHour()->startOfMinute();
+
+    $response = $this->actingAs($politician)
+        ->put(route('politician.campaigns.update', $campaign), [
+            'scheduled_start_at' => $scheduledStartAt->format('Y-m-d H:i:s'),
+        ]);
+
+    $response->assertRedirect();
+    $response->assertSessionHasNoErrors();
+
+    $campaign->refresh();
+
+    expect($campaign->status)->toBe(CampaignStatus::Scheduled);
+    expect($campaign->scheduled_start_at)->not->toBeNull();
+    expect($campaign->scheduled_start_at->equalTo($scheduledStartAt))->toBeTrue();
+});
+
 // ---------------------------------------------------------------------------
 // Delete
 // ---------------------------------------------------------------------------

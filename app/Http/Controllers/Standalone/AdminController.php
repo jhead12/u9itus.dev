@@ -1700,18 +1700,139 @@ class AdminController extends Controller
     }
 
     /**
-     * Export campaign-level accounting rows and monthly rollups.
+     * Campaign accounting ledger UI — paginated transaction + session rows with filters.
      */
-    public function exportCampaignAccounting()
+    public function campaignAccountingLedger(Request $request)
     {
         $activePaymentMode = $this->activePaymentMode();
         $campaignIds = $this->modeScopedCampaignIds($activePaymentMode);
+
+        $from       = $request->filled('from') ? $request->get('from') : null;
+        $to         = $request->filled('to') ? $request->get('to') : null;
+        $campaignFilter = $request->integer('campaign_id') ?: null;
+        $tab        = in_array($request->get('tab'), ['transactions', 'sessions']) ? $request->get('tab') : 'sessions';
+
+        $sessionsQuery = ViewSession::query()
+            ->with([
+                'campaign:id,title,politician_id',
+                'campaign.politician:id,full_name',
+                'voter:id,full_name',
+            ])
+            ->whereIn('political_campaign_id', $campaignIds)
+            ->when($from, fn($q) => $q->whereDate('created_at', '>=', $from))
+            ->when($to, fn($q) => $q->whereDate('created_at', '<=', $to))
+            ->when($campaignFilter, fn($q) => $q->where('political_campaign_id', $campaignFilter))
+            ->orderBy('created_at', 'desc');
+
+        $transactionsQuery = $this->applyPaymentModeFilter(
+            CampaignTransaction::query()->whereIn('campaign_id', $campaignIds),
+            $activePaymentMode
+        )
+            ->with(['politician:id,full_name', 'campaign:id,title'])
+            ->when($from, fn($q) => $q->whereDate('created_at', '>=', $from))
+            ->when($to, fn($q) => $q->whereDate('created_at', '<=', $to))
+            ->when($campaignFilter, fn($q) => $q->where('campaign_id', $campaignFilter))
+            ->orderBy('created_at', 'desc');
+
+        $sessions     = $sessionsQuery->paginate(50, ['*'], 's_page')->withQueryString();
+        $transactions = $transactionsQuery->paginate(50, ['*'], 't_page')->withQueryString();
+
+        $totals = ViewSession::whereIn('political_campaign_id', $campaignIds)
+            ->when($from, fn($q) => $q->whereDate('created_at', '>=', $from))
+            ->when($to, fn($q) => $q->whereDate('created_at', '<=', $to))
+            ->when($campaignFilter, fn($q) => $q->where('political_campaign_id', $campaignFilter))
+            ->selectRaw('COUNT(*) as total_sessions, COALESCE(SUM(platform_revenue),0) as total_revenue, COALESCE(SUM(voter_payout_amount),0) as total_payouts, COALESCE(SUM(referral_commission),0) as total_referrals')
+            ->first();
+
+        $campaigns = PoliticalCampaign::whereIn('id', $campaignIds)->orderBy('title')->get(['id', 'title']);
+
+        return view('standalone.admin.accounting-campaign', compact(
+            'activePaymentMode', 'sessions', 'transactions', 'totals', 'campaigns',
+            'from', 'to', 'campaignFilter', 'tab'
+        ));
+    }
+
+    /**
+     * Voter accounting ledger UI — paginated session + referral rows with filters.
+     */
+    public function voterAccountingLedger(Request $request)
+    {
+        $activePaymentMode = $this->activePaymentMode();
+        $campaignIds = $this->modeScopedCampaignIds($activePaymentMode);
+
+        $from        = $request->filled('from') ? $request->get('from') : null;
+        $to          = $request->filled('to') ? $request->get('to') : null;
+        $voterSearch = $request->get('voter_search');
+        $tab         = in_array($request->get('tab'), ['sessions', 'referrals']) ? $request->get('tab') : 'sessions';
+
+        $sessionsQuery = ViewSession::query()
+            ->with([
+                'campaign:id,title',
+                'voter:id,full_name,email,payment_method,paypal_email,cashapp_tag',
+            ])
+            ->whereIn('political_campaign_id', $campaignIds)
+            ->when($from, fn($q) => $q->whereDate('created_at', '>=', $from))
+            ->when($to, fn($q) => $q->whereDate('created_at', '<=', $to))
+            ->when($voterSearch, fn($q) => $q->whereHas('voter', fn($vq) =>
+                $vq->where('full_name', 'like', '%' . $voterSearch . '%')
+                   ->orWhere('email', 'like', '%' . $voterSearch . '%')
+            ))
+            ->orderBy('created_at', 'desc');
+
+        $referralsQuery = ReferralEarning::query()
+            ->with([
+                'referrer:id,full_name,email,payment_method,paypal_email,cashapp_tag',
+                'viewSession:id,uuid,political_campaign_id,voter_id,status,payment_status,paid_at,created_at',
+                'viewSession.campaign:id,title',
+            ])
+            ->whereHas('viewSession', fn($q) => $q->whereIn('political_campaign_id', $campaignIds))
+            ->when($from, fn($q) => $q->whereDate('created_at', '>=', $from))
+            ->when($to, fn($q) => $q->whereDate('created_at', '<=', $to))
+            ->when($voterSearch, fn($q) => $q->whereHas('referrer', fn($vq) =>
+                $vq->where('full_name', 'like', '%' . $voterSearch . '%')
+                   ->orWhere('email', 'like', '%' . $voterSearch . '%')
+            ))
+            ->orderBy('created_at', 'desc');
+
+        $sessions  = $sessionsQuery->paginate(50, ['*'], 's_page')->withQueryString();
+        $referrals = $referralsQuery->paginate(50, ['*'], 'r_page')->withQueryString();
+
+        $totals = ViewSession::whereIn('political_campaign_id', $campaignIds)
+            ->when($from, fn($q) => $q->whereDate('created_at', '>=', $from))
+            ->when($to, fn($q) => $q->whereDate('created_at', '<=', $to))
+            ->when($voterSearch, fn($q) => $q->whereHas('voter', fn($vq) =>
+                $vq->where('full_name', 'like', '%' . $voterSearch . '%')
+                   ->orWhere('email', 'like', '%' . $voterSearch . '%')
+            ))
+            ->selectRaw('COUNT(*) as total_sessions, COALESCE(SUM(voter_payout_amount),0) as total_payouts, COALESCE(SUM(referral_commission),0) as total_referrals')
+            ->first();
+
+        return view('standalone.admin.accounting-voter', compact(
+            'activePaymentMode', 'sessions', 'referrals', 'totals',
+            'from', 'to', 'voterSearch', 'tab'
+        ));
+    }
+
+    /**
+     * Export campaign-level accounting rows and monthly rollups.
+     */
+    public function exportCampaignAccounting(Request $request)
+    {
+        $activePaymentMode = $this->activePaymentMode();
+        $campaignIds = $this->modeScopedCampaignIds($activePaymentMode);
+
+        $from           = $request->filled('from') ? $request->get('from') : null;
+        $to             = $request->filled('to') ? $request->get('to') : null;
+        $campaignFilter = $request->integer('campaign_id') ?: null;
 
         $transactions = $this->applyPaymentModeFilter(
             CampaignTransaction::query()->whereIn('campaign_id', $campaignIds),
             $activePaymentMode
         )
             ->with('politician:id,full_name')
+            ->when($from, fn($q) => $q->whereDate('created_at', '>=', $from))
+            ->when($to, fn($q) => $q->whereDate('created_at', '<=', $to))
+            ->when($campaignFilter, fn($q) => $q->where('campaign_id', $campaignFilter))
             ->orderBy('created_at')
             ->limit(20000)
             ->get();
@@ -1723,6 +1844,9 @@ class AdminController extends Controller
                 'voter:id,full_name',
             ])
             ->whereIn('political_campaign_id', $campaignIds)
+            ->when($from, fn($q) => $q->whereDate('created_at', '>=', $from))
+            ->when($to, fn($q) => $q->whereDate('created_at', '<=', $to))
+            ->when($campaignFilter, fn($q) => $q->where('political_campaign_id', $campaignFilter))
             ->orderBy('created_at')
             ->limit(20000)
             ->get();
@@ -1937,10 +2061,14 @@ class AdminController extends Controller
     /**
      * Export voter-level accounting rows and monthly rollups.
      */
-    public function exportVoterAccounting()
+    public function exportVoterAccounting(Request $request)
     {
         $activePaymentMode = $this->activePaymentMode();
         $campaignIds = $this->modeScopedCampaignIds($activePaymentMode);
+
+        $from        = $request->filled('from') ? $request->get('from') : null;
+        $to          = $request->filled('to') ? $request->get('to') : null;
+        $voterSearch = $request->get('voter_search');
 
         $sessions = ViewSession::query()
             ->with([
@@ -1948,6 +2076,12 @@ class AdminController extends Controller
                 'voter:id,full_name,email,payment_method,paypal_email,cashapp_tag',
             ])
             ->whereIn('political_campaign_id', $campaignIds)
+            ->when($from, fn($q) => $q->whereDate('created_at', '>=', $from))
+            ->when($to, fn($q) => $q->whereDate('created_at', '<=', $to))
+            ->when($voterSearch, fn($q) => $q->whereHas('voter', fn($vq) =>
+                $vq->where('full_name', 'like', '%' . $voterSearch . '%')
+                   ->orWhere('email', 'like', '%' . $voterSearch . '%')
+            ))
             ->orderBy('created_at')
             ->limit(20000)
             ->get();
@@ -1961,6 +2095,12 @@ class AdminController extends Controller
             ->whereHas('viewSession', function ($query) use ($campaignIds) {
                 $query->whereIn('political_campaign_id', $campaignIds);
             })
+            ->when($from, fn($q) => $q->whereDate('created_at', '>=', $from))
+            ->when($to, fn($q) => $q->whereDate('created_at', '<=', $to))
+            ->when($voterSearch, fn($q) => $q->whereHas('referrer', fn($vq) =>
+                $vq->where('full_name', 'like', '%' . $voterSearch . '%')
+                   ->orWhere('email', 'like', '%' . $voterSearch . '%')
+            ))
             ->orderBy('created_at')
             ->limit(20000)
             ->get();
