@@ -34,14 +34,14 @@
         <div class="stat-card">
             <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Gross Revenue</p>
             <p class="text-3xl font-bold text-white">${{ number_format($revenue['total'], 2) }}</p>
-            <p class="text-xs text-slate-500 mt-1">total politician charges</p>
+            <p class="text-xs text-slate-500 mt-1">delivered per-view charges</p>
         </div>
         <div class="stat-card">
             <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Voter Payouts</p>
             <p class="text-3xl font-bold text-emerald-400">${{ number_format($revenue['payouts'], 2) }}</p>
         </div>
         <div class="stat-card">
-            <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Net Profit</p>
+            <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Platform Net</p>
             <p class="text-3xl font-bold {{ $revenue['profit'] >= 0 ? 'text-emerald-400' : 'text-red-400' }}">${{ number_format($revenue['profit'], 2) }}</p>
         </div>
     </div>
@@ -57,11 +57,16 @@
                 <dt class="text-slate-400">Voter payouts</dt>
                 <dd class="font-semibold text-red-400">-${{ number_format($revenue['payouts'], 2) }}</dd>
             </div>
+            <div class="flex justify-between items-center py-2 border-b border-slate-700/30">
+                <dt class="text-slate-400">Referral commissions</dt>
+                <dd class="font-semibold text-amber-400">-${{ number_format($revenue['referrals'], 2) }}</dd>
+            </div>
             <div class="flex justify-between items-center py-2">
-                <dt class="text-slate-300 font-medium">Platform net profit</dt>
+                <dt class="text-slate-300 font-medium">Platform net revenue</dt>
                 <dd class="font-bold text-lg {{ $revenue['profit'] >= 0 ? 'text-emerald-400' : 'text-red-400' }}">${{ number_format($revenue['profit'], 2) }}</dd>
             </div>
         </dl>
+        <p class="mt-4 text-xs text-slate-500">Net margin: {{ number_format($revenue['margin_percent'], 1) }}%</p>
     </div>
 
 </div>

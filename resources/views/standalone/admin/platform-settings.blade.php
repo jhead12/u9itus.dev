@@ -284,12 +284,12 @@
 
                 <div>
                     <label class="block text-sm font-medium text-slate-300 mb-2">Effective From</label>
-                    <input type="datetime-local" name="effective_from" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white">
+                    <input type="datetime-local" name="effective_from" data-calendar-picker="datetime" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white">
                 </div>
 
                 <div>
                     <label class="block text-sm font-medium text-slate-300 mb-2">Effective Until</label>
-                    <input type="datetime-local" name="effective_until" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white">
+                    <input type="datetime-local" name="effective_until" data-calendar-picker="datetime" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white">
                 </div>
             </div>
 

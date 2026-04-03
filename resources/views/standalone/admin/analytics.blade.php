@@ -21,31 +21,51 @@
         </div>
         <div class="stat-card">
             <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Gross Revenue</p>
-            <p class="text-3xl font-bold text-white">${{ number_format($stats['total_revenue'], 2) }}</p>
-            <p class="text-xs text-slate-500 mt-1">politician charges</p>
+            <p class="text-3xl font-bold text-white">${{ number_format($stats['gross_revenue'], 2) }}</p>
+            <p class="text-xs text-slate-500 mt-1">delivered per-view charges</p>
         </div>
         <div class="stat-card">
             <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Voter Payouts</p>
             <p class="text-3xl font-bold text-emerald-400">${{ number_format($stats['total_payouts'], 2) }}</p>
         </div>
         <div class="stat-card">
-            <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Net Profit</p>
-            <p class="text-3xl font-bold {{ $stats['total_profit'] >= 0 ? 'text-emerald-400' : 'text-red-400' }}">${{ number_format($stats['total_profit'], 2) }}</p>
+            <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Referral Commissions</p>
+            <p class="text-3xl font-bold text-amber-400">${{ number_format($stats['total_referrals'], 2) }}</p>
+            <p class="text-xs text-slate-500 mt-1">paid to referrers</p>
         </div>
+        <div class="stat-card">
+            <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Platform Net</p>
+            <p class="text-3xl font-bold {{ $stats['net_revenue'] >= 0 ? 'text-emerald-400' : 'text-red-400' }}">${{ number_format($stats['net_revenue'], 2) }}</p>
+            <p class="text-xs text-slate-500 mt-1">after payouts and referrals</p>
+        </div>
+        <div class="stat-card">
+            <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Margin</p>
+            <p class="text-3xl font-bold text-white">{{ number_format($stats['margin_percent'], 1) }}%</p>
+            <p class="text-xs text-slate-500 mt-1">platform take</p>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-2 lg:grid-cols-3 gap-4">
         <div class="stat-card">
             <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Total Campaigns</p>
             <p class="text-3xl font-bold text-white">{{ number_format($stats['total_campaigns']) }}</p>
             <p class="text-xs text-slate-500 mt-1">{{ $stats['active_campaigns'] }} active</p>
         </div>
         <div class="stat-card">
-            <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Margin</p>
-            @php
-                $margin = $stats['total_revenue'] > 0
-                    ? round($stats['total_profit'] / $stats['total_revenue'] * 100, 1)
-                    : 0;
-            @endphp
-            <p class="text-3xl font-bold text-white">{{ $margin }}%</p>
-            <p class="text-xs text-slate-500 mt-1">platform take</p>
+            <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Avg Gross / View</p>
+            <p class="text-3xl font-bold text-white">${{ number_format($stats['avg_revenue_per_view'], 2) }}</p>
+        </div>
+        <div class="stat-card">
+            <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Avg Payout / View</p>
+            <p class="text-3xl font-bold text-emerald-400">${{ number_format($stats['avg_payout_per_view'], 2) }}</p>
+        </div>
+        <div class="stat-card">
+            <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Avg Referral / View</p>
+            <p class="text-3xl font-bold text-amber-400">${{ number_format($stats['avg_referral_per_view'], 2) }}</p>
+        </div>
+        <div class="stat-card">
+            <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Avg Net / View</p>
+            <p class="text-3xl font-bold {{ $stats['avg_profit_per_view'] >= 0 ? 'text-emerald-400' : 'text-red-400' }}">${{ number_format($stats['avg_profit_per_view'], 2) }}</p>
         </div>
     </div>
 

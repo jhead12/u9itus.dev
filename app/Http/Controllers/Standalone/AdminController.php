@@ -1550,20 +1550,45 @@ class AdminController extends Controller
     {
         $activePaymentMode = $this->activePaymentMode();
         $campaignIds = $this->modeScopedCampaignIds($activePaymentMode);
+        $stats = $this->buildAnalyticsStats($campaignIds);
+
+        return view('standalone.admin.analytics', compact('stats', 'activePaymentMode'));
+    }
+
+    private function buildAnalyticsStats($campaignIds): array
+    {
         $completedViewQuery = ViewSession::where('status', 'completed')
             ->whereIn('political_campaign_id', $campaignIds);
 
-        $stats = [
-            'total_views'    => (clone $completedViewQuery)->count(),
-            'total_revenue'  => (clone $completedViewQuery)->sum('platform_revenue') ?? 0,
-            'total_payouts'  => (clone $completedViewQuery)->sum('voter_payout_amount') ?? 0,
-            'total_profit'   => ((clone $completedViewQuery)->sum('platform_revenue') ?? 0)
-                                - ((clone $completedViewQuery)->sum('voter_payout_amount') ?? 0),
+        $totals = (clone $completedViewQuery)
+            ->selectRaw('COUNT(*) as total_views')
+            ->selectRaw('COALESCE(SUM(platform_revenue), 0) as total_net_revenue')
+            ->selectRaw('COALESCE(SUM(voter_payout_amount), 0) as total_payouts')
+            ->selectRaw('COALESCE(SUM(referral_commission), 0) as total_referrals')
+            ->first();
+
+        $totalViews = (int) ($totals->total_views ?? 0);
+        $totalNetRevenue = (float) ($totals->total_net_revenue ?? 0);
+        $totalPayouts = (float) ($totals->total_payouts ?? 0);
+        $totalReferrals = (float) ($totals->total_referrals ?? 0);
+        $grossDeliveredRevenue = $totalNetRevenue + $totalPayouts + $totalReferrals;
+
+        return [
+            'total_views' => $totalViews,
+            'gross_revenue' => $grossDeliveredRevenue,
+            'total_revenue' => $grossDeliveredRevenue,
+            'net_revenue' => $totalNetRevenue,
+            'total_payouts' => $totalPayouts,
+            'total_referrals' => $totalReferrals,
+            'total_profit' => $totalNetRevenue,
             'total_campaigns' => PoliticalCampaign::whereIn('id', $campaignIds)->count(),
             'active_campaigns' => PoliticalCampaign::where('status', 'active')->whereIn('id', $campaignIds)->count(),
+            'avg_revenue_per_view' => $totalViews > 0 ? round($grossDeliveredRevenue / $totalViews, 2) : 0.0,
+            'avg_payout_per_view' => $totalViews > 0 ? round($totalPayouts / $totalViews, 2) : 0.0,
+            'avg_referral_per_view' => $totalViews > 0 ? round($totalReferrals / $totalViews, 2) : 0.0,
+            'avg_profit_per_view' => $totalViews > 0 ? round($totalNetRevenue / $totalViews, 2) : 0.0,
+            'margin_percent' => $grossDeliveredRevenue > 0 ? round(($totalNetRevenue / $grossDeliveredRevenue) * 100, 1) : 0.0,
         ];
-
-        return view('standalone.admin.analytics', compact('stats', 'activePaymentMode'));
     }
 
     /**
@@ -2306,14 +2331,14 @@ class AdminController extends Controller
     {
         $activePaymentMode = $this->activePaymentMode();
         $campaignIds = $this->modeScopedCampaignIds($activePaymentMode);
-        $completedViewQuery = ViewSession::where('status', 'completed')
-            ->whereIn('political_campaign_id', $campaignIds);
+        $stats = $this->buildAnalyticsStats($campaignIds);
 
         $revenue = [
-            'total'   => (clone $completedViewQuery)->sum('platform_revenue') ?? 0,
-            'payouts' => (clone $completedViewQuery)->sum('voter_payout_amount') ?? 0,
-            'profit'  => ((clone $completedViewQuery)->sum('platform_revenue') ?? 0)
-                         - ((clone $completedViewQuery)->sum('voter_payout_amount') ?? 0),
+            'total' => $stats['gross_revenue'],
+            'payouts' => $stats['total_payouts'],
+            'referrals' => $stats['total_referrals'],
+            'profit' => $stats['net_revenue'],
+            'margin_percent' => $stats['margin_percent'],
         ];
 
         return view('standalone.admin.reports-revenue', compact('revenue', 'activePaymentMode'));

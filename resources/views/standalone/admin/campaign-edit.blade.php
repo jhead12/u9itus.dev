@@ -325,7 +325,7 @@
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-slate-300 mb-1.5">Scheduled Start</label>
-                    <input type="datetime-local" name="live_scheduled_at"
+                    <input type="datetime-local" name="live_scheduled_at" data-calendar-picker="datetime"
                         value="{{ $liveScheduledAtValue }}"
                         class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition" />
                 </div>
@@ -546,12 +546,12 @@
             <div class="grid grid-cols-2 gap-4">
                 <div>
                     <label class="block text-sm font-medium text-slate-300 mb-1.5">Start Date &amp; Time</label>
-                    <input type="datetime-local" name="scheduled_start_at" value="{{ $scheduledStartAtValue }}"
+                    <input type="datetime-local" name="scheduled_start_at" value="{{ $scheduledStartAtValue }}" data-calendar-picker="datetime"
                         class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition" />
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-slate-300 mb-1.5">End Date &amp; Time</label>
-                    <input type="datetime-local" name="scheduled_end_at" value="{{ $scheduledEndAtValue }}"
+                    <input type="datetime-local" name="scheduled_end_at" value="{{ $scheduledEndAtValue }}" data-calendar-picker="datetime"
                         class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition" />
                 </div>
             </div>
