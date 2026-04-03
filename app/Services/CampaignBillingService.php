@@ -163,7 +163,7 @@ class CampaignBillingService
 
         $pct        = (float) config('u9itus.procurement_commission_percent', 10);
         $commission = round($purchaseAmount * ($pct / 100), 2);
-        $paymentMode = ReferralEarning::normalizePaymentMode($this->stripe->configuredMode());
+        $paymentMode = ReferralEarning::normalizePaymentMode($this->configuredPaymentModeFromConfig());
 
         if ($commission <= 0) {
             return;
