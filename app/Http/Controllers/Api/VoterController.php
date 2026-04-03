@@ -174,7 +174,7 @@ class VoterController extends Controller
         return response()->json([
             'referral_code'     => $voter->referral_code,
             'referrals_count'   => $voter->referrals()->count(),
-            'referral_earnings' => $voter->referralEarnings()->sum('commission_amount'),
+            'referral_earnings' => $voter->referralEarnings()->forActiveStripeMode()->sum('commission_amount'),
             'referred_voters'   => $voter->referrals()->select('uuid', 'full_name', 'created_at')->get(),
         ]);
     }

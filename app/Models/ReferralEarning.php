@@ -17,6 +17,9 @@ class ReferralEarning extends Model
 {
     use HasFactory;
 
+    public const PAYMENT_MODE_LIVE = 'live';
+    public const PAYMENT_MODE_TEST = 'test';
+
     /** Referral commission types. */
     public const TYPE_VOTER_VIEW             = 'voter_view';
     public const TYPE_POLITICIAN_PROCUREMENT = 'politician_procurement';
@@ -27,6 +30,7 @@ class ReferralEarning extends Model
         'referred_voter_id',
         'view_session_id',
         'commission_amount',
+        'payment_mode',
         'referral_type',
         'politician_id',
         'paid',
@@ -83,5 +87,22 @@ class ReferralEarning extends Model
     public function scopeProcurements($query)
     {
         return $query->where('referral_type', self::TYPE_POLITICIAN_PROCUREMENT);
+    }
+
+    public function scopeForPaymentMode($query, ?string $mode)
+    {
+        return $query->where('payment_mode', self::normalizePaymentMode($mode));
+    }
+
+    public function scopeForActiveStripeMode($query)
+    {
+        return $query->forPaymentMode(app(\App\Services\StripePaymentService::class)->configuredMode());
+    }
+
+    public static function normalizePaymentMode(?string $mode): string
+    {
+        return $mode === self::PAYMENT_MODE_LIVE
+            ? self::PAYMENT_MODE_LIVE
+            : self::PAYMENT_MODE_TEST;
     }
 }

@@ -7,6 +7,7 @@ use App\Enums\ViewPaymentStatus;
 use App\Enums\ViewSessionStatus;
 use App\Models\PoliticalCampaign;
 use App\Models\Politician;
+use App\Models\ReferralEarning;
 use App\Models\User;
 use App\Models\ViewSession;
 use App\Models\Voter;
@@ -283,6 +284,58 @@ test('availableCampaigns excludes campaigns without Stripe capture', function ()
 
     expect($results)->toHaveCount(1)
         ->and($results->first()->title)->toBe('Paid campaign');
+});
+
+test('voterEarningsSummary excludes referral earnings from the inactive stripe mode', function () {
+    config(['services.stripe.secret' => 'sk_live_fake_referral_summary']);
+
+    $voter = cleanVoter();
+
+    ReferralEarning::create([
+        'referrer_voter_id' => $voter->id,
+        'referred_voter_id' => cleanVoter()->id,
+        'view_session_id' => null,
+        'commission_amount' => 1.25,
+        'payment_mode' => ReferralEarning::PAYMENT_MODE_LIVE,
+        'referral_type' => ReferralEarning::TYPE_VOTER_VIEW,
+    ]);
+
+    ReferralEarning::create([
+        'referrer_voter_id' => $voter->id,
+        'referred_voter_id' => cleanVoter()->id,
+        'view_session_id' => null,
+        'commission_amount' => 9.75,
+        'payment_mode' => ReferralEarning::PAYMENT_MODE_TEST,
+        'referral_type' => ReferralEarning::TYPE_VOTER_VIEW,
+    ]);
+
+    $recruitedPolitician = Politician::factory()->create();
+
+    ReferralEarning::create([
+        'referrer_voter_id' => $voter->id,
+        'referred_voter_id' => null,
+        'view_session_id' => null,
+        'commission_amount' => 5.00,
+        'payment_mode' => ReferralEarning::PAYMENT_MODE_LIVE,
+        'referral_type' => ReferralEarning::TYPE_POLITICIAN_PROCUREMENT,
+        'politician_id' => $recruitedPolitician->id,
+    ]);
+
+    ReferralEarning::create([
+        'referrer_voter_id' => $voter->id,
+        'referred_voter_id' => null,
+        'view_session_id' => null,
+        'commission_amount' => 7.00,
+        'payment_mode' => ReferralEarning::PAYMENT_MODE_TEST,
+        'referral_type' => ReferralEarning::TYPE_POLITICIAN_PROCUREMENT,
+        'politician_id' => Politician::factory()->create()->id,
+    ]);
+
+    $summary = viewService()->voterEarningsSummary($voter);
+
+    expect($summary['referral_earnings'])->toBe(1.25)
+        ->and($summary['procurement_earnings'])->toBe(5.0)
+        ->and($summary['total_referral_earnings'])->toBe(6.25);
 });
 
 // ── voterEarningsSummary() ────────────────────────────────────────────────────

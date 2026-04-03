@@ -697,6 +697,7 @@ class VoterController extends Controller
         // Per-view referral earnings (voter_view type)
         $referralEarnings = $voter->referralEarnings()
             ->voterViews()
+            ->forActiveStripeMode()
             ->with('viewSession.campaign')
             ->latest()
             ->take(20)
@@ -705,12 +706,13 @@ class VoterController extends Controller
         // Procurement commission earnings (politician_procurement type)
         $procurementEarnings = $voter->referralEarnings()
             ->procurements()
+            ->forActiveStripeMode()
             ->with('politician')
             ->latest()
             ->get();
 
-        $totalReferralEarnings  = (float) $voter->referralEarnings()->voterViews()->sum('commission_amount');
-        $totalProcurementEarnings = (float) $voter->referralEarnings()->procurements()->sum('commission_amount');
+        $totalReferralEarnings  = (float) $voter->referralEarnings()->voterViews()->forActiveStripeMode()->sum('commission_amount');
+        $totalProcurementEarnings = (float) $voter->referralEarnings()->procurements()->forActiveStripeMode()->sum('commission_amount');
 
         $visitQuery = ReferralVisit::where('referrer_voter_id', $voter->id);
         $totalReferralVisits = (clone $visitQuery)->count();

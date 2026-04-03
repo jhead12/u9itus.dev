@@ -261,10 +261,10 @@ class PoliticalViewService
             'wallet_balance'             => $voter->wallet_balance,
             'total_views'                => $voter->total_views,
             // Voter-view commissions: 10% of each referred voter's payout
-            'referral_earnings'          => (float) $voter->referralEarnings()->voterViews()->sum('commission_amount'),
+            'referral_earnings'          => (float) $voter->referralEarnings()->voterViews()->forActiveStripeMode()->sum('commission_amount'),
             // Politician-procurement commissions: 10% of referred politician's first purchase
-            'procurement_earnings'       => (float) $voter->referralEarnings()->procurements()->sum('commission_amount'),
-            'total_referral_earnings'    => (float) $voter->referralEarnings()->sum('commission_amount'),
+            'procurement_earnings'       => (float) $voter->referralEarnings()->procurements()->forActiveStripeMode()->sum('commission_amount'),
+            'total_referral_earnings'    => (float) $voter->referralEarnings()->forActiveStripeMode()->sum('commission_amount'),
             'referrals_count'            => $voter->referrals()->count(),
             'referrals_politician_count' => \App\Models\Politician::where('referred_by_voter_id', $voter->id)->count(),
             'views_today'                => $voter->viewSessions()->whereDate('created_at', today())->count(),
@@ -303,6 +303,7 @@ class PoliticalViewService
                 'referred_voter_id' => $voter->id,
                 'view_session_id'   => $session->id,
                 'commission_amount' => $commission,
+                'payment_mode'      => ReferralEarning::normalizePaymentMode(app(StripePaymentService::class)->configuredMode()),
                 'referral_type'     => ReferralEarning::TYPE_VOTER_VIEW,
             ]);
             $voter->referrer->increment('pending_earnings', $commission);
@@ -315,6 +316,7 @@ class PoliticalViewService
                 'referred_voter_id'      => $voter->id,
                 'view_session_id'        => $session->id,
                 'commission_amount'      => $commission,
+                'payment_mode'           => ReferralEarning::normalizePaymentMode(app(StripePaymentService::class)->configuredMode()),
                 'referral_type'          => ReferralEarning::TYPE_VOTER_VIEW,
             ]);
             $voter->politicianReferrer->increment('pending_earnings', $commission);

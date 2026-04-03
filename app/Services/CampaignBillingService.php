@@ -163,6 +163,7 @@ class CampaignBillingService
 
         $pct        = (float) config('u9itus.procurement_commission_percent', 10);
         $commission = round($purchaseAmount * ($pct / 100), 2);
+        $paymentMode = ReferralEarning::normalizePaymentMode($this->stripe->configuredMode());
 
         if ($commission <= 0) {
             return;
@@ -175,6 +176,7 @@ class CampaignBillingService
                 'referred_voter_id' => null,
                 'view_session_id'   => null,
                 'commission_amount' => $commission,
+                'payment_mode'      => $paymentMode,
                 'referral_type'     => ReferralEarning::TYPE_POLITICIAN_PROCUREMENT,
                 'politician_id'     => $politician->id,
             ]);
@@ -194,6 +196,7 @@ class CampaignBillingService
                 'referred_voter_id'      => null,
                 'view_session_id'        => null,
                 'commission_amount'      => $commission,
+                'payment_mode'           => $paymentMode,
                 'referral_type'          => ReferralEarning::TYPE_POLITICIAN_PROCUREMENT,
                 'politician_id'          => $politician->id,
             ]);
