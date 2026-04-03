@@ -15,11 +15,17 @@
             {{ ($activePaymentMode ?? 'test') === 'live' ? 'Live Mode Engagement' : 'Test Mode Engagement' }}
         </span>
         <div class="flex items-center gap-2">
+            <a href="{{ route('admin.analytics.ledger.campaign') }}" class="inline-flex items-center rounded-lg border border-slate-600 px-3 py-2 text-xs font-semibold text-slate-200 hover:border-emerald-400/50 hover:text-emerald-200 transition">
+                Campaign Ledger
+            </a>
+            <a href="{{ route('admin.analytics.ledger.voter') }}" class="inline-flex items-center rounded-lg border border-slate-600 px-3 py-2 text-xs font-semibold text-slate-200 hover:border-emerald-400/50 hover:text-emerald-200 transition">
+                Voter Ledger
+            </a>
             <a href="{{ route('admin.analytics.export.campaign-accounting') }}" class="inline-flex items-center rounded-lg border border-slate-600 px-3 py-2 text-xs font-semibold text-slate-200 hover:border-sky-400/50 hover:text-sky-200 transition">
-                Campaign CSV
+                ↓ Campaign CSV
             </a>
             <a href="{{ route('admin.analytics.export.voter-accounting') }}" class="inline-flex items-center rounded-lg border border-slate-600 px-3 py-2 text-xs font-semibold text-slate-200 hover:border-sky-400/50 hover:text-sky-200 transition">
-                Voter CSV
+                ↓ Voter CSV
             </a>
         </div>
     </div>

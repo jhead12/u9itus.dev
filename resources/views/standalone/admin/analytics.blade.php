@@ -62,14 +62,26 @@
     </div>
 
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <a href="{{ route('admin.analytics.export.campaign-accounting') }}" class="bg-slate-800/50 border border-slate-700/50 hover:border-sky-500/30 rounded-xl p-5 transition group">
-            <p class="text-sm font-semibold text-white group-hover:text-sky-300 transition">Export Campaign Accounting CSV →</p>
-            <p class="text-xs text-slate-500 mt-1">Transaction and session-level ledger rows with monthly campaign rollups</p>
-        </a>
-        <a href="{{ route('admin.analytics.export.voter-accounting') }}" class="bg-slate-800/50 border border-slate-700/50 hover:border-sky-500/30 rounded-xl p-5 transition group">
-            <p class="text-sm font-semibold text-white group-hover:text-sky-300 transition">Export Voter Accounting CSV →</p>
-            <p class="text-xs text-slate-500 mt-1">Session and referral earnings rows with monthly voter rollups</p>
-        </a>
+        <div class="bg-slate-800/50 border border-slate-700/50 hover:border-sky-500/30 rounded-xl p-5 transition group flex items-start justify-between gap-3">
+            <div>
+                <p class="text-sm font-semibold text-white group-hover:text-sky-300 transition">Campaign Accounting</p>
+                <p class="text-xs text-slate-500 mt-1">Transaction and session-level ledger with monthly rollups</p>
+                <a href="{{ route('admin.analytics.ledger.campaign') }}" class="inline-block mt-3 text-xs font-semibold text-sky-400 hover:text-sky-300 transition">View Ledger →</a>
+            </div>
+            <a href="{{ route('admin.analytics.export.campaign-accounting') }}" title="Download CSV" class="shrink-0 rounded-lg border border-slate-600 hover:border-sky-400/50 text-slate-400 hover:text-sky-300 px-2.5 py-1.5 text-xs transition">
+                ↓ CSV
+            </a>
+        </div>
+        <div class="bg-slate-800/50 border border-slate-700/50 hover:border-sky-500/30 rounded-xl p-5 transition group flex items-start justify-between gap-3">
+            <div>
+                <p class="text-sm font-semibold text-white group-hover:text-sky-300 transition">Voter Accounting</p>
+                <p class="text-xs text-slate-500 mt-1">Session payouts and referral earnings with monthly voter rollups</p>
+                <a href="{{ route('admin.analytics.ledger.voter') }}" class="inline-block mt-3 text-xs font-semibold text-sky-400 hover:text-sky-300 transition">View Ledger →</a>
+            </div>
+            <a href="{{ route('admin.analytics.export.voter-accounting') }}" title="Download CSV" class="shrink-0 rounded-lg border border-slate-600 hover:border-sky-400/50 text-slate-400 hover:text-sky-300 px-2.5 py-1.5 text-xs transition">
+                ↓ CSV
+            </a>
+        </div>
     </div>
 
 </div>
