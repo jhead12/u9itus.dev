@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Standalone;
 
 use App\Enums\ApprovalStatus;
 use App\Enums\CampaignStatus;
+use App\Enums\PaymentStatus;
 use App\Http\Controllers\Controller;
 use App\Jobs\MatchPoliticianToElectionData;
 use App\Mail\CampaignReactivatedMail;
@@ -124,6 +125,25 @@ class AdminController extends Controller
 
             return collect();
         }
+    }
+
+    /**
+     * Ensure campaigns entering voter inventory are backed by funding metadata.
+     */
+    private function ensureCampaignFundingForVoterInventory(PoliticalCampaign $campaign): void
+    {
+        $paymentStatus = (string) ($campaign->getRawOriginal('payment_status') ?? '');
+        $hasStripeIntent = is_string($campaign->stripe_payment_intent_id)
+            && trim($campaign->stripe_payment_intent_id) !== '';
+
+        if (in_array($paymentStatus, [
+            PaymentStatus::Captured->value,
+            PaymentStatus::Authorized->value,
+        ], true) && $hasStripeIntent) {
+            return;
+        }
+
+        app(PoliticalPaymentService::class)->chargeCampaign($campaign);
     }
 
     /**
@@ -531,6 +551,13 @@ class AdminController extends Controller
 
         $campaign->update($validated);
 
+        $statusValue = (string) ($campaign->getRawOriginal('status') ?? '');
+        $approvalValue = (string) ($campaign->getRawOriginal('approval_status') ?? '');
+        if ($statusValue === CampaignStatus::Active->value && $approvalValue === ApprovalStatus::Approved->value) {
+            $this->ensureCampaignFundingForVoterInventory($campaign);
+            $campaign->refresh();
+        }
+
         if ($uploadedVideo) {
             $mediaUrl = $this->storeCampaignVideoAndGetUrl($uploadedVideo, $campaign);
 
@@ -595,6 +622,8 @@ class AdminController extends Controller
         ]);
 
         $campaign->update(['status' => CampaignStatus::Active]);
+        $this->ensureCampaignFundingForVoterInventory($campaign);
+        $campaign->refresh();
 
         CampaignAuditLog::create([
             'campaign_id' => $campaign->id,
@@ -697,6 +726,8 @@ class AdminController extends Controller
             }
 
             $campaign->update(['status' => CampaignStatus::Active]);
+            $this->ensureCampaignFundingForVoterInventory($campaign);
+            $campaign->refresh();
 
             CampaignAuditLog::create([
                 'campaign_id' => $campaign->id,

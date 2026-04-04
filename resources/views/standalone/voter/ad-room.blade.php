@@ -141,8 +141,8 @@
             <select name="level"
                 class="bg-slate-800 border border-slate-700 text-slate-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 appearance-none cursor-pointer">
                 <option value="">All levels</option>
-                @foreach(['Federal', 'State', 'County', 'City', 'School Board', 'Judicial'] as $level)
-                <option value="{{ $level }}" {{ request('level') === $level ? 'selected' : '' }}>{{ $level }}</option>
+                @foreach(config('u9itus.governance_levels', []) as $levelValue => $levelLabel)
+                <option value="{{ $levelValue }}" {{ request('level') === $levelValue ? 'selected' : '' }}>{{ $levelLabel }}</option>
                 @endforeach
             </select>
 
@@ -212,14 +212,16 @@
                 : 0;
             $hasRecentReports = ($campaign->recent_reports_count ?? 0) > 0;
             $levelColors   = [
-                'Federal'      => ['bg' => 'bg-blue-900/40 border-blue-700/40',    'text' => 'text-blue-400'],
-                'State'        => ['bg' => 'bg-purple-900/40 border-purple-700/40','text' => 'text-purple-400'],
-                'County'       => ['bg' => 'bg-amber-900/40 border-amber-700/40',  'text' => 'text-amber-400'],
-                'City'         => ['bg' => 'bg-teal-900/40 border-teal-700/40',    'text' => 'text-teal-400'],
-                'School Board' => ['bg' => 'bg-rose-900/40 border-rose-700/40',    'text' => 'text-rose-400'],
-                'Judicial'     => ['bg' => 'bg-slate-700/60 border-slate-600/60',  'text' => 'text-slate-300'],
+                'federal' => ['bg' => 'bg-blue-900/40 border-blue-700/40', 'text' => 'text-blue-400'],
+                'state'   => ['bg' => 'bg-purple-900/40 border-purple-700/40', 'text' => 'text-purple-400'],
+                'county'  => ['bg' => 'bg-amber-900/40 border-amber-700/40', 'text' => 'text-amber-400'],
+                'city'    => ['bg' => 'bg-teal-900/40 border-teal-700/40', 'text' => 'text-teal-400'],
+                'school'  => ['bg' => 'bg-rose-900/40 border-rose-700/40', 'text' => 'text-rose-400'],
+                'special' => ['bg' => 'bg-indigo-900/40 border-indigo-700/40', 'text' => 'text-indigo-300'],
             ];
-            $lvl    = $campaign->governance_level ?? '';
+            $lvl    = strtolower((string) ($campaign->governance_level ?? ''));
+            $lvlLabelMap = config('u9itus.governance_levels', []);
+            $lvlLabel = $lvlLabelMap[$lvl] ?? ucfirst($lvl);
             $lvlCss = $levelColors[$lvl] ?? ['bg' => 'bg-slate-800/60 border-slate-700/60', 'text' => 'text-slate-400'];
             $payout = (float) ($campaign->voter_payout_per_view ?? $defaultPayout);
             $dur    = (int) ($campaign->media_duration ?? 0);
@@ -255,7 +257,7 @@
                 {{-- Governance level badge --}}
                 @if($lvl)
                 <span class="absolute top-3 left-3 text-xs font-semibold px-2.5 py-1 rounded-full border {{ $lvlCss['bg'] }} {{ $lvlCss['text'] }}">
-                    {{ $lvl }}
+                    {{ $lvlLabel }}
                 </span>
                 @endif
 
