@@ -80,6 +80,32 @@ echo "DB_DATABASE: ${DB_DATABASE:-not set}"
 echo "DB_USERNAME: ${DB_USERNAME:-not set}"
 echo "================================="
 
+echo "=== Stripe Readiness Check ==="
+if [[ -n "${STRIPE_SECRET:-}" ]]; then
+  if [[ "${STRIPE_SECRET}" == sk_live_* ]]; then
+    echo "STRIPE_SECRET: set (live mode)"
+  elif [[ "${STRIPE_SECRET}" == sk_test_* ]]; then
+    echo "STRIPE_SECRET: set (test mode)"
+  else
+    echo "STRIPE_SECRET: set (unrecognized key format)"
+  fi
+else
+  echo "STRIPE_SECRET: missing"
+fi
+
+if [[ -n "${STRIPE_KEY:-}" ]]; then
+  echo "STRIPE_KEY: set"
+else
+  echo "STRIPE_KEY: missing"
+fi
+
+if [[ -n "${STRIPE_WEBHOOK_SECRET:-}" ]]; then
+  echo "STRIPE_WEBHOOK_SECRET: set"
+else
+  echo "STRIPE_WEBHOOK_SECRET: missing (webhook signature verification disabled)"
+fi
+echo "================================="
+
 # Validate database configuration
 if [[ -z "$DB_HOST" ]] || [[ -z "$DB_PORT" ]] || [[ -z "$DB_DATABASE" ]]; then
   echo "ERROR: Required database environment variables are missing!"
