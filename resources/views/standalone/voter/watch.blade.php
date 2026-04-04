@@ -520,7 +520,7 @@
                 <div class="flex items-start justify-between mb-4">
                     <div>
                         <h3 class="text-lg font-bold text-white">Ask a Question</h3>
-                        <p class="text-sm text-slate-400 mt-0.5">Send to {{ $campaign->politician->full_name ?? 'the campaign' }}</p>
+                        <p class="text-sm text-slate-400 mt-0.5">Send to {{ $campaign->politician->full_name ?? 'the campaign' }}. Approved questions appear on the public Q&A board.</p>
                     </div>
                     <button @click="messageModal = false" class="text-slate-500 hover:text-slate-300 transition">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -560,7 +560,7 @@
                         <textarea name="body" id="message-body" rows="5" maxlength="1000" required
                             placeholder="Ask this politician a question you want answered in the town hall..."
                             class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition resize-none"></textarea>
-                        <p class="text-xs text-slate-500 mt-1">Your question will be emailed and shown in campaign analytics.</p>
+                        <p class="text-xs text-slate-500 mt-1">Your question is reviewed before public posting. Public posts use an anonymous voter alias.</p>
                     </div>
 
                     <div class="flex gap-3">
@@ -792,6 +792,7 @@
                     if (res.qualified) {
                         showStatus(`\u{1F389} You earned $${parseFloat(res.payout_earned).toFixed(2)}! Payment is being processed.`, 'success');
                         statusMsg.innerHTML += ` <a href="${dashboardUrl}" class="underline text-emerald-400 ml-2">View earnings \u2192</a>`;
+                        statusMsg.innerHTML += ' <span class="text-slate-300 ml-2">Replay available below.</span>';
                     } else {
                         showStatus('You watched enough \u2014 but did not meet the full qualifying threshold. No payout this time.', 'info');
                     }
@@ -823,9 +824,11 @@
                 // Heartbeat beat us to it — earnings already recorded
                 showStatus('\u2713 Video finished \u2014 earnings already credited to your wallet.', 'success');
                 statusMsg.innerHTML += ' <a href="{{ route("voter.dashboard") }}" class="underline text-emerald-400 ml-2">View earnings →</a>';
+                statusMsg.innerHTML += ' <span class="text-slate-300 ml-2">Replay available below.</span>';
             } else if (res.qualified) {
                 showStatus(`\u{1F389} You earned $${parseFloat(res.payout_earned).toFixed(2)}! Payment is being processed.`, 'success');
                 statusMsg.innerHTML += ' <a href="{{ route("voter.dashboard") }}" class="underline text-emerald-400 ml-2">View earnings →</a>';
+                statusMsg.innerHTML += ' <span class="text-slate-300 ml-2">Replay available below.</span>';
             } else {
                 showStatus('Video ended \u2014 watch at least {{ $mustWatch }}% to earn a payout.', 'info');
             }

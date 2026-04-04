@@ -46,10 +46,17 @@
         </div>
     </div>
 
-    <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
-        <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Open Voter Questions</p>
-        <p class="text-2xl font-bold text-cyan-300">{{ number_format($openVoterQuestionsCount ?? 0) }}</p>
-        <p class="text-xs text-slate-500 mt-1">Questions submitted by voters during watch sessions.</p>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
+            <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Open Voter Questions</p>
+            <p class="text-2xl font-bold text-cyan-300">{{ number_format($openVoterQuestionsCount ?? 0) }}</p>
+            <p class="text-xs text-slate-500 mt-1">Questions submitted by voters during watch sessions.</p>
+        </div>
+        <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
+            <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Pending Public Moderation</p>
+            <p class="text-2xl font-bold text-amber-300">{{ number_format($pendingPublicQuestionsCount ?? 0) }}</p>
+            <p class="text-xs text-slate-500 mt-1">Awaiting admin approval before appearing publicly.</p>
+        </div>
     </div>
 
     <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl overflow-hidden">

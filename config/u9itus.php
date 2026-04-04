@@ -321,4 +321,26 @@ return [
         'judge',
         'other',
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Public Q&A Board Settings
+    |--------------------------------------------------------------------------
+    */
+    'q_and_a' => [
+        'use_public_board_heading' => env('QA_USE_PUBLIC_BOARD_HEADING', false),
+        'legacy_heading_label' => 'Answered Questions',
+        'public_heading_label' => 'Public Q&A Board',
+        'rate_limit' => [
+            'max_attempts' => env('QA_RATE_LIMIT_MAX_ATTEMPTS', 5),
+            'decay_seconds' => env('QA_RATE_LIMIT_DECAY_SECONDS', 600),
+        ],
+        'moderation' => [
+            'blocked_terms' => [
+                'kill',
+                'bomb',
+                'terrorist',
+            ],
+        ],
+    ],
 ];

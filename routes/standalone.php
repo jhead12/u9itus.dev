@@ -182,6 +182,8 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         Route::get('/campaigns/{campaign}', [PoliticianController::class, 'showCampaign'])->name('campaigns.show');
         Route::get('/campaigns/{campaign}/edit', [PoliticianController::class, 'editCampaign'])->name('campaigns.edit');
         Route::put('/campaigns/{campaign}', [PoliticianController::class, 'updateCampaign'])->name('campaigns.update');
+        Route::post('/campaigns/{campaign}/questions/{report}/reply', [PoliticianController::class, 'replyToQuestion'])
+            ->name('campaigns.questions.reply');
         Route::delete('/campaigns/{campaign}', [PoliticianController::class, 'destroyCampaign'])->name('campaigns.destroy');
         Route::post('/campaigns/{campaign}/pause', [PoliticianController::class, 'pauseCampaign'])->name('campaigns.pause');
         Route::post('/campaigns/{campaign}/resume', [PoliticianController::class, 'resumeCampaign'])->name('campaigns.resume');
@@ -357,6 +359,8 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         Route::get('/analytics/ledger/voter', [AdminController::class, 'voterAccountingLedger'])->name('analytics.ledger.voter');
         Route::get('/reports/revenue', [AdminController::class, 'revenueReport'])->name('reports.revenue');
         Route::get('/reports/engagement', [AdminController::class, 'engagementReport'])->name('reports.engagement');
+        Route::post('/reports/engagement/questions/{report}/moderate', [AdminController::class, 'moderateQuestion'])
+            ->name('reports.engagement.questions.moderate');
         
         // System Settings
         Route::get('/settings', [AdminController::class, 'settings'])->name('settings');

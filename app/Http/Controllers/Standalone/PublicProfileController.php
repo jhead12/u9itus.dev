@@ -684,18 +684,27 @@ class PublicProfileController extends Controller
             ->take(8)
             ->get();
 
-        $answeredQuestions = VoterWatchReport::query()
+        $publicBoardQuestions = VoterWatchReport::query()
             ->messages()
-            ->where('status', 'resolved')
-            ->whereNotNull('admin_notes')
+            ->where(function ($query) {
+                $query->where(function ($approved) {
+                    $approved->where('public_visibility', 'approved')
+                        ->where('is_public_board', true);
+                })->orWhere(function ($legacy) {
+                    $legacy->where('status', 'resolved')
+                        ->whereNotNull('admin_notes');
+                });
+            })
             ->whereHas('campaign', function ($query) use ($politician) {
                 $query->where('politician_id', $politician->id)
                     ->where('approval_status', ApprovalStatus::Approved);
             })
             ->with([
                 'campaign:id,title',
+                'campaignRepliedBy:id,name',
             ])
-            ->orderByDesc('resolved_at')
+            ->orderByDesc('campaign_replied_at')
+            ->orderByDesc('published_at')
             ->orderByDesc('updated_at')
             ->take(12)
             ->get();
@@ -738,7 +747,7 @@ class PublicProfileController extends Controller
             'page',
             'runningCampaigns',
             'pastCampaigns',
-                'answeredQuestions',
+                'publicBoardQuestions',
             'initiatives',
             'transparencyData',
             'digDeeperData',

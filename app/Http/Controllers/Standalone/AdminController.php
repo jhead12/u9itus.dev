@@ -2394,6 +2394,12 @@ class AdminController extends Controller
             $questionStatus = 'all';
         }
 
+        $publicVisibility = (string) $request->query('public_visibility', 'all');
+        $allowedVisibility = ['all', 'pending', 'approved', 'rejected'];
+        if (!in_array($publicVisibility, $allowedVisibility, true)) {
+            $publicVisibility = 'all';
+        }
+
         $since = now()->subDays($days);
         $sessionQuery = ViewSession::whereIn('political_campaign_id', $campaignIds);
         $completedSessionsQuery = (clone $sessionQuery)->where('status', 'completed');
@@ -2432,6 +2438,10 @@ class AdminController extends Controller
             $questionsQuery->where('status', $questionStatus);
         }
 
+        if ($publicVisibility !== 'all') {
+            $questionsQuery->where('public_visibility', $publicVisibility);
+        }
+
         $recentQuestions = $questionsQuery
             ->latest()
             ->paginate(15)
@@ -2466,18 +2476,48 @@ class AdminController extends Controller
             'in_review' => (int) ($questionStatusCounts->get('in_review') ?? 0),
             'resolved' => (int) ($questionStatusCounts->get('resolved') ?? 0),
             'dismissed' => (int) ($questionStatusCounts->get('dismissed') ?? 0),
+            'pending_public' => (clone $questionBaseQuery)->where('public_visibility', 'pending')->count(),
+            'approved_public' => (clone $questionBaseQuery)->where('public_visibility', 'approved')->count(),
         ];
 
         return view('standalone.admin.reports-engagement', compact(
             'engagement',
             'activePaymentMode',
             'questionStatus',
+            'publicVisibility',
             'questionStats',
             'recentQuestions',
             'days',
             'surveyOptionBreakdown',
             'surveyCampaignBreakdown'
         ));
+    }
+
+    public function moderateQuestion(Request $request, VoterWatchReport $report)
+    {
+        $validated = $request->validate([
+            'visibility_action' => ['required', 'in:approve,reject'],
+        ]);
+
+        abort_unless($report->type === 'message', 422, 'Only voter questions can be moderated here.');
+
+        if ($validated['visibility_action'] === 'approve') {
+            $report->public_visibility = 'approved';
+            $report->is_public_board = true;
+            $report->published_by = auth()->id();
+            $report->published_at = now();
+            $report->save();
+
+            return back()->with('success', 'Question approved for the public board.');
+        }
+
+        $report->public_visibility = 'rejected';
+        $report->is_public_board = false;
+        $report->published_by = null;
+        $report->published_at = null;
+        $report->save();
+
+        return back()->with('success', 'Question removed from the public board.');
     }
 
     // ── Settings ────────────────────────────────────────────────────────────

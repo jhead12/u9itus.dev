@@ -63,7 +63,7 @@
     </div>
 
     <form method="GET" action="{{ route('admin.reports.engagement') }}" class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4">
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
             <div>
                 <label for="days" class="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">Time Window</label>
                 <select id="days" name="days" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white">
@@ -80,6 +80,15 @@
                     <option value="in_review" {{ $questionStatus === 'in_review' ? 'selected' : '' }}>In review</option>
                     <option value="resolved" {{ $questionStatus === 'resolved' ? 'selected' : '' }}>Resolved</option>
                     <option value="dismissed" {{ $questionStatus === 'dismissed' ? 'selected' : '' }}>Dismissed</option>
+                </select>
+            </div>
+            <div>
+                <label for="public_visibility" class="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">Public Visibility</label>
+                <select id="public_visibility" name="public_visibility" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white">
+                    <option value="all" {{ ($publicVisibility ?? 'all') === 'all' ? 'selected' : '' }}>All visibility states</option>
+                    <option value="pending" {{ ($publicVisibility ?? 'all') === 'pending' ? 'selected' : '' }}>Pending moderation</option>
+                    <option value="approved" {{ ($publicVisibility ?? 'all') === 'approved' ? 'selected' : '' }}>Approved public</option>
+                    <option value="rejected" {{ ($publicVisibility ?? 'all') === 'rejected' ? 'selected' : '' }}>Rejected / private</option>
                 </select>
             </div>
             <div>
@@ -144,6 +153,14 @@
                 <div class="flex justify-between items-center py-2">
                     <dt class="text-slate-400">Dismissed</dt>
                     <dd class="font-semibold text-slate-300">{{ number_format($questionStats['dismissed']) }}</dd>
+                </div>
+                <div class="flex justify-between items-center py-2 border-t border-slate-700/30">
+                    <dt class="text-slate-400">Pending Public</dt>
+                    <dd class="font-semibold text-amber-300">{{ number_format($questionStats['pending_public'] ?? 0) }}</dd>
+                </div>
+                <div class="flex justify-between items-center py-2">
+                    <dt class="text-slate-400">Approved Public</dt>
+                    <dd class="font-semibold text-emerald-300">{{ number_format($questionStats['approved_public'] ?? 0) }}</dd>
                 </div>
             </dl>
         </div>
@@ -215,6 +232,24 @@
                         <div class="mt-3 text-xs text-slate-500 flex flex-wrap gap-3">
                             <span>Voter: {{ optional(optional($question->voter)->user)->name ?? optional($question->voter)->full_name ?? 'Unknown' }}</span>
                             <span>Submitted: {{ optional($question->created_at)->diffForHumans() }}</span>
+                            <span>Public: {{ ucfirst($question->public_visibility ?? 'pending') }}</span>
+                        </div>
+
+                        <div class="mt-3 flex flex-wrap gap-2">
+                            <form method="POST" action="{{ route('admin.reports.engagement.questions.moderate', $question) }}">
+                                @csrf
+                                <input type="hidden" name="visibility_action" value="approve">
+                                <button type="submit" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition">
+                                    Approve Public
+                                </button>
+                            </form>
+                            <form method="POST" action="{{ route('admin.reports.engagement.questions.moderate', $question) }}">
+                                @csrf
+                                <input type="hidden" name="visibility_action" value="reject">
+                                <button type="submit" class="px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-100 text-xs font-semibold transition">
+                                    Keep Private
+                                </button>
+                            </form>
                         </div>
                     </article>
                 @endforeach

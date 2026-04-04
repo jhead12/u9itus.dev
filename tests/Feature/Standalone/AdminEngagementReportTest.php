@@ -178,3 +178,70 @@ test('engagement report falls back to safe defaults for invalid filters', functi
         ->assertSee('Resolved queue item')
         ->assertSee('30-day window');
 });
+
+test('admin can approve and reject public visibility for voter questions', function () {
+    $admin = makeAdminForEngagementReport();
+    $campaign = makeModeScopedCampaign();
+    $voter = Voter::factory()->create();
+
+    $report = VoterWatchReport::query()->create([
+        'voter_id' => $voter->id,
+        'campaign_id' => $campaign->id,
+        'type' => 'message',
+        'body' => 'Moderate this question',
+        'status' => 'open',
+        'public_visibility' => 'pending',
+        'is_public_board' => false,
+    ]);
+
+    $this->actingAs($admin)
+        ->post(route('admin.reports.engagement.questions.moderate', $report), [
+            'visibility_action' => 'approve',
+        ])
+        ->assertRedirect();
+
+    expect($report->fresh()->public_visibility)->toBe('approved')
+        ->and($report->fresh()->is_public_board)->toBeTrue()
+        ->and($report->fresh()->published_by)->toBe($admin->id);
+
+    $this->actingAs($admin)
+        ->post(route('admin.reports.engagement.questions.moderate', $report), [
+            'visibility_action' => 'reject',
+        ])
+        ->assertRedirect();
+
+    expect($report->fresh()->public_visibility)->toBe('rejected')
+        ->and($report->fresh()->is_public_board)->toBeFalse();
+});
+
+test('engagement report filters voter questions by public visibility', function () {
+    $admin = makeAdminForEngagementReport();
+    $campaign = makeModeScopedCampaign();
+    $voter = Voter::factory()->create();
+
+    VoterWatchReport::query()->create([
+        'voter_id' => $voter->id,
+        'campaign_id' => $campaign->id,
+        'type' => 'message',
+        'body' => 'Pending moderation item',
+        'status' => 'open',
+        'public_visibility' => 'pending',
+        'is_public_board' => false,
+    ]);
+
+    VoterWatchReport::query()->create([
+        'voter_id' => $voter->id,
+        'campaign_id' => $campaign->id,
+        'type' => 'message',
+        'body' => 'Approved board item',
+        'status' => 'resolved',
+        'public_visibility' => 'approved',
+        'is_public_board' => true,
+    ]);
+
+    $this->actingAs($admin)
+        ->get(route('admin.reports.engagement', ['public_visibility' => 'approved']))
+        ->assertOk()
+        ->assertSee('Approved board item')
+        ->assertDontSee('Pending moderation item');
+});

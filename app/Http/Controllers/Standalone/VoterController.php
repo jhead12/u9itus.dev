@@ -18,7 +18,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 /**
  * Standalone Voter Controller
@@ -132,6 +134,42 @@ class VoterController extends Controller
                 'is_verified'    => false,
             ]
         );
+    }
+
+    private function makePublicAlias(Voter $voter, int $campaignId): string
+    {
+        $seed = hash_hmac('sha256', $campaignId . '|' . $voter->id, (string) config('app.key'));
+        return 'Voter #' . Str::upper(substr($seed, 0, 6));
+    }
+
+    private function questionRateLimitConfig(): array
+    {
+        return [
+            'max_attempts' => max(1, (int) config('u9itus.q_and_a.rate_limit.max_attempts', 5)),
+            'decay_seconds' => max(1, (int) config('u9itus.q_and_a.rate_limit.decay_seconds', 600)),
+        ];
+    }
+
+    private function questionContainsBlockedTerms(string $text): bool
+    {
+        $terms = config('u9itus.q_and_a.moderation.blocked_terms', []);
+        if (!is_array($terms) || empty($terms)) {
+            return false;
+        }
+
+        $normalized = Str::lower(trim($text));
+        if ($normalized === '') {
+            return true;
+        }
+
+        foreach ($terms as $term) {
+            $needle = Str::lower(trim((string) $term));
+            if ($needle !== '' && str_contains($normalized, $needle)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     // ── Dashboard ────────────────────────────────────────────
@@ -666,6 +704,26 @@ class VoterController extends Controller
         $campaign  = \App\Models\PoliticalCampaign::with('politician.user')->findOrFail($adToken->political_campaign_id);
         $politician = $campaign->politician;
 
+        if ($this->questionContainsBlockedTerms($validated['body'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Your question contains blocked language and could not be submitted.',
+            ], 422);
+        }
+
+        $rateConfig = $this->questionRateLimitConfig();
+        $rateKey = 'question-submit:' . $voter->id . ':' . (int) $adToken->political_campaign_id;
+
+        if (RateLimiter::tooManyAttempts($rateKey, $rateConfig['max_attempts'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You are submitting too quickly. Please wait before sending another question.',
+                'retry_after_seconds' => RateLimiter::availableIn($rateKey),
+            ], 429);
+        }
+
+        RateLimiter::hit($rateKey, $rateConfig['decay_seconds']);
+
         \App\Models\VoterWatchReport::create([
             'voter_id'          => $voter->id,
             'campaign_id'       => $adToken->political_campaign_id,
@@ -674,6 +732,9 @@ class VoterController extends Controller
             'issue_category'    => null,
             'body'              => $validated['body'],
             'status'            => 'open',
+            'public_visibility' => 'pending',
+            'is_public_board'   => false,
+            'public_alias'      => $this->makePublicAlias($voter, (int) $adToken->political_campaign_id),
         ]);
 
         // Notify politician (email is on the related User record)
@@ -693,7 +754,10 @@ class VoterController extends Controller
             }
         }
 
-        return response()->json(['success' => true, 'message' => 'Your question has been sent to the campaign team.']);
+        return response()->json([
+            'success' => true,
+            'message' => 'Your question was received. It will appear publicly after moderation review.',
+        ]);
     }
 
     // ── Earnings ─────────────────────────────────────────────

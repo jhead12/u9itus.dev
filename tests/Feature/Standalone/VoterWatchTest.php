@@ -278,10 +278,64 @@ test('askQuestion stores voter question for politician campaign', function () {
         ->assertOk()
         ->assertJson(['success' => true]);
 
-    expect(VoterWatchReport::where('campaign_id', $campaign->id)
+    $report = VoterWatchReport::where('campaign_id', $campaign->id)
         ->where('voter_id', $voter->id)
         ->where('type', 'message')
-        ->exists())->toBeTrue();
+        ->first();
+
+    expect($report)->not->toBeNull()
+        ->and($report->public_visibility)->toBe('pending')
+        ->and($report->is_public_board)->toBeFalse()
+        ->and($report->public_alias)->toStartWith('Voter #');
+});
+
+test('askQuestion rejects blocked terms', function () {
+    config()->set('u9itus.q_and_a.moderation.blocked_terms', ['forbiddenword']);
+
+    [$user, $voter] = voterUser();
+    $campaign = watchableCampaign();
+    $adToken = validToken($voter, $campaign);
+
+    $this->actingAs($user)
+        ->postJson(route('voter.watch.ask-question', ['token' => $adToken->token]), [
+            'body' => 'This contains forbiddenword and should fail.',
+        ])
+        ->assertStatus(422)
+        ->assertJsonPath('success', false);
+
+    expect(VoterWatchReport::query()
+        ->where('campaign_id', $campaign->id)
+        ->where('voter_id', $voter->id)
+        ->where('type', 'message')
+        ->exists())->toBeFalse();
+});
+
+test('askQuestion is rate limited', function () {
+    config()->set('u9itus.q_and_a.rate_limit.max_attempts', 2);
+    config()->set('u9itus.q_and_a.rate_limit.decay_seconds', 3600);
+
+    [$user, $voter] = voterUser();
+    $campaign = watchableCampaign();
+    $adToken = validToken($voter, $campaign);
+
+    $this->actingAs($user)
+        ->postJson(route('voter.watch.ask-question', ['token' => $adToken->token]), [
+            'body' => 'First question attempt',
+        ])
+        ->assertOk();
+
+    $this->actingAs($user)
+        ->postJson(route('voter.watch.ask-question', ['token' => $adToken->token]), [
+            'body' => 'Second question attempt',
+        ])
+        ->assertOk();
+
+    $this->actingAs($user)
+        ->postJson(route('voter.watch.ask-question', ['token' => $adToken->token]), [
+            'body' => 'Third question should be blocked',
+        ])
+        ->assertStatus(429)
+        ->assertJsonPath('success', false);
 });
 
 // ── Dashboard ─────────────────────────────────────────────────────────────────

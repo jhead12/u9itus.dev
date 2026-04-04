@@ -255,6 +255,42 @@ test('public profile shows answered voter questions', function () {
     $response->assertDontSee('Will you support weekend service?');
 });
 
+test('public profile uses configurable question heading label', function () {
+    config()->set('u9itus.q_and_a.use_public_board_heading', true);
+    config()->set('u9itus.q_and_a.public_heading_label', 'Public Q&A Board');
+
+    $politician = Politician::factory()->create([
+        'full_name' => 'Robin Hale',
+        'slug' => 'robin-hale',
+        'page_published' => true,
+        'is_active' => true,
+    ]);
+
+    $campaign = PoliticalCampaign::factory()->active()->create([
+        'politician_id' => $politician->id,
+        'title' => 'Robin Hale Updates',
+        'approval_status' => 'approved',
+    ]);
+
+    $voter = Voter::factory()->create();
+
+    VoterWatchReport::create([
+        'voter_id' => $voter->id,
+        'campaign_id' => $campaign->id,
+        'type' => 'message',
+        'body' => 'What is your first-year policy target?',
+        'status' => 'resolved',
+        'admin_notes' => 'We will publish a first-year accountability scorecard.',
+        'resolved_at' => now()->subDay(),
+    ]);
+
+    $response = $this->get(route('politician.public.show', ['slug' => $politician->slug]));
+
+    $response->assertOk();
+    $response->assertSee('Public Q&A Board');
+    $response->assertDontSee('Answered Questions');
+});
+
 test('verified public profile shows dig deeper source panels', function () {
     $politician = Politician::factory()->create([
         'full_name' => 'Morgan Hale',

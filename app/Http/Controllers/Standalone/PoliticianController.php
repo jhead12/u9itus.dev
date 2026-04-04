@@ -1076,6 +1076,10 @@ class PoliticianController extends Controller
             ->where('status', 'open')
             ->count();
 
+        $pendingPublicQuestionsCount = (clone $voterQuestionsQuery)
+            ->where('public_visibility', 'pending')
+            ->count();
+
         $recentVoterQuestions = (clone $voterQuestionsQuery)
             ->with([
                 'campaign:id,title',
@@ -1088,7 +1092,7 @@ class PoliticianController extends Controller
         return view('standalone.politician.analytics', compact(
             'politician', 'campaigns',
             'totalViews', 'totalSpent', 'totalBudget', 'activeCampaigns', 'transactionsWithFeeSummary',
-            'openVoterQuestionsCount', 'recentVoterQuestions'
+            'openVoterQuestionsCount', 'pendingPublicQuestionsCount', 'recentVoterQuestions'
         ));
     }
 
@@ -1127,6 +1131,10 @@ class PoliticianController extends Controller
             ->orderByDesc('total')
             ->get();
 
+        $pendingPublicQuestions = (clone $voterQuestionsBaseQuery)
+            ->where('public_visibility', 'pending')
+            ->count();
+
         $voterQuestions = (clone $voterQuestionsBaseQuery)
             ->with('voter:id,full_name,email')
             ->latest('created_at')
@@ -1135,8 +1143,28 @@ class PoliticianController extends Controller
         return view('standalone.politician.analytics.campaign', compact(
             'campaign', 'politician', 'sessions', 'byStatus',
             'completedViews', 'budgetUsed', 'budgetLeft',
-            'voterQuestions', 'voterQuestionCounts', 'openVoterQuestions'
+            'voterQuestions', 'voterQuestionCounts', 'openVoterQuestions', 'pendingPublicQuestions'
         ));
+    }
+
+    public function replyToQuestion(Request $request, PoliticalCampaign $campaign, VoterWatchReport $report)
+    {
+        $politician = Auth::user()->politician;
+        abort_unless($politician && (int) $campaign->politician_id === (int) $politician->id, 403);
+        abort_unless((int) $report->campaign_id === (int) $campaign->id, 403);
+        abort_unless($report->type === 'message', 422, 'Only voter questions can be replied to.');
+
+        $validated = $request->validate([
+            'campaign_reply' => ['required', 'string', 'max:2000'],
+        ]);
+
+        $report->campaign_reply = $validated['campaign_reply'];
+        $report->campaign_replied_by = Auth::id();
+        $report->campaign_replied_at = now();
+        $report->status = 'resolved';
+        $report->save();
+
+        return back()->with('success', 'Reply posted to voter question.');
     }
 
     /** Billing overview: credit balance + transaction history. */

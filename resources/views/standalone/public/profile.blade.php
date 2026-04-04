@@ -466,35 +466,41 @@
         </section>
         @endif
 
-        {{-- Answered Questions Section (public town hall responses) --}}
-        @if($answeredQuestions->isNotEmpty())
+        {{-- Public Q&A Board Section --}}
+        @if($publicBoardQuestions->isNotEmpty())
+        @php
+            $qaHeading = (bool) config('u9itus.q_and_a.use_public_board_heading', false)
+                ? (string) config('u9itus.q_and_a.public_heading_label', 'Public Q&A Board')
+                : (string) config('u9itus.q_and_a.legacy_heading_label', 'Answered Questions');
+        @endphp
         <section>
             <div class="flex items-end justify-between mb-4">
                 <h2 class="text-xl font-bold text-white flex items-center gap-2">
                     <span class="w-1 h-6 rounded-full inline-block" style="background:var(--p13-accent,#f59e0b)"></span>
-                    Answered Questions
+                    {{ $qaHeading }}
                 </h2>
-                <span class="text-xs text-slate-400">{{ $answeredQuestions->count() }} published responses</span>
+                <span class="text-xs text-slate-400">{{ $publicBoardQuestions->count() }} published questions</span>
             </div>
 
-            <p class="text-xs text-slate-400 mb-4">Questions from voters with published responses from this campaign's team.</p>
+            <p class="text-xs text-slate-400 mb-4">Moderated voter questions with official campaign replies.</p>
 
             <div class="space-y-4">
-                @foreach($answeredQuestions as $entry)
+                @foreach($publicBoardQuestions as $entry)
                     <article class="bg-slate-800/40 border border-slate-700/40 rounded-xl p-5">
                         <div class="flex items-center justify-between gap-3 mb-2">
                             <p class="text-xs text-slate-500">Campaign: {{ $entry->campaign->title ?? 'Campaign' }}</p>
-                            <p class="text-xs text-slate-500">Answered {{ optional($entry->resolved_at ?? $entry->updated_at)->format('M j, Y') }}</p>
+                            <p class="text-xs text-slate-500">Published {{ optional($entry->published_at ?? $entry->updated_at)->format('M j, Y') }}</p>
                         </div>
 
                         <div class="rounded-lg border border-slate-700/50 bg-slate-900/40 px-4 py-3 mb-3">
                             <p class="text-[11px] uppercase tracking-wide text-slate-500 mb-1">Voter Question</p>
+                            <p class="text-xs text-slate-500 mb-2">{{ $entry->public_alias ?: 'Verified Voter' }}</p>
                             <p class="text-sm text-slate-200 leading-relaxed whitespace-pre-line">{{ $entry->body }}</p>
                         </div>
 
                         <div class="rounded-lg border border-emerald-500/25 bg-emerald-500/10 px-4 py-3">
                             <p class="text-[11px] uppercase tracking-wide text-emerald-300 mb-1">Campaign Response</p>
-                            <p class="text-sm text-emerald-100 leading-relaxed whitespace-pre-line">{{ $entry->admin_notes }}</p>
+                            <p class="text-sm text-emerald-100 leading-relaxed whitespace-pre-line">{{ $entry->campaign_reply ?: $entry->admin_notes }}</p>
                         </div>
                     </article>
                 @endforeach

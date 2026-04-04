@@ -46,19 +46,24 @@
             <p class="text-2xl font-bold text-cyan-300">{{ number_format($openVoterQuestions ?? 0) }}</p>
         </div>
         <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
-            <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">Question Status</p>
-            @if(($voterQuestionCounts ?? collect())->isEmpty())
-                <p class="text-slate-500 text-sm">No questions submitted yet.</p>
-            @else
-                <div class="flex flex-wrap gap-2">
-                    @foreach($voterQuestionCounts as $row)
-                        <span class="text-xs px-2.5 py-1 rounded-full bg-slate-700/60 text-slate-200">
-                            {{ ucfirst(str_replace('_', ' ', $row->status)) }}: {{ number_format($row->total) }}
-                        </span>
-                    @endforeach
-                </div>
-            @endif
+            <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Pending Public Moderation</p>
+            <p class="text-2xl font-bold text-amber-300">{{ number_format($pendingPublicQuestions ?? 0) }}</p>
         </div>
+    </div>
+
+    <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
+        <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">Question Status</p>
+        @if(($voterQuestionCounts ?? collect())->isEmpty())
+            <p class="text-slate-500 text-sm">No questions submitted yet.</p>
+        @else
+            <div class="flex flex-wrap gap-2">
+                @foreach($voterQuestionCounts as $row)
+                    <span class="text-xs px-2.5 py-1 rounded-full bg-slate-700/60 text-slate-200">
+                        {{ ucfirst(str_replace('_', ' ', $row->status)) }}: {{ number_format($row->total) }}
+                    </span>
+                @endforeach
+            </div>
+        @endif
     </div>
 
     {{-- Status breakdown --}}
@@ -106,6 +111,27 @@
                         </div>
                         <p class="text-slate-200 text-sm mt-1.5">{{ $question->body }}</p>
                         <p class="text-xs text-slate-500 mt-1">From: {{ $question->voter->full_name ?? 'Voter' }} {{ ($question->voter->email ?? null) ? '(' . $question->voter->email . ')' : '' }}</p>
+
+                        @if(!empty($question->campaign_reply))
+                            <div class="mt-3 rounded-lg border border-emerald-500/25 bg-emerald-500/10 px-3 py-2">
+                                <p class="text-[11px] uppercase tracking-wide text-emerald-300 mb-1">Your Published Reply</p>
+                                <p class="text-sm text-emerald-100 whitespace-pre-line">{{ $question->campaign_reply }}</p>
+                            </div>
+                        @endif
+
+                        <form method="POST" action="{{ route('politician.campaigns.questions.reply', [$campaign, $question]) }}" class="mt-3 space-y-2">
+                            @csrf
+                            <label for="reply-{{ $question->id }}" class="text-xs text-slate-400">Official campaign reply</label>
+                            <textarea id="reply-{{ $question->id }}" name="campaign_reply" rows="3" maxlength="2000"
+                                class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                                placeholder="Write your official response...">{{ old('campaign_reply') }}</textarea>
+                            <div class="flex items-center justify-between gap-2">
+                                <p class="text-[11px] text-slate-500">Public visibility: {{ ucfirst($question->public_visibility ?? 'pending') }}</p>
+                                <button type="submit" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium transition">
+                                    Save Reply
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 @endforeach
             </div>
