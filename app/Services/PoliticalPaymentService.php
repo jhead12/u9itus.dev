@@ -78,7 +78,11 @@ class PoliticalPaymentService
                 }
 
                 // Mark campaign as authorized
-                $campaign->update(['payment_status' => PaymentStatus::Authorized]);
+                $campaign->update([
+                    'payment_status' => PaymentStatus::Authorized,
+                    // Persist PI on the campaign so voter inventory can verify funding state.
+                    'stripe_payment_intent_id' => $piId,
+                ]);
                 Log::info("Campaign {$campaign->uuid} authorized for: \${$amount}", ['payment_intent' => $piId]);
                 return $piId;
             }

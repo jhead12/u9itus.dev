@@ -263,27 +263,36 @@ test('availableCampaigns respects state targeting', function () {
     expect($results)->toHaveCount(2);
 });
 
-test('availableCampaigns excludes campaigns without Stripe capture', function () {
+test('availableCampaigns includes Stripe-backed campaigns in captured or authorized state', function () {
     config(['u9itus.fraud.device_fingerprint_required' => false]);
 
     $voter = cleanVoter(['state' => null]);
 
     activeCampaignForView([
-        'title' => 'Paid campaign',
+        'title' => 'Captured campaign',
         'payment_status' => PaymentStatus::Captured->value,
-        'stripe_payment_intent_id' => 'pi_test_paid_campaign',
+        'stripe_payment_intent_id' => 'pi_test_captured_campaign',
     ]);
 
     activeCampaignForView([
-        'title' => 'Unpaid campaign',
+        'title' => 'Authorized campaign',
+        'payment_status' => PaymentStatus::Authorized->value,
+        'stripe_payment_intent_id' => 'pi_test_authorized_campaign',
+    ]);
+
+    activeCampaignForView([
+        'title' => 'Unfunded campaign',
         'payment_status' => PaymentStatus::Pending->value,
         'stripe_payment_intent_id' => null,
     ]);
 
     $results = viewService()->availableCampaigns($voter);
 
-    expect($results)->toHaveCount(1)
-        ->and($results->first()->title)->toBe('Paid campaign');
+    expect($results)->toHaveCount(2)
+        ->and($results->pluck('title')->all())->toBe([
+            'Captured campaign',
+            'Authorized campaign',
+        ]);
 });
 
 test('voterEarningsSummary excludes referral earnings from the inactive stripe mode', function () {
