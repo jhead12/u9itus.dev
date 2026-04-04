@@ -1020,6 +1020,10 @@
         const video = document.getElementById('ad-video');
         let nativeLastTime = 0;
 
+        video.addEventListener('error', function() {
+            showStatus('Video could not be loaded. Please refresh. If this continues, report the issue so we can repair the media link.', 'error');
+        });
+
         if (isHls) {
             initHls(video).catch(() => {
                 showStatus('Could not load HLS stream. Please refresh and try again.', 'error');

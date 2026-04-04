@@ -35,6 +35,69 @@ class VoterController extends Controller
 
     // ── Helpers ──────────────────────────────────────────────
 
+    /**
+     * Resolve a campaign media URL into a playback-safe URL.
+     *
+     * For S3-backed/private media we generate a short-lived signed URL.
+     * For YouTube/Vimeo and already-public URLs we return the original value.
+     */
+    private function resolvePlayableMediaUrl(PoliticalCampaign $campaign): ?string
+    {
+        $rawMediaUrl = trim((string) ($campaign->media_url ?? ''));
+        if ($rawMediaUrl === '') {
+            return null;
+        }
+
+        $mediaType = strtolower((string) ($campaign->media_type ?? ''));
+        if (in_array($mediaType, ['youtube', 'vimeo'], true)) {
+            return $rawMediaUrl;
+        }
+
+        $isAbsoluteUrl = filter_var($rawMediaUrl, FILTER_VALIDATE_URL) !== false;
+        $isS3Like = str_contains($rawMediaUrl, '.amazonaws.com')
+            || str_contains($rawMediaUrl, '/s3/')
+            || str_contains($rawMediaUrl, 's3.')
+            || str_starts_with($rawMediaUrl, 'campaigns/');
+
+        if (! $isS3Like) {
+            return $rawMediaUrl;
+        }
+
+        // Prefer explicit s3 disk when configured; fallback to default disk.
+        $disk = config('filesystems.disks.s3') ? 's3' : (string) config('filesystems.default', 'local');
+
+        try {
+            $path = $rawMediaUrl;
+            if ($isAbsoluteUrl) {
+                $urlParts = parse_url($rawMediaUrl);
+                $path = ltrim((string) ($urlParts['path'] ?? ''), '/');
+            }
+
+            if ($path === '') {
+                return $rawMediaUrl;
+            }
+
+            $bucketName = (string) config('filesystems.disks.s3.bucket', '');
+            if ($bucketName !== '' && str_starts_with($path, $bucketName . '/')) {
+                $path = substr($path, strlen($bucketName) + 1);
+            }
+
+            if ($path === '') {
+                return $rawMediaUrl;
+            }
+
+            return Storage::disk($disk)->temporaryUrl($path, now()->addMinutes(30));
+        } catch (\Throwable $e) {
+            Log::warning('Unable to generate temporary media URL for voter watch playback', [
+                'campaign_id' => $campaign->id,
+                'media_type' => $campaign->media_type,
+                'error' => $e->getMessage(),
+            ]);
+
+            return $rawMediaUrl;
+        }
+    }
+
     /** Resolve and auto-create voter profile for the authenticated user. */
     private function resolveVoter(): Voter
     {
@@ -352,6 +415,11 @@ class VoterController extends Controller
         $duration  = (int) ($campaign->media_duration ?? max(1, $durationFallback));
         $mustWatch = (int) ($campaign->min_watch_time_percent ?? config('u9itus.min_watch_time_percent', 80));
         $payout    = (float) ($campaign->voter_payout_per_view ?? PlatformSettingsService::get('viewer_payout_per_view', null, 0.25));
+
+        $playableMediaUrl = $this->resolvePlayableMediaUrl($campaign);
+        if ($playableMediaUrl) {
+            $campaign->media_url = $playableMediaUrl;
+        }
 
         return view('standalone.voter.watch', compact(
             'adToken', 'campaign', 'duration', 'mustWatch', 'payout'

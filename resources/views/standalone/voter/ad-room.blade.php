@@ -247,10 +247,41 @@
                     <img src="{{ $campaign->thumbnail_url }}" alt="{{ $campaign->title }}"
                         class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
                 @else
-                    <div class="w-full h-full flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-slate-800 to-slate-900">
-                        <svg class="w-10 h-10 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.069A1 1 0 0121 8.882v6.236a1 1 0 01-1.447.894L15 14M3 8a2 2 0 00-2 2v4a2 2 0 002 2h9a2 2 0 002-2v-4a2 2 0 00-2-2H3z"/>
-                        </svg>
+                    @php
+                        $placeholderGradients = [
+                            'federal' => 'from-blue-950 via-blue-900 to-slate-900',
+                            'state'   => 'from-purple-950 via-purple-900 to-slate-900',
+                            'county'  => 'from-amber-950 via-amber-900 to-slate-900',
+                            'city'    => 'from-teal-950 via-teal-900 to-slate-900',
+                            'school'  => 'from-rose-950 via-rose-900 to-slate-900',
+                            'special' => 'from-indigo-950 via-indigo-900 to-slate-900',
+                        ];
+                        $placeholderGradient = $placeholderGradients[$lvl] ?? 'from-slate-800 via-slate-850 to-slate-900';
+                        $politicianName = optional($politician)->display_name ?? optional($politician)->first_name.' '.optional($politician)->last_name;
+                        $initials = collect(explode(' ', trim($politicianName)))->map(fn($w) => strtoupper(substr($w,0,1)))->take(2)->implode('');
+                    @endphp
+                    <div class="w-full h-full flex flex-col items-center justify-center gap-3 bg-gradient-to-br {{ $placeholderGradient }}">
+                        {{-- Politician avatar placeholder --}}
+                        <div class="w-14 h-14 rounded-full bg-white/10 border border-white/20 flex items-center justify-center shadow-lg">
+                            @if($initials)
+                                <span class="text-xl font-bold text-white/80 tracking-wide">{{ $initials }}</span>
+                            @else
+                                <svg class="w-7 h-7 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                                </svg>
+                            @endif
+                        </div>
+                        {{-- Campaign title --}}
+                        <p class="text-white/60 text-xs font-medium text-center px-4 leading-snug line-clamp-2 max-w-[80%]">
+                            {{ $campaign->title }}
+                        </p>
+                        {{-- Video pending indicator --}}
+                        <div class="flex items-center gap-1.5 text-white/30">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.069A1 1 0 0121 8.882v6.236a1 1 0 01-1.447.894L15 14M3 8a2 2 0 00-2 2v4a2 2 0 002 2h9a2 2 0 002-2v-4a2 2 0 00-2-2H3z"/>
+                            </svg>
+                            <span class="text-xs">Video coming soon</span>
+                        </div>
                     </div>
                 @endif
 
