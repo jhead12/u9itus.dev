@@ -143,6 +143,17 @@
     {{-- Status messages --}}
     <div id="status-msg" class="mt-5 hidden text-center py-4 px-6 rounded-2xl"></div>
 
+    {{-- Replay CTA (shown after completion) --}}
+    <div id="replay-wrap" class="mt-3 hidden text-center">
+        <button id="replay-btn" type="button"
+            class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-800/70 hover:bg-slate-700/70 border border-slate-600 text-slate-200 hover:text-white text-sm font-medium transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0A8.003 8.003 0 014.582 15"/>
+            </svg>
+            Replay Video
+        </button>
+    </div>
+
     @php
         $engagementSurvey = is_array($campaign->engagement_survey ?? null) ? $campaign->engagement_survey : null;
         $surveyOptions = collect($engagementSurvey['options'] ?? [])->filter(function ($option) {
@@ -596,6 +607,8 @@
     const mediaStreamUrl = @json($campaign->media_url ?? null);
     const surveyPayload = @json($engagementSurvey);
     const dashboardUrl  = '{{ route('voter.dashboard') }}';
+    const replayWrap    = document.getElementById('replay-wrap');
+    const replayBtn     = document.getElementById('replay-btn');
 
     let sessionId      = null;
     let heartbeatTimer = null;
@@ -668,6 +681,36 @@
         if (!uiTimer) return;
         clearInterval(uiTimer);
         uiTimer = null;
+    }
+
+    function showReplayButton() {
+        if (replayWrap) {
+            replayWrap.classList.remove('hidden');
+        }
+    }
+
+    async function replayFromStart() {
+        try {
+            if (isYouTube && ytPlayer) {
+                ytPlayer.seekTo(0, true);
+                ytPlayer.playVideo();
+                return;
+            }
+
+            if (isVimeo && vimeoPlayer) {
+                await vimeoPlayer.setCurrentTime(0);
+                await vimeoPlayer.play();
+                return;
+            }
+
+            const video = document.getElementById('ad-video');
+            if (video) {
+                video.currentTime = 0;
+                await video.play();
+            }
+        } catch (_) {
+            showStatus('Replay could not start. Please refresh and try again.', 'error');
+        }
     }
 
     function updateSurveySelectionUi() {
@@ -745,6 +788,7 @@
                     stopUiTimer();
                     updateProgressUi(duration);
                     revealSurveyPanel();
+                    showReplayButton();
                     if (res.qualified) {
                         showStatus(`\u{1F389} You earned $${parseFloat(res.payout_earned).toFixed(2)}! Payment is being processed.`, 'success');
                         statusMsg.innerHTML += ` <a href="${dashboardUrl}" class="underline text-emerald-400 ml-2">View earnings \u2192</a>`;
@@ -770,6 +814,7 @@
         // Use actual playback time if provided, fallback to the server-side duration
         const total = Math.floor(actualPlaybackSeconds > 0 ? actualPlaybackSeconds : duration);
         updateProgressUi(total);
+        showReplayButton();
         try {
             const baseUrl = '{{ url("/voter/session") }}';
             const res = await post(`${baseUrl}/${sessionId}/complete`, { total_seconds_watched: total });
@@ -1107,6 +1152,10 @@
             if (!surveyPanel || surveySubmitted) return;
             surveyPanel.classList.add('hidden');
         });
+    }
+
+    if (replayBtn) {
+        replayBtn.addEventListener('click', replayFromStart);
     }
 })();
 </script>
