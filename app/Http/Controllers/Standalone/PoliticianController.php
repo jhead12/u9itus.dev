@@ -20,6 +20,7 @@ use App\Models\VoterWatchReport;
 use App\Services\StripePaymentService;
 use App\Services\PlatformSettingsService;
 use App\Services\CampaignQandAService;
+use App\Services\TransactionEngagementService;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
@@ -1314,6 +1315,34 @@ class PoliticianController extends Controller
         }
 
         return back()->with('success', 'Receipt email sent successfully.');
+    }
+
+    /**
+     * Return invoice-level engagement analytics for a single paid charge.
+     */
+    public function invoiceDetails(CampaignTransaction $transaction, TransactionEngagementService $engagementService)
+    {
+        $politician = Auth::user()->politician;
+        abort_unless($politician && (int) $transaction->politician_id === (int) $politician->id, 403);
+
+        $activePaymentMode = $this->activePaymentMode();
+        $txMode = $transaction->metadata['payment_mode'] ?? null;
+
+        if ($activePaymentMode && $txMode && $txMode !== $activePaymentMode) {
+            abort(404);
+        }
+
+        if ($transaction->transaction_type !== 'charge' || $transaction->status !== 'succeeded') {
+            return response()->json([
+                'message' => 'Invoice engagement details are available only for succeeded credit purchases.',
+            ], 422);
+        }
+
+        $snapshot = $engagementService->aggregateForInvoice($transaction, $politician, $activePaymentMode);
+
+        return response()->json([
+            'data' => $snapshot,
+        ]);
     }
 
     /**

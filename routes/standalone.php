@@ -206,6 +206,8 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         Route::get('/billing/confirm', [PoliticianController::class, 'confirmPayment'])->name('billing.confirm');
         Route::post('/billing/update-receipt-email', [PoliticianController::class, 'updateReceiptEmail'])->name('billing.update-receipt-email');
         Route::get('/billing/invoices', [PoliticianController::class, 'invoices'])->name('billing.invoices');
+        Route::get('/billing/invoices/{transaction}/details', [PoliticianController::class, 'invoiceDetails'])
+            ->name('billing.invoices.details');
         Route::post('/billing/invoices/{transaction}/send-receipt', [PoliticianController::class, 'sendReceipt'])
             ->name('billing.invoices.send-receipt');
         
