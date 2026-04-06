@@ -190,6 +190,42 @@ test('directory unclaimed-only filter returns only unclaimed profiles', function
     $response->assertDontSee('Claimed Candidate');
 });
 
+test('directory collapses obvious duplicate imported federal unclaimed profiles', function () {
+    Politician::factory()->create([
+        'full_name' => 'Adam B. Schiff',
+        'political_office' => 'U.S. Representative',
+        'governance_level' => 'Federal',
+        'state' => 'CA',
+        'profile_photo_url' => 'https://unitedstates.github.io/images/congress/225x275/S001150.jpg',
+        'website_url' => 'https://schiff.house.gov',
+        'page_published' => true,
+        'is_active' => true,
+        'user_id' => null,
+        'updated_at' => now()->subDay(),
+    ]);
+
+    Politician::factory()->create([
+        'full_name' => 'Adam B. Schiff',
+        'political_office' => 'U.S. Senator',
+        'governance_level' => 'Federal',
+        'state' => 'CA',
+        'profile_photo_url' => 'https://unitedstates.github.io/images/congress/225x275/S001150.jpg',
+        'website_url' => 'https://schiff.house.gov',
+        'page_published' => true,
+        'is_active' => true,
+        'user_id' => null,
+        'updated_at' => now(),
+    ]);
+
+    $response = $this->get(route('politicians.directory'));
+
+    $response->assertOk();
+    $response->assertSeeText('Adam B. Schiff');
+    $response->assertSeeText('1 politician found');
+    $response->assertSeeText('U.S. Senator');
+    $response->assertDontSeeText('U.S. Representative');
+});
+
 test('authenticated politician can still preview their unpublished page', function () {
     $user = User::factory()->create([
         'user_type' => 'politician',

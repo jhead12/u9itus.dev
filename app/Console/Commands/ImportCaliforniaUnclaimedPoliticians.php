@@ -158,6 +158,25 @@ class ImportCaliforniaUnclaimedPoliticians extends Command
                 ->whereRaw('UPPER(COALESCE(state, \'\')) = ?', ['CA'])
                 ->first();
 
+            if (! $existing && ($photoUrl || $website)) {
+                $existing = Politician::query()
+                    ->whereNull('user_id')
+                    ->whereRaw('LOWER(full_name) = ?', [strtolower($fullName)])
+                    ->whereRaw('UPPER(COALESCE(state, \'\')) = ?', ['CA'])
+                    ->where('governance_level', 'Federal')
+                    ->where(function ($query) use ($photoUrl, $website) {
+                        if ($photoUrl) {
+                            $query->orWhere('profile_photo_url', $photoUrl);
+                        }
+
+                        if ($website) {
+                            $query->orWhere('website_url', $website);
+                        }
+                    })
+                    ->orderByDesc('updated_at')
+                    ->first();
+            }
+
             $politicianPayload = [
                 'full_name' => $fullName,
                 'political_office' => $office,

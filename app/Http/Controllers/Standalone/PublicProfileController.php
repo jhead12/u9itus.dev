@@ -12,6 +12,7 @@ use App\Models\VoterWatchReport;
 use App\Services\CongressGovService;
 use App\Services\GoogleCivicService;
 use App\Services\GoogleCivicVoterInfoService;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
@@ -605,21 +606,13 @@ class PublicProfileController extends Controller
 
         // Sorting
         $sortBy = $request->input('sort', 'name');
-        switch ($sortBy) {
-            case 'name':
-                $query->orderBy('full_name', 'asc');
-                break;
-            case 'recent':
-                $query->orderByDesc('created_at');
-                break;
-            case 'verified':
-                $query->orderByDesc('verified_official')->orderBy('full_name', 'asc');
-                break;
-            default:
-                $query->orderBy('full_name', 'asc');
-        }
-
-        $politicians = $query->paginate(24);
+        $politicians = $this->paginateDirectoryResults(
+            politicians: $this->sortDirectoryResults(
+                politicians: $this->collapseDirectoryDuplicates($query->get()),
+                sortBy: $sortBy,
+            ),
+            request: $request,
+        );
 
         $states = config('u9itus.us_states', []);
         $governanceLevels = ['Federal', 'State', 'County', 'City', 'School Board', 'Judicial'];
@@ -633,6 +626,122 @@ class PublicProfileController extends Controller
             'parties',
             'isGuestBrowsing'
         ));
+    }
+
+    /**
+     * Collapse obvious duplicate imported federal profiles for the same unclaimed official.
+     *
+     * We only collapse rows when they share a strong public identity signal
+     * (same normalized name + state + profile photo or website), which avoids
+     * merging unrelated local/state officials who happen to share a name.
+     *
+     * @param Collection<int, Politician> $politicians
+     * @return Collection<int, Politician>
+     */
+    protected function collapseDirectoryDuplicates(Collection $politicians): Collection
+    {
+        return $politicians
+            ->groupBy(fn (Politician $politician): string => $this->directoryIdentityKey($politician))
+            ->map(function (Collection $group): Politician {
+                return $group->reduce(function (?Politician $preferred, Politician $candidate): Politician {
+                    if ($preferred === null) {
+                        return $candidate;
+                    }
+
+                    return $this->preferDirectoryPolitician($preferred, $candidate);
+                });
+            })
+            ->values();
+    }
+
+    protected function directoryIdentityKey(Politician $politician): string
+    {
+        if ($politician->user_id !== null) {
+            return 'claimed:' . $politician->id;
+        }
+
+        if (strcasecmp((string) $politician->governance_level, 'Federal') !== 0) {
+            return 'non-federal:' . $politician->id;
+        }
+
+        $name = strtolower(trim((string) $politician->full_name));
+        $state = strtoupper(trim((string) $politician->state));
+        $photo = strtolower(trim((string) ($politician->profile_photo_url ?? '')));
+        $website = strtolower(trim((string) ($politician->website_url ?? '')));
+
+        if ($name === '' || $state === '') {
+            return 'fallback:' . $politician->id;
+        }
+
+        if ($photo !== '') {
+            return 'federal-photo:' . $name . '|' . $state . '|' . $photo;
+        }
+
+        if ($website !== '') {
+            return 'federal-site:' . $name . '|' . $state . '|' . $website;
+        }
+
+        return 'fallback:' . $politician->id;
+    }
+
+    protected function preferDirectoryPolitician(Politician $preferred, Politician $candidate): Politician
+    {
+        $preferredCampaigns = $preferred->campaigns->count();
+        $candidateCampaigns = $candidate->campaigns->count();
+
+        if ($candidateCampaigns !== $preferredCampaigns) {
+            return $candidateCampaigns > $preferredCampaigns ? $candidate : $preferred;
+        }
+
+        if ((bool) $candidate->verified_official !== (bool) $preferred->verified_official) {
+            return $candidate->verified_official ? $candidate : $preferred;
+        }
+
+        $candidateUpdated = $candidate->updated_at?->getTimestamp() ?? 0;
+        $preferredUpdated = $preferred->updated_at?->getTimestamp() ?? 0;
+        if ($candidateUpdated !== $preferredUpdated) {
+            return $candidateUpdated > $preferredUpdated ? $candidate : $preferred;
+        }
+
+        return $candidate->id > $preferred->id ? $candidate : $preferred;
+    }
+
+    /**
+     * @param Collection<int, Politician> $politicians
+     * @return Collection<int, Politician>
+     */
+    protected function sortDirectoryResults(Collection $politicians, string $sortBy): Collection
+    {
+        return match ($sortBy) {
+            'recent' => $politicians->sortByDesc(fn (Politician $politician) => $politician->created_at?->getTimestamp() ?? 0)->values(),
+            'verified' => $politicians
+                ->sortBy(fn (Politician $politician) => [
+                    $politician->verified_official ? 0 : 1,
+                    strtolower((string) $politician->full_name),
+                ])
+                ->values(),
+            default => $politicians->sortBy(fn (Politician $politician) => strtolower((string) $politician->full_name))->values(),
+        };
+    }
+
+    /**
+     * @param Collection<int, Politician> $politicians
+     */
+    protected function paginateDirectoryResults(Collection $politicians, Request $request, int $perPage = 24): LengthAwarePaginator
+    {
+        $page = max(1, (int) $request->integer('page', 1));
+        $items = $politicians->slice(($page - 1) * $perPage, $perPage)->values();
+
+        return new LengthAwarePaginator(
+            items: $items,
+            total: $politicians->count(),
+            perPage: $perPage,
+            currentPage: $page,
+            options: [
+                'path' => $request->url(),
+                'query' => $request->query(),
+            ],
+        );
     }
 
     /**
