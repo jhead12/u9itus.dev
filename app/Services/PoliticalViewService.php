@@ -255,9 +255,15 @@ class PoliticalViewService
      */
     public function voterEarningsSummary(Voter $voter): array
     {
+        // Sum of sessions already queued for payout (Approved, not yet Paid).
+        $approvedEarnings = (float) $voter->viewSessions()
+            ->where('payment_status', ViewPaymentStatus::Approved)
+            ->sum('voter_payout_amount');
+
         return [
             'total_earned'               => $voter->total_earned,
             'pending_earnings'           => $voter->pending_earnings,
+            'approved_earnings'          => $approvedEarnings,
             'wallet_balance'             => $voter->wallet_balance,
             'total_views'                => $voter->total_views,
             // Voter-view commissions: 10% of each referred voter's payout

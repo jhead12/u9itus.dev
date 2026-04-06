@@ -843,16 +843,24 @@ class VoterController extends Controller
             ]);
         }
 
+        $payoutAmount = (float) $voter->pending_earnings;
+
         // Transition eligible sessions from pending → approved so the batch payout job picks them up.
+        // Also reset pending_earnings to 0 so the UI reflects that a payout is now in-flight.
         $updated = DB::transaction(function () use ($voter): int {
-            return ViewSession::where('voter_id', $voter->id)
+            $count = ViewSession::where('voter_id', $voter->id)
                 ->where('payment_status', ViewPaymentStatus::Pending)
                 ->update(['payment_status' => ViewPaymentStatus::Approved]);
+
+            $voter->pending_earnings = 0;
+            $voter->save();
+
+            return $count;
         });
 
         Log::info('Payout requested', [
             'voter_id'        => $voter->id,
-            'amount'          => $voter->pending_earnings,
+            'amount'          => $payoutAmount,
             'method'          => $voter->payment_method,
             'sessions_queued' => $updated,
         ]);

@@ -65,9 +65,28 @@
             <h2 class="text-base font-semibold text-white">Request Payout</h2>
         </div>
         <div class="px-6 py-5">
-            @php $pending = $summary['pending_earnings'] ?? 0; @endphp
+            @php
+                $pending  = $summary['pending_earnings'] ?? 0;
+                $approved = $summary['approved_earnings'] ?? 0;
+            @endphp
 
-            @if($pending >= $minPayout)
+            @if($approved > 0)
+                {{-- Payout already in-flight — don't show the request button --}}
+                <div class="flex items-start gap-4">
+                    <div class="w-9 h-9 rounded-lg bg-amber-500/15 flex items-center justify-center shrink-0 mt-0.5">
+                        <svg class="w-4 h-4 text-amber-400 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                    </div>
+                    <div class="flex-1">
+                        <p class="text-amber-300 font-semibold text-sm">Payout in review</p>
+                        <p class="text-slate-300 text-sm mt-1">
+                            <strong class="text-amber-400">${{ number_format($approved, 2) }}</strong> has been queued and will be paid to your {{ $voter->payment_method ?? 'account' }} within 1–2 business days.
+                        </p>
+                        <p class="text-slate-500 text-xs mt-2">You will receive an email confirmation once your payment is sent.</p>
+                    </div>
+                </div>
+            @elseif($pending >= $minPayout)
                 <p class="text-slate-300 mb-4 text-sm">
                     You have <strong class="text-emerald-400 text-base">${{ number_format($pending, 2) }}</strong>
                     available. Payouts are processed within 48 hours.

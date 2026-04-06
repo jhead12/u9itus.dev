@@ -142,7 +142,22 @@
     @endif
 
     {{-- Payout CTA --}}
-    @if(($summary['pending_earnings'] ?? 0) >= $minPayout)
+    @if(($summary['approved_earnings'] ?? 0) > 0)
+    {{-- Already requested — show in-review banner instead of the request button --}}
+    <div class="bg-gradient-to-r from-amber-900/30 to-yellow-900/20 border border-amber-500/30 rounded-2xl p-5 flex items-center gap-5">
+        <div class="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center shrink-0">
+            <svg class="w-5 h-5 text-amber-400 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+        </div>
+        <div>
+            <p class="text-amber-300 font-semibold text-sm">
+                Payout of <strong class="text-amber-200 text-base">${{ number_format($summary['approved_earnings'], 2) }}</strong> is being processed
+            </p>
+            <p class="text-slate-400 text-xs mt-0.5">Your payout request was received and will be paid within 1–2 business days.</p>
+        </div>
+    </div>
+    @elseif(($summary['pending_earnings'] ?? 0) >= $minPayout)
     <div class="bg-gradient-to-r from-emerald-900/40 to-teal-900/30 border border-emerald-500/30 rounded-2xl p-5 flex items-center gap-5 justify-between">
         <div class="flex items-center gap-4">
             <div class="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center shrink-0">
