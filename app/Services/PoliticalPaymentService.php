@@ -73,7 +73,10 @@ class PoliticalPaymentService
                         'stripe_payment_intent_id' => $piId,
                         'status' => 'pending',
                         'description' => 'Campaign pre-authorization',
-                        'metadata' => ['client_secret' => $clientSecret],
+                        'metadata' => [
+                            'client_secret' => $clientSecret,
+                            'payment_mode'  => $this->stripeService->configuredMode(),
+                        ],
                     ]);
                 }
 

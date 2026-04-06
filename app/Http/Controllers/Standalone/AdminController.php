@@ -209,13 +209,23 @@ class AdminController extends Controller
 
     /**
      * Campaign ids that have transaction activity in the active payment mode.
+     *
+     * Credit-purchase transactions carry payment_mode in their JSON metadata but are
+     * recorded with campaign_id = null. Derive campaign IDs by finding which politicians
+     * made purchases in the given mode, then returning all their campaign IDs.
      */
     private function modeScopedCampaignIds(string $mode)
     {
-        return $this->applyPaymentModeFilter(
-            CampaignTransaction::query()->select('campaign_id')->whereNotNull('campaign_id')->distinct(),
-            $mode
-        );
+        $politicianIds = CampaignTransaction::query()
+            ->select('politician_id')
+            ->whereNotNull('politician_id')
+            ->where('metadata->payment_mode', $mode)
+            ->distinct();
+
+        return PoliticalCampaign::query()
+            ->select('id')
+            ->whereIn('politician_id', $politicianIds)
+            ->distinct();
     }
 
     /**

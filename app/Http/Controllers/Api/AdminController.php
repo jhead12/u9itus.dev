@@ -54,10 +54,14 @@ class AdminController extends Controller
     public function analytics(): JsonResponse
     {
         $activePaymentMode = $this->activePaymentMode();
-        $campaignIds = $this->applyPaymentModeFilter(
-            CampaignTransaction::query()->select('campaign_id')->whereNotNull('campaign_id')->distinct(),
+
+        // Credit-purchase transactions carry payment_mode in metadata but have campaign_id = null.
+        // Derive campaign IDs via the politician IDs who purchased in the active mode.
+        $politicianIds = $this->applyPaymentModeFilter(
+            CampaignTransaction::query()->select('politician_id')->whereNotNull('politician_id')->distinct(),
             $activePaymentMode
         );
+        $campaignIds = PoliticalCampaign::query()->select('id')->whereIn('politician_id', $politicianIds)->distinct();
 
         $completedViewQuery = ViewSession::where('status', ViewSessionStatus::Completed)
             ->whereIn('political_campaign_id', $campaignIds);
