@@ -28,6 +28,7 @@
                         <th class="px-5 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide">Voter</th>
                         <th class="px-5 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide">Campaign</th>
                         <th class="px-5 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide">Amount</th>
+                        <th class="px-5 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide">Status</th>
                         <th class="px-5 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide">Completed</th>
                     </tr>
                 </thead>
@@ -37,6 +38,17 @@
                         <td class="px-5 py-3 text-xs text-slate-300">{{ $session->voter?->user?->email ?? $session->voter_id }}</td>
                         <td class="px-5 py-3 text-xs text-slate-300">{{ $session->campaign?->title ?? '—' }}</td>
                         <td class="px-5 py-3 text-xs font-semibold text-emerald-400">${{ number_format($session->voter_payout_amount ?? 0, 2) }}</td>
+                        <td class="px-5 py-3 text-xs">
+                            @if($session->getRawOriginal('payment_status') === 'approved')
+                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 font-medium">
+                                    Requested
+                                </span>
+                            @else
+                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 font-medium">
+                                    Pending
+                                </span>
+                            @endif
+                        </td>
                         <td class="px-5 py-3 text-xs text-slate-400">{{ $session->completed_at ? \Carbon\Carbon::parse($session->completed_at)->format('M j, Y') : $session->updated_at->format('M j, Y') }}</td>
                     </tr>
                     @endforeach

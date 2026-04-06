@@ -14,8 +14,10 @@ use App\Services\PoliticalViewService;
 use App\Services\ReverbBroadcastService;
 use App\Enums\CampaignStatus;
 use App\Enums\ApprovalStatus;
+use App\Enums\ViewPaymentStatus;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
@@ -798,11 +800,18 @@ class VoterController extends Controller
             ]);
         }
 
-        // Placeholder — real PayPal/CashApp integration in Phase 7
+        // Transition eligible sessions from pending → approved so the batch payout job picks them up.
+        $updated = DB::transaction(function () use ($voter): int {
+            return ViewSession::where('voter_id', $voter->id)
+                ->where('payment_status', ViewPaymentStatus::Pending)
+                ->update(['payment_status' => ViewPaymentStatus::Approved]);
+        });
+
         Log::info('Payout requested', [
-            'voter_id' => $voter->id,
-            'amount'   => $voter->pending_earnings,
-            'method'   => $voter->payment_method,
+            'voter_id'        => $voter->id,
+            'amount'          => $voter->pending_earnings,
+            'method'          => $voter->payment_method,
+            'sessions_queued' => $updated,
         ]);
 
         return back()->with('success', 'Payout request received! Processing within 1–2 business days.');

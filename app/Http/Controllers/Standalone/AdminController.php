@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Standalone;
 use App\Enums\ApprovalStatus;
 use App\Enums\CampaignStatus;
 use App\Enums\PaymentStatus;
+use App\Enums\ViewPaymentStatus;
 use App\Http\Controllers\Controller;
 use App\Jobs\MatchPoliticianToElectionData;
 use App\Mail\CampaignReactivatedMail;
@@ -1270,12 +1271,14 @@ class AdminController extends Controller
      */
     public function payouts()
     {
+        $unpaidStatuses = [ViewPaymentStatus::Pending->value, ViewPaymentStatus::Approved->value];
+
         $stats = [
             'pending_amount' => ViewSession::where('status', 'completed')
-                ->where('payment_status', 'pending')->sum('voter_payout_amount') ?? 0,
-            'paid_amount'    => ViewSession::where('payment_status', 'paid')->sum('voter_payout_amount') ?? 0,
+                ->whereIn('payment_status', $unpaidStatuses)->sum('voter_payout_amount') ?? 0,
+            'paid_amount'    => ViewSession::where('payment_status', ViewPaymentStatus::Paid->value)->sum('voter_payout_amount') ?? 0,
             'pending_count'  => ViewSession::where('status', 'completed')
-                ->where('payment_status', 'pending')->count(),
+                ->whereIn('payment_status', $unpaidStatuses)->count(),
         ];
 
         return view('standalone.admin.payouts', compact('stats'));
@@ -1288,7 +1291,7 @@ class AdminController extends Controller
     {
         $sessions = ViewSession::with(['voter', 'campaign'])
             ->where('status', 'completed')
-            ->where('payment_status', 'pending')
+            ->whereIn('payment_status', [ViewPaymentStatus::Pending->value, ViewPaymentStatus::Approved->value])
             ->latest()
             ->paginate(30);
 
