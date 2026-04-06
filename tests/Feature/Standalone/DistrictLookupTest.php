@@ -358,6 +358,73 @@ test('district lookup falls back to google civic for zip-only searches', functio
     expect(data_get($search?->payload, 'voter_info.contests.0.office'))->toBe('United States Representative, District 18');
 });
 
+test('district lookup includes state assembly profiles using voterinfo district hints', function () {
+    config()->set('services.google.civic_api_key', 'test-key');
+
+    Http::fake([
+        'https://geocoding.geo.census.gov/*' => Http::response([
+            'result' => [
+                'addressMatches' => [
+                    [
+                        'matchedAddress' => '22690 CACTUS AVE, MORENO VALLEY, CA, 92553',
+                        'addressComponents' => [
+                            'state' => 'CA',
+                        ],
+                        'geographies' => [
+                            '119th Congressional Districts' => [
+                                [
+                                    'CD119FP' => '39',
+                                    'NAME' => 'Congressional District 39',
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ], 200),
+        'https://www.googleapis.com/civicinfo/v2/voterinfo*' => Http::response([
+            'election' => [
+                'id' => '1000',
+                'name' => 'General Election',
+                'electionDay' => '2026-11-03',
+            ],
+            'normalizedInput' => [
+                'state' => 'CA',
+                'city' => 'Moreno Valley',
+            ],
+            'contests' => [
+                [
+                    'office' => 'Member, California State Assembly District 60',
+                    'district' => [
+                        'scope' => 'stateLower',
+                        'id' => '60',
+                    ],
+                ],
+            ],
+        ], 200),
+        'https://www.googleapis.com/civicinfo/v2/representatives*' => Http::response([
+            'offices' => [],
+            'officials' => [],
+            'divisions' => [],
+        ], 200),
+    ]);
+
+    Politician::factory()->create([
+        'full_name' => 'Dr. Corey A. Jackson',
+        'state' => 'CA',
+        'district' => 'AD-60',
+        'page_published' => true,
+        'is_active' => true,
+    ]);
+
+    $response = $this->get(route('district.lookup', [
+        'address' => '22690 Cactus Ave, Moreno Valley, CA 92553',
+    ]));
+
+    $response->assertOk();
+    $response->assertSee('Dr. Corey A. Jackson');
+});
+
 test('district lookup voterinfo picks earliest election from otherElections and re-queries with electionId', function () {
     $zip = '92555';
     $city = 'Moreno Valley';

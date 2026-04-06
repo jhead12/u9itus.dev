@@ -59,6 +59,10 @@ class PublicProfileController extends Controller
                 if (! $lookupResult) {
                     $error = $this->unresolvedLookupMessage($address);
                 } else {
+                    $lookupState = strtoupper((string) ($lookupResult['state'] ?? ''));
+                    $voterInfo = $this->fetchVoterInfoFromGoogleCivic($address);
+                    $districtHints = $this->extractDistrictHintsFromVoterInfo($voterInfo, $lookupState);
+
                     $currentOfficials = $this->fetchCurrentOfficialsForLocation($address);
                     if ($currentOfficials->isEmpty()) {
                         $currentOfficials = $this->findCurrentOfficialsForDistrictFromCongress($lookupResult);
@@ -66,10 +70,9 @@ class PublicProfileController extends Controller
                     if ($currentOfficials->isEmpty()) {
                         $currentOfficials = $this->findCurrentOfficialsForDistrictFromRecords($lookupResult, $states);
                     }
-                    $candidates = $this->findCandidatesForDistrict($lookupResult, $states);
-                    $runningCandidates = $this->findRunningCandidatesForDistrict($lookupResult, $states);
+                    $candidates = $this->findCandidatesForDistrict($lookupResult, $states, $districtHints);
+                    $runningCandidates = $this->findRunningCandidatesForDistrict($lookupResult, $states, $districtHints);
                     $topContenders = $runningCandidates->take(3)->values();
-                    $voterInfo = $this->fetchVoterInfoFromGoogleCivic($address);
 
                     // Discover and persist officials not yet in the local profile set.
                     $discoveredOfficials = $this->discoverCandidatesFromGoogleCivic($address, $lookupResult);
@@ -999,7 +1002,7 @@ class PublicProfileController extends Controller
      * @param array<string, mixed> $lookupResult
      * @param array<string, string> $states
      */
-    protected function findCandidatesForDistrict(array $lookupResult, array $states): Collection
+    protected function findCandidatesForDistrict(array $lookupResult, array $states, array $districtHints = []): Collection
     {
         $state = strtoupper((string) ($lookupResult['state'] ?? ''));
         $districtNumber = $lookupResult['district_number'] ?? null;
@@ -1026,9 +1029,19 @@ class PublicProfileController extends Controller
             });
         }
 
-        if ($districtNumber) {
-            $variants = $this->districtVariants($state, (string) $districtNumber);
+        $variants = [];
 
+        if ($districtNumber) {
+            $variants = array_merge($variants, $this->districtVariants($state, (string) $districtNumber));
+        }
+
+        if ($districtHints !== []) {
+            $variants = array_merge($variants, $districtHints);
+        }
+
+        $variants = array_values(array_unique(array_filter($variants, fn ($value) => trim((string) $value) !== '')));
+
+        if ($variants !== []) {
             $query->where(function ($q) use ($variants) {
                 foreach ($variants as $variant) {
                     $q->orWhere('district', 'like', '%' . $variant . '%');
@@ -1086,17 +1099,32 @@ class PublicProfileController extends Controller
      * @param array<string, string> $states
      * @return Collection<int, array<string, mixed>>
      */
-    protected function findRunningCandidatesForDistrict(array $lookupResult, array $states): Collection
+    protected function findRunningCandidatesForDistrict(array $lookupResult, array $states, array $districtHints = []): Collection
     {
         $state = strtoupper((string) ($lookupResult['state'] ?? ''));
         $districtNumber = trim((string) ($lookupResult['district_number'] ?? ''));
 
-        if ($state === '' || $districtNumber === '') {
+        if ($state === '' || ($districtNumber === '' && $districtHints === [])) {
             return collect();
         }
 
         $stateName = $states[$state] ?? null;
-        $variants = $this->districtVariants($state, $districtNumber);
+        $variants = [];
+
+        if ($districtNumber !== '') {
+            $variants = array_merge($variants, $this->districtVariants($state, $districtNumber));
+        }
+
+        if ($districtHints !== []) {
+            $variants = array_merge($variants, $districtHints);
+        }
+
+        $variants = array_values(array_unique(array_filter($variants, fn ($value) => trim((string) $value) !== '')));
+
+        if ($variants === []) {
+            return collect();
+        }
+
         $recentThreshold = now()->subDays(30)->toDateString();
 
         $records = ElectionCandidateRecord::query()
@@ -1163,6 +1191,66 @@ class PublicProfileController extends Controller
             })
             ->sortByDesc('contender_score')
             ->values();
+    }
+
+    /**
+     * Build additional district match hints from Google Civic voter contests.
+     *
+     * Supports state legislative districts so AD-xx / SD-xx profiles can appear
+     * alongside congressional district matches.
+     *
+     * @param array<string, mixed>|null $voterInfo
+     * @return array<int, string>
+     */
+    protected function extractDistrictHintsFromVoterInfo(?array $voterInfo, string $state): array
+    {
+        if (! is_array($voterInfo) || ! isset($voterInfo['contests']) || ! is_array($voterInfo['contests'])) {
+            return [];
+        }
+
+        $hints = [];
+
+        foreach ($voterInfo['contests'] as $contest) {
+            if (! is_array($contest)) {
+                continue;
+            }
+
+            $district = isset($contest['district']) && is_array($contest['district'])
+                ? $contest['district']
+                : [];
+
+            $scope = strtolower(trim((string) ($district['scope'] ?? '')));
+            $id = trim((string) ($district['id'] ?? ''));
+
+            if ($id === '' || preg_match('/^\d+$/', $id) !== 1) {
+                continue;
+            }
+
+            $numeric = (int) $id;
+            $padded = str_pad((string) $numeric, 2, '0', STR_PAD_LEFT);
+            $statePrefix = $state !== '' ? strtoupper($state) . '-' : '';
+
+            if ($scope === 'statelower') {
+                $hints[] = 'AD-' . $numeric;
+                $hints[] = 'AD-' . $padded;
+                $hints[] = 'Assembly District ' . $numeric;
+                $hints[] = 'State Assembly District ' . $numeric;
+                $hints[] = $statePrefix . 'AD-' . $numeric;
+                $hints[] = $statePrefix . 'AD-' . $padded;
+                continue;
+            }
+
+            if ($scope === 'stateupper') {
+                $hints[] = 'SD-' . $numeric;
+                $hints[] = 'SD-' . $padded;
+                $hints[] = 'Senate District ' . $numeric;
+                $hints[] = 'State Senate District ' . $numeric;
+                $hints[] = $statePrefix . 'SD-' . $numeric;
+                $hints[] = $statePrefix . 'SD-' . $padded;
+            }
+        }
+
+        return array_values(array_unique($hints));
     }
 
     protected function formatCandidateSourceLabel(?string $source): string
