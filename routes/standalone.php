@@ -345,6 +345,8 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
 
         // Data Imports Monitoring (Sprint 2)
         Route::get('/imports', [AdminController::class, 'imports'])->name('imports');
+        Route::post('/imports/unverified-profile', [AdminController::class, 'seedUnverifiedPoliticianProfile'])
+            ->name('imports.unverified-profile.seed');
 
         // Billing Refunds (unused politician credits only)
         Route::get('/billing/refunds', [AdminController::class, 'billingRefunds'])->name('billing.refunds');

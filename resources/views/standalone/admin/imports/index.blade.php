@@ -12,6 +12,96 @@
             <p class="text-gray-400">Monitor scheduled politician profile syncs and import health</p>
         </div>
 
+        <div class="mb-8 bg-gray-900 border border-gray-800 rounded-lg p-6">
+            <h2 class="text-xl font-semibold text-white mb-2">One-Off Unverified Profile Import</h2>
+            <p class="text-sm text-gray-400 mb-4">
+                Use this form to create or update a single unclaimed, unverified politician profile from an official website.
+            </p>
+
+            @if ($errors->has('unverified_profile'))
+                <div class="mb-4 rounded-lg border border-red-700/60 bg-red-900/20 px-4 py-3 text-sm text-red-200">
+                    {{ $errors->first('unverified_profile') }}
+                </div>
+            @endif
+
+            <form method="POST" action="{{ route('admin.imports.unverified-profile.seed') }}" class="space-y-4">
+                @csrf
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="website" class="block text-sm font-medium text-gray-300 mb-1">Website URL</label>
+                        <input id="website" name="website" type="url" value="{{ old('website', 'https://jackson.asmdc.org/') }}" required
+                               class="w-full rounded-md border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-gray-100 focus:border-cyan-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label for="name" class="block text-sm font-medium text-gray-300 mb-1">Full Name</label>
+                        <input id="name" name="name" type="text" value="{{ old('name', 'Dr. Corey A. Jackson') }}" required
+                               class="w-full rounded-md border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-gray-100 focus:border-cyan-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label for="office" class="block text-sm font-medium text-gray-300 mb-1">Office</label>
+                        <input id="office" name="office" type="text" value="{{ old('office', 'Assemblymember') }}" required
+                               class="w-full rounded-md border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-gray-100 focus:border-cyan-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label for="level" class="block text-sm font-medium text-gray-300 mb-1">Governance Level</label>
+                        <input id="level" name="level" type="text" value="{{ old('level', 'State') }}"
+                               class="w-full rounded-md border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-gray-100 focus:border-cyan-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label for="state" class="block text-sm font-medium text-gray-300 mb-1">State</label>
+                        <input id="state" name="state" type="text" maxlength="2" value="{{ old('state', 'CA') }}" required
+                               class="w-full rounded-md border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-gray-100 focus:border-cyan-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label for="district" class="block text-sm font-medium text-gray-300 mb-1">District</label>
+                        <input id="district" name="district" type="text" value="{{ old('district', 'AD-60') }}"
+                               class="w-full rounded-md border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-gray-100 focus:border-cyan-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label for="party" class="block text-sm font-medium text-gray-300 mb-1">Party</label>
+                        <input id="party" name="party" type="text" value="{{ old('party', 'Democratic') }}"
+                               class="w-full rounded-md border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-gray-100 focus:border-cyan-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label for="city" class="block text-sm font-medium text-gray-300 mb-1">City</label>
+                        <input id="city" name="city" type="text" value="{{ old('city', 'Moreno Valley') }}"
+                               class="w-full rounded-md border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-gray-100 focus:border-cyan-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label for="source" class="block text-sm font-medium text-gray-300 mb-1">Source Key</label>
+                        <input id="source" name="source" type="text" value="{{ old('source', 'official_state_website') }}"
+                               class="w-full rounded-md border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-gray-100 focus:border-cyan-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label for="photo_url" class="block text-sm font-medium text-gray-300 mb-1">Profile Photo URL</label>
+                        <input id="photo_url" name="photo_url" type="url" value="{{ old('photo_url', 'https://i.ytimg.com/vi/-eFgDaiyDGM/hqdefault.jpg') }}"
+                               class="w-full rounded-md border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-gray-100 focus:border-cyan-500 focus:outline-none">
+                    </div>
+                </div>
+
+                <div>
+                    <label for="bio" class="block text-sm font-medium text-gray-300 mb-1">Bio</label>
+                    <textarea id="bio" name="bio" rows="4"
+                              class="w-full rounded-md border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-gray-100 focus:border-cyan-500 focus:outline-none">{{ old('bio', 'Official unclaimed profile imported from the Assemblymember website for California Assembly District 60. Capitol Office: (916) 319-2060. District Office: (951) 653-0960. Profile is available for verified claim by campaign staff.') }}</textarea>
+                </div>
+
+                <div class="flex items-center gap-3">
+                    <input id="publish_hidden" name="publish" type="hidden" value="0">
+                    <input id="publish" name="publish" type="checkbox" value="1" class="h-4 w-4 rounded border-gray-700 bg-gray-950 text-cyan-500"
+                           {{ old('publish', '1') === '1' ? 'checked' : '' }}>
+                    <label for="publish" class="text-sm text-gray-300">Publish profile in public directory</label>
+                </div>
+
+                <div>
+                    <button type="submit"
+                            class="inline-flex items-center rounded-md bg-cyan-600 px-4 py-2 text-sm font-semibold text-white hover:bg-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-400/60">
+                        Run One-Off Import
+                    </button>
+                </div>
+            </form>
+        </div>
+
         <!-- Status Summary -->
         @if ($latestRun)
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">

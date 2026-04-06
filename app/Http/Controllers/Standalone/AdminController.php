@@ -3304,4 +3304,55 @@ HTML;
 
         return view('standalone.admin.imports.index', compact('imports', 'latestRun'));
     }
+
+    /**
+     * Trigger a one-off unverified politician profile seed from an official website.
+     */
+    public function seedUnverifiedPoliticianProfile(Request $request)
+    {
+        $validated = $request->validate([
+            'website' => ['required', 'url'],
+            'name' => ['required', 'string', 'max:255'],
+            'office' => ['required', 'string', 'max:255'],
+            'level' => ['nullable', 'string', 'max:100'],
+            'state' => ['required', 'string', 'size:2'],
+            'district' => ['nullable', 'string', 'max:120'],
+            'party' => ['nullable', 'string', 'max:120'],
+            'city' => ['nullable', 'string', 'max:120'],
+            'bio' => ['nullable', 'string', 'max:5000'],
+            'photo_url' => ['nullable', 'url'],
+            'source' => ['nullable', 'string', 'max:64'],
+            'publish' => ['nullable', 'boolean'],
+        ]);
+
+        $arguments = [
+            '--website' => (string) $validated['website'],
+            '--name' => (string) $validated['name'],
+            '--office' => (string) $validated['office'],
+            '--level' => (string) ($validated['level'] ?? 'State'),
+            '--state' => strtoupper((string) $validated['state']),
+            '--district' => (string) ($validated['district'] ?? ''),
+            '--party' => (string) ($validated['party'] ?? ''),
+            '--city' => (string) ($validated['city'] ?? ''),
+            '--bio' => (string) ($validated['bio'] ?? ''),
+            '--photo-url' => (string) ($validated['photo_url'] ?? ''),
+            '--source' => (string) ($validated['source'] ?? 'official_state_website'),
+            '--publish' => ($request->boolean('publish', true) ? '1' : '0'),
+        ];
+
+        $exitCode = Artisan::call('politicians:create-unverified-profile', $arguments);
+        $output = trim((string) Artisan::output());
+
+        if ($exitCode !== 0) {
+            return back()->withErrors([
+                'unverified_profile' => $output !== ''
+                    ? $output
+                    : 'Unable to run one-off unverified profile import.',
+            ])->withInput();
+        }
+
+        return back()->with('success', $output !== ''
+            ? 'Unverified profile import completed. ' . $output
+            : 'Unverified profile import completed.');
+    }
 }
