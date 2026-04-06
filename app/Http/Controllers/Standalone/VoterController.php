@@ -182,16 +182,32 @@ class VoterController extends Controller
         $summary = $this->viewService->voterEarningsSummary($voter);
 
         // Surface watchable campaigns directly on dashboard so voters can start earning immediately.
-        $completedCampaignIds = $voter->viewSessions()
-            ->where('status', 'completed')
-            ->pluck('political_campaign_id')
-            ->all();
+        $excludedCampaignIds = array_merge(
+            DB::table('view_sessions')
+                ->join('political_campaigns', 'political_campaigns.id', '=', 'view_sessions.political_campaign_id')
+                ->where('view_sessions.voter_id', $voter->id)
+                ->where('view_sessions.status', 'completed')
+                ->where('political_campaigns.allow_repeat_views', false)
+                ->distinct()
+                ->pluck('view_sessions.political_campaign_id')
+                ->all(),
+            DB::table('view_sessions')
+                ->join('political_campaigns', 'political_campaigns.id', '=', 'view_sessions.political_campaign_id')
+                ->where('view_sessions.voter_id', $voter->id)
+                ->where('view_sessions.status', 'completed')
+                ->where('political_campaigns.allow_repeat_views', true)
+                ->selectRaw('view_sessions.political_campaign_id, COUNT(*) as cnt, political_campaigns.max_views_per_voter')
+                ->groupBy('view_sessions.political_campaign_id', 'political_campaigns.max_views_per_voter')
+                ->havingRaw('cnt >= COALESCE(political_campaigns.max_views_per_voter, 1)')
+                ->pluck('political_campaign_id')
+                ->all(),
+        );
 
         $voterPrefs = $voter->preferred_governance_levels ?? [];
 
         $availableCampaignsQuery = PoliticalCampaign::needingViews()
             ->with('politician:id,full_name,political_office,governance_level,profile_photo_url,verified_official,slug,page_published')
-            ->whereNotIn('id', $completedCampaignIds);
+            ->whereNotIn('id', $excludedCampaignIds);
 
         if (! empty($voterPrefs)) {
             $availableCampaignsQuery->whereIn('governance_level', $voterPrefs);
@@ -251,11 +267,37 @@ class VoterController extends Controller
     {
         $voter = $this->resolveVoter();
 
-        // IDs of campaigns the voter already completed (no re-watching for pay)
-        $completedCampaignIds = $voter->viewSessions()
+        // All campaign IDs the voter has completed at least once (for "Watch Again" label in blade)
+        $watchedBeforeIds = $voter->viewSessions()
             ->where('status', 'completed')
             ->pluck('political_campaign_id')
+            ->unique()
             ->all();
+
+        // Non-repeatable campaigns the voter completed — exclude forever
+        $noRepeatDoneIds = DB::table('view_sessions')
+            ->join('political_campaigns', 'political_campaigns.id', '=', 'view_sessions.political_campaign_id')
+            ->where('view_sessions.voter_id', $voter->id)
+            ->where('view_sessions.status', 'completed')
+            ->where('political_campaigns.allow_repeat_views', false)
+            ->distinct()
+            ->pluck('view_sessions.political_campaign_id')
+            ->all();
+
+        // Repeatable campaigns where the voter has hit or exceeded max_views_per_voter
+        $atCapIds = DB::table('view_sessions')
+            ->join('political_campaigns', 'political_campaigns.id', '=', 'view_sessions.political_campaign_id')
+            ->where('view_sessions.voter_id', $voter->id)
+            ->where('view_sessions.status', 'completed')
+            ->where('political_campaigns.allow_repeat_views', true)
+            ->selectRaw('view_sessions.political_campaign_id, COUNT(*) as cnt, political_campaigns.max_views_per_voter')
+            ->groupBy('view_sessions.political_campaign_id', 'political_campaigns.max_views_per_voter')
+            ->havingRaw('cnt >= COALESCE(political_campaigns.max_views_per_voter, 1)')
+            ->pluck('political_campaign_id')
+            ->all();
+
+        // Combined exclusion list: campaigns this voter can no longer earn from
+        $excludedCampaignIds = array_merge($noRepeatDoneIds, $atCapIds);
 
         // IDs of campaigns with an in-progress (unexpired) token for this voter
         $inProgressTokenCampaignIds = AdViewToken::where('voter_id', $voter->id)
@@ -278,7 +320,7 @@ class VoterController extends Controller
                       ->where('created_at', '>=', now()->subDays(7));
                 }
             ])
-            ->whereNotIn('id', $completedCampaignIds);
+            ->whereNotIn('id', $excludedCampaignIds);
 
         // Text search (title / message summary)
         if ($q = $request->input('q')) {
@@ -335,7 +377,8 @@ class VoterController extends Controller
             'dailyLimit'               => $dailyLimit,
             'canViewMore'              => $canViewMore,
             'inProgressTokenCampaignIds' => $inProgressTokenCampaignIds,
-            'completedCampaignIds'     => $completedCampaignIds,
+            'watchedBeforeIds'         => $watchedBeforeIds,
+            'excludedCampaignIds'      => $excludedCampaignIds,
             'topics'                   => $topics,
         ]);
     }
@@ -367,14 +410,14 @@ class VoterController extends Controller
             ]);
         }
 
-        // Guard: voter already completed this campaign
-        $alreadyCompleted = $voter->viewSessions()
-            ->where('political_campaign_id', $campaign->id)
-            ->where('status', 'completed')
-            ->exists();
-
-        if ($alreadyCompleted) {
-            return back()->withErrors(['claim' => 'You have already watched this campaign.']);
+        // Guard: check whether this voter is allowed to (re-)watch this campaign.
+        // voterCanWatch() respects allow_repeat_views, max_views_per_voter, and cooldown hours.
+        if (! $this->viewService->voterCanWatch($campaign, $voter)) {
+            $completedCount = $campaign->voterCompletedViewCount($voter->id);
+            $message = ($campaign->allow_repeat_views && $completedCount > 0)
+                ? 'You have reached the maximum number of views allowed for this campaign.'
+                : 'You have already watched this campaign.';
+            return back()->withErrors(['claim' => $message]);
         }
 
         // Re-use an existing unexpired token for this campaign if one exists

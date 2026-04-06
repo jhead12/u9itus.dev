@@ -204,7 +204,8 @@
         @foreach($campaigns as $campaign)
         @php
             $isInProgress  = in_array($campaign->id, $inProgressTokenCampaignIds);
-            $isCompleted   = in_array($campaign->id, $completedCampaignIds);
+            $isWatchedBefore = in_array($campaign->id, $watchedBeforeIds);
+            $isExcluded      = in_array($campaign->id, $excludedCampaignIds);
             $politician    = $campaign->politician;
             $remaining     = max(0, $campaign->total_views_requested - $campaign->views_completed);
             $fillPct       = $campaign->total_views_requested > 0
@@ -404,12 +405,12 @@
 
                 {{-- CTA button --}}
                 <div class="mt-auto pt-1">
-                    @if($isCompleted)
+                    @if($isExcluded)
                         <div class="w-full text-center py-2.5 rounded-xl bg-slate-700/50 text-slate-500 text-sm font-medium cursor-default">
                             <svg class="w-4 h-4 inline-block mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
                             </svg>
-                            Already watched
+                            {{ $campaign->allow_repeat_views ? 'View limit reached' : 'Already watched' }}
                         </div>
                     @elseif(! $canViewMore)
                         <div class="w-full text-center py-2.5 rounded-xl bg-slate-700/50 text-slate-500 text-sm font-medium cursor-default" title="Daily limit reached or account restricted">
@@ -432,7 +433,7 @@
                                     <svg class="w-4 h-4 inline-block mr-1 -mt-0.5 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
                                         <path d="M8 5v14l11-7z"/>
                                     </svg>
-                                    Watch &amp; Earn ${{ number_format($payout, 2) }}
+                                    {{ $isWatchedBefore ? 'Watch Again &amp; Earn' : 'Watch &amp; Earn' }} ${{ number_format($payout, 2) }}
                                 @endif
                             </button>
                         </form>
