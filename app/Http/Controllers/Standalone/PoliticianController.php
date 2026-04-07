@@ -1043,7 +1043,6 @@ class PoliticianController extends Controller
 
         $totalViews    = $campaigns->sum('views_completed');
         $totalSpent    = $campaigns->sum('amount_spent');
-        $totalBudget   = $campaigns->sum('total_budget');
         $activeCampaigns = $campaigns->where('status.value', 'active')
             ->merge($campaigns->whereStrict('status', 'active'))
             ->unique('id')
@@ -1068,6 +1067,9 @@ class PoliticianController extends Controller
                     'gross' => (float) $tx->amount,
                 ];
             });
+
+        // Calculate totalBudget from actual credits purchased (not campaign budgets)
+        $totalBudget = (float) ($transactionsWithFeeSummary->sum('credits') ?? 0);
 
         $voterQuestionsQuery = VoterWatchReport::query()
             ->where('type', 'message')

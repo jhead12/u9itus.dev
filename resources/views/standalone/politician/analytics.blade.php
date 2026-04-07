@@ -22,7 +22,7 @@
             <p class="text-2xl font-bold text-white">${{ number_format($totalSpent, 2) }}</p>
         </div>
         <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
-            <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Total Budget</p>
+            <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Total Available Credits</p>
             <p class="text-2xl font-bold text-white">${{ number_format($totalBudget, 2) }}</p>
         </div>
         <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
