@@ -29,6 +29,8 @@
                         <th class="px-5 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide">Campaign</th>
                         <th class="px-5 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide">Amount</th>
                         <th class="px-5 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide">Status</th>
+                        <th class="px-5 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide">Processor Selected</th>
+                        <th class="px-5 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide">Last Reference</th>
                         <th class="px-5 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide">Completed</th>
                     </tr>
                 </thead>
@@ -49,6 +51,8 @@
                                 </span>
                             @endif
                         </td>
+                        <td class="px-5 py-3 text-xs text-slate-300 font-mono">{{ $session->processor_selected ?? '—' }}</td>
+                        <td class="px-5 py-3 text-xs text-slate-400 font-mono">{{ $session->processor_reference ?? '—' }}</td>
                         <td class="px-5 py-3 text-xs text-slate-400">{{ $session->completed_at ? \Carbon\Carbon::parse($session->completed_at)->format('M j, Y') : $session->updated_at->format('M j, Y') }}</td>
                     </tr>
                     @endforeach

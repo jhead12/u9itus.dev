@@ -122,8 +122,20 @@ class PoliticalPaymentService
     {
         $minPayout  = (float) PlatformSettingsService::get('min_payout_amount', null, 5.00);
         $holdHours  = (int) PlatformSettingsService::get('fraud_payout_hold_hours', null, 48);
+        $holdCutoff = now()->subHours($holdHours);
 
-        $eligibleVoters = Voter::where('pending_earnings', '>=', $minPayout)
+        $eligibleVoterIds = ViewSession::query()
+            ->where('status', 'completed')
+            ->where('payment_status', ViewPaymentStatus::Approved)
+            ->where('completed_at', '<=', $holdCutoff)
+            ->groupBy('voter_id')
+            ->pluck('voter_id');
+
+        if ($eligibleVoterIds->isEmpty()) {
+            return ['processed' => 0, 'total_paid' => 0, 'skipped' => 0];
+        }
+
+        $eligibleVoters = Voter::whereIn('id', $eligibleVoterIds)
             ->where('flagged_for_fraud', false)
             ->where('is_active', true)
             ->get();
@@ -132,28 +144,42 @@ class PoliticalPaymentService
 
         foreach ($eligibleVoters as $voter) {
             // Only pay sessions that have passed the hold window
-            $approvedEarnings = ViewSession::where('voter_id', $voter->id)
+            $approvedSessionsQuery = ViewSession::where('voter_id', $voter->id)
+                ->where('status', 'completed')
                 ->where('payment_status', ViewPaymentStatus::Approved)
-                ->where('completed_at', '<=', now()->subHours($holdHours))
-                ->sum('voter_payout_amount');
+                ->where('completed_at', '<=', $holdCutoff);
+
+            $approvedEarnings = (float) $approvedSessionsQuery->sum('voter_payout_amount');
 
             if ($approvedEarnings < $minPayout) {
                 $results['skipped']++;
                 continue;
             }
 
-            // Only attempt real transfer when the voter has a PayPal email.
-            $hasPayPal = ! empty($voter->paypal_email);
+            $selectedProcessor = (string) ($approvedSessionsQuery->whereNotNull('processor_selected')->value('processor_selected')
+                ?? $voter->payment_method
+                ?? 'wallet');
 
-            if ($hasPayPal && $this->paypalService) {
+            $batchId = 'u9itus_' . $voter->uuid . '_' . now()->format('Ymd_His');
+            $processorExecuted = 'wallet';
+            $processorReference = $batchId;
+            $processorFee = 0.00;
+
+            $canUsePayPal = $selectedProcessor === 'paypal'
+                && ! empty($voter->paypal_email)
+                && $this->paypalService;
+
+            if ($canUsePayPal) {
                 try {
-                    $batchId = 'u9itus_' . $voter->uuid . '_' . now()->format('Ymd_His');
-                    $this->paypalService->sendBatchPayout($batchId, [[
+                    $paypalResult = $this->paypalService->sendBatchPayout($batchId, [[
                         'email'          => $voter->paypal_email,
                         'amount'         => $approvedEarnings,
                         'note'           => 'U9itus viewer earnings',
                         'sender_item_id' => $batchId,
                     ]]);
+
+                    $processorExecuted = 'paypal';
+                    $processorReference = (string) ($paypalResult['batch_header']['payout_batch_id'] ?? $batchId);
                 } catch (\Exception $e) {
                     Log::error("PayPal payout failed for voter {$voter->uuid}: " . $e->getMessage());
                     $results['skipped']++;
@@ -161,21 +187,25 @@ class PoliticalPaymentService
                 }
             }
 
-            DB::transaction(function () use ($voter, $approvedEarnings, $holdHours, $hasPayPal) {
+            DB::transaction(function () use ($voter, $approvedEarnings, $holdCutoff, $processorExecuted, $processorReference, $processorFee) {
                 // Mark sessions as paid
                 ViewSession::where('voter_id', $voter->id)
+                    ->where('status', 'completed')
                     ->where('payment_status', ViewPaymentStatus::Approved)
-                    ->where('completed_at', '<=', now()->subHours($holdHours))
+                    ->where('completed_at', '<=', $holdCutoff)
                     ->update([
                         'payment_status' => ViewPaymentStatus::Paid,
                         'paid_at'        => now(),
+                        'processor_executed' => $processorExecuted,
+                        'processor_reference' => $processorReference,
+                        'processor_fee' => $processorFee,
                     ]);
 
-                // Move from pending to earned; wallet balance only for internal-wallet voters.
+                // Move from pending to earned using session-derived approved earnings.
                 $voter->decrement('pending_earnings', $approvedEarnings);
                 $voter->increment('total_earned', $approvedEarnings);
 
-                if (! $hasPayPal) {
+                if ($processorExecuted !== 'paypal') {
                     // No external transfer — credit the on-platform wallet instead.
                     $voter->increment('wallet_balance', $approvedEarnings);
                 }
@@ -188,12 +218,14 @@ class PoliticalPaymentService
             $this->broadcastService->payoutProcessed(
                 $voter,
                 $approvedEarnings,
-                $hasPayPal ? 'PayPal' : 'Wallet',
-                'u9itus_' . $voter->uuid . '_' . now()->format('Ymd_His'),
+                $processorExecuted === 'paypal' ? 'PayPal' : 'Wallet',
+                $processorReference,
             );
 
             Log::info("Payout processed for voter {$voter->uuid}: \${$approvedEarnings}", [
-                'method' => $hasPayPal ? 'paypal' : 'wallet',
+                'method' => $processorExecuted,
+                'selected_processor' => $selectedProcessor,
+                'reference' => $processorReference,
             ]);
         }
 

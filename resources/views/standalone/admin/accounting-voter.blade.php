@@ -19,18 +19,18 @@
         <input type="hidden" name="tab" value="{{ $tab }}">
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <div>
-                <label class="block text-xs text-slate-400 mb-1">From</label>
-                <input type="date" name="from" value="{{ $from ?? '' }}"
+                <label for="from" class="block text-xs text-slate-400 mb-1">From</label>
+                <input id="from" type="date" name="from" value="{{ $from ?? '' }}"
                     class="w-full rounded-lg bg-slate-900 border border-slate-700 text-sm text-white px-3 py-2 focus:outline-none focus:ring-1 focus:ring-emerald-500">
             </div>
             <div>
-                <label class="block text-xs text-slate-400 mb-1">To</label>
-                <input type="date" name="to" value="{{ $to ?? '' }}"
+                <label for="to" class="block text-xs text-slate-400 mb-1">To</label>
+                <input id="to" type="date" name="to" value="{{ $to ?? '' }}"
                     class="w-full rounded-lg bg-slate-900 border border-slate-700 text-sm text-white px-3 py-2 focus:outline-none focus:ring-1 focus:ring-emerald-500">
             </div>
             <div>
-                <label class="block text-xs text-slate-400 mb-1">Voter name / email</label>
-                <input type="text" name="voter_search" value="{{ $voterSearch ?? '' }}" placeholder="Search voter…"
+                <label for="voter_search" class="block text-xs text-slate-400 mb-1">Voter name / email</label>
+                <input id="voter_search" type="text" name="voter_search" value="{{ $voterSearch ?? '' }}" placeholder="Search voter…"
                     class="w-full rounded-lg bg-slate-900 border border-slate-700 text-sm text-white px-3 py-2 focus:outline-none focus:ring-1 focus:ring-emerald-500">
             </div>
             <div class="flex items-end gap-2">
@@ -92,8 +92,10 @@
                         <th class="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Campaign</th>
                         <th class="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Status</th>
                         <th class="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Payment</th>
-                        <th class="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Payout To</th>
+                        <th class="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Processor</th>
+                        <th class="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Reference</th>
                         <th class="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-400 text-right">Payout</th>
+                        <th class="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-400 text-right">Fee</th>
                         <th class="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-400 text-right">Referral</th>
                     </tr>
                 </thead>
@@ -103,9 +105,8 @@
                             $voter = $session->voter;
                             $status = (string) ($session->getRawOriginal('status') ?? '');
                             $payStatus = (string) ($session->getRawOriginal('payment_status') ?? '');
-                            $payDest = $voter?->payment_method === 'cashapp'
-                                ? ($voter?->cashapp_tag ? '$' . $voter->cashapp_tag : '—')
-                                : ($voter?->paypal_email ?? '—');
+                            $processorSelected = $session->processor_selected ?? '—';
+                            $processorExecuted = $session->processor_executed ?? '—';
                         @endphp
                         <tr class="hover:bg-slate-700/20 transition">
                             <td class="px-4 py-3 text-slate-300 whitespace-nowrap">
@@ -132,13 +133,17 @@
                                 </span>
                             </td>
                             <td class="px-4 py-3 text-slate-400 text-xs font-mono">
-                                {{ $payDest }}
-                                @if($voter?->payment_method)
-                                    <span class="ml-1 text-slate-600">({{ $voter->payment_method }})</span>
-                                @endif
+                                {{ $processorExecuted }}
+                                <span class="ml-1 text-slate-600">(selected: {{ $processorSelected }})</span>
+                            </td>
+                            <td class="px-4 py-3 text-slate-400 text-xs font-mono">
+                                {{ $session->processor_reference ?? '—' }}
                             </td>
                             <td class="px-4 py-3 text-right font-mono tabular-nums text-emerald-400">
                                 ${{ number_format((float)($session->voter_payout_amount ?? 0), 2) }}
+                            </td>
+                            <td class="px-4 py-3 text-right font-mono tabular-nums text-amber-300">
+                                ${{ number_format((float)($session->processor_fee ?? 0), 2) }}
                             </td>
                             <td class="px-4 py-3 text-right font-mono tabular-nums text-sky-400">
                                 ${{ number_format((float)($session->referral_commission ?? 0), 2) }}
@@ -146,7 +151,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="8" class="px-4 py-10 text-center text-slate-500">No sessions found for the selected filters.</td>
+                            <td colspan="10" class="px-4 py-10 text-center text-slate-500">No sessions found for the selected filters.</td>
                         </tr>
                     @endforelse
                 </tbody>

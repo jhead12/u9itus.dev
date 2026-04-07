@@ -117,14 +117,21 @@ class VoterOnboardingController extends Controller
     public function completePayoutSetup(Request $request)
     {
         $validated = $request->validate([
-            'payout_method' => 'required|in:paypal,cashapp',
-            'payout_email' => 'required|email|max:255',
+            'payment_method' => 'required|in:paypal,cashapp',
+            'paypal_email' => 'nullable|required_if:payment_method,paypal|email|max:255',
+            'cashapp_tag' => 'nullable|required_if:payment_method,cashapp|string|max:100',
         ]);
 
         // Update voter payout info
         $voter = Voter::where('user_id', auth()->id())->first();
         if ($voter) {
-            $voter->update($validated);
+            $method = $validated['payment_method'];
+
+            $voter->update([
+                'payment_method' => $method,
+                'paypal_email' => $method === 'paypal' ? ($validated['paypal_email'] ?? null) : null,
+                'cashapp_tag' => $method === 'cashapp' ? ltrim((string) ($validated['cashapp_tag'] ?? ''), '$') : null,
+            ]);
         }
 
         $progress = $this->onboardingService->getOrCreate(auth()->user(), 'voter');

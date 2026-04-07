@@ -2146,7 +2146,7 @@ class AdminController extends Controller
         $sessions = ViewSession::query()
             ->with([
                 'campaign:id,title',
-                'voter:id,full_name,email,payment_method,paypal_email,cashapp_tag',
+                'voter:id,full_name,email',
             ])
             ->whereIn('political_campaign_id', $campaignIds)
             ->when($from, fn($q) => $q->whereDate('created_at', '>=', $from))
@@ -2161,8 +2161,8 @@ class AdminController extends Controller
 
         $referralEarnings = ReferralEarning::query()
             ->with([
-                'referrer:id,full_name,email,payment_method,paypal_email,cashapp_tag',
-                'viewSession:id,uuid,political_campaign_id,voter_id,status,payment_status,paid_at,created_at',
+                'referrer:id,full_name,email',
+                'viewSession:id,uuid,political_campaign_id,voter_id,status,payment_status,paid_at,created_at,processor_selected,processor_executed,processor_reference,processor_fee',
                 'viewSession.campaign:id,title',
             ])
             ->whereHas('viewSession', function ($query) use ($campaignIds) {
@@ -2199,8 +2199,10 @@ class AdminController extends Controller
                 'Voter ID',
                 'Voter Name',
                 'Voter Email',
-                'Payment Method',
-                'Payment Destination',
+                'Processor Selected',
+                'Processor Executed',
+                'Processor Reference',
+                'Processor Fee',
                 'Campaign ID',
                 'Campaign Title',
                 'Session ID',
@@ -2219,9 +2221,6 @@ class AdminController extends Controller
             foreach ($sessions as $session) {
                 $voter = $session->voter;
                 $monthDate = $session->completed_at ?? $session->created_at;
-                $paymentDestination = $voter?->payment_method === 'cashapp'
-                    ? $voter?->cashapp_tag
-                    : $voter?->paypal_email;
 
                 fputcsv($output, [
                     'view_session',
@@ -2231,8 +2230,10 @@ class AdminController extends Controller
                     $session->voter_id,
                     $voter?->full_name,
                     $voter?->email,
-                    $voter?->payment_method,
-                    $paymentDestination,
+                    $session->processor_selected,
+                    $session->processor_executed,
+                    $session->processor_reference,
+                    number_format((float) ($session->processor_fee ?? 0), 2, '.', ''),
                     $session->political_campaign_id,
                     optional($session->campaign)->title,
                     $session->id,
@@ -2253,9 +2254,6 @@ class AdminController extends Controller
                 $referrer = $earning->referrer;
                 $session = $earning->viewSession;
                 $monthDate = $earning->paid_at ?? $earning->created_at;
-                $paymentDestination = $referrer?->payment_method === 'cashapp'
-                    ? $referrer?->cashapp_tag
-                    : $referrer?->paypal_email;
 
                 fputcsv($output, [
                     'referral_earning',
@@ -2265,8 +2263,10 @@ class AdminController extends Controller
                     $earning->referrer_voter_id,
                     $referrer?->full_name,
                     $referrer?->email,
-                    $referrer?->payment_method,
-                    $paymentDestination,
+                    $session?->processor_selected,
+                    $session?->processor_executed,
+                    $session?->processor_reference,
+                    number_format((float) ($session?->processor_fee ?? 0), 2, '.', ''),
                     $session?->political_campaign_id,
                     optional($session?->campaign)->title,
                     $session?->id,
