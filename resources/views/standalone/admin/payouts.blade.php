@@ -12,6 +12,20 @@
     </div>
     @endif
 
+    {{-- Runtime payout diagnostics (non-secret) --}}
+    <div class="{{ $paypalConfigured ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-300' : 'bg-amber-500/10 border-amber-500/30 text-amber-300' }} border rounded-lg px-4 py-3 text-sm">
+        <p class="font-semibold">
+            PayPal Runtime Status:
+            <span class="{{ $paypalConfigured ? 'text-cyan-200' : 'text-amber-200' }}">
+                {{ $paypalConfigured ? 'Configured' : 'Not Configured' }}
+            </span>
+        </p>
+        <p class="text-xs mt-1 opacity-90">
+            Environment mode: {{ $paypalSandbox ? 'Sandbox' : 'Live' }}.
+            Status is read from current runtime environment (e.g., Railway in production) and does not expose secrets.
+        </p>
+    </div>
+
     {{-- Stats --}}
     <div class="grid grid-cols-3 gap-4">
         <div class="stat-card">

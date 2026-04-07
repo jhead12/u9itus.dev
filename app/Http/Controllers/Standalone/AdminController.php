@@ -1291,7 +1291,11 @@ class AdminController extends Controller
                 ->whereIn('payment_status', $unpaidStatuses)->count(),
         ];
 
-        return view('standalone.admin.payouts', compact('stats'));
+        $paypalConfigured = filled((string) config('services.paypal.client_id'))
+            && filled((string) config('services.paypal.client_secret'));
+        $paypalSandbox = (bool) config('services.paypal.sandbox', true);
+
+        return view('standalone.admin.payouts', compact('stats', 'paypalConfigured', 'paypalSandbox'));
     }
 
     /**
