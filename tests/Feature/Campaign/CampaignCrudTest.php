@@ -478,11 +478,14 @@ test('politician can view the analytics page', function () {
          ->assertViewIs('standalone.politician.analytics');
 });
 
-test('politician analytics credits purchased excludes non-succeeded charges', function () {
+test('politician analytics credits purchased excludes pending and campaign charges', function () {
     config()->set('services.stripe.secret', 'sk_test_fake_analytics_charge_status_filter');
 
     $user = makePolitician();
     $politician = $user->politician;
+    $campaign = makeCampaign($politician, [
+        'status' => CampaignStatus::Active->value,
+    ]);
 
     CampaignTransaction::create([
         'politician_id' => $politician->id,
@@ -495,6 +498,19 @@ test('politician analytics credits purchased excludes non-succeeded charges', fu
             'payment_mode' => 'test',
             'credits_amount' => 100.00,
             'stripe_fee' => 2.56,
+        ],
+    ]);
+
+    CampaignTransaction::create([
+        'politician_id' => $politician->id,
+        'campaign_id' => $campaign->id,
+        'transaction_type' => 'charge',
+        'amount' => 100.00,
+        'currency' => 'USD',
+        'status' => 'succeeded',
+        'description' => 'Campaign spend charge should not count as credits purchased',
+        'metadata' => [
+            'payment_mode' => 'test',
         ],
     ]);
 

@@ -1054,7 +1054,8 @@ class PoliticianController extends Controller
         $transactionsWithFeeSummary = $this->applyPaymentModeFilter(
             CampaignTransaction::where('politician_id', $politician->id)
                 ->where('transaction_type', 'charge')
-                ->where('status', 'succeeded'),
+                ->where('status', 'succeeded')
+                ->whereNull('campaign_id'),
             $activePaymentMode
         )
             ->get()

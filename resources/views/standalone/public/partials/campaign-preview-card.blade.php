@@ -4,6 +4,7 @@
     $_mUrl  = $previewMediaUrl ?? ($campaign->media_url ?? '');
     $_mediaType = (string) ($campaign->media_type ?? 'youtube');
     $_isDirectVideo = preg_match('/\.(mp4|webm|ogg|mov|m3u8)(\?.*)?$/i', $_mUrl) === 1;
+    $_hasPlayableMedia = false;
     $_qaItems = collect($campaign->qa_items ?? [])->filter(function ($item) {
         return is_array($item)
             && filled($item['question'] ?? null)
@@ -23,6 +24,11 @@
     if (preg_match('/vimeo\.com\/(?:video\/)?(\d+)/', $_mUrl, $_m)) {
         $_vimeoId = $_m[1];
     }
+
+    $_hasPlayableMedia = $_ytId !== null
+        || $_vimeoId !== null
+        || in_array($_mediaType, ['direct_file', 's3_cloudfront'], true)
+        || $_isDirectVideo;
 
     $statusValue = $campaign->status?->value ?? (string) $campaign->status;
     $statusMap = [
@@ -46,38 +52,9 @@
 
 <article class="bg-slate-800/40 border border-slate-700/40 rounded-xl overflow-hidden hover:border-slate-500 transition group">
     <div class="relative aspect-video bg-black">
-        @if($_ytId)
-            <iframe
-                src="https://www.youtube-nocookie.com/embed/{{ $_ytId }}?rel=0&modestbranding=1&color=white&iv_load_policy=3"
-                title="{{ e($campaign->title) }}"
-                class="w-full h-full"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowfullscreen
-                loading="lazy"
-            ></iframe>
-        @elseif($_vimeoId)
-            <iframe
-                src="https://player.vimeo.com/video/{{ $_vimeoId }}"
-                title="{{ e($campaign->title) }}"
-                class="w-full h-full"
-                allow="autoplay; fullscreen; picture-in-picture"
-                allowfullscreen
-                loading="lazy"
-            ></iframe>
-        @elseif(in_array($_mediaType, ['direct_file', 's3_cloudfront'], true) || $_isDirectVideo)
-            <video class="w-full h-full object-cover" controls preload="metadata" playsinline>
-                <source src="{{ $_mUrl }}">
-                Your browser does not support this video format.
-            </video>
-        @elseif($campaign->thumbnail_url)
+        @if($campaign->thumbnail_url)
             <img src="{{ $campaign->thumbnail_url }}" alt="{{ $campaign->title }}"
                  class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-            <div class="absolute inset-0 flex flex-col items-center justify-center bg-black/50">
-                <div class="w-14 h-14 rounded-full bg-white/10 border-2 border-white/40 flex items-center justify-center">
-                    <svg class="w-7 h-7 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-                </div>
-                <span class="mt-3 text-xs text-white/70 bg-black/40 px-3 py-1 rounded-full">Campaign preview</span>
-            </div>
         @else
             <div class="w-full h-full flex flex-col items-center justify-center bg-slate-900/60">
                 <svg class="w-12 h-12 text-slate-600 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -85,6 +62,15 @@
                           d="M15 10l4.553-2.853A1 1 0 0121 8.004v7.992a1 1 0 01-1.447.857L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/>
                 </svg>
                 <span class="text-xs text-slate-500">Campaign video or update preview</span>
+            </div>
+        @endif
+
+        @if($_hasPlayableMedia)
+            <div class="absolute inset-0 flex flex-col items-center justify-center bg-black/45">
+                <div class="w-14 h-14 rounded-full bg-white/10 border-2 border-white/40 flex items-center justify-center">
+                    <svg class="w-7 h-7 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                </div>
+                <span class="mt-3 text-xs text-white/80 bg-black/50 px-3 py-1 rounded-full">Select to view video</span>
             </div>
         @endif
 
@@ -111,6 +97,43 @@
 
         @if($campaign->message_summary)
             <p class="text-xs text-slate-400 line-clamp-3 mb-3">{{ $campaign->message_summary }}</p>
+        @endif
+
+        @if($_hasPlayableMedia)
+            <details class="rounded-lg border border-slate-700/70 bg-slate-900/45 mb-3" data-video-panel>
+                <summary class="cursor-pointer list-none px-3 py-2.5 flex items-center justify-between gap-3 text-xs text-slate-200">
+                    <span class="font-semibold">View Campaign Video</span>
+                    <span class="text-slate-500">Open</span>
+                </summary>
+                <div class="px-3 pb-3">
+                    <div class="rounded-md overflow-hidden border border-slate-700/70 bg-black aspect-video">
+                        @if($_ytId)
+                            <iframe
+                                src="https://www.youtube-nocookie.com/embed/{{ $_ytId }}?rel=0&modestbranding=1&color=white&iv_load_policy=3"
+                                title="{{ e($campaign->title) }}"
+                                class="w-full h-full"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                allowfullscreen
+                                loading="lazy"
+                            ></iframe>
+                        @elseif($_vimeoId)
+                            <iframe
+                                src="https://player.vimeo.com/video/{{ $_vimeoId }}"
+                                title="{{ e($campaign->title) }}"
+                                class="w-full h-full"
+                                allow="autoplay; fullscreen; picture-in-picture"
+                                allowfullscreen
+                                loading="lazy"
+                            ></iframe>
+                        @elseif(in_array($_mediaType, ['direct_file', 's3_cloudfront'], true) || $_isDirectVideo)
+                            <video class="w-full h-full object-cover" controls preload="metadata" playsinline>
+                                <source src="{{ $_mUrl }}">
+                                Your browser does not support this video format.
+                            </video>
+                        @endif
+                    </div>
+                </div>
+            </details>
         @endif
 
         @if($_showTownHall)
