@@ -478,6 +478,50 @@ test('politician can view the analytics page', function () {
          ->assertViewIs('standalone.politician.analytics');
 });
 
+test('politician analytics credits purchased excludes non-succeeded charges', function () {
+    config()->set('services.stripe.secret', 'sk_test_fake_analytics_charge_status_filter');
+
+    $user = makePolitician();
+    $politician = $user->politician;
+
+    CampaignTransaction::create([
+        'politician_id' => $politician->id,
+        'transaction_type' => 'charge',
+        'amount' => 102.56,
+        'currency' => 'USD',
+        'status' => 'succeeded',
+        'description' => 'Real succeeded purchase',
+        'metadata' => [
+            'payment_mode' => 'test',
+            'credits_amount' => 100.00,
+            'stripe_fee' => 2.56,
+        ],
+    ]);
+
+    CampaignTransaction::create([
+        'politician_id' => $politician->id,
+        'transaction_type' => 'charge',
+        'amount' => 102.56,
+        'currency' => 'USD',
+        'status' => 'pending',
+        'description' => 'Unfinished faux trial purchase intent',
+        'metadata' => [
+            'payment_mode' => 'test',
+            'credits_amount' => 100.00,
+            'stripe_fee' => 2.56,
+        ],
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('politician.analytics'))
+        ->assertOk()
+        ->assertViewHas('transactionsWithFeeSummary', function ($summary) {
+            return (float) $summary->sum('credits') === 100.0
+                && (float) $summary->sum('fee') === 2.56
+                && $summary->count() === 1;
+        });
+});
+
 test('politician dashboard balance excludes test mode credits when stripe is live', function () {
     config()->set('services.stripe.secret', 'sk_live_fake_dashboard_mode_filter');
 
