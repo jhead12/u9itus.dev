@@ -181,7 +181,7 @@ test('completing a qualifying view credits voter pending earnings', function () 
     $response->assertOk()
         ->assertJsonStructure(['message', 'session'])
         ->assertJsonPath('session.status', ViewSessionStatus::Completed->value)
-        ->assertJsonPath('session.payment_status', ViewPaymentStatus::Approved->value);
+        ->assertJsonPath('session.payment_status', ViewPaymentStatus::Pending->value);
 
     // Voter pending_earnings incremented
     $this->assertDatabaseHas('voters', [

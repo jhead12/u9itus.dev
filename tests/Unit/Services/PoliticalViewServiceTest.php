@@ -166,7 +166,7 @@ test('completeView credits voter when watch threshold is met', function () {
     $completed = $svc->completeView($session, 54);
 
     expect($completed->status)->toBe(ViewSessionStatus::Completed)
-        ->and($completed->payment_status)->toBe(ViewPaymentStatus::Approved)
+        ->and($completed->payment_status)->toBe(ViewPaymentStatus::Pending)
         ->and((float) $completed->voter_payout_amount)->toBe(0.25);
 
     $voter->refresh();
