@@ -71,6 +71,8 @@ class PoliticalCampaign extends Model
         'intro_text',              // Q&A intro/key message
         'qa_items',                // Q&A pairs JSON
         'engagement_survey',       // Post-view survey payload JSON
+        // Accessibility
+        'subtitle_url',            // Optional WebVTT subtitle URL for captions support
     ];
 
     protected $table = 'political_campaigns';

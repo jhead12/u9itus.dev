@@ -128,6 +128,7 @@
                         @elseif(in_array($_mediaType, ['direct_file', 's3_cloudfront'], true) || $_isDirectVideo)
                             <video class="w-full h-full object-cover" controls preload="metadata" playsinline>
                                 <source src="{{ $_mUrl }}">
+                                <track kind="captions" srclang="en" label="Captions" src="data:text/vtt,WEBVTT">
                                 Your browser does not support this video format.
                             </video>
                         @endif

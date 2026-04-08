@@ -85,6 +85,13 @@ return [
     'max_video_size_mb'   => env('MAX_VIDEO_SIZE_MB', 1024),   // 1 GB upload limit
     'allow_live_feed'     => env('ALLOW_LIVE_FEED', true),
 
+    /**
+     * When true, the voter watch player renders any per-campaign WebVTT subtitle
+     * track (campaign.subtitle_url) as a <track kind="captions"> element.
+     * Satisfies WCAG 1.2.2 captions accessibility requirement.
+     */
+    'video_subtitles_enabled' => env('VIDEO_SUBTITLES_ENABLED', false),
+
     /*
     |--------------------------------------------------------------------------
     | Fraud Prevention

@@ -36,7 +36,7 @@ class VideoTranscodingService
                     'ffprobe.binaries' => $ffprobeBin,
                 ]);
             }
-        } catch (\Exception $e) {
+        } catch (\RuntimeException $e) {
             logger()->warning('FFmpeg not available for transcoding', ['error' => $e->getMessage()]);
         }
     }
@@ -53,19 +53,21 @@ class VideoTranscodingService
             return null;
         }
 
+        $duration = null;
+
         try {
             $stream = $this->ffprobe->streams($filePath)->videos()->first();
             if ($stream && $stream->has('duration')) {
-                return (int) round($stream->get('duration'));
+                $duration = (int) round($stream->get('duration'));
             }
-        } catch (\Exception $e) {
+        } catch (\RuntimeException $e) {
             logger()->warning('Failed to extract video duration', [
                 'path' => $filePath,
                 'error' => $e->getMessage(),
             ]);
         }
 
-        return null;
+        return $duration;
     }
 
     /**
@@ -78,10 +80,14 @@ class VideoTranscodingService
      */
     public function encodeToH264(string $inputPath, string $outputPath, array $options = []): bool
     {
+    public function encodeToH264(string $inputPath, string $outputPath, array $options = []): bool
+    {
         if (!$this->ffmpeg) {
             logger()->warning('FFmpeg not available for transcoding');
             return false;
         }
+
+        $success = false;
 
         try {
             $video = $this->ffmpeg->open($inputPath);
@@ -98,15 +104,16 @@ class VideoTranscodingService
 
             // Save to destination
             $video->save($format, $outputPath);
-            return true;
-        } catch (\Exception $e) {
+            $success = true;
+        } catch (\RuntimeException $e) {
             logger()->error('Video transcoding failed', [
                 'input' => $inputPath,
                 'output' => $outputPath,
                 'error' => $e->getMessage(),
             ]);
-            return false;
         }
+
+        return $success;
     }
 
     /**

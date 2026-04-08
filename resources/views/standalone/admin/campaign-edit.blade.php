@@ -288,6 +288,7 @@
                         <video id="nativePreviewPlayer" class="hidden w-full aspect-video"
                             controls controlsList="nodownload" preload="metadata">
                             <source id="nativePreviewSource" src="" type="video/mp4">
+                            <track kind="captions" srclang="en" label="Captions" src="data:text/vtt,WEBVTT">
                             Your browser does not support video preview.
                         </video>
                         <div id="previewPlaceholder" class="w-full aspect-video flex flex-col items-center justify-center gap-3 text-slate-500">
@@ -315,6 +316,20 @@
                     @error('media_duration')<p class="text-xs text-red-400 mt-1">{{ $message }}</p>@enderror
                 </div>
             </div>
+
+                {{-- Subtitles / Captions (optional WebVTT URL) --}}
+                <div>
+                    <label for="subtitle_url" class="block text-sm font-medium text-slate-300 mb-1.5">
+                        Subtitles / Captions URL
+                        <span class="ml-1 text-xs font-normal text-slate-500">(optional)</span>
+                    </label>
+                    <input type="url" name="subtitle_url" id="subtitle_url"
+                        value="{{ old('subtitle_url', $campaign->subtitle_url) }}"
+                        placeholder="https://example.com/captions.vtt"
+                        class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition" />
+                    <p class="text-xs text-slate-500 mt-1">WebVTT (.vtt) URL for voter-facing captions. Active when video subtitles are enabled in platform settings.</p>
+                    @error('subtitle_url')<p class="text-xs text-red-400 mt-1">{{ $message }}</p>@enderror
+                </div>
 
             {{-- Live feed fields --}}
             <div id="liveFeedFields" class="{{ $editType === 'live_feed' ? '' : 'hidden' }} space-y-4">

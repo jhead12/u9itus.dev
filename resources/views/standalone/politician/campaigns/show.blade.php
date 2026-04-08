@@ -269,6 +269,7 @@
             <video id="nativeShowPlayer" class="hidden w-full aspect-video"
                 controls controlsList="nodownload" preload="metadata">
                 <source id="nativeShowSource" src="" type="video/mp4">
+                <track kind="captions" srclang="en" label="Captions" src="data:text/vtt,WEBVTT">
                 Your browser does not support video preview.
             </video>
             <div id="showPlaceholder" class="w-full aspect-video flex flex-col items-center justify-center gap-3 text-slate-500">

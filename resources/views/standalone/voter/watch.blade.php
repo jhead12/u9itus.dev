@@ -98,6 +98,9 @@
         @elseif($playerMode === 'vimeo')
             <div id="vimeo-player-container" class="w-full aspect-video"></div>
         @else
+            @php
+                $subtitlesEnabled = (bool) \App\Services\PlatformSettingsService::get('video_subtitles_enabled', null, false);
+            @endphp
             <video
                 id="ad-video"
                 class="w-full aspect-video"
@@ -110,6 +113,11 @@
             >
                 @if($campaign->media_url)
                     <source src="{{ $campaign->media_url }}" type="{{ $playerMode === 'hls' ? 'application/x-mpegURL' : $nativeSourceType }}">
+                @endif
+                @if($subtitlesEnabled && !empty($campaign->subtitle_url))
+                    <track kind="captions" src="{{ $campaign->subtitle_url }}" srclang="en" label="Captions" default>
+                @else
+                    <track kind="captions" srclang="en" label="Captions" src="data:text/vtt,WEBVTT">
                 @endif
                 Your browser does not support HTML5 video.
             </video>

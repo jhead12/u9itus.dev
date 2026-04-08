@@ -259,6 +259,7 @@ class PlatformSettingsService
             'max_video_duration' => 'u9itus.max_video_duration',
             'max_video_size_mb' => 'u9itus.max_video_size_mb',
             'min_watch_time_percent' => 'u9itus.min_watch_time_percent',
+            'video_subtitles_enabled' => 'u9itus.video_subtitles_enabled',
             
             // Fraud
             'fraud_max_views_per_day' => 'u9itus.fraud.max_views_per_voter_per_day',
