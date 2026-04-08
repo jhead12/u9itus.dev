@@ -211,6 +211,53 @@ test('markComplete returns qualified and payout fields', function () {
         ->assertJsonStructure(['qualified', 'payout_earned', 'status']);
 });
 
+test('markComplete uses client media duration when campaign duration is missing', function () {
+    [$user, $voter] = voterUser();
+    $campaign = watchableCampaign([
+        'media_duration' => null,
+        'min_watch_time_percent' => 100,
+    ]);
+
+    $session = ViewSession::factory()->create([
+        'voter_id'              => $voter->id,
+        'political_campaign_id' => $campaign->id,
+        'status'                => ViewSessionStatus::InProgress->value,
+        'watch_time_seconds'    => 60,
+    ]);
+
+    $this->actingAs($user)
+        ->postJson(route('voter.session.complete', ['sessionUuid' => $session->uuid]), [
+            'total_seconds_watched' => 60,
+            'media_duration_seconds' => 120,
+        ])
+        ->assertOk()
+        ->assertJsonPath('qualified', false);
+});
+
+test('markComplete falls back to configured duration when campaign and client durations are missing', function () {
+    [$user, $voter] = voterUser();
+    config()->set('u9itus.max_video_duration', 180);
+
+    $campaign = watchableCampaign([
+        'media_duration' => null,
+        'min_watch_time_percent' => 100,
+    ]);
+
+    $session = ViewSession::factory()->create([
+        'voter_id'              => $voter->id,
+        'political_campaign_id' => $campaign->id,
+        'status'                => ViewSessionStatus::InProgress->value,
+        'watch_time_seconds'    => 60,
+    ]);
+
+    $this->actingAs($user)
+        ->postJson(route('voter.session.complete', ['sessionUuid' => $session->uuid]), [
+            'total_seconds_watched' => 60,
+        ])
+        ->assertOk()
+        ->assertJsonPath('qualified', false);
+});
+
 test('submitSurvey stores response for completed session', function () {
     [$user, $voter] = voterUser();
     $campaign = watchableCampaign([

@@ -211,6 +211,35 @@ class VoterController extends Controller
         ];
     }
 
+    /**
+     * Resolve the duration used for watch qualification.
+     *
+     * Priority:
+     * 1) persisted campaign media_duration
+     * 2) client-reported media duration (from player metadata)
+     * 3) platform fallback max_video_duration
+     */
+    private function effectiveWatchDurationSeconds(PoliticalCampaign $campaign, ?int $clientDuration = null): int
+    {
+        $campaignDuration = (int) ($campaign->media_duration ?? 0);
+        if ($campaignDuration > 0) {
+            return $campaignDuration;
+        }
+
+        $reportedDuration = (int) ($clientDuration ?? 0);
+        if ($reportedDuration > 0) {
+            return $reportedDuration;
+        }
+
+        $durationFallback = (int) PlatformSettingsService::get(
+            'max_video_duration',
+            null,
+            (int) config('u9itus.max_video_duration', 180)
+        );
+
+        return max(1, $durationFallback);
+    }
+
     private function questionContainsBlockedTerms(string $text): bool
     {
         $terms = config('u9itus.q_and_a.moderation.blocked_terms', []);
@@ -568,7 +597,10 @@ class VoterController extends Controller
      */
     public function progressHeartbeat(Request $request, string $sessionUuid)
     {
-        $request->validate(['seconds_watched' => 'required|integer|min:0']);
+        $request->validate([
+            'seconds_watched' => 'required|integer|min:0',
+            'media_duration_seconds' => 'nullable|integer|min:1|max:21600',
+        ]);
 
         $session = ViewSession::where('uuid', $sessionUuid)
             ->with('campaign')
@@ -595,8 +627,10 @@ class VoterController extends Controller
         // Auto-complete when the voter has watched enough to qualify,
         // even if the video hasn't fired the 'ended' event yet.
         $campaign      = $session->campaign;
-        $durationFallback = (int) PlatformSettingsService::get('max_video_duration', null, (int) config('u9itus.max_video_duration', 180));
-        $mediaDuration = (int) ($campaign->media_duration ?? max(1, $durationFallback));
+        $mediaDuration = $this->effectiveWatchDurationSeconds(
+            $campaign,
+            $request->integer('media_duration_seconds')
+        );
         $minWatchPct   = (float) ($campaign->min_watch_time_percent ?? config('u9itus.min_watch_time_percent', 80));
         $watchedPct    = $mediaDuration > 0 ? ($watchedSeconds / $mediaDuration) * 100 : 0;
 
@@ -619,7 +653,10 @@ class VoterController extends Controller
      */
     public function markComplete(Request $request, string $sessionUuid)
     {
-        $request->validate(['total_seconds_watched' => 'required|integer|min:0']);
+        $request->validate([
+            'total_seconds_watched' => 'required|integer|min:0',
+            'media_duration_seconds' => 'nullable|integer|min:1|max:21600',
+        ]);
 
         $session = ViewSession::where('uuid', $sessionUuid)
             ->with('campaign', 'voter')
@@ -628,6 +665,14 @@ class VoterController extends Controller
         $voter = $this->resolveVoter();
         if ($session->voter_id !== $voter->id) {
             return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        // Keep completion math aligned with the player when the campaign record has no duration.
+        if (! $session->campaign->media_duration) {
+            $session->campaign->media_duration = $this->effectiveWatchDurationSeconds(
+                $session->campaign,
+                $request->integer('media_duration_seconds')
+            );
         }
 
         $completed = $this->viewService->completeView(

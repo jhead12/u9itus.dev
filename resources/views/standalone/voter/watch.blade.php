@@ -126,7 +126,7 @@
                 </svg>
             </div>
             <p class="text-white font-semibold">Click to Play &amp; Earn</p>
-            <p class="text-slate-400 text-sm mt-1">{{ $duration }}s video &middot; must watch {{ $mustWatch }}%</p>
+            <p id="duration-hint" class="text-slate-400 text-sm mt-1">{{ $duration }}s video &middot; must watch {{ $mustWatch }}%</p>
         </div>
 
         {{-- Progress bar --}}
@@ -411,9 +411,12 @@
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
                 </svg>
-                Ask a Question
+                Ask Campaign Owner
             </button>
         </div>
+        <p class="mt-2 text-center text-xs text-slate-500">
+            Report Issue contacts platform support. Ask Campaign Owner sends your question to this ad's campaign owner/team.
+        </p>
 
         {{-- Report Issue Modal --}}
         <div x-show="reportModal"
@@ -502,7 +505,7 @@
             </div>
         </div>
 
-        {{-- Ask Politician a Question Modal --}}
+        {{-- Ask Campaign Owner Question Modal --}}
         <div x-show="messageModal"
             x-transition:enter="transition ease-out duration-200"
             x-transition:enter-start="opacity-0"
@@ -519,8 +522,8 @@
                 
                 <div class="flex items-start justify-between mb-4">
                     <div>
-                        <h3 class="text-lg font-bold text-white">Ask a Question</h3>
-                        <p class="text-sm text-slate-400 mt-0.5">Send to {{ $campaign->politician->full_name ?? 'the campaign' }}. Approved questions appear on the public Q&A board.</p>
+                        <h3 class="text-lg font-bold text-white">Ask the Campaign Owner</h3>
+                        <p class="text-sm text-slate-400 mt-0.5">This message goes to the campaign owner/team for this ad, not platform support and not necessarily the featured politician.</p>
                     </div>
                     <button @click="messageModal = false" class="text-slate-500 hover:text-slate-300 transition">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -556,11 +559,11 @@
                     <input type="hidden" name="view_session_uuid" :value="window.sessionId || ''">
 
                     <div class="mb-5">
-                        <label for="message-body" class="block text-sm font-medium text-slate-300 mb-2">Your Question *</label>
+                        <label for="message-body" class="block text-sm font-medium text-slate-300 mb-2">Your Question for the Campaign Owner *</label>
                         <textarea name="body" id="message-body" rows="5" maxlength="1000" required
-                            placeholder="Ask this politician a question you want answered in the town hall..."
+                            placeholder="Ask the campaign owner a question about this ad or campaign..."
                             class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition resize-none"></textarea>
-                        <p class="text-xs text-slate-500 mt-1">Your question is reviewed before public posting. Public posts use an anonymous voter alias.</p>
+                        <p class="text-xs text-slate-500 mt-1">Questions may be reviewed before public posting. Public posts use an anonymous voter alias.</p>
                     </div>
 
                     <div class="flex gap-3">
@@ -570,7 +573,7 @@
                         </button>
                         <button type="submit" :disabled="submitting"
                             class="flex-1 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-white font-medium text-sm transition">
-                            <span x-show="!submitting">Send Question</span>
+                            <span x-show="!submitting">Send to Campaign Owner</span>
                             <span x-show="submitting">Sending...</span>
                         </button>
                     </div>
@@ -596,7 +599,8 @@
     const statusMsg   = document.getElementById('status-msg');
     const token       = document.querySelector('meta[name="watch-token"]').content;
     const csrf        = document.querySelector('meta[name="csrf-token"]').content;
-    const duration      = {{ $duration ?? 0 }};
+    let duration        = {{ $duration ?? 0 }};
+    const initialDuration = {{ $duration ?? 0 }};
     const mustWatch     = {{ $mustWatch ?? 100 }};
     const playerMode    = '{{ $playerMode }}';
     const isYouTube     = playerMode === 'youtube';
@@ -631,6 +635,7 @@
     const surveyResponseText = document.getElementById('survey-response-text');
     const surveyBadge = document.getElementById('survey-badge');
     const surveyOptionButtons = Array.from(document.querySelectorAll('.survey-option-btn'));
+    const durationHint = document.getElementById('duration-hint');
 
     /* ── helpers ─────────────────────────────────────────────────── */
     function showStatus(msg, type = 'info') {
@@ -657,6 +662,33 @@
         const mins = Math.floor(safe / 60);
         const secs = safe % 60;
         return `${mins}:${String(secs).padStart(2, '0')}`;
+    }
+
+    function setEffectiveDuration(seconds) {
+        const parsed = Math.max(0, Math.floor(seconds || 0));
+        if (parsed <= 0) return;
+        if (duration === parsed) return;
+
+        duration = parsed;
+
+        if (durationHint) {
+            durationHint.innerHTML = `${duration}s video &middot; must watch {{ $mustWatch }}%`;
+        }
+
+        updateProgressUi(getCurrentPlaybackSeconds());
+    }
+
+    function getCurrentPlaybackSeconds() {
+        if (isYouTube && ytPlayer && typeof ytPlayer.getCurrentTime === 'function') {
+            return ytPlayer.getCurrentTime() || 0;
+        }
+
+        if (isVimeo) {
+            return vimeoCurrentTime || 0;
+        }
+
+        const video = document.getElementById('ad-video');
+        return video?.currentTime || 0;
     }
 
     function updateProgressUi(currentSeconds) {
@@ -773,7 +805,10 @@
             const watched = Math.floor(getCurrentTime());
             updateProgressUi(watched);
             try {
-                const res = await post(`/voter/session/${sessionId}/progress`, { seconds_watched: watched });
+                const res = await post(`/voter/session/${sessionId}/progress`, {
+                    seconds_watched: watched,
+                    media_duration_seconds: duration > 0 ? duration : initialDuration,
+                });
                 // Update progress bar from server-reported percentage if available, else calculate locally
                 const pct = res.watched_pct !== undefined
                     ? Math.min(100, res.watched_pct)
@@ -818,7 +853,10 @@
         showReplayButton();
         try {
             const baseUrl = '{{ url("/voter/session") }}';
-            const res = await post(`${baseUrl}/${sessionId}/complete`, { total_seconds_watched: total });
+            const res = await post(`${baseUrl}/${sessionId}/complete`, {
+                total_seconds_watched: total,
+                media_duration_seconds: duration > 0 ? duration : initialDuration,
+            });
             revealSurveyPanel();
             if (res.already_completed) {
                 // Heartbeat beat us to it — earnings already recorded
@@ -857,6 +895,14 @@
                     origin:         window.location.origin,
                 },
                 events: {
+                    onReady: function () {
+                        if (ytPlayer && typeof ytPlayer.getDuration === 'function') {
+                            const ytDuration = Math.floor(ytPlayer.getDuration() || 0);
+                            if (ytDuration > 0) {
+                                setEffectiveDuration(ytDuration);
+                            }
+                        }
+                    },
                     onStateChange: function (e) {
                         if (e.data === YT.PlayerState.PLAYING) {
                             // Show control blocker to prevent any clicking on video
@@ -969,6 +1015,11 @@
             }
         });
 
+        const vimeoDuration = await vimeoPlayer.getDuration().catch(() => 0);
+        if (vimeoDuration > 0) {
+            setEffectiveDuration(vimeoDuration);
+        }
+
         vimeoPlayer.on('pause', () => {
             if (!completed) {
                 setTimeout(() => {
@@ -1077,6 +1128,12 @@
                 showStatus('Could not load HLS stream. Please refresh and try again.', 'error');
             });
         }
+
+        video.addEventListener('loadedmetadata', function() {
+            if (Number.isFinite(video.duration) && video.duration > 0) {
+                setEffectiveDuration(video.duration);
+            }
+        });
 
         // Prevent seeking on native video
         video.addEventListener('seeking', function() {

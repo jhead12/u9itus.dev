@@ -281,11 +281,20 @@ class PoliticalViewService
 
     private function calculateCompletionPercentage(int $watchTimeSeconds, ?int $mediaDuration): float
     {
-        if (!$mediaDuration || $mediaDuration <= 0) {
+        $effectiveDuration = (int) ($mediaDuration ?? 0);
+        if ($effectiveDuration <= 0) {
+            $effectiveDuration = (int) PlatformSettingsService::get(
+                'max_video_duration',
+                null,
+                (int) config('u9itus.max_video_duration', 180)
+            );
+        }
+
+        if ($effectiveDuration <= 0) {
             return 100.0;
         }
 
-        return min(100.0, ($watchTimeSeconds / $mediaDuration) * 100);
+        return min(100.0, ($watchTimeSeconds / $effectiveDuration) * 100);
     }
 
     private function creditVoter(Voter $voter, float $amount): void
