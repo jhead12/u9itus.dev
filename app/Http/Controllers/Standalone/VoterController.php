@@ -144,6 +144,65 @@ class VoterController extends Controller
         return 'Voter #' . Str::upper(substr($seed, 0, 6));
     }
 
+    /**
+     * Campaign IDs this voter should not see in earnable inventory yet.
+     *
+     * Includes:
+     * - non-repeat campaigns already completed by the voter
+     * - repeat campaigns where max per-voter views is reached
+     * - repeat campaigns where cooldown has not elapsed since last completion
+     *
+     * @return array<int, int>
+     */
+    private function excludedCampaignIdsForVoter(Voter $voter): array
+    {
+        $noRepeatDoneIds = DB::table('view_sessions')
+            ->join('political_campaigns', 'political_campaigns.id', '=', 'view_sessions.political_campaign_id')
+            ->where('view_sessions.voter_id', $voter->id)
+            ->where('view_sessions.status', 'completed')
+            ->where('political_campaigns.allow_repeat_views', false)
+            ->distinct()
+            ->pluck('view_sessions.political_campaign_id')
+            ->all();
+
+        $atCapIds = DB::table('view_sessions')
+            ->join('political_campaigns', 'political_campaigns.id', '=', 'view_sessions.political_campaign_id')
+            ->where('view_sessions.voter_id', $voter->id)
+            ->where('view_sessions.status', 'completed')
+            ->where('political_campaigns.allow_repeat_views', true)
+            ->selectRaw('view_sessions.political_campaign_id, COUNT(*) as cnt, political_campaigns.max_views_per_voter')
+            ->groupBy('view_sessions.political_campaign_id', 'political_campaigns.max_views_per_voter')
+            ->havingRaw('cnt >= COALESCE(political_campaigns.max_views_per_voter, 1)')
+            ->pluck('political_campaign_id')
+            ->all();
+
+        $nowTs = now()->timestamp;
+        $cooldownBlockedIds = DB::table('view_sessions')
+            ->join('political_campaigns', 'political_campaigns.id', '=', 'view_sessions.political_campaign_id')
+            ->where('view_sessions.voter_id', $voter->id)
+            ->where('view_sessions.status', 'completed')
+            ->where('political_campaigns.allow_repeat_views', true)
+            ->selectRaw('view_sessions.political_campaign_id as campaign_id, MAX(view_sessions.completed_at) as last_completed_at, COALESCE(political_campaigns.repeat_view_cooldown_hours, 1) as cooldown_hours')
+            ->groupBy('view_sessions.political_campaign_id', 'political_campaigns.repeat_view_cooldown_hours')
+            ->get()
+            ->filter(function ($row) use ($nowTs) {
+                $lastCompletedTs = strtotime((string) ($row->last_completed_at ?? ''));
+                if (! $lastCompletedTs) {
+                    return false;
+                }
+
+                $cooldownHours = max(1, (int) ($row->cooldown_hours ?? 1));
+                $nextEligibleTs = $lastCompletedTs + ($cooldownHours * 3600);
+
+                return $nextEligibleTs > $nowTs;
+            })
+            ->pluck('campaign_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        return array_values(array_unique(array_merge($noRepeatDoneIds, $atCapIds, $cooldownBlockedIds)));
+    }
+
     private function questionRateLimitConfig(): array
     {
         return [
@@ -182,26 +241,7 @@ class VoterController extends Controller
         $summary = $this->viewService->voterEarningsSummary($voter);
 
         // Surface watchable campaigns directly on dashboard so voters can start earning immediately.
-        $excludedCampaignIds = array_merge(
-            DB::table('view_sessions')
-                ->join('political_campaigns', 'political_campaigns.id', '=', 'view_sessions.political_campaign_id')
-                ->where('view_sessions.voter_id', $voter->id)
-                ->where('view_sessions.status', 'completed')
-                ->where('political_campaigns.allow_repeat_views', false)
-                ->distinct()
-                ->pluck('view_sessions.political_campaign_id')
-                ->all(),
-            DB::table('view_sessions')
-                ->join('political_campaigns', 'political_campaigns.id', '=', 'view_sessions.political_campaign_id')
-                ->where('view_sessions.voter_id', $voter->id)
-                ->where('view_sessions.status', 'completed')
-                ->where('political_campaigns.allow_repeat_views', true)
-                ->selectRaw('view_sessions.political_campaign_id, COUNT(*) as cnt, political_campaigns.max_views_per_voter')
-                ->groupBy('view_sessions.political_campaign_id', 'political_campaigns.max_views_per_voter')
-                ->havingRaw('cnt >= COALESCE(political_campaigns.max_views_per_voter, 1)')
-                ->pluck('political_campaign_id')
-                ->all(),
-        );
+        $excludedCampaignIds = $this->excludedCampaignIdsForVoter($voter);
 
         $voterPrefs = $voter->preferred_governance_levels ?? [];
 
@@ -274,30 +314,9 @@ class VoterController extends Controller
             ->unique()
             ->all();
 
-        // Non-repeatable campaigns the voter completed — exclude forever
-        $noRepeatDoneIds = DB::table('view_sessions')
-            ->join('political_campaigns', 'political_campaigns.id', '=', 'view_sessions.political_campaign_id')
-            ->where('view_sessions.voter_id', $voter->id)
-            ->where('view_sessions.status', 'completed')
-            ->where('political_campaigns.allow_repeat_views', false)
-            ->distinct()
-            ->pluck('view_sessions.political_campaign_id')
-            ->all();
-
-        // Repeatable campaigns where the voter has hit or exceeded max_views_per_voter
-        $atCapIds = DB::table('view_sessions')
-            ->join('political_campaigns', 'political_campaigns.id', '=', 'view_sessions.political_campaign_id')
-            ->where('view_sessions.voter_id', $voter->id)
-            ->where('view_sessions.status', 'completed')
-            ->where('political_campaigns.allow_repeat_views', true)
-            ->selectRaw('view_sessions.political_campaign_id, COUNT(*) as cnt, political_campaigns.max_views_per_voter')
-            ->groupBy('view_sessions.political_campaign_id', 'political_campaigns.max_views_per_voter')
-            ->havingRaw('cnt >= COALESCE(political_campaigns.max_views_per_voter, 1)')
-            ->pluck('political_campaign_id')
-            ->all();
-
-        // Combined exclusion list: campaigns this voter can no longer earn from
-        $excludedCampaignIds = array_merge($noRepeatDoneIds, $atCapIds);
+        // Campaigns this voter cannot currently earn from
+        // (already completed non-repeat, at repeat-cap, or still inside cooldown window)
+        $excludedCampaignIds = $this->excludedCampaignIdsForVoter($voter);
 
         // IDs of campaigns with an in-progress (unexpired) token for this voter
         $inProgressTokenCampaignIds = AdViewToken::where('voter_id', $voter->id)
