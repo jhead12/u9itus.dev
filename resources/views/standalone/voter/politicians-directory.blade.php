@@ -27,7 +27,28 @@
     {{-- Filters --}}
     <div class="border-b border-slate-800 bg-slate-900/70">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 py-4">
+            @if(!empty($zipValidationError))
+            <div class="mb-3 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-200">
+                {{ $zipValidationError }}
+            </div>
+            @endif
+
             <form method="GET" action="{{ route('politicians.directory') }}" class="flex flex-wrap gap-3">
+                <div class="relative min-w-[180px]">
+                    <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+                    </svg>
+                    <input type="text" name="zip" value="{{ request('zip', $zipInput ?? '') }}"
+                        placeholder="ZIP Code"
+                        inputmode="numeric"
+                        maxlength="10"
+                        pattern="\d{5}(-\d{4})?"
+                        required
+                        aria-label="ZIP Code"
+                        class="w-full bg-slate-800 border border-slate-700 text-white placeholder-slate-500 rounded-lg pl-9 pr-4 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition"/>
+                </div>
+
                 <div class="relative flex-1 min-w-[220px]">
                     <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
@@ -92,7 +113,7 @@
                     Filter
                 </button>
 
-                @if(request()->hasAny(['q', 'topic', 'district', 'level', 'state', 'party', 'sort', 'unclaimed']))
+                @if(request()->hasAny(['zip', 'q', 'topic', 'district', 'level', 'state', 'party', 'sort', 'unclaimed']))
                 <a href="{{ route('politicians.directory') }}" class="text-slate-400 hover:text-white text-sm flex items-center gap-1 px-3 py-2 transition">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
@@ -121,13 +142,13 @@
             </div>
             <h3 class="text-white font-semibold mb-1">No politicians found</h3>
             <p class="text-slate-500 text-sm max-w-xs mx-auto">
-                @if(request()->hasAny(['q', 'topic', 'district', 'level', 'state', 'party', 'unclaimed']))
+                @if(request()->hasAny(['zip', 'q', 'topic', 'district', 'level', 'state', 'party', 'unclaimed']))
                     No politicians match your current filters. Try adjusting your search criteria.
                 @else
                     No politicians are currently available in the directory.
                 @endif
             </p>
-            @if(request()->hasAny(['q', 'topic', 'district', 'level', 'state', 'party', 'unclaimed']))
+            @if(request()->hasAny(['zip', 'q', 'topic', 'district', 'level', 'state', 'party', 'unclaimed']))
             <a href="{{ route('politicians.directory') }}" class="inline-block mt-4 text-emerald-400 hover:text-emerald-300 text-sm transition">
                 Clear filters →
             </a>

@@ -59,7 +59,7 @@ class VoterOnboardingController extends Controller
         $validated = $request->validate([
             'city' => 'nullable|string|max:100',
             'state' => 'nullable|string|max:2',
-            'zip_code' => 'nullable|string|max:10',
+            'zip_code' => ['required', 'string', 'max:10', 'regex:/^\d{5}(-\d{4})?$/'],
         ]);
 
         // Update voter profile

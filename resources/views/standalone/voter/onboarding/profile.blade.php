@@ -25,6 +25,7 @@
             <div>
                 <label for="zip_code" class="block text-sm font-medium text-gray-300 mb-2">ZIP Code</label>
                 <input type="text" id="zip_code" name="zip_code" value="{{ old('zip_code', $voter->zip_code ?? '') }}"
+                       required inputmode="numeric" pattern="\d{5}(-\d{4})?" maxlength="10"
                        class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-blue-500">
             </div>
         </div>

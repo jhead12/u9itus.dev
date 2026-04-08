@@ -109,6 +109,7 @@
                         <label class="block text-sm font-medium text-slate-300 mb-1.5" for="zip_code">ZIP Code</label>
                         <input
                             id="zip_code" name="zip_code" type="text" maxlength="10"
+                            required inputmode="numeric" pattern="\d{5}(-\d{4})?"
                             value="{{ old('zip_code', $voter->zip_code ?? '') }}"
                             placeholder="90210"
                             class="w-full bg-slate-900 border border-slate-600 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 transition"

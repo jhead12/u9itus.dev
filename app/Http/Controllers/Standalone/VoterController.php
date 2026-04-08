@@ -1042,7 +1042,7 @@ class VoterController extends Controller
             'phone'               => 'nullable|string|max:30',
             'state'               => 'nullable|string|max:2',
             'city'                => 'nullable|string|max:100',
-            'zip_code'            => 'nullable|string|max:10',
+            'zip_code'            => ['required', 'string', 'max:10', 'regex:/^\d{5}(-\d{4})?$/'],
             'is_registered_voter' => 'nullable|boolean',
         ]);
 

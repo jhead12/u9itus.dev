@@ -543,11 +543,35 @@ class PublicProfileController extends Controller
      */
     public function index(Request $request)
     {
+        $isGuestBrowsing = ! auth()->check();
+        $useVoterLayout = auth()->check() && auth()->user()?->hasRole('voter');
+        $zipInput = trim((string) $request->input('zip', ''));
+
+        if ($useVoterLayout && $zipInput === '') {
+            $zipInput = trim((string) (auth()->user()?->voter?->zip_code ?? ''));
+        }
+
+        $normalizedZip = preg_replace('/\D+/', '', $zipInput ?? '') ?? '';
+        $zipValidationError = null;
+
+        if ($useVoterLayout) {
+            if ($zipInput === '') {
+                $zipValidationError = 'ZIP code is required to browse the voter directory.';
+            } elseif (! preg_match('/^\d{5}(?:-\d{4})?$/', $zipInput)) {
+                $zipValidationError = 'Please enter a valid US ZIP code (e.g. 90210 or 90210-1234).';
+            }
+        }
+
         $query = Politician::where('page_published', true)
             ->where('is_active', true)
             ->with(['campaigns' => function($q) {
                 $q->where('status', 'active')->where('approval_status', 'approved');
             }]);
+
+        if ($zipInput !== '' && $zipValidationError === null) {
+            $zipPrefix = substr($normalizedZip, 0, 5);
+            $query->where('zip_code', 'like', $zipPrefix . '%');
+        }
 
         // Search filter
         if ($search = $request->input('q')) {
@@ -606,19 +630,24 @@ class PublicProfileController extends Controller
 
         // Sorting
         $sortBy = $request->input('sort', 'name');
-        $politicians = $this->paginateDirectoryResults(
-            politicians: $this->sortDirectoryResults(
-                politicians: $this->collapseDirectoryDuplicates($query->get()),
-                sortBy: $sortBy,
-            ),
-            request: $request,
-        );
+        if ($zipValidationError !== null) {
+            $politicians = $this->paginateDirectoryResults(
+                politicians: collect(),
+                request: $request,
+            );
+        } else {
+            $politicians = $this->paginateDirectoryResults(
+                politicians: $this->sortDirectoryResults(
+                    politicians: $this->collapseDirectoryDuplicates($query->get()),
+                    sortBy: $sortBy,
+                ),
+                request: $request,
+            );
+        }
 
         $states = config('u9itus.us_states', []);
         $governanceLevels = ['Federal', 'State', 'County', 'City', 'School Board', 'Judicial'];
         $parties = ['Democratic', 'Republican', 'Independent', 'Libertarian', 'Green'];
-        $isGuestBrowsing = ! auth()->check();
-        $useVoterLayout = auth()->check() && auth()->user()?->hasRole('voter');
         $view = $useVoterLayout
             ? 'standalone.voter.politicians-directory'
             : 'standalone.public.politicians-directory';
@@ -628,7 +657,9 @@ class PublicProfileController extends Controller
             'states',
             'governanceLevels',
             'parties',
-            'isGuestBrowsing'
+            'isGuestBrowsing',
+            'zipInput',
+            'zipValidationError'
         ));
     }
 

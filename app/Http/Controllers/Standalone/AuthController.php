@@ -336,7 +336,7 @@ class AuthController extends Controller
             'password'      => ['required', 'confirmed', Rules\Password::defaults()],
             'phone'         => ['nullable', 'string', 'max:20'],
             'state'         => ['nullable', 'string', 'size:2'],
-            'zip_code'      => ['nullable', 'string', 'max:10'],
+            'zip_code'      => ['required', 'string', 'max:10', 'regex:/^\d{5}(-\d{4})?$/'],
             'referral_code'        => ['nullable', 'string', 'max:20'],
             'is_registered_voter' => ['nullable', 'boolean'],
             'terms'               => ['accepted'],
