@@ -618,8 +618,12 @@ class PublicProfileController extends Controller
         $governanceLevels = ['Federal', 'State', 'County', 'City', 'School Board', 'Judicial'];
         $parties = ['Democratic', 'Republican', 'Independent', 'Libertarian', 'Green'];
         $isGuestBrowsing = ! auth()->check();
+        $useVoterLayout = auth()->check() && auth()->user()?->hasRole('voter');
+        $view = $useVoterLayout
+            ? 'standalone.voter.politicians-directory'
+            : 'standalone.public.politicians-directory';
 
-        return view('standalone.public.politicians-directory', compact(
+        return view($view, compact(
             'politicians',
             'states',
             'governanceLevels',

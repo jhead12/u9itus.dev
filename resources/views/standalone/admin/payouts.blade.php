@@ -26,6 +26,18 @@
         </p>
     </div>
 
+    <div class="{{ $cashAppConfigured ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-300' : 'bg-amber-500/10 border-amber-500/30 text-amber-300' }} border rounded-lg px-4 py-3 text-sm">
+        <p class="font-semibold">
+            Cash App Runtime Status:
+            <span class="{{ $cashAppConfigured ? 'text-cyan-200' : 'text-amber-200' }}">
+                {{ $cashAppConfigured ? 'Configured' : 'Not Configured' }}
+            </span>
+        </p>
+        <p class="text-xs mt-1 opacity-90 font-mono break-all">
+            API base URL: {{ $cashAppBaseUrl !== '' ? $cashAppBaseUrl : 'not-set' }}.
+        </p>
+    </div>
+
     {{-- Stats --}}
     <div class="grid grid-cols-3 gap-4">
         <div class="stat-card">

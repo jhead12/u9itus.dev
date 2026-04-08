@@ -8,6 +8,7 @@ use App\Models\PoliticalCampaign;
 use App\Models\Voter;
 use App\Models\ViewSession;
 use App\Services\CampaignBillingService;
+use App\Services\CashAppPayoutService;
 use App\Services\PayPalPayoutService;
 use App\Services\ReverbBroadcastService;
 use App\Services\StripePaymentService;
@@ -28,17 +29,20 @@ class PoliticalPaymentService
     protected ?CampaignBillingService $billingService;
     protected ?StripePaymentService $stripeService;
     protected ?PayPalPayoutService $paypalService;
+    protected ?CashAppPayoutService $cashAppService;
     protected ReverbBroadcastService $broadcastService;
 
     public function __construct(
         ?CampaignBillingService $billingService = null,
         ?StripePaymentService $stripeService = null,
         ?PayPalPayoutService $paypalService = null,
+        ?CashAppPayoutService $cashAppService = null,
         ?ReverbBroadcastService $broadcastService = null,
     ) {
         $this->billingService   = $billingService;
         $this->stripeService    = $stripeService;
         $this->paypalService    = $paypalService;
+        $this->cashAppService   = $cashAppService;
         $this->broadcastService = $broadcastService ?? app(ReverbBroadcastService::class);
     }
 
@@ -169,6 +173,11 @@ class PoliticalPaymentService
                 && ! empty($voter->paypal_email)
                 && $this->paypalService;
 
+            $canUseCashApp = $selectedProcessor === 'cashapp'
+                && ! empty($voter->cashapp_tag)
+                && $this->cashAppService
+                && $this->cashAppService->isConfigured();
+
             if ($canUsePayPal) {
                 try {
                     $paypalResult = $this->paypalService->sendBatchPayout($batchId, [[
@@ -185,6 +194,34 @@ class PoliticalPaymentService
                     $results['skipped']++;
                     continue;
                 }
+            } elseif ($canUseCashApp) {
+                try {
+                    $cashAppResult = $this->cashAppService->sendPayout(
+                        (string) $voter->cashapp_tag,
+                        $approvedEarnings,
+                        $batchId,
+                        'U9itus viewer earnings'
+                    );
+
+                    $processorExecuted = 'cashapp';
+                    $processorReference = (string) ($cashAppResult['reference'] ?? $batchId);
+                    $processorFee = (float) ($cashAppResult['fee'] ?? 0.00);
+                } catch (\Exception $e) {
+                    Log::error("Cash App payout failed for voter {$voter->uuid}: " . $e->getMessage());
+                    $results['skipped']++;
+                    continue;
+                }
+            } elseif ($selectedProcessor === 'paypal' || $selectedProcessor === 'cashapp') {
+                Log::warning("Skipping payout for voter {$voter->uuid}: selected processor unavailable", [
+                    'selected_processor' => $selectedProcessor,
+                    'has_paypal_email' => ! empty($voter->paypal_email),
+                    'has_cashapp_tag' => ! empty($voter->cashapp_tag),
+                    'paypal_service_available' => (bool) $this->paypalService,
+                    'cashapp_service_available' => (bool) $this->cashAppService,
+                    'cashapp_configured' => $this->cashAppService?->isConfigured() ?? false,
+                ]);
+                $results['skipped']++;
+                continue;
             }
 
             DB::transaction(function () use ($voter, $approvedEarnings, $holdCutoff, $processorExecuted, $processorReference, $processorFee) {
@@ -205,7 +242,7 @@ class PoliticalPaymentService
                 $voter->decrement('pending_earnings', $approvedEarnings);
                 $voter->increment('total_earned', $approvedEarnings);
 
-                if ($processorExecuted !== 'paypal') {
+                if ($processorExecuted === 'wallet') {
                     // No external transfer — credit the on-platform wallet instead.
                     $voter->increment('wallet_balance', $approvedEarnings);
                 }
@@ -215,10 +252,16 @@ class PoliticalPaymentService
             $results['total_paid'] += $approvedEarnings;
 
             // Notify the voter via WebSocket (Phase 11)
+            $displayMethod = match ($processorExecuted) {
+                'paypal' => 'PayPal',
+                'cashapp' => 'CashApp',
+                default => 'Wallet',
+            };
+
             $this->broadcastService->payoutProcessed(
                 $voter,
                 $approvedEarnings,
-                $processorExecuted === 'paypal' ? 'PayPal' : 'Wallet',
+                $displayMethod,
                 $processorReference,
             );
 

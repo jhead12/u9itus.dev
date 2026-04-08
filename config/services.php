@@ -55,6 +55,18 @@ return [
         'sandbox'       => env('PAYPAL_SANDBOX', true),
     ],
 
+    'cashapp' => [
+        'api_key' => env('CASHAPP_API_KEY'),
+        'merchant_id' => env('CASHAPP_MERCHANT_ID'),
+        'base_url' => env('CASHAPP_BASE_URL', 'https://sandbox.api.cash.app'),
+        'payments_endpoint' => env('CASHAPP_PAYMENTS_ENDPOINT', '/network/v1/payments'),
+        'default_grant_id' => env('CASHAPP_DEFAULT_GRANT_ID'),
+        'region' => env('CASHAPP_REGION', 'US'),
+        'signature' => env('CASHAPP_SIGNATURE'),
+        'user_agent' => env('CASHAPP_USER_AGENT', 'u9itus-cashapp/1.0'),
+        'timeout' => env('CASHAPP_TIMEOUT', 30),
+    ],
+
     'fcm' => [
         'project_id'        => env('FCM_PROJECT_ID'),
         'credentials_path'  => env('FCM_CREDENTIALS_PATH'),

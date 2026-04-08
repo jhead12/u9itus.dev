@@ -19,7 +19,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        php: [8.2]
+        php: [8.4]
 
     name: PHP ${{ matrix.php }}
 
@@ -59,7 +59,7 @@ jobs:
         run: php artisan test
 
       - name: Upload coverage report
-        if: matrix.php == '8.2'
+        if: matrix.php == '8.4'
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report

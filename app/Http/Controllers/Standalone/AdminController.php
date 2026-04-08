@@ -1294,8 +1294,18 @@ class AdminController extends Controller
         $paypalConfigured = filled((string) config('services.paypal.client_id'))
             && filled((string) config('services.paypal.client_secret'));
         $paypalSandbox = (bool) config('services.paypal.sandbox', true);
+        $cashAppConfigured = filled((string) config('services.cashapp.api_key'))
+            && filled((string) config('services.cashapp.merchant_id'))
+            && filled((string) config('services.cashapp.base_url'));
+        $cashAppBaseUrl = (string) config('services.cashapp.base_url', '');
 
-        return view('standalone.admin.payouts', compact('stats', 'paypalConfigured', 'paypalSandbox'));
+        return view('standalone.admin.payouts', compact(
+            'stats',
+            'paypalConfigured',
+            'paypalSandbox',
+            'cashAppConfigured',
+            'cashAppBaseUrl'
+        ));
     }
 
     /**

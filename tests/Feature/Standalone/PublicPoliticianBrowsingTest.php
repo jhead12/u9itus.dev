@@ -57,6 +57,36 @@ test('guest can browse politician directory in view only mode', function () {
     $response->assertDontSee('Earn Money Watching');
 });
 
+test('authenticated voter sees directory inside voter portal layout', function () {
+    Role::firstOrCreate(['name' => 'voter', 'guard_name' => 'web']);
+
+    $user = User::factory()->create([
+        'user_type' => 'voter',
+    ]);
+    $user->assignRole('voter');
+
+    Voter::factory()->create([
+        'user_id' => $user->id,
+        'is_verified' => true,
+        'is_active' => true,
+    ]);
+
+    Politician::factory()->create([
+        'full_name' => 'Harper West',
+        'slug' => 'harper-west',
+        'page_published' => true,
+        'is_active' => true,
+    ]);
+
+    $response = $this->actingAs($user)
+        ->get(route('politicians.directory'));
+
+    $response->assertOk();
+    $response->assertViewIs('standalone.voter.politicians-directory');
+    $response->assertSee('Voter Portal');
+    $response->assertSee('Harper West');
+});
+
 test('guest public politician profile stays in preview mode without earning copy', function () {
     $politician = Politician::factory()->create([
         'full_name' => 'Jordan Vale',
