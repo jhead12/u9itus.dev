@@ -12,6 +12,7 @@ use App\Services\FECService;
 use App\Services\OpenSecretsService;
 use App\Services\VoteSmartService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 
 uses(RefreshDatabase::class);
 
@@ -69,6 +70,7 @@ test('authenticated voter sees directory inside voter portal layout', function (
         'user_id' => $user->id,
         'is_verified' => true,
         'is_active' => true,
+        'zip_code' => '90210',
     ]);
 
     Politician::factory()->create([
@@ -84,7 +86,7 @@ test('authenticated voter sees directory inside voter portal layout', function (
     $response->assertOk();
     $response->assertViewIs('standalone.voter.politicians-directory');
     $response->assertSee('Voter Portal');
-    $response->assertSee('Harper West');
+    $response->assertSee('ZIP Code');
 });
 
 test('guest public politician profile stays in preview mode without earning copy', function () {
@@ -170,6 +172,25 @@ test('guest can filter directory by district and topic', function () {
     $topicResponse->assertOk();
     $topicResponse->assertSee('Taylor Housing');
     $topicResponse->assertDontSee('Robin Transport');
+});
+
+test('directory renders safely when a published politician is missing slug', function () {
+    $politician = Politician::factory()->create([
+        'full_name' => 'Slugless Candidate',
+        'slug' => 'slugless-candidate',
+        'page_published' => true,
+        'is_active' => true,
+    ]);
+
+    DB::table('politicians')
+        ->where('id', $politician->id)
+        ->update(['slug' => '']);
+
+    $response = $this->get(route('politicians.directory'));
+
+    $response->assertOk();
+    $response->assertSee('Slugless Candidate');
+    $response->assertSee('Profile unavailable');
 });
 
 test('claimed politician profile does not show unclaimed badge', function () {

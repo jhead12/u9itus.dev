@@ -1,3 +1,22 @@
+@php
+    $dashboardNotificationSeed = [];
+    $dashboardUser = auth()->user();
+    $dashboardPolitician = $dashboardUser?->hasRole('politician') ? $dashboardUser->politician : null;
+
+    if ($dashboardPolitician && ! $dashboardPolitician->page_published) {
+        $dashboardNotificationSeed[] = [
+            'id' => 'politician-unpublished-profile-reminder',
+            'message' => 'Your public profile is not published yet. Publish it so voters can find you.',
+            'type' => 'warning',
+            'read' => false,
+            'time' => 'Action needed',
+            'url' => route('politician.public-page'),
+            'actionLabel' => 'Open Public Page',
+            'local' => true,
+        ];
+    }
+@endphp
+
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="h-full">
 <head>
@@ -279,15 +298,32 @@
                             <li class="px-4 py-6 text-sm text-slate-500 text-center">No notifications yet.</li>
                         </template>
                         <template x-for="(n, i) in notifications" :key="n.id ?? i">
-                            <li class="px-4 py-3 flex gap-3 hover:bg-slate-700/40 transition"
-                                :class="n.read ? 'opacity-60' : ''"
-                                @click="markRead(n)">
-                                <div class="mt-0.5 w-2 h-2 rounded-full shrink-0 mt-1.5"
-                                     :class="n.type === 'success' ? 'bg-emerald-400' : (n.type === 'warning' ? 'bg-amber-400' : 'bg-red-400')"></div>
-                                <div class="min-w-0 flex-1">
-                                    <p class="text-sm text-slate-200 leading-snug" x-text="n.message"></p>
-                                    <p class="text-xs text-slate-500 mt-0.5" x-text="n.time"></p>
-                                </div>
+                            <li class="transition" :class="n.read ? 'opacity-60' : ''">
+                                <template x-if="n.url">
+                                    <a :href="n.url"
+                                       class="px-4 py-3 flex gap-3 hover:bg-slate-700/40 transition"
+                                       @click="markRead(n)">
+                                        <div class="mt-0.5 w-2 h-2 rounded-full shrink-0 mt-1.5"
+                                             :class="n.type === 'success' ? 'bg-emerald-400' : (n.type === 'warning' ? 'bg-amber-400' : 'bg-red-400')"></div>
+                                        <div class="min-w-0 flex-1">
+                                            <p class="text-sm text-slate-200 leading-snug" x-text="n.message"></p>
+                                            <p class="text-xs text-slate-500 mt-0.5" x-text="n.time"></p>
+                                            <p x-show="n.actionLabel" class="text-xs text-emerald-300 mt-1" x-text="n.actionLabel"></p>
+                                        </div>
+                                    </a>
+                                </template>
+                                <template x-if="!n.url">
+                                    <button type="button"
+                                            class="w-full text-left px-4 py-3 flex gap-3 hover:bg-slate-700/40 transition"
+                                            @click="markRead(n)">
+                                        <div class="mt-0.5 w-2 h-2 rounded-full shrink-0 mt-1.5"
+                                             :class="n.type === 'success' ? 'bg-emerald-400' : (n.type === 'warning' ? 'bg-amber-400' : 'bg-red-400')"></div>
+                                        <div class="min-w-0 flex-1">
+                                            <p class="text-sm text-slate-200 leading-snug" x-text="n.message"></p>
+                                            <p class="text-xs text-slate-500 mt-0.5" x-text="n.time"></p>
+                                        </div>
+                                    </button>
+                                </template>
                             </li>
                         </template>
                     </ul>
@@ -375,6 +411,8 @@
 {{-- ── Alpine.js components + Echo boot ───────────────────────────────── --}}
 <script>
 (function () {
+    const seededDashboardNotifications = @json($dashboardNotificationSeed);
+
     // ── Toast manager ──────────────────────────────────────────────────
     window.toastManager = function () {
         return {
@@ -415,6 +453,9 @@
             open: false,
             unread: 0,
             notifications: [],
+            localNotifications: Array.isArray(seededDashboardNotifications)
+                ? seededDashboardNotifications.map((notification) => ({ ...notification }))
+                : [],
             async init() {
                 // Expose push() so Echo listeners can reach it
                 window._notificationBell = this;
@@ -439,7 +480,7 @@
                     const payload = await res.json();
                     const rows = Array.isArray(payload?.data) ? payload.data : [];
 
-                    this.notifications = rows.map((row) => {
+                    const remoteNotifications = rows.map((row) => {
                         const data = row?.data ?? {};
                         return {
                             id: row?.id ?? null,
@@ -447,13 +488,24 @@
                             type: this.mapType(data?.type),
                             read: !!row?.read_at,
                             time: this.formatTime(row?.created_at),
+                            url: data?.url ?? null,
+                            actionLabel: data?.action_label ?? null,
+                            local: false,
                         };
                     });
 
-                    this.unread = this.notifications.reduce((sum, n) => sum + (n.read ? 0 : 1), 0);
+                    this.mergeNotifications(remoteNotifications);
                 } catch (_) {
                     // Keep bell usable in degraded mode when notifications API is unavailable.
+                    this.mergeNotifications([]);
                 }
+            },
+            mergeNotifications(remoteNotifications = []) {
+                this.notifications = [
+                    ...this.localNotifications,
+                    ...remoteNotifications,
+                ];
+                this.unread = this.notifications.reduce((sum, n) => sum + (n.read ? 0 : 1), 0);
             },
             push(message, type = 'info') {
                 const now = new Date();
@@ -462,7 +514,10 @@
                     message,
                     type,
                     read: false,
-                    time: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                    time: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                    url: null,
+                    actionLabel: null,
+                    local: false,
                 });
                 this.unread++;
                 // Also show a toast
@@ -473,6 +528,15 @@
 
                 notification.read = true;
                 this.unread = Math.max(0, this.unread - 1);
+
+                if (notification.local) {
+                    const localNotification = this.localNotifications.find((item) => item.id === notification.id);
+                    if (localNotification) {
+                        localNotification.read = true;
+                    }
+
+                    return;
+                }
 
                 if (!notification.id) return;
 
@@ -492,6 +556,7 @@
                 }
             },
             async markAllRead() {
+                this.localNotifications.forEach(n => n.read = true);
                 this.notifications.forEach(n => n.read = true);
                 this.unread = 0;
 

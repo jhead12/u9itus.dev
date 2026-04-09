@@ -46,3 +46,26 @@ test('notification bell open action is wired to API hydration on dashboard', fun
     $response->assertSee("fetch('/api/v1/notifications/mark-all-as-read'", false);
     $response->assertSee("'/api/v1/notifications/' + notification.id + '/mark-as-read'", false);
 });
+
+test('unpublished politician sees bell reminder linking to public page editor', function () {
+    $user = politicianForBellUiTest();
+
+    $response = $this->actingAs($user)->get(route('politician.dashboard'));
+
+    $response->assertOk();
+    $response->assertSee('Your public profile is not published yet. Publish it so voters can find you.');
+    $response->assertSee('politician-unpublished-profile-reminder');
+    $response->assertSee('Open Public Page');
+});
+
+test('published politician does not see unpublished profile reminder', function () {
+    $user = politicianForBellUiTest();
+    $user->politician->update(['page_published' => true]);
+
+    $response = $this->actingAs($user)->get(route('politician.dashboard'));
+
+    $response->assertOk();
+    $response->assertDontSee('Your public profile is not published yet. Publish it so voters can find you.');
+    $response->assertDontSee('politician-unpublished-profile-reminder');
+    $response->assertDontSee('Open Public Page');
+});

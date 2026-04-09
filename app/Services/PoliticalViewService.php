@@ -122,7 +122,7 @@ class PoliticalViewService
                 'platform_revenue'      => $platformRevenue,
                 'referral_commission'   => $referralCommission,
                 'payment_status'        => $qualifies
-                    ? ViewPaymentStatus::Pending
+                    ? ViewPaymentStatus::Approved
                     : ViewPaymentStatus::Rejected,
             ]);
 

@@ -98,9 +98,6 @@
         @elseif($playerMode === 'vimeo')
             <div id="vimeo-player-container" class="w-full aspect-video"></div>
         @else
-            @php
-                $subtitlesEnabled = (bool) \App\Services\PlatformSettingsService::get('video_subtitles_enabled', null, false);
-            @endphp
             <video
                 id="ad-video"
                 class="w-full aspect-video"
@@ -113,11 +110,6 @@
             >
                 @if($campaign->media_url)
                     <source src="{{ $campaign->media_url }}" type="{{ $playerMode === 'hls' ? 'application/x-mpegURL' : $nativeSourceType }}">
-                @endif
-                @if($subtitlesEnabled && !empty($campaign->subtitle_url))
-                    <track kind="captions" src="{{ $campaign->subtitle_url }}" srclang="en" label="Captions" default>
-                @else
-                    <track kind="captions" srclang="en" label="Captions" src="data:text/vtt,WEBVTT">
                 @endif
                 Your browser does not support HTML5 video.
             </video>
@@ -833,8 +825,8 @@
                     revealSurveyPanel();
                     showReplayButton();
                     if (res.qualified) {
-                        showStatus(`\u{1F389} You earned $${parseFloat(res.payout_earned).toFixed(2)}! Added to your pending earnings.`, 'success');
-                        statusMsg.innerHTML += ` <a href="${dashboardUrl}" class="underline text-emerald-400 ml-2">Request payout \u2192</a>`;
+                        showStatus(`\u{1F389} You earned $${parseFloat(res.payout_earned).toFixed(2)}! Payment is being processed.`, 'success');
+                        statusMsg.innerHTML += ` <a href="${dashboardUrl}" class="underline text-emerald-400 ml-2">View earnings \u2192</a>`;
                         statusMsg.innerHTML += ' <span class="text-slate-300 ml-2">Replay available below.</span>';
                     } else {
                         showStatus('You watched enough \u2014 but did not meet the full qualifying threshold. No payout this time.', 'info');
@@ -872,8 +864,8 @@
                 statusMsg.innerHTML += ' <a href="{{ route("voter.dashboard") }}" class="underline text-emerald-400 ml-2">View earnings →</a>';
                 statusMsg.innerHTML += ' <span class="text-slate-300 ml-2">Replay available below.</span>';
             } else if (res.qualified) {
-                showStatus(`\u{1F389} You earned $${parseFloat(res.payout_earned).toFixed(2)}! Added to your pending earnings.`, 'success');
-                statusMsg.innerHTML += ' <a href="{{ route("voter.dashboard") }}" class="underline text-emerald-400 ml-2">Request payout →</a>';
+                showStatus(`\u{1F389} You earned $${parseFloat(res.payout_earned).toFixed(2)}! Payment is being processed.`, 'success');
+                statusMsg.innerHTML += ' <a href="{{ route("voter.dashboard") }}" class="underline text-emerald-400 ml-2">View earnings →</a>';
                 statusMsg.innerHTML += ' <span class="text-slate-300 ml-2">Replay available below.</span>';
             } else {
                 showStatus('Video ended \u2014 watch at least {{ $mustWatch }}% to earn a payout.', 'info');

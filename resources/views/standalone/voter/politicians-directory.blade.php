@@ -158,17 +158,25 @@
 
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
             @foreach($politicians as $politician)
-            <a href="{{ route('politician.public.show', $politician->slug) }}"
-               class="group flex flex-col bg-slate-800/50 border border-slate-700/60 hover:border-emerald-500/40 rounded-2xl overflow-hidden transition">
+            @php
+                $canOpenProfile = filled($politician->slug);
+                $safeName = trim((string) ($politician->full_name ?? ''));
+                $safeName = $safeName !== '' ? $safeName : 'Unnamed Politician';
+                $profileHref = $canOpenProfile ? route('politician.public.show', $politician->slug) : null;
+            @endphp
+            <div class="group flex flex-col bg-slate-800/50 border border-slate-700/60 {{ $canOpenProfile ? 'hover:border-emerald-500/40' : '' }} rounded-2xl overflow-hidden transition">
+                @if($canOpenProfile)
+                <a href="{{ $profileHref }}" class="contents">
+                @endif
                 <div class="relative bg-gradient-to-br from-slate-700 to-slate-800 aspect-square overflow-hidden">
                     @if($politician->profile_photo_url)
                         <img src="{{ $politician->profile_photo_url }}"
-                             alt="{{ $politician->full_name }}"
+                             alt="{{ $safeName }}"
                              class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                     @else
                         <div class="w-full h-full flex items-center justify-center">
                             <span class="text-5xl font-bold text-slate-600">
-                                {{ strtoupper(substr($politician->full_name, 0, 1)) }}
+                                {{ strtoupper(substr($safeName, 0, 1)) }}
                             </span>
                         </div>
                     @endif
@@ -196,7 +204,7 @@
 
                 <div class="p-4 flex-1 flex flex-col">
                     <h3 class="text-white font-semibold text-sm mb-1 group-hover:text-emerald-400 transition truncate">
-                        {{ $politician->full_name }}
+                        {{ $safeName }}
                     </h3>
 
                     @if(is_null($politician->user_id))
@@ -253,15 +261,24 @@
                     </div>
 
                     <div class="mt-3 pt-3 border-t border-slate-700/50">
+                        @if($canOpenProfile)
                         <span class="text-emerald-400 text-xs font-medium group-hover:text-emerald-300 flex items-center gap-1">
                             View Profile
                             <svg class="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
                             </svg>
                         </span>
+                        @else
+                        <span class="text-slate-500 text-xs font-medium flex items-center gap-1">
+                            Profile unavailable
+                        </span>
+                        @endif
                     </div>
                 </div>
-            </a>
+                @if($canOpenProfile)
+                </a>
+                @endif
+            </div>
             @endforeach
         </div>
 
