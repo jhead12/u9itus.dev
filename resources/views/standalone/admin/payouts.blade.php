@@ -38,6 +38,27 @@
         </p>
     </div>
 
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div class="stat-card">
+            <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Skipped: Below Minimum</p>
+            <p class="text-3xl font-bold text-amber-400">{{ number_format((int) ($skipBuckets['below_min'] ?? 0)) }}</p>
+        </div>
+        <div class="stat-card">
+            <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Skipped: Missing PayPal Email</p>
+            <p class="text-3xl font-bold text-rose-400">{{ number_format((int) ($skipBuckets['missing_paypal_email'] ?? 0)) }}</p>
+        </div>
+        <div class="stat-card">
+            <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Skipped: Processor Unavailable</p>
+            <p class="text-3xl font-bold text-cyan-300">{{ number_format((int) ($skipBuckets['processor_unavailable'] ?? 0)) }}</p>
+        </div>
+    </div>
+
+    @if($latestRun)
+    <div class="text-xs text-slate-400">
+        Latest payout run #{{ $latestRun->id }} completed {{ $latestRun->created_at?->diffForHumans() }}.
+    </div>
+    @endif
+
     {{-- Stats --}}
     <div class="grid grid-cols-3 gap-4">
         <div class="stat-card">
@@ -79,6 +100,9 @@
     <div class="flex gap-3">
         <a href="{{ route('admin.payouts.pending') }}" class="text-sm text-emerald-400 hover:text-emerald-300 transition">
             View pending payout sessions →
+        </a>
+        <a href="{{ route('admin.payouts.skipped') }}" class="text-sm text-cyan-300 hover:text-cyan-200 transition">
+            View skipped payout diagnostics →
         </a>
     </div>
 

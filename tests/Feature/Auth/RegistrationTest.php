@@ -20,6 +20,7 @@ test('new users can register', function () {
         'password' => 'Password123!',
         'password_confirmation' => 'Password123!',
         'terms' => '1',
+        'zip_code' => '90210',
     ]);
 
     $response->assertRedirect(route('verification.notice', absolute: false));

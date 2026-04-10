@@ -57,6 +57,7 @@ test('voter registration can use stored referral context when form field is empt
         'password' => TEST_PASSWORD,
         'password_confirmation' => TEST_PASSWORD,
         'terms' => '1',
+        'zip_code' => '90210',
     ]);
 
     $response->assertRedirect(route('verification.notice', absolute: false));
@@ -130,6 +131,7 @@ test('voter registration marks referral visit as converted', function () {
         'password' => TEST_PASSWORD,
         'password_confirmation' => TEST_PASSWORD,
         'terms' => '1',
+        'zip_code' => '90210',
     ]);
 
     $response->assertRedirect(route('verification.notice', absolute: false));

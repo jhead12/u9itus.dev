@@ -4,6 +4,7 @@ namespace App\Services;
 
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\RequestException;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -18,6 +19,7 @@ class PayPalPayoutService
     protected string $baseUrl;
     protected string $clientId;
     protected string $clientSecret;
+    protected string $webhookId;
 
     public function __construct()
     {
@@ -28,6 +30,7 @@ class PayPalPayoutService
             : 'https://api-m.paypal.com';
         $this->clientId      = config('services.paypal.client_id', '');
         $this->clientSecret  = config('services.paypal.client_secret', '');
+        $this->webhookId     = (string) config('services.paypal.webhook_id', '');
     }
 
     /**
@@ -121,5 +124,80 @@ class PayPalPayoutService
         ]);
 
         return $result;
+    }
+
+    /**
+     * Get payout batch status and item-level statuses from PayPal.
+     */
+    public function getBatchPayoutStatus(string $payoutBatchId): array
+    {
+        if ($payoutBatchId === '') {
+            throw new \InvalidArgumentException('PayPal payout batch reference is required.');
+        }
+
+        $accessToken = $this->getAccessToken();
+        $client = new Client(['timeout' => 20]);
+
+        try {
+            $response = $client->get("{$this->baseUrl}/v1/payments/payouts/{$payoutBatchId}", [
+                'headers' => [
+                    'Authorization' => "Bearer {$accessToken}",
+                    'Content-Type' => 'application/json',
+                ],
+                'query' => [
+                    'page_size' => 100,
+                    'page' => 1,
+                    'total_required' => true,
+                ],
+            ]);
+        } catch (RequestException $e) {
+            $body = $e->hasResponse() ? $e->getResponse()->getBody()->getContents() : null;
+            Log::error('PayPal batch status API error', ['status' => $e->getCode(), 'body' => $body]);
+            throw $e;
+        }
+
+        return json_decode($response->getBody()->getContents(), true) ?? [];
+    }
+
+    /**
+     * Verify webhook signatures with PayPal. Can be bypassed in local/dev when webhook ID is missing.
+     */
+    public function verifyWebhookSignature(Request $request, array $payload): bool
+    {
+        if ($this->webhookId === '') {
+            return ! app()->environment('production');
+        }
+
+        $accessToken = $this->getAccessToken();
+        $client = new Client(['timeout' => 20]);
+
+        $body = [
+            'auth_algo' => (string) $request->header('Paypal-Auth-Algo', ''),
+            'cert_url' => (string) $request->header('Paypal-Cert-Url', ''),
+            'transmission_id' => (string) $request->header('Paypal-Transmission-Id', ''),
+            'transmission_sig' => (string) $request->header('Paypal-Transmission-Sig', ''),
+            'transmission_time' => (string) $request->header('Paypal-Transmission-Time', ''),
+            'webhook_id' => $this->webhookId,
+            'webhook_event' => $payload,
+        ];
+
+        try {
+            $response = $client->post("{$this->baseUrl}/v1/notifications/verify-webhook-signature", [
+                'headers' => [
+                    'Authorization' => "Bearer {$accessToken}",
+                    'Content-Type' => 'application/json',
+                ],
+                'json' => $body,
+            ]);
+        } catch (RequestException $e) {
+            Log::warning('PayPal webhook verification failed', [
+                'status' => $e->getCode(),
+                'message' => $e->getMessage(),
+            ]);
+            return false;
+        }
+
+        $result = json_decode($response->getBody()->getContents(), true);
+        return strtoupper((string) ($result['verification_status'] ?? '')) === 'SUCCESS';
     }
 }

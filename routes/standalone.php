@@ -344,7 +344,10 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         // Payouts Management
         Route::get('/payouts', [AdminController::class, 'payouts'])->name('payouts.index');
         Route::get('/payouts/pending', [AdminController::class, 'pendingPayouts'])->name('payouts.pending');
+        Route::get('/payouts/skipped', [AdminController::class, 'skippedPayouts'])->name('payouts.skipped');
         Route::post('/payouts/batch-process', [AdminController::class, 'processBatchPayouts'])->name('payouts.batch');
+        Route::post('/payouts/skipped/{skippedItem}/force-pay', [AdminController::class, 'forcePayBelowMinimum'])
+            ->name('payouts.skipped.force-pay');
 
         // Data Imports Monitoring (Sprint 2)
         Route::get('/imports', [AdminController::class, 'imports'])->name('imports');

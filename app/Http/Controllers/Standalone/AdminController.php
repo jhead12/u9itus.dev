@@ -25,6 +25,8 @@ use App\Models\PoliticalCampaign;
 use App\Models\PoliticianCredit;
 use App\Models\Politician;
 use App\Models\ReferralEarning;
+use App\Models\PayoutRun;
+use App\Models\PayoutRunSkippedItem;
 use App\Models\User;
 use App\Models\ViewSession;
 use App\Models\VoterWatchReport;
@@ -1299,12 +1301,85 @@ class AdminController extends Controller
             && filled((string) config('services.cashapp.base_url'));
         $cashAppBaseUrl = (string) config('services.cashapp.base_url', '');
 
+        $latestRun = PayoutRun::query()->latest()->first();
+        $skipBuckets = [
+            'below_min' => 0,
+            'missing_paypal_email' => 0,
+            'processor_unavailable' => 0,
+        ];
+
+        if ($latestRun) {
+            $bucketRows = PayoutRunSkippedItem::query()
+                ->where('payout_run_id', $latestRun->id)
+                ->whereIn('reason_bucket', array_keys($skipBuckets))
+                ->selectRaw('reason_bucket, COUNT(*) as count')
+                ->groupBy('reason_bucket')
+                ->get();
+
+            foreach ($bucketRows as $row) {
+                $skipBuckets[(string) $row->reason_bucket] = (int) $row->count;
+            }
+        }
+
         return view('standalone.admin.payouts', compact(
             'stats',
             'paypalConfigured',
             'paypalSandbox',
             'cashAppConfigured',
-            'cashAppBaseUrl'
+            'cashAppBaseUrl',
+            'latestRun',
+            'skipBuckets'
+        ));
+    }
+
+    /**
+     * Show persisted skipped payouts diagnostics by reason bucket.
+     */
+    public function skippedPayouts(Request $request)
+    {
+        $runId = $request->integer('run_id');
+        $reason = (string) $request->query('reason', '');
+
+        $selectedRun = $runId
+            ? PayoutRun::query()->find($runId)
+            : PayoutRun::query()->latest()->first();
+
+        $query = PayoutRunSkippedItem::query()
+            ->with(['voter.user', 'viewSession'])
+            ->latest();
+
+        if ($selectedRun) {
+            $query->where('payout_run_id', $selectedRun->id);
+        }
+
+        if ($reason !== '') {
+            $query->where('reason_bucket', $reason);
+        }
+
+        $items = $query->paginate(30)->withQueryString();
+
+        $bucketSummary = ['below_min' => 0, 'missing_paypal_email' => 0, 'processor_unavailable' => 0];
+        if ($selectedRun) {
+            $rows = PayoutRunSkippedItem::query()
+                ->where('payout_run_id', $selectedRun->id)
+                ->whereIn('reason_bucket', array_keys($bucketSummary))
+                ->selectRaw('reason_bucket, COUNT(*) as count')
+                ->groupBy('reason_bucket')
+                ->get();
+
+            foreach ($rows as $row) {
+                $bucketSummary[(string) $row->reason_bucket] = (int) $row->count;
+            }
+        }
+
+        $recentRuns = PayoutRun::query()->latest()->limit(20)->get();
+
+        return view('standalone.admin.payouts-skipped', compact(
+            'items',
+            'selectedRun',
+            'recentRuns',
+            'bucketSummary',
+            'reason'
         ));
     }
 
@@ -1332,7 +1407,10 @@ class AdminController extends Controller
         $paymentService = app(\App\Services\PoliticalPaymentService::class);
 
         try {
-            $results = $paymentService->processBatchPayouts();
+            $results = $paymentService->processBatchPayouts(
+                triggeredByAdminId: (int) $request->user()->id,
+                triggerSource: 'admin',
+            );
         } catch (\Exception $e) {
             Log::error('Batch payout run failed: ' . $e->getMessage());
             return back()->withErrors(['error' => 'Payout run failed: ' . $e->getMessage()]);
@@ -1344,6 +1422,62 @@ class AdminController extends Controller
             $results['total_paid'],
             $results['skipped'],
         ));
+    }
+
+    /**
+     * Execute a one-off below-minimum payout from skipped diagnostics.
+     */
+    public function forcePayBelowMinimum(Request $request, PayoutRunSkippedItem $skippedItem)
+    {
+        $validated = $request->validate([
+            'reason' => ['required', 'string', 'max:500'],
+        ]);
+
+        /** @var \App\Models\User $admin */
+        $admin = $request->user();
+
+        if (! $admin->hasRole('admin')) {
+            abort(403);
+        }
+
+        /** @var \App\Services\PoliticalPaymentService $paymentService */
+        $paymentService = app(\App\Services\PoliticalPaymentService::class);
+
+        try {
+            $result = $paymentService->forcePayBelowMinimum(
+                skippedItem: $skippedItem,
+                adminId: (int) $admin->id,
+                reason: (string) $validated['reason'],
+            );
+
+            AdminSecurityAuditLog::record(
+                $admin,
+                'admin.payout.force_below_minimum.success',
+                [
+                    'skipped_item_id' => $skippedItem->id,
+                    'voter_id' => $skippedItem->voter_id,
+                    'processor' => $result['processor'] ?? null,
+                    'reference' => $result['reference'] ?? null,
+                    'amount' => $result['amount'] ?? null,
+                ],
+                $request
+            );
+        } catch (\Throwable $e) {
+            AdminSecurityAuditLog::record(
+                $admin,
+                'admin.payout.force_below_minimum.failed',
+                [
+                    'skipped_item_id' => $skippedItem->id,
+                    'voter_id' => $skippedItem->voter_id,
+                    'error' => $e->getMessage(),
+                ],
+                $request
+            );
+
+            return back()->withErrors(['error' => $e->getMessage()]);
+        }
+
+        return back()->with('success', 'Exceptional payout request submitted successfully.');
     }
 
     /**

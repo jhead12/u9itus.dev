@@ -4,6 +4,9 @@ namespace App\Services;
 
 use App\Enums\PaymentStatus;
 use App\Enums\ViewPaymentStatus;
+use App\Jobs\PollPayPalPayoutStatus;
+use App\Models\PayoutRun;
+use App\Models\PayoutRunSkippedItem;
 use App\Models\PoliticalCampaign;
 use App\Models\Voter;
 use App\Models\ViewSession;
@@ -122,11 +125,22 @@ class PoliticalPaymentService
      *
      * Batching payouts weekly or at threshold reduces per-transaction fees.
      */
-    public function processBatchPayouts(): array
+    public function processBatchPayouts(?int $triggeredByAdminId = null, string $triggerSource = 'system'): array
     {
         $minPayout  = (float) PlatformSettingsService::get('min_payout_amount', null, 5.00);
         $holdHours  = (int) PlatformSettingsService::get('fraud_payout_hold_hours', null, 48);
         $holdCutoff = now()->subHours($holdHours);
+
+        $run = PayoutRun::create([
+            'triggered_by_admin_id' => $triggeredByAdminId,
+            'trigger_source' => $triggerSource,
+            'min_payout_amount' => $minPayout,
+            'fraud_hold_hours' => $holdHours,
+            'processed_count' => 0,
+            'skipped_count' => 0,
+            'total_paid' => 0,
+            'meta' => [],
+        ]);
 
         $eligibleVoterIds = ViewSession::query()
             ->where('status', 'completed')
@@ -136,7 +150,7 @@ class PoliticalPaymentService
             ->pluck('voter_id');
 
         if ($eligibleVoterIds->isEmpty()) {
-            return ['processed' => 0, 'total_paid' => 0, 'skipped' => 0];
+            return ['processed' => 0, 'total_paid' => 0, 'skipped' => 0, 'run_id' => $run->id];
         }
 
         $eligibleVoters = Voter::whereIn('id', $eligibleVoterIds)
@@ -144,7 +158,7 @@ class PoliticalPaymentService
             ->where('is_active', true)
             ->get();
 
-        $results = ['processed' => 0, 'total_paid' => 0, 'skipped' => 0];
+        $results = ['processed' => 0, 'total_paid' => 0, 'skipped' => 0, 'run_id' => $run->id];
 
         foreach ($eligibleVoters as $voter) {
             // Only pay sessions that have passed the hold window
@@ -157,6 +171,15 @@ class PoliticalPaymentService
 
             if ($approvedEarnings < $minPayout) {
                 $results['skipped']++;
+                $this->recordSkippedPayout(
+                    run: $run,
+                    voter: $voter,
+                    amount: $approvedEarnings,
+                    reasonBucket: 'below_min',
+                    selectedProcessor: (string) ($voter->payment_method ?? 'wallet'),
+                    reasonDetail: 'Approved earnings are below the configured minimum payout threshold.',
+                    context: ['min_payout_amount' => $minPayout],
+                );
                 continue;
             }
 
@@ -189,9 +212,33 @@ class PoliticalPaymentService
 
                     $processorExecuted = 'paypal';
                     $processorReference = (string) ($paypalResult['batch_header']['payout_batch_id'] ?? $batchId);
+
+                    DB::transaction(function () use ($voter, $holdCutoff, $processorExecuted, $processorReference) {
+                        ViewSession::where('voter_id', $voter->id)
+                            ->where('status', 'completed')
+                            ->where('payment_status', ViewPaymentStatus::Approved)
+                            ->where('completed_at', '<=', $holdCutoff)
+                            ->update([
+                                'payment_status' => ViewPaymentStatus::Pending,
+                                'processor_executed' => $processorExecuted,
+                                'processor_reference' => $processorReference,
+                                'processor_fee' => 0,
+                            ]);
+                    });
+
+                    PollPayPalPayoutStatus::dispatch($processorReference)->delay(now()->addMinutes(5));
                 } catch (\Exception $e) {
                     Log::error("PayPal payout failed for voter {$voter->uuid}: " . $e->getMessage());
                     $results['skipped']++;
+                    $this->recordSkippedPayout(
+                        run: $run,
+                        voter: $voter,
+                        amount: $approvedEarnings,
+                        reasonBucket: 'processor_unavailable',
+                        selectedProcessor: $selectedProcessor,
+                        reasonDetail: 'PayPal transfer call failed during submission.',
+                        context: ['error' => $e->getMessage()],
+                    );
                     continue;
                 }
             } elseif ($canUseCashApp) {
@@ -209,8 +256,28 @@ class PoliticalPaymentService
                 } catch (\Exception $e) {
                     Log::error("Cash App payout failed for voter {$voter->uuid}: " . $e->getMessage());
                     $results['skipped']++;
+                    $this->recordSkippedPayout(
+                        run: $run,
+                        voter: $voter,
+                        amount: $approvedEarnings,
+                        reasonBucket: 'processor_unavailable',
+                        selectedProcessor: $selectedProcessor,
+                        reasonDetail: 'Cash App transfer call failed during submission.',
+                        context: ['error' => $e->getMessage()],
+                    );
                     continue;
                 }
+            } elseif ($selectedProcessor === 'paypal' && empty($voter->paypal_email)) {
+                $results['skipped']++;
+                $this->recordSkippedPayout(
+                    run: $run,
+                    voter: $voter,
+                    amount: $approvedEarnings,
+                    reasonBucket: 'missing_paypal_email',
+                    selectedProcessor: $selectedProcessor,
+                    reasonDetail: 'Voter selected PayPal but has no PayPal email saved.',
+                );
+                continue;
             } elseif ($selectedProcessor === 'paypal' || $selectedProcessor === 'cashapp') {
                 Log::warning("Skipping payout for voter {$voter->uuid}: selected processor unavailable", [
                     'selected_processor' => $selectedProcessor,
@@ -221,32 +288,46 @@ class PoliticalPaymentService
                     'cashapp_configured' => $this->cashAppService?->isConfigured() ?? false,
                 ]);
                 $results['skipped']++;
+                $this->recordSkippedPayout(
+                    run: $run,
+                    voter: $voter,
+                    amount: $approvedEarnings,
+                    reasonBucket: 'processor_unavailable',
+                    selectedProcessor: $selectedProcessor,
+                    reasonDetail: 'Selected payout processor is unavailable or not configured.',
+                    context: [
+                        'has_paypal_email' => ! empty($voter->paypal_email),
+                        'has_cashapp_tag' => ! empty($voter->cashapp_tag),
+                    ],
+                );
                 continue;
             }
 
-            DB::transaction(function () use ($voter, $approvedEarnings, $holdCutoff, $processorExecuted, $processorReference, $processorFee) {
+            if ($processorExecuted !== 'paypal') {
+                DB::transaction(function () use ($voter, $approvedEarnings, $holdCutoff, $processorExecuted, $processorReference, $processorFee) {
                 // Mark sessions as paid
-                ViewSession::where('voter_id', $voter->id)
-                    ->where('status', 'completed')
-                    ->where('payment_status', ViewPaymentStatus::Approved)
-                    ->where('completed_at', '<=', $holdCutoff)
-                    ->update([
-                        'payment_status' => ViewPaymentStatus::Paid,
-                        'paid_at'        => now(),
-                        'processor_executed' => $processorExecuted,
-                        'processor_reference' => $processorReference,
-                        'processor_fee' => $processorFee,
-                    ]);
+                    ViewSession::where('voter_id', $voter->id)
+                        ->where('status', 'completed')
+                        ->where('payment_status', ViewPaymentStatus::Approved)
+                        ->where('completed_at', '<=', $holdCutoff)
+                        ->update([
+                            'payment_status' => ViewPaymentStatus::Paid,
+                            'paid_at'        => now(),
+                            'processor_executed' => $processorExecuted,
+                            'processor_reference' => $processorReference,
+                            'processor_fee' => $processorFee,
+                        ]);
 
-                // Move from pending to earned using session-derived approved earnings.
-                $voter->decrement('pending_earnings', $approvedEarnings);
-                $voter->increment('total_earned', $approvedEarnings);
+                    // Move from pending to earned using session-derived approved earnings.
+                    $voter->decrement('pending_earnings', $approvedEarnings);
+                    $voter->increment('total_earned', $approvedEarnings);
 
-                if ($processorExecuted === 'wallet') {
-                    // No external transfer — credit the on-platform wallet instead.
-                    $voter->increment('wallet_balance', $approvedEarnings);
-                }
-            });
+                    if ($processorExecuted === 'wallet') {
+                        // No external transfer — credit the on-platform wallet instead.
+                        $voter->increment('wallet_balance', $approvedEarnings);
+                    }
+                });
+            }
 
             $results['processed']++;
             $results['total_paid'] += $approvedEarnings;
@@ -272,7 +353,172 @@ class PoliticalPaymentService
             ]);
         }
 
+        $run->update([
+            'processed_count' => (int) $results['processed'],
+            'skipped_count' => (int) $results['skipped'],
+            'total_paid' => (float) $results['total_paid'],
+        ]);
+
         return $results;
+    }
+
+    /**
+     * Force an exceptional payout below configured minimum from admin diagnostics.
+     */
+    public function forcePayBelowMinimum(
+        PayoutRunSkippedItem $skippedItem,
+        int $adminId,
+        string $reason
+    ): array {
+        if ($skippedItem->reason_bucket !== 'below_min') {
+            throw new \RuntimeException('Only below-minimum skipped items can be force-paid.');
+        }
+
+        $voter = Voter::findOrFail($skippedItem->voter_id);
+        $holdHours = (int) PlatformSettingsService::get('fraud_payout_hold_hours', null, 48);
+        $holdCutoff = now()->subHours($holdHours);
+
+        $approvedSessionsQuery = ViewSession::where('voter_id', $voter->id)
+            ->where('status', 'completed')
+            ->where('payment_status', ViewPaymentStatus::Approved)
+            ->where('completed_at', '<=', $holdCutoff);
+
+        $approvedEarnings = (float) $approvedSessionsQuery->sum('voter_payout_amount');
+        if ($approvedEarnings <= 0) {
+            throw new \RuntimeException('No approved payout amount is currently available for this voter.');
+        }
+
+        $selectedProcessor = (string) ($approvedSessionsQuery->whereNotNull('processor_selected')->value('processor_selected')
+            ?? $voter->payment_method
+            ?? 'wallet');
+
+        $batchId = 'u9itus_force_' . $voter->uuid . '_' . now()->format('Ymd_His');
+        $processorExecuted = 'wallet';
+        $processorReference = $batchId;
+        $processorFee = 0.00;
+
+        $canUsePayPal = $selectedProcessor === 'paypal'
+            && ! empty($voter->paypal_email)
+            && $this->paypalService;
+
+        $canUseCashApp = $selectedProcessor === 'cashapp'
+            && ! empty($voter->cashapp_tag)
+            && $this->cashAppService
+            && $this->cashAppService->isConfigured();
+
+        if ($canUsePayPal) {
+            $paypalResult = $this->paypalService->sendBatchPayout($batchId, [[
+                'email'          => $voter->paypal_email,
+                'amount'         => $approvedEarnings,
+                'note'           => 'U9itus viewer earnings (admin exceptional payout)',
+                'sender_item_id' => $batchId,
+            ]]);
+
+            $processorExecuted = 'paypal';
+            $processorReference = (string) ($paypalResult['batch_header']['payout_batch_id'] ?? $batchId);
+        } elseif ($canUseCashApp) {
+            $cashAppResult = $this->cashAppService->sendPayout(
+                (string) $voter->cashapp_tag,
+                $approvedEarnings,
+                $batchId,
+                'U9itus viewer earnings (admin exceptional payout)'
+            );
+
+            $processorExecuted = 'cashapp';
+            $processorReference = (string) ($cashAppResult['reference'] ?? $batchId);
+            $processorFee = (float) ($cashAppResult['fee'] ?? 0.00);
+        } elseif ($selectedProcessor === 'paypal' && empty($voter->paypal_email)) {
+            throw new \RuntimeException('Cannot force payout: voter is missing a PayPal email.');
+        } elseif ($selectedProcessor === 'paypal' || $selectedProcessor === 'cashapp') {
+            throw new \RuntimeException('Cannot force payout: selected processor is unavailable.');
+        }
+
+        DB::transaction(function () use (
+            $voter,
+            $approvedEarnings,
+            $holdCutoff,
+            $processorExecuted,
+            $processorReference,
+            $processorFee,
+            $adminId,
+            $reason,
+            $skippedItem
+        ) {
+            ViewSession::where('voter_id', $voter->id)
+                ->where('status', 'completed')
+                ->where('payment_status', ViewPaymentStatus::Approved)
+                ->where('completed_at', '<=', $holdCutoff)
+                ->update([
+                    'payment_status' => $processorExecuted === 'paypal'
+                        ? ViewPaymentStatus::Pending
+                        : ViewPaymentStatus::Paid,
+                    'paid_at' => $processorExecuted === 'paypal' ? null : now(),
+                    'processor_executed' => $processorExecuted,
+                    'processor_reference' => $processorReference,
+                    'processor_fee' => $processorFee,
+                    'force_payout' => true,
+                    'force_payout_at' => now(),
+                    'force_payout_by_admin_id' => $adminId,
+                    'force_payout_reason' => $reason,
+                ]);
+
+            if ($processorExecuted !== 'paypal') {
+                $voter->decrement('pending_earnings', $approvedEarnings);
+                $voter->increment('total_earned', $approvedEarnings);
+
+                if ($processorExecuted === 'wallet') {
+                    $voter->increment('wallet_balance', $approvedEarnings);
+                }
+            }
+
+            $skippedItem->update([
+                'processor_executed' => $processorExecuted,
+                'force_paid_at' => now(),
+                'force_paid_by_admin_id' => $adminId,
+                'force_pay_reason' => $reason,
+            ]);
+        });
+
+        if ($processorExecuted === 'paypal') {
+            PollPayPalPayoutStatus::dispatch($processorReference)->delay(now()->addMinutes(5));
+        }
+
+        return [
+            'processor' => $processorExecuted,
+            'reference' => $processorReference,
+            'amount' => $approvedEarnings,
+        ];
+    }
+
+    private function recordSkippedPayout(
+        PayoutRun $run,
+        Voter $voter,
+        float $amount,
+        string $reasonBucket,
+        string $selectedProcessor,
+        string $reasonDetail,
+        array $context = [],
+    ): void {
+        $sessionId = ViewSession::query()
+            ->where('voter_id', $voter->id)
+            ->where('status', 'completed')
+            ->whereIn('payment_status', [
+                ViewPaymentStatus::Pending->value,
+                ViewPaymentStatus::Approved->value,
+            ])
+            ->latest('completed_at')
+            ->value('id');
+
+        PayoutRunSkippedItem::create([
+            'payout_run_id' => $run->id,
+            'voter_id' => $voter->id,
+            'view_session_id' => $sessionId,
+            'reason_bucket' => $reasonBucket,
+            'amount' => $amount,
+            'processor_selected' => $selectedProcessor,
+            'reason_detail' => $reasonDetail,
+            'context' => $context,
+        ]);
     }
 
     /**

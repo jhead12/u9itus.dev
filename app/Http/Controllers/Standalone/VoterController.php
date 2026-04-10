@@ -914,10 +914,16 @@ class VoterController extends Controller
             default => 'wallet',
         };
 
-        // Transition eligible sessions from pending → approved so the batch payout job picks them up.
+        // Ensure payout-eligible completed sessions are marked approved and carry
+        // the voter's latest processor preference for downstream payout routing.
         $updated = DB::transaction(function () use ($voter, $selectedProcessor): int {
             return ViewSession::where('voter_id', $voter->id)
-                ->where('payment_status', ViewPaymentStatus::Pending)
+                ->where('status', \App\Enums\ViewSessionStatus::Completed)
+                ->whereIn('payment_status', [
+                    ViewPaymentStatus::Pending,
+                    ViewPaymentStatus::Approved,
+                ])
+                ->where('voter_payout_amount', '>', 0)
                 ->update([
                     'payment_status' => ViewPaymentStatus::Approved,
                     'processor_selected' => $selectedProcessor,

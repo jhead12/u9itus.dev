@@ -15,6 +15,7 @@
  */
 
 use App\Http\Controllers\Api\AdminController;
+use App\Http\Controllers\Api\PayPalWebhookController;
 use App\Http\Controllers\Api\PoliticianController;
 use App\Http\Controllers\Api\VoterController;
 use App\Http\Controllers\Api\StripeWebhookController;
@@ -41,6 +42,9 @@ Route::get('/health', function () {
 */
 Route::post('/stripe/webhooks', [StripeWebhookController::class, 'handle'])
     ->name('api.stripe.webhooks');
+
+Route::post('/paypal/webhooks', [PayPalWebhookController::class, 'handle'])
+    ->name('api.paypal.webhooks');
 
 /*
 |--------------------------------------------------------------------------

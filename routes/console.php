@@ -11,6 +11,7 @@ Artisan::command('inspire', function () {
 // Schedule commands
 Schedule::command('assignments:handle-expired')->hourly();
 Schedule::command('payouts:process-viewer')->daily();
+Schedule::command('payouts:reconcile-paypal')->hourly();
 // Phase 14 — Campaign scheduling: activate/expire campaigns every 5 minutes
 Schedule::command('campaigns:apply-schedule')->everyFiveMinutes();
 

@@ -53,6 +53,9 @@ return [
         'client_secret' => env('PAYPAL_CLIENT_SECRET'),
         // true = sandbox (api-m.sandbox.paypal.com), false = live (api-m.paypal.com)
         'sandbox'       => env('PAYPAL_SANDBOX', true),
+        'webhook_id'    => env('PAYPAL_WEBHOOK_ID'),
+        // Strict signature verification should stay on in production.
+        'strict_webhook_verification' => env('PAYPAL_STRICT_WEBHOOK_VERIFICATION', env('APP_ENV') === 'production'),
     ],
 
     'cashapp' => [
