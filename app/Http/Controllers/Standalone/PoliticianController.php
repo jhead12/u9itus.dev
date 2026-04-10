@@ -1172,6 +1172,125 @@ class PoliticianController extends Controller
         return back()->with('success', 'Reply posted to voter question.');
     }
 
+    /** Create a Stripe SetupIntent so the politician can securely save a card. */
+    public function createSetupIntent(Request $request)
+    {
+        $politician = Auth::user()->politician;
+        abort_unless($politician, 403);
+
+        $stripe = app(StripePaymentService::class);
+        try {
+            $customerId = $stripe->ensureCustomer($politician);
+            if (! $customerId) {
+                return response()->json(['error' => 'Payment service unavailable.'], 500);
+            }
+
+            $setupIntent = $stripe->createSetupIntent($customerId);
+
+            return response()->json([
+                'client_secret' => $setupIntent->client_secret,
+                'publishable_key' => config('services.stripe.public'),
+            ]);
+        } catch (\Exception $e) {
+            Log::error('createSetupIntent failed: ' . $e->getMessage());
+            return response()->json(['error' => 'Could not initialize card setup.'], 500);
+        }
+    }
+
+    /** Save a Stripe PaymentMethod after a successful SetupIntent confirmation. */
+    public function storePaymentMethod(Request $request)
+    {
+        $politician = Auth::user()->politician;
+        abort_unless($politician, 403);
+
+        $validated = $request->validate([
+            'payment_method_id' => ['required', 'string', 'regex:/^pm_/'],
+        ]);
+
+        $stripe = app(StripePaymentService::class);
+
+        try {
+            $paymentMethod = $stripe->retrievePaymentMethod($validated['payment_method_id']);
+            $customerId = $stripe->ensureCustomer($politician);
+
+            if ((string) ($paymentMethod->customer ?? '') !== (string) $customerId) {
+                return response()->json(['error' => 'Invalid payment method.'], 422);
+            }
+
+            $existing = \App\Models\PoliticianPaymentMethod::where('politician_id', $politician->id)
+                ->where('stripe_payment_method_id', $paymentMethod->id)
+                ->first();
+
+            if ($existing) {
+                return response()->json([
+                    'message' => 'Card already saved.',
+                    'id' => $existing->id,
+                ]);
+            }
+
+            $card = $paymentMethod->card ?? null;
+            $brand = $card ? ucfirst((string) ($card->brand ?? 'card')) : 'Card';
+            $last4 = $card ? (string) ($card->last4 ?? '????') : '????';
+            $exp = $card ? ((string) ($card->exp_month ?? '')) . '/' . ((string) ($card->exp_year ?? '')) : '';
+            $label = "{$brand} •••• {$last4}" . ($exp !== '/' ? " expires {$exp}" : '');
+
+            $isDefault = ! \App\Models\PoliticianPaymentMethod::where('politician_id', $politician->id)->exists();
+
+            $saved = \App\Models\PoliticianPaymentMethod::create([
+                'politician_id' => $politician->id,
+                'stripe_customer_id' => $customerId,
+                'stripe_payment_method_id' => $paymentMethod->id,
+                'label' => $label,
+                'is_default' => $isDefault,
+            ]);
+
+            Log::info('Saved payment method for politician', [
+                'politician_id' => $politician->id,
+                'pm_id' => $paymentMethod->id,
+                'label' => $label,
+            ]);
+
+            return response()->json([
+                'message' => 'Card saved.',
+                'id' => $saved->id,
+                'label' => $label,
+                'is_default' => $saved->is_default,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('storePaymentMethod failed: ' . $e->getMessage());
+            return response()->json(['error' => 'Could not save payment method.'], 500);
+        }
+    }
+
+    /** Remove a saved Stripe PaymentMethod from Stripe and from local storage. */
+    public function deletePaymentMethod(\App\Models\PoliticianPaymentMethod $paymentMethod)
+    {
+        $politician = Auth::user()->politician;
+        abort_unless($politician && (int) $politician->id === (int) $paymentMethod->politician_id, 403);
+
+        $stripe = app(StripePaymentService::class);
+
+        try {
+            if ($paymentMethod->stripe_payment_method_id) {
+                $stripe->detachPaymentMethod($paymentMethod->stripe_payment_method_id);
+            }
+        } catch (\Exception $e) {
+            Log::warning('Stripe detach failed (continuing delete): ' . $e->getMessage());
+        }
+
+        $wasDefault = $paymentMethod->is_default;
+        $politicianId = $paymentMethod->politician_id;
+
+        $paymentMethod->delete();
+
+        if ($wasDefault) {
+            $next = \App\Models\PoliticianPaymentMethod::where('politician_id', $politicianId)->first();
+            $next?->update(['is_default' => true]);
+        }
+
+        return response()->json(['message' => 'Card removed.']);
+    }
+
     /** Billing overview: credit balance + transaction history. */
     public function billing()
     {
@@ -1179,7 +1298,6 @@ class PoliticianController extends Controller
         abort_unless($politician, 403);
 
         $activePaymentMode = $this->activePaymentMode();
-
         $creditBalance = $this->computeModeAwareCreditBalance($politician->id, $activePaymentMode);
 
         $credits = $this->applyPaymentModeFilter(
@@ -1192,17 +1310,19 @@ class PoliticianController extends Controller
             $activePaymentMode
         )->orderByDesc('created_at')->paginate(15);
 
+        $savedPaymentMethods = \App\Models\PoliticianPaymentMethod::where('politician_id', $politician->id)
+            ->orderByDesc('is_default')
+            ->orderBy('created_at')
+            ->get();
+
         return view('standalone.politician.billing', compact(
-            'politician', 'creditBalance', 'credits', 'transactions', 'activePaymentMode'
+            'politician', 'creditBalance', 'credits', 'transactions', 'activePaymentMode', 'savedPaymentMethods'
         ));
     }
 
     /**
-     * Add funds via Stripe — creates a PaymentIntent and returns the client_secret
-     * as JSON so the billing page Stripe.js can complete the card payment in-browser.
-     *
-     * Expects: POST with JSON or form body { amount: number }
-     * Returns: JSON { client_secret, publishable_key, amount }
+     * Add funds via Stripe. Creates a PaymentIntent and returns the client secret.
+     * Accepts an optional saved payment method to reuse a stored card.
      */
     public function addFunds(Request $request)
     {
@@ -1211,35 +1331,49 @@ class PoliticianController extends Controller
 
         $validated = $request->validate([
             'amount' => ['required', 'numeric', 'min:10', 'max:10000'],
+            'saved_payment_method_id' => ['nullable', 'integer'],
         ]);
 
         /** @var \App\Services\CampaignBillingService $billing */
         $billing = app(\App\Services\CampaignBillingService::class);
+        $options = ['description' => 'Credit top-up for politician #' . $politician->id];
+
+        if (! empty($validated['saved_payment_method_id'])) {
+            $savedPaymentMethod = \App\Models\PoliticianPaymentMethod::where('id', (int) $validated['saved_payment_method_id'])
+                ->where('politician_id', $politician->id)
+                ->first();
+
+            if ($savedPaymentMethod?->stripe_payment_method_id) {
+                $options['payment_method_id'] = $savedPaymentMethod->stripe_payment_method_id;
+            }
+        }
 
         try {
-            $intentData = $billing->createPurchaseIntent($politician, (float) $validated['amount'], [
-                'description' => 'Credit top-up for politician #' . $politician->id,
-            ]);
+            $intentData = $billing->createPurchaseIntent($politician, (float) $validated['amount'], $options);
         } catch (\Exception $e) {
             if ($request->expectsJson() || $request->ajax()) {
                 return response()->json(['error' => $e->getMessage()], 500);
             }
+
             return back()->withErrors(['amount' => 'Payment service unavailable: ' . $e->getMessage()]);
         }
 
-        // Always return JSON — the billing view submits via fetch() and handles the response.
-        // return_url points to billing/confirm so the redirect immediately finalizes the
-        // transaction and credits the politician without waiting for the Stripe webhook.
-        return response()->json([
-            'client_secret'      => $intentData['client_secret'],
-            'payment_intent'     => $intentData['payment_intent_id'],
-            'amount'             => $intentData['gross_amount'],      // total charged to card
-            'credits_amount'     => $intentData['credits_amount'],    // credits added to account
-            'stripe_fee'         => $intentData['stripe_fee'],        // 2.5% processing fee
+        $response = [
+            'client_secret' => $intentData['client_secret'],
+            'payment_intent' => $intentData['payment_intent_id'],
+            'amount' => $intentData['gross_amount'],
+            'credits_amount' => $intentData['credits_amount'],
+            'stripe_fee' => $intentData['stripe_fee'],
             'stripe_fee_percent' => $intentData['stripe_fee_percent'],
-            'publishable_key'    => config('services.stripe.public'),
-            'return_url'         => route('politician.billing.confirm'),
-        ]);
+            'publishable_key' => config('services.stripe.public'),
+            'return_url' => route('politician.billing.confirm'),
+        ];
+
+        if (! empty($options['payment_method_id'])) {
+            $response['stripe_payment_method_id'] = $options['payment_method_id'];
+        }
+
+        return response()->json($response);
     }
 
     /**

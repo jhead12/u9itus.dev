@@ -210,6 +210,9 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
             ->name('billing.invoices.details');
         Route::post('/billing/invoices/{transaction}/send-receipt', [PoliticianController::class, 'sendReceipt'])
             ->name('billing.invoices.send-receipt');
+            Route::post('/billing/setup-intent', [PoliticianController::class, 'createSetupIntent'])->name('billing.setup-intent');
+            Route::post('/billing/payment-methods', [PoliticianController::class, 'storePaymentMethod'])->name('billing.payment-methods.store');
+            Route::delete('/billing/payment-methods/{paymentMethod}', [PoliticianController::class, 'deletePaymentMethod'])->name('billing.payment-methods.delete');
         
         // Profile & Settings
         Route::get('/profile', [PoliticianController::class, 'profile'])->name('profile');

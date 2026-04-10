@@ -199,4 +199,53 @@ class StripePaymentService
             'metadata' => $metadata,
         ]);
     }
+
+    /**
+     * Create a SetupIntent to securely save a card for future off-session use.
+     * Returns the Stripe SetupIntent object (caller needs client_secret for the frontend).
+     */
+    public function createSetupIntent(string $customerId): object
+    {
+        if (! $this->client) {
+            throw new \RuntimeException('Stripe SDK not available. Run `composer require stripe/stripe-php`.');
+        }
+
+        $si = $this->client->setupIntents->create([
+            'customer'             => $customerId,
+            'usage'                => 'off_session',
+            'payment_method_types' => ['card'],
+        ]);
+
+        Log::info('Created Stripe SetupIntent', ['id' => $si->id, 'customer' => $customerId]);
+
+        return $si;
+    }
+
+    /**
+     * Retrieve a Stripe PaymentMethod by ID.
+     * Used to verify ownership and extract card details (brand, last4, expiry).
+     */
+    public function retrievePaymentMethod(string $paymentMethodId): object
+    {
+        if (! $this->client) {
+            throw new \RuntimeException('Stripe SDK not available. Run `composer require stripe/stripe-php`.');
+        }
+
+        return $this->client->paymentMethods->retrieve($paymentMethodId, []);
+    }
+
+    /**
+     * Detach a PaymentMethod from its Stripe Customer.
+     * Called when the politician deletes a saved card.
+     */
+    public function detachPaymentMethod(string $paymentMethodId): void
+    {
+        if (! $this->client) {
+            throw new \RuntimeException('Stripe SDK not available. Run `composer require stripe/stripe-php`.');
+        }
+
+        $this->client->paymentMethods->detach($paymentMethodId, []);
+
+        Log::info('Detached Stripe PaymentMethod', ['id' => $paymentMethodId]);
+    }
 }
