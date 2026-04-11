@@ -13,6 +13,7 @@ RUN apk add --no-cache \
     oniguruma-dev \
     libxml2-dev \
     icu-dev \
+    linux-headers \
     zip \
     unzip \
     nodejs \
