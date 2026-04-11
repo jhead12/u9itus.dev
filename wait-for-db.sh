@@ -5,11 +5,43 @@ set -o pipefail
 echo "=== Setting up Laravel environment ==="
 echo "PHP version: $(php -v | head -1)"
 
+# Validate APP_KEY before bootstrapping Laravel. We only print safe metadata.
+if [[ -z "${APP_KEY:-}" ]] && [[ -f ".env" ]]; then
+  FILE_APP_KEY=$(grep -E '^APP_KEY=' .env | tail -n 1 | cut -d '=' -f2- | tr -d '\r')
+  FILE_APP_KEY="${FILE_APP_KEY%\"}"
+  FILE_APP_KEY="${FILE_APP_KEY#\"}"
+  FILE_APP_KEY="${FILE_APP_KEY%\'}"
+  FILE_APP_KEY="${FILE_APP_KEY#\'}"
+
+  if [[ -n "$FILE_APP_KEY" ]]; then
+    export APP_KEY="$FILE_APP_KEY"
+    echo "APP_KEY loaded from runtime .env file"
+  fi
+fi
+
+if [[ -z "${APP_KEY:-}" ]]; then
+  echo "FATAL: APP_KEY is missing at runtime."
+  echo "Set APP_KEY in Railway service variables for this environment and redeploy."
+  echo "Expected format: base64:..."
+  exit 1
+fi
+
+APP_KEY_LENGTH=${#APP_KEY}
+if [[ "$APP_KEY" == base64:* ]]; then
+  echo "APP_KEY present (format=base64, length=${APP_KEY_LENGTH})"
+else
+  echo "APP_KEY present (non-base64 format, length=${APP_KEY_LENGTH})"
+fi
+
 # Override session driver to use file storage (database-based sessions require DB to be ready)
 export SESSION_DRIVER=file
 
 # Clear any cached config to ensure fresh environment variables are used
 echo "Clearing configuration cache..."
+if [[ -f bootstrap/cache/config.php ]]; then
+  rm -f bootstrap/cache/config.php
+  echo "Removed bootstrap/cache/config.php"
+fi
 php artisan config:clear 2>&1 || echo "Config cache clear skipped (may not exist)"
 php artisan cache:clear 2>&1 || echo "Cache clear skipped (may not exist)"
 php artisan view:clear 2>&1 || echo "View cache clear skipped (may not exist)"
