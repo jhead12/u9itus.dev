@@ -3,26 +3,39 @@
 
 FROM php:8.4-cli-alpine
 
-# Install system dependencies
+# Install system dependencies, PHP extensions, and upload limits in one layer.
 RUN apk add --no-cache \
     git \
     curl \
+    curl-dev \
     libpng-dev \
+    libzip-dev \
     oniguruma-dev \
     libxml2-dev \
+    icu-dev \
     zip \
     unzip \
     nodejs \
     npm \
     mysql-client \
     bash \
-    ffmpeg
-
-# Install PHP extensions
-RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd
-
-# Raise PHP body/upload limits to match 1 GB campaign video upload expectations.
-RUN mkdir -p /usr/local/etc/php/conf.d && \
+    ffmpeg && \
+    docker-php-ext-install \
+        pdo_mysql \
+        mbstring \
+        exif \
+        pcntl \
+        bcmath \
+        gd \
+        curl \
+        dom \
+        intl \
+        simplexml \
+        sockets \
+        xml \
+        xmlwriter \
+        zip && \
+    mkdir -p /usr/local/etc/php/conf.d && \
     cat > /usr/local/etc/php/conf.d/uploads.ini <<'EOF'
 upload_max_filesize=1024M
 post_max_size=1050M
@@ -45,25 +58,19 @@ COPY composer.json composer.lock ./
 # Copy application files
 COPY . .
 
-# Install PHP dependencies
-RUN composer install --no-dev --optimize-autoloader --no-interaction
-
-# Install Node dependencies and build assets
-RUN npm install --no-audit && npm run build
-
-# Create Laravel directories with correct permissions
-RUN mkdir -p storage/framework/sessions \
+# Composer runs Artisan package discovery during install, so provide a build-time env file.
+RUN [ -f .env ] || cp .env.example .env && \
+    composer install --no-dev --optimize-autoloader --no-interaction && \
+    npm install --no-audit && \
+    npm run build && \
+    mkdir -p storage/framework/sessions \
     storage/framework/views \
     storage/framework/cache \
     storage/logs \
     bootstrap/cache && \
-    chmod -R 775 storage bootstrap/cache
-
-# Generate optimized autoload files
-RUN composer dump-autoload --optimize
-
-# Make wait-for-db script executable
-RUN chmod +x wait-for-db.sh
+    chmod -R 775 storage bootstrap/cache && \
+    composer dump-autoload --optimize && \
+    chmod +x wait-for-db.sh
 
 # Expose port (Railway will override this)
 EXPOSE 8080
