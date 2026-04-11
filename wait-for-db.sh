@@ -3,6 +3,7 @@
 set -o pipefail
 
 echo "=== Setting up Laravel environment ==="
+echo "Startup script version: 2026-04-10-app-key-diagnostic-v2"
 echo "PHP version: $(php -v | head -1)"
 
 # Validate APP_KEY before bootstrapping Laravel. We only print safe metadata.
@@ -46,6 +47,26 @@ php artisan config:clear 2>&1 || echo "Config cache clear skipped (may not exist
 php artisan cache:clear 2>&1 || echo "Cache clear skipped (may not exist)"
 php artisan view:clear 2>&1 || echo "View cache clear skipped (may not exist)"
 php artisan route:clear 2>&1 || echo "Route cache clear skipped (may not exist)"
+
+# Verify what Laravel itself resolves after cache clears.
+LARAVEL_APP_KEY=$(php -r 'require "vendor/autoload.php"; $app = require "bootstrap/app.php"; $kernel = $app->make(Illuminate\Contracts\Console\Kernel::class); $kernel->bootstrap(); $key = config("app.key"); echo is_string($key) ? $key : "";' 2>/dev/null || true)
+if [[ -z "$LARAVEL_APP_KEY" ]]; then
+  echo "FATAL: Laravel resolved app.key as empty after bootstrap."
+  if [[ -n "${APP_KEY:-}" ]]; then
+    echo "APP_KEY exists in process env but Laravel config is empty."
+  else
+    echo "APP_KEY is missing in process env."
+  fi
+  echo "Check Railway variable scope (service + environment) and redeploy."
+  exit 1
+fi
+
+LARAVEL_APP_KEY_LENGTH=${#LARAVEL_APP_KEY}
+if [[ "$LARAVEL_APP_KEY" == base64:* ]]; then
+  echo "Laravel app.key resolved (format=base64, length=${LARAVEL_APP_KEY_LENGTH})"
+else
+  echo "Laravel app.key resolved (non-base64 format, length=${LARAVEL_APP_KEY_LENGTH})"
+fi
 
 # Ensure required directories exist
 mkdir -p storage/framework/{sessions,views,cache}
