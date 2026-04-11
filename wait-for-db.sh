@@ -247,7 +247,7 @@ fi
 echo "==================================="
 echo "Starting Laravel server..."
 echo "PORT: $PORT"
-echo "Command: php artisan serve --host=0.0.0.0 --port=$PORT"
+echo "Command: php artisan serve --host=0.0.0.0 --port=$PORT --no-reload"
 echo "==================================="
 
 # ── Phase 11: Start Reverb WebSocket server in the background ──────────────
@@ -286,4 +286,4 @@ else
 fi
 
 # Use exec to replace shell with PHP process
-exec php artisan serve --host=0.0.0.0 --port=$PORT 2>&1
+exec php artisan serve --host=0.0.0.0 --port=$PORT --no-reload 2>&1
