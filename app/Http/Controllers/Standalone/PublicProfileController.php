@@ -73,6 +73,7 @@ class PublicProfileController extends Controller
                     }
                     $candidates = $this->findCandidatesForDistrict($lookupResult, $states, $districtHints);
                     $runningCandidates = $this->findRunningCandidatesForDistrict($lookupResult, $states, $districtHints);
+                    $candidates = $this->attachFinanceSnapshotsToPublishedCandidates($candidates);
                     $topContenders = $runningCandidates->take(3)->values();
 
                     // Discover and persist officials not yet in the local profile set.
@@ -509,6 +510,8 @@ class PublicProfileController extends Controller
         int $discoveredOfficialsCount,
         ?array $voterInfo = null
     ): void {
+        $foundLocations = $this->extractFoundLocationsFromVoterInfo($voterInfo);
+
         try {
             DistrictLookupSearch::create([
                 'query_address' => $address,
@@ -525,6 +528,18 @@ class PublicProfileController extends Controller
                 'payload' => [
                     'lookup_result' => $lookupResult,
                     'voter_info' => $voterInfo,
+                    'found_locations' => $foundLocations,
+                    'integrations' => [
+                        'google_civic_voterinfo' => [
+                            'configured' => ! empty(config('services.google.civic_api_key')),
+                            'has_response' => is_array($voterInfo),
+                            'found_locations_count' => count($foundLocations),
+                            'found_location_types' => array_values(array_unique(array_map(
+                                fn (array $location): string => (string) ($location['type'] ?? ''),
+                                $foundLocations,
+                            ))),
+                        ],
+                    ],
                 ],
             ]);
         } catch (\Throwable $e) {
@@ -1239,6 +1254,222 @@ class PublicProfileController extends Controller
     }
 
     /**
+     * @param Collection<int, Politician> $candidates
+     * @return Collection<int, Politician>
+     */
+    protected function attachFinanceSnapshotsToPublishedCandidates(Collection $candidates): Collection
+    {
+        if ($candidates->isEmpty()) {
+            return $candidates;
+        }
+
+        return $candidates->map(function (Politician $candidate): Politician {
+            $candidate->setAttribute('finance_snapshot', $this->buildFinanceSnapshotForPolitician($candidate));
+
+            return $candidate;
+        });
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    protected function buildFinanceSnapshotForPolitician(Politician $politician): ?array
+    {
+        $sources = [];
+
+        if ((bool) $politician->show_fec_data) {
+            try {
+                $fecDetails = app(\App\Services\FECService::class)->getDisplayData($politician);
+                $summary = $this->normalizeFinanceSummary((array) ($fecDetails['summary'] ?? []));
+
+                if ($summary !== []) {
+                    $sources[] = [
+                        'key' => 'fec',
+                        'label' => 'FEC',
+                        'summary' => $summary,
+                        'source_url' => $fecDetails['source_url'] ?? null,
+                    ];
+                }
+            } catch (\Throwable $e) {
+                Log::info('District lookup finance snapshot unavailable from FEC', [
+                    'politician_id' => $politician->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        if ((bool) $politician->show_opensecrets_data && $politician->user_id !== null) {
+            try {
+                $openSecretsDetails = app(\App\Services\OpenSecretsService::class)->getDisplayData($politician);
+                $summary = $this->normalizeFinanceSummary((array) ($openSecretsDetails['summary'] ?? []));
+
+                if ($summary !== []) {
+                    $sources[] = [
+                        'key' => 'opensecrets',
+                        'label' => 'OpenSecrets',
+                        'summary' => $summary,
+                        'source_url' => $openSecretsDetails['source_url'] ?? null,
+                    ];
+                }
+            } catch (\Throwable $e) {
+                Log::info('District lookup finance snapshot unavailable from OpenSecrets', [
+                    'politician_id' => $politician->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        if ($sources === []) {
+            return null;
+        }
+
+        return [
+            'sources' => $sources,
+            'primary' => $sources[0],
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $summary
+     * @return array<string, string>
+     */
+    protected function normalizeFinanceSummary(array $summary): array
+    {
+        $receipts = $this->firstPresentSummaryValue($summary, ['receipts', 'total_raised']);
+        $disbursements = $this->firstPresentSummaryValue($summary, ['disbursements', 'total_spent']);
+
+        $normalized = [
+            'cycle' => $this->firstPresentSummaryValue($summary, ['cycle']),
+            'receipts' => $receipts,
+            'disbursements' => $disbursements,
+            'cash_on_hand' => $this->firstPresentSummaryValue($summary, ['cash_on_hand']),
+            'debt' => $this->firstPresentSummaryValue($summary, ['debt']),
+        ];
+
+        return collect($normalized)
+            ->filter(fn (?string $value): bool => $value !== null && trim($value) !== '')
+            ->map(fn (string $value): string => trim($value))
+            ->all();
+    }
+
+    /**
+     * @param array<string, mixed> $summary
+     * @param array<int, string> $keys
+     */
+    protected function firstPresentSummaryValue(array $summary, array $keys): ?string
+    {
+        foreach ($keys as $key) {
+            if (! array_key_exists($key, $summary) || $summary[$key] === null) {
+                continue;
+            }
+
+            return (string) $summary[$key];
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array<string, mixed>|null $voterInfo
+     * @return array<int, array<string, mixed>>
+     */
+    protected function extractFoundLocationsFromVoterInfo(?array $voterInfo): array
+    {
+        if (! is_array($voterInfo)) {
+            return [];
+        }
+
+        $groups = [
+            'polling_location' => (array) ($voterInfo['polling_locations'] ?? []),
+            'early_vote_site' => (array) ($voterInfo['early_vote_sites'] ?? []),
+            'drop_off_location' => (array) ($voterInfo['drop_off_locations'] ?? []),
+        ];
+
+        $flattened = [];
+
+        foreach ($groups as $type => $locations) {
+            foreach ($locations as $location) {
+                if (! is_array($location)) {
+                    continue;
+                }
+
+                $address = isset($location['address']) && is_array($location['address'])
+                    ? $location['address']
+                    : [];
+
+                $flattened[] = [
+                    'type' => $type,
+                    'name' => $location['name'] ?? null,
+                    'notes' => $location['notes'] ?? null,
+                    'polling_hours' => $location['polling_hours'] ?? null,
+                    'voter_services' => $location['voter_services'] ?? null,
+                    'start_date' => $location['start_date'] ?? null,
+                    'end_date' => $location['end_date'] ?? null,
+                    'latitude' => $location['latitude'] ?? null,
+                    'longitude' => $location['longitude'] ?? null,
+                    'address' => [
+                        'line1' => $address['line1'] ?? null,
+                        'line2' => $address['line2'] ?? null,
+                        'line3' => $address['line3'] ?? null,
+                        'city' => $address['city'] ?? null,
+                        'state' => $address['state'] ?? null,
+                        'zip' => $address['zip'] ?? null,
+                    ],
+                ];
+            }
+        }
+
+        return $flattened;
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array<string, mixed>|null
+     */
+    protected function financeSnapshotFromRecordPayload(array $payload): ?array
+    {
+        $summaryCandidates = [
+            data_get($payload, 'financial_summary'),
+            data_get($payload, 'campaign_finance.summary'),
+            data_get($payload, 'campaign_finance'),
+            data_get($payload, 'finance.summary'),
+            data_get($payload, 'finance'),
+            data_get($payload, 'fec.financial_summary'),
+            data_get($payload, 'opensecrets.candidate_summary'),
+        ];
+
+        $summary = [];
+        foreach ($summaryCandidates as $candidateSummary) {
+            if (is_array($candidateSummary)) {
+                $summary = $this->normalizeFinanceSummary($candidateSummary);
+                if ($summary !== []) {
+                    break;
+                }
+            }
+        }
+
+        $sourceUrl = collect([
+            data_get($payload, 'source_url'),
+            data_get($payload, 'finance.source_url'),
+            data_get($payload, 'fec.source_url'),
+            data_get($payload, 'opensecrets.source_url'),
+            data_get($payload, 'fec_url'),
+        ])
+            ->filter(fn ($value): bool => is_string($value) && trim($value) !== '')
+            ->map(fn (string $value): string => trim($value))
+            ->first();
+
+        if ($summary === [] && ! is_string($sourceUrl)) {
+            return null;
+        }
+
+        return [
+            'summary' => $summary,
+            'source_url' => is_string($sourceUrl) ? $sourceUrl : null,
+        ];
+    }
+
+    /**
      * @param array<string, mixed> $lookupResult
      * @param array<string, string> $states
      * @return Collection<int, array<string, mixed>>
@@ -1317,6 +1548,8 @@ class PublicProfileController extends Controller
                     $score += 8;
                 }
 
+                $financeSnapshot = $this->financeSnapshotFromRecordPayload($payload);
+
                 return [
                     'full_name' => $record->full_name,
                     'political_office' => $record->political_office,
@@ -1325,6 +1558,7 @@ class PublicProfileController extends Controller
                     'election_date' => optional($record->election_date)->toDateString(),
                     'source' => $record->source,
                     'source_label' => $this->formatCandidateSourceLabel($record->source),
+                    'finance_snapshot' => $financeSnapshot,
                     'contender_score' => $score,
                 ];
             })

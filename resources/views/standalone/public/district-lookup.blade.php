@@ -120,6 +120,25 @@
                                         <p>{{ implode(', ', array_filter([$candidate->city, $candidate->state])) }}</p>
                                     @endif
                                     <p>Active campaigns: {{ $candidate->active_campaigns_count }}</p>
+                                    @if(!empty($candidate->finance_snapshot['primary']['summary']))
+                                        <div class="pt-2 border-t border-slate-700/40 space-y-1">
+                                            <p class="text-emerald-300">Campaign finance (open data)</p>
+                                            @php
+                                                $financeSummary = $candidate->finance_snapshot['primary']['summary'];
+                                                $financeLabel = $candidate->finance_snapshot['primary']['label'] ?? 'Public source';
+                                            @endphp
+                                            @if(!empty($financeSummary['receipts']))
+                                                <p>Receipts: {{ $financeSummary['receipts'] }}</p>
+                                            @endif
+                                            @if(!empty($financeSummary['cash_on_hand']))
+                                                <p>Cash on hand: {{ $financeSummary['cash_on_hand'] }}</p>
+                                            @endif
+                                            @if(!empty($financeSummary['debt']))
+                                                <p>Debt: {{ $financeSummary['debt'] }}</p>
+                                            @endif
+                                            <p>Source: {{ $financeLabel }}</p>
+                                        </div>
+                                    @endif
                                 </div>
                             </a>
                         @endforeach
@@ -239,6 +258,25 @@
                                     <p>Party: {{ $candidate['party_affiliation'] ?: 'Not listed' }}</p>
                                     @if(!empty($candidate['election_date']))
                                         <p>Election date: {{ $candidate['election_date'] }}</p>
+                                    @endif
+                                    @if(!empty($candidate['finance_snapshot']['summary']))
+                                        <div class="pt-2 border-t border-slate-700/40 space-y-1">
+                                            <p class="text-emerald-300">Campaign finance (open data)</p>
+                                            @if(!empty($candidate['finance_snapshot']['summary']['receipts']))
+                                                <p>Receipts: {{ $candidate['finance_snapshot']['summary']['receipts'] }}</p>
+                                            @endif
+                                            @if(!empty($candidate['finance_snapshot']['summary']['cash_on_hand']))
+                                                <p>Cash on hand: {{ $candidate['finance_snapshot']['summary']['cash_on_hand'] }}</p>
+                                            @endif
+                                            @if(!empty($candidate['finance_snapshot']['summary']['debt']))
+                                                <p>Debt: {{ $candidate['finance_snapshot']['summary']['debt'] }}</p>
+                                            @endif
+                                            @if(!empty($candidate['finance_snapshot']['source_url']))
+                                                <a href="{{ $candidate['finance_snapshot']['source_url'] }}" target="_blank" rel="noopener" class="inline-block text-emerald-400 hover:text-emerald-300">
+                                                    Source filing ->
+                                                </a>
+                                            @endif
+                                        </div>
                                     @endif
                                     <p>Source: {{ $candidate['source_label'] }}</p>
                                 </div>

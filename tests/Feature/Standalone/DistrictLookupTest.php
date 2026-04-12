@@ -356,6 +356,8 @@ test('district lookup falls back to google civic for zip-only searches', functio
     expect(data_get($search?->payload, 'voter_info.normalized_input.state'))->toBe('CA');
     expect(data_get($search?->payload, 'voter_info.polling_locations.0.name'))->toBe('Community Center');
     expect(data_get($search?->payload, 'voter_info.contests.0.office'))->toBe('United States Representative, District 18');
+    expect(data_get($search?->payload, 'found_locations.0.type'))->toBe('polling_location');
+    expect(data_get($search?->payload, 'found_locations.0.name'))->toBe('Community Center');
 });
 
 test('district lookup includes state assembly profiles using voterinfo district hints', function () {
@@ -547,6 +549,8 @@ test('district lookup voterinfo picks earliest election from otherElections and 
     expect(data_get($search?->payload, 'voter_info.selected_election_id'))->toBe('1000');
     expect(data_get($search?->payload, 'voter_info.polling_locations.0.name'))->toBe('Main Voting Center');
     expect(data_get($search?->payload, 'voter_info.contests.0.office'))->toBe('Mayor');
+    expect(data_get($search?->payload, 'found_locations.0.type'))->toBe('polling_location');
+    expect(data_get($search?->payload, 'found_locations.0.name'))->toBe('Main Voting Center');
 });
 
     test('district lookup shows all running candidates and top contenders from election records', function () {
@@ -580,7 +584,13 @@ test('district lookup voterinfo picks earliest election from otherElections and 
             'political_office' => 'U.S. Representative',
             'party_affiliation' => 'Democratic',
             'election_date' => now()->addMonths(2)->toDateString(),
-            'payload' => ['incumbent' => true],
+            'payload' => [
+                'incumbent' => true,
+                'financial_summary' => [
+                    'receipts' => '$1,250,000',
+                    'cash_on_hand' => '$340,000',
+                ],
+            ],
         ]);
 
         ElectionCandidateRecord::factory()->create([
@@ -611,6 +621,8 @@ test('district lookup voterinfo picks earliest election from otherElections and 
         $response->assertSee('Dana Carter');
         $response->assertSee('Chris Nolan');
         $response->assertSee('Morgan Lee');
+        $response->assertSee('Campaign finance (open data)');
+        $response->assertSee('Receipts: $1,250,000');
     });
 
     test('district lookup shows current politicians for searched location from google civic officials', function () {

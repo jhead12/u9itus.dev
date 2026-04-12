@@ -162,6 +162,10 @@
                 <dt class="text-slate-500">Type</dt>
                 <dd class="text-slate-200">{{ ucfirst(str_replace('_', ' ', $campaignType ?? 'video')) }}</dd>
             </div>
+            <div class="flex justify-between border-b border-slate-700/40 pb-2 gap-4">
+                <dt class="text-slate-500">Reference ID</dt>
+                <dd class="text-slate-200 font-mono break-all text-right">{{ $campaign->uuid ?? '—' }}</dd>
+            </div>
             <div class="flex justify-between border-b border-slate-700/40 pb-2">
                 <dt class="text-slate-500">Governance Level</dt>
                 <dd class="text-slate-200">{{ $campaign->governance_level ?? '—' }}</dd>

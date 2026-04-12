@@ -68,6 +68,10 @@
                             @if($campaign->politician?->political_office) · {{ $campaign->politician->political_office }} @endif
                             @if($campaign->politician?->state) · {{ $campaign->politician->state }} @endif
                         </p>
+                        <p class="text-xs text-slate-500 mt-1">
+                            Ref:
+                            <span class="font-mono text-slate-300 break-all">{{ $campaign->uuid ?? '—' }}</span>
+                        </p>
                         <div class="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-slate-500">
                             <span>Budget: <span class="text-white">${{ number_format($campaign->total_budget ?? 0, 2) }}</span></span>
                             <span>Target views: <span class="text-white">{{ number_format($campaign->total_views_requested ?? 0) }}</span></span>

@@ -18,6 +18,7 @@ use App\Http\Controllers\Standalone\PublicProfileController;
 use App\Http\Controllers\Standalone\VoterOnboardingController;
 use App\Http\Controllers\Standalone\PoliticianOnboardingController;
 use App\Http\Controllers\Standalone\AdminOnboardingController;
+use App\Http\Controllers\Standalone\IdmeController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -150,6 +151,13 @@ Route::middleware(['auth', 'verified', 'no.cache'])->group(function () {
 */
 
 Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(function () {
+
+    // Id.me identity verification
+    Route::prefix('verification/idme')->name('verification.idme.')->group(function () {
+        Route::get('/redirect', [IdmeController::class, 'redirectToProvider'])->name('redirect');
+        Route::get('/callback', [IdmeController::class, 'handleCallback'])->name('callback');
+        Route::get('/status', [IdmeController::class, 'status'])->name('status');
+    });
 
     // Admin security routes (kept outside onboarding + enforcement middleware
     // so admins can complete TOTP setup/challenge when required).

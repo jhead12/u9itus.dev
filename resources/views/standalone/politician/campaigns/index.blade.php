@@ -127,6 +127,9 @@
                         @endif
                     </div>
                     <p class="text-xs text-slate-500 mt-0.5 line-clamp-2">{{ $campaign->message_summary ?? '—' }}</p>
+                    <p class="text-xs text-slate-500 mt-2">
+                        Ref: <span class="font-mono text-slate-300 break-all">{{ $campaign->uuid ?? '—' }}</span>
+                    </p>
 
                     {{-- Progress --}}
                     <div class="mt-3">

@@ -1512,6 +1512,15 @@ class PoliticianController extends Controller
      */
     public function uploadKycDocument(Request $request)
     {
+        $idmeConfigured = (string) config('services.idme.client_id', '') !== ''
+            && (string) config('services.idme.client_secret', '') !== '';
+
+        if ($idmeConfigured) {
+            return back()->withErrors([
+                'kyc_document' => 'Manual KYC uploads are disabled while Id.me verification is enabled.',
+            ]);
+        }
+
         $request->validate([
             'kyc_document' => [
                 'required',

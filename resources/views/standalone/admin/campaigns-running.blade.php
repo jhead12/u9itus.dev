@@ -257,6 +257,9 @@
 
                         {{-- Meta line --}}
                         <div class="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-slate-500">
+                            <span>Ref:
+                                <span class="font-mono text-slate-300 break-all">{{ $campaign->uuid ?? '—' }}</span>
+                            </span>
                             <span>Started:
                                 <span class="text-slate-300">
                                     {{ $campaign->started_at ? $campaign->started_at->diffForHumans() : ($campaign->created_at->diffForHumans()) }}

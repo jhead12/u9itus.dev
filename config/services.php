@@ -108,4 +108,14 @@ return [
         'base_url' => env('CONGRESS_API_BASE_URL', 'https://api.congress.gov/v3'),
     ],
 
+    'idme' => [
+        'client_id' => env('IDME_CLIENT_ID'),
+        'client_secret' => env('IDME_CLIENT_SECRET'),
+        'redirect_uri' => env('IDME_REDIRECT_URI', env('APP_URL') . '/verification/idme/callback'),
+        'auth_url' => env('IDME_AUTH_URL', 'https://api.id.me/oauth/authorize'),
+        'token_url' => env('IDME_TOKEN_URL', 'https://api.id.me/oauth/token'),
+        'attributes_url' => env('IDME_ATTRIBUTES_URL', 'https://api.id.me/api/public/v3/attributes.json'),
+        'scopes' => array_values(array_filter(array_map('trim', explode(',', (string) env('IDME_SCOPES', 'identity,email'))))),
+    ],
+
 ];

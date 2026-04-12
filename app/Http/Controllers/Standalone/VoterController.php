@@ -899,7 +899,17 @@ class VoterController extends Controller
     public function requestPayout(Request $request)
     {
         $voter     = $this->resolveVoter();
+        $user = Auth::user();
         $minPayout = (float) PlatformSettingsService::get('min_payout_amount', null, 5.00);
+
+        $idmeConfigured = (string) config('services.idme.client_id', '') !== ''
+            && (string) config('services.idme.client_secret', '') !== '';
+
+        if ($idmeConfigured && $user->idme_verified_at === null) {
+            return back()->withErrors([
+                'payout' => 'Please complete Id.me verification before requesting payouts.',
+            ])->with('idme_verification_url', route('verification.idme.redirect'));
+        }
 
         if ((float) $voter->pending_earnings < $minPayout) {
             return back()->withErrors([
@@ -1076,6 +1086,15 @@ class VoterController extends Controller
      */
     public function uploadKycDocument(Request $request)
     {
+        $idmeConfigured = (string) config('services.idme.client_id', '') !== ''
+            && (string) config('services.idme.client_secret', '') !== '';
+
+        if ($idmeConfigured) {
+            return back()->withErrors([
+                'kyc_document' => 'Manual KYC uploads are disabled while Id.me verification is enabled.',
+            ]);
+        }
+
         $request->validate([
             'kyc_document' => [
                 'required',
