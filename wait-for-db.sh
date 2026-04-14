@@ -261,6 +261,14 @@ else
   echo "Skipping DB wait for PROCESS_ROLE=${PROCESS_ROLE} to keep startup fast."
 fi
 
+# Ensure core Spatie roles exist on every deploy (idempotent — safe to repeat).
+# Runs only when the DB is expected to be reachable for this process role.
+if [[ "$DB_REQUIRED" == "true" ]]; then
+  echo "=== Ensuring core roles ==="
+  php artisan roles:ensure 2>&1 || echo "roles:ensure skipped (non-fatal)"
+  echo "================================="
+fi
+
 echo "==================================="
 case "$PROCESS_ROLE" in
   web)

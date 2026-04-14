@@ -6,6 +6,7 @@ use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Spatie\Permission\Models\Role;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -54,7 +55,26 @@ class CheckUserRole
                 'url'       => $request->url(),
             ]);
 
-            $user->assignRole($userType);
+            try {
+                // Railway/prod occasionally has users before role seed data exists.
+                Role::findOrCreate($userType, config('auth.defaults.guard', 'web'));
+                $user->assignRole($userType);
+            } catch (\Throwable $e) {
+                Log::error('CheckUserRole: failed to repair missing role', [
+                    'user_id' => $user->id,
+                    'email' => $user->email,
+                    'user_type' => $userType,
+                    'url' => $request->url(),
+                    'error' => $e->getMessage(),
+                ]);
+
+                Auth::logout();
+                $request->session()->invalidate();
+                $request->session()->regenerateToken();
+
+                return redirect()->route('login')
+                    ->with('error', 'Your account role could not be repaired. Please sign in again or contact support.');
+            }
 
             // Redirect to the correct role dashboard now that the role is fixed.
             return redirect()->route(self::ROLE_ROUTES[$userType])

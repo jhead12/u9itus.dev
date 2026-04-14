@@ -4,6 +4,7 @@ namespace Tests\Feature\Web;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 class WebRoutesTest extends TestCase
@@ -52,5 +53,25 @@ class WebRoutesTest extends TestCase
         $response = $this->actingAs($user)->get('/profile');
 
         $this->assertContains($response->status(), [200, 500]);
+    }
+
+    public function test_dashboard_recovers_when_voter_role_record_is_missing(): void
+    {
+        Role::query()->where('name', 'voter')->where('guard_name', 'web')->delete();
+
+        $user = User::factory()->create([
+            'user_type' => 'voter',
+        ]);
+
+        $response = $this->actingAs($user)->get('/dashboard');
+
+        $response->assertRedirect(route('voter.dashboard'));
+
+        $this->assertDatabaseHas('roles', [
+            'name' => 'voter',
+            'guard_name' => 'web',
+        ]);
+
+        $this->assertTrue($user->fresh()->hasRole('voter'));
     }
 }
