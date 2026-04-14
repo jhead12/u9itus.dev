@@ -4,21 +4,22 @@ namespace App\Services;
 
 use App\Models\PlatformSetting;
 use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 /**
  * Dynamic platform settings manager with config fallback.
- * 
+ *
  * Allows admin to adjust pricing, commissions, thresholds, and limits
  * without code deployment — perfect for promotions, early adopter bonuses,
  * and A/B testing.
- * 
+ *
  * Settings hierarchy (highest priority first):
  *   1. Active user-tier-specific setting (e.g., early_adopter boost)
  *   2. Active global platform setting
  *   3. Config file default value
- * 
+ *
  * Example usage:
  *   PlatformSettingsService::get('revenue_per_view', $userTier)
  *   PlatformSettingsService::set('revenue_per_view', 0.75, [
@@ -33,10 +34,10 @@ class PlatformSettingsService
     const CACHE_PREFIX = 'platform_setting:';
 
     /**
-     * Get a platform setting value with config fallback.
-     * 
+    * Get a platform setting value with config fallback.
+    *
      * Checks: DB (user-tier specific) → DB (global) → config file
-     * 
+    *
      * @param string $key              Setting key (e.g., 'revenue_per_view')
      * @param string|null $userTier    User tier override ('early_adopter', 'regular', null)
      * @param mixed $default           Fallback value if not found anywhere
@@ -47,44 +48,45 @@ class PlatformSettingsService
         $cacheKey = self::CACHE_PREFIX . $key . ':' . ($userTier ?? 'global');
 
         return Cache::remember($cacheKey, self::CACHE_TTL, function () use ($key, $userTier, $default) {
-            // Priority 1: Active user-tier-specific setting
-            if ($userTier) {
-                $tierSetting = PlatformSetting::where('key', $key)
+            try {
+                // Priority 1: Active user-tier-specific setting
+                if ($userTier) {
+                    $tierSetting = PlatformSetting::where('key', $key)
+                        ->active()
+                        ->where('user_tier', $userTier)
+                        ->orderBy('created_at', 'desc')
+                        ->first();
+
+                    if ($tierSetting) {
+                        return $tierSetting->getTypedValue();
+                    }
+                }
+
+                // Priority 2: Active global setting (user_tier = null)
+                $globalSetting = PlatformSetting::where('key', $key)
                     ->active()
-                    ->where('user_tier', $userTier)
+                    ->whereNull('user_tier')
                     ->orderBy('created_at', 'desc')
                     ->first();
 
-                if ($tierSetting) {
-                    return $tierSetting->getTypedValue();
+                if ($globalSetting) {
+                    return $globalSetting->getTypedValue();
                 }
+            } catch (QueryException $e) {
+                Log::warning('Platform settings query failed; using config fallback', [
+                    'key' => $key,
+                    'user_tier' => $userTier,
+                    'error' => $e->getMessage(),
+                ]);
             }
 
-            // Priority 2: Active global setting (user_tier = null)
-            $globalSetting = PlatformSetting::where('key', $key)
-                ->active()
-                ->whereNull('user_tier')
-                ->orderBy('created_at', 'desc')
-                ->first();
-
-            if ($globalSetting) {
-                return $globalSetting->getTypedValue();
-            }
-
-            // Priority 3: Config file fallback
-            // Map setting keys to config paths
-            $configPath = self::mapKeyToConfig($key);
-            if ($configPath) {
-                return config($configPath, $default);
-            }
-
-            return $default;
+            return self::getConfigFallback($key, $default);
         });
     }
 
     /**
-     * Set a platform setting (creates or updates).
-     * 
+    * Set a platform setting (creates or updates).
+    *
      * @param string $key          Setting key
      * @param mixed $value         Setting value
      * @param array $options       Additional options:
@@ -238,9 +240,20 @@ class PlatformSettingsService
         };
     }
 
+    private static function getConfigFallback(string $key, mixed $default): mixed
+    {
+        $configPath = self::mapKeyToConfig($key);
+
+        if ($configPath) {
+            return config($configPath, $default);
+        }
+
+        return $default;
+    }
+
     /**
-     * Map setting key to config file path.
-     * 
+    * Map setting key to config file path.
+    *
      * This allows the service to fall back to config values when no DB override exists.
      */
     private static function mapKeyToConfig(string $key): ?string
@@ -253,20 +266,20 @@ class PlatformSettingsService
             'procurement_commission_percent' => 'u9itus.procurement_commission_percent',
             'batch_payout_min' => 'u9itus.batch_payout_min',
             'min_payout_amount' => 'u9itus.min_payout_amount',
-            
+
             // Video
             'min_video_duration' => 'u9itus.min_video_duration',
             'max_video_duration' => 'u9itus.max_video_duration',
             'max_video_size_mb' => 'u9itus.max_video_size_mb',
             'min_watch_time_percent' => 'u9itus.min_watch_time_percent',
             'video_subtitles_enabled' => 'u9itus.video_subtitles_enabled',
-            
+
             // Fraud
             'fraud_max_views_per_day' => 'u9itus.fraud.max_views_per_voter_per_day',
             'fraud_payout_hold_hours' => 'u9itus.fraud.payout_hold_hours',
             'fraud_auto_flag_threshold' => 'u9itus.fraud.auto_flag_threshold',
             'fraud_suspicious_threshold' => 'u9itus.fraud.suspicious_activity_threshold',
-            
+
             // Other
             'assignment_expiry_hours' => 'u9itus.assignment_expiry_hours',
             'head_enterprises_fee_percent' => 'u9itus.head_enterprises_fee_percent',
