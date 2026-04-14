@@ -49,7 +49,7 @@ return [
                 // useTLS is derived automatically from scheme=https
                 'useTLS' => env('REVERB_SCHEME', 'http') === 'https',
             ],
-            'timeout' => env('REVERB_TIMEOUT', 60),
+            'timeout' => env('REVERB_TIMEOUT', 5),
         ],
 
         /*

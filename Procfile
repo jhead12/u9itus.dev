@@ -1,3 +1,4 @@
-web: ./wait-for-db.sh
-scheduler: php artisan schedule:work --no-interaction
-queue: php artisan queue:work --queue=default --sleep=3 --tries=3 --timeout=600 --no-interaction
+web: PROCESS_ROLE=web ENABLE_REVERB=false ./wait-for-db.sh
+scheduler: PROCESS_ROLE=scheduler ./wait-for-db.sh
+queue: PROCESS_ROLE=queue ./wait-for-db.sh
+reverb: PROCESS_ROLE=reverb REVERB_SERVER_PORT=6001 ./wait-for-db.sh

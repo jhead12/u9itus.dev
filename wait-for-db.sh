@@ -182,6 +182,14 @@ unset DB_URL
 # Set default PORT if not provided by Railway
 export PORT=${PORT:-8080}
 
+# Process role for Railway service split.
+# web       -> HTTP server only
+# queue     -> queue worker only
+# scheduler -> scheduler only
+# reverb    -> websocket server only
+PROCESS_ROLE="${PROCESS_ROLE:-web}"
+echo "PROCESS_ROLE: ${PROCESS_ROLE}"
+
 # Quick sanity check: can Laravel boot at all?
 echo "=== Pre-flight check ==="
 php artisan --version 2>&1 || {
@@ -233,57 +241,56 @@ while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
   fi
 done
 
-if [ "$DB_CONNECTED" = true ]; then
-  echo "Running database migrations..."
+if [ "$DB_CONNECTED" = true ] && [ "$PROCESS_ROLE" = "web" ]; then
+  echo "Running database migrations (web role only)..."
   php artisan migrate --force 2>&1 || echo "WARNING: Migration failed but continuing startup..."
 
-  echo "Seeding roles and permissions..."
+  echo "Seeding roles and permissions (web role only)..."
   php artisan db:seed --class=RoleSeeder --force 2>&1 || echo "WARNING: Role seeding failed but continuing startup..."
 else
-  echo "✗ Database not reachable after $MAX_ATTEMPTS attempts"
-  echo "Skipping migrations — will retry on first request..."
+  if [ "$DB_CONNECTED" != true ]; then
+    echo "✗ Database not reachable after $MAX_ATTEMPTS attempts"
+    echo "Skipping migrations — will retry on first request..."
+  else
+    echo "Skipping migrations for PROCESS_ROLE=${PROCESS_ROLE}"
+  fi
 fi
 
 echo "==================================="
-echo "Starting Laravel server..."
-echo "PORT: $PORT"
-echo "Command: php artisan serve --host=0.0.0.0 --port=$PORT --no-reload"
-echo "==================================="
+case "$PROCESS_ROLE" in
+  web)
+    # Safe default: disable realtime broadcasting unless explicitly enabled.
+    # This avoids long request stalls when Reverb is not reachable.
+    if [ "${ENABLE_REVERB:-false}" != "true" ]; then
+      export BROADCAST_DRIVER=log
+      export BROADCAST_CONNECTION=log
+      echo "ENABLE_REVERB=false — forcing BROADCAST_DRIVER=log for web role"
+    fi
 
-# ── Phase 11: Start Reverb WebSocket server in the background ──────────────
-# Reverb runs on REVERB_PORT (default 8080) alongside the web server.
-# In production, REVERB_HOST/REVERB_PORT should point to a dedicated Railway
-# service running: php artisan reverb:start --host=0.0.0.0 --port=8080
-if [ -n "$REVERB_APP_KEY" ]; then
-  echo "Starting Reverb WebSocket server on port ${REVERB_PORT:-8080}..."
-  nohup php artisan reverb:start \
-    --host=0.0.0.0 \
-    --port="${REVERB_PORT:-8080}" \
-    --no-interaction \
-    > storage/logs/reverb.log 2>&1 &
-  echo "Reverb PID: $!"
-else
-  echo "REVERB_APP_KEY not set — skipping Reverb startup (broadcasts will use 'log' driver)"
-fi
+    echo "Starting Laravel web server..."
+    echo "PORT: $PORT"
+    echo "Command: php artisan serve --host=0.0.0.0 --port=$PORT --no-reload"
+    exec php artisan serve --host=0.0.0.0 --port=$PORT --no-reload 2>&1
+    ;;
 
-# Start scheduler worker for recurring jobs (including California import sync).
-if [ "${ENABLE_SCHEDULER:-true}" = "true" ]; then
-  echo "Starting Laravel scheduler worker..."
-  nohup php artisan schedule:work --no-interaction > storage/logs/scheduler.log 2>&1 &
-  echo "Scheduler PID: $!"
-else
-  echo "ENABLE_SCHEDULER=false — skipping scheduler worker startup"
-fi
+  queue)
+    echo "Starting Laravel queue worker (dedicated service)..."
+    exec php artisan queue:work --queue=default --sleep=3 --tries=3 --timeout=600 --no-interaction 2>&1
+    ;;
 
-# Start queue worker so queued failure alerts are delivered.
-if [ "${ENABLE_QUEUE_WORKER:-true}" = "true" ]; then
-  echo "Starting Laravel queue worker..."
-  nohup php artisan queue:work --queue=default --sleep=3 --tries=3 --timeout=600 --no-interaction \
-    > storage/logs/queue-worker.log 2>&1 &
-  echo "Queue Worker PID: $!"
-else
-  echo "ENABLE_QUEUE_WORKER=false — skipping queue worker startup"
-fi
+  scheduler)
+    echo "Starting Laravel scheduler worker (dedicated service)..."
+    exec php artisan schedule:work --no-interaction 2>&1
+    ;;
 
-# Use exec to replace shell with PHP process
-exec php artisan serve --host=0.0.0.0 --port=$PORT --no-reload 2>&1
+  reverb)
+    REVERB_BIND_PORT="${REVERB_SERVER_PORT:-6001}"
+    echo "Starting Reverb WebSocket server (dedicated service) on port ${REVERB_BIND_PORT}..."
+    exec php artisan reverb:start --host=0.0.0.0 --port="${REVERB_BIND_PORT}" --no-interaction 2>&1
+    ;;
+
+  *)
+    echo "ERROR: Unknown PROCESS_ROLE=${PROCESS_ROLE}. Expected one of: web, queue, scheduler, reverb"
+    exit 1
+    ;;
+esac
