@@ -159,29 +159,6 @@ else
 fi
 echo "================================="
 
-# Validate database configuration
-if [[ -z "$DB_HOST" ]] || [[ -z "$DB_PORT" ]] || [[ -z "$DB_DATABASE" ]]; then
-  echo "ERROR: Required database environment variables are missing!"
-  echo "Please set DB_HOST, DB_PORT, DB_DATABASE, DB_USERNAME, and DB_PASSWORD"
-  exit 1
-fi
-
-# Ensure DB_HOST is not a URL
-if [[ "$DB_HOST" == *"://"* ]]; then
-  echo "ERROR: DB_HOST appears to be a full URL: $DB_HOST"
-  echo "DB_HOST should only contain the hostname, not a full connection string"
-  echo "Check your Railway environment variables"
-  exit 1
-fi
-
-# Unset conflicting URL variables to prevent Laravel from using them
-unset DATABASE_URL
-unset MYSQL_URL
-unset DB_URL
-
-# Set default PORT if not provided by Railway
-export PORT=${PORT:-8080}
-
 # Process role for Railway service split.
 # web       -> HTTP server only
 # queue     -> queue worker only
@@ -189,6 +166,41 @@ export PORT=${PORT:-8080}
 # reverb    -> websocket server only
 PROCESS_ROLE="${PROCESS_ROLE:-web}"
 echo "PROCESS_ROLE: ${PROCESS_ROLE}"
+
+# Set default PORT if not provided by Railway
+export PORT=${PORT:-8080}
+
+# Only worker roles require DB readiness before process start.
+DB_REQUIRED=false
+if [[ "$PROCESS_ROLE" == "queue" ]] || [[ "$PROCESS_ROLE" == "scheduler" ]]; then
+  DB_REQUIRED=true
+fi
+
+# Validate database configuration for DB-required roles only.
+if [[ "$DB_REQUIRED" == "true" ]]; then
+  if [[ -z "$DB_HOST" ]] || [[ -z "$DB_PORT" ]] || [[ -z "$DB_DATABASE" ]]; then
+    echo "ERROR: Required database environment variables are missing!"
+    echo "Please set DB_HOST, DB_PORT, DB_DATABASE, DB_USERNAME, and DB_PASSWORD"
+    exit 1
+  fi
+
+  if [[ "$DB_HOST" == *"://"* ]]; then
+    echo "ERROR: DB_HOST appears to be a full URL: $DB_HOST"
+    echo "DB_HOST should only contain the hostname, not a full connection string"
+    echo "Check your Railway environment variables"
+    exit 1
+  fi
+else
+  if [[ -z "$DB_HOST" ]] || [[ -z "$DB_PORT" ]] || [[ -z "$DB_DATABASE" ]]; then
+    echo "WARNING: DB variables are incomplete for PROCESS_ROLE=${PROCESS_ROLE}."
+    echo "Continuing startup so web/reverb healthchecks can pass."
+  fi
+fi
+
+# Unset conflicting URL variables to prevent Laravel from using them
+unset DATABASE_URL
+unset MYSQL_URL
+unset DB_URL
 
 # Quick sanity check: can Laravel boot at all?
 echo "=== Pre-flight check ==="
@@ -199,61 +211,54 @@ php artisan --version 2>&1 || {
   # Start server anyway so Railway can see error pages
 }
 
-# Wait for database (30 attempts / ~2.5 minutes to survive Railway MySQL restart cycles)
-# Railway may remount the MySQL volume and restart the service, which can take 60–90 seconds.
-MAX_ATTEMPTS=30
-ATTEMPT=0
 DB_CONNECTED=false
 
-while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
-  ATTEMPT=$((ATTEMPT + 1))
-  echo "Attempt $ATTEMPT/$MAX_ATTEMPTS: Checking database connectivity to ${DB_HOST}:${DB_PORT}..."
-  
-  if php -r "
-    try {
-      \$pdo = new PDO(
-        'mysql:host=' . getenv('DB_HOST') . ';port=' . getenv('DB_PORT') . ';dbname=' . getenv('DB_DATABASE'),
-        getenv('DB_USERNAME'),
-        getenv('DB_PASSWORD'),
-        [PDO::ATTR_TIMEOUT => 10]
-      );
-      echo 'connected';
-      exit(0);
-    } catch (Exception \$e) {
-      echo 'failed: ' . \$e->getMessage();
-      exit(1);
-    }
-  " 2>&1; then
+if [[ "$DB_REQUIRED" == "true" ]]; then
+  # Wait for database (30 attempts / ~2.5 minutes to survive Railway MySQL restart cycles)
+  MAX_ATTEMPTS=30
+  ATTEMPT=0
+
+  while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+    ATTEMPT=$((ATTEMPT + 1))
+    echo "Attempt $ATTEMPT/$MAX_ATTEMPTS: Checking database connectivity to ${DB_HOST}:${DB_PORT}..."
+
+    if php -r "
+      try {
+        \$pdo = new PDO(
+          'mysql:host=' . getenv('DB_HOST') . ';port=' . getenv('DB_PORT') . ';dbname=' . getenv('DB_DATABASE'),
+          getenv('DB_USERNAME'),
+          getenv('DB_PASSWORD'),
+          [PDO::ATTR_TIMEOUT => 10]
+        );
+        echo 'connected';
+        exit(0);
+      } catch (Exception \$e) {
+        echo 'failed: ' . \$e->getMessage();
+        exit(1);
+      }
+    " 2>&1; then
+      echo ""
+      echo "✓ Database connection successful!"
+      DB_CONNECTED=true
+      break
+    fi
+
     echo ""
-    echo "✓ Database connection successful!"
-    DB_CONNECTED=true
-    break
-  fi
-  
-  echo ""
-  # Use longer sleep for later attempts (Railway MySQL may still be restarting)
-  if [ $ATTEMPT -lt 5 ]; then
-    sleep 3
-  elif [ $ATTEMPT -lt 15 ]; then
-    sleep 5
-  else
-    sleep 8
-  fi
-done
+    if [ $ATTEMPT -lt 5 ]; then
+      sleep 3
+    elif [ $ATTEMPT -lt 15 ]; then
+      sleep 5
+    else
+      sleep 8
+    fi
+  done
 
-if [ "$DB_CONNECTED" = true ] && [ "$PROCESS_ROLE" = "web" ]; then
-  echo "Running database migrations (web role only)..."
-  php artisan migrate --force 2>&1 || echo "WARNING: Migration failed but continuing startup..."
-
-  echo "Seeding roles and permissions (web role only)..."
-  php artisan db:seed --class=RoleSeeder --force 2>&1 || echo "WARNING: Role seeding failed but continuing startup..."
-else
   if [ "$DB_CONNECTED" != true ]; then
     echo "✗ Database not reachable after $MAX_ATTEMPTS attempts"
-    echo "Skipping migrations — will retry on first request..."
-  else
-    echo "Skipping migrations for PROCESS_ROLE=${PROCESS_ROLE}"
+    exit 1
   fi
+else
+  echo "Skipping DB wait for PROCESS_ROLE=${PROCESS_ROLE} to keep startup fast."
 fi
 
 echo "==================================="
