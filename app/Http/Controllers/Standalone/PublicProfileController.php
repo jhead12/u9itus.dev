@@ -559,7 +559,9 @@ class PublicProfileController extends Controller
     public function index(Request $request)
     {
         $isGuestBrowsing = ! auth()->check();
-        $useVoterLayout = auth()->check() && auth()->user()?->hasRole('voter');
+        // This route is intentionally public, so rely on user_type for layout selection
+        // instead of Spatie role lookups that can throw when role seed data is out of sync.
+        $useVoterLayout = auth()->check() && auth()->user()?->user_type === 'voter';
         $zipInput = trim((string) $request->input('zip', ''));
 
         if ($useVoterLayout && $zipInput === '') {
