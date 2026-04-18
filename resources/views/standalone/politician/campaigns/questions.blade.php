@@ -61,6 +61,20 @@
                         <p class="text-slate-200 text-sm mt-1.5">{{ $question->body }}</p>
                         <p class="text-xs text-slate-500 mt-1">From: {{ $question->voter->full_name ?? 'Voter' }} {{ ($question->voter->email ?? null) ? '(' . $question->voter->email . ')' : '' }}</p>
 
+                        @if($question->hasReference())
+                            <div class="mt-3 rounded-lg border border-sky-500/25 bg-sky-500/10 px-3 py-2">
+                                <p class="text-[11px] uppercase tracking-wide text-sky-300 mb-1">Referenced Clip</p>
+                                <a href="{{ $question->reference_url }}" target="_blank" rel="noopener"
+                                   class="text-sm text-sky-100 hover:text-white underline break-all">{{ $question->referencePlatformLabel() }} Link ↗</a>
+                                @if($question->referenceTimeRangeLabel())
+                                    <p class="text-xs text-sky-200/90 mt-1">Time: {{ $question->referenceTimeRangeLabel() }}</p>
+                                @endif
+                                @if(!empty($question->reference_note))
+                                    <p class="text-xs text-sky-100/90 mt-1.5">Context: {{ $question->reference_note }}</p>
+                                @endif
+                            </div>
+                        @endif
+
                         @if(!empty($question->campaign_reply))
                             <div class="mt-3 rounded-lg border border-emerald-500/25 bg-emerald-500/10 px-3 py-2">
                                 <p class="text-[11px] uppercase tracking-wide text-emerald-300 mb-1">Your Published Reply</p>

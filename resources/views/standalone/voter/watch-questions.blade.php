@@ -42,6 +42,20 @@
 
                     <p class="mt-2 text-base leading-relaxed text-slate-100">{{ $entry->body }}</p>
 
+                    @if($entry->hasReference())
+                        <div class="mt-3 rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 py-3">
+                            <p class="text-xs uppercase tracking-wide text-sky-300">Referenced Clip</p>
+                            <a href="{{ $entry->reference_url }}" target="_blank" rel="noopener"
+                               class="mt-1 inline-block text-sm text-sky-100 hover:text-white underline break-all">{{ $entry->referencePlatformLabel() }} Link ↗</a>
+                            @if($entry->referenceTimeRangeLabel())
+                                <p class="mt-1 text-xs text-sky-200/90">Time: {{ $entry->referenceTimeRangeLabel() }}</p>
+                            @endif
+                            @if(!empty($entry->reference_note))
+                                <p class="mt-1 text-xs text-sky-100/90">Context: {{ $entry->reference_note }}</p>
+                            @endif
+                        </div>
+                    @endif
+
                     <div class="mt-4 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3">
                         <p class="text-xs uppercase tracking-wide text-emerald-300">Official Campaign Response</p>
                         <p class="mt-1.5 text-sm leading-relaxed text-emerald-100 whitespace-pre-line">{{ $entry->campaign_reply ?: $entry->admin_notes }}</p>

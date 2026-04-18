@@ -237,7 +237,7 @@
                     <p class="mt-1.5 text-sm leading-relaxed text-slate-300">Get clarification on the ad, the candidate's position, or what they plan to do if elected.</p>
                 </div>
 
-                <button @click="messageModal = true" type="button"
+                <button id="ask-question-open-btn" @click="messageModal = true" type="button"
                     class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-400/40 bg-emerald-500 px-5 py-3 text-sm font-semibold text-slate-950 shadow-md shadow-emerald-900/30 transition hover:bg-emerald-400 hover:shadow-lg hover:shadow-emerald-900/40 focus:outline-none focus:ring-2 focus:ring-emerald-300/60 sm:w-auto sm:min-w-[230px]">
                     <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
@@ -287,6 +287,17 @@
                         <p class="text-xs text-slate-500">{{ $entry->public_alias ?: 'Verified Voter' }}</p>
                     </div>
                     <p class="mt-2 text-sm leading-relaxed text-slate-100">{{ $entry->body }}</p>
+
+                    @if($entry->hasReference())
+                        <div class="mt-3 rounded-lg border border-sky-500/20 bg-sky-500/10 px-3 py-2">
+                            <p class="text-[11px] uppercase tracking-wide text-sky-300">Referenced Clip</p>
+                            <a href="{{ $entry->reference_url }}" target="_blank" rel="noopener"
+                               class="mt-1 inline-block text-xs text-sky-100 hover:text-white underline break-all">{{ $entry->referencePlatformLabel() }} Link ↗</a>
+                            @if($entry->referenceTimeRangeLabel())
+                                <p class="mt-1 text-[11px] text-sky-200/90">Time: {{ $entry->referenceTimeRangeLabel() }}</p>
+                            @endif
+                        </div>
+                    @endif
 
                     <div class="mt-3 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-2.5">
                         <p class="text-[11px] uppercase tracking-wide text-emerald-300">Official Campaign Response</p>
@@ -590,7 +601,7 @@
                     </button>
                 </div>
 
-                <form @submit.prevent="
+                <form id="message-form" @submit.prevent="
                     if (!submitting) {
                         submitting = true;
                         const formData = new FormData($event.target);
@@ -716,6 +727,45 @@
                         <p class="text-xs text-slate-500 mt-1">Questions may be reviewed before public posting. Public posts use an anonymous voter alias.</p>
                     </div>
 
+                    <details class="mb-5 rounded-lg border border-slate-700/70 bg-slate-900/35 px-3 py-2">
+                        <summary class="cursor-pointer list-none text-sm font-medium text-slate-300 flex items-center justify-between">
+                            Add optional social/video reference
+                            <span class="text-xs text-slate-500">Optional</span>
+                        </summary>
+                        <div class="mt-3 space-y-3">
+                            <div>
+                                <label for="reference-url" class="block text-xs font-medium text-slate-400 mb-1">Reference URL</label>
+                                <input id="reference-url" type="url" name="reference_url" maxlength="2048"
+                                    placeholder="https://youtube.com/... or TikTok/Facebook/Instagram/X link"
+                                    class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition">
+                            </div>
+
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                    <label for="reference-start-seconds" class="block text-xs font-medium text-slate-400 mb-1">Start (seconds)</label>
+                                    <input id="reference-start-seconds" type="number" name="reference_start_seconds" min="0" max="86400"
+                                        placeholder="0"
+                                        class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition">
+                                </div>
+                                <div>
+                                    <label for="reference-end-seconds" class="block text-xs font-medium text-slate-400 mb-1">End (seconds)</label>
+                                    <input id="reference-end-seconds" type="number" name="reference_end_seconds" min="0" max="86400"
+                                        placeholder="60"
+                                        class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition">
+                                </div>
+                            </div>
+
+                            <div>
+                                <label for="reference-note" class="block text-xs font-medium text-slate-400 mb-1">What part are you asking about? (optional)</label>
+                                <input id="reference-note" type="text" name="reference_note" maxlength="280"
+                                    placeholder="Example: Claim about school funding around 00:42"
+                                    class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition">
+                            </div>
+
+                            <p class="text-xs text-slate-500">Supported references: YouTube, Facebook, Instagram, TikTok, and X/Twitter.</p>
+                        </div>
+                    </details>
+
                     <div class="flex gap-3">
                         <button type="button" @click="messageModal = false"
                             class="flex-1 px-4 py-2 bg-slate-700/60 hover:bg-slate-600/60 border border-slate-600 rounded-lg text-slate-300 hover:text-white text-sm transition">
@@ -800,6 +850,8 @@
     const surveyBadge = document.getElementById('survey-badge');
     const surveyOptionButtons = Array.from(document.querySelectorAll('.survey-option-btn'));
     const durationHint = document.getElementById('duration-hint');
+    const askQuestionOpenButton = document.getElementById('ask-question-open-btn');
+    const questionForm = document.getElementById('message-form');
 
     /* ── helpers ─────────────────────────────────────────────────── */
     function showStatus(msg, type = 'info') {
@@ -931,6 +983,42 @@
         video.addEventListener('ended', () => setBufferingState(false));
         video.addEventListener('error', () => setBufferingState(false));
     }
+
+    function applyQuestionPrefillFromQuery() {
+        if (!questionForm) {
+            return;
+        }
+
+        const params = new URLSearchParams(window.location.search);
+        const prefill = {
+            body: params.get('question') || params.get('q') || '',
+            referenceUrl: params.get('reference_url') || params.get('ref_url') || '',
+            start: params.get('reference_start') || params.get('ref_start') || '',
+            end: params.get('reference_end') || params.get('ref_end') || '',
+            note: params.get('reference_note') || params.get('ref_note') || '',
+        };
+
+        const bodyField = questionForm.querySelector('textarea[name="body"]');
+        const referenceUrlField = questionForm.querySelector('input[name="reference_url"]');
+        const startField = questionForm.querySelector('input[name="reference_start_seconds"]');
+        const endField = questionForm.querySelector('input[name="reference_end_seconds"]');
+        const noteField = questionForm.querySelector('input[name="reference_note"]');
+
+        if (bodyField && prefill.body) bodyField.value = prefill.body;
+        if (referenceUrlField && prefill.referenceUrl) referenceUrlField.value = prefill.referenceUrl;
+        if (startField && prefill.start) startField.value = prefill.start;
+        if (endField && prefill.end) endField.value = prefill.end;
+        if (noteField && prefill.note) noteField.value = prefill.note;
+
+        const shouldAutoOpen = Boolean(prefill.body || prefill.referenceUrl || prefill.note);
+        if (shouldAutoOpen && askQuestionOpenButton) {
+            setTimeout(() => {
+                askQuestionOpenButton.click();
+            }, 0);
+        }
+    }
+
+    applyQuestionPrefillFromQuery();
 
     function hydrateNativeVideoSource(video) {
         if (!video || video.dataset.sourceHydrated === '1') {

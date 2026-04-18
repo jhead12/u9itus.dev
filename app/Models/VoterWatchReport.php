@@ -21,6 +21,11 @@ class VoterWatchReport extends Model
         'type',
         'issue_category',
         'body',
+        'reference_platform',
+        'reference_url',
+        'reference_start_seconds',
+        'reference_end_seconds',
+        'reference_note',
         'status',
         'public_visibility',
         'is_public_board',
@@ -40,6 +45,8 @@ class VoterWatchReport extends Model
         'published_at' => 'datetime',
         'campaign_replied_at' => 'datetime',
         'resolved_at' => 'datetime',
+        'reference_start_seconds' => 'integer',
+        'reference_end_seconds' => 'integer',
     ];
 
     // ── Relationships ──────────────────────────────────────────────
@@ -107,6 +114,51 @@ class VoterWatchReport extends Model
     public function isMessage(): bool { return $this->type === 'message'; }
     public function isOpen(): bool   { return $this->status === 'open'; }
     public function hasCampaignReply(): bool { return !empty($this->campaign_reply); }
+    public function hasReference(): bool { return !empty($this->reference_url); }
+
+    public function referencePlatformLabel(): string
+    {
+        return match ((string) $this->reference_platform) {
+            'youtube' => 'YouTube',
+            'facebook' => 'Facebook',
+            'instagram' => 'Instagram',
+            'tiktok' => 'TikTok',
+            'twitter' => 'X / Twitter',
+            default => 'External Video',
+        };
+    }
+
+    public function referenceTimeRangeLabel(): ?string
+    {
+        $start = $this->reference_start_seconds;
+        $end = $this->reference_end_seconds;
+        $label = null;
+
+        $format = function (?int $seconds): ?string {
+            if (!is_int($seconds)) {
+                return null;
+            }
+
+            $safe = max(0, $seconds);
+            $mins = intdiv($safe, 60);
+            $secs = $safe % 60;
+            return sprintf('%d:%02d', $mins, $secs);
+        };
+
+        $startLabel = $format($start);
+        $endLabel = $format($end);
+
+        if ($startLabel && $endLabel) {
+            $label = $startLabel . ' - ' . $endLabel;
+        } elseif ($startLabel) {
+            $label = 'From ' . $startLabel;
+        } elseif ($endLabel) {
+            $label = 'Until ' . $endLabel;
+        }
+
+        return $label;
+    }
+
     public function isPubliclyVisible(): bool
     {
         return $this->is_public_board && $this->public_visibility === 'approved';

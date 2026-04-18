@@ -263,6 +263,32 @@ class VoterController extends Controller
         return false;
     }
 
+    private function detectReferencePlatform(?string $url): ?string
+    {
+        $value = trim((string) $url);
+        $platform = null;
+
+        if ($value !== '') {
+            $host = strtolower((string) parse_url($value, PHP_URL_HOST));
+
+            if ($host !== '') {
+                if (str_contains($host, 'youtube.com') || str_contains($host, 'youtu.be')) {
+                    $platform = 'youtube';
+                } elseif (str_contains($host, 'facebook.com') || str_contains($host, 'fb.watch')) {
+                    $platform = 'facebook';
+                } elseif (str_contains($host, 'instagram.com')) {
+                    $platform = 'instagram';
+                } elseif (str_contains($host, 'tiktok.com')) {
+                    $platform = 'tiktok';
+                } elseif (str_contains($host, 'x.com') || str_contains($host, 'twitter.com')) {
+                    $platform = 'twitter';
+                }
+            }
+        }
+
+        return $platform;
+    }
+
     // ── Dashboard ────────────────────────────────────────────
 
     public function dashboard()
@@ -857,6 +883,10 @@ class VoterController extends Controller
         $validated = $request->validate([
             'body'              => 'required|string|max:1000',
             'view_session_uuid' => 'nullable|string|max:36',
+            'reference_url' => 'nullable|url|max:2048',
+            'reference_start_seconds' => 'nullable|integer|min:0|max:86400',
+            'reference_end_seconds' => 'nullable|integer|min:0|max:86400|gte:reference_start_seconds',
+            'reference_note' => 'nullable|string|max:280',
         ]);
 
         $adToken   = \App\Models\AdViewToken::where('token', $token)->firstOrFail();
@@ -869,6 +899,32 @@ class VoterController extends Controller
                 'success' => false,
                 'message' => 'Your question contains blocked language and could not be submitted.',
             ], 422);
+        }
+
+        $referenceUrl = trim((string) ($validated['reference_url'] ?? ''));
+        $hasReferenceDetailsWithoutUrl = $referenceUrl === ''
+            && (
+                isset($validated['reference_start_seconds'])
+                || isset($validated['reference_end_seconds'])
+                || filled($validated['reference_note'] ?? null)
+            );
+
+        if ($hasReferenceDetailsWithoutUrl) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Add a reference URL to include timestamps or a reference note.',
+            ], 422);
+        }
+
+        $referencePlatform = null;
+        if ($referenceUrl !== '') {
+            $referencePlatform = $this->detectReferencePlatform($referenceUrl);
+            if ($referencePlatform === null) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unsupported reference source. Please use YouTube, Facebook, Instagram, TikTok, or X.',
+                ], 422);
+            }
         }
 
         $rateConfig = $this->questionRateLimitConfig();
@@ -891,6 +947,11 @@ class VoterController extends Controller
             'type'              => 'message',
             'issue_category'    => null,
             'body'              => $validated['body'],
+            'reference_platform' => $referencePlatform,
+            'reference_url' => $referenceUrl !== '' ? $referenceUrl : null,
+            'reference_start_seconds' => $validated['reference_start_seconds'] ?? null,
+            'reference_end_seconds' => $validated['reference_end_seconds'] ?? null,
+            'reference_note' => filled($validated['reference_note'] ?? null) ? trim((string) $validated['reference_note']) : null,
             'status'            => 'open',
             'public_visibility' => 'pending',
             'is_public_board'   => false,

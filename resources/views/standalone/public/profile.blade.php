@@ -496,6 +496,20 @@
                             <p class="text-[11px] uppercase tracking-wide text-slate-500 mb-1">Voter Question</p>
                             <p class="text-xs text-slate-500 mb-2">{{ $entry->public_alias ?: 'Verified Voter' }}</p>
                             <p class="text-sm text-slate-200 leading-relaxed whitespace-pre-line">{{ $entry->body }}</p>
+
+                            @if($entry->hasReference())
+                                <div class="mt-3 rounded-md border border-sky-500/25 bg-sky-500/10 px-3 py-2">
+                                    <p class="text-[11px] uppercase tracking-wide text-sky-300 mb-1">Referenced Clip</p>
+                                    <a href="{{ $entry->reference_url }}" target="_blank" rel="noopener"
+                                       class="text-xs text-sky-100 hover:text-white underline break-all">{{ $entry->referencePlatformLabel() }} Link ↗</a>
+                                    @if($entry->referenceTimeRangeLabel())
+                                        <p class="text-[11px] text-sky-200/90 mt-1">Time: {{ $entry->referenceTimeRangeLabel() }}</p>
+                                    @endif
+                                    @if(!empty($entry->reference_note))
+                                        <p class="text-[11px] text-sky-100/90 mt-1">Context: {{ $entry->reference_note }}</p>
+                                    @endif
+                                </div>
+                            @endif
                         </div>
 
                         <div class="rounded-lg border border-emerald-500/25 bg-emerald-500/10 px-4 py-3">
