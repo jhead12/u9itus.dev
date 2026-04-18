@@ -597,8 +597,33 @@ class VoterController extends Controller
             ->take(2)
             ->get();
 
+        // Find next available campaign for this voter
+        $voter = $adToken->voter;
+        $excludedCampaignIds = method_exists($this, 'excludedCampaignIdsForVoter') ? $this->excludedCampaignIdsForVoter($voter) : [];
+        $excludedCampaignIds[] = $campaign->id;
+
+        $nextCampaign = \App\Models\PoliticalCampaign::needingViews()
+            ->whereNotIn('id', $excludedCampaignIds)
+            ->where('status', \App\Enums\CampaignStatus::Active)
+            ->orderByDesc('revenue_per_view')
+            ->orderByDesc('updated_at')
+            ->first();
+
+        $nextAdToken = null;
+        if ($nextCampaign) {
+            // Mint a new AdViewToken for the next campaign
+            $nextAdToken = \App\Models\AdViewToken::create([
+                'voter_id' => $voter->id,
+                'political_campaign_id' => $nextCampaign->id,
+                'token' => \Str::uuid()->toString(),
+                'is_used' => false,
+                'is_expired' => false,
+                'expires_at' => now()->addMinutes(30),
+            ]);
+        }
+
         return view('standalone.voter.watch', compact(
-            'adToken', 'campaign', 'duration', 'mustWatch', 'payout', 'recentPublicQuestions'
+            'adToken', 'campaign', 'duration', 'mustWatch', 'payout', 'recentPublicQuestions', 'nextAdToken', 'nextCampaign'
         ));
     }
 

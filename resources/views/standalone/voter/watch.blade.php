@@ -5,14 +5,25 @@
 @section('content')
 <div class="max-w-3xl mx-auto px-4 sm:px-6 py-8">
 
-    {{-- Breadcrumb --}}
-    <div class="mb-5">
+
+    {{-- Top Navigation --}}
+    <div class="mb-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <a href="{{ route('voter.dashboard') }}" class="inline-flex items-center gap-1.5 text-slate-400 hover:text-emerald-400 text-sm transition">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
             </svg>
             Back to Dashboard
         </a>
+        @if(isset($nextAdToken) && $nextAdToken && isset($nextCampaign) && $nextCampaign)
+            <a href="{{ route('voter.watch', $nextAdToken->token) }}"
+               class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-800 focus:ring-emerald-500"
+               title="Go to next available video">
+                Next Video
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                </svg>
+            </a>
+        @endif
     </div>
 
     {{-- Campaign Header --}}
