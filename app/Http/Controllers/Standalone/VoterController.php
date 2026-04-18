@@ -8,6 +8,7 @@ use App\Models\EngagementSurveyResponse;
 use App\Models\PoliticalCampaign;
 use App\Models\ReferralVisit;
 use App\Models\Voter;
+use App\Models\VoterWatchReport;
 use App\Models\ViewSession;
 use App\Services\PlatformSettingsService;
 use App\Services\PoliticalViewService;
@@ -552,8 +553,26 @@ class VoterController extends Controller
             $campaign->media_url = $playableMediaUrl;
         }
 
+        $recentPublicQuestions = VoterWatchReport::query()
+            ->messages()
+            ->where('campaign_id', $campaign->id)
+            ->where(function ($query) {
+                $query->where(function ($approved) {
+                    $approved->where('public_visibility', 'approved')
+                        ->where('is_public_board', true);
+                })->orWhere(function ($legacy) {
+                    $legacy->where('status', 'resolved')
+                        ->whereNotNull('admin_notes');
+                });
+            })
+            ->orderByDesc('campaign_replied_at')
+            ->orderByDesc('published_at')
+            ->orderByDesc('updated_at')
+            ->take(2)
+            ->get();
+
         return view('standalone.voter.watch', compact(
-            'adToken', 'campaign', 'duration', 'mustWatch', 'payout'
+            'adToken', 'campaign', 'duration', 'mustWatch', 'payout', 'recentPublicQuestions'
         ));
     }
 

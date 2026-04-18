@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Mail\CampaignQuestionDigestMail;
 use App\Enums\ApprovalStatus;
 use App\Enums\CampaignStatus;
 use App\Models\CampaignAuditLog;
@@ -10,6 +11,7 @@ use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 /**
  * Phase 14 — Campaign Scheduling
@@ -79,6 +81,8 @@ class ApplyCampaignSchedule extends Command
         foreach ($toExpire as $campaign) {
             $campaign->update(['status' => CampaignStatus::Paused]);
 
+            $this->queueQuestionDigest($campaign);
+
             if ($systemAdminId) {
                 CampaignAuditLog::create([
                     'campaign_id' => $campaign->id,
@@ -100,5 +104,40 @@ class ApplyCampaignSchedule extends Command
         }
 
         return self::SUCCESS;
+    }
+
+    private function queueQuestionDigest(PoliticalCampaign $campaign): void
+    {
+        $campaign->loadMissing('politician.user');
+
+        $politicianUser = $campaign->politician?->user;
+        if (! $politicianUser instanceof User || empty($politicianUser->email)) {
+            return;
+        }
+
+        $preferences = $politicianUser->notificationPreference()->firstOrCreate([])->refresh();
+        if (! $preferences->isEnabled('email', 'campaign_status')) {
+            return;
+        }
+
+        $questions = $campaign->voterWatchReports()
+            ->messages()
+            ->with('voter:id,full_name,email')
+            ->oldest('created_at')
+            ->get();
+
+        if ($questions->isEmpty()) {
+            return;
+        }
+
+        try {
+            Mail::to($politicianUser->email)->queue(new CampaignQuestionDigestMail($campaign, $questions));
+        } catch (\Throwable $e) {
+            Log::warning('Failed to queue campaign question digest', [
+                'campaign_id' => $campaign->id,
+                'user_id' => $politicianUser->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 }

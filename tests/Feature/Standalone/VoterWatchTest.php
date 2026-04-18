@@ -133,6 +133,49 @@ test('hls media type watch page renders HLS player mode', function () {
         ->assertSee('hls.js@1.5.15', false);
 });
 
+test('watch page includes compact public q and a preview for approved campaign questions', function () {
+    [$user, $voter] = voterUser();
+    $campaign = watchableCampaign();
+    $campaign->politician->update([
+        'slug' => 'watch-preview-politician',
+        'page_published' => true,
+    ]);
+    $adToken = validToken($voter, $campaign);
+
+    VoterWatchReport::create([
+        'voter_id' => $voter->id,
+        'campaign_id' => $campaign->id,
+        'type' => 'message',
+        'body' => 'How will you reduce commute times?',
+        'status' => 'resolved',
+        'public_visibility' => 'approved',
+        'is_public_board' => true,
+        'public_alias' => 'Voter #104',
+        'campaign_reply' => 'We will add more frequent bus lanes during peak hours.',
+        'campaign_replied_at' => now()->subHour(),
+        'published_at' => now()->subMinutes(30),
+    ]);
+
+    VoterWatchReport::create([
+        'voter_id' => $voter->id,
+        'campaign_id' => $campaign->id,
+        'type' => 'message',
+        'body' => 'This should stay hidden until approved.',
+        'status' => 'open',
+        'public_visibility' => 'pending',
+        'is_public_board' => false,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('voter.watch', ['token' => $adToken->token]))
+        ->assertOk()
+        ->assertSee('Recent Voter Q&amp;A', false)
+        ->assertSee('See what voters asked')
+        ->assertSee('How will you reduce commute times?')
+        ->assertSee('We will add more frequent bus lanes during peak hours.')
+        ->assertDontSee('This should stay hidden until approved.');
+});
+
 // ── startWatching ─────────────────────────────────────────────────────────────
 
 test('startWatching creates view session and marks token used', function () {
