@@ -21,6 +21,7 @@ use App\Models\AdminSecurityAuditLog;
 use App\Models\CampaignAuditLog;
 use App\Models\CampaignTransaction;
 use App\Models\EmailTemplate;
+use App\Models\OnboardingHandoffEvent;
 use App\Models\PoliticalCampaign;
 use App\Models\PoliticianCredit;
 use App\Models\Politician;
@@ -1766,6 +1767,37 @@ class AdminController extends Controller
         $totalReferrals = (float) ($totals->total_referrals ?? 0);
         $grossDeliveredRevenue = $totalNetRevenue + $totalPayouts + $totalReferrals;
 
+        $handoffRows = OnboardingHandoffEvent::query()
+            ->whereIn('role', ['voter', 'politician'])
+            ->where('created_at', '>=', now()->subDays(30))
+            ->selectRaw("role")
+            ->selectRaw("SUM(CASE WHEN event_type = 'opened' THEN 1 ELSE 0 END) as opened_count")
+            ->selectRaw("SUM(CASE WHEN event_type = 'dismissed' THEN 1 ELSE 0 END) as dismissed_count")
+            ->selectRaw("COUNT(DISTINCT CASE WHEN event_type = 'opened' THEN user_id END) as unique_openers")
+            ->selectRaw("COUNT(DISTINCT CASE WHEN event_type = 'dismissed' THEN user_id END) as unique_dismissers")
+            ->groupBy('role')
+            ->get()
+            ->keyBy('role');
+
+        $buildHandoffRoleStats = function (string $role) use ($handoffRows): array {
+            $row = $handoffRows->get($role);
+            $opened = (int) ($row->opened_count ?? 0);
+            $dismissed = (int) ($row->dismissed_count ?? 0);
+            $uniqueOpeners = (int) ($row->unique_openers ?? 0);
+            $uniqueDismissers = (int) ($row->unique_dismissers ?? 0);
+
+            return [
+                'opened' => $opened,
+                'dismissed' => $dismissed,
+                'unique_openers' => $uniqueOpeners,
+                'unique_dismissers' => $uniqueDismissers,
+                'dismiss_rate_pct' => $opened > 0 ? round(($dismissed / $opened) * 100, 1) : 0.0,
+            ];
+        };
+
+        $voterHandoffStats = $buildHandoffRoleStats('voter');
+        $politicianHandoffStats = $buildHandoffRoleStats('politician');
+
         return [
             'total_views' => $totalViews,
             'gross_revenue' => $grossDeliveredRevenue,
@@ -1781,6 +1813,13 @@ class AdminController extends Controller
             'avg_referral_per_view' => $totalViews > 0 ? round($totalReferrals / $totalViews, 2) : 0.0,
             'avg_profit_per_view' => $totalViews > 0 ? round($totalNetRevenue / $totalViews, 2) : 0.0,
             'margin_percent' => $grossDeliveredRevenue > 0 ? round(($totalNetRevenue / $grossDeliveredRevenue) * 100, 1) : 0.0,
+            'onboarding_handoff' => [
+                'window_days' => 30,
+                'voter' => $voterHandoffStats,
+                'politician' => $politicianHandoffStats,
+                'total_opened' => $voterHandoffStats['opened'] + $politicianHandoffStats['opened'],
+                'total_dismissed' => $voterHandoffStats['dismissed'] + $politicianHandoffStats['dismissed'],
+            ],
         ];
     }
 

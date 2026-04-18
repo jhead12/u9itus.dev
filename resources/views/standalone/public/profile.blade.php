@@ -756,11 +756,13 @@
                    class="inline-flex items-center gap-1.5 text-xs font-medium bg-red-900/30 border border-red-700/40 text-red-300 hover:text-red-200 rounded-lg px-3 py-1.5 transition">
                     ▶ YouTube Search ↗
                 </a>
+                @if(!empty($cspanVideos))
                 <a href="https://www.c-span.org/search/?searchtype=Videos&query={{ $polNameEncoded }}"
                    target="_blank" rel="noopener"
                    class="inline-flex items-center gap-1.5 text-xs font-medium bg-blue-900/30 border border-blue-700/40 text-blue-300 hover:text-blue-200 rounded-lg px-3 py-1.5 transition">
                     📺 C-SPAN Search ↗
                 </a>
+                @endif
             </div>
         </section>
 
@@ -805,7 +807,9 @@
                 if (!empty($transparencyData['ballotpedia']['source_url'] ?? null)) {
                     $researchLinks[] = ['label' => 'Ballotpedia Profile', 'url' => $transparencyData['ballotpedia']['source_url']];
                 }
-                $researchLinks[] = ['label' => 'C-SPAN Video Search', 'url' => 'https://www.c-span.org/search/?searchtype=Videos&query=' . rawurlencode($politician->full_name)];
+                if (!empty($cspanVideos)) {
+                    $researchLinks[] = ['label' => 'C-SPAN Video Search', 'url' => 'https://www.c-span.org/search/?searchtype=Videos&query=' . rawurlencode($politician->full_name)];
+                }
             @endphp
 
             @if(!empty($researchLinks))

@@ -104,5 +104,80 @@
         </div>
     </div>
 
+    @php
+        $handoff = $stats['onboarding_handoff'] ?? [
+            'window_days' => 30,
+            'total_opened' => 0,
+            'total_dismissed' => 0,
+            'voter' => ['opened' => 0, 'dismissed' => 0, 'unique_openers' => 0, 'unique_dismissers' => 0, 'dismiss_rate_pct' => 0],
+            'politician' => ['opened' => 0, 'dismissed' => 0, 'unique_openers' => 0, 'unique_dismissers' => 0, 'dismiss_rate_pct' => 0],
+        ];
+    @endphp
+
+    <section class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5 space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div>
+                <h3 class="text-sm font-semibold text-white">Onboarding Handoff Widget Performance</h3>
+                <p class="text-xs text-slate-500 mt-1">Interaction events from the floating Start Here helper in the last {{ $handoff['window_days'] }} days.</p>
+            </div>
+            <div class="flex items-center gap-2 text-xs">
+                <span class="inline-flex items-center rounded-full border border-slate-600 px-2.5 py-1 text-slate-300">Opened: {{ number_format($handoff['total_opened']) }}</span>
+                <span class="inline-flex items-center rounded-full border border-slate-600 px-2.5 py-1 text-slate-300">Dismissed: {{ number_format($handoff['total_dismissed']) }}</span>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="rounded-xl border border-slate-700/70 bg-slate-900/40 p-4">
+                <div class="flex items-center justify-between gap-2 mb-3">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-emerald-300">Voter Handoff</p>
+                    <span class="text-xs text-slate-400">Dismiss Rate: {{ number_format($handoff['voter']['dismiss_rate_pct'], 1) }}%</span>
+                </div>
+                <div class="grid grid-cols-2 gap-3 text-xs">
+                    <div class="rounded-lg border border-slate-700/70 bg-slate-800/40 px-3 py-2">
+                        <p class="text-slate-500">Opens</p>
+                        <p class="text-white text-base font-semibold">{{ number_format($handoff['voter']['opened']) }}</p>
+                    </div>
+                    <div class="rounded-lg border border-slate-700/70 bg-slate-800/40 px-3 py-2">
+                        <p class="text-slate-500">Dismisses</p>
+                        <p class="text-white text-base font-semibold">{{ number_format($handoff['voter']['dismissed']) }}</p>
+                    </div>
+                    <div class="rounded-lg border border-slate-700/70 bg-slate-800/40 px-3 py-2">
+                        <p class="text-slate-500">Unique Openers</p>
+                        <p class="text-white text-base font-semibold">{{ number_format($handoff['voter']['unique_openers']) }}</p>
+                    </div>
+                    <div class="rounded-lg border border-slate-700/70 bg-slate-800/40 px-3 py-2">
+                        <p class="text-slate-500">Unique Dismissers</p>
+                        <p class="text-white text-base font-semibold">{{ number_format($handoff['voter']['unique_dismissers']) }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="rounded-xl border border-slate-700/70 bg-slate-900/40 p-4">
+                <div class="flex items-center justify-between gap-2 mb-3">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-sky-300">Politician Handoff</p>
+                    <span class="text-xs text-slate-400">Dismiss Rate: {{ number_format($handoff['politician']['dismiss_rate_pct'], 1) }}%</span>
+                </div>
+                <div class="grid grid-cols-2 gap-3 text-xs">
+                    <div class="rounded-lg border border-slate-700/70 bg-slate-800/40 px-3 py-2">
+                        <p class="text-slate-500">Opens</p>
+                        <p class="text-white text-base font-semibold">{{ number_format($handoff['politician']['opened']) }}</p>
+                    </div>
+                    <div class="rounded-lg border border-slate-700/70 bg-slate-800/40 px-3 py-2">
+                        <p class="text-slate-500">Dismisses</p>
+                        <p class="text-white text-base font-semibold">{{ number_format($handoff['politician']['dismissed']) }}</p>
+                    </div>
+                    <div class="rounded-lg border border-slate-700/70 bg-slate-800/40 px-3 py-2">
+                        <p class="text-slate-500">Unique Openers</p>
+                        <p class="text-white text-base font-semibold">{{ number_format($handoff['politician']['unique_openers']) }}</p>
+                    </div>
+                    <div class="rounded-lg border border-slate-700/70 bg-slate-800/40 px-3 py-2">
+                        <p class="text-slate-500">Unique Dismissers</p>
+                        <p class="text-white text-base font-semibold">{{ number_format($handoff['politician']['unique_dismissers']) }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
 </div>
 @endsection
