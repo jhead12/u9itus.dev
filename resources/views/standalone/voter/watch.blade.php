@@ -633,25 +633,26 @@
             </div>
         </div>
 
-        {{-- Ask Campaign Owner Question Modal --}}
+        {{-- Ask Campaign Owner Question Composer (non-blocking) --}}
         <div x-show="messageModal"
             x-transition:enter="transition ease-out duration-200"
-            x-transition:enter-start="opacity-0"
-            x-transition:enter-end="opacity-100"
+            x-transition:enter-start="opacity-0 translate-y-2"
+            x-transition:enter-end="opacity-100 translate-y-0"
             x-transition:leave="transition ease-in duration-150"
-            x-transition:leave-start="opacity-100"
-            x-transition:leave-end="opacity-0"
-            class="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/60 backdrop-blur-sm"
-            @click.self="messageModal = false"
+            x-transition:leave-start="opacity-100 translate-y-0"
+            x-transition:leave-end="opacity-0 translate-y-2"
+            @keydown.escape.window="messageModal = false"
+            class="fixed inset-x-0 bottom-0 z-50 px-4 pb-4 sm:inset-auto sm:right-4 sm:bottom-4 sm:w-[min(92vw,560px)]"
             style="display: none;">
-            
-            <div class="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl max-w-md w-full p-6"
+
+            <div class="bg-slate-800/95 border border-slate-700 rounded-2xl shadow-2xl w-full p-6 backdrop-blur"
                 @click.stop>
                 
                 <div class="flex items-start justify-between mb-4">
                     <div>
                         <h3 class="text-lg font-bold text-white">Ask the Campaign Owner</h3>
                         <p class="text-sm text-slate-400 mt-0.5">This message goes to the campaign owner/team for this ad, not platform support and not necessarily the featured politician.</p>
+                        <p class="text-xs text-emerald-300/90 mt-1">Your video can keep playing while you write.</p>
                     </div>
                     <button @click="messageModal = false" class="text-slate-500 hover:text-slate-300 transition">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
