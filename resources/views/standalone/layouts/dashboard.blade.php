@@ -2,6 +2,9 @@
     $dashboardNotificationSeed = [];
     $dashboardUser = auth()->user();
     $dashboardPolitician = $dashboardUser?->hasRole('politician') ? $dashboardUser->politician : null;
+    $dashboardOnboardingProgress = null;
+    $showPoliticianStartHere = false;
+    $politicianStartHereChecklist = [];
 
     if ($dashboardPolitician && ! $dashboardPolitician->page_published) {
         $dashboardNotificationSeed[] = [
@@ -14,6 +17,43 @@
             'actionLabel' => 'Open Public Page',
             'local' => true,
         ];
+    }
+
+    if ($dashboardUser?->hasRole('politician')) {
+        $dashboardOnboardingProgress = \App\Models\OnboardingProgress::query()
+            ->where('user_id', $dashboardUser->id)
+            ->where('user_type', 'politician')
+            ->first();
+
+        $completedRecently = $dashboardOnboardingProgress?->completed_at
+            ? $dashboardOnboardingProgress->completed_at->gte(now()->subDays(14))
+            : false;
+
+        $showPoliticianStartHere = $completedRecently
+            && ($dashboardOnboardingProgress?->is_completed || $dashboardOnboardingProgress?->skipped);
+
+        $politicianStartHereChecklist = [
+            [
+                'label' => 'Created first campaign',
+                'done' => $dashboardPolitician ? $dashboardPolitician->campaigns()->exists() : false,
+            ],
+            [
+                'label' => 'Submitted campaign for review',
+                'done' => $dashboardPolitician
+                    ? $dashboardPolitician->campaigns()
+                        ->whereIn('status', ['pending_approval', 'active', 'paused', 'scheduled', 'completed'])
+                        ->exists()
+                    : false,
+            ],
+            [
+                'label' => 'Published public profile',
+                'done' => (bool) ($dashboardPolitician?->page_published),
+            ],
+        ];
+    }
+
+    if (! request()->routeIs('politician.dashboard')) {
+        $showPoliticianStartHere = false;
     }
 @endphp
 
@@ -361,6 +401,118 @@
 
     </div>
 </div>
+
+@if($showPoliticianStartHere)
+<div id="floating-start-here-politician"
+     data-key="politician-{{ auth()->id() }}-{{ $dashboardOnboardingProgress?->completed_at?->timestamp ?? 'na' }}"
+     class="fixed bottom-5 left-5 z-[110] w-[min(92vw,330px)]">
+    <button id="start-here-politician-toggle"
+            type="button"
+            class="w-full inline-flex items-center justify-between gap-3 rounded-xl border border-emerald-500/35 bg-slate-900/95 px-4 py-3 text-left shadow-2xl shadow-emerald-900/30">
+        <span>
+            <span class="block text-xs uppercase tracking-wide text-emerald-300">New Here?</span>
+            <span class="block text-sm font-semibold text-white">Start Here</span>
+        </span>
+        <svg class="w-4 h-4 text-emerald-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+        </svg>
+    </button>
+
+    <div id="start-here-politician-panel" class="mt-2 hidden rounded-xl border border-slate-700 bg-slate-900/95 p-3 shadow-2xl">
+        <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mb-2">Suggested First Steps</p>
+        <div class="space-y-2">
+            <a href="{{ route('politician.campaigns.create') }}" class="block rounded-lg border border-slate-700/80 bg-slate-800/60 px-3 py-2 text-sm text-slate-200 hover:border-emerald-500/40 hover:text-white transition">Create Your First Campaign</a>
+            <a href="{{ route('politician.campaigns.index') }}" class="block rounded-lg border border-slate-700/80 bg-slate-800/60 px-3 py-2 text-sm text-slate-200 hover:border-emerald-500/40 hover:text-white transition">Review Campaign Status</a>
+            <a href="{{ route('politician.public-page') }}" class="block rounded-lg border border-slate-700/80 bg-slate-800/60 px-3 py-2 text-sm text-slate-200 hover:border-emerald-500/40 hover:text-white transition">Publish Public Profile</a>
+        </div>
+        <div class="mt-3 rounded-lg border border-slate-700/70 bg-slate-800/40 p-2.5">
+            <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-2">Progress</p>
+            <ul class="space-y-1.5">
+                @foreach($politicianStartHereChecklist as $item)
+                    <li class="flex items-center gap-2 text-xs {{ $item['done'] ? 'text-emerald-300' : 'text-slate-400' }}">
+                        <span class="inline-flex h-4 w-4 items-center justify-center rounded-full border {{ $item['done'] ? 'border-emerald-500/60 bg-emerald-500/15' : 'border-slate-600 bg-slate-700/40' }}">
+                            @if($item['done'])
+                                <svg class="h-2.5 w-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
+                                </svg>
+                            @endif
+                        </span>
+                        <span>{{ $item['label'] }}{{ $item['done'] ? ' - Done' : '' }}</span>
+                    </li>
+                @endforeach
+            </ul>
+        </div>
+        <button id="start-here-politician-dismiss"
+                type="button"
+                class="mt-3 w-full rounded-lg border border-slate-700 px-3 py-2 text-xs font-medium text-slate-400 hover:text-white hover:border-slate-500 transition">
+            Dismiss this helper
+        </button>
+    </div>
+</div>
+
+<script>
+(function () {
+    const widget = document.getElementById('floating-start-here-politician');
+    if (!widget) return;
+
+    const keySuffix = widget.getAttribute('data-key') || 'politician';
+    const storeKey = 'u9itus:start-here:' + keySuffix;
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+
+    const trackEvent = function (eventType, context = {}) {
+        fetch('/api/v1/onboarding-handoff-events', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-TOKEN': csrfToken,
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({
+                role: 'politician',
+                event_type: eventType,
+                widget_key: keySuffix,
+                context: context,
+            }),
+        }).catch(() => {});
+    };
+
+    try {
+        if (window.localStorage.getItem(storeKey) === 'dismissed') {
+            widget.remove();
+            return;
+        }
+    } catch (_) {
+        // Ignore storage failures.
+    }
+
+    const toggle = document.getElementById('start-here-politician-toggle');
+    const panel = document.getElementById('start-here-politician-panel');
+    const dismiss = document.getElementById('start-here-politician-dismiss');
+    if (!toggle || !panel || !dismiss) return;
+
+    toggle.addEventListener('click', function () {
+        const wasHidden = panel.classList.contains('hidden');
+        panel.classList.toggle('hidden');
+        if (wasHidden) {
+            trackEvent('opened', { route: window.location.pathname });
+        }
+    });
+
+    dismiss.addEventListener('click', function () {
+        trackEvent('dismissed', { route: window.location.pathname });
+        try {
+            window.localStorage.setItem(storeKey, 'dismissed');
+        } catch (_) {
+            // Ignore storage failures.
+        }
+
+        widget.remove();
+    });
+}());
+</script>
+@endif
 
 <script>
     function toggleSidebar() {

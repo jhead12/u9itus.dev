@@ -20,6 +20,7 @@ use App\Http\Controllers\Api\PoliticianController;
 use App\Http\Controllers\Api\VoterController;
 use App\Http\Controllers\Api\StripeWebhookController;
 use App\Http\Controllers\Api\NotificationController;
+use App\Http\Controllers\Api\OnboardingHandoffEventController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -63,6 +64,10 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         Route::post('/mark-all-as-read', [NotificationController::class, 'markAllAsRead'])->name('mark-all-as-read');
         Route::delete('/{id}', [NotificationController::class, 'destroy'])->name('destroy');
         Route::delete('/delete-all-read', [NotificationController::class, 'deleteAllRead'])->name('delete-all-read');
+    });
+
+    Route::middleware(['web', 'auth'])->prefix('/onboarding-handoff-events')->name('onboarding-handoff-events.')->group(function () {
+        Route::post('/', [OnboardingHandoffEventController::class, 'store'])->name('store');
     });
 
     /*

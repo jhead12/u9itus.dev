@@ -105,12 +105,14 @@
                 disablePictureInPicture
                 disableRemotePlayback
                 playsinline
-                preload="metadata"
+                preload="none"
                 oncontextmenu="return false;"
             >
                 @if($campaign->media_url)
-                    <source src="{{ $campaign->media_url }}" type="{{ $playerMode === 'hls' ? 'application/x-mpegURL' : $nativeSourceType }}">
+                    <source data-src="{{ $campaign->media_url }}" type="{{ $playerMode === 'hls' ? 'application/x-mpegURL' : $nativeSourceType }}">
                 @endif
+                <track kind="captions" srclang="en" label="English captions" src="data:text/vtt,WEBVTT" default>
+                <track kind="descriptions" srclang="en" label="English descriptions" src="data:text/vtt,WEBVTT">
                 Your browser does not support HTML5 video.
             </video>
         @endif
@@ -138,6 +140,23 @@
         <div id="watch-timer" class="absolute top-3 right-3 px-2.5 py-1 rounded-md bg-slate-900/75 border border-slate-600/70 text-[11px] text-slate-200 font-medium tracking-wide">
             0:00 / {{ floor(($duration ?? 0) / 60) }}:{{ str_pad((string)(($duration ?? 0) % 60), 2, '0', STR_PAD_LEFT) }}
         </div>
+
+        {{-- Buffering state overlay --}}
+        <div id="player-buffer-indicator" class="hidden absolute inset-0 z-20 pointer-events-none bg-black/45 flex flex-col items-center justify-center">
+            <div class="h-10 w-10 rounded-full border-2 border-emerald-300/40 border-t-emerald-400 animate-spin"></div>
+            <p id="player-buffer-label" class="mt-3 text-xs text-emerald-200">Loading video…</p>
+        </div>
+    </div>
+
+    <div id="stream-controls" class="mt-3 hidden items-center gap-2">
+        <button
+            id="low-bitrate-toggle"
+            type="button"
+            class="inline-flex items-center gap-1.5 rounded-lg border border-slate-600 bg-slate-900/60 px-3 py-1.5 text-xs font-medium text-slate-200 hover:border-emerald-500/50 hover:text-white transition"
+            aria-pressed="false">
+            Data Saver: Off
+        </button>
+        <span id="stream-mode-hint" class="text-xs text-slate-400"></span>
     </div>
 
     <div x-data="{
@@ -746,6 +765,14 @@
     const dashboardUrl  = '{{ route('voter.dashboard') }}';
     const replayWrap    = document.getElementById('replay-wrap');
     const replayBtn     = document.getElementById('replay-btn');
+    const bufferIndicator = document.getElementById('player-buffer-indicator');
+    const bufferLabel   = document.getElementById('player-buffer-label');
+    const streamControls = document.getElementById('stream-controls');
+    const lowBitrateToggle = document.getElementById('low-bitrate-toggle');
+    const streamModeHint = document.getElementById('stream-mode-hint');
+    const networkInfo = navigator.connection || navigator.mozConnection || navigator.webkitConnection || null;
+    const constrainedNetwork = Boolean(networkInfo && (networkInfo.saveData || ['slow-2g', '2g', '3g'].includes(networkInfo.effectiveType)));
+    const lowDataStorageKey = 'u9itus:player:low-data-mode';
 
     let sessionId      = null;
     let heartbeatTimer = null;
@@ -756,10 +783,14 @@
     let ytPlayer       = null;
     let vimeoPlayer    = null;
     let hlsPlayer      = null;
+    let hlsFatalRecoveryAttempts = 0;
     let vimeoCurrentTime = 0;
     let vimeoLastTime = 0;
     let surveySubmitted = false;
     let selectedSurveyValue = null;
+    let bufferingShownByScript = false;
+    let lowDataModeEnabled = constrainedNetwork;
+    let hlsAppliedLowDataMode = false;
 
     const surveyPanel = document.getElementById('engagement-survey-panel');
     const surveySubmitBtn = document.getElementById('survey-submit-btn');
@@ -788,6 +819,136 @@
             headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf },
             body:    JSON.stringify(data),
         }).then(r => r.json());
+    }
+
+    function loadLowDataPreference() {
+        try {
+            const stored = window.localStorage.getItem(lowDataStorageKey);
+            if (stored === 'on') {
+                lowDataModeEnabled = true;
+                return;
+            }
+
+            if (stored === 'off') {
+                lowDataModeEnabled = false;
+                return;
+            }
+        } catch (_) {
+            // Ignore storage failures and fall back to network-based default.
+        }
+
+        lowDataModeEnabled = constrainedNetwork;
+    }
+
+    function persistLowDataPreference() {
+        try {
+            window.localStorage.setItem(lowDataStorageKey, lowDataModeEnabled ? 'on' : 'off');
+        } catch (_) {
+            // Ignore storage failures; playback behavior still updates in memory.
+        }
+    }
+
+    function setBufferingState(visible, label = 'Buffering video…') {
+        if (!bufferIndicator) return;
+
+        if (bufferLabel) {
+            bufferLabel.textContent = label;
+        }
+
+        if (visible) {
+            bufferingShownByScript = true;
+            bufferIndicator.classList.remove('hidden');
+        } else if (bufferingShownByScript) {
+            bufferIndicator.classList.add('hidden');
+            bufferingShownByScript = false;
+        }
+    }
+
+    function updateLowBitrateUi() {
+        if (!lowBitrateToggle) return;
+
+        lowBitrateToggle.textContent = `Data Saver: ${lowDataModeEnabled ? 'On' : 'Off'}`;
+        lowBitrateToggle.setAttribute('aria-pressed', lowDataModeEnabled ? 'true' : 'false');
+        lowBitrateToggle.classList.toggle('border-emerald-500/60', lowDataModeEnabled);
+        lowBitrateToggle.classList.toggle('text-emerald-300', lowDataModeEnabled);
+        lowBitrateToggle.classList.toggle('bg-emerald-500/10', lowDataModeEnabled);
+    }
+
+    loadLowDataPreference();
+
+    function applyHlsBitratePolicy() {
+        if (!hlsPlayer) {
+            return;
+        }
+
+        const levels = Array.isArray(hlsPlayer.levels) ? hlsPlayer.levels : [];
+        if (!levels.length) {
+            return;
+        }
+
+        hlsAppliedLowDataMode = lowDataModeEnabled;
+        const lowCapBitrate = 800000;
+
+        if (lowDataModeEnabled) {
+            let capIndex = 0;
+            for (let i = 0; i < levels.length; i += 1) {
+                if ((levels[i]?.bitrate || 0) <= lowCapBitrate) {
+                    capIndex = i;
+                }
+            }
+
+            hlsPlayer.autoLevelCapping = capIndex;
+            hlsPlayer.nextAutoLevel = capIndex;
+            hlsPlayer.startLevel = Math.min(capIndex, 1);
+            hlsPlayer.loadLevel = capIndex;
+            if (streamModeHint) {
+                streamModeHint.textContent = 'Using lower bitrate for smoother playback on constrained networks.';
+            }
+            return;
+        }
+
+        hlsPlayer.autoLevelCapping = -1;
+        hlsPlayer.nextAutoLevel = -1;
+        hlsPlayer.startLevel = -1;
+        if (streamModeHint) {
+            streamModeHint.textContent = 'Adaptive quality is balancing visual quality and stability.';
+        }
+    }
+
+    function bindVideoBufferEvents(video) {
+        if (!video || video.dataset.bufferEventsBound === '1') {
+            return;
+        }
+
+        video.dataset.bufferEventsBound = '1';
+
+        video.addEventListener('loadstart', () => setBufferingState(true, 'Loading video…'));
+        video.addEventListener('waiting', () => setBufferingState(true, 'Buffering video…'));
+        video.addEventListener('stalled', () => setBufferingState(true, 'Network is slow. Rebuffering…'));
+        video.addEventListener('canplay', () => setBufferingState(false));
+        video.addEventListener('canplaythrough', () => setBufferingState(false));
+        video.addEventListener('playing', () => setBufferingState(false));
+        video.addEventListener('ended', () => setBufferingState(false));
+        video.addEventListener('error', () => setBufferingState(false));
+    }
+
+    function hydrateNativeVideoSource(video) {
+        if (!video || video.dataset.sourceHydrated === '1') {
+            return;
+        }
+
+        const deferredSources = video.querySelectorAll('source[data-src]');
+        if (!deferredSources.length) {
+            return;
+        }
+
+        deferredSources.forEach((source) => {
+            source.src = source.dataset.src || '';
+            source.removeAttribute('data-src');
+        });
+
+        video.dataset.sourceHydrated = '1';
+        video.load();
     }
 
     function formatTime(seconds) {
@@ -1224,8 +1385,15 @@
     async function initHls(video) {
         if (!isHls || !video || !mediaStreamUrl) return;
 
+        bindVideoBufferEvents(video);
+
         if (video.canPlayType('application/vnd.apple.mpegurl')) {
             video.src = mediaStreamUrl;
+            if (streamModeHint) {
+                streamModeHint.textContent = lowDataModeEnabled
+                    ? 'Browser-native HLS detected. Data Saver can be limited by browser support.'
+                    : 'Browser-native HLS detected.';
+            }
             return;
         }
 
@@ -1238,11 +1406,67 @@
             hlsPlayer.destroy();
         }
 
+        hlsFatalRecoveryAttempts = 0;
         hlsPlayer = new window.Hls({
             enableWorker: true,
-            lowLatencyMode: true,
-            backBufferLength: 90,
+            lowLatencyMode: false,
+            backBufferLength: 30,
+            maxBufferLength: 20,
+            maxMaxBufferLength: 40,
+            maxBufferHole: 0.5,
+            highBufferWatchdogPeriod: 2,
+            nudgeMaxRetry: 8,
+            manifestLoadingTimeOut: 15000,
+            levelLoadingTimeOut: 15000,
+            fragLoadingTimeOut: 20000,
+            capLevelToPlayerSize: true,
+            testBandwidth: true,
+            abrEwmaFastLive: 3,
+            abrEwmaSlowLive: 9,
+            abrEwmaFastVoD: 3,
+            abrEwmaSlowVoD: 9,
+            startLevel: lowDataModeEnabled ? 0 : -1,
         });
+
+        hlsPlayer.on(window.Hls.Events.MANIFEST_PARSED, function () {
+            applyHlsBitratePolicy();
+        });
+
+        hlsPlayer.on(window.Hls.Events.LEVEL_SWITCHED, function (_event, data) {
+            if (!streamModeHint || !data || typeof data.level !== 'number') {
+                return;
+            }
+
+            const currentLevel = hlsPlayer.levels?.[data.level];
+            if (currentLevel?.height) {
+                const dataSaverText = hlsAppliedLowDataMode ? 'Data Saver active' : 'Adaptive mode';
+                streamModeHint.textContent = `${dataSaverText} • ${currentLevel.height}p`;
+            }
+        });
+
+        hlsPlayer.on(window.Hls.Events.ERROR, function (_event, data) {
+            if (!data?.fatal) {
+                return;
+            }
+
+            if (data.type === window.Hls.ErrorTypes.NETWORK_ERROR && hlsFatalRecoveryAttempts < 3) {
+                hlsFatalRecoveryAttempts += 1;
+                setBufferingState(true, 'Network issue detected. Retrying stream…');
+                hlsPlayer.startLoad();
+                return;
+            }
+
+            if (data.type === window.Hls.ErrorTypes.MEDIA_ERROR && hlsFatalRecoveryAttempts < 3) {
+                hlsFatalRecoveryAttempts += 1;
+                setBufferingState(true, 'Recovering media playback…');
+                hlsPlayer.recoverMediaError();
+                return;
+            }
+
+            setBufferingState(false);
+            showStatus('Video stream interrupted. Please refresh and try again.', 'error');
+        });
+
         hlsPlayer.loadSource(mediaStreamUrl);
         hlsPlayer.attachMedia(video);
     }
@@ -1252,15 +1476,26 @@
         const video = document.getElementById('ad-video');
         let nativeLastTime = 0;
 
+        bindVideoBufferEvents(video);
+
+        if (streamControls && isHls) {
+            streamControls.classList.remove('hidden');
+            streamControls.classList.add('flex');
+            if (constrainedNetwork && streamModeHint) {
+                streamModeHint.textContent = 'Constrained network detected. Data Saver enabled by default.';
+            }
+            updateLowBitrateUi();
+            lowBitrateToggle?.addEventListener('click', () => {
+                lowDataModeEnabled = !lowDataModeEnabled;
+                persistLowDataPreference();
+                updateLowBitrateUi();
+                applyHlsBitratePolicy();
+            });
+        }
+
         video.addEventListener('error', function() {
             showStatus('Video could not be loaded. Please refresh. If this continues, report the issue so we can repair the media link.', 'error');
         });
-
-        if (isHls) {
-            initHls(video).catch(() => {
-                showStatus('Could not load HLS stream. Please refresh and try again.', 'error');
-            });
-        }
 
         video.addEventListener('loadedmetadata', function() {
             if (Number.isFinite(video.duration) && video.duration > 0) {
@@ -1296,16 +1531,24 @@
 
         overlay.addEventListener('click', async () => {
             overlay.style.display = 'none';
+            setBufferingState(true, 'Starting stream…');
             try {
                 const startUrl = '{{ url("/voter/watch") }}/' + encodeURIComponent(token) + '/start';
                 const res = await post(startUrl, {});
-                if (res.error) { showStatus(res.error, 'error'); overlay.style.display = ''; return; }
+                if (res.error) {
+                    showStatus(res.error, 'error');
+                    overlay.style.display = '';
+                    setBufferingState(false);
+                    return;
+                }
                 sessionId = res.session_id;
                 window.sessionId = sessionId; // Expose for report forms
                 // Show control blocker
                 document.getElementById('control-blocker').classList.remove('hidden');
                 if (isHls) {
                     await initHls(video);
+                } else {
+                    hydrateNativeVideoSource(video);
                 }
                 video.play();
                 startHeartbeat(() => video.currentTime || 0);
@@ -1313,6 +1556,7 @@
             } catch (e) {
                 showStatus('Could not start session. Please try again.', 'error');
                 overlay.style.display = '';
+                setBufferingState(false);
             }
         });
 

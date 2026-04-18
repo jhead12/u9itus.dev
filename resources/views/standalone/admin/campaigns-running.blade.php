@@ -311,7 +311,8 @@
 
                         @if($mediaUrl !== '')
                         <button type="button"
-                                onclick="document.getElementById('preview-{{ $campaign->id }}').classList.toggle('hidden')"
+                            data-preview-toggle="1"
+                            data-preview-target="preview-{{ $campaign->id }}"
                                 class="px-3 py-1.5 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 text-xs font-semibold border border-blue-500/20 transition">
                             Preview
                         </button>
@@ -352,10 +353,11 @@
                             <div class="relative w-full" style="padding-top:56.25%;">
                                 <video
                                     class="absolute inset-0 h-full w-full"
-                                    src="{{ $directPreviewUrl }}"
+                                    data-src="{{ $directPreviewUrl }}"
                                     controls
-                                    preload="metadata"
+                                    preload="none"
                                     playsinline
+                                    data-lazy-video
                                     title="Campaign video preview">
                                     <track kind="captions" srclang="en" label="English captions" src="data:text/vtt,WEBVTT" default>
                                     <track kind="descriptions" srclang="en" label="English descriptions" src="data:text/vtt,WEBVTT">
@@ -533,6 +535,49 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     updateSelectionState();
+
+    const hydratePreviewVideos = function (container) {
+        if (!container) {
+            return;
+        }
+
+        const videos = container.querySelectorAll('video[data-lazy-video]');
+        videos.forEach((video) => {
+            if (video.dataset.sourceHydrated === '1') {
+                return;
+            }
+
+            const src = video.dataset.src;
+            if (!src) {
+                return;
+            }
+
+            video.src = src;
+            video.dataset.sourceHydrated = '1';
+            video.load();
+        });
+    };
+
+    document.querySelectorAll('[data-preview-toggle="1"]').forEach((button) => {
+        button.addEventListener('click', function () {
+            const targetId = button.getAttribute('data-preview-target');
+            if (!targetId) {
+                return;
+            }
+
+            const panel = document.getElementById(targetId);
+            if (!panel) {
+                return;
+            }
+
+            const willOpen = panel.classList.contains('hidden');
+            panel.classList.toggle('hidden');
+
+            if (willOpen) {
+                hydratePreviewVideos(panel);
+            }
+        });
+    });
 });
 </script>
 @endpush

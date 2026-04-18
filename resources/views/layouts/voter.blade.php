@@ -22,8 +22,60 @@
 </head>
 <body class="bg-slate-900 text-white antialiased">
 
+@php
+    $voterOnboardingProgress = null;
+    $showVoterStartHere = false;
+    $voterStartHereChecklist = [];
+
+    if (auth()->check() && auth()->user()?->hasRole('voter')) {
+        $voterOnboardingProgress = \App\Models\OnboardingProgress::query()
+            ->where('user_id', auth()->id())
+            ->where('user_type', 'voter')
+            ->first();
+
+        $completedRecently = $voterOnboardingProgress?->completed_at
+            ? $voterOnboardingProgress->completed_at->gte(now()->subDays(14))
+            : false;
+
+        $showVoterStartHere = $completedRecently
+            && ($voterOnboardingProgress?->is_completed || $voterOnboardingProgress?->skipped);
+
+        $voterProfile = auth()->user()->voter;
+
+        $voterStartHereChecklist = [
+            [
+                'label' => 'Watched first campaign',
+                'done' => $voterProfile
+                    ? $voterProfile->viewSessions()->completed()->exists()
+                    : false,
+            ],
+            [
+                'label' => 'Earned first reward',
+                'done' => $voterProfile
+                    ? (((float) $voterProfile->total_earned) > 0 || ((float) $voterProfile->wallet_balance) > 0)
+                    : false,
+            ],
+            [
+                'label' => 'Made first referral',
+                'done' => $voterProfile
+                    ? ($voterProfile->referrals()->exists() || $voterProfile->referralEarnings()->exists())
+                    : false,
+            ],
+        ];
+    }
+
+    if (! request()->routeIs('voter.dashboard')) {
+        $showVoterStartHere = false;
+    }
+@endphp
+
 {{-- Mobile backdrop --}}
-<div id="sidebar-overlay" class="fixed inset-0 bg-black/60 z-20 hidden lg:hidden" onclick="toggleSidebar()"></div>
+<button id="sidebar-overlay"
+    type="button"
+    class="fixed inset-0 bg-black/60 z-20 hidden lg:hidden"
+    onclick="toggleSidebar()"
+    onkeydown="if(event.key==='Enter'||event.key===' '){toggleSidebar();}"
+    aria-label="Close sidebar overlay"></button>
 
 <div class="min-h-screen flex flex-col">
 
@@ -351,6 +403,118 @@
         </div>
     </template>
 </div>
+
+@if($showVoterStartHere)
+<div id="floating-start-here-voter"
+     data-key="voter-{{ auth()->id() }}-{{ $voterOnboardingProgress?->completed_at?->timestamp ?? 'na' }}"
+     class="fixed bottom-5 left-5 z-[110] w-[min(92vw,320px)]">
+    <button id="start-here-voter-toggle"
+            type="button"
+            class="w-full inline-flex items-center justify-between gap-3 rounded-xl border border-emerald-500/35 bg-slate-900/95 px-4 py-3 text-left shadow-2xl shadow-emerald-900/30">
+        <span>
+            <span class="block text-xs uppercase tracking-wide text-emerald-300">New Here?</span>
+            <span class="block text-sm font-semibold text-white">Start Here</span>
+        </span>
+        <svg class="w-4 h-4 text-emerald-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+        </svg>
+    </button>
+
+    <div id="start-here-voter-panel" class="mt-2 hidden rounded-xl border border-slate-700 bg-slate-900/95 p-3 shadow-2xl">
+        <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mb-2">Suggested First Steps</p>
+        <div class="space-y-2">
+            <a href="{{ route('voter.ad-room') }}" class="block rounded-lg border border-slate-700/80 bg-slate-800/60 px-3 py-2 text-sm text-slate-200 hover:border-emerald-500/40 hover:text-white transition">Browse Running Campaigns</a>
+            <a href="{{ route('voter.earnings') }}" class="block rounded-lg border border-slate-700/80 bg-slate-800/60 px-3 py-2 text-sm text-slate-200 hover:border-emerald-500/40 hover:text-white transition">Check Earnings Dashboard</a>
+            <a href="{{ route('voter.referrals') }}" class="block rounded-lg border border-slate-700/80 bg-slate-800/60 px-3 py-2 text-sm text-slate-200 hover:border-emerald-500/40 hover:text-white transition">Set Up Referral Link</a>
+        </div>
+        <div class="mt-3 rounded-lg border border-slate-700/70 bg-slate-800/40 p-2.5">
+            <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-2">Progress</p>
+            <ul class="space-y-1.5">
+                @foreach($voterStartHereChecklist as $item)
+                    <li class="flex items-center gap-2 text-xs {{ $item['done'] ? 'text-emerald-300' : 'text-slate-400' }}">
+                        <span class="inline-flex h-4 w-4 items-center justify-center rounded-full border {{ $item['done'] ? 'border-emerald-500/60 bg-emerald-500/15' : 'border-slate-600 bg-slate-700/40' }}">
+                            @if($item['done'])
+                                <svg class="h-2.5 w-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
+                                </svg>
+                            @endif
+                        </span>
+                        <span>{{ $item['label'] }}{{ $item['done'] ? ' - Done' : '' }}</span>
+                    </li>
+                @endforeach
+            </ul>
+        </div>
+        <button id="start-here-voter-dismiss"
+                type="button"
+                class="mt-3 w-full rounded-lg border border-slate-700 px-3 py-2 text-xs font-medium text-slate-400 hover:text-white hover:border-slate-500 transition">
+            Dismiss this helper
+        </button>
+    </div>
+</div>
+
+<script>
+(function () {
+    const widget = document.getElementById('floating-start-here-voter');
+    if (!widget) return;
+
+    const keySuffix = widget.getAttribute('data-key') || 'voter';
+    const storeKey = 'u9itus:start-here:' + keySuffix;
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+
+    const trackEvent = function (eventType, context = {}) {
+        fetch('/api/v1/onboarding-handoff-events', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-TOKEN': csrfToken,
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({
+                role: 'voter',
+                event_type: eventType,
+                widget_key: keySuffix,
+                context: context,
+            }),
+        }).catch(() => {});
+    };
+
+    try {
+        if (window.localStorage.getItem(storeKey) === 'dismissed') {
+            widget.remove();
+            return;
+        }
+    } catch (_) {
+        // Ignore storage failures.
+    }
+
+    const toggle = document.getElementById('start-here-voter-toggle');
+    const panel = document.getElementById('start-here-voter-panel');
+    const dismiss = document.getElementById('start-here-voter-dismiss');
+    if (!toggle || !panel || !dismiss) return;
+
+    toggle.addEventListener('click', function () {
+        const wasHidden = panel.classList.contains('hidden');
+        panel.classList.toggle('hidden');
+        if (wasHidden) {
+            trackEvent('opened', { route: window.location.pathname });
+        }
+    });
+
+    dismiss.addEventListener('click', function () {
+        trackEvent('dismissed', { route: window.location.pathname });
+        try {
+            window.localStorage.setItem(storeKey, 'dismissed');
+        } catch (_) {
+            // Ignore storage failures.
+        }
+
+        widget.remove();
+    });
+}());
+</script>
+@endif
 
 <script>
     function toggleSidebar() {

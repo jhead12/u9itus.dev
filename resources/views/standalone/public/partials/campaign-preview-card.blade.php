@@ -126,8 +126,8 @@
                                 loading="lazy"
                             ></iframe>
                         @elseif(in_array($_mediaType, ['direct_file', 's3_cloudfront'], true) || $_isDirectVideo)
-                            <video class="w-full h-full object-cover" controls preload="metadata" playsinline>
-                                <source src="{{ $_mUrl }}">
+                            <video class="w-full h-full object-cover" controls preload="none" playsinline data-lazy-video>
+                                <source data-src="{{ $_mUrl }}">
                                 <track kind="captions" srclang="en" label="Captions" src="data:text/vtt,WEBVTT">
                                 Your browser does not support this video format.
                             </video>
@@ -136,6 +136,61 @@
                 </div>
             </details>
         @endif
+
+        @once
+            <script>
+                (function () {
+                    if (window.__u9LazyCampaignVideosBound) {
+                        return;
+                    }
+
+                    window.__u9LazyCampaignVideosBound = true;
+
+                    function hydrateVideo(video) {
+                        if (!video || video.dataset.sourceHydrated === '1') {
+                            return;
+                        }
+
+                        const deferredSources = video.querySelectorAll('source[data-src]');
+                        if (!deferredSources.length) {
+                            return;
+                        }
+
+                        deferredSources.forEach((source) => {
+                            source.src = source.dataset.src || '';
+                            source.removeAttribute('data-src');
+                        });
+
+                        video.dataset.sourceHydrated = '1';
+                        video.load();
+                    }
+
+                    function bindPanel(panel) {
+                        if (!panel || panel.dataset.lazyVideoBound === '1') {
+                            return;
+                        }
+
+                        panel.dataset.lazyVideoBound = '1';
+
+                        panel.addEventListener('toggle', function () {
+                            if (!panel.open) {
+                                return;
+                            }
+
+                            panel.querySelectorAll('video[data-lazy-video]').forEach(hydrateVideo);
+                        });
+
+                        panel.querySelectorAll('video[data-lazy-video]').forEach((video) => {
+                            video.addEventListener('play', function () {
+                                hydrateVideo(video);
+                            }, { once: true });
+                        });
+                    }
+
+                    document.querySelectorAll('details[data-video-panel]').forEach(bindPanel);
+                })();
+            </script>
+        @endonce
 
         @if($_showTownHall)
             <div class="rounded-lg border border-slate-700/70 bg-slate-900/45 p-3 mb-3 space-y-3">
