@@ -140,19 +140,41 @@
         </div>
     </div>
 
-    {{-- Status messages --}}
-    <div id="status-msg" class="mt-5 hidden text-center py-4 px-6 rounded-2xl"></div>
+    <div x-data="{ reportModal: false, messageModal: false, submitting: false }">
+        {{-- Status messages --}}
+        <div id="status-msg" class="mt-5 hidden text-center py-4 px-6 rounded-2xl"></div>
 
-    {{-- Replay CTA (shown after completion) --}}
-    <div id="replay-wrap" class="mt-3 hidden text-center">
-        <button id="replay-btn" type="button"
-            class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-800/70 hover:bg-slate-700/70 border border-slate-600 text-slate-200 hover:text-white text-sm font-medium transition">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0A8.003 8.003 0 014.582 15"/>
-            </svg>
-            Replay Video
-        </button>
-    </div>
+        {{-- Replay CTA (shown after completion) --}}
+        <div id="replay-wrap" class="mt-3 hidden text-center">
+            <button id="replay-btn" type="button"
+                class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-800/70 hover:bg-slate-700/70 border border-slate-600 text-slate-200 hover:text-white text-sm font-medium transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0A8.003 8.003 0 014.582 15"/>
+                </svg>
+                Replay Video
+            </button>
+        </div>
+
+        {{-- Ask Campaign Owner CTA --}}
+        <div class="mt-5 rounded-2xl border border-emerald-500/30 bg-gradient-to-r from-emerald-900/35 via-teal-900/25 to-slate-800/90 p-5 shadow-lg shadow-emerald-950/20">
+            <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div class="max-w-2xl">
+                    <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-300/80">Have a Question?</p>
+                    <h2 class="mt-2 text-lg font-semibold text-white">Ask the politician's campaign about this message.</h2>
+                    <p class="mt-1.5 text-sm leading-relaxed text-slate-300">Get clarification on the ad, the candidate's position, or what they plan to do if elected.</p>
+                </div>
+
+                <button @click="messageModal = true" type="button"
+                    class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-400/40 bg-emerald-500 px-5 py-3 text-sm font-semibold text-slate-950 shadow-md shadow-emerald-900/30 transition hover:bg-emerald-400 hover:shadow-lg hover:shadow-emerald-900/40 focus:outline-none focus:ring-2 focus:ring-emerald-300/60 sm:w-auto sm:min-w-[230px]">
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
+                    </svg>
+                    Ask the Politician
+                </button>
+            </div>
+
+            <p class="mt-3 text-xs text-emerald-100/75">Your question is sent to this ad's campaign owner or team, not platform support.</p>
+        </div>
 
     @php
         $engagementSurvey = is_array($campaign->engagement_survey ?? null) ? $campaign->engagement_survey : null;
@@ -395,7 +417,7 @@
     {{-- ── /About the Candidate ─────────────────────────────────── --}}
 
     {{-- Report Actions --}}
-    <div x-data="{ reportModal: false, messageModal: false, submitting: false }" class="mt-5">
+    <div class="mt-5">
         {{-- Action Buttons --}}
         <div class="flex items-center justify-center gap-3">
             <button @click="reportModal = true" type="button"
@@ -405,17 +427,9 @@
                 </svg>
                 Report Issue
             </button>
-
-            <button @click="messageModal = true" type="button"
-                class="inline-flex items-center gap-2 px-4 py-2 bg-slate-800/60 hover:bg-slate-700/60 border border-slate-700/60 rounded-lg text-slate-300 hover:text-white text-sm transition">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
-                </svg>
-                Ask Campaign Owner
-            </button>
         </div>
         <p class="mt-2 text-center text-xs text-slate-500">
-            Report Issue contacts platform support. Ask Campaign Owner sends your question to this ad's campaign owner/team.
+            Report Issue contacts platform support.
         </p>
 
         {{-- Report Issue Modal --}}
@@ -584,6 +598,8 @@
 
     {{-- Disclaimer --}}
     <p class="mt-6 text-xs text-slate-600 text-center">This political advertisement was paid for by the campaign of {{ $campaign->politician->full_name ?? 'the sponsoring campaign' }}. Earnings are credited to your wallet upon verified completion and processed in your next batch payout.</p>
+
+    </div>
 
 </div>
 
