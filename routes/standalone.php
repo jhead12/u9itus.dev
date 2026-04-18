@@ -192,6 +192,8 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         Route::put('/campaigns/{campaign}', [PoliticianController::class, 'updateCampaign'])->name('campaigns.update');
         Route::post('/campaigns/{campaign}/questions/{report}/reply', [PoliticianController::class, 'replyToQuestion'])
             ->name('campaigns.questions.reply');
+        Route::get('/campaigns/{campaign}/questions', [PoliticianController::class, 'campaignQuestions'])
+            ->name('campaigns.questions.index');
         Route::delete('/campaigns/{campaign}', [PoliticianController::class, 'destroyCampaign'])->name('campaigns.destroy');
         Route::post('/campaigns/{campaign}/pause', [PoliticianController::class, 'pauseCampaign'])->name('campaigns.pause');
         Route::post('/campaigns/{campaign}/resume', [PoliticianController::class, 'resumeCampaign'])->name('campaigns.resume');
@@ -264,6 +266,7 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
 
         // Watch Ad (secure token-based)
         Route::get('/watch/{token}', [VoterController::class, 'watch'])->name('watch');
+        Route::get('/watch/{token}/questions', [VoterController::class, 'watchQuestions'])->name('watch.questions');
         Route::post('/watch/{token}/start', [VoterController::class, 'startWatching'])->name('watch.start');
         // Heartbeat & completion use session UUID (not token)
         Route::post('/session/{sessionUuid}/progress', [VoterController::class, 'progressHeartbeat'])->name('session.progress');

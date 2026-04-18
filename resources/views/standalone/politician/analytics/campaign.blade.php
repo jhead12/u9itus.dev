@@ -9,6 +9,8 @@
     <div class="flex items-center gap-3">
         <a href="{{ route('politician.analytics') }}" class="text-sm text-slate-400 hover:text-white transition">← Analytics</a>
         <div class="flex-1"></div>
+          <a href="{{ route('politician.campaigns.questions.index', $campaign) }}"
+              class="text-sm text-cyan-300 hover:text-cyan-200">Open Q&amp;A Inbox</a>
         <a href="{{ route('politician.campaigns.show', $campaign) }}"
            class="text-sm text-emerald-400 hover:text-emerald-300">View Campaign →</a>
     </div>

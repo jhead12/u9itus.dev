@@ -68,7 +68,7 @@
     @endif
 
     {{-- Stats grid --}}
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <div class="grid grid-cols-2 lg:grid-cols-6 gap-4">
 
         <div class="stat-card">
             <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Active Campaigns</p>
@@ -94,6 +94,18 @@
                 ${{ number_format($stats['credit_balance'], 2) }}
             </p>
             <a href="{{ route('politician.billing') }}" class="text-xs text-emerald-400 hover:text-emerald-300 mt-1 inline-block">Add credits →</a>
+        </div>
+
+        <div class="stat-card">
+            <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Needs Reply</p>
+            <p class="text-3xl font-bold text-cyan-300">{{ number_format($stats['open_voter_questions']) }}</p>
+            <a href="{{ route('politician.analytics') }}" class="text-xs text-cyan-300 hover:text-cyan-200 mt-1 inline-block">Review questions →</a>
+        </div>
+
+        <div class="stat-card">
+            <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Pending Review</p>
+            <p class="text-3xl font-bold text-amber-300">{{ number_format($stats['pending_public_questions']) }}</p>
+            <a href="{{ route('politician.analytics') }}" class="text-xs text-amber-300 hover:text-amber-200 mt-1 inline-block">Open moderation queue →</a>
         </div>
 
     </div>
@@ -140,10 +152,24 @@
                         <p class="text-xs text-slate-500">
                             {{ number_format($campaign->total_views ?? 0) }} views · ${{ number_format($campaign->total_budget ?? 0, 2) }} budget
                         </p>
+                        @if(($campaign->open_voter_questions_count ?? 0) > 0 || ($campaign->pending_public_questions_count ?? 0) > 0)
+                        <div class="mt-2 flex flex-wrap gap-2">
+                            @if(($campaign->open_voter_questions_count ?? 0) > 0)
+                            <span class="inline-flex items-center rounded-full bg-cyan-500/15 px-2 py-0.5 text-[11px] font-medium text-cyan-300">
+                                {{ number_format($campaign->open_voter_questions_count) }} need reply
+                            </span>
+                            @endif
+                            @if(($campaign->pending_public_questions_count ?? 0) > 0)
+                            <span class="inline-flex items-center rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] font-medium text-amber-300">
+                                {{ number_format($campaign->pending_public_questions_count) }} pending review
+                            </span>
+                            @endif
+                        </div>
+                        @endif
                     </div>
 
-                    <a href="{{ route('politician.campaigns.show', $campaign) }}"
-                       class="text-xs text-slate-400 hover:text-white transition flex-shrink-0">View →</a>
+                    <a href="{{ route('politician.campaigns.questions.index', $campaign) }}"
+                       class="text-xs text-slate-400 hover:text-white transition flex-shrink-0">Q&amp;A →</a>
                 </div>
                 @endforeach
             </div>

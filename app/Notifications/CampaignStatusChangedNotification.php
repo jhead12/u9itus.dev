@@ -81,6 +81,7 @@ class CampaignStatusChangedNotification extends Notification implements ShouldQu
             'rejected' => 'rejected',
             'stopped' => 'stopped',
             'reactivated' => 'reactivated',
+            'paused' => 'paused',
             default => 'updated',
         };
     }
@@ -95,6 +96,7 @@ class CampaignStatusChangedNotification extends Notification implements ShouldQu
             'rejected' => 'x-circle',
             'stopped' => 'pause-circle',
             'reactivated' => 'play-circle',
+            'paused' => 'pause-circle',
             default => 'bell',
         };
     }

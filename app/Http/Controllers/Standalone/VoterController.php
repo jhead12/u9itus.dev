@@ -576,6 +576,38 @@ class VoterController extends Controller
         ));
     }
 
+    public function watchQuestions(string $token)
+    {
+        $adToken = AdViewToken::where('token', $token)
+            ->with('campaign.politician', 'voter')
+            ->firstOrFail();
+
+        $voter = $this->resolveVoter();
+        abort_unless((int) $adToken->voter_id === (int) $voter->id, 403);
+
+        $campaign = $adToken->campaign;
+        abort_unless($campaign, 404);
+
+        $questions = VoterWatchReport::query()
+            ->messages()
+            ->where('campaign_id', $campaign->id)
+            ->where(function ($query) {
+                $query->where(function ($approved) {
+                    $approved->where('public_visibility', 'approved')
+                        ->where('is_public_board', true);
+                })->orWhere(function ($legacy) {
+                    $legacy->where('status', 'resolved')
+                        ->whereNotNull('admin_notes');
+                });
+            })
+            ->orderByDesc('campaign_replied_at')
+            ->orderByDesc('published_at')
+            ->orderByDesc('updated_at')
+            ->paginate(12);
+
+        return view('standalone.voter.watch-questions', compact('adToken', 'campaign', 'questions'));
+    }
+
     /**
      * POST /voter/watch/{token}/start
      * Mark session as started; returns JSON { session_id, status }.

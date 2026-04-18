@@ -234,6 +234,14 @@ class PoliticianController extends Controller
 
         // Load recent campaigns (eager load to avoid N+1)
         $recentCampaigns = $politician->campaigns()
+            ->withCount([
+                'voterWatchReports as open_voter_questions_count' => function ($query) {
+                    $query->messages()->where('status', 'open');
+                },
+                'voterWatchReports as pending_public_questions_count' => function ($query) {
+                    $query->messages()->where('public_visibility', 'pending');
+                },
+            ])
             ->orderByDesc('created_at')
             ->take(5)
             ->get();
@@ -249,6 +257,20 @@ class PoliticianController extends Controller
             'total_views'       => $politician->total_views_received ?? 0,
             'total_spent'       => $politician->total_spent ?? 0.00,
             'credit_balance'    => $creditBalance,
+            'open_voter_questions' => VoterWatchReport::query()
+                ->messages()
+                ->where('status', 'open')
+                ->whereHas('campaign', function ($query) use ($politician) {
+                    $query->where('politician_id', $politician->id);
+                })
+                ->count(),
+            'pending_public_questions' => VoterWatchReport::query()
+                ->messages()
+                ->where('public_visibility', 'pending')
+                ->whereHas('campaign', function ($query) use ($politician) {
+                    $query->where('politician_id', $politician->id);
+                })
+                ->count(),
         ];
 
         // Get active promotions relevant to politicians
@@ -1149,6 +1171,35 @@ class PoliticianController extends Controller
             'campaign', 'politician', 'sessions', 'byStatus',
             'completedViews', 'budgetUsed', 'budgetLeft',
             'voterQuestions', 'voterQuestionCounts', 'openVoterQuestions', 'pendingPublicQuestions'
+        ));
+    }
+
+    public function campaignQuestions(PoliticalCampaign $campaign)
+    {
+        $politician = Auth::user()->politician;
+        abort_unless($politician && (int) $campaign->politician_id === (int) $politician->id, 403);
+
+        $questionBaseQuery = VoterWatchReport::query()
+            ->where('campaign_id', $campaign->id)
+            ->where('type', 'message');
+
+        $questionCounts = [
+            'open' => (clone $questionBaseQuery)->where('status', 'open')->count(),
+            'pending_public' => (clone $questionBaseQuery)->where('public_visibility', 'pending')->count(),
+            'replied' => (clone $questionBaseQuery)->whereNotNull('campaign_reply')->count(),
+            'total' => (clone $questionBaseQuery)->count(),
+        ];
+
+        $voterQuestions = (clone $questionBaseQuery)
+            ->with('voter:id,full_name,email')
+            ->latest('created_at')
+            ->paginate(15);
+
+        return view('standalone.politician.campaigns.questions', compact(
+            'campaign',
+            'politician',
+            'questionCounts',
+            'voterQuestions',
         ));
     }
 

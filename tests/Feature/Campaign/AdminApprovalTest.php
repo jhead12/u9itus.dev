@@ -4,6 +4,7 @@ use App\Enums\ApprovalStatus;
 use App\Enums\CampaignStatus;
 use App\Enums\PaymentStatus;
 use App\Mail\CampaignApprovedMail;
+use App\Mail\CampaignQuestionDigestMail;
 use App\Mail\CampaignRejectedMail;
 use App\Models\CampaignAuditLog;
 use App\Models\EmailTemplate;
@@ -11,6 +12,8 @@ use App\Models\NotificationPreference;
 use App\Models\PoliticalCampaign;
 use App\Models\Politician;
 use App\Models\User;
+use App\Models\Voter;
+use App\Models\VoterWatchReport;
 use App\Notifications\CampaignStatusChangedNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
@@ -277,6 +280,50 @@ test('admin can stop an active campaign', function () {
         'action'      => 'stopped',
         'reason'      => 'Pending investigation.',
     ]);
+});
+
+test('stopping an active campaign queues the voter question digest when questions exist', function () {
+    Notification::fake();
+
+    $admin = makeAdmin();
+    $politicianUser = User::factory()->create([
+        'platform' => 'standalone',
+        'user_type' => 'politician',
+    ]);
+    $politician = Politician::factory()->create(['user_id' => $politicianUser->id]);
+    $campaign = PoliticalCampaign::factory()->create([
+        'politician_id' => $politician->id,
+        'status' => CampaignStatus::Active->value,
+        'approval_status' => ApprovalStatus::Approved->value,
+    ]);
+    $voter = Voter::factory()->create();
+
+    VoterWatchReport::create([
+        'voter_id' => $voter->id,
+        'campaign_id' => $campaign->id,
+        'type' => 'message',
+        'body' => 'What happens after this campaign?',
+        'status' => 'open',
+        'public_visibility' => 'pending',
+    ]);
+
+    $this->actingAs($admin)
+        ->post(route('admin.campaigns.stop', $campaign), [
+            'reason' => 'Manual end of campaign.',
+        ])
+        ->assertRedirect();
+
+    Mail::assertQueued(CampaignQuestionDigestMail::class, function (CampaignQuestionDigestMail $mail) use ($campaign) {
+        return $mail->campaign->is($campaign) && $mail->questions->count() === 1;
+    });
+
+    Notification::assertSentTo(
+        $politicianUser,
+        CampaignStatusChangedNotification::class,
+        function (CampaignStatusChangedNotification $notification) {
+            return $notification->status === 'stopped';
+        }
+    );
 });
 
 test('stopCampaign requires a reason', function () {

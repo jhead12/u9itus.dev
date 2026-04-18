@@ -58,6 +58,32 @@ test('campaign owner can post official reply to voter question', function () {
         ->and($report->fresh()->status)->toBe('resolved');
 });
 
+test('campaign owner can open the dedicated campaign q and a inbox', function () {
+    [$user, $politician] = makePoliticianUserForQuestionReply('owner');
+
+    $campaign = PoliticalCampaign::factory()->create([
+        'politician_id' => $politician->id,
+    ]);
+
+    $voter = Voter::factory()->create();
+
+    VoterWatchReport::query()->create([
+        'voter_id' => $voter->id,
+        'campaign_id' => $campaign->id,
+        'type' => 'message',
+        'body' => 'How will you handle public safety?',
+        'status' => 'open',
+        'public_visibility' => 'pending',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('politician.campaigns.questions.index', $campaign))
+        ->assertOk()
+        ->assertViewIs('standalone.politician.campaigns.questions')
+        ->assertSee('Q&amp;A Inbox', false)
+        ->assertSee('How will you handle public safety?');
+});
+
 test('non-owner politician cannot reply to another campaign question', function () {
     [$ownerUser, $ownerPolitician] = makePoliticianUserForQuestionReply('owner');
     unset($ownerUser);

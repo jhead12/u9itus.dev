@@ -176,6 +176,44 @@ test('watch page includes compact public q and a preview for approved campaign q
         ->assertDontSee('This should stay hidden until approved.');
 });
 
+test('watch questions page shows only public approved campaign q and a entries', function () {
+    [$user, $voter] = voterUser();
+    $campaign = watchableCampaign();
+    $adToken = validToken($voter, $campaign, ['is_used' => true]);
+
+    VoterWatchReport::create([
+        'voter_id' => $voter->id,
+        'campaign_id' => $campaign->id,
+        'type' => 'message',
+        'body' => 'What is your housing plan?',
+        'status' => 'resolved',
+        'public_visibility' => 'approved',
+        'is_public_board' => true,
+        'public_alias' => 'Voter #41',
+        'campaign_reply' => 'We will expand affordable housing inventory.',
+        'campaign_replied_at' => now()->subHour(),
+        'published_at' => now()->subMinutes(20),
+    ]);
+
+    VoterWatchReport::create([
+        'voter_id' => $voter->id,
+        'campaign_id' => $campaign->id,
+        'type' => 'message',
+        'body' => 'Pending question should remain hidden',
+        'status' => 'open',
+        'public_visibility' => 'pending',
+        'is_public_board' => false,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('voter.watch.questions', ['token' => $adToken->token]))
+        ->assertOk()
+        ->assertViewIs('standalone.voter.watch-questions')
+        ->assertSee('What is your housing plan?')
+        ->assertSee('We will expand affordable housing inventory.')
+        ->assertDontSee('Pending question should remain hidden');
+});
+
 // ── startWatching ─────────────────────────────────────────────────────────────
 
 test('startWatching creates view session and marks token used', function () {

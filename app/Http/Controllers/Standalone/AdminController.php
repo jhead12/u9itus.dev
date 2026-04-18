@@ -35,6 +35,7 @@ use App\Notifications\CampaignStatusChangedNotification;
 use App\Notifications\SystemAnnouncementNotification;
 use App\Services\AdminTwoFactorService;
 use App\Services\CampaignBillingService;
+use App\Services\CampaignQuestionDigestService;
 use App\Services\PoliticalPaymentService;
 use App\Services\CampaignQandAService;
 use App\Services\CampaignStatusNotifier;
@@ -619,8 +620,8 @@ class AdminController extends Controller
             'reason'      => $request->input('reason'),
         ]);
 
-        // Phase 11 — real-time WebSocket push to politician dashboard
-        app(ReverbBroadcastService::class)->campaignStopped($campaign, $request->input('reason'));
+        app(CampaignQuestionDigestService::class)->queueDigestForCampaign($campaign);
+        app(CampaignStatusNotifier::class)->notifyStatusChanged($campaign, 'stopped', $request->input('reason'));
 
         return back()->with('success', 'Campaign "' . $campaign->title . '" has been stopped.');
     }
