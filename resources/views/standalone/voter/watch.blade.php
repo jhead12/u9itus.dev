@@ -14,7 +14,7 @@
             </svg>
             Back to Dashboard
         </a>
-        @if(isset($nextAdToken) && $nextAdToken && isset($nextCampaign) && $nextCampaign)
+        @if(!empty($nextAdToken) && !empty($nextCampaign) && isset($nextAdToken->token))
             <a href="{{ route('voter.watch', $nextAdToken->token) }}"
                class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-800 focus:ring-emerald-500"
                title="Go to next available video">
