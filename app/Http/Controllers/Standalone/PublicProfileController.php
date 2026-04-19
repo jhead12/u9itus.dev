@@ -15,6 +15,7 @@ use App\Services\GoogleCivicVoterInfoService;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 
@@ -579,13 +580,17 @@ class PublicProfileController extends Controller
             }
         }
 
-        $query = Politician::where('page_published', true)
+        $politicianTable = (new Politician())->getTable();
+        $hasZipColumn = Schema::hasColumn($politicianTable, 'zip_code');
+
+        $query = Politician::query()
+            ->where('page_published', true)
             ->where('is_active', true)
             ->with(['campaigns' => function($q) {
                 $q->where('status', 'active')->where('approval_status', 'approved');
             }]);
 
-        if ($zipInput !== '' && $zipValidationError === null) {
+        if ($zipInput !== '' && $zipValidationError === null && $hasZipColumn) {
             $zipPrefix = substr($normalizedZip, 0, 5);
             $query->where('zip_code', 'like', $zipPrefix . '%');
         }
@@ -647,17 +652,30 @@ class PublicProfileController extends Controller
 
         // Sorting
         $sortBy = $request->input('sort', 'name');
-        if ($zipValidationError !== null) {
+        try {
+            if ($zipValidationError !== null) {
+                $politicians = $this->paginateDirectoryResults(
+                    politicians: collect(),
+                    request: $request,
+                );
+            } else {
+                $politicians = $this->paginateDirectoryResults(
+                    politicians: $this->sortDirectoryResults(
+                        politicians: $this->collapseDirectoryDuplicates($query->get()),
+                        sortBy: $sortBy,
+                    ),
+                    request: $request,
+                );
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Politicians directory failed to load; returning empty results fallback', [
+                'error_class' => get_class($e),
+                'error' => $e->getMessage(),
+                'is_voter_layout' => $useVoterLayout,
+            ]);
+
             $politicians = $this->paginateDirectoryResults(
                 politicians: collect(),
-                request: $request,
-            );
-        } else {
-            $politicians = $this->paginateDirectoryResults(
-                politicians: $this->sortDirectoryResults(
-                    politicians: $this->collapseDirectoryDuplicates($query->get()),
-                    sortBy: $sortBy,
-                ),
                 request: $request,
             );
         }
