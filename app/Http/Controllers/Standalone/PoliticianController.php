@@ -1090,8 +1090,8 @@ class PoliticianController extends Controller
                 ];
             });
 
-        // Calculate totalBudget from actual credits purchased (not campaign budgets)
-        $totalBudget = (float) ($transactionsWithFeeSummary->sum('credits') ?? 0);
+        // Calculate totalBudget from actual available credits (purchases - debits)
+        $totalBudget = $this->computeModeAwareCreditBalance($politician->id, $activePaymentMode);
 
         $voterQuestionsQuery = VoterWatchReport::query()
             ->where('type', 'message')
