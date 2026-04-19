@@ -22,6 +22,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -579,27 +580,49 @@ class VoterController extends Controller
             $campaign->media_url = $playableMediaUrl;
         }
 
-        $recentPublicQuestions = VoterWatchReport::query()
+        $reportsTable = (new VoterWatchReport())->getTable();
+        $hasPublicBoardColumns = Schema::hasColumns($reportsTable, [
+            'public_visibility',
+            'is_public_board',
+            'campaign_replied_at',
+            'published_at',
+        ]);
+
+        $recentPublicQuestionsQuery = VoterWatchReport::query()
             ->messages()
-            ->where('campaign_id', $campaign->id)
-            ->where(function ($query) {
-                $query->where(function ($approved) {
-                    $approved->where('public_visibility', 'approved')
-                        ->where('is_public_board', true);
-                })->orWhere(function ($legacy) {
-                    $legacy->where('status', 'resolved')
-                        ->whereNotNull('admin_notes');
-                });
-            })
-            ->orderByDesc('campaign_replied_at')
-            ->orderByDesc('published_at')
+            ->where('campaign_id', $campaign->id);
+
+        if ($hasPublicBoardColumns) {
+            $recentPublicQuestionsQuery
+                ->where(function ($query) {
+                    $query->where(function ($approved) {
+                        $approved->where('public_visibility', 'approved')
+                            ->where('is_public_board', true);
+                    })->orWhere(function ($legacy) {
+                        $legacy->where('status', 'resolved')
+                            ->whereNotNull('admin_notes');
+                    });
+                })
+                ->orderByDesc('campaign_replied_at')
+                ->orderByDesc('published_at');
+        } else {
+            $recentPublicQuestionsQuery
+                ->where('status', 'resolved')
+                ->whereNotNull('admin_notes');
+        }
+
+        $recentPublicQuestions = $recentPublicQuestionsQuery
             ->orderByDesc('updated_at')
             ->take(2)
             ->get();
 
         // Find next available campaign for this voter
-        $voter = $adToken->voter;
-        $excludedCampaignIds = method_exists($this, 'excludedCampaignIdsForVoter') ? $this->excludedCampaignIdsForVoter($voter) : [];
+        $voter = $adToken->voter ?? $this->resolveVoter();
+        if ((int) $adToken->voter_id !== (int) $voter->id) {
+            abort(403);
+        }
+
+        $excludedCampaignIds = $this->excludedCampaignIdsForVoter($voter);
         $excludedCampaignIds[] = $campaign->id;
 
         $nextCampaign = \App\Models\PoliticalCampaign::needingViews()
@@ -639,20 +662,38 @@ class VoterController extends Controller
         $campaign = $adToken->campaign;
         abort_unless($campaign, 404);
 
-        $questions = VoterWatchReport::query()
+        $reportsTable = (new VoterWatchReport())->getTable();
+        $hasPublicBoardColumns = Schema::hasColumns($reportsTable, [
+            'public_visibility',
+            'is_public_board',
+            'campaign_replied_at',
+            'published_at',
+        ]);
+
+        $questionsQuery = VoterWatchReport::query()
             ->messages()
-            ->where('campaign_id', $campaign->id)
-            ->where(function ($query) {
-                $query->where(function ($approved) {
-                    $approved->where('public_visibility', 'approved')
-                        ->where('is_public_board', true);
-                })->orWhere(function ($legacy) {
-                    $legacy->where('status', 'resolved')
-                        ->whereNotNull('admin_notes');
-                });
-            })
-            ->orderByDesc('campaign_replied_at')
-            ->orderByDesc('published_at')
+            ->where('campaign_id', $campaign->id);
+
+        if ($hasPublicBoardColumns) {
+            $questionsQuery
+                ->where(function ($query) {
+                    $query->where(function ($approved) {
+                        $approved->where('public_visibility', 'approved')
+                            ->where('is_public_board', true);
+                    })->orWhere(function ($legacy) {
+                        $legacy->where('status', 'resolved')
+                            ->whereNotNull('admin_notes');
+                    });
+                })
+                ->orderByDesc('campaign_replied_at')
+                ->orderByDesc('published_at');
+        } else {
+            $questionsQuery
+                ->where('status', 'resolved')
+                ->whereNotNull('admin_notes');
+        }
+
+        $questions = $questionsQuery
             ->orderByDesc('updated_at')
             ->paginate(12);
 
