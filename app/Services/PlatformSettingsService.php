@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Models\PlatformSetting;
 use Illuminate\Database\UniqueConstraintViolationException;
-use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
@@ -47,41 +46,53 @@ class PlatformSettingsService
     {
         $cacheKey = self::CACHE_PREFIX . $key . ':' . ($userTier ?? 'global');
 
-        return Cache::remember($cacheKey, self::CACHE_TTL, function () use ($key, $userTier, $default) {
-            try {
-                // Priority 1: Active user-tier-specific setting
-                if ($userTier) {
-                    $tierSetting = PlatformSetting::where('key', $key)
+        try {
+            return Cache::remember($cacheKey, self::CACHE_TTL, function () use ($key, $userTier, $default) {
+                try {
+                    // Priority 1: Active user-tier-specific setting
+                    if ($userTier) {
+                        $tierSetting = PlatformSetting::where('key', $key)
+                            ->active()
+                            ->where('user_tier', $userTier)
+                            ->orderBy('created_at', 'desc')
+                            ->first();
+
+                        if ($tierSetting) {
+                            return $tierSetting->getTypedValue();
+                        }
+                    }
+
+                    // Priority 2: Active global setting (user_tier = null)
+                    $globalSetting = PlatformSetting::where('key', $key)
                         ->active()
-                        ->where('user_tier', $userTier)
+                        ->whereNull('user_tier')
                         ->orderBy('created_at', 'desc')
                         ->first();
 
-                    if ($tierSetting) {
-                        return $tierSetting->getTypedValue();
+                    if ($globalSetting) {
+                        return $globalSetting->getTypedValue();
                     }
+                } catch (\Throwable $e) {
+                    Log::warning('Platform settings read failed; using config fallback', [
+                        'key' => $key,
+                        'user_tier' => $userTier,
+                        'error_class' => get_class($e),
+                        'error' => $e->getMessage(),
+                    ]);
                 }
 
-                // Priority 2: Active global setting (user_tier = null)
-                $globalSetting = PlatformSetting::where('key', $key)
-                    ->active()
-                    ->whereNull('user_tier')
-                    ->orderBy('created_at', 'desc')
-                    ->first();
-
-                if ($globalSetting) {
-                    return $globalSetting->getTypedValue();
-                }
-            } catch (QueryException $e) {
-                Log::warning('Platform settings query failed; using config fallback', [
-                    'key' => $key,
-                    'user_tier' => $userTier,
-                    'error' => $e->getMessage(),
-                ]);
-            }
+                return self::getConfigFallback($key, $default);
+            });
+        } catch (\Throwable $e) {
+            Log::warning('Platform settings cache failed; using config fallback', [
+                'key' => $key,
+                'user_tier' => $userTier,
+                'error_class' => get_class($e),
+                'error' => $e->getMessage(),
+            ]);
 
             return self::getConfigFallback($key, $default);
-        });
+        }
     }
 
     /**

@@ -195,8 +195,8 @@
 
     {{-- ── Account metadata ────────────────────────────────────────────── --}}
     <div class="bg-slate-800/30 border border-slate-700/30 rounded-xl px-6 py-4 text-xs text-slate-500 flex flex-wrap gap-x-6 gap-y-1">
-        <span>Account created: <span class="text-slate-400">{{ $user->created_at->format('M j, Y') }}</span></span>
-        <span>Last updated: <span class="text-slate-400">{{ $user->updated_at->format('M j, Y g:i A') }}</span></span>
+        <span>Account created: <span class="text-slate-400">{{ $user->created_at?->format('M j, Y') ?? 'Unavailable' }}</span></span>
+        <span>Last updated: <span class="text-slate-400">{{ $user->updated_at?->format('M j, Y g:i A') ?? 'Unavailable' }}</span></span>
         <span>Role: <span class="text-red-400 font-medium">admin</span></span>
     </div>
 
