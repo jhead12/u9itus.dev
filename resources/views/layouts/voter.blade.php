@@ -27,7 +27,7 @@
     $showVoterStartHere = false;
     $voterStartHereChecklist = [];
 
-    if (auth()->check() && auth()->user()?->hasRole('voter')) {
+    if (auth()->check() && auth()->user()?->user_type === 'voter') {
         $voterOnboardingProgress = \App\Models\OnboardingProgress::query()
             ->where('user_id', auth()->id())
             ->where('user_type', 'voter')
