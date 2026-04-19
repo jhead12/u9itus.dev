@@ -35,8 +35,139 @@
             @if($campaign->politician->political_office ?? false)
                 <span class="text-slate-600">&middot;</span>
                 <span class="text-slate-400">{{ $campaign->politician->political_office }}</span>
+                {{-- "About This Office" tooltip trigger --}}
+                <button
+                    type="button"
+                    id="office-info-btn"
+                    aria-label="Learn about this office"
+                    class="inline-flex items-center justify-center w-4 h-4 rounded-full bg-slate-700 hover:bg-emerald-700 text-slate-300 hover:text-white transition ml-1 align-middle"
+                    onclick="openOfficeInfoModal('{{ $campaign->politician->uuid }}')"
+                >
+                    <svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                    </svg>
+                </button>
             @endif
         </p>
+    </div>
+
+    {{-- ── Office Info Modal ────────────────────────────────────────────── --}}
+    <div id="office-info-modal"
+         class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+         style="display:none!important"
+         role="dialog"
+         aria-modal="true"
+         aria-labelledby="office-modal-title">
+        <div class="relative w-full max-w-lg bg-slate-900 border border-slate-700/70 rounded-2xl shadow-2xl overflow-hidden">
+
+            {{-- Header --}}
+            <div class="flex items-start justify-between p-5 border-b border-slate-700/60">
+                <div>
+                    <p class="text-[10px] uppercase tracking-[0.2em] font-semibold text-emerald-400/80 mb-1">About This Office</p>
+                    <h2 id="office-modal-title" class="text-lg font-bold text-white" id="om-office-title">Loading…</h2>
+                    <p class="text-sm text-slate-400 mt-0.5" id="om-jurisdiction"></p>
+                </div>
+                <button
+                    type="button"
+                    onclick="closeOfficeInfoModal()"
+                    class="text-slate-500 hover:text-white transition ml-4 mt-0.5 shrink-0"
+                    aria-label="Close">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+
+            {{-- Body --}}
+            <div class="p-5 max-h-[70vh] overflow-y-auto space-y-5 text-sm">
+
+                {{-- Loading state --}}
+                <div id="om-loading" class="flex items-center justify-center py-8 text-slate-400 gap-3">
+                    <div class="h-5 w-5 rounded-full border-2 border-slate-500 border-t-emerald-400 animate-spin"></div>
+                    <span>Loading office information…</span>
+                </div>
+
+                {{-- Error state --}}
+                <div id="om-error" class="hidden py-6 text-center text-slate-400">
+                    <p class="text-slate-300 font-medium">No information available yet</p>
+                    <p class="text-xs mt-1 text-slate-500">Civic data for this office hasn't been added to the platform yet.</p>
+                </div>
+
+                {{-- Content --}}
+                <div id="om-content" class="hidden space-y-5">
+
+                    {{-- Quick stats row --}}
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        <div id="om-stat-level" class="hidden rounded-xl bg-slate-800/70 border border-slate-700/50 px-3 py-2.5">
+                            <p class="text-[10px] uppercase tracking-wide text-slate-500 mb-0.5">Level</p>
+                            <p class="text-white font-semibold" id="om-governance-level"></p>
+                        </div>
+                        <div id="om-stat-salary" class="hidden rounded-xl bg-slate-800/70 border border-slate-700/50 px-3 py-2.5">
+                            <p class="text-[10px] uppercase tracking-wide text-slate-500 mb-0.5">Annual Salary</p>
+                            <p class="text-emerald-300 font-semibold" id="om-salary"></p>
+                        </div>
+                        <div id="om-stat-term" class="hidden rounded-xl bg-slate-800/70 border border-slate-700/50 px-3 py-2.5">
+                            <p class="text-[10px] uppercase tracking-wide text-slate-500 mb-0.5">Term Length</p>
+                            <p class="text-white font-semibold" id="om-term"></p>
+                        </div>
+                        <div id="om-stat-how" class="hidden rounded-xl bg-slate-800/70 border border-slate-700/50 px-3 py-2.5 col-span-2 sm:col-span-1">
+                            <p class="text-[10px] uppercase tracking-wide text-slate-500 mb-0.5">How Selected</p>
+                            <p class="text-white font-semibold capitalize" id="om-how-elected"></p>
+                        </div>
+                    </div>
+
+                    {{-- Role summary --}}
+                    <div id="om-summary-block" class="hidden">
+                        <p class="text-[10px] uppercase tracking-wide text-slate-500 mb-1.5">What Does This Official Do?</p>
+                        <p class="text-slate-200 leading-relaxed" id="om-role-summary"></p>
+                    </div>
+
+                    {{-- Community impact --}}
+                    <div id="om-impact-block" class="hidden">
+                        <p class="text-[10px] uppercase tracking-wide text-slate-500 mb-1.5">How It Affects Your Life</p>
+                        <p class="text-slate-200 leading-relaxed" id="om-community-impact"></p>
+                    </div>
+
+                    {{-- Key duties --}}
+                    <div id="om-duties-block" class="hidden">
+                        <p class="text-[10px] uppercase tracking-wide text-slate-500 mb-2">Key Responsibilities</p>
+                        <ul id="om-key-duties" class="space-y-1.5 text-slate-200"></ul>
+                    </div>
+
+                    {{-- Powers & limits --}}
+                    <div id="om-powers-block" class="hidden">
+                        <p class="text-[10px] uppercase tracking-wide text-slate-500 mb-2">Powers &amp; Limits</p>
+                        <ul id="om-powers-and-limits" class="space-y-1.5 text-slate-300"></ul>
+                    </div>
+
+                    {{-- Salary note + source link --}}
+                    <div id="om-footer-block" class="hidden border-t border-slate-700/50 pt-4 space-y-1">
+                        <p class="text-xs text-slate-500" id="om-salary-note"></p>
+                        <a id="om-source-url" href="#" target="_blank" rel="noopener noreferrer"
+                           class="text-xs text-emerald-400/80 hover:text-emerald-300 underline underline-offset-2">
+                            View official source ↗
+                        </a>
+                    </div>
+
+                    {{-- Verified badge --}}
+                    <div id="om-verified-badge" class="hidden flex items-center gap-2 text-xs text-emerald-300/70">
+                        <svg class="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                        </svg>
+                        Civic data verified by U9itus team
+                    </div>
+
+                </div>
+            </div>
+
+            {{-- Footer disclaimer --}}
+            <div class="px-5 py-3 bg-slate-950/40 border-t border-slate-800/60">
+                <p class="text-xs text-slate-500 text-center">
+                    This information is provided to help you understand what your elected officials do.
+                    It does not represent U9itus's endorsement of any candidate.
+                </p>
+            </div>
+        </div>
     </div>
 
     @if(!empty($campaign->video_blurb))
@@ -1693,6 +1824,156 @@
     if (replayBtn) {
         replayBtn.addEventListener('click', replayFromStart);
     }
+})();
+</script>
+
+{{-- ── Office Info Modal JS ─────────────────────────────────────────────── --}}
+<script>
+(function () {
+    const modal       = document.getElementById('office-info-modal');
+    const loadingEl   = document.getElementById('om-loading');
+    const errorEl     = document.getElementById('om-error');
+    const contentEl   = document.getElementById('om-content');
+
+    function show(el)  { el.style.removeProperty('display'); el.classList.remove('hidden'); }
+    function hide(el)  { el.classList.add('hidden'); }
+
+    function setText(id, value) {
+        const el = document.getElementById(id);
+        if (el) el.textContent = value;
+    }
+
+    function setList(listId, wrapperId, items) {
+        const wrapper = document.getElementById(wrapperId);
+        const list    = document.getElementById(listId);
+        if (! wrapper || ! list || ! Array.isArray(items) || items.length === 0) return;
+        list.innerHTML = items
+            .map(item => `<li class="flex items-start gap-2"><span class="text-emerald-400 mt-0.5 shrink-0">▸</span><span>${escHtml(item)}</span></li>`)
+            .join('');
+        show(wrapper);
+    }
+
+    function escHtml(str) {
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    function populateModal(data) {
+        const p  = data.politician;
+        const op = data.office_profile;
+
+        // Header
+        setText('om-office-title', op.office_title || p.political_office || 'Unknown Office');
+        const jurisdictionParts = [op.jurisdiction, p.state].filter(Boolean);
+        setText('om-jurisdiction', jurisdictionParts.join(' · ') || '');
+
+        // Stats
+        if (op.governance_level) {
+            setText('om-governance-level', op.governance_level.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()));
+            show(document.getElementById('om-stat-level'));
+        }
+        if (op.salary_range) {
+            setText('om-salary', op.salary_range + ' / yr');
+            show(document.getElementById('om-stat-salary'));
+        }
+        if (op.term_length_years) {
+            setText('om-term', op.term_length_years + (op.term_length_years === 1 ? ' year' : ' years'));
+            show(document.getElementById('om-stat-term'));
+        }
+        if (op.how_elected_or_appointed) {
+            setText('om-how-elected', op.how_elected_or_appointed);
+            show(document.getElementById('om-stat-how'));
+        }
+
+        // Text blocks
+        if (op.role_summary) {
+            setText('om-role-summary', op.role_summary);
+            show(document.getElementById('om-summary-block'));
+        }
+        if (op.community_impact) {
+            setText('om-community-impact', op.community_impact);
+            show(document.getElementById('om-impact-block'));
+        }
+
+        // Lists
+        setList('om-key-duties', 'om-duties-block', op.key_duties);
+        setList('om-powers-and-limits', 'om-powers-block', op.powers_and_limits);
+
+        // Footer / source
+        const footerBlock = document.getElementById('om-footer-block');
+        const hasSalaryNote = Boolean(op.salary_source_note);
+        const hasSourceUrl  = Boolean(op.source_url);
+        if (hasSalaryNote || hasSourceUrl) {
+            if (hasSalaryNote) setText('om-salary-note', 'Salary source: ' + op.salary_source_note);
+            if (hasSourceUrl) {
+                const link = document.getElementById('om-source-url');
+                if (link) { link.href = op.source_url; show(link); }
+            }
+            show(footerBlock);
+        }
+
+        // Verified
+        if (op.is_verified) {
+            show(document.getElementById('om-verified-badge'));
+        }
+
+        hide(loadingEl);
+        show(contentEl);
+    }
+
+    // Fetch the office profile from the public API
+    let _cache = null;
+
+    window.openOfficeInfoModal = function (politicianUuid) {
+        // Reset state
+        hide(contentEl);
+        hide(errorEl);
+        show(loadingEl);
+        modal.style.removeProperty('display');
+        modal.classList.remove('hidden');
+        document.body.classList.add('overflow-hidden');
+
+        if (_cache) {
+            populateModal(_cache);
+            return;
+        }
+
+        fetch('/api/v1/politicians/' + encodeURIComponent(politicianUuid) + '/office-profile', {
+            headers: { 'Accept': 'application/json' },
+        })
+        .then(function (res) {
+            if (! res.ok) throw new Error('not_found');
+            return res.json();
+        })
+        .then(function (data) {
+            _cache = data;
+            populateModal(data);
+        })
+        .catch(function () {
+            hide(loadingEl);
+            show(errorEl);
+        });
+    };
+
+    window.closeOfficeInfoModal = function () {
+        modal.style.setProperty('display', 'none', 'important');
+        document.body.classList.remove('overflow-hidden');
+    };
+
+    // Close on backdrop click
+    modal.addEventListener('click', function (e) {
+        if (e.target === modal) closeOfficeInfoModal();
+    });
+
+    // Close on Escape
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && ! modal.style.display.includes('none') === false) {
+            closeOfficeInfoModal();
+        }
+    });
 })();
 </script>
 @endpush

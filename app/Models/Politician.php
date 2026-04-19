@@ -9,6 +9,7 @@ use Illuminate\Support\Str;
 use App\Models\ReferralEarning;
 use App\Models\PoliticianPage;
 use App\Models\PoliticianInitiative;
+use App\Models\PoliticianOfficeProfile;
 
 /**
  * A politician or local governance official who creates campaigns
@@ -232,6 +233,18 @@ class Politician extends Model
     public function referralEarnings(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(ReferralEarning::class, 'referrer_politician_id');
+    }
+
+    // ── Civic education: office profile (voter-facing info popup) ─────────
+
+    /**
+     * Structured civic data about this politician's office —
+     * salary, responsibilities, community impact, etc.
+     * Exposed publicly so voters understand what the role does.
+     */
+    public function officeProfile(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(PoliticianOfficeProfile::class);
     }
 
     // ── Phase 13: Public Profile Page ─────────────────────────────────────

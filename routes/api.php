@@ -15,6 +15,8 @@
  */
 
 use App\Http\Controllers\Api\AdminController;
+use App\Http\Controllers\Api\BillingController;
+use App\Http\Controllers\Api\OfficeProfileController;
 use App\Http\Controllers\Api\PayPalWebhookController;
 use App\Http\Controllers\Api\PoliticianController;
 use App\Http\Controllers\Api\VoterController;
@@ -80,6 +82,10 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         Route::post('/voters', [VoterController::class, 'store'])
             ->middleware('throttle:10,1')
             ->name('voters.store');
+
+        // Public civic education — office profile for voter info popup (no auth)
+        Route::get('/politicians/{politician:uuid}/office-profile', [OfficeProfileController::class, 'show'])
+            ->name('politicians.office-profile');
 
         // Voter profile & actions (identified by UUID — prevents enumeration)
         Route::prefix('/voters/{voter:uuid}')->name('voters.')->group(function () {

@@ -14,6 +14,7 @@ use App\Http\Controllers\Standalone\DashboardController;
 use App\Http\Controllers\Standalone\PoliticianController;
 use App\Http\Controllers\Standalone\VoterController;
 use App\Http\Controllers\Standalone\AdminController;
+use App\Http\Controllers\Standalone\AdminOfficeProfileController;
 use App\Http\Controllers\Standalone\PublicProfileController;
 use App\Http\Controllers\Standalone\VoterOnboardingController;
 use App\Http\Controllers\Standalone\PoliticianOnboardingController;
@@ -395,6 +396,13 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         Route::post('/platform-settings', [AdminController::class, 'updatePlatformSetting'])->name('platform-settings.update');
         Route::delete('/platform-settings', [AdminController::class, 'deletePlatformSetting'])->name('platform-settings.delete');
         Route::post('/platform-settings/clear-cache', [AdminController::class, 'clearSettingsCache'])->name('platform-settings.clear-cache');
+
+        // Office Profiles — civic education data for the voter popup
+        Route::get('/office-profiles', [AdminOfficeProfileController::class, 'index'])->name('office-profiles.index');
+        Route::get('/office-profiles/{politician}/edit', [AdminOfficeProfileController::class, 'edit'])->name('office-profiles.edit');
+        Route::post('/office-profiles/{politician}', [AdminOfficeProfileController::class, 'update'])->name('office-profiles.update');
+        Route::post('/office-profiles/{politician}/toggle-verified', [AdminOfficeProfileController::class, 'toggleVerified'])->name('office-profiles.toggle-verified');
+        Route::delete('/office-profiles/{politician}', [AdminOfficeProfileController::class, 'destroy'])->name('office-profiles.destroy');
 
         // Email Template Management (Phase 7b)
         Route::get('/email-templates', [AdminController::class, 'emailTemplates'])->name('email-templates.index');
