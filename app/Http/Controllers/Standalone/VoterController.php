@@ -636,12 +636,14 @@ class VoterController extends Controller
         if ($nextCampaign) {
             // Mint a new AdViewToken for the next campaign
             $nextAdToken = \App\Models\AdViewToken::create([
-                'voter_id' => $voter->id,
+                'voter_id'              => $voter->id,
                 'political_campaign_id' => $nextCampaign->id,
-                'token' => \Str::uuid()->toString(),
-                'is_used' => false,
-                'is_expired' => false,
-                'expires_at' => now()->addMinutes(30),
+                'notification_method'   => 'direct',
+                'sent_to'               => $voter->email ?? 'direct',
+                'sent_at'               => now(),
+                'is_used'               => false,
+                'is_expired'            => false,
+                'expires_at'            => now()->addMinutes(30),
             ]);
         }
 
