@@ -117,7 +117,7 @@ class VoterOnboardingController extends Controller
     public function completePayoutSetup(Request $request)
     {
         $validated = $request->validate([
-            'payment_method' => 'required|in:paypal,cashapp',
+            'payment_method' => 'required|in:paypal,cashapp,stripe',
             'paypal_email' => 'nullable|required_if:payment_method,paypal|email|max:255',
             'cashapp_tag' => 'nullable|required_if:payment_method,cashapp|string|max:100',
         ]);
@@ -126,11 +126,16 @@ class VoterOnboardingController extends Controller
         $voter = Voter::where('user_id', auth()->id())->first();
         if ($voter) {
             $method = $validated['payment_method'];
+            $stripeStatus = $voter->stripe_account_status;
+            if ($method === 'stripe' && empty($stripeStatus)) {
+                $stripeStatus = 'pending';
+            }
 
             $voter->update([
                 'payment_method' => $method,
                 'paypal_email' => $method === 'paypal' ? ($validated['paypal_email'] ?? null) : null,
                 'cashapp_tag' => $method === 'cashapp' ? ltrim((string) ($validated['cashapp_tag'] ?? ''), '$') : null,
+                'stripe_account_status' => $stripeStatus,
             ]);
         }
 

@@ -39,6 +39,7 @@
         <div class="px-5 py-4 border-b border-slate-700/50">
             <h3 class="text-sm font-semibold text-white">Identity Verification Queue</h3>
             <p class="text-xs text-slate-500 mt-0.5">{{ $users->total() }} user(s) awaiting KYC (Know Your Customer) review — users must verify their identity before accessing paid features</p>
+            <p class="text-xs text-amber-300/80 mt-1">Phase A note: voter rows are legacy/manual while payout verification migrates to Stripe Connect.</p>
         </div>
 
         @if($users->isEmpty())
@@ -64,6 +65,11 @@
                                 <span class="text-xs px-2 py-0.5 rounded-full {{ $user->user_type === 'politician' ? 'bg-blue-500/10 text-blue-400' : 'bg-emerald-500/10 text-emerald-400' }}">
                                     {{ $user->user_type }}
                                 </span>
+                                @if($user->user_type === 'voter')
+                                <span class="text-xs px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                                    Legacy Manual Review
+                                </span>
+                                @endif
                             </div>
                             <p class="text-xs text-slate-400 mt-0.5">{{ $user->email }}</p>
                             <div class="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-slate-500">

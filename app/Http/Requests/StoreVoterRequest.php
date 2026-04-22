@@ -27,7 +27,7 @@ class StoreVoterRequest extends FormRequest
             'city'                       => 'nullable|string|max:255',
             'zip_code'                   => 'nullable|string|max:10',
             'referral_code'              => 'nullable|string|max:16',
-            'payment_method'             => 'nullable|in:wallet,paypal,cashapp',
+            'payment_method'             => 'nullable|in:wallet,paypal,cashapp,stripe',
             'paypal_email'               => 'nullable|required_if:payment_method,paypal|email',
             'cashapp_tag'                => 'nullable|required_if:payment_method,cashapp|string|max:50',
             'wix_member_id'              => 'nullable|string',

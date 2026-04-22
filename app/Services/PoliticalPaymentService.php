@@ -14,6 +14,7 @@ use App\Services\CampaignBillingService;
 use App\Services\CashAppPayoutService;
 use App\Services\PayPalPayoutService;
 use App\Services\ReverbBroadcastService;
+use App\Services\StripeConnectService;
 use App\Services\StripePaymentService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -31,6 +32,7 @@ class PoliticalPaymentService
 {
     protected ?CampaignBillingService $billingService;
     protected ?StripePaymentService $stripeService;
+    protected ?StripeConnectService $stripeConnectService;
     protected ?PayPalPayoutService $paypalService;
     protected ?CashAppPayoutService $cashAppService;
     protected ReverbBroadcastService $broadcastService;
@@ -38,12 +40,14 @@ class PoliticalPaymentService
     public function __construct(
         ?CampaignBillingService $billingService = null,
         ?StripePaymentService $stripeService = null,
+        ?StripeConnectService $stripeConnectService = null,
         ?PayPalPayoutService $paypalService = null,
         ?CashAppPayoutService $cashAppService = null,
         ?ReverbBroadcastService $broadcastService = null,
     ) {
         $this->billingService   = $billingService;
         $this->stripeService    = $stripeService;
+        $this->stripeConnectService = $stripeConnectService;
         $this->paypalService    = $paypalService;
         $this->cashAppService   = $cashAppService;
         $this->broadcastService = $broadcastService ?? app(ReverbBroadcastService::class);
@@ -196,12 +200,42 @@ class PoliticalPaymentService
                 && ! empty($voter->paypal_email)
                 && $this->paypalService;
 
+            $canUseStripe = $selectedProcessor === 'stripe'
+                && $this->stripeConnectService
+                && $this->stripeConnectService->canReceivePayout($voter);
+
             $canUseCashApp = $selectedProcessor === 'cashapp'
                 && ! empty($voter->cashapp_tag)
                 && $this->cashAppService
                 && $this->cashAppService->isConfigured();
 
-            if ($canUsePayPal) {
+            if ($canUseStripe) {
+                try {
+                    $stripeResult = $this->stripeConnectService->sendTransfer(
+                        $voter,
+                        $approvedEarnings,
+                        $batchId,
+                        ['payout_batch' => $batchId]
+                    );
+
+                    $processorExecuted = 'stripe';
+                    $processorReference = (string) ($stripeResult['reference'] ?? $batchId);
+                    $processorFee = (float) ($stripeResult['fee'] ?? 0.00);
+                } catch (\Exception $e) {
+                    Log::error("Stripe payout failed for voter {$voter->uuid}: " . $e->getMessage());
+                    $results['skipped']++;
+                    $this->recordSkippedPayout(
+                        run: $run,
+                        voter: $voter,
+                        amount: $approvedEarnings,
+                        reasonBucket: 'processor_unavailable',
+                        selectedProcessor: $selectedProcessor,
+                        reasonDetail: 'Stripe transfer call failed during submission.',
+                        context: ['error' => $e->getMessage()],
+                    );
+                    continue;
+                }
+            } elseif ($canUsePayPal) {
                 try {
                     $paypalResult = $this->paypalService->sendBatchPayout($batchId, [[
                         'email'          => $voter->paypal_email,
@@ -278,11 +312,25 @@ class PoliticalPaymentService
                     reasonDetail: 'Voter selected PayPal but has no PayPal email saved.',
                 );
                 continue;
-            } elseif ($selectedProcessor === 'paypal' || $selectedProcessor === 'cashapp') {
+            } elseif ($selectedProcessor === 'stripe' && empty($voter->stripe_account_id)) {
+                $results['skipped']++;
+                $this->recordSkippedPayout(
+                    run: $run,
+                    voter: $voter,
+                    amount: $approvedEarnings,
+                    reasonBucket: 'missing_stripe_account',
+                    selectedProcessor: $selectedProcessor,
+                    reasonDetail: 'Voter selected Stripe but has no connected Stripe account.',
+                );
+                continue;
+            } elseif ($selectedProcessor === 'stripe' || $selectedProcessor === 'paypal' || $selectedProcessor === 'cashapp') {
                 Log::warning("Skipping payout for voter {$voter->uuid}: selected processor unavailable", [
                     'selected_processor' => $selectedProcessor,
+                    'has_stripe_account_id' => ! empty($voter->stripe_account_id),
+                    'stripe_account_status' => $voter->stripe_account_status,
                     'has_paypal_email' => ! empty($voter->paypal_email),
                     'has_cashapp_tag' => ! empty($voter->cashapp_tag),
+                    'stripe_service_available' => (bool) $this->stripeConnectService,
                     'paypal_service_available' => (bool) $this->paypalService,
                     'cashapp_service_available' => (bool) $this->cashAppService,
                     'cashapp_configured' => $this->cashAppService?->isConfigured() ?? false,
@@ -296,6 +344,8 @@ class PoliticalPaymentService
                     selectedProcessor: $selectedProcessor,
                     reasonDetail: 'Selected payout processor is unavailable or not configured.',
                     context: [
+                        'has_stripe_account_id' => ! empty($voter->stripe_account_id),
+                        'stripe_account_status' => $voter->stripe_account_status,
                         'has_paypal_email' => ! empty($voter->paypal_email),
                         'has_cashapp_tag' => ! empty($voter->cashapp_tag),
                     ],
@@ -334,6 +384,7 @@ class PoliticalPaymentService
 
             // Notify the voter via WebSocket (Phase 11)
             $displayMethod = match ($processorExecuted) {
+                'stripe' => 'Stripe',
                 'paypal' => 'PayPal',
                 'cashapp' => 'CashApp',
                 default => 'Wallet',
@@ -401,12 +452,27 @@ class PoliticalPaymentService
             && ! empty($voter->paypal_email)
             && $this->paypalService;
 
+        $canUseStripe = $selectedProcessor === 'stripe'
+            && $this->stripeConnectService
+            && $this->stripeConnectService->canReceivePayout($voter);
+
         $canUseCashApp = $selectedProcessor === 'cashapp'
             && ! empty($voter->cashapp_tag)
             && $this->cashAppService
             && $this->cashAppService->isConfigured();
 
-        if ($canUsePayPal) {
+        if ($canUseStripe) {
+            $stripeResult = $this->stripeConnectService->sendTransfer(
+                $voter,
+                $approvedEarnings,
+                $batchId,
+                ['payout_batch' => $batchId],
+            );
+
+            $processorExecuted = 'stripe';
+            $processorReference = (string) ($stripeResult['reference'] ?? $batchId);
+            $processorFee = (float) ($stripeResult['fee'] ?? 0.00);
+        } elseif ($canUsePayPal) {
             $paypalResult = $this->paypalService->sendBatchPayout($batchId, [[
                 'email'          => $voter->paypal_email,
                 'amount'         => $approvedEarnings,
@@ -427,9 +493,11 @@ class PoliticalPaymentService
             $processorExecuted = 'cashapp';
             $processorReference = (string) ($cashAppResult['reference'] ?? $batchId);
             $processorFee = (float) ($cashAppResult['fee'] ?? 0.00);
+        } elseif ($selectedProcessor === 'stripe' && empty($voter->stripe_account_id)) {
+            throw new \RuntimeException('Cannot force payout: voter is missing a connected Stripe account.');
         } elseif ($selectedProcessor === 'paypal' && empty($voter->paypal_email)) {
             throw new \RuntimeException('Cannot force payout: voter is missing a PayPal email.');
-        } elseif ($selectedProcessor === 'paypal' || $selectedProcessor === 'cashapp') {
+        } elseif ($selectedProcessor === 'stripe' || $selectedProcessor === 'paypal' || $selectedProcessor === 'cashapp') {
             throw new \RuntimeException('Cannot force payout: selected processor is unavailable.');
         }
 

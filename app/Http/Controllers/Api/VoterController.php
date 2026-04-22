@@ -9,6 +9,7 @@ use App\Http\Resources\ViewSessionResource;
 use App\Models\Voter;
 use App\Models\ViewSession;
 use App\Models\PoliticalCampaign;
+use App\Services\StripeConnectService;
 use App\Services\PoliticalViewService;
 use App\Services\FraudPreventionService;
 use Illuminate\Http\JsonResponse;
@@ -177,5 +178,38 @@ class VoterController extends Controller
             'referral_earnings' => $voter->referralEarnings()->forActiveStripeMode()->sum('commission_amount'),
             'referred_voters'   => $voter->referrals()->select('uuid', 'full_name', 'created_at')->get(),
         ]);
+    }
+
+    /**
+     * Generate a Stripe Connect onboarding link for a voter.
+     */
+    public function connectOnboard(Request $request, Voter $voter, StripeConnectService $stripeConnect): JsonResponse
+    {
+        $validated = $request->validate([
+            'return_url' => 'nullable|url|max:2048',
+            'refresh_url' => 'nullable|url|max:2048',
+        ]);
+
+        $link = $stripeConnect->createOnboardingLink(
+            $voter,
+            $validated['return_url'] ?? null,
+            $validated['refresh_url'] ?? null,
+        );
+
+        $voter->update(['payment_method' => 'stripe']);
+
+        return response()->json([
+            'onboarding_url' => $link['url'],
+            'expires_at' => $link['expires_at'],
+            'account_id' => $link['account_id'],
+        ]);
+    }
+
+    /**
+     * Check Stripe Connect account readiness for payouts.
+     */
+    public function connectStatus(Voter $voter, StripeConnectService $stripeConnect): JsonResponse
+    {
+        return response()->json($stripeConnect->getAccountStatus($voter));
     }
 }

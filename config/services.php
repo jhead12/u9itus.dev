@@ -46,6 +46,8 @@ return [
         'secret'          => env('STRIPE_SECRET'),
         'public'          => env('STRIPE_KEY'),
         'webhook_secret'  => env('STRIPE_WEBHOOK_SECRET'),
+        'connect_return_url' => env('STRIPE_CONNECT_RETURN_URL', env('APP_URL') . '/payout'),
+        'connect_refresh_url' => env('STRIPE_CONNECT_REFRESH_URL', env('APP_URL') . '/payout'),
     ],
 
     'paypal' => [

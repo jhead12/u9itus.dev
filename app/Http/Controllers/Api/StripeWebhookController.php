@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Voter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use App\Services\CampaignBillingService;
@@ -22,53 +23,101 @@ class StripeWebhookController extends Controller
             return response()->json(['error' => 'Invalid webhook'], 400);
         }
 
-        // Determine event type and handle important events
-        $type = null;
-        if (is_string($event)) {
-            $data = json_decode($event, true);
-            $type = $data['type'] ?? null;
-            $payloadEvent = $data ?? null;
-        } elseif (is_array($event)) {
-            $type = $event['type'] ?? null;
-            $payloadEvent = $event;
-        } else {
-            $type = $event->type ?? null;
-            $payloadEvent = $event;
-        }
+        [$type, $payloadEvent] = $this->normalizeEvent($event);
 
         Log::info('Stripe webhook received', ['type' => $type]);
 
-        // Handle payment_intent.succeeded
-        if ($type === 'payment_intent.succeeded') {
-            // extract payment_intent id
-            $piId = null;
-            if (is_object($payloadEvent) && isset($payloadEvent->data->object->id)) {
-                $piId = $payloadEvent->data->object->id;
-            } elseif (is_array($payloadEvent) && isset($payloadEvent['data']['object']['id'])) {
-                $piId = $payloadEvent['data']['object']['id'];
-            }
-
-            if ($piId) {
-                $billing->finalizePaymentIntent($piId, $event);
-            } else {
-                Log::warning('payment_intent.succeeded missing id in payload');
-            }
+        if ($type === 'payment_intent.succeeded' || $type === 'payment_intent.payment_failed') {
+            $this->handlePaymentIntentEvent($payloadEvent, $event, $billing, $type);
         }
 
-        // Handle payment_intent.payment_failed
-        if ($type === 'payment_intent.payment_failed') {
-            $piId = null;
-            if (is_object($payloadEvent) && isset($payloadEvent->data->object->id)) {
-                $piId = $payloadEvent->data->object->id;
-            } elseif (is_array($payloadEvent) && isset($payloadEvent['data']['object']['id'])) {
-                $piId = $payloadEvent['data']['object']['id'];
-            }
-
-            if ($piId) {
-                $billing->finalizePaymentIntent($piId, $event);
-            }
+        if ($type === 'account.updated') {
+            $this->handleAccountUpdatedEvent($payloadEvent);
         }
 
         return response()->json(['status' => 'ok']);
+    }
+
+    private function normalizeEvent(mixed $event): array
+    {
+        if (is_string($event)) {
+            $data = json_decode($event, true);
+            return [$data['type'] ?? null, $data ?? null];
+        }
+
+        if (is_array($event)) {
+            return [$event['type'] ?? null, $event];
+        }
+
+        return [$event->type ?? null, $event];
+    }
+
+    private function paymentIntentIdFromPayload(mixed $payloadEvent): ?string
+    {
+        if (is_object($payloadEvent) && isset($payloadEvent->data->object->id)) {
+            return (string) $payloadEvent->data->object->id;
+        }
+
+        if (is_array($payloadEvent) && isset($payloadEvent['data']['object']['id'])) {
+            return (string) $payloadEvent['data']['object']['id'];
+        }
+
+        return null;
+    }
+
+    private function handlePaymentIntentEvent(mixed $payloadEvent, mixed $event, CampaignBillingService $billing, string $type): void
+    {
+        $piId = $this->paymentIntentIdFromPayload($payloadEvent);
+        if (! $piId) {
+            Log::warning($type . ' missing id in payload');
+            return;
+        }
+
+        $billing->finalizePaymentIntent($piId, $event);
+    }
+
+    private function handleAccountUpdatedEvent(mixed $payloadEvent): void
+    {
+        [$accountId, $chargesEnabled, $payoutsEnabled] = $this->extractAccountUpdatedData($payloadEvent);
+
+        if (! $accountId) {
+            return;
+        }
+
+        $status = ($chargesEnabled && $payoutsEnabled) ? 'active' : 'pending';
+
+        $voters = Voter::where('stripe_account_id', $accountId)->get();
+        foreach ($voters as $voter) {
+            $voter->update([
+                'stripe_account_status' => $status,
+                // Keep legacy compatibility for existing verification checks.
+                'is_verified' => $status === 'active' ? true : $voter->is_verified,
+            ]);
+
+            if ($status === 'active' && $voter->user) {
+                $voter->user->update(['is_verified' => true]);
+            }
+        }
+    }
+
+    private function extractAccountUpdatedData(mixed $payloadEvent): array
+    {
+        if (is_object($payloadEvent) && isset($payloadEvent->data->object->id)) {
+            return [
+                (string) $payloadEvent->data->object->id,
+                (bool) ($payloadEvent->data->object->charges_enabled ?? false),
+                (bool) ($payloadEvent->data->object->payouts_enabled ?? false),
+            ];
+        }
+
+        if (is_array($payloadEvent) && isset($payloadEvent['data']['object']['id'])) {
+            return [
+                (string) $payloadEvent['data']['object']['id'],
+                (bool) ($payloadEvent['data']['object']['charges_enabled'] ?? false),
+                (bool) ($payloadEvent['data']['object']['payouts_enabled'] ?? false),
+            ];
+        }
+
+        return [null, false, false];
     }
 }

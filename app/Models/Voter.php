@@ -20,6 +20,7 @@ class Voter extends Model
         'ip_address',
         'paypal_email',
         'cashapp_tag',
+        'stripe_account_id',
     ];
 
     protected $fillable = [
@@ -41,6 +42,8 @@ class Voter extends Model
         'payment_method',
         'paypal_email',
         'cashapp_tag',
+        'stripe_account_id',
+        'stripe_account_status',
         'wallet_balance',
         'total_earned',
         'pending_earnings',
@@ -66,6 +69,7 @@ class Voter extends Model
             'is_active' => 'boolean',
             'flagged_for_fraud' => 'boolean',
             'is_registered_voter' => 'boolean',
+            'stripe_account_status' => 'string',
             'last_view_at' => 'datetime',
             'early_adopter_until' => 'datetime',
         ];
@@ -151,9 +155,15 @@ class Voter extends Model
             ->whereDate('created_at', today())
             ->count();
 
+        // Phase A migration: allow either legacy manual verification,
+        // Stripe Connect active status, or Id.me verification to unlock activity.
+        $verificationEligible = $this->is_verified
+            || $this->stripe_account_status === 'active'
+            || optional($this->user)->idme_verified_at !== null;
+
         return $viewsToday < config('u9itus.fraud.max_views_per_voter_per_day', 50)
             && !$this->flagged_for_fraud
             && $this->is_active
-            && $this->is_verified;
+            && $verificationEligible;
     }
 }

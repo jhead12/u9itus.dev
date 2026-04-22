@@ -1207,7 +1207,7 @@ class VoterController extends Controller
     public function updatePreferences(Request $request)
     {
         $validated = $request->validate([
-            'payment_method'                => 'nullable|in:paypal,cashapp',
+            'payment_method'                => 'nullable|in:paypal,cashapp,stripe',
             'paypal_email'                  => 'nullable|email|max:255',
             'cashapp_tag'                   => 'nullable|string|max:100',
             'preferred_governance_levels'   => 'nullable|array',

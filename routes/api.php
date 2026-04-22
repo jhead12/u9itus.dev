@@ -95,6 +95,8 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::get('/history', [VoterController::class, 'viewHistory'])->name('history');
             Route::get('/earnings', [VoterController::class, 'earnings'])->name('earnings');
             Route::get('/referrals', [VoterController::class, 'referrals'])->name('referrals');
+            Route::post('/connect/onboard', [VoterController::class, 'connectOnboard'])->name('connect.onboard');
+            Route::get('/connect/status', [VoterController::class, 'connectStatus'])->name('connect.status');
         });
 
         // View session lifecycle (identified by UUID)
