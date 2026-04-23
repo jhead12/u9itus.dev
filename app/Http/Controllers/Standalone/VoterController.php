@@ -1295,6 +1295,8 @@ class VoterController extends Controller
         } catch (\Throwable $e) {
             Log::warning('Unable to start Authentic User Verifier onboarding', [
                 'voter_id' => $voter->id,
+                'exception' => $e::class,
+                'code' => $e->getCode(),
                 'error' => $e->getMessage(),
             ]);
 

@@ -43,10 +43,11 @@ class StripeConnectService
             return (string) $voter->stripe_account_id;
         }
 
-        $account = $this->client->accounts->create([
+        $email = trim((string) ($voter->email ?: optional($voter->user)->email ?: ''));
+
+        $accountPayload = [
             'type' => 'express',
             'country' => 'US',
-            'email' => $voter->email,
             'capabilities' => [
                 'transfers' => ['requested' => true],
             ],
@@ -54,7 +55,22 @@ class StripeConnectService
                 'voter_id' => (string) $voter->id,
                 'voter_uuid' => (string) $voter->uuid,
             ],
-        ]);
+        ];
+
+        if ($email !== '') {
+            $accountPayload['email'] = $email;
+
+            // Keep voter email backfilled for legacy records.
+            if ($voter->email !== $email) {
+                $voter->forceFill(['email' => $email])->save();
+            }
+        } else {
+            Log::warning('Creating Stripe Express account without voter email', [
+                'voter_id' => $voter->id,
+            ]);
+        }
+
+        $account = $this->client->accounts->create($accountPayload);
 
         $voter->update([
             'stripe_account_id' => $account->id,
@@ -74,12 +90,39 @@ class StripeConnectService
         $defaultReturn = (string) config('services.stripe.connect_return_url', rtrim((string) config('app.url'), '/') . '/payout');
         $defaultRefresh = (string) config('services.stripe.connect_refresh_url', rtrim((string) config('app.url'), '/') . '/payout');
 
-        $link = $this->client->accountLinks->create([
-            'account' => $accountId,
-            'type' => 'account_onboarding',
-            'return_url' => $returnUrl ?: $defaultReturn,
-            'refresh_url' => $refreshUrl ?: $defaultRefresh,
-        ]);
+        try {
+            $link = $this->client->accountLinks->create([
+                'account' => $accountId,
+                'type' => 'account_onboarding',
+                'return_url' => $returnUrl ?: $defaultReturn,
+                'refresh_url' => $refreshUrl ?: $defaultRefresh,
+            ]);
+        } catch (\Stripe\Exception\InvalidRequestException $e) {
+            $message = strtolower($e->getMessage());
+
+            if (! empty($voter->stripe_account_id) && str_contains($message, 'no such account')) {
+                Log::warning('Stripe account missing in Stripe, recreating for voter.', [
+                    'voter_id' => $voter->id,
+                    'stale_account_id' => $voter->stripe_account_id,
+                ]);
+
+                $voter->update([
+                    'stripe_account_id' => null,
+                    'stripe_account_status' => null,
+                ]);
+
+                $accountId = $this->ensureExpressAccount($voter);
+
+                $link = $this->client->accountLinks->create([
+                    'account' => $accountId,
+                    'type' => 'account_onboarding',
+                    'return_url' => $returnUrl ?: $defaultReturn,
+                    'refresh_url' => $refreshUrl ?: $defaultRefresh,
+                ]);
+            } else {
+                throw $e;
+            }
+        }
 
         return [
             'url' => (string) $link->url,
