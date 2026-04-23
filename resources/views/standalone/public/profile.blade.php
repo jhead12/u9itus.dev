@@ -780,6 +780,25 @@
             </div>
         </section>
 
+        @php
+            $researchLinks = [];
+            if (!empty($transparencyData['votesmart']['source_url'] ?? null)) {
+                $researchLinks[] = ['label' => 'Vote Smart Voting Record', 'url' => $transparencyData['votesmart']['source_url']];
+            }
+            if (!empty($transparencyData['fec']['source_url'] ?? null)) {
+                $researchLinks[] = ['label' => 'FEC Filings', 'url' => $transparencyData['fec']['source_url']];
+            }
+            if (!empty($transparencyData['opensecrets']['source_url'] ?? null)) {
+                $researchLinks[] = ['label' => 'OpenSecrets Funding', 'url' => $transparencyData['opensecrets']['source_url']];
+            }
+            if (!empty($transparencyData['ballotpedia']['source_url'] ?? null)) {
+                $researchLinks[] = ['label' => 'Ballotpedia Profile', 'url' => $transparencyData['ballotpedia']['source_url']];
+            }
+            if (!empty($politician->full_name)) {
+                $researchLinks[] = ['label' => 'C-SPAN Video Search', 'url' => 'https://www.c-span.org/search/?searchtype=Videos&query=' . rawurlencode($politician->full_name)];
+            }
+        @endphp
+
         {{-- Contact / Connect Section --}}
         @if($page->show_contact && ($publicWebsiteUrl || $politician->city))
         <section>
@@ -806,29 +825,16 @@
                     <span class="text-sm text-slate-400">🏛️ {{ ucfirst(str_replace('_', ' ', $politician->governance_level)) }}</span>
                 @endif
             </div>
+        </section>
+        @endif
 
-            @php
-                $researchLinks = [];
-                if (!empty($transparencyData['votesmart']['source_url'] ?? null)) {
-                    $researchLinks[] = ['label' => 'Vote Smart Voting Record', 'url' => $transparencyData['votesmart']['source_url']];
-                }
-                if (!empty($transparencyData['fec']['source_url'] ?? null)) {
-                    $researchLinks[] = ['label' => 'FEC Filings', 'url' => $transparencyData['fec']['source_url']];
-                }
-                if (!empty($transparencyData['opensecrets']['source_url'] ?? null)) {
-                    $researchLinks[] = ['label' => 'OpenSecrets Funding', 'url' => $transparencyData['opensecrets']['source_url']];
-                }
-                if (!empty($transparencyData['ballotpedia']['source_url'] ?? null)) {
-                    $researchLinks[] = ['label' => 'Ballotpedia Profile', 'url' => $transparencyData['ballotpedia']['source_url']];
-                }
-                if (!empty($cspanVideos)) {
-                    $researchLinks[] = ['label' => 'C-SPAN Video Search', 'url' => 'https://www.c-span.org/search/?searchtype=Videos&query=' . rawurlencode($politician->full_name)];
-                }
-            @endphp
-
-            @if(!empty($researchLinks))
-            <div class="mt-4 border-t border-slate-700/40 pt-4">
-                <p class="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-2">Research &amp; Records</p>
+        @if(!empty($researchLinks))
+        <section>
+            <div class="border border-slate-700/40 bg-slate-800/30 rounded-xl p-6">
+                <h2 class="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                    <span class="w-1 h-6 rounded-full inline-block" style="background:var(--p13-accent,#f59e0b)"></span>
+                    Research &amp; Records
+                </h2>
                 <div class="flex flex-wrap gap-3">
                     @foreach($researchLinks as $link)
                         <a href="{{ $link['url'] }}" target="_blank" rel="noopener"
@@ -838,7 +844,6 @@
                     @endforeach
                 </div>
             </div>
-            @endif
         </section>
         @endif
 
