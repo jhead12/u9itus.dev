@@ -33,6 +33,11 @@ class PayPalPayoutService
         $this->webhookId     = (string) config('services.paypal.webhook_id', '');
     }
 
+    public function isConfigured(): bool
+    {
+        return $this->clientId !== '' && $this->clientSecret !== '';
+    }
+
     /**
      * Obtain a short-lived OAuth 2.0 Bearer token from PayPal.
      */
@@ -67,7 +72,7 @@ class PayPalPayoutService
      */
     public function sendBatchPayout(string $batchId, array $items): array
     {
-        if (empty($this->clientId) || empty($this->clientSecret)) {
+        if (! $this->isConfigured()) {
             throw new \RuntimeException(
                 'PayPal credentials not configured. Set PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET.'
             );

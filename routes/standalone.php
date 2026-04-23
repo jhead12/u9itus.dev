@@ -282,6 +282,7 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         Route::get('/earnings', [VoterController::class, 'earnings'])->name('earnings');
         Route::get('/earnings/history', [VoterController::class, 'earningsHistory'])->name('earnings.history');
         Route::post('/earnings/request-payout', [VoterController::class, 'requestPayout'])->name('earnings.payout');
+        Route::get('/authentic-user-verifier/start', [VoterController::class, 'startAuthenticUserVerifier'])->name('authentic-user-verifier.start');
         
         // Referrals
         Route::get('/referrals', [VoterController::class, 'referrals'])->name('referrals');

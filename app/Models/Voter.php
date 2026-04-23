@@ -166,4 +166,39 @@ class Voter extends Model
             && $this->is_active
             && $verificationEligible;
     }
+
+    /**
+     * Whether this voter has completed the Authentic User Verifier flow.
+     */
+    public function hasAuthenticUserVerifier(): bool
+    {
+        return ! empty($this->stripe_account_id)
+            && $this->stripe_account_status === 'active';
+    }
+
+    /**
+     * Whether this voter has legacy identity verification artifacts.
+     */
+    public function isLegacyVerificationHolder(): bool
+    {
+        $user = $this->relationLoaded('user')
+            ? $this->user
+            : $this->user()->first();
+
+        if (! $user) {
+            return false;
+        }
+
+        return ! empty($user->kyc_document_path)
+            || in_array((string) ($user->kyc_status ?? ''), ['pending', 'approved', 'rejected'], true)
+            || $user->idme_verified_at !== null;
+    }
+
+    /**
+     * Whether this voter should be prompted to migrate to Authentic User Verifier.
+     */
+    public function needsAuthenticUserVerifierMigration(): bool
+    {
+        return $this->isLegacyVerificationHolder() && ! $this->hasAuthenticUserVerifier();
+    }
 }

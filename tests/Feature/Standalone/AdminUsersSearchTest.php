@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Voter;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Role;
@@ -168,4 +169,47 @@ test('admin bulk kyc approve skips voter accounts (Stripe-verified)', function (
 
     // Voter KYC status must remain unchanged — verified via Stripe, not admin.
     expect($voterUser->fresh()->kyc_status)->toBe('pending');
+});
+
+test('admin can filter voters by Authentic User Verifier migration status', function () {
+    $admin = makeAdminForUserSearchTests();
+
+    $pendingUser = User::factory()->create([
+        'name' => 'Legacy Pending Voter',
+        'email' => 'legacy.pending@example.org',
+        'user_type' => 'voter',
+        'kyc_status' => 'approved',
+        'kyc_document_path' => 'kyc/legacy-pending/document.pdf',
+    ]);
+
+    Voter::factory()->create([
+        'user_id' => $pendingUser->id,
+        'email' => $pendingUser->email,
+        'stripe_account_id' => null,
+        'stripe_account_status' => 'pending',
+    ]);
+
+    $completedUser = User::factory()->create([
+        'name' => 'Legacy Completed Voter',
+        'email' => 'legacy.completed@example.org',
+        'user_type' => 'voter',
+        'kyc_status' => 'approved',
+        'kyc_document_path' => 'kyc/legacy-completed/document.pdf',
+    ]);
+
+    Voter::factory()->create([
+        'user_id' => $completedUser->id,
+        'email' => $completedUser->email,
+        'stripe_account_id' => 'acct_completed_123',
+        'stripe_account_status' => 'active',
+    ]);
+
+    $this->actingAs($admin)
+        ->get(route('admin.users.index', [
+            'role' => 'voter',
+            'authentic_user_verifier' => 'pending',
+        ]))
+        ->assertOk()
+        ->assertSee('Legacy Pending Voter')
+        ->assertDontSee('Legacy Completed Voter');
 });

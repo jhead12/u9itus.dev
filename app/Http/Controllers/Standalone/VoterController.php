@@ -13,6 +13,7 @@ use App\Models\ViewSession;
 use App\Services\PlatformSettingsService;
 use App\Services\PoliticalViewService;
 use App\Services\ReverbBroadcastService;
+use App\Services\StripeConnectService;
 use App\Enums\CampaignStatus;
 use App\Enums\ApprovalStatus;
 use App\Enums\ViewPaymentStatus;
@@ -294,7 +295,7 @@ class VoterController extends Controller
 
     public function dashboard()
     {
-        $voter   = $this->resolveVoter();
+        $voter   = $this->resolveVoter()->loadMissing('user');
         $summary = $this->viewService->voterEarningsSummary($voter);
 
         // Surface watchable campaigns directly on dashboard so voters can start earning immediately.
@@ -345,6 +346,7 @@ class VoterController extends Controller
             'availableCampaignsCount' => $availableCampaignsCount,
             'recentSessions'  => $recentSessions,
             'activePromotions' => $activePromotions,
+            'needsAuthenticUserVerifierMigration' => $voter->needsAuthenticUserVerifierMigration(),
         ]);
     }
 
@@ -1053,7 +1055,7 @@ class VoterController extends Controller
 
     public function earnings()
     {
-        $voter   = $this->resolveVoter();
+        $voter   = $this->resolveVoter()->loadMissing('user');
         $summary = $this->viewService->voterEarningsSummary($voter);
 
         $sessions = $voter->viewSessions()
@@ -1062,7 +1064,12 @@ class VoterController extends Controller
             ->latest('completed_at')
             ->paginate(15);
 
-        return view('standalone.voter.earnings', compact('voter', 'summary', 'sessions'));
+        return view('standalone.voter.earnings', [
+            'voter' => $voter,
+            'summary' => $summary,
+            'sessions' => $sessions,
+            'needsAuthenticUserVerifierMigration' => $voter->needsAuthenticUserVerifierMigration(),
+        ]);
     }
 
     public function earningsHistory()
@@ -1224,11 +1231,47 @@ class VoterController extends Controller
 
     public function profile()
     {
-        $voter = $this->resolveVoter();
+        $voter = $this->resolveVoter()->loadMissing('user');
         return view('standalone.voter.profile', [
             'user'  => Auth::user(),
             'voter' => $voter,
+            'needsAuthenticUserVerifierMigration' => $voter->needsAuthenticUserVerifierMigration(),
         ]);
+    }
+
+    /**
+     * Redirect voter to Stripe Connect onboarding for the Authentic User Verifier flow.
+     */
+    public function startAuthenticUserVerifier(StripeConnectService $stripeConnect)
+    {
+        $voter = $this->resolveVoter();
+
+        if (! $stripeConnect->isConfigured()) {
+            return back()->withErrors([
+                'payout' => 'Authentic User Verifier is temporarily unavailable. Please try again shortly.',
+            ]);
+        }
+
+        try {
+            $link = $stripeConnect->createOnboardingLink(
+                $voter,
+                route('voter.earnings'),
+                route('voter.earnings')
+            );
+
+            $voter->update(['payment_method' => 'stripe']);
+
+            return redirect()->away((string) $link['url']);
+        } catch (\Throwable $e) {
+            Log::warning('Unable to start Authentic User Verifier onboarding', [
+                'voter_id' => $voter->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return back()->withErrors([
+                'payout' => 'We could not start Authentic User Verifier right now. Please try again.',
+            ]);
+        }
     }
 
     public function updateProfile(Request $request)

@@ -32,25 +32,25 @@ class PoliticalPaymentService
 {
     protected ?CampaignBillingService $billingService;
     protected ?StripePaymentService $stripeService;
-    protected ?StripeConnectService $stripeConnectService;
-    protected ?PayPalPayoutService $paypalService;
-    protected ?CashAppPayoutService $cashAppService;
+    protected StripeConnectService $stripeConnectService;
+    protected PayPalPayoutService $paypalService;
+    protected CashAppPayoutService $cashAppService;
     protected ReverbBroadcastService $broadcastService;
 
     public function __construct(
-        ?CampaignBillingService $billingService = null,
-        ?StripePaymentService $stripeService = null,
-        ?StripeConnectService $stripeConnectService = null,
-        ?PayPalPayoutService $paypalService = null,
-        ?CashAppPayoutService $cashAppService = null,
-        ?ReverbBroadcastService $broadcastService = null,
+        StripeConnectService $stripeConnectService,
+        PayPalPayoutService $paypalService,
+        CashAppPayoutService $cashAppService,
+        ReverbBroadcastService $broadcastService,
+        $billingService = null,
+        $stripeService = null,
     ) {
-        $this->billingService   = $billingService;
-        $this->stripeService    = $stripeService;
+        $this->billingService   = $billingService instanceof CampaignBillingService ? $billingService : null;
+        $this->stripeService    = $stripeService instanceof StripePaymentService ? $stripeService : null;
         $this->stripeConnectService = $stripeConnectService;
         $this->paypalService    = $paypalService;
         $this->cashAppService   = $cashAppService;
-        $this->broadcastService = $broadcastService ?? app(ReverbBroadcastService::class);
+        $this->broadcastService = $broadcastService;
     }
 
     /**
@@ -198,7 +198,7 @@ class PoliticalPaymentService
 
             $canUsePayPal = $selectedProcessor === 'paypal'
                 && ! empty($voter->paypal_email)
-                && $this->paypalService;
+                && $this->paypalService->isConfigured();
 
             $canUseStripe = $selectedProcessor === 'stripe'
                 && $this->stripeConnectService
@@ -332,6 +332,7 @@ class PoliticalPaymentService
                     'has_cashapp_tag' => ! empty($voter->cashapp_tag),
                     'stripe_service_available' => (bool) $this->stripeConnectService,
                     'paypal_service_available' => (bool) $this->paypalService,
+                    'paypal_configured' => $this->paypalService->isConfigured(),
                     'cashapp_service_available' => (bool) $this->cashAppService,
                     'cashapp_configured' => $this->cashAppService?->isConfigured() ?? false,
                 ]);

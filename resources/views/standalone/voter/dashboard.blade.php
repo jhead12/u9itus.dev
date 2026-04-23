@@ -21,6 +21,8 @@
         </span>
     </div>
 
+    @include('standalone.voter.partials.authentic-user-verifier-banner')
+
     {{-- Running Campaigns -- primary action shown first for better accessibility and task clarity --}}
     <div class="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-5">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">

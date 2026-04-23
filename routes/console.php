@@ -22,6 +22,9 @@ Schedule::command('notifications:voter-digest')->weeklyOn(1, '08:00');
 // Daily low-balance alerts to politicians whose credit balance is running low
 Schedule::command('notifications:low-balance-alerts')->dailyAt('09:00');
 
+// Daily reminders for legacy voters to migrate to Authentic User Verifier.
+Schedule::command('notifications:authentic-user-verifier-reminders')->dailyAt('10:00');
+
 // Sprint 2 — Daily California candidate/profile sync with run logging + failure alerts
 Schedule::command('imports:sync-california')
     ->timezone('America/Los_Angeles')

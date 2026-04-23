@@ -176,6 +176,8 @@
         </div>
     </form>
 
+    @include('standalone.voter.partials.authentic-user-verifier-banner')
+
     {{-- Identity Verification --}}
     <div class="bg-slate-800/50 border {{ $user->kyc_status === 'approved' ? 'border-emerald-500/30' : ($user->kyc_status === 'rejected' ? 'border-red-500/30' : 'border-slate-700/60') }} rounded-2xl p-6 space-y-4">
         <div class="flex items-start justify-between gap-4">
@@ -184,9 +186,9 @@
                     <svg class="w-4 h-4 text-blue-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2"/>
                     </svg>
-                    Identity Verification
+                    Authentic User Verifier
                 </h2>
-                <p class="text-xs text-slate-500 mt-0.5">Your identity is verified automatically when you connect a payout account via Stripe</p>
+                <p class="text-xs text-slate-500 mt-0.5">Your identity is verified when you complete Authentic User Verifier (powered by Stripe Connect)</p>
             </div>
             @if($user->kyc_status === 'approved')
             <span class="shrink-0 inline-flex items-center gap-1 text-xs bg-emerald-900/40 border border-emerald-700/40 text-emerald-400 rounded-full px-3 py-1 font-medium">
@@ -203,17 +205,17 @@
             @endif
         </div>
 
-        {{-- Stripe verification notice --}}
+        {{-- Authentic User Verifier notice --}}
         <div class="bg-blue-500/5 border border-blue-500/20 rounded-lg px-4 py-4 space-y-2">
             <div class="flex items-center gap-2">
                 <svg class="w-4 h-4 text-blue-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                 </svg>
-                <p class="text-xs font-semibold text-blue-300">Verified through Stripe</p>
+                <p class="text-xs font-semibold text-blue-300">Authentic User Verifier</p>
             </div>
-            <p class="text-xs text-slate-400">Voter identity verification happens automatically during Stripe payout account setup. No document upload is required here — your identity is confirmed by Stripe when you connect your bank account or debit card to receive earnings.</p>
+            <p class="text-xs text-slate-400">No manual document upload is required here. Authentic User Verifier is completed through Stripe Connect when you set up payout onboarding.</p>
             @if($user->kyc_status !== 'approved')
-            <p class="text-xs text-slate-500 mt-1">To get verified, go to your <strong class="text-slate-300">Earnings</strong> page and set up payouts.</p>
+            <p class="text-xs text-slate-500 mt-1">To get verified, start Authentic User Verifier from your Earnings page.</p>
             @endif
         </div>
 
@@ -233,7 +235,7 @@
                     View →
                 </a>
             </div>
-            <p class="text-xs text-slate-600 italic">Previously submitted document — read-only. New submissions are processed through Stripe.</p>
+            <p class="text-xs text-slate-600 italic">Previously submitted document — read-only. New submissions are processed through Authentic User Verifier.</p>
         </div>
         @endif
 
@@ -242,7 +244,7 @@
         <div class="bg-red-900/20 border border-red-700/30 rounded-lg px-4 py-3">
             <p class="text-xs text-red-400 font-semibold mb-1">Previous review note:</p>
             <p class="text-sm text-red-300">{{ $user->kyc_rejection_reason }}</p>
-            <p class="text-xs text-slate-500 mt-2">To resolve this, please set up payouts through Stripe on the Earnings page.</p>
+            <p class="text-xs text-slate-500 mt-2">To resolve this, complete Authentic User Verifier from the Earnings page.</p>
         </div>
         @endif
     </div>

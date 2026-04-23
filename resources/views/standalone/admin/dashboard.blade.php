@@ -42,6 +42,13 @@
             <p class="text-xs text-slate-500 mt-1">Politicians awaiting identity document review</p>
         </div>
         <div class="stat-card">
+            <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Authentic User Verifier</p>
+            <a href="{{ route('admin.users.index', ['role' => 'voter', 'authentic_user_verifier' => 'pending']) }}" class="block">
+                <p class="text-3xl font-bold {{ $stats['authentic_user_verifier_pending'] > 0 ? 'text-cyan-400' : 'text-white' }}">{{ number_format($stats['authentic_user_verifier_pending']) }}</p>
+            </a>
+            <p class="text-xs text-slate-500 mt-1">{{ number_format($stats['authentic_user_verifier_completed']) }} completed of {{ number_format($stats['authentic_user_verifier_legacy']) }} legacy voters</p>
+        </div>
+        <div class="stat-card">
             <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Fraud Flagged</p>
             <a href="{{ route('admin.fraud.index') }}" class="block">
                 <p class="text-3xl font-bold {{ $stats['flagged_fraud'] > 0 ? 'text-red-400' : 'text-white' }}">{{ number_format($stats['flagged_fraud']) }}</p>

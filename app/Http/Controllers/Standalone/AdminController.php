@@ -261,6 +261,16 @@ class AdminController extends Controller
         $completedViewQuery = ViewSession::where('status', 'completed')
             ->whereIn('political_campaign_id', $campaignIds);
 
+        $legacyVoterBase = Voter::query()
+            ->whereHas('user', function ($q) {
+                $q->where('user_type', 'voter')
+                    ->where(function ($legacy) {
+                        $legacy->whereNotNull('kyc_document_path')
+                            ->orWhereNotNull('idme_verified_at')
+                            ->orWhereIn('kyc_status', ['pending', 'approved', 'rejected']);
+                    });
+            });
+
         $stats = [
             'total_users'       => User::count(),
             'total_politicians' => User::where('user_type', 'politician')->count(),
@@ -273,6 +283,20 @@ class AdminController extends Controller
             'total_payouts'     => (clone $completedViewQuery)->sum('voter_payout_amount') ?? 0,
             'kyc_pending'       => User::where('kyc_status', 'pending')
                                         ->where('user_type', 'politician')->count(),
+            'authentic_user_verifier_legacy' => (clone $legacyVoterBase)->count(),
+            'authentic_user_verifier_pending' => (clone $legacyVoterBase)
+                ->where(function ($q) {
+                    $q->whereNull('stripe_account_id')
+                        ->orWhere('stripe_account_id', '')
+                        ->orWhereNull('stripe_account_status')
+                        ->orWhere('stripe_account_status', '!=', 'active');
+                })
+                ->count(),
+            'authentic_user_verifier_completed' => (clone $legacyVoterBase)
+                ->whereNotNull('stripe_account_id')
+                ->where('stripe_account_id', '!=', '')
+                ->where('stripe_account_status', 'active')
+                ->count(),
             'pending_candidate_matches' => CandidateMatchReview::where('status', CandidateMatchReview::STATUS_PENDING)->count(),
             'suspended_users'   => User::whereNotNull('suspended_at')->count(),
             'flagged_fraud'     => Voter::where('flagged_for_fraud', true)->count(),
@@ -788,10 +812,12 @@ class AdminController extends Controller
         $role = (string) $request->query('role', '');
         $kyc = (string) $request->query('kyc', '');
         $accountStatus = (string) $request->query('account_status', '');
+        $authenticUserVerifier = (string) $request->query('authentic_user_verifier', '');
 
         $allowedRoles = ['admin', 'politician', 'voter'];
         $allowedKycStatuses = ['approved', 'pending', 'rejected'];
         $allowedAccountStatuses = ['active', 'unverified', 'suspended'];
+        $allowedAuthenticUserVerifierStatuses = ['pending', 'completed'];
 
         $usersQuery = User::query()->with(['politician', 'voter']);
 
@@ -844,6 +870,35 @@ class AdminController extends Controller
                 $query->whereNull('suspended_at')
                     ->whereNull('email_verified_at');
             });
+        }
+
+        if (in_array($authenticUserVerifier, $allowedAuthenticUserVerifierStatuses, true)) {
+            // Authentic User Verifier applies to legacy voter accounts migrating to Stripe Connect.
+            $usersQuery->where('user_type', 'voter')
+                ->whereHas('voter', function (Builder $voterQuery) use ($authenticUserVerifier) {
+                    $voterQuery->whereHas('user', function (Builder $legacyUser) {
+                        $legacyUser->where('user_type', 'voter')
+                            ->where(function (Builder $legacy) {
+                                $legacy->whereNotNull('kyc_document_path')
+                                    ->orWhereNotNull('idme_verified_at')
+                                    ->orWhereIn('kyc_status', ['pending', 'approved', 'rejected']);
+                            });
+                    });
+
+                    if ($authenticUserVerifier === 'pending') {
+                        $voterQuery->where(function (Builder $stripe) {
+                            $stripe->whereNull('stripe_account_id')
+                                ->orWhere('stripe_account_id', '')
+                                ->orWhereNull('stripe_account_status')
+                                ->orWhere('stripe_account_status', '!=', 'active');
+                        });
+                        return;
+                    }
+
+                    $voterQuery->whereNotNull('stripe_account_id')
+                        ->where('stripe_account_id', '!=', '')
+                        ->where('stripe_account_status', 'active');
+                });
         }
 
         $users = $usersQuery

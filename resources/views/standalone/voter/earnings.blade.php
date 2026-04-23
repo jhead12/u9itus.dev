@@ -15,6 +15,8 @@
         <p class="text-slate-400 text-sm mt-0.5">Track your ad-view income and request payouts</p>
     </div>
 
+    @include('standalone.voter.partials.authentic-user-verifier-banner')
+
     @if($voter)
 
     {{-- Stats Grid --}}
