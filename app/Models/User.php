@@ -6,6 +6,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Log;
 use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable
@@ -206,7 +207,17 @@ class User extends Authenticatable
      */
     public function hasAdminTwoFactorEnabled(): bool
     {
-        return !empty($this->admin_two_factor_secret) && $this->admin_two_factor_confirmed_at !== null;
+        try {
+            return !empty($this->admin_two_factor_secret) && $this->admin_two_factor_confirmed_at !== null;
+        } catch (\Throwable $e) {
+            // Fail closed if legacy/corrupt encrypted payloads cannot be decrypted.
+            Log::warning('Unable to read admin two-factor state for user', [
+                'user_id' => $this->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return false;
+        }
     }
 
 }

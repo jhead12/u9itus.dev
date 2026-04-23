@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Spatie\Permission\Models\Role;
 
@@ -32,4 +33,22 @@ test('admin profile page renders when platform settings table is unavailable', f
         ->assertOk()
         ->assertSee('Account Settings')
         ->assertSee('Manage 2FA');
+});
+
+test('admin profile page renders when admin 2fa secret payload is invalid', function () {
+    $admin = makeAdminForProfileTest([
+        'admin_two_factor_confirmed_at' => now(),
+    ]);
+
+    // Simulate legacy/corrupt ciphertext that fails encrypted cast decryption.
+    DB::table('users')
+        ->where('id', $admin->id)
+        ->update(['admin_two_factor_secret' => 'not-valid-encrypted-payload']);
+
+    $this->actingAs($admin->fresh())
+        ->get(route('admin.profile'))
+        ->assertOk()
+        ->assertSee('Account Settings')
+        ->assertSee('Manage 2FA')
+        ->assertSee('Status: Disabled');
 });
