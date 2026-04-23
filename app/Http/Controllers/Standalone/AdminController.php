@@ -1767,17 +1767,26 @@ class AdminController extends Controller
         $totalReferrals = (float) ($totals->total_referrals ?? 0);
         $grossDeliveredRevenue = $totalNetRevenue + $totalPayouts + $totalReferrals;
 
-        $handoffRows = OnboardingHandoffEvent::query()
-            ->whereIn('role', ['voter', 'politician'])
-            ->where('created_at', '>=', now()->subDays(30))
-            ->selectRaw("role")
-            ->selectRaw("SUM(CASE WHEN event_type = 'opened' THEN 1 ELSE 0 END) as opened_count")
-            ->selectRaw("SUM(CASE WHEN event_type = 'dismissed' THEN 1 ELSE 0 END) as dismissed_count")
-            ->selectRaw("COUNT(DISTINCT CASE WHEN event_type = 'opened' THEN user_id END) as unique_openers")
-            ->selectRaw("COUNT(DISTINCT CASE WHEN event_type = 'dismissed' THEN user_id END) as unique_dismissers")
-            ->groupBy('role')
-            ->get()
-            ->keyBy('role');
+        // Defensive: check if onboarding_handoff_events table exists (may not be migrated in production)
+        $handoffRows = collect();
+        if (\Schema::hasTable('onboarding_handoff_events')) {
+            try {
+                $handoffRows = OnboardingHandoffEvent::query()
+                    ->whereIn('role', ['voter', 'politician'])
+                    ->where('created_at', '>=', now()->subDays(30))
+                    ->selectRaw("role")
+                    ->selectRaw("SUM(CASE WHEN event_type = 'opened' THEN 1 ELSE 0 END) as opened_count")
+                    ->selectRaw("SUM(CASE WHEN event_type = 'dismissed' THEN 1 ELSE 0 END) as dismissed_count")
+                    ->selectRaw("COUNT(DISTINCT CASE WHEN event_type = 'opened' THEN user_id END) as unique_openers")
+                    ->selectRaw("COUNT(DISTINCT CASE WHEN event_type = 'dismissed' THEN user_id END) as unique_dismissers")
+                    ->groupBy('role')
+                    ->get()
+                    ->keyBy('role');
+            } catch (\Throwable $e) {
+                \Log::warning('Failed to query onboarding_handoff_events for analytics', ['error' => $e->getMessage()]);
+                $handoffRows = collect();
+            }
+        }
 
         $buildHandoffRoleStats = function (string $role) use ($handoffRows): array {
             $row = $handoffRows->get($role);
