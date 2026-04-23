@@ -417,6 +417,36 @@ test('askQuestion stores voter question for politician campaign', function () {
         ->and($report->public_alias)->toStartWith('Voter #');
 });
 
+test('askQuestion stores optional video reference details when provided', function () {
+    [$user, $voter] = voterUser();
+    $campaign = watchableCampaign();
+    $adToken = validToken($voter, $campaign);
+
+    $this->actingAs($user)
+        ->postJson(route('voter.watch.ask-question', ['token' => $adToken->token]), [
+            'body' => 'Can you clarify the claim made in this clip?',
+            'reference_url' => 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+            'reference_start_seconds' => 42,
+            'reference_end_seconds' => 68,
+            'reference_note' => 'The school funding statement in this segment.',
+        ])
+        ->assertOk()
+        ->assertJson(['success' => true]);
+
+    $report = VoterWatchReport::where('campaign_id', $campaign->id)
+        ->where('voter_id', $voter->id)
+        ->where('type', 'message')
+        ->latest('id')
+        ->first();
+
+    expect($report)->not->toBeNull()
+        ->and($report->reference_platform)->toBe('youtube')
+        ->and($report->reference_url)->toBe('https://www.youtube.com/watch?v=dQw4w9WgXcQ')
+        ->and($report->reference_start_seconds)->toBe(42)
+        ->and($report->reference_end_seconds)->toBe(68)
+        ->and($report->reference_note)->toBe('The school funding statement in this segment.');
+});
+
 test('askQuestion rejects blocked terms', function () {
     config()->set('u9itus.q_and_a.moderation.blocked_terms', ['forbiddenword']);
 

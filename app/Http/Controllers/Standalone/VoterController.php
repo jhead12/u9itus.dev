@@ -291,6 +291,17 @@ class VoterController extends Controller
         return $platform;
     }
 
+    private function questionReferencesSchemaAvailable(): bool
+    {
+        return Schema::hasColumns('voter_watch_reports', [
+            'reference_platform',
+            'reference_url',
+            'reference_start_seconds',
+            'reference_end_seconds',
+            'reference_note',
+        ]);
+    }
+
     // ── Dashboard ────────────────────────────────────────────
 
     public function dashboard()
@@ -972,6 +983,10 @@ class VoterController extends Controller
         }
 
         $referenceUrl = trim((string) ($validated['reference_url'] ?? ''));
+        $hasReferenceInput = $referenceUrl !== ''
+            || isset($validated['reference_start_seconds'])
+            || isset($validated['reference_end_seconds'])
+            || filled($validated['reference_note'] ?? null);
         $hasReferenceDetailsWithoutUrl = $referenceUrl === ''
             && (
                 isset($validated['reference_start_seconds'])
@@ -983,6 +998,14 @@ class VoterController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Add a reference URL to include timestamps or a reference note.',
+            ], 422);
+        }
+
+        $referenceSchemaAvailable = $this->questionReferencesSchemaAvailable();
+        if ($hasReferenceInput && ! $referenceSchemaAvailable) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Advanced video references are temporarily unavailable. Please send the question without the reference details for now.',
             ], 422);
         }
 
@@ -1010,23 +1033,30 @@ class VoterController extends Controller
 
         RateLimiter::hit($rateKey, $rateConfig['decay_seconds']);
 
-        \App\Models\VoterWatchReport::create([
+        $reportPayload = [
             'voter_id'          => $voter->id,
             'campaign_id'       => $adToken->political_campaign_id,
             'view_session_uuid' => $validated['view_session_uuid'] ?? null,
             'type'              => 'message',
             'issue_category'    => null,
             'body'              => $validated['body'],
-            'reference_platform' => $referencePlatform,
-            'reference_url' => $referenceUrl !== '' ? $referenceUrl : null,
-            'reference_start_seconds' => $validated['reference_start_seconds'] ?? null,
-            'reference_end_seconds' => $validated['reference_end_seconds'] ?? null,
-            'reference_note' => filled($validated['reference_note'] ?? null) ? trim((string) $validated['reference_note']) : null,
             'status'            => 'open',
             'public_visibility' => 'pending',
             'is_public_board'   => false,
             'public_alias'      => $this->makePublicAlias($voter, (int) $adToken->political_campaign_id),
-        ]);
+        ];
+
+        if ($referenceSchemaAvailable) {
+            $reportPayload['reference_platform'] = $referencePlatform;
+            $reportPayload['reference_url'] = $referenceUrl !== '' ? $referenceUrl : null;
+            $reportPayload['reference_start_seconds'] = $validated['reference_start_seconds'] ?? null;
+            $reportPayload['reference_end_seconds'] = $validated['reference_end_seconds'] ?? null;
+            $reportPayload['reference_note'] = filled($validated['reference_note'] ?? null)
+                ? trim((string) $validated['reference_note'])
+                : null;
+        }
+
+        \App\Models\VoterWatchReport::create($reportPayload);
 
         // Notify politician (email is on the related User record)
         $politicianEmail = $politician?->user?->email ?? null;
