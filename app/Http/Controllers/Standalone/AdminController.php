@@ -272,7 +272,7 @@ class AdminController extends Controller
             'total_revenue'     => (clone $completedViewQuery)->sum('platform_revenue') ?? 0,
             'total_payouts'     => (clone $completedViewQuery)->sum('voter_payout_amount') ?? 0,
             'kyc_pending'       => User::where('kyc_status', 'pending')
-                                        ->whereIn('user_type', ['politician', 'voter'])->count(),
+                                        ->where('user_type', 'politician')->count(),
             'pending_candidate_matches' => CandidateMatchReview::where('status', CandidateMatchReview::STATUS_PENDING)->count(),
             'suspended_users'   => User::whereNotNull('suspended_at')->count(),
             'flagged_fraud'     => Voter::where('flagged_for_fraud', true)->count(),
@@ -882,11 +882,18 @@ class AdminController extends Controller
 
         $updated = 0;
         $skippedAdmins = 0;
+        $skippedVoters = 0;
         $reviewedAt = now();
 
         foreach ($users as $user) {
             if ($user->user_type === 'admin' && in_array($action, ['suspend', 'kyc_approve', 'kyc_reject'], true)) {
                 $skippedAdmins++;
+                continue;
+            }
+
+            // Voters use Stripe for identity verification; skip manual KYC bulk actions.
+            if ($user->user_type === 'voter' && in_array($action, ['kyc_approve', 'kyc_reject'], true)) {
+                $skippedVoters++;
                 continue;
             }
 
@@ -967,6 +974,9 @@ class AdminController extends Controller
             if ($skippedAdmins > 0) {
                 $noneAppliedMessage .= ' Admin accounts were skipped.';
             }
+            if ($skippedVoters > 0) {
+                $noneAppliedMessage .= ' Voter accounts were skipped (use Stripe for voter verification).';
+            }
 
             return back()->withErrors(['error' => $noneAppliedMessage]);
         }
@@ -975,6 +985,9 @@ class AdminController extends Controller
 
         if ($skippedAdmins > 0) {
             $message .= ' ' . $skippedAdmins . ' admin account(s) skipped.';
+        }
+        if ($skippedVoters > 0) {
+            $message .= ' ' . $skippedVoters . ' voter account(s) skipped (Stripe-verified).';
         }
 
         return back()->with('success', $message);
@@ -1578,19 +1591,21 @@ class AdminController extends Controller
      */
     public function kycQueue()
     {
+        // Voter identity verification is handled via Stripe Connect; this queue
+        // is restricted to politicians who upload government-issued ID documents.
         $users = User::with(['politician', 'voter'])
             ->where('kyc_status', 'pending')
-            ->whereIn('user_type', ['politician', 'voter'])
+            ->where('user_type', 'politician')
             ->latest()
             ->paginate(30);
 
         $stats = [
             'pending'  => User::where('kyc_status', 'pending')
-                               ->whereIn('user_type', ['politician', 'voter'])->count(),
+                               ->where('user_type', 'politician')->count(),
             'approved' => User::where('kyc_status', 'approved')
-                               ->whereIn('user_type', ['politician', 'voter'])->count(),
+                               ->where('user_type', 'politician')->count(),
             'rejected' => User::where('kyc_status', 'rejected')
-                               ->whereIn('user_type', ['politician', 'voter'])->count(),
+                               ->where('user_type', 'politician')->count(),
         ];
 
         return view('standalone.admin.kyc', compact('users', 'stats'));
@@ -1602,6 +1617,11 @@ class AdminController extends Controller
     public function approveKyc(Request $request, $userId)
     {
         $user = User::with(['politician', 'voter'])->findOrFail($userId);
+
+        // Voters use Stripe identity verification — manual admin KYC approval is not supported.
+        if ($user->user_type === 'voter') {
+            return back()->withErrors(['error' => 'Voter identity verification is handled via Stripe Connect and cannot be manually approved here.']);
+        }
 
         try {
             $user->update([
@@ -1653,6 +1673,11 @@ class AdminController extends Controller
             ]);
 
             $user = User::with(['politician', 'voter'])->findOrFail($userId);
+
+            // Voters use Stripe identity verification — manual admin KYC rejection is not supported.
+            if ($user->user_type === 'voter') {
+                return back()->withErrors(['error' => 'Voter identity verification is handled via Stripe Connect and cannot be manually rejected here.']);
+            }
             $reason = (string) $request->input('reason', 'Identity could not be verified.');
 
             $userUpdate = [

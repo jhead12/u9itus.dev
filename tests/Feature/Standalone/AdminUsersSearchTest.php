@@ -122,13 +122,14 @@ test('admin can bulk suspend selected users while skipping admins', function () 
     expect($otherAdmin->fresh()->suspended_at)->toBeNull();
 });
 
-test('admin can bulk approve kyc for selected users', function () {
+test('admin can bulk approve kyc for selected politician users', function () {
     $admin = makeAdminForUserSearchTests();
 
+    // KYC bulk approve applies to politicians only; voters use Stripe.
     $targetUser = User::factory()->create([
         'name' => 'Bulk KYC Approve Target',
         'email' => 'bulk.kyc.target@example.org',
-        'user_type' => 'voter',
+        'user_type' => 'politician',
         'kyc_status' => 'pending',
         'kyc_reviewed_at' => null,
     ]);
@@ -145,4 +146,26 @@ test('admin can bulk approve kyc for selected users', function () {
     expect($targetUser->kyc_status)->toBe('approved');
     expect($targetUser->kyc_reviewed_at)->not->toBeNull();
     expect($targetUser->kyc_reviewer_id)->toBe($admin->id);
+});
+
+test('admin bulk kyc approve skips voter accounts (Stripe-verified)', function () {
+    $admin = makeAdminForUserSearchTests();
+
+    $voterUser = User::factory()->create([
+        'name' => 'Voter KYC Skip Target',
+        'email' => 'voter.kyc.skip@example.org',
+        'user_type' => 'voter',
+        'kyc_status' => 'pending',
+        'kyc_reviewed_at' => null,
+    ]);
+
+    $this->actingAs($admin)
+        ->post(route('admin.users.bulk-action'), [
+            'action' => 'kyc_approve',
+            'user_ids' => [$voterUser->id],
+        ])
+        ->assertRedirect();
+
+    // Voter KYC status must remain unchanged — verified via Stripe, not admin.
+    expect($voterUser->fresh()->kyc_status)->toBe('pending');
 });

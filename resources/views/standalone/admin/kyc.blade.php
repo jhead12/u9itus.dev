@@ -1,7 +1,7 @@
 @extends('standalone.layouts.dashboard')
 
-@section('title', 'KYC — Know Your Customer')
-@section('page-title', 'KYC — Know Your Customer Identity Review')
+@section('title', 'KYC — Politician Identity Review')
+@section('page-title', 'KYC — Politician Identity Document Review')
 
 @section('content')
 <div class="space-y-6">
@@ -37,9 +37,9 @@
     {{-- KYC Queue --}}
     <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl overflow-hidden">
         <div class="px-5 py-4 border-b border-slate-700/50">
-            <h3 class="text-sm font-semibold text-white">Identity Verification Queue</h3>
-            <p class="text-xs text-slate-500 mt-0.5">{{ $users->total() }} user(s) awaiting KYC (Know Your Customer) review — users must verify their identity before accessing paid features</p>
-            <p class="text-xs text-amber-300/80 mt-1">Phase A note: voter rows are legacy/manual while payout verification migrates to Stripe Connect.</p>
+            <h3 class="text-sm font-semibold text-white">Politician Identity Verification Queue</h3>
+            <p class="text-xs text-slate-500 mt-0.5">{{ $users->total() }} politician(s) awaiting identity document review — politicians must upload a government-issued ID before campaigns are activated</p>
+            <p class="text-xs text-blue-300/70 mt-1">Voter identity verification is handled automatically through Stripe Connect — voter rows do not appear in this queue.</p>
         </div>
 
         @if($users->isEmpty())
@@ -47,7 +47,7 @@
             <svg class="w-10 h-10 text-slate-600 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
             </svg>
-            <p class="text-sm text-slate-500">No pending KYC reviews — all caught up!</p>
+            <p class="text-sm text-slate-500">No pending politician identity reviews — all caught up!</p>
         </div>
         @else
         <div class="divide-y divide-slate-700/30">

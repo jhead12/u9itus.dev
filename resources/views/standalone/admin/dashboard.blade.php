@@ -35,11 +35,11 @@
             <p class="text-xs text-slate-500 mt-1">${{ number_format($stats['total_payouts'], 2) }} paid out</p>
         </div>
         <div class="stat-card">
-            <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">KYC Pending</p>
+            <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Politician KYC Pending</p>
             <a href="{{ route('admin.kyc.index') }}" class="block">
                 <p class="text-3xl font-bold {{ $stats['kyc_pending'] > 0 ? 'text-yellow-400' : 'text-white' }}">{{ number_format($stats['kyc_pending']) }}</p>
             </a>
-            <p class="text-xs text-slate-500 mt-1">Know Your Customer — identity verification</p>
+            <p class="text-xs text-slate-500 mt-1">Politicians awaiting identity document review</p>
         </div>
         <div class="stat-card">
             <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Fraud Flagged</p>
@@ -128,7 +128,7 @@
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2"/></svg>
             </div>
             <p class="text-xs font-medium text-slate-300 group-hover:text-white transition">KYC Review</p>
-            <p class="text-xs text-slate-600 group-hover:text-slate-400 transition mt-0.5">Know Your Customer</p>
+            <p class="text-xs text-slate-600 group-hover:text-slate-400 transition mt-0.5">Politicians only</p>
         </a>
         <a href="{{ route('admin.fraud.index') }}" class="bg-slate-800/50 border border-slate-700/50 hover:border-red-500/40 rounded-xl p-4 text-center transition group">
             <div class="text-red-400 mb-2 flex justify-center">

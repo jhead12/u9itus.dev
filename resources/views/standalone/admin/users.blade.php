@@ -134,6 +134,9 @@
                             </span>
                         </td>
                         <td class="px-5 py-3">
+                            @if($u->user_type === 'voter')
+                                <span class="text-xs text-blue-400" title="Voter identity is verified via Stripe Connect">Stripe</span>
+                            @else
                             @php
                                 $kyc = $u->kyc_status ?? 'pending';
                                 $kycClass = match($kyc) {
@@ -143,6 +146,7 @@
                                 };
                             @endphp
                             <span class="text-xs {{ $kycClass }}">{{ $kyc }}</span>
+                            @endif
                         </td>
                         <td class="px-5 py-3">
                             @if($u->isSuspended())
