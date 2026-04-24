@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Log;
 class StripeConnectService
 {
     private const NOT_CONFIGURED = 'Stripe Connect is not configured.';
+    private const CONNECT_NOT_ENABLED = 'Stripe Connect is not enabled for the configured Stripe account. Enable Connect in Stripe Dashboard and retry.';
 
     protected ?\Stripe\StripeClient $client = null;
 
@@ -70,7 +71,15 @@ class StripeConnectService
             ]);
         }
 
-        $account = $this->client->accounts->create($accountPayload);
+        try {
+            $account = $this->client->accounts->create($accountPayload);
+        } catch (\Stripe\Exception\InvalidRequestException $e) {
+            if ($this->isConnectNotEnabledError($e)) {
+                throw new StripeConnectException(self::CONNECT_NOT_ENABLED, (int) $e->getCode(), $e);
+            }
+
+            throw $e;
+        }
 
         $voter->update([
             'stripe_account_id' => $account->id,
@@ -98,6 +107,10 @@ class StripeConnectService
                 'refresh_url' => $refreshUrl ?: $defaultRefresh,
             ]);
         } catch (\Stripe\Exception\InvalidRequestException $e) {
+            if ($this->isConnectNotEnabledError($e)) {
+                throw new StripeConnectException(self::CONNECT_NOT_ENABLED, (int) $e->getCode(), $e);
+            }
+
             $message = strtolower($e->getMessage());
 
             if (! empty($voter->stripe_account_id) && str_contains($message, 'no such account')) {
@@ -162,8 +175,20 @@ class StripeConnectService
                 'refresh_url' => $refreshUrl,
             ]);
         } catch (\Stripe\Exception\InvalidRequestException $fallbackException) {
+            if ($this->isConnectNotEnabledError($fallbackException)) {
+                throw new StripeConnectException(self::CONNECT_NOT_ENABLED, (int) $fallbackException->getCode(), $fallbackException);
+            }
+
             throw $fallbackException;
         }
+    }
+
+    private function isConnectNotEnabledError(\Stripe\Exception\InvalidRequestException $e): bool
+    {
+        return str_contains(
+            strtolower($e->getMessage()),
+            'you can only create new accounts if you\'ve signed up for connect'
+        );
     }
 
     public function canReceivePayout(Voter $voter): bool

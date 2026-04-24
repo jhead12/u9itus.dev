@@ -1,4 +1,17 @@
-@if(!empty($needsAuthenticUserVerifierMigration))
+@php
+    $hideUntilRaw = (string) config('u9itus.authentic_user_verifier_action_hide_until', '');
+    $hideActionPrompt = false;
+
+    if ($hideUntilRaw !== '') {
+        try {
+            $hideActionPrompt = now()->lt(\Illuminate\Support\Carbon::parse($hideUntilRaw));
+        } catch (\Throwable $e) {
+            $hideActionPrompt = false;
+        }
+    }
+@endphp
+
+@if(!empty($needsAuthenticUserVerifierMigration) && !$hideActionPrompt)
 <div class="bg-cyan-500/10 border border-cyan-400/30 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
     <div class="min-w-0">
         <p class="text-cyan-200 font-semibold text-sm">Action Required: Complete Authentic User Verifier</p>

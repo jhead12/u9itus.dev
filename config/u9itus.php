@@ -70,6 +70,12 @@ return [
      */
     'default_payment_per_view' => env('DEFAULT_PAYMENT_PER_VIEW', 0.50),
 
+    /**
+     * Hide voter-facing Authentic User Verifier action prompts until a specific datetime.
+     * Example: AUTHENTIC_USER_VERIFIER_ACTION_HIDE_UNTIL=2026-04-25T23:59:59Z
+     */
+    'authentic_user_verifier_action_hide_until' => env('AUTHENTIC_USER_VERIFIER_ACTION_HIDE_UNTIL'),
+
     /*
     |--------------------------------------------------------------------------
     | Video / Live-Feed Constraints

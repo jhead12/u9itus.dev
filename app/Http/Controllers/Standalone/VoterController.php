@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Standalone;
 
+use App\Exceptions\StripeConnectException;
 use App\Http\Controllers\Controller;
 use App\Models\AdViewToken;
 use App\Models\EngagementSurveyResponse;
@@ -1335,8 +1336,12 @@ class VoterController extends Controller
 
             report($e);
 
+            $message = $e instanceof StripeConnectException
+                ? $e->getMessage()
+                : 'We could not start Authentic User Verifier right now. Please try again.';
+
             return back()->withErrors([
-                'payout' => 'We could not start Authentic User Verifier right now. Please try again. Reference: ' . $reference,
+                'payout' => $message . ' Reference: ' . $reference,
             ]);
         }
     }
