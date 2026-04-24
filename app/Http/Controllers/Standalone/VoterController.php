@@ -141,6 +141,27 @@ class VoterController extends Controller
         );
     }
 
+    /**
+     * Normalize Stripe exception details for structured logging.
+     */
+    private function stripeErrorContext(\Throwable $e): array
+    {
+        if (! $e instanceof \Stripe\Exception\ApiErrorException) {
+            return [];
+        }
+
+        $error = $e->getError();
+
+        return [
+            'stripe_http_status' => $e->getHttpStatus(),
+            'stripe_request_id' => $e->getRequestId(),
+            'stripe_error_type' => $error?->type,
+            'stripe_error_code' => $error?->code,
+            'stripe_error_param' => $error?->param,
+            'stripe_error_decline_code' => $error?->decline_code,
+        ];
+    }
+
     private function makePublicAlias(Voter $voter, int $campaignId): string
     {
         $seed = hash_hmac('sha256', $campaignId . '|' . $voter->id, (string) config('app.key'));
@@ -1293,15 +1314,26 @@ class VoterController extends Controller
 
             return redirect()->away((string) $link['url']);
         } catch (\Throwable $e) {
+            $reference = (string) Str::ulid();
+
             Log::warning('Unable to start Authentic User Verifier onboarding', [
+                'reference' => $reference,
                 'voter_id' => $voter->id,
                 'exception' => $e::class,
                 'code' => $e->getCode(),
                 'error' => $e->getMessage(),
+                'stripe_account_id' => $voter->stripe_account_id,
+                'app_url' => config('app.url'),
+                'request_url' => request()->fullUrl(),
+                'return_url' => route('voter.earnings'),
+                'refresh_url' => route('voter.earnings'),
+                ...$this->stripeErrorContext($e),
             ]);
 
+            report($e);
+
             return back()->withErrors([
-                'payout' => 'We could not start Authentic User Verifier right now. Please try again.',
+                'payout' => 'We could not start Authentic User Verifier right now. Please try again. Reference: ' . $reference,
             ]);
         }
     }
