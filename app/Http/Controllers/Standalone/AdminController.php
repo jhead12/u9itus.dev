@@ -260,6 +260,8 @@ class AdminController extends Controller
         $campaignIds = $this->modeScopedCampaignIds($activePaymentMode);
         $completedViewQuery = ViewSession::where('status', 'completed')
             ->whereIn('political_campaign_id', $campaignIds);
+        $hasStripeAccountIdColumn = Schema::hasColumn('voters', 'stripe_account_id');
+        $hasStripeAccountStatusColumn = Schema::hasColumn('voters', 'stripe_account_status');
 
         $legacyVoterBase = Voter::query()
             ->whereHas('user', function ($q) {
@@ -284,19 +286,39 @@ class AdminController extends Controller
             'kyc_pending'       => User::where('kyc_status', 'pending')
                                         ->where('user_type', 'politician')->count(),
             'authentic_user_verifier_legacy' => (clone $legacyVoterBase)->count(),
-            'authentic_user_verifier_pending' => (clone $legacyVoterBase)
-                ->where(function ($q) {
-                    $q->whereNull('stripe_account_id')
-                        ->orWhere('stripe_account_id', '')
-                        ->orWhereNull('stripe_account_status')
-                        ->orWhere('stripe_account_status', '!=', 'active');
-                })
-                ->count(),
-            'authentic_user_verifier_completed' => (clone $legacyVoterBase)
-                ->whereNotNull('stripe_account_id')
-                ->where('stripe_account_id', '!=', '')
-                ->where('stripe_account_status', 'active')
-                ->count(),
+            'authentic_user_verifier_pending' => $hasStripeAccountIdColumn
+                ? (
+                    $hasStripeAccountStatusColumn
+                        ? (clone $legacyVoterBase)
+                            ->where(function ($q) {
+                                $q->whereNull('stripe_account_id')
+                                    ->orWhere('stripe_account_id', '')
+                                    ->orWhereNull('stripe_account_status')
+                                    ->orWhere('stripe_account_status', '!=', 'active');
+                            })
+                            ->count()
+                        : (clone $legacyVoterBase)
+                            ->where(function ($q) {
+                                $q->whereNull('stripe_account_id')
+                                    ->orWhere('stripe_account_id', '');
+                            })
+                            ->count()
+                )
+                : (clone $legacyVoterBase)->count(),
+            'authentic_user_verifier_completed' => $hasStripeAccountIdColumn
+                ? (
+                    $hasStripeAccountStatusColumn
+                        ? (clone $legacyVoterBase)
+                            ->whereNotNull('stripe_account_id')
+                            ->where('stripe_account_id', '!=', '')
+                            ->where('stripe_account_status', 'active')
+                            ->count()
+                        : (clone $legacyVoterBase)
+                            ->whereNotNull('stripe_account_id')
+                            ->where('stripe_account_id', '!=', '')
+                            ->count()
+                )
+                : 0,
             'pending_candidate_matches' => CandidateMatchReview::where('status', CandidateMatchReview::STATUS_PENDING)->count(),
             'suspended_users'   => User::whereNotNull('suspended_at')->count(),
             'flagged_fraud'     => Voter::where('flagged_for_fraud', true)->count(),
