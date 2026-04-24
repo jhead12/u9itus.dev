@@ -120,7 +120,13 @@ class StripeConnectService
                     'refresh_url' => $refreshUrl ?: $defaultRefresh,
                 ]);
             } else {
-                throw $e;
+                $link = $this->fallbackToAccountUpdateLink(
+                    $voter,
+                    $accountId,
+                    $returnUrl ?: $defaultReturn,
+                    $refreshUrl ?: $defaultRefresh,
+                    $e
+                );
             }
         }
 
@@ -129,6 +135,35 @@ class StripeConnectService
             'expires_at' => (int) $link->expires_at,
             'account_id' => $accountId,
         ];
+    }
+
+    /**
+     * Some legacy/partially configured Stripe accounts cannot open onboarding again.
+     * Retry with account_update so users can still complete required updates.
+     */
+    private function fallbackToAccountUpdateLink(
+        Voter $voter,
+        string $accountId,
+        string $returnUrl,
+        string $refreshUrl,
+        \Stripe\Exception\InvalidRequestException $exception
+    ): \Stripe\AccountLink {
+        try {
+            Log::info('Retrying Stripe account link as account_update for voter.', [
+                'voter_id' => $voter->id,
+                'stripe_account_id' => $accountId,
+                'original_error' => $exception->getMessage(),
+            ]);
+
+            return $this->client->accountLinks->create([
+                'account' => $accountId,
+                'type' => 'account_update',
+                'return_url' => $returnUrl,
+                'refresh_url' => $refreshUrl,
+            ]);
+        } catch (\Stripe\Exception\InvalidRequestException $fallbackException) {
+            throw $fallbackException;
+        }
     }
 
     public function canReceivePayout(Voter $voter): bool
