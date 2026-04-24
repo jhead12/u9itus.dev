@@ -1316,7 +1316,7 @@ class VoterController extends Controller
         } catch (\Throwable $e) {
             $reference = (string) Str::ulid();
 
-            Log::warning('Unable to start Authentic User Verifier onboarding', [
+            $context = [
                 'reference' => $reference,
                 'voter_id' => $voter->id,
                 'exception' => $e::class,
@@ -1328,7 +1328,10 @@ class VoterController extends Controller
                 'return_url' => route('voter.earnings'),
                 'refresh_url' => route('voter.earnings'),
                 ...$this->stripeErrorContext($e),
-            ]);
+            ];
+
+            Log::warning('Unable to start Authentic User Verifier onboarding', $context);
+            Log::channel('stderr')->warning('Unable to start Authentic User Verifier onboarding', $context);
 
             report($e);
 
