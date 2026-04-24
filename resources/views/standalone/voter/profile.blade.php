@@ -179,7 +179,11 @@
     @include('standalone.voter.partials.authentic-user-verifier-banner')
 
     {{-- Identity Verification --}}
-    <div class="bg-slate-800/50 border {{ $user->kyc_status === 'approved' ? 'border-emerald-500/30' : ($user->kyc_status === 'rejected' ? 'border-red-500/30' : 'border-slate-700/60') }} rounded-2xl p-6 space-y-4">
+    @php
+        $hasAuthenticUserVerifier = $voter->hasAuthenticUserVerifier();
+        $hasLegacyKycRejection = $user->kyc_status === 'rejected';
+    @endphp
+    <div class="bg-slate-800/50 border {{ $hasAuthenticUserVerifier ? 'border-emerald-500/30' : ($hasLegacyKycRejection ? 'border-red-500/30' : 'border-slate-700/60') }} rounded-2xl p-6 space-y-4">
         <div class="flex items-start justify-between gap-4">
             <div>
                 <h2 class="text-base font-semibold text-white flex items-center gap-2">
@@ -188,13 +192,17 @@
                     </svg>
                     Authentic User Verifier
                 </h2>
+                @if($hasAuthenticUserVerifier)
+                <p class="text-xs text-slate-500 mt-0.5">Your identity is currently verified through Authentic User Verifier (powered by Stripe Connect)</p>
+                @else
                 <p class="text-xs text-slate-500 mt-0.5">Your identity is verified when you complete Authentic User Verifier (powered by Stripe Connect)</p>
+                @endif
             </div>
-            @if($user->kyc_status === 'approved')
+            @if($hasAuthenticUserVerifier)
             <span class="shrink-0 inline-flex items-center gap-1 text-xs bg-emerald-900/40 border border-emerald-700/40 text-emerald-400 rounded-full px-3 py-1 font-medium">
                 ✓ Verified
             </span>
-            @elseif($user->kyc_status === 'rejected')
+            @elseif($hasLegacyKycRejection)
             <span class="shrink-0 inline-flex items-center gap-1 text-xs bg-red-900/30 border border-red-700/30 text-red-400 rounded-full px-3 py-1 font-medium">
                 ✗ Needs Attention
             </span>
@@ -214,7 +222,7 @@
                 <p class="text-xs font-semibold text-blue-300">Authentic User Verifier</p>
             </div>
             <p class="text-xs text-slate-400">No manual document upload is required here. Authentic User Verifier is completed through Stripe Connect when you set up payout onboarding.</p>
-            @if($user->kyc_status !== 'approved')
+            @if(!$hasAuthenticUserVerifier)
             <p class="text-xs text-slate-500 mt-1">To get verified, start Authentic User Verifier from your Earnings page.</p>
             @endif
         </div>
