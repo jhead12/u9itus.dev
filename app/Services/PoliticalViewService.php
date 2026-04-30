@@ -101,16 +101,20 @@ class PoliticalViewService
             );
             $qualifies = $completionPct >= $campaign->min_watch_time_percent;
 
-            // Calculate payout amounts
-            $voterPayout     = $qualifies ? (float) $campaign->voter_payout_per_view : 0.0;
-            $platformRevenue = $qualifies ? ((float) $campaign->revenue_per_view - $voterPayout) : 0.0;
-            $referralCommission = 0.0;
+            // Calculate payout amounts using integer-cent arithmetic to avoid drift.
+            $voterPayoutCents     = $qualifies ? \App\Support\Money::toCents($campaign->voter_payout_per_view) : 0;
+            $platformRevenueCents = $qualifies ? \App\Support\Money::toCents($campaign->revenue_per_view) - $voterPayoutCents : 0;
+            $referralCommissionCents = 0;
 
             // Referral commission: 10% of voter payout if the voter was referred
             if ($qualifies && $session->voter->referred_by_voter_id) {
-                $referralCommission = $voterPayout * (config('u9itus.referral_commission_percent', 10) / 100);
-                $platformRevenue -= $referralCommission;
+                $referralCommissionCents = \App\Support\Money::percentOf($voterPayoutCents, config('u9itus.referral_commission_percent', 10));
+                $platformRevenueCents -= $referralCommissionCents;
             }
+
+            $voterPayout        = (float) \App\Support\Money::fromCents($voterPayoutCents);
+            $platformRevenue    = (float) \App\Support\Money::fromCents($platformRevenueCents);
+            $referralCommission = (float) \App\Support\Money::fromCents($referralCommissionCents);
 
             // Update the session
             $session->update([

@@ -21,6 +21,16 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Financial configuration health checks (non-local/non-test environments only).
+        if (! app()->environment('local', 'testing')) {
+            if (empty(config('services.stripe.webhook_secret'))) {
+                Log::critical(
+                    'STRIPE_WEBHOOK_SECRET is not set. ' .
+                    'Webhook signature verification is disabled — the platform cannot accept Stripe webhooks securely.'
+                );
+            }
+        }
+
         // Request latency logging for slow web endpoints.
         if (app()->runningInConsole()) {
             return;

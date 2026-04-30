@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\PaymentStatus;
 use App\Enums\ViewPaymentStatus;
 use App\Jobs\PollPayPalPayoutStatus;
+use App\Models\PayoutAttempt;
 use App\Models\PayoutRun;
 use App\Models\PayoutRunSkippedItem;
 use App\Models\PoliticalCampaign;
@@ -171,7 +172,9 @@ class PoliticalPaymentService
                 ->where('payment_status', ViewPaymentStatus::Approved)
                 ->where('completed_at', '<=', $holdCutoff);
 
-            $approvedEarnings = (float) $approvedSessionsQuery->sum('voter_payout_amount');
+            // Sum in DB returns a decimal string; keep as string for bcmath comparison.
+            $approvedEarningsStr = (string) ($approvedSessionsQuery->sum('voter_payout_amount') ?? '0');
+            $approvedEarnings = (float) $approvedEarningsStr; // float only for legacy API surface
 
             if ($approvedEarnings < $minPayout) {
                 $results['skipped']++;
@@ -191,7 +194,31 @@ class PoliticalPaymentService
                 ?? $voter->payment_method
                 ?? 'wallet');
 
-            $batchId = 'u9itus_' . $voter->uuid . '_' . now()->format('Ymd_His');
+            // Build a deterministic idempotency key from voter + ordered session IDs.
+            // This is safe to reuse on retries — same input always produces the same key.
+            $eligibleSessionIds = (clone $approvedSessionsQuery)->pluck('id')->sort()->values()->all();
+            $idempotencyKey = hash('sha256', 'payout:' . $voter->id . ':' . implode(',', $eligibleSessionIds));
+
+            // Persist attempt BEFORE the external call so a crash between the external
+            // success and the DB write is detectable on retry.
+            $existingAttempt = PayoutAttempt::where('idempotency_key', $idempotencyKey)->first();
+            if ($existingAttempt && in_array($existingAttempt->status, ['submitted', 'paid'])) {
+                // Already submitted or paid — skip to avoid duplicate payout.
+                Log::info("Payout for voter {$voter->uuid} already {$existingAttempt->status} (key: {$idempotencyKey}), skipping.");
+                $results['skipped']++;
+                continue;
+            }
+
+            $payoutAttempt = $existingAttempt ?? PayoutAttempt::create([
+                'voter_id'        => $voter->id,
+                'idempotency_key' => $idempotencyKey,
+                'processor'       => $selectedProcessor,
+                'status'          => 'pending',
+                'amount'          => $approvedEarnings,
+                'session_ids'     => $eligibleSessionIds,
+            ]);
+
+            $batchId = $idempotencyKey;
             $processorExecuted = 'wallet';
             $processorReference = $batchId;
             $processorFee = 0.00;
@@ -221,6 +248,9 @@ class PoliticalPaymentService
                     $processorExecuted = 'stripe';
                     $processorReference = (string) ($stripeResult['reference'] ?? $batchId);
                     $processorFee = (float) ($stripeResult['fee'] ?? 0.00);
+
+                    // Mark attempt as submitted immediately after external success.
+                    $payoutAttempt->update(['status' => 'submitted', 'processor_reference' => $processorReference]);
                 } catch (\Exception $e) {
                     Log::error("Stripe payout failed for voter {$voter->uuid}: " . $e->getMessage());
                     $results['skipped']++;
@@ -246,6 +276,9 @@ class PoliticalPaymentService
 
                     $processorExecuted = 'paypal';
                     $processorReference = (string) ($paypalResult['batch_header']['payout_batch_id'] ?? $batchId);
+
+                    // Mark attempt as submitted immediately after external success.
+                    $payoutAttempt->update(['status' => 'submitted', 'processor_reference' => $processorReference]);
 
                     DB::transaction(function () use ($voter, $holdCutoff, $processorExecuted, $processorReference) {
                         ViewSession::where('voter_id', $voter->id)
@@ -287,6 +320,9 @@ class PoliticalPaymentService
                     $processorExecuted = 'cashapp';
                     $processorReference = (string) ($cashAppResult['reference'] ?? $batchId);
                     $processorFee = (float) ($cashAppResult['fee'] ?? 0.00);
+
+                    // Mark attempt as submitted immediately after external success.
+                    $payoutAttempt->update(['status' => 'submitted', 'processor_reference' => $processorReference]);
                 } catch (\Exception $e) {
                     Log::error("Cash App payout failed for voter {$voter->uuid}: " . $e->getMessage());
                     $results['skipped']++;
@@ -451,7 +487,7 @@ class PoliticalPaymentService
 
         $canUsePayPal = $selectedProcessor === 'paypal'
             && ! empty($voter->paypal_email)
-            && $this->paypalService;
+            && $this->paypalService->isConfigured();
 
         $canUseStripe = $selectedProcessor === 'stripe'
             && $this->stripeConnectService

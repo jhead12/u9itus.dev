@@ -8,9 +8,9 @@ use Illuminate\Support\Facades\Log;
 
 /**
  * Twilio SMS Service
- * 
+ *
  * Handles SMS notifications via Twilio.
- * 
+ *
  * Setup Instructions:
  * 1. Create a Twilio account at https://www.twilio.com/try-twilio
  * 2. Get your Account SID and Auth Token from the console
@@ -20,7 +20,7 @@ use Illuminate\Support\Facades\Log;
  *    - TWILIO_AUTH_TOKEN=your-auth-token
  *    - TWILIO_FROM_NUMBER=+1234567890
  * 5. Users need to provide their phone number in notification preferences
- * 
+ *
  * @see https://www.twilio.com/docs/sms/api
  */
 class TwilioSmsService
@@ -38,26 +38,25 @@ class TwilioSmsService
 
     /**
      * Send an SMS message to a user.
+     *
+     * @param  User  $user
+     * @param  string  $message
+     * @param  string|null  $directPhoneNumber  (optional) Use this phone instead of notificationPreference
      */
-    public function sendSms(User $user, string $message): bool
+    public function sendSms(User $user, string $message, ?string $directPhoneNumber = null): bool
     {
+        $phoneNumber = $directPhoneNumber ?? $user->notificationPreference?->phone_number;
+
         if (!$this->isConfigured()) {
             Log::warning('Twilio SMS is not configured. Skipping SMS notification.', [
                 'user_id' => $user->id,
             ]);
-            return false;
-        }
-
-        $phoneNumber = $user->notificationPreference?->phone_number;
-
-        if (!$phoneNumber) {
+        } elseif (!$phoneNumber) {
             Log::info('User does not have a phone number. Skipping SMS.', [
                 'user_id' => $user->id,
             ]);
-            return false;
-        }
-
-        try {
+        } else {
+            try {
             $response = Http::asForm()
                 ->withBasicAuth($this->accountSid, $this->authToken)
                 ->post("https://api.twilio.com/2010-04-01/Accounts/{$this->accountSid}/Messages.json", [
@@ -75,20 +74,20 @@ class TwilioSmsService
                 return true;
             }
 
-            Log::error('Failed to send SMS', [
-                'user_id' => $user->id,
-                'status' => $response->status(),
-                'response' => $response->body(),
-            ]);
-
-            return false;
-        } catch (\Exception $e) {
-            Log::error('Exception sending SMS', [
-                'user_id' => $user->id,
-                'error' => $e->getMessage(),
-            ]);
-            return false;
+                Log::error('Failed to send SMS', [
+                    'user_id' => $user->id,
+                    'status' => $response->status(),
+                    'response' => $response->body(),
+                ]);
+            } catch (\Exception $e) {
+                Log::error('Exception sending SMS', [
+                    'user_id' => $user->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
         }
+
+        return false;
     }
 
     /**
@@ -96,8 +95,8 @@ class TwilioSmsService
      */
     public function isConfigured(): bool
     {
-        return !empty($this->accountSid) 
-            && !empty($this->authToken) 
+        return !empty($this->accountSid)
+            && !empty($this->authToken)
             && !empty($this->fromNumber);
     }
 
@@ -113,7 +112,7 @@ class TwilioSmsService
 
     /**
      * Format a phone number to E.164 format.
-     * 
+     *
      * This is a simple US number formatter. For international support,
      * consider using a library like giggsey/libphonenumber-for-php.
      */

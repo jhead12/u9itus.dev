@@ -28,9 +28,16 @@ class BillingController extends Controller
 
     public function purchase(PurchaseCreditsRequest $request, Politician $politician): JsonResponse
     {
-        $amount = (float) $request->input('amount');
+        // Defence-in-depth: FormRequest already validates ownership, but guard here too.
+        if ((int) $politician->user_id !== (int) $request->user()->id) {
+            abort(403, 'You do not own this politician record.');
+        }
 
-        $result = $this->billing->createPurchaseIntent($politician, $amount, []);
+        $amount = (float) $request->validated('amount');
+
+        $result = $this->billing->createPurchaseIntent($politician, $amount, [
+            'payment_method_id' => $request->validated('payment_method_id'),
+        ]);
 
         if (empty($result['payment_intent_id'])) {
             return response()->json(['error' => 'Unable to create payment intent'], 500);

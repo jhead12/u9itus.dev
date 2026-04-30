@@ -250,4 +250,110 @@ class AdminController extends Controller
             'voter'   => new VoterResource($voter->fresh()),
         ]);
     }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Registration Security — IP Blocking & Rate Limiting
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * List all registration attempts (paginated) with filtering.
+     */
+    public function registrationAttempts(Request $request): JsonResponse
+    {
+        $attempts = DB::table('registration_attempts')
+            ->when($request->input('outcome'), fn ($q) => $q->where('outcome', $request->input('outcome')))
+            ->when($request->input('reason'), fn ($q) => $q->where('reason', $request->input('reason')))
+            ->orderByDesc('created_at')
+            ->paginate(50);
+
+        return response()->json($attempts);
+    }
+
+    /**
+     * Get registration attempts for a specific IP.
+     */
+    public function registrationAttemptsByIp(Request $request, string $ip): JsonResponse
+    {
+        $attempts = DB::table('registration_attempts')
+            ->where('ip_address', $ip)
+            ->orderByDesc('created_at')
+            ->paginate(50);
+
+        $blockedStatus = DB::table('ip_registration_blocks')
+            ->where('ip_address', $ip)
+            ->where(function ($q) {
+                $q->whereNull('expires_at')
+                  ->orWhere('expires_at', '>', now());
+            })
+            ->first();
+
+        return response()->json([
+            'ip'           => $ip,
+            'attempts'     => $attempts,
+            'blocked'      => $blockedStatus ? true : false,
+            'block_reason' => $blockedStatus?->reason,
+            'expires_at'   => $blockedStatus?->expires_at,
+        ]);
+    }
+
+    /**
+     * Get all active (non-expired) IP blocks.
+     */
+    public function activeIpBlocks(Request $request): JsonResponse
+    {
+        $blocks = DB::table('ip_registration_blocks')
+            ->where(function ($q) {
+                $q->whereNull('expires_at')
+                  ->orWhere('expires_at', '>', now());
+            })
+            ->orderByDesc('created_at')
+            ->paginate(50);
+
+        return response()->json($blocks);
+    }
+
+    /**
+     * Block an IP address (optionally with expiry).
+     */
+    public function blockIp(Request $request): JsonResponse
+    {
+        $request->validate([
+            'ip_address' => ['required', 'ip'],
+            'reason'     => ['required', 'string', 'max:255'],
+            'expires_at' => ['nullable', 'date_format:Y-m-d H:i:s'],
+            'notes'      => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        app(\App\Services\RegistrationSecurityService::class)->blockIp(
+            $request->ip_address,
+            $request->reason,
+            $request->expires_at,
+            auth()->id()
+        );
+
+        return response()->json([
+            'message'    => 'IP blocked successfully',
+            'ip_address' => $request->ip_address,
+            'expires_at' => $request->expires_at,
+        ], 201);
+    }
+
+    /**
+     * Unblock an IP address.
+     */
+    public function unblockIp(Request $request, string $ip): JsonResponse
+    {
+        if (filter_var($ip, FILTER_VALIDATE_IP) === false) {
+            return response()->json([
+                'message' => 'Invalid IP address.',
+            ], 422);
+        }
+
+        app(\App\Services\RegistrationSecurityService::class)->unblockIp($ip);
+
+        return response()->json([
+            'message'    => 'IP unblocked successfully',
+            'ip_address' => $ip,
+        ]);
+    }
 }

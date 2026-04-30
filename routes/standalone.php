@@ -58,6 +58,13 @@ Route::middleware('guest')->group(function () {
 // Logout (authenticated users only)
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->name('logout');
 
+// Phone verification (authenticated only)
+Route::middleware('auth')->group(function () {
+    Route::get('/verify-phone', [AuthController::class, 'showVerifyPhone'])->name('phone.verify');
+    Route::post('/verify-phone', [AuthController::class, 'verifyPhone'])->name('phone.verify.submit');
+    Route::post('/resend-phone-code', [AuthController::class, 'resendPhoneCode'])->name('phone.resend');
+});
+
 /*
 |--------------------------------------------------------------------------
 | Email Verification

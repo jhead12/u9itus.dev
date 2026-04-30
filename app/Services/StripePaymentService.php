@@ -123,13 +123,26 @@ class StripePaymentService
     public function parseWebhook(string $payload, string $sigHeader)
     {
         if (! $this->client) {
-            Log::warning('Stripe SDK not installed; webhook events will not be verified.');
+            // Fail closed — SDK must be present to verify webhooks
+            if (! app()->environment('local', 'testing')) {
+                throw new \RuntimeException(
+                    'Stripe SDK is not installed. Cannot verify webhook signatures in non-local environments.'
+                );
+            }
+            Log::warning('Stripe SDK not installed; webhook events will not be verified (dev/test only).');
             return json_decode($payload, true);
         }
 
         $secret = config('services.stripe.webhook_secret');
         if (empty($secret)) {
-            Log::warning('Stripe webhook secret not configured (services.stripe.webhook_secret).');
+            // Fail closed — no secret means we cannot trust the payload
+            if (! app()->environment('local', 'testing')) {
+                throw new \RuntimeException(
+                    'Stripe webhook secret is not configured (STRIPE_WEBHOOK_SECRET). ' .
+                    'Cannot accept webhook payloads without signature verification.'
+                );
+            }
+            Log::warning('Stripe webhook secret not configured (services.stripe.webhook_secret). Signature check skipped (dev/test only).');
             return json_decode($payload, true);
         }
 

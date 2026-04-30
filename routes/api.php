@@ -133,7 +133,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         | Admin API (authenticated via Sanctum)
         |------------------------------------------------------------------
         */
-        Route::prefix('/admin')->name('admin.')->group(function () {
+        Route::prefix('/admin')->name('admin.')->middleware('role:admin')->group(function () {
             Route::get('/analytics', [AdminController::class, 'analytics'])->name('analytics');
             Route::get('/campaigns/pending', [AdminController::class, 'pendingCampaigns'])->name('campaigns.pending');
             Route::post('/campaigns/{campaign:uuid}/approve', [AdminController::class, 'approveCampaign'])->name('campaigns.approve');
@@ -143,6 +143,15 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::post('/payouts/process', [AdminController::class, 'processBatchPayouts'])->name('payouts.process');
             Route::get('/voters/flagged', [AdminController::class, 'flaggedVoters'])->name('voters.flagged');
             Route::post('/voters/{voter:uuid}/clear-flag', [AdminController::class, 'clearFraudFlag'])->name('voters.clear-flag');
+
+            // ── Registration Security — IP blocking & rate limit audit ────────
+            Route::prefix('/registration-security')->name('registration-security.')->group(function () {
+                Route::get('/attempts', [AdminController::class, 'registrationAttempts'])->name('attempts');
+                Route::get('/attempts/ip/{ip}', [AdminController::class, 'registrationAttemptsByIp'])->name('attempts.by-ip');
+                Route::get('/ip-blocks', [AdminController::class, 'activeIpBlocks'])->name('ip-blocks');
+                Route::post('/ip-blocks', [AdminController::class, 'blockIp'])->name('ip-blocks.store');
+                Route::delete('/ip-blocks/{ip}', [AdminController::class, 'unblockIp'])->name('ip-blocks.destroy');
+            });
         });
     });
 });

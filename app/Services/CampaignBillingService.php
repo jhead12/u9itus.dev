@@ -227,8 +227,13 @@ class CampaignBillingService
     public function createPurchaseIntent(Politician $politician, float $amount, array $opts = []): array
     {
         $feePercent   = (float) config('u9itus.stripe_fee_percent', 2.5);
-        $grossAmount  = round($amount / (1 - $feePercent / 100), 2);
-        $stripeFee    = round($grossAmount - $amount, 2);
+
+        // Perform gross-up in integer cents to avoid floating-point drift.
+        $amountCents  = \App\Support\Money::toCents($amount);
+        $grossCents   = \App\Support\Money::grossUp($amountCents, $feePercent);
+        $feeCents     = $grossCents - $amountCents;
+        $grossAmount  = (float) \App\Support\Money::fromCents($grossCents);
+        $stripeFee    = (float) \App\Support\Money::fromCents($feeCents);
         $configuredMode = $this->stripe->configuredMode();
 
         $result = [

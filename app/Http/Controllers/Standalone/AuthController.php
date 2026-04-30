@@ -12,6 +12,8 @@ use App\Models\AdminSecurityAuditLog;
 use App\Models\ReferralVisit;
 use App\Services\AdminTwoFactorService;
 use App\Services\PlatformSettingsService;
+use App\Services\PhoneVerificationService;
+use App\Services\RegistrationSecurityService;
 use App\Services\UnclaimedPoliticianProfileService;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Auth\Events\Verified;
@@ -64,17 +66,22 @@ class AuthController extends Controller
      */
     private function roleRedirect(\App\Models\User $user): string
     {
-        if ($user->hasRole('admin'))      return route('admin.dashboard');
-        if ($user->hasRole('politician')) return route('politician.dashboard');
-        if ($user->hasRole('voter'))      return route('voter.dashboard');
-
-        // Fallback: use user_type column in case the role row is missing
-        return match($user->user_type) {
+        $destination = match ($user->user_type) {
             'admin'      => route('admin.dashboard'),
             'politician' => route('politician.dashboard'),
             'voter'      => route('voter.dashboard'),
             default      => route('dashboard'),
         };
+
+        if ($user->hasRole('admin')) {
+            $destination = route('admin.dashboard');
+        } elseif ($user->hasRole('politician')) {
+            $destination = route('politician.dashboard');
+        } elseif ($user->hasRole('voter')) {
+            $destination = route('voter.dashboard');
+        }
+
+        return $destination;
     }
 
     // -------------------------------------------------------------------------
@@ -220,7 +227,7 @@ class AuthController extends Controller
             'last_name'        => ['required', 'string', 'max:255'],
             'email'            => ['required', 'string', 'email', 'max:255', 'unique:users'],
             'password'         => ['required', 'confirmed', Rules\Password::defaults()],
-            'phone'            => ['required', 'string', 'max:20'],
+            'phone'            => ['required', 'string', 'max:20', 'unique:users,phone'],
             'political_office' => ['required', 'string', 'max:255'],
             'party'            => ['required', 'string', 'max:100'],
             'governance_level' => ['required', 'string', 'max:50'],
@@ -230,16 +237,20 @@ class AuthController extends Controller
             'terms'            => ['accepted'],
         ]);
 
+        // ── Pre-registration security checks (IP, rate limit, KYC duplicate) ──
+        app(RegistrationSecurityService::class)->checkOrFail($request, $request->email);
+
         $user = User::create([
-            'first_name' => $request->first_name,
-            'last_name'  => $request->last_name,
-            'email'      => $request->email,
-            'password'   => Hash::make($request->password),
-            'phone'      => $request->phone,
-            'city'       => $request->city,
-            'state'      => $request->state,
-            'platform'   => 'standalone',
-            'user_type'  => 'politician',
+            'first_name'      => $request->first_name,
+            'last_name'       => $request->last_name,
+            'email'           => $request->email,
+            'password'        => Hash::make($request->password),
+            'phone'           => $request->phone,
+            'city'            => $request->city,
+            'state'           => $request->state,
+            'platform'        => 'standalone',
+            'user_type'       => 'politician',
+            'registration_ip' => $request->ip(),
         ]);
 
         $user->assignRole('politician');
@@ -284,6 +295,17 @@ class AuthController extends Controller
 
         $this->markReferralConversion($request, $refCode, $user);
 
+        // ── Trigger phone verification OTP ────────────────────────────────────
+        try {
+            app(PhoneVerificationService::class)->sendVerificationCode($user->phone, $user);
+        } catch (\Exception $e) {
+            Log::error('Failed to send phone verification code for politician', [
+                'user_id' => $user->id,
+                'phone'   => substr($user->phone, -4),
+                'error'   => $e->getMessage(),
+            ]);
+        }
+
         event(new Registered($user));
 
         // Send welcome email (non-fatal if SMTP not yet configured)
@@ -313,7 +335,7 @@ class AuthController extends Controller
 
         Auth::login($user);
 
-        return redirect()->route('verification.notice');
+        return redirect()->route('phone.verify');
     }
 
     // -------------------------------------------------------------------------
@@ -334,7 +356,7 @@ class AuthController extends Controller
             'last_name'     => ['required', 'string', 'max:255'],
             'email'         => ['required', 'string', 'email', 'max:255', 'unique:users'],
             'password'      => ['required', 'confirmed', Rules\Password::defaults()],
-            'phone'         => ['nullable', 'string', 'max:20'],
+            'phone'         => ['nullable', 'string', 'max:20', 'unique:users,phone'],
             'state'         => ['nullable', 'string', 'size:2'],
             'zip_code'      => ['required', 'string', 'max:10', 'regex:/^\d{5}(-\d{4})?$/'],
             'referral_code'        => ['nullable', 'string', 'max:20'],
@@ -342,14 +364,18 @@ class AuthController extends Controller
             'terms'               => ['accepted'],
         ]);
 
+        // ── Pre-registration security checks (IP, rate limit, KYC duplicate) ──
+        app(RegistrationSecurityService::class)->checkOrFail($request, $request->email);
+
         $user = User::create([
-            'first_name' => $request->first_name,
-            'last_name'  => $request->last_name,
-            'email'      => $request->email,
-            'password'   => Hash::make($request->password),
-            'phone'      => $request->phone,
-            'platform'   => 'standalone',
-            'user_type'  => 'voter',
+            'first_name'      => $request->first_name,
+            'last_name'       => $request->last_name,
+            'email'           => $request->email,
+            'password'        => Hash::make($request->password),
+            'phone'           => $request->phone,
+            'platform'        => 'standalone',
+            'user_type'       => 'voter',
+            'registration_ip' => $request->ip(),
         ]);
 
         $user->assignRole('voter');
@@ -387,9 +413,14 @@ class AuthController extends Controller
             'trust_score'               => 100,
             'is_active'                 => true,
             'is_verified'               => false,
-            'is_registered_voter'       => $request->input('is_registered_voter') === '1' ? true
-                                           : ($request->input('is_registered_voter') === '0' ? false : null),
+            'is_registered_voter'       => null,
         ];
+
+        if ($request->input('is_registered_voter') === '1') {
+            $voterPayload['is_registered_voter'] = true;
+        } elseif ($request->input('is_registered_voter') === '0') {
+            $voterPayload['is_registered_voter'] = false;
+        }
 
         // Search by email so that any orphaned voter row (user_id = NULL) created
         // during a failed previous registration attempt is adopted rather than
@@ -400,6 +431,19 @@ class AuthController extends Controller
         );
 
         $this->markReferralConversion($request, $refCode, $user);
+
+        // ── Trigger phone verification OTP (if phone provided) ────────────────
+        if ($user->phone) {
+            try {
+                app(PhoneVerificationService::class)->sendVerificationCode($user->phone, $user);
+            } catch (\Exception $e) {
+                Log::error('Failed to send phone verification code for voter', [
+                    'user_id' => $user->id,
+                    'phone'   => substr($user->phone, -4),
+                    'error'   => $e->getMessage(),
+                ]);
+            }
+        }
 
         event(new Registered($user));
 
@@ -429,7 +473,9 @@ class AuthController extends Controller
 
         Auth::login($user);
 
-        return redirect()->route('verification.notice');
+        return $user->phone
+            ? redirect()->route('phone.verify')
+            : redirect()->route('verification.notice');
     }
 
     // -------------------------------------------------------------------------
@@ -444,6 +490,71 @@ class AuthController extends Controller
         $request->session()->regenerateToken();
 
         return redirect('/');
+    }
+
+    // -------------------------------------------------------------------------
+    // Phone Verification (OTP)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Show phone verification form after registration.
+     * User must submit the OTP code they received via SMS.
+     */
+    public function showVerifyPhone(Request $request)
+    {
+        $user = $request->user();
+        if (!$user) {
+            return redirect()->route('login');
+        }
+
+        if ($user->phone_verified_at) {
+            return redirect($this->roleRedirect($user));
+        }
+
+        return view('standalone.auth.verify-phone', ['user' => $user]);
+    }
+
+    /**
+     * Verify the OTP code submitted by the user.
+     */
+    public function verifyPhone(Request $request, PhoneVerificationService $phoneService)
+    {
+        $user = $request->user();
+        if (!$user) {
+            return back()->withErrors(['code' => 'Not authenticated.']);
+        }
+
+        $request->validate([
+            'code' => ['required', 'string', 'size:6', 'regex:/^\d{6}$/'],
+        ]);
+
+        $verified = $phoneService->verifyCode($user->phone, $request->code, $user);
+
+        if ($verified) {
+            return redirect($this->roleRedirect($user))
+                ->with('success', 'Phone number verified successfully!');
+        }
+
+        return back()->withErrors(['code' => 'Invalid or expired verification code. Please try again.']);
+    }
+
+    /**
+     * Resend verification code to phone.
+     */
+    public function resendPhoneCode(Request $request, PhoneVerificationService $phoneService)
+    {
+        $user = $request->user();
+        if (!$user || $user->phone_verified_at) {
+            return back()->withErrors(['phone' => 'Phone already verified.']);
+        }
+
+        $sent = $phoneService->sendVerificationCode($user->phone, $user);
+
+        if ($sent) {
+            return back()->with('success', 'Verification code resent to your phone.');
+        }
+
+        return back()->withErrors(['phone' => 'Failed to send verification code. Please try again later.']);
     }
 
     // -------------------------------------------------------------------------

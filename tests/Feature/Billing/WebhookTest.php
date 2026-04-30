@@ -216,4 +216,55 @@ class WebhookTest extends TestCase
         $response->assertStatus(400)
             ->assertJson(['error' => 'Invalid webhook']);
     }
+
+    public function test_missing_webhook_secret_throws_in_non_local_environment()
+    {
+        // Simulate production environment with no secret configured
+        $this->app['config']->set('app.env', 'production');
+        $this->app['config']->set('services.stripe.webhook_secret', null);
+
+        // Bind real (non-mocked) StripePaymentService — it should throw
+        $service = $this->app->make(\App\Services\StripePaymentService::class);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessageMatches('/webhook secret is not configured/i');
+
+        $service->parseWebhook('{}', 'any_sig');
+    }
+
+    public function test_forged_payload_without_secret_does_not_credit_politician_in_production()
+    {
+        // Arrange: production-like environment, no secret, real service throws
+        $this->app['config']->set('app.env', 'production');
+        $this->app['config']->set('services.stripe.webhook_secret', null);
+
+        $politician = Politician::factory()->create();
+        $piId = 'pi_forged_' . uniqid();
+
+        CampaignTransaction::create([
+            'politician_id' => $politician->id,
+            'campaign_id' => null,
+            'transaction_type' => 'charge',
+            'amount' => 10000.00,
+            'currency' => 'USD',
+            'stripe_payment_intent_id' => $piId,
+            'status' => 'pending',
+            'description' => 'Credit purchase',
+        ]);
+
+        // Post raw forged payload directly (no mock — the real service should reject it)
+        $response = $this->withoutMiddleware()
+            ->postJson('/api/stripe/webhooks', [], [
+                'Stripe-Signature' => 'forged',
+                'Content-Type' => 'application/json',
+            ]);
+
+        // Should NOT be 200 OK
+        $response->assertStatus(400);
+
+        // Politician must not receive any credits
+        $this->assertDatabaseMissing('politician_credits', [
+            'politician_id' => $politician->id,
+        ]);
+    }
 }
