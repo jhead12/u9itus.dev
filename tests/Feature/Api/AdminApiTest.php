@@ -31,6 +31,11 @@ class AdminApiTest extends TestCase
         ]);
 
         Queue::fake();
+
+        // Ensure the admin role exists for tests that require it
+        if (class_exists(\Spatie\Permission\Models\Role::class)) {
+            \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'admin', 'guard_name' => 'web']);
+        }
     }
 
     public function test_admin_analytics_endpoint_exists(): void
@@ -120,6 +125,7 @@ class AdminApiTest extends TestCase
     public function test_admin_can_stop_active_campaign_via_api(): void
     {
         $admin = User::factory()->create();
+        $admin->assignRole('admin');
         $this->actingAs($admin, 'sanctum');
 
         $campaign = PoliticalCampaign::factory()->create([
@@ -144,6 +150,7 @@ class AdminApiTest extends TestCase
     public function test_admin_stop_campaign_requires_reason(): void
     {
         $admin = User::factory()->create();
+        $admin->assignRole('admin');
         $this->actingAs($admin, 'sanctum');
 
         $campaign = PoliticalCampaign::factory()->create([
@@ -160,6 +167,7 @@ class AdminApiTest extends TestCase
     public function test_admin_can_reactivate_paused_campaign_via_api(): void
     {
         $admin = User::factory()->create();
+        $admin->assignRole('admin');
         $this->actingAs($admin, 'sanctum');
 
         $campaign = PoliticalCampaign::factory()->create([
@@ -184,6 +192,7 @@ class AdminApiTest extends TestCase
     public function test_admin_reactivate_returns_422_when_campaign_not_paused(): void
     {
         $admin = User::factory()->create();
+        $admin->assignRole('admin');
         $this->actingAs($admin, 'sanctum');
 
         $campaign = PoliticalCampaign::factory()->create([
@@ -203,6 +212,7 @@ class AdminApiTest extends TestCase
         Notification::fake();
 
         $admin = User::factory()->create();
+        $admin->assignRole('admin');
         $this->actingAs($admin, 'sanctum');
 
         $politicianUser = User::factory()->create();
@@ -235,6 +245,7 @@ class AdminApiTest extends TestCase
         Notification::fake();
 
         $admin = User::factory()->create();
+        $admin->assignRole('admin');
         $this->actingAs($admin, 'sanctum');
 
         $politicianUser = User::factory()->create();

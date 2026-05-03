@@ -1,0 +1,142 @@
+{
+    "registry_version": "1.0",
+    "updated_at": "2026-05-03",
+    "scope": "Repository pattern reviews and remediation tracking",
+    "findings": [
+        {
+            "id": "PATT-001",
+            "title": "API admin analytics mixes mode-scoped and global financial aggregates",
+            "severity": "high",
+            "status": "resolved",
+            "summary": "Revenue and payout totals are mode-scoped, but referral totals are global, which can mix test and live reporting.",
+            "evidence": [
+                {
+                    "path": "app/Http/Controllers/Api/AdminController.php",
+                    "line": 53,
+                    "link": "app/Http/Controllers/Api/AdminController.php#L53"
+                },
+                {
+                    "path": "app/Http/Controllers/Api/AdminController.php",
+                    "line": 74,
+                    "link": "app/Http/Controllers/Api/AdminController.php#L74"
+                }
+            ],
+            "plan_phase": 1,
+            "owner": "unassigned",
+            "updated_at": "2026-05-03"
+        },
+        {
+            "id": "PATT-002",
+            "title": "Billing refund math still relies on float and round in several paths",
+            "severity": "medium",
+            "status": "open",
+            "summary": "Money helper adoption is partial; refund summary and refund computation still use floating-point arithmetic heavily.",
+            "evidence": [
+                {
+                    "path": "app/Services/CampaignBillingService.php",
+                    "line": 232,
+                    "link": "app/Services/CampaignBillingService.php#L232"
+                },
+                {
+                    "path": "app/Services/CampaignBillingService.php",
+                    "line": 321,
+                    "link": "app/Services/CampaignBillingService.php#L321"
+                },
+                {
+                    "path": "app/Services/CampaignBillingService.php",
+                    "line": 347,
+                    "link": "app/Services/CampaignBillingService.php#L347"
+                },
+                {
+                    "path": "app/Services/CampaignBillingService.php",
+                    "line": 396,
+                    "link": "app/Services/CampaignBillingService.php#L396"
+                }
+            ],
+            "plan_phase": 3,
+            "owner": "unassigned",
+            "updated_at": "2026-05-03"
+        },
+        {
+            "id": "PATT-003",
+            "title": "Payment mode helper logic is duplicated across controllers",
+            "severity": "medium",
+            "status": "open",
+            "summary": "activePaymentMode and applyPaymentModeFilter are repeated in multiple controllers, increasing drift risk.",
+            "evidence": [
+                {
+                    "path": "app/Http/Controllers/Api/AdminController.php",
+                    "line": 40,
+                    "link": "app/Http/Controllers/Api/AdminController.php#L40"
+                },
+                {
+                    "path": "app/Http/Controllers/Standalone/AdminController.php",
+                    "line": 200,
+                    "link": "app/Http/Controllers/Standalone/AdminController.php#L200"
+                },
+                {
+                    "path": "app/Http/Controllers/Standalone/PoliticianController.php",
+                    "line": 162,
+                    "link": "app/Http/Controllers/Standalone/PoliticianController.php#L162"
+                }
+            ],
+            "plan_phase": 2,
+            "owner": "unassigned",
+            "updated_at": "2026-05-03"
+        },
+        {
+            "id": "PATT-004",
+            "title": "Admin moderation and payout workflows are duplicated across API and standalone controllers",
+            "severity": "medium",
+            "status": "open",
+            "summary": "Approve, reject, and payout trigger workflows exist in parallel controller paths, raising maintenance and behavior divergence risk.",
+            "evidence": [
+                {
+                    "path": "app/Http/Controllers/Api/AdminController.php",
+                    "line": 115,
+                    "link": "app/Http/Controllers/Api/AdminController.php#L115"
+                },
+                {
+                    "path": "app/Http/Controllers/Api/AdminController.php",
+                    "line": 138,
+                    "link": "app/Http/Controllers/Api/AdminController.php#L138"
+                },
+                {
+                    "path": "app/Http/Controllers/Standalone/AdminController.php",
+                    "line": 429,
+                    "link": "app/Http/Controllers/Standalone/AdminController.php#L429"
+                },
+                {
+                    "path": "app/Http/Controllers/Standalone/AdminController.php",
+                    "line": 1496,
+                    "link": "app/Http/Controllers/Standalone/AdminController.php#L1496"
+                }
+            ],
+            "plan_phase": 4,
+            "owner": "unassigned",
+            "updated_at": "2026-05-03"
+        },
+        {
+            "id": "PATT-005",
+            "title": "Stripe warning references a non-canonical env key name",
+            "severity": "low",
+            "status": "resolved",
+            "summary": "Runtime warning references STRIPE_SECRET_KEY while configuration uses STRIPE_SECRET, which can slow incident triage.",
+            "evidence": [
+                {
+                    "path": "app/Services/StripePaymentService.php",
+                    "line": 21,
+                    "link": "app/Services/StripePaymentService.php#L21"
+                },
+                {
+                    "path": "config/services.php",
+                    "line": 40,
+                    "link": "config/services.php#L40"
+                }
+            ],
+            "plan_phase": 1,
+            "owner": "unassigned",
+            "updated_at": "2026-05-03"
+        }
+    ]
+}

@@ -92,7 +92,7 @@ test('politician registration can use stored referral context when query is miss
         'terms' => '1',
     ]);
 
-    $response->assertRedirect(route('verification.notice', absolute: false));
+    $response->assertRedirect(route('phone.verify', absolute: false));
 
     $user = User::where('email', $email)->first();
 

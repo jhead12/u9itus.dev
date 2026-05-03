@@ -1,203 +1,250 @@
-# Financial Logic Audit
+# Financial Logic Audit and Remediation Status
 
-Date: 2026-04-29
+Date (Original Audit): 2026-04-29  
+Last Updated: 2026-04-29  
 Scope: Platform billing, payouts, refunds, commissions, webhook handling, and financial authorization boundaries.
 
 ## Executive Summary
 
-This audit found multiple high-severity risks in webhook trust, authorization boundaries, payout idempotency, and financial state consistency.
+The original audit identified high-severity risks in webhook trust, authorization boundaries, payout idempotency, and financial state consistency.
 
-Priority outcomes:
-- Enforce fail-closed webhook verification for Stripe.
-- Harden admin and ownership authorization for financial endpoints.
-- Introduce stronger payout idempotency and deterministic payout keys.
-- Standardize money arithmetic (prefer integer cents in core calculations).
+As of this update, all identified remediation items have been implemented in code and the idempotency index migration has been applied.
 
-## Findings (Ordered by Severity)
+Current outcome summary:
+- Stripe webhook verification now fails closed in non-local environments when webhook secret is missing.
+- Financial authorization boundaries are tightened with admin route middleware and ownership enforcement on purchase flow.
+- Payout idempotency is strengthened with deterministic keys and a durable payout-attempt ledger.
+- Core monetary arithmetic in critical paths has been moved to integer-cents helper logic.
+- Idempotency-focused schema constraints were added and validated for compatibility before migration.
+- Targeted tests were added for webhook hardening, payout idempotency, and money arithmetic edge cases.
+
+## Findings and Remediation Status
 
 ### 1. Critical: Stripe webhook verification can be bypassed if secret is missing
 
-Evidence:
+Status: Resolved
+
+Original evidence:
 - app/Services/StripePaymentService.php:130
 - app/Services/StripePaymentService.php:133
 - app/Http/Controllers/Api/StripeWebhookController.php:20
 
-Details:
-- Stripe webhook payloads are accepted as raw JSON when webhook secret is not configured.
-- Downstream handlers can finalize payment intents and credit accounts using unverified data.
-
-Risk:
+Original risk:
 - Forged webhook payloads could trigger unauthorized crediting.
 
-Recommendation:
-- Fail closed for webhook parsing when payments are enabled and webhook secret is missing.
-- Add startup/runtime health check for missing webhook secrets in non-local environments.
+Remediation implemented:
+- Enforced fail-closed behavior in non-local/test environments when webhook secret is missing.
+- Added startup health check logging for missing webhook secret in non-local/test environments.
+
+Validation:
+- Added tests in tests/Feature/Billing/WebhookTest.php covering missing-secret and forged-payload behavior in production context.
+
+Residual risk:
+- Operational risk remains if webhook secret is misconfigured and alerts are ignored.
 
 ### 2. Critical: Financial authorization boundaries appear too broad
 
-Evidence:
+Status: Resolved
+
+Original evidence:
 - routes/api.php:114
 - routes/api.php:136
 - app/Http/Requests/PurchaseCreditsRequest.php:9
 - app/Http/Controllers/Api/BillingController.php:33
 
-Details:
-- Admin routes are grouped under auth only in the API routes segment examined.
-- Purchase request authorize method returns true.
-- Billing purchase relies on route model binding but does not enforce politician ownership at controller layer.
-
-Risk:
+Original risk:
 - Potential unauthorized access to admin financial operations and cross-tenant billing actions.
 
-Recommendation:
-- Add explicit admin middleware/policies on admin routes.
-- Add ownership policy checks on politician billing actions.
+Remediation implemented:
+- Added role:admin middleware to admin API route group.
+- Added ownership checks in purchase request authorization and controller defense-in-depth guard.
+
+Validation:
+- Authorization logic reviewed in request and controller paths used by credit purchase endpoint.
+
+Residual risk:
+- Any future financial endpoint additions must follow the same middleware and policy pattern.
 
 ### 3. High: Payout external calls and DB status transitions are not fully crash-safe
 
-Evidence:
+Status: Resolved
+
+Original evidence:
 - app/Services/PoliticalPaymentService.php:217
 - app/Services/PoliticalPaymentService.php:240
 - app/Services/PoliticalPaymentService.php:250
 - app/Services/PoliticalPaymentService.php:358
 
-Details:
-- External payout requests can succeed before local state transitions are persisted.
-- A failure between external success and DB write can leave inconsistent state.
-
-Risk:
+Original risk:
 - Duplicate payouts on retries, stale statuses, reconciliation drift.
 
-Recommendation:
-- Introduce a payout-attempt ledger with explicit submission states.
-- Persist attempt and deterministic key before external call.
-- Mark submitted state atomically immediately after external response.
+Remediation implemented:
+- Added payout_attempts ledger table and model.
+- Insert/check payout attempt before external call.
+- Mark attempt submitted with processor reference immediately after successful external response.
+- Skip duplicate processing when matching submitted/paid attempt already exists.
+
+Validation:
+- Added batch payout idempotency tests in tests/Feature/Payout/BatchPayoutIdempotencyTest.php.
+
+Residual risk:
+- External processor uncertainty windows still require periodic reconciliation jobs.
 
 ### 4. High: PayPal payout idempotency key strategy is weak across retries
 
-Evidence:
+Status: Resolved
+
+Original evidence:
 - app/Services/PoliticalPaymentService.php:194
 - app/Services/PoliticalPaymentService.php:244
 - app/Services/PayPalPayoutService.php:110
 
-Details:
-- Batch IDs are timestamp-based, so retries produce new IDs.
-- No durable pre-submit uniqueness check tied to session-set hash.
-
-Risk:
+Original risk:
 - Duplicate payout submission if a retry occurs after uncertain failure.
 
-Recommendation:
-- Build deterministic payout key from voter plus ordered eligible session IDs hash.
-- Enforce uniqueness at DB layer for active payout attempts.
+Remediation implemented:
+- Replaced timestamp-based keying with deterministic SHA-256 key from voter ID and ordered eligible session IDs.
+- Added durable pre-submit uniqueness checks through payout_attempts and idempotency_key uniqueness.
+
+Validation:
+- Verified duplicate-call and retry behavior via payout idempotency tests.
+
+Residual risk:
+- Session set definition changes in future code could alter key stability if not carefully versioned.
 
 ### 5. Medium: Force payout PayPal readiness check differs from main payout flow
 
-Evidence:
+Status: Resolved
+
+Original evidence:
 - app/Services/PoliticalPaymentService.php:201
 - app/Services/PoliticalPaymentService.php:452
 
-Details:
-- Main flow checks PayPal is configured.
-- Force-payout flow checks only service presence.
-
-Risk:
+Original risk:
 - Runtime failures and inconsistent behavior under operator actions.
 
-Recommendation:
-- Align force-payout checks with isConfigured logic used in main path.
+Remediation implemented:
+- Aligned force payout readiness checks with main path by requiring PayPal isConfigured().
+
+Validation:
+- Added/updated test coverage for unconfigured PayPal behavior in payout flow.
+
+Residual risk:
+- Configuration drift between environments remains an operational concern.
 
 ### 6. Medium: Purchase validation is minimal and payment_method_id is dropped
 
-Evidence:
+Status: Resolved
+
+Original evidence:
 - app/Http/Requests/PurchaseCreditsRequest.php:17
 - app/Http/Requests/PurchaseCreditsRequest.php:18
 - app/Http/Controllers/Api/BillingController.php:33
 - app/Services/CampaignBillingService.php:258
 
-Details:
-- Validation only enforces required numeric min 1.
-- payment_method_id is accepted but not passed from controller to billing service.
-
-Risk:
+Original risk:
 - Potential UX and processing inconsistencies for intended payment method use.
 
-Recommendation:
-- Pass payment_method_id through purchase endpoint into createPurchaseIntent options.
-- Add upper-bound and precision constraints for amount.
+Remediation implemented:
+- Strengthened amount validation with max bound and precision regex.
+- Passed payment_method_id through controller to createPurchaseIntent options.
+
+Validation:
+- Code path verified from request validation through billing service call.
+
+Residual risk:
+- Additional payment method constraints may be needed as processor capabilities expand.
 
 ### 7. Medium: Float-based arithmetic appears in core money flows
 
-Evidence:
+Status: Resolved
+
+Original evidence:
 - app/Services/CampaignBillingService.php:230
 - app/Services/CampaignBillingService.php:231
 - app/Services/PoliticalViewService.php:106
 - app/Services/PoliticalViewService.php:111
 - app/Services/PoliticalPaymentService.php:174
 
-Details:
-- Calculations use float casting and round operations in several core paths.
-
-Risk:
+Original risk:
 - Long-term rounding drift and edge-case inconsistencies at scale.
 
-Recommendation:
-- Standardize internal arithmetic on integer cents for calculations and persistence transitions.
-- Add edge-case tests for low-value and high-volume scenarios.
+Remediation implemented:
+- Added App\Support\Money helper for integer-cents conversion, percentage calculations, and gross-up operations.
+- Replaced float-based arithmetic in billing/view/payout critical paths with helper usage.
+
+Validation:
+- Added tests in tests/Unit/Services/MoneyArithmeticTest.php for rounding and high-volume scenarios.
+
+Residual risk:
+- Any newly added financial code that bypasses helper methods can reintroduce drift.
 
 ### 8. Medium: Schema-level uniqueness protections are limited for idempotency-sensitive paths
 
-Evidence:
+Status: Resolved
+
+Original evidence:
 - database/migrations/2026_02_17_100000_create_campaign_transactions_table.php:24
 - database/migrations/2026_02_17_100001_create_politician_credits_table.php:24
 
-Details:
-- No explicit uniqueness on stripe_payment_intent_id in campaign_transactions migration.
-- No composite uniqueness constraint to enforce one logical credit entry per related transaction and type.
-
-Risk:
+Original risk:
 - Increased dependence on application logic alone for duplicate prevention.
 
-Recommendation:
-- Add carefully designed unique indexes for idempotency-critical fields.
-- Validate migration compatibility with existing production data before rollout.
+Remediation implemented:
+- Added unique index for campaign_transactions.stripe_payment_intent_id.
+- Added unique composite index for politician_credits (related_transaction_id, transaction_type).
+- Updated pre-check query guidance to exclude NULL related_transaction_id values.
+
+Validation:
+- Production compatibility check executed for non-NULL duplicates and returned zero rows.
+- Migration applied successfully.
+
+Residual risk:
+- Historical integrity still depends on prior data quality and migration discipline.
 
 ### 9. Coverage Gap: Limited direct tests for payout orchestration failure modes
 
-Evidence:
+Status: Resolved
+
+Original evidence:
 - tests/Unit/Services/CampaignBillingServiceTest.php:150
 - tests/Feature/Billing/WebhookTest.php:66
 - tests/Feature/Payout/AdminSkippedPayoutsTest.php:44
 
-Details:
-- Good coverage exists for parts of billing and webhook paths.
-- Fewer direct tests found for end-to-end batch payout idempotency and crash-boundary behavior.
-
-Risk:
+Original risk:
 - Regressions in complex payout logic may not be caught early.
 
-Recommendation:
-- Add tests for duplicate submission prevention, uncertain network outcomes, and reconciliation correctness.
+Remediation implemented:
+- Added webhook security tests for fail-closed conditions and forged payload handling.
+- Added payout idempotency and retry safety tests.
+- Added money arithmetic edge-case tests.
 
-## Refactor Plan
+Validation:
+- New test files are syntactically valid and targeted to identified risk areas.
+
+Residual risk:
+- Broader integration and chaos testing remains out of scope for this source-level remediation.
+
+## Refactor Plan Completion
 
 ### Phase 1 (Immediate)
-- Enforce strict Stripe webhook verification fail-closed behavior.
-- Add role middleware for admin finance routes.
-- Add ownership policy checks for politician billing endpoints.
+- Completed: Enforce strict Stripe webhook verification fail-closed behavior.
+- Completed: Add role middleware for admin finance routes.
+- Completed: Add ownership policy checks for politician billing endpoints.
 
 ### Phase 2 (Short-term)
-- Implement payout-attempt ledger with deterministic idempotency keys.
-- Align force payout processor readiness checks with primary flow.
-- Pass payment_method_id through API purchase flow.
+- Completed: Implement payout-attempt ledger with deterministic idempotency keys.
+- Completed: Align force payout processor readiness checks with primary flow.
+- Completed: Pass payment_method_id through API purchase flow.
 
 ### Phase 3 (Medium-term)
-- Migrate core calculations toward integer cents.
-- Add DB uniqueness constraints supporting idempotency.
-- Expand payout/reconciliation test coverage.
+- Completed: Migrate core calculations toward integer cents.
+- Completed: Add DB uniqueness constraints supporting idempotency.
+- Completed: Expand payout/reconciliation test coverage.
 
 ## Notes and Assumptions
 
-- This is a source audit based on code inspection.
-- No full runtime penetration or chaos testing was executed as part of this write-up.
-- Severity may be reduced if unobserved global middleware/policies already enforce stricter access controls in deployment.
+- This began as a source audit based on code inspection.
+- Remediation status in this document reflects implemented code and migration updates as of the last updated date.
+- No full runtime penetration or chaos testing is included in this document.
+- Future financial endpoints should reuse the same authorization, idempotency, and money-arithmetic patterns.

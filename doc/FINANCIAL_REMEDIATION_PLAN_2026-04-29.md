@@ -16,6 +16,7 @@ This plan addresses all nine findings from the financial logic audit. Work is or
 ### 1.1 Enforce Stripe Webhook Signature Verification (Finding #1)
 
 **Files:**
+
 - `app/Services/StripePaymentService.php`
 
 **Problem:** `parseWebhook()` falls back to raw `json_decode()` when `webhook_secret` is not set, allowing forged payloads.
@@ -66,6 +67,7 @@ if (!app()->environment('local', 'testing')) {
 ```
 
 **Acceptance Criteria:**
+
 - `parseWebhook()` throws on production/staging when secret is absent.
 - Unit test: forged payload with no secret returns 500/400, not a credit event.
 - Unit test: valid HMAC passes verification.
@@ -75,6 +77,7 @@ if (!app()->environment('local', 'testing')) {
 ### 1.2 Add Admin Role Gate to Financial Routes (Finding #2)
 
 **Files:**
+
 - `routes/api.php`
 - `app/Http/Requests/PurchaseCreditsRequest.php`
 - `app/Http/Controllers/Api/BillingController.php`
@@ -130,6 +133,7 @@ public function purchase(PurchaseCreditsRequest $request, Politician $politician
 ```
 
 **Acceptance Criteria:**
+
 - Non-admin authenticated user receives 403 on admin financial endpoints.
 - Authenticated user cannot purchase credits for another user's politician record.
 - Feature test covering both cases.
@@ -172,6 +176,7 @@ Schema::create('payout_attempts', function (Blueprint $table) {
 If step 4 throws, the attempt remains `pending` and a retry will reuse the same key (idempotent re-submit to processor).
 
 **Acceptance Criteria:**
+
 - Killing the process between steps 4 and 6 leaves sessions in `pending`, attempt in `submitted`, no duplicate payment on retry.
 - Duplicate call with same session set does not create a second payout_attempt row.
 
@@ -180,6 +185,7 @@ If step 4 throws, the attempt remains `pending` and a retry will reuse the same 
 ### 2.2 Deterministic Payout Idempotency Key (Finding #4)
 
 **Files:**
+
 - `app/Services/PoliticalPaymentService.php`
 
 **Replace timestamp-based batch ID:**
@@ -199,6 +205,7 @@ private function buildPayoutKey(int $voterId, array $sessionIds): string
 Pass this key as both the local `idempotency_key` and the `sender_batch_id` sent to PayPal / idempotency header sent to Stripe.
 
 **Acceptance Criteria:**
+
 - Same voter + same session set always produces the same key.
 - Key changes if session set changes (new sessions eligible).
 - PayPal API call uses the hash as `sender_batch_id`.
@@ -208,6 +215,7 @@ Pass this key as both the local `idempotency_key` and the `sender_batch_id` sent
 ### 2.3 Align Force-Payout Readiness Checks (Finding #5)
 
 **Files:**
+
 - `app/Services/PoliticalPaymentService.php` (around L452)
 
 ```php
@@ -221,6 +229,7 @@ if ($this->paypalService && $this->paypalService->isConfigured()) {
 Apply the same pattern for any other force-payout processor checks.
 
 **Acceptance Criteria:**
+
 - Force payout with unconfigured PayPal credentials gracefully skips/falls back rather than crashing.
 
 ---
@@ -230,6 +239,7 @@ Apply the same pattern for any other force-payout processor checks.
 ### 3.1 Strengthen Purchase Amount Validation (Finding #6a)
 
 **Files:**
+
 - `app/Http/Requests/PurchaseCreditsRequest.php`
 
 ```php
@@ -243,6 +253,7 @@ Apply the same pattern for any other force-payout processor checks.
 > `max:100000` is a placeholder; align with actual platform limits from `config/u9itus.php`.
 
 **Acceptance Criteria:**
+
 - Amounts like `1.999`, `0`, `-5`, `999999999` are rejected with a validation error.
 - Edge cases `1.00`, `100000` pass.
 
@@ -251,6 +262,7 @@ Apply the same pattern for any other force-payout processor checks.
 ### 3.2 Pass `payment_method_id` Through Purchase Flow (Finding #6b)
 
 **Files:**
+
 - `app/Http/Controllers/Api/BillingController.php`
 - `app/Services/CampaignBillingService.php`
 
@@ -274,6 +286,7 @@ $paymentMethodId = $options['payment_method_id'] ?? null;
 ```
 
 **Acceptance Criteria:**
+
 - Integration test: providing a `payment_method_id` routes it to the Stripe PaymentIntent.
 - Omitting it still works (backward compatible).
 
@@ -284,6 +297,7 @@ $paymentMethodId = $options['payment_method_id'] ?? null;
 ### 4.1 Introduce Integer-Cents Arithmetic (Finding #7)
 
 **Files:**
+
 - `app/Services/CampaignBillingService.php` (L230–231)
 - `app/Services/PoliticalViewService.php` (L106, L111)
 - `app/Services/PoliticalPaymentService.php` (L174)
@@ -324,6 +338,7 @@ Replace all float casts and `round()` calls on money values with `Money::toCents
 **Migration note:** DB columns are already `DECIMAL(12,2)`, which is correct for final storage. The fix is only in the calculation layer — no schema change needed.
 
 **Acceptance Criteria:**
+
 - Gross-up calculation in `CampaignBillingService` produces identical results to Stripe's rounding rules.
 - Referrer commission in `PoliticalViewService` rounds consistently for sub-cent values.
 - Add unit tests for the edge cases: `$0.01` payout, `$0.005` rounding, 1000-view accumulation.
@@ -354,6 +369,7 @@ Schema::table('politician_credits', function (Blueprint $table) {
 > **Pre-deployment check required:** Run `SELECT related_transaction_id, credit_type, COUNT(*) FROM politician_credits GROUP BY 1,2 HAVING COUNT(*) > 1` against production before applying. Clean up duplicates first if any exist.
 
 **Acceptance Criteria:**
+
 - Migration applies cleanly on a fresh database.
 - Attempting a duplicate insert at the DB layer raises an integrity constraint exception.
 - Application-level duplicate guards still exist (defense in depth); DB constraint is the backstop.
@@ -367,6 +383,7 @@ Schema::table('politician_credits', function (Blueprint $table) {
 **File:** `tests/Feature/Billing/WebhookTest.php`
 
 Add cases:
+
 - Forged payload (no secret configured) → 400/500 in non-local env.
 - Valid HMAC → event processed.
 - Invalid HMAC → 400, no credit change.
@@ -377,6 +394,7 @@ Add cases:
 **File:** `tests/Feature/Payout/BatchPayoutIdempotencyTest.php` (new)
 
 Add cases:
+
 - Same session set submitted twice → only one `payout_attempt` row, processor called once.
 - Simulated crash between external call and DB update → retry picks up `submitted` attempt, skips re-submission.
 - `processBatchPayouts()` with PayPal unconfigured → graceful skip, no exception.
@@ -386,6 +404,7 @@ Add cases:
 **File:** `tests/Unit/Services/MoneyArithmeticTest.php` (new)
 
 Add cases:
+
 - Gross-up at Stripe fee boundary (2.5%, various amounts).
 - Viewer payout accumulation across 1, 100, 1000 views.
 - Referrer commission at exactly `$0.005`.
@@ -394,26 +413,26 @@ Add cases:
 
 ## Execution Checklist
 
-| # | Task | Phase | Owner | Done |
-|---|------|-------|-------|------|
-| 1 | Fail-closed webhook verification | 1 | | [ ] |
-| 2 | Startup health check for webhook secret | 1 | | [ ] |
-| 3 | Admin role middleware on admin routes | 1 | | [ ] |
-| 4 | Ownership check in PurchaseCreditsRequest | 1 | | [ ] |
-| 5 | Ownership guard in BillingController | 1 | | [ ] |
-| 6 | Create payout_attempts migration | 2 | | [ ] |
-| 7 | Restructure payout dispatch order | 2 | | [ ] |
-| 8 | Deterministic payout idempotency key | 2 | | [ ] |
-| 9 | Align force-payout readiness checks | 2 | | [ ] |
-| 10 | Strengthen amount validation | 3 | | [ ] |
-| 11 | Pass payment_method_id through flow | 3 | | [ ] |
-| 12 | Introduce integer-cents Money helper | 4 | | [ ] |
-| 13 | Replace float arithmetic in billing/view/payout | 4 | | [ ] |
-| 14 | Audit production data for dup credits | 5 | | [ ] |
-| 15 | Add unique index migration | 5 | | [ ] |
-| 16 | Webhook security tests | 6 | | [ ] |
-| 17 | Payout idempotency/crash tests | 6 | | [ ] |
-| 18 | Money arithmetic edge case tests | 6 | | [ ] |
+| #   | Task                                            | Phase | Owner | Done |
+| --- | ----------------------------------------------- | ----- | ----- | ---- |
+| 1   | Fail-closed webhook verification                | 1     |       | [ ]  |
+| 2   | Startup health check for webhook secret         | 1     |       | [ ]  |
+| 3   | Admin role middleware on admin routes           | 1     |       | [ ]  |
+| 4   | Ownership check in PurchaseCreditsRequest       | 1     |       | [ ]  |
+| 5   | Ownership guard in BillingController            | 1     |       | [ ]  |
+| 6   | Create payout_attempts migration                | 2     |       | [ ]  |
+| 7   | Restructure payout dispatch order               | 2     |       | [ ]  |
+| 8   | Deterministic payout idempotency key            | 2     |       | [ ]  |
+| 9   | Align force-payout readiness checks             | 2     |       | [ ]  |
+| 10  | Strengthen amount validation                    | 3     |       | [ ]  |
+| 11  | Pass payment_method_id through flow             | 3     |       | [ ]  |
+| 12  | Introduce integer-cents Money helper            | 4     |       | [ ]  |
+| 13  | Replace float arithmetic in billing/view/payout | 4     |       | [ ]  |
+| 14  | Audit production data for dup credits           | 5     |       | [ ]  |
+| 15  | Add unique index migration                      | 5     |       | [ ]  |
+| 16  | Webhook security tests                          | 6     |       | [ ]  |
+| 17  | Payout idempotency/crash tests                  | 6     |       | [ ]  |
+| 18  | Money arithmetic edge case tests                | 6     |       | [ ]  |
 
 ---
 

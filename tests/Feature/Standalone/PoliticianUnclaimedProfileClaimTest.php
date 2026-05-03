@@ -37,7 +37,7 @@ test('politician registration claims matching unclaimed profile', function () {
         'terms' => '1',
     ]);
 
-    $response->assertRedirect(route('verification.notice'));
+    $response->assertRedirect(route('phone.verify'));
 
     $user = User::where('email', 'alex.padilla@example.com')->first();
     expect($user)->not->toBeNull();

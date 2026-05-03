@@ -18,7 +18,7 @@ class StripePaymentService
                 $this->client = new \Stripe\StripeClient($key);
             } else {
                 $this->client = null;
-                Log::warning('Stripe secret key not configured (STRIPE_SECRET_KEY env var missing). Payments are disabled.');
+                Log::warning('Stripe secret key not configured (STRIPE_SECRET env var missing). Payments are disabled.');
             }
         } else {
             $this->client = null;
@@ -124,7 +124,7 @@ class StripePaymentService
     {
         if (! $this->client) {
             // Fail closed — SDK must be present to verify webhooks
-            if (! app()->environment('local', 'testing')) {
+            if (! in_array(config('app.env'), ['local', 'testing'])) {
                 throw new \RuntimeException(
                     'Stripe SDK is not installed. Cannot verify webhook signatures in non-local environments.'
                 );
@@ -136,7 +136,7 @@ class StripePaymentService
         $secret = config('services.stripe.webhook_secret');
         if (empty($secret)) {
             // Fail closed — no secret means we cannot trust the payload
-            if (! app()->environment('local', 'testing')) {
+            if (! in_array(config('app.env'), ['local', 'testing'])) {
                 throw new \RuntimeException(
                     'Stripe webhook secret is not configured (STRIPE_WEBHOOK_SECRET). ' .
                     'Cannot accept webhook payloads without signature verification.'

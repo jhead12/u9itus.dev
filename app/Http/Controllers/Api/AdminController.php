@@ -12,6 +12,7 @@ use App\Http\Resources\VoterResource;
 use App\Models\CampaignTransaction;
 use App\Models\PoliticalCampaign;
 use App\Models\Politician;
+use App\Models\ReferralEarning;
 use App\Models\Voter;
 use App\Models\ViewSession;
 use App\Services\CampaignStatusNotifier;
@@ -71,7 +72,7 @@ class AdminController extends Controller
 
         $totalRevenue   = (clone $completedViewQuery)->sum('platform_revenue');
         $totalPayouts   = (clone $paidViewQuery)->sum('voter_payout_amount');
-        $totalReferrals = \App\Models\ReferralEarning::sum('commission_amount');
+        $totalReferrals = ReferralEarning::forPaymentMode($activePaymentMode)->sum('commission_amount');
 
         return response()->json([
             'overview' => [
