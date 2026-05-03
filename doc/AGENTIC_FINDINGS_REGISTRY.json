@@ -61,7 +61,7 @@
             "id": "PATT-003",
             "title": "Payment mode helper logic is duplicated across controllers",
             "severity": "medium",
-            "status": "open",
+            "status": "resolved",
             "summary": "activePaymentMode and applyPaymentModeFilter are repeated in multiple controllers, increasing drift risk.",
             "evidence": [
                 {

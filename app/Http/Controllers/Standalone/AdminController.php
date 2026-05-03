@@ -6,6 +6,7 @@ use App\Enums\ApprovalStatus;
 use App\Enums\CampaignStatus;
 use App\Enums\PaymentStatus;
 use App\Enums\ViewPaymentStatus;
+use App\Http\Controllers\Concerns\PaymentModeFilterable;
 use App\Http\Controllers\Controller;
 use App\Jobs\MatchPoliticianToElectionData;
 use App\Mail\CampaignReactivatedMail;
@@ -41,7 +42,6 @@ use App\Services\PoliticalPaymentService;
 use App\Services\CampaignQandAService;
 use App\Services\CampaignStatusNotifier;
 use App\Services\PlatformSettingsService;
-use App\Services\StripePaymentService;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Http\Request;
 use Illuminate\Database\Eloquent\Builder;
@@ -65,6 +65,8 @@ use Illuminate\Support\Facades\Storage;
  */
 class AdminController extends Controller
 {
+    use PaymentModeFilterable;
+
     // ── SMTP / Mailgun env keys this controller manages ─────────────────────
     private const SMTP_ENV_KEYS = [
         'MAIL_MAILER',
@@ -190,25 +192,6 @@ class AdminController extends Controller
 
             return null;
         }
-    }
-
-    /**
-     * Active app payment mode derived from configured Stripe secret.
-     * Defaults to 'test' when the key is unrecognised so the mode filter
-     * is always applied and live data is never mixed with test data.
-     */
-    private function activePaymentMode(): string
-    {
-        $mode = app(StripePaymentService::class)->configuredMode();
-        return $mode === 'live' ? 'live' : 'test';
-    }
-
-    /**
-     * Apply mode-aware filter to transaction queries.
-     */
-    private function applyPaymentModeFilter($query, string $mode)
-    {
-        return $query->where('metadata->payment_mode', $mode);
     }
 
     /**

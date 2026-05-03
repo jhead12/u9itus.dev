@@ -6,6 +6,7 @@ use App\Enums\ApprovalStatus;
 use App\Enums\CampaignStatus;
 use App\Enums\ViewPaymentStatus;
 use App\Enums\ViewSessionStatus;
+use App\Http\Controllers\Concerns\PaymentModeFilterable;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\CampaignResource;
 use App\Http\Resources\VoterResource;
@@ -17,7 +18,6 @@ use App\Models\Voter;
 use App\Models\ViewSession;
 use App\Services\CampaignStatusNotifier;
 use App\Services\PoliticalPaymentService;
-use App\Services\StripePaymentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -29,25 +29,12 @@ use Illuminate\Support\Facades\DB;
  */
 class AdminController extends Controller
 {
+    use PaymentModeFilterable;
+
     public function __construct(
         protected PoliticalPaymentService $paymentService,
         protected CampaignStatusNotifier $campaignStatusNotifier,
     ) {}
-
-    /**
-     * Defaults to 'test' when the key is unrecognised so the mode filter
-     * is always applied and live data is never mixed with test data.
-     */
-    private function activePaymentMode(): string
-    {
-        $mode = app(StripePaymentService::class)->configuredMode();
-        return $mode === 'live' ? 'live' : 'test';
-    }
-
-    private function applyPaymentModeFilter($query, string $mode)
-    {
-        return $query->where('metadata->payment_mode', $mode);
-    }
 
     /**
      * Platform-wide analytics.

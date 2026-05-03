@@ -6,6 +6,7 @@ use App\Enums\ApprovalStatus;
 use App\Enums\CampaignStatus;
 use App\Enums\CampaignType;
 use App\Enums\PaymentStatus;
+use App\Http\Controllers\Concerns\PaymentModeFilterable;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CreateCampaignRequest;
 use App\Http\Requests\SaveCampaignDraftRequest;
@@ -41,6 +42,8 @@ use Throwable;
  */
 class PoliticianController extends Controller
 {
+    use PaymentModeFilterable;
+
     private function inferMediaTypeFromUrl(?string $url, ?string $fallback = null): ?string
     {
         $value = trim((string) ($url ?? ''));
@@ -152,25 +155,6 @@ class PoliticianController extends Controller
 
             return null;
         }
-    }
-
-    /**
-     * Active app payment mode derived from configured Stripe secret.
-     * Defaults to 'test' when the key is unrecognised so the mode filter
-     * is always applied and live data is never mixed with test data.
-     */
-    private function activePaymentMode(): string
-    {
-        $mode = app(StripePaymentService::class)->configuredMode();
-        return $mode === 'live' ? 'live' : 'test';
-    }
-
-    /**
-     * Apply mode-aware filter to ledger/transaction style queries.
-     */
-    private function applyPaymentModeFilter($query, string $mode)
-    {
-        return $query->where('metadata->payment_mode', $mode);
     }
 
     /**
