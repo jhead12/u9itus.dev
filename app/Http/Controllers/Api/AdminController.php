@@ -16,7 +16,7 @@ use App\Models\Politician;
 use App\Models\ReferralEarning;
 use App\Models\Voter;
 use App\Models\ViewSession;
-use App\Services\CampaignStatusNotifier;
+use App\Services\CampaignModerationService;
 use App\Services\PoliticalPaymentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -33,7 +33,7 @@ class AdminController extends Controller
 
     public function __construct(
         protected PoliticalPaymentService $paymentService,
-        protected CampaignStatusNotifier $campaignStatusNotifier,
+        protected CampaignModerationService $moderationService,
     ) {}
 
     /**
@@ -102,20 +102,10 @@ class AdminController extends Controller
      */
     public function approveCampaign(PoliticalCampaign $campaign): JsonResponse
     {
-        $campaign->update([
-            'approval_status' => ApprovalStatus::Approved,
-            'status'          => CampaignStatus::Active,
-            'approved_at'     => now(),
-            'started_at'      => now(),
-        ]);
-
-        // Charge the politician's campaign budget
-        $this->paymentService->chargeCampaign($campaign);
-
-        $this->campaignStatusNotifier->notifyStatusChanged($campaign, 'approved');
+        $result = $this->moderationService->approve($campaign, auth()->id());
 
         return response()->json([
-            'message'  => 'Campaign approved and activated',
+            'message'  => 'Campaign ' . $result['label'],
             'campaign' => new CampaignResource($campaign->fresh()),
         ]);
     }
@@ -131,14 +121,7 @@ class AdminController extends Controller
 
         $rejectionReason = $request->input('reason', 'Does not meet content guidelines.');
 
-        $campaign->update([
-            'approval_status' => ApprovalStatus::Rejected,
-            // Return rejected campaigns to draft so politicians can revise or delete.
-            'status'          => CampaignStatus::Draft,
-            'rejection_reason' => $rejectionReason,
-        ]);
-
-        $this->campaignStatusNotifier->notifyStatusChanged($campaign, 'rejected', $rejectionReason);
+        $this->moderationService->reject($campaign, $rejectionReason, auth()->id());
 
         return response()->json(['message' => 'Campaign rejected']);
     }

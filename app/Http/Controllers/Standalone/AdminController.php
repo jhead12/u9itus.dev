@@ -37,6 +37,7 @@ use App\Notifications\CampaignStatusChangedNotification;
 use App\Notifications\SystemAnnouncementNotification;
 use App\Services\AdminTwoFactorService;
 use App\Services\CampaignBillingService;
+use App\Services\CampaignModerationService;
 use App\Services\CampaignQuestionDigestService;
 use App\Services\PoliticalPaymentService;
 use App\Services\CampaignQandAService;
@@ -405,42 +406,20 @@ class AdminController extends Controller
 
     /**
      * Approve a campaign.
-     * If the campaign has a scheduled_start_at in the future it is placed in
-     * 'scheduled' status so the campaigns:apply-schedule command activates it
-     * at the right time.  Otherwise it goes straight to 'active'.
+     * Delegates all status-transition, charging, audit-logging, and notification
+     * logic to CampaignModerationService (single source of truth for PATT-004).
      */
     public function approveCampaign(PoliticalCampaign $campaign)
     {
-        $scheduledStart = $campaign->scheduled_start_at;
-        $newStatus = ($scheduledStart && $scheduledStart->isFuture())
-            ? CampaignStatus::Scheduled
-            : CampaignStatus::Active;
+        $result = app(CampaignModerationService::class)->approve($campaign, auth()->id());
 
-        $campaign->update([
-            'approval_status' => ApprovalStatus::Approved,
-            'status'          => $newStatus,
-        ]);
-
-        // Ensure approved campaigns are funded before entering voter inventory.
-        app(PoliticalPaymentService::class)->chargeCampaign($campaign);
-
-        CampaignAuditLog::create([
-            'campaign_id' => $campaign->id,
-            'admin_id'    => auth()->id(),
-            'action'      => 'approved',
-        ]);
-
-        app(CampaignStatusNotifier::class)->notifyStatusChanged($campaign, 'approved');
-
-        $label = $newStatus === CampaignStatus::Scheduled
-            ? 'approved and scheduled (activates ' . $scheduledStart->format('M j, Y H:i') . ')'
-            : 'approved and set to active';
-
-        return back()->with('success', 'Campaign "' . $campaign->title . '" has been ' . $label . '.');
+        return back()->with('success', 'Campaign "' . $campaign->title . '" has been ' . $result['label'] . '.');
     }
 
     /**
      * Reject a campaign.
+     * Delegates all status-transition, audit-logging, and notification logic
+     * to CampaignModerationService (single source of truth for PATT-004).
      */
     public function rejectCampaign(Request $request, PoliticalCampaign $campaign)
     {
@@ -450,21 +429,7 @@ class AdminController extends Controller
 
         $rejectionReason = $request->input('reason', 'Does not meet content guidelines.');
 
-        $campaign->update([
-            'approval_status'  => ApprovalStatus::Rejected,
-            // Return rejected campaigns to draft so politicians can revise or delete.
-            'status'           => CampaignStatus::Draft,
-            'rejection_reason' => $rejectionReason,
-        ]);
-
-        CampaignAuditLog::create([
-            'campaign_id' => $campaign->id,
-            'admin_id'    => auth()->id(),
-            'action'      => 'rejected',
-            'reason'      => $rejectionReason,
-        ]);
-
-        app(CampaignStatusNotifier::class)->notifyStatusChanged($campaign, 'rejected', $rejectionReason);
+        app(CampaignModerationService::class)->reject($campaign, $rejectionReason, auth()->id());
 
         return back()->with('success', 'Campaign "' . $campaign->title . '" has been rejected.');
     }

@@ -88,8 +88,9 @@
             "id": "PATT-004",
             "title": "Admin moderation and payout workflows are duplicated across API and standalone controllers",
             "severity": "medium",
-            "status": "open",
+            "status": "resolved",
             "summary": "Approve, reject, and payout trigger workflows exist in parallel controller paths, raising maintenance and behavior divergence risk.",
+            "resolution": "Extracted CampaignModerationService (app/Services/CampaignModerationService.php) as the single source of truth for approve/reject logic. Both Api/AdminController and Standalone/AdminController now delegate to it. Also fixed two silent divergences: API path now respects scheduled_start_at; standalone path now stamps approved_at/started_at. Audit logs now created by both surfaces.",
             "evidence": [
                 {
                     "path": "app/Http/Controllers/Api/AdminController.php",
@@ -111,6 +112,10 @@
                     "line": 1496,
                     "link": "app/Http/Controllers/Standalone/AdminController.php#L1496"
                 }
+            ],
+            "artifacts": [
+                "app/Services/CampaignModerationService.php",
+                "tests/Unit/Services/CampaignModerationServiceTest.php"
             ],
             "plan_phase": 4,
             "owner": "unassigned",

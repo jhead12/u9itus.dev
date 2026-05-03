@@ -226,7 +226,7 @@ class AdminApiTest extends TestCase
         $response = $this->postJson("/api/v1/admin/campaigns/{$campaign->uuid}/approve");
 
         $response->assertOk()
-            ->assertJsonPath('message', 'Campaign approved and activated');
+            ->assertJsonPath('message', 'Campaign approved and set to active');
 
         Notification::assertSentTo(
             $politicianUser,

@@ -51,11 +51,11 @@ Use workspace-relative markdown links with line anchors:
 
 Synced from doc/AGENTIC_FINDINGS_REGISTRY.json on 2026-05-03.
 
-- PATT-001: API admin analytics mixes mode-scoped and global financial aggregates
-- PATT-002: Billing refund math still relies on float and round in several paths
-- PATT-003: Payment mode helper logic is duplicated across controllers
-- PATT-004: Admin moderation and payout workflows are duplicated across API and standalone controllers
-- PATT-005: Stripe warning references a non-canonical env key name
+- PATT-001: API admin analytics mixes mode-scoped and global financial aggregates — **resolved**
+- PATT-002: Billing refund math still relies on float and round in several paths — **resolved**
+- PATT-003: Payment mode helper logic is duplicated across controllers — **resolved**
+- PATT-004: Admin moderation and payout workflows are duplicated across API and standalone controllers — **resolved**
+- PATT-005: Stripe warning references a non-canonical env key name — **resolved**
 - Next available ID: PATT-006
 
 ## Suggested Agent Workflow
