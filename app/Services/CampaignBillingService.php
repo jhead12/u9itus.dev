@@ -10,6 +10,7 @@ use App\Models\Politician;
 use App\Models\PoliticianCredit;
 use App\Models\ReferralEarning;
 use App\Notifications\RefundCompletedNotification;
+use App\Support\Money;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -317,17 +318,19 @@ class CampaignBillingService
             throw new \InvalidArgumentException('Purchase transaction has no associated politician.');
         }
 
-        $creditsPurchased = isset($purchaseTx->metadata['credits_amount'])
-            ? (float) $purchaseTx->metadata['credits_amount']
-            : (float) $purchaseTx->amount;
+        $creditsPurchasedRaw = $purchaseTx->metadata['credits_amount'] ?? $purchaseTx->amount;
+        $creditsPurchasedCents = Money::toCents(is_string($creditsPurchasedRaw)
+            ? $creditsPurchasedRaw
+            : number_format((float) $creditsPurchasedRaw, 2, '.', ''));
 
-        if ($creditsPurchased <= 0) {
+        if ($creditsPurchasedCents <= 0) {
             throw new \InvalidArgumentException('Purchase transaction has invalid credits amount.');
         }
 
-        $currentBalance = (float) (PoliticianCredit::where('politician_id', $purchaseTx->politician_id)
+        $currentBalanceRaw = PoliticianCredit::where('politician_id', $purchaseTx->politician_id)
             ->orderByDesc('created_at')
-            ->value('balance_after') ?? 0.00);
+            ->value('balance_after') ?? '0.00';
+        $currentBalanceCents = Money::toCents((string) $currentBalanceRaw);
 
         $refundRows = CampaignTransaction::query()
             ->where('transaction_type', 'refund')
@@ -335,25 +338,29 @@ class CampaignBillingService
             ->where('metadata->original_transaction_id', (int) $purchaseTx->id)
             ->get(['amount', 'metadata']);
 
-        $alreadyRefundedCredits = 0.0;
-        $alreadyRefundedGross = 0.0;
+        $alreadyRefundedCreditsCents = 0;
+        $alreadyRefundedGrossCents = 0;
         foreach ($refundRows as $row) {
-            $alreadyRefundedCredits += isset($row->metadata['refunded_credits_amount'])
-                ? (float) $row->metadata['refunded_credits_amount']
-                : 0.0;
-            $alreadyRefundedGross += (float) $row->amount;
+            $alreadyRefundedCreditsRaw = $row->metadata['refunded_credits_amount'] ?? null;
+            if ($alreadyRefundedCreditsRaw !== null) {
+                $normalizedRefundedCredits = is_string($alreadyRefundedCreditsRaw)
+                    ? $alreadyRefundedCreditsRaw
+                    : number_format((float) $alreadyRefundedCreditsRaw, 2, '.', '');
+                $alreadyRefundedCreditsCents += Money::toCents($normalizedRefundedCredits);
+            }
+            $alreadyRefundedGrossCents += Money::toCents((string) $row->amount);
         }
 
-        $remainingByPurchase = max(0.0, round($creditsPurchased - $alreadyRefundedCredits, 2));
-        $refundableCreditsNow = max(0.0, round(min($remainingByPurchase, max(0.0, $currentBalance)), 2));
+        $remainingByPurchaseCents = max(0, $creditsPurchasedCents - $alreadyRefundedCreditsCents);
+        $refundableCreditsNowCents = max(0, min($remainingByPurchaseCents, max(0, $currentBalanceCents)));
 
         return [
-            'credits_purchased' => round($creditsPurchased, 2),
-            'current_balance' => round($currentBalance, 2),
-            'already_refunded_credits' => round($alreadyRefundedCredits, 2),
-            'already_refunded_gross' => round($alreadyRefundedGross, 2),
-            'remaining_by_purchase' => round($remainingByPurchase, 2),
-            'refundable_credits_now' => round($refundableCreditsNow, 2),
+            'credits_purchased' => (float) Money::fromCents($creditsPurchasedCents),
+            'current_balance' => (float) Money::fromCents($currentBalanceCents),
+            'already_refunded_credits' => (float) Money::fromCents($alreadyRefundedCreditsCents),
+            'already_refunded_gross' => (float) Money::fromCents($alreadyRefundedGrossCents),
+            'remaining_by_purchase' => (float) Money::fromCents($remainingByPurchaseCents),
+            'refundable_credits_now' => (float) Money::fromCents($refundableCreditsNowCents),
         ];
     }
 
@@ -371,34 +378,48 @@ class CampaignBillingService
         }
 
         $summary = $this->getUnusedRefundSummary($purchaseTx);
-        $maxRefundableCredits = (float) $summary['refundable_credits_now'];
+        $maxRefundableCreditsCents = Money::toCents(number_format((float) $summary['refundable_credits_now'], 2, '.', ''));
 
-        if ($maxRefundableCredits <= 0) {
+        if ($maxRefundableCreditsCents <= 0) {
             throw new \LogicException('No unused credits are available to refund.');
         }
 
-        $creditsToRefund = $requestedCredits === null
-            ? $maxRefundableCredits
-            : round((float) $requestedCredits, 2);
+        $creditsToRefundCents = $requestedCredits === null
+            ? $maxRefundableCreditsCents
+            : Money::toCents(number_format((float) $requestedCredits, 2, '.', ''));
 
-        if ($creditsToRefund <= 0) {
+        if ($creditsToRefundCents <= 0) {
             throw new \InvalidArgumentException('Refund credits must be greater than zero.');
         }
 
-        if ($creditsToRefund > $maxRefundableCredits) {
+        if ($creditsToRefundCents > $maxRefundableCreditsCents) {
             throw new \InvalidArgumentException('Requested refund exceeds unused refundable credits.');
         }
 
-        $purchaseGross = (float) $purchaseTx->amount;
-        $creditsPurchased = (float) $summary['credits_purchased'];
-        $remainingGross = max(0.0, round($purchaseGross - (float) $summary['already_refunded_gross'], 2));
-        $grossPerCredit = $creditsPurchased > 0 ? ($purchaseGross / $creditsPurchased) : 0.0;
-        $grossToRefund = round($creditsToRefund * $grossPerCredit, 2);
-        $grossToRefund = min($grossToRefund, $remainingGross);
+        $purchaseGrossCents = Money::toCents((string) $purchaseTx->amount);
+        $creditsPurchasedCents = Money::toCents(number_format((float) $summary['credits_purchased'], 2, '.', ''));
+        $alreadyRefundedGrossCents = Money::toCents(number_format((float) $summary['already_refunded_gross'], 2, '.', ''));
+        $remainingGrossCents = max(0, $purchaseGrossCents - $alreadyRefundedGrossCents);
 
-        if ($grossToRefund <= 0) {
+        $grossToRefundCents = $creditsPurchasedCents > 0
+            ? (int) bcadd(
+                bcdiv(
+                    bcmul((string) $creditsToRefundCents, (string) $purchaseGrossCents, 10),
+                    (string) $creditsPurchasedCents,
+                    10
+                ),
+                '0.5',
+                0
+            )
+            : 0;
+        $grossToRefundCents = min($grossToRefundCents, $remainingGrossCents);
+
+        if ($grossToRefundCents <= 0) {
             throw new \LogicException('Unable to compute refundable gross amount.');
         }
+
+        $creditsToRefund = (float) Money::fromCents($creditsToRefundCents);
+        $grossToRefund = (float) Money::fromCents($grossToRefundCents);
 
         $paymentMode = $purchaseTx->metadata['payment_mode'] ?? $this->stripe->configuredMode();
         $stripeRefund = $this->stripe->createRefundForPaymentIntent(
@@ -432,12 +453,15 @@ class CampaignBillingService
                 'transaction_type' => 'refund',
                 'amount' => $grossToRefund,
                 'currency' => $purchaseTx->currency ?: 'USD',
-                'stripe_payment_intent_id' => $purchaseTx->stripe_payment_intent_id,
+                // Refund rows should not reuse the purchase PI because campaign_transactions
+                // enforces PI uniqueness for charge idempotency.
+                'stripe_payment_intent_id' => null,
                 'stripe_refund_id' => $stripeRefund->id ?? null,
                 'status' => $refundStatus === 'succeeded' ? 'succeeded' : 'pending',
                 'description' => 'Admin refund for unused credits',
                 'metadata' => [
                     'original_transaction_id' => $purchaseTx->id,
+                    'original_payment_intent_id' => $purchaseTx->stripe_payment_intent_id,
                     'refunded_credits_amount' => $creditsToRefund,
                     'refunded_gross_amount' => $grossToRefund,
                     'reason' => $reason,

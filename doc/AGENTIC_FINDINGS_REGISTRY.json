@@ -29,7 +29,7 @@
             "id": "PATT-002",
             "title": "Billing refund math still relies on float and round in several paths",
             "severity": "medium",
-            "status": "open",
+            "status": "resolved",
             "summary": "Money helper adoption is partial; refund summary and refund computation still use floating-point arithmetic heavily.",
             "evidence": [
                 {

@@ -202,3 +202,130 @@ test('finalizePaymentIntent is idempotent for already-succeeded transactions', f
     $count = PoliticianCredit::where('politician_id', $politician->id)->count();
     expect($count)->toBe(0);  // no credits added for already-succeeded tx
 });
+
+test('getUnusedRefundSummary uses cents-accurate totals', function () {
+    $politician = politicianWithBalance(0.00);
+    $svc        = makeBillingService();
+
+    $svc->addCredits($politician, 60.00, ['transaction_type' => 'purchase']);
+    $this->travel(1)->seconds();
+    $svc->addCredits($politician, -39.99, ['transaction_type' => 'usage']);
+
+    $purchaseTx = CampaignTransaction::create([
+        'politician_id'            => $politician->id,
+        'transaction_type'         => 'charge',
+        'amount'                   => 61.54,
+        'currency'                 => 'USD',
+        'stripe_payment_intent_id' => 'pi_summary_precision',
+        'status'                   => 'succeeded',
+        'metadata'                 => [
+            'credits_amount' => 60.00,
+            'payment_mode' => 'test',
+        ],
+    ]);
+
+    CampaignTransaction::create([
+        'politician_id'            => $politician->id,
+        'transaction_type'         => 'refund',
+        'amount'                   => 20.50,
+        'currency'                 => 'USD',
+        'stripe_payment_intent_id' => 'pi_summary_refund_1',
+        'status'                   => 'succeeded',
+        'metadata'                 => [
+            'original_transaction_id' => $purchaseTx->id,
+            'refunded_credits_amount' => 19.99,
+        ],
+    ]);
+
+    CampaignTransaction::create([
+        'politician_id'            => $politician->id,
+        'transaction_type'         => 'refund',
+        'amount'                   => 20.51,
+        'currency'                 => 'USD',
+        'stripe_payment_intent_id' => 'pi_summary_refund_2',
+        'status'                   => 'pending',
+        'metadata'                 => [
+            'original_transaction_id' => $purchaseTx->id,
+            'refunded_credits_amount' => 20.00,
+        ],
+    ]);
+
+    $summary = $svc->getUnusedRefundSummary($purchaseTx);
+
+    expect($summary['credits_purchased'])->toBe(60.00)
+        ->and($summary['current_balance'])->toBe(20.01)
+        ->and($summary['already_refunded_credits'])->toBe(39.99)
+        ->and($summary['already_refunded_gross'])->toBe(41.01)
+        ->and($summary['remaining_by_purchase'])->toBe(20.01)
+        ->and($summary['refundable_credits_now'])->toBe(20.01);
+});
+
+test('refundUnusedCredits computes gross refund in cents and respects remaining cap', function () {
+    $stripe = Mockery::mock(StripePaymentService::class);
+    $svc    = new CampaignBillingService($stripe);
+
+    $politician = politicianWithBalance(0.00);
+    $svc->addCredits($politician, 60.00, ['transaction_type' => 'purchase']);
+    $this->travel(1)->seconds();
+    $svc->addCredits($politician, -39.99, ['transaction_type' => 'usage']);
+
+    $purchaseTx = CampaignTransaction::create([
+        'politician_id'            => $politician->id,
+        'transaction_type'         => 'charge',
+        'amount'                   => 61.54,
+        'currency'                 => 'USD',
+        'stripe_payment_intent_id' => 'pi_refund_precision',
+        'status'                   => 'succeeded',
+        'metadata'                 => [
+            'credits_amount' => 60.00,
+            'payment_mode' => 'test',
+        ],
+    ]);
+
+    CampaignTransaction::create([
+        'politician_id'            => $politician->id,
+        'transaction_type'         => 'refund',
+        'amount'                   => 41.01,
+        'currency'                 => 'USD',
+        'stripe_payment_intent_id' => 'pi_refund_seed_1',
+        'status'                   => 'succeeded',
+        'metadata'                 => [
+            'original_transaction_id' => $purchaseTx->id,
+            'refunded_credits_amount' => 39.99,
+        ],
+    ]);
+
+    $stripe->shouldReceive('createRefundForPaymentIntent')
+        ->once()
+        ->with(
+            'pi_refund_precision',
+            20.52,
+            Mockery::on(function (array $metadata) use ($purchaseTx): bool {
+                return $metadata['source'] === 'admin_unused_credits_refund'
+                    && $metadata['original_transaction_id'] === (string) $purchaseTx->id
+                    && $metadata['admin_id'] === '42';
+            })
+        )
+        ->andReturn((object) [
+            'id' => 're_precision',
+            'status' => 'pending',
+        ]);
+
+    $refundTx = $svc->refundUnusedCredits($purchaseTx, 42, null, 'precision test');
+
+    expect((float) $refundTx->amount)->toBe(20.52)
+        ->and((float) ($refundTx->metadata['refunded_credits_amount'] ?? 0))->toBe(20.01)
+        ->and((float) ($refundTx->metadata['refunded_gross_amount'] ?? 0))->toBe(20.52);
+
+    $refundCredit = PoliticianCredit::query()
+        ->where('politician_id', $politician->id)
+        ->where('transaction_type', 'refund')
+        ->where('related_transaction_id', $refundTx->id)
+        ->first();
+
+    expect($refundCredit)->not->toBeNull()
+        ->and((float) $refundCredit->amount)->toBe(-20.01);
+
+    $postSummary = $svc->getUnusedRefundSummary($purchaseTx);
+    expect($postSummary['refundable_credits_now'])->toBe(0.00);
+});
