@@ -20,7 +20,9 @@ RUN apk add --no-cache \
     npm \
     mysql-client \
     bash \
-    ffmpeg && \
+    ffmpeg \
+    tesseract-ocr \
+    poppler-utils && \
     docker-php-ext-install \
         pdo_mysql \
         mbstring \

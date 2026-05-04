@@ -373,6 +373,8 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         Route::get('/imports', [AdminController::class, 'imports'])->name('imports');
         Route::post('/imports/unverified-profile', [AdminController::class, 'seedUnverifiedPoliticianProfile'])
             ->name('imports.unverified-profile.seed');
+        Route::post('/imports/ocr-candidates', [AdminController::class, 'importCandidatesFromOcr'])
+            ->name('imports.ocr-candidates');
 
         // Billing Refunds (unused politician credits only)
         Route::get('/billing/refunds', [AdminController::class, 'billingRefunds'])->name('billing.refunds');

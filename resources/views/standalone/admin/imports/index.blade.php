@@ -102,6 +102,108 @@
             </form>
         </div>
 
+        <div class="mb-8 bg-gray-900 border border-gray-800 rounded-lg p-6">
+            <h2 class="text-xl font-semibold text-white mb-2">OCR Bulk Candidate Upload</h2>
+            <p class="text-sm text-gray-400 mb-4">
+                Upload scanned local government voting packages (PDF or images) and convert detected candidate rows into bulk import records.
+            </p>
+
+            @if ($errors->has('ocr_import'))
+                <div class="mb-4 rounded-lg border border-red-700/60 bg-red-900/20 px-4 py-3 text-sm text-red-200">
+                    {{ $errors->first('ocr_import') }}
+                </div>
+            @endif
+
+            <form method="POST" action="{{ route('admin.imports.ocr-candidates') }}" enctype="multipart/form-data" class="space-y-4">
+                @csrf
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="ocr-source" class="block text-sm font-medium text-gray-300 mb-1">Source Key</label>
+                        <input id="ocr-source" name="source" type="text" value="{{ old('source', 'local_gov_ocr') }}" required
+                               class="w-full rounded-md border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-gray-100 focus:border-cyan-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label for="scan_upload" class="block text-sm font-medium text-gray-300 mb-1">Scan Upload (PDF/Image/TXT/JSON)</label>
+                        <input id="scan_upload" name="scan_upload" type="file" required
+                               accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff,.bmp,.webp,.txt,.json"
+                               class="w-full rounded-md border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-gray-100 file:mr-3 file:rounded file:border-0 file:bg-gray-800 file:px-2 file:py-1 file:text-xs file:text-gray-100 focus:border-cyan-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label for="ocr-state" class="block text-sm font-medium text-gray-300 mb-1">State (optional default)</label>
+                        <input id="ocr-state" name="state" type="text" maxlength="2" value="{{ old('state', 'CA') }}"
+                               class="w-full rounded-md border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-gray-100 focus:border-cyan-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label for="ocr-office" class="block text-sm font-medium text-gray-300 mb-1">Office (optional default)</label>
+                        <input id="ocr-office" name="political_office" type="text" value="{{ old('political_office') }}"
+                               placeholder="e.g. City Council Member"
+                               class="w-full rounded-md border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-gray-100 focus:border-cyan-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label for="ocr-level" class="block text-sm font-medium text-gray-300 mb-1">Governance Level</label>
+                        <input id="ocr-level" name="governance_level" type="text" value="{{ old('governance_level', 'Local') }}"
+                               class="w-full rounded-md border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-gray-100 focus:border-cyan-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label for="ocr-district" class="block text-sm font-medium text-gray-300 mb-1">District (optional default)</label>
+                        <input id="ocr-district" name="district" type="text" value="{{ old('district') }}"
+                               class="w-full rounded-md border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-gray-100 focus:border-cyan-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label for="ocr-county" class="block text-sm font-medium text-gray-300 mb-1">County (optional default)</label>
+                        <input id="ocr-county" name="county" type="text" value="{{ old('county') }}"
+                               class="w-full rounded-md border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-gray-100 focus:border-cyan-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label for="ocr-city" class="block text-sm font-medium text-gray-300 mb-1">City (optional default)</label>
+                        <input id="ocr-city" name="city" type="text" value="{{ old('city') }}"
+                               class="w-full rounded-md border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-gray-100 focus:border-cyan-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label for="ocr-party" class="block text-sm font-medium text-gray-300 mb-1">Party (optional default)</label>
+                        <input id="ocr-party" name="party_affiliation" type="text" value="{{ old('party_affiliation') }}"
+                               class="w-full rounded-md border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-gray-100 focus:border-cyan-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label for="ocr-election-date" class="block text-sm font-medium text-gray-300 mb-1">Election Date (optional default)</label>
+                        <input id="ocr-election-date" name="election_date" type="date" value="{{ old('election_date') }}"
+                               class="w-full rounded-md border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-gray-100 focus:border-cyan-500 focus:outline-none">
+                    </div>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-4">
+                    <label class="inline-flex items-center gap-2 text-sm text-gray-300">
+                        <input type="checkbox" name="dry_run" value="1" {{ old('dry_run') ? 'checked' : '' }}
+                               class="h-4 w-4 rounded border-gray-700 bg-gray-950 text-cyan-500">
+                        Dry Run (validate without saving)
+                    </label>
+
+                    <button type="submit"
+                            class="inline-flex items-center rounded-md bg-cyan-600 px-4 py-2 text-sm font-semibold text-white hover:bg-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-400/60">
+                        Run OCR Import
+                    </button>
+                </div>
+
+                <p class="text-xs text-gray-500">
+                    Best results: clear scans, one contest per page, candidate lines formatted like "First Last - Party". Server OCR tools used when available: <span class="font-mono">pdftotext</span> and <span class="font-mono">tesseract</span>.
+                </p>
+            </form>
+
+            @if (session('ocr_import_count'))
+                <div class="mt-4 rounded-lg border border-green-800/60 bg-green-900/20 px-4 py-3 text-sm text-green-200">
+                    OCR parsed {{ (int) session('ocr_import_count') }} candidate row(s).
+                </div>
+            @endif
+
+            @if(session('import_output'))
+                <div class="mt-4 rounded-lg border border-gray-700 bg-gray-950/60 p-3">
+                    <p class="text-xs text-gray-400 mb-2">Import Output</p>
+                    <pre class="text-xs text-gray-200 whitespace-pre-wrap">{{ session('import_output') }}</pre>
+                </div>
+            @endif
+        </div>
+
         <!-- Status Summary -->
         @if ($latestRun)
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">

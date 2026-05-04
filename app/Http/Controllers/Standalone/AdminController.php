@@ -6,6 +6,7 @@ use App\Enums\ApprovalStatus;
 use App\Enums\CampaignStatus;
 use App\Enums\PaymentStatus;
 use App\Enums\ViewPaymentStatus;
+use App\Exceptions\OcrCandidateImportException;
 use App\Http\Controllers\Concerns\PaymentModeFilterable;
 use App\Http\Controllers\Controller;
 use App\Jobs\MatchPoliticianToElectionData;
@@ -39,6 +40,7 @@ use App\Services\AdminTwoFactorService;
 use App\Services\CampaignBillingService;
 use App\Services\CampaignModerationService;
 use App\Services\CampaignQuestionDigestService;
+use App\Services\OcrCandidateImportService;
 use App\Services\PoliticalPaymentService;
 use App\Services\CampaignQandAService;
 use App\Services\CampaignStatusNotifier;
@@ -3611,5 +3613,77 @@ HTML;
         return back()->with('success', $output !== ''
             ? 'Unverified profile import completed. ' . $output
             : 'Unverified profile import completed.');
+    }
+
+    /**
+     * OCR-assisted candidate import for scanned local election packages.
+     */
+    public function importCandidatesFromOcr(Request $request, OcrCandidateImportService $ocrService)
+    {
+        $validated = $request->validate([
+            'source' => ['required', 'string', 'max:64'],
+            'scan_upload' => ['required', 'file', 'mimes:pdf,png,jpg,jpeg,tif,tiff,bmp,webp,txt,json', 'max:20480'],
+            'state' => ['nullable', 'string', 'size:2'],
+            'political_office' => ['nullable', 'string', 'max:255'],
+            'governance_level' => ['nullable', 'string', 'max:120'],
+            'district' => ['nullable', 'string', 'max:120'],
+            'county' => ['nullable', 'string', 'max:120'],
+            'city' => ['nullable', 'string', 'max:120'],
+            'party_affiliation' => ['nullable', 'string', 'max:120'],
+            'election_date' => ['nullable', 'date'],
+            'dry_run' => ['nullable', 'boolean'],
+        ]);
+
+        $upload = $request->file('scan_upload');
+        $extension = strtolower((string) $upload?->getClientOriginalExtension());
+        $safeName = 'candidate-ocr-' . now()->format('Ymd-His') . '-' . uniqid('', true) . '.' . $extension;
+        $storedRelative = $upload?->storeAs('imports/uploads', $safeName, 'local');
+        $storedPath = Storage::disk('local')->path((string) $storedRelative);
+
+        $defaults = [
+            'state' => isset($validated['state']) ? strtoupper((string) $validated['state']) : '',
+            'political_office' => (string) ($validated['political_office'] ?? ''),
+            'governance_level' => (string) ($validated['governance_level'] ?? ''),
+            'district' => (string) ($validated['district'] ?? ''),
+            'county' => (string) ($validated['county'] ?? ''),
+            'city' => (string) ($validated['city'] ?? ''),
+            'party_affiliation' => (string) ($validated['party_affiliation'] ?? ''),
+            'election_date' => isset($validated['election_date']) ? (string) $validated['election_date'] : '',
+        ];
+
+        try {
+            $records = $ocrService->extractCandidatesFromFile($storedPath, $defaults);
+        } catch (OcrCandidateImportException $e) {
+            return back()->withErrors([
+                'ocr_import' => 'OCR import failed: ' . $e->getMessage(),
+            ])->withInput();
+        }
+
+        $jsonPathRelative = 'imports/uploads/candidate-ocr-parsed-' . now()->format('Ymd-His') . '-' . uniqid('', true) . '.json';
+        Storage::disk('local')->put($jsonPathRelative, json_encode($records, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        $jsonPathAbsolute = Storage::disk('local')->path($jsonPathRelative);
+
+        $args = [
+            '--source' => (string) $validated['source'],
+            '--file' => $jsonPathAbsolute,
+        ];
+
+        if ($request->boolean('dry_run')) {
+            $args['--dry-run'] = true;
+        }
+
+        $exitCode = Artisan::call('elections:import-candidates', $args);
+        $output = trim((string) Artisan::output());
+
+        if ($exitCode !== 0) {
+            return back()->withErrors([
+                'ocr_import' => $output !== '' ? $output : 'OCR candidate import failed.',
+            ])->withInput();
+        }
+
+        return back()
+            ->with('success', 'OCR candidate import completed.')
+            ->with('import_output', $output)
+            ->with('ocr_import_count', count($records));
     }
 }
