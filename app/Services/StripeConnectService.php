@@ -73,12 +73,8 @@ class StripeConnectService
 
         try {
             $account = $this->client->accounts->create($accountPayload);
-        } catch (\Stripe\Exception\InvalidRequestException $e) {
-            if ($this->isConnectNotEnabledError($e)) {
-                throw new StripeConnectException(self::CONNECT_NOT_ENABLED, (int) $e->getCode(), $e);
-            }
-
-            throw $e;
+        } catch (\Throwable $e) {
+            throw $this->classifyStripeException($e);
         }
 
         $voter->update([
@@ -113,7 +109,10 @@ class StripeConnectService
 
             $message = strtolower($e->getMessage());
 
-            if (! empty($voter->stripe_account_id) && str_contains($message, 'no such account')) {
+            if (! empty($voter->stripe_account_id) && (
+                str_contains($message, 'no such account') ||
+                str_contains($message, 'no_such_account')
+            )) {
                 Log::warning('Stripe account missing in Stripe, recreating for voter.', [
                     'voter_id' => $voter->id,
                     'stale_account_id' => $voter->stripe_account_id,
@@ -133,14 +132,21 @@ class StripeConnectService
                     'refresh_url' => $refreshUrl ?: $defaultRefresh,
                 ]);
             } else {
-                $link = $this->fallbackToAccountUpdateLink(
-                    $voter,
-                    $accountId,
-                    $returnUrl ?: $defaultReturn,
-                    $refreshUrl ?: $defaultRefresh,
-                    $e
-                );
+                // Try account_update fallback; if that also fails, classify and rethrow.
+                try {
+                    $link = $this->fallbackToAccountUpdateLink(
+                        $voter,
+                        $accountId,
+                        $returnUrl ?: $defaultReturn,
+                        $refreshUrl ?: $defaultRefresh,
+                        $e
+                    );
+                } catch (\Stripe\Exception\InvalidRequestException $fallbackE) {
+                    throw $this->classifyStripeException($fallbackE);
+                }
             }
+        } catch (\Stripe\Exception\AuthenticationException $e) {
+            throw $this->classifyStripeException($e);
         }
 
         return [
@@ -175,11 +181,8 @@ class StripeConnectService
                 'refresh_url' => $refreshUrl,
             ]);
         } catch (\Stripe\Exception\InvalidRequestException $fallbackException) {
-            if ($this->isConnectNotEnabledError($fallbackException)) {
-                throw new StripeConnectException(self::CONNECT_NOT_ENABLED, (int) $fallbackException->getCode(), $fallbackException);
-            }
-
-            throw $fallbackException;
+            // Always classify — caller catches StripeConnectException.
+            throw $this->classifyStripeException($fallbackException);
         }
     }
 
@@ -188,6 +191,93 @@ class StripeConnectService
         return str_contains(
             strtolower($e->getMessage()),
             'you can only create new accounts if you\'ve signed up for connect'
+        );
+    }
+
+    /**
+     * Map any raw Stripe exception to a user-safe StripeConnectException.
+     *
+     * Keeps sensitive Stripe internals in structured logs only; the message
+     * returned here is safe to surface directly to the end user.
+     */
+    public function classifyStripeException(\Throwable $e): StripeConnectException
+    {
+        // Already classified — pass through.
+        if ($e instanceof StripeConnectException) {
+            return $e;
+        }
+
+        // Wrong API key / live-test mode mismatch.
+        if ($e instanceof \Stripe\Exception\AuthenticationException) {
+            return new StripeConnectException(
+                'Payout setup is temporarily unavailable due to a configuration issue. Please contact support.',
+                (int) $e->getCode(), $e
+            );
+        }
+
+        if (! $e instanceof \Stripe\Exception\InvalidRequestException) {
+            return new StripeConnectException(
+                'We could not reach the payout provider right now. Please try again shortly.',
+                (int) $e->getCode(), $e
+            );
+        }
+
+        // Connect not enabled on the platform account.
+        if ($this->isConnectNotEnabledError($e)) {
+            return new StripeConnectException(self::CONNECT_NOT_ENABLED, (int) $e->getCode(), $e);
+        }
+
+        $errorCode  = (string) ($e->getError()?->code ?? '');
+        $errorParam = (string) ($e->getError()?->param ?? '');
+        $msgLower   = strtolower($e->getMessage());
+
+        // URL issues — most common on Railway when env vars are missing/wrong.
+        if (
+            str_contains($errorParam, 'return_url') ||
+            str_contains($errorParam, 'refresh_url') ||
+            $errorCode === 'url_invalid' ||
+            str_contains($msgLower, 'url')
+        ) {
+            return new StripeConnectException(
+                'Payout setup is temporarily misconfigured (invalid redirect URL). Please contact support.',
+                (int) $e->getCode(), $e
+            );
+        }
+
+        // Closed or deleted account.
+        if (in_array($errorCode, ['account_closed', 'account_invalid'], true) ||
+            str_contains($msgLower, 'account has been closed')
+        ) {
+            return new StripeConnectException(
+                'The linked payout account has been closed. Please contact support to reset it.',
+                (int) $e->getCode(), $e
+            );
+        }
+
+        // Live/test key mismatch.
+        if (
+            str_contains($msgLower, 'test mode') ||
+            str_contains($msgLower, 'live mode') ||
+            str_contains($msgLower, 'api key operates in')
+        ) {
+            return new StripeConnectException(
+                'Payout setup is temporarily unavailable due to a configuration issue. Please contact support.',
+                (int) $e->getCode(), $e
+            );
+        }
+
+        // Already-submitted onboarding link reuse.
+        if (str_contains($msgLower, 'already been submitted')) {
+            return new StripeConnectException(
+                'Your verification has already been submitted. Please check your email for next steps, or try again.',
+                (int) $e->getCode(), $e
+            );
+        }
+
+        // Generic fallback with a safe description.
+        return new StripeConnectException(
+            'We could not start payout verification right now. Please try again shortly.',
+            (int) $e->getCode(), $e
         );
     }
 

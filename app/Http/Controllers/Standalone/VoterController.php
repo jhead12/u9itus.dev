@@ -1317,18 +1317,38 @@ class VoterController extends Controller
         } catch (\Throwable $e) {
             $reference = (string) Str::ulid();
 
+            // Classify any raw Stripe exception so the log always has a
+            // consistent error_category and the user gets an actionable message.
+            $classified = $e instanceof StripeConnectException
+                ? $e
+                : $stripeConnect->classifyStripeException($e);
+
+            $stripeCtx     = $this->stripeErrorContext($e);
+            $errorCategory = $classified->getMessage() !== $e->getMessage()
+                ? 'stripe_classified'
+                : 'stripe_other';
+
+            // Derive a short category label from the raw Stripe error code when available.
+            if (! empty($stripeCtx['stripe_error_code'])) {
+                $errorCategory = 'stripe:' . $stripeCtx['stripe_error_code'];
+            } elseif (! empty($stripeCtx['stripe_error_type'])) {
+                $errorCategory = 'stripe:' . $stripeCtx['stripe_error_type'];
+            }
+
             $context = [
-                'reference' => $reference,
-                'voter_id' => $voter->id,
-                'exception' => $e::class,
-                'code' => $e->getCode(),
-                'error' => $e->getMessage(),
+                'reference'        => $reference,
+                'error_category'   => $errorCategory,
+                'voter_id'         => $voter->id,
+                'exception'        => $e::class,
+                'code'             => $e->getCode(),
+                'error'            => $e->getMessage(),
+                'user_message'     => $classified->getMessage(),
                 'stripe_account_id' => $voter->stripe_account_id,
-                'app_url' => config('app.url'),
-                'request_url' => request()->fullUrl(),
-                'return_url' => route('voter.earnings'),
-                'refresh_url' => route('voter.earnings'),
-                ...$this->stripeErrorContext($e),
+                'app_url'          => config('app.url'),
+                'request_url'      => request()->fullUrl(),
+                'return_url'       => route('voter.earnings'),
+                'refresh_url'      => route('voter.earnings'),
+                ...$stripeCtx,
             ];
 
             Log::warning('Unable to start Authentic User Verifier onboarding', $context);
@@ -1336,12 +1356,8 @@ class VoterController extends Controller
 
             report($e);
 
-            $message = $e instanceof StripeConnectException
-                ? $e->getMessage()
-                : 'We could not start Authentic User Verifier right now. Please try again.';
-
             return back()->withErrors([
-                'payout' => $message . ' Reference: ' . $reference,
+                'payout' => $classified->getMessage() . ' Reference: ' . $reference,
             ]);
         }
     }
