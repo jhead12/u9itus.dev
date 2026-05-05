@@ -186,16 +186,21 @@ class AdminController extends Controller
     }
 
     /**
-     * List fraud-flagged voters.
+     * List fraud-flagged voters (paginated).
      */
-    public function flaggedVoters(): JsonResponse
+    public function flaggedVoters(Request $request): JsonResponse
     {
         $voters = Voter::where('flagged_for_fraud', true)
             ->withCount('viewSessions')
-            ->get();
+            ->paginate(50);
 
         return response()->json([
             'flagged_voters' => VoterResource::collection($voters),
+            'meta' => [
+                'current_page' => $voters->currentPage(),
+                'last_page'    => $voters->lastPage(),
+                'total'        => $voters->total(),
+            ],
         ]);
     }
 

@@ -6,6 +6,7 @@ use App\Enums\ApprovalStatus;
 use App\Enums\CampaignStatus;
 use App\Enums\PaymentStatus;
 use App\Enums\ViewPaymentStatus;
+use App\Enums\ViewSessionStatus;
 use App\Exceptions\OcrCandidateImportException;
 use App\Http\Controllers\Concerns\PaymentModeFilterable;
 use App\Http\Controllers\Controller;
@@ -53,6 +54,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 
@@ -246,8 +248,8 @@ class AdminController extends Controller
         $campaignIds = $this->modeScopedCampaignIds($activePaymentMode);
         $completedViewQuery = ViewSession::where('status', 'completed')
             ->whereIn('political_campaign_id', $campaignIds);
-        $hasStripeAccountIdColumn = Schema::hasColumn('voters', 'stripe_account_id');
-        $hasStripeAccountStatusColumn = Schema::hasColumn('voters', 'stripe_account_status');
+        $hasStripeAccountIdColumn = Cache::remember('schema.voters.stripe_account_id', 3600, fn () => Schema::hasColumn('voters', 'stripe_account_id'));
+        $hasStripeAccountStatusColumn = Cache::remember('schema.voters.stripe_account_status', 3600, fn () => Schema::hasColumn('voters', 'stripe_account_status'));
 
         $legacyVoterBase = Voter::query()
             ->whereHas('user', function ($q) {
@@ -1796,27 +1798,40 @@ class AdminController extends Controller
     {
         $activePaymentMode = $this->activePaymentMode();
         $campaignIds = $this->modeScopedCampaignIds($activePaymentMode);
-        $stats = $this->buildAnalyticsStats($campaignIds);
+        $stats = $this->buildAnalyticsStats($campaignIds, $activePaymentMode);
 
         return view('standalone.admin.analytics', compact('stats', 'activePaymentMode'));
     }
 
-    private function buildAnalyticsStats($campaignIds): array
+    /**
+     * Validate and sanitize a date query parameter.
+     * Returns null if the value is not a valid YYYY-MM-DD string.
+     */
+    private function sanitizeDateParam(mixed $value): ?string
     {
-        $completedViewQuery = ViewSession::where('status', 'completed')
+        if (!is_string($value) || $value === '') {
+            return null;
+        }
+
+        return preg_match('/^\d{4}-\d{2}-\d{2}$/', $value) === 1 ? $value : null;
+    }
+
+    private function buildAnalyticsStats($campaignIds, string $activePaymentMode): array
+    {
+        $completedViewQuery = ViewSession::where('status', ViewSessionStatus::Completed->value)
             ->whereIn('political_campaign_id', $campaignIds);
 
         $totals = (clone $completedViewQuery)
             ->selectRaw('COUNT(*) as total_views')
             ->selectRaw('COALESCE(SUM(platform_revenue), 0) as total_net_revenue')
-            ->selectRaw('COALESCE(SUM(voter_payout_amount), 0) as total_payouts')
-            ->selectRaw('COALESCE(SUM(referral_commission), 0) as total_referrals')
             ->first();
 
         $totalViews = (int) ($totals->total_views ?? 0);
         $totalNetRevenue = (float) ($totals->total_net_revenue ?? 0);
-        $totalPayouts = (float) ($totals->total_payouts ?? 0);
-        $totalReferrals = (float) ($totals->total_referrals ?? 0);
+        $totalPayouts = (float) ViewSession::where('payment_status', ViewPaymentStatus::Paid->value)
+            ->whereIn('political_campaign_id', $campaignIds)
+            ->sum('voter_payout_amount');
+        $totalReferrals = (float) ReferralEarning::forPaymentMode($activePaymentMode)->sum('commission_amount');
         $grossDeliveredRevenue = $totalNetRevenue + $totalPayouts + $totalReferrals;
 
         // Defensive: check if onboarding_handoff_events table exists (may not be migrated in production)
@@ -1862,13 +1877,11 @@ class AdminController extends Controller
         return [
             'total_views' => $totalViews,
             'gross_revenue' => $grossDeliveredRevenue,
-            'total_revenue' => $grossDeliveredRevenue,
             'net_revenue' => $totalNetRevenue,
             'total_payouts' => $totalPayouts,
             'total_referrals' => $totalReferrals,
-            'total_profit' => $totalNetRevenue,
             'total_campaigns' => PoliticalCampaign::whereIn('id', $campaignIds)->count(),
-            'active_campaigns' => PoliticalCampaign::where('status', 'active')->whereIn('id', $campaignIds)->count(),
+            'active_campaigns' => PoliticalCampaign::where('status', CampaignStatus::Active->value)->whereIn('id', $campaignIds)->count(),
             'avg_revenue_per_view' => $totalViews > 0 ? round($grossDeliveredRevenue / $totalViews, 2) : 0.0,
             'avg_payout_per_view' => $totalViews > 0 ? round($totalPayouts / $totalViews, 2) : 0.0,
             'avg_referral_per_view' => $totalViews > 0 ? round($totalReferrals / $totalViews, 2) : 0.0,
@@ -2025,10 +2038,10 @@ class AdminController extends Controller
         $activePaymentMode = $this->activePaymentMode();
         $campaignIds = $this->modeScopedCampaignIds($activePaymentMode);
 
-        $from       = $request->filled('from') ? $request->get('from') : null;
-        $to         = $request->filled('to') ? $request->get('to') : null;
+        $from           = $this->sanitizeDateParam($request->get('from'));
+        $to             = $this->sanitizeDateParam($request->get('to'));
         $campaignFilter = $request->integer('campaign_id') ?: null;
-        $tab        = in_array($request->get('tab'), ['transactions', 'sessions']) ? $request->get('tab') : 'sessions';
+        $tab            = in_array($request->get('tab'), ['transactions', 'sessions']) ? $request->get('tab') : 'sessions';
 
         $sessionsQuery = ViewSession::query()
             ->with([
@@ -2078,9 +2091,10 @@ class AdminController extends Controller
         $activePaymentMode = $this->activePaymentMode();
         $campaignIds = $this->modeScopedCampaignIds($activePaymentMode);
 
-        $from        = $request->filled('from') ? $request->get('from') : null;
-        $to          = $request->filled('to') ? $request->get('to') : null;
-        $voterSearch = $request->get('voter_search');
+        $from        = $this->sanitizeDateParam($request->get('from'));
+        $to          = $this->sanitizeDateParam($request->get('to'));
+        $rawSearch   = $request->get('voter_search');
+        $voterSearch = is_string($rawSearch) && $rawSearch !== '' ? mb_substr(trim($rawSearch), 0, 100) : null;
         $tab         = in_array($request->get('tab'), ['sessions', 'referrals']) ? $request->get('tab') : 'sessions';
 
         $sessionsQuery = ViewSession::query()
@@ -2139,8 +2153,8 @@ class AdminController extends Controller
         $activePaymentMode = $this->activePaymentMode();
         $campaignIds = $this->modeScopedCampaignIds($activePaymentMode);
 
-        $from           = $request->filled('from') ? $request->get('from') : null;
-        $to             = $request->filled('to') ? $request->get('to') : null;
+        $from           = $this->sanitizeDateParam($request->get('from'));
+        $to             = $this->sanitizeDateParam($request->get('to'));
         $campaignFilter = $request->integer('campaign_id') ?: null;
 
         $transactions = $this->applyPaymentModeFilter(
@@ -2173,10 +2187,16 @@ class AdminController extends Controller
             ->whereIn('id', $campaignIds)
             ->pluck('title', 'id');
 
+        $isTruncated = $transactions->count() >= 20000 || $sessions->count() >= 20000;
         $filename = 'campaign-accounting-' . $activePaymentMode . '-' . now()->format('Ymd_His') . '.csv';
 
-        return response()->streamDownload(function () use ($transactions, $sessions, $campaignTitleMap, $activePaymentMode) {
+        return response()->streamDownload(function () use ($transactions, $sessions, $campaignTitleMap, $activePaymentMode, $isTruncated) {
             $output = fopen('php://output', 'w');
+
+            if ($isTruncated) {
+                fputcsv($output, ['WARNING: Export truncated at 20,000 rows per data type. Apply date or campaign filters to narrow results.']);
+                fputcsv($output, []);
+            }
 
             fputcsv($output, [
                 'Generated At',
@@ -2384,9 +2404,10 @@ class AdminController extends Controller
         $activePaymentMode = $this->activePaymentMode();
         $campaignIds = $this->modeScopedCampaignIds($activePaymentMode);
 
-        $from        = $request->filled('from') ? $request->get('from') : null;
-        $to          = $request->filled('to') ? $request->get('to') : null;
-        $voterSearch = $request->get('voter_search');
+        $from        = $this->sanitizeDateParam($request->get('from'));
+        $to          = $this->sanitizeDateParam($request->get('to'));
+        $rawSearch   = $request->get('voter_search');
+        $voterSearch = is_string($rawSearch) && $rawSearch !== '' ? mb_substr(trim($rawSearch), 0, 100) : null;
 
         $sessions = ViewSession::query()
             ->with([
@@ -2423,10 +2444,16 @@ class AdminController extends Controller
             ->limit(20000)
             ->get();
 
+        $isTruncated = $sessions->count() >= 20000 || $referralEarnings->count() >= 20000;
         $filename = 'voter-accounting-' . $activePaymentMode . '-' . now()->format('Ymd_His') . '.csv';
 
-        return response()->streamDownload(function () use ($sessions, $referralEarnings, $activePaymentMode) {
+        return response()->streamDownload(function () use ($sessions, $referralEarnings, $activePaymentMode, $isTruncated) {
             $output = fopen('php://output', 'w');
+
+            if ($isTruncated) {
+                fputcsv($output, ['WARNING: Export truncated at 20,000 rows per data type. Apply date or voter filters to narrow results.']);
+                fputcsv($output, []);
+            }
 
             fputcsv($output, [
                 'Generated At',
@@ -2624,7 +2651,7 @@ class AdminController extends Controller
     {
         $activePaymentMode = $this->activePaymentMode();
         $campaignIds = $this->modeScopedCampaignIds($activePaymentMode);
-        $stats = $this->buildAnalyticsStats($campaignIds);
+        $stats = $this->buildAnalyticsStats($campaignIds, $activePaymentMode);
 
         $revenue = [
             'total' => $stats['gross_revenue'],
@@ -2775,8 +2802,8 @@ class AdminController extends Controller
 
         $report->public_visibility = 'rejected';
         $report->is_public_board = false;
-        $report->published_by = null;
-        $report->published_at = null;
+        $report->published_by = auth()->id();
+        $report->published_at = now();
         $report->save();
 
         return back()->with('success', 'Question removed from the public board.');
