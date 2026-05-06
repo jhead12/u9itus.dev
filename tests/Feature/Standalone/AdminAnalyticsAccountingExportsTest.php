@@ -335,3 +335,88 @@ test('campaign accounting ledger excludes campaigns without campaign-linked tran
     $response->assertSee('Linked Ledger Campaign');
     $response->assertDontSee('Funding-Only Campaign');
 });
+
+test('campaign accounting ledger search filters by campaign title and politician identity', function () {
+    $admin = makeAdminForAnalyticsExports();
+
+    $matchingCampaign = PoliticalCampaign::factory()->create([
+        'title' => 'Searchable Democracy Campaign',
+    ]);
+
+    $nonMatchingCampaign = PoliticalCampaign::factory()->create([
+        'title' => 'Unrelated Campaign Title',
+    ]);
+
+    CampaignTransaction::query()->create([
+        'campaign_id' => $matchingCampaign->id,
+        'politician_id' => $matchingCampaign->politician_id,
+        'transaction_type' => 'charge',
+        'amount' => 20.00,
+        'currency' => 'USD',
+        'status' => 'succeeded',
+        'metadata' => ['payment_mode' => 'test'],
+    ]);
+
+    CampaignTransaction::query()->create([
+        'campaign_id' => $nonMatchingCampaign->id,
+        'politician_id' => $nonMatchingCampaign->politician_id,
+        'transaction_type' => 'charge',
+        'amount' => 20.00,
+        'currency' => 'USD',
+        'status' => 'succeeded',
+        'metadata' => ['payment_mode' => 'test'],
+    ]);
+
+    ViewSession::factory()->completed()->create([
+        'political_campaign_id' => $matchingCampaign->id,
+        'voter_id' => Voter::factory()->create()->id,
+        'status' => 'completed',
+        'payment_status' => 'paid',
+        'platform_revenue' => 0.60,
+        'voter_payout_amount' => 0.25,
+        'referral_commission' => 0.05,
+    ]);
+
+    ViewSession::factory()->completed()->create([
+        'political_campaign_id' => $nonMatchingCampaign->id,
+        'voter_id' => Voter::factory()->create()->id,
+        'status' => 'completed',
+        'payment_status' => 'paid',
+        'platform_revenue' => 0.60,
+        'voter_payout_amount' => 0.25,
+        'referral_commission' => 0.05,
+    ]);
+
+    $response = $this->actingAs($admin)
+        ->get(route('admin.analytics.ledger.campaign', ['campaign_search' => 'Searchable Democracy']));
+
+    $response->assertOk();
+    $response->assertSee('Searchable Democracy Campaign');
+    $response->assertDontSee('Unrelated Campaign Title');
+});
+
+test('campaign accounting transactions tab renders linked campaign transactions', function () {
+    $admin = makeAdminForAnalyticsExports();
+
+    $campaign = PoliticalCampaign::factory()->create([
+        'title' => 'Transactions Tab Campaign',
+    ]);
+
+    CampaignTransaction::query()->create([
+        'campaign_id' => $campaign->id,
+        'politician_id' => $campaign->politician_id,
+        'transaction_type' => 'charge',
+        'amount' => 70.00,
+        'currency' => 'USD',
+        'status' => 'succeeded',
+        'stripe_payment_intent_id' => 'pi_txn_tab_123',
+        'metadata' => ['payment_mode' => 'test'],
+    ]);
+
+    $response = $this->actingAs($admin)
+        ->get(route('admin.analytics.ledger.campaign', ['tab' => 'transactions']));
+
+    $response->assertOk();
+    $response->assertSee('Transactions Tab Campaign');
+    $response->assertSee('pi_txn_tab_123');
+});
