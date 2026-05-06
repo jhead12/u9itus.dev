@@ -193,6 +193,19 @@ test('admin analytics page shows gross revenue referral commissions and platform
         'referral_commission' => 0.05,
     ]);
 
+    ReferralEarning::query()->create([
+        'referrer_voter_id' => null,
+        'referrer_politician_id' => null,
+        'referred_voter_id' => null,
+        'view_session_id' => null,
+        'commission_amount' => 0.05,
+        'payment_mode' => ReferralEarning::PAYMENT_MODE_LIVE,
+        'referral_type' => ReferralEarning::TYPE_VOTER_VIEW,
+        'politician_id' => $liveCampaign->politician_id,
+        'paid' => false,
+        'paid_at' => null,
+    ]);
+
     ViewSession::factory()->completed()->create([
         'political_campaign_id' => $testCampaign->id,
         'voter_id' => $voter->id,
@@ -201,6 +214,19 @@ test('admin analytics page shows gross revenue referral commissions and platform
         'platform_revenue' => 9.30,
         'voter_payout_amount' => 0.25,
         'referral_commission' => 0.05,
+    ]);
+
+    ReferralEarning::query()->create([
+        'referrer_voter_id' => null,
+        'referrer_politician_id' => null,
+        'referred_voter_id' => null,
+        'view_session_id' => null,
+        'commission_amount' => 9.99,
+        'payment_mode' => ReferralEarning::PAYMENT_MODE_TEST,
+        'referral_type' => ReferralEarning::TYPE_VOTER_VIEW,
+        'politician_id' => $testCampaign->politician_id,
+        'paid' => false,
+        'paid_at' => null,
     ]);
 
     $response = $this->actingAs($admin)->get(route('admin.analytics'));
