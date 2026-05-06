@@ -392,7 +392,10 @@ test('campaign accounting ledger search filters by campaign title and politician
 
     $response->assertOk();
     $response->assertSee('Searchable Democracy Campaign');
-    $response->assertDontSee('Unrelated Campaign Title');
+    $response->assertViewHas('sessions', function ($sessions) {
+        return $sessions->total() === 1
+            && optional(optional($sessions->items()[0])->campaign)->title === 'Searchable Democracy Campaign';
+    });
 });
 
 test('campaign accounting transactions tab renders linked campaign transactions', function () {
