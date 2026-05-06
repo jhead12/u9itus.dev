@@ -17,7 +17,7 @@
     {{-- Filter form --}}
     <form method="GET" action="{{ route('admin.analytics.ledger.campaign') }}" class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4">
         <input type="hidden" name="tab" value="{{ $tab }}">
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
             <div>
                 <label class="block text-xs text-slate-400 mb-1">From</label>
                 <input type="date" name="from" value="{{ $from ?? '' }}"
@@ -37,11 +37,16 @@
                     @endforeach
                 </select>
             </div>
+            <div>
+                <label class="block text-xs text-slate-400 mb-1">Search</label>
+                <input type="text" name="campaign_search" value="{{ $campaignSearch ?? '' }}" placeholder="Campaign, politician, voter, or reference"
+                    class="w-full rounded-lg bg-slate-900 border border-slate-700 text-sm text-white px-3 py-2 focus:outline-none focus:ring-1 focus:ring-emerald-500">
+            </div>
             <div class="flex items-end gap-2">
                 <button type="submit" class="flex-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold px-4 py-2 transition">
                     Filter
                 </button>
-                @if($from || $to || $campaignFilter)
+                @if($from || $to || $campaignFilter || ($campaignSearch ?? null))
                     <a href="{{ route('admin.analytics.ledger.campaign', ['tab' => $tab]) }}" class="rounded-lg border border-slate-600 text-slate-300 hover:text-white text-sm px-3 py-2 transition">
                         Clear
                     </a>
@@ -83,7 +88,7 @@
             </a>
         </div>
 
-        <a href="{{ route('admin.analytics.export.campaign-accounting', array_filter(['from' => $from, 'to' => $to, 'campaign_id' => $campaignFilter])) }}"
+        <a href="{{ route('admin.analytics.export.campaign-accounting', array_filter(['from' => $from, 'to' => $to, 'campaign_id' => $campaignFilter, 'campaign_search' => $campaignSearch ?? null])) }}"
            class="inline-flex items-center rounded-lg border border-sky-500/40 bg-sky-500/10 text-sky-300 hover:bg-sky-500/20 px-4 py-2 text-sm font-semibold transition">
             ↓ Export CSV
         </a>
@@ -234,6 +239,73 @@
             </div>
         @endif
     @endif
+
+    <div class="bg-slate-800/40 border border-slate-700/50 rounded-xl overflow-hidden">
+        <div class="px-4 py-3 border-b border-slate-700/50">
+            <p class="text-sm font-semibold text-white">Account-Level Funding Events</p>
+            <p class="text-xs text-slate-400 mt-1">These are funding transactions with no campaign ID. They are shown separately and are not treated as campaign payments.</p>
+        </div>
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="border-b border-slate-700/50 text-left">
+                    <th class="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Date</th>
+                    <th class="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Politician</th>
+                    <th class="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Type</th>
+                    <th class="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Status</th>
+                    <th class="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Stripe Ref</th>
+                    <th class="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-400 text-right">Amount</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-700/30">
+                @forelse ($accountFunding as $funding)
+                    @php
+                        $fundingType = (string) ($funding->transaction_type ?? '');
+                        $fundingStatus = (string) ($funding->status ?? '');
+                        $fundingRef = $funding->stripe_payment_intent_id ?: ($funding->stripe_charge_id ?: $funding->stripe_refund_id);
+                    @endphp
+                    <tr class="hover:bg-slate-700/20 transition">
+                        <td class="px-4 py-3 text-slate-300 whitespace-nowrap">
+                            {{ optional($funding->created_at)->format('M j, Y') }}<br>
+                            <span class="text-xs text-slate-500">{{ optional($funding->created_at)->format('g:i a') }}</span>
+                        </td>
+                        <td class="px-4 py-3 text-slate-200">
+                            {{ optional($funding->politician)->full_name ?? '—' }}<br>
+                            <span class="text-xs text-slate-500">Account funding event</span>
+                        </td>
+                        <td class="px-4 py-3">
+                            <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium {{ $fundingType === 'refund' ? 'bg-red-500/15 text-red-300' : 'bg-sky-500/15 text-sky-300' }}">
+                                {{ $fundingType ?: '—' }}
+                            </span>
+                        </td>
+                        <td class="px-4 py-3">
+                            <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium {{ $fundingStatus === 'succeeded' ? 'bg-emerald-500/15 text-emerald-300' : 'bg-amber-500/15 text-amber-300' }}">
+                                {{ $fundingStatus ?: '—' }}
+                            </span>
+                        </td>
+                        <td class="px-4 py-3 text-slate-500 text-xs font-mono">
+                            @if($fundingRef)
+                                <span title="{{ $fundingRef }}">{{ Str::limit($fundingRef, 24) }}</span>
+                            @else
+                                —
+                            @endif
+                        </td>
+                        <td class="px-4 py-3 text-right font-mono tabular-nums {{ $fundingType === 'refund' ? 'text-red-400' : 'text-white' }}">
+                            {{ $fundingType === 'refund' ? '-' : '' }}${{ number_format((float)($funding->amount ?? 0), 2) }}
+                        </td>
+                    </tr>
+                @empty
+                    <tr>
+                        <td colspan="6" class="px-4 py-8 text-center text-slate-500">No account-level funding events found for the selected filters.</td>
+                    </tr>
+                @endforelse
+            </tbody>
+        </table>
+        @if ($accountFunding->hasPages())
+            <div class="flex justify-center py-4">
+                {{ $accountFunding->links() }}
+            </div>
+        @endif
+    </div>
 
 </div>
 @endsection

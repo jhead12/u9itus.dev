@@ -56,4 +56,9 @@ class CampaignTransaction extends Model
     {
         return $this->belongsTo(Politician::class);
     }
+
+    public function campaign(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(PoliticalCampaign::class, 'campaign_id');
+    }
 }

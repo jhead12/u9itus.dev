@@ -243,3 +243,95 @@ test('admin analytics page shows gross revenue referral commissions and platform
             && round((float) $stats['margin_percent'], 1) === 50.0;
     });
 });
+
+test('campaign accounting export includes account-level funding section for null campaign transactions', function () {
+    $admin = makeAdminForAnalyticsExports();
+
+    $campaign = PoliticalCampaign::factory()->create(['title' => 'Linked Campaign']);
+
+    CampaignTransaction::query()->create([
+        'campaign_id' => $campaign->id,
+        'politician_id' => $campaign->politician_id,
+        'transaction_type' => 'charge',
+        'amount' => 30.00,
+        'currency' => 'USD',
+        'status' => 'succeeded',
+        'metadata' => ['payment_mode' => 'test'],
+    ]);
+
+    CampaignTransaction::query()->create([
+        'campaign_id' => null,
+        'politician_id' => $campaign->politician_id,
+        'transaction_type' => 'charge',
+        'amount' => 55.00,
+        'currency' => 'USD',
+        'status' => 'succeeded',
+        'metadata' => ['payment_mode' => 'test'],
+    ]);
+
+    $response = $this->actingAs($admin)
+        ->get(route('admin.analytics.export.campaign-accounting'));
+
+    $response->assertOk();
+
+    $csv = $response->streamedContent();
+
+    expect($csv)->toContain('Account-Level Funding Events (Not Campaign-Linked)');
+    expect($csv)->toContain('account_funding');
+    expect($csv)->toContain('Linked Campaign');
+});
+
+test('campaign accounting ledger excludes campaigns without campaign-linked transactions while showing funding events', function () {
+    $admin = makeAdminForAnalyticsExports();
+
+    $linkedCampaign = PoliticalCampaign::factory()->create(['title' => 'Linked Ledger Campaign']);
+    $fundingOnlyCampaign = PoliticalCampaign::factory()->create(['title' => 'Funding-Only Campaign']);
+
+    CampaignTransaction::query()->create([
+        'campaign_id' => $linkedCampaign->id,
+        'politician_id' => $linkedCampaign->politician_id,
+        'transaction_type' => 'charge',
+        'amount' => 45.00,
+        'currency' => 'USD',
+        'status' => 'succeeded',
+        'metadata' => ['payment_mode' => 'test'],
+    ]);
+
+    CampaignTransaction::query()->create([
+        'campaign_id' => null,
+        'politician_id' => $fundingOnlyCampaign->politician_id,
+        'transaction_type' => 'charge',
+        'amount' => 60.00,
+        'currency' => 'USD',
+        'status' => 'succeeded',
+        'metadata' => ['payment_mode' => 'test'],
+    ]);
+
+    ViewSession::factory()->completed()->create([
+        'political_campaign_id' => $linkedCampaign->id,
+        'voter_id' => Voter::factory()->create()->id,
+        'status' => 'completed',
+        'payment_status' => 'paid',
+        'platform_revenue' => 0.60,
+        'voter_payout_amount' => 0.25,
+        'referral_commission' => 0.05,
+    ]);
+
+    ViewSession::factory()->completed()->create([
+        'political_campaign_id' => $fundingOnlyCampaign->id,
+        'voter_id' => Voter::factory()->create()->id,
+        'status' => 'completed',
+        'payment_status' => 'paid',
+        'platform_revenue' => 0.60,
+        'voter_payout_amount' => 0.25,
+        'referral_commission' => 0.05,
+    ]);
+
+    $response = $this->actingAs($admin)
+        ->get(route('admin.analytics.ledger.campaign'));
+
+    $response->assertOk();
+    $response->assertSee('Account-Level Funding Events');
+    $response->assertSee('Linked Ledger Campaign');
+    $response->assertDontSee('Funding-Only Campaign');
+});

@@ -220,6 +220,23 @@ class AdminController extends Controller
     }
 
     /**
+     * Campaign ids that have campaign-linked transaction activity in the active payment mode.
+     *
+     * Used by campaign accounting ledger/export to avoid labeling account-level funding
+     * events as campaign payments.
+     */
+    private function modeScopedCampaignIdsWithLinkedTransactions(string $mode)
+    {
+        return $this->applyPaymentModeFilter(
+            CampaignTransaction::query()
+                ->select('campaign_id')
+                ->whereNotNull('campaign_id')
+                ->distinct(),
+            $mode
+        );
+    }
+
+    /**
      * Politician ids that have billing activity in the active payment mode.
      * Used to ensure campaign monitoring reflects the currently configured Stripe mode.
      */
@@ -236,6 +253,82 @@ class AdminController extends Controller
         );
 
         return $txPoliticianIds->union($creditPoliticianIds);
+    }
+
+    /**
+     * Account-level funding events that are not linked to a specific campaign.
+     */
+    private function modeScopedAccountFundingQuery(string $mode)
+    {
+        return $this->applyPaymentModeFilter(
+            CampaignTransaction::query()
+                ->whereNull('campaign_id'),
+            $mode
+        )
+            ->with('politician:id,full_name');
+    }
+
+    private function applyCampaignLedgerSearch(Builder $query, string $search): Builder
+    {
+        $term = trim($search);
+        if ($term === '') {
+            return $query;
+        }
+
+        return $query->where(function (Builder $scoped) use ($term) {
+            $scoped->whereHas('campaign', function (Builder $campaignQuery) use ($term) {
+                $campaignQuery->where('title', 'like', '%' . $term . '%')
+                    ->orWhereHas('politician', function (Builder $politicianQuery) use ($term) {
+                        $politicianQuery->where('full_name', 'like', '%' . $term . '%')
+                            ->orWhereHas('user', function (Builder $userQuery) use ($term) {
+                                $userQuery->where('email', 'like', '%' . $term . '%');
+                            });
+                    });
+            })->orWhereHas('voter', function (Builder $voterQuery) use ($term) {
+                $voterQuery->where('full_name', 'like', '%' . $term . '%')
+                    ->orWhere('email', 'like', '%' . $term . '%');
+            })->orWhere('processor_reference', 'like', '%' . $term . '%');
+        });
+    }
+
+    private function applyCampaignTransactionSearch(Builder $query, string $search): Builder
+    {
+        $term = trim($search);
+        if ($term === '') {
+            return $query;
+        }
+
+        return $query->where(function (Builder $scoped) use ($term) {
+            $scoped->whereHas('campaign', function (Builder $campaignQuery) use ($term) {
+                $campaignQuery->where('title', 'like', '%' . $term . '%');
+            })->orWhereHas('politician', function (Builder $politicianQuery) use ($term) {
+                $politicianQuery->where('full_name', 'like', '%' . $term . '%')
+                    ->orWhereHas('user', function (Builder $userQuery) use ($term) {
+                        $userQuery->where('email', 'like', '%' . $term . '%');
+                    });
+            })->orWhere('stripe_payment_intent_id', 'like', '%' . $term . '%')
+              ->orWhere('stripe_charge_id', 'like', '%' . $term . '%')
+              ->orWhere('stripe_refund_id', 'like', '%' . $term . '%');
+        });
+    }
+
+    private function applyAccountFundingSearch(Builder $query, string $search): Builder
+    {
+        $term = trim($search);
+        if ($term === '') {
+            return $query;
+        }
+
+        return $query->where(function (Builder $scoped) use ($term) {
+            $scoped->whereHas('politician', function (Builder $politicianQuery) use ($term) {
+                $politicianQuery->where('full_name', 'like', '%' . $term . '%')
+                    ->orWhereHas('user', function (Builder $userQuery) use ($term) {
+                        $userQuery->where('email', 'like', '%' . $term . '%');
+                    });
+            })->orWhere('stripe_payment_intent_id', 'like', '%' . $term . '%')
+              ->orWhere('stripe_charge_id', 'like', '%' . $term . '%')
+              ->orWhere('stripe_refund_id', 'like', '%' . $term . '%');
+        });
     }
 
     /**
@@ -2035,50 +2128,73 @@ class AdminController extends Controller
     public function campaignAccountingLedger(Request $request)
     {
         $activePaymentMode = $this->activePaymentMode();
-        $campaignIds = $this->modeScopedCampaignIds($activePaymentMode);
+        $campaignIds = $this->modeScopedCampaignIdsWithLinkedTransactions($activePaymentMode);
 
         $from           = $this->sanitizeDateParam($request->get('from'));
         $to             = $this->sanitizeDateParam($request->get('to'));
         $campaignFilter = $request->integer('campaign_id') ?: null;
+        $rawSearch      = $request->get('campaign_search');
+        $campaignSearch = is_string($rawSearch) && $rawSearch !== '' ? mb_substr(trim($rawSearch), 0, 100) : null;
         $tab            = in_array($request->get('tab'), ['transactions', 'sessions']) ? $request->get('tab') : 'sessions';
 
-        $sessionsQuery = ViewSession::query()
-            ->with([
-                'campaign:id,title,politician_id',
-                'campaign.politician:id,full_name',
-                'voter:id,full_name',
-            ])
-            ->whereIn('political_campaign_id', $campaignIds)
-            ->when($from, fn($q) => $q->whereDate('created_at', '>=', $from))
-            ->when($to, fn($q) => $q->whereDate('created_at', '<=', $to))
-            ->when($campaignFilter, fn($q) => $q->where('political_campaign_id', $campaignFilter))
-            ->orderBy('created_at', 'desc');
+        $sessionsQuery = $this->applyCampaignLedgerSearch(
+            ViewSession::query()
+                ->with([
+                    'campaign:id,title,politician_id',
+                    'campaign.politician:id,full_name',
+                    'voter:id,full_name,email',
+                ])
+                ->whereIn('political_campaign_id', $campaignIds)
+                ->when($from, fn($q) => $q->whereDate('created_at', '>=', $from))
+                ->when($to, fn($q) => $q->whereDate('created_at', '<=', $to))
+                ->when($campaignFilter, fn($q) => $q->where('political_campaign_id', $campaignFilter))
+                ->orderBy('created_at', 'desc'),
+            (string) ($campaignSearch ?? '')
+        );
 
-        $transactionsQuery = $this->applyPaymentModeFilter(
-            CampaignTransaction::query()->whereIn('campaign_id', $campaignIds),
-            $activePaymentMode
-        )
-            ->with(['politician:id,full_name', 'campaign:id,title'])
-            ->when($from, fn($q) => $q->whereDate('created_at', '>=', $from))
-            ->when($to, fn($q) => $q->whereDate('created_at', '<=', $to))
-            ->when($campaignFilter, fn($q) => $q->where('campaign_id', $campaignFilter))
-            ->orderBy('created_at', 'desc');
+        $transactionsQuery = $this->applyCampaignTransactionSearch(
+            $this->applyPaymentModeFilter(
+                CampaignTransaction::query()->whereIn('campaign_id', $campaignIds),
+                $activePaymentMode
+            )
+                ->with(['politician:id,full_name', 'campaign:id,title'])
+                ->when($from, fn($q) => $q->whereDate('created_at', '>=', $from))
+                ->when($to, fn($q) => $q->whereDate('created_at', '<=', $to))
+                ->when($campaignFilter, fn($q) => $q->where('campaign_id', $campaignFilter))
+                ->orderBy('created_at', 'desc'),
+            (string) ($campaignSearch ?? '')
+        );
+
+        $accountFundingQuery = $this->applyAccountFundingSearch(
+            $this->modeScopedAccountFundingQuery($activePaymentMode)
+                ->when($from, fn($q) => $q->whereDate('created_at', '>=', $from))
+                ->when($to, fn($q) => $q->whereDate('created_at', '<=', $to))
+                ->orderBy('created_at', 'desc'),
+            (string) ($campaignSearch ?? '')
+        );
 
         $sessions     = $sessionsQuery->paginate(50, ['*'], 's_page')->withQueryString();
         $transactions = $transactionsQuery->paginate(50, ['*'], 't_page')->withQueryString();
+        $accountFunding = $accountFundingQuery->paginate(20, ['*'], 'af_page')->withQueryString();
 
-        $totals = ViewSession::whereIn('political_campaign_id', $campaignIds)
+        $totalsQuery = ViewSession::whereIn('political_campaign_id', $campaignIds)
             ->when($from, fn($q) => $q->whereDate('created_at', '>=', $from))
             ->when($to, fn($q) => $q->whereDate('created_at', '<=', $to))
             ->when($campaignFilter, fn($q) => $q->where('political_campaign_id', $campaignFilter))
-            ->selectRaw('COUNT(*) as total_sessions, COALESCE(SUM(platform_revenue),0) as total_revenue, COALESCE(SUM(voter_payout_amount),0) as total_payouts, COALESCE(SUM(referral_commission),0) as total_referrals')
+            ->selectRaw('COUNT(*) as total_sessions, COALESCE(SUM(platform_revenue),0) as total_revenue, COALESCE(SUM(voter_payout_amount),0) as total_payouts, COALESCE(SUM(referral_commission),0) as total_referrals');
+
+        if ($campaignSearch) {
+            $totalsQuery = $this->applyCampaignLedgerSearch($totalsQuery, $campaignSearch);
+        }
+
+        $totals = $totalsQuery
             ->first();
 
         $campaigns = PoliticalCampaign::whereIn('id', $campaignIds)->orderBy('title')->get(['id', 'title']);
 
         return view('standalone.admin.accounting-campaign', compact(
-            'activePaymentMode', 'sessions', 'transactions', 'totals', 'campaigns',
-            'from', 'to', 'campaignFilter', 'tab'
+            'activePaymentMode', 'sessions', 'transactions', 'totals', 'campaigns', 'accountFunding',
+            'from', 'to', 'campaignFilter', 'campaignSearch', 'tab'
         ));
     }
 
@@ -2150,46 +2266,61 @@ class AdminController extends Controller
     public function exportCampaignAccounting(Request $request)
     {
         $activePaymentMode = $this->activePaymentMode();
-        $campaignIds = $this->modeScopedCampaignIds($activePaymentMode);
+        $campaignIds = $this->modeScopedCampaignIdsWithLinkedTransactions($activePaymentMode);
 
         $from           = $this->sanitizeDateParam($request->get('from'));
         $to             = $this->sanitizeDateParam($request->get('to'));
         $campaignFilter = $request->integer('campaign_id') ?: null;
+        $rawSearch      = $request->get('campaign_search');
+        $campaignSearch = is_string($rawSearch) && $rawSearch !== '' ? mb_substr(trim($rawSearch), 0, 100) : null;
 
-        $transactions = $this->applyPaymentModeFilter(
-            CampaignTransaction::query()->whereIn('campaign_id', $campaignIds),
-            $activePaymentMode
-        )
-            ->with('politician:id,full_name')
-            ->when($from, fn($q) => $q->whereDate('created_at', '>=', $from))
-            ->when($to, fn($q) => $q->whereDate('created_at', '<=', $to))
-            ->when($campaignFilter, fn($q) => $q->where('campaign_id', $campaignFilter))
-            ->orderBy('created_at')
-            ->limit(20000)
-            ->get();
+        $transactions = $this->applyCampaignTransactionSearch(
+            $this->applyPaymentModeFilter(
+                CampaignTransaction::query()->whereIn('campaign_id', $campaignIds),
+                $activePaymentMode
+            )
+                ->with('politician:id,full_name')
+                ->when($from, fn($q) => $q->whereDate('created_at', '>=', $from))
+                ->when($to, fn($q) => $q->whereDate('created_at', '<=', $to))
+                ->when($campaignFilter, fn($q) => $q->where('campaign_id', $campaignFilter))
+                ->orderBy('created_at')
+                ->limit(20000),
+            (string) ($campaignSearch ?? '')
+        )->get();
 
-        $sessions = ViewSession::query()
-            ->with([
-                'campaign:id,title,politician_id',
-                'campaign.politician:id,full_name',
-                'voter:id,full_name',
-            ])
-            ->whereIn('political_campaign_id', $campaignIds)
-            ->when($from, fn($q) => $q->whereDate('created_at', '>=', $from))
-            ->when($to, fn($q) => $q->whereDate('created_at', '<=', $to))
-            ->when($campaignFilter, fn($q) => $q->where('political_campaign_id', $campaignFilter))
-            ->orderBy('created_at')
-            ->limit(20000)
-            ->get();
+        $sessions = $this->applyCampaignLedgerSearch(
+            ViewSession::query()
+                ->with([
+                    'campaign:id,title,politician_id',
+                    'campaign.politician:id,full_name',
+                    'voter:id,full_name,email',
+                ])
+                ->whereIn('political_campaign_id', $campaignIds)
+                ->when($from, fn($q) => $q->whereDate('created_at', '>=', $from))
+                ->when($to, fn($q) => $q->whereDate('created_at', '<=', $to))
+                ->when($campaignFilter, fn($q) => $q->where('political_campaign_id', $campaignFilter))
+                ->orderBy('created_at')
+                ->limit(20000),
+            (string) ($campaignSearch ?? '')
+        )->get();
+
+        $accountFunding = $this->applyAccountFundingSearch(
+            $this->modeScopedAccountFundingQuery($activePaymentMode)
+                ->when($from, fn($q) => $q->whereDate('created_at', '>=', $from))
+                ->when($to, fn($q) => $q->whereDate('created_at', '<=', $to))
+                ->orderBy('created_at')
+                ->limit(20000),
+            (string) ($campaignSearch ?? '')
+        )->get();
 
         $campaignTitleMap = PoliticalCampaign::query()
             ->whereIn('id', $campaignIds)
             ->pluck('title', 'id');
 
-        $isTruncated = $transactions->count() >= 20000 || $sessions->count() >= 20000;
+        $isTruncated = $transactions->count() >= 20000 || $sessions->count() >= 20000 || $accountFunding->count() >= 20000;
         $filename = 'campaign-accounting-' . $activePaymentMode . '-' . now()->format('Ymd_His') . '.csv';
 
-        return response()->streamDownload(function () use ($transactions, $sessions, $campaignTitleMap, $activePaymentMode, $isTruncated) {
+        return response()->streamDownload(function () use ($transactions, $sessions, $accountFunding, $campaignTitleMap, $activePaymentMode, $isTruncated) {
             $output = fopen('php://output', 'w');
 
             if ($isTruncated) {
@@ -2386,6 +2517,40 @@ class AdminController extends Controller
                     number_format((float) $row['referral_total'], 2, '.', ''),
                     number_format((float) $row['session_net_total'], 2, '.', ''),
                     $row['completed_sessions'],
+                ]);
+            }
+
+            fputcsv($output, []);
+            fputcsv($output, ['Account-Level Funding Events (Not Campaign-Linked)']);
+            fputcsv($output, [
+                'Record Type',
+                'Record ID',
+                'Created At',
+                'Politician ID',
+                'Politician Name',
+                'Status',
+                'Transaction Type',
+                'Payment Intent ID',
+                'Charge ID',
+                'Refund ID',
+                'Currency',
+                'Amount',
+            ]);
+
+            foreach ($accountFunding as $funding) {
+                fputcsv($output, [
+                    'account_funding',
+                    $funding->id,
+                    optional($funding->created_at)->toDateTimeString(),
+                    $funding->politician_id,
+                    optional($funding->politician)->full_name,
+                    $funding->status,
+                    $funding->transaction_type,
+                    $funding->stripe_payment_intent_id,
+                    $funding->stripe_charge_id,
+                    $funding->stripe_refund_id,
+                    strtoupper((string) $funding->currency),
+                    number_format((float) ($funding->amount ?? 0), 2, '.', ''),
                 ]);
             }
 
