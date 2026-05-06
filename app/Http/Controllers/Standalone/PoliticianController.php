@@ -1042,20 +1042,30 @@ class PoliticianController extends Controller
         $politician = Auth::user()->politician;
         abort_unless($politician, 403);
 
+        $activePaymentMode = $this->activePaymentMode();
+
         $campaigns = $politician->campaigns()
             ->withCount(['viewSessions as total_sessions'])
             ->orderByDesc('created_at')
             ->get();
 
         $totalViews    = $campaigns->sum('views_completed');
-        $totalSpent    = $campaigns->sum('amount_spent');
         $activeCampaigns = $campaigns->where('status.value', 'active')
             ->merge($campaigns->whereStrict('status', 'active'))
             ->unique('id')
             ->count();
 
-        // Apply payment mode filter to transactions (same as billing page)
-        $activePaymentMode = $this->activePaymentMode();
+        $creditLedgerEntries = $this->applyPaymentModeFilter(
+            PoliticianCredit::where('politician_id', $politician->id),
+            $activePaymentMode
+        )->get(['amount', 'transaction_type']);
+
+        // Keep "Total Spent" mode-aware so it reconciles with purchased/available cards.
+        $totalSpent = round((float) $creditLedgerEntries
+            ->where('transaction_type', 'usage')
+            ->sum(fn ($entry) => abs((float) ($entry->amount ?? 0))), 2);
+
+        // Apply payment mode filter to purchase transactions (same as billing page)
         $transactionsWithFeeSummary = $this->applyPaymentModeFilter(
             CampaignTransaction::where('politician_id', $politician->id)
                 ->where('transaction_type', 'charge')

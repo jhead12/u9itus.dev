@@ -1828,8 +1828,8 @@ class AdminController extends Controller
 
         $totalViews = (int) ($totals->total_views ?? 0);
         $totalNetRevenue = (float) ($totals->total_net_revenue ?? 0);
-        $totalPayouts = (float) ViewSession::where('payment_status', ViewPaymentStatus::Paid->value)
-            ->whereIn('political_campaign_id', $campaignIds)
+        $totalPayouts = (float) (clone $completedViewQuery)
+            ->where('payment_status', ViewPaymentStatus::Paid->value)
             ->sum('voter_payout_amount');
         $totalReferrals = (float) ReferralEarning::forPaymentMode($activePaymentMode)->sum('commission_amount');
         $grossDeliveredRevenue = $totalNetRevenue + $totalPayouts + $totalReferrals;

@@ -538,6 +538,48 @@ test('politician analytics credits purchased excludes pending and campaign charg
         });
 });
 
+test('politician analytics total spent is derived from mode-scoped usage ledger', function () {
+    config()->set('services.stripe.secret', 'sk_test_fake_analytics_spend_mode_filter');
+
+    $user = makePolitician();
+    $politician = $user->politician;
+
+    PoliticianCredit::create([
+        'politician_id' => $politician->id,
+        'transaction_type' => 'usage',
+        'amount' => -25.00,
+        'balance_after' => 75.00,
+        'description' => 'Test mode campaign usage',
+        'metadata' => ['payment_mode' => 'test'],
+        'created_at' => now()->subMinutes(2),
+    ]);
+
+    PoliticianCredit::create([
+        'politician_id' => $politician->id,
+        'transaction_type' => 'usage',
+        'amount' => -10.00,
+        'balance_after' => 65.00,
+        'description' => 'Another test mode usage',
+        'metadata' => ['payment_mode' => 'test'],
+        'created_at' => now()->subMinute(),
+    ]);
+
+    PoliticianCredit::create([
+        'politician_id' => $politician->id,
+        'transaction_type' => 'usage',
+        'amount' => -99.00,
+        'balance_after' => -34.00,
+        'description' => 'Live mode usage should not appear in test mode analytics',
+        'metadata' => ['payment_mode' => 'live'],
+        'created_at' => now(),
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('politician.analytics'))
+        ->assertOk()
+        ->assertViewHas('totalSpent', 35.0);
+});
+
 test('politician dashboard balance excludes test mode credits when stripe is live', function () {
     config()->set('services.stripe.secret', 'sk_live_fake_dashboard_mode_filter');
 
