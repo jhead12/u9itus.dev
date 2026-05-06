@@ -56,7 +56,11 @@ class OcrCandidateImportService
 
     protected function extractPdfText(string $filePath): string
     {
-        $txtPath = storage_path('app/imports/uploads/ocr-' . uniqid('', true) . '.txt');
+        $txtDir  = storage_path('app/imports/uploads');
+        if (! is_dir($txtDir)) {
+            mkdir($txtDir, 0755, true);
+        }
+        $txtPath = $txtDir . '/ocr-' . uniqid('', true) . '.txt';
 
         try {
             $output = $this->runCommand(['pdftotext', '-layout', $filePath, $txtPath], false);

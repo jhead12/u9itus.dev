@@ -1,8 +1,10 @@
 <?php
 
+use App\Jobs\ProcessOcrCandidateImportJob;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Queue;
 use Spatie\Permission\Models\Role;
 
 uses(RefreshDatabase::class);
@@ -21,7 +23,9 @@ function adminForOcrCandidateImportTests(): User
     return $admin;
 }
 
-test('admin can OCR import candidate records from text package', function () {
+test('admin OCR import queues a job and returns success flash', function () {
+    Queue::fake();
+
     $admin = adminForOcrCandidateImportTests();
 
     $scanContent = implode("\n", [
@@ -44,21 +48,38 @@ test('admin can OCR import candidate records from text package', function () {
 
     $response->assertRedirect();
     $response->assertSessionHas('success');
-    $response->assertSessionHas('ocr_import_count', 2);
+    // Job must have been dispatched with the correct source/dry_run values
+    Queue::assertPushed(ProcessOcrCandidateImportJob::class, function ($job) {
+        return $job->source === 'local_gov_ocr' && $job->dryRun === false;
+    });
+});
 
-    $this->assertDatabaseHas('election_candidate_records', [
-        'source' => 'local_gov_ocr',
-        'full_name' => 'Jamie Rivera',
-        'state' => 'CA',
-        'district' => 'Ward 2',
-        'party_affiliation' => 'Democratic',
-    ]);
+test('admin OCR import validation rejects missing source', function () {
+    Queue::fake();
 
-    $this->assertDatabaseHas('election_candidate_records', [
-        'source' => 'local_gov_ocr',
-        'full_name' => 'Taylor Brooks',
-        'state' => 'CA',
-        'district' => 'Ward 2',
-        'party_affiliation' => 'Independent',
-    ]);
+    $admin = adminForOcrCandidateImportTests();
+
+    $upload = UploadedFile::fake()->createWithContent('scan.txt', 'Candidate Name');
+
+    $response = $this->actingAs($admin)
+        ->post(route('admin.imports.ocr-candidates'), [
+            'scan_upload' => $upload,
+        ]);
+
+    $response->assertSessionHasErrors('source');
+    Queue::assertNothingPushed();
+});
+
+test('admin OCR import validation rejects missing file', function () {
+    Queue::fake();
+
+    $admin = adminForOcrCandidateImportTests();
+
+    $response = $this->actingAs($admin)
+        ->post(route('admin.imports.ocr-candidates'), [
+            'source' => 'local_gov_ocr',
+        ]);
+
+    $response->assertSessionHasErrors('scan_upload');
+    Queue::assertNothingPushed();
 });

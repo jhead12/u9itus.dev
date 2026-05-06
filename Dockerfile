@@ -22,6 +22,8 @@ RUN apk add --no-cache \
     bash \
     ffmpeg \
     tesseract-ocr \
+    tesseract-ocr-data-eng \
+    tesseract-ocr-data-osd \
     poppler-utils && \
     docker-php-ext-install \
         pdo_mysql \

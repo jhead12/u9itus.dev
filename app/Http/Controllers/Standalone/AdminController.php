@@ -7,10 +7,10 @@ use App\Enums\CampaignStatus;
 use App\Enums\PaymentStatus;
 use App\Enums\ViewPaymentStatus;
 use App\Enums\ViewSessionStatus;
-use App\Exceptions\OcrCandidateImportException;
 use App\Http\Controllers\Concerns\PaymentModeFilterable;
 use App\Http\Controllers\Controller;
 use App\Jobs\MatchPoliticianToElectionData;
+use App\Jobs\ProcessOcrCandidateImportJob;
 use App\Mail\CampaignReactivatedMail;
 use App\Mail\AccountUnsuspendedMail;
 use App\Models\CandidateMatchReview;
@@ -41,7 +41,6 @@ use App\Services\AdminTwoFactorService;
 use App\Services\CampaignBillingService;
 use App\Services\CampaignModerationService;
 use App\Services\CampaignQuestionDigestService;
-use App\Services\OcrCandidateImportService;
 use App\Services\PoliticalPaymentService;
 use App\Services\CampaignQandAService;
 use App\Services\CampaignStatusNotifier;
@@ -3644,8 +3643,11 @@ HTML;
 
     /**
      * OCR-assisted candidate import for scanned local election packages.
+     *
+     * Stores the upload then dispatches a queue job so the OCR + artisan import
+     * run asynchronously — avoiding the Railway web-worker request timeout.
      */
-    public function importCandidatesFromOcr(Request $request, OcrCandidateImportService $ocrService)
+    public function importCandidatesFromOcr(Request $request)
     {
         $validated = $request->validate([
             'source' => ['required', 'string', 'max:64'],
@@ -3678,39 +3680,17 @@ HTML;
             'election_date' => isset($validated['election_date']) ? (string) $validated['election_date'] : '',
         ];
 
-        try {
-            $records = $ocrService->extractCandidatesFromFile($storedPath, $defaults);
-        } catch (OcrCandidateImportException $e) {
-            return back()->withErrors([
-                'ocr_import' => 'OCR import failed: ' . $e->getMessage(),
-            ])->withInput();
-        }
+        ProcessOcrCandidateImportJob::dispatch(
+            storedPath: $storedPath,
+            source: (string) $validated['source'],
+            dryRun: $request->boolean('dry_run'),
+            defaults: $defaults,
+        );
 
-        $jsonPathRelative = 'imports/uploads/candidate-ocr-parsed-' . now()->format('Ymd-His') . '-' . uniqid('', true) . '.json';
-        Storage::disk('local')->put($jsonPathRelative, json_encode($records, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
-        $jsonPathAbsolute = Storage::disk('local')->path($jsonPathRelative);
-
-        $args = [
-            '--source' => (string) $validated['source'],
-            '--file' => $jsonPathAbsolute,
-        ];
-
-        if ($request->boolean('dry_run')) {
-            $args['--dry-run'] = true;
-        }
-
-        $exitCode = Artisan::call('elections:import-candidates', $args);
-        $output = trim((string) Artisan::output());
-
-        if ($exitCode !== 0) {
-            return back()->withErrors([
-                'ocr_import' => $output !== '' ? $output : 'OCR candidate import failed.',
-            ])->withInput();
-        }
-
-        return back()
-            ->with('success', 'OCR candidate import completed.')
-            ->with('import_output', $output)
-            ->with('ocr_import_count', count($records));
+        return back()->with(
+            'success',
+            'OCR import job queued. The scan is being processed in the background — '
+            . 'check the Rails logs or candidate matches section in a few minutes.'
+        );
     }
 }
