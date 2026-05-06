@@ -163,10 +163,7 @@ class PoliticianController extends Controller
      */
     private function computeModeAwareCreditBalance(int $politicianId, string $mode): float
     {
-        $entries = $this->applyPaymentModeFilter(
-            PoliticianCredit::where('politician_id', $politicianId),
-            $mode
-        )
+        $entries = $this->modeAwareCreditLedgerQuery($politicianId, $mode)
             ->orderBy('created_at')
             ->orderBy('id')
             ->get(['id', 'transaction_type', 'amount', 'related_transaction_id']);
@@ -202,6 +199,35 @@ class PoliticianController extends Controller
         }
 
         return round($balance, 2);
+    }
+
+    /**
+     * Scope a politician credit ledger query to the active payment mode.
+     *
+     * Historical usage rows were stored without metadata.payment_mode.
+     * To keep balances accurate, include those usage rows via campaign_id
+     * when the campaign has transaction activity in the selected mode.
+     */
+    private function modeAwareCreditLedgerQuery(int $politicianId, string $mode)
+    {
+        $modeCampaignIds = $this->applyPaymentModeFilter(
+            CampaignTransaction::query()
+                ->select('campaign_id')
+                ->where('politician_id', $politicianId)
+                ->whereNotNull('campaign_id')
+                ->distinct(),
+            $mode
+        );
+
+        return PoliticianCredit::query()
+            ->where('politician_id', $politicianId)
+            ->where(function ($query) use ($mode, $modeCampaignIds) {
+                $query->where('metadata->payment_mode', $mode)
+                    ->orWhere(function ($usageQuery) use ($modeCampaignIds) {
+                        $usageQuery->where('transaction_type', 'usage')
+                            ->whereIn('campaign_id', $modeCampaignIds);
+                    });
+            });
     }
 
     /**
@@ -1055,10 +1081,8 @@ class PoliticianController extends Controller
             ->unique('id')
             ->count();
 
-        $creditLedgerEntries = $this->applyPaymentModeFilter(
-            PoliticianCredit::where('politician_id', $politician->id),
-            $activePaymentMode
-        )->get(['amount', 'transaction_type']);
+        $creditLedgerEntries = $this->modeAwareCreditLedgerQuery($politician->id, $activePaymentMode)
+            ->get(['amount', 'transaction_type']);
 
         // Keep "Total Spent" mode-aware so it reconciles with purchased/available cards.
         $totalSpent = round((float) $creditLedgerEntries
@@ -1345,10 +1369,9 @@ class PoliticianController extends Controller
         $activePaymentMode = $this->activePaymentMode();
         $creditBalance = $this->computeModeAwareCreditBalance($politician->id, $activePaymentMode);
 
-        $credits = $this->applyPaymentModeFilter(
-            PoliticianCredit::where('politician_id', $politician->id),
-            $activePaymentMode
-        )->orderByDesc('created_at')->paginate(15);
+        $credits = $this->modeAwareCreditLedgerQuery($politician->id, $activePaymentMode)
+            ->orderByDesc('created_at')
+            ->paginate(15);
 
         $transactions = $this->applyPaymentModeFilter(
             CampaignTransaction::where('politician_id', $politician->id),

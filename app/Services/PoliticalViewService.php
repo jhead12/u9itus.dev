@@ -352,10 +352,13 @@ class PoliticalViewService
         if ($cost > 0) {
             $politician = $campaign->politician;
             if ($politician) {
+                $paymentMode = app(StripePaymentService::class)->configuredMode() === 'live' ? 'live' : 'test';
+
                 $this->billingService->addCredits($politician, -$cost, [
                     'transaction_type' => 'usage',
                     'campaign_id'      => $campaign->id,
                     'description'      => "View charge — campaign #{$campaign->id}",
+                    'metadata'         => ['payment_mode' => $paymentMode],
                 ]);
             }
         }

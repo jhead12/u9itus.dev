@@ -580,6 +580,88 @@ test('politician analytics total spent is derived from mode-scoped usage ledger'
         ->assertViewHas('totalSpent', 35.0);
 });
 
+test('politician analytics budget and spent do not mix sandbox and live data and include usage deductions', function () {
+    config()->set('services.stripe.secret', 'sk_live_fake_analytics_mode_budget');
+
+    $user = makePolitician();
+    $politician = $user->politician;
+
+    $liveCampaign = makeCampaign($politician, [
+        'status' => CampaignStatus::Active->value,
+    ]);
+    $testCampaign = makeCampaign($politician, [
+        'status' => CampaignStatus::Active->value,
+    ]);
+
+    CampaignTransaction::create([
+        'politician_id' => $politician->id,
+        'campaign_id' => $liveCampaign->id,
+        'transaction_type' => 'charge',
+        'amount' => 100.00,
+        'currency' => 'USD',
+        'status' => 'succeeded',
+        'metadata' => ['payment_mode' => 'live'],
+    ]);
+
+    CampaignTransaction::create([
+        'politician_id' => $politician->id,
+        'campaign_id' => $testCampaign->id,
+        'transaction_type' => 'charge',
+        'amount' => 100.00,
+        'currency' => 'USD',
+        'status' => 'succeeded',
+        'metadata' => ['payment_mode' => 'test'],
+    ]);
+
+    PoliticianCredit::create([
+        'politician_id' => $politician->id,
+        'transaction_type' => 'purchase',
+        'amount' => 100.00,
+        'balance_after' => 100.00,
+        'description' => 'Live purchase',
+        'metadata' => ['payment_mode' => 'live'],
+        'created_at' => now()->subMinutes(4),
+    ]);
+
+    PoliticianCredit::create([
+        'politician_id' => $politician->id,
+        'transaction_type' => 'usage',
+        'campaign_id' => $liveCampaign->id,
+        'amount' => -20.00,
+        'balance_after' => 80.00,
+        'description' => 'Live campaign usage row without metadata',
+        'metadata' => null,
+        'created_at' => now()->subMinutes(3),
+    ]);
+
+    PoliticianCredit::create([
+        'politician_id' => $politician->id,
+        'transaction_type' => 'purchase',
+        'amount' => 100.00,
+        'balance_after' => 180.00,
+        'description' => 'Sandbox purchase',
+        'metadata' => ['payment_mode' => 'test'],
+        'created_at' => now()->subMinutes(2),
+    ]);
+
+    PoliticianCredit::create([
+        'politician_id' => $politician->id,
+        'transaction_type' => 'usage',
+        'campaign_id' => $testCampaign->id,
+        'amount' => -10.00,
+        'balance_after' => 170.00,
+        'description' => 'Sandbox usage row without metadata',
+        'metadata' => null,
+        'created_at' => now()->subMinute(),
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('politician.analytics'))
+        ->assertOk()
+        ->assertViewHas('totalBudget', 80.0)
+        ->assertViewHas('totalSpent', 20.0);
+});
+
 test('politician dashboard balance excludes test mode credits when stripe is live', function () {
     config()->set('services.stripe.secret', 'sk_live_fake_dashboard_mode_filter');
 
