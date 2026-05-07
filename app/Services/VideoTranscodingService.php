@@ -80,8 +80,6 @@ class VideoTranscodingService
      */
     public function encodeToH264(string $inputPath, string $outputPath, array $options = []): bool
     {
-    public function encodeToH264(string $inputPath, string $outputPath, array $options = []): bool
-    {
         if (!$this->ffmpeg) {
             logger()->warning('FFmpeg not available for transcoding');
             return false;
