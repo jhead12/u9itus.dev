@@ -796,11 +796,15 @@ class VoterController extends Controller
 
         // Already completed via a previous heartbeat — just report status
         if ($session->status === \App\Enums\ViewSessionStatus::Completed) {
+            $freshVoter = $voter->fresh();
+
             return response()->json([
                 'ok'             => true,
                 'already_completed' => true,
-                'qualified'      => $session->payment_status?->value === 'approved',
+                'qualified'      => (float) ($session->voter_payout_amount ?? 0) > 0,
                 'payout_earned'  => (float) $session->voter_payout_amount,
+                'pending_earnings' => (float) ($freshVoter->pending_earnings ?? 0),
+                'wallet_balance' => (float) ($freshVoter->wallet_balance ?? 0),
             ]);
         }
 
@@ -816,11 +820,15 @@ class VoterController extends Controller
 
         if ($watchedPct >= $minWatchPct) {
             $completed = $this->viewService->completeView($session, $watchedSeconds);
+            $freshVoter = $voter->fresh();
+
             return response()->json([
                 'ok'             => true,
                 'auto_completed' => true,
-                'qualified'      => $completed->payment_status?->value === 'approved',
+                'qualified'      => (float) ($completed->voter_payout_amount ?? 0) > 0,
                 'payout_earned'  => (float) $completed->voter_payout_amount,
+                'pending_earnings' => (float) ($freshVoter->pending_earnings ?? 0),
+                'wallet_balance' => (float) ($freshVoter->wallet_balance ?? 0),
             ]);
         }
 
@@ -860,9 +868,13 @@ class VoterController extends Controller
             (int) $request->total_seconds_watched
         );
 
+        $freshVoter = $voter->fresh();
+
         return response()->json([
-            'qualified'          => $completed->payment_status?->value === 'approved',
+            'qualified'          => (float) ($completed->voter_payout_amount ?? 0) > 0,
             'payout_earned'      => (float) $completed->voter_payout_amount,
+            'pending_earnings'   => (float) ($freshVoter->pending_earnings ?? 0),
+            'wallet_balance'     => (float) ($freshVoter->wallet_balance ?? 0),
             'status'             => $completed->status->value,
             'already_completed'  => $session->status === \App\Enums\ViewSessionStatus::Completed
                                     && $completed->status === \App\Enums\ViewSessionStatus::Completed

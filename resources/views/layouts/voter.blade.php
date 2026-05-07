@@ -148,13 +148,22 @@
         @auth
         @php $voter = auth()->user()->voter; @endphp
         @if($voter)
-        <div class="hidden sm:flex items-center gap-2 bg-emerald-900/30 border border-emerald-500/30 rounded-full px-4 py-1.5 text-sm">
-            <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
-            </svg>
-            <span class="text-emerald-300 font-semibold">${{ number_format($voter->wallet_balance ?? 0, 2) }}</span>
-            <span class="text-slate-500 text-xs">balance</span>
+        <div class="hidden sm:flex items-center gap-2 text-sm">
+            <div class="inline-flex items-center gap-2 bg-emerald-900/30 border border-emerald-500/30 rounded-full px-3 py-1.5">
+                <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
+                </svg>
+                <span class="text-emerald-300 font-semibold" data-wallet-balance>${{ number_format($voter->wallet_balance ?? 0, 2) }}</span>
+                <span class="text-slate-500 text-xs">wallet</span>
+            </div>
+            <div class="inline-flex items-center gap-2 bg-amber-900/30 border border-amber-500/30 rounded-full px-3 py-1.5">
+                <svg class="w-4 h-4 text-amber-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8V7m0 1v8m0 0v1"/>
+                </svg>
+                <span class="text-amber-300 font-semibold" data-pending-earnings>${{ number_format($voter->pending_earnings ?? 0, 2) }}</span>
+                <span class="text-slate-500 text-xs">pending</span>
+            </div>
         </div>
         @endif
         @endauth
@@ -240,11 +249,11 @@
                 @if($voter)
                 <div class="mt-3 grid grid-cols-2 gap-2 text-xs text-center">
                     <div class="bg-slate-800 rounded-lg py-2 px-1">
-                        <div class="text-emerald-400 font-bold">${{ number_format($voter->wallet_balance ?? 0, 2) }}</div>
+                        <div class="text-emerald-400 font-bold" data-wallet-balance>${{ number_format($voter->wallet_balance ?? 0, 2) }}</div>
                         <div class="text-slate-500 mt-0.5">Balance</div>
                     </div>
                     <div class="bg-slate-800 rounded-lg py-2 px-1">
-                        <div class="text-amber-400 font-bold">${{ number_format($voter->pending_earnings ?? 0, 2) }}</div>
+                        <div class="text-amber-400 font-bold" data-pending-earnings>${{ number_format($voter->pending_earnings ?? 0, 2) }}</div>
                         <div class="text-slate-500 mt-0.5">Pending</div>
                     </div>
                 </div>
@@ -622,7 +631,7 @@
                 })
                 .listen('.session.completed', e => {
                     const amount = e.payout_amount ?? '0.25';
-                    push(`💰 Earned $${amount}! Payment credited to your wallet.`, 'success');
+                    push(`💰 Earned $${amount}! Credited to pending earnings and queued for payout.`, 'success');
                     // Update wallet balance display
                     if (window.location.pathname.includes('/voter')) {
                         setTimeout(() => window.location.reload(), 2000);

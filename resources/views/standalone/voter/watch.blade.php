@@ -1225,6 +1225,23 @@
         }
     }
 
+    function updateDisplayedBalances(res) {
+        const walletValue = Number.parseFloat(res?.wallet_balance ?? NaN);
+        const pendingValue = Number.parseFloat(res?.pending_earnings ?? NaN);
+
+        if (Number.isFinite(walletValue)) {
+            document.querySelectorAll('[data-wallet-balance]').forEach((el) => {
+                el.textContent = `$${walletValue.toFixed(2)}`;
+            });
+        }
+
+        if (Number.isFinite(pendingValue)) {
+            document.querySelectorAll('[data-pending-earnings]').forEach((el) => {
+                el.textContent = `$${pendingValue.toFixed(2)}`;
+            });
+        }
+    }
+
     function startUiTimer(getCurrentTime) {
         if (uiTimer) return;
         uiTimer = setInterval(() => {
@@ -1349,7 +1366,8 @@
                     revealSurveyPanel();
                     showReplayButton();
                     if (res.qualified) {
-                        showStatus(`\u{1F389} You earned $${parseFloat(res.payout_earned).toFixed(2)}! Payment is being processed.`, 'success');
+                        updateDisplayedBalances(res);
+                        showStatus(`\u{1F389} You earned $${parseFloat(res.payout_earned).toFixed(2)}! Credited to pending earnings and queued for payout.`, 'success');
                         statusMsg.innerHTML += ` <a href="${dashboardUrl}" class="underline text-emerald-400 ml-2">View earnings \u2192</a>`;
                         statusMsg.innerHTML += ' <span class="text-slate-300 ml-2">Replay available below.</span>';
                     } else {
@@ -1363,7 +1381,7 @@
     async function handleVideoEnded(actualPlaybackSeconds) {
         // If heartbeat already qualified and credited the session, just show a tidy message
         if (completed) {
-            showStatus('\u2713 Video finished \u2014 earnings already credited to your wallet.', 'success');
+            showStatus('\u2713 Video finished \u2014 earnings already credited to pending earnings.', 'success');
             return;
         }
         if (!sessionId) return;
@@ -1384,11 +1402,13 @@
             revealSurveyPanel();
             if (res.already_completed) {
                 // Heartbeat beat us to it — earnings already recorded
-                showStatus('\u2713 Video finished \u2014 earnings already credited to your wallet.', 'success');
+                updateDisplayedBalances(res);
+                showStatus('\u2713 Video finished \u2014 earnings already credited to pending earnings.', 'success');
                 statusMsg.innerHTML += ' <a href="{{ route("voter.dashboard") }}" class="underline text-emerald-400 ml-2">View earnings →</a>';
                 statusMsg.innerHTML += ' <span class="text-slate-300 ml-2">Replay available below.</span>';
             } else if (res.qualified) {
-                showStatus(`\u{1F389} You earned $${parseFloat(res.payout_earned).toFixed(2)}! Payment is being processed.`, 'success');
+                updateDisplayedBalances(res);
+                showStatus(`\u{1F389} You earned $${parseFloat(res.payout_earned).toFixed(2)}! Credited to pending earnings and queued for payout.`, 'success');
                 statusMsg.innerHTML += ' <a href="{{ route("voter.dashboard") }}" class="underline text-emerald-400 ml-2">View earnings →</a>';
                 statusMsg.innerHTML += ' <span class="text-slate-300 ml-2">Replay available below.</span>';
             } else {
