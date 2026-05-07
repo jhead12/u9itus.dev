@@ -28,8 +28,8 @@ class PayPalPayoutService
         $this->baseUrl       = $sandbox
             ? 'https://api-m.sandbox.paypal.com'
             : 'https://api-m.paypal.com';
-        $this->clientId      = config('services.paypal.client_id', '');
-        $this->clientSecret  = config('services.paypal.client_secret', '');
+        $this->clientId      = (string) config('services.paypal.client_id', '');
+        $this->clientSecret  = (string) config('services.paypal.client_secret', '');
         $this->webhookId     = (string) config('services.paypal.webhook_id', '');
     }
 
