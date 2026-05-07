@@ -1522,15 +1522,36 @@ class AdminController extends Controller
     /**
      * Show pending payouts.
      */
-    public function pendingPayouts()
+    public function pendingPayouts(Request $request)
     {
-        $sessions = ViewSession::with(['voter', 'campaign'])
-            ->where('status', 'completed')
-            ->whereIn('payment_status', [ViewPaymentStatus::Pending->value, ViewPaymentStatus::Approved->value])
-            ->latest()
-            ->paginate(30);
+        $search = trim((string) $request->query('search', ''));
 
-        return view('standalone.admin.payouts-pending', compact('sessions'));
+        $sessionsQuery = ViewSession::with(['voter.user', 'campaign'])
+            ->where('status', 'completed')
+            ->whereIn('payment_status', [ViewPaymentStatus::Pending->value, ViewPaymentStatus::Approved->value]);
+
+        if ($search !== '') {
+            $sessionsQuery->where(function ($query) use ($search) {
+                $query->whereHas('campaign', function ($campaignQuery) use ($search) {
+                    $campaignQuery->where('title', 'like', "%{$search}%");
+                })->orWhereHas('voter', function ($voterQuery) use ($search) {
+                    $voterQuery->where('email', 'like', "%{$search}%")
+                        ->orWhere('full_name', 'like', "%{$search}%")
+                        ->orWhereHas('user', function ($userQuery) use ($search) {
+                            $userQuery->where('email', 'like', "%{$search}%")
+                                ->orWhere('name', 'like', "%{$search}%");
+                        });
+                })->orWhere('processor_reference', 'like', "%{$search}%")
+                  ->orWhere('processor_selected', 'like', "%{$search}%");
+            });
+        }
+
+        $sessions = $sessionsQuery
+            ->latest()
+            ->paginate(30)
+            ->withQueryString();
+
+        return view('standalone.admin.payouts-pending', compact('sessions', 'search'));
     }
 
     /**

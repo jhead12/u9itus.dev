@@ -14,6 +14,32 @@
         <div class="px-5 py-4 border-b border-slate-700/50">
             <h3 class="text-sm font-semibold text-white">Pending Payout Sessions</h3>
             <p class="text-xs text-slate-500 mt-0.5">{{ $sessions->total() }} sessions awaiting payout</p>
+
+            <form method="GET" class="mt-4 flex flex-col sm:flex-row sm:items-end gap-2 sm:gap-3">
+                <div class="flex-1">
+                    <label for="pending-payout-search" class="block text-xs text-slate-400 mb-1">Search</label>
+                    <input
+                        id="pending-payout-search"
+                        type="text"
+                        name="search"
+                        value="{{ $search ?? '' }}"
+                        placeholder="Find by voter, campaign, processor, or reference"
+                        class="w-full rounded-lg bg-slate-900 border border-slate-700 text-sm text-slate-100 px-3 py-2"
+                    >
+                </div>
+                <div class="flex gap-2">
+                    <button type="submit" class="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-sm font-semibold transition">
+                        Search
+                    </button>
+                    <a href="{{ route('admin.payouts.pending') }}" class="px-4 py-2 rounded-lg border border-slate-600 text-slate-300 text-sm hover:text-white hover:border-slate-500 transition">
+                        Clear
+                    </a>
+                </div>
+            </form>
+
+            @if(!empty($search ?? ''))
+                <p class="text-xs text-slate-500 mt-2">Showing results for "{{ $search }}"</p>
+            @endif
         </div>
 
         @if($sessions->isEmpty())
