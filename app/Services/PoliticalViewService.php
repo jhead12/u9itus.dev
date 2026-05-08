@@ -107,8 +107,7 @@ class PoliticalViewService
             $referralCommissionCents = 0;
 
             // Referral commission: 10% of voter payout if the voter was referred
-            // by either another voter or a politician.
-            if ($qualifies && ($session->voter->referred_by_voter_id || $session->voter->referred_by_politician_id)) {
+            if ($qualifies && $session->voter->referred_by_voter_id) {
                 $referralCommissionCents = \App\Support\Money::percentOf($voterPayoutCents, config('u9itus.referral_commission_percent', 10));
                 $platformRevenueCents -= $referralCommissionCents;
             }

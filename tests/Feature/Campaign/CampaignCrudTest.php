@@ -662,6 +662,53 @@ test('politician analytics budget and spent do not mix sandbox and live data and
         ->assertViewHas('totalSpent', 20.0);
 });
 
+test('politician analytics total views and active campaigns are scoped to active payment mode', function () {
+    config()->set('services.stripe.secret', 'sk_live_fake_analytics_views_mode_scope');
+
+    $user = makePolitician();
+    $politician = $user->politician;
+
+    $liveCampaign = makeCampaign($politician, [
+        'status' => CampaignStatus::Active->value,
+        'views_completed' => 40,
+    ]);
+
+    $testCampaign = makeCampaign($politician, [
+        'status' => CampaignStatus::Active->value,
+        'views_completed' => 15,
+    ]);
+
+    CampaignTransaction::create([
+        'politician_id' => $politician->id,
+        'campaign_id' => $liveCampaign->id,
+        'transaction_type' => 'charge',
+        'amount' => 100.00,
+        'currency' => 'USD',
+        'status' => 'succeeded',
+        'metadata' => ['payment_mode' => 'live'],
+    ]);
+
+    CampaignTransaction::create([
+        'politician_id' => $politician->id,
+        'campaign_id' => $testCampaign->id,
+        'transaction_type' => 'charge',
+        'amount' => 100.00,
+        'currency' => 'USD',
+        'status' => 'succeeded',
+        'metadata' => ['payment_mode' => 'test'],
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('politician.analytics'))
+        ->assertOk()
+        ->assertViewHas('totalViews', 40)
+        ->assertViewHas('activeCampaigns', 1)
+        ->assertViewHas('campaigns', function ($campaigns) use ($liveCampaign) {
+            return $campaigns->count() === 1
+                && (int) $campaigns->first()->id === (int) $liveCampaign->id;
+        });
+});
+
 test('politician dashboard balance excludes test mode credits when stripe is live', function () {
     config()->set('services.stripe.secret', 'sk_live_fake_dashboard_mode_filter');
 

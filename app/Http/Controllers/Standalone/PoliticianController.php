@@ -231,6 +231,29 @@ class PoliticianController extends Controller
     }
 
     /**
+     * Campaign ids associated with the selected payment mode.
+     *
+     * We infer campaign mode from campaign transaction metadata so analytics
+     * cards and campaign breakdowns do not blend live and test cohorts.
+     *
+     * @return array<int, int>
+     */
+    private function modeAwareCampaignIds(int $politicianId, string $mode): array
+    {
+        return $this->applyPaymentModeFilter(
+            CampaignTransaction::query()
+                ->select('campaign_id')
+                ->where('politician_id', $politicianId)
+                ->whereNotNull('campaign_id')
+                ->distinct(),
+            $mode
+        )
+            ->pluck('campaign_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+    }
+
+    /**
      * Show the politician dashboard.
      */
     public function dashboard()
@@ -1069,17 +1092,27 @@ class PoliticianController extends Controller
         abort_unless($politician, 403);
 
         $activePaymentMode = $this->activePaymentMode();
+        $modeCampaignIds = $this->modeAwareCampaignIds($politician->id, $activePaymentMode);
+        $hasCampaignTransactions = CampaignTransaction::query()
+            ->where('politician_id', $politician->id)
+            ->whereNotNull('campaign_id')
+            ->exists();
 
-        $campaigns = $politician->campaigns()
+        $campaignsQuery = $politician->campaigns();
+
+        if ($hasCampaignTransactions) {
+            $campaignsQuery->whereIn('id', !empty($modeCampaignIds) ? $modeCampaignIds : [0]);
+        }
+
+        $campaigns = $campaignsQuery
             ->withCount(['viewSessions as total_sessions'])
             ->orderByDesc('created_at')
             ->get();
 
         $totalViews    = $campaigns->sum('views_completed');
-        $activeCampaigns = $campaigns->where('status.value', 'active')
-            ->merge($campaigns->whereStrict('status', 'active'))
-            ->unique('id')
-            ->count();
+        $activeCampaigns = $campaigns->filter(function (PoliticalCampaign $campaign): bool {
+            return ($campaign->status?->value ?? (string) $campaign->status) === CampaignStatus::Active->value;
+        })->count();
 
         $creditLedgerEntries = $this->modeAwareCreditLedgerQuery($politician->id, $activePaymentMode)
             ->get(['amount', 'transaction_type']);
