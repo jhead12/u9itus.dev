@@ -1130,7 +1130,21 @@ class PoliticianController extends Controller
                 ->whereNull('campaign_id'),
             $activePaymentMode
         )
+            ->with(['credits' => function ($query) {
+                $query->where('transaction_type', 'purchase');
+            }])
             ->get()
+            ->filter(function (CampaignTransaction $tx): bool {
+                $purchaseCredits = $tx->credits;
+
+                // Exclude reconciled ghost charges that never credited the ledger.
+                if ($purchaseCredits->isNotEmpty()) {
+                    return (float) $purchaseCredits->sum(fn ($entry) => (float) $entry->amount) > 0;
+                }
+
+                // Keep legacy rows that predate related transaction linkage.
+                return true;
+            })
             ->map(function (CampaignTransaction $tx): array {
                 $metadata = is_array($tx->metadata) ? $tx->metadata : [];
 
