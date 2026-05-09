@@ -2,6 +2,7 @@
 
 use App\Exceptions\OcrCandidateImportException;
 use App\Jobs\ProcessOcrCandidateImportJob;
+use App\Models\Politician;
 use App\Services\OcrCandidateImportService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
@@ -46,6 +47,26 @@ test('ProcessOcrCandidateImportJob writes parsed json and calls artisan import c
     $content = json_decode(Storage::disk('local')->get(array_values($jsonFiles)[0]), true);
     expect($content)->toHaveCount(2);
     expect($content[0]['full_name'])->toBe('Jane Doe');
+
+    $this->assertDatabaseHas('politicians', [
+        'full_name' => 'Jane Doe',
+        'state' => 'CA',
+        'party_affiliation' => 'Democratic',
+        'verified_official' => false,
+        'verification_status' => 'unverified',
+        'is_active' => true,
+        'page_published' => true,
+    ]);
+
+    $this->assertDatabaseHas('politicians', [
+        'full_name' => 'John Smith',
+        'state' => 'CA',
+        'party_affiliation' => 'Republican',
+        'verified_official' => false,
+        'verification_status' => 'unverified',
+        'is_active' => true,
+        'page_published' => true,
+    ]);
 });
 
 test('ProcessOcrCandidateImportJob does not call artisan when extraction throws', function () {
@@ -94,4 +115,6 @@ test('ProcessOcrCandidateImportJob respects dry_run flag passed to artisan', fun
     );
 
     $job->handle($mockService);
+
+    expect(Politician::count())->toBe(0);
 });

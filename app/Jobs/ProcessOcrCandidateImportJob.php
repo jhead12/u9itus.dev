@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Exceptions\OcrCandidateImportException;
+use App\Models\Politician;
 use App\Services\OcrCandidateImportService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -12,6 +13,7 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class ProcessOcrCandidateImportJob implements ShouldQueue
 {
@@ -89,10 +91,121 @@ class ProcessOcrCandidateImportJob implements ShouldQueue
             return;
         }
 
+        $profileStats = [
+            'created' => 0,
+            'updated' => 0,
+            'skipped' => 0,
+        ];
+
+        if (! $this->dryRun) {
+            $profileStats = $this->upsertUnverifiedProfiles($records);
+        }
+
         Log::info('[OCR] Import job completed', [
             'source'         => $this->source,
             'records_parsed' => $count,
+            'profiles_created' => $profileStats['created'],
+            'profiles_updated' => $profileStats['updated'],
+            'profiles_skipped' => $profileStats['skipped'],
             'output'         => $output,
         ]);
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $records
+     * @return array{created: int, updated: int, skipped: int}
+     */
+    protected function upsertUnverifiedProfiles(array $records): array
+    {
+        $created = 0;
+        $updated = 0;
+        $skipped = 0;
+
+        foreach ($records as $record) {
+            $fullName = trim((string) ($record['full_name'] ?? ''));
+            if ($fullName === '') {
+                $skipped++;
+                continue;
+            }
+
+            $office = $this->nullableString($record['political_office'] ?? null);
+            $state = strtoupper((string) ($record['state'] ?? ''));
+            $state = $state !== '' ? $state : null;
+
+            $query = Politician::query()
+                ->whereNull('user_id')
+                ->whereRaw('LOWER(full_name) = ?', [strtolower($fullName)]);
+
+            if ($office !== null) {
+                $query->whereRaw('LOWER(COALESCE(political_office, "")) = ?', [strtolower($office)]);
+            }
+
+            if ($state !== null) {
+                $query->whereRaw('UPPER(COALESCE(state, "")) = ?', [$state]);
+            }
+
+            $existing = $query->first();
+
+            $payload = [
+                'full_name' => $fullName,
+                'political_office' => $office,
+                'governance_level' => $this->nullableString($record['governance_level'] ?? null),
+                'district' => $this->nullableString($record['district'] ?? null),
+                'party_affiliation' => $this->nullableString($record['party_affiliation'] ?? null),
+                'state' => $state,
+                'city' => $this->nullableString($record['city'] ?? null),
+                'website_url' => $this->nullableUrl($record['website_url'] ?? ($record['website'] ?? null)),
+                'bio' => $existing?->bio ?: $this->defaultBio(),
+                'verified_official' => false,
+                'verification_status' => 'unverified',
+                'verified_at' => null,
+                'is_active' => true,
+                'page_published' => true,
+            ];
+
+            if ($existing) {
+                $existing->fill($payload);
+                $existing->save();
+                $updated++;
+                continue;
+            }
+
+            Politician::create($payload);
+            $created++;
+        }
+
+        return [
+            'created' => $created,
+            'updated' => $updated,
+            'skipped' => $skipped,
+        ];
+    }
+
+    protected function defaultBio(): string
+    {
+        return 'Unverified profile imported from OCR candidate records and pending campaign ownership claim.';
+    }
+
+    protected function nullableString(mixed $value): ?string
+    {
+        $str = trim((string) $value);
+
+        return $str === '' ? null : $str;
+    }
+
+    protected function nullableUrl(mixed $value): ?string
+    {
+        $raw = trim((string) $value);
+        if ($raw === '') {
+            return null;
+        }
+
+        if (! Str::startsWith($raw, ['http://', 'https://'])) {
+            $raw = 'https://' . ltrim($raw, '/');
+        }
+
+        $validated = filter_var($raw, FILTER_VALIDATE_URL);
+
+        return is_string($validated) ? $validated : null;
     }
 }
