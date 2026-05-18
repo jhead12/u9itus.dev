@@ -6,6 +6,13 @@
 **Deployment:** Railway.app with Metal Build  
 **Production URL:** https://u9itus-production.up.railway.app
 
+## Wiki
+
+Project wiki content is stored in-repo at:
+
+- `/wiki/Home.md` (entry page)
+- `/wiki/` (all wiki pages)
+
 ## Overview
 
 U9itus is a **standalone political advertising platform** that connects **politicians and local governance officials** directly with **potential voters** through paid video messages and live feeds. Politicians pay $0.60 per view; voters earn $0.25 for watching the full message. The platform includes **secure token-based ad delivery**, referral commissions, advanced fraud prevention, and automated batch payouts.
