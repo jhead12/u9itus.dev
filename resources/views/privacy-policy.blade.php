@@ -180,6 +180,9 @@
                             In addition, Head Enterprises, et al may engage third parties to conduct risk control and fraud detection/prevention activities.
                         </p>
                         <p class="pp-body">
+                            We use Stripe for risk and identity verification services. We share personally identifying information with Stripe, which analyzes and uses it to operate and improve the services it provides to us, including for risk evaluation and identity verification. You can learn more about Stripe and read its privacy policy <a href="https://stripe.com/privacy" target="_blank" rel="noopener noreferrer" class="text-emerald-400 hover:text-emerald-300 underline">here</a>.
+                        </p>
+                        <p class="pp-body">
                             As part of such engagements, if you initiate a transaction on the Site or through the Services, Head Enterprises, et al may give such third parties access to your pertinent credit card and other personal information.
                         </p>
                         
