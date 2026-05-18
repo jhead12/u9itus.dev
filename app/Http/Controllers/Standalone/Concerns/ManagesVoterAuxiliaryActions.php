@@ -370,8 +370,8 @@ trait ManagesVoterAuxiliaryActions
         try {
             $link = $stripeConnect->createOnboardingLink(
                 $voter,
-                route('voter.earnings'),
-                route('voter.earnings')
+                secure_url(route('voter.earnings', [], false)),
+                secure_url(route('voter.earnings', [], false))
             );
 
             $voter->update(['payment_method' => 'stripe']);
@@ -409,8 +409,8 @@ trait ManagesVoterAuxiliaryActions
                 'stripe_account_id' => $voter->stripe_account_id,
                 'app_url'          => config('app.url'),
                 'request_url'      => request()->fullUrl(),
-                'return_url'       => route('voter.earnings'),
-                'refresh_url'      => route('voter.earnings'),
+                'return_url'       => secure_url(route('voter.earnings', [], false)),
+                'refresh_url'      => secure_url(route('voter.earnings', [], false)),
                 ...$stripeCtx,
             ];
 
