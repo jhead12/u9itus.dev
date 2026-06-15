@@ -319,11 +319,18 @@
 
                     {{-- Latest news headline --}}
                     @php
-                        $latestArticle = \App\Models\CandidateNewsArticle::query()
-                            ->where('politician_id', $politician->id)
-                            ->where('scraped_at', '>=', now()->subHours(24))
-                            ->orderByDesc('published_at')
-                            ->first();
+                        $latestArticle = null;
+                        try {
+                            if (\Illuminate\Support\Facades\Schema::hasTable('candidate_news_articles')) {
+                                $latestArticle = \App\Models\CandidateNewsArticle::query()
+                                    ->where('politician_id', $politician->id)
+                                    ->where('scraped_at', '>=', now()->subHours(24))
+                                    ->orderByDesc('published_at')
+                                    ->first();
+                            }
+                        } catch (\Throwable $e) {
+                            // Table may not exist yet — skip news block gracefully
+                        }
                     @endphp
                     @if($latestArticle)
                     <div class="mt-3 pt-3 border-t border-slate-700/50">
