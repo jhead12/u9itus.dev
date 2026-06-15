@@ -828,6 +828,226 @@
         </section>
         @endif
 
+        {{-- ── In the News ─────────────────────────────────────────────────── --}}
+        @php
+            $newsService = app(\App\Services\CandidateNewsService::class);
+            $newsArticles = $newsService->getForPolitician($politician);
+
+            // Build the source list: national providers + state-local providers
+            $nationalSources  = config('news_sources.national', []);
+            $stateSources     = config('news_sources.state.' . strtoupper((string) ($politician->state ?? '')), []);
+            $allConfigSources = array_merge($nationalSources, $stateSources);
+
+            // Build a map: provider_id => label+icon (for filter pills)
+            $sourceMap = [];
+            foreach ($allConfigSources as $src) {
+                $sourceMap[$src['id']] = ['label' => $src['label'], 'icon' => $src['icon']];
+            }
+            // Add any API-based providers that may appear in DB
+            $sourceMap['newsapi'] = ['label' => 'NewsAPI',  'icon' => '📰'];
+            $sourceMap['gnews']   = ['label' => 'GNews',    'icon' => '📰'];
+
+            // Collect which providers actually have articles
+            $activeProviders = $newsArticles->pluck('provider')->unique()->values()->all();
+
+            // Prepare articles as a JSON-safe array for Alpine
+            $articlesJson = $newsArticles->map(fn($a) => [
+                'id'           => $a->id,
+                'provider'     => $a->provider,
+                'headline'     => $a->headline,
+                'source_name'  => $a->source_name,
+                'source_url'   => $a->source_url,
+                'snippet'      => $a->snippet,
+                'image_url'    => $a->image_url,
+                'published_at' => $a->published_at?->diffForHumans(),
+            ])->values()->toJson();
+        @endphp
+        @if($newsArticles->isNotEmpty())
+        <section
+            x-data="{
+                articles: {{ $articlesJson }},
+                selected: [],
+                get filtered() {
+                    if (this.selected.length === 0) return this.articles;
+                    return this.articles.filter(a => this.selected.includes(a.provider));
+                },
+                toggle(id) {
+                    if (this.selected.includes(id)) {
+                        this.selected = this.selected.filter(s => s !== id);
+                    } else {
+                        this.selected.push(id);
+                    }
+                },
+                isActive(id) { return this.selected.includes(id); }
+            }"
+        >
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+                <h2 class="text-xl font-bold text-white flex items-center gap-2">
+                    <span class="w-1 h-6 rounded-full inline-block flex-shrink-0" style="background:var(--p13-accent,#f59e0b)"></span>
+                    In the News
+                </h2>
+                <span class="text-xs text-slate-500">
+                    Select sources to filter &nbsp;·&nbsp;
+                    <button type="button" @click="selected = []" class="text-emerald-400 hover:underline">Show all</button>
+                </span>
+            </div>
+
+            {{-- Source-picker pills --}}
+            <div class="flex flex-wrap gap-2 mb-5">
+                {{-- "All" shortcut --}}
+                <button
+                    type="button"
+                    @click="selected = []"
+                    :class="selected.length === 0
+                        ? 'bg-emerald-600 border-emerald-500 text-white'
+                        : 'bg-slate-800/60 border-slate-700/60 text-slate-400 hover:border-slate-600 hover:text-white'"
+                    class="inline-flex items-center gap-1.5 text-xs font-medium border rounded-full px-3 py-1 transition">
+                    All
+                </button>
+
+                @foreach($activeProviders as $providerId)
+                @php
+                    $srcMeta = $sourceMap[$providerId] ?? ['label' => $providerId, 'icon' => '📰'];
+                @endphp
+                <button
+                    type="button"
+                    @click="toggle('{{ $providerId }}')"
+                    :class="isActive('{{ $providerId }}')
+                        ? 'bg-emerald-600 border-emerald-500 text-white'
+                        : 'bg-slate-800/60 border-slate-700/60 text-slate-400 hover:border-slate-600 hover:text-white'"
+                    class="inline-flex items-center gap-1.5 text-xs font-medium border rounded-full px-3 py-1 transition">
+                    <span>{{ $srcMeta['icon'] }}</span>
+                    <span>{{ $srcMeta['label'] }}</span>
+                </button>
+                @endforeach
+            </div>
+
+            {{-- Article list (filtered by Alpine) --}}
+            <div class="space-y-3">
+                <template x-for="article in filtered" :key="article.id">
+                    <a :href="article.source_url" target="_blank" rel="noopener noreferrer"
+                       class="flex gap-4 bg-slate-800/40 border border-slate-700/40 hover:border-slate-600/60 rounded-xl p-4 transition group">
+                        <template x-if="article.image_url">
+                            <img :src="article.image_url" alt=""
+                                 class="w-20 h-16 object-cover rounded-lg flex-shrink-0 bg-slate-700"
+                                 loading="lazy" @error="$el.style.display='none'">
+                        </template>
+                        <div class="min-w-0 flex-1">
+                            <p class="text-sm font-medium text-slate-200 group-hover:text-white line-clamp-2 leading-snug transition"
+                               x-text="article.headline"></p>
+                            <p class="mt-1 text-xs text-slate-500 flex items-center gap-2">
+                                <span class="font-medium text-slate-400" x-text="article.source_name"></span>
+                                <span x-show="article.source_name && article.published_at">·</span>
+                                <span x-text="article.published_at"></span>
+                            </p>
+                            <p class="mt-1 text-xs text-slate-500 line-clamp-2" x-text="article.snippet"></p>
+                        </div>
+                        <span class="text-slate-600 group-hover:text-slate-400 flex-shrink-0 self-center transition">↗</span>
+                    </a>
+                </template>
+
+                {{-- Empty state when a filter returns no results --}}
+                <p x-show="filtered.length === 0"
+                   class="text-sm text-slate-500 text-center py-6 bg-slate-800/30 border border-slate-700/40 rounded-xl">
+                    No articles from the selected source(s) yet. Try another or
+                    <button type="button" @click="selected = []" class="text-emerald-400 hover:underline">show all</button>.
+                </p>
+            </div>
+        </section>
+        @endif
+
+        {{-- ── Follow the Money (OpenSecrets / FEC donor data) ────────────── --}}
+        @php
+            $donorData   = $transparencyData['opensecrets'] ?? null;
+            $fecData     = $transparencyData['fec'] ?? null;
+            $topDonors   = $donorData['sections']['top_contributors']['items'] ?? [];
+            $topIndustries = $donorData['sections']['top_industries']['items'] ?? [];
+            $fecSummary  = $fecData['sections']['summary'] ?? null;
+        @endphp
+        @if(!empty($topDonors) || !empty($topIndustries) || $fecSummary)
+        <section>
+            <h2 class="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                <span class="w-1 h-6 rounded-full inline-block" style="background:var(--p13-accent,#f59e0b)"></span>
+                Follow the Money
+            </h2>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+                {{-- FEC totals banner --}}
+                @if($fecSummary)
+                <div class="sm:col-span-2 bg-slate-800/40 border border-slate-700/40 rounded-xl p-5">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-3">
+                        FEC Filing Summary
+                        @if(!empty($fecData['source_url']))
+                            · <a href="{{ $fecData['source_url'] }}" target="_blank" rel="noopener" class="text-emerald-400 hover:underline">View on FEC.gov ↗</a>
+                        @endif
+                    </p>
+                    <dl class="flex flex-wrap gap-6">
+                        @if(!empty($fecSummary['total_receipts']))
+                        <div>
+                            <dt class="text-xs text-slate-500">Total Raised</dt>
+                            <dd class="text-lg font-bold text-white">${{ number_format($fecSummary['total_receipts']) }}</dd>
+                        </div>
+                        @endif
+                        @if(!empty($fecSummary['total_disbursements']))
+                        <div>
+                            <dt class="text-xs text-slate-500">Total Spent</dt>
+                            <dd class="text-lg font-bold text-white">${{ number_format($fecSummary['total_disbursements']) }}</dd>
+                        </div>
+                        @endif
+                        @if(!empty($fecSummary['cash_on_hand_end_period']))
+                        <div>
+                            <dt class="text-xs text-slate-500">Cash on Hand</dt>
+                            <dd class="text-lg font-bold text-emerald-400">${{ number_format($fecSummary['cash_on_hand_end_period']) }}</dd>
+                        </div>
+                        @endif
+                    </dl>
+                </div>
+                @endif
+
+                {{-- Top individual donors --}}
+                @if(!empty($topDonors))
+                <div class="bg-slate-800/40 border border-slate-700/40 rounded-xl p-5">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-3">Top Donors</p>
+                    <ol class="space-y-2">
+                        @foreach(array_slice($topDonors, 0, 5) as $i => $donor)
+                        <li class="flex items-center justify-between gap-2">
+                            <span class="text-xs text-slate-400 tabular-nums w-4">{{ $i + 1 }}.</span>
+                            <span class="text-sm text-slate-200 flex-1 truncate">{{ $donor['name'] ?? '—' }}</span>
+                            @if(!empty($donor['total']))
+                            <span class="text-sm font-semibold text-white tabular-nums">${{ number_format($donor['total']) }}</span>
+                            @endif
+                        </li>
+                        @endforeach
+                    </ol>
+                    @if(!empty($donorData['source_url']))
+                    <a href="{{ $donorData['source_url'] }}" target="_blank" rel="noopener"
+                       class="mt-3 inline-block text-xs text-emerald-400 hover:underline">Full report on OpenSecrets ↗</a>
+                    @endif
+                </div>
+                @endif
+
+                {{-- Top funding industries --}}
+                @if(!empty($topIndustries))
+                <div class="bg-slate-800/40 border border-slate-700/40 rounded-xl p-5">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-3">Top Funding Industries</p>
+                    <ol class="space-y-2">
+                        @foreach(array_slice($topIndustries, 0, 5) as $i => $industry)
+                        <li class="flex items-center justify-between gap-2">
+                            <span class="text-xs text-slate-400 tabular-nums w-4">{{ $i + 1 }}.</span>
+                            <span class="text-sm text-slate-200 flex-1 truncate">{{ $industry['industry_name'] ?? $industry['name'] ?? '—' }}</span>
+                            @if(!empty($industry['total']))
+                            <span class="text-sm font-semibold text-white tabular-nums">${{ number_format($industry['total']) }}</span>
+                            @endif
+                        </li>
+                        @endforeach
+                    </ol>
+                </div>
+                @endif
+
+            </div>
+        </section>
+        @endif
+
         @if(!empty($researchLinks))
         <section>
             <div class="border border-slate-700/40 bg-slate-800/30 rounded-xl p-6">

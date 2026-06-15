@@ -317,6 +317,28 @@
                         @endif
                     </div>
 
+                    {{-- Latest news headline --}}
+                    @php
+                        $latestArticle = \App\Models\CandidateNewsArticle::query()
+                            ->where('politician_id', $politician->id)
+                            ->where('scraped_at', '>=', now()->subHours(24))
+                            ->orderByDesc('published_at')
+                            ->first();
+                    @endphp
+                    @if($latestArticle)
+                    <div class="mt-3 pt-3 border-t border-slate-700/50">
+                        <p class="text-[10px] uppercase tracking-wide text-slate-500 font-semibold mb-1">Latest News</p>
+                        <a href="{{ $latestArticle->source_url }}" target="_blank" rel="noopener noreferrer"
+                           class="text-xs text-slate-400 hover:text-white line-clamp-2 leading-snug transition"
+                           onclick="event.stopPropagation()">
+                            {{ $latestArticle->headline }}
+                        </a>
+                        @if($latestArticle->published_at)
+                        <p class="text-[10px] text-slate-600 mt-0.5">{{ $latestArticle->published_at->diffForHumans() }}</p>
+                        @endif
+                    </div>
+                    @endif
+
                     {{-- View Profile CTA --}}
                     <div class="mt-3 pt-3 border-t border-slate-700/50">
                         @if($canOpenProfile)

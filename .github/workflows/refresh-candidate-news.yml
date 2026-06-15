@@ -1,0 +1,95 @@
+name: Refresh Candidate News
+
+# Runs every 6 hours and can be triggered manually from the Actions tab.
+on:
+  schedule:
+    - cron: "0 */6 * * *"   # 00:00, 06:00, 12:00, 18:00 UTC
+  workflow_dispatch:
+    inputs:
+      stale_hours:
+        description: "Treat news older than N hours as stale"
+        default: "6"
+        required: false
+      limit:
+        description: "Max candidates to refresh per run"
+        default: "50"
+        required: false
+      dry_run:
+        description: "Dry-run (report only, no fetching)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  refresh-news:
+    name: Fetch candidate headlines
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── Checkout ────────────────────────────────────────────────────────────
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # ── PHP ─────────────────────────────────────────────────────────────────
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, pdo_mysql
+          coverage: none
+
+      # ── Composer ────────────────────────────────────────────────────────────
+      - name: Cache Composer packages
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: ${{ runner.os }}-composer-${{ hashFiles('composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Install Composer dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress --no-dev
+
+      # ── Laravel env ─────────────────────────────────────────────────────────
+      # All secrets are set in GitHub → Settings → Secrets → Actions.
+      # Required: APP_KEY, DB_HOST, DB_PORT, DB_DATABASE, DB_USERNAME, DB_PASSWORD
+      # Optional: NEWSAPI_KEY, GNEWS_API_KEY
+      - name: Write .env
+        run: |
+          cat > .env <<EOF
+          APP_ENV=production
+          APP_KEY=${{ secrets.APP_KEY }}
+          APP_DEBUG=false
+          APP_URL=${{ secrets.APP_URL }}
+
+          DB_CONNECTION=mysql
+          DB_HOST=${{ secrets.DB_HOST }}
+          DB_PORT=${{ secrets.DB_PORT }}
+          DB_DATABASE=${{ secrets.DB_DATABASE }}
+          DB_USERNAME=${{ secrets.DB_USERNAME }}
+          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+
+          NEWSAPI_KEY=${{ secrets.NEWSAPI_KEY }}
+          GNEWS_API_KEY=${{ secrets.GNEWS_API_KEY }}
+
+          CACHE_DRIVER=database
+          SESSION_DRIVER=database
+          QUEUE_CONNECTION=sync
+          LOG_CHANNEL=stderr
+          EOF
+
+      # ── Run migrations (only new ones; safe to run on every job) ─────────────
+      - name: Run pending migrations
+        run: php artisan migrate --force --no-interaction
+
+      # ── Refresh news ─────────────────────────────────────────────────────────
+      - name: Refresh candidate news
+        run: |
+          STALE=${{ github.event.inputs.stale_hours || '6' }}
+          LIMIT=${{ github.event.inputs.limit || '50' }}
+          DRY=${{ github.event.inputs.dry_run == 'true' && '--dry-run' || '' }}
+          php artisan candidates:refresh-news \
+            --stale-hours="${STALE}" \
+            --limit="${LIMIT}" \
+            ${DRY}

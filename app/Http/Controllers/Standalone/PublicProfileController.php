@@ -743,15 +743,23 @@ class PublicProfileController extends Controller
             return 'fallback:' . $politician->id;
         }
 
+        // Collapse all unclaimed federal records for the same person regardless of
+        // which office title they were imported under (e.g. "US Representative" vs
+        // "US Senator" for the same individual). Name + state is the primary signal;
+        // photo and website are used to further disambiguate common names.
         if ($photo !== '') {
-            return 'federal-photo:' . $name . '|' . $state . '|' . $photo;
+            return 'federal:' . $name . '|' . $state . '|photo:' . md5($photo);
         }
 
         if ($website !== '') {
-            return 'federal-site:' . $name . '|' . $state . '|' . $website;
+            return 'federal-site:' . $name . '|' . $state . '|' . md5($website);
         }
 
-        return 'fallback:' . $politician->id;
+        // No strong identity signal — collapse by name + state alone.
+        // This handles the common import case where the same federal official
+        // is imported multiple times with different office titles (e.g., when
+        // they've moved from the House to the Senate between election cycles).
+        return 'federal:' . $name . '|' . $state;
     }
 
     protected function preferDirectoryPolitician(Politician $preferred, Politician $candidate): Politician

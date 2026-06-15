@@ -34,3 +34,10 @@ Schedule::command('imports:sync-california')
 Schedule::command('imports:check-california-health')
     ->hourly();
 
+// Candidate news feed — refresh stale candidate headlines every 6 hours.
+// The GitHub Actions workflow (refresh-candidate-news.yml) also fires this
+// on a cron so it runs even when no web traffic is hitting the scheduler.
+Schedule::command('candidates:refresh-news --stale-hours=6 --limit=50')
+    ->everySixHours()
+    ->withoutOverlapping();
+
