@@ -830,8 +830,15 @@
 
         {{-- ── In the News ─────────────────────────────────────────────────── --}}
         @php
-            $newsService = app(\App\Services\CandidateNewsService::class);
-            $newsArticles = $newsService->getForPolitician($politician);
+            $newsArticles = collect();
+            try {
+                if (\Illuminate\Support\Facades\Schema::hasTable('candidate_news_articles')) {
+                    $newsService = app(\App\Services\CandidateNewsService::class);
+                    $newsArticles = $newsService->getForPolitician($politician);
+                }
+            } catch (\Throwable $e) {
+                // Table may not exist yet — skip news block gracefully
+            }
 
             // Build the source list: national providers + state-local providers
             $nationalSources  = config('news_sources.national', []);
