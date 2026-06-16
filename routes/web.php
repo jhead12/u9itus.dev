@@ -84,22 +84,17 @@ Route::get('/debug-info', function () {
             $bladeCompileError = 'compiled_ok';
             // Read the compiled file around the error line (1227)
             $compiledPath = $compiler->getCompiledPath($viewPath);
+            $compiledViewLines = 'compiled_path:' . $compiledPath . '|exists:' . (file_exists($compiledPath) ? 'yes' : 'no');
             if (file_exists($compiledPath)) {
                 $lines = file($compiledPath);
                 $total = count($lines);
-                // Count PHP if/endif to find imbalance
-                $ifCount = 0; $endifCount = 0; $ifLines = []; $endifLines = [];
-                foreach ($lines as $lineNo => $line) {
-                    if (preg_match('/^\s*<\?php\s+if\s*\(/', $line)) {
-                        $ifCount++; $ifLines[] = $lineNo + 1;
-                    }
-                    if (preg_match('/^\s*<\?php\s+endif\s*;/', $line)) {
-                        $endifCount++; $endifLines[] = $lineNo + 1;
-                    }
+                $compiledViewLines .= "|total_lines:{$total}";
+                // Read the last 15 lines
+                $excerpt = [];
+                for ($i = max(0, $total - 15); $i < $total; $i++) {
+                    $excerpt[] = ($i + 1) . ': ' . rtrim($lines[$i]);
                 }
-                $compiledViewLines = "total_lines:{$total}|php_if:{$ifCount}|php_endif:{$endifCount}"
-                    . "\nIF_LINES(last10):" . implode(',', array_slice($ifLines, -10))
-                    . "\nENDIF_LINES(last10):" . implode(',', array_slice($endifLines, -10));
+                $compiledViewLines .= "\n" . implode("\n", $excerpt);
             }
         } else {
             $bladeCompileError = 'view_file_not_found';
