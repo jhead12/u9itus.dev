@@ -16,6 +16,7 @@
 
 use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\BillingController;
+use App\Http\Controllers\Api\MapStateCandidatesController;
 use App\Http\Controllers\Api\OfficeProfileController;
 use App\Http\Controllers\Api\PayPalWebhookController;
 use App\Http\Controllers\Api\PoliticianController;
@@ -77,6 +78,12 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
     | Voter API (widget-facing — rate-limited, UUID-based)
     |----------------------------------------------------------------------
     */
+    // ── Public map data — no auth, rate-limited ──────────────────────────────
+    Route::middleware('throttle:120,1')->group(function () {
+        Route::get('/map/state-candidates', MapStateCandidatesController::class)
+            ->name('map.state-candidates');
+    });
+
     Route::middleware('throttle:60,1')->group(function () {
         // Registration (stricter rate limit)
         Route::post('/voters', [VoterController::class, 'store'])

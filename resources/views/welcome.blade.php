@@ -46,6 +46,10 @@
                 <div class="hidden md:flex items-center space-x-8">
                     <a href="#platform" class="text-slate-300 hover:text-white transition text-sm font-medium">Journeys</a>
                     <a href="{{ route('politicians.directory') }}" class="text-slate-300 hover:text-white transition text-sm font-medium">Browse Candidates</a>
+                    <a href="{{ route('us.map') }}" class="text-slate-300 hover:text-white transition text-sm font-medium flex items-center gap-1.5">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
+                        Explore Map
+                    </a>
                     <a href="#revenue" class="text-slate-300 hover:text-white transition text-sm font-medium">Voter Value</a>
                     <a href="#how-it-works" class="text-slate-300 hover:text-white transition text-sm font-medium">Transparency</a>
                     <a href="{{ route('about') }}" class="text-slate-300 hover:text-white transition text-sm font-medium">About Us</a>
@@ -130,6 +134,12 @@
                     <a href="{{ route('politicians.directory') }}"
                        class="inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-white bg-slate-800 border border-slate-700 rounded-xl hover:bg-slate-700 transition">
                         Browse Candidates
+                    </a>
+
+                    <a href="{{ route('us.map') }}"
+                       class="inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-white bg-slate-800/60 border border-indigo-500/40 rounded-xl hover:border-indigo-400/70 hover:bg-indigo-900/30 transition group">
+                        <svg class="w-5 h-5 mr-2 text-indigo-400 group-hover:text-indigo-300 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
+                        <span class="text-indigo-300 group-hover:text-white transition">Explore the Map</span>
                     </a>
 
                     @guest
@@ -247,6 +257,145 @@
                                 Stay informed first, with compensated engagement as a secondary benefit
                             </li>
                         </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Interactive Map Section -->
+    <section id="explore-map" class="relative py-24 bg-gradient-to-b from-slate-800 to-slate-900 overflow-hidden">
+        {{-- Subtle background glow --}}
+        <div class="absolute inset-0 pointer-events-none">
+            <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[600px] bg-indigo-500/6 blur-[140px] rounded-full"></div>
+        </div>
+
+        <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            {{-- Section header --}}
+            <div class="text-center mb-12">
+                <span class="text-indigo-400 font-semibold text-sm tracking-wider uppercase">— Explore the Political Landscape</span>
+                <h2 class="mt-4 text-4xl sm:text-5xl font-bold text-white">
+                    See Every District,
+                    <span class="bg-gradient-to-r from-indigo-400 to-violet-400 bg-clip-text text-transparent">At a Glance</span>
+                </h2>
+                <p class="mt-4 text-xl text-slate-300 max-w-2xl mx-auto">
+                    Our interactive 3-D map breaks the U.S. into regions, states, and all 435 congressional districts — colored by party — so you can find your rep in seconds.
+                </p>
+            </div>
+
+            {{-- Two-column layout: feature bullets left, map preview right --}}
+            <div class="grid lg:grid-cols-2 gap-12 items-center">
+
+                {{-- Feature list --}}
+                <div class="space-y-6">
+                    @php
+                        $mapFeatures = [
+                            ['icon' => '🔴', 'color' => 'text-red-400', 'title' => 'Party coloring', 'desc' => 'Red for Republican, Blue for Democrat, Green for Independent — every district at a glance.'],
+                            ['icon' => '🗺', 'color' => 'text-indigo-400', 'title' => 'Drill from region → state → district', 'desc' => 'Click any region to zoom in, then click a state to see all its congressional districts rendered flat and clear.'],
+                            ['icon' => '🔍', 'color' => 'text-violet-400', 'title' => 'Instant search', 'desc' => 'Press / and type "CA-38" or "Texas" — the map flies to that district and loads its candidates automatically.'],
+                            ['icon' => '📋', 'color' => 'text-emerald-400', 'title' => 'Candidates on click', 'desc' => 'Select a district to see the seated rep, 2026 challengers, gubernatorial candidates, and links to their profiles.'],
+                        ];
+                    @endphp
+
+                    @foreach ($mapFeatures as $f)
+                        <div class="flex gap-4">
+                            <div class="flex-shrink-0 w-11 h-11 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-xl">
+                                {{ $f['icon'] }}
+                            </div>
+                            <div>
+                                <h3 class="font-semibold text-white text-lg">{{ $f['title'] }}</h3>
+                                <p class="text-slate-400 text-sm leading-relaxed mt-0.5">{{ $f['desc'] }}</p>
+                            </div>
+                        </div>
+                    @endforeach
+
+                    <div class="pt-4 flex flex-col sm:flex-row gap-3">
+                        <a href="{{ route('us.map') }}"
+                           class="inline-flex items-center justify-center px-7 py-3.5 text-base font-semibold text-white bg-gradient-to-r from-indigo-500 to-violet-500 rounded-xl hover:from-indigo-600 hover:to-violet-600 transition shadow-xl shadow-indigo-500/30 hover:-translate-y-0.5 transform">
+                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
+                            Open Interactive Map
+                        </a>
+                        <a href="{{ route('district.lookup') }}"
+                           class="inline-flex items-center justify-center px-7 py-3.5 text-base font-semibold text-slate-300 bg-slate-800 border border-slate-700 rounded-xl hover:bg-slate-700 transition">
+                            Find by Address Instead
+                        </a>
+                    </div>
+                </div>
+
+                {{-- Map preview card --}}
+                <div class="relative">
+                    <div class="relative rounded-2xl overflow-hidden border border-indigo-500/20 shadow-2xl shadow-indigo-900/40 bg-slate-950">
+                        {{-- Fake top bar --}}
+                        <div class="flex items-center justify-between px-4 py-3 bg-slate-900/90 border-b border-slate-800">
+                            <div class="flex items-center gap-2">
+                                <span class="font-bold text-indigo-400 text-sm">U9itus</span>
+                                <span class="text-slate-600 text-xs">|</span>
+                                <span class="text-slate-500 text-xs">U.S. Regional Map</span>
+                            </div>
+                            <div class="flex gap-2">
+                                <span class="px-2.5 py-0.5 rounded text-xs bg-indigo-900/50 text-indigo-300 border border-indigo-800">Search /</span>
+                                <span class="px-2.5 py-0.5 rounded text-xs bg-slate-800 text-slate-400 border border-slate-700">Reset View</span>
+                            </div>
+                        </div>
+
+                        {{-- Static SVG mini-map placeholder --}}
+                        <div class="relative h-72 bg-[#06091a] flex items-center justify-center">
+                            {{-- Party legend badges floating over --}}
+                            <div class="absolute top-3 left-3 space-y-1.5 text-xs">
+                                <div class="flex items-center gap-1.5 bg-slate-900/80 rounded px-2 py-1 backdrop-blur">
+                                    <span class="w-2.5 h-2.5 rounded-sm bg-red-600 inline-block"></span><span class="text-slate-300">Republican</span>
+                                </div>
+                                <div class="flex items-center gap-1.5 bg-slate-900/80 rounded px-2 py-1 backdrop-blur">
+                                    <span class="w-2.5 h-2.5 rounded-sm bg-blue-600 inline-block"></span><span class="text-slate-300">Democrat</span>
+                                </div>
+                                <div class="flex items-center gap-1.5 bg-slate-900/80 rounded px-2 py-1 backdrop-blur">
+                                    <span class="w-2.5 h-2.5 rounded-sm bg-green-600 inline-block"></span><span class="text-slate-300">Independent</span>
+                                </div>
+                            </div>
+
+                            {{-- Central label --}}
+                            <div class="text-center space-y-3">
+                                <div class="text-6xl">🗺</div>
+                                <p class="text-slate-500 text-sm">3-D interactive map</p>
+                                <a href="{{ route('us.map') }}"
+                                   class="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-500 transition shadow-lg shadow-indigo-900/50">
+                                    Launch Map
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                                </a>
+                            </div>
+
+                            {{-- Decorative district swatches --}}
+                            <div class="absolute bottom-3 right-3 flex gap-1 opacity-50">
+                                @foreach (['bg-red-700','bg-blue-700','bg-red-800','bg-blue-600','bg-red-600','bg-blue-800','bg-green-700','bg-red-700','bg-blue-700'] as $c)
+                                    <div class="w-5 h-5 rounded-sm {{ $c }}"></div>
+                                @endforeach
+                            </div>
+                        </div>
+
+                        {{-- Stats bar --}}
+                        <div class="flex divide-x divide-slate-800 border-t border-slate-800 text-center">
+                            <div class="flex-1 py-2.5">
+                                <div class="text-white font-bold text-sm">435</div>
+                                <div class="text-slate-500 text-xs">Districts</div>
+                            </div>
+                            <div class="flex-1 py-2.5">
+                                <div class="text-white font-bold text-sm">50</div>
+                                <div class="text-slate-500 text-xs">States</div>
+                            </div>
+                            <div class="flex-1 py-2.5">
+                                <div class="text-white font-bold text-sm">119th</div>
+                                <div class="text-slate-500 text-xs">Congress</div>
+                            </div>
+                            <div class="flex-1 py-2.5">
+                                <div class="text-white font-bold text-sm">Live</div>
+                                <div class="text-slate-500 text-xs">Census data</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- Floating hint badge --}}
+                    <div class="absolute -bottom-4 -right-4 bg-indigo-600 text-white text-xs font-semibold px-3 py-1.5 rounded-full shadow-lg shadow-indigo-900/50 border border-indigo-500">
+                        Press / to search any district
                     </div>
                 </div>
             </div>

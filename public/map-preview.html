@@ -3,13 +3,9 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>U.S. Regional Map – {{ config('app.name', 'U9itus') }}</title>
+    <title>U.S. Regional Map – U9itus (local preview)</title>
 
-    @if (file_exists(public_path('build/manifest.json')) || file_exists(public_path('hot')))
-        @vite(['resources/css/app.css'])
-    @else
-        <script src="https://cdn.tailwindcss.com"></script>
-    @endif
+    <script src="https://cdn.tailwindcss.com"></script>
 
     <script type="importmap">
     {
@@ -409,9 +405,10 @@
 
 <div id="top-bar">
     <div style="display:flex; align-items:center; gap:12px;">
-        <a href="{{ url('/') }}">U9itus</a>
+        <a href="#">U9itus</a>
         <span class="sep">|</span>
         <span class="title">U.S. Regional Map</span>
+        <span class="preview-badge">Local Preview</span>
     </div>
     <div style="display:flex; gap:8px;">
         <button id="btn-back">← Back</button>
