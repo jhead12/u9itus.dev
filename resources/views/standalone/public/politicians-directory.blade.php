@@ -268,7 +268,22 @@
                         </span>
                     </div>
                     @endif
-                    
+
+                    @if($politician->is_running_candidate)
+                    <div class="mb-2">
+                        <span class="inline-flex items-center gap-1.5 rounded-full border border-violet-500/30 bg-violet-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-300">
+                            <svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/></svg>
+                            2026 Candidate
+                        </span>
+                    </div>
+                    @elseif(in_array($politician->term_status ?? 'unknown', ['retired', 'lost']))
+                    <div class="mb-2">
+                        <span class="inline-flex items-center gap-1.5 rounded-full border border-slate-600/40 bg-slate-700/30 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                            {{ $politician->term_status === 'lost' ? 'Former Candidate' : 'Former Member' }}
+                        </span>
+                    </div>
+                    @endif
+
                     @if($politician->political_office)
                     <p class="text-slate-400 text-xs mb-2 truncate">
                         {{ $politician->political_office }}

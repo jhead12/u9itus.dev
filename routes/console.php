@@ -47,3 +47,10 @@ Schedule::command('politicians:enrich-donors --stale-hours=48 --limit=50')
     ->dailyAt('03:00')
     ->withoutOverlapping();
 
+// Weekly politician lifecycle reconciliation — marks seated/retired/lost/running.
+// Runs every Sunday at 04:00 UTC, after the candidate sync (02:00 UTC).
+// After a general election, trigger manually with --election-date=YYYY-MM-DD.
+Schedule::command('politicians:reconcile-status')
+    ->weeklyOn(0, '04:00')
+    ->withoutOverlapping();
+

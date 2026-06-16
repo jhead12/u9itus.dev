@@ -323,6 +323,8 @@ class ImportUnitedStatesUnclaimedPoliticians extends Command
                 ->first();
         }
 
+        $termEndDate = $this->nullableString($latestTerm['end'] ?? null);
+
         $politicianPayload = [
             'full_name' => $fullName,
             'political_office' => $office,
@@ -338,6 +340,11 @@ class ImportUnitedStatesUnclaimedPoliticians extends Command
             'verified_official' => true,
             'is_active' => true,
             'page_published' => true,
+            // Lifecycle tracking
+            'term_status'          => 'seated',
+            'is_running_candidate' => false,
+            'term_ends_on'         => $termEndDate,
+            'status_updated_at'    => now(),
         ];
 
         if ($existing) {

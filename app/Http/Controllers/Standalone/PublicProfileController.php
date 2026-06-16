@@ -747,13 +747,32 @@ class PublicProfileController extends Controller
             ->values();
     }
 
+    protected function isFederalOfficial(Politician $politician): bool
+    {
+        if (strcasecmp((string) $politician->governance_level, 'Federal') === 0) {
+            return true;
+        }
+
+        // Some records are imported with incorrect governance_level (e.g. 'Local') but
+        // have a clearly federal office title. Detect those to avoid duplicate display.
+        $office = strtolower(trim((string) ($politician->political_office ?? '')));
+        $federalKeywords = ['united states', 'u.s. senator', 'u.s. representative', 'us senator', 'us representative'];
+        foreach ($federalKeywords as $keyword) {
+            if (str_contains($office, $keyword)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     protected function directoryIdentityKey(Politician $politician): string
     {
         if ($politician->user_id !== null) {
             return 'claimed:' . $politician->id;
         }
 
-        if (strcasecmp((string) $politician->governance_level, 'Federal') !== 0) {
+        if (! $this->isFederalOfficial($politician)) {
             return 'non-federal:' . $politician->id;
         }
 

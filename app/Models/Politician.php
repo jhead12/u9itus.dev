@@ -65,6 +65,10 @@ class Politician extends Model
         'votesmart_id',
         'fec_candidate_id',
         'video_links',
+        'is_running_candidate',
+        'term_status',
+        'term_ends_on',
+        'status_updated_at',
     ];
 
     protected function casts(): array
@@ -74,7 +78,10 @@ class Politician extends Model
             'pending_earnings' => 'decimal:4',
             'total_spent'      => 'decimal:2',
             'verified_official' => 'boolean',
-            'is_active'         => 'boolean',
+            'is_active'              => 'boolean',
+            'is_running_candidate'   => 'boolean',
+            'term_ends_on'            => 'date',
+            'status_updated_at'       => 'datetime',
             // Phase 13
             'page_settings'     => 'array',
             'page_published'    => 'boolean',

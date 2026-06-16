@@ -118,3 +118,36 @@ jobs:
         run: |
           php artisan politicians:import-unclaimed-ca \
             ${{ steps.args.outputs.dry_arg }}
+
+      # ── Scrape & import 2026 primary candidates from Ballotpedia ─────────────
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install Node dependencies
+        run: npm ci --omit=dev --ignore-scripts
+
+      - name: Install Playwright Chromium
+        run: npx playwright install chromium --with-deps
+
+      - name: Scrape Ballotpedia 2026 candidates
+        run: |
+          node scripts/scrape-ballotpedia.js \
+            --office=all \
+            --out=storage/app/imports/ballotpedia-2026.json
+
+      - name: Import Ballotpedia candidates
+        run: |
+          php artisan politicians:import-ballotpedia \
+            --file=storage/app/imports/ballotpedia-2026.json \
+            ${{ steps.args.outputs.dry_arg }}
+
+      # ── Reconcile lifecycle status ────────────────────────────────────────
+      # Marks seated members, retires former members, and clears stale
+      # is_running_candidate flags after an election date has passed.
+      - name: Reconcile politician status
+        run: |
+          php artisan politicians:reconcile-status \
+            ${{ steps.args.outputs.dry_arg }}
