@@ -64,21 +64,40 @@ Route::get('/privacy-policy', function () {
 })->name('privacy-policy');
 
 Route::get('/debug-info', function () {
+    $logContent = 'No log file';
+    if (file_exists(storage_path('logs/laravel.log'))) {
+        $raw = file_get_contents(storage_path('logs/laravel.log'));
+        // Grab last 12000 chars but find the last "production.ERROR" block
+        $tail = substr($raw, -12000);
+        $lastError = strrpos($tail, 'production.ERROR');
+        $logContent = $lastError !== false ? substr($tail, $lastError) : $tail;
+    }
+
+    // Test-load the failing politician slug to surface the live exception
+    $profileError = null;
+    try {
+        $politician = \App\Models\Politician::where('slug', '71112-us-representative-abraham-j-hamadeh')
+            ->first();
+        $profileError = $politician ? 'politician_found:id=' . $politician->id : 'not_found';
+        if ($politician) {
+            $politician->load(['page', 'initiatives' => fn($q) => $q->where('is_published', true)]);
+            $profileError .= '|page=' . ($politician->page ? 'yes' : 'no');
+            $profileError .= '|initiatives=' . $politician->initiatives->count();
+        }
+    } catch (\Throwable $e) {
+        $profileError = get_class($e) . ': ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine();
+    }
+
     return response()->json([
         'status' => 'ok',
         'php_version' => PHP_VERSION,
         'laravel_version' => app()->version(),
         'app_key_set' => !empty(config('app.key')),
         'db_connection' => config('database.default'),
-        'storage_writable' => is_writable(storage_path()),
-        'cache_writable' => is_writable(storage_path('framework/cache')),
-        'views_writable' => is_writable(storage_path('framework/views')),
         'env' => app()->environment(),
         'debug' => config('app.debug'),
-        'view_exists' => view()->exists('welcome'),
-        'recent_log' => file_exists(storage_path('logs/laravel.log')) 
-            ? substr(file_get_contents(storage_path('logs/laravel.log')), -8000)
-            : 'No log file',
+        'profile_probe' => $profileError,
+        'recent_log' => $logContent,
     ]);
 });
 
