@@ -540,7 +540,7 @@
         @endif
 
         {{-- Phase 16: Public Records & Transparency --}}
-        @if(!empty($transparencyData) && $politician->verification_status === 'verified')
+        @if(!empty($transparencyData))
         <section>
             <div class="flex items-start justify-between mb-4">
                 <div>
@@ -550,12 +550,18 @@
                     </h2>
                     <p class="text-xs text-slate-400 mt-1">Official data from trusted public sources</p>
                 </div>
+                @if($politician->verification_status === 'verified')
                 <span class="inline-flex items-center gap-1.5 bg-green-900/30 border border-green-700/50 text-green-300 text-xs font-medium px-3 py-1.5 rounded-full">
                     <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
                         <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
                     </svg>
                     Verified Profile
                 </span>
+                @else
+                <span class="inline-flex items-center gap-1.5 bg-slate-800/60 border border-slate-700/50 text-slate-400 text-xs font-medium px-3 py-1.5 rounded-full">
+                    Public Record Data
+                </span>
+                @endif
             </div>
 
             <div class="space-y-6">
@@ -655,7 +661,7 @@
         @endif
 
         {{-- Sprint 4: Dig Deeper research section --}}
-        @if(!empty($digDeeperData['panels'] ?? []) && $politician->verification_status === 'verified')
+        @if(!empty($digDeeperData['panels'] ?? []))
         <section id="dig-deeper">
             <div class="flex items-end justify-between gap-4 mb-4">
                 <div>

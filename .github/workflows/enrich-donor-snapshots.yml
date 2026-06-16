@@ -1,0 +1,101 @@
+name: Enrich Donor Snapshots
+
+# Runs nightly at 03:00 UTC and can be triggered manually.
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: "Max politicians to enrich per run"
+        default: "50"
+        required: false
+      stale_hours:
+        description: "Re-enrich snapshots older than N hours"
+        default: "48"
+        required: false
+      politician:
+        description: "Single politician ID or slug (leave blank for batch)"
+        default: ""
+        required: false
+      force:
+        description: "Force re-enrich even if snapshot is fresh"
+        type: boolean
+        default: false
+      dry_run:
+        description: "Dry-run (report only, no DB writes)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  enrich-donors:
+    name: Fetch donor/sponsor snapshots
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, pdo_mysql
+          coverage: none
+
+      - name: Cache Composer packages
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: ${{ runner.os }}-composer-${{ hashFiles('composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Install Composer dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress --no-dev
+
+      - name: Write .env
+        run: |
+          cat > .env <<EOF
+          APP_ENV=production
+          APP_KEY=${{ secrets.APP_KEY }}
+          APP_DEBUG=false
+          APP_URL=${{ secrets.APP_URL }}
+
+          DB_CONNECTION=mysql
+          DB_HOST=${{ secrets.DB_HOST }}
+          DB_PORT=${{ secrets.DB_PORT }}
+          DB_DATABASE=${{ secrets.DB_DATABASE }}
+          DB_USERNAME=${{ secrets.DB_USERNAME }}
+          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+
+          OPENSECRETS_API_KEY=${{ secrets.OPENSECRETS_API_KEY }}
+          FEC_API_KEY=${{ secrets.FEC_API_KEY }}
+
+          CACHE_DRIVER=database
+          SESSION_DRIVER=database
+          QUEUE_CONNECTION=sync
+          LOG_CHANNEL=stderr
+          EOF
+
+      - name: Run pending migrations
+        run: php artisan migrate --force --no-interaction
+
+      - name: Enrich donor snapshots
+        run: |
+          LIMIT="${{ github.event.inputs.limit || '50' }}"
+          STALE="${{ github.event.inputs.stale_hours || '48' }}"
+          POL="${{ github.event.inputs.politician || '' }}"
+          FORCE=${{ github.event.inputs.force == 'true' && '--force' || '' }}
+          DRY=${{ github.event.inputs.dry_run == 'true' && '--dry-run' || '' }}
+          POL_ARG=""
+          if [ -n "$POL" ]; then POL_ARG="--politician=$POL"; fi
+
+          php artisan politicians:enrich-donors \
+            --limit="${LIMIT}" \
+            --stale-hours="${STALE}" \
+            ${POL_ARG} \
+            ${FORCE} \
+            ${DRY}

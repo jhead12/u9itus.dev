@@ -1042,15 +1042,16 @@ class PublicProfileController extends Controller
 
     protected function buildTransparencyData(Politician $politician): array
     {
-        if ($politician->verification_status !== 'verified') {
-            return [];
-        }
+        // Donor/finance data is public record — show for all profiles including unclaimed.
+        // For unclaimed federal profiles we always attempt OpenSecrets + FEC even if the
+        // politician hasn't explicitly enabled those toggles, so voters can see funding data.
+        $isUnclaimed = $politician->user_id === null;
 
         $services = [
-            'ballotpedia' => [$politician->show_ballotpedia_data, \App\Services\BallotpediaService::class],
-            'opensecrets' => [$politician->show_opensecrets_data, \App\Services\OpenSecretsService::class],
-            'votesmart' => [$politician->show_votesmart_data, \App\Services\VoteSmartService::class],
-            'fec' => [$politician->show_fec_data, \App\Services\FECService::class],
+            'ballotpedia' => [$politician->show_ballotpedia_data || $isUnclaimed, \App\Services\BallotpediaService::class],
+            'opensecrets' => [$politician->show_opensecrets_data || $isUnclaimed, \App\Services\OpenSecretsService::class],
+            'votesmart'   => [$politician->show_votesmart_data   || $isUnclaimed, \App\Services\VoteSmartService::class],
+            'fec'         => [$politician->show_fec_data         || $isUnclaimed, \App\Services\FECService::class],
         ];
 
         $transparencyData = [];

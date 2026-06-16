@@ -266,6 +266,14 @@ class Politician extends Model
     }
 
     /**
+     * Cached donor/sponsor snapshot populated by the enrichment pipeline.
+     */
+    public function donorSnapshot(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(PoliticianDonorSnapshot::class);
+    }
+
+    /**
      * Return the page config, creating one with defaults if it doesn't exist yet.
      */
     public function getOrCreatePage(): PoliticianPage

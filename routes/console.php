@@ -41,3 +41,9 @@ Schedule::command('candidates:refresh-news --stale-hours=6 --limit=50')
     ->everySixHours()
     ->withoutOverlapping();
 
+// Donor/sponsor enrichment — refresh cached OpenSecrets + FEC data nightly.
+// The GitHub Actions workflow (enrich-donor-snapshots.yml) also fires this.
+Schedule::command('politicians:enrich-donors --stale-hours=48 --limit=50')
+    ->dailyAt('03:00')
+    ->withoutOverlapping();
+
