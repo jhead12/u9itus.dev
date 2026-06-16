@@ -73,6 +73,21 @@ Route::get('/debug-info', function () {
         $logContent = $lastError !== false ? substr($tail, $lastError) : $tail;
     }
 
+    // Attempt to compile the profile view directly to catch ParseError
+    $bladeCompileError = null;
+    try {
+        $compiler = app(\Illuminate\View\Compilers\BladeCompiler::class);
+        $viewPath = resource_path('views/standalone/public/profile.blade.php');
+        if (file_exists($viewPath)) {
+            $compiler->compile($viewPath);
+            $bladeCompileError = 'compiled_ok';
+        } else {
+            $bladeCompileError = 'view_file_not_found';
+        }
+    } catch (\Throwable $e) {
+        $bladeCompileError = get_class($e) . ': ' . $e->getMessage() . ' at line ' . $e->getLine();
+    }
+
     // Test-load the failing politician slug to surface the live exception
     $profileError = null;
     try {
@@ -120,6 +135,7 @@ Route::get('/debug-info', function () {
         'db_connection' => config('database.default'),
         'env' => app()->environment(),
         'debug' => config('app.debug'),
+        'blade_compile' => $bladeCompileError,
         'profile_probe' => $profileError,
         'recent_log' => $logContent,
     ]);
