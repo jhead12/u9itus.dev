@@ -78,14 +78,38 @@ Route::get('/debug-info', function () {
     try {
         $politician = \App\Models\Politician::where('slug', '71112-us-representative-abraham-j-hamadeh')
             ->first();
-        $profileError = $politician ? 'politician_found:id=' . $politician->id : 'not_found';
+        $profileError = $politician ? 'step1:found:id=' . $politician->id : 'not_found';
         if ($politician) {
             $politician->load(['page', 'initiatives' => fn($q) => $q->where('is_published', true)]);
-            $profileError .= '|page=' . ($politician->page ? 'yes' : 'no');
+            $profileError .= '|step2:page=' . ($politician->page ? 'yes' : 'no');
             $profileError .= '|initiatives=' . $politician->initiatives->count();
+
+            // Step 3: campaigns with topics
+            $running = $politician->campaigns()
+                ->with('topics')
+                ->where('approval_status', \App\Enums\ApprovalStatus::Approved)
+                ->take(6)->get();
+            $profileError .= '|step3:campaigns=' . $running->count();
+
+            // Step 4: voter watch reports
+            $qas = \App\Models\VoterWatchReport::query()
+                ->messages()
+                ->whereHas('campaign', fn($q) => $q->where('politician_id', $politician->id))
+                ->take(5)->get();
+            $profileError .= '|step4:qa=' . $qas->count();
+
+            // Step 5: ElectionCandidateRecord
+            $rec = \App\Models\ElectionCandidateRecord::where('state', $politician->state)
+                ->whereRaw('LOWER(full_name) = ?', [strtolower((string)$politician->full_name)])
+                ->first();
+            $profileError .= '|step5:record=' . ($rec ? 'yes' : 'no');
+
+            // Step 6: route generation
+            $url = route('politician.public.show', '71112-us-representative-abraham-j-hamadeh');
+            $profileError .= '|step6:route=ok';
         }
     } catch (\Throwable $e) {
-        $profileError = get_class($e) . ': ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine();
+        $profileError .= '|ERROR:' . get_class($e) . ': ' . $e->getMessage() . ' in ' . basename($e->getFile()) . ':' . $e->getLine();
     }
 
     return response()->json([
