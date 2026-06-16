@@ -898,7 +898,7 @@
                         <template x-if="article.image_url">
                             <img :src="article.image_url" alt=""
                                  class="w-20 h-16 object-cover rounded-lg flex-shrink-0 bg-slate-700"
-                                 loading="lazy" @error="$el.style.display='none'">
+                                 loading="lazy" x-on:error="$el.style.display='none'">
                         </template>
                         <div class="min-w-0 flex-1">
                             <p class="text-sm font-medium text-slate-200 group-hover:text-white line-clamp-2 leading-snug transition"
