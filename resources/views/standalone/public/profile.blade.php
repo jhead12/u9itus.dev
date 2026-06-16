@@ -829,46 +829,7 @@
         @endif
 
         {{-- ── In the News ─────────────────────────────────────────────────── --}}
-        @php
-            $newsArticles = collect();
-            try {
-                if (\Illuminate\Support\Facades\Schema::hasTable('candidate_news_articles')) {
-                    $newsService = app(\App\Services\CandidateNewsService::class);
-                    $newsArticles = $newsService->getForPolitician($politician);
-                }
-            } catch (\Throwable $e) {
-                // Table may not exist yet — skip news block gracefully
-            }
-
-            // Build the source list: national providers + state-local providers
-            $nationalSources  = config('news_sources.national', []);
-            $stateSources     = config('news_sources.state.' . strtoupper((string) ($politician->state ?? '')), []);
-            $allConfigSources = array_merge($nationalSources, $stateSources);
-
-            // Build a map: provider_id => label+icon (for filter pills)
-            $sourceMap = [];
-            foreach ($allConfigSources as $src) {
-                $sourceMap[$src['id']] = ['label' => $src['label'], 'icon' => $src['icon']];
-            }
-            // Add any API-based providers that may appear in DB
-            $sourceMap['newsapi'] = ['label' => 'NewsAPI',  'icon' => '📰'];
-            $sourceMap['gnews']   = ['label' => 'GNews',    'icon' => '📰'];
-
-            // Collect which providers actually have articles
-            $activeProviders = $newsArticles->pluck('provider')->unique()->values()->all();
-
-            // Prepare articles as a JSON-safe array for Alpine
-            $articlesJson = $newsArticles->map(fn($a) => [
-                'id'           => $a->id,
-                'provider'     => $a->provider,
-                'headline'     => $a->headline,
-                'source_name'  => $a->source_name,
-                'source_url'   => $a->source_url,
-                'snippet'      => $a->snippet,
-                'image_url'    => $a->image_url,
-                'published_at' => $a->published_at?->diffForHumans(),
-            ])->values()->toJson();
-        @endphp
+        {{-- $newsArticles, $sourceMap, $activeProviders, $articlesJson passed from controller --}}
         @if($newsArticles->isNotEmpty())
         <section
             x-data="{

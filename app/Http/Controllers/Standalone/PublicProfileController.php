@@ -683,6 +683,28 @@ class PublicProfileController extends Controller
         $states = config('u9itus.us_states', []);
         $governanceLevels = ['Federal', 'State', 'County', 'City', 'School Board', 'Judicial'];
         $parties = ['Democratic', 'Republican', 'Independent', 'Libertarian', 'Green'];
+
+        // Load latest news headlines for each politician in ONE query (prevents N+1).
+        $latestNewsMap = [];
+        try {
+            if (Schema::hasTable('candidate_news_articles')) {
+                $politicianIds = collect($politicians->items())->pluck('id')->filter()->all();
+                if (!empty($politicianIds)) {
+                    \App\Models\CandidateNewsArticle::query()
+                        ->whereIn('politician_id', $politicianIds)
+                        ->where('scraped_at', '>=', now()->subHours(24))
+                        ->orderByDesc('published_at')
+                        ->get()
+                        ->groupBy('politician_id')
+                        ->each(function ($articles, $politicianId) use (&$latestNewsMap) {
+                            $latestNewsMap[$politicianId] = $articles->first();
+                        });
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Failed to load directory news headlines', ['error' => $e->getMessage()]);
+        }
+
         $view = $useVoterLayout
             ? 'standalone.voter.politicians-directory'
             : 'standalone.public.politicians-directory';
@@ -694,7 +716,8 @@ class PublicProfileController extends Controller
             'parties',
             'isGuestBrowsing',
             'zipInput',
-            'zipValidationError'
+            'zipValidationError',
+            'latestNewsMap'
         ));
     }
 
@@ -932,12 +955,48 @@ class PublicProfileController extends Controller
         $ogImage       = $page->hero_banner_url ?? $politician->profile_photo_url ?? null;
         $ogUrl         = route('politician.public.show', $slug);
 
+        // Load news articles in the controller so the view stays logic-free.
+        $newsArticles = collect();
+        try {
+            if (Schema::hasTable('candidate_news_articles')) {
+                $newsArticles = app(\App\Services\CandidateNewsService::class)
+                    ->getForPolitician($politician);
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Failed to load news articles for profile', [
+                'politician_id' => $politician->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        // Build source map for the news filter pills.
+        $nationalSources = config('news_sources.national', []);
+        $stateSources    = config('news_sources.state.' . strtoupper((string) ($politician->state ?? '')), []);
+        $sourceMap = [];
+        foreach (array_merge($nationalSources, $stateSources) as $src) {
+            $sourceMap[$src['id']] = ['label' => $src['label'], 'icon' => $src['icon']];
+        }
+        $sourceMap['newsapi'] = ['label' => 'NewsAPI', 'icon' => '📰'];
+        $sourceMap['gnews']   = ['label' => 'GNews',   'icon' => '📰'];
+
+        $activeProviders = $newsArticles->pluck('provider')->unique()->values()->all();
+        $articlesJson    = $newsArticles->map(fn($a) => [
+            'id'           => $a->id,
+            'provider'     => $a->provider,
+            'headline'     => $a->headline,
+            'source_name'  => $a->source_name,
+            'source_url'   => $a->source_url,
+            'snippet'      => $a->snippet,
+            'image_url'    => $a->image_url,
+            'published_at' => $a->published_at?->diffForHumans(),
+        ])->values()->toJson();
+
         return view('standalone.public.profile', compact(
             'politician',
             'page',
             'runningCampaigns',
             'pastCampaigns',
-                'publicBoardQuestions',
+            'publicBoardQuestions',
             'initiatives',
             'transparencyData',
             'digDeeperData',
@@ -946,7 +1005,11 @@ class PublicProfileController extends Controller
             'ogDescription',
             'ogImage',
             'ogUrl',
-            'isGuestBrowsing'
+            'isGuestBrowsing',
+            'newsArticles',
+            'sourceMap',
+            'activeProviders',
+            'articlesJson'
         ));
     }
 

@@ -317,21 +317,8 @@
                         @endif
                     </div>
 
-                    {{-- Latest news headline --}}
-                    @php
-                        $latestArticle = null;
-                        try {
-                            if (\Illuminate\Support\Facades\Schema::hasTable('candidate_news_articles')) {
-                                $latestArticle = \App\Models\CandidateNewsArticle::query()
-                                    ->where('politician_id', $politician->id)
-                                    ->where('scraped_at', '>=', now()->subHours(24))
-                                    ->orderByDesc('published_at')
-                                    ->first();
-                            }
-                        } catch (\Throwable $e) {
-                            // Table may not exist yet — skip news block gracefully
-                        }
-                    @endphp
+                    {{-- Latest news headline (pre-loaded by controller, no N+1) --}}
+                    @php $latestArticle = $latestNewsMap[$politician->id] ?? null; @endphp
                     @if($latestArticle)
                     <div class="mt-3 pt-3 border-t border-slate-700/50">
                         <p class="text-[10px] uppercase tracking-wide text-slate-500 font-semibold mb-1">Latest News</p>

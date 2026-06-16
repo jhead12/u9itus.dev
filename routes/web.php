@@ -64,97 +64,18 @@ Route::get('/privacy-policy', function () {
 })->name('privacy-policy');
 
 Route::get('/debug-info', function () {
-    $logContent = 'No log file';
-    if (file_exists(storage_path('logs/laravel.log'))) {
-        $raw = file_get_contents(storage_path('logs/laravel.log'));
-        // Grab last 12000 chars but find the last "production.ERROR" block
-        $tail = substr($raw, -12000);
-        $lastError = strrpos($tail, 'production.ERROR');
-        $logContent = $lastError !== false ? substr($tail, $lastError) : $tail;
-    }
-
-    // Compile and read the compiled view to inspect the error line
-    $bladeCompileError = null;
-    $compiledViewLines = null;
-    try {
-        $compiler = app(\Illuminate\View\Compilers\BladeCompiler::class);
-        $viewPath = resource_path('views/standalone/public/profile.blade.php');
-        if (file_exists($viewPath)) {
-            $compiler->compile($viewPath);
-            $bladeCompileError = 'compiled_ok';
-            // Read the compiled file around the error line (1227)
-            $compiledPath = $compiler->getCompiledPath($viewPath);
-            if (file_exists($compiledPath)) {
-                $compiler->compile($viewPath); // force fresh compile
-                $lines = file($compiledPath);
-                $total = count($lines);
-                // Read lines 875-920 (the news section compile output)
-                $excerpt = [];
-                for ($i = 874; $i < min($total, 925); $i++) {
-                    $excerpt[] = ($i + 1) . ': ' . rtrim($lines[$i]);
-                }
-                $compiledViewLines = "total:{$total}\n" . implode("\n", $excerpt);
-            } else {
-                $compiledViewLines = 'file_not_found:' . $compiledPath;
-            }
-        } else {
-            $bladeCompileError = 'view_file_not_found';
-        }
-    } catch (\Throwable $e) {
-        $bladeCompileError = get_class($e) . ': ' . $e->getMessage() . ' at line ' . $e->getLine();
-    }
-
-    // Test-load the failing politician slug to surface the live exception
-    $profileError = null;
-    try {
-        $politician = \App\Models\Politician::where('slug', '71112-us-representative-abraham-j-hamadeh')
-            ->first();
-        $profileError = $politician ? 'step1:found:id=' . $politician->id : 'not_found';
-        if ($politician) {
-            $politician->load(['page', 'initiatives' => fn($q) => $q->where('is_published', true)]);
-            $profileError .= '|step2:page=' . ($politician->page ? 'yes' : 'no');
-            $profileError .= '|initiatives=' . $politician->initiatives->count();
-
-            // Step 3: campaigns with topics
-            $running = $politician->campaigns()
-                ->with('topics')
-                ->where('approval_status', \App\Enums\ApprovalStatus::Approved)
-                ->take(6)->get();
-            $profileError .= '|step3:campaigns=' . $running->count();
-
-            // Step 4: voter watch reports
-            $qas = \App\Models\VoterWatchReport::query()
-                ->messages()
-                ->whereHas('campaign', fn($q) => $q->where('politician_id', $politician->id))
-                ->take(5)->get();
-            $profileError .= '|step4:qa=' . $qas->count();
-
-            // Step 5: ElectionCandidateRecord
-            $rec = \App\Models\ElectionCandidateRecord::where('state', $politician->state)
-                ->whereRaw('LOWER(full_name) = ?', [strtolower((string)$politician->full_name)])
-                ->first();
-            $profileError .= '|step5:record=' . ($rec ? 'yes' : 'no');
-
-            // Step 6: route generation
-            $url = route('politician.public.show', '71112-us-representative-abraham-j-hamadeh');
-            $profileError .= '|step6:route=ok';
-        }
-    } catch (\Throwable $e) {
-        $profileError .= '|ERROR:' . get_class($e) . ': ' . $e->getMessage() . ' in ' . basename($e->getFile()) . ':' . $e->getLine();
-    }
-
     return response()->json([
         'status' => 'ok',
         'php_version' => PHP_VERSION,
         'laravel_version' => app()->version(),
         'app_key_set' => !empty(config('app.key')),
         'db_connection' => config('database.default'),
+        'storage_writable' => is_writable(storage_path()),
         'env' => app()->environment(),
         'debug' => config('app.debug'),
-        'blade_compile' => $bladeCompileError,
-        'compiled_view_excerpt' => $compiledViewLines,
-        'profile_probe' => $profileError,
-        'recent_log' => $logContent,
+        'recent_log' => file_exists(storage_path('logs/laravel.log'))
+            ? substr(file_get_contents(storage_path('logs/laravel.log')), -2000)
+            : 'No log file',
     ]);
 });
 
