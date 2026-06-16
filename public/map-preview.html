@@ -260,10 +260,15 @@
         }
         .candidate-name {
             font-size: 13px; font-weight: 600; color: #e2e8f0; line-height: 1.3; margin-bottom: 3px;
-            cursor: pointer; text-decoration: underline; text-underline-offset: 2px;
-            text-decoration-color: transparent; transition: text-decoration-color 0.15s;
         }
-        .candidate-name:hover { text-decoration-color: rgba(255,255,255,0.3); }
+        .candidate-card {
+            cursor: pointer;
+            transition: background 0.12s, border-color 0.12s, transform 0.1s;
+        }
+        .candidate-card:hover {
+            background: rgba(20,26,58,0.95);
+            transform: translateX(-2px);
+        }
 
         /* ── Candidate quick-view popup ── */
         #cand-popup {
@@ -1434,25 +1439,29 @@ function renderCandidate(c, color) {
     const py = c.party  ? `<span class="party-pill ${partyClass(c.party)}">${c.party}</span>` : '';
     const st = c.status === 'seated' ? `<span class="status-seated">● Seated</span>` : c.is_running ? `<span class="status-running">● Running 2026</span>` : '';
     const vf = c.verified ? `<span class="verified-badge">✓ Verified</span>` : '';
-    // Encode candidate data for popup (exclude large/circular fields)
+    // Encode candidate data on the whole card so the full row is clickable
     const popupData = JSON.stringify({ ...c, color });
-    return `<div class="candidate-card" style="border-left-color:${color};">${av}
+    return `<div class="candidate-card"
+        style="border-left-color:${color};"
+        data-candidate='${popupData.replace(/'/g, '&apos;')}'
+        title="Click to learn more about ${c.full_name}"
+        role="button" tabindex="0"
+        onkeydown="if(event.key==='Enter'||event.key===' ')this.click()">
+        ${av}
         <div style="flex:1;min-width:0;">
-            <div class="candidate-name"
-                 data-candidate='${popupData.replace(/'/g, '&apos;')}'
-                 title="Click to learn more about ${c.full_name}">${c.full_name}</div>
+            <div class="candidate-name">${c.full_name}</div>
             <div class="candidate-meta">${py}${st}${vf}</div>
         </div></div>`;
 }
 
-/* Delegate click on any .candidate-name to open popup */
+/* Delegate click on any .candidate-card to open popup */
 document.getElementById('info-panel').addEventListener('click', e => {
-    const nameEl = e.target.closest('.candidate-name');
-    if (!nameEl) return;
+    const card = e.target.closest('.candidate-card[data-candidate]');
+    if (!card) return;
     e.stopPropagation();
     try {
-        const c = JSON.parse(nameEl.dataset.candidate.replace(/&apos;/g, "'"));
-        openCandidatePopup(c, c.color, nameEl);
+        const c = JSON.parse(card.dataset.candidate.replace(/&apos;/g, "'"));
+        openCandidatePopup(c, c.color, card);
     } catch { /* malformed data, ignore */ }
 });
 
