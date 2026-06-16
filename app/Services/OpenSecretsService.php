@@ -52,9 +52,8 @@ class OpenSecretsService
             return null;
         }
 
-        if (!$politician->show_opensecrets_data) {
-            return null;
-        }
+        // Visibility gate is handled by the caller (buildTransparencyData).
+        // Do not block unclaimed profiles here.
 
         $cacheKey = "opensecrets.politician.{$politician->id}";
 
@@ -318,6 +317,29 @@ class OpenSecretsService
      */
     public function getDisplayData(Politician $politician): ?array
     {
+        // ── 1. Try the nightly donor snapshot (no live API call needed) ──────
+        $snapshot = \App\Models\PoliticianDonorSnapshot::where('politician_id', $politician->id)->first();
+
+        if ($snapshot && $snapshot->enriched_at) {
+            $topContributors = $snapshot->top_contributors ?? [];
+            $topIndustries   = $snapshot->top_industries ?? [];
+
+            if (!empty($topContributors) || !empty($topIndustries)) {
+                return [
+                    'source'     => 'OpenSecrets',
+                    'source_url' => $snapshot->opensecrets_source_url
+                        ?? ($politician->opensecrets_id
+                            ? "https://www.opensecrets.org/members-of-congress/summary?cid={$politician->opensecrets_id}"
+                            : null),
+                    'sections' => [
+                        'top_contributors' => ['items' => $topContributors],
+                        'top_industries'   => ['items' => $topIndustries],
+                    ],
+                ];
+            }
+        }
+
+        // ── 2. Fall back to live OpenSecrets API ─────────────────────────────
         $data = $this->fetchCampaignFinanceData($politician);
 
         if (!$data || empty($data['candidate_summary'])) {
@@ -325,22 +347,12 @@ class OpenSecretsService
         }
 
         return [
-            'source' => 'OpenSecrets',
+            'source'     => 'OpenSecrets',
             'source_url' => "https://www.opensecrets.org/members-of-congress/summary?cid={$politician->opensecrets_id}",
-            'summary' => $data['candidate_summary'],
-            'sections' => [
-                [
-                    'title' => 'Top Contributors',
-                    'items' => $data['top_contributors'] ?? [],
-                ],
-                [
-                    'title' => 'Top Industries',
-                    'items' => $data['top_industries'] ?? [],
-                ],
-                [
-                    'title' => 'Sector Breakdown',
-                    'items' => $data['sector_totals'] ?? [],
-                ],
+            'sections'   => [
+                'top_contributors' => ['items' => $data['top_contributors'] ?? []],
+                'top_industries'   => ['items' => $data['top_industries'] ?? []],
+                'sector_breakdown' => ['items' => $data['sector_totals'] ?? []],
             ],
         ];
     }

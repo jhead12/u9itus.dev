@@ -357,6 +357,20 @@ class FECService
      */
     public function getDisplayData(Politician $politician): ?array
     {
+        // ── 1. Try the nightly donor snapshot ────────────────────────────────
+        $snapshot = \App\Models\PoliticianDonorSnapshot::where('politician_id', $politician->id)->first();
+
+        if ($snapshot && $snapshot->enriched_at && !empty($snapshot->fec_summary)) {
+            return [
+                'source'     => 'Federal Election Commission',
+                'source_url' => $snapshot->fec_source_url ?? 'https://www.fec.gov/data/',
+                'sections'   => [
+                    'summary' => $snapshot->fec_summary,
+                ],
+            ];
+        }
+
+        // ── 2. Fall back to live FEC API ─────────────────────────────────────
         $data = $this->fetchCandidateFilings($politician);
 
         if (!$data || empty($data['candidate_info'])) {
@@ -368,20 +382,12 @@ class FECService
             ?? null;
 
         return [
-            'source' => 'Federal Election Commission',
+            'source'     => 'Federal Election Commission',
             'source_url' => $candidateId
                 ? "https://www.fec.gov/data/candidate/{$candidateId}/"
                 : 'https://www.fec.gov/data/',
-            'summary' => $data['financial_summary'] ?? [],
-            'sections' => [
-                [
-                    'title' => 'Recent Filings',
-                    'items' => $data['recent_filings'] ?? [],
-                ],
-                [
-                    'title' => 'Committees',
-                    'items' => $data['committees'] ?? [],
-                ],
+            'sections'   => [
+                'summary' => $data['financial_summary'] ?? [],
             ],
         ];
     }
