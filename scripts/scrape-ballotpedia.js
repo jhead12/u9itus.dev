@@ -1,12 +1,25 @@
 /**
  * Ballotpedia 2026 Election Candidate Scraper
  *
- * Scrapes primary election results from Ballotpedia for the 2026 U.S. House and
- * Senate elections and outputs a JSON array compatible with:
+ * Scrapes primary election results from Ballotpedia for the 2026 U.S. House,
+ * Senate, and statewide executive offices, outputting a JSON array compatible with:
  *   php artisan politicians:import-ballotpedia --file=storage/app/imports/ballotpedia-2026.json
  *
  * Usage:
- *   node scripts/scrape-ballotpedia.js [--office=house|senate|all] [--state=CA] [--out=path/to/output.json]
+ *   node scripts/scrape-ballotpedia.js [--office=<filter>] [--state=CA] [--out=path/to/output.json]
+ *
+ * --office values:
+ *   all              All federal + statewide offices (default)
+ *   federal          U.S. House + Senate only
+ *   statewide        All statewide executive offices only
+ *   house            U.S. House only
+ *   senate           U.S. Senate only
+ *   governor         Gubernatorial races
+ *   lt_governor      Lieutenant Governor races
+ *   ag               Attorney General races
+ *   treasurer        State Treasurer races
+ *   controller       State Controller races
+ *   secretary_state  Secretary of State races
  *
  * Requirements:
  *   npm install playwright
@@ -39,19 +52,65 @@ const OUT_PATH      = args.out
 
 const ELECTION_YEAR = 2026;
 
-// Ballotpedia index pages for each chamber
+// Ballotpedia index pages for each office type
 const ELECTION_INDEXES = [
+  // ── Federal ──────────────────────────────────────────────────────────────
   {
     key: 'house',
+    group: 'federal',
     url: `https://ballotpedia.org/United_States_House_of_Representatives_elections,_${ELECTION_YEAR}`,
     office: 'U.S. Representative',
     governance_level: 'Federal',
   },
   {
     key: 'senate',
+    group: 'federal',
     url: `https://ballotpedia.org/United_States_Senate_elections,_${ELECTION_YEAR}`,
     office: 'U.S. Senator',
     governance_level: 'Federal',
+  },
+  // ── Statewide Executive ───────────────────────────────────────────────────
+  {
+    key: 'governor',
+    group: 'statewide',
+    url: `https://ballotpedia.org/Gubernatorial_elections,_${ELECTION_YEAR}`,
+    office: 'Governor',
+    governance_level: 'State',
+  },
+  {
+    key: 'lt_governor',
+    group: 'statewide',
+    url: `https://ballotpedia.org/Lieutenant_gubernatorial_elections,_${ELECTION_YEAR}`,
+    office: 'Lieutenant Governor',
+    governance_level: 'State',
+  },
+  {
+    key: 'ag',
+    group: 'statewide',
+    url: `https://ballotpedia.org/State_attorney_general_elections,_${ELECTION_YEAR}`,
+    office: 'Attorney General',
+    governance_level: 'State',
+  },
+  {
+    key: 'treasurer',
+    group: 'statewide',
+    url: `https://ballotpedia.org/State_treasurer_elections,_${ELECTION_YEAR}`,
+    office: 'State Treasurer',
+    governance_level: 'State',
+  },
+  {
+    key: 'controller',
+    group: 'statewide',
+    url: `https://ballotpedia.org/State_controller_elections,_${ELECTION_YEAR}`,
+    office: 'State Controller',
+    governance_level: 'State',
+  },
+  {
+    key: 'secretary_state',
+    group: 'statewide',
+    url: `https://ballotpedia.org/Secretary_of_State_elections,_${ELECTION_YEAR}`,
+    office: 'Secretary of State',
+    governance_level: 'State',
   },
 ];
 
@@ -237,12 +296,18 @@ async function scrapeRacePage(page, raceUrl, chamber) {
 }
 
 async function main() {
-  const indexes = ELECTION_INDEXES.filter(e =>
-    OFFICE_FILTER === 'all' || e.key === OFFICE_FILTER
-  );
+  const indexes = ELECTION_INDEXES.filter(e => {
+    if (OFFICE_FILTER === 'all') return true;
+    if (OFFICE_FILTER === 'federal') return e.group === 'federal';
+    if (OFFICE_FILTER === 'statewide') return e.group === 'statewide';
+    return e.key === OFFICE_FILTER;
+  });
 
   if (indexes.length === 0) {
-    console.error(`Unknown --office value: ${OFFICE_FILTER}. Use house, senate, or all.`);
+    console.error(
+      `Unknown --office value: ${OFFICE_FILTER}. ` +
+      `Use: all, federal, statewide, house, senate, governor, lt_governor, ag, treasurer, controller, secretary_state`
+    );
     process.exit(1);
   }
 

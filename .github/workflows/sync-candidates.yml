@@ -128,9 +128,14 @@ jobs:
 
       - name: Install Node dependencies
         run: npm ci
+        env:
+          NODE_ENV: development
 
       - name: Install Playwright Chromium
         run: npx playwright install chromium --with-deps
+
+      - name: Verify Playwright installation
+        run: node -e "import('playwright').then(m => console.log('playwright OK:', Object.keys(m)))"
 
       - name: Scrape Ballotpedia 2026 candidates
         run: |
