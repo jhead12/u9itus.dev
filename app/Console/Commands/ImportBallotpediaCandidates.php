@@ -94,8 +94,9 @@ class ImportBallotpediaCandidates extends Command
                         if ($row['party_affiliation'] ?? null) {
                             $updates['party_affiliation'] = $row['party_affiliation'];
                         }
-                        if ($row['ballotpedia_url'] ?? null) {
-                            $updates['ballotpedia_id'] = $row['ballotpedia_url'];
+                        $bpId = $this->extractBallotpediaId($row['ballotpedia_url'] ?? null);
+                        if ($bpId !== null) {
+                            $updates['ballotpedia_id'] = $bpId;
                         }
                     }
 
@@ -111,6 +112,11 @@ class ImportBallotpediaCandidates extends Command
 
             $slug = $this->generateSlug($fullName);
 
+            $bpIdForCreate = $this->extractBallotpediaId($row['ballotpedia_url'] ?? null);
+            if (($row['ballotpedia_url'] ?? null) && $bpIdForCreate === null) {
+                $this->warn("Row {$idx}: ballotpedia_url rejected (external/survey URL) for \"{$fullName}\" — ballotpedia_id will be null.");
+            }
+
             if (! $dryRun) {
                 Politician::create([
                     'uuid'                 => \Illuminate\Support\Str::uuid(),
@@ -121,7 +127,7 @@ class ImportBallotpediaCandidates extends Command
                     'district'             => $row['district'] ?? null,
                     'party_affiliation'    => $row['party_affiliation'] ?? null,
                     'website_url'          => null,
-                    'ballotpedia_id'       => $row['ballotpedia_url'] ?? null,
+                    'ballotpedia_id'       => $bpIdForCreate,
                     'is_active'            => true,
                     'is_running_candidate' => true,
                     'term_status'          => 'running',
@@ -166,6 +172,35 @@ class ImportBallotpediaCandidates extends Command
             ->whereRaw('UPPER(COALESCE(state, \'\')) = ?', [$state])
             ->where('governance_level', 'Federal')
             ->first();
+    }
+
+    /**
+     * Extract a clean Ballotpedia page slug from a URL for storage in ballotpedia_id.
+     *
+     * Only accepts https://ballotpedia.org/<slug> URLs with no query string.
+     * Returns null for external URLs, survey/mailto links, election index pages,
+     * or anything that would overflow the VARCHAR(255) column — preventing
+     * SQLSTATE[22001] String data, right truncated errors.
+     */
+    private function extractBallotpediaId(?string $url): ?string
+    {
+        if ($url === null || $url === '') {
+            return null;
+        }
+
+        if (! str_starts_with($url, 'https://ballotpedia.org/')) {
+            return null;
+        }
+
+        $slug = substr($url, strlen('https://ballotpedia.org/'));
+
+        // Reject election index pages and anything with query params
+        if ($slug === '' || str_contains($slug, '?') || str_contains($slug, 'election,_')) {
+            return null;
+        }
+
+        // Hard clamp to column limit as a last-resort safety net
+        return substr($slug, 0, 255);
     }
 
     private function generateSlug(string $fullName): string

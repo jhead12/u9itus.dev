@@ -442,4 +442,7 @@ Route::post('/contact', [DashboardController::class, 'submitContact'])->name('co
 // Phase 13 — Politician Public Profile Pages
 Route::get('/politicians', [PublicProfileController::class, 'index'])->name('politicians.directory');
 Route::get('/district-lookup', [PublicProfileController::class, 'districtLookup'])->name('district.lookup');
+
+// Interactive 3D U.S. Regional Map
+Route::get('/map', fn() => view('standalone.public.us-map'))->name('us.map');
 Route::get('/p/{slug}', [PublicProfileController::class, 'show'])->name('politician.public.show');

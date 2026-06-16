@@ -249,7 +249,23 @@ async function scrapeRacePage(page, raceUrl, chamber) {
 
             if (nameCell.length < 2 || nameCell.toLowerCase().includes('candidate')) continue;
 
-            const ballotpediaLink = cells[0]?.querySelector('a[href]')?.href ?? raceUrl;
+            // Find the first anchor that is a genuine Ballotpedia profile page.
+            // Ballotpedia injects "take our survey" external links in name cells;
+            // those must be ignored to avoid SQLSTATE 22001 truncation on import.
+            const cellAnchors = Array.from(cells[0]?.querySelectorAll('a[href]') ?? []);
+            const profileAnchor = cellAnchors.find(a => {
+              const h = a.getAttribute('href') ?? '';
+              // Reject anything with a query string (mailto, survey links, etc.)
+              if (h.includes('?') || h.includes('#')) return false;
+              // Reject external domains
+              if (h.startsWith('http') && !h.startsWith('https://ballotpedia.org/')) return false;
+              return h.length > 1;
+            });
+            const ballotpediaLink = profileAnchor
+              ? (profileAnchor.href.startsWith('http')
+                  ? profileAnchor.href
+                  : 'https://ballotpedia.org' + profileAnchor.getAttribute('href'))
+              : null;
 
             results.push({
               name: nameCell.replace(/\s+/g, ' ').trim(),
@@ -276,10 +292,20 @@ async function scrapeRacePage(page, raceUrl, chamber) {
 
             if (name.length < 2) continue;
 
+            // Validate the link is a real Ballotpedia profile before capturing it.
+            const rawHref = link ? (link.getAttribute('href') ?? '') : '';
+            const isValidBpLink = rawHref.length > 1
+              && !rawHref.includes('?')
+              && !rawHref.includes('#')
+              && (!rawHref.startsWith('http') || rawHref.startsWith('https://ballotpedia.org/'));
+            const resolvedBpUrl = isValidBpLink
+              ? (link.href.startsWith('http') ? link.href : 'https://ballotpedia.org' + rawHref)
+              : null;
+
             results.push({
               name,
               party,
-              ballotpedia_url: link ? (link.href.startsWith('http') ? link.href : 'https://ballotpedia.org' + link.getAttribute('href')) : raceUrl,
+              ballotpedia_url: resolvedBpUrl,
               page_title: pageTitle,
               election_year: ELECTION_YEAR,
               source_url: raceUrl,
