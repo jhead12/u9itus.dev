@@ -272,6 +272,12 @@ fi
 echo "==================================="
 case "$PROCESS_ROLE" in
   web)
+    # Run migrations on every web deployment so new tables are always present.
+    # Migrations are idempotent — this is safe to run on every startup.
+    echo "=== Running database migrations ==="
+    php artisan migrate --force 2>&1 || echo "WARNING: migrate failed (non-fatal — continuing startup)"
+    echo "================================="
+
     # Safe default: disable realtime broadcasting unless explicitly enabled.
     # This avoids long request stalls when Reverb is not reachable.
     if [ "${ENABLE_REVERB:-false}" != "true" ]; then
