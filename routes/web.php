@@ -84,17 +84,18 @@ Route::get('/debug-info', function () {
             $bladeCompileError = 'compiled_ok';
             // Read the compiled file around the error line (1227)
             $compiledPath = $compiler->getCompiledPath($viewPath);
-            $compiledViewLines = 'compiled_path:' . $compiledPath . '|exists:' . (file_exists($compiledPath) ? 'yes' : 'no');
             if (file_exists($compiledPath)) {
+                $compiler->compile($viewPath); // force fresh compile
                 $lines = file($compiledPath);
                 $total = count($lines);
-                $compiledViewLines .= "|total_lines:{$total}";
-                // Read the last 15 lines
+                // Read lines 875-920 (the news section compile output)
                 $excerpt = [];
-                for ($i = max(0, $total - 15); $i < $total; $i++) {
+                for ($i = 874; $i < min($total, 925); $i++) {
                     $excerpt[] = ($i + 1) . ': ' . rtrim($lines[$i]);
                 }
-                $compiledViewLines .= "\n" . implode("\n", $excerpt);
+                $compiledViewLines = "total:{$total}\n" . implode("\n", $excerpt);
+            } else {
+                $compiledViewLines = 'file_not_found:' . $compiledPath;
             }
         } else {
             $bladeCompileError = 'view_file_not_found';
