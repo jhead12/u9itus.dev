@@ -77,7 +77,7 @@ Route::get('/debug-info', function () {
         'debug' => config('app.debug'),
         'view_exists' => view()->exists('welcome'),
         'recent_log' => file_exists(storage_path('logs/laravel.log')) 
-            ? substr(file_get_contents(storage_path('logs/laravel.log')), -2000)
+            ? substr(file_get_contents(storage_path('logs/laravel.log')), -8000)
             : 'No log file',
     ]);
 });
