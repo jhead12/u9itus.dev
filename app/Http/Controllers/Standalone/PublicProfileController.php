@@ -955,12 +955,16 @@ class PublicProfileController extends Controller
         $ogImage       = $page->hero_banner_url ?? $politician->profile_photo_url ?? null;
         $ogUrl         = route('politician.public.show', $slug);
 
-        // Load news articles in the controller so the view stays logic-free.
+        // Load cached news articles only — never trigger live RSS fetching on a web request.
+        // The artisan command (candidates:refresh-news) handles background fetching on a schedule.
         $newsArticles = collect();
         try {
             if (Schema::hasTable('candidate_news_articles')) {
-                $newsArticles = app(\App\Services\CandidateNewsService::class)
-                    ->getForPolitician($politician);
+                $newsArticles = \App\Models\CandidateNewsArticle::query()
+                    ->where('politician_id', $politician->id)
+                    ->orderByDesc('published_at')
+                    ->limit(60)
+                    ->get();
             }
         } catch (\Throwable $e) {
             Log::warning('Failed to load news articles for profile', [
