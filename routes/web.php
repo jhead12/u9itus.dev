@@ -73,14 +73,28 @@ Route::get('/debug-info', function () {
         $logContent = $lastError !== false ? substr($tail, $lastError) : $tail;
     }
 
-    // Attempt to compile the profile view directly to catch ParseError
+    // Compile and read the compiled view to inspect the error line
     $bladeCompileError = null;
+    $compiledViewLines = null;
     try {
         $compiler = app(\Illuminate\View\Compilers\BladeCompiler::class);
         $viewPath = resource_path('views/standalone/public/profile.blade.php');
         if (file_exists($viewPath)) {
             $compiler->compile($viewPath);
             $bladeCompileError = 'compiled_ok';
+            // Read the compiled file around the error line (1227)
+            $compiledPath = $compiler->getCompiledPath($viewPath);
+            if (file_exists($compiledPath)) {
+                $lines = file($compiledPath);
+                $total = count($lines);
+                $start = max(0, 1220 - 1);
+                $end   = min($total - 1, 1235 - 1);
+                $excerpt = [];
+                for ($i = $start; $i <= $end; $i++) {
+                    $excerpt[] = ($i + 1) . ': ' . rtrim($lines[$i]);
+                }
+                $compiledViewLines = implode("\n", $excerpt) . "\n[total lines: {$total}]";
+            }
         } else {
             $bladeCompileError = 'view_file_not_found';
         }
@@ -136,6 +150,7 @@ Route::get('/debug-info', function () {
         'env' => app()->environment(),
         'debug' => config('app.debug'),
         'blade_compile' => $bladeCompileError,
+        'compiled_view_excerpt' => $compiledViewLines,
         'profile_probe' => $profileError,
         'recent_log' => $logContent,
     ]);
