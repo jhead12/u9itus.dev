@@ -87,13 +87,19 @@ Route::get('/debug-info', function () {
             if (file_exists($compiledPath)) {
                 $lines = file($compiledPath);
                 $total = count($lines);
-                $start = max(0, 1220 - 1);
-                $end   = min($total - 1, 1235 - 1);
-                $excerpt = [];
-                for ($i = $start; $i <= $end; $i++) {
-                    $excerpt[] = ($i + 1) . ': ' . rtrim($lines[$i]);
+                // Count PHP if/endif to find imbalance
+                $ifCount = 0; $endifCount = 0; $ifLines = []; $endifLines = [];
+                foreach ($lines as $lineNo => $line) {
+                    if (preg_match('/^\s*<\?php\s+if\s*\(/', $line)) {
+                        $ifCount++; $ifLines[] = $lineNo + 1;
+                    }
+                    if (preg_match('/^\s*<\?php\s+endif\s*;/', $line)) {
+                        $endifCount++; $endifLines[] = $lineNo + 1;
+                    }
                 }
-                $compiledViewLines = implode("\n", $excerpt) . "\n[total lines: {$total}]";
+                $compiledViewLines = "total_lines:{$total}|php_if:{$ifCount}|php_endif:{$endifCount}"
+                    . "\nIF_LINES(last10):" . implode(',', array_slice($ifLines, -10))
+                    . "\nENDIF_LINES(last10):" . implode(',', array_slice($endifLines, -10));
             }
         } else {
             $bladeCompileError = 'view_file_not_found';
