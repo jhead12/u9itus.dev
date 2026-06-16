@@ -1,0 +1,120 @@
+name: Sync Candidates
+
+# Runs weekly (Sunday 02:00 UTC) and can be triggered manually from the Actions tab.
+on:
+  schedule:
+    - cron: "0 2 * * 0"   # Every Sunday at 02:00 UTC
+  workflow_dispatch:
+    inputs:
+      states:
+        description: "Comma-separated state codes to sync (e.g. CA,TX,NY). Leave blank for all states."
+        default: ""
+        required: false
+      include_former:
+        description: "Include politicians whose latest term has ended"
+        type: boolean
+        default: false
+      dry_run:
+        description: "Dry-run (report only, no DB writes)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  sync-federal-candidates:
+    name: Sync federal candidates from congress-legislators
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── Checkout ────────────────────────────────────────────────────────────
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # ── PHP ─────────────────────────────────────────────────────────────────
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, pdo_mysql
+          coverage: none
+
+      # ── Composer ────────────────────────────────────────────────────────────
+      - name: Cache Composer packages
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: ${{ runner.os }}-composer-${{ hashFiles('composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Install Composer dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress --no-dev
+
+      # ── Laravel env ─────────────────────────────────────────────────────────
+      # Required secrets: APP_KEY, DB_HOST, DB_PORT, DB_DATABASE, DB_USERNAME, DB_PASSWORD
+      - name: Write .env
+        run: |
+          cat > .env <<EOF
+          APP_ENV=production
+          APP_KEY=${{ secrets.APP_KEY }}
+          APP_DEBUG=false
+          APP_URL=${{ secrets.APP_URL }}
+
+          DB_CONNECTION=mysql
+          DB_HOST=${{ secrets.DB_HOST }}
+          DB_PORT=${{ secrets.DB_PORT }}
+          DB_DATABASE=${{ secrets.DB_DATABASE }}
+          DB_USERNAME=${{ secrets.DB_USERNAME }}
+          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+
+          CACHE_DRIVER=database
+          SESSION_DRIVER=database
+          QUEUE_CONNECTION=sync
+          LOG_CHANNEL=stderr
+          EOF
+
+      # ── Migrations ───────────────────────────────────────────────────────────
+      - name: Run pending migrations
+        run: php artisan migrate --force --no-interaction
+
+      # ── Build state filter args ──────────────────────────────────────────────
+      - name: Build import arguments
+        id: args
+        run: |
+          STATES="${{ github.event.inputs.states }}"
+          STATE_ARGS=""
+          if [ -n "$STATES" ]; then
+            for state in $(echo "$STATES" | tr ',' ' '); do
+              STATE_ARGS="$STATE_ARGS --state=$state"
+            done
+          fi
+
+          FORMER_ARG=""
+          if [ "${{ github.event.inputs.include_former }}" = "true" ]; then
+            FORMER_ARG="--include-former"
+          fi
+
+          DRY_ARG=""
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            DRY_ARG="--dry-run"
+          fi
+
+          echo "state_args=$STATE_ARGS" >> $GITHUB_OUTPUT
+          echo "former_arg=$FORMER_ARG" >> $GITHUB_OUTPUT
+          echo "dry_arg=$DRY_ARG" >> $GITHUB_OUTPUT
+
+      # ── Sync current federal legislators ─────────────────────────────────────
+      - name: Sync current federal legislators
+        run: |
+          php artisan politicians:import-unclaimed-us \
+            --fetcher=current \
+            ${{ steps.args.outputs.state_args }} \
+            ${{ steps.args.outputs.former_arg }} \
+            ${{ steps.args.outputs.dry_arg }}
+
+      # ── Sync California-specific federal profiles ─────────────────────────────
+      - name: Sync California federal profiles (dedicated command)
+        run: |
+          php artisan politicians:import-unclaimed-ca \
+            ${{ steps.args.outputs.dry_arg }}

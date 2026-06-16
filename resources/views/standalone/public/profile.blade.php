@@ -120,10 +120,27 @@
     {{-- ── Top Nav Bar ── --}}
     <nav class="sticky top-0 z-40 bg-slate-900/80 backdrop-blur-md border-b border-slate-700/50">
         <div class="max-w-5xl mx-auto px-4 sm:px-6 flex items-center justify-between h-14">
-            <a href="{{ url('/') }}" class="flex items-center space-x-1 text-lg font-bold hover:opacity-80 transition">
-                <span class="text-white">U9</span><span class="text-emerald-400">itus</span>
-            </a>
+            <div class="flex items-center gap-4">
+                <a href="{{ url('/') }}" class="flex items-center space-x-1 text-lg font-bold hover:opacity-80 transition">
+                    <span class="text-white">U9</span><span class="text-emerald-400">itus</span>
+                </a>
+                <a href="{{ route('politicians.directory') }}"
+                   class="hidden sm:inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-white transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                    </svg>
+                    Browse Politicians
+                </a>
+            </div>
             <div class="flex items-center gap-3">
+                {{-- Mobile back link --}}
+                <a href="{{ route('politicians.directory') }}"
+                   class="sm:hidden text-slate-400 hover:text-white transition"
+                   aria-label="Browse Politicians">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                    </svg>
+                </a>
                 @auth
                     <a href="{{ route('dashboard') }}" class="text-sm text-slate-300 hover:text-white transition">Dashboard</a>
                 @else
