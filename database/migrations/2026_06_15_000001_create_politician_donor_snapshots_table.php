@@ -43,8 +43,6 @@ return new class extends Migration
             $table->timestamp('enriched_at')->nullable()->index();
 
             $table->timestamps();
-
-            $table->index(['enriched_at']);
         });
     }
 
