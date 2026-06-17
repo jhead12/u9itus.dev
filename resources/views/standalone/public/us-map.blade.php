@@ -1374,14 +1374,25 @@ async function enterStateMode(stateName, regionName, region) {
     // Fetch live candidate data from the API and cache it for district panels
     stateData = null;
     const abbr = STATE_ABBR_MAP[stateName];
+    // 'live' | 'empty' | 'unreachable'
+    let apiStatus = 'unreachable';
     if (abbr) {
         try {
             const apiRes = await fetch(`/api/v1/map/state-candidates?state=${abbr}`);
-            if (apiRes.ok) stateData = await apiRes.json();
+            if (apiRes.ok) {
+                stateData = await apiRes.json();
+                apiStatus  = stateData?.offices?.length ? 'live' : 'empty';
+            } else {
+                apiStatus = 'unreachable';
+            }
         } catch (e) {
             console.warn('state-candidates API unavailable:', e.message);
+            apiStatus = 'unreachable';
         }
     }
+    // Attach status so panel renderers can show the right badge
+    if (stateData) stateData._apiStatus = apiStatus;
+    else stateData = { _apiStatus: apiStatus };    // sentinel so panels can read it
 
     await openStatePanel(stateName, regionName, region, distCount);
     /* Switch legend to party breakdown */
@@ -1761,13 +1772,24 @@ async function openStatePanel(stateName, regionName, region, districtCount) {
     await new Promise(r => setTimeout(r, 380));
 
     // Use live API data if available; fall back to mock only if API failed
-    const offices = (stateData?.offices?.length)
-        ? stateData.offices
-        : mockStateOffices();
-    const isLive  = !!(stateData?.offices?.length);
-    let html = isLive
-        ? ''
-        : `<p style="color:#475569;font-size:10px;margin:0 0 12px;font-style:italic;">ⓘ Preview — sample data. Production fetches live records.</p>`;
+    const offices   = (stateData?.offices?.length) ? stateData.offices : mockStateOffices();
+    const apiStatus = stateData?._apiStatus || 'unreachable';
+
+    const DATA_BANNERS = {
+        live:        '',
+        empty:       `<div style="display:flex;align-items:center;gap:8px;background:#1e293b;border:1px solid #334155;border-radius:8px;padding:8px 12px;margin-bottom:12px;">
+                        <span style="font-size:14px;">📭</span>
+                        <span style="color:#94a3b8;font-size:11px;">No candidate records found for this state yet. Data is added weekly via the sync workflow.</span>
+                      </div>`,
+        unreachable: `<div style="display:flex;align-items:center;gap:8px;background:#1e1a2e;border:1px solid #7c3aed55;border-radius:8px;padding:8px 12px;margin-bottom:12px;">
+                        <span style="font-size:14px;">⚠️</span>
+                        <div>
+                          <span style="color:#a78bfa;font-size:11px;font-weight:600;">DATA UNREACHABLE</span>
+                          <span style="color:#64748b;font-size:11px;"> · Showing preview data. Live records are unavailable right now.</span>
+                        </div>
+                      </div>`,
+    };
+    let html = DATA_BANNERS[apiStatus] ?? DATA_BANNERS.unreachable;
 
     if (districtCount > 0) {
         const expected = DISTRICT_COUNTS[stateName] || districtCount;
@@ -1841,7 +1863,19 @@ async function openDistrictPanel(districtNum, districtLabel, stateName, regionHe
         ? `<span style="color:#94a3b8;font-size:11px;margin-left:8px;">👥 ${distPop.formatted} residents <span style="opacity:.6">(${distPop.census_year} Census)</span></span>`
         : (statePop ? `<span style="color:#94a3b8;font-size:11px;margin-left:8px;">👥 State pop: ${statePop.formatted}</span>` : '');
 
-    candEl.innerHTML = `<p style="color:#475569;font-size:10px;margin:0 0 12px;font-style:italic;">⚠ Preview — sample data. Production fetches live DB records.</p>
+    const _distApiStatus = stateData?._apiStatus || 'unreachable';
+    const _distLive       = !!(stateData?.house_candidates?.[districtLabel]?.length);
+    const _distBanner = _distLive ? '' : (_distApiStatus === 'unreachable'
+        ? `<div style="display:flex;align-items:center;gap:8px;background:#1e1a2e;border:1px solid #7c3aed55;border-radius:8px;padding:8px 12px;margin-bottom:12px;">
+             <span style="font-size:14px;">⚠️</span>
+             <div><span style="color:#a78bfa;font-size:11px;font-weight:600;">DATA UNREACHABLE</span><span style="color:#64748b;font-size:11px;"> · Showing preview data.</span></div>
+           </div>`
+        : `<div style="display:flex;align-items:center;gap:8px;background:#1e293b;border:1px solid #334155;border-radius:8px;padding:8px 12px;margin-bottom:12px;">
+             <span style="font-size:14px;">💭</span>
+             <span style="color:#94a3b8;font-size:11px;">No records for this district yet.</span>
+           </div>`);
+
+    candEl.innerHTML = `${_distBanner}
 
     <!-- U.S. House district section -->
     <div style="background:${color}0a;border:1px solid ${color}22;border-radius:8px;padding:8px 10px;margin-bottom:12px;font-size:11px;color:#475569;">
