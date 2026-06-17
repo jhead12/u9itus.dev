@@ -1712,54 +1712,12 @@ function renderOfficeGroup(g, roles, color) {
     </div>`;
 }
 
-/* Mock data generators */
-const _FN = ['James','Sarah','Michael','Patricia','Robert','Linda','David','Barbara','John','Mary'];
-const _LN = ['Johnson','Williams','Brown','Jones','Garcia','Martinez','Wilson','Anderson','Taylor','Thomas'];
-const _rnd = arr => arr[Math.floor(Math.random() * arr.length)];
-const _raised = () => '$' + (Math.floor(Math.random()*18+0.5)*100_000).toLocaleString();
-const _BIOS = [
-    'Former state legislator and small-business owner with 12 years of public service.',
-    'Attorney and community advocate focused on housing, healthcare, and economic reform.',
-    'Retired military officer turned civic leader; serves on the state fiscal oversight board.',
-    'Two-term county commissioner running on criminal-justice and infrastructure platforms.',
-    'Educator and union organizer advocating for public schools and workers\u2019 rights.',
-];
-const _STANCES = [
-    ['Economy','Expand small-business tax credits and reform state procurement'],
-    ['Education','Increase per-pupil funding and expand pre-K access statewide'],
-    ['Climate','Accelerate renewable energy transition with market-based incentives'],
-    ['Housing','Streamline permitting and fund affordable-housing bonds'],
-    ['Healthcare','Protect Medicaid expansion and cap prescription drug costs'],
-];
-
-function mockCandidate(party, status = 'running') {
-    const name  = _rnd(_FN)+' '+_rnd(_LN);
-    const slug  = name.toLowerCase().replace(/\s+/g,'-');
-    const stance = _rnd(_STANCES);
-    return {
-        full_name: name, party, is_running: status !== 'seated',
-        status, verified: status === 'seated',
-        photo: null, slug,
-        profile_url: `/p/${slug}`,
-        ballotpedia_url: `https://ballotpedia.org/${name.replace(/\s+/g,'_')}`,
-        website: null,
-        // Extra fields shown in popup only
-        bio:    _rnd(_BIOS),
-        raised: _raised(),
-        stance_topic: stance[0],
-        stance_text:  stance[1],
-        office: null, // filled in by caller
-    };
-}
-
-function mockStateOffices() {
-    return ['Governor','Lieutenant Governor','Attorney General','State Treasurer','Secretary of State'].map(office => ({
-        office,
-        candidates: [
-            { ...mockCandidate('Democratic'), office },
-            { ...mockCandidate('Republican'),  office },
-        ]
-    }));
+/* No-data notice rendered when a state/district has no live records */
+function noDataNotice(msg) {
+    return `<div style="display:flex;align-items:center;gap:8px;background:#1e293b;border:1px solid #334155;border-radius:8px;padding:10px 12px;margin-bottom:12px;">
+        <span style="font-size:16px;">📭</span>
+        <span style="color:#94a3b8;font-size:11px;">${msg}</span>
+    </div>`;
 }
 
 /* ════════════════════════════════════════════════════════
@@ -1774,8 +1732,7 @@ async function openStatePanel(stateName, regionName, region, districtCount) {
 
     await new Promise(r => setTimeout(r, 380));
 
-    // Use live API data if available; fall back to mock only if API failed
-    const offices   = (stateData?.offices?.length) ? stateData.offices : mockStateOffices();
+    const offices   = stateData?.offices ?? [];
     const apiStatus = stateData?._apiStatus || 'unreachable';
 
     const DATA_BANNERS = {
@@ -1807,7 +1764,9 @@ async function openStatePanel(stateName, regionName, region, districtCount) {
         </div>`;
     }
 
-    html += offices.map(g => renderOfficeGroup(g, OFFICE_ROLES, color)).join('');
+    html += offices.length
+        ? offices.map(g => renderOfficeGroup(g, OFFICE_ROLES, color)).join('')
+        : noDataNotice('Statewide candidate records for this state are not yet available. Check back after the next weekly sync.');
     candEl.innerHTML = html;
 }
 
@@ -1849,15 +1808,10 @@ async function openDistrictPanel(districtNum, districtLabel, stateName, regionHe
             };
         });
     } else {
-        const seatedParty = _rnd(['Republican','Democratic']);
-        const challParty  = seatedParty === 'Republican' ? 'Democratic' : 'Republican';
-        seated     = { ...mockCandidate(seatedParty, 'seated'), office: `U.S. Representative — ${districtLabel}` };
-        challenger = { ...mockCandidate(challParty),            office: `U.S. Representative — ${districtLabel}` };
-        third      = { ...mockCandidate('Libertarian'),         office: `U.S. Representative — ${districtLabel}` };
+        seated = challenger = third = null;
     }
 
-    // Statewide executive offices: use live API data or fall back to mock
-    const stateOffices = (stateData?.offices?.length) ? stateData.offices : mockStateOffices();
+    const stateOffices = stateData?.offices ?? [];
 
     // District population from cached API response
     const distPop = stateData?.district_populations?.[districtLabel];
@@ -1868,15 +1822,28 @@ async function openDistrictPanel(districtNum, districtLabel, stateName, regionHe
 
     const _distApiStatus = stateData?._apiStatus || 'unreachable';
     const _distLive       = !!(stateData?.house_candidates?.[districtLabel]?.length);
-    const _distBanner = _distLive ? '' : (_distApiStatus === 'unreachable'
+
+    // Build house district candidates HTML (null = no data)
+    const houseHtml = seated
+        ? `<p style="color:#475569;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin:8px 0 6px;">Current Officeholder</p>
+        ${renderCandidate(seated, color)}
+        <p style="color:#475569;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin:12px 0 6px;">2026 Primary Challengers</p>
+        ${challenger ? renderCandidate(challenger, color) : ''}
+        ${third      ? renderCandidate(third, color)      : ''}`
+        : noDataNotice('No records for this district yet. Data is synced weekly from congress-legislators and Ballotpedia.');
+
+    // Statewide section
+    const statewideHtml = stateOffices.length
+        ? stateOffices.map(g => renderOfficeGroup(g, OFFICE_ROLES, color)).join('')
+        : noDataNotice('Statewide candidate records for this state are not yet available. Check back after the next weekly sync.');
+
+    // Top banner: only show when API was unreachable (distinct from simply empty)
+    const _distBanner = (_distApiStatus === 'unreachable')
         ? `<div style="display:flex;align-items:center;gap:8px;background:#1e1a2e;border:1px solid #7c3aed55;border-radius:8px;padding:8px 12px;margin-bottom:12px;">
              <span style="font-size:14px;">⚠️</span>
-             <div><span style="color:#a78bfa;font-size:11px;font-weight:600;">DATA UNREACHABLE</span><span style="color:#64748b;font-size:11px;"> · Showing preview data.</span></div>
+             <div><span style="color:#a78bfa;font-size:11px;font-weight:600;">DATA UNREACHABLE</span><span style="color:#64748b;font-size:11px;"> · Live records unavailable right now.</span></div>
            </div>`
-        : `<div style="display:flex;align-items:center;gap:8px;background:#1e293b;border:1px solid #334155;border-radius:8px;padding:8px 12px;margin-bottom:12px;">
-             <span style="font-size:14px;">💭</span>
-             <span style="color:#94a3b8;font-size:11px;">No records for this district yet.</span>
-           </div>`);
+        : '';
 
     candEl.innerHTML = `${_distBanner}
 
@@ -1891,11 +1858,7 @@ async function openDistrictPanel(districtNum, districtLabel, stateName, regionHe
             🏛&nbsp;U.S. Representative — ${districtLabel}
         </div>
         <p class="office-role-tip">Elected every 2 years. Represents ~750,000 constituents in the U.S. House of Representatives.</p>
-        <p style="color:#475569;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin:8px 0 6px;">Current Officeholder</p>
-        ${renderCandidate(seated, color)}
-        <p style="color:#475569;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin:12px 0 6px;">2026 Primary Challengers</p>
-        ${renderCandidate(challenger, color)}
-        ${renderCandidate(third, color)}
+        ${houseHtml}
     </div>
 
     <!-- Divider before statewide races -->
@@ -1903,8 +1866,7 @@ async function openDistrictPanel(districtNum, districtLabel, stateName, regionHe
         <span style="color:${color};font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;white-space:nowrap;">Statewide Races — ${stateName}</span>
         <div style="flex:1;border-top:1px solid ${color}20;"></div>
     </div>
-    <p style="color:#475569;font-size:11px;margin:0 0 12px;">Gubernatorial and executive office candidates running statewide in ${stateName}.</p>
-    ${stateOffices.map(g => renderOfficeGroup(g, OFFICE_ROLES, color)).join('')}`;
+    ${statewideHtml}`;
 }
 
 /* ════════════════════════════════════════════════════════

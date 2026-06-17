@@ -171,15 +171,31 @@ jobs:
 
       # ── AI-enriched statewide officeholder data ──────────────────────────
       # Three-tier pipeline: Ballotpedia → Wikipedia → Claude (if key set).
+      # Syncs current governor, lt. governor, attorney general, treasurer,
+      # and secretary of state for every state (or the filtered subset).
       # --clean removes unverified statewide records not matched by enrichment
       # (eliminates garbage scraper rows like "Linda Martinez").
       - name: Enrich statewide officeholders
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
-          php artisan politicians:enrich-statewide \
-            --clean \
-            ${{ steps.args.outputs.dry_arg }}
+          # enrich-statewide accepts a single --state flag; when multiple states
+          # are requested we loop; when no filter is set it runs all 50 states.
+          STATES="${{ github.event.inputs.states }}"
+          DRY="${{ steps.args.outputs.dry_arg }}"
+          if [ -n "$STATES" ]; then
+            for state in $(echo "$STATES" | tr ',' ' '); do
+              echo "=== Enriching statewide offices for $state ==="
+              php artisan politicians:enrich-statewide \
+                --state="$state" \
+                --clean \
+                $DRY
+            done
+          else
+            php artisan politicians:enrich-statewide \
+              --clean \
+              $DRY
+          fi
 
       # ── Reconcile lifecycle status ────────────────────────────────────────
       # Marks seated members, retires former members, and clears stale
