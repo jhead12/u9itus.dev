@@ -1713,15 +1713,50 @@ document.getElementById('info-panel').addEventListener('click', e => {
 const OFFICE_DEFAULT_OPEN = new Set(['Governor']);
 let _officeIdx = 0;
 
+/**
+ * Determines the election phase for a set of candidates.
+ * post_general  — general election date has passed
+ * post_primary  — at least one candidate has a primary_result recorded
+ * pre_primary   — primary has not occurred yet
+ */
+function detectElectionPhase(candidates) {
+    const today = new Date();
+    let anyPrimaryResult = false, generalPassed = false;
+    for (const c of (candidates || [])) {
+        if (c.primary_result) anyPrimaryResult = true;
+        if (c.status === 'lost') anyPrimaryResult = true;
+        if (c.general_date && new Date(c.general_date) < today) { generalPassed = true; break; }
+    }
+    if (generalPassed) return 'post_general';
+    if (anyPrimaryResult) return 'post_primary';
+    return 'pre_primary';
+}
+
 function renderOfficeGroup(g, roles, color) {
     color = color || '#6366f1';
     const role      = roles?.[g.office] ?? '';
     const isOpen    = OFFICE_DEFAULT_OPEN.has(g.office);
     const sectionId = `off-body-${_officeIdx++}`;
 
-    // Split seated officeholder(s) from running candidates
+    // Determine election phase: use API-supplied value, or compute from candidates
+    const phase = g.election_phase || detectElectionPhase(g.candidates);
+
+    // Split seated officeholder(s) from running candidates (exclude lost)
     const seated  = g.candidates.filter(c => c.status === 'seated');
-    const running = g.candidates.filter(c => c.status !== 'seated');
+    let running   = g.candidates.filter(c => c.status !== 'seated' && c.status !== 'lost');
+
+    // Filter running candidates and set section label based on election phase
+    let runningLabel = '';
+    if (phase === 'post_general') {
+        running = []; // General decided — only the officeholder remains
+    } else if (phase === 'post_primary') {
+        running = running.filter(c => !c.primary_result || c.primary_result === 'advanced_to_general');
+        const genDate = running.find(c => c.general_date)?.general_date;
+        runningLabel  = 'General Election Candidates'
+            + (genDate ? ` · ${new Date(genDate).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}` : '');
+    } else {
+        runningLabel = '2026 Primary Candidates';
+    }
 
     // Seated holder with optional term-end notice
     const seatedHtml = seated.map(c => {
@@ -1737,9 +1772,9 @@ function renderOfficeGroup(g, roles, color) {
         return termNotice + renderCandidate({ ...c, office: g.office }, color);
     }).join('');
 
-    // 2026 candidates
+    // Candidates section — only rendered when there are active candidates in this phase
     const candidatesHtml = running.length
-        ? `<p style="color:#475569;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin:10px 0 6px;">2026 Candidates</p>
+        ? `<p style="color:#475569;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin:10px 0 6px;">${runningLabel}</p>
            ${running.map(c => renderCandidate({ ...c, office: g.office }, color)).join('')}`
         : '';
 
@@ -1866,6 +1901,8 @@ async function openDistrictPanel(districtNum, districtLabel, stateName, regionHe
                 profile_url: c.profile_url || null,
                 ballotpedia_url: c.ballotpedia_url || null, website: c.website || null,
                 bio: c.bio_excerpt || null, raised: null, stance_topic: null, stance_text: null,
+                primary_result: c.primary_result || null,
+                general_date:   c.general_date   || null,
                 office: `U.S. Representative — ${districtLabel}`,
             };
         });
@@ -1886,13 +1923,32 @@ async function openDistrictPanel(districtNum, districtLabel, stateName, regionHe
     const _distApiStatus = stateData?._apiStatus || 'unreachable';
     const _distLive       = !!(stateData?.house_candidates?.[districtLabel]?.length);
 
+    // Determine election phase for this district race
+    const distCands   = [seated, challenger, third].filter(Boolean);
+    const distPhase   = detectElectionPhase(distCands);
+    const advancedChalls = [challenger, third].filter(c => c && (!c.primary_result || c.primary_result === 'advanced_to_general'));
+    let challSection = '';
+    if (distPhase === 'post_general') {
+        challSection = ''; // General decided — no challengers to show
+    } else if (distPhase === 'post_primary') {
+        if (advancedChalls.length) {
+            const genDate = advancedChalls.find(c => c.general_date)?.general_date;
+            const challLabel = 'General Election Candidates'
+                + (genDate ? ` · ${new Date(genDate).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}` : '');
+            challSection = `<p style="color:#475569;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin:12px 0 6px;">${challLabel}</p>
+                ${advancedChalls.map(c => renderCandidate(c, color)).join('')}`;
+        }
+    } else {
+        challSection = `<p style="color:#475569;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin:12px 0 6px;">2026 Primary Challengers</p>
+            ${challenger ? renderCandidate(challenger, color) : ''}
+            ${third      ? renderCandidate(third, color)      : ''}`;
+    }
+
     // Build house district candidates HTML (null = no data)
     const houseHtml = seated
         ? `<p style="color:#475569;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin:8px 0 6px;">Current Officeholder</p>
         ${renderCandidate(seated, color)}
-        <p style="color:#475569;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin:12px 0 6px;">2026 Primary Challengers</p>
-        ${challenger ? renderCandidate(challenger, color) : ''}
-        ${third      ? renderCandidate(third, color)      : ''}`
+        ${challSection}`
         : noDataNotice('No records for this district yet. Data is synced weekly from congress-legislators and Ballotpedia.');
 
     // Statewide section

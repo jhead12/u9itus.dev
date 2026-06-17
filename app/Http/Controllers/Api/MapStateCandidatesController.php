@@ -122,6 +122,7 @@ class MapStateCandidatesController
             ->whereRaw('UPPER(COALESCE(state, \'\')) = ?', [$state])
             ->where('is_active', true)
             ->whereRaw('LOWER(COALESCE(governance_level, \'\')) = ?', ['state'])
+            ->where(fn($q) => $q->where('term_status', '!=', 'lost')->orWhereNull('term_status'))
             ->get(['uuid', 'full_name', 'political_office', 'party_affiliation',
                    'profile_photo_url', 'slug', 'is_running_candidate',
                    'term_status', 'verified_official', 'ballotpedia_id',
@@ -139,6 +140,7 @@ class MapStateCandidatesController
             ->whereRaw('UPPER(COALESCE(state, \'\')) = ?', [$state])
             ->where('is_active', true)
             ->whereRaw('LOWER(COALESCE(governance_level, \'\')) = ?', ['federal'])
+            ->where(fn($q) => $q->where('term_status', '!=', 'lost')->orWhereNull('term_status'))
             ->get(['uuid', 'full_name', 'political_office', 'party_affiliation',
                    'profile_photo_url', 'slug', 'is_running_candidate',
                    'term_status', 'verified_official', 'ballotpedia_id',
@@ -191,6 +193,12 @@ class MapStateCandidatesController
                 continue;
             }
 
+            // Exclude candidates who lost the general election
+            $resultStatus = $payload['result_status'] ?? null;
+            if ($resultStatus === 'lost' || $resultStatus === 'loser') {
+                continue;
+            }
+
             $recStatus = $payload['status'] ?? 'running';
             $grouped[$canonical]['candidates'][] = [
                 'source'          => 'scraped',
@@ -215,6 +223,24 @@ class MapStateCandidatesController
                 'bio_excerpt'     => null,
             ];
         }
+
+        // Compute election phase per office group
+        foreach ($grouped as $canonical => &$group) {
+            $phase = 'pre_primary';
+            foreach ($group['candidates'] as $cand) {
+                $pr = $cand['primary_result'] ?? null;
+                if ($pr !== null) {
+                    $phase = 'post_primary';
+                }
+                $genDate = $cand['general_date'] ?? null;
+                if ($genDate && strtotime($genDate) < time()) {
+                    $phase = 'post_general';
+                    break;
+                }
+            }
+            $group['election_phase'] = $phase;
+        }
+        unset($group);
 
         // Remove empty office groups for cleaner response
         $offices = collect($grouped)
