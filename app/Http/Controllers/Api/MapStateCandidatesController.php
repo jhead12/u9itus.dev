@@ -164,7 +164,12 @@ class MapStateCandidatesController
                     ? (str_starts_with($pol->profile_photo_url, 'http') ? $pol->profile_photo_url : url($pol->profile_photo_url))
                     : null,
                 'slug'            => $pol->slug,
-                'status'          => $pol->term_status,
+                // Normalize legacy 'active' records written by enrich-statewide
+                // before the seated/active distinction was clarified. A non-running
+                // incumbent should always render as "Current Officeholder" in the map.
+                'status'          => ($pol->term_status === 'active' && ! $pol->is_running_candidate)
+                    ? 'seated'
+                    : $pol->term_status,
                 'is_running'      => (bool) $pol->is_running_candidate,
                 'verified'        => (bool) $pol->verified_official,
                 'ballotpedia_id'  => $pol->ballotpedia_id,

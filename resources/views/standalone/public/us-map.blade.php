@@ -1741,9 +1741,11 @@ function renderOfficeGroup(g, roles, color) {
     // Determine election phase: use API-supplied value, or compute from candidates
     const phase = g.election_phase || detectElectionPhase(g.candidates);
 
-    // Split seated officeholder(s) from running candidates (exclude lost)
-    const seated  = g.candidates.filter(c => c.status === 'seated');
-    let running   = g.candidates.filter(c => c.status !== 'seated' && c.status !== 'lost');
+    // Split seated officeholder(s) from running candidates (exclude lost).
+    // 'active' + !is_running is a legacy value from enrich-statewide; treat as seated.
+    const isSeated = c => c.status === 'seated' || (c.status === 'active' && !c.is_running);
+    const seated  = g.candidates.filter(isSeated);
+    let running   = g.candidates.filter(c => !isSeated(c) && c.status !== 'lost');
 
     // Filter running candidates and set section label based on election phase
     let runningLabel = '';

@@ -101,8 +101,8 @@ class EnrichStatewideOfficeholders extends Command
     // Throttle between HTTP calls (ms) to avoid rate limits
     private const DELAY_MS = 400;
 
-    /** @var string[] Names successfully enriched in this run (for --clean) */
-    private array $enrichedNames = [];
+    /** @var string[] Keys "state|office|name" successfully enriched in this run (for --clean) */
+    private array $enrichedKeys = [];
 
     public function handle(): int
     {
@@ -149,7 +149,7 @@ class EnrichStatewideOfficeholders extends Command
 
                 ['name' => $name, 'party' => $party, 'source' => $source, 'bp_url' => $bpUrl] = $result;
 
-                $this->enrichedNames[] = strtolower($name);
+                $this->enrichedKeys[] = strtolower("{$abbr}|{$office}|{$name}");
 
                 $this->line("  <fg=cyan>✓ {$office}:</> {$name}" .
                     ($party ? " ({$party})" : '') .
@@ -175,7 +175,7 @@ class EnrichStatewideOfficeholders extends Command
                         'party_affiliation'    => $party,
                         'ballotpedia_id'       => $bpSlug ? substr($bpSlug, 0, 255) : null,
                         'is_running_candidate' => false,
-                        'term_status'          => 'active',
+                        'term_status'          => 'seated',
                         'is_active'            => true,
                         'status_updated_at'    => now(),
                     ], fn($v) => $v !== null);
@@ -536,8 +536,12 @@ class EnrichStatewideOfficeholders extends Command
         $removed = 0;
 
         foreach ($candidates as $pol) {
-            // Keep it if we just enriched a record with this name
-            if (in_array(strtolower((string) $pol->full_name), $this->enrichedNames, true)) {
+            // Keep only if the exact state|office|name tuple was enriched this run.
+            // Matching by name alone allowed stale cross-office records to survive
+            // (e.g. an old "Eleni Kounalakis / Governor" record surviving because she
+            // was enriched as "Lieutenant Governor").
+            $recKey = strtolower("{$pol->state}|{$pol->political_office}|{$pol->full_name}");
+            if (in_array($recKey, $this->enrichedKeys, true)) {
                 continue;
             }
 
@@ -573,6 +577,9 @@ class EnrichStatewideOfficeholders extends Command
         if (str_contains($p, 'independent')) return 'Independent';
         if (str_contains($p, 'libertarian')) return 'Libertarian';
         if (str_contains($p, 'green')) return 'Green';
+        // California "No Party Preference" is a ballot designation, not a party affiliation.
+        // Return null so no misleading party badge appears for the officeholder.
+        if (str_contains($p, 'no party') || str_contains($p, 'non-partisan') || str_contains($p, 'nonpartisan')) return null;
         return ucwords($raw) ?: null;
     }
 
