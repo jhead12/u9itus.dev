@@ -183,7 +183,14 @@ class MapStateCandidatesController
             if ($alreadyListed) {
                 continue;
             }
-            $payload  = is_array($rec->payload) ? $rec->payload : [];
+            $payload       = is_array($rec->payload) ? $rec->payload : [];
+            $primaryResult = $payload['primary_result'] ?? null;
+
+            // Exclude candidates eliminated in a primary — they are no longer active
+            if ($primaryResult === 'eliminated') {
+                continue;
+            }
+
             $recStatus = $payload['status'] ?? 'running';
             $grouped[$canonical]['candidates'][] = [
                 'source'          => 'scraped',
@@ -195,6 +202,8 @@ class MapStateCandidatesController
                 'status'          => $recStatus,
                 'is_running'      => $recStatus !== 'seated',
                 'verified'        => $recStatus === 'seated',
+                'primary_result'  => $primaryResult,
+                'general_date'    => $payload['general_date'] ?? null,
                 'term_end'        => $payload['term_end'] ?? null,
                 'term_note'       => $payload['term_note'] ?? null,
                 'ballotpedia_id'  => $rec->external_candidate_id ?? null,

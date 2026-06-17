@@ -18,6 +18,18 @@ on:
         description: "Dry-run (report only, no DB writes)"
         type: boolean
         default: false
+      election_year:
+        description: "Election year to target for result scraping (default: 2026)"
+        default: "2026"
+        required: false
+      include_results:
+        description: "Also scrape election results (winner/loser) from Ballotpedia + local sites"
+        type: boolean
+        default: true
+      create_missing:
+        description: "Create new unclaimed profiles for candidates not yet in the DB"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -197,10 +209,98 @@ jobs:
               $DRY
           fi
 
+      # ── Sync primary election results ────────────────────────────────────
+      # For each statewide candidate whose election_date is in the past,
+      # scrapes Ballotpedia/Wikipedia to determine if they advanced to the
+      # general or were eliminated. Stamps payload.primary_result.
+      # Eliminated candidates are then hidden from the map API automatically.
+      - name: Sync primary results
+        run: |
+          STATES="${{ github.event.inputs.states }}"
+          DRY="${{ steps.args.outputs.dry_arg }}"
+          if [ -n "$STATES" ]; then
+            for state in $(echo "$STATES" | tr ',' ' '); do
+              echo "=== Syncing primary results for $state ==="
+              php artisan politicians:sync-primary-results \
+                --state="$state" \
+                $DRY
+            done
+          else
+            php artisan politicians:sync-primary-results $DRY
+          fi
+
       # ── Reconcile lifecycle status ────────────────────────────────────────
       # Marks seated members, retires former members, and clears stale
       # is_running_candidate flags after an election date has passed.
       - name: Reconcile politician status
         run: |
           php artisan politicians:reconcile-status \
+            ${{ steps.args.outputs.dry_arg }}
+
+      # ── Election results & local voter guides (all 50 states) ────────────
+      # Two-pass results enrichment:
+      #  Pass 1 — Re-scrape Ballotpedia with --results to capture winner/loser
+      #            flags from the same pages already visited for candidates.
+      #  Pass 2 — Scrape per-state local voter guide / news sites using the
+      #            50-state map in scripts/scrape-state-voter-guides.js
+      #            (CalMatters for CA, state-specific investigative outlets for
+      #            all others, Ballotpedia state overview as fallback).
+      # Both outputs are fed into politicians:import-election-results which
+      # updates term_status to 'seated' (won) or 'lost' on matched records.
+      - name: Scrape Ballotpedia election results
+        if: ${{ github.event.inputs.include_results != 'false' }}
+        run: |
+          YEAR="${{ github.event.inputs.election_year || '2026' }}"
+          STATES="${{ github.event.inputs.states }}"
+          STATE_ARGS=""
+          if [ -n "$STATES" ]; then
+            for state in $(echo "$STATES" | tr ',' ' '); do
+              STATE_ARGS="$STATE_ARGS --state=$state"
+            done
+          fi
+          node scripts/scrape-ballotpedia.js \
+            --office=all \
+            --year="$YEAR" \
+            --results \
+            $STATE_ARGS \
+            --out=storage/app/imports/ballotpedia-results-${YEAR}.json
+
+      - name: Import Ballotpedia election results
+        if: ${{ github.event.inputs.include_results != 'false' }}
+        run: |
+          YEAR="${{ github.event.inputs.election_year || '2026' }}"
+          CREATE_ARG=""
+          if [ "${{ github.event.inputs.create_missing }}" = "true" ]; then
+            CREATE_ARG="--create-missing"
+          fi
+          php artisan politicians:import-election-results \
+            --file=storage/app/imports/ballotpedia-results-${YEAR}.json \
+            $CREATE_ARG \
+            ${{ steps.args.outputs.dry_arg }}
+
+      - name: Scrape 50-state local voter guides
+        if: ${{ github.event.inputs.include_results != 'false' }}
+        run: |
+          YEAR="${{ github.event.inputs.election_year || '2026' }}"
+          STATES="${{ github.event.inputs.states }}"
+          STATE_ARG=""
+          if [ -n "$STATES" ]; then
+            STATE_ARG="--states=$STATES"
+          fi
+          node scripts/scrape-state-voter-guides.js \
+            --year="$YEAR" \
+            $STATE_ARG \
+            --out=storage/app/imports/state-voter-guides-${YEAR}.json
+
+      - name: Import local voter guide results
+        if: ${{ github.event.inputs.include_results != 'false' }}
+        run: |
+          YEAR="${{ github.event.inputs.election_year || '2026' }}"
+          CREATE_ARG=""
+          if [ "${{ github.event.inputs.create_missing }}" = "true" ]; then
+            CREATE_ARG="--create-missing"
+          fi
+          php artisan politicians:import-election-results \
+            --file=storage/app/imports/state-voter-guides-${YEAR}.json \
+            $CREATE_ARG \
             ${{ steps.args.outputs.dry_arg }}
