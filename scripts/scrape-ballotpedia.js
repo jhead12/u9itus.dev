@@ -355,24 +355,36 @@ async function main() {
   console.log(`Output   : ${OUT_PATH}\n`);
 
   const browser = await chromium.launch({ headless: true });
-  const context = await browser.newContext({
-    userAgent: 'Mozilla/5.0 (compatible; U9itus-civic-bot/1.0; +https://u9itus.dev/about)',
-    locale: 'en-US',
-  });
-  const page = await context.newPage();
+
+  /**
+   * Open a fresh browser context + page.
+   * Using a new context per scrape session prevents one page's rogue
+   * redirect or destroyed execution context from polluting subsequent pages.
+   */
+  async function newPage() {
+    const ctx = await browser.newContext({
+      userAgent: 'Mozilla/5.0 (compatible; U9itus-civic-bot/1.0; +https://u9itus.dev/about)',
+      locale: 'en-US',
+    });
+    return ctx.newPage();
+  }
 
   const allCandidates = [];
 
   for (const chamberConfig of indexes) {
     console.log(`\n[${ chamberConfig.key.toUpperCase() }] Scraping index page…`);
 
+    // Each index page gets its own fresh page to avoid shared navigation state.
+    const indexPage = await newPage();
     let raceLinks;
     try {
-      raceLinks = await scrapeRaceLinks(page, chamberConfig.url, chamberConfig.key);
+      raceLinks = await scrapeRaceLinks(indexPage, chamberConfig.url, chamberConfig.key);
     } catch (err) {
       console.error(`  ✗ Failed to scrape index: ${err.message}`);
+      await indexPage.context().close();
       continue;
     }
+    await indexPage.context().close();
 
     console.log(`  Found ${raceLinks.length} race pages.`);
 
@@ -383,13 +395,18 @@ async function main() {
 
       if (STATE_FILTER && stateAbbr !== STATE_FILTER) continue;
 
+      // Each race page gets its own fresh context so a rogue redirect or
+      // destroyed execution context on one URL cannot cascade to the next.
+      const racePage = await newPage();
       let raceData;
       try {
-        raceData = await scrapeRacePage(page, raceUrl, chamberConfig.key);
+        raceData = await scrapeRacePage(racePage, raceUrl, chamberConfig.key);
       } catch (err) {
         console.warn(`  ✗ Skipped ${raceUrl}: ${err.message}`);
+        await racePage.context().close();
         continue;
       }
+      await racePage.context().close();
 
       const { pageTitle, candidates } = raceData;
       const district = chamberConfig.key === 'house'
