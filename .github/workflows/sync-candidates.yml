@@ -149,6 +149,17 @@ jobs:
             --file=storage/app/imports/ballotpedia-2026.json \
             ${{ steps.args.outputs.dry_arg }}
 
+      # ── Sync Census Bureau population data ───────────────────────────────
+      # Upserts state + congressional-district populations from the
+      # 2020 Decennial Census P.L. 94-171 redistricting file (free API,
+      # no key required). Run in dry-run mode when the workflow is dry-run.
+      - name: Sync Census population data
+        run: |
+          php artisan geo:sync-census-population \
+            --year=2020 \
+            --level=all \
+            ${{ steps.args.outputs.dry_arg }}
+
       # ── Reconcile lifecycle status ────────────────────────────────────────
       # Marks seated members, retires former members, and clears stale
       # is_running_candidate flags after an election date has passed.

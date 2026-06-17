@@ -6,6 +6,7 @@ use App\Models\ElectionCandidateRecord;
 use App\Models\Politician;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
@@ -198,13 +199,39 @@ class MapStateCandidatesController
 
         $regionInfo = self::STATE_REGIONS[$state] ?? ['region' => 'Unknown', 'color' => '#64748b'];
 
+        // ── 4. Population data ─────────────────────────────────────────────────
+        $statePopRow = DB::table('district_populations')
+            ->where('state', $state)
+            ->whereNull('district_number')
+            ->orderByDesc('census_year')
+            ->first(['total_population', 'census_year']);
+
+        $districtPops = DB::table('district_populations')
+            ->where('state', $state)
+            ->whereNotNull('district_number')
+            ->orderByDesc('census_year')
+            ->orderBy('district_number')
+            ->get(['district_number', 'label', 'total_population', 'census_year'])
+            ->keyBy('label');
+
         return response()->json([
-            'state'         => $state,
-            'region'        => $regionInfo['region'],
-            'region_color'  => $regionInfo['color'],
-            'total'         => $offices->sum(fn($g) => count($g['candidates'])),
-            'offices'       => $offices,
-            'office_roles'  => $this->officeRoles(),
+            'state'              => $state,
+            'region'             => $regionInfo['region'],
+            'region_color'       => $regionInfo['color'],
+            'total'              => $offices->sum(fn($g) => count($g['candidates'])),
+            'offices'            => $offices,
+            'office_roles'       => $this->officeRoles(),
+            'population'         => $statePopRow ? [
+                'total'       => $statePopRow->total_population,
+                'census_year' => $statePopRow->census_year,
+                'formatted'   => number_format($statePopRow->total_population),
+            ] : null,
+            'district_populations' => $districtPops->map(fn($r) => [
+                'district'    => $r->label,
+                'total'       => $r->total_population,
+                'census_year' => $r->census_year,
+                'formatted'   => number_format($r->total_population),
+            ]),
         ]);
     }
 

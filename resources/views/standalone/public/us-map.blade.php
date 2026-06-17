@@ -1548,6 +1548,9 @@ function mockStateOffices() {
 /* ════════════════════════════════════════════════════════
    PANEL: STATE (statewide offices + district badge)
 ════════════════════════════════════════════════════════ */
+// Cached API response for the currently-viewed state (populated by enterStateMode)
+let stateData = null;
+
 async function openStatePanel(stateName, regionName, region, districtCount) {
     const color  = region?.hex || '#6366f1';
     const candEl = document.getElementById('panel-candidates');
@@ -1559,10 +1562,14 @@ async function openStatePanel(stateName, regionName, region, districtCount) {
 
     if (districtCount > 0) {
         const expected = DISTRICT_COUNTS[stateName] || districtCount;
+        const popLine = (stateData?.population)
+            ? `<p style="color:#475569;font-size:11px;margin:4px 0 0;">👥 State population: <strong style="color:#e2e8f0;">${stateData.population.formatted}</strong> <span style="opacity:.6">(${stateData.population.census_year} Census)</span></p>`
+            : '';
         html += `<div style="background:${color}0f;border:1px solid ${color}33;border-radius:8px;padding:10px 12px;margin-bottom:14px;">
             <p style="color:${color};font-size:12px;font-weight:600;margin:0 0 4px;">🗺 ${districtCount} of ${expected} Congressional Districts loaded</p>
             <p style="color:#475569;font-size:11px;margin:0 0 4px;">119th Congress (2025–2027) district boundaries</p>
             <p style="color:#475569;font-size:11px;margin:0;">Click any district on the map to view its U.S. House candidates</p>
+            ${popLine}
         </div>`;
     }
 
@@ -1598,12 +1605,20 @@ async function openDistrictPanel(districtNum, districtLabel, stateName, regionHe
     // Statewide executive offices (gubernatorial etc.) for this state
     const stateOffices = mockStateOffices();
 
+    // District population from cached API response
+    const distPop = stateData?.district_populations?.[districtLabel];
+    const statePop = stateData?.population;
+    const popBadge = distPop
+        ? `<span style="color:#94a3b8;font-size:11px;margin-left:8px;">👥 ${distPop.formatted} residents <span style="opacity:.6">(${distPop.census_year} Census)</span></span>`
+        : (statePop ? `<span style="color:#94a3b8;font-size:11px;margin-left:8px;">👥 State pop: ${statePop.formatted}</span>` : '');
+
     candEl.innerHTML = `<p style="color:#475569;font-size:10px;margin:0 0 12px;font-style:italic;">⚠ Preview — sample data. Production fetches live DB records.</p>
 
     <!-- U.S. House district section -->
     <div style="background:${color}0a;border:1px solid ${color}22;border-radius:8px;padding:8px 10px;margin-bottom:12px;font-size:11px;color:#475569;">
         <span style="color:${color};font-weight:600;">119th Congress</span> &nbsp;·&nbsp; 2025–2027
         &nbsp;·&nbsp; <a href="https://www.house.gov" target="_blank" rel="noopener" style="color:${color};text-decoration:none;">house.gov →</a>
+        ${popBadge}
     </div>
     <div class="office-section">
         <div class="office-title" style="background:${color}18;border-left:3px solid ${color};color:${color};padding:6px 10px;border-radius:6px;margin-bottom:6px;">
