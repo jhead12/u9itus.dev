@@ -1601,8 +1601,9 @@ function openCandidatePopup(c, color, anchorEl) {
     // Avatar
     const avWrap = document.getElementById('popup-avatar-wrap');
     if (c.photo) {
-        avWrap.innerHTML = `<img class="popup-avatar" src="${c.photo}" alt="${c.full_name}"`
-            + ` onerror="this.style.opacity='0.3'">`;
+        const ph48 = avatarInitials(c.full_name, color, 48).replace(/'/g, '&apos;').replace(/"/g, '&quot;');
+        avWrap.innerHTML = `<img class="popup-avatar" src="${c.photo}" alt="${c.full_name}"
+            onerror="this.outerHTML='<div class=&quot;popup-avatar-ph&quot;>${ph48}</div>'">`;
     } else {
         avWrap.innerHTML = `<div class="popup-avatar-ph">${avatarInitials(c.full_name, color, 48)}</div>`;
     }
@@ -1658,8 +1659,10 @@ function openCandidatePopup(c, color, anchorEl) {
 
 function renderCandidate(c, color) {
     color = color || '#6366f1';
+    // On image load failure, swap to initials SVG rather than a broken icon.
+    const _initSvg36 = avatarInitials(c.full_name, color, 36).replace(/'/g, "\\'");
     const av = c.photo
-        ? `<img class="candidate-avatar" src="${c.photo}" loading="lazy" alt="${c.full_name}" onerror="this.style.opacity='0.3'">`
+        ? `<img class="candidate-avatar" src="${c.photo}" loading="lazy" alt="${c.full_name}" onerror="this.outerHTML='<span class=\\'candidate-avatar-placeholder\\'>${_initSvg36}</span>'">`
         : `<span class="candidate-avatar-placeholder">${avatarInitials(c.full_name, color, 36)}</span>`;
     const py = c.party  ? `<span class="party-pill ${partyClass(c.party)}">${c.party}</span>` : '';
     const st = c.status === 'seated' ? `<span class="status-seated">● Seated</span>` : c.is_running ? `<span class="status-running">● Running 2026</span>` : '';

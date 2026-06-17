@@ -158,7 +158,9 @@ class MapStateCandidatesController
                 'uuid'            => $pol->uuid,
                 'full_name'       => $pol->full_name,
                 'party'           => $pol->party_affiliation,
-                'photo'           => $pol->profile_photo_url,
+                'photo'           => $pol->profile_photo_url
+                    ? (str_starts_with($pol->profile_photo_url, 'http') ? $pol->profile_photo_url : url($pol->profile_photo_url))
+                    : null,
                 'slug'            => $pol->slug,
                 'status'          => $pol->term_status,
                 'is_running'      => (bool) $pol->is_running_candidate,
@@ -234,7 +236,9 @@ class MapStateCandidatesController
             $houseCandidates[$distKey][] = [
                 'full_name'       => $pol->full_name,
                 'party'           => $pol->party_affiliation,
-                'photo'           => $pol->profile_photo_url,
+                'photo'           => $pol->profile_photo_url
+                    ? (str_starts_with($pol->profile_photo_url, 'http') ? $pol->profile_photo_url : url($pol->profile_photo_url))
+                    : null,
                 'slug'            => $pol->slug,
                 'status'          => $pol->term_status,
                 'is_running'      => (bool) $pol->is_running_candidate,
