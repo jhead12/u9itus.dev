@@ -100,12 +100,16 @@ class ImportBallotpediaCandidates extends Command
                         }
                     }
 
+                    $updateFailed = false;
                     try {
                         $politician->update($updates);
                     } catch (\Throwable $e) {
                         $this->warn("Row {$idx}: DB update failed for \"{$fullName}\" — {$e->getMessage()}");
                         $skipped++;
-                        continue 2;
+                        $updateFailed = true;
+                    }
+                    if ($updateFailed) {
+                        continue;
                     }
                 }
 
