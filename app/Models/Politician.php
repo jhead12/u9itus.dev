@@ -69,6 +69,10 @@ class Politician extends Model
         'term_status',
         'term_ends_on',
         'status_updated_at',
+        // Profile claim flow
+        'claim_email',
+        'claim_token',
+        'claim_requested_at',
     ];
 
     protected function casts(): array
@@ -91,7 +95,8 @@ class Politician extends Model
             'show_opensecrets_data' => 'boolean',
             'show_votesmart_data' => 'boolean',
             'show_fec_data' => 'boolean',
-            'video_links'   => 'array',
+            'video_links'          => 'array',
+            'claim_requested_at'   => 'datetime',
         ];
     }
 

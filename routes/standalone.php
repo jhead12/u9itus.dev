@@ -16,6 +16,7 @@ use App\Http\Controllers\Standalone\VoterController;
 use App\Http\Controllers\Standalone\AdminController;
 use App\Http\Controllers\Standalone\AdminOfficeProfileController;
 use App\Http\Controllers\Standalone\PublicProfileController;
+use App\Http\Controllers\Standalone\ProfileClaimController;
 use App\Http\Controllers\Standalone\VoterOnboardingController;
 use App\Http\Controllers\Standalone\PoliticianOnboardingController;
 use App\Http\Controllers\Standalone\AdminOnboardingController;
@@ -446,3 +447,8 @@ Route::get('/district-lookup', [PublicProfileController::class, 'districtLookup'
 // Interactive 3D U.S. Regional Map
 Route::get('/map', fn() => view('standalone.public.us-map'))->name('us.map');
 Route::get('/p/{slug}', [PublicProfileController::class, 'show'])->name('politician.public.show');
+
+// Profile claim flow (no auth required — claimant verifies via emailed token)
+Route::get('/p/{slug}/claim',        [ProfileClaimController::class, 'show'])->name('politician.profile.claim.show');
+Route::post('/p/{slug}/claim',       [ProfileClaimController::class, 'submit'])->name('politician.profile.claim.submit');
+Route::get('/p/{slug}/claim/verify', [ProfileClaimController::class, 'verify'])->name('politician.profile.claim.verify');

@@ -153,6 +153,41 @@
         </div>
     </nav>
 
+    {{-- ── Unclaimed Profile Banner ── --}}
+    @if(is_null($politician->user_id))
+    <div class="sticky top-14 z-30 border-b border-amber-500/30 bg-amber-950/70 backdrop-blur-md"
+         role="alert" aria-label="Unclaimed profile notice">
+        <div class="max-w-5xl mx-auto px-4 sm:px-6 py-3 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6">
+            <div class="flex items-start gap-3 flex-1 min-w-0">
+                <span class="text-amber-400 text-xl leading-none flex-shrink-0 mt-0.5" aria-hidden="true">⚠</span>
+                <div class="min-w-0">
+                    <p class="text-sm font-semibold text-amber-200 leading-snug">
+                        This profile is auto-generated from public records and has not been claimed.
+                    </p>
+                    <p class="text-xs text-amber-200/70 mt-0.5">
+                        Are you {{ $politician->full_name }} or a member of their campaign team? Verify your identity and take control of this page.
+                    </p>
+                    @if(session('claim_submitted'))
+                        <p class="text-xs font-semibold text-emerald-300 mt-1">
+                            ✓ Verification email sent! Check your inbox and click the link to continue.
+                        </p>
+                    @endif
+                    @error('claim')
+                        <p class="text-xs font-semibold text-red-300 mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
+            </div>
+            @unless(session('claim_submitted'))
+            <a href="{{ route('politician.profile.claim.show', $politician->slug) }}"
+               class="flex-shrink-0 inline-flex items-center gap-1.5 text-xs font-bold px-4 py-2 rounded-lg
+                      bg-amber-500 hover:bg-amber-400 text-slate-900 transition whitespace-nowrap">
+                🏛 Claim This Profile
+            </a>
+            @endunless
+        </div>
+    </div>
+    @endif
+
     @if($showReferralShareModal)
     <section id="referral-share-toolbar"
              class="sticky top-14 z-30 border-b border-emerald-500/20 bg-slate-950/92 backdrop-blur-md shadow-lg shadow-black/20">
