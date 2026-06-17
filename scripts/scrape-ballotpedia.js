@@ -44,13 +44,15 @@ const args = Object.fromEntries(
     })
 );
 
-const OFFICE_FILTER = (args.office ?? 'all').toLowerCase();
-const STATE_FILTER  = args.state ? args.state.toUpperCase() : null;
-const OUT_PATH      = args.out
+const OFFICE_FILTER  = (args.office ?? 'all').toLowerCase();
+const STATE_FILTER   = args.state ? args.state.toUpperCase() : null;
+/** When true, also scrape per-race result status (winner / loser / incumbent). */
+const WITH_RESULTS   = args.results === 'true';
+/** Which election year to target. Defaults to 2026 (next cycle). */
+const ELECTION_YEAR  = args.year ? parseInt(args.year, 10) : 2026;
+const OUT_PATH       = args.out
   ? resolve(process.cwd(), args.out)
-  : resolve(__dirname, '../storage/app/imports/ballotpedia-2026.json');
-
-const ELECTION_YEAR = 2026;
+  : resolve(__dirname, `../storage/app/imports/ballotpedia-${ELECTION_YEAR}.json`);
 
 // Ballotpedia index pages for each office type
 const ELECTION_INDEXES = [
@@ -208,14 +210,15 @@ async function scrapeRaceLinks(page, indexUrl, chamber) {
 
 /**
  * Scrape candidates from a single race page (e.g. a district election page).
+ * When withResults=true, also captures elected/defeated/incumbent indicators.
  * Returns an array of candidate objects.
  */
-async function scrapeRacePage(page, raceUrl, chamber) {
+async function scrapeRacePage(page, raceUrl, chamber, withResults = false) {
   await page.goto(raceUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
   await sleep(DELAY_MS);
 
   return page.evaluate((args) => {
-    const { raceUrl, ELECTION_YEAR } = args;
+    const { raceUrl, ELECTION_YEAR, withResults } = args;
     const results = [];
 
     const titleEl = document.querySelector('h1#firstHeading') ?? document.querySelector('h1.firstHeading');
@@ -255,6 +258,25 @@ async function scrapeRacePage(page, raceUrl, chamber) {
             // This is intentionally narrow — anything that doesn't look exactly
             // like an internal Ballotpedia link is dropped, preventing survey/
             // mailto/campaign URLs from ever reaching the database.
+            // ── Result status (winner / loser / incumbent) ─────────────────
+            let resultStatus = null;
+            if (withResults) {
+              const rowText = row.textContent ?? '';
+              // Ballotpedia uses checkmarks, "Won", "Elected", "Advanced" for winners
+              if (/✓|✔|won|elected|advanced|winner/i.test(rowText)) resultStatus = 'won';
+              else if (/lost|defeated|eliminated/i.test(rowText)) resultStatus = 'lost';
+              // Incumbent column
+              const incumbentCell = Array.from(cells).find(c => /incumbent/i.test(c.textContent ?? ''));
+              if (incumbentCell && !/no/i.test(incumbentCell.textContent ?? '')) resultStatus = resultStatus ?? 'incumbent';
+              // Result column — last cell often holds "Won" / "Lost"
+              const lastCell = cells[cells.length - 1];
+              if (!resultStatus && lastCell) {
+                const lt = (lastCell.textContent ?? '').trim().toLowerCase();
+                if (lt === 'won' || lt === 'elected' || lt === 'advanced') resultStatus = 'won';
+                else if (lt === 'lost' || lt === 'defeated') resultStatus = 'lost';
+              }
+            }
+
             const cellAnchors = Array.from(cells[0]?.querySelectorAll('a[href]') ?? []);
             const profileAnchor = cellAnchors.find(a => {
               const h = a.getAttribute('href') ?? '';
@@ -277,6 +299,7 @@ async function scrapeRacePage(page, raceUrl, chamber) {
               name: nameCell.replace(/\s+/g, ' ').trim(),
               party: partyCell,
               ballotpedia_url: ballotpediaLink,
+              result_status: resultStatus,
               page_title: pageTitle,
               election_year: ELECTION_YEAR,
               source_url: raceUrl,
@@ -330,7 +353,7 @@ async function scrapeRacePage(page, raceUrl, chamber) {
     }
 
     return { pageTitle, candidates: results };
-  }, { raceUrl, ELECTION_YEAR });
+  }, { raceUrl, ELECTION_YEAR, withResults });
 }
 
 async function main() {
@@ -352,6 +375,7 @@ async function main() {
   console.log(`\nBallotpedia ${ELECTION_YEAR} scraper`);
   console.log(`Chambers : ${indexes.map(e => e.key).join(', ')}`);
   console.log(`State    : ${STATE_FILTER ?? 'all'}`);
+  console.log(`Results  : ${WITH_RESULTS ? 'yes (winner/loser capture)' : 'no'}`);
   console.log(`Output   : ${OUT_PATH}\n`);
 
   const browser = await chromium.launch({ headless: true });
@@ -400,7 +424,7 @@ async function main() {
       const racePage = await newPage();
       let raceData;
       try {
-        raceData = await scrapeRacePage(racePage, raceUrl, chamberConfig.key);
+        raceData = await scrapeRacePage(racePage, raceUrl, chamberConfig.key, WITH_RESULTS);
       } catch (err) {
         console.warn(`  ✗ Skipped ${raceUrl}: ${err.message}`);
         await racePage.context().close();
@@ -425,7 +449,8 @@ async function main() {
           district: district ?? null,
           party_affiliation: normaliseParty(c.party),
           election_date: `${ELECTION_YEAR}-11-03`,
-          is_running_candidate: true,
+          is_running_candidate: c.result_status == null,   // false once result known
+          result_status: c.result_status ?? null,           // 'won'|'lost'|'incumbent'|null
           ballotpedia_url: c.ballotpedia_url ?? raceUrl,
           source_page: raceUrl,
           scraped_at: new Date().toISOString(),
