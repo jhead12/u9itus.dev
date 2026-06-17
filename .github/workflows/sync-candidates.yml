@@ -154,6 +154,8 @@ jobs:
       # 2020 Decennial Census P.L. 94-171 redistricting file (free API,
       # no key required). Run in dry-run mode when the workflow is dry-run.
       - name: Sync Census population data
+        env:
+          CENSUS_DATA_API: ${{ secrets.CENSUS_DATA_API }}
         run: |
           php artisan geo:sync-census-population \
             --year=2020 \

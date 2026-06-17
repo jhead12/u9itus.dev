@@ -103,7 +103,8 @@ class SyncCensusPopulation extends Command
 
         $url = "https://api.census.gov/data/{$year}/dec/pl"
              . '?get=NAME,P1_001N'
-             . '&for=state:*';
+             . '&for=state:*'
+             . $this->apiKeyParam();
 
         $rows = $this->fetchCensus($url);
         if ($rows === null) {
@@ -162,7 +163,8 @@ class SyncCensusPopulation extends Command
         $url = "https://api.census.gov/data/{$year}/dec/pl"
              . '?get=NAME,P1_001N'
              . '&for=congressional%20district:*'
-             . '&in=state:*';
+             . '&in=state:*'
+             . $this->apiKeyParam();
 
         $rows = $this->fetchCensus($url);
         if ($rows === null) {
@@ -218,6 +220,12 @@ class SyncCensusPopulation extends Command
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────
+
+    private function apiKeyParam(): string
+    {
+        $key = env('CENSUS_DATA_API');
+        return $key ? '&key=' . rawurlencode($key) : '';
+    }
 
     private function fetchCensus(string $url): ?array
     {
