@@ -255,8 +255,10 @@ async function scrapeRacePage(page, raceUrl, chamber) {
             const cellAnchors = Array.from(cells[0]?.querySelectorAll('a[href]') ?? []);
             const profileAnchor = cellAnchors.find(a => {
               const h = a.getAttribute('href') ?? '';
-              // Reject anything with a query string (mailto, survey links, etc.)
+              // Reject anything with a query string (survey/mailto links, etc.)
               if (h.includes('?') || h.includes('#')) return false;
+              // Reject URI schemes that are not http(s)
+              if (h.startsWith('mailto:') || h.startsWith('tel:') || h.startsWith('javascript:')) return false;
               // Reject external domains
               if (h.startsWith('http') && !h.startsWith('https://ballotpedia.org/')) return false;
               return h.length > 1;
@@ -297,6 +299,9 @@ async function scrapeRacePage(page, raceUrl, chamber) {
             const isValidBpLink = rawHref.length > 1
               && !rawHref.includes('?')
               && !rawHref.includes('#')
+              && !rawHref.startsWith('mailto:')
+              && !rawHref.startsWith('tel:')
+              && !rawHref.startsWith('javascript:')
               && (!rawHref.startsWith('http') || rawHref.startsWith('https://ballotpedia.org/'));
             const resolvedBpUrl = isValidBpLink
               ? (link.href.startsWith('http') ? link.href : 'https://ballotpedia.org' + rawHref)

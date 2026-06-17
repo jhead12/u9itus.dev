@@ -194,8 +194,15 @@ class ImportBallotpediaCandidates extends Command
 
         $slug = substr($url, strlen('https://ballotpedia.org/'));
 
-        // Reject election index pages and anything with query params
-        if ($slug === '' || str_contains($slug, '?') || str_contains($slug, 'election,_')) {
+        // Reject election index pages (singular 'election,_' and plural 'elections,_')
+        // and anything with query params.
+        if ($slug === '' || str_contains($slug, '?') || preg_match('/elections?,_/i', $slug)) {
+            return null;
+        }
+
+        // Reject slugs that contain ':' — these are mangled URI schemes
+        // (e.g. a mailto: link that slipped through the scraper filter).
+        if (str_contains($slug, ':')) {
             return null;
         }
 
