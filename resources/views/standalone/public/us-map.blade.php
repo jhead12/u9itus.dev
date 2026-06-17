@@ -23,6 +23,26 @@
     <script src="https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/dist/topojson-client.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
 
+    <script>
+    /* ── Avatar initials helper (global, used by module + onerror attrs) ── */
+    function avatarInitials(name, color, size) {
+        const parts = (name || '').trim().split(/\s+/);
+        const initials = (parts.length >= 2
+            ? parts[0][0] + parts[parts.length - 1][0]
+            : (parts[0]?.[0] || '?')).toUpperCase();
+        const fontSize = size >= 44 ? 16 : 13;
+        const bg     = color ? color + '30' : 'rgba(99,102,241,0.18)';
+        const border = color ? color + '70' : 'rgba(99,102,241,0.4)';
+        const h = size / 2;
+        return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">`
+            + `<circle cx="${h}" cy="${h}" r="${h}" fill="${bg}" stroke="${border}" stroke-width="1.5"/>`
+            + `<text x="50%" y="50%" text-anchor="middle" dominant-baseline="central"`
+            + ` font-family="system-ui,sans-serif" font-size="${fontSize}" font-weight="700"`
+            + ` fill="${color || '#818cf8'}" opacity="0.9">${initials}</text>`
+            + `</svg>`;
+    }
+    </script>
+
     <style>
         *, *::before, *::after { box-sizing: border-box; }
         html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #06091a; font-family: system-ui, sans-serif; }
@@ -258,10 +278,10 @@
         .candidate-avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; flex-shrink: 0; border: 1px solid rgba(99,102,241,0.2); }
         .candidate-avatar-placeholder {
             width: 36px; height: 36px; border-radius: 50%;
-            background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.2);
             display: flex; align-items: center; justify-content: center;
-            font-size: 14px; flex-shrink: 0; color: #475569;
+            flex-shrink: 0; overflow: hidden;
         }
+        .candidate-avatar-placeholder svg { display: block; }
         .candidate-name {
             font-size: 13px; font-weight: 600; color: #e2e8f0; line-height: 1.3; margin-bottom: 3px;
         }
@@ -304,9 +324,9 @@
         .popup-avatar-ph {
             width: 48px; height: 48px; border-radius: 50%;
             display: flex; align-items: center; justify-content: center;
-            font-size: 20px; flex-shrink: 0;
-            border: 2px solid rgba(99,102,241,0.3);
+            flex-shrink: 0; overflow: hidden;
         }
+        .popup-avatar-ph svg { display: block; }
         .popup-name { font-size: 16px; font-weight: 700; color: #f1f5f9; line-height: 1.2; margin-bottom: 4px; }
         .popup-office { font-size: 11px; color: #64748b; }
         .popup-divider { border: none; border-top: 1px solid rgba(99,102,241,0.12); margin: 10px 0; }
@@ -399,6 +419,142 @@
         .district-info-box {
             border-radius: 8px; padding: 10px 12px; margin-bottom: 14px;
         }
+
+        /* ── Mobile hamburger button ── */
+        #mobile-menu-btn {
+            display: none;
+            background: rgba(99,102,241,0.1);
+            border: 1px solid rgba(99,102,241,0.28);
+            color: #818cf8; padding: 6px 10px;
+            border-radius: 6px; cursor: pointer;
+            align-items: center; justify-content: center;
+            transition: background 0.15s; flex-shrink: 0;
+        }
+        #mobile-menu-btn:hover { background: rgba(99,102,241,0.22); }
+        #mobile-menu-btn svg { pointer-events: none; }
+
+        /* ── Mobile dropdown menu ── */
+        #mobile-menu {
+            display: none;
+            position: fixed; top: 48px; right: 0; left: 0; z-index: 195;
+            background: rgba(5,8,22,0.97);
+            border-bottom: 1px solid rgba(99,102,241,0.2);
+            backdrop-filter: blur(20px);
+            padding: 12px 14px 16px;
+            flex-direction: column; gap: 8px;
+        }
+        #mobile-menu.open { display: flex; }
+        .mobile-menu-row { display: flex; gap: 8px; }
+        .mobile-menu-btn {
+            flex: 1;
+            background: rgba(99,102,241,0.09);
+            border: 1px solid rgba(99,102,241,0.22);
+            color: #818cf8; padding: 10px 8px;
+            border-radius: 8px; font-size: 12px; font-weight: 500;
+            cursor: pointer; text-align: center;
+            transition: background 0.15s;
+            line-height: 1.3;
+        }
+        .mobile-menu-btn:active { background: rgba(99,102,241,0.22); }
+        .mobile-menu-btn.active {
+            background: rgba(99,102,241,0.28);
+            border-color: rgba(99,102,241,0.55);
+            color: #c7d2fe;
+        }
+
+        /* ── Panel drag handle (mobile only) ── */
+        .panel-drag-handle {
+            display: none;
+            width: 38px; height: 4px; border-radius: 2px;
+            background: rgba(99,102,241,0.3);
+            margin: 12px auto 10px; flex-shrink: 0;
+        }
+
+        /* ══════════════════════════════════════════
+           RESPONSIVE — TABLET & MOBILE (≤ 768 px)
+        ══════════════════════════════════════════ */
+        @media (max-width: 768px) {
+            /* Top bar */
+            #top-bar { padding: 0 10px; height: 48px; }
+            #top-bar .sep,
+            #top-bar .title { display: none; }
+            #btn-districts, #btn-reset, #btn-rotate { display: none; }
+            #mobile-menu-btn { display: flex; }
+            #btn-search { padding: 6px 10px; gap: 4px; font-size: 12px; }
+            #btn-back { padding: 5px 10px; font-size: 12px; }
+            #top-bar a { font-size: 16px; }
+
+            /* Breadcrumb */
+            #breadcrumb-bar { top: 48px; padding: 0 10px; height: 28px; }
+            .bc-item, .bc-link, .bc-active { font-size: 11px; }
+
+            /* Info panel → bottom sheet */
+            #info-panel {
+                top: auto !important;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                width: 100%;
+                max-height: 68vh;
+                border-radius: 18px 18px 0 0;
+                border-bottom: none;
+                transform: translateY(calc(100% + 2px));
+                padding: 0 16px 32px;
+                overflow-y: auto;
+            }
+            #info-panel.open { transform: translateY(0); }
+            .panel-drag-handle { display: block; }
+            #panel-header { padding-top: 2px; }
+
+            /* Candidate popup → bottom sheet */
+            #cand-popup {
+                position: fixed !important;
+                bottom: 0 !important;
+                left: 0 !important;
+                right: 0 !important;
+                top: auto !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                border-radius: 18px 18px 0 0 !important;
+                border-bottom: none !important;
+                max-height: 80vh;
+                overflow-y: auto;
+            }
+            #cand-popup-close { top: 14px; right: 16px; }
+
+            /* Legend — compact, top-left below breadcrumb */
+            #legend {
+                bottom: auto;
+                top: 80px;
+                left: 10px;
+                padding: 8px 12px;
+                min-width: 0;
+                border-radius: 10px;
+            }
+            #legend h3 { font-size: 9px; margin-bottom: 7px; }
+            .legend-name { font-size: 11px; }
+            .legend-count { display: none; }
+            .legend-row { margin-bottom: 5px; }
+            .legend-swatch { width: 11px; height: 11px; margin-right: 7px; }
+
+            /* Hide redundant hint; simplify progress toaster */
+            #hint { display: none; }
+            #dist-progress { bottom: auto; top: 82px; right: 10px; left: auto; transform: none; font-size: 11px; padding: 8px 14px; }
+
+            /* Search overlay adjustments */
+            #search-overlay { padding-top: 60px; padding-left: 8px; padding-right: 8px; }
+        }
+
+        /* ══════════════════════════════════════════
+           PHONE (≤ 480 px)
+        ══════════════════════════════════════════ */
+        @media (max-width: 480px) {
+            #info-panel { max-height: 74vh; }
+            #cand-popup { max-height: 85vh; }
+            .popup-stats { flex-direction: column; gap: 6px; }
+            .popup-stat { padding: 6px 10px; }
+            #legend { top: 76px; }
+        }
     </style>
 </head>
 <body>
@@ -418,7 +574,7 @@
         <span class="sep">|</span>
         <span class="title">U.S. Regional Map</span>
     </div>
-    <div style="display:flex; gap:8px;">
+    <div style="display:flex; gap:8px; align-items:center;">
         <button id="btn-back">← Back</button>
         <button id="btn-search" title="Search states and districts (press /)"
             aria-label="Search states and districts">
@@ -431,6 +587,29 @@
         <button class="top-btn" id="btn-districts" title="Show all 435 congressional district boundaries nationwide">District Boundaries: OFF</button>
         <button class="top-btn" id="btn-reset">Reset View</button>
         <button class="top-btn" id="btn-rotate">Auto-Rotate: ON</button>
+        <!-- Mobile only: hamburger -->
+        <button id="mobile-menu-btn" aria-label="Open menu" aria-expanded="false" aria-controls="mobile-menu">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+                <line x1="3" y1="6" x2="21" y2="6"/>
+                <line x1="3" y1="12" x2="21" y2="12"/>
+                <line x1="3" y1="18" x2="21" y2="18"/>
+            </svg>
+        </button>
+    </div>
+</div>
+
+<!-- Mobile navigation drawer (hidden on desktop) -->
+<div id="mobile-menu" role="menu" aria-label="Map controls">
+    <div class="mobile-menu-row">
+        <button class="mobile-menu-btn" id="mob-btn-districts">
+            📍 Districts<br><span style="font-size:10px;opacity:.7;">OFF</span>
+        </button>
+        <button class="mobile-menu-btn" id="mob-btn-rotate">
+            🔄 Auto-Rotate<br><span style="font-size:10px;opacity:.7;">ON</span>
+        </button>
+        <button class="mobile-menu-btn" id="mob-btn-reset">
+            🏠 Reset View
+        </button>
     </div>
 </div>
 
@@ -482,7 +661,7 @@
     </div>
     <p class="popup-stance" id="popup-stance"></p>
     <div class="popup-actions">
-        <a id="popup-campaign-link" href="#" class="popup-btn popup-btn-primary" target="_blank">🏁 View Campaign</a>
+        <a id="popup-campaign-link" href="#" class="popup-btn popup-btn-primary" target="_blank">👤 View Profile</a>
         <a id="popup-bp-link" href="#" class="popup-btn popup-btn-secondary" target="_blank" rel="noopener">Ballotpedia →</a>
     </div>
 </div>
@@ -507,6 +686,7 @@
 </div>
 
 <div id="info-panel">
+    <div class="panel-drag-handle" aria-hidden="true"></div>
     <div id="panel-header">
         <div>
             <h2 id="panel-state" style="color:#e2e8f0; font-size:16px; font-weight:700; margin:0 0 4px; line-height:1.25;"></h2>
@@ -1389,14 +1569,19 @@ function closePopup() {
     candPopup.style.display = 'none';
 }
 
+// avatarInitials is defined globally in a plain <script> tag above the module
+
 function openCandidatePopup(c, color, anchorEl) {
     color = color || '#6366f1';
 
     // Avatar
     const avWrap = document.getElementById('popup-avatar-wrap');
-    avWrap.innerHTML = c.photo
-        ? `<img class="popup-avatar" src="${c.photo}" alt="${c.full_name}">`
-        : `<div class="popup-avatar-ph" style="background:${color}18;border-color:${color}44;">👤</div>`;
+    if (c.photo) {
+        avWrap.innerHTML = `<img class="popup-avatar" src="${c.photo}" alt="${c.full_name}"`
+            + ` onerror="this.style.opacity='0.3'">`;
+    } else {
+        avWrap.innerHTML = `<div class="popup-avatar-ph">${avatarInitials(c.full_name, color, 48)}</div>`;
+    }
 
     document.getElementById('popup-name').textContent    = c.full_name;
     document.getElementById('popup-office').textContent  = c.office || c.party || '';
@@ -1418,7 +1603,7 @@ function openCandidatePopup(c, color, anchorEl) {
         stanceEl.style.display = 'none';
     }
 
-    // CTAs — color the primary button by region
+    // CTAs — primary goes to the candidate's U9itus profile page
     const campLink = document.getElementById('popup-campaign-link');
     campLink.href = c.profile_url || '#';
     campLink.style.background = `linear-gradient(135deg, ${color}, ${color}cc)`;
@@ -1450,8 +1635,8 @@ function openCandidatePopup(c, color, anchorEl) {
 function renderCandidate(c, color) {
     color = color || '#6366f1';
     const av = c.photo
-        ? `<img class="candidate-avatar" src="${c.photo}" loading="lazy" alt="${c.full_name}">`
-        : `<span class="candidate-avatar-placeholder" style="background:${color}18;border-color:${color}44;">👤</span>`;
+        ? `<img class="candidate-avatar" src="${c.photo}" loading="lazy" alt="${c.full_name}" onerror="this.style.opacity='0.3'">`
+        : `<span class="candidate-avatar-placeholder">${avatarInitials(c.full_name, color, 36)}</span>`;
     const py = c.party  ? `<span class="party-pill ${partyClass(c.party)}">${c.party}</span>` : '';
     const st = c.status === 'seated' ? `<span class="status-seated">● Seated</span>` : c.is_running ? `<span class="status-running">● Running 2026</span>` : '';
     const vf = c.verified ? `<span class="verified-badge">✓ Verified</span>` : '';
@@ -1478,6 +1663,11 @@ document.getElementById('info-panel').addEventListener('click', e => {
     try {
         const c = JSON.parse(card.dataset.candidate.replace(/&apos;/g, "'"));
         openCandidatePopup(c, c.color, card);
+        // On mobile: clear inline position set by desktop logic so CSS bottom-sheet takes over
+        if (window.innerWidth <= 768) {
+            candPopup.style.top = '';
+            candPopup.style.left = '';
+        }
     } catch { /* malformed data, ignore */ }
 });
 
@@ -2032,10 +2222,54 @@ searchOverlay.addEventListener('click', e => {
 });
 
 /* ════════════════════════════════════════════════════════
+   MOBILE MENU
+════════════════════════════════════════════════════════ */
+const mobileMenuBtn   = document.getElementById('mobile-menu-btn');
+const mobileMenu      = document.getElementById('mobile-menu');
+const mobBtnDistricts = document.getElementById('mob-btn-districts');
+const mobBtnRotate    = document.getElementById('mob-btn-rotate');
+const mobBtnReset     = document.getElementById('mob-btn-reset');
+
+function closeMobileMenu() {
+    mobileMenu.classList.remove('open');
+    mobileMenuBtn.setAttribute('aria-expanded', 'false');
+}
+
+mobileMenuBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    const isOpen = mobileMenu.classList.toggle('open');
+    mobileMenuBtn.setAttribute('aria-expanded', String(isOpen));
+});
+
+document.addEventListener('click', e => {
+    if (!mobileMenu.contains(e.target) && e.target !== mobileMenuBtn) {
+        closeMobileMenu();
+    }
+});
+
+mobBtnDistricts.addEventListener('click', () => {
+    document.getElementById('btn-districts').click();
+    closeMobileMenu();
+});
+
+mobBtnRotate.addEventListener('click', () => {
+    document.getElementById('btn-rotate').click();
+    closeMobileMenu();
+});
+
+mobBtnReset.addEventListener('click', () => {
+    document.getElementById('btn-reset').click();
+    closeMobileMenu();
+});
+
+/* ════════════════════════════════════════════════════════
    CONTROLS
 ════════════════════════════════════════════════════════ */
 function updateRotateBtn(on) {
     document.getElementById('btn-rotate').textContent = `Auto-Rotate: ${on ? 'ON' : 'OFF'}`;
+    const span = mobBtnRotate.querySelector('span');
+    if (span) span.textContent = on ? 'ON' : 'OFF';
+    mobBtnRotate.classList.toggle('active', on);
 }
 
 document.getElementById('btn-back').addEventListener('click', handleBack);

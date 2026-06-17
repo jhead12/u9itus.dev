@@ -295,10 +295,9 @@ class EnrichStatewideOfficeholders extends Command
 
             $html = $response->body();
 
-            // Ballotpedia infoboxes use a table with "Officeholder" or "Incumbent" header
-            // followed by a link to the politician's page.  Extract that link text.
+            // Pattern 1: infobox table row with Officeholder/Incumbent/Current header
             if (preg_match(
-                '/<th[^>]*>\s*(?:Officeholder|Incumbent|Current\s+officeholder)[^<]*<\/th>\s*<td[^>]*>.*?<a[^>]*>([^<]{3,60})<\/a>/si',
+                '/<th[^>]*>\s*(?:Officeholder|Incumbent|Current\s+officeholder|Current\s+holder)[^<]*<\/th>\s*<td[^>]*>.*?<a[^>]+href="https?:\/\/ballotpedia\.org\/[^"?#]+">([^<]{3,60})<\/a>/si',
                 $html,
                 $m
             )) {
@@ -309,13 +308,26 @@ class EnrichStatewideOfficeholders extends Command
                 }
             }
 
-            // Second pattern: "Current: <a>Name</a>" style
+            // Pattern 2: "Current: <a>Name</a>" style
             if (preg_match(
-                '/Current:\s*<a[^>]+href="https:\/\/ballotpedia\.org\/[^"]+">([^<]{3,60})<\/a>/i',
+                '/Current:\s*<a[^>]+href="https:\/\/ballotpedia\.org\/[^"?#]+">([^<]{3,60})<\/a>/i',
                 $html,
                 $m
             )) {
                 $name = $this->cleanName(html_entity_decode($m[1], ENT_QUOTES, 'UTF-8'));
+                if ($name) {
+                    return ['name' => $name, 'party' => null];
+                }
+            }
+
+            // Pattern 3: any ballotpedia.org link inside a cell that also contains
+            // "incumbent" or "officeholder" text (looser match for varied layouts)
+            if (preg_match(
+                '/(?:incumbent|officeholder)[^<]{0,200}?<a[^>]+href="https:\/\/ballotpedia\.org\/([A-Za-z_]+(?:_%28[^)]+%29)?)">([^<]{3,60})<\/a>/si',
+                $html,
+                $m
+            )) {
+                $name = $this->cleanName(html_entity_decode($m[2], ENT_QUOTES, 'UTF-8'));
                 if ($name) {
                     return ['name' => $name, 'party' => null];
                 }
@@ -339,50 +351,109 @@ class EnrichStatewideOfficeholders extends Command
     // ── Tier 2: Wikipedia ─────────────────────────────────────────────────────
 
     /**
-     * Fetch the current officeholder name from the Wikipedia REST summary API.
-     * The summary's `description` field often reads "Politician Name since YYYY"
-     * or the `extract` contains "is {Name}, an American politician".
+     * Fetch the current officeholder from Wikipedia using two strategies:
+     *
+     *  2a. REST summary API — fast, but the description/extract for office pages
+     *      often describe the role, not the person ("The Governor of X is the head…").
+     *      Several extract patterns are tried to find an inline name mention.
+     *
+     *  2b. Wikitext infobox — fetches the raw wikitext via the action API and
+     *      parses the structured `| incumbent = [[Name]]` field.  This is the
+     *      most reliable method because Wikipedia infoboxes for government offices
+     *      always use this field for the current holder.
      *
      * @return array{name: string, party: ?string}|null
      */
     private function fetchWikipediaHolder(string $pageTitle): ?array
     {
+        $userAgent = 'U9itus-civic-enrichment/1.0 (+https://u9itus.dev)';
+        $titleSlug = str_replace(' ', '_', $pageTitle);
+
+        // ── 2a: REST summary ──────────────────────────────────────────────────
         try {
-            $encoded  = rawurlencode(str_replace(' ', '_', $pageTitle));
+            $encoded  = rawurlencode($titleSlug);
             $response = Http::timeout(10)
-                ->withHeaders(['User-Agent' => 'U9itus-civic-enrichment/1.0 (+https://u9itus.dev)'])
+                ->withHeaders(['User-Agent' => $userAgent])
                 ->get("https://en.wikipedia.org/api/rest_v1/page/summary/{$encoded}");
 
-            if (! $response->ok()) {
+            if ($response->ok()) {
+                $data        = $response->json();
+                $description = trim($data['description'] ?? '');
+                $extract     = trim($data['extract'] ?? '');
+
+                // "Gavin Newsom since January 2019"
+                if (preg_match('/^([A-Z][a-z\'\-]+(?: [A-Z][a-z\'\-]+){1,3})\s+since\b/i', $description, $m)) {
+                    return ['name' => $this->cleanName($m[1]), 'party' => null];
+                }
+                // Extract starts with person's name: "Daniel McKee is the 76th…"
+                if (preg_match('/^([A-Z][a-z\'\-]+(?: [A-Z][a-z\'\-]+){1,3})\s+(?:is|serves as|became)\b/u', $extract, $m)) {
+                    return ['name' => $this->cleanName($m[1]), 'party' => null];
+                }
+                // "is {Name}, an American"
+                if (preg_match('/\bis ([A-Z][a-z\'\-]+(?: [A-Z][a-z\'\-]+){1,3}),\s+an?\s+American\b/u', $extract, $m)) {
+                    return ['name' => $this->cleanName($m[1]), 'party' => null];
+                }
+                // "current governor is Name" / "currently held by Name"
+                if (preg_match('/\bcurrent\w*\s+\w+\s+is\s+([A-Z][a-z\'\-]+(?: [A-Z][a-z\'\-]+){1,3})\b/i', $extract, $m)) {
+                    return ['name' => $this->cleanName($m[1]), 'party' => null];
+                }
+                // "incumbent Name" anywhere in extract
+                if (preg_match('/\bincumbent[,\s]+([A-Z][a-z\'\-]+(?: [A-Z][a-z\'\-]+){1,3})\b/i', $extract, $m)) {
+                    return ['name' => $this->cleanName($m[1]), 'party' => null];
+                }
+            }
+        } catch (\Throwable) {
+            // fall through to wikitext
+        }
+
+        usleep(self::DELAY_MS * 500);
+
+        // ── 2b: Wikitext infobox ──────────────────────────────────────────────
+        // Wikipedia government-office infoboxes reliably use:
+        //   | incumbent   = [[Full Name]]
+        //   | officeholder = [[Full Name]]
+        // This is structured data — far more reliable than parsing prose text.
+        try {
+            $wikitextResponse = Http::timeout(12)
+                ->withHeaders(['User-Agent' => $userAgent])
+                ->get('https://en.wikipedia.org/w/api.php', [
+                    'action'       => 'query',
+                    'titles'       => str_replace('_', ' ', $titleSlug),
+                    'prop'         => 'revisions',
+                    'rvprop'       => 'content',
+                    'rvslots'      => 'main',
+                    'rvsection'    => '0',
+                    'format'       => 'json',
+                    'formatversion'=> '2',
+                ]);
+
+            if (! $wikitextResponse->ok()) {
                 return null;
             }
 
-            $data        = $response->json();
-            $description = trim($data['description'] ?? '');
-            $extract     = trim($data['extract'] ?? '');
+            $wikitext = $wikitextResponse->json('query.pages.0.revisions.0.slots.main.content') ?? '';
 
-            // Pattern 1: description = "Gavin Newsom since January 2019"
-            if (preg_match('/^([A-Z][a-z\'\-]+(?: [A-Z][a-z\'\-]+){1,3})\s+since\b/i', $description, $m)) {
-                return ['name' => $this->cleanName($m[1]), 'party' => null];
+            if ($wikitext === '') {
+                return null;
             }
 
-            // Pattern 2: description = "40th Governor of California" — skip, no name
-            // Pattern 3: extract first sentence "X is the Nth governor of Y" → extract X
+            // | incumbent = [[Daniel McKee]]  or  | incumbent = [[Daniel McKee|McKee]]
             if (preg_match(
-                '/^([A-Z][a-z\'\-]+(?: [A-Z][a-z\'\-]+){1,3})\s+(?:is|serves as|became)\b/u',
-                $extract,
+                '/\|\s*(?:incumbent|officeholder|current_holder|holder)\s*=\s*\[\[([^\]|]{3,60})/i',
+                $wikitext,
                 $m
             )) {
-                return ['name' => $this->cleanName($m[1]), 'party' => null];
-            }
-
-            // Pattern 4: "is {Name}, an American"
-            if (preg_match(
-                '/\bis ([A-Z][a-z\'\-]+(?: [A-Z][a-z\'\-]+){1,3}),\s+an?\s+American\b/u',
-                $extract,
-                $m
-            )) {
-                return ['name' => $this->cleanName($m[1]), 'party' => null];
+                $name = $this->cleanName($m[1]);
+                if ($name) {
+                    // Try to extract party from infobox: | party = [[Democratic Party (United States)|Democratic]]
+                    $party = null;
+                    if (preg_match('/\|\s*party\s*=\s*\[\[[^\]]*\|([^\]]{3,40})\]\]/i', $wikitext, $pm)) {
+                        $party = $this->normaliseParty(trim($pm[1]));
+                    } elseif (preg_match('/\|\s*party\s*=\s*([A-Za-z ]{3,40})\n/i', $wikitext, $pm)) {
+                        $party = $this->normaliseParty(trim($pm[1]));
+                    }
+                    return ['name' => $name, 'party' => $party];
+                }
             }
 
             return null;
