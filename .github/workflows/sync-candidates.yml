@@ -156,16 +156,54 @@ jobs:
       - name: Verify Playwright installation
         run: node -e "import('playwright').then(m => console.log('playwright OK:', Object.keys(m)))"
 
-      - name: Scrape Ballotpedia 2026 candidates
+      # ── Statewide offices (direct strategy: constructs per-state URLs) ──────
+      # Uses --strategy=direct so every state's race page is visited directly:
+      #   https://ballotpedia.org/{StateName}_gubernatorial_election,_{year}
+      #   https://ballotpedia.org/{StateName}_attorney_general_election,_{year}
+      #   https://ballotpedia.org/{StateName}_lieutenant_gubernatorial_election,_{year}
+      #   ... etc.
+      # This is more reliable than the index approach — guaranteed to attempt
+      # all 50 states regardless of whether Ballotpedia's index page lists them.
+      - name: Scrape Ballotpedia statewide candidates (all 50 states, direct)
         run: |
+          YEAR="${{ github.event.inputs.election_year || '2026' }}"
+          STATE_ARG=""
+          if [ -n "${{ github.event.inputs.states }}" ]; then
+            # single-state runs pass the first state only (direct mode takes --state)
+            FIRST_STATE=$(echo "${{ github.event.inputs.states }}" | cut -d',' -f1)
+            STATE_ARG="--state=$FIRST_STATE"
+          fi
           node scripts/scrape-ballotpedia.js \
-            --office=all \
-            --out=storage/app/imports/ballotpedia-2026.json
+            --office=statewide \
+            --strategy=direct \
+            --year="$YEAR" \
+            $STATE_ARG \
+            --results \
+            --out=storage/app/imports/ballotpedia-statewide-${YEAR}.json
 
-      - name: Import Ballotpedia candidates
+      - name: Import statewide candidates
         run: |
+          YEAR="${{ github.event.inputs.election_year || '2026' }}"
           php artisan politicians:import-ballotpedia \
-            --file=storage/app/imports/ballotpedia-2026.json \
+            --file=storage/app/imports/ballotpedia-statewide-${YEAR}.json \
+            ${{ steps.args.outputs.dry_arg }}
+
+      # ── U.S. House races (index strategy: multi-district per state) ──────────
+      - name: Scrape Ballotpedia U.S. House candidates
+        run: |
+          YEAR="${{ github.event.inputs.election_year || '2026' }}"
+          node scripts/scrape-ballotpedia.js \
+            --office=house \
+            --strategy=index \
+            --year="$YEAR" \
+            ${{ steps.args.outputs.state_args }} \
+            --out=storage/app/imports/ballotpedia-house-${YEAR}.json
+
+      - name: Import U.S. House candidates
+        run: |
+          YEAR="${{ github.event.inputs.election_year || '2026' }}"
+          php artisan politicians:import-ballotpedia \
+            --file=storage/app/imports/ballotpedia-house-${YEAR}.json \
             ${{ steps.args.outputs.dry_arg }}
 
       # ── Sync Census Bureau population data ───────────────────────────────
@@ -247,22 +285,25 @@ jobs:
       #            all others, Ballotpedia state overview as fallback).
       # Both outputs are fed into politicians:import-election-results which
       # updates term_status to 'seated' (won) or 'lost' on matched records.
-      - name: Scrape Ballotpedia election results
+      - name: Scrape Ballotpedia election results (statewide, direct strategy)
         if: ${{ github.event.inputs.include_results != 'false' }}
         run: |
           YEAR="${{ github.event.inputs.election_year || '2026' }}"
           STATES="${{ github.event.inputs.states }}"
-          STATE_ARGS=""
+          STATE_ARG=""
           if [ -n "$STATES" ]; then
-            for state in $(echo "$STATES" | tr ',' ' '); do
-              STATE_ARGS="$STATE_ARGS --state=$state"
-            done
+            FIRST_STATE=$(echo "$STATES" | cut -d',' -f1)
+            STATE_ARG="--state=$FIRST_STATE"
           fi
+          # --strategy=direct constructs per-state race URLs directly:
+          #   https://ballotpedia.org/{StateName}_gubernatorial_election,_{YEAR}
+          # etc. — covers all 50 states without depending on the index page.
           node scripts/scrape-ballotpedia.js \
-            --office=all \
+            --office=statewide \
+            --strategy=direct \
             --year="$YEAR" \
             --results \
-            $STATE_ARGS \
+            $STATE_ARG \
             --out=storage/app/imports/ballotpedia-results-${YEAR}.json
 
       - name: Import Ballotpedia election results

@@ -60,9 +60,12 @@ class BallotpediaService
 
         return Cache::remember($cacheKey, $this->cacheDuration, function () use ($politician) {
             try {
-                // Search by name and state
+                // Search by name and state.
+                // Use full_name directly — $politician->user is null for unclaimed profiles.
+                $searchName    = $politician->full_name
+                    ?? trim(optional($politician->user)->first_name . ' ' . optional($politician->user)->last_name);
                 $searchResults = $this->searchCandidate(
-                    $politician->user->first_name . ' ' . $politician->user->last_name,
+                    (string) $searchName,
                     $politician->state
                 );
 

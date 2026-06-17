@@ -1125,7 +1125,15 @@ class PublicProfileController extends Controller
      */
     protected function buildDigDeeperData(Politician $politician, array $transparencyData): array
     {
-        if ($politician->verification_status !== 'verified') {
+        // Show the Dig Deeper panel whenever:
+        //  (a) the politician is fully verified, OR
+        //  (b) the profile is unclaimed and we actually have transparency data
+        //      (enrich-statewide auto-created profiles for public figures like
+        //       governors should show donor/finance info even without platform
+        //       verification).
+        $isUnclaimed = $politician->user_id === null;
+        $hasData     = !empty($transparencyData);
+        if ($politician->verification_status !== 'verified' && ! ($isUnclaimed && $hasData)) {
             return [];
         }
 
@@ -1133,22 +1141,22 @@ class PublicProfileController extends Controller
         $sources = [
             'ballotpedia' => [
                 'label' => 'Ballotpedia',
-                'enabled' => (bool) $politician->show_ballotpedia_data,
+                'enabled' => (bool) $politician->show_ballotpedia_data || $isUnclaimed,
                 'unavailable_reason' => 'No public profile data was available from Ballotpedia yet.',
             ],
             'opensecrets' => [
                 'label' => 'OpenSecrets',
-                'enabled' => (bool) $politician->show_opensecrets_data,
+                'enabled' => (bool) $politician->show_opensecrets_data || $isUnclaimed,
                 'unavailable_reason' => 'No campaign finance summary was available from OpenSecrets yet.',
             ],
             'votesmart' => [
                 'label' => 'Vote Smart',
-                'enabled' => (bool) $politician->show_votesmart_data,
+                'enabled' => (bool) $politician->show_votesmart_data || $isUnclaimed,
                 'unavailable_reason' => 'No issue positions or ratings were available from Vote Smart yet.',
             ],
             'fec' => [
                 'label' => 'Federal Election Commission',
-                'enabled' => (bool) $politician->show_fec_data,
+                'enabled' => (bool) $politician->show_fec_data || $isUnclaimed,
                 'unavailable_reason' => $fecService->isFederalCandidate($politician)
                     ? 'No current filing summary was available from the FEC yet.'
                     : 'FEC reporting applies to federal offices only.',

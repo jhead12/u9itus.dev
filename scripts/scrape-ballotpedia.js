@@ -39,8 +39,8 @@ const args = Object.fromEntries(
   process.argv.slice(2)
     .filter(a => a.startsWith('--'))
     .map(a => {
-      const [k, v = 'true'] = a.slice(2).split('=');
-      return [k, v];
+      const [k, ...rest] = a.slice(2).split('=');
+      return [k, rest.join('=') || 'true'];
     })
 );
 
@@ -53,6 +53,16 @@ const ELECTION_YEAR  = args.year ? parseInt(args.year, 10) : 2026;
 const OUT_PATH       = args.out
   ? resolve(process.cwd(), args.out)
   : resolve(__dirname, `../storage/app/imports/ballotpedia-${ELECTION_YEAR}.json`);
+
+/**
+ * --strategy=direct  bypasses the Ballotpedia index pages and constructs
+ * per-state race URLs directly from the known Ballotpedia URL pattern.
+ * This is more reliable than index scraping and guarantees all 50 states
+ * are attempted even if the index page doesn't list some races yet.
+ *
+ * --strategy=index  (default) uses the original index-page discovery approach.
+ */
+const STRATEGY = (args.strategy ?? 'index').toLowerCase();
 
 // Ballotpedia index pages for each office type
 const ELECTION_INDEXES = [
@@ -134,6 +144,57 @@ const STATE_ABBR = {
   Wisconsin: 'WI', Wyoming: 'WY', 'District of Columbia': 'DC',
 };
 
+/**
+ * Direct per-state URL templates for each statewide office.
+ * Key = ELECTION_INDEXES key. Value = a function(stateName, year) → URL.
+ *
+ * Ballotpedia's URL convention for statewide races is consistent:
+ *   {StateName}_{office_label}_election,_{YEAR}
+ *
+ * Where "StateName" uses underscores for spaces and matches the official
+ * Ballotpedia article title exactly.
+ *
+ * These are used when --strategy=direct to construct 50 URLs at once
+ * instead of relying on the central index page listing all races.
+ */
+const DIRECT_URL_TEMPLATES = {
+  governor:        (s, y) => `https://ballotpedia.org/${s}_gubernatorial_election,_${y}`,
+  lt_governor:     (s, y) => `https://ballotpedia.org/${s}_lieutenant_gubernatorial_election,_${y}`,
+  ag:              (s, y) => `https://ballotpedia.org/${s}_attorney_general_election,_${y}`,
+  treasurer:       (s, y) => `https://ballotpedia.org/${s}_State_Treasurer_election,_${y}`,
+  controller:      (s, y) => `https://ballotpedia.org/${s}_State_Controller_election,_${y}`,
+  secretary_state: (s, y) => `https://ballotpedia.org/${s}_Secretary_of_State_election,_${y}`,
+  senate:          (s, y) => `https://ballotpedia.org/${s}_Senate_election,_${y}`,
+  // House is multi-district per state — index strategy is required for House.
+};
+
+/**
+ * Build the list of { url, stateAbbr, key } race descriptors for direct mode.
+ * Each statewide office × every state (or filtered state) produces one URL.
+ */
+function buildDirectRaceList(indexes) {
+  const races = [];
+  for (const cfg of indexes) {
+    const tmpl = DIRECT_URL_TEMPLATES[cfg.key];
+    if (!tmpl) {
+      console.warn(`  [direct] No URL template for office "${cfg.key}" — falling back to index strategy for this office.`);
+      continue;
+    }
+    for (const [stateName, stateAbbr] of Object.entries(STATE_ABBR)) {
+      if (stateName === 'District of Columbia') continue; // DC rarely has statewide races
+      if (STATE_FILTER && stateAbbr !== STATE_FILTER) continue;
+      const slug = stateName.replace(/ /g, '_');
+      races.push({
+        url: tmpl(slug, ELECTION_YEAR),
+        stateAbbr,
+        stateName,
+        chamberConfig: cfg,
+      });
+    }
+  }
+  return races;
+}
+
 /** Delay between page requests to avoid hammering Ballotpedia. */
 const DELAY_MS = 800;
 
@@ -176,6 +237,81 @@ function normaliseParty(raw) {
   if (p.includes('green')) return 'Green';
   if (p.includes('independent') || p === 'ind') return 'Independent';
   return raw.trim();
+}
+
+/**
+ * Index strategy: for each office visit the central Ballotpedia index page,
+ * collect race links, then scrape each race page.
+ * Shared by both the default index strategy and the direct-strategy fallback.
+ *
+ * @param {Array}    indexes      - Subset of ELECTION_INDEXES to process
+ * @param {Function} newPage      - Factory function returning a fresh Playwright page
+ * @param {Array}    allCandidates - Output array; results are pushed here in place
+ */
+async function runIndexStrategy(indexes, newPage, allCandidates) {
+  for (const chamberConfig of indexes) {
+    console.log(`\n[${ chamberConfig.key.toUpperCase() }] Scraping index page…`);
+
+    const indexPage = await newPage();
+    let raceLinks;
+    try {
+      raceLinks = await scrapeRaceLinks(indexPage, chamberConfig.url, chamberConfig.key);
+    } catch (err) {
+      console.error(`  ✗ Failed to scrape index: ${err.message}`);
+      await indexPage.context().close();
+      continue;
+    }
+    await indexPage.context().close();
+
+    console.log(`  Found ${raceLinks.length} race pages.`);
+
+    for (const { url: raceUrl, text: raceText } of raceLinks) {
+      const slugText = decodeURIComponent(raceUrl.split('/').pop() ?? '').replace(/_/g, ' ');
+      const stateAbbr = parseStateFromTitle(raceText || slugText);
+
+      if (STATE_FILTER && stateAbbr !== STATE_FILTER) continue;
+
+      const racePage = await newPage();
+      let raceData;
+      try {
+        raceData = await scrapeRacePage(racePage, raceUrl, chamberConfig.key, WITH_RESULTS);
+      } catch (err) {
+        console.warn(`  ✗ Skipped ${raceUrl}: ${err.message}`);
+        await racePage.context().close();
+        continue;
+      }
+      await racePage.context().close();
+
+      const { pageTitle, candidates } = raceData;
+      const district = chamberConfig.key === 'house'
+        ? parseDistrictLabel(pageTitle, stateAbbr)
+        : null;
+
+      for (const c of candidates) {
+        const fullName = c.name;
+        if (!fullName || fullName.length < 3) continue;
+
+        allCandidates.push({
+          full_name: fullName,
+          political_office: chamberConfig.office,
+          governance_level: chamberConfig.governance_level,
+          state: stateAbbr ?? null,
+          district: district ?? null,
+          party_affiliation: normaliseParty(c.party),
+          election_date: `${ELECTION_YEAR}-11-03`,
+          is_running_candidate: c.result_status == null,
+          result_status: c.result_status ?? null,
+          ballotpedia_url: c.ballotpedia_url ?? raceUrl,
+          source_page: raceUrl,
+          scraped_at: new Date().toISOString(),
+        });
+      }
+
+      if (candidates.length > 0) {
+        console.log(`  ✓ ${stateAbbr ?? '??'} ${district ?? chamberConfig.key} — ${candidates.length} candidate(s)`);
+      }
+    }
+  }
 }
 
 /**
@@ -373,8 +509,9 @@ async function main() {
   }
 
   console.log(`\nBallotpedia ${ELECTION_YEAR} scraper`);
-  console.log(`Chambers : ${indexes.map(e => e.key).join(', ')}`);
-  console.log(`State    : ${STATE_FILTER ?? 'all'}`);
+  console.log(`Strategy : ${STRATEGY}`);
+  console.log(`Offices  : ${indexes.map(e => e.key).join(', ')}`);
+  console.log(`State    : ${STATE_FILTER ?? 'all 50 states'}`);
   console.log(`Results  : ${WITH_RESULTS ? 'yes (winner/loser capture)' : 'no'}`);
   console.log(`Output   : ${OUT_PATH}\n`);
 
@@ -395,77 +532,81 @@ async function main() {
 
   const allCandidates = [];
 
-  for (const chamberConfig of indexes) {
-    console.log(`\n[${ chamberConfig.key.toUpperCase() }] Scraping index page…`);
+  // ─────────────────────────────────────────────────────────────────────────
+  // DIRECT strategy: construct per-state URLs from the known BP pattern.
+  // Works for all statewide offices. Falls back to index for House (multi-
+  // district) and for any office without a direct URL template.
+  // ─────────────────────────────────────────────────────────────────────────
+  if (STRATEGY === 'direct') {
+    // Partition: offices with a direct template vs those that need index mode
+    const directIndexes  = indexes.filter(e => e.group !== 'federal' || e.key !== 'house');
+    const fallbackIndexes = indexes.filter(e => !DIRECT_URL_TEMPLATES[e.key]);
 
-    // Each index page gets its own fresh page to avoid shared navigation state.
-    const indexPage = await newPage();
-    let raceLinks;
-    try {
-      raceLinks = await scrapeRaceLinks(indexPage, chamberConfig.url, chamberConfig.key);
-    } catch (err) {
-      console.error(`  ✗ Failed to scrape index: ${err.message}`);
-      await indexPage.context().close();
-      continue;
+    if (fallbackIndexes.length > 0) {
+      console.log(`  [direct] Offices without a direct template (will use index): ${fallbackIndexes.map(e => e.key).join(', ')}`);
     }
-    await indexPage.context().close();
 
-    console.log(`  Found ${raceLinks.length} race pages.`);
+    const directRaces = buildDirectRaceList(directIndexes);
+    console.log(`  [direct] ${directRaces.length} race URLs to visit across all states.\n`);
 
-    for (const { url: raceUrl, text: raceText } of raceLinks) {
-      // Parse state from the link text or URL slug
-      const slugText = decodeURIComponent(raceUrl.split('/').pop() ?? '').replace(/_/g, ' ');
-      const stateAbbr = parseStateFromTitle(raceText || slugText);
-
-      if (STATE_FILTER && stateAbbr !== STATE_FILTER) continue;
-
-      // Each race page gets its own fresh context so a rogue redirect or
-      // destroyed execution context on one URL cannot cascade to the next.
+    for (const { url: raceUrl, stateAbbr, stateName, chamberConfig } of directRaces) {
       const racePage = await newPage();
       let raceData;
       try {
         raceData = await scrapeRacePage(racePage, raceUrl, chamberConfig.key, WITH_RESULTS);
       } catch (err) {
-        console.warn(`  ✗ Skipped ${raceUrl}: ${err.message}`);
+        // A 404 means this state simply doesn't have this office (e.g. TX has no Lt. Gov.
+        // in the same pattern) — silently skip rather than warn.
+        if (!err.message.includes('404') && !err.message.includes('net::ERR')) {
+          console.warn(`  ✗ ${stateAbbr} ${chamberConfig.key}: ${err.message}`);
+        }
         await racePage.context().close();
         continue;
       }
       await racePage.context().close();
 
-      const { pageTitle, candidates } = raceData;
-      const district = chamberConfig.key === 'house'
-        ? parseDistrictLabel(pageTitle, stateAbbr)
-        : null;
+      const { candidates } = raceData;
+      if (candidates.length === 0) continue;
 
       for (const c of candidates) {
-        const fullName = c.name;
-        if (!fullName || fullName.length < 3) continue;
-
+        if (!c.name || c.name.length < 3) continue;
         allCandidates.push({
-          full_name: fullName,
+          full_name: c.name,
           political_office: chamberConfig.office,
           governance_level: chamberConfig.governance_level,
-          state: stateAbbr ?? null,
-          district: district ?? null,
+          state: stateAbbr,
+          district: null,
           party_affiliation: normaliseParty(c.party),
           election_date: `${ELECTION_YEAR}-11-03`,
-          is_running_candidate: c.result_status == null,   // false once result known
-          result_status: c.result_status ?? null,           // 'won'|'lost'|'incumbent'|null
+          is_running_candidate: c.result_status == null,
+          result_status: c.result_status ?? null,
           ballotpedia_url: c.ballotpedia_url ?? raceUrl,
           source_page: raceUrl,
           scraped_at: new Date().toISOString(),
         });
       }
 
-      if (candidates.length > 0) {
-        console.log(`  ✓ ${stateAbbr ?? '??'} ${district ?? chamberConfig.key} — ${candidates.length} candidate(s)`);
-      }
+      console.log(`  ✓ ${stateAbbr} ${chamberConfig.key} — ${candidates.length} candidate(s)`);
+      await sleep(DELAY_MS);
     }
+
+    // If any offices need the index fallback, run them now
+    if (fallbackIndexes.length > 0) {
+      console.log('\n[direct→index fallback for offices without direct templates]');
+      await runIndexStrategy(fallbackIndexes, newPage, allCandidates);
+    }
+
+  } else {
+    // ─────────────────────────────────────────────────────────────────────
+    // INDEX strategy (original): visit the central index page per office,
+    // collect all race links, then visit each.
+    // ─────────────────────────────────────────────────────────────────────
+    await runIndexStrategy(indexes, newPage, allCandidates);
   }
 
   await browser.close();
 
-  // Deduplicate: same name + state + office
+  // ── Deduplicate: same name + state + office ───────────────────────────────
   const seen = new Set();
   const deduped = allCandidates.filter(c => {
     const key = `${c.full_name?.toLowerCase()}|${c.state}|${c.political_office}`;

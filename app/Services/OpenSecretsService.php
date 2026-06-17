@@ -59,9 +59,13 @@ class OpenSecretsService
 
         return Cache::remember($cacheKey, $this->cacheDuration, function () use ($politician) {
             try {
-                // First, find the candidate ID (CID) by name and state
+                // First, find the candidate ID (CID) by name and state.
+                // Use full_name directly — $politician->user may be null for
+                // unclaimed auto-created profiles (enrich-statewide, etc.).
+                $fullName = $politician->full_name
+                    ?? (optional($politician->user)->first_name . ' ' . optional($politician->user)->last_name);
                 $candidateId = $politician->opensecrets_id ?? $this->findCandidateId(
-                    $politician->user->first_name . ' ' . $politician->user->last_name,
+                    trim((string) $fullName),
                     $politician->state
                 );
 

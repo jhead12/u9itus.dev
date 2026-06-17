@@ -60,10 +60,14 @@ class VoteSmartService
 
         return Cache::remember($cacheKey, $this->cacheDuration, function () use ($politician) {
             try {
-                // Find candidate ID by name and state
+                // Find candidate ID by name and state.
+                // Use full_name directly — $politician->user is null for unclaimed profiles.
+                $nameParts   = explode(' ', trim((string) $politician->full_name), 2);
+                $firstName   = optional($politician->user)->first_name ?? $nameParts[0];
+                $lastName    = optional($politician->user)->last_name  ?? ($nameParts[1] ?? '');
                 $candidateId = $politician->votesmart_id ?? $this->findCandidateId(
-                    $politician->user->first_name,
-                    $politician->user->last_name,
+                    $firstName,
+                    $lastName,
                     $politician->state
                 );
 
