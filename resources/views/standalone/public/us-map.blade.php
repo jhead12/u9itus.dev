@@ -1701,14 +1701,39 @@ document.getElementById('info-panel').addEventListener('click', e => {
 function renderOfficeGroup(g, roles, color) {
     color = color || '#6366f1';
     const role = roles?.[g.office] ?? '';
-    // Stamp office name onto each candidate so the popup can display it
-    const cands = g.candidates.map(c => renderCandidate({ ...c, office: g.office }, color));
+
+    // Split seated officeholder(s) from candidates
+    const seated    = g.candidates.filter(c => c.status === 'seated');
+    const running   = g.candidates.filter(c => c.status !== 'seated');
+
+    // Build seated section with optional term-end notice
+    const seatedHtml = seated.map(c => {
+        const termNotice = (c.term_end || c.term_note)
+            ? `<div style="display:flex;align-items:center;gap:6px;background:#0f172a;border:1px solid #334155;border-radius:6px;padding:6px 10px;margin-bottom:8px;font-size:10px;">
+                <span style="color:#f59e0b;">⏳</span>
+                <span style="color:#94a3b8;">
+                  ${c.term_end ? `<strong style="color:#e2e8f0;">Term ends ${c.term_end}</strong>` : ''}
+                  ${c.term_note ? `<span style="color:#64748b;"> &nbsp;·&nbsp; ${c.term_note}</span>` : ''}
+                </span>
+               </div>`
+            : '';
+        return termNotice + renderCandidate({ ...c, office: g.office }, color);
+    }).join('');
+
+    // Build candidates section
+    const candidatesHtml = running.length
+        ? `<p style="color:#475569;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin:10px 0 6px;">2026 Candidates</p>
+           ${running.map(c => renderCandidate({ ...c, office: g.office }, color)).join('')}`
+        : '';
+
     return `<div class="office-section">
         <div class="office-title" style="background:${color}18;border-left:3px solid ${color};color:${color};padding:6px 10px;border-radius:6px;margin-bottom:6px;">
             🏛&nbsp;${g.office}
         </div>
         ${role ? `<p class="office-role-tip">${role}</p>` : ''}
-        ${cands.join('')}
+        ${seated.length ? `<p style="color:#475569;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin:6px 0 6px;">Current Officeholder</p>` : ''}
+        ${seatedHtml}
+        ${candidatesHtml}
     </div>`;
 }
 

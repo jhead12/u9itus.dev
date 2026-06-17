@@ -183,7 +183,8 @@ class MapStateCandidatesController
             if ($alreadyListed) {
                 continue;
             }
-            $payload = is_array($rec->payload) ? $rec->payload : [];
+            $payload  = is_array($rec->payload) ? $rec->payload : [];
+            $recStatus = $payload['status'] ?? 'running';
             $grouped[$canonical]['candidates'][] = [
                 'source'          => 'scraped',
                 'uuid'            => null,
@@ -191,9 +192,11 @@ class MapStateCandidatesController
                 'party'           => $rec->party_affiliation,
                 'photo'           => $payload['photo'] ?? null,
                 'slug'            => null,
-                'status'          => 'running',
-                'is_running'      => true,
-                'verified'        => false,
+                'status'          => $recStatus,
+                'is_running'      => $recStatus !== 'seated',
+                'verified'        => $recStatus === 'seated',
+                'term_end'        => $payload['term_end'] ?? null,
+                'term_note'       => $payload['term_note'] ?? null,
                 'ballotpedia_id'  => $rec->external_candidate_id ?? null,
                 'ballotpedia_url' => ($rec->source === 'ballotpedia' && $rec->external_candidate_id)
                     ? 'https://ballotpedia.org/' . $rec->external_candidate_id
