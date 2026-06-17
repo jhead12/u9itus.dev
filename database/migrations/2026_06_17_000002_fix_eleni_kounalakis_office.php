@@ -17,8 +17,26 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // Ensure any Politician row mistakenly set to Governor is corrected to Lt. Gov
-        // (this only applies to rows whose term_status = 'seated', i.e. the current-office record)
+        // Fix ElectionCandidateRecord rows that have her as Governor + seated in payload.
+        // These cause her to show up under "Current Officeholder" in the Governor section.
+        // Correct the office to Lieutenant Governor on those rows.
+        $ecrRows = DB::table('election_candidate_records')
+            ->whereRaw("LOWER(full_name) = 'eleni kounalakis'")
+            ->where('state', 'CA')
+            ->whereRaw("LOWER(COALESCE(political_office,'')) = 'governor'")
+            ->get(['id', 'payload']);
+
+        foreach ($ecrRows as $row) {
+            $payload = json_decode($row->payload ?? '{}', true);
+            if (($payload['status'] ?? '') === 'seated') {
+                // Move this row to Lieutenant Governor
+                DB::table('election_candidate_records')
+                    ->where('id', $row->id)
+                    ->update(['political_office' => 'Lieutenant Governor']);
+            }
+        }
+
+        // Ensure any Politician row mistakenly set to Governor+seated is corrected to Lt. Gov
         DB::table('politicians')
             ->whereRaw("LOWER(full_name) = 'eleni kounalakis'")
             ->where('state', 'CA')
