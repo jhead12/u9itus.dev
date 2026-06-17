@@ -250,21 +250,25 @@ async function scrapeRacePage(page, raceUrl, chamber) {
             if (nameCell.length < 2 || nameCell.toLowerCase().includes('candidate')) continue;
 
             // Find the first anchor that is a genuine Ballotpedia profile page.
-            // Ballotpedia injects "take our survey" external links in name cells;
-            // those must be ignored to avoid SQLSTATE 22001 truncation on import.
+            // Use a strict WHITELIST: only accept root-relative paths (/Page_Name)
+            // or explicit https://ballotpedia.org/ URLs with no query string.
+            // This is intentionally narrow — anything that doesn't look exactly
+            // like an internal Ballotpedia link is dropped, preventing survey/
+            // mailto/campaign URLs from ever reaching the database.
             const cellAnchors = Array.from(cells[0]?.querySelectorAll('a[href]') ?? []);
             const profileAnchor = cellAnchors.find(a => {
               const h = a.getAttribute('href') ?? '';
-              // Reject anything with a query string (survey/mailto links, etc.)
-              if (h.includes('?') || h.includes('#')) return false;
-              // Reject URI schemes that are not http(s)
-              if (h.startsWith('mailto:') || h.startsWith('tel:') || h.startsWith('javascript:')) return false;
-              // Reject external domains
-              if (h.startsWith('http') && !h.startsWith('https://ballotpedia.org/')) return false;
-              return h.length > 1;
+              // Must be either a root-relative path or an explicit ballotpedia.org URL
+              const isInternal =
+                (h.startsWith('/') && !h.startsWith('//'))       // e.g. /Dale_Strong
+                || h.startsWith('https://ballotpedia.org/');     // e.g. full URL
+              if (!isInternal) return false;
+              // No query strings or fragment anchors
+              if (h.includes('?') || h.includes('#') || h.includes('%3F') || h.includes('%23')) return false;
+              return h.length > 2;
             });
             const ballotpediaLink = profileAnchor
-              ? (profileAnchor.href.startsWith('http')
+              ? (profileAnchor.href.startsWith('https://ballotpedia.org/')
                   ? profileAnchor.href
                   : 'https://ballotpedia.org' + profileAnchor.getAttribute('href'))
               : null;
@@ -294,17 +298,20 @@ async function scrapeRacePage(page, raceUrl, chamber) {
 
             if (name.length < 2) continue;
 
-            // Validate the link is a real Ballotpedia profile before capturing it.
+            // Strict whitelist: only root-relative paths or explicit ballotpedia.org URLs,
+            // no query strings (literal or percent-encoded), no fragments.
             const rawHref = link ? (link.getAttribute('href') ?? '') : '';
-            const isValidBpLink = rawHref.length > 1
+            const isValidBpLink = rawHref.length > 2
+              && (
+                (rawHref.startsWith('/') && !rawHref.startsWith('//'))   // /Page_Name
+                || rawHref.startsWith('https://ballotpedia.org/')        // full URL
+              )
               && !rawHref.includes('?')
               && !rawHref.includes('#')
-              && !rawHref.startsWith('mailto:')
-              && !rawHref.startsWith('tel:')
-              && !rawHref.startsWith('javascript:')
-              && (!rawHref.startsWith('http') || rawHref.startsWith('https://ballotpedia.org/'));
+              && !rawHref.includes('%3F')
+              && !rawHref.includes('%23');
             const resolvedBpUrl = isValidBpLink
-              ? (link.href.startsWith('http') ? link.href : 'https://ballotpedia.org' + rawHref)
+              ? (rawHref.startsWith('https://') ? rawHref : 'https://ballotpedia.org' + rawHref)
               : null;
 
             results.push({

@@ -100,7 +100,13 @@ class ImportBallotpediaCandidates extends Command
                         }
                     }
 
-                    $politician->update($updates);
+                    try {
+                        $politician->update($updates);
+                    } catch (\Throwable $e) {
+                        $this->warn("Row {$idx}: DB update failed for \"{$fullName}\" — {$e->getMessage()}");
+                        $skipped++;
+                        continue 2;
+                    }
                 }
 
                 $this->line("[" . ($dryRun ? 'DRY' : 'UPDATE') . "] {$fullName} ({$state}) — existing record #{$politician->id}");
@@ -118,25 +124,31 @@ class ImportBallotpediaCandidates extends Command
             }
 
             if (! $dryRun) {
-                Politician::create([
-                    'uuid'                 => \Illuminate\Support\Str::uuid(),
-                    'full_name'            => $fullName,
-                    'political_office'     => $office ?: null,
-                    'governance_level'     => $row['governance_level'] ?? 'Federal',
-                    'state'                => $state,
-                    'district'             => $row['district'] ?? null,
-                    'party_affiliation'    => $row['party_affiliation'] ?? null,
-                    'website_url'          => null,
-                    'ballotpedia_id'       => $bpIdForCreate,
-                    'is_active'            => true,
-                    'is_running_candidate' => true,
-                    'term_status'          => 'running',
-                    'status_updated_at'    => now(),
-                    'page_published'       => true,
-                    'verified_official'    => false,
-                    'slug'                 => $slug,
-                    'user_id'             => null,
-                ]);
+                try {
+                    Politician::create([
+                        'uuid'                 => \Illuminate\Support\Str::uuid(),
+                        'full_name'            => $fullName,
+                        'political_office'     => $office ?: null,
+                        'governance_level'     => $row['governance_level'] ?? 'Federal',
+                        'state'                => $state,
+                        'district'             => $row['district'] ?? null,
+                        'party_affiliation'    => $row['party_affiliation'] ?? null,
+                        'website_url'          => null,
+                        'ballotpedia_id'       => $bpIdForCreate,
+                        'is_active'            => true,
+                        'is_running_candidate' => true,
+                        'term_status'          => 'running',
+                        'status_updated_at'    => now(),
+                        'page_published'       => true,
+                        'verified_official'    => false,
+                        'slug'                 => $slug,
+                        'user_id'             => null,
+                    ]);
+                } catch (\Throwable $e) {
+                    $this->warn("Row {$idx}: DB insert failed for \"{$fullName}\" ({$state}) — {$e->getMessage()}");
+                    $skipped++;
+                    continue;
+                }
             }
 
             $this->line("[" . ($dryRun ? 'DRY' : 'CREATE') . "] {$fullName} ({$state} {$office}) slug={$slug}");
