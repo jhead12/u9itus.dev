@@ -16,9 +16,11 @@ return new class extends Migration
     public function up(): void
     {
         // NULL out any rows where the stored value looks like a survey URL
-        // (contains '?'), a mailto/tel scheme (contains ':'), or is an
-        // election index page (contains 'election' followed by ',_').
-        // Also NULL out any value that somehow exceeds 255 chars.
+        // (contains '?'), a mailto/tel/http scheme (contains ':'), or is an
+        // election index page.  Also NULL out values exceeding 255 chars.
+        //
+        // Written with LIKE-only predicates and LENGTH() so it runs on both
+        // MySQL (production) and SQLite (test suite) without extra setup.
         DB::statement("
             UPDATE politicians
             SET ballotpedia_id = NULL
@@ -26,8 +28,9 @@ return new class extends Migration
               AND (
                     ballotpedia_id LIKE '%?%'
                  OR ballotpedia_id LIKE '%:%'
-                 OR ballotpedia_id REGEXP 'elections?[,_]'
-                 OR CHAR_LENGTH(ballotpedia_id) > 255
+                 OR ballotpedia_id LIKE '%election,_%'
+                 OR ballotpedia_id LIKE '%elections,_%'
+                 OR LENGTH(ballotpedia_id) > 255
               )
         ");
     }
