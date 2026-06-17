@@ -241,7 +241,7 @@ class EnrichStatewideOfficeholders extends Command
         string $stateName,
         string $office,
         array $config,
-        bool $hasOpenAI
+        bool $hasAI
     ): ?array {
         $stateSlug = str_replace(' ', '_', $stateName);
 
