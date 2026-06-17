@@ -266,9 +266,20 @@
         }
 
         /* Candidate cards */
-        .office-section { margin-bottom: 18px; }
-        .office-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #475569; margin: 0 0 8px; }
-        .office-role-tip { font-size: 11px; color: #334155; line-height: 1.5; margin: 0 0 10px; font-style: italic; }
+        .office-section { margin-bottom: 10px; border:1px solid rgba(99,102,241,0.10); border-radius:10px; overflow:hidden; }
+        .office-title {
+            font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em;
+            display:flex; align-items:center; justify-content:space-between;
+            cursor:pointer; user-select:none;
+            padding:8px 10px; border-radius:0; margin:0;
+            transition: background 0.12s;
+        }
+        .office-title:hover { filter: brightness(1.15); }
+        .office-title .chevron { transition: transform 0.2s; font-style:normal; font-size:10px; opacity:.7; margin-left:6px; flex-shrink:0; }
+        .office-section.collapsed .chevron { transform: rotate(-90deg); }
+        .office-body { padding:10px 10px 12px; }
+        .office-section.collapsed .office-body { display:none; }
+        .office-role-tip { font-size: 11px; color: #475569; line-height: 1.5; margin: 0 0 10px; font-style: italic; }
         .candidate-card {
             background: rgba(15,20,45,0.7); border: 1px solid rgba(99,102,241,0.13);
             border-radius: 10px; padding: 10px 12px; margin-bottom: 7px;
@@ -1698,15 +1709,21 @@ document.getElementById('info-panel').addEventListener('click', e => {
     } catch { /* malformed data, ignore */ }
 });
 
+// Track which offices start expanded (Governor always open; others collapsed)
+const OFFICE_DEFAULT_OPEN = new Set(['Governor']);
+let _officeIdx = 0;
+
 function renderOfficeGroup(g, roles, color) {
     color = color || '#6366f1';
-    const role = roles?.[g.office] ?? '';
+    const role      = roles?.[g.office] ?? '';
+    const isOpen    = OFFICE_DEFAULT_OPEN.has(g.office);
+    const sectionId = `off-body-${_officeIdx++}`;
 
-    // Split seated officeholder(s) from candidates
-    const seated    = g.candidates.filter(c => c.status === 'seated');
-    const running   = g.candidates.filter(c => c.status !== 'seated');
+    // Split seated officeholder(s) from running candidates
+    const seated  = g.candidates.filter(c => c.status === 'seated');
+    const running = g.candidates.filter(c => c.status !== 'seated');
 
-    // Build seated section with optional term-end notice
+    // Seated holder with optional term-end notice
     const seatedHtml = seated.map(c => {
         const termNotice = (c.term_end || c.term_note)
             ? `<div style="display:flex;align-items:center;gap:6px;background:#0f172a;border:1px solid #334155;border-radius:6px;padding:6px 10px;margin-bottom:8px;font-size:10px;">
@@ -1720,20 +1737,39 @@ function renderOfficeGroup(g, roles, color) {
         return termNotice + renderCandidate({ ...c, office: g.office }, color);
     }).join('');
 
-    // Build candidates section
+    // 2026 candidates
     const candidatesHtml = running.length
         ? `<p style="color:#475569;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin:10px 0 6px;">2026 Candidates</p>
            ${running.map(c => renderCandidate({ ...c, office: g.office }, color)).join('')}`
         : '';
 
-    return `<div class="office-section">
-        <div class="office-title" style="background:${color}18;border-left:3px solid ${color};color:${color};padding:6px 10px;border-radius:6px;margin-bottom:6px;">
-            🏛&nbsp;${g.office}
+    // Summary line shown in the collapsed header (names)
+    const allNames   = g.candidates.map(c => c.full_name).join(', ');
+    const nameSummary = !isOpen
+        ? `<span style="font-weight:400;opacity:.55;font-size:9px;margin-left:8px;text-transform:none;letter-spacing:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:160px;display:inline-block;vertical-align:middle;">${allNames}</span>`
+        : '';
+
+    return `<div class="office-section${isOpen ? '' : ' collapsed'}" id="off-${sectionId}">
+        <div class="office-title"
+             style="background:${color}18;border-left:3px solid ${color};color:${color};"
+             onclick="(function(el){
+               const sec=el.closest('.office-section');
+               const open=sec.classList.toggle('collapsed');
+               el.querySelector('.name-summary').style.display = sec.classList.contains('collapsed') ? 'inline-block' : 'none';
+             })(this)"
+             role="button" aria-expanded="${isOpen}" tabindex="0"
+             onkeydown="if(event.key==='Enter'||event.key===' ')this.click()">
+            <span>🏛&nbsp;${g.office}
+              <span class="name-summary" style="font-weight:400;opacity:.55;font-size:9px;margin-left:8px;text-transform:none;letter-spacing:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:160px;display:${isOpen ? 'none' : 'inline-block'};vertical-align:middle;">${allNames}</span>
+            </span>
+            <span class="chevron">▾</span>
         </div>
-        ${role ? `<p class="office-role-tip">${role}</p>` : ''}
-        ${seated.length ? `<p style="color:#475569;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin:6px 0 6px;">Current Officeholder</p>` : ''}
-        ${seatedHtml}
-        ${candidatesHtml}
+        <div class="office-body">
+            ${role ? `<p class="office-role-tip">${role}</p>` : ''}
+            ${seated.length ? `<p style="color:#475569;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin:0 0 6px;">Current Officeholder</p>` : ''}
+            ${seatedHtml}
+            ${candidatesHtml}
+        </div>
     </div>`;
 }
 
@@ -1757,6 +1793,7 @@ async function openStatePanel(stateName, regionName, region, districtCount) {
 
     await new Promise(r => setTimeout(r, 380));
 
+    _officeIdx = 0; // reset accordion counter for each new state
     const offices   = stateData?.offices ?? [];
     const apiStatus = stateData?._apiStatus || 'unreachable';
 
@@ -1836,6 +1873,7 @@ async function openDistrictPanel(districtNum, districtLabel, stateName, regionHe
         seated = challenger = third = null;
     }
 
+    _officeIdx = 0; // reset accordion counter for district panel
     const stateOffices = stateData?.offices ?? [];
 
     // District population from cached API response
