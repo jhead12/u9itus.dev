@@ -33,15 +33,18 @@ class ImportElectionResults extends Command
     protected $signature = 'politicians:import-election-results
         {--file=storage/app/imports/state-voter-guides-2026.json : Path to scraped results JSON}
         {--create-missing : Create new unclaimed profiles for candidates not yet in DB}
+        {--skip-fresh-days=7 : Skip records whose result_status is already final and status_updated_at is within this many days. Set 0 to always update.}
         {--dry-run : Parse and report only — no DB writes}';
 
     protected $description = 'Import election results (won/lost/incumbent) from a scraped JSON file and update politician records.';
 
     public function handle(): int
     {
-        $fileOption    = (string) $this->option('file');
-        $dryRun        = (bool)   $this->option('dry-run');
-        $createMissing = (bool)   $this->option('create-missing');
+        $fileOption      = (string) $this->option('file');
+        $dryRun          = (bool)   $this->option('dry-run');
+        $createMissing   = (bool)   $this->option('create-missing');
+        $skipFreshDays   = max(0, (int) $this->option('skip-fresh-days'));
+        $skipFreshCutoff = $skipFreshDays > 0 ? now()->subDays($skipFreshDays) : null;
 
         $path = str_starts_with($fileOption, '/')
             ? $fileOption
@@ -66,6 +69,11 @@ class ImportElectionResults extends Command
         $running = 0;
         $created = 0;
         $skipped = 0;
+        $fresh   = 0;
+
+        if ($skipFreshCutoff) {
+            $this->line("Skipping final records updated within the last {$skipFreshDays} day(s) (pass --skip-fresh-days=0 to force).");
+        }
 
         foreach ($rows as $idx => $row) {
             if (! is_array($row)) {
@@ -117,6 +125,19 @@ class ImportElectionResults extends Command
             // ── Apply result ──────────────────────────────────────────────────
 
             if ($politician) {
+                // Skip records that already have a final result and were updated
+                // recently — no point overwriting stable data on every weekly run.
+                $isFinalResult = in_array($politician->term_status, ['seated', 'lost'], true);
+                if (
+                    $skipFreshCutoff !== null
+                    && $isFinalResult
+                    && $politician->status_updated_at !== null
+                    && $politician->status_updated_at->gt($skipFreshCutoff)
+                ) {
+                    $fresh++;
+                    continue;
+                }
+
                 $updates = $this->buildUpdates($resultStatus);
 
                 if ($bpId !== null && $politician->ballotpedia_id === null) {
@@ -191,8 +212,8 @@ class ImportElectionResults extends Command
 
         $suffix = $dryRun ? ' (dry-run)' : '';
         $this->info(sprintf(
-            "Results import complete%s: %d seated/won, %d lost, %d running, %d created, %d skipped.",
-            $suffix, $won, $lost, $running, $created, $skipped
+            "Results import complete%s: %d seated/won, %d lost, %d running, %d created, %d skipped, %d already current.",
+            $suffix, $won, $lost, $running, $created, $skipped, $fresh
         ));
 
         return self::SUCCESS;

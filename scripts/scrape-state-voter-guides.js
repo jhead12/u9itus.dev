@@ -24,7 +24,7 @@
  */
 
 import { chromium } from 'playwright';
-import { writeFileSync, mkdirSync } from 'fs';
+import { writeFileSync, mkdirSync, existsSync, statSync, readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -46,6 +46,13 @@ const PAGE_TIMEOUT   = args.timeout ? parseInt(args.timeout, 10) : 30_000;
 const OUT_PATH       = args.out
   ? resolve(process.cwd(), args.out)
   : resolve(__dirname, `../storage/app/imports/state-voter-guides-${ELECTION_YEAR}.json`);
+
+/**
+ * --cache-hours=N  — if the output JSON already exists and was written within
+ * N hours, skip all scraping and exit early. Set 0 to always re-scrape.
+ * Default: 0 (no cache) so callers must opt in explicitly.
+ */
+const CACHE_HOURS = args['cache-hours'] ? parseFloat(args['cache-hours']) : 0;
 
 // Resolve which states to scrape
 let STATE_FILTER = null;
@@ -775,12 +782,32 @@ async function scrapeLocalNewsGeneric(browser, stateCode, stateConfig) {
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main() {
+  // ── Cache check: skip entirely if output JSON is still fresh ──────────────
+  // When --cache-hours=N is set and the output file exists and is younger than
+  // N hours, we exit immediately.  This prevents the weekly cron from blasting
+  // 50 state sites when nothing has changed since the last successful run.
+  // Per-state granularity is handled inside the scraper via the existing JSON
+  // merge: candidates already in the file are preserved by the deduplication
+  // step, so a partial re-run (--states=CA) only touches what's requested.
+  if (CACHE_HOURS > 0 && existsSync(OUT_PATH)) {
+    const ageMs  = Date.now() - statSync(OUT_PATH).mtimeMs;
+    const ageHrs = ageMs / 1000 / 3600;
+    if (ageHrs < CACHE_HOURS) {
+      const existing = JSON.parse(readFileSync(OUT_PATH, 'utf8'));
+      console.log(`\n✓ Cache hit — output file is ${ageHrs.toFixed(1)}h old (< ${CACHE_HOURS}h).`);
+      console.log(`  ${existing.length} candidates already on disk at ${OUT_PATH}`);
+      console.log('  Pass --cache-hours=0 to force a full re-scrape.');
+      return;
+    }
+  }
+
   const statesToScrape = STATE_FILTER
     ? Object.entries(STATE_SOURCES).filter(([code]) => STATE_FILTER.includes(code))
     : Object.entries(STATE_SOURCES);
 
   console.log(`\n50-State Voter Guide Scraper — ${ELECTION_YEAR}`);
   console.log(`States   : ${statesToScrape.map(([c]) => c).join(', ')}`);
+  console.log(`Cache    : ${CACHE_HOURS > 0 ? `${CACHE_HOURS}h` : 'disabled (always re-scrape)'}`);
   console.log(`Output   : ${OUT_PATH}\n`);
 
   const browser = await chromium.launch({ headless: true });

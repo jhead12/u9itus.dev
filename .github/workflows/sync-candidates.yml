@@ -287,9 +287,15 @@ jobs:
           if [ -n "$STATES" ]; then
             STATE_ARG="--states=$STATES"
           fi
+          # --cache-hours=2160 skips re-scraping if the output JSON is less than
+          # 3 months (90 days) old.  Voter guide content is stable between
+          # election cycles so there is no value in hitting 50 state sites
+          # every week.  To force a full refresh, dispatch manually and pass
+          # --cache-hours=0 (or delete the output file on the runner).
           node scripts/scrape-state-voter-guides.js \
             --year="$YEAR" \
             $STATE_ARG \
+            --cache-hours=2160 \
             --out=storage/app/imports/state-voter-guides-${YEAR}.json
 
       - name: Import local voter guide results
@@ -300,7 +306,11 @@ jobs:
           if [ "${{ github.event.inputs.create_missing }}" = "true" ]; then
             CREATE_ARG="--create-missing"
           fi
+          # --skip-fresh-days=7 skips DB writes for records whose result_status
+          # is already final (seated/lost) and were updated within the last 7
+          # days.  Prevents redundant overwrites on weekly runs.
           php artisan politicians:import-election-results \
             --file=storage/app/imports/state-voter-guides-${YEAR}.json \
+            --skip-fresh-days=7 \
             $CREATE_ARG \
             ${{ steps.args.outputs.dry_arg }}
