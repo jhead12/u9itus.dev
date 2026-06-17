@@ -120,4 +120,12 @@ return [
         'scopes' => array_values(array_filter(array_map('trim', explode(',', (string) env('IDME_SCOPES', 'identity,email'))))),
     ],
 
+    // AI Enrichment — optional, used by politicians:enrich-statewide as Tier 3 fallback
+    // when Ballotpedia and Wikipedia both fail to extract a current officeholder name.
+    // Add ANTHROPIC_API_KEY to GitHub Actions secrets and Railway env vars to enable.
+    'anthropic' => [
+        'api_key' => env('ANTHROPIC_API_KEY'),
+        'model'   => env('ANTHROPIC_ENRICH_MODEL', 'claude-haiku-4-5'),
+    ],
+
 ];
