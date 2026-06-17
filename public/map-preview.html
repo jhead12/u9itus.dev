@@ -1273,7 +1273,20 @@ renderer.domElement.addEventListener('mousemove', e => {
         districtTip.style.display = 'none';
     }
 
-    /* ── State hover ── */
+    /* ── State hover (overview / region modes only — disabled in state mode) ── */
+    if (mapMode === 'state') {
+        // Clear any lingering hovered state and suppress tooltip for neighbour states
+        if (hoveredMesh) {
+            hoveredMesh.material.color.setHex(hoveredMesh.userData.originalColor);
+            hoveredMesh.parent.position.z = 0;
+            hoveredMesh = null;
+        }
+        tooltip.style.display = 'none';
+        districtTip.style.display = 'none';
+        renderer.domElement.style.cursor = districtMeshes.length ? 'default' : 'default';
+        return;
+    }
+
     if (hoveredMesh && hoveredMesh.userData.name !== selectedState) {
         hoveredMesh.material.color.setHex(hoveredMesh.userData.originalColor);
         hoveredMesh.parent.position.z = 0;
