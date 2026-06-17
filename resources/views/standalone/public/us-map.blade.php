@@ -1370,6 +1370,19 @@ async function enterStateMode(stateName, regionName, region) {
         document.getElementById('panel-candidates').innerHTML =
             `<p style="color:#ef444488;font-size:11px;margin:0 0 12px;">⚠ District boundaries unavailable (${err.message}). Retry by clicking the state again.</p>`;
     }
+
+    // Fetch live candidate data from the API and cache it for district panels
+    stateData = null;
+    const abbr = STATE_ABBR_MAP[stateName];
+    if (abbr) {
+        try {
+            const apiRes = await fetch(`/api/v1/map/state-candidates?state=${abbr}`);
+            if (apiRes.ok) stateData = await apiRes.json();
+        } catch (e) {
+            console.warn('state-candidates API unavailable:', e.message);
+        }
+    }
+
     await openStatePanel(stateName, regionName, region, distCount);
     /* Switch legend to party breakdown */
     const breakdown = {};
@@ -1747,8 +1760,14 @@ async function openStatePanel(stateName, regionName, region, districtCount) {
 
     await new Promise(r => setTimeout(r, 380));
 
-    const offices = mockStateOffices();
-    let html = `<p style="color:#475569;font-size:10px;margin:0 0 12px;font-style:italic;">ⓘ Preview — sample data. Production fetches live records.</p>`;
+    // Use live API data if available; fall back to mock only if API failed
+    const offices = (stateData?.offices?.length)
+        ? stateData.offices
+        : mockStateOffices();
+    const isLive  = !!(stateData?.offices?.length);
+    let html = isLive
+        ? ''
+        : `<p style="color:#475569;font-size:10px;margin:0 0 12px;font-style:italic;">ⓘ Preview — sample data. Production fetches live records.</p>`;
 
     if (districtCount > 0) {
         const expected = DISTRICT_COUNTS[stateName] || districtCount;
@@ -1786,14 +1805,34 @@ async function openDistrictPanel(districtNum, districtLabel, stateName, regionHe
 
     await new Promise(r => setTimeout(r, 320));
 
-    const seatedParty = _rnd(['Republican','Democratic']);
-    const challParty  = seatedParty === 'Republican' ? 'Democratic' : 'Republican';
-    const seated     = { ...mockCandidate(seatedParty, 'seated'), office: `U.S. Representative — ${districtLabel}` };
-    const challenger = { ...mockCandidate(challParty),            office: `U.S. Representative — ${districtLabel}` };
-    const third      = { ...mockCandidate('Libertarian'),         office: `U.S. Representative — ${districtLabel}` };
+    // District candidates: use live API data keyed by district label, fall back to mock
+    const liveDist = stateData?.house_candidates?.[districtLabel];
+    let seated, challenger, third;
+    if (liveDist?.length) {
+        // Map live records to the shape renderCandidate() expects
+        [seated, challenger, third] = [0,1,2].map(i => {
+            const c = liveDist[i];
+            if (!c) return null;
+            return {
+                full_name: c.full_name, party: c.party, is_running: c.is_running,
+                status: c.status || 'running', verified: c.verified || false,
+                photo: c.photo || null, slug: c.slug || null,
+                profile_url: c.profile_url || null,
+                ballotpedia_url: c.ballotpedia_url || null, website: c.website || null,
+                bio: c.bio_excerpt || null, raised: null, stance_topic: null, stance_text: null,
+                office: `U.S. Representative — ${districtLabel}`,
+            };
+        });
+    } else {
+        const seatedParty = _rnd(['Republican','Democratic']);
+        const challParty  = seatedParty === 'Republican' ? 'Democratic' : 'Republican';
+        seated     = { ...mockCandidate(seatedParty, 'seated'), office: `U.S. Representative — ${districtLabel}` };
+        challenger = { ...mockCandidate(challParty),            office: `U.S. Representative — ${districtLabel}` };
+        third      = { ...mockCandidate('Libertarian'),         office: `U.S. Representative — ${districtLabel}` };
+    }
 
-    // Statewide executive offices (gubernatorial etc.) for this state
-    const stateOffices = mockStateOffices();
+    // Statewide executive offices: use live API data or fall back to mock
+    const stateOffices = (stateData?.offices?.length) ? stateData.offices : mockStateOffices();
 
     // District population from cached API response
     const distPop = stateData?.district_populations?.[districtLabel];
