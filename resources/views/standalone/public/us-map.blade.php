@@ -69,7 +69,7 @@
         /* Canvas gets a focusable region for keyboard nav */
         #map-canvas-region {
             position: fixed; inset: 0; z-index: 1;
-            /* Transparent overlay — receives keyboard focus on tab */
+            pointer-events: none; /* must not block mouse clicks on the 3D canvas */
         }
         #map-canvas-region:focus { outline: none; } /* handled by #kb-focus-ring */
         #map-canvas-region:focus-visible + #kb-focus-ring,
@@ -125,7 +125,7 @@
         #kb-hint-badge kbd { font-size: 10px; padding: 0 5px; }
 
         #top-bar {
-            position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+            position: fixed; top: 0; left: 0; right: 0; z-index: 100;
             background: rgba(6, 9, 26, 0.88);
             border-bottom: 1px solid rgba(99, 102, 241, 0.18);
             backdrop-filter: blur(14px);
@@ -559,6 +559,54 @@
         }
         .panel-drag-handle:hover { background: rgba(99,102,241,0.65); }
 
+        /* ── Controls dropdown ───────────────────────────────────────────── */
+        #controls-wrap { position: relative; }
+        #btn-controls {
+            display: flex; align-items: center; gap: 6px;
+        }
+        #controls-menu {
+            display: none; position: absolute; top: calc(100% + 8px); right: 0;
+            min-width: 220px; z-index: 9999;
+            background: rgba(10, 14, 35, 0.97);
+            border: 1px solid rgba(99,102,241,0.3);
+            border-radius: 12px;
+            box-shadow: 0 16px 48px rgba(0,0,0,0.6);
+            backdrop-filter: blur(16px);
+            padding: 8px 0;
+            overflow: hidden;
+        }
+        #controls-menu.open { display: block; }
+        .cm-section {
+            padding: 4px 14px 2px;
+            font-size: 9px; font-weight: 700; letter-spacing: .1em;
+            text-transform: uppercase; color: #334155;
+        }
+        .cm-item {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 10px; width: 100%; padding: 8px 16px;
+            background: none; border: none; color: #94a3b8;
+            font-size: 13px; text-align: left; cursor: pointer;
+            transition: background 0.12s, color 0.12s;
+        }
+        .cm-item:hover { background: rgba(99,102,241,0.12); color: #e2e8f0; }
+        .cm-item.active { color: #818cf8; }
+        .cm-item svg { flex-shrink: 0; opacity: .65; }
+        .cm-toggle {
+            width: 32px; height: 18px; border-radius: 9px;
+            background: rgba(99,102,241,0.2); border: 1px solid rgba(99,102,241,0.3);
+            position: relative; flex-shrink: 0; transition: background .2s;
+        }
+        .cm-toggle::after {
+            content: ''; position: absolute; top: 2px; left: 2px;
+            width: 12px; height: 12px; border-radius: 50%;
+            background: #475569; transition: transform .2s, background .2s;
+        }
+        .cm-item.active .cm-toggle { background: rgba(99,102,241,0.5); border-color: #6366f1; }
+        .cm-item.active .cm-toggle::after { transform: translateX(14px); background: #818cf8; }
+        .cm-divider { border: none; border-top: 1px solid rgba(99,102,241,0.1); margin: 6px 0; }
+        .cm-kbd { font-size: 10px; color: #334155; font-family: monospace;
+                  border: 1px solid #1e293b; border-radius: 3px; padding: 1px 5px; }
+
         /* ── Branded scrollbars ───────────────────────────────────────────── */
         /* WebKit (Chrome, Safari, Edge) */
         ::-webkit-scrollbar              { width: 6px; height: 6px; }
@@ -582,7 +630,7 @@
             #top-bar { padding: 0 10px; height: 48px; }
             #top-bar .sep,
             #top-bar .title { display: none; }
-            #btn-districts, #btn-reset, #btn-rotate { display: none; }
+            #btn-districts, #btn-reset, #btn-rotate, #kb-hint-badge { display: none; }
             #mobile-menu-btn { display: flex; }
             #btn-search { padding: 6px 10px; gap: 4px; font-size: 12px; }
             #btn-back { padding: 5px 10px; font-size: 12px; }
@@ -732,9 +780,50 @@
             Search
             <span style="font-size:10px;color:#334155;border:1px solid #1e293b;border-radius:3px;padding:1px 5px;font-family:monospace;">/</span>
         </button>
-        <button class="top-btn" id="btn-districts" title="Show all 435 congressional district boundaries nationwide">District Boundaries: OFF</button>
-        <button class="top-btn" id="btn-reset">Reset View</button>
-        <button class="top-btn" id="btn-rotate">Auto-Rotate: OFF</button>
+        <!-- Controls dropdown -->
+        <div id="controls-wrap">
+            <button class="top-btn" id="btn-controls" aria-haspopup="true" aria-expanded="false" aria-controls="controls-menu" title="Map controls">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+                    <line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="14" y2="12"/><line x1="4" y1="18" x2="18" y2="18"/>
+                </svg>
+                Controls
+            </button>
+            <div id="controls-menu" role="menu" aria-label="Map controls">
+                <div class="cm-section">View</div>
+                <button class="cm-item" id="cm-btn-reset" role="menuitem">
+                    <span>Reset View</span>
+                    <span class="cm-kbd">R</span>
+                </button>
+                <button class="cm-item" id="cm-btn-rotate" role="menuitem">
+                    <span>Auto-Rotate</span>
+                    <span class="cm-toggle" aria-hidden="true"></span>
+                </button>
+                <button class="cm-item" id="cm-btn-districts" role="menuitem">
+                    <span>District Boundaries</span>
+                    <span class="cm-toggle" aria-hidden="true"></span>
+                </button>
+                <button class="cm-item" id="cm-btn-party-colors" role="menuitem" title="Color states by governor's party instead of region">
+                    <span>Party Control Colors</span>
+                    <span class="cm-toggle" aria-hidden="true"></span>
+                </button>
+                <hr class="cm-divider">
+                <div class="cm-section">Keyboard</div>
+                <button class="cm-item" id="cm-btn-kb-help" role="menuitem">
+                    <span>Keyboard Shortcuts</span>
+                    <span class="cm-kbd">?</span>
+                </button>
+                <hr class="cm-divider">
+                <div class="cm-section">Zoom</div>
+                <button class="cm-item" id="cm-btn-zoomin" role="menuitem">
+                    <span>Zoom In</span>
+                    <span class="cm-kbd">+</span>
+                </button>
+                <button class="cm-item" id="cm-btn-zoomout" role="menuitem">
+                    <span>Zoom Out</span>
+                    <span class="cm-kbd">−</span>
+                </button>
+            </div>
+        </div>
         <!-- Mobile only: hamburger -->
         <button id="mobile-menu-btn" aria-label="Open menu" aria-expanded="false" aria-controls="mobile-menu">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
@@ -1041,6 +1130,62 @@ const DISTRICT_PARTY_MAP = (() => {
 const PARTY_HEX   = { D: '#2563eb', R: '#dc2626', I: '#16a34a', U: '#64748b' };
 const PARTY_INT   = { D: 0x1d4ed8, R: 0xb91c1c,  I: 0x15803d,  U: 0x475569 };
 const PARTY_LABEL = { D: 'Democratic', R: 'Republican', I: 'Independent', U: 'Unknown' };
+
+/* ── Party-control color mode ────────────────────────────────────────────
+ * govPartyByAbbr: two-letter state code → party code (D / R / I / U)
+ * Populated by fetchAllGovernorParties() called once after map loads.
+ * colorMode: 'region' (default) | 'party'
+ */
+let govPartyByAbbr = {};   // e.g. { CA: 'D', TX: 'R', ... }
+let colorMode      = 'region';
+
+async function fetchAllGovernorParties() {
+    // STATE_ABBR_MAP: state name → abbreviation (already defined in scope)
+    const abbrs = Object.values(STATE_ABBR_MAP).filter(Boolean);
+    // Batch: fetch in groups of 10 to avoid overwhelming the API
+    for (let i = 0; i < abbrs.length; i += 10) {
+        const batch = abbrs.slice(i, i + 10);
+        await Promise.all(batch.map(async abbr => {
+            try {
+                const res = await fetch(`/api/v1/map/state-candidates?state=${abbr}`);
+                if (!res.ok) return;
+                const data = await res.json();
+                const govGroup = (data.offices ?? []).find(g => g.office === 'Governor');
+                const seated = (govGroup?.candidates ?? []).find(c => c.status === 'seated');
+                if (seated?.party) {
+                    const p = seated.party.charAt(0).toUpperCase();
+                    govPartyByAbbr[abbr] = (['D','R','I'].includes(p)) ? p : 'U';
+                } else {
+                    govPartyByAbbr[abbr] = 'U';
+                }
+            } catch { govPartyByAbbr[abbr] = 'U'; }
+        }));
+    }
+}
+
+function getStatePartyColor(stateName) {
+    const abbr = STATE_ABBR_MAP[stateName];
+    const p    = govPartyByAbbr[abbr] ?? 'U';
+    return PARTY_INT[p] ?? PARTY_INT.U;
+}
+
+function applyColorMode() {
+    const breakdown = {};
+    for (const m of stateMeshes) {
+        const color = colorMode === 'party'
+            ? getStatePartyColor(m.userData.name)
+            : m.userData.originalColor;
+        m.material.color.setHex(color);
+        if (colorMode === 'party') {
+            const abbr = STATE_ABBR_MAP[m.userData.name];
+            const p    = govPartyByAbbr[abbr] ?? 'U';
+            breakdown[p] = (breakdown[p] || 0) + 1;
+        }
+    }
+    // Update the legend
+    if (colorMode === 'party') showPartyLegend(breakdown);
+    else showRegionLegend();
+}
 
 /* FIPS → state abbreviation */
 const FIPS_TO_ABBR = Object.fromEntries(
@@ -1371,6 +1516,8 @@ fetch('https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json')
         buildLegend();
         loadingEl.style.opacity = '0';
         setTimeout(() => { loadingEl.style.display = 'none'; }, 520);
+        // Pre-fetch all governor parties in background so Party Control mode is ready
+        fetchAllGovernorParties();
     })
     .catch(err => {
         loadingEl.innerHTML = `<p style="color:#ef4444;font-size:14px;">Failed to load map data.<br>${err.message}</p>`;
@@ -1872,13 +2019,11 @@ mapRegion.addEventListener('keydown', e => {
             break;
         case '+': case '=':
             e.preventDefault();
-            controls.dollyIn(ZOOM_STEP);
-            controls.update();
+            stepZoom(1 / ZOOM_STEP);
             break;
         case '-': case '_':
             e.preventDefault();
-            controls.dollyOut(ZOOM_STEP);
-            controls.update();
+            stepZoom(ZOOM_STEP);
             break;
     }
 });
@@ -2411,9 +2556,11 @@ function toggleNationalBoundaries() {
     }
     nationalDistVisible = !nationalDistVisible;
     if (nationalDistGroup) nationalDistGroup.visible = nationalDistVisible;
+    // Keep the hidden btn-districts text in sync (used by mobile drawer)
     const btn = document.getElementById('btn-districts');
-    btn.textContent = `District Boundaries: ${nationalDistVisible ? 'ON' : 'OFF'}`;
-    btn.classList.toggle('active', nationalDistVisible);
+    if (btn) { btn.textContent = `District Boundaries: ${nationalDistVisible ? 'ON' : 'OFF'}`; btn.classList.toggle('active', nationalDistVisible); }
+    // Sync the dropdown toggle
+    updateDistrictsBtn(nationalDistVisible);
 }
 
 document.getElementById('btn-districts').addEventListener('click', toggleNationalBoundaries);
@@ -2720,23 +2867,89 @@ mobBtnReset.addEventListener('click', () => {
    CONTROLS
 ════════════════════════════════════════════════════════ */
 function updateRotateBtn(on) {
-    document.getElementById('btn-rotate').textContent = `Auto-Rotate: ${on ? 'ON' : 'OFF'}`;
-    const span = mobBtnRotate.querySelector('span');
+    // Update dropdown toggle state
+    document.getElementById('cm-btn-rotate')?.classList.toggle('active', on);
+    // Mobile drawer
+    const span = mobBtnRotate?.querySelector('span');
     if (span) span.textContent = on ? 'ON' : 'OFF';
-    mobBtnRotate.classList.toggle('active', on);
+    mobBtnRotate?.classList.toggle('active', on);
 }
 
-document.getElementById('btn-back').addEventListener('click', handleBack);
+function updateDistrictsBtn(on) {
+    document.getElementById('cm-btn-districts')?.classList.toggle('active', on);
+    // Mobile drawer
+    const mobSpan = document.getElementById('mob-btn-districts')?.querySelector('span');
+    if (mobSpan) mobSpan.textContent = on ? 'ON' : 'OFF';
+}
 
-document.getElementById('btn-reset').addEventListener('click', () => {
-    enterOverviewMode();
-    updateRotateBtn(true);
+/* ── Controls dropdown ── */
+const ctrlWrap    = document.getElementById('controls-wrap');
+const ctrlMenu    = document.getElementById('controls-menu');
+const btnControls = document.getElementById('btn-controls');
+
+function openControlsMenu(open) {
+    ctrlMenu.classList.toggle('open', open);
+    btnControls.setAttribute('aria-expanded', String(open));
+}
+
+btnControls.addEventListener('click', e => {
+    e.stopPropagation();
+    openControlsMenu(!ctrlMenu.classList.contains('open'));
 });
 
-document.getElementById('btn-rotate').addEventListener('click', () => {
+// Close on click outside
+document.addEventListener('click', e => {
+    if (!ctrlWrap.contains(e.target)) openControlsMenu(false);
+});
+
+// Close on Escape
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && ctrlMenu.classList.contains('open')) {
+        openControlsMenu(false);
+        btnControls.focus();
+    }
+});
+
+document.getElementById('cm-btn-reset').addEventListener('click', () => {
+    openControlsMenu(false);
+    enterOverviewMode();
+    updateRotateBtn(false);
+});
+
+document.getElementById('cm-btn-rotate').addEventListener('click', () => {
     controls.autoRotate = !controls.autoRotate;
     updateRotateBtn(controls.autoRotate);
+    // Keep menu open so user can see the toggle state change
 });
+
+document.getElementById('cm-btn-districts').addEventListener('click', () => {
+    toggleNationalBoundaries(); // updateDistrictsBtn is called inside
+});
+
+document.getElementById('cm-btn-party-colors').addEventListener('click', () => {
+    colorMode = colorMode === 'party' ? 'region' : 'party';
+    document.getElementById('cm-btn-party-colors').classList.toggle('active', colorMode === 'party');
+    applyColorMode();
+    // Keep menu open so the toggle state is visible
+});
+
+document.getElementById('cm-btn-kb-help').addEventListener('click', () => {
+    openControlsMenu(false);
+    toggleKbHelp(true);
+});
+
+function stepZoom(factor) {
+    const dir = new THREE.Vector3().subVectors(camera.position, controls.target);
+    const dist = dir.length();
+    const newDist = Math.min(Math.max(dist * factor, controls.minDistance), controls.maxDistance);
+    dir.normalize().multiplyScalar(newDist);
+    camera.position.copy(controls.target).add(dir);
+    controls.update();
+}
+document.getElementById('cm-btn-zoomin').addEventListener('click',  () => stepZoom(0.8));
+document.getElementById('cm-btn-zoomout').addEventListener('click', () => stepZoom(1.25));
+
+document.getElementById('btn-back').addEventListener('click', handleBack);
 
 controls.addEventListener('start', () => {
     if (mapMode === 'overview') { controls.autoRotate = false; updateRotateBtn(false); }

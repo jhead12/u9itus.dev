@@ -48,8 +48,69 @@
         html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #06091a; font-family: system-ui, sans-serif; }
         canvas { display: block; }
 
+        /* ── Keyboard accessibility ──────────────────────────────────────── */
+        #skip-to-main {
+            position: fixed; top: -100px; left: 16px; z-index: 9999;
+            background: #6366f1; color: #fff; padding: 10px 18px;
+            border-radius: 8px; font-size: 14px; font-weight: 700;
+            text-decoration: none; transition: top 0.15s;
+            border: 2px solid #818cf8;
+        }
+        #skip-to-main:focus { top: 16px; outline: none; }
+        :focus-visible { outline: 2px solid #818cf8; outline-offset: 2px; border-radius: 4px; }
+        #map-canvas-region {
+            position: fixed; inset: 0; z-index: 1;
+            pointer-events: none; /* must not block mouse clicks on the 3D canvas */
+        }
+        #map-canvas-region:focus { outline: none; }
+        #map-canvas-region:focus-visible + #kb-focus-ring,
+        #map-canvas-region.kb-active + #kb-focus-ring { opacity: 1; }
+        #kb-focus-ring {
+            position: fixed; inset: 0; pointer-events: none; z-index: 2;
+            box-shadow: inset 0 0 0 3px rgba(99,102,241,0.6);
+            opacity: 0; transition: opacity 0.2s;
+        }
+        #kb-help {
+            display: none; position: fixed; inset: 0; z-index: 300;
+            background: rgba(6,9,26,0.92); backdrop-filter: blur(8px);
+            align-items: center; justify-content: center;
+        }
+        #kb-help.open { display: flex; }
+        #kb-help-box {
+            background: #0f172a; border: 1px solid rgba(99,102,241,0.3);
+            border-radius: 16px; padding: 28px 32px; max-width: 480px; width: 90%;
+            color: #e2e8f0;
+        }
+        #kb-help-box h2 { margin: 0 0 18px; font-size: 16px; color: #818cf8; }
+        .kb-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .kb-table tr + tr td { border-top: 1px solid rgba(99,102,241,0.1); }
+        .kb-table td { padding: 7px 4px; color: #94a3b8; }
+        .kb-table td:first-child { color: #e2e8f0; }
+        kbd {
+            display: inline-block; background: rgba(99,102,241,0.15);
+            border: 1px solid rgba(99,102,241,0.35); border-radius: 5px;
+            padding: 1px 7px; font-family: monospace; font-size: 11px;
+            color: #818cf8; margin: 1px;
+        }
+        #kb-help-close {
+            display: block; margin: 20px auto 0; padding: 8px 24px;
+            background: rgba(99,102,241,0.2); border: 1px solid rgba(99,102,241,0.4);
+            border-radius: 8px; color: #818cf8; font-size: 13px; cursor: pointer;
+        }
+        #kb-help-close:hover { background: rgba(99,102,241,0.35); }
+        #kb-hint-badge {
+            position: fixed; bottom: 16px; left: 16px; z-index: 60;
+            background: rgba(15,23,42,0.85); border: 1px solid rgba(99,102,241,0.25);
+            border-radius: 8px; padding: 5px 11px; font-size: 11px; color: #475569;
+            display: flex; align-items: center; gap: 6px;
+            pointer-events: auto; cursor: pointer;
+            transition: color 0.15s, border-color 0.15s;
+        }
+        #kb-hint-badge:hover { color: #94a3b8; border-color: rgba(99,102,241,0.5); }
+        #kb-hint-badge kbd { font-size: 10px; padding: 0 5px; }
+
         #top-bar {
-            position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+            position: fixed; top: 0; left: 0; right: 0; z-index: 100;
             background: rgba(6, 9, 26, 0.88);
             border-bottom: 1px solid rgba(99, 102, 241, 0.18);
             backdrop-filter: blur(14px);
@@ -474,6 +535,33 @@
         #legend.legend-collapsed #legend-items { display: none; }
         #legend-toggle-icon { display: inline-block; transition: transform 0.2s; }
 
+        /* ── Controls dropdown ───────────────────────────────────────────── */
+        .cm-item {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 10px; width: 100%; padding: 8px 16px;
+            background: none; border: none; color: #94a3b8;
+            font-size: 13px; text-align: left; cursor: pointer;
+            transition: background 0.12s, color 0.12s;
+        }
+        .cm-item:hover { background: rgba(99,102,241,0.12); color: #e2e8f0; }
+        .cm-item.active { color: #818cf8; }
+        .cm-toggle {
+            width: 32px; height: 18px; border-radius: 9px; flex-shrink: 0;
+            background: rgba(99,102,241,0.2); border: 1px solid rgba(99,102,241,0.3);
+            position: relative; transition: background .2s;
+        }
+        .cm-toggle::after {
+            content: ''; position: absolute; top: 2px; left: 2px;
+            width: 12px; height: 12px; border-radius: 50%;
+            background: #475569; transition: transform .2s, background .2s;
+        }
+        .cm-item.active .cm-toggle { background: rgba(99,102,241,0.5); border-color: #6366f1; }
+        .cm-item.active .cm-toggle::after { transform: translateX(14px); background: #818cf8; }
+        .cm-kbd {
+            font-size: 10px; color: #334155; font-family: monospace;
+            border: 1px solid #1e293b; border-radius: 3px; padding: 1px 5px;
+        }
+
         /* ── Branded scrollbars ───────────────────────────────────────────── */
         ::-webkit-scrollbar              { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track        { background: rgba(15, 23, 42, 0.6); border-radius: 3px; }
@@ -574,6 +662,38 @@
 </head>
 <body>
 
+<a id="skip-to-main" href="#map-canvas-region">Skip to map</a>
+
+<div id="kb-help" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts">
+    <div id="kb-help-box">
+        <h2>⌨ Keyboard Controls</h2>
+        <table class="kb-table" aria-label="Keyboard shortcuts list">
+            <tbody>
+                <tr><td><kbd>Tab</kbd></td><td>Focus the map canvas</td></tr>
+                <tr><td><kbd>Enter</kbd> / <kbd>Space</kbd></td><td>Open search to select a state</td></tr>
+                <tr><td><kbd>←</kbd> <kbd>→</kbd></td><td>Rotate map left / right</td></tr>
+                <tr><td><kbd>↑</kbd> <kbd>↓</kbd></td><td>Tilt map up / down</td></tr>
+                <tr><td><kbd>+</kbd> / <kbd>=</kbd></td><td>Zoom in</td></tr>
+                <tr><td><kbd>−</kbd></td><td>Zoom out</td></tr>
+                <tr><td><kbd>R</kbd></td><td>Reset view</td></tr>
+                <tr><td><kbd>Esc</kbd></td><td>Close panel / popup</td></tr>
+                <tr><td><kbd>?</kbd></td><td>Show / hide this help</td></tr>
+            </tbody>
+        </table>
+        <button id="kb-help-close" aria-label="Close keyboard help">Close</button>
+    </div>
+</div>
+
+<div id="map-canvas-region"
+     tabindex="0"
+     role="application"
+     aria-label="Interactive U.S. map. Use arrow keys to rotate, + and - to zoom, Enter to search for a state, ? for keyboard help."></div>
+<div id="kb-focus-ring" aria-hidden="true"></div>
+
+<button id="kb-hint-badge" aria-label="Show keyboard shortcuts" title="Keyboard shortcuts (press ?)">
+    <kbd>?</kbd> Keyboard shortcuts
+</button>
+
 <div id="loading">
     <svg class="spinner" width="44" height="44" viewBox="0 0 24 24" fill="none" style="color:#6366f1;">
         <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-dasharray="31.4" stroke-dashoffset="10" stroke-linecap="round"/>
@@ -599,9 +719,30 @@
             Search
             <span style="font-size:10px;color:#334155;border:1px solid #1e293b;border-radius:3px;padding:1px 5px;font-family:monospace;">/</span>
         </button>
-        <button class="top-btn" id="btn-districts" title="Show all 435 congressional district boundaries nationwide">District Boundaries: OFF</button>
-        <button class="top-btn" id="btn-reset">Reset View</button>
-        <button class="top-btn" id="btn-rotate">Auto-Rotate: OFF</button>
+        <!-- Controls dropdown (replaces standalone Districts / Reset / Auto-Rotate buttons) -->
+        <div id="controls-wrap" style="position:relative;">
+            <button class="top-btn" id="btn-controls" aria-haspopup="true" aria-expanded="false" aria-controls="controls-menu" title="Map controls">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="14" y2="12"/><line x1="4" y1="18" x2="18" y2="18"/></svg>
+                Controls
+            </button>
+            <div id="controls-menu" role="menu" aria-label="Map controls" style="display:none;position:absolute;top:calc(100% + 8px);right:0;min-width:220px;z-index:9999;background:rgba(10,14,35,0.97);border:1px solid rgba(99,102,241,0.3);border-radius:12px;box-shadow:0 16px 48px rgba(0,0,0,0.6);backdrop-filter:blur(16px);padding:8px 0;">
+                <div style="padding:4px 14px 2px;font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#334155;">View</div>
+                <button class="cm-item" id="cm-btn-reset" role="menuitem"><span>Reset View</span><span class="cm-kbd">R</span></button>
+                <button class="cm-item" id="cm-btn-rotate" role="menuitem"><span>Auto-Rotate</span><span class="cm-toggle" aria-hidden="true"></span></button>
+                <button class="cm-item" id="cm-btn-districts" role="menuitem"><span>District Boundaries</span><span class="cm-toggle" aria-hidden="true"></span></button>
+                <hr style="border:none;border-top:1px solid rgba(99,102,241,0.1);margin:6px 0;">
+                <div style="padding:4px 14px 2px;font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#334155;">Keyboard</div>
+                <button class="cm-item" id="cm-btn-kb-help" role="menuitem"><span>Keyboard Shortcuts</span><span class="cm-kbd">?</span></button>
+                <hr style="border:none;border-top:1px solid rgba(99,102,241,0.1);margin:6px 0;">
+                <div style="padding:4px 14px 2px;font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#334155;">Zoom</div>
+                <button class="cm-item" id="cm-btn-zoomin" role="menuitem"><span>Zoom In</span><span class="cm-kbd">+</span></button>
+                <button class="cm-item" id="cm-btn-zoomout" role="menuitem"><span>Zoom Out</span><span class="cm-kbd">−</span></button>
+            </div>
+        </div>
+        <!-- Hidden legacy buttons kept for mobile drawer JS references -->
+        <button class="top-btn" id="btn-districts" style="display:none;">District Boundaries: OFF</button>
+        <button class="top-btn" id="btn-reset" style="display:none;">Reset View</button>
+        <button class="top-btn" id="btn-rotate" style="display:none;">Auto-Rotate: OFF</button>
         <!-- Mobile only: hamburger -->
         <button id="mobile-menu-btn" aria-label="Open menu" aria-expanded="false" aria-controls="mobile-menu">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
@@ -2150,8 +2291,8 @@ function toggleNationalBoundaries() {
     nationalDistVisible = !nationalDistVisible;
     if (nationalDistGroup) nationalDistGroup.visible = nationalDistVisible;
     const btn = document.getElementById('btn-districts');
-    btn.textContent = `District Boundaries: ${nationalDistVisible ? 'ON' : 'OFF'}`;
-    btn.classList.toggle('active', nationalDistVisible);
+    if (btn) { btn.textContent = `District Boundaries: ${nationalDistVisible ? 'ON' : 'OFF'}`; btn.classList.toggle('active', nationalDistVisible); }
+    updateDistrictsBtn(nationalDistVisible);
 }
 
 document.getElementById('btn-districts').addEventListener('click', toggleNationalBoundaries);
@@ -2458,23 +2599,51 @@ mobBtnReset.addEventListener('click', () => {
    CONTROLS
 ════════════════════════════════════════════════════════ */
 function updateRotateBtn(on) {
-    document.getElementById('btn-rotate').textContent = `Auto-Rotate: ${on ? 'ON' : 'OFF'}`;
-    const span = mobBtnRotate.querySelector('span');
+    document.getElementById('cm-btn-rotate')?.classList.toggle('active', on);
+    const span = mobBtnRotate?.querySelector('span');
     if (span) span.textContent = on ? 'ON' : 'OFF';
-    mobBtnRotate.classList.toggle('active', on);
+    mobBtnRotate?.classList.toggle('active', on);
 }
 
+function updateDistrictsBtn(on) {
+    document.getElementById('cm-btn-districts')?.classList.toggle('active', on);
+    const mobSpan = document.getElementById('mob-btn-districts')?.querySelector('span');
+    if (mobSpan) mobSpan.textContent = on ? 'ON' : 'OFF';
+}
+
+/* Controls dropdown */
+const ctrlWrap    = document.getElementById('controls-wrap');
+const ctrlMenu    = document.getElementById('controls-menu');
+const btnControls = document.getElementById('btn-controls');
+
+function openControlsMenu(open) {
+    ctrlMenu.style.display = open ? 'block' : 'none';
+    btnControls.setAttribute('aria-expanded', String(open));
+}
+
+btnControls.addEventListener('click', e => {
+    e.stopPropagation();
+    openControlsMenu(ctrlMenu.style.display === 'none');
+});
+document.addEventListener('click', e => { if (!ctrlWrap.contains(e.target)) openControlsMenu(false); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && ctrlMenu.style.display !== 'none') { openControlsMenu(false); btnControls.focus(); } });
+
+document.getElementById('cm-btn-reset').addEventListener('click', () => { openControlsMenu(false); enterOverviewMode(); updateRotateBtn(false); });
+document.getElementById('cm-btn-rotate').addEventListener('click', () => { controls.autoRotate = !controls.autoRotate; updateRotateBtn(controls.autoRotate); });
+document.getElementById('cm-btn-districts').addEventListener('click', () => { toggleNationalBoundaries(); });
+document.getElementById('cm-btn-kb-help').addEventListener('click', () => { openControlsMenu(false); toggleKbHelp(true); });
+function stepZoom(factor) {
+    const dir = new THREE.Vector3().subVectors(camera.position, controls.target);
+    const dist = dir.length();
+    const newDist = Math.min(Math.max(dist * factor, controls.minDistance), controls.maxDistance);
+    dir.normalize().multiplyScalar(newDist);
+    camera.position.copy(controls.target).add(dir);
+    controls.update();
+}
+document.getElementById('cm-btn-zoomin').addEventListener('click',  () => stepZoom(0.8));
+document.getElementById('cm-btn-zoomout').addEventListener('click', () => stepZoom(1.25));
+
 document.getElementById('btn-back').addEventListener('click', handleBack);
-
-document.getElementById('btn-reset').addEventListener('click', () => {
-    enterOverviewMode();
-    updateRotateBtn(true);
-});
-
-document.getElementById('btn-rotate').addEventListener('click', () => {
-    controls.autoRotate = !controls.autoRotate;
-    updateRotateBtn(controls.autoRotate);
-});
 
 controls.addEventListener('start', () => {
     if (mapMode === 'overview') { controls.autoRotate = false; updateRotateBtn(false); }
