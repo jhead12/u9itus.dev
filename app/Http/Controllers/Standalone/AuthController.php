@@ -204,6 +204,8 @@ class AuthController extends Controller
 
     public function showRegisterChoose(Request $request)
     {
+        abort_if(! filter_var(PlatformSettingsService::get('registration_open', null, true), FILTER_VALIDATE_BOOLEAN), 404);
+
         return view('standalone.auth.register-choose', [
             'referralCode' => $this->resolveIncomingReferralCode($request),
         ]);
@@ -215,6 +217,8 @@ class AuthController extends Controller
 
     public function showRegisterPolitician(Request $request)
     {
+        abort_if(! filter_var(PlatformSettingsService::get('registration_open', null, true), FILTER_VALIDATE_BOOLEAN), 404);
+
         return view('standalone.auth.register-politician', [
             'referralCode' => $this->resolveIncomingReferralCode($request),
         ]);
@@ -222,6 +226,8 @@ class AuthController extends Controller
 
     public function registerPolitician(Request $request)
     {
+        abort_if(! filter_var(PlatformSettingsService::get('registration_open', null, true), FILTER_VALIDATE_BOOLEAN), 404);
+
         $request->validate([
             'first_name'       => ['required', 'string', 'max:255'],
             'last_name'        => ['required', 'string', 'max:255'],
@@ -344,6 +350,8 @@ class AuthController extends Controller
 
     public function showRegisterVoter(Request $request)
     {
+        abort_if(! filter_var(PlatformSettingsService::get('registration_open', null, true), FILTER_VALIDATE_BOOLEAN), 404);
+
         return view('standalone.auth.register-voter', [
             'referralCode' => $this->resolveIncomingReferralCode($request),
         ]);
@@ -351,6 +359,8 @@ class AuthController extends Controller
 
     public function registerVoter(Request $request)
     {
+        abort_if(! filter_var(PlatformSettingsService::get('registration_open', null, true), FILTER_VALIDATE_BOOLEAN), 404);
+
         $request->validate([
             'first_name'    => ['required', 'string', 'max:255'],
             'last_name'     => ['required', 'string', 'max:255'],

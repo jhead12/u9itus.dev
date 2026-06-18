@@ -102,7 +102,11 @@
 
         <p class="mt-6 text-center text-sm text-slate-500">
             Don't have an account?
-            <a href="{{ route('register') }}" class="text-emerald-400 hover:text-emerald-300 font-medium transition">Create one</a>
+            @if(\App\Services\PlatformSettingsService::get('registration_open', null, true))
+                <a href="{{ route('register') }}" class="text-emerald-400 hover:text-emerald-300 font-medium transition">Create one</a>
+            @else
+                <span class="text-slate-600">Registration is currently closed.</span>
+            @endif
         </p>
         <p class="text-center mt-2 text-slate-600 text-xs">
             Admin staff? <a href="{{ route('admin.login') }}" class="text-slate-500 hover:text-slate-400 underline transition">Admin portal</a>

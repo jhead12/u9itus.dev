@@ -60,7 +60,7 @@
             @else
             <div class="hidden sm:flex sm:items-center sm:ms-6 space-x-4">
                 <a href="{{ route('login') }}" class="text-sm text-slate-300 hover:text-emerald-400 transition">{{ __('Log in') }}</a>
-                @if (Route::has('register'))
+                @if (Route::has('register') && \App\Services\PlatformSettingsService::get('registration_open', null, true))
                     <a href="{{ route('register') }}" class="px-4 py-2 text-sm bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold rounded-lg hover:from-emerald-600 hover:to-teal-600 transition">{{ __('Sign up') }}</a>
                 @endif
             </div>
@@ -123,7 +123,7 @@
             </div>
             <div class="mt-3 space-y-1">
                 <a href="{{ route('login') }}" class="block px-4 py-2 text-sm text-slate-300 hover:text-emerald-400 transition">{{ __('Log in') }}</a>
-                @if (Route::has('register'))
+                @if (Route::has('register') && \App\Services\PlatformSettingsService::get('registration_open', null, true))
                     <a href="{{ route('register') }}" class="block px-4 py-2 text-sm text-slate-300 hover:text-emerald-400 transition">{{ __('Register') }}</a>
                 @endif
             </div>

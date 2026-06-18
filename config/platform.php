@@ -37,7 +37,7 @@ return [
         
         // Features available in standalone mode
         'features' => [
-            'registration' => true,
+            'registration' => false,
             'password_reset' => true,
             'email_verification' => true,
             'two_factor' => false, // TODO: Enable in Phase 2

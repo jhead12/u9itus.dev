@@ -3011,7 +3011,12 @@ class AdminController extends Controller
             FILTER_VALIDATE_BOOLEAN
         );
 
-        return view('standalone.admin.settings', compact('smtp', 'adminTwoFactorEnforced'));
+        $registrationOpen = filter_var(
+            PlatformSettingsService::get('registration_open', null, true),
+            FILTER_VALIDATE_BOOLEAN
+        );
+
+        return view('standalone.admin.settings', compact('smtp', 'adminTwoFactorEnforced', 'registrationOpen'));
     }
 
     /**
@@ -3021,15 +3026,17 @@ class AdminController extends Controller
     {
         $validated = $request->validate([
             'admin_2fa_enforced' => ['required', 'boolean'],
+            'registration_open'  => ['required', 'boolean'],
         ]);
 
-        $newValue = (bool) $validated['admin_2fa_enforced'];
-        $currentValue = filter_var(
+        // ── Admin 2FA policy ─────────────────────────────────────────────────
+        $newTwoFa = (bool) $validated['admin_2fa_enforced'];
+        $currentTwoFa = filter_var(
             PlatformSettingsService::get('admin_2fa_enforced', null, false),
             FILTER_VALIDATE_BOOLEAN
         );
 
-        PlatformSettingsService::set('admin_2fa_enforced', $newValue, [
+        PlatformSettingsService::set('admin_2fa_enforced', $newTwoFa, [
             'description' => 'Global policy toggle requiring TOTP for all admin logins.',
             'category' => 'general',
         ]);
@@ -3037,16 +3044,44 @@ class AdminController extends Controller
         Log::info('Admin security policy updated', [
             'admin_id' => auth()->id(),
             'key' => 'admin_2fa_enforced',
-            'old_value' => $currentValue,
-            'new_value' => $newValue,
+            'old_value' => $currentTwoFa,
+            'new_value' => $newTwoFa,
         ]);
 
         AdminSecurityAuditLog::record(
             $request->user(),
             'policy.admin_2fa.updated',
             [
-                'old_value' => $currentValue,
-                'new_value' => $newValue,
+                'old_value' => $currentTwoFa,
+                'new_value' => $newTwoFa,
+            ],
+            $request
+        );
+
+        // ── Registration open/closed toggle ──────────────────────────────────
+        $newRegistration = (bool) $validated['registration_open'];
+        $currentRegistration = filter_var(
+            PlatformSettingsService::get('registration_open', null, true),
+            FILTER_VALIDATE_BOOLEAN
+        );
+
+        PlatformSettingsService::set('registration_open', $newRegistration, [
+            'description' => 'Controls whether new user registrations are accepted.',
+            'category' => 'general',
+        ]);
+
+        Log::info('Registration policy updated', [
+            'admin_id' => auth()->id(),
+            'old_value' => $currentRegistration,
+            'new_value' => $newRegistration,
+        ]);
+
+        AdminSecurityAuditLog::record(
+            $request->user(),
+            'policy.registration.updated',
+            [
+                'old_value' => $currentRegistration,
+                'new_value' => $newRegistration,
             ],
             $request
         );

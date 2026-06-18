@@ -44,6 +44,8 @@
             @method('PUT')
 
             <input type="hidden" name="admin_2fa_enforced" value="0" />
+            {{-- Carry current registration_open so this form doesn't reset it --}}
+            <input type="hidden" name="registration_open" value="{{ $registrationOpen ? '1' : '0' }}" />
 
             <label class="flex items-start gap-3 cursor-pointer">
                 <input
@@ -64,6 +66,61 @@
                 <button type="submit"
                     class="bg-cyan-600 hover:bg-cyan-500 text-white font-semibold rounded-lg px-5 py-2.5 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500/50">
                     Save Security Policy
+                </button>
+            </div>
+        </form>
+    </div>
+
+    {{-- ── Registration Access ─────────────────────────────────────────── --}}
+    <div class="bg-slate-800/60 border border-slate-700/50 rounded-2xl overflow-hidden">
+
+        <div class="px-6 py-4 border-b border-slate-700/50 flex items-center gap-3">
+            <div class="w-9 h-9 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/>
+                </svg>
+            </div>
+            <div>
+                <p class="text-sm font-semibold text-white">Registration Access</p>
+                <p class="text-xs text-slate-400">Temporarily close signups without any code changes.</p>
+            </div>
+        </div>
+
+        <form method="POST" action="{{ route('admin.settings.security') }}" class="px-6 py-6 space-y-5">
+            @csrf
+            @method('PUT')
+
+            {{-- Re-send the 2FA value so the shared handler doesn't reset it --}}
+            <input type="hidden" name="admin_2fa_enforced" value="{{ $adminTwoFactorEnforced ? '1' : '0' }}" />
+            <input type="hidden" name="registration_open" value="0" />
+
+            <label class="flex items-start gap-3 cursor-pointer">
+                <input
+                    type="checkbox"
+                    name="registration_open"
+                    value="1"
+                    {{ !empty($registrationOpen) ? 'checked' : '' }}
+                    class="mt-1 h-4 w-4 rounded border-slate-600 bg-slate-900 text-emerald-500 focus:ring-emerald-500/50"
+                />
+                <span>
+                    <span class="block text-sm font-medium text-slate-200">Allow new user registrations</span>
+                    <span class="block mt-1 text-xs text-slate-500">When unchecked, all registration pages return 404 and sign-up links are hidden site-wide. Existing users can still log in.</span>
+                </span>
+            </label>
+
+            @if(!$registrationOpen)
+                <div class="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30">
+                    <svg class="w-4 h-4 text-amber-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                    </svg>
+                    <p class="text-xs text-amber-400">Registration is currently <strong>closed</strong>. New users cannot sign up.</p>
+                </div>
+            @endif
+
+            <div class="flex justify-end pt-4 border-t border-slate-700/50">
+                <button type="submit"
+                    class="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-lg px-5 py-2.5 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500/50">
+                    Save Registration Policy
                 </button>
             </div>
         </form>
