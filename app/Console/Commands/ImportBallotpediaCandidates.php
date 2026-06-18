@@ -115,6 +115,12 @@ class ImportBallotpediaCandidates extends Command
                         if ($row['party_affiliation'] ?? null) {
                             $updates['party_affiliation'] = $row['party_affiliation'];
                         }
+                        if ($row['campaign_website'] ?? null) {
+                            $updates['website_url'] = $row['campaign_website'];
+                        }
+                        if ($row['bio_excerpt'] ?? null) {
+                            $updates['bio'] = $row['bio_excerpt'];
+                        }
                         $bpId = $this->extractBallotpediaId($row['ballotpedia_url'] ?? null);
                         if ($bpId !== null) {
                             $updates['ballotpedia_id'] = $bpId;
@@ -158,7 +164,8 @@ class ImportBallotpediaCandidates extends Command
                         'state'                => $state,
                         'district'             => $row['district'] ?? null,
                         'party_affiliation'    => $row['party_affiliation'] ?? null,
-                        'website_url'          => null,
+                        'website_url'          => $row['campaign_website'] ?? null,
+                        'bio'                  => $row['bio_excerpt'] ?? null,
                         'ballotpedia_id'       => $bpIdForCreate,
                         'is_active'            => true,
                         'is_running_candidate' => true,
@@ -212,6 +219,14 @@ class ImportBallotpediaCandidates extends Command
         if ($row['result_status'] ?? null) {
             $resultMap = ['won' => 'advanced_to_general', 'lost' => 'eliminated'];
             $payload['primary_result'] = $resultMap[$row['result_status']] ?? null;
+        }
+
+        // Include campaign website and bio if the scraper fetched them
+        if (! empty($row['campaign_website'])) {
+            $payload['website'] = $row['campaign_website'];
+        }
+        if (! empty($row['bio_excerpt'])) {
+            $payload['bio'] = $row['bio_excerpt'];
         }
 
         ElectionCandidateRecord::updateOrCreate(

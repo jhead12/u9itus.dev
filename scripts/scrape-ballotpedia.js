@@ -48,6 +48,8 @@ const OFFICE_FILTER  = (args.office ?? 'all').toLowerCase();
 const STATE_FILTER   = args.state ? args.state.toUpperCase() : null;
 /** When true, also scrape per-race result status (winner / loser / incumbent). */
 const WITH_RESULTS   = args.results === 'true';
+/** When true, visit each candidate's Ballotpedia profile to extract campaign website + bio. */
+const FETCH_WEBSITES = args['fetch-websites'] === 'true';
 /** Which election year to target. Defaults to 2026 (next cycle). */
 const ELECTION_YEAR  = args.year ? parseInt(args.year, 10) : 2026;
 const OUT_PATH       = args.out
@@ -291,6 +293,18 @@ async function runIndexStrategy(indexes, newPage, allCandidates) {
         const fullName = c.name;
         if (!fullName || fullName.length < 3) continue;
 
+        // Optionally fetch campaign website from the candidate's Ballotpedia profile
+        let campaignWebsite = null;
+        let bioExcerpt = null;
+        if (FETCH_WEBSITES && c.ballotpedia_url) {
+          const profile = await scrapeCandidateProfile(newPage, c.ballotpedia_url);
+          if (profile) {
+            campaignWebsite = profile.campaignWebsite ?? null;
+            bioExcerpt      = profile.bioExcerpt ?? null;
+          }
+          await sleep(300);
+        }
+
         allCandidates.push({
           full_name: fullName,
           political_office: chamberConfig.office,
@@ -302,6 +316,8 @@ async function runIndexStrategy(indexes, newPage, allCandidates) {
           is_running_candidate: c.result_status == null,
           result_status: c.result_status ?? null,
           ballotpedia_url: c.ballotpedia_url ?? raceUrl,
+          campaign_website: campaignWebsite,
+          bio_excerpt: bioExcerpt,
           source_page: raceUrl,
           scraped_at: new Date().toISOString(),
         });
@@ -492,6 +508,90 @@ async function scrapeRacePage(page, raceUrl, chamber, withResults = false) {
   }, { raceUrl, ELECTION_YEAR, withResults });
 }
 
+/**
+ * Visit a candidate's individual Ballotpedia profile page and extract:
+ *  - campaign_website: the candidate's official campaign site
+ *  - bio_excerpt: first 300 chars of their profile description
+ *
+ * Only called when --fetch-websites is set. Gracefully returns null on failure.
+ */
+async function scrapeCandidateProfile(newPage, profileUrl) {
+  if (!profileUrl || !profileUrl.startsWith('https://ballotpedia.org/')) return null;
+
+  // Skip Ballotpedia index/election pages — they're not candidate profiles
+  if (/elections?,_\d{4}/i.test(profileUrl)) return null;
+
+  const page = await newPage();
+  try {
+    await page.goto(profileUrl, { waitUntil: 'domcontentloaded', timeout: 20_000 });
+    await sleep(300);
+
+    const result = await page.evaluate(() => {
+      let campaignWebsite = null;
+      let bioExcerpt = null;
+
+      // ── Campaign website from infobox ────────────────────────────────────
+      // Ballotpedia infoboxes have rows like:
+      //   <th>Campaign website</th><td><a href="https://...">website</a></td>
+      const infoboxRows = document.querySelectorAll(
+        '.widget-row, table.infobox tr, .votebox tr, .ballotpedia-widget tr'
+      );
+      for (const row of infoboxRows) {
+        const th = row.querySelector('th, td:first-child');
+        const td = row.querySelector('td:last-child, td + td');
+        if (!th || !td) continue;
+        const label = (th.textContent ?? '').toLowerCase().trim();
+        if (label.includes('campaign') && label.includes('web')) {
+          const a = td.querySelector('a[href]');
+          if (a) {
+            const href = a.getAttribute('href') ?? '';
+            // Only external URLs (not internal Ballotpedia links)
+            if (href.startsWith('http') && !href.includes('ballotpedia.org')) {
+              campaignWebsite = href;
+              break;
+            }
+          }
+        }
+      }
+
+      // Fallback: look for any external link labeled "Campaign website" anywhere on page
+      if (!campaignWebsite) {
+        const allLinks = document.querySelectorAll('a[href]');
+        for (const a of allLinks) {
+          const text  = (a.textContent ?? '').toLowerCase().trim();
+          const href  = a.getAttribute('href') ?? '';
+          const title = (a.getAttribute('title') ?? '').toLowerCase();
+          if (
+            (text === 'campaign website' || text === 'official website' || title.includes('campaign website')) &&
+            href.startsWith('http') &&
+            !href.includes('ballotpedia.org')
+          ) {
+            campaignWebsite = href;
+            break;
+          }
+        }
+      }
+
+      // ── Bio excerpt from first paragraph of profile ──────────────────────
+      const contentEl = document.querySelector('#mw-content-text p, .mw-parser-output p');
+      if (contentEl) {
+        const text = (contentEl.textContent ?? '').trim().replace(/\s+/g, ' ');
+        if (text.length > 30) {
+          bioExcerpt = text.substring(0, 300);
+        }
+      }
+
+      return { campaignWebsite, bioExcerpt };
+    });
+
+    return result.campaignWebsite || result.bioExcerpt ? result : null;
+  } catch {
+    return null;
+  } finally {
+    await page.context().close();
+  }
+}
+
 async function main() {
   const indexes = ELECTION_INDEXES.filter(e => {
     if (OFFICE_FILTER === 'all') return true;
@@ -570,6 +670,19 @@ async function main() {
 
       for (const c of candidates) {
         if (!c.name || c.name.length < 3) continue;
+
+        // Optionally fetch campaign website from the candidate's Ballotpedia profile
+        let campaignWebsite = null;
+        let bioExcerpt = null;
+        if (FETCH_WEBSITES && c.ballotpedia_url) {
+          const profile = await scrapeCandidateProfile(newPage, c.ballotpedia_url);
+          if (profile) {
+            campaignWebsite = profile.campaignWebsite ?? null;
+            bioExcerpt      = profile.bioExcerpt ?? null;
+          }
+          await sleep(300);
+        }
+
         allCandidates.push({
           full_name: c.name,
           political_office: chamberConfig.office,
@@ -581,6 +694,8 @@ async function main() {
           is_running_candidate: c.result_status == null,
           result_status: c.result_status ?? null,
           ballotpedia_url: c.ballotpedia_url ?? raceUrl,
+          campaign_website: campaignWebsite,
+          bio_excerpt: bioExcerpt,
           source_page: raceUrl,
           scraped_at: new Date().toISOString(),
         });

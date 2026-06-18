@@ -173,12 +173,17 @@ jobs:
             FIRST_STATE=$(echo "${{ github.event.inputs.states }}" | cut -d',' -f1)
             STATE_ARG="--state=$FIRST_STATE"
           fi
+          # --fetch-websites visits each candidate's Ballotpedia profile page to
+          # extract their campaign website URL and a short bio excerpt.
+          # This adds ~1 extra HTTP request per candidate but is the only way to
+          # get the actual campaign site (not just the Ballotpedia profile link).
           node scripts/scrape-ballotpedia.js \
             --office=statewide \
             --strategy=direct \
             --year="$YEAR" \
-            $STATE_ARG \
             --results \
+            --fetch-websites \
+            $STATE_ARG \
             --out=storage/app/imports/ballotpedia-statewide-${YEAR}.json
 
       - name: Import statewide candidates
@@ -201,6 +206,7 @@ jobs:
             --office=house \
             --strategy=index \
             --year="$YEAR" \
+            --fetch-websites \
             ${{ steps.args.outputs.state_args }} \
             --out=storage/app/imports/ballotpedia-house-${YEAR}.json
 

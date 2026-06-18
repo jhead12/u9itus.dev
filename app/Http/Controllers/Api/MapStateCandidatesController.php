@@ -153,7 +153,13 @@ class MapStateCandidatesController
         }
         $grouped['Other Statewide'] = ['office' => 'Other Statewide', 'candidates' => []];
 
+        // Global dedup set: prevents the same person appearing in multiple buckets
+        // (e.g. once as a platform Politician and again as an ECR with a slightly
+        // different office label, or as both a Senate ECR and a House Politician).
+        $seenGlobal = [];
+
         foreach ($platformPoliticians as $pol) {
+            $seenGlobal[strtolower($pol->full_name)] = true;
             $canonical = $this->canonicalise($pol->political_office);
             $grouped[$canonical]['candidates'][] = [
                 'source'          => 'platform',
@@ -183,13 +189,16 @@ class MapStateCandidatesController
         }
 
         foreach ($scrapedRecords as $rec) {
-            $canonical = $this->canonicalise($rec->political_office);
-            // Skip if a platform politician with the same name already exists
-            $alreadyListed = collect($grouped[$canonical]['candidates'])
-                ->contains(fn($c) => strtolower($c['full_name']) === strtolower($rec->full_name));
-            if ($alreadyListed) {
+            $canonical  = $this->canonicalise($rec->political_office);
+            $nameLower  = strtolower($rec->full_name);
+
+            // Skip globally if this person already appears under ANY office bucket
+            // (prevents duplicates like "Adam Schiff" as both a Senate ECR and
+            // a House/Platform Politician, or two ECRs with different office labels)
+            if (isset($seenGlobal[$nameLower])) {
                 continue;
             }
+            $seenGlobal[$nameLower] = true;
             $payload       = is_array($rec->payload) ? $rec->payload : [];
             $primaryResult = $payload['primary_result'] ?? null;
 
