@@ -216,24 +216,28 @@ async function scrapeProfilePage(page, profileUrl) {
       }
 
       // Contributors: has "associated_organization" or "org"
+      // OpenSecrets renders TWO tables per section: one header-only, one with data.
+      // We always take the last non-empty match, so skip if rows is empty.
       if (keys.some(k => k.includes('organization') || k.includes('org'))) {
-        result.top_contributors = rows.map(r => ({
+        const parsed = rows.map(r => ({
           name:        r[keys.find(k => k.includes('organization') || k.includes('org'))] ?? '',
           total:       r[keys.find(k => k === 'total')] ?? '',
           individuals: r[keys.find(k => k.includes('individual'))] ?? '',
           pacs:        r[keys.find(k => k.includes('pac'))] ?? '',
         })).filter(r => r.name);
+        if (parsed.length > 0) result.top_contributors = parsed;
         continue;
       }
 
       // Industries: has "industry"
       if (keys.some(k => k.includes('industry'))) {
-        result.top_industries = rows.map(r => ({
+        const parsed = rows.map(r => ({
           name:        r[keys.find(k => k.includes('industry'))] ?? '',
           total:       r[keys.find(k => k === 'total')] ?? '',
           individuals: r[keys.find(k => k.includes('individual'))] ?? '',
           pacs:        r[keys.find(k => k.includes('pac'))] ?? '',
         })).filter(r => r.name);
+        if (parsed.length > 0) result.top_industries = parsed;
       }
     }
 
