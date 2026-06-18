@@ -148,7 +148,7 @@
 
             <section class="mt-10">
                 <div class="flex items-center justify-between mb-4">
-                    <h2 class="text-xl font-bold text-white">Current Officials For This Location</h2>
+                    <h2 class="text-xl font-bold text-white">Current Politicians For This Location</h2>
                     <span class="text-sm text-slate-400">{{ $currentOfficials->count() }} found</span>
                 </div>
 
