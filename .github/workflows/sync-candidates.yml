@@ -184,8 +184,13 @@ jobs:
       - name: Import statewide candidates
         run: |
           YEAR="${{ github.event.inputs.election_year || '2026' }}"
+          # --election-year ensures cross-office ECR rows get the correct election_date.
+          # The importer now detects seated politicians running for a different office
+          # (e.g. Lt. Governor running for Governor) and writes to ECR only — it never
+          # overwrites their seated term_status on the Politician row.
           php artisan politicians:import-ballotpedia \
             --file=storage/app/imports/ballotpedia-statewide-${YEAR}.json \
+            --election-year=${YEAR} \
             ${{ steps.args.outputs.dry_arg }}
 
       # ── U.S. House races (index strategy: multi-district per state) ──────────
@@ -274,6 +279,37 @@ jobs:
         run: |
           php artisan politicians:reconcile-status \
             ${{ steps.args.outputs.dry_arg }}
+
+      # ── Cross-office conflict audit ───────────────────────────────────────
+      # Detects politicians whose term_status=seated but who also appear as a
+      # candidate for a DIFFERENT office in election_candidate_records.
+      # This catches issues like "Lt. Governor listed under Governor" across
+      # all 50 states before they hit the public map.
+      # Exits 0 always — this is a warning step, not a blocker.
+      - name: Audit cross-office conflicts
+        run: |
+          php artisan tinker --execute="
+            \$conflicts = \Illuminate\Support\Facades\DB::select(\"
+              SELECT p.id, p.full_name, p.state, p.political_office AS seated_office,
+                     e.political_office AS candidate_office, e.id AS ecr_id
+              FROM politicians p
+              JOIN election_candidate_records e
+                ON LOWER(e.full_name) = LOWER(p.full_name)
+               AND UPPER(COALESCE(e.state,'')) = UPPER(COALESCE(p.state,''))
+               AND LOWER(COALESCE(e.political_office,'')) != LOWER(COALESCE(p.political_office,''))
+              WHERE p.term_status IN ('seated','current')
+                AND COALESCE(JSON_UNQUOTE(JSON_EXTRACT(e.payload,'$.primary_result')),'') != 'eliminated'
+              ORDER BY p.state, p.full_name
+            \");
+            if (count(\$conflicts) === 0) {
+              echo 'No cross-office conflicts found.' . PHP_EOL;
+            } else {
+              echo '⚠ CROSS-OFFICE CONFLICTS (' . count(\$conflicts) . '):' . PHP_EOL;
+              foreach (\$conflicts as \$c) {
+                echo '  [' . \$c->state . '] ' . \$c->full_name . ' — seated: ' . \$c->seated_office . ' | running-for: ' . \$c->candidate_office . PHP_EOL;
+              }
+            }
+          " || true
 
       # ── Election results & local voter guides (all 50 states) ────────────
       # Two-pass results enrichment:

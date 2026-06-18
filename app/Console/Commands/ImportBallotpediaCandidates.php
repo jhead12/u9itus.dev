@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Models\ElectionCandidateRecord;
 use App\Models\Politician;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
@@ -25,7 +26,8 @@ class ImportBallotpediaCandidates extends Command
     protected $signature = 'politicians:import-ballotpedia
         {--file=storage/app/imports/ballotpedia-2026.json : Path to the scraped JSON file}
         {--overwrite : Also overwrite district, party, photo on matched records}
-        {--dry-run : Parse and report only — no DB writes}';
+        {--dry-run : Parse and report only — no DB writes}
+        {--election-year=2026 : Election year (used in ECR election_date fallback)}';
 
     protected $description = 'Import 2026 Ballotpedia primary-election candidates and mark them as running candidates.';
 
@@ -55,9 +57,12 @@ class ImportBallotpediaCandidates extends Command
             return self::FAILURE;
         }
 
-        $created  = 0;
-        $updated  = 0;
-        $skipped  = 0;
+        $created       = 0;
+        $updated       = 0;
+        $skipped       = 0;
+        $crossOffice   = 0; // seated politician running for a different office → ECR only
+        $seatedSkipped = 0; // seated same-office politician → no term_status overwrite
+        $electionYear  = (int) ($this->option('election-year') ?? 2026);
 
         foreach ($rows as $idx => $row) {
             if (! is_array($row)) {
@@ -77,9 +82,25 @@ class ImportBallotpediaCandidates extends Command
 
             // ── Match existing record ────────────────────────────────────────
 
-            $politician = $this->findExisting($fullName, $state, $office);
+            [$politician, $isCrossOffice] = $this->findExisting($fullName, $state, $office);
 
             if ($politician) {
+                // Cross-office: person is seated in a different office.
+                // Write a candidate ECR row; never mutate the seated politician profile.
+                if ($isCrossOffice) {
+                    $this->line("[CROSS-OFFICE] {$fullName} ({$state}) — seated as '{$politician->political_office}', running for '{$office}'");
+                    $this->writeEcr($fullName, $state, $office, $row, $electionYear, $dryRun);
+                    $crossOffice++;
+                    continue;
+                }
+
+                // Seated same-office: skip term_status update to avoid corrupting current holders.
+                if (in_array($politician->term_status, ['seated', 'current'], true)) {
+                    $this->line("[SEATED-SKIP] {$fullName} ({$state}) — already seated as '{$politician->political_office}'");
+                    $seatedSkipped++;
+                    continue;
+                }
+
                 if (! $dryRun) {
                     $updates = [
                         'is_running_candidate' => true,
@@ -161,33 +182,103 @@ class ImportBallotpediaCandidates extends Command
 
         $suffix = $dryRun ? ' (dry-run)' : '';
         $this->info(
-            "Import complete{$suffix}: {$created} created, {$updated} updated, {$skipped} skipped."
+            "Import complete{$suffix}: {$created} created, {$updated} updated, "
+            . "{$crossOffice} cross-office→ECR, {$seatedSkipped} seated-skipped, {$skipped} skipped."
         );
 
         return self::SUCCESS;
     }
 
-    private function findExisting(string $fullName, string $state, string $office): ?Politician
+    /**
+     * Write a candidate entry to election_candidate_records.
+     * Used for cross-office candidates (seated in one office, running for another).
+     */
+    private function writeEcr(
+        string $fullName,
+        string $state,
+        string $office,
+        array  $row,
+        int    $electionYear,
+        bool   $dryRun,
+    ): void {
+        if ($dryRun) {
+            return;
+        }
+
+        $bpId    = $this->extractBallotpediaId($row['ballotpedia_url'] ?? null);
+        $extId   = $bpId ?? strtolower("{$state}-{$electionYear}-" . Str::slug($fullName) . '-' . Str::slug($office));
+        $payload = [];
+
+        if ($row['result_status'] ?? null) {
+            $resultMap = ['won' => 'advanced_to_general', 'lost' => 'eliminated'];
+            $payload['primary_result'] = $resultMap[$row['result_status']] ?? null;
+        }
+
+        ElectionCandidateRecord::updateOrCreate(
+            ['external_candidate_id' => $extId],
+            [
+                'full_name'          => $fullName,
+                'political_office'   => $office,
+                'governance_level'   => strtolower($row['governance_level'] ?? 'state'),
+                'state'              => $state,
+                'district'           => $row['district'] ?? 'Statewide',
+                'party_affiliation'  => $row['party_affiliation'] ?? null,
+                'source'             => 'ballotpedia',
+                'election_date'      => $row['election_date'] ?? "{$electionYear}-11-03",
+                'payload'            => $payload ?: null,
+                'last_seen_at'       => now(),
+            ]
+        );
+    }
+
+    /**
+     * Returns [Politician|null, bool $isCrossOffice].
+     * $isCrossOffice=true means the person is seated in a DIFFERENT office than
+     * the one they were scraped for (e.g. Lt. Gov running for Governor).
+     *
+     * @return array{0: ?Politician, 1: bool}
+     */
+    private function findExisting(string $fullName, string $state, string $office): array
     {
-        $lower = strtolower($fullName);
+        $lower       = strtolower($fullName);
+        $lowerOffice = strtolower($office);
 
         // 1. Exact name + state + office match
         $politician = Politician::query()
             ->whereRaw('LOWER(full_name) = ?', [$lower])
             ->whereRaw('UPPER(COALESCE(state, \'\')) = ?', [$state])
-            ->whereRaw('LOWER(COALESCE(political_office, \'\')) = ?', [strtolower($office)])
+            ->whereRaw('LOWER(COALESCE(political_office, \'\')) = ?', [$lowerOffice])
             ->first();
 
         if ($politician) {
-            return $politician;
+            return [$politician, false];
         }
 
         // 2. Name + state + federal governance level (covers title mismatches)
-        return Politician::query()
+        $politician = Politician::query()
             ->whereRaw('LOWER(full_name) = ?', [$lower])
             ->whereRaw('UPPER(COALESCE(state, \'\')) = ?', [$state])
             ->where('governance_level', 'Federal')
             ->first();
+
+        if ($politician) {
+            return [$politician, false];
+        }
+
+        // 3. Cross-office: same name + state, different office, currently seated.
+        //    Catches e.g. Lt. Governor running for Governor in another state too.
+        $seated = Politician::query()
+            ->whereRaw('LOWER(full_name) = ?', [$lower])
+            ->whereRaw('UPPER(COALESCE(state, \'\')) = ?', [$state])
+            ->whereIn('term_status', ['seated', 'current'])
+            ->whereRaw('LOWER(COALESCE(political_office, \'\')) != ?', [$lowerOffice])
+            ->first();
+
+        if ($seated) {
+            return [$seated, true];
+        }
+
+        return [null, false];
     }
 
     /**

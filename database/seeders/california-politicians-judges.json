@@ -1,23 +1,45 @@
 [
     {
-        "external_candidate_id": "ca-2026-gov-001",
+        "external_candidate_id": "ca-gov-seated-newsom",
         "full_name": "Gavin Newsom",
         "political_office": "Governor",
         "governance_level": "State",
         "state": "CA",
         "district": "Statewide",
         "party_affiliation": "Democratic",
-        "election_date": "2026-06-02"
+        "payload": {
+            "status": "seated",
+            "term_end": "January 2027",
+            "term_note": "Term-limited · cannot seek re-election as Governor"
+        }
     },
     {
-        "external_candidate_id": "ca-2026-gov-002",
-        "full_name": "Chad Bianco",
+        "external_candidate_id": "ca-2026-gov-becerra",
+        "full_name": "Xavier Becerra",
+        "political_office": "Governor",
+        "governance_level": "State",
+        "state": "CA",
+        "district": "Statewide",
+        "party_affiliation": "Democratic",
+        "election_date": "2026-11-03",
+        "payload": {
+            "primary_result": "advanced_to_general",
+            "general_date": "2026-11-03"
+        }
+    },
+    {
+        "external_candidate_id": "ca-2026-gov-hilton",
+        "full_name": "Steve Hilton",
         "political_office": "Governor",
         "governance_level": "State",
         "state": "CA",
         "district": "Statewide",
         "party_affiliation": "Republican",
-        "election_date": "2026-06-02"
+        "election_date": "2026-11-03",
+        "payload": {
+            "primary_result": "advanced_to_general",
+            "general_date": "2026-11-03"
+        }
     },
     {
         "external_candidate_id": "ca-ltgov-seated-eleni",
@@ -30,18 +52,8 @@
         "payload": {
             "status": "seated",
             "term_end": "January 2027",
-            "term_note": "Term-limited · running for Governor 2026"
+            "term_note": "Term ends Jan 2027"
         }
-    },
-    {
-        "external_candidate_id": "ca-2026-gov-ek-001",
-        "full_name": "Eleni Kounalakis",
-        "political_office": "Governor",
-        "governance_level": "State",
-        "state": "CA",
-        "district": "Statewide",
-        "party_affiliation": "Democratic",
-        "election_date": "2026-11-03"
     },
     {
         "external_candidate_id": "ca-2026-ag-001",
