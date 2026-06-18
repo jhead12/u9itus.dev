@@ -217,6 +217,23 @@ jobs:
             --file=storage/app/imports/ballotpedia-house-${YEAR}.json \
             ${{ steps.args.outputs.dry_arg }}
 
+      # ── OpenSecrets district finance data ─────────────────────────────────
+      # Scrapes each congressional district's OpenSecrets race page to capture
+      # per-candidate fundraising totals (raised, spent, cash on hand) and
+      # incumbent flags. One request per district covers all candidates.
+      - name: Scrape OpenSecrets district finance data
+        run: |
+          YEAR="${{ github.event.inputs.election_year || '2026' }}"
+          STATES="${{ github.event.inputs.states }}"
+          STATE_ARG=""
+          if [ -n "$STATES" ]; then
+            STATE_ARG="--states=$STATES"
+          fi
+          php artisan opensecrets:scrape-districts \
+            --year="$YEAR" \
+            $STATE_ARG \
+            ${{ steps.args.outputs.dry_arg }}
+
       # ── Sync Census Bureau population data ───────────────────────────────
       # Upserts state + congressional-district populations from the
       # 2020 Decennial Census P.L. 94-171 redistricting file (free API,

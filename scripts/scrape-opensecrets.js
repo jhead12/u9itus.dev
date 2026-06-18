@@ -4,18 +4,22 @@
  * OpenSecrets retired their free public API. This script scrapes the same
  * data directly from their public profile pages using Playwright.
  *
- * Data scraped per candidate:
- *  - Total raised / spent / cash on hand / debt (current cycle)
- *  - Top contributors (organization name, total, individuals, PACs)
- *  - Top industries (industry name, total, individuals, PACs)
- *  - Election cycle history (raised/spent by year)
- *  - Profile URL (for linking back)
+ * TWO scraping modes:
+ *
+ *  1. CANDIDATE mode (default) — scrapes an individual candidate's profile:
+ *       https://www.opensecrets.org/profiles/{slug}/us_congress/summary?mpid={mpid}
+ *     Data: total raised/spent/cash, top contributors, top industries, cycle history.
+ *
+ *  2. DISTRICT mode (--district) — scrapes a district race summary page:
+ *       https://www.opensecrets.org/elections/{state}/federal/{state}-district-{N}/candidates
+ *     Data: all candidates in the race with raised/spent/cash on hand + incumbent flag.
+ *     One request covers all candidates — more efficient for map panel enrichment.
  *
  * Usage:
  *   node scripts/scrape-opensecrets.js --name="Adam Schiff" --state=CA
- *   node scripts/scrape-opensecrets.js --name="Gavin Newsom" --state=CA --type=governor
- *   node scripts/scrape-opensecrets.js --cid=N00009585              # direct CID lookup
- *   node scripts/scrape-opensecrets.js --mpid=1105090               # direct mpid lookup
+ *   node scripts/scrape-opensecrets.js --mpid=1105090
+ *   node scripts/scrape-opensecrets.js --district=CA-31             # district mode
+ *   node scripts/scrape-opensecrets.js --district=CA-31 --cycle=2026
  *   node scripts/scrape-opensecrets.js --file=storage/app/imports/politicians-to-enrich.json
  *
  * Output: JSON to stdout, or --out=path/to/output.json
@@ -42,11 +46,13 @@ const args = Object.fromEntries(
     })
 );
 
-const NAME_ARG  = args.name  ?? null;
-const STATE_ARG = args.state ? args.state.toUpperCase() : null;
-const CID_ARG   = args.cid   ?? null;   // legacy OpenSecrets CID
-const MPID_ARG  = args.mpid  ?? null;   // new mpid from profile URL
-const FILE_ARG  = args.file  ?? null;   // batch: JSON file with [{full_name, state, opensecrets_id?}]
+const NAME_ARG     = args.name     ?? null;
+const STATE_ARG    = args.state    ? args.state.toUpperCase() : null;
+const CID_ARG      = args.cid      ?? null;   // legacy OpenSecrets CID
+const MPID_ARG     = args.mpid     ?? null;   // new mpid from profile URL
+const FILE_ARG     = args.file     ?? null;   // batch: JSON file with [{full_name, state, opensecrets_id?}]
+const DISTRICT_ARG = args.district ?? null;   // e.g. "CA-31" — triggers district mode
+const CYCLE_ARG    = args.cycle    ?? null;   // e.g. "2026"
 const OUT_PATH  = args.out
   ? resolve(process.cwd(), args.out)
   : null;
@@ -299,10 +305,158 @@ async function enrichCandidate(browser, candidate) {
   }
 }
 
+// ── District mode ─────────────────────────────────────────────────────────────
+
+/**
+ * Scrape all candidates + finance data for a congressional district.
+ *
+ * URL: https://www.opensecrets.org/elections/{state}/federal/{state}-district-{N}/candidates
+ *
+ * @param {string} districtLabel  e.g. "CA-31" or "CA-7"
+ * @param {string|null} cycle     e.g. "2026" — appended as ?cycle=2026
+ * @returns {object|null}
+ */
+async function scrapeDistrictPage(browser, districtLabel, cycle = null) {
+  // Parse "CA-31" → state="california", districtNum="31"
+  const match = districtLabel.toUpperCase().match(/^([A-Z]{2})-?(\d+)$/);
+  if (!match) {
+    console.error(`  [district] Invalid district label: ${districtLabel}`);
+    return null;
+  }
+
+  const stateAbbr = match[1];
+  const districtNum = parseInt(match[2], 10);
+
+  // Build the full state name slug OpenSecrets uses in URLs
+  const STATE_SLUGS = {
+    AL:'alabama',AK:'alaska',AZ:'arizona',AR:'arkansas',CA:'california',
+    CO:'colorado',CT:'connecticut',DE:'delaware',FL:'florida',GA:'georgia',
+    HI:'hawaii',ID:'idaho',IL:'illinois',IN:'indiana',IA:'iowa',
+    KS:'kansas',KY:'kentucky',LA:'louisiana',ME:'maine',MD:'maryland',
+    MA:'massachusetts',MI:'michigan',MN:'minnesota',MS:'mississippi',
+    MO:'missouri',MT:'montana',NE:'nebraska',NV:'nevada',NH:'new-hampshire',
+    NJ:'new-jersey',NM:'new-mexico',NY:'new-york',NC:'north-carolina',
+    ND:'north-dakota',OH:'ohio',OK:'oklahoma',OR:'oregon',PA:'pennsylvania',
+    RI:'rhode-island',SC:'south-carolina',SD:'south-dakota',TN:'tennessee',
+    TX:'texas',UT:'utah',VT:'vermont',VA:'virginia',WA:'washington',
+    WV:'west-virginia',WI:'wisconsin',WY:'wyoming',
+  };
+
+  const stateSlug = STATE_SLUGS[stateAbbr];
+  if (!stateSlug) {
+    console.error(`  [district] Unknown state: ${stateAbbr}`);
+    return null;
+  }
+
+  const districtSlug = `${stateSlug}-district-${districtNum}`;
+  let url = `https://www.opensecrets.org/elections/${stateSlug}/federal/${districtSlug}/candidates`;
+  if (cycle) url += `?cycle=${cycle}`;
+
+  console.error(`  [district] ${districtLabel} → ${url}`);
+
+  const ctx  = await browser.newContext({
+    userAgent: 'Mozilla/5.0 (compatible; U9itus-civic-bot/1.0; +https://u9itus.dev/about)',
+    locale: 'en-US',
+  });
+  const page = await ctx.newPage();
+
+  try {
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: TIMEOUT });
+    await sleep(DELAY_MS);
+
+    const data = await page.evaluate(() => {
+      const result = {
+        district_label: null,
+        incumbent:      null,
+        total_raised:   null,
+        candidate_count: null,
+        candidates:     [],
+        source_url:     window.location.href,
+        scraped_at:     new Date().toISOString(),
+      };
+
+      // District heading
+      const h1 = document.querySelector('h1');
+      result.district_label = h1?.textContent?.trim() ?? null;
+
+      // Incumbent name from the badge area
+      const incumbentEl = document.evaluate(
+        '//*[contains(text(),"INCUMBENT")]/following-sibling::*[1] | //*[contains(text(),"INCUMBENT")]/../*[1]',
+        document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null
+      ).singleNodeValue;
+      // Simpler: look for the incumbent name near the "INCUMBENT" text
+      const bodyText = document.body.innerText;
+      const incMatch = bodyText.match(/INCUMBENT\s*\n([^\n]+)/);
+      result.incumbent = incMatch ? incMatch[1].trim() : null;
+
+      // Total raised from the summary card
+      const totalMatch = bodyText.match(/TOTAL RAISED\s*\n\$([\d,]+)/);
+      result.total_raised = totalMatch ? '$' + totalMatch[1] : null;
+
+      const countMatch = bodyText.match(/CANDIDATES\s*\n(\d+)/);
+      result.candidate_count = countMatch ? parseInt(countMatch[1]) : null;
+
+      // Candidate table: "Candidate | Raised | Spent | Cash on Hand"
+      const tables = document.querySelectorAll('table');
+      for (const table of tables) {
+        const rows = Array.from(table.querySelectorAll('tr'));
+        if (rows.length < 2) continue;
+        const headers = Array.from(rows[0].querySelectorAll('th,td'))
+          .map(c => c.textContent.trim().toLowerCase());
+        if (!headers.some(h => h.includes('candidate')) || !headers.some(h => h.includes('raised'))) continue;
+
+        result.candidates = rows.slice(1).map(row => {
+          const cells = Array.from(row.querySelectorAll('td')).map(c => c.textContent.trim());
+          if (cells.length < 2) return null;
+          // Name cell often has "(D)INCUMBENT" appended
+          const nameRaw = cells[0] ?? '';
+          const partyMatch = nameRaw.match(/\(([A-Z])\)/);
+          const isIncumbent = nameRaw.includes('INCUMBENT');
+          const name = nameRaw.replace(/\([A-Z]\).*/, '').trim();
+          return {
+            name,
+            party:       partyMatch ? partyMatch[1] : null,
+            is_incumbent: isIncumbent,
+            raised:       cells[1] ?? null,
+            spent:        cells[2] ?? null,
+            cash_on_hand: cells[3] ?? null,
+          };
+        }).filter(Boolean).filter(c => c.name.length > 1);
+
+        if (result.candidates.length > 0) break;
+      }
+
+      return result;
+    });
+
+    return data;
+  } catch (err) {
+    console.error(`  [district] Error: ${err.message}`);
+    return null;
+  } finally {
+    await ctx.close();
+  }
+}
+
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 async function main() {
   const browser = await chromium.launch({ headless: true });
+
+  // ── District mode ─────────────────────────────────────────────────────────
+  if (DISTRICT_ARG) {
+    const result = await scrapeDistrictPage(browser, DISTRICT_ARG, CYCLE_ARG);
+    await browser.close();
+    const output = JSON.stringify(result, null, 2);
+    if (OUT_PATH) {
+      mkdirSync(dirname(OUT_PATH), { recursive: true });
+      writeFileSync(OUT_PATH, output, 'utf8');
+      console.error(`\n✓ Written to ${OUT_PATH}`);
+    } else {
+      console.log(output);
+    }
+    return;
+  }
 
   let candidates = [];
 

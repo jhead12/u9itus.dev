@@ -157,53 +157,56 @@ class OpenSecretsService
      * @param Politician $politician
      * @return array|null
      */
+    /**
+     * Return pre-fetched OpenSecrets data for display on a politician's public profile.
+     *
+     * TWO-TIER PATTERN — this method is called on every page request:
+     *
+     *  Tier 1 (fast, always used):  Read from politician_donor_snapshots, written
+     *                               by the nightly `politicians:enrich-donors` command
+     *                               (GitHub Actions: enrich-donor-snapshots.yml).
+     *                               Zero external HTTP — sub-millisecond.
+     *
+     *  Tier 2 (never on page load): The Playwright scraper (fetchCampaignFinanceData)
+     *                               is ONLY called by the nightly workflow. It is never
+     *                               invoked inline because launching a headless browser
+     *                               on a live HTTP request would take 20-60 seconds.
+     *
+     * If the snapshot doesn't exist yet (new politician, not yet enriched), this
+     * returns null and the Dig Deeper panel shows a "data not yet available" state.
+     * It will populate automatically after the next nightly run.
+     */
     public function getDisplayData(Politician $politician): ?array
     {
-        // ── 1. Try the nightly donor snapshot (written by EnrichPoliticianDonors) ──
         $snapshot = \App\Models\PoliticianDonorSnapshot::where('politician_id', $politician->id)->first();
 
-        if ($snapshot && $snapshot->enriched_at) {
-            $topContributors = $snapshot->top_contributors ?? [];
-            $topIndustries   = $snapshot->top_industries   ?? [];
-
-            if (! empty($topContributors) || ! empty($topIndustries)) {
-                $sourceUrl = $snapshot->opensecrets_source_url
-                    ?? ($politician->opensecrets_id
-                        ? "https://www.opensecrets.org/profiles/" . $this->nameSlug($politician->full_name) . "/us_congress/summary?mpid={$politician->opensecrets_id}"
-                        : null);
-
-                return [
-                    'source'     => 'OpenSecrets',
-                    'source_url' => $sourceUrl,
-                    'sections'   => [
-                        'top_contributors' => ['items' => $topContributors],
-                        'top_industries'   => ['items' => $topIndustries],
-                    ],
-                ];
-            }
+        if (! $snapshot || ! $snapshot->enriched_at) {
+            return null; // Not yet enriched — nightly job hasn't run for this politician yet
         }
 
-        // ── 2. Fall back to live scrape ──────────────────────────────────────
-        $data = $this->fetchCampaignFinanceData($politician);
+        $topContributors = $snapshot->top_contributors ?? [];
+        $topIndustries   = $snapshot->top_industries   ?? [];
 
-        if (! $data || (empty($data['top_contributors']) && empty($data['top_industries']))) {
-            return null;
+        if (empty($topContributors) && empty($topIndustries)) {
+            return null; // Enriched but no data found on OpenSecrets
         }
+
+        $sourceUrl = $snapshot->opensecrets_source_url
+            ?? ($politician->opensecrets_id
+                ? 'https://www.opensecrets.org/profiles/' . $this->nameSlug($politician->full_name) . "/us_congress/summary?mpid={$politician->opensecrets_id}"
+                : null);
 
         $sections = [];
-        if (! empty($data['top_contributors'])) {
-            $sections['top_contributors'] = ['items' => $data['top_contributors']];
+        if (! empty($topContributors)) {
+            $sections['top_contributors'] = ['items' => $topContributors];
         }
-        if (! empty($data['top_industries'])) {
-            $sections['top_industries'] = ['items' => $data['top_industries']];
-        }
-        if (! empty($data['candidate_summary'])) {
-            $sections['summary'] = $data['candidate_summary'];
+        if (! empty($topIndustries)) {
+            $sections['top_industries'] = ['items' => $topIndustries];
         }
 
         return [
             'source'     => 'OpenSecrets',
-            'source_url' => $data['profile_url'] ?? null,
+            'source_url' => $sourceUrl,
             'sections'   => $sections,
         ];
     }
