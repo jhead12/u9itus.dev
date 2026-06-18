@@ -98,8 +98,11 @@ class MapStateCandidatesController
      * Keyed by canonical label => array of partial strings to match.
      */
     private const OFFICE_ALIASES = [
+        // IMPORTANT: more-specific aliases MUST come before broader ones.
+        // 'Lieutenant Governor' contains the word 'governor', so it must be
+        // checked before 'Governor' or it will fall into the wrong bucket.
+        'Lieutenant Governor'  => ['lieutenant governor', 'lt. governor', 'lt governor', 'lt gov'],
         'Governor'             => ['governor'],
-        'Lieutenant Governor'  => ['lieutenant governor', 'lt. governor', 'lt governor'],
         'Attorney General'     => ['attorney general'],
         'State Treasurer'      => ['treasurer'],
         'State Controller'     => ['controller', 'comptroller'],
