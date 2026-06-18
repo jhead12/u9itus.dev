@@ -14,32 +14,31 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // Use MySQL JSON_UNQUOTE/JSON_EXTRACT to match regardless of exact PHP structure
-        // Also cover plain LIKE match in case payload is stored as text
-        DB::statement("
-            UPDATE election_candidate_records
-            SET political_office = 'Lieutenant Governor',
-                updated_at = NOW()
-            WHERE LOWER(full_name) = 'eleni kounalakis'
-              AND state = 'CA'
-              AND LOWER(COALESCE(political_office,'')) = 'governor'
-              AND (
-                    JSON_UNQUOTE(JSON_EXTRACT(payload, '$.status')) = 'seated'
-                    OR payload LIKE '%\"status\":\"seated\"%'
-                    OR payload LIKE '%\"status\": \"seated\"%'
-              )
-        ");
+        // Use query builder to stay compatible with SQLite (tests) and MySQL (production).
+        // We can't use JSON_EXTRACT in a cross-driver way, so match via LIKE on payload text.
+        DB::table('election_candidate_records')
+            ->whereRaw("LOWER(full_name) = 'eleni kounalakis'")
+            ->where('state', 'CA')
+            ->whereRaw("LOWER(COALESCE(political_office,'')) = 'governor'")
+            ->where(function ($q) {
+                $q->where('payload', 'like', '%"status":"seated"%')
+                  ->orWhere('payload', 'like', '%"status": "seated"%');
+            })
+            ->update([
+                'political_office' => 'Lieutenant Governor',
+                'updated_at'       => now(),
+            ]);
 
         // Also fix Politician rows
-        DB::statement("
-            UPDATE politicians
-            SET political_office = 'Lieutenant Governor',
-                updated_at = NOW()
-            WHERE LOWER(full_name) = 'eleni kounalakis'
-              AND state = 'CA'
-              AND LOWER(COALESCE(political_office,'')) = 'governor'
-              AND term_status = 'seated'
-        ");
+        DB::table('politicians')
+            ->whereRaw("LOWER(full_name) = 'eleni kounalakis'")
+            ->where('state', 'CA')
+            ->whereRaw("LOWER(COALESCE(political_office,'')) = 'governor'")
+            ->where('term_status', 'seated')
+            ->update([
+                'political_office' => 'Lieutenant Governor',
+                'updated_at'       => now(),
+            ]);
 
         // Upsert a clean seated Lt. Gov ECR row
         $ltGovExists = DB::table('election_candidate_records')
