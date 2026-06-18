@@ -319,10 +319,14 @@ jobs:
             FIRST_STATE=$(echo "$STATES" | cut -d',' -f1)
             STATE_ARG="--state=$FIRST_STATE"
           fi
-          php artisan politicians:backfill-photos \
-            --limit=1000 \
-            $STATE_ARG \
-            ${{ steps.args.outputs.dry_arg }}
+          if php artisan list --raw | grep -q '^politicians:backfill-photos$'; then
+            php artisan politicians:backfill-photos \
+              --limit=1000 \
+              $STATE_ARG \
+              ${{ steps.args.outputs.dry_arg }}
+          else
+            echo "WARNING: politicians:backfill-photos is unavailable for this run SHA; skipping photo backfill step."
+          fi
 
       # ── Sync primary election results ────────────────────────────────────
       # For each statewide candidate whose election_date is in the past,
