@@ -257,20 +257,49 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
-          # enrich-statewide accepts a single --state flag; when multiple states
-          # are requested we loop; when no filter is set it runs all 50 states.
           STATES="${{ github.event.inputs.states }}"
           DRY="${{ steps.args.outputs.dry_arg }}"
           if [ -n "$STATES" ]; then
             for state in $(echo "$STATES" | tr ',' ' '); do
               echo "=== Enriching statewide offices for $state ==="
               php artisan politicians:enrich-statewide \
+                --scope=statewide \
                 --state="$state" \
                 --clean \
                 $DRY
             done
           else
             php artisan politicians:enrich-statewide \
+              --scope=statewide \
+              --clean \
+              $DRY
+          fi
+
+      # ── AI-enriched city mayor data (all 50 states + DC) ─────────────────
+      # Same three-tier pipeline as statewide enrichment but targeting the
+      # primary city mayor for each state using Wikipedia office pages like
+      # "Mayor_of_Los_Angeles", "Mayor_of_New_York_City",
+      # "Mayor_of_the_District_of_Columbia", etc.
+      # DC is handled here (no Governor) — mayor is its chief executive.
+      # --clean removes unverified City-level records not matched this run.
+      - name: Enrich city mayors (all states + DC)
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          STATES="${{ github.event.inputs.states }}"
+          DRY="${{ steps.args.outputs.dry_arg }}"
+          if [ -n "$STATES" ]; then
+            for state in $(echo "$STATES" | tr ',' ' '); do
+              echo "=== Enriching mayor for $state ==="
+              php artisan politicians:enrich-statewide \
+                --scope=mayors \
+                --state="$state" \
+                --clean \
+                $DRY
+            done
+          else
+            php artisan politicians:enrich-statewide \
+              --scope=mayors \
               --clean \
               $DRY
           fi

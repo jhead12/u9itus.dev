@@ -282,10 +282,14 @@ class GoogleCivicService
 
         foreach ($offices as $office) {
             $name = $office['name'] ?? 'Unknown Office';
-            $level = $office['level'] ?? null; // 'federal', 'state', 'local'
-            if (is_array($level)) {
-                $level = $level[0] ?? null;
+            // Google Civic returns 'levels' as an array (e.g. ['federal'], ['state'], ['locality'])
+            // and optionally 'roles' (e.g. ['headOfGovernment', 'legislatorUpperBody'])
+            $levels = $office['levels'] ?? $office['level'] ?? [];
+            if (is_string($levels)) {
+                $levels = [$levels];
             }
+            $level = is_array($levels) ? ($levels[0] ?? null) : null;
+            $roles = $office['roles'] ?? [];
             $divisionId = $office['divisionId'] ?? null;
             $division = $this->parseDivision($divisionId);
 
@@ -296,20 +300,21 @@ class GoogleCivicService
 
                 $official = $officials[$idx];
                 $parsed[] = [
-                    'full_name' => $this->buildFullName($official),
+                    'full_name'        => $this->buildFullName($official),
                     'political_office' => $name,
                     'governance_level' => $this->mapGovernanceLevel($level),
-                    'state' => $division['state'],
-                    'district_number' => $division['district_number'],
-                    'district_code' => $division['district_code'],
-                    'party_affiliation' => $official['party'] ?? null,
-                    'phone' => $official['phones'][0] ?? null,
-                    'email' => $official['emails'][0] ?? null,
-                    'website' => $official['urls'][0] ?? null,
-                    'photo_url' => $official['photoUrl'] ?? null,
-                    'address' => $this->formatAddress($official['address'][0] ?? []),
-                    'source' => 'google_civic',
-                    'external_id' => 'google_civic_' . md5($name . ($official['name'] ?? '')),
+                    'roles'            => is_array($roles) ? $roles : [],
+                    'state'            => $division['state'],
+                    'district_number'  => $division['district_number'],
+                    'district_code'    => $division['district_code'],
+                    'party_affiliation'=> $official['party'] ?? null,
+                    'phone'            => $official['phones'][0] ?? null,
+                    'email'            => $official['emails'][0] ?? null,
+                    'website'          => $official['urls'][0] ?? null,
+                    'photo_url'        => $official['photoUrl'] ?? null,
+                    'address'          => $this->formatAddress($official['address'][0] ?? []),
+                    'source'           => 'google_civic',
+                    'external_id'      => 'google_civic_' . md5($name . ($official['name'] ?? '')),
                 ];
             }
         }
@@ -326,15 +331,21 @@ class GoogleCivicService
     }
 
     /**
-     * Map Google Civic governance level to app standards
+     * Map Google Civic governance level to app standards.
+     *
+     * Google Civic returns levels as an array with values like:
+     *   'federal', 'state', 'locality', 'administrativeArea1', 'administrativeArea2',
+     *   'international', 'regional', 'special'
      */
     protected function mapGovernanceLevel(?string $level): string
     {
-        return match ($level) {
-            'federal' => 'Federal',
-            'state' => 'State',
-            'local' => 'County',
-            default => 'Local',
+        return match (strtolower((string) $level)) {
+            'federal'            => 'Federal',
+            'state',
+            'administrativearea1'=> 'State',
+            'administrativearea2'=> 'County',
+            'locality', 'local', 'regional', 'special' => 'City',
+            default              => 'Local',
         };
     }
 

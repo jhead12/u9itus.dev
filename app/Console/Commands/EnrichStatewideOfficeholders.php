@@ -29,11 +29,78 @@ class EnrichStatewideOfficeholders extends Command
 {
     protected $signature = 'politicians:enrich-statewide
         {--state=         : Two-letter state code. Omit to process all 50 states.}
+        {--scope=all      : What to enrich: all, statewide, mayors}
         {--clean          : Delete unverified statewide records not matched by enrichment.}
         {--dry-run        : Report only — no DB writes.}
         {--force          : Re-enrich even records already marked verified.}';
 
     protected $description = 'Enrich statewide executive officeholder data from Ballotpedia, Wikipedia, and (optionally) OpenAI.';
+
+    /**
+     * Major city mayors — one primary city per state + DC.
+     * Each entry: 'state' => two-letter code used for the Politician row,
+     * 'city' => canonical city name stored on the Politician,
+     * 'wiki' => Wikipedia page title patterns to try (in order).
+     * 'bp'   => Ballotpedia slug template.
+     *
+     * Wikipedia office pages use titles like:
+     *   "Mayor of Los Angeles" or "Mayor_of_New_York_City"
+     */
+    private const CITY_MAYORS = [
+        'DC' => ['city' => 'Washington D.C.', 'state_label' => 'District of Columbia',
+            'wiki' => ['Mayor_of_the_District_of_Columbia', 'Mayor_of_Washington,_D.C.'],
+            'bp'   => 'Mayor_of_the_District_of_Columbia'],
+        'AL' => ['city' => 'Birmingham',   'wiki' => ['Mayor_of_Birmingham,_Alabama'],    'bp' => 'Mayor_of_Birmingham,_Alabama'],
+        'AK' => ['city' => 'Anchorage',    'wiki' => ['Mayor_of_Anchorage,_Alaska'],      'bp' => 'Mayor_of_Anchorage,_Alaska'],
+        'AZ' => ['city' => 'Phoenix',      'wiki' => ['Mayor_of_Phoenix,_Arizona'],       'bp' => 'Mayor_of_Phoenix,_Arizona'],
+        'AR' => ['city' => 'Little Rock',  'wiki' => ['Mayor_of_Little_Rock,_Arkansas'],  'bp' => 'Mayor_of_Little_Rock,_Arkansas'],
+        'CA' => ['city' => 'Los Angeles',  'wiki' => ['Mayor_of_Los_Angeles'],            'bp' => 'Mayor_of_Los_Angeles'],
+        'CO' => ['city' => 'Denver',       'wiki' => ['Mayor_of_Denver'],                 'bp' => 'Mayor_of_Denver,_Colorado'],
+        'CT' => ['city' => 'Hartford',     'wiki' => ['Mayor_of_Hartford,_Connecticut'],  'bp' => 'Mayor_of_Hartford,_Connecticut'],
+        'DE' => ['city' => 'Wilmington',   'wiki' => ['Mayor_of_Wilmington,_Delaware'],   'bp' => 'Mayor_of_Wilmington,_Delaware'],
+        'FL' => ['city' => 'Jacksonville', 'wiki' => ['Mayor_of_Jacksonville,_Florida'],  'bp' => 'Mayor_of_Jacksonville,_Florida'],
+        'GA' => ['city' => 'Atlanta',      'wiki' => ['Mayor_of_Atlanta'],                'bp' => 'Mayor_of_Atlanta,_Georgia'],
+        'HI' => ['city' => 'Honolulu',     'wiki' => ['Mayor_of_Honolulu'],               'bp' => 'Mayor_of_Honolulu,_Hawaii'],
+        'ID' => ['city' => 'Boise',        'wiki' => ['Mayor_of_Boise,_Idaho'],           'bp' => 'Mayor_of_Boise,_Idaho'],
+        'IL' => ['city' => 'Chicago',      'wiki' => ['Mayor_of_Chicago'],                'bp' => 'Mayor_of_Chicago,_Illinois'],
+        'IN' => ['city' => 'Indianapolis', 'wiki' => ['Mayor_of_Indianapolis'],           'bp' => 'Mayor_of_Indianapolis,_Indiana'],
+        'IA' => ['city' => 'Des Moines',   'wiki' => ['Mayor_of_Des_Moines,_Iowa'],       'bp' => 'Mayor_of_Des_Moines,_Iowa'],
+        'KS' => ['city' => 'Wichita',      'wiki' => ['Mayor_of_Wichita,_Kansas'],        'bp' => 'Mayor_of_Wichita,_Kansas'],
+        'KY' => ['city' => 'Louisville',   'wiki' => ['Mayor_of_Louisville,_Kentucky'],   'bp' => 'Mayor_of_Louisville,_Kentucky'],
+        'LA' => ['city' => 'New Orleans',  'wiki' => ['Mayor_of_New_Orleans'],            'bp' => 'Mayor_of_New_Orleans,_Louisiana'],
+        'ME' => ['city' => 'Portland',     'wiki' => ['Mayor_of_Portland,_Maine'],        'bp' => 'Mayor_of_Portland,_Maine'],
+        'MD' => ['city' => 'Baltimore',    'wiki' => ['Mayor_of_Baltimore'],              'bp' => 'Mayor_of_Baltimore,_Maryland'],
+        'MA' => ['city' => 'Boston',       'wiki' => ['Mayor_of_Boston'],                 'bp' => 'Mayor_of_Boston,_Massachusetts'],
+        'MI' => ['city' => 'Detroit',      'wiki' => ['Mayor_of_Detroit'],                'bp' => 'Mayor_of_Detroit,_Michigan'],
+        'MN' => ['city' => 'Minneapolis',  'wiki' => ['Mayor_of_Minneapolis'],            'bp' => 'Mayor_of_Minneapolis,_Minnesota'],
+        'MS' => ['city' => 'Jackson',      'wiki' => ['Mayor_of_Jackson,_Mississippi'],   'bp' => 'Mayor_of_Jackson,_Mississippi'],
+        'MO' => ['city' => 'Kansas City',  'wiki' => ['Mayor_of_Kansas_City,_Missouri'],  'bp' => 'Mayor_of_Kansas_City,_Missouri'],
+        'MT' => ['city' => 'Billings',     'wiki' => ['Mayor_of_Billings,_Montana'],      'bp' => 'Mayor_of_Billings,_Montana'],
+        'NE' => ['city' => 'Omaha',        'wiki' => ['Mayor_of_Omaha,_Nebraska'],        'bp' => 'Mayor_of_Omaha,_Nebraska'],
+        'NV' => ['city' => 'Las Vegas',    'wiki' => ['Mayor_of_Las_Vegas'],              'bp' => 'Mayor_of_Las_Vegas,_Nevada'],
+        'NH' => ['city' => 'Manchester',   'wiki' => ['Mayor_of_Manchester,_New_Hampshire'], 'bp' => 'Mayor_of_Manchester,_New_Hampshire'],
+        'NJ' => ['city' => 'Newark',       'wiki' => ['Mayor_of_Newark,_New_Jersey'],     'bp' => 'Mayor_of_Newark,_New_Jersey'],
+        'NM' => ['city' => 'Albuquerque',  'wiki' => ['Mayor_of_Albuquerque,_New_Mexico'],'bp' => 'Mayor_of_Albuquerque,_New_Mexico'],
+        'NY' => ['city' => 'New York City','wiki' => ['Mayor_of_New_York_City'],          'bp' => 'Mayor_of_New_York_City'],
+        'NC' => ['city' => 'Charlotte',    'wiki' => ['Mayor_of_Charlotte,_North_Carolina'],'bp' => 'Mayor_of_Charlotte,_North_Carolina'],
+        'ND' => ['city' => 'Fargo',        'wiki' => ['Mayor_of_Fargo,_North_Dakota'],    'bp' => 'Mayor_of_Fargo,_North_Dakota'],
+        'OH' => ['city' => 'Columbus',     'wiki' => ['Mayor_of_Columbus,_Ohio'],         'bp' => 'Mayor_of_Columbus,_Ohio'],
+        'OK' => ['city' => 'Oklahoma City','wiki' => ['Mayor_of_Oklahoma_City'],          'bp' => 'Mayor_of_Oklahoma_City,_Oklahoma'],
+        'OR' => ['city' => 'Portland',     'wiki' => ['Mayor_of_Portland,_Oregon'],       'bp' => 'Mayor_of_Portland,_Oregon'],
+        'PA' => ['city' => 'Philadelphia', 'wiki' => ['Mayor_of_Philadelphia'],           'bp' => 'Mayor_of_Philadelphia,_Pennsylvania'],
+        'RI' => ['city' => 'Providence',   'wiki' => ['Mayor_of_Providence,_Rhode_Island'],'bp' => 'Mayor_of_Providence,_Rhode_Island'],
+        'SC' => ['city' => 'Columbia',     'wiki' => ['Mayor_of_Columbia,_South_Carolina'],'bp' => 'Mayor_of_Columbia,_South_Carolina'],
+        'SD' => ['city' => 'Sioux Falls',  'wiki' => ['Mayor_of_Sioux_Falls,_South_Dakota'],'bp' => 'Mayor_of_Sioux_Falls,_South_Dakota'],
+        'TN' => ['city' => 'Nashville',    'wiki' => ['Mayor_of_Nashville,_Tennessee'],   'bp' => 'Mayor_of_Nashville,_Tennessee'],
+        'TX' => ['city' => 'Houston',      'wiki' => ['Mayor_of_Houston'],                'bp' => 'Mayor_of_Houston,_Texas'],
+        'UT' => ['city' => 'Salt Lake City','wiki' => ['Mayor_of_Salt_Lake_City'],        'bp' => 'Mayor_of_Salt_Lake_City,_Utah'],
+        'VT' => ['city' => 'Burlington',   'wiki' => ['Mayor_of_Burlington,_Vermont'],    'bp' => 'Mayor_of_Burlington,_Vermont'],
+        'VA' => ['city' => 'Virginia Beach','wiki' => ['Mayor_of_Virginia_Beach,_Virginia'],'bp' => 'Mayor_of_Virginia_Beach,_Virginia'],
+        'WA' => ['city' => 'Seattle',      'wiki' => ['Mayor_of_Seattle'],                'bp' => 'Mayor_of_Seattle,_Washington'],
+        'WV' => ['city' => 'Charleston',   'wiki' => ['Mayor_of_Charleston,_West_Virginia'],'bp' => 'Mayor_of_Charleston,_West_Virginia'],
+        'WI' => ['city' => 'Milwaukee',    'wiki' => ['Mayor_of_Milwaukee'],              'bp' => 'Mayor_of_Milwaukee,_Wisconsin'],
+        'WY' => ['city' => 'Cheyenne',     'wiki' => ['Mayor_of_Cheyenne,_Wyoming'],      'bp' => 'Mayor_of_Cheyenne,_Wyoming'],
+    ];
 
     // ── State name lookup ──────────────────────────────────────────────────────
     private const STATE_NAMES = [
@@ -54,6 +121,7 @@ class EnrichStatewideOfficeholders extends Command
         'TX' => 'Texas',      'UT' => 'Utah',          'VT' => 'Vermont',
         'VA' => 'Virginia',   'WA' => 'Washington',    'WV' => 'West_Virginia',
         'WI' => 'Wisconsin',  'WY' => 'Wyoming',
+        'DC' => 'District_of_Columbia',
     ];
 
     /**
@@ -112,15 +180,14 @@ class EnrichStatewideOfficeholders extends Command
         $stateFilter = $this->option('state')
             ? strtoupper(trim((string) $this->option('state')))
             : null;
+        $scope  = strtolower(trim((string) ($this->option('scope') ?? 'all')));
         $dryRun = (bool) $this->option('dry-run');
         $clean  = (bool) $this->option('clean');
         $force  = (bool) $this->option('force');
 
-        $states = $stateFilter
-            ? [$stateFilter => self::STATE_NAMES[$stateFilter] ?? $stateFilter]
-            : self::STATE_NAMES;
-
-        if ($stateFilter && ! isset(self::STATE_NAMES[$stateFilter])) {
+        // DC is valid for mayors but not in STATE_NAMES (no Governor), so allow it explicitly
+        $validStates = array_merge(array_keys(self::STATE_NAMES), ['DC']);
+        if ($stateFilter && ! in_array($stateFilter, $validStates, true)) {
             $this->error("Unknown state code: {$stateFilter}");
             return self::FAILURE;
         }
@@ -138,80 +205,77 @@ class EnrichStatewideOfficeholders extends Command
         $skipped  = 0;
         $failed   = 0;
 
-        foreach ($states as $abbr => $stateName) {
-            $this->line("\n<fg=green>[{$abbr}]</> {$stateName}");
+        // ── Statewide executive offices ────────────────────────────────────────
+        if (in_array($scope, ['all', 'statewide'], true)) {
+            $states = $stateFilter && isset(self::STATE_NAMES[$stateFilter])
+                ? [$stateFilter => self::STATE_NAMES[$stateFilter]]
+                : self::STATE_NAMES;
 
-            foreach (self::OFFICES as $office => $config) {
-                $result = $this->resolveCurrentHolder($abbr, $stateName, $office, $config);
+            foreach ($states as $abbr => $stateName) {
+                $this->line("\n<fg=green>[{$abbr}]</> {$stateName}");
+
+                foreach (self::OFFICES as $office => $config) {
+                    $result = $this->resolveCurrentHolder($abbr, $stateName, $office, $config);
+
+                    if ($result === null) {
+                        $this->line("  <fg=yellow>✗ {$office}: could not resolve current holder</>  (skipped)");
+                        $failed++;
+                        continue;
+                    }
+
+                    ['name' => $name, 'party' => $party, 'source' => $source, 'bp_url' => $bpUrl] = $result;
+                    $this->enrichedKeys[] = strtolower("{$abbr}|{$office}|{$name}");
+                    $this->line("  <fg=cyan>✓ {$office}:</> {$name}" . ($party ? " ({$party})" : '') . " <fg=gray>[{$source}]</>");
+
+                    if (! $dryRun) {
+                        [$upserted, $skipped, $failed] = $this->upsertPolitician(
+                            $abbr, $office, 'State', null, $name, $party, $bpUrl,
+                            $force, $upserted, $skipped, $failed
+                        );
+                    } else {
+                        $upserted++;
+                    }
+
+                    usleep(self::DELAY_MS * 1000);
+                }
+            }
+        }
+
+        // ── City mayors ────────────────────────────────────────────────────────
+        if (in_array($scope, ['all', 'mayors'], true)) {
+            $mayorEntries = $stateFilter
+                ? array_filter(self::CITY_MAYORS, fn($k) => $k === $stateFilter, ARRAY_FILTER_USE_KEY)
+                : self::CITY_MAYORS;
+
+            foreach ($mayorEntries as $abbr => $mayorConfig) {
+                $city      = $mayorConfig['city'];
+                $stateName = $mayorConfig['state_label'] ?? (self::STATE_NAMES[$abbr] ?? $abbr);
+                $this->line("\n<fg=green>[{$abbr}]</> {$city} Mayor");
+
+                $config = [
+                    'wiki_patterns' => $mayorConfig['wiki'],
+                    'bp_pattern'    => $mayorConfig['bp'],
+                ];
+
+                $result = $this->resolveCurrentHolder($abbr, $stateName, 'Mayor', $config);
 
                 if ($result === null) {
-                    $this->line("  <fg=yellow>✗ {$office}: could not resolve current holder</>  (skipped)");
+                    $this->line("  <fg=yellow>✗ Mayor of {$city}: could not resolve</>  (skipped)");
                     $failed++;
                     continue;
                 }
 
                 ['name' => $name, 'party' => $party, 'source' => $source, 'bp_url' => $bpUrl] = $result;
+                $this->enrichedKeys[] = strtolower("{$abbr}|mayor|{$name}");
+                $this->line("  <fg=cyan>✓ Mayor of {$city}:</> {$name}" . ($party ? " ({$party})" : '') . " <fg=gray>[{$source}]</>");
 
-                $this->enrichedKeys[] = strtolower("{$abbr}|{$office}|{$name}");
-
-                $this->line("  <fg=cyan>✓ {$office}:</> {$name}" .
-                    ($party ? " ({$party})" : '') .
-                    " <fg=gray>[{$source}]</>");
-
-                if ($dryRun) {
+                if (! $dryRun) {
+                    [$upserted, $skipped, $failed] = $this->upsertPolitician(
+                        $abbr, 'Mayor', 'City', $city, $name, $party, $bpUrl,
+                        $force, $upserted, $skipped, $failed
+                    );
+                } else {
                     $upserted++;
-                    continue;
-                }
-
-                try {
-                    $existing = Politician::query()
-                        ->whereRaw('UPPER(COALESCE(state, \'\')) = ?', [$abbr])
-                        ->whereRaw('LOWER(COALESCE(political_office, \'\')) = ?', [strtolower($office)])
-                        ->where('governance_level', 'State')
-                        ->orderByDesc('verified_official')
-                        ->first();
-
-                    $bpSlug = $bpUrl ? ltrim(parse_url($bpUrl, PHP_URL_PATH) ?? '', '/') : null;
-
-                    $attributes = array_filter([
-                        'full_name'            => $name,
-                        'party_affiliation'    => $party,
-                        'ballotpedia_id'       => $bpSlug ? substr($bpSlug, 0, 255) : null,
-                        'is_running_candidate' => false,
-                        'term_status'          => 'seated',
-                        'is_active'            => true,
-                        'status_updated_at'    => now(),
-                    ], fn($v) => $v !== null);
-
-                    if ($existing && (! $existing->verified_official || $force)) {
-                        $existing->update($attributes);
-                        $this->line("    → Updated existing record #{$existing->id}");
-                    } elseif (! $existing) {
-                        $slug = $this->generateSlug($name);
-                        Politician::create(array_merge($attributes, [
-                            'uuid'             => Str::uuid(),
-                            'state'            => $abbr,
-                            'political_office' => $office,
-                            'governance_level' => 'State',
-                            'page_published'   => true,
-                            'verified_official'=> false,
-                            'user_id'          => null,
-                            'slug'             => $slug,
-                        ]));
-                        $this->line("    → Created new record (slug={$slug})");
-                    } else {
-                        $this->line("    → Skipped (already verified_official=true; use --force to override)");
-                        $skipped++;
-                        continue;
-                    }
-
-                    $upserted++;
-                } catch (\Throwable $e) {
-                    $this->warn("    ✗ DB write failed: " . $e->getMessage());
-                    Log::warning('politicians:enrich-statewide DB error', [
-                        'state' => $abbr, 'office' => $office, 'error' => $e->getMessage(),
-                    ]);
-                    $failed++;
                 }
 
                 usleep(self::DELAY_MS * 1000);
@@ -220,8 +284,8 @@ class EnrichStatewideOfficeholders extends Command
 
         // ── Clean garbage records ──────────────────────────────────────────────
         if ($clean && ! empty($this->enrichedKeys)) {
-            $this->line("\n<fg=yellow>[clean]</> Removing unverified statewide records not matched by enrichment...");
-            $this->cleanGarbageRecords($stateFilter, $dryRun);
+            $this->line("\n<fg=yellow>[clean]</> Removing unverified records not matched by enrichment...");
+            $this->cleanGarbageRecords($stateFilter, $scope, $dryRun);
         }
 
         $this->info(
@@ -229,6 +293,81 @@ class EnrichStatewideOfficeholders extends Command
         );
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Upsert a single Politician row. Returns updated [$upserted, $skipped, $failed].
+     *
+     * @return array{int, int, int}
+     */
+    private function upsertPolitician(
+        string $abbr,
+        string $office,
+        string $governanceLevel,
+        ?string $city,
+        string $name,
+        ?string $party,
+        ?string $bpUrl,
+        bool $force,
+        int $upserted,
+        int $skipped,
+        int $failed
+    ): array {
+        try {
+            $query = Politician::query()
+                ->whereRaw('UPPER(COALESCE(state, \'\')) = ?', [$abbr])
+                ->whereRaw('LOWER(COALESCE(political_office, \'\')) = ?', [strtolower($office)])
+                ->where('governance_level', $governanceLevel);
+
+            if ($city !== null) {
+                $query->whereRaw('LOWER(COALESCE(city, \'\')) = ?', [strtolower($city)]);
+            }
+
+            $existing = $query->orderByDesc('verified_official')->first();
+            $bpSlug   = $bpUrl ? ltrim(parse_url($bpUrl, PHP_URL_PATH) ?? '', '/') : null;
+
+            $attributes = array_filter([
+                'full_name'            => $name,
+                'party_affiliation'    => $party,
+                'ballotpedia_id'       => $bpSlug ? substr($bpSlug, 0, 255) : null,
+                'is_running_candidate' => false,
+                'term_status'          => 'seated',
+                'is_active'            => true,
+                'status_updated_at'    => now(),
+            ], fn($v) => $v !== null);
+
+            if ($existing && (! $existing->verified_official || $force)) {
+                $existing->update($attributes);
+                $this->line("    → Updated existing record #{$existing->id}");
+                $upserted++;
+            } elseif (! $existing) {
+                $slug = $this->generateSlug($name);
+                Politician::create(array_merge($attributes, [
+                    'uuid'             => Str::uuid(),
+                    'state'            => $abbr,
+                    'city'             => $city,
+                    'political_office' => $office,
+                    'governance_level' => $governanceLevel,
+                    'page_published'   => true,
+                    'verified_official'=> false,
+                    'user_id'          => null,
+                    'slug'             => $slug,
+                ]));
+                $this->line("    → Created new record (slug={$slug})");
+                $upserted++;
+            } else {
+                $this->line("    → Skipped (already verified_official=true; use --force to override)");
+                $skipped++;
+            }
+        } catch (\Throwable $e) {
+            $this->warn("    ✗ DB write failed: " . $e->getMessage());
+            Log::warning('politicians:enrich-statewide DB error', [
+                'state' => $abbr, 'office' => $office, 'error' => $e->getMessage(),
+            ]);
+            $failed++;
+        }
+
+        return [$upserted, $skipped, $failed];
     }
 
     // ── Resolution pipeline ────────────────────────────────────────────────────
@@ -524,10 +663,16 @@ class EnrichStatewideOfficeholders extends Command
 
     // ── Clean garbage records ─────────────────────────────────────────────────
 
-    private function cleanGarbageRecords(?string $stateFilter, bool $dryRun): void
+    private function cleanGarbageRecords(?string $stateFilter, string $scope, bool $dryRun): void
     {
+        $levels = match ($scope) {
+            'statewide' => ['State'],
+            'mayors'    => ['City'],
+            default     => ['State', 'City'],
+        };
+
         $query = Politician::query()
-            ->where('governance_level', 'State')
+            ->whereIn('governance_level', $levels)
             ->where('verified_official', false)
             ->whereNull('user_id');
 

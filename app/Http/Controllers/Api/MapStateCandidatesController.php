@@ -149,6 +149,19 @@ class MapStateCandidatesController
                    'term_status', 'verified_official', 'ballotpedia_id',
                    'district', 'website_url', 'bio']);
 
+        // ── 2c. City / local officials (mayors etc.) for this state ───────────
+        $cityOfficials = Politician::query()
+            ->whereRaw('UPPER(COALESCE(state, \'\')) = ?', [$state])
+            ->where('is_active', true)
+            ->whereIn('governance_level', ['City', 'County', 'Local'])
+            ->where(fn($q) => $q->where('term_status', '!=', 'lost')->orWhereNull('term_status'))
+            ->orderBy('city')
+            ->orderBy('full_name')
+            ->get(['uuid', 'full_name', 'political_office', 'party_affiliation',
+                   'profile_photo_url', 'slug', 'is_running_candidate',
+                   'term_status', 'verified_official', 'ballotpedia_id',
+                   'city', 'governance_level', 'website_url', 'bio']);
+
         // ── 3. Bucket both into canonical office groups ────────────────────────
         $grouped = [];
         foreach (self::STATEWIDE_OFFICES as $office) {
@@ -307,6 +320,30 @@ class MapStateCandidatesController
             ];
         }
 
+        // ── 6. City officials grouped by city name ─────────────────────────────
+        $cityOfficialsGrouped = [];
+        foreach ($cityOfficials as $pol) {
+            $cityKey = $pol->city ?? 'Unknown City';
+            $cityOfficialsGrouped[$cityKey][] = [
+                'full_name'       => $pol->full_name,
+                'political_office'=> $pol->political_office,
+                'governance_level'=> $pol->governance_level,
+                'party'           => $pol->party_affiliation,
+                'photo'           => $pol->profile_photo_url
+                    ? (str_starts_with($pol->profile_photo_url, 'http') ? $pol->profile_photo_url : url($pol->profile_photo_url))
+                    : null,
+                'slug'            => $pol->slug,
+                'status'          => $pol->term_status,
+                'verified'        => (bool) $pol->verified_official,
+                'ballotpedia_url' => $pol->ballotpedia_id
+                    ? 'https://ballotpedia.org/' . $pol->ballotpedia_id
+                    : null,
+                'website'         => $pol->website_url,
+                'profile_url'     => $pol->slug ? url('/p/' . $pol->slug) : null,
+                'bio_excerpt'     => $pol->bio ? Str::limit($pol->bio, 180) : null,
+            ];
+        }
+
         return response()->json([
             'state'              => $state,
             'region'             => $regionInfo['region'],
@@ -314,6 +351,7 @@ class MapStateCandidatesController
             'total'              => $offices->sum(fn($g) => count($g['candidates'])),
             'offices'            => $offices,
             'house_candidates'   => $houseCandidates,
+            'city_officials'     => $cityOfficialsGrouped,
             'office_roles'       => $this->officeRoles(),
             'population'         => $statePopRow ? [
                 'total'       => $statePopRow->total_population,

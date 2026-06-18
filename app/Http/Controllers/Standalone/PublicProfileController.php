@@ -153,14 +153,15 @@ class PublicProfileController extends Controller
                 $state = strtoupper(trim((string) ($official['state'] ?? '')));
 
                 return [
-                    'full_name' => $fullName,
-                    'political_office' => $office,
+                    'full_name'         => $fullName,
+                    'political_office'  => $office,
+                    'governance_level'  => trim((string) ($official['governance_level'] ?? 'Local')),
                     'party_affiliation' => trim((string) ($official['party_affiliation'] ?? '')),
-                    'state' => $state,
-                    'district_code' => trim((string) ($official['district_code'] ?? '')),
-                    'website' => $this->sanitizePublicWebsiteUrl($official['website'] ?? null) ?? '',
-                    'source' => trim((string) ($official['source'] ?? 'google_civic')),
-                    'discovery_links' => $this->buildDiscoveryLinks($fullName, $office, $state),
+                    'state'             => $state,
+                    'district_code'     => trim((string) ($official['district_code'] ?? '')),
+                    'website'           => $this->sanitizePublicWebsiteUrl($official['website'] ?? null) ?? '',
+                    'source'            => trim((string) ($official['source'] ?? 'google_civic')),
+                    'discovery_links'   => $this->buildDiscoveryLinks($fullName, $office, $state),
                 ];
             })
             ->filter(function (array $official): bool {

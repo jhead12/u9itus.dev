@@ -148,7 +148,7 @@
 
             <section class="mt-10">
                 <div class="flex items-center justify-between mb-4">
-                    <h2 class="text-xl font-bold text-white">Current Politicians For This Location</h2>
+                    <h2 class="text-xl font-bold text-white">Current Officials For This Location</h2>
                     <span class="text-sm text-slate-400">{{ $currentOfficials->count() }} found</span>
                 </div>
 
@@ -157,60 +157,91 @@
                         <p class="text-slate-300">No current officeholders were returned for this address.</p>
                     </div>
                 @else
-                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        @foreach($currentOfficials as $official)
-                            @php
-                                $officialSourceLabel = match ($official['source'] ?? null) {
-                                    'google_civic' => 'Google Civic',
-                                    'congress_gov' => 'Congress.gov',
-                                    'congress_legislators' => 'Congress Legislators Import',
-                                    null, '' => 'Local Record',
-                                    default => ucwords(str_replace('_', ' ', (string) $official['source'])),
-                                };
-                            @endphp
-                            <div class="bg-slate-900/60 border border-slate-700/50 rounded-xl p-5">
-                                <p class="text-white font-semibold">{{ $official['full_name'] }}</p>
-                                <p class="text-slate-400 text-sm mt-1">{{ $official['political_office'] ?: 'Public Official' }}</p>
+                    @php
+                        // Group officials by governance level in display order
+                        $levelOrder  = ['Federal' => 0, 'State' => 1, 'County' => 2, 'City' => 3, 'Local' => 4];
+                        $levelLabels = [
+                            'Federal' => 'Federal Officials',
+                            'State'   => 'State Officials',
+                            'County'  => 'County Officials',
+                            'City'    => 'City / Local Officials',
+                            'Local'   => 'Local Officials',
+                        ];
+                        $levelColors = [
+                            'Federal' => 'text-blue-400 border-blue-700/40',
+                            'State'   => 'text-violet-400 border-violet-700/40',
+                            'County'  => 'text-amber-400 border-amber-700/40',
+                            'City'    => 'text-emerald-400 border-emerald-700/40',
+                            'Local'   => 'text-slate-400 border-slate-700/40',
+                        ];
+                        $grouped = $currentOfficials
+                            ->groupBy(fn($o) => $o['governance_level'] ?? 'Local')
+                            ->sortBy(fn($_, $level) => $levelOrder[$level] ?? 99);
+                    @endphp
 
-                                <div class="mt-3 space-y-1 text-xs text-slate-400">
-                                    @if(!empty($official['party_affiliation']))
-                                        <p>Party: {{ $official['party_affiliation'] }}</p>
-                                    @endif
-                                    @if(!empty($official['district_code']))
-                                        <p>District: {{ $official['district_code'] }}</p>
-                                    @endif
-                                    @if(!empty($official['state']))
-                                        <p>State: {{ $official['state'] }}</p>
-                                    @endif
-                                    <p>Source: {{ $officialSourceLabel }}</p>
-                                    @if(!empty($official['discovery_links']['wikipedia']) || !empty($official['discovery_links']['youtube']) || !empty($official['discovery_links']['cspan']))
-                                        <div class="pt-1 flex flex-wrap gap-3">
-                                            @if(!empty($official['discovery_links']['wikipedia']))
-                                                <a href="{{ $official['discovery_links']['wikipedia'] }}" target="_blank" rel="noopener" class="inline-block text-emerald-400 hover:text-emerald-300">
-                                                    Wikipedia
-                                                </a>
+                    @foreach($grouped as $level => $officials)
+                        <div class="mb-8">
+                            <h3 class="text-sm font-semibold uppercase tracking-wider mb-3 {{ ($levelColors[$level] ?? 'text-slate-400 border-slate-700/40') }}">
+                                {{ $levelLabels[$level] ?? $level }}
+                                <span class="ml-2 font-normal text-slate-500">({{ $officials->count() }})</span>
+                            </h3>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                @foreach($officials as $official)
+                                    @php
+                                        $officialSourceLabel = match ($official['source'] ?? null) {
+                                            'google_civic'           => 'Google Civic',
+                                            'congress_gov'           => 'Congress.gov',
+                                            'congress_legislators'   => 'Congress Legislators Import',
+                                            null, ''                 => 'Local Record',
+                                            default                  => ucwords(str_replace('_', ' ', (string) $official['source'])),
+                                        };
+                                        $borderClass = match ($level) {
+                                            'Federal' => 'border-blue-700/30 hover:border-blue-500/40',
+                                            'State'   => 'border-violet-700/30 hover:border-violet-500/40',
+                                            'County'  => 'border-amber-700/30 hover:border-amber-500/40',
+                                            'City'    => 'border-emerald-700/30 hover:border-emerald-500/40',
+                                            default   => 'border-slate-700/50',
+                                        };
+                                    @endphp
+                                    <div class="bg-slate-900/60 border {{ $borderClass }} rounded-xl p-5 transition">
+                                        <p class="text-white font-semibold">{{ $official['full_name'] }}</p>
+                                        <p class="text-slate-400 text-sm mt-1">{{ $official['political_office'] ?: 'Public Official' }}</p>
+
+                                        <div class="mt-3 space-y-1 text-xs text-slate-400">
+                                            @if(!empty($official['party_affiliation']))
+                                                <p>Party: {{ $official['party_affiliation'] }}</p>
                                             @endif
-                                            @if(!empty($official['discovery_links']['youtube']))
-                                                <a href="{{ $official['discovery_links']['youtube'] }}" target="_blank" rel="noopener" class="inline-block text-emerald-400 hover:text-emerald-300">
-                                                    YouTube
-                                                </a>
+                                            @if(!empty($official['district_code']))
+                                                <p>District: {{ $official['district_code'] }}</p>
                                             @endif
-                                            @if(!empty($official['discovery_links']['cspan']))
-                                                <a href="{{ $official['discovery_links']['cspan'] }}" target="_blank" rel="noopener" class="inline-block text-emerald-400 hover:text-emerald-300">
-                                                    C-SPAN
+                                            @if(!empty($official['state']))
+                                                <p>{{ $official['state'] }}</p>
+                                            @endif
+                                            <p class="text-slate-600">Source: {{ $officialSourceLabel }}</p>
+                                            @if(!empty($official['discovery_links']['wikipedia']) || !empty($official['discovery_links']['youtube']) || !empty($official['discovery_links']['cspan']))
+                                                <div class="pt-1 flex flex-wrap gap-3">
+                                                    @if(!empty($official['discovery_links']['wikipedia']))
+                                                        <a href="{{ $official['discovery_links']['wikipedia'] }}" target="_blank" rel="noopener" class="text-emerald-400 hover:text-emerald-300">Wikipedia</a>
+                                                    @endif
+                                                    @if(!empty($official['discovery_links']['youtube']))
+                                                        <a href="{{ $official['discovery_links']['youtube'] }}" target="_blank" rel="noopener" class="text-emerald-400 hover:text-emerald-300">YouTube</a>
+                                                    @endif
+                                                    @if(!empty($official['discovery_links']['cspan']))
+                                                        <a href="{{ $official['discovery_links']['cspan'] }}" target="_blank" rel="noopener" class="text-emerald-400 hover:text-emerald-300">C-SPAN</a>
+                                                    @endif
+                                                </div>
+                                            @endif
+                                            @if(!empty($official['website']))
+                                                <a href="{{ $official['website'] }}" target="_blank" rel="noopener" class="inline-block text-emerald-400 hover:text-emerald-300">
+                                                    Official website →
                                                 </a>
                                             @endif
                                         </div>
-                                    @endif
-                                    @if(!empty($official['website']))
-                                        <a href="{{ $official['website'] }}" target="_blank" rel="noopener" class="inline-block text-emerald-400 hover:text-emerald-300">
-                                            Official website ->
-                                        </a>
-                                    @endif
-                                </div>
+                                    </div>
+                                @endforeach
                             </div>
-                        @endforeach
-                    </div>
+                        </div>
+                    @endforeach
                 @endif
             </section>
 
