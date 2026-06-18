@@ -75,8 +75,8 @@ class EnrichPoliticianDonors extends Command
                     $contributors = count($snapshot['top_contributors'] ?? []);
                     $industries   = count($snapshot['top_industries'] ?? []);
                     $hasFec       = ! empty($snapshot['fec_summary']);
-                    $hasUrl       = ! empty($snapshot['opensecrets_source_url']);
-                    $this->line("    [dry-run] contributors={$contributors} industries={$industries} fec=" . ($hasFec ? 'yes' : 'no') . " url=" . ($hasUrl ? 'yes' : 'no'));
+                    $profileUrl   = $snapshot['opensecrets_source_url'] ?? ($snapshot['profile_url'] ?? null);
+                    $this->line("    [dry-run] contributors={$contributors} industries={$industries} fec=" . ($hasFec ? 'yes' : 'no') . " url=" . ($profileUrl ? "yes ({$profileUrl})" : 'no'));
                     $enriched++;
                     continue;
                 }
@@ -124,13 +124,21 @@ class EnrichPoliticianDonors extends Command
 
         // ── OpenSecrets (scraped — no API key required) ───────────────────────
         try {
+            // Clear cache when --force is set so a fresh scrape runs
+            if ($this->option('force')) {
+                $openSecrets->clearCache($politician);
+            }
             $data = $openSecrets->fetchCampaignFinanceData($politician);
             if (is_array($data)) {
                 $snapshot['top_contributors']       = $data['top_contributors'] ?? null;
                 $snapshot['top_industries']         = $data['top_industries']   ?? null;
                 $snapshot['opensecrets_source_url'] = $data['profile_url']      ?? null;
+                $this->line("    OpenSecrets: " . count($data['top_contributors'] ?? []) . " contributors, " . count($data['top_industries'] ?? []) . " industries");
+            } else {
+                $this->line("    OpenSecrets: no data returned");
             }
         } catch (\Throwable $e) {
+            $this->warn("    OpenSecrets error: " . $e->getMessage());
             Log::info('OpenSecrets scrape skipped', ['politician_id' => $politician->id, 'error' => $e->getMessage()]);
         }
 
