@@ -474,6 +474,14 @@
         #legend.legend-collapsed #legend-items { display: none; }
         #legend-toggle-icon { display: inline-block; transition: transform 0.2s; }
 
+        /* ── Branded scrollbars ───────────────────────────────────────────── */
+        ::-webkit-scrollbar              { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track        { background: rgba(15, 23, 42, 0.6); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb        { background: rgba(99, 102, 241, 0.45); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover  { background: rgba(99, 102, 241, 0.75); }
+        ::-webkit-scrollbar-corner       { background: transparent; }
+        * { scrollbar-width: thin; scrollbar-color: rgba(99,102,241,0.45) rgba(15,23,42,0.6); }
+
         /* ══════════════════════════════════════════
            RESPONSIVE — TABLET & MOBILE (≤ 768 px)
         ══════════════════════════════════════════ */
@@ -909,7 +917,8 @@ for (const [rName, rData] of Object.entries(REGIONS)) {
 const container = document.getElementById('map-container');
 const PANEL_WIDTH = 324;
 const W = () => {
-    if (window.innerWidth > 768 && infoPanel && infoPanel.classList.contains('open')) {
+    const panel = document.getElementById('info-panel');
+    if (window.innerWidth > 768 && panel && panel.classList.contains('open')) {
         return Math.max(container.clientWidth - PANEL_WIDTH, 200);
     }
     return container.clientWidth;
@@ -1047,14 +1056,13 @@ function flyToMeshesTopDown(meshList, padFactor = 1.25) {
     const center = new THREE.Vector3(); box.getCenter(center);
     const size   = new THREE.Vector3(); box.getSize(size);
     const fov    = camera.fov * Math.PI / 180;
-    // Use effective viewport width (full width minus 316px panel)
-    const effectiveAspect = (W() - 316) / H();
+    // W() already returns the panel-adjusted width on desktop
+    const effectiveAspect = W() / H();
     const halfH = Math.max(size.x / effectiveAspect, size.y) / 2;
     let dist = (halfH / Math.tan(fov / 2)) * padFactor;
-    dist = Math.max(dist, 2.0);
-    // Camera almost directly above: high Z, slight Y tilt, shifted left for panel
-    const panelShift = (316 / W()) * dist * 0.55;
-    const endPos  = new THREE.Vector3(center.x - panelShift, center.y + dist * 0.18, dist * 0.98);
+    dist = Math.max(dist, 1.5);
+    // Camera almost directly above: high Z, slight Y tilt
+    const endPos  = new THREE.Vector3(center.x, center.y + dist * 0.18, dist * 0.98);
     const endLook = new THREE.Vector3(center.x, center.y, 0);
     flyTo(endPos, endLook, 1000);
 }
@@ -1351,7 +1359,7 @@ async function enterStateMode(stateName, regionName, region) {
 
     /* Fly to state — top-down so districts read as a flat map */
     const sMeshes = stateMeshes.filter(m => m.userData.name === stateName);
-    flyToMeshesTopDown(sMeshes, 1.5);
+    flyToMeshesTopDown(sMeshes, 1.1);
 
     /* Districts */
     document.getElementById('panel-candidates').innerHTML = `<div class="panel-spinner">
@@ -1526,15 +1534,25 @@ renderer.domElement.addEventListener('mousemove', e => {
     const sHits = raycaster.intersectObjects(stateMeshes);
     if (sHits.length) {
         const m = sHits[0].object;
-        hoveredMesh = m;
-        if (m.userData.name !== selectedState) m.material.color.setHex(lighten(m.userData.originalColor, 50));
-        m.parent.position.z = 0.18;
-        tooltip.style.display = 'block';
-        tooltip.style.left = (e.clientX + 16) + 'px';
-        tooltip.style.top  = (e.clientY - 14) + 'px';
-        tooltip.innerHTML  = `<strong style="color:#e2e8f0;display:block;margin-bottom:3px">${m.userData.name}</strong>
-            <span style="color:${m.userData.region?.hex||'#888'};font-size:12px">● ${m.userData.regionName||''} Region</span>`;
-        renderer.domElement.style.cursor = 'pointer';
+        const outsideRegion = mapMode === 'region' && activeRegion && m.userData.regionName !== activeRegion;
+        if (outsideRegion) {
+            if (hoveredMesh && hoveredMesh.userData.name !== selectedState) {
+                hoveredMesh.material.color.setHex(hoveredMesh.userData.originalColor);
+                hoveredMesh.parent.position.z = 0;
+            }
+            hoveredMesh = null; tooltip.style.display = 'none';
+            renderer.domElement.style.cursor = 'not-allowed';
+        } else {
+            hoveredMesh = m;
+            if (m.userData.name !== selectedState) m.material.color.setHex(lighten(m.userData.originalColor, 50));
+            m.parent.position.z = 0.18;
+            tooltip.style.display = 'block';
+            tooltip.style.left = (e.clientX + 16) + 'px';
+            tooltip.style.top  = (e.clientY - 14) + 'px';
+            tooltip.innerHTML  = `<strong style="color:#e2e8f0;display:block;margin-bottom:3px">${m.userData.name}</strong>
+                <span style="color:${m.userData.region?.hex||'#888'};font-size:12px">● ${m.userData.regionName||''} Region</span>`;
+            renderer.domElement.style.cursor = 'pointer';
+        }
     } else {
         hoveredMesh = null; tooltip.style.display = 'none';
         renderer.domElement.style.cursor = 'default';
@@ -1574,10 +1592,13 @@ renderer.domElement.addEventListener('click', () => {
         }
     }
 
-    /* State click */
+    /* State click — only allow states within the active region when in region mode */
     const sHits = raycaster.intersectObjects(stateMeshes);
     if (sHits.length) {
         const m = sHits[0].object;
+        if (mapMode === 'region' && activeRegion && m.userData.regionName !== activeRegion) {
+            return;
+        }
         enterStateMode(m.userData.name, m.userData.regionName, m.userData.region);
     }
 });

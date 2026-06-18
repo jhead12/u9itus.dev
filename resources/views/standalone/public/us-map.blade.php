@@ -48,6 +48,82 @@
         html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #06091a; font-family: system-ui, sans-serif; }
         canvas { display: block; }
 
+        /* ── Accessibility ────────────────────────────────────────────────── */
+        /* Skip-to-main link (visible only on focus) */
+        #skip-to-main {
+            position: fixed; top: -100px; left: 16px; z-index: 9999;
+            background: #6366f1; color: #fff; padding: 10px 18px;
+            border-radius: 8px; font-size: 14px; font-weight: 700;
+            text-decoration: none; transition: top 0.15s;
+            border: 2px solid #818cf8;
+        }
+        #skip-to-main:focus { top: 16px; outline: none; }
+
+        /* Visible focus ring for all interactive elements */
+        :focus-visible {
+            outline: 2px solid #818cf8;
+            outline-offset: 2px;
+            border-radius: 4px;
+        }
+
+        /* Canvas gets a focusable region for keyboard nav */
+        #map-canvas-region {
+            position: fixed; inset: 0; z-index: 1;
+            /* Transparent overlay — receives keyboard focus on tab */
+        }
+        #map-canvas-region:focus { outline: none; } /* handled by #kb-focus-ring */
+        #map-canvas-region:focus-visible + #kb-focus-ring,
+        #map-canvas-region.kb-active + #kb-focus-ring { opacity: 1; }
+        #kb-focus-ring {
+            position: fixed; inset: 0; pointer-events: none; z-index: 2;
+            box-shadow: inset 0 0 0 3px rgba(99,102,241,0.6);
+            border-radius: 0; opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        /* Keyboard help overlay */
+        #kb-help {
+            display: none; position: fixed; inset: 0; z-index: 300;
+            background: rgba(6,9,26,0.92); backdrop-filter: blur(8px);
+            align-items: center; justify-content: center;
+        }
+        #kb-help.open { display: flex; }
+        #kb-help-box {
+            background: #0f172a; border: 1px solid rgba(99,102,241,0.3);
+            border-radius: 16px; padding: 28px 32px; max-width: 480px; width: 90%;
+            color: #e2e8f0;
+        }
+        #kb-help-box h2 { margin: 0 0 18px; font-size: 16px; color: #818cf8; display: flex; align-items: center; gap: 8px; }
+        .kb-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .kb-table tr + tr td { border-top: 1px solid rgba(99,102,241,0.1); }
+        .kb-table td { padding: 7px 4px; color: #94a3b8; }
+        .kb-table td:first-child { color: #e2e8f0; }
+        kbd {
+            display: inline-block; background: rgba(99,102,241,0.15);
+            border: 1px solid rgba(99,102,241,0.35); border-radius: 5px;
+            padding: 1px 7px; font-family: monospace; font-size: 11px;
+            color: #818cf8; margin: 1px;
+        }
+        #kb-help-close {
+            display: block; margin: 20px auto 0; padding: 8px 24px;
+            background: rgba(99,102,241,0.2); border: 1px solid rgba(99,102,241,0.4);
+            border-radius: 8px; color: #818cf8; font-size: 13px; cursor: pointer;
+        }
+        #kb-help-close:hover { background: rgba(99,102,241,0.35); }
+
+        /* Keyboard accessibility indicator badge (bottom-right) */
+        #kb-hint-badge {
+            position: fixed; bottom: 16px; left: 16px; z-index: 60;
+            background: rgba(15,23,42,0.85); border: 1px solid rgba(99,102,241,0.25);
+            border-radius: 8px; padding: 5px 11px;
+            font-size: 11px; color: #475569;
+            display: flex; align-items: center; gap: 6px;
+            pointer-events: auto; cursor: pointer;
+            transition: color 0.15s, border-color 0.15s;
+        }
+        #kb-hint-badge:hover { color: #94a3b8; border-color: rgba(99,102,241,0.5); }
+        #kb-hint-badge kbd { font-size: 10px; padding: 0 5px; }
+
         #top-bar {
             position: fixed; top: 0; left: 0; right: 0; z-index: 50;
             background: rgba(6, 9, 26, 0.88);
@@ -483,6 +559,16 @@
         }
         .panel-drag-handle:hover { background: rgba(99,102,241,0.65); }
 
+        /* ── Branded scrollbars ───────────────────────────────────────────── */
+        /* WebKit (Chrome, Safari, Edge) */
+        ::-webkit-scrollbar              { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track        { background: rgba(15, 23, 42, 0.6); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb        { background: rgba(99, 102, 241, 0.45); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover  { background: rgba(99, 102, 241, 0.75); }
+        ::-webkit-scrollbar-corner       { background: transparent; }
+        /* Firefox */
+        * { scrollbar-width: thin; scrollbar-color: rgba(99,102,241,0.45) rgba(15,23,42,0.6); }
+
         /* Legend collapsed state (mobile toggle) */
         #legend.legend-collapsed #legend-items { display: none; }
         #legend.legend-collapsed #legend-toggle-icon { display: inline; transform: rotate(-90deg); }
@@ -583,6 +669,43 @@
     </style>
 </head>
 <body>
+
+{{-- Skip-to-main for screen readers & keyboard users --}}
+<a id="skip-to-main" href="#map-canvas-region">Skip to map</a>
+
+{{-- Keyboard help overlay (? key) --}}
+<div id="kb-help" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts">
+    <div id="kb-help-box">
+        <h2>⌨ Keyboard Controls</h2>
+        <table class="kb-table" aria-label="Keyboard shortcuts list">
+            <tbody>
+                <tr><td><kbd>Tab</kbd></td><td>Focus the map canvas</td></tr>
+                <tr><td><kbd>Enter</kbd> / <kbd>Space</kbd></td><td>Open search to select a state</td></tr>
+                <tr><td><kbd>←</kbd> <kbd>→</kbd></td><td>Rotate map left / right</td></tr>
+                <tr><td><kbd>↑</kbd> <kbd>↓</kbd></td><td>Tilt map up / down</td></tr>
+                <tr><td><kbd>+</kbd> / <kbd>=</kbd></td><td>Zoom in</td></tr>
+                <tr><td><kbd>−</kbd></td><td>Zoom out</td></tr>
+                <tr><td><kbd>R</kbd></td><td>Reset view</td></tr>
+                <tr><td><kbd>Esc</kbd></td><td>Close panel / popup</td></tr>
+                <tr><td><kbd>?</kbd></td><td>Show / hide this help</td></tr>
+            </tbody>
+        </table>
+        <button id="kb-help-close" aria-label="Close keyboard help">Close</button>
+    </div>
+</div>
+
+{{-- Focusable canvas region + visible focus ring --}}
+<div id="map-canvas-region"
+     tabindex="0"
+     role="application"
+     aria-label="Interactive U.S. map. Use arrow keys to rotate, + and - to zoom, Enter to search for a state, ? for keyboard help."
+     aria-description="Use arrow keys to rotate, + and - to zoom, Enter to open search."></div>
+<div id="kb-focus-ring" aria-hidden="true"></div>
+
+{{-- Keyboard shortcut badge --}}
+<button id="kb-hint-badge" aria-label="Show keyboard shortcuts" title="Keyboard shortcuts (press ?)">
+    <kbd>?</kbd> Keyboard shortcuts
+</button>
 
 <div id="loading">
     <svg class="spinner" width="44" height="44" viewBox="0 0 24 24" fill="none" style="color:#6366f1;">
@@ -941,7 +1064,8 @@ const container = document.getElementById('map-container');
  */
 const PANEL_WIDTH = 324; // panel width (300px) + right margin (12px) + border
 const W = () => {
-    if (window.innerWidth > 768 && infoPanel && infoPanel.classList.contains('open')) {
+    const panel = document.getElementById('info-panel');
+    if (window.innerWidth > 768 && panel && panel.classList.contains('open')) {
         return Math.max(container.clientWidth - PANEL_WIDTH, 200);
     }
     return container.clientWidth;
@@ -1081,14 +1205,13 @@ function flyToMeshesTopDown(meshList, padFactor = 1.25) {
     const center = new THREE.Vector3(); box.getCenter(center);
     const size   = new THREE.Vector3(); box.getSize(size);
     const fov    = camera.fov * Math.PI / 180;
-    // Use effective viewport width (full width minus 316px panel)
-    const effectiveAspect = (W() - 316) / H();
+    // W() already returns the panel-adjusted width on desktop
+    const effectiveAspect = W() / H();
     const halfH = Math.max(size.x / effectiveAspect, size.y) / 2;
     let dist = (halfH / Math.tan(fov / 2)) * padFactor;
-    dist = Math.max(dist, 2.0);
-    // Camera almost directly above: high Z, slight Y tilt, shifted left for panel
-    const panelShift = (316 / W()) * dist * 0.55;
-    const endPos  = new THREE.Vector3(center.x - panelShift, center.y + dist * 0.18, dist * 0.98);
+    dist = Math.max(dist, 1.5);
+    // Camera almost directly above: high Z, slight Y tilt
+    const endPos  = new THREE.Vector3(center.x, center.y + dist * 0.18, dist * 0.98);
     const endLook = new THREE.Vector3(center.x, center.y, 0);
     flyTo(endPos, endLook, 1000);
 }
@@ -1385,7 +1508,7 @@ async function enterStateMode(stateName, regionName, region) {
 
     /* Fly to state — top-down so districts read as a flat map */
     const sMeshes = stateMeshes.filter(m => m.userData.name === stateName);
-    flyToMeshesTopDown(sMeshes, 1.5);
+    flyToMeshesTopDown(sMeshes, 1.1);
 
     /* Districts */
     document.getElementById('panel-candidates').innerHTML = `<div class="panel-spinner">
@@ -1575,15 +1698,26 @@ renderer.domElement.addEventListener('mousemove', e => {
     const sHits = raycaster.intersectObjects(stateMeshes);
     if (sHits.length) {
         const m = sHits[0].object;
-        hoveredMesh = m;
-        if (m.userData.name !== selectedState) m.material.color.setHex(lighten(m.userData.originalColor, 50));
-        m.parent.position.z = 0.18;
-        tooltip.style.display = 'block';
-        tooltip.style.left = (e.clientX + 16) + 'px';
-        tooltip.style.top  = (e.clientY - 14) + 'px';
-        tooltip.innerHTML  = `<strong style="color:#e2e8f0;display:block;margin-bottom:3px">${m.userData.name}</strong>
-            <span style="color:${m.userData.region?.hex||'#888'};font-size:12px">● ${m.userData.regionName||''} Region</span>`;
-        renderer.domElement.style.cursor = 'pointer';
+        // In region mode: states outside the active region are not interactive
+        const outsideRegion = mapMode === 'region' && activeRegion && m.userData.regionName !== activeRegion;
+        if (outsideRegion) {
+            if (hoveredMesh && hoveredMesh.userData.name !== selectedState) {
+                hoveredMesh.material.color.setHex(hoveredMesh.userData.originalColor);
+                hoveredMesh.parent.position.z = 0;
+            }
+            hoveredMesh = null; tooltip.style.display = 'none';
+            renderer.domElement.style.cursor = 'not-allowed';
+        } else {
+            hoveredMesh = m;
+            if (m.userData.name !== selectedState) m.material.color.setHex(lighten(m.userData.originalColor, 50));
+            m.parent.position.z = 0.18;
+            tooltip.style.display = 'block';
+            tooltip.style.left = (e.clientX + 16) + 'px';
+            tooltip.style.top  = (e.clientY - 14) + 'px';
+            tooltip.innerHTML  = `<strong style="color:#e2e8f0;display:block;margin-bottom:3px">${m.userData.name}</strong>
+                <span style="color:${m.userData.region?.hex||'#888'};font-size:12px">● ${m.userData.regionName||''} Region</span>`;
+            renderer.domElement.style.cursor = 'pointer';
+        }
     } else {
         hoveredMesh = null; tooltip.style.display = 'none';
         renderer.domElement.style.cursor = 'default';
@@ -1623,10 +1757,14 @@ renderer.domElement.addEventListener('click', () => {
         }
     }
 
-    /* State click */
+    /* State click — only allow states within the active region when in region mode */
     const sHits = raycaster.intersectObjects(stateMeshes);
     if (sHits.length) {
         const m = sHits[0].object;
+        // In region mode: ignore clicks on states outside the current region
+        if (mapMode === 'region' && activeRegion && m.userData.regionName !== activeRegion) {
+            return;
+        }
         enterStateMode(m.userData.name, m.userData.regionName, m.userData.region);
     }
 });
@@ -1657,6 +1795,100 @@ function partyClass(p) {
 const candPopup = document.getElementById('cand-popup');
 document.getElementById('cand-popup-close').addEventListener('click', closePopup);
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closePopup(); });
+
+/* ════════════════════════════════════════════════════════
+   KEYBOARD ACCESSIBILITY — ADA / WCAG 2.1 AA
+   Arrow keys: pan/rotate the globe
+   +/-: zoom in/out
+   Enter/Space on canvas: open search
+   R: reset view
+   ?: toggle keyboard help overlay
+════════════════════════════════════════════════════════ */
+const kbHelp      = document.getElementById('kb-help');
+const kbHelpClose = document.getElementById('kb-help-close');
+const kbBadge     = document.getElementById('kb-hint-badge');
+const mapRegion   = document.getElementById('map-canvas-region');
+
+function toggleKbHelp(open) {
+    kbHelp.classList.toggle('open', open ?? !kbHelp.classList.contains('open'));
+    if (kbHelp.classList.contains('open')) {
+        kbHelpClose.focus();
+    }
+}
+
+kbHelpClose.addEventListener('click', () => toggleKbHelp(false));
+kbBadge.addEventListener('click',     () => toggleKbHelp(true));
+
+// Close help on Escape
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && kbHelp.classList.contains('open')) {
+        toggleKbHelp(false);
+        mapRegion.focus();
+    }
+});
+
+// Show focus ring when canvas region is focused via keyboard
+mapRegion.addEventListener('focus', () => mapRegion.classList.add('kb-active'));
+mapRegion.addEventListener('blur',  () => mapRegion.classList.remove('kb-active'));
+
+// Enter/Space on the canvas region → open search
+mapRegion.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        document.getElementById('btn-search').click();
+        return;
+    }
+    if (e.key === '?') { toggleKbHelp(true); return; }
+    if (e.key === 'r' || e.key === 'R') { document.getElementById('btn-reset').click(); return; }
+
+    // Arrow keys: rotate/tilt the camera using OrbitControls
+    // Shift+Arrow pans the target instead
+    const ROTATE_STEP = 0.04;  // radians per keypress
+    const ZOOM_STEP   = 1.15;  // zoom factor per keypress
+
+    if (!controls) return;
+
+    switch (e.key) {
+        case 'ArrowLeft':
+            e.preventDefault();
+            controls.minAzimuthAngle = -Infinity; controls.maxAzimuthAngle = Infinity;
+            controls.rotateLeft(ROTATE_STEP);
+            controls.update();
+            break;
+        case 'ArrowRight':
+            e.preventDefault();
+            controls.rotateLeft(-ROTATE_STEP);
+            controls.update();
+            break;
+        case 'ArrowUp':
+            e.preventDefault();
+            controls.rotateUp(ROTATE_STEP);
+            controls.update();
+            break;
+        case 'ArrowDown':
+            e.preventDefault();
+            controls.rotateUp(-ROTATE_STEP);
+            controls.update();
+            break;
+        case '+': case '=':
+            e.preventDefault();
+            controls.dollyIn(ZOOM_STEP);
+            controls.update();
+            break;
+        case '-': case '_':
+            e.preventDefault();
+            controls.dollyOut(ZOOM_STEP);
+            controls.update();
+            break;
+    }
+});
+
+// Global ? shortcut (when canvas not focused)
+document.addEventListener('keydown', e => {
+    if (e.key === '?' && !e.target.matches('input, textarea, [contenteditable]')) {
+        toggleKbHelp();
+    }
+});
 // Click outside popup to close
 document.addEventListener('click', e => {
     if (candPopup.classList.contains('visible') && !candPopup.contains(e.target) && !e.target.closest('.candidate-name')) closePopup();
