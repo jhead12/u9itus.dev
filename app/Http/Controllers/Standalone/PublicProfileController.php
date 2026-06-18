@@ -776,47 +776,61 @@ class PublicProfileController extends Controller
             return 'non-federal:' . $politician->id;
         }
 
-        $name = strtolower(trim((string) $politician->full_name));
+        $name  = strtolower(trim((string) $politician->full_name));
         $state = strtoupper(trim((string) $politician->state));
-        $photo = strtolower(trim((string) ($politician->profile_photo_url ?? '')));
-        $website = strtolower(trim((string) ($politician->website_url ?? '')));
 
         if ($name === '' || $state === '') {
             return 'fallback:' . $politician->id;
         }
 
-        // Collapse all unclaimed federal records for the same person regardless of
-        // which office title they were imported under (e.g. "US Representative" vs
-        // "US Senator" for the same individual). Name + state is the primary signal;
-        // photo and website are used to further disambiguate common names.
-        if ($photo !== '') {
-            return 'federal:' . $name . '|' . $state . '|photo:' . md5($photo);
+        // Primary key: ballotpedia_id is the strongest identity signal — two rows
+        // with the same ballotpedia_id are always the same person regardless of
+        // office title, photo URL, or governance_level discrepancies.
+        $bpId = trim((string) ($politician->ballotpedia_id ?? ''));
+        if ($bpId !== '') {
+            return 'federal-bp:' . $bpId;
         }
 
-        if ($website !== '') {
-            return 'federal-site:' . $name . '|' . $state . '|' . md5($website);
-        }
-
-        // No strong identity signal — collapse by name + state alone.
-        // This handles the common import case where the same federal official
-        // is imported multiple times with different office titles (e.g., when
-        // they've moved from the House to the Senate between election cycles).
+        // Secondary: collapse by name + state alone for unclaimed federal officials.
+        // This handles the common case where the same person is imported multiple
+        // times under different office titles (House→Senate transition, or
+        // governance_level=Local vs Federal mismatch from different import sources).
+        // Photo/website are intentionally NOT used as sub-keys because they often
+        // differ between import sources for the same real person.
         return 'federal:' . $name . '|' . $state;
     }
 
     protected function preferDirectoryPolitician(Politician $preferred, Politician $candidate): Politician
     {
-        $preferredCampaigns = $preferred->campaigns->count();
-        $candidateCampaigns = $candidate->campaigns->count();
-
-        if ($candidateCampaigns !== $preferredCampaigns) {
-            return $candidateCampaigns > $preferredCampaigns ? $candidate : $preferred;
+        // 1. Prefer the record whose office matches the person's most recent role.
+        //    A U.S. Senator record beats a U.S. Representative record (House→Senate transition).
+        $senateKeywords = ['senator', 'senate'];
+        $prefIsSenate  = $this->officeContainsKeyword($preferred, $senateKeywords);
+        $candIsSenate  = $this->officeContainsKeyword($candidate, $senateKeywords);
+        if ($candIsSenate !== $prefIsSenate) {
+            return $candIsSenate ? $candidate : $preferred;
         }
 
+        // 2. Prefer verified_official
         if ((bool) $candidate->verified_official !== (bool) $preferred->verified_official) {
             return $candidate->verified_official ? $candidate : $preferred;
         }
 
+        // 3. Prefer the record with an active campaign (most engaged on platform)
+        $preferredCampaigns = $preferred->campaigns->count();
+        $candidateCampaigns = $candidate->campaigns->count();
+        if ($candidateCampaigns !== $preferredCampaigns) {
+            return $candidateCampaigns > $preferredCampaigns ? $candidate : $preferred;
+        }
+
+        // 4. Prefer correct governance_level (Federal > Local for federal officials)
+        $prefFederal = strcasecmp((string) $preferred->governance_level, 'Federal') === 0;
+        $candFederal = strcasecmp((string) $candidate->governance_level, 'Federal') === 0;
+        if ($candFederal !== $prefFederal) {
+            return $candFederal ? $candidate : $preferred;
+        }
+
+        // 5. Prefer more recently updated record
         $candidateUpdated = $candidate->updated_at?->getTimestamp() ?? 0;
         $preferredUpdated = $preferred->updated_at?->getTimestamp() ?? 0;
         if ($candidateUpdated !== $preferredUpdated) {
@@ -824,6 +838,17 @@ class PublicProfileController extends Controller
         }
 
         return $candidate->id > $preferred->id ? $candidate : $preferred;
+    }
+
+    private function officeContainsKeyword(Politician $politician, array $keywords): bool
+    {
+        $office = strtolower(trim((string) ($politician->political_office ?? '')));
+        foreach ($keywords as $kw) {
+            if (str_contains($office, $kw)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
