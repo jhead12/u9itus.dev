@@ -132,13 +132,21 @@ class EnrichStatewideOfficeholders extends Command
      */
     private const OFFICES = [
         'Governor' => [
-            'wiki_patterns' => ['Governor_of_{state}'],
+            // Some states (AK, AZ, CO, HI, NV, OR, WA…) have Governor_of_{state}
+            // redirect to a list page. Fallback: try the office page with the
+            // state name reversed (e.g. {state}_governor) and the list page itself.
+            'wiki_patterns' => [
+                'Governor_of_{state}',
+                '{state}_governor',
+                'List_of_governors_of_{state}',
+            ],
             'bp_pattern'    => 'Governor_of_{state}',
         ],
         'Lieutenant Governor' => [
             'wiki_patterns' => [
                 'Lieutenant_Governor_of_{state}',
                 '{state}_Lieutenant_Governor',
+                'List_of_lieutenant_governors_of_{state}',
             ],
             'bp_pattern' => 'Lieutenant_Governor_of_{state}',
         ],
@@ -553,6 +561,20 @@ class EnrichStatewideOfficeholders extends Command
                 if (preg_match('/\bincumbent[,\s]+([A-Z][a-z\'\-]+(?: [A-Z][a-z\'\-]+){1,3})\b/i', $extract, $m)) {
                     return ['name' => $this->cleanName($m[1]), 'party' => null, 'photo_url' => $thumbUrl];
                 }
+                // List page: "Incumbent\n| Name" or "|incumbent = Name" in prose table
+                if (preg_match('/\bIncumbent\b[^\n]{0,30}\n[|\s]*([A-Z][a-z\'\-]+(?: [A-Z][a-z\'\-]+){1,3})\b/u', $extract, $m)) {
+                    return ['name' => $this->cleanName($m[1]), 'party' => null, 'photo_url' => $thumbUrl];
+                }
+                // Summary description: "Governor of {state} since YYYY" — title is the person
+                // This applies when the wiki page IS the person (e.g. Katie_Hobbs)
+                if (preg_match('/^(?:Governor|Lieutenant Governor|Attorney General|Treasurer|Secretary of State)\s+of\b.*\bsince\b/i', $description)) {
+                    // The page title itself is the person’s name — extract it from the canonical URL returned
+                    $canonTitle = str_replace('_', ' ', $titleSlug);
+                    $nameCanon  = $this->cleanName($canonTitle);
+                    if ($nameCanon) {
+                        return ['name' => $nameCanon, 'party' => null, 'photo_url' => $thumbUrl];
+                    }
+                }
                 // Store thumbnail even if name not found — wikitext pass may still resolve a name
                 $wikiThumbnail = $thumbUrl;
             }
@@ -573,6 +595,7 @@ class EnrichStatewideOfficeholders extends Command
                 ->get('https://en.wikipedia.org/w/api.php', [
                     'action'       => 'query',
                     'titles'       => str_replace('_', ' ', $titleSlug),
+                    'redirects'    => '1',   // follow redirects (e.g. Governor_of_Alaska → List_of_governors_of_Alaska)
                     'prop'         => 'revisions',
                     'rvprop'       => 'content',
                     'rvslots'      => 'main',
@@ -592,11 +615,17 @@ class EnrichStatewideOfficeholders extends Command
             }
 
             // | incumbent = [[Daniel McKee]]  or  | incumbent = [[Daniel McKee|McKee]]
+            // Also handles list pages: first wikitable row often has [[Name]] as the current governor.
+            // Pattern: {{sortname|First|Last}} or [[First Last]] near "Incumbent" header.
             if (preg_match(
                 '/\|\s*(?:incumbent|officeholder|current_holder|holder)\s*=\s*\[\[([^\]|]{3,60})/i',
                 $wikitext,
                 $m
-            )) {
+            ) || preg_match(
+                '/\{\{sortname\|([^|}{]{2,30})\|([^|}{]{2,30})\}\}/',
+                $wikitext,
+                $sm
+            ) && ($m = [0, trim($sm[1]) . ' ' . trim($sm[2])]) !== null) {
                 $name = $this->cleanName($m[1]);
                 if ($name) {
                     // Try to extract party from infobox: | party = [[Democratic Party (United States)|Democratic]]

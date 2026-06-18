@@ -155,11 +155,16 @@ class MapStateCandidatesController
                    'district', 'website_url', 'bio']);
 
         // ── 2c. City / local officials (mayors etc.) for this state ───────────
+        // Only show seated, unclaimed officeholders to prevent test/dev
+        // politician accounts (claimed profiles with user_id set) from
+        // appearing as public city officials on the map.
         $cityOfficials = Politician::query()
             ->whereRaw('UPPER(COALESCE(state, \'\')) = ?', [$state])
             ->where('is_active', true)
             ->whereIn('governance_level', ['City', 'County', 'Local'])
-            ->where(fn($q) => $q->where('term_status', '!=', 'lost')->orWhereNull('term_status'))
+            ->where('term_status', 'seated')
+            ->whereNull('user_id')   // exclude claimed/personal accounts
+            ->whereNotNull('city')   // must have a city name set
             ->orderBy('city')
             ->orderBy('full_name')
             ->get(['uuid', 'full_name', 'political_office', 'party_affiliation',

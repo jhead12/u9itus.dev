@@ -1932,6 +1932,19 @@ const OFFICE_ROLES = {
     'Secretary of State': 'Manages elections, certifies results, and maintains official state records.',
 };
 
+const CITY_OFFICE_ROLES = {
+    'Mayor':                    'Chief executive of the city. Proposes the municipal budget, oversees city departments, and sets local policy priorities.',
+    'City Council':             'Legislative body of the city. Passes local ordinances, approves the budget, and represents neighborhood districts.',
+    'City Manager':             'Professional administrator hired by the council to run day-to-day city operations.',
+    'City Attorney':            'Legal counsel for the city; advises departments and represents the city in litigation.',
+    'City Treasurer':           'Manages city funds, investments, and financial reporting.',
+    'City Clerk':               'Maintains official city records, administers elections, and manages public notices.',
+    'District Attorney':        'Elected prosecutor who decides which criminal cases to pursue in the county.',
+    'County Executive':         'Chief executive of the county government, similar to a governor at the county level.',
+    'County Sheriff':           'Elected law-enforcement officer responsible for county-wide policing and jail operations.',
+    'School Board Member':      'Elected official governing the local public school district — sets policy, hires superintendent, approves budget.',
+};
+
 function partyClass(p) {
     if (!p) return 'party-I';
     const l = p.toLowerCase();
@@ -2339,7 +2352,7 @@ async function openStatePanel(stateName, regionName, region, districtCount) {
         ? offices.map(g => renderOfficeGroup(g, OFFICE_ROLES, color)).join('')
         : noDataNotice('Statewide candidate records for this state are not yet available. Check back after the next weekly sync.');
 
-    // City officials section (mayors etc.)
+    // City officials section (mayors etc.) — only seated unclaimed officeholders
     const cityOfficials = stateData?.city_officials ?? {};
     const cityEntries   = Object.entries(cityOfficials);
     if (cityEntries.length > 0) {
@@ -2348,11 +2361,16 @@ async function openStatePanel(stateName, regionName, region, districtCount) {
             <div style="flex:1;border-top:1px solid ${color}20;"></div>
         </div>`;
         for (const [city, officials] of cityEntries) {
-            html += `<div style="margin-bottom:10px;">
-                <p style="color:#94a3b8;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin:0 0 6px;">${city}</p>`;
+            html += `<div style="margin-bottom:14px;">
+                <p style="color:#94a3b8;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin:0 0 6px;"
+                   title="City of ${city}">${city}</p>`;
             for (const o of officials) {
-                const elDateCity = o.election_date || null;
-                const elStrCity  = elDateCity ? (() => { try { return new Date(elDateCity).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); } catch { return null; } })() : null;
+                const officeTitle = o.political_office || 'Mayor';
+                const roleDesc    = CITY_OFFICE_ROLES[officeTitle] || null;
+                const elDateCity  = o.election_date || null;
+                if (roleDesc) {
+                    html += `<p class="office-role-tip" style="margin-bottom:6px;">${roleDesc}</p>`;
+                }
                 html += renderCandidate({
                     full_name:    o.full_name,
                     party:        o.party,
@@ -2365,7 +2383,7 @@ async function openStatePanel(stateName, regionName, region, districtCount) {
                     ballotpedia_url: o.ballotpedia_url || null,
                     website:      o.website || null,
                     bio:          o.bio_excerpt || null,
-                    office:       o.political_office || 'Mayor',
+                    office:       officeTitle,
                     general_date: elDateCity,
                 }, color);
             }
