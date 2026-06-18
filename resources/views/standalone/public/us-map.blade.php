@@ -2120,7 +2120,16 @@ function renderCandidate(c, color) {
         ? `<img class="candidate-avatar" src="${c.photo}" loading="lazy" alt="${c.full_name}" onerror="this.outerHTML='<span class=\\'candidate-avatar-placeholder\\'>${_initSvg36}</span>'">`
         : `<span class="candidate-avatar-placeholder">${avatarInitials(c.full_name, color, 36)}</span>`;
     const py = c.party  ? `<span class="party-pill ${partyClass(c.party)}">${c.party}</span>` : '';
-    const st = c.status === 'seated' ? `<span class="status-seated">● Seated</span>` : c.is_running ? `<span class="status-running">● Running 2026</span>` : '';
+    // Format next election date if available
+    const elDate = c.general_date || c.election_date || null;
+    const elDateStr = elDate ? (() => {
+        try { return new Date(elDate).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }
+        catch { return null; }
+    })() : null;
+    const elBadge = (c.is_running && elDateStr)
+        ? `<span style="color:#64748b;font-size:9px;margin-left:4px;">📅 ${elDateStr}</span>`
+        : '';
+    const st = c.status === 'seated' ? `<span class="status-seated">● Seated</span>` : c.is_running ? `<span class="status-running">● Running 2026</span>${elBadge}` : '';
     const vf = c.verified ? `<span class="verified-badge">✓ Verified</span>` : '';
     // Encode candidate data on the whole card so the full row is clickable
     const popupData = JSON.stringify({ ...c, color });
@@ -2153,8 +2162,12 @@ document.getElementById('info-panel').addEventListener('click', e => {
     } catch { /* malformed data, ignore */ }
 });
 
-// Track which offices start expanded (Governor always open; others collapsed)
-const OFFICE_DEFAULT_OPEN = new Set(['Governor']);
+// All offices start expanded so voters see all candidates immediately.
+const OFFICE_DEFAULT_OPEN = new Set([
+    'Governor', 'Lieutenant Governor', 'Attorney General',
+    'State Treasurer', 'State Controller', 'Secretary of State',
+    'Other Statewide', 'Mayor',
+]);
 let _officeIdx = 0;
 
 /**
@@ -2190,6 +2203,19 @@ function renderOfficeGroup(g, roles, color) {
     const isSeated = c => c.status === 'seated' || (c.status === 'active' && !c.is_running);
     const seated  = g.candidates.filter(isSeated);
     let running   = g.candidates.filter(c => !isSeated(c) && c.status !== 'lost');
+
+    // Determine next election date from candidates (earliest future date wins)
+    const today = new Date();
+    const nextElDate = g.candidates
+        .map(c => c.general_date || c.election_date || null)
+        .filter(Boolean)
+        .map(d => new Date(d))
+        .filter(d => !isNaN(d))
+        .sort((a,b) => a-b)
+        .find(d => d >= today) || null;
+    const nextElStr = nextElDate
+        ? nextElDate.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})
+        : null;
 
     // Filter running candidates and set section label based on election phase
     let runningLabel = '';
@@ -2240,8 +2266,10 @@ function renderOfficeGroup(g, roles, color) {
              })(this)"
              role="button" aria-expanded="${isOpen}" tabindex="0"
              onkeydown="if(event.key==='Enter'||event.key===' ')this.click()">
-            <span>🏛&nbsp;${g.office}
-              <span class="name-summary" style="font-weight:400;opacity:.55;font-size:9px;margin-left:8px;text-transform:none;letter-spacing:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:160px;display:${isOpen ? 'none' : 'inline-block'};vertical-align:middle;">${allNames}</span>
+            <span style="display:flex;align-items:center;gap:6px;flex:1;min-width:0;">
+              <span>🏛&nbsp;${g.office}</span>
+              ${nextElStr ? `<span style="background:#f59e0b18;border:1px solid #f59e0b44;border-radius:4px;padding:1px 6px;font-size:9px;font-weight:600;color:#f59e0b;white-space:nowrap;">📅 ${nextElStr}</span>` : ''}
+              <span class="name-summary" style="font-weight:400;opacity:.55;font-size:9px;margin-left:4px;text-transform:none;letter-spacing:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:120px;display:${isOpen ? 'none' : 'inline-block'};vertical-align:middle;">${allNames}</span>
             </span>
             <span class="chevron">▾</span>
         </div>
@@ -2310,6 +2338,41 @@ async function openStatePanel(stateName, regionName, region, districtCount) {
     html += offices.length
         ? offices.map(g => renderOfficeGroup(g, OFFICE_ROLES, color)).join('')
         : noDataNotice('Statewide candidate records for this state are not yet available. Check back after the next weekly sync.');
+
+    // City officials section (mayors etc.)
+    const cityOfficials = stateData?.city_officials ?? {};
+    const cityEntries   = Object.entries(cityOfficials);
+    if (cityEntries.length > 0) {
+        html += `<div style="border-top:1px solid ${color}20;margin:16px 0 14px;display:flex;align-items:center;gap:8px;">
+            <span style="color:${color};font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;white-space:nowrap;">🏙 City Officials</span>
+            <div style="flex:1;border-top:1px solid ${color}20;"></div>
+        </div>`;
+        for (const [city, officials] of cityEntries) {
+            html += `<div style="margin-bottom:10px;">
+                <p style="color:#94a3b8;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin:0 0 6px;">${city}</p>`;
+            for (const o of officials) {
+                const elDateCity = o.election_date || null;
+                const elStrCity  = elDateCity ? (() => { try { return new Date(elDateCity).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); } catch { return null; } })() : null;
+                html += renderCandidate({
+                    full_name:    o.full_name,
+                    party:        o.party,
+                    status:       o.status || 'seated',
+                    is_running:   false,
+                    verified:     o.verified || false,
+                    photo:        o.photo || null,
+                    slug:         o.slug || null,
+                    profile_url:  o.profile_url || null,
+                    ballotpedia_url: o.ballotpedia_url || null,
+                    website:      o.website || null,
+                    bio:          o.bio_excerpt || null,
+                    office:       o.political_office || 'Mayor',
+                    general_date: elDateCity,
+                }, color);
+            }
+            html += '</div>';
+        }
+    }
+
     candEl.innerHTML = html;
 }
 
