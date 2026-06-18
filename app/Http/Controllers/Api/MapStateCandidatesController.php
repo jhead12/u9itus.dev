@@ -265,6 +265,36 @@ class MapStateCandidatesController
             ];
         }
 
+        // ── Deduplicate candidates within each office group by name ─────────
+        // Multiple import sources (platform Politician + ECR scrape + enrichment)
+        // can write separate rows for the same person. Keep the highest-quality
+        // record: platform > scraped, seated > running, verified > unverified.
+        foreach ($grouped as $canonical => &$group) {
+            $seen  = [];
+            $deduped = [];
+            foreach ($group['candidates'] as $cand) {
+                $key = strtolower(trim((string) ($cand['full_name'] ?? '')));
+                if ($key === '') {
+                    $deduped[] = $cand;
+                    continue;
+                }
+                if (! isset($seen[$key])) {
+                    $seen[$key] = $cand;
+                    continue;
+                }
+                // Score: platform=3, scraped=1; seated=2, running=1; verified=1
+                $score = fn($c) =>
+                    (($c['source'] ?? '') === 'platform' ? 3 : 1)
+                    + (($c['status'] ?? '') === 'seated' ? 2 : 1)
+                    + ((bool)($c['verified'] ?? false) ? 1 : 0);
+                if ($score($cand) > $score($seen[$key])) {
+                    $seen[$key] = $cand;
+                }
+            }
+            $group['candidates'] = array_values(array_merge($deduped, array_values($seen)));
+        }
+        unset($group);
+
         // Compute election phase per office group
         foreach ($grouped as $canonical => &$group) {
             $phase = 'pre_primary';

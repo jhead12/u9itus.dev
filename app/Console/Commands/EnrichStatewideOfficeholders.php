@@ -714,8 +714,45 @@ class EnrichStatewideOfficeholders extends Command
             $removed++;
         }
 
+        // ── Deduplicate: same state + office, keep only the newest row ─────────
+        // This catches cases where multiple import passes created separate rows
+        // for the same person (e.g. three "Greg Abbott / TX / Governor" rows).
+        $dupeRemoved = 0;
+        $dupeQuery = Politician::query()
+            ->whereIn('governance_level', $levels)
+            ->whereNull('user_id')
+            ->select('state', 'political_office')
+            ->selectRaw('COUNT(*) as cnt')
+            ->groupBy('state', 'political_office')
+            ->having('cnt', '>', 1);
+
+        if ($stateFilter) {
+            $dupeQuery->whereRaw('UPPER(COALESCE(state, \'\')) = ?', [$stateFilter]);
+        }
+
+        foreach ($dupeQuery->get() as $dupeGroup) {
+            $rows = Politician::query()
+                ->whereNull('user_id')
+                ->whereRaw('UPPER(COALESCE(state, \'\')) = ?', [strtoupper($dupeGroup->state ?? '')])
+                ->whereRaw('LOWER(COALESCE(political_office, \'\')) = ?', [strtolower($dupeGroup->political_office ?? '')])
+                ->whereIn('governance_level', $levels)
+                // Keep the best: verified first, then most recently updated
+                ->orderByDesc('verified_official')
+                ->orderByDesc('updated_at')
+                ->get(['id', 'full_name', 'verified_official', 'updated_at']);
+
+            // Keep the first (best); delete the rest
+            foreach ($rows->slice(1) as $dupe) {
+                $this->line("  <fg=red>DUPE DELETE</> #{$dupe->id} \"{$dupe->full_name}\" ({$dupeGroup->state} {$dupeGroup->political_office})");
+                if (! $dryRun) {
+                    $dupe->delete();
+                }
+                $dupeRemoved++;
+            }
+        }
+
         $suffix = $dryRun ? ' (dry-run)' : '';
-        $this->line("  Removed {$removed} garbage record(s){$suffix}.");
+        $this->line("  Removed {$removed} garbage + {$dupeRemoved} duplicate record(s){$suffix}.");
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
