@@ -104,6 +104,9 @@ class EnrichStatewideOfficeholders extends Command
     /** @var string[] Keys "state|office|name" successfully enriched in this run (for --clean) */
     private array $enrichedKeys = [];
 
+    /** Whether an Anthropic API key is configured (set once in handle(), read throughout) */
+    private bool $hasAI = false;
+
     public function handle(): int
     {
         $stateFilter = $this->option('state')
@@ -122,11 +125,11 @@ class EnrichStatewideOfficeholders extends Command
             return self::FAILURE;
         }
 
-        $hasAI = (bool) config('services.anthropic.api_key');
+        $this->hasAI = (bool) config('services.anthropic.api_key');
         if ($dryRun) {
             $this->line('<fg=yellow>[dry-run] No database writes will occur.</>');
         }
-        if ($hasAI) {
+        if ($this->hasAI) {
             $model = config('services.anthropic.model', 'claude-haiku-4-5');
             $this->line("<fg=cyan>[ai] Anthropic {$model} available as Tier 3 fallback.</>");
         }
@@ -139,7 +142,7 @@ class EnrichStatewideOfficeholders extends Command
             $this->line("\n<fg=green>[{$abbr}]</> {$stateName}");
 
             foreach (self::OFFICES as $office => $config) {
-                $result = $this->resolveCurrentHolder($abbr, $stateName, $office, $config, $hasAI);
+                $result = $this->resolveCurrentHolder($abbr, $stateName, $office, $config);
 
                 if ($result === null) {
                     $this->line("  <fg=yellow>✗ {$office}: could not resolve current holder</>  (skipped)");
@@ -240,9 +243,9 @@ class EnrichStatewideOfficeholders extends Command
         string $abbr,
         string $stateName,
         string $office,
-        array $config,
-        bool $hasAI
+        array $config
     ): ?array {
+        $hasAI = $this->hasAI;
         $stateSlug = str_replace(' ', '_', $stateName);
 
         // ── Tier 1: Ballotpedia ────────────────────────────────────────────────
