@@ -120,12 +120,17 @@ class MapStateCandidatesController
             return response()->json(['error' => 'Provide a valid two-letter state code.'], 422);
         }
 
-        // ── 1. Elected / registered politicians on the platform ───────────────
+        // ── 1. Seated statewide officeholders on the platform ─────────────────
+        // Only pull SEATED politicians from the platform table for statewide offices.
+        // Running candidates for statewide races come exclusively from
+        // election_candidate_records (which have primary_result tracking).
+        // This avoids showing every primary candidate that the sync workflow
+        // imported but never reconciled after the primary.
         $platformPoliticians = Politician::query()
             ->whereRaw('UPPER(COALESCE(state, \'\')) = ?', [$state])
             ->where('is_active', true)
             ->whereRaw('LOWER(COALESCE(governance_level, \'\')) = ?', ['state'])
-            ->where(fn($q) => $q->where('term_status', '!=', 'lost')->orWhereNull('term_status'))
+            ->whereIn('term_status', ['seated', 'active'])
             ->get(['uuid', 'full_name', 'political_office', 'party_affiliation',
                    'profile_photo_url', 'slug', 'is_running_candidate',
                    'term_status', 'verified_official', 'ballotpedia_id',
@@ -217,12 +222,22 @@ class MapStateCandidatesController
             $seenGlobal[$nameLower] = true;
             $payload       = is_array($rec->payload) ? $rec->payload : [];
             $primaryResult = $payload['primary_result'] ?? null;
+            $recStatus     = $payload['status'] ?? null;
 
-            // Exclude candidates eliminated in a primary — they are no longer active
+            // Always exclude eliminated candidates.
             if ($primaryResult === 'eliminated') {
                 continue;
             }
 
+            // If the primary election date has passed, only show candidates who
+            // explicitly advanced to the general. Records with no primary_result
+            // yet are hidden — they'll be resolved by the weekly sync.
+            // Seated officeholders bypass this check (they are not on the ballot).
+            $electionDate = $rec->election_date ? trim((string) $rec->election_date) : null;
+            if ($recStatus !== 'seated' && $electionDate && $electionDate < now()->toDateString()) {
+                if ($primaryResult !== 'advanced_to_general') {
+                    continue;
+                }
             // Exclude candidates who lost the general election
             $resultStatus = $payload['result_status'] ?? null;
             if ($resultStatus === 'lost' || $resultStatus === 'loser') {
