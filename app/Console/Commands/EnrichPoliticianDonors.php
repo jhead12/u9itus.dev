@@ -74,8 +74,9 @@ class EnrichPoliticianDonors extends Command
                 if ($dryRun) {
                     $contributors = count($snapshot['top_contributors'] ?? []);
                     $industries   = count($snapshot['top_industries'] ?? []);
-                    $hasFec       = !empty($snapshot['fec_summary']);
-                    $this->line("    [dry-run] contributors={$contributors} industries={$industries} fec=" . ($hasFec ? 'yes' : 'no'));
+                    $hasFec       = ! empty($snapshot['fec_summary']);
+                    $hasUrl       = ! empty($snapshot['opensecrets_source_url']);
+                    $this->line("    [dry-run] contributors={$contributors} industries={$industries} fec=" . ($hasFec ? 'yes' : 'no') . " url=" . ($hasUrl ? 'yes' : 'no'));
                     $enriched++;
                     continue;
                 }
@@ -121,18 +122,16 @@ class EnrichPoliticianDonors extends Command
             'election_cycle'         => (int) date('Y') % 2 === 0 ? (int) date('Y') : (int) date('Y') - 1,
         ];
 
-        // ── OpenSecrets ───────────────────────────────────────────────────────
-        if ($openSecrets->isConfigured()) {
-            try {
-                $data = $openSecrets->getDisplayData($politician);
-                if (is_array($data)) {
-                    $snapshot['top_contributors']       = $data['sections']['top_contributors']['items'] ?? null;
-                    $snapshot['top_industries']         = $data['sections']['top_industries']['items'] ?? null;
-                    $snapshot['opensecrets_source_url'] = $data['source_url'] ?? null;
-                }
-            } catch (\Throwable $e) {
-                Log::info('OpenSecrets enrichment skipped', ['politician_id' => $politician->id, 'error' => $e->getMessage()]);
+        // ── OpenSecrets (scraped — no API key required) ───────────────────────
+        try {
+            $data = $openSecrets->fetchCampaignFinanceData($politician);
+            if (is_array($data)) {
+                $snapshot['top_contributors']       = $data['top_contributors'] ?? null;
+                $snapshot['top_industries']         = $data['top_industries']   ?? null;
+                $snapshot['opensecrets_source_url'] = $data['profile_url']      ?? null;
             }
+        } catch (\Throwable $e) {
+            Log::info('OpenSecrets scrape skipped', ['politician_id' => $politician->id, 'error' => $e->getMessage()]);
         }
 
         // ── FEC ───────────────────────────────────────────────────────────────

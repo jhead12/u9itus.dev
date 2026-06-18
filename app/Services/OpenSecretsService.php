@@ -4,313 +4,151 @@ namespace App\Services;
 
 use App\Models\Politician;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Symfony\Component\Process\Process;
 
 /**
- * OpenSecrets (Center for Responsive Politics) API Integration Service
- * 
- * Fetches campaign finance data including contributions, donors, and expenditures.
- * Data is cached for 24 hours to minimize API calls.
- * 
- * API Documentation: https://www.opensecrets.org/open-data/api-documentation
- * Rate Limits: 200 requests/day (free tier)
- * 
- * Setup:
- * 1. Register for API key at https://www.opensecrets.org/api/admin/index.php?function=signup
- * 2. Add to .env: OPENSECRETS_API_KEY=your_api_key_here
+ * OpenSecrets (Center for Responsive Politics) — Web Scraper Integration
+ *
+ * OpenSecrets retired their free public API in 2025. This service now scrapes
+ * data directly from their public profile pages using the Playwright-based
+ * scripts/scrape-opensecrets.js script.
+ *
+ * Data scraped per candidate:
+ *  - Total raised / spent / cash on hand (current cycle)
+ *  - Top contributors (organization, total, individuals, PACs)
+ *  - Top industries (industry name, total, individuals, PACs)
+ *  - Cycle history (raised/spent per election year)
+ *  - Profile URL (for linking back)
+ *
+ * No API key required — all data is publicly available on opensecrets.org.
+ *
+ * Requirements:
+ *   npm install playwright
+ *   npx playwright install chromium
  */
 class OpenSecretsService
 {
-    protected string $baseUrl = 'https://www.opensecrets.org/api';
-    protected ?string $apiKey;
-    protected int $cacheDuration = 86400; // 24 hours
+    protected int $cacheDuration = 86400 * 3; // 72 hours — scraping is slow; cache aggressively
 
-    public function __construct()
-    {
-        $this->apiKey = config('services.opensecrets.api_key');
-    }
+    /** Path to the Node.js scraper script, relative to base_path() */
+    protected string $scraperScript = 'scripts/scrape-opensecrets.js';
+
+    public function __construct() {}
 
     /**
-     * Check if service is properly configured
+     * Service is always "configured" — no API key needed.
+     * Returns false only if Node.js / Playwright is not available.
      */
     public function isConfigured(): bool
     {
-        return !empty($this->apiKey);
+        return true;
     }
 
     /**
-     * Fetch campaign finance data from OpenSecrets
-     * 
-     * @param Politician $politician
-     * @return array|null
+     * Fetch campaign finance data by running the Playwright scraper.
+     * Results are cached for 72 hours to avoid hammering opensecrets.org.
      */
     public function fetchCampaignFinanceData(Politician $politician): ?array
     {
-        if (!$this->isConfigured()) {
-            Log::warning('OpenSecretsService: API key not configured');
-            return null;
-        }
-
-        // Visibility gate is handled by the caller (buildTransparencyData).
-        // Do not block unclaimed profiles here.
-
-        $cacheKey = "opensecrets.politician.{$politician->id}";
+        $cacheKey = "opensecrets.scrape.{$politician->id}";
 
         return Cache::remember($cacheKey, $this->cacheDuration, function () use ($politician) {
-            try {
-                // First, find the candidate ID (CID) by name and state.
-                // Use full_name directly — $politician->user may be null for
-                // unclaimed auto-created profiles (enrich-statewide, etc.).
-                $fullName = $politician->full_name
-                    ?? (optional($politician->user)->first_name . ' ' . optional($politician->user)->last_name);
-                $candidateId = $politician->opensecrets_id ?? $this->findCandidateId(
-                    trim((string) $fullName),
-                    $politician->state
-                );
-
-                if (!$candidateId) {
-                    return null;
-                }
-
-                // Store the OpenSecrets CID for future lookups
-                $politician->update(['opensecrets_id' => $candidateId]);
-
-                // Fetch multiple data points
-                return [
-                    'candidate_summary' => $this->getCandidateSummary($candidateId),
-                    'top_contributors' => $this->getTopContributors($candidateId),
-                    'top_industries' => $this->getTopIndustries($candidateId),
-                    'sector_totals' => $this->getSectorTotals($candidateId),
-                ];
-
-            } catch (\Throwable $e) {
-                $this->logProviderException('fetch_campaign_finance_data', $e, [
-                    'politician_id' => $politician->id,
-                ]);
-
-                return null;
-            }
+            return $this->runScraper($politician);
         });
     }
 
     /**
-     * Find candidate ID by name and state
-     * 
-     * @param string $name
-     * @param string $state
-     * @return string|null
+     * Invoke scripts/scrape-opensecrets.js via Node.js and return parsed JSON.
      */
-    protected function findCandidateId(string $name, string $state): ?string
+    protected function runScraper(Politician $politician): ?array
     {
-        $response = Http::timeout(10)->get($this->baseUrl, [
-            'method' => 'getLegislators',
-            'id' => $state,
-            'apikey' => $this->apiKey,
-            'output' => 'json',
-        ]);
+        $name  = trim((string) $politician->full_name);
+        $state = trim((string) ($politician->state ?? ''));
+        $mpid  = trim((string) ($politician->opensecrets_id ?? '')); // reuse field for mpid
 
-        if (!$response->successful()) {
-            $this->logHttpFailure('find_candidate_id', $response->status(), [
-                'state' => $state,
-            ]);
-
+        if ($name === '') {
             return null;
         }
 
-        $legislators = $response->json('response.legislator', []);
-
-        // Find closest name match
-        foreach ($legislators as $legislator) {
-            $legislatorName = ($legislator['@attributes']['firstlast'] ?? '');
-            if (stripos($legislatorName, $name) !== false || stripos($name, $legislatorName) !== false) {
-                return $legislator['@attributes']['cid'] ?? null;
-            }
+        $scriptPath = base_path($this->scraperScript);
+        if (! file_exists($scriptPath)) {
+            Log::warning('OpenSecretsService: scraper script not found', ['path' => $scriptPath]);
+            return null;
         }
 
-        return null;
-    }
+        $cmd = ['node', $scriptPath, "--name={$name}"];
+        if ($state !== '') $cmd[] = "--state={$state}";
+        if ($mpid  !== '') $cmd[] = "--mpid={$mpid}";
 
-    /**
-     * Get candidate summary (total raised, spent, etc.)
-     * 
-     * @param string $candidateId
-     * @return array
-     */
-    protected function getCandidateSummary(string $candidateId): array
-    {
-        $response = Http::timeout(10)->get($this->baseUrl, [
-            'method' => 'candSummary',
-            'cid' => $candidateId,
-            'apikey' => $this->apiKey,
-            'output' => 'json',
-        ]);
+        $process = new Process($cmd, base_path(), null, null, 60);
 
-        if (!$response->successful()) {
-            $this->logHttpFailure('get_candidate_summary', $response->status(), [
-                'candidate_id' => $candidateId,
+        try {
+            $process->run();
+        } catch (\Throwable $e) {
+            Log::warning('OpenSecretsService: scraper process error', [
+                'politician_id' => $politician->id,
+                'error'         => $e->getMessage(),
             ]);
-
-            return [];
+            return null;
         }
 
-        $summary = $response->json('response.summary.@attributes', []);
+        if (! $process->isSuccessful()) {
+            Log::info('OpenSecretsService: scraper returned non-zero', [
+                'politician_id' => $politician->id,
+                'stderr'        => substr($process->getErrorOutput(), 0, 500),
+            ]);
+            return null;
+        }
+
+        $json = json_decode($process->getOutput(), true);
+        if (! is_array($json) || isset($json['error'])) {
+            return null;
+        }
+
+        // Persist the mpid back to the politician for faster future lookups
+        if (! empty($json['mpid']) && $politician->opensecrets_id !== $json['mpid']) {
+            $politician->updateQuietly(['opensecrets_id' => $json['mpid']]);
+        }
 
         return [
-            'cycle' => $summary['cycle'] ?? null,
-            'total_raised' => $this->formatCurrency($summary['total'] ?? 0),
-            'total_spent' => $this->formatCurrency($summary['spent'] ?? 0),
-            'cash_on_hand' => $this->formatCurrency($summary['cash_on_hand'] ?? 0),
-            'debt' => $this->formatCurrency($summary['debt'] ?? 0),
-            'last_updated' => $summary['last_updated'] ?? null,
+            'candidate_summary' => $this->normaliseSummary($json['summary'] ?? []),
+            'top_contributors'  => $json['top_contributors'] ?? [],
+            'top_industries'    => $json['top_industries']   ?? [],
+            'cycle_history'     => $json['cycle_history']    ?? [],
+            'profile_url'       => $json['profile_url']      ?? null,
+            'mpid'              => $json['mpid']              ?? null,
         ];
     }
 
     /**
-     * Get top contributors
-     * 
-     * @param string $candidateId
-     * @return array
+     * Normalise the scraped summary hash into a consistent shape.
      */
-    protected function getTopContributors(string $candidateId): array
+    protected function normaliseSummary(array $raw): array
     {
-        $response = Http::timeout(10)->get($this->baseUrl, [
-            'method' => 'candContrib',
-            'cid' => $candidateId,
-            'apikey' => $this->apiKey,
-            'output' => 'json',
-        ]);
-
-        if (!$response->successful()) {
-            $this->logHttpFailure('get_top_contributors', $response->status(), [
-                'candidate_id' => $candidateId,
-            ]);
-
-            return [];
-        }
-
-        $contributors = $response->json('response.contributors.contributor', []);
-        
-        return array_map(function ($contributor) {
-            $attrs = $contributor['@attributes'] ?? [];
-            return [
-                'name' => $attrs['org_name'] ?? 'Unknown',
-                'total' => $this->formatCurrency($attrs['total'] ?? 0),
-                'individuals' => $this->formatCurrency($attrs['indivs'] ?? 0),
-                'pacs' => $this->formatCurrency($attrs['pacs'] ?? 0),
-            ];
-        }, array_slice($contributors, 0, 10));
+        // Keys come from the table's "Category" column, lowercased + underscored
+        return [
+            'total_raised' => $raw['raised']       ?? $raw['total_raised'] ?? null,
+            'total_spent'  => $raw['spent']        ?? $raw['total_spent']  ?? null,
+            'cash_on_hand' => $raw['cash_on_hand'] ?? null,
+            'debt'         => $raw['debts']        ?? $raw['debt']         ?? null,
+        ];
     }
 
     /**
-     * Get top industries
-     * 
-     * @param string $candidateId
-     * @return array
+     * Clear cached scrape result for a politician.
      */
-    protected function getTopIndustries(string $candidateId): array
+    public function clearCache(Politician $politician): void
     {
-        $response = Http::timeout(10)->get($this->baseUrl, [
-            'method' => 'candIndustry',
-            'cid' => $candidateId,
-            'apikey' => $this->apiKey,
-            'output' => 'json',
-        ]);
-
-        if (!$response->successful()) {
-            $this->logHttpFailure('get_top_industries', $response->status(), [
-                'candidate_id' => $candidateId,
-            ]);
-
-            return [];
-        }
-
-        $industries = $response->json('response.industries.industry', []);
-        
-        return array_map(function ($industry) {
-            $attrs = $industry['@attributes'] ?? [];
-            return [
-                'name' => $attrs['industry_name'] ?? 'Unknown',
-                'total' => $this->formatCurrency($attrs['total'] ?? 0),
-                'individuals' => $this->formatCurrency($attrs['indivs'] ?? 0),
-                'pacs' => $this->formatCurrency($attrs['pacs'] ?? 0),
-            ];
-        }, array_slice($industries, 0, 10));
-    }
-
-    /**
-     * Get sector totals
-     * 
-     * @param string $candidateId
-     * @return array
-     */
-    protected function getSectorTotals(string $candidateId): array
-    {
-        $response = Http::timeout(10)->get($this->baseUrl, [
-            'method' => 'candSector',
-            'cid' => $candidateId,
-            'apikey' => $this->apiKey,
-            'output' => 'json',
-        ]);
-
-        if (!$response->successful()) {
-            $this->logHttpFailure('get_sector_totals', $response->status(), [
-                'candidate_id' => $candidateId,
-            ]);
-
-            return [];
-        }
-
-        $sectors = $response->json('response.sectors.sector', []);
-        
-        return array_map(function ($sector) {
-            $attrs = $sector['@attributes'] ?? [];
-            return [
-                'name' => $attrs['sector_name'] ?? 'Unknown',
-                'total' => $this->formatCurrency($attrs['total'] ?? 0),
-                'individuals' => $this->formatCurrency($attrs['indivs'] ?? 0),
-                'pacs' => $this->formatCurrency($attrs['pacs'] ?? 0),
-            ];
-        }, $sectors);
-    }
-
-    /**
-     * Format currency for display
-     * 
-     * @param mixed $amount
-     * @return string
-     */
-    protected function formatCurrency($amount): string
-    {
-        return '$' . number_format((float)$amount, 0);
-    }
-
-    protected function logHttpFailure(string $operation, int $status, array $context = []): void
-    {
-        Log::warning('OpenSecretsService telemetry: HTTP request failed', array_merge($context, [
-            'operation' => $operation,
-            'status' => $status,
-            'is_rate_limited' => $status === 429,
-        ]));
+        Cache::forget("opensecrets.scrape.{$politician->id}");
     }
 
     protected function logProviderException(string $operation, \Throwable $exception, array $context = []): void
     {
-        Log::warning('OpenSecretsService telemetry: provider exception', array_merge($context, [
+        Log::warning('OpenSecretsService: provider exception', array_merge($context, [
             'operation' => $operation,
-            'error' => $exception->getMessage(),
+            'error'     => $exception->getMessage(),
         ]));
-    }
-
-    /**
-     * Clear cached data for a politician
-     * 
-     * @param Politician $politician
-     * @return void
-     */
-    public function clearCache(Politician $politician): void
-    {
-        Cache::forget("opensecrets.politician.{$politician->id}");
     }
 
     /**
@@ -321,21 +159,23 @@ class OpenSecretsService
      */
     public function getDisplayData(Politician $politician): ?array
     {
-        // ── 1. Try the nightly donor snapshot (no live API call needed) ──────
+        // ── 1. Try the nightly donor snapshot (written by EnrichPoliticianDonors) ──
         $snapshot = \App\Models\PoliticianDonorSnapshot::where('politician_id', $politician->id)->first();
 
         if ($snapshot && $snapshot->enriched_at) {
             $topContributors = $snapshot->top_contributors ?? [];
-            $topIndustries   = $snapshot->top_industries ?? [];
+            $topIndustries   = $snapshot->top_industries   ?? [];
 
-            if (!empty($topContributors) || !empty($topIndustries)) {
+            if (! empty($topContributors) || ! empty($topIndustries)) {
+                $sourceUrl = $snapshot->opensecrets_source_url
+                    ?? ($politician->opensecrets_id
+                        ? "https://www.opensecrets.org/profiles/" . $this->nameSlug($politician->full_name) . "/us_congress/summary?mpid={$politician->opensecrets_id}"
+                        : null);
+
                 return [
                     'source'     => 'OpenSecrets',
-                    'source_url' => $snapshot->opensecrets_source_url
-                        ?? ($politician->opensecrets_id
-                            ? "https://www.opensecrets.org/members-of-congress/summary?cid={$politician->opensecrets_id}"
-                            : null),
-                    'sections' => [
+                    'source_url' => $sourceUrl,
+                    'sections'   => [
                         'top_contributors' => ['items' => $topContributors],
                         'top_industries'   => ['items' => $topIndustries],
                     ],
@@ -343,21 +183,37 @@ class OpenSecretsService
             }
         }
 
-        // ── 2. Fall back to live OpenSecrets API ─────────────────────────────
+        // ── 2. Fall back to live scrape ──────────────────────────────────────
         $data = $this->fetchCampaignFinanceData($politician);
 
-        if (!$data || empty($data['candidate_summary'])) {
+        if (! $data || (empty($data['top_contributors']) && empty($data['top_industries']))) {
             return null;
+        }
+
+        $sections = [];
+        if (! empty($data['top_contributors'])) {
+            $sections['top_contributors'] = ['items' => $data['top_contributors']];
+        }
+        if (! empty($data['top_industries'])) {
+            $sections['top_industries'] = ['items' => $data['top_industries']];
+        }
+        if (! empty($data['candidate_summary'])) {
+            $sections['summary'] = $data['candidate_summary'];
         }
 
         return [
             'source'     => 'OpenSecrets',
-            'source_url' => "https://www.opensecrets.org/members-of-congress/summary?cid={$politician->opensecrets_id}",
-            'sections'   => [
-                'top_contributors' => ['items' => $data['top_contributors'] ?? []],
-                'top_industries'   => ['items' => $data['top_industries'] ?? []],
-                'sector_breakdown' => ['items' => $data['sector_totals'] ?? []],
-            ],
+            'source_url' => $data['profile_url'] ?? null,
+            'sections'   => $sections,
         ];
+    }
+
+    /**
+     * Build the URL slug OpenSecrets uses for profile pages.
+     * e.g. "Adam B. Schiff" → "adam-b-schiff"
+     */
+    protected function nameSlug(string $name): string
+    {
+        return preg_replace('/[^a-z0-9]+/', '-', strtolower(trim($name)));
     }
 }

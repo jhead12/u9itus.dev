@@ -56,6 +56,20 @@ jobs:
       - name: Install Composer dependencies
         run: composer install --prefer-dist --no-interaction --no-progress --no-dev
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+
+      - name: Install Node dependencies
+        run: npm ci
+        env:
+          NODE_ENV: development
+
+      - name: Install Playwright Chromium
+        run: npx playwright install chromium --with-deps
+
       - name: Write .env
         run: |
           cat > .env <<EOF
@@ -71,7 +85,6 @@ jobs:
           DB_USERNAME=${{ secrets.DB_USERNAME }}
           DB_PASSWORD=${{ secrets.DB_PASSWORD }}
 
-          OPENSECRETS_API_KEY=${{ secrets.OPENSECRETS_API_KEY }}
           FEC_API_KEY=${{ secrets.FEC_API_KEY }}
 
           CACHE_DRIVER=database
