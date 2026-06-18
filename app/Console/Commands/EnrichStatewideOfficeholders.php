@@ -230,6 +230,7 @@ class EnrichStatewideOfficeholders extends Command
                     if (! $dryRun) {
                         [$upserted, $skipped, $failed] = $this->upsertPolitician(
                             $abbr, $office, 'State', null, $name, $party, $bpUrl,
+                            $result['photo_url'] ?? null,
                             $force, $upserted, $skipped, $failed
                         );
                     } else {
@@ -272,6 +273,7 @@ class EnrichStatewideOfficeholders extends Command
                 if (! $dryRun) {
                     [$upserted, $skipped, $failed] = $this->upsertPolitician(
                         $abbr, 'Mayor', 'City', $city, $name, $party, $bpUrl,
+                        $result['photo_url'] ?? null,
                         $force, $upserted, $skipped, $failed
                     );
                 } else {
@@ -308,6 +310,7 @@ class EnrichStatewideOfficeholders extends Command
         string $name,
         ?string $party,
         ?string $bpUrl,
+        ?string $photoUrl,
         bool $force,
         int $upserted,
         int $skipped,
@@ -330,6 +333,8 @@ class EnrichStatewideOfficeholders extends Command
                 'full_name'            => $name,
                 'party_affiliation'    => $party,
                 'ballotpedia_id'       => $bpSlug ? substr($bpSlug, 0, 255) : null,
+                // Only set photo if we have one — never overwrite a manually-set photo with null
+                'profile_photo_url'    => $photoUrl,
                 'is_running_candidate' => false,
                 'term_status'          => 'seated',
                 'is_active'            => true,
@@ -392,7 +397,7 @@ class EnrichStatewideOfficeholders extends Command
         $bpUrl  = "https://ballotpedia.org/{$bpSlug}";
         $bpResult = $this->fetchBallotpediaHolder($bpUrl);
         if ($bpResult) {
-            return array_merge($bpResult, ['source' => 'ballotpedia', 'bp_url' => $bpUrl]);
+            return array_merge($bpResult, ['photo_url' => null, 'source' => 'ballotpedia', 'bp_url' => $bpUrl]);
         }
 
         // ── Tier 2: Wikipedia ──────────────────────────────────────────────────
@@ -409,7 +414,7 @@ class EnrichStatewideOfficeholders extends Command
         if ($hasAI) {
             $aiResult = $this->fetchWithClaude($abbr, $stateName, $office);
             if ($aiResult) {
-                return array_merge($aiResult, ['source' => 'claude', 'bp_url' => $bpUrl]);
+                return array_merge($aiResult, ['photo_url' => null, 'source' => 'claude', 'bp_url' => $bpUrl]);
             }
         }
 
@@ -512,6 +517,9 @@ class EnrichStatewideOfficeholders extends Command
         $titleSlug = str_replace(' ', '_', $pageTitle);
 
         // ── 2a: REST summary ──────────────────────────────────────────────────
+        // The summary endpoint also returns thumbnail.source — a Wikimedia Commons
+        // image URL — which we capture as the profile photo when a name is found.
+        $wikiThumbnail = null;
         try {
             $encoded  = rawurlencode($titleSlug);
             $response = Http::timeout(10)
@@ -522,27 +530,31 @@ class EnrichStatewideOfficeholders extends Command
                 $data        = $response->json();
                 $description = trim($data['description'] ?? '');
                 $extract     = trim($data['extract'] ?? '');
+                // Capture thumbnail for whichever pattern matches below
+                $thumbUrl    = $data['thumbnail']['source'] ?? null;
 
                 // "Gavin Newsom since January 2019"
                 if (preg_match('/^([A-Z][a-z\'\-]+(?: [A-Z][a-z\'\-]+){1,3})\s+since\b/i', $description, $m)) {
-                    return ['name' => $this->cleanName($m[1]), 'party' => null];
+                    return ['name' => $this->cleanName($m[1]), 'party' => null, 'photo_url' => $thumbUrl];
                 }
                 // Extract starts with person's name: "Daniel McKee is the 76th…"
                 if (preg_match('/^([A-Z][a-z\'\-]+(?: [A-Z][a-z\'\-]+){1,3})\s+(?:is|serves as|became)\b/u', $extract, $m)) {
-                    return ['name' => $this->cleanName($m[1]), 'party' => null];
+                    return ['name' => $this->cleanName($m[1]), 'party' => null, 'photo_url' => $thumbUrl];
                 }
                 // "is {Name}, an American"
                 if (preg_match('/\bis ([A-Z][a-z\'\-]+(?: [A-Z][a-z\'\-]+){1,3}),\s+an?\s+American\b/u', $extract, $m)) {
-                    return ['name' => $this->cleanName($m[1]), 'party' => null];
+                    return ['name' => $this->cleanName($m[1]), 'party' => null, 'photo_url' => $thumbUrl];
                 }
                 // "current governor is Name" / "currently held by Name"
                 if (preg_match('/\bcurrent\w*\s+\w+\s+is\s+([A-Z][a-z\'\-]+(?: [A-Z][a-z\'\-]+){1,3})\b/i', $extract, $m)) {
-                    return ['name' => $this->cleanName($m[1]), 'party' => null];
+                    return ['name' => $this->cleanName($m[1]), 'party' => null, 'photo_url' => $thumbUrl];
                 }
                 // "incumbent Name" anywhere in extract
                 if (preg_match('/\bincumbent[,\s]+([A-Z][a-z\'\-]+(?: [A-Z][a-z\'\-]+){1,3})\b/i', $extract, $m)) {
-                    return ['name' => $this->cleanName($m[1]), 'party' => null];
+                    return ['name' => $this->cleanName($m[1]), 'party' => null, 'photo_url' => $thumbUrl];
                 }
+                // Store thumbnail even if name not found — wikitext pass may still resolve a name
+                $wikiThumbnail = $thumbUrl;
             }
         } catch (\Throwable) {
             // fall through to wikitext
@@ -589,12 +601,13 @@ class EnrichStatewideOfficeholders extends Command
                 if ($name) {
                     // Try to extract party from infobox: | party = [[Democratic Party (United States)|Democratic]]
                     $party = null;
+                    $photo_url = $wikiThumbnail; // use thumbnail captured in 2a if available
                     if (preg_match('/\|\s*party\s*=\s*\[\[[^\]]*\|([^\]]{3,40})\]\]/i', $wikitext, $pm)) {
                         $party = $this->normaliseParty(trim($pm[1]));
                     } elseif (preg_match('/\|\s*party\s*=\s*([A-Za-z ]{3,40})\n/i', $wikitext, $pm)) {
                         $party = $this->normaliseParty(trim($pm[1]));
                     }
-                    return ['name' => $name, 'party' => $party];
+                    return ['name' => $name, 'party' => $party, 'photo_url' => $photo_url];
                 }
             }
 

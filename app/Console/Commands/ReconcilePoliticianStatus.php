@@ -111,9 +111,14 @@ class ReconcilePoliticianStatus extends Command
                     ? $state . '-' . str_pad((string) $districtNum, 2, '0', STR_PAD_LEFT)
                     : null;
 
+                $bioguidePhoto = $bioguide
+                    ? 'https://unitedstates.github.io/images/congress/225x275/' . $bioguide . '.jpg'
+                    : null;
+
                 $this->currentMemberData[$key] = [
                     'political_office' => $officeTitle,
                     'district_code'    => $districtCode,
+                    'photo_url'        => $bioguidePhoto,
                 ];
             }
         }
@@ -207,6 +212,12 @@ class ReconcilePoliticianStatus extends Command
                 if ($districtChanged && $feedDistrict !== null) {
                     $updates['district'] = $feedDistrict;
                     $this->line("[DISTRICT UPDATED] {$politician->full_name}: {$politician->district} → {$feedDistrict}");
+                }
+
+                // Set bioguide photo if not already set
+                $feedPhoto = $feedData['photo_url'] ?? null;
+                if ($feedPhoto && empty($politician->profile_photo_url)) {
+                    $updates['profile_photo_url'] = $feedPhoto;
                 }
 
                 if ($needsUpdate) {
