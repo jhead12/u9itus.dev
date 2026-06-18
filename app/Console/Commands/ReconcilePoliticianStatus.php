@@ -276,7 +276,7 @@ class ReconcilePoliticianStatus extends Command
         $rows = ElectionCandidateRecord::query()
             ->whereRaw('LOWER(full_name) = ?', [$name])
             ->whereRaw('UPPER(state) = ?', [$state])
-            ->whereRaw("COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.primary_result')), '') != 'eliminated'")
+            ->whereRaw("COALESCE(payload->>'$.primary_result', '') != 'eliminated'")
             ->get();
 
         if ($rows->isEmpty()) {

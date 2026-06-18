@@ -21,6 +21,16 @@
  *   controller       State Controller races
  *   secretary_state  Secretary of State races
  *
+ * --strategy values:
+ *   index   (default) Visit the central Ballotpedia index page per office,
+ *           collect race links, then visit each race page individually.
+ *   direct  Construct per-state race URLs directly from the known Ballotpedia
+ *           URL pattern (more reliable for statewide offices, all 50 states).
+ *   widget  Visit the per-state overview page (Elections_in_{State},_{year})
+ *           and parse the bp-table widget tables there. Covers ALL offices
+ *           (Senate, House all districts, all statewide) in a single page per
+ *           state and uses data-cell attributes for reliable extraction.
+ *
  * Requirements:
  *   npm install playwright
  *   npx playwright install chromium
@@ -63,6 +73,13 @@ const OUT_PATH       = args.out
  * are attempted even if the index page doesn't list some races yet.
  *
  * --strategy=index  (default) uses the original index-page discovery approach.
+ *
+ * --strategy=widget  visits the per-state overview page
+ * (https://ballotpedia.org/Elections_in_{StateName},_{year}) and parses
+ * the bp-table widget tables. These tables use data-cell attributes on
+ * every <td> (candidate/office/party/status) making them the most
+ * structurally reliable source. One page per state covers ALL offices:
+ * U.S. Senate, every House district, Governor, Lt. Gov., AG, etc.
  */
 const STRATEGY = (args.strategy ?? 'index').toLowerCase();
 
@@ -592,6 +609,230 @@ async function scrapeCandidateProfile(newPage, profileUrl) {
   }
 }
 
+// ── Widget strategy helpers ──────────────────────────────────────────────────
+
+/**
+ * Build the per-state Ballotpedia overview page URL for the widget strategy.
+ * e.g. "Arkansas" → https://ballotpedia.org/Elections_in_Arkansas,_2026
+ */
+function buildWidgetStateUrl(stateName, year) {
+  return `https://ballotpedia.org/Elections_in_${stateName.replace(/ /g, '_')},_${year}`;
+}
+
+/**
+ * Map a widget status string to result_status + is_running_candidate.
+ * Status text is the combined main text + sub-detail, e.g.:
+ *   "On the Ballot General"  → still running
+ *   "On the Ballot Primary"  → still running
+ *   "Lost Primary"           → eliminated
+ *   "Lost General"           → lost
+ *   "Won General"            → won
+ *   "Advanced General"       → won (advanced to general)
+ */
+function parseWidgetStatus(statusText) {
+  const t = (statusText ?? '').toLowerCase().trim();
+  if (/^lost|defeated|eliminated/.test(t)) {
+    return { result_status: 'lost', is_running_candidate: false };
+  }
+  if (/won|elected|advanced/.test(t)) {
+    return { result_status: 'won', is_running_candidate: false };
+  }
+  return { result_status: null, is_running_candidate: true };
+}
+
+/**
+ * Normalise a Ballotpedia widget office display string to our canonical
+ * office name, governance level, and optional district label.
+ *
+ * Examples:
+ *   "U.S. Senate Arkansas"           → { office: 'U.S. Senator', governance_level: 'Federal', district: null }
+ *   "U.S. House Arkansas District 1" → { office: 'U.S. Representative', governance_level: 'Federal', district: 'AR-01' }
+ *   "Governor"                        → { office: 'Governor', governance_level: 'State', district: null }
+ */
+function normaliseWidgetOffice(rawOffice, stateAbbr) {
+  const s = (rawOffice ?? '').trim();
+  if (/^U\.S\.\s+Senate/i.test(s)) {
+    return { office: 'U.S. Senator', governance_level: 'Federal', district: null };
+  }
+  const houseM = s.match(/^U\.S\.\s+House.*?District\s+(\d+)/i);
+  if (houseM) {
+    return { office: 'U.S. Representative', governance_level: 'Federal', district: `${stateAbbr}-${houseM[1].padStart(2, '0')}` };
+  }
+  if (/^U\.S\.\s+House/i.test(s)) {
+    return { office: 'U.S. Representative', governance_level: 'Federal', district: `${stateAbbr}-AL` };
+  }
+  if (/^Governor/i.test(s)) {
+    return { office: 'Governor', governance_level: 'State', district: null };
+  }
+  if (/Lieutenant\s+Governor/i.test(s)) {
+    return { office: 'Lieutenant Governor', governance_level: 'State', district: null };
+  }
+  if (/Attorney\s+General/i.test(s)) {
+    return { office: 'Attorney General', governance_level: 'State', district: null };
+  }
+  if (/Treasurer/i.test(s)) {
+    return { office: 'State Treasurer', governance_level: 'State', district: null };
+  }
+  if (/Controller/i.test(s)) {
+    return { office: 'State Controller', governance_level: 'State', district: null };
+  }
+  if (/Secretary\s+of\s+State/i.test(s)) {
+    return { office: 'Secretary of State', governance_level: 'State', district: null };
+  }
+  return { office: s, governance_level: 'State', district: null };
+}
+
+/**
+ * Scrape all bp-table widget tables from a Ballotpedia state overview page.
+ * Returns raw row objects with name, officeName, party, statusText, ballotpediaUrl.
+ */
+async function scrapeWidgetPage(page, stateUrl, stateAbbr) {
+  await page.goto(stateUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+  await sleep(DELAY_MS);
+
+  return page.evaluate(({ stateAbbr, stateUrl }) => {
+    const rows = [];
+    const tables = document.querySelectorAll(
+      'table.bp-table.widget-table, table.widget-table'
+    );
+    if (tables.length === 0) return rows;
+
+    for (const table of tables) {
+      for (const tr of table.querySelectorAll('tbody tr')) {
+        const candidateCell = tr.querySelector('td[data-cell="candidate"]');
+        const officeCell    = tr.querySelector('td[data-cell="office"]');
+        const partyCell     = tr.querySelector('td[data-cell="party"]');
+        const statusCell    = tr.querySelector('td[data-cell="status"]');
+
+        if (!candidateCell || !officeCell) continue;
+
+        // Name: use only the <a> text inside .widget-candidate-info to avoid
+        // picking up the Incumbent/Answered-survey sub-detail spans.
+        const nameLink = candidateCell.querySelector('.widget-candidate-info a[href]');
+        const name = (nameLink?.textContent ?? candidateCell.textContent ?? '')
+          .replace(/\s+/g, ' ').trim();
+        if (name.length < 2) continue;
+
+        // Ballotpedia profile URL (strict whitelist — internal only)
+        const rawHref = nameLink?.getAttribute('href') ?? '';
+        const isValidBpLink = rawHref.length > 2
+          && (rawHref.startsWith('/') || rawHref.startsWith('https://ballotpedia.org/'))
+          && !rawHref.includes('?') && !rawHref.includes('#');
+        const ballotpediaUrl = isValidBpLink
+          ? (rawHref.startsWith('https://') ? rawHref : 'https://ballotpedia.org' + rawHref)
+          : null;
+
+        // Office name from the link text (e.g. "U.S. Senate Arkansas")
+        const officeLink = officeCell.querySelector('a');
+        const officeName = (officeLink?.textContent ?? officeCell.textContent ?? '').trim();
+
+        // Party: text content of .party-affiliation span;
+        // fallback to class name (dot-Republican → Republican)
+        const partySpan = partyCell?.querySelector('[class*="party-affiliation"]');
+        let party = (partySpan?.textContent ?? partyCell?.textContent ?? '').trim();
+        if (!party && partySpan) {
+          const cls = Array.from(partySpan.classList).find(c => c.startsWith('dot-'));
+          if (cls) party = cls.replace('dot-', '');
+        }
+
+        // Status: full text of the cell (main text + sub-detail joined)
+        const statusText = (statusCell?.textContent ?? '').replace(/\s+/g, ' ').trim();
+
+        rows.push({ name, officeName, party, statusText, ballotpediaUrl, sourceUrl: stateUrl });
+      }
+    }
+    return rows;
+  }, { stateAbbr, stateUrl });
+}
+
+/**
+ * Widget strategy: one Ballotpedia state overview page per state covers
+ * ALL offices (Senate, every House district, Governor, Lt. Gov., AG, etc.).
+ * Respects the --office and --state filters.
+ */
+async function runWidgetStrategy(newPage, allCandidates) {
+  const states = STATE_FILTER
+    ? Object.entries(STATE_ABBR).filter(([, abbr]) => abbr === STATE_FILTER)
+    : Object.entries(STATE_ABBR);
+
+  console.log(`  [widget] ${states.length} state overview page(s) to visit.\n`);
+
+  for (const [stateName, stateAbbr] of states) {
+    const stateUrl = buildWidgetStateUrl(stateName, ELECTION_YEAR);
+    console.log(`[WIDGET] ${stateAbbr} — ${stateUrl}`);
+
+    const pg = await newPage();
+    let rows;
+    try {
+      rows = await scrapeWidgetPage(pg, stateUrl, stateAbbr);
+    } catch (err) {
+      console.warn(`  ✗ ${stateAbbr}: ${err.message}`);
+      await pg.context().close();
+      continue;
+    }
+    await pg.context().close();
+
+    if (rows.length === 0) {
+      console.log(`  (no widget tables found — page may not exist yet)`);
+      continue;
+    }
+
+    let added = 0;
+    for (const row of rows) {
+      const { office, governance_level, district } = normaliseWidgetOffice(row.officeName, stateAbbr);
+
+      // Apply --office filter
+      const include =
+        OFFICE_FILTER === 'all' ||
+        (OFFICE_FILTER === 'federal'         && governance_level === 'Federal') ||
+        (OFFICE_FILTER === 'statewide'       && governance_level === 'State') ||
+        (OFFICE_FILTER === 'senate'          && office === 'U.S. Senator') ||
+        (OFFICE_FILTER === 'house'           && office === 'U.S. Representative') ||
+        (OFFICE_FILTER === 'governor'        && office === 'Governor') ||
+        (OFFICE_FILTER === 'lt_governor'     && office === 'Lieutenant Governor') ||
+        (OFFICE_FILTER === 'ag'              && office === 'Attorney General') ||
+        (OFFICE_FILTER === 'treasurer'       && office === 'State Treasurer') ||
+        (OFFICE_FILTER === 'controller'      && office === 'State Controller') ||
+        (OFFICE_FILTER === 'secretary_state' && office === 'Secretary of State');
+      if (!include) continue;
+
+      const { result_status, is_running_candidate } = parseWidgetStatus(row.statusText);
+
+      let campaignWebsite = null;
+      let bioExcerpt = null;
+      if (FETCH_WEBSITES && row.ballotpediaUrl) {
+        const profile = await scrapeCandidateProfile(newPage, row.ballotpediaUrl);
+        if (profile) {
+          campaignWebsite = profile.campaignWebsite ?? null;
+          bioExcerpt      = profile.bioExcerpt ?? null;
+        }
+        await sleep(300);
+      }
+
+      allCandidates.push({
+        full_name: row.name,
+        political_office: office,
+        governance_level,
+        state: stateAbbr,
+        district: district ?? null,
+        party_affiliation: normaliseParty(row.party),
+        election_date: `${ELECTION_YEAR}-11-03`,
+        is_running_candidate,
+        result_status,
+        ballotpedia_url: row.ballotpediaUrl ?? row.sourceUrl,
+        campaign_website: campaignWebsite,
+        bio_excerpt: bioExcerpt,
+        source_page: row.sourceUrl,
+        scraped_at: new Date().toISOString(),
+      });
+      added++;
+    }
+
+    console.log(`  ✓ ${stateAbbr} — ${added} candidate(s) from ${rows.length} widget rows`);
+    await sleep(DELAY_MS);
+  }
+}
+
 async function main() {
   const indexes = ELECTION_INDEXES.filter(e => {
     if (OFFICE_FILTER === 'all') return true;
@@ -610,7 +851,7 @@ async function main() {
 
   console.log(`\nBallotpedia ${ELECTION_YEAR} scraper`);
   console.log(`Strategy : ${STRATEGY}`);
-  console.log(`Offices  : ${indexes.map(e => e.key).join(', ')}`);
+  console.log(`Offices  : ${indexes.map(e => e.key).join(', ')} ${STRATEGY === 'widget' ? '(widget covers all — filter applied per-row)' : ''}`);
   console.log(`State    : ${STATE_FILTER ?? 'all 50 states'}`);
   console.log(`Results  : ${WITH_RESULTS ? 'yes (winner/loser capture)' : 'no'}`);
   console.log(`Output   : ${OUT_PATH}\n`);
@@ -711,6 +952,13 @@ async function main() {
       await runIndexStrategy(fallbackIndexes, newPage, allCandidates);
     }
 
+  } else if (STRATEGY === 'widget') {
+    // ─────────────────────────────────────────────────────────────────────
+    // WIDGET strategy: visit per-state overview pages and parse the
+    // bp-table widget tables that list all offices for a state in one
+    // place with data-cell attributes for reliable extraction.
+    // ─────────────────────────────────────────────────────────────────────
+    await runWidgetStrategy(newPage, allCandidates);
   } else {
     // ─────────────────────────────────────────────────────────────────────
     // INDEX strategy (original): visit the central index page per office,

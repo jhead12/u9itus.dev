@@ -1682,7 +1682,7 @@ class PublicProfileController extends Controller
                 })->orWhereDate('election_date', '>=', $recentThreshold);
             })
             // Exclude records marked as eliminated by reconcile-status
-            ->whereRaw("COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.primary_result')), '') != 'eliminated'")
+            ->whereRaw("COALESCE(payload->>'$.primary_result', '') != 'eliminated'")
             ->orderBy('election_date')
             ->orderByDesc('last_seen_at')
             ->limit(150)
