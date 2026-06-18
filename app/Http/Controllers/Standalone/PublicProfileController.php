@@ -1656,6 +1656,9 @@ class PublicProfileController extends Controller
         }
 
         $recentThreshold = now()->subDays(30)->toDateString();
+        // ECRs with no election_date are only shown if last_seen_at is within 180 days,
+        // preventing stale imports (e.g. retired members) from surfacing indefinitely.
+        $lastSeenCutoff = now()->subDays(180);
 
         $records = ElectionCandidateRecord::query()
             ->where(function ($q) use ($state, $stateName) {
@@ -1670,10 +1673,15 @@ class PublicProfileController extends Controller
                     $q->orWhere('district', 'like', '%' . $variant . '%');
                 }
             })
-            ->where(function ($q) use ($recentThreshold) {
-                $q->whereNull('election_date')
-                    ->orWhereDate('election_date', '>=', $recentThreshold);
+            ->where(function ($q) use ($recentThreshold, $lastSeenCutoff) {
+                $q->where(function ($inner) use ($lastSeenCutoff) {
+                    // NULL election_date only valid if the record was seen recently
+                    $inner->whereNull('election_date')
+                          ->where('last_seen_at', '>=', $lastSeenCutoff);
+                })->orWhereDate('election_date', '>=', $recentThreshold);
             })
+            // Exclude records marked as eliminated by reconcile-status
+            ->whereRaw("COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.primary_result')), '') != 'eliminated'")
             ->orderBy('election_date')
             ->orderByDesc('last_seen_at')
             ->limit(150)

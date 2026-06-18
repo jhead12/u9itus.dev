@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Models\ElectionCandidateRecord;
 use App\Models\Politician;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
@@ -52,6 +53,12 @@ class ReconcilePoliticianStatus extends Command
     /** Lower-cased "name|state" keys of politicians currently in the feed */
     private array $currentNameStateKeys = [];
 
+    /**
+     * Maps "name|state" → ['political_office' => string, 'district_code' => string]
+     * for seated members — used to correct stale office/district on Politician rows.
+     */
+    private array $currentMemberData = [];
+
     public function handle(): int
     {
         $dryRun       = (bool) $this->option('dry-run');
@@ -86,9 +93,28 @@ class ReconcilePoliticianStatus extends Command
             }
 
             $name  = strtolower(trim((string) ($row['name']['official_full'] ?? $this->buildName($row))));
-            $state = strtoupper(trim((string) ($this->latestTerm($row)['state'] ?? '')));
+            $term  = $this->latestTerm($row);
+            $state = strtoupper(trim((string) ($term['state'] ?? '')));
             if ($name && $state) {
-                $this->currentNameStateKeys[] = $name . '|' . $state;
+                $key = $name . '|' . $state;
+                $this->currentNameStateKeys[] = $key;
+
+                // Store current office & district so we can fix stale Politician rows
+                $type = strtolower(trim((string) ($term['type'] ?? '')));
+                $districtNum = isset($term['district']) ? (int) $term['district'] : null;
+                $officeTitle = match ($type) {
+                    'rep' => 'United States Representative',
+                    'sen' => 'United States Senator',
+                    default => '',
+                };
+                $districtCode = ($type === 'rep' && $districtNum !== null)
+                    ? $state . '-' . str_pad((string) $districtNum, 2, '0', STR_PAD_LEFT)
+                    : null;
+
+                $this->currentMemberData[$key] = [
+                    'political_office' => $officeTitle,
+                    'district_code'    => $districtCode,
+                ];
             }
         }
 
@@ -153,15 +179,42 @@ class ReconcilePoliticianStatus extends Command
         $isSeated = in_array($nameState, $this->currentNameStateKeys, true);
 
         if ($isSeated) {
-            if ($politician->term_status !== 'seated' || $politician->is_running_candidate) {
-                $this->line("[SEATED] {$politician->full_name} ({$politician->state})");
+            $feedData   = $this->currentMemberData[$nameState] ?? [];
+            $feedOffice = (string) ($feedData['political_office'] ?? '');
+            $feedDistrict = $feedData['district_code'] ?? null;
+
+            $needsUpdate = $politician->term_status !== 'seated' || $politician->is_running_candidate;
+
+            // Detect office/district mismatch (e.g. Rep→Senator after chamber switch)
+            $officeChanged   = $feedOffice !== '' && $politician->political_office !== $feedOffice;
+            $districtChanged = $feedDistrict !== null
+                && $politician->district !== null
+                && !str_contains((string) $politician->district, ltrim($feedDistrict, $politician->state ?? ''));
+
+            if ($needsUpdate || $officeChanged || $districtChanged) {
+                $updates = [
+                    'term_status'          => 'seated',
+                    'is_running_candidate' => false,
+                    'is_active'            => true,
+                    'status_updated_at'    => now(),
+                ];
+
+                if ($officeChanged) {
+                    $updates['political_office'] = $feedOffice;
+                    $this->line("[OFFICE UPDATED] {$politician->full_name}: {$politician->political_office} → {$feedOffice}");
+                }
+
+                if ($districtChanged && $feedDistrict !== null) {
+                    $updates['district'] = $feedDistrict;
+                    $this->line("[DISTRICT UPDATED] {$politician->full_name}: {$politician->district} → {$feedDistrict}");
+                }
+
+                if ($needsUpdate) {
+                    $this->line("[SEATED] {$politician->full_name} ({$politician->state})");
+                }
+
                 if (!$dryRun) {
-                    $politician->update([
-                        'term_status'          => 'seated',
-                        'is_running_candidate' => false,
-                        'is_active'            => true,
-                        'status_updated_at'    => now(),
-                    ]);
+                    $politician->update($updates);
                 }
             }
             return 'seated';
@@ -176,6 +229,7 @@ class ReconcilePoliticianStatus extends Command
                     'is_running_candidate' => false,
                     'status_updated_at'    => now(),
                 ]);
+                $this->expireEcrRows($politician, $dryRun);
             }
             // Fall through to deactivation check below
             $politician->refresh();
@@ -195,6 +249,7 @@ class ReconcilePoliticianStatus extends Command
                         'term_status'       => 'retired',
                         'status_updated_at' => now(),
                     ]);
+                    $this->expireEcrRows($politician, $dryRun);
                 }
                 $politician->refresh();
                 return $this->maybeDeactivate($politician, $dryRun) ? 'deactivated' : 'retired';
@@ -202,6 +257,43 @@ class ReconcilePoliticianStatus extends Command
         }
 
         return 'skipped';
+    }
+
+    /**
+     * Stamp matching ElectionCandidateRecord rows as eliminated so they are
+     * excluded from the district-lookup "Running Candidates" section.
+     * Matches by lower-cased full_name + upper-cased state.
+     */
+    private function expireEcrRows(Politician $politician, bool $dryRun): void
+    {
+        $name  = strtolower(trim((string) $politician->full_name));
+        $state = strtoupper(trim((string) ($politician->state ?? '')));
+
+        if ($name === '' || $state === '') {
+            return;
+        }
+
+        $rows = ElectionCandidateRecord::query()
+            ->whereRaw('LOWER(full_name) = ?', [$name])
+            ->whereRaw('UPPER(state) = ?', [$state])
+            ->whereRaw("COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.primary_result')), '') != 'eliminated'")
+            ->get();
+
+        if ($rows->isEmpty()) {
+            return;
+        }
+
+        $this->line("  └─ [ECR EXPIRED] {$politician->full_name} — marking {$rows->count()} ECR row(s) as eliminated");
+
+        if ($dryRun) {
+            return;
+        }
+
+        foreach ($rows as $record) {
+            $payload = is_array($record->payload) ? $record->payload : [];
+            $payload['primary_result'] = 'eliminated';
+            $record->update(['payload' => $payload]);
+        }
     }
 
     /**
