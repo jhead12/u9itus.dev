@@ -824,6 +824,10 @@
                 </button>
             </div>
         </div>
+        <!-- Hidden legacy buttons kept for JS compatibility (visible in mobile drawer) -->
+        <button class="top-btn" id="btn-districts" style="display:none">District Boundaries: OFF</button>
+        <button class="top-btn" id="btn-reset" style="display:none">Reset View</button>
+        <button class="top-btn" id="btn-rotate" style="display:none">Auto-Rotate: OFF</button>
         <!-- Mobile only: hamburger -->
         <button id="mobile-menu-btn" aria-label="Open menu" aria-expanded="false" aria-controls="mobile-menu">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
@@ -1986,7 +1990,7 @@ mapRegion.addEventListener('keydown', e => {
         return;
     }
     if (e.key === '?') { toggleKbHelp(true); return; }
-    if (e.key === 'r' || e.key === 'R') { document.getElementById('btn-reset').click(); return; }
+    if (e.key === 'r' || e.key === 'R') { enterOverviewMode(); updateRotateBtn(false); return; }
 
     // Arrow keys: rotate/tilt the camera using OrbitControls
     // Shift+Arrow pans the target instead
