@@ -238,10 +238,6 @@ class MapStateCandidatesController
                 if ($primaryResult !== 'advanced_to_general') {
                     continue;
                 }
-            // Exclude candidates who lost the general election
-            $resultStatus = $payload['result_status'] ?? null;
-            if ($resultStatus === 'lost' || $resultStatus === 'loser') {
-                continue;
             }
 
             $recStatus = $payload['status'] ?? 'running';
