@@ -216,7 +216,7 @@ class EnrichStatewideOfficeholders extends Command
         }
 
         // ── Clean garbage records ──────────────────────────────────────────────
-        if ($clean && ! empty($this->enrichedNames)) {
+        if ($clean && ! empty($this->enrichedKeys)) {
             $this->line("\n<fg=yellow>[clean]</> Removing unverified statewide records not matched by enrichment...");
             $this->cleanGarbageRecords($stateFilter, $dryRun);
         }
