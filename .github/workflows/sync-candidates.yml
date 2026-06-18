@@ -304,11 +304,34 @@ jobs:
               $DRY
           fi
 
+      # ── Backfill profile photos (Wikipedia pageimages API) ───────────────
+      # For every unclaimed politician still missing a profile_photo_url,
+      # queries the Wikipedia pageimages API by name and writes the thumbnail
+      # URL back to the DB.  No API key required.  Runs after enrichment so
+      # newly upserted governors / mayors / AGs are included in this pass.
+      # --limit=1000 caps the run at 1 000 politicians per weekly sync; any
+      # remaining gaps are picked up on the next scheduled run.
+      - name: Backfill profile photos from Wikipedia
+        run: |
+          STATES="${{ github.event.inputs.states }}"
+          STATE_ARG=""
+          if [ -n "$STATES" ]; then
+            FIRST_STATE=$(echo "$STATES" | cut -d',' -f1)
+            STATE_ARG="--state=$FIRST_STATE"
+          fi
+          php artisan politicians:backfill-photos \
+            --limit=1000 \
+            $STATE_ARG \
+            ${{ steps.args.outputs.dry_arg }}
+
       # ── Sync primary election results ────────────────────────────────────
       # For each statewide candidate whose election_date is in the past,
       # scrapes Ballotpedia/Wikipedia to determine if they advanced to the
       # general or were eliminated. Stamps payload.primary_result.
       # Eliminated candidates are then hidden from the map API automatically.
+      # --force re-checks records that already have primary_result set,
+      # ensuring corrections (e.g. Chad Bianco eliminated → not advanced)
+      # are picked up on every weekly run.
       - name: Sync primary results
         run: |
           STATES="${{ github.event.inputs.states }}"
@@ -318,10 +341,11 @@ jobs:
               echo "=== Syncing primary results for $state ==="
               php artisan politicians:sync-primary-results \
                 --state="$state" \
+                --force \
                 $DRY
             done
           else
-            php artisan politicians:sync-primary-results $DRY
+            php artisan politicians:sync-primary-results --force $DRY
           fi
 
       # ── Reconcile lifecycle status ────────────────────────────────────────
@@ -398,13 +422,13 @@ jobs:
         if: ${{ github.event.inputs.include_results != 'false' }}
         run: |
           YEAR="${{ github.event.inputs.election_year || '2026' }}"
-          CREATE_ARG=""
-          if [ "${{ github.event.inputs.create_missing }}" = "true" ]; then
-            CREATE_ARG="--create-missing"
-          fi
+          # --create-missing is always on for results imports: winners like
+          # Xavier Becerra / Steve Hilton may not be in election_candidate_records
+          # yet (they weren't scraped as candidates before the primary), so we
+          # create them here with result_status='won' → primary_result='advanced_to_general'.
           php artisan politicians:import-election-results \
             --file=storage/app/imports/ballotpedia-results-${YEAR}.json \
-            $CREATE_ARG \
+            --create-missing \
             ${{ steps.args.outputs.dry_arg }}
 
       - name: Scrape 50-state local voter guides
