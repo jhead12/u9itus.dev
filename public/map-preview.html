@@ -907,8 +907,21 @@ for (const [rName, rData] of Object.entries(REGIONS)) {
 }
 
 const container = document.getElementById('map-container');
-const W = () => container.clientWidth;
+const PANEL_WIDTH = 324;
+const W = () => {
+    if (window.innerWidth > 768 && infoPanel && infoPanel.classList.contains('open')) {
+        return Math.max(container.clientWidth - PANEL_WIDTH, 200);
+    }
+    return container.clientWidth;
+};
 const H = () => container.clientHeight;
+function resizeRenderer() {
+    camera.aspect = W() / H();
+    camera.updateProjectionMatrix();
+    renderer.setSize(W(), H(), false);
+    renderer.domElement.style.width  = W() + 'px';
+    renderer.domElement.style.height = H() + 'px';
+}
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x06091a);
@@ -1276,6 +1289,7 @@ function enterOverviewMode() {
     mapMode = 'overview'; activeRegion = null; activeState = null; selectedState = null;
     clearDim(); clearDistricts();
     infoPanel.classList.remove('open');
+    resizeRenderer();
     document.getElementById('btn-back').style.display = 'none';
     document.getElementById('hint').innerHTML = 'Drag to rotate &nbsp;·&nbsp; Scroll to zoom &nbsp;·&nbsp; Click a state';
     // Restore all state meshes to full opacity
@@ -1294,6 +1308,7 @@ function enterOverviewMode() {
 function enterRegionMode(regionName, region) {
     mapMode = 'region'; activeRegion = regionName; activeState = null; selectedState = null;
     clearDistricts(); infoPanel.classList.remove('open');
+    resizeRenderer();
     controls.autoRotate = false; updateRotateBtn(false);
     document.getElementById('btn-back').style.display = '';
     document.getElementById('hint').innerHTML = `Click a state in the <span style="color:${region.hex}">${regionName}</span> region`;
@@ -1344,6 +1359,7 @@ async function enterStateMode(stateName, regionName, region) {
             <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-dasharray="31.4" stroke-dashoffset="10" stroke-linecap="round"/>
         </svg>&nbsp;Loading districts…</div>`;
     infoPanel.classList.add('open');
+    resizeRenderer();
 
     /* Panel header */
     document.getElementById('panel-state').textContent = stateName;
@@ -1881,6 +1897,7 @@ async function openDistrictPanel(districtNum, districtLabel, stateName, regionHe
     badge.style.cssText = `display:inline-block;padding:3px 12px;border-radius:999px;font-size:11px;font-weight:600;background:${color}22;color:${color};border:1px solid ${color}55;`;
     document.getElementById('panel-states').innerHTML = '';
     infoPanel.classList.add('open');
+    resizeRenderer();
 
     const candEl = document.getElementById('panel-candidates');
     candEl.innerHTML = `<div class="panel-spinner"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="animation:spin 1s linear infinite;color:${color};"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-dasharray="31.4" stroke-dashoffset="10" stroke-linecap="round"/></svg>&nbsp;Loading…</div>`;
@@ -2444,8 +2461,8 @@ controls.addEventListener('start', () => {
 
 document.getElementById('panel-close').addEventListener('click', () => {
     infoPanel.classList.remove('open');
+    resizeRenderer();
     if (mapMode === 'state') {
-        // If we were viewing a specific district, go back to state overview
         resetDistrictSelection();
     } else {
         handleBack();
@@ -2462,11 +2479,7 @@ function animate() {
 }
 animate();
 
-window.addEventListener('resize', () => {
-    camera.aspect = W() / H();
-    camera.updateProjectionMatrix();
-    renderer.setSize(W(), H());
-});
+window.addEventListener('resize', resizeRenderer);
 </script>
 </body>
 </html>

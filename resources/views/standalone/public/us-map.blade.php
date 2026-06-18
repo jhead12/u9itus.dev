@@ -933,8 +933,29 @@ for (const [rName, rData] of Object.entries(REGIONS)) {
 }
 
 const container = document.getElementById('map-container');
-const W = () => container.clientWidth;
+
+/**
+ * Effective canvas width: on desktop (>768px) subtract the panel width
+ * when the panel is open so the globe renders centered in the visible area,
+ * not behind the side panel.
+ */
+const PANEL_WIDTH = 324; // panel width (300px) + right margin (12px) + border
+const W = () => {
+    if (window.innerWidth > 768 && infoPanel && infoPanel.classList.contains('open')) {
+        return Math.max(container.clientWidth - PANEL_WIDTH, 200);
+    }
+    return container.clientWidth;
+};
 const H = () => container.clientHeight;
+
+function resizeRenderer() {
+    camera.aspect = W() / H();
+    camera.updateProjectionMatrix();
+    renderer.setSize(W(), H(), false); // false = don't update canvas CSS size
+    // Offset the canvas so it fills only the map area (not under the panel)
+    renderer.domElement.style.width  = W() + 'px';
+    renderer.domElement.style.height = H() + 'px';
+}
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x06091a);
@@ -1302,6 +1323,7 @@ function enterOverviewMode() {
     mapMode = 'overview'; activeRegion = null; activeState = null; selectedState = null;
     clearDim(); clearDistricts();
     infoPanel.classList.remove('open');
+    resizeRenderer();
     document.getElementById('btn-back').style.display = 'none';
     document.getElementById('hint').innerHTML = 'Drag to rotate &nbsp;·&nbsp; Scroll to zoom &nbsp;·&nbsp; Click a state';
     // Restore all state meshes to full opacity
@@ -1320,6 +1342,7 @@ function enterOverviewMode() {
 function enterRegionMode(regionName, region) {
     mapMode = 'region'; activeRegion = regionName; activeState = null; selectedState = null;
     clearDistricts(); infoPanel.classList.remove('open');
+    resizeRenderer();
     controls.autoRotate = false; updateRotateBtn(false);
     document.getElementById('btn-back').style.display = '';
     document.getElementById('hint').innerHTML = `Click a state in the <span style="color:${region.hex}">${regionName}</span> region`;
@@ -1485,6 +1508,8 @@ function openInfoPanel() {
     if (window.innerWidth <= 768 && legend) {
         legend.classList.add('legend-collapsed');
     }
+    // Shrink renderer to exclude the panel area so the globe stays centred
+    resizeRenderer();
 }
 
 const raycaster      = new THREE.Raycaster();
@@ -2487,8 +2512,8 @@ controls.addEventListener('start', () => {
 
 document.getElementById('panel-close').addEventListener('click', () => {
     infoPanel.classList.remove('open');
+    resizeRenderer(); // restore full-width canvas now panel is gone
     if (mapMode === 'state') {
-        // If we were viewing a specific district, go back to state overview
         resetDistrictSelection();
     } else {
         handleBack();
@@ -2505,11 +2530,7 @@ function animate() {
 }
 animate();
 
-window.addEventListener('resize', () => {
-    camera.aspect = W() / H();
-    camera.updateProjectionMatrix();
-    renderer.setSize(W(), H());
-});
+window.addEventListener('resize', resizeRenderer);
 </script>
 </body>
 </html>
