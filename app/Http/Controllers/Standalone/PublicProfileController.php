@@ -1162,26 +1162,33 @@ class PublicProfileController extends Controller
             return [];
         }
 
+        // Unclaimed auto-imported public profiles (e.g. scraped governors) show all
+        // sources so voters can see donor/finance data without needing the politician
+        // to configure their show_* flags. This only applies to UNVERIFIED unclaimed
+        // profiles — if verification_status='verified', the politician has explicitly
+        // chosen which sources to show and we must respect those flags.
+        $enableByDefault = $isUnclaimed && $politician->verification_status !== 'verified';
+
         $fecService = app(\App\Services\FECService::class);
         $sources = [
             'ballotpedia' => [
                 'label' => 'Ballotpedia',
-                'enabled' => (bool) $politician->show_ballotpedia_data || $isUnclaimed,
+                'enabled' => (bool) $politician->show_ballotpedia_data || $enableByDefault,
                 'unavailable_reason' => 'No public profile data was available from Ballotpedia yet.',
             ],
             'opensecrets' => [
                 'label' => 'OpenSecrets',
-                'enabled' => (bool) $politician->show_opensecrets_data || $isUnclaimed,
+                'enabled' => (bool) $politician->show_opensecrets_data || $enableByDefault,
                 'unavailable_reason' => 'No campaign finance summary was available from OpenSecrets yet.',
             ],
             'votesmart' => [
                 'label' => 'Vote Smart',
-                'enabled' => (bool) $politician->show_votesmart_data || $isUnclaimed,
+                'enabled' => (bool) $politician->show_votesmart_data || $enableByDefault,
                 'unavailable_reason' => 'No issue positions or ratings were available from Vote Smart yet.',
             ],
             'fec' => [
                 'label' => 'Federal Election Commission',
-                'enabled' => (bool) $politician->show_fec_data || $isUnclaimed,
+                'enabled' => (bool) $politician->show_fec_data || $enableByDefault,
                 'unavailable_reason' => $fecService->isFederalCandidate($politician)
                     ? 'No current filing summary was available from the FEC yet.'
                     : 'FEC reporting applies to federal offices only.',

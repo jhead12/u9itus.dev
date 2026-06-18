@@ -14,6 +14,12 @@ return new class extends Migration
 {
     public function up(): void
     {
+        // Data corrections only apply to MySQL production data.
+        // SQLite (test suite) has no pre-existing rows to fix.
+        if (\Illuminate\Support\Facades\DB::getDriverName() === 'sqlite') {
+            return;
+        }
+
         // Use query builder to stay compatible with SQLite (tests) and MySQL (production).
         // We can't use JSON_EXTRACT in a cross-driver way, so match via LIKE on payload text.
         DB::table('election_candidate_records')

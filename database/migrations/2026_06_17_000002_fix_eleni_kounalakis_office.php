@@ -17,6 +17,12 @@ return new class extends Migration
 {
     public function up(): void
     {
+        // Data corrections only apply to MySQL production data.
+        // SQLite (test suite) has no pre-existing rows to fix.
+        if (\Illuminate\Support\Facades\DB::getDriverName() === 'sqlite') {
+            return;
+        }
+
         // Fix ElectionCandidateRecord rows that have her as Governor + seated in payload.
         // These cause her to show up under "Current Officeholder" in the Governor section.
         // Correct the office to Lieutenant Governor on those rows.
