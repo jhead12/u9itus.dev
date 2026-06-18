@@ -199,12 +199,37 @@ class AuthController extends Controller
     }
 
     // -------------------------------------------------------------------------
+    // Registration Closed — Mailing List
+    // -------------------------------------------------------------------------
+
+    public function showRegisterClosed()
+    {
+        return view('standalone.auth.register-closed');
+    }
+
+    public function storeMailingListSubscriber(Request $request)
+    {
+        $request->validate([
+            'email' => ['required', 'email', 'max:255'],
+        ]);
+
+        \Illuminate\Support\Facades\DB::table('mailing_list_subscribers')->updateOrInsert(
+            ['email' => strtolower(trim($request->email))],
+            ['source' => 'register_closed', 'updated_at' => now(), 'created_at' => now()]
+        );
+
+        return back()->with('mailing_list_success', "You're on the list! We'll email #{$request->email} as soon as registration opens.");
+    }
+
+    // -------------------------------------------------------------------------
     // Registration — Role Chooser
     // -------------------------------------------------------------------------
 
     public function showRegisterChoose(Request $request)
     {
-        abort_if(! filter_var(PlatformSettingsService::get('registration_open', null, true), FILTER_VALIDATE_BOOLEAN), 404);
+        if (! filter_var(PlatformSettingsService::get('registration_open', null, true), FILTER_VALIDATE_BOOLEAN)) {
+            return redirect()->route('register.closed');
+        }
 
         return view('standalone.auth.register-choose', [
             'referralCode' => $this->resolveIncomingReferralCode($request),
@@ -217,7 +242,9 @@ class AuthController extends Controller
 
     public function showRegisterPolitician(Request $request)
     {
-        abort_if(! filter_var(PlatformSettingsService::get('registration_open', null, true), FILTER_VALIDATE_BOOLEAN), 404);
+        if (! filter_var(PlatformSettingsService::get('registration_open', null, true), FILTER_VALIDATE_BOOLEAN)) {
+            return redirect()->route('register.closed');
+        }
 
         return view('standalone.auth.register-politician', [
             'referralCode' => $this->resolveIncomingReferralCode($request),
@@ -226,7 +253,9 @@ class AuthController extends Controller
 
     public function registerPolitician(Request $request)
     {
-        abort_if(! filter_var(PlatformSettingsService::get('registration_open', null, true), FILTER_VALIDATE_BOOLEAN), 404);
+        if (! filter_var(PlatformSettingsService::get('registration_open', null, true), FILTER_VALIDATE_BOOLEAN)) {
+            return redirect()->route('register.closed');
+        }
 
         $request->validate([
             'first_name'       => ['required', 'string', 'max:255'],
@@ -350,7 +379,9 @@ class AuthController extends Controller
 
     public function showRegisterVoter(Request $request)
     {
-        abort_if(! filter_var(PlatformSettingsService::get('registration_open', null, true), FILTER_VALIDATE_BOOLEAN), 404);
+        if (! filter_var(PlatformSettingsService::get('registration_open', null, true), FILTER_VALIDATE_BOOLEAN)) {
+            return redirect()->route('register.closed');
+        }
 
         return view('standalone.auth.register-voter', [
             'referralCode' => $this->resolveIncomingReferralCode($request),
@@ -359,7 +390,9 @@ class AuthController extends Controller
 
     public function registerVoter(Request $request)
     {
-        abort_if(! filter_var(PlatformSettingsService::get('registration_open', null, true), FILTER_VALIDATE_BOOLEAN), 404);
+        if (! filter_var(PlatformSettingsService::get('registration_open', null, true), FILTER_VALIDATE_BOOLEAN)) {
+            return redirect()->route('register.closed');
+        }
 
         $request->validate([
             'first_name'    => ['required', 'string', 'max:255'],
