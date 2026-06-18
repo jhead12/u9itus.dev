@@ -476,10 +476,17 @@
         /* ── Panel drag handle (mobile only) ── */
         .panel-drag-handle {
             display: none;
-            width: 38px; height: 4px; border-radius: 2px;
-            background: rgba(99,102,241,0.3);
-            margin: 12px auto 10px; flex-shrink: 0;
+            width: 38px; height: 5px; border-radius: 3px;
+            background: rgba(99,102,241,0.4);
+            margin: 10px auto 8px; flex-shrink: 0;
+            transition: background 0.15s;
         }
+        .panel-drag-handle:hover { background: rgba(99,102,241,0.65); }
+
+        /* Legend collapsed state (mobile toggle) */
+        #legend.legend-collapsed #legend-items { display: none; }
+        #legend.legend-collapsed #legend-toggle-icon { display: inline; transform: rotate(-90deg); }
+        #legend-toggle-icon { display: inline-block; transition: transform 0.2s; }
 
         /* ══════════════════════════════════════════
            RESPONSIVE — TABLET & MOBILE (≤ 768 px)
@@ -499,22 +506,29 @@
             #breadcrumb-bar { top: 48px; padding: 0 10px; height: 28px; }
             .bc-item, .bc-link, .bc-active { font-size: 11px; }
 
-            /* Info panel → bottom sheet */
+            /* Info panel → bottom sheet
+               Default (open class): peek at 40vh so the map stays visible.
+               User taps the drag handle to expand to 82vh for full detail.
+               Collapsed (no open class): fully off-screen. */
             #info-panel {
                 top: auto !important;
                 bottom: 0;
                 left: 0;
                 right: 0;
                 width: 100%;
-                max-height: 68vh;
+                max-height: 82vh;
+                height: 40vh;          /* peek height — map visible above */
                 border-radius: 18px 18px 0 0;
                 border-bottom: none;
                 transform: translateY(calc(100% + 2px));
                 padding: 0 16px 32px;
                 overflow-y: auto;
+                transition: transform 0.3s cubic-bezier(0.4,0,0.2,1),
+                            height 0.25s ease;
             }
             #info-panel.open { transform: translateY(0); }
-            .panel-drag-handle { display: block; }
+            #info-panel.expanded { height: 82vh; }  /* full-height after user expands */
+            .panel-drag-handle { display: block; cursor: ns-resize; }
             #panel-header { padding-top: 2px; }
 
             /* Candidate popup → bottom sheet */
@@ -560,7 +574,7 @@
            PHONE (≤ 480 px)
         ══════════════════════════════════════════ */
         @media (max-width: 480px) {
-            #info-panel { max-height: 74vh; }
+            #info-panel { max-height: 82vh; height: 38vh; }
             #cand-popup { max-height: 85vh; }
             .popup-stats { flex-direction: column; gap: 6px; }
             .popup-stat { padding: 6px 10px; }
@@ -692,12 +706,22 @@
 <div id="district-tooltip"></div>
 
 <div id="legend">
-    <h3>U.S. Regions</h3>
+    <h3 role="button" tabindex="0" style="cursor:pointer;user-select:none;"
+        onclick="this.closest('#legend').classList.toggle('legend-collapsed')"
+        onkeydown="if(event.key==='Enter'||event.key===' ')this.click()"
+        title="Tap to show/hide">
+        Party Control <span id="legend-toggle-icon" style="font-size:9px;opacity:.6;">▾</span>
+    </h3>
     <div id="legend-items"></div>
 </div>
 
 <div id="info-panel">
-    <div class="panel-drag-handle" aria-hidden="true"></div>
+    <div class="panel-drag-handle" role="button" aria-label="Expand or collapse panel" tabindex="0"
+         onclick="(function(h){
+             var p=h.closest('#info-panel');
+             if(p){ p.classList.toggle('expanded'); }
+         })(this)"
+         onkeydown="if(event.key==='Enter'||event.key===' ')this.click()"></div>
     <div id="panel-header">
         <div>
             <h2 id="panel-state" style="color:#e2e8f0; font-size:16px; font-weight:700; margin:0 0 4px; line-height:1.25;"></h2>
@@ -1345,7 +1369,7 @@ async function enterStateMode(stateName, regionName, region) {
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="animation:spin 1s linear infinite;color:${region?.hex||'#6366f1'};">
             <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-dasharray="31.4" stroke-dashoffset="10" stroke-linecap="round"/>
         </svg>&nbsp;Loading districts…</div>`;
-    infoPanel.classList.add('open');
+    openInfoPanel();
 
     /* Panel header */
     document.getElementById('panel-state').textContent = stateName;
@@ -1449,6 +1473,20 @@ window.__mapRegion = name => enterRegionMode(name, REGIONS[name]);
 const tooltip        = document.getElementById('tooltip');
 const districtTip    = document.getElementById('district-tooltip');
 const infoPanel      = document.getElementById('info-panel');
+const legend         = document.getElementById('legend');
+
+/**
+ * Open the info panel. On mobile, also collapse the legend so the map
+ * remains visible and the panel peeks at 40vh instead of covering everything.
+ */
+function openInfoPanel() {
+    infoPanel.classList.add('open');
+    infoPanel.classList.remove('expanded'); // always start at peek height
+    if (window.innerWidth <= 768 && legend) {
+        legend.classList.add('legend-collapsed');
+    }
+}
+
 const raycaster      = new THREE.Raycaster();
 const mouse          = new THREE.Vector2();
 let hoveredMesh      = null;
@@ -1881,7 +1919,7 @@ async function openDistrictPanel(districtNum, districtLabel, stateName, regionHe
     badge.textContent = `${partyLabel} · 119th Congress`;
     badge.style.cssText = `display:inline-block;padding:3px 12px;border-radius:999px;font-size:11px;font-weight:600;background:${color}22;color:${color};border:1px solid ${color}55;`;
     document.getElementById('panel-states').innerHTML = '';
-    infoPanel.classList.add('open');
+    openInfoPanel();
 
     const candEl = document.getElementById('panel-candidates');
     candEl.innerHTML = `<div class="panel-spinner"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="animation:spin 1s linear infinite;color:${color};"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-dasharray="31.4" stroke-dashoffset="10" stroke-linecap="round"/></svg>&nbsp;Loading…</div>`;
