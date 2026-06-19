@@ -23,7 +23,30 @@
     @endif
     <meta name="description" content="{{ $ogDescription }}">
 
-    {{-- Fonts --}}
+    {{-- Canonical URL --}}
+    <link rel="canonical" href="{{ $ogUrl }}">
+
+    {{-- Schema.org structured data — helps Google understand the page is about a politician --}}
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "Person",
+        "name": "{{ addslashes($politician->full_name) }}",
+        "url": "{{ $ogUrl }}",
+        "description": "{{ addslashes($ogDescription) }}",
+        "jobTitle": "{{ addslashes($politician->political_office ?? '') }}",
+        "worksFor": {
+            "@type": "GovernmentOrganization",
+            "name": "{{ addslashes(($politician->state ?? '') . ($politician->city ? ', ' . $politician->city : '')) }}"
+        }
+        @if($ogImage)
+        ,"image": "{{ $ogImage }}"
+        @endif
+        @if($politician->website_url)
+        ,"sameAs": ["{{ $politician->website_url }}"]
+        @endif
+    }
+    </script>
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=inter:300,400,500,600,700,800&display=swap" rel="stylesheet" />
 

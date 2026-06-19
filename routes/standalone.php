@@ -17,6 +17,7 @@ use App\Http\Controllers\Standalone\AdminController;
 use App\Http\Controllers\Standalone\AdminOfficeProfileController;
 use App\Http\Controllers\Standalone\PublicProfileController;
 use App\Http\Controllers\Standalone\ProfileClaimController;
+use App\Http\Controllers\Standalone\SitemapController;
 use App\Http\Controllers\Standalone\VoterOnboardingController;
 use App\Http\Controllers\Standalone\PoliticianOnboardingController;
 use App\Http\Controllers\Standalone\AdminOnboardingController;
@@ -451,6 +452,17 @@ Route::get('/district-lookup', [PublicProfileController::class, 'districtLookup'
 // Interactive 3D U.S. Regional Map
 Route::get('/map', fn() => view('standalone.public.us-map'))->name('us.map');
 Route::get('/p/{slug}', [PublicProfileController::class, 'show'])->name('politician.public.show');
+
+// SEO — Sitemap & robots.txt
+Route::get('/sitemap.xml', [SitemapController::class, 'index'])->name('sitemap');
+Route::get('/robots.txt', function () {
+    $base = rtrim(config('app.url', 'https://u9itus.com'), '/');
+    return response(
+        "User-agent: *\nDisallow: /admin\nDisallow: /dashboard\nDisallow: /api\n\nSitemap: {$base}/sitemap.xml\n",
+        200,
+        ['Content-Type' => 'text/plain']
+    );
+})->name('robots');
 
 // Profile claim flow (no auth required — claimant verifies via emailed token)
 Route::get('/p/{slug}/claim',        [ProfileClaimController::class, 'show'])->name('politician.profile.claim.show');

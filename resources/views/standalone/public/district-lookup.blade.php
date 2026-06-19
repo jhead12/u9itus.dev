@@ -6,7 +6,15 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
     <title>District Lookup — {{ config('app.name', 'U9itus') }}</title>
-    <meta name="description" content="Enter your address to find your district and view candidates running in your area.">
+    <meta name="description" content="Enter your address to find your congressional district and view verified candidates, current officeholders, and campaign finance data for your area.">
+    <link rel="canonical" href="{{ url('/district-lookup') }}">
+    <meta property="og:type"        content="website">
+    <meta property="og:url"         content="{{ url('/district-lookup') }}">
+    <meta property="og:title"       content="District Lookup — {{ config('app.name', 'U9itus') }}">
+    <meta property="og:description" content="Enter your address to find your congressional district and view verified candidates, current officeholders, and campaign finance data for your area.">
+    <meta name="twitter:card"       content="summary">
+    <meta name="twitter:title"      content="District Lookup — {{ config('app.name', 'U9itus') }}">
+    <meta name="twitter:description" content="Find your U.S. congressional district and local candidates by entering your address.">
 
     @if(file_exists(public_path('build/manifest.json')) || file_exists(public_path('hot')))
         @vite(['resources/css/app.css', 'resources/js/app.js'])

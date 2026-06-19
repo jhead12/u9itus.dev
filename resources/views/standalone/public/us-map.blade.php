@@ -1453,7 +1453,7 @@ scene.background = new THREE.Color(0x06091a);
 scene.fog = new THREE.FogExp2(0x060914, 0.004);
 
 const camera = new THREE.PerspectiveCamera(42, W() / H(), 0.1, 300);
-camera.position.set(0, 11.8, 9.2); // 38° polar, distance 15
+camera.position.set(0, 2.6, 14.8); // polar ≈80° — flat default, room to tilt both ways
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(W(), H());
@@ -1468,10 +1468,8 @@ sun.position.set(0, 20, 10); scene.add(sun);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true; controls.dampingFactor = 0.07;
 controls.minDistance = 2; controls.maxDistance = 45;
-controls.minPolarAngle = 0;                       // fully top-down allowed
-controls.maxPolarAngle = 38 * Math.PI / 180;      // 38° max tilt
-controls.minAzimuthAngle = 0;                     // lock horizontal rotation
-controls.maxAzimuthAngle = 0;
+controls.minPolarAngle = 20 * Math.PI / 180;      // 20° — near top-down
+controls.maxPolarAngle = 89 * Math.PI / 180;      // 89° — near edge-on
 controls.target.set(0, 0, 0);
 
 /* Stars */
@@ -1785,6 +1783,13 @@ fetch('https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json')
         buildLegend();
         loadingEl.style.opacity = '0';
         setTimeout(() => { loadingEl.style.display = 'none'; }, 520);
+        // Re-apply scene-level layers that were active on the last visit
+        if (ACTIVE_LAYERS.has('districts')) toggleNationalBoundaries();
+        if (ACTIVE_LAYERS.has('party')) {
+            colorMode = 'party';
+            document.getElementById('cm-btn-party-colors')?.classList.add('active');
+            applyColorMode();
+        }
         // Pre-fetch all governor parties in background so Party Control mode is ready
         fetchAllGovernorParties();
         // Pre-fetch district config (congress number, TIGERweb layer, CD field, party map)
@@ -1878,7 +1883,7 @@ function enterOverviewMode() {
         m.parent.position.z    = 0;
     }
     showRegionLegend();
-    flyTo(new THREE.Vector3(0, 11.8, 9.2), new THREE.Vector3(0, 0, 0));
+    flyTo(new THREE.Vector3(0, 2.6, 14.8), new THREE.Vector3(0, 0, 0));
     updateBreadcrumb();
 }
 
@@ -3348,6 +3353,7 @@ function syncLayerChip(layerKey, isActive) {
     }
     if (isActive) ACTIVE_LAYERS.add(layerKey);
     else ACTIVE_LAYERS.delete(layerKey);
+    try { localStorage.setItem('u9map_layers', JSON.stringify([...ACTIVE_LAYERS])); } catch (_) {}
 }
 
 function toggleLayer(layerKey) {
@@ -3779,6 +3785,14 @@ document.addEventListener('keydown', e => {
 layersPanel.querySelectorAll('.lp-chip').forEach(chip => {
     chip.addEventListener('click', e => { e.stopPropagation(); toggleLayer(chip.dataset.layer); });
 });
+
+// Restore persisted layer chip state (visual + ACTIVE_LAYERS Set).
+// Layer effects that need scene geometry (districts, party) are re-applied
+// after the map TopoJSON finishes loading below.
+try {
+    const _saved = JSON.parse(localStorage.getItem('u9map_layers') || '[]');
+    for (const key of _saved) syncLayerChip(key, true);
+} catch (_) {}
 
 /* ════════════════════════════════════════════════════════
    FLOATING DISTRICT CANDIDATE LABELS
