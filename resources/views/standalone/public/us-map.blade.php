@@ -2247,7 +2247,8 @@ function renderOfficeGroup(g, roles, color) {
     if (phase === 'post_general') {
         running = []; // General decided — only the officeholder remains
     } else if (phase === 'post_primary') {
-        running = running.filter(c => !c.primary_result || c.primary_result === 'advanced_to_general');
+        // After primary, only keep candidates explicitly marked as advanced.
+        running = running.filter(c => c.primary_result === 'advanced_to_general');
         const genDate = running.find(c => c.general_date)?.general_date;
         runningLabel  = 'General Election Candidates'
             + (genDate ? ` · ${new Date(genDate).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}` : '');
