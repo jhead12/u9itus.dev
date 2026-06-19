@@ -29,14 +29,14 @@
     {{-- Schema.org structured data — helps Google understand the page is about a politician --}}
     <script type="application/ld+json">
     {
-        "@context": "https://schema.org",
-        "@type": "Person",
+        "@@context": "https://schema.org",
+        "@@type": "Person",
         "name": "{{ addslashes($politician->full_name) }}",
         "url": "{{ $ogUrl }}",
         "description": "{{ addslashes($ogDescription) }}",
         "jobTitle": "{{ addslashes($politician->political_office ?? '') }}",
         "worksFor": {
-            "@type": "GovernmentOrganization",
+            "@@type": "GovernmentOrganization",
             "name": "{{ addslashes(($politician->state ?? '') . ($politician->city ? ', ' . $politician->city : '')) }}"
         }
         @if($ogImage)

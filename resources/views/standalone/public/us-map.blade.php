@@ -333,6 +333,11 @@
         }
         #panel-close:hover { color: #94a3b8; background: rgba(99,102,241,0.16); }
         .panel-label { color: #475569; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 10px; }
+        .panel-label-toggle { display:flex; align-items:center; justify-content:space-between; cursor:pointer; user-select:none; padding:2px 0; }
+        .panel-label-toggle:hover { color:#94a3b8; }
+        .panel-label-chevron { transition: transform 0.2s ease; font-style:normal; font-size:12px; }
+        .panel-label-toggle.collapsed .panel-label-chevron { transform: rotate(-90deg); }
+        #panel-candidates.section-collapsed { display:none; }
         .panel-divider { border: none; border-top: 1px solid rgba(99,102,241,0.12); margin: 16px 0; }
         .state-chip {
             display: inline-block; padding: 3px 9px; border-radius: 999px;
@@ -773,8 +778,8 @@
         /* ── Top-cities census markers ───────────────────────────────────── */
         .city-marker {
             position: absolute; pointer-events: auto;
-            transform: translate(-50%, -100%);
-            display: none; flex-direction: column; align-items: center; gap: 3px;
+            transform: translate(-50%, -50%);
+            display: none; align-items: center; gap: 5px;
             cursor: pointer;
         }
         .city-marker.visible { display: flex; }
@@ -799,8 +804,8 @@
         /* ── Government / Capitol markers ───────────────────────────────── */
         .gov-marker {
             position: absolute; pointer-events: auto;
-            transform: translate(-50%, -100%);
-            display: none; flex-direction: column; align-items: center; gap: 3px;
+            transform: translate(-50%, -50%);
+            display: none; align-items: center; gap: 5px;
             cursor: pointer;
         }
         .gov-marker.visible { display: flex; }
@@ -838,6 +843,7 @@
                 <tr><td><kbd>+</kbd> / <kbd>=</kbd></td><td>Zoom in</td></tr>
                 <tr><td><kbd>−</kbd></td><td>Zoom out</td></tr>
                 <tr><td><kbd>R</kbd></td><td>Reset view</td></tr>
+                <tr><td><kbd>O</kbd></td><td>Toggle offices section</td></tr>
                 <tr><td><kbd>Esc</kbd></td><td>Close panel / popup</td></tr>
                 <tr><td><kbd>?</kbd></td><td>Show / hide this help</td></tr>
                 <tr><td colspan="2" style="padding-top:10px;padding-bottom:2px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#475569;">Mouse</td></tr>
@@ -847,6 +853,11 @@
             </tbody>
         </table>
         <button id="kb-help-close" aria-label="Close keyboard help">Close</button>
+        <button id="kb-tour-btn" aria-label="Replay feature tour"
+                onclick="toggleKbHelp(false); setTimeout(() => window.startTutorial(true), 200)"
+                style="margin-top:8px;width:100%;background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.3);color:#a5b4fc;border-radius:8px;padding:8px;font-size:12px;cursor:pointer;">
+            🗺 Replay feature tour
+        </button>
     </div>
 </div>
 
@@ -1114,7 +1125,13 @@
     </div>
     <div id="panel-states" style="margin-bottom:6px;"></div>
     <hr class="panel-divider" style="margin:8px 0 10px;">
-    <p class="panel-label">Statewide Executive Offices</p>
+    <p class="panel-label panel-label-toggle" id="offices-toggle" role="button" tabindex="0"
+       aria-expanded="true" aria-controls="panel-candidates"
+       onclick="toggleOfficesSection()"
+       onkeydown="if(event.key==='Enter'||event.key===' ')toggleOfficesSection()">
+        <span>Statewide Executive Offices</span>
+        <i class="panel-label-chevron">&#9660;</i>
+    </p>
     <div id="panel-candidates">
         <div class="panel-spinner">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="animation:spin 1s linear infinite;color:#6366f1;">
@@ -1126,7 +1143,7 @@
 </div>
 
 <div id="hint" style="position:fixed;bottom:28px;right:24px;z-index:50;color:#334155;font-size:11px;text-align:right;pointer-events:none;">
-    Scroll to zoom &nbsp;·&nbsp; ↑↓ tilt &nbsp;·&nbsp; Click a state
+    Scroll to zoom &nbsp;·&nbsp; ↑↓ tilt &nbsp;·&nbsp; ←→ rotate &nbsp;·&nbsp; Click a state
 </div>
 
 {{-- ════════════════════════════════════════════════════
@@ -1469,7 +1486,7 @@ const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true; controls.dampingFactor = 0.07;
 controls.minDistance = 2; controls.maxDistance = 45;
 controls.minPolarAngle = 15 * Math.PI / 180;      // 15° — near top-down
-controls.maxPolarAngle = 90 * Math.PI / 180;      // 90° — perfectly flat (hard stop)
+controls.maxPolarAngle = 130 * Math.PI / 180;     // 130° — past horizontal (opposite tilt)
 controls.target.set(0, 0, 0);
 
 /* Stars */
@@ -1874,7 +1891,7 @@ function enterOverviewMode() {
     infoPanel.classList.remove('open');
     resizeRenderer();
     document.getElementById('btn-back').style.display = 'none';
-    document.getElementById('hint').innerHTML = 'Scroll to zoom &nbsp;·&nbsp; ↑↓ tilt &nbsp;·&nbsp; Click a state';
+    document.getElementById('hint').innerHTML = 'Scroll to zoom &nbsp;·&nbsp; ↑↓ tilt &nbsp;·&nbsp; ←→ rotate &nbsp;·&nbsp; Click a state';
     // Restore all state meshes to full opacity
     for (const m of stateMeshes) {
         m.material.transparent = false;
@@ -2057,6 +2074,29 @@ window.__mapReset  = enterOverviewMode;
 window.__mapBack   = handleBack;
 window.__mapRegion = name => enterRegionMode(name, REGIONS[name]);
 
+/* ── Collapsible "Statewide Executive Offices" section ── */
+const OFFICES_PREF_KEY = 'u9_map_offices_collapsed';
+window.toggleOfficesSection = function () {
+    const toggle    = document.getElementById('offices-toggle');
+    const container = document.getElementById('panel-candidates');
+    const collapsed = toggle.classList.toggle('collapsed');
+    container.classList.toggle('section-collapsed', collapsed);
+    toggle.setAttribute('aria-expanded', String(!collapsed));
+    try { localStorage.setItem(OFFICES_PREF_KEY, collapsed ? '1' : '0'); } catch {}
+};
+// Restore saved preference on load
+(function () {
+    try {
+        if (localStorage.getItem(OFFICES_PREF_KEY) === '1') {
+            const toggle    = document.getElementById('offices-toggle');
+            const container = document.getElementById('panel-candidates');
+            toggle.classList.add('collapsed');
+            container.classList.add('section-collapsed');
+            toggle.setAttribute('aria-expanded', 'false');
+        }
+    } catch {}
+})();
+
 /* ════════════════════════════════════════════════════════
    HOVER & CLICK
 ════════════════════════════════════════════════════════ */
@@ -2185,38 +2225,7 @@ renderer.domElement.addEventListener('mouseleave', () => {
 renderer.domElement.addEventListener('click', () => {
     raycaster.setFromCamera(mouse, camera);
 
-    /* City / Capital flag sprite click (state mode) */
-    if (mapMode === 'state') {
-        const allSprites = [
-            ...citySprites.map(c => c.sprite),
-            ...govSprites.map(g => g.sprite),
-        ];
-        if (allSprites.length) {
-            const spHits = raycaster.intersectObjects(allSprites);
-            if (spHits.length) {
-                const hit  = spHits[0].object;
-                const cDat = citySprites.find(c => c.sprite === hit);
-                if (cDat) { _openCityDrawer(cDat.name, cDat.popK, activeState, cDat.pinPos); return; }
-                const gDat = govSprites.find(g => g.sprite === hit);
-                if (gDat) {
-                    const officials = stateData?.city_officials?.[gDat.city] ?? [];
-                    const governor  = stateData?.offices?.find?.(o => /governor/i.test(o.office))?.candidates?.[0] ?? null;
-                    const rep       = governor ?? officials[0] ?? null;
-                    window.__mapTrack('gov_marker_click', {
-                        state: activeState || null, state_abbr: activeState ? STATE_ABBR_MAP[activeState] : null,
-                        meta: { cityName: gDat.city, isCapital: true },
-                    });
-                    openPolDrawer(
-                        rep ? { ...rep, office: rep.political_office || rep.office || 'Governor' }
-                            : { full_name: gDat.city, office: `State Capital · ${gDat.stateName}`, party: null },
-                        '#06b6d4',
-                        { population: null, cityName: gDat.city, isCapital: true }
-                    );
-                    return;
-                }
-            }
-        }
-    }
+    /* City / Capital dot clicks are handled by the HTML elements themselves (stopPropagation). */
 
     /* District click */
     if (mapMode === 'state' && districtMeshes.length) {
@@ -2322,13 +2331,29 @@ function toggleKbHelp(open) {
 kbHelpClose.addEventListener('click', () => toggleKbHelp(false));
 kbBadge.addEventListener('click',     () => toggleKbHelp(true));
 
-/* Tilt camera by delta radians (negative = more overhead, positive = more face-on) */
-function tiltCamera(delta) {
+/* Tilt camera by delta radians, simultaneously zooming in/out for cinematic effect.
+   zoomFactor < 1 = zoom in, > 1 = zoom out. Pass 1 for tilt-only. */
+function tiltCamera(delta, zoomFactor = 1) {
     if (!controls || !camera) return;
-    const dist = camera.position.length();
+    let dist = camera.position.length() * zoomFactor;
+    dist = Math.max(controls.minDistance, Math.min(controls.maxDistance, dist));
     let phi   = Math.atan2(Math.sqrt(camera.position.x ** 2 + camera.position.z ** 2), camera.position.y);
     const theta = Math.atan2(camera.position.x, camera.position.z);
     phi = Math.max(controls.minPolarAngle, Math.min(controls.maxPolarAngle, phi + delta));
+    camera.position.set(
+        dist * Math.sin(phi) * Math.sin(theta),
+        dist * Math.cos(phi),
+        dist * Math.sin(phi) * Math.cos(theta)
+    );
+    controls.update();
+}
+
+/* Orbit camera left/right (azimuth) by delta radians */
+function orbitCamera(delta) {
+    if (!controls || !camera) return;
+    const dist  = camera.position.length();
+    const phi   = Math.atan2(Math.sqrt(camera.position.x ** 2 + camera.position.z ** 2), camera.position.y);
+    const theta = Math.atan2(camera.position.x, camera.position.z) + delta;
     camera.position.set(
         dist * Math.sin(phi) * Math.sin(theta),
         dist * Math.cos(phi),
@@ -2357,7 +2382,6 @@ mapRegion.addEventListener('keydown', e => {
         return;
     }
     if (e.key === '?') { toggleKbHelp(true); return; }
-    if (e.key === 'r' || e.key === 'R') { enterOverviewMode(); return; }
 
     // +/- zoom (only when mapRegion is focused)
     const ZOOM_STEP = 1.15;
@@ -2379,20 +2403,168 @@ mapRegion.addEventListener('keydown', e => {
 // Global shortcuts — fire regardless of focus (except inputs)
 document.addEventListener('keydown', e => {
     if (e.target.matches('input, textarea, [contenteditable]')) return;
-    const TILT_STEP = 0.06;
-    const ZOOM_STEP = 1.15;
+    const TILT_STEP  = 0.08;
+    const ORBIT_STEP = 0.05;
     switch (e.key) {
         case '?': toggleKbHelp(); break;
+        case 'r': case 'R': enterOverviewMode(); break;
+        case 'o': case 'O': window.toggleOfficesSection(); break;
         case 'ArrowUp':
             e.preventDefault();
-            tiltCamera(-TILT_STEP);  // more overhead
+            tiltCamera(-TILT_STEP, 1.0);   // tilt overhead, no zoom
             break;
         case 'ArrowDown':
             e.preventDefault();
-            tiltCamera(+TILT_STEP);  // more face-on
+            tiltCamera(+TILT_STEP, 1.0);   // tilt past-flat, no zoom
+            break;
+        case 'ArrowLeft':
+            e.preventDefault();
+            orbitCamera(-ORBIT_STEP);       // rotate left
+            break;
+        case 'ArrowRight':
+            e.preventDefault();
+            orbitCamera(+ORBIT_STEP);       // rotate right
             break;
     }
 });
+/* ════════════════════════════════════════════════════════
+   GUIDED TOUR
+════════════════════════════════════════════════════════ */
+const TOUR_KEY = 'u9_map_tour_v1';
+const TOUR_STEPS = [
+    {
+        target: null, pos: 'center',
+        title: '🗺 Welcome to U9itus',
+        body: `Explore U.S. political representation — governors, attorneys general, representatives, and more — all on an interactive 3D map.<br><br>This quick tour covers the key controls. You can skip at any time.`,
+    },
+    {
+        target: '#map-canvas-region', pos: 'right',
+        title: '↑ ↓  Tilt  ·  ← →  Rotate',
+        body: `Press <kbd>↑</kbd> <kbd>↓</kbd> to tilt the map toward overhead or a low-angle view.<br><br>Press <kbd>←</kbd> <kbd>→</kbd> to orbit around it. Hold a key for continuous movement.`,
+    },
+    {
+        target: null, pos: 'center',
+        title: '🔍 Zoom',
+        body: `<strong style="color:#e2e8f0">Scroll</strong> your mouse wheel to zoom in and out.<br><br>Or use <kbd>+</kbd> to zoom in and <kbd>−</kbd> to zoom out from the keyboard.`,
+    },
+    {
+        target: '#btn-search', pos: 'bottom',
+        title: '/ Search',
+        body: `Press <kbd>/</kbd> to open the search bar and jump to any state or congressional district by name.`,
+    },
+    {
+        target: '#map-canvas-region', pos: 'right',
+        title: '🖱 Click a State',
+        body: `Click any state to open its political profile — statewide officeholders, 2026 candidates, and congressional district boundaries.`,
+    },
+    {
+        target: '#offices-toggle', pos: 'bottom',
+        title: '<kbd>O</kbd>  Offices Toggle',
+        body: `Press <kbd>O</kbd> or click the <strong style="color:#e2e8f0">Statewide Executive Offices</strong> header to collapse or expand that section. Your preference is remembered.`,
+    },
+    {
+        target: null, pos: 'center',
+        title: '<kbd>R</kbd>  Reset View',
+        body: `Press <kbd>R</kbd> at any time to snap the camera back to the default isometric overview position, no matter how far you've tilted or orbited.`,
+    },
+    {
+        target: '#kb-hint-badge', pos: 'top',
+        title: '<kbd>?</kbd>  Keyboard Help',
+        body: `Press <kbd>?</kbd> or click this badge to see the full shortcut reference. You can relaunch this tour from there too.`,
+        isLast: true,
+    },
+];
+
+let _tourStep = 0;
+
+window.startTutorial = function (force = false) {
+    if (!force && localStorage.getItem(TOUR_KEY)) return;
+    _tourStep = 0;
+    document.getElementById('tutorial-overlay').classList.add('active');
+    _renderTourStep(0);
+};
+
+window._tourNext = function () {
+    _tourStep = Math.min(_tourStep + 1, TOUR_STEPS.length - 1);
+    _renderTourStep(_tourStep);
+};
+window._tourBack = function () {
+    _tourStep = Math.max(_tourStep - 1, 0);
+    _renderTourStep(_tourStep);
+};
+window._tourEnd = function () {
+    document.getElementById('tutorial-overlay').classList.remove('active');
+    document.getElementById('tutorial-highlight').classList.add('hidden');
+    try { localStorage.setItem(TOUR_KEY, '1'); } catch {}
+};
+
+function _renderTourStep(idx) {
+    const step   = TOUR_STEPS[idx];
+    const total  = TOUR_STEPS.length;
+    const card   = document.getElementById('tutorial-card');
+    const hl     = document.getElementById('tutorial-highlight');
+    const isLast = !!step.isLast;
+
+    const dots = TOUR_STEPS.map((_, i) =>
+        `<span class="t-dot${i === idx ? ' active' : ''}"></span>`
+    ).join('');
+
+    card.innerHTML = `
+        <p class="t-label">Step ${idx + 1} of ${total}</p>
+        <p class="t-title">${step.title}</p>
+        <div class="t-body">${step.body}</div>
+        <div class="t-actions">
+            <div class="t-dots">${dots}</div>
+            <div class="t-btns">
+                ${idx > 0 ? `<button class="t-btn-back" onclick="window._tourBack()">← Back</button>` : ''}
+                ${isLast
+                    ? `<button class="t-btn-next" onclick="window._tourEnd()">Finish 🎉</button>`
+                    : `<button class="t-btn-skip" onclick="window._tourEnd()">Skip</button>
+                       <button class="t-btn-next" onclick="window._tourNext()">Next →</button>`}
+            </div>
+        </div>`;
+
+    // Highlight target element
+    const target = step.target ? document.querySelector(step.target) : null;
+    if (target) {
+        const r = target.getBoundingClientRect(), pad = 6;
+        hl.style.top    = `${r.top    - pad}px`;
+        hl.style.left   = `${r.left   - pad}px`;
+        hl.style.width  = `${r.width  + pad * 2}px`;
+        hl.style.height = `${r.height + pad * 2}px`;
+        hl.classList.remove('hidden');
+        _posCard(card, r, step.pos);
+    } else {
+        hl.classList.add('hidden');
+        card.style.cssText = 'top:50%;left:50%;transform:translate(-50%,-50%)';
+    }
+}
+
+function _posCard(card, rect, side) {
+    const CW = 320, CH = 220, GAP = 16;
+    const vw = window.innerWidth, vh = window.innerHeight;
+    let top, left;
+    switch (side) {
+        case 'bottom': top = rect.bottom + GAP; left = rect.left + rect.width / 2 - CW / 2; break;
+        case 'top':    top = rect.top - CH - GAP; left = rect.left + rect.width / 2 - CW / 2; break;
+        case 'left':   top = rect.top + rect.height / 2 - CH / 2; left = rect.left - CW - GAP; break;
+        default:       top = rect.top + rect.height / 2 - CH / 2; left = rect.right + GAP; break;
+    }
+    top  = Math.max(12, Math.min(vh - CH - 12, top));
+    left = Math.max(12, Math.min(vw - CW - 12, left));
+    card.style.cssText = `top:${top}px;left:${left}px;transform:none`;
+}
+
+// Dismiss on Escape
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && document.getElementById('tutorial-overlay').classList.contains('active')) {
+        window._tourEnd();
+    }
+});
+
+// Auto-launch on first visit after map finishes loading
+setTimeout(() => window.startTutorial(), 2000);
+
 // Click outside popup to close
 document.addEventListener('click', e => {
     if (candPopup.classList.contains('visible') && !candPopup.contains(e.target) && !e.target.closest('.candidate-name')) closePopup();
@@ -3510,126 +3682,12 @@ function fmtPop(thousands) {
 }
 
 /* ════════════════════════════════════════════════════════
-   CITY & CAPITAL FLAG SPRITES  (THREE.js, moves with map)
+   CITY & CAPITAL OVERLAY DOTS  (HTML, projected each frame)
 ════════════════════════════════════════════════════════ */
-let citySprites = [];   // { sprite, name, popK }
-let govSprites  = [];   // { sprite, city, stateName }
+let citySprites = [];   // { el, worldPos, name, popK, pinPos }
+let govSprites  = [];   // { el, worldPos, city, stateName, pinPos }
 
-/**
- * Build a canvas-textured THREE.Sprite shaped like a map pin flag.
- * The sprite's internal _pinOffsetY tells callers how far above the
- * pin-base the sprite centre sits, so callers can position it correctly.
- */
-function makeFlagSprite(name, line2, hexColor) {
-    const DPR = Math.min(window.devicePixelRatio || 1, 2);
-    const LW = 108, LH = 56;   // compact logical canvas
-    const canvas = document.createElement('canvas');
-    canvas.width  = LW * DPR;
-    canvas.height = LH * DPR;
-    const ctx = canvas.getContext('2d');
-    ctx.scale(DPR, DPR);
-
-    const px = 19, py = 15, pr = 10;     // pin circle centre + radius
-    const anchorY = 50, anchorR = 2.5;   // stem anchor dot
-
-    // ambient glow
-    const glow = ctx.createRadialGradient(px, py, 0, px, py, pr * 2.4);
-    glow.addColorStop(0,   hexColor + 'aa');
-    glow.addColorStop(0.5, hexColor + '33');
-    glow.addColorStop(1,   'transparent');
-    ctx.fillStyle = glow;
-    ctx.fillRect(0, 0, px + pr * 2.6, py + pr * 2.6);
-
-    // pin shadow
-    ctx.shadowColor   = 'rgba(0,0,0,0.55)';
-    ctx.shadowBlur    = 7;
-    ctx.shadowOffsetY = 2;
-    ctx.fillStyle = hexColor;
-    ctx.beginPath();
-    ctx.arc(px, py, pr, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.shadowColor = 'transparent';
-
-    // inner radial highlight
-    const grad = ctx.createRadialGradient(px - 3, py - 3, 1, px, py, pr);
-    grad.addColorStop(0, 'rgba(255,255,255,0.30)');
-    grad.addColorStop(1, 'rgba(0,0,0,0.05)');
-    ctx.fillStyle = grad;
-    ctx.beginPath();
-    ctx.arc(px, py, pr, 0, Math.PI * 2);
-    ctx.fill();
-
-    // white ring
-    ctx.strokeStyle = 'rgba(255,255,255,0.80)';
-    ctx.lineWidth   = 1.5;
-    ctx.beginPath();
-    ctx.arc(px, py, pr, 0, Math.PI * 2);
-    ctx.stroke();
-
-    // stem
-    ctx.strokeStyle = 'rgba(190,210,235,0.60)';
-    ctx.lineWidth   = 1.5;
-    ctx.lineCap     = 'round';
-    ctx.beginPath();
-    ctx.moveTo(px, py + pr + 1);
-    ctx.lineTo(px, anchorY - anchorR - 1);
-    ctx.stroke();
-
-    // anchor dot
-    ctx.shadowColor = 'rgba(0,0,0,0.40)';
-    ctx.shadowBlur  = 4;
-    ctx.fillStyle   = hexColor;
-    ctx.beginPath();
-    ctx.arc(px, anchorY, anchorR, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.shadowColor = 'transparent';
-    ctx.strokeStyle = 'rgba(255,255,255,0.80)';
-    ctx.lineWidth   = 0.8;
-    ctx.beginPath();
-    ctx.arc(px, anchorY, anchorR, 0, Math.PI * 2);
-    ctx.stroke();
-
-    // label pill
-    const lx = px + pr + 5, ly = py - 11;
-    const lw = LW - lx - 3, lh = 22;
-    ctx.fillStyle   = 'rgba(6,12,28,0.82)';
-    ctx.strokeStyle = 'rgba(255,255,255,0.09)';
-    ctx.lineWidth   = 0.5;
-    ctx.beginPath();
-    const r = 11;
-    ctx.moveTo(lx + r, ly);
-    ctx.lineTo(lx + lw - r, ly);   ctx.quadraticCurveTo(lx + lw, ly,      lx + lw, ly + r);
-    ctx.lineTo(lx + lw, ly + lh - r); ctx.quadraticCurveTo(lx + lw, ly + lh, lx + lw - r, ly + lh);
-    ctx.lineTo(lx + r, ly + lh);   ctx.quadraticCurveTo(lx, ly + lh,  lx,      ly + lh - r);
-    ctx.lineTo(lx, ly + r);        ctx.quadraticCurveTo(lx, ly,       lx + r,  ly);
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
-
-    // label text — fit to pill width
-    ctx.fillStyle    = '#dde4f0';
-    ctx.font         = `600 9px -apple-system,system-ui,'Segoe UI',sans-serif`;
-    ctx.textBaseline = 'middle';
-    const maxW = lw - 12;
-    let label = name;
-    while (ctx.measureText(label).width > maxW && label.length > 3)
-        label = label.slice(0, -1);
-    if (label !== name) label = label.slice(0, -1) + '\u2026';
-    ctx.fillText(label, lx + 6, ly + lh / 2);
-
-    const tex = new THREE.CanvasTexture(canvas);
-    const mat = new THREE.SpriteMaterial({
-        map: tex, transparent: true, depthTest: false, sizeAttenuation: true,
-    });
-    const sprite = new THREE.Sprite(mat);
-    const scl = 0.0022;
-    sprite.scale.set(LW * scl, LH * scl, 1);
-    sprite.renderOrder = 10;
-    // anchor (anchorY px from top) must align with worldPos;
-    // sprite centre must be (anchorY - LH/2) px above it in canvas→world mapping
-    sprite._pinOffsetY = (anchorY - LH / 2) * scl;   // +ve = centre above worldPos
-    return sprite;
-}
+// (sprite builder removed — dots are now HTML overlays projected via camera each frame)
 
 /* Returns up to n district label entries closest to worldPos */
 function nearestDistricts(worldPos, n = 3) {
@@ -3649,21 +3707,27 @@ function buildCityMarkers(stateName) {
     for (const [name, lat, lng, popK] of cities) {
         const xy = project([lng, lat]);
         if (!xy) continue;
-        const pinPos = new THREE.Vector3(xy[0], xy[1], 0.40);
+        const worldPos = new THREE.Vector3(xy[0], xy[1], 0.15);
 
-        const sprite = makeFlagSprite(name, fmtPop(popK) + ' residents', '#d97706');
-        sprite.position.set(pinPos.x, pinPos.y + sprite._pinOffsetY, pinPos.z);
-        mapGroup.add(sprite);
-        citySprites.push({ sprite, name, popK, pinPos });
+        const el = document.createElement('button');
+        el.className = 'city-marker';
+        el.setAttribute('aria-label', `${name} — ${fmtPop(popK)} residents`);
+        el.innerHTML =
+            `<span class="city-dot-ring" style="width:16px;height:16px">` +
+            `<span class="city-dot-core" style="width:8px;height:8px"></span></span>` +
+            `<span class="city-name-tag">${name}</span>`;
+        el.addEventListener('click', (e) => {
+            e.stopPropagation();
+            _openCityDrawer(name, popK, activeState, worldPos);
+        });
+        mapLabelsLayer.appendChild(el);
+        requestAnimationFrame(() => el.classList.add('visible'));
+        citySprites.push({ el, worldPos, name, popK, pinPos: worldPos });
     }
 }
 
 function clearCityMarkers() {
-    for (const c of citySprites) {
-        mapGroup.remove(c.sprite);
-        c.sprite.material.map?.dispose();
-        c.sprite.material.dispose();
-    }
+    for (const c of citySprites) c.el.remove();
     citySprites = [];
 }
 
@@ -3737,19 +3801,37 @@ function buildGovMarkers(stateName) {
     const xy = project([lng, lat]);
     if (!xy) return;
 
-    const pinPos = new THREE.Vector3(xy[0], xy[1], 0.42); // slightly above city flags
-    const sprite = makeFlagSprite('★ ' + city, 'State Capital', '#0891b2');
-    sprite.position.set(pinPos.x, pinPos.y + sprite._pinOffsetY, pinPos.z);
-    mapGroup.add(sprite);
-    govSprites.push({ sprite, city, stateName, pinPos });
+    const worldPos = new THREE.Vector3(xy[0], xy[1], 0.15);
+    const el = document.createElement('button');
+    el.className = 'gov-marker';
+    el.setAttribute('aria-label', `${city} — State Capital`);
+    el.innerHTML =
+        `<span class="gov-dot-ring" style="width:18px;height:18px">` +
+        `<span class="gov-dot-core" style="width:10px;height:10px"></span></span>` +
+        `<span class="gov-name-tag">★ ${city}</span>`;
+    el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const officials = stateData?.city_officials?.[city] ?? [];
+        const governor  = stateData?.offices?.find?.(o => /governor/i.test(o.office))?.candidates?.[0] ?? null;
+        const rep       = governor ?? officials[0] ?? null;
+        window.__mapTrack('gov_marker_click', {
+            state: activeState || null, state_abbr: activeState ? STATE_ABBR_MAP[activeState] : null,
+            meta: { cityName: city, isCapital: true },
+        });
+        openPolDrawer(
+            rep ? { ...rep, office: rep.political_office || rep.office || 'Governor' }
+                : { full_name: city, office: `State Capital · ${stateName}`, party: null },
+            '#06b6d4',
+            { population: null, cityName: city, isCapital: true }
+        );
+    });
+    mapLabelsLayer.appendChild(el);
+    requestAnimationFrame(() => el.classList.add('visible'));
+    govSprites.push({ el, worldPos, city, stateName, pinPos: worldPos });
 }
 
 function clearGovMarkers() {
-    for (const g of govSprites) {
-        mapGroup.remove(g.sprite);
-        g.sprite.material.map?.dispose();
-        g.sprite.material.dispose();
-    }
+    for (const g of govSprites) g.el.remove();
     govSprites = [];
 }
 
@@ -3931,6 +4013,23 @@ function buildDistrictLabels(stateName) {
 function clearDistrictLabels() {
     for (const lbl of districtLabels) lbl.el.remove();
     districtLabels = [];
+}
+
+function updateCityDots() {
+    if (!citySprites.length && !govSprites.length) return;
+    const W = renderer.domElement.clientWidth;
+    const H = renderer.domElement.clientHeight;
+    for (const dot of [...citySprites, ...govSprites]) {
+        _lblVec.copy(dot.worldPos);
+        _lblVec.applyMatrix4(mapGroup.matrixWorld);
+        _lblVec.project(camera);
+        const sx = ( _lblVec.x * 0.5 + 0.5) * W;
+        const sy = (-_lblVec.y * 0.5 + 0.5) * H;
+        const behind  = _lblVec.z > 1;
+        const outside = sx < -40 || sx > W + 40 || sy < 20 || sy > H + 40;
+        if (behind || outside) { dot.el.style.display = 'none'; }
+        else { dot.el.style.display = 'flex'; dot.el.style.left = sx + 'px'; dot.el.style.top = sy + 'px'; }
+    }
 }
 
 function updateDistrictLabels() {
@@ -4177,6 +4276,7 @@ function animate() {
     controls.update();
     renderer.render(scene, camera);
     updateDistrictLabels();
+    updateCityDots();
 }
 animate();
 
