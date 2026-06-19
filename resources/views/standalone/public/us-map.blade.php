@@ -607,7 +607,53 @@
         .cm-kbd { font-size: 10px; color: #334155; font-family: monospace;
                   border: 1px solid #1e293b; border-radius: 3px; padding: 1px 5px; }
 
-        /* ── Branded scrollbars ───────────────────────────────────────────── */
+        /* ── Layers multi-select panel ─────────────────────────────────── */
+        #layers-wrap { position: relative; }
+        #layers-panel {
+            display: none; position: absolute; top: calc(100% + 8px); right: 0;
+            min-width: 270px; z-index: 9999;
+            background: rgba(10, 14, 35, 0.97);
+            border: 1px solid rgba(99,102,241,0.32);
+            border-radius: 14px;
+            box-shadow: 0 16px 48px rgba(0,0,0,0.65), 0 0 0 1px rgba(99,102,241,0.08) inset;
+            backdrop-filter: blur(18px);
+            padding: 12px 14px 14px;
+        }
+        #layers-panel.open { display: block; }
+        .lp-section {
+            font-size: 9px; font-weight: 700; letter-spacing: .12em;
+            text-transform: uppercase; color: #334155;
+            margin: 10px 0 6px;
+        }
+        .lp-section:first-child { margin-top: 0; }
+        .lp-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+        .lp-chip {
+            display: flex; align-items: center; gap: 6px;
+            padding: 6px 12px; border-radius: 999px;
+            background: rgba(99,102,241,0.06);
+            border: 1px solid rgba(99,102,241,0.18);
+            color: #64748b; font-size: 12px; font-weight: 500;
+            cursor: pointer; transition: all 0.14s;
+            white-space: nowrap; user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            line-height: 1;
+        }
+        .lp-chip:hover { color: #94a3b8; border-color: rgba(99,102,241,0.42); background: rgba(99,102,241,0.13); }
+        .lp-chip.active {
+            background: rgba(99,102,241,0.22);
+            border-color: rgba(99,102,241,0.62);
+            color: #c7d2fe; font-weight: 600;
+        }
+        .lp-dot {
+            width: 7px; height: 7px; border-radius: 50%;
+            background: rgba(99,102,241,0.25); flex-shrink: 0;
+            transition: background 0.14s;
+        }
+        .lp-chip.active .lp-dot { background: #818cf8; box-shadow: 0 0 4px #818cf8; }
+        @media (max-width: 768px) {
+            #layers-panel { min-width: 220px; right: -10px; }
+            .lp-chip { padding: 8px 13px; font-size: 13px; }
+        } ───────────────────────────────────────────── */
         /* WebKit (Chrome, Safari, Edge) */
         ::-webkit-scrollbar              { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track        { background: rgba(15, 23, 42, 0.6); border-radius: 3px; }
@@ -736,6 +782,10 @@
                 <tr><td><kbd>R</kbd></td><td>Reset view</td></tr>
                 <tr><td><kbd>Esc</kbd></td><td>Close panel / popup</td></tr>
                 <tr><td><kbd>?</kbd></td><td>Show / hide this help</td></tr>
+                <tr><td colspan="2" style="padding-top:10px;padding-bottom:2px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#475569;">Mouse</td></tr>
+                <tr><td><kbd>Shift</kbd> + drag</td><td>Pan map</td></tr>
+                <tr><td>Scroll wheel</td><td>Zoom in / out</td></tr>
+                <tr><td>Right-drag</td><td>Pan map</td></tr>
             </tbody>
         </table>
         <button id="kb-help-close" aria-label="Close keyboard help">Close</button>
@@ -780,6 +830,47 @@
             Search
             <span style="font-size:10px;color:#334155;border:1px solid #1e293b;border-radius:3px;padding:1px 5px;font-family:monospace;">/</span>
         </button>
+        <!-- Layers multi-select panel -->
+        <div id="layers-wrap">
+            <button class="top-btn" id="btn-layers"
+                aria-haspopup="true" aria-expanded="false" aria-controls="layers-panel"
+                title="Toggle map data layers">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <polygon points="12 2 2 7 12 12 22 7 12 2"/>
+                    <polyline points="2 17 12 22 22 17"/>
+                    <polyline points="2 12 12 17 22 12"/>
+                </svg>
+                Layers
+            </button>
+            <div id="layers-panel" role="menu" aria-label="Map data layers">
+                <div class="lp-section">Boundaries</div>
+                <div class="lp-chips">
+                    <button class="lp-chip" data-layer="districts"
+                        role="menuitemcheckbox" aria-checked="false"
+                        title="Overlay congressional district lines across all 50 states">
+                        <span class="lp-dot"></span>Congressional Districts
+                    </button>
+                    <button class="lp-chip" data-layer="cities"
+                        role="menuitemcheckbox" aria-checked="false"
+                        title="Show incorporated city &amp; town boundaries (loads when a state is selected)">
+                        <span class="lp-dot"></span>City Limits
+                    </button>
+                </div>
+                <div class="lp-section">Data Overlays</div>
+                <div class="lp-chips">
+                    <button class="lp-chip" data-layer="party"
+                        role="menuitemcheckbox" aria-checked="false"
+                        title="Color states by the party of the current governor">
+                        <span class="lp-dot"></span>Party Control
+                    </button>
+                    <button class="lp-chip" data-layer="population"
+                        role="menuitemcheckbox" aria-checked="false"
+                        title="Shade congressional districts by resident population — darker = more people">
+                        <span class="lp-dot"></span>Population Density
+                    </button>
+                </div>
+            </div>
+        </div>
         <!-- Controls dropdown -->
         <div id="controls-wrap">
             <button class="top-btn" id="btn-controls" aria-haspopup="true" aria-expanded="false" aria-controls="controls-menu" title="Map controls">
@@ -806,6 +897,12 @@
                     <span>Party Control Colors</span>
                     <span class="cm-toggle" aria-hidden="true"></span>
                 </button>
+                <hr class="cm-divider">
+                <div class="cm-section">Mouse</div>
+                <div class="cm-item" style="cursor:default;pointer-events:none;">
+                    <span>Pan Map</span>
+                    <span class="cm-kbd">Shift + Drag</span>
+                </div>
                 <hr class="cm-divider">
                 <div class="cm-section">Keyboard</div>
                 <button class="cm-item" id="cm-btn-kb-help" role="menuitem">
@@ -1232,7 +1329,7 @@ function resizeRenderer() {
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x06091a);
-scene.fog = new THREE.FogExp2(0x060914, 0.014);
+scene.fog = new THREE.FogExp2(0x060914, 0.004);
 
 const camera = new THREE.PerspectiveCamera(42, W() / H(), 0.1, 300);
 camera.position.set(0, 7, 13);
@@ -1242,11 +1339,10 @@ renderer.setSize(W(), H());
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 container.appendChild(renderer.domElement);
 
-scene.add(new THREE.AmbientLight(0x6080b0, 0.65));
-const sun = new THREE.DirectionalLight(0xffffff, 1.1);
-sun.position.set(6, 14, 10); scene.add(sun);
-const fill = new THREE.DirectionalLight(0x304080, 0.35);
-fill.position.set(-8, -4, -12); scene.add(fill);
+/* Flat-map lighting: strong even ambient, minimal directional shadow */
+scene.add(new THREE.AmbientLight(0xffffff, 1.7));
+const sun = new THREE.DirectionalLight(0xffffff, 0.18);
+sun.position.set(0, 20, 10); scene.add(sun);
 
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true; controls.dampingFactor = 0.07;
@@ -1265,7 +1361,7 @@ const sGeo = new THREE.BufferGeometry();
 sGeo.setAttribute('position', new THREE.BufferAttribute(sBuf, 3));
 scene.add(new THREE.Points(sGeo, new THREE.PointsMaterial({ color: 0x8899cc, size: 0.18, sizeAttenuation: true })));
 
-scene.add(new THREE.Mesh(new THREE.PlaneGeometry(22, 14), new THREE.MeshPhongMaterial({ color: 0x0d1a36 })));
+scene.add(new THREE.Mesh(new THREE.PlaneGeometry(22, 14), new THREE.MeshLambertMaterial({ color: 0x0b1429 })));
 
 /* ════════════════════════════════════════════════════════
    PROJECTION
@@ -1384,8 +1480,8 @@ function buildState(feature) {
     for (const poly of polys) {
         const shape = buildShapeFromRings(poly);
         if (!shape) continue;
-        const geo = new THREE.ExtrudeGeometry(shape, { depth: 0.28, bevelEnabled: false });
-        const mat = new THREE.MeshPhongMaterial({ color, shininess: 25, specular: new THREE.Color(0x1a2a44) });
+        const geo = new THREE.ExtrudeGeometry(shape, { depth: 0.03, bevelEnabled: false });
+        const mat = new THREE.MeshLambertMaterial({ color });
         const mesh = new THREE.Mesh(geo, mat);
         mesh.userData = { name, regionName, region, originalColor: color };
         group.add(mesh); stateMeshes.push(mesh);
@@ -1483,6 +1579,7 @@ async function loadCongressionalDistricts(fips) {
 function clearDistricts() {
     if (districtGroup) { mapGroup.remove(districtGroup); districtGroup = null; }
     districtMeshes = []; hoveredDistrict = null;
+    clearCityLayer();
 }
 
 /* Restore all district fills to full opacity (called when panel goes back to state view) */
@@ -1490,7 +1587,7 @@ function resetDistrictSelection() {
     for (const d of districtMeshes) {
         d.material.color.setHex(d.userData.originalColor);
         d.material.opacity = 0.88;
-        d.position.z       = 0.29;
+        d.position.z       = 0.035;
     }
 }
 
@@ -1528,13 +1625,12 @@ async function buildDistrictOverlay(stateName, regionHex) {
             const shape = buildShapeFromRings(poly);
             if (!shape) continue;
 
-            const geo = new THREE.ExtrudeGeometry(shape, { depth: 0.04, bevelEnabled: false }); // flat — reads like map tiles
-            const mat = new THREE.MeshPhongMaterial({
+            const geo = new THREE.ExtrudeGeometry(shape, { depth: 0.01, bevelEnabled: false });
+            const mat = new THREE.MeshLambertMaterial({
                 color: shade, transparent: true, opacity: 0.88,
-                shininess: 60, specular: new THREE.Color(0x334466),
             });
             const mesh = new THREE.Mesh(geo, mat);
-            mesh.position.z = 0.29;
+            mesh.position.z = 0.035;
             mesh.userData   = { districtNum: distNum, districtLabel: label, stateName, regionHex, party, partyHex: PARTY_HEX[party], originalColor: colorInt };
             districtGroup.add(mesh);
             districtMeshes.push(mesh);
@@ -1543,7 +1639,7 @@ async function buildDistrictOverlay(stateName, regionHex) {
             const eg = new THREE.EdgesGeometry(geo, 1);
             const em = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.75 });
             const el = new THREE.LineSegments(eg, em);
-            el.position.z = 0.29;
+            el.position.z = 0.035;
             el.renderOrder = 1;          // draw borders on top of fills
             districtGroup.add(el);
         }
@@ -1786,6 +1882,9 @@ async function enterStateMode(stateName, regionName, region) {
 
     await openStatePanel(stateName, regionName, region, distCount, nextStateData);
     if (requestId !== statePanelRequestId) return;
+    /* Apply active data layers now that stateData is populated */
+    if (ACTIVE_LAYERS.has('population')) applyPopulationDensity();
+    if (ACTIVE_LAYERS.has('cities')) loadCityBoundaries(stateName);
     /* Switch legend to party breakdown */
     const breakdown = {};
     for (const m of districtMeshes) { const p = m.userData.party || 'U'; breakdown[p] = (breakdown[p]||0)+1; }
@@ -1863,8 +1962,8 @@ renderer.domElement.addEventListener('mousemove', e => {
             if (hoveredDistrict && hoveredDistrict !== dm)
                 hoveredDistrict.material.color.setHex(hoveredDistrict.userData.originalColor);
             hoveredDistrict = dm;
-            /* Only brighten on hover if this isn't the currently-selected (elevated) district */
-            if (dm.position.z < 0.08) {
+            /* Brighten on hover — skip selected districts and population-density overlay */
+            if (dm.position.z < 0.04 && !ACTIVE_LAYERS.has('population')) {
                 dm.material.color.setHex(lighten(dm.userData.originalColor, 90));
                 dm.material.opacity = 0.95;
             }
@@ -1879,8 +1978,9 @@ renderer.domElement.addEventListener('mousemove', e => {
             renderer.domElement.style.cursor = 'pointer';
             return;
         }
-        if (hoveredDistrict && hoveredDistrict.position.z < 0.08) {
-            hoveredDistrict.material.color.setHex(hoveredDistrict.userData.originalColor);
+        if (hoveredDistrict && hoveredDistrict.position.z < 0.04) {
+            if (!ACTIVE_LAYERS.has('population'))
+                hoveredDistrict.material.color.setHex(hoveredDistrict.userData.originalColor);
             hoveredDistrict.material.opacity = 0.72;
         }
         hoveredDistrict = null;
@@ -1891,7 +1991,8 @@ renderer.domElement.addEventListener('mousemove', e => {
     if (mapMode === 'state') {
         // Clear any lingering hovered state and suppress tooltip for neighbour states
         if (hoveredMesh) {
-            hoveredMesh.material.color.setHex(hoveredMesh.userData.originalColor);
+            if (!ACTIVE_LAYERS.has('party'))
+                hoveredMesh.material.color.setHex(hoveredMesh.userData.originalColor);
             hoveredMesh.parent.position.z = 0;
             hoveredMesh = null;
         }
@@ -1902,7 +2003,8 @@ renderer.domElement.addEventListener('mousemove', e => {
     }
 
     if (hoveredMesh && hoveredMesh.userData.name !== selectedState) {
-        hoveredMesh.material.color.setHex(hoveredMesh.userData.originalColor);
+        if (!ACTIVE_LAYERS.has('party'))
+            hoveredMesh.material.color.setHex(hoveredMesh.userData.originalColor);
         hoveredMesh.parent.position.z = 0;
     }
     const sHits = raycaster.intersectObjects(stateMeshes);
@@ -1912,15 +2014,17 @@ renderer.domElement.addEventListener('mousemove', e => {
         const outsideRegion = mapMode === 'region' && activeRegion && m.userData.regionName !== activeRegion;
         if (outsideRegion) {
             if (hoveredMesh && hoveredMesh.userData.name !== selectedState) {
-                hoveredMesh.material.color.setHex(hoveredMesh.userData.originalColor);
+                if (!ACTIVE_LAYERS.has('party'))
+                    hoveredMesh.material.color.setHex(hoveredMesh.userData.originalColor);
                 hoveredMesh.parent.position.z = 0;
             }
             hoveredMesh = null; tooltip.style.display = 'none';
             renderer.domElement.style.cursor = 'not-allowed';
         } else {
             hoveredMesh = m;
-            if (m.userData.name !== selectedState) m.material.color.setHex(lighten(m.userData.originalColor, 50));
-            m.parent.position.z = 0.18;
+            if (m.userData.name !== selectedState && !ACTIVE_LAYERS.has('party'))
+                m.material.color.setHex(lighten(m.userData.originalColor, 50));
+            m.parent.position.z = 0.04;
             tooltip.style.display = 'block';
             tooltip.style.left = (e.clientX + 16) + 'px';
             tooltip.style.top  = (e.clientY - 14) + 'px';
@@ -1936,7 +2040,8 @@ renderer.domElement.addEventListener('mousemove', e => {
 
 renderer.domElement.addEventListener('mouseleave', () => {
     if (hoveredMesh && hoveredMesh.userData.name !== selectedState) {
-        hoveredMesh.material.color.setHex(hoveredMesh.userData.originalColor);
+        if (!ACTIVE_LAYERS.has('party'))
+            hoveredMesh.material.color.setHex(hoveredMesh.userData.originalColor);
         hoveredMesh.parent.position.z = 0;
     }
     hoveredMesh = null; tooltip.style.display = 'none'; districtTip.style.display = 'none';
@@ -1954,14 +2059,14 @@ renderer.domElement.addEventListener('click', () => {
             for (const d of districtMeshes) {
                 d.material.color.setHex(d.userData.originalColor);
                 d.material.opacity = 0.72;
-                d.position.z       = 0.29;
+                d.position.z       = 0.035;
             }
-            /* Selected district: brightened party color, elevated, fully opaque */
+            /* Selected district: brightened party color, slightly raised, fully opaque */
             const bright = new THREE.Color(dm.userData.partyHex || dm.userData.regionHex || '#6366f1')
                 .lerp(new THREE.Color(0xffffff), 0.55);
             dm.material.color.setHex(bright.getHex());
             dm.material.opacity  = 1.0;
-            dm.position.z        = 0.09;
+            dm.position.z        = 0.045;
             openDistrictPanel(dm.userData.districtNum, dm.userData.districtLabel, dm.userData.stateName, dm.userData.regionHex, dm.userData.party);
             return;
         }
@@ -2598,7 +2703,7 @@ function buildLineLoopsFromFeature(feat, color) {
             const pts = [];
             for (const coord of ring) {
                 const p = project(coord);
-                if (p) pts.push(new THREE.Vector3(p[0], p[1], 0.31));
+                if (p) pts.push(new THREE.Vector3(p[0], p[1], 0.038));
             }
             if (pts.length < 2) continue;
             const geo = new THREE.BufferGeometry().setFromPoints(pts);
@@ -2905,13 +3010,13 @@ async function activateResult(item) {
             for (const d of districtMeshes) {
                 d.material.color.setHex(d.userData.originalColor);
                 d.material.opacity = 0.45;
-                d.position.z       = 0.29;
+                d.position.z       = 0.035;
             }
             const bright = new THREE.Color(target.userData.regionHex || '#6366f1')
                 .lerp(new THREE.Color(0xffffff), 0.72);
             target.material.color.setHex(bright.getHex());
             target.material.opacity = 1.0;
-            target.position.z       = 0.44;
+            target.position.z       = 0.045;
             flyToMeshesTopDown([target], 2.6);
             openDistrictPanel(target.userData.districtNum, target.userData.districtLabel, target.userData.stateName, target.userData.regionHex, target.userData.party);
         }
@@ -3025,6 +3130,7 @@ function updateRotateBtn(on) {
 
 function updateDistrictsBtn(on) {
     document.getElementById('cm-btn-districts')?.classList.toggle('active', on);
+    syncLayerChip('districts', on);
     // Mobile drawer
     const mobSpan = document.getElementById('mob-btn-districts')?.querySelector('span');
     if (mobSpan) mobSpan.textContent = on ? 'ON' : 'OFF';
@@ -3078,6 +3184,7 @@ document.getElementById('cm-btn-party-colors').addEventListener('click', () => {
     colorMode = colorMode === 'party' ? 'region' : 'party';
     document.getElementById('cm-btn-party-colors').classList.toggle('active', colorMode === 'party');
     applyColorMode();
+    syncLayerChip('party', colorMode === 'party');
     // Keep menu open so the toggle state is visible
 });
 
@@ -3111,6 +3218,173 @@ document.getElementById('panel-close').addEventListener('click', () => {
     } else {
         handleBack();
     }
+});
+
+/* ════════════════════════════════════════════════════════
+   LAYERS PANEL — multi-select data overlays
+   Each chip independently toggles a layer. Multiple layers
+   can be active simultaneously (non-conflicting targets):
+     districts  → congressional boundary lines (state meshes)
+     cities     → incorporated place boundaries (city lines)
+     party      → state fill colors by governor party
+     population → district fill shading by census population
+════════════════════════════════════════════════════════ */
+const ACTIVE_LAYERS = new Set();
+
+function syncLayerChip(layerKey, isActive) {
+    const chip = document.querySelector(`[data-layer="${layerKey}"]`);
+    if (chip) {
+        chip.classList.toggle('active', isActive);
+        chip.setAttribute('aria-checked', String(isActive));
+    }
+    if (isActive) ACTIVE_LAYERS.add(layerKey);
+    else ACTIVE_LAYERS.delete(layerKey);
+}
+
+function toggleLayer(layerKey) {
+    const isActive = !ACTIVE_LAYERS.has(layerKey);
+    syncLayerChip(layerKey, isActive);
+    switch (layerKey) {
+        case 'districts':
+            toggleNationalBoundaries();
+            break;
+        case 'party':
+            colorMode = isActive ? 'party' : 'region';
+            document.getElementById('cm-btn-party-colors')?.classList.toggle('active', isActive);
+            applyColorMode();
+            break;
+        case 'population':
+            if (isActive) {
+                applyPopulationDensity();
+            } else {
+                for (const d of districtMeshes) d.material.color.setHex(d.userData.originalColor);
+            }
+            break;
+        case 'cities':
+            if (isActive && activeState) loadCityBoundaries(activeState);
+            else clearCityLayer();
+            break;
+    }
+}
+
+/* ── City / Incorporated Place boundary layer ────────────────────────────
+ * Fetches Census TIGERweb Places layer (incorporated cities/towns) for the
+ * active state and draws thin amber line loops above the district fills.
+ * Cached per state FIPS so repeat visits are instant.
+ */
+const TIGERWEB_PLACES_URL =
+    'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/28/query';
+let cityGroup = null;
+const cityBoundaryCache = {};
+
+function clearCityLayer() {
+    if (cityGroup) { mapGroup.remove(cityGroup); cityGroup = null; }
+}
+
+async function loadCityBoundaries(stateName) {
+    clearCityLayer();
+    if (!ACTIVE_LAYERS.has('cities')) return;
+    const fips = STATE_FIPS[stateName];
+    if (!fips) return;
+    if (cityBoundaryCache[fips]) {
+        cityGroup = cityBoundaryCache[fips];
+        mapGroup.add(cityGroup);
+        return;
+    }
+    const params = new URLSearchParams({
+        where:             `STATEFP='${fips}'`,
+        outFields:         'NAME',
+        returnGeometry:    'true',
+        f:                 'geojson',
+        geometryPrecision: '2',
+        inSR:              '4326',
+        outSR:             '4326',
+    });
+    let data;
+    try {
+        const res = await fetch(`${TIGERWEB_PLACES_URL}?${params}`, { cache: 'no-store' });
+        data = await res.json();
+    } catch (e) {
+        console.warn('[city-layer] fetch failed:', e.message);
+        return;
+    }
+    if (!data?.features?.length) return;
+    const grp = new THREE.Group();
+    const cityColor = new THREE.Color(0xfbbf24); // amber — distinct from district borders
+    for (const feat of data.features) {
+        const polys = feat.geometry?.type === 'MultiPolygon'
+            ? feat.geometry.coordinates
+            : [feat.geometry.coordinates];
+        for (const poly of polys) {
+            for (const ring of poly) {
+                const pts = [];
+                for (const coord of ring) {
+                    const p = project(coord);
+                    if (p) pts.push(new THREE.Vector3(p[0], p[1], 0.042));
+                }
+                if (pts.length < 3) continue;
+                const geo = new THREE.BufferGeometry().setFromPoints(pts);
+                grp.add(new THREE.Line(geo,
+                    new THREE.LineBasicMaterial({ color: cityColor, transparent: true, opacity: 0.52 })));
+            }
+        }
+    }
+    cityBoundaryCache[fips] = grp;
+    cityGroup = grp;
+    mapGroup.add(cityGroup);
+}
+
+/* ── Population density overlay ──────────────────────────────────────────
+ * Colors each congressional district mesh by its census population.
+ * Gradient: sparse (#0f2040 dark) → dense (#06b6d4 cyan).
+ * Only meaningful in state mode where district_populations are loaded.
+ */
+function applyPopulationDensity() {
+    if (!districtMeshes.length) return;
+    const popMap = stateData?.district_populations;
+    if (!popMap) return;
+    const abbr = activeState ? STATE_ABBR_MAP[activeState] : null;
+    const vals  = Object.values(popMap).map(d => d.total || 0).filter(v => v > 0);
+    if (!vals.length) return;
+    const minP = Math.min(...vals), maxP = Math.max(...vals), range = maxP - minP || 1;
+    const low  = new THREE.Color(0x0f2040);
+    const high = new THREE.Color(0x06b6d4);
+    for (const d of districtMeshes) {
+        const dn  = d.userData.districtNum;
+        const key = dn === 'AL' ? `${abbr}-AL` : `${abbr}-${dn}`;
+        const rec = popMap[key];
+        if (!rec) continue;
+        const t = (rec.total - minP) / range;
+        d.material.color.copy(low.clone().lerp(high, t));
+    }
+}
+
+/* ── Layers panel open/close ─────────────────────────────────────────── */
+const layersWrap  = document.getElementById('layers-wrap');
+const layersPanel = document.getElementById('layers-panel');
+const btnLayers   = document.getElementById('btn-layers');
+
+function openLayersPanel(open) {
+    layersPanel.classList.toggle('open', open);
+    btnLayers.setAttribute('aria-expanded', String(open));
+    btnLayers.classList.toggle('active', open);
+}
+
+btnLayers.addEventListener('click', e => {
+    e.stopPropagation();
+    openControlsMenu(false); // close Controls if open
+    openLayersPanel(!layersPanel.classList.contains('open'));
+});
+document.addEventListener('click', e => {
+    if (!layersWrap.contains(e.target)) openLayersPanel(false);
+});
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && layersPanel.classList.contains('open')) {
+        openLayersPanel(false); btnLayers.focus();
+    }
+});
+layersPanel.querySelectorAll('.lp-chip').forEach(chip => {
+    chip.addEventListener('click', e => { e.stopPropagation(); toggleLayer(chip.dataset.layer); });
 });
 
 /* ════════════════════════════════════════════════════════
