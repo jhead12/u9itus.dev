@@ -1131,9 +1131,18 @@ class AdminController extends Controller
      */
     public function candidateMatchReviews(Request $request)
     {
-        $query = CandidateMatchReview::with(['politician.user', 'candidateRecord'])
-            ->where('status', CandidateMatchReview::STATUS_PENDING)
-            ->latest();
+        $statusFilter = $request->query('status', 'pending');
+        $allowedStatuses = [
+            CandidateMatchReview::STATUS_PENDING,
+            CandidateMatchReview::STATUS_APPROVED,
+            CandidateMatchReview::STATUS_REJECTED,
+        ];
+
+        $query = CandidateMatchReview::with(['politician.user', 'candidateRecord'])->latest();
+
+        if (in_array($statusFilter, $allowedStatuses, true)) {
+            $query->where('status', $statusFilter);
+        }
 
         if ($search = trim((string) $request->query('q', ''))) {
             $query->where(function ($q) use ($search) {
@@ -1155,7 +1164,50 @@ class AdminController extends Controller
             'rejected' => CandidateMatchReview::where('status', CandidateMatchReview::STATUS_REJECTED)->count(),
         ];
 
-        return view('standalone.admin.candidate-match-reviews', compact('reviews', 'stats'));
+        return view('standalone.admin.candidate-match-reviews', compact('reviews', 'stats', 'statusFilter'));
+    }
+
+    /**
+     * Bulk approve or reject pending candidate match reviews.
+     */
+    public function bulkCandidateMatchAction(Request $request, PoliticianElectionMatcher $matcher)
+    {
+        $validated = $request->validate([
+            'action' => ['required', 'in:approve,reject'],
+            'review_ids' => ['required', 'array', 'min:1'],
+            'review_ids.*' => ['integer', 'exists:candidate_match_reviews,id'],
+        ]);
+
+        $action = (string) $validated['action'];
+        $reviewIds = collect($validated['review_ids'])
+            ->map(static fn ($id) => (int) $id)
+            ->unique()
+            ->values();
+
+        $reviews = CandidateMatchReview::whereIn('id', $reviewIds)
+            ->where('status', CandidateMatchReview::STATUS_PENDING)
+            ->get();
+
+        if ($reviews->isEmpty()) {
+            return back()->withErrors(['error' => 'No pending reviews were selected.']);
+        }
+
+        $updated = 0;
+        $admin = auth()->user();
+        $label = $action === 'approve' ? 'Bulk approved by admin' : 'Bulk rejected by admin';
+
+        foreach ($reviews as $review) {
+            if ($action === 'approve') {
+                $matcher->approveReview($review, $admin, $label);
+            } else {
+                $matcher->rejectReview($review, $admin, $label);
+            }
+            $updated++;
+        }
+
+        $noun = $updated === 1 ? 'match' : 'matches';
+
+        return back()->with('success', "Bulk {$action}d {$updated} candidate {$noun}.");
     }
 
     /**

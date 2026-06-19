@@ -350,10 +350,11 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
 
         // Candidate Matching Review
         Route::get('/candidate-matches', [AdminController::class, 'candidateMatchReviews'])->name('candidate-matches.index');
+        Route::post('/candidate-matches/bulk-action', [AdminController::class, 'bulkCandidateMatchAction'])->name('candidate-matches.bulk-action');
+        Route::post('/candidate-matches/import', [AdminController::class, 'importElectionCandidates'])->name('candidate-matches.import');
+        Route::post('/candidate-matches/retry/{politician}', [AdminController::class, 'retryCandidateMatch'])->name('candidate-matches.retry');
         Route::post('/candidate-matches/{review}/approve', [AdminController::class, 'approveCandidateMatch'])->name('candidate-matches.approve');
         Route::post('/candidate-matches/{review}/reject', [AdminController::class, 'rejectCandidateMatch'])->name('candidate-matches.reject');
-        Route::post('/candidate-matches/retry/{politician}', [AdminController::class, 'retryCandidateMatch'])->name('candidate-matches.retry');
-        Route::post('/candidate-matches/import', [AdminController::class, 'importElectionCandidates'])->name('candidate-matches.import');
         
         // Fraud Detection
         Route::get('/fraud', [AdminController::class, 'fraud'])->name('fraud.index');
