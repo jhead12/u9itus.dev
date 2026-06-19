@@ -212,6 +212,39 @@ jobs:
             $CREATE_ARG \
             ${{ steps.args.outputs.dry_arg }}
 
+      # ── Clean cross-office ECR conflicts ──────────────────────────────────
+      # Stamps primary_result=eliminated on any ECR row where the matched
+      # politician is already seated in a DIFFERENT office.
+      # Runs AFTER result imports so newly imported results are respected
+      # before we mark anything eliminated.
+      # --scope=state only touches statewide ECRs that affect the map panel.
+      # --scope=all also cleans up federal/house office-name mismatches.
+      - name: Clean cross-office ECR conflicts (statewide)
+        run: |
+          STATES="${{ github.event.inputs.states }}"
+          STATE_ARG=""
+          if [ -n "$STATES" ]; then
+            FIRST_STATE=$(echo "$STATES" | cut -d',' -f1)
+            STATE_ARG="--state=$FIRST_STATE"
+          fi
+          php artisan politicians:clean-cross-office-ecrs \
+            --scope=state \
+            $STATE_ARG \
+            ${{ steps.args.outputs.dry_arg }}
+
+      - name: Clean cross-office ECR conflicts (federal/house)
+        run: |
+          STATES="${{ github.event.inputs.states }}"
+          STATE_ARG=""
+          if [ -n "$STATES" ]; then
+            FIRST_STATE=$(echo "$STATES" | cut -d',' -f1)
+            STATE_ARG="--state=$FIRST_STATE"
+          fi
+          php artisan politicians:clean-cross-office-ecrs \
+            --scope=all \
+            $STATE_ARG \
+            ${{ steps.args.outputs.dry_arg }}
+
       - name: Cross-office conflict audit
         run: |
           php artisan tinker --execute="
