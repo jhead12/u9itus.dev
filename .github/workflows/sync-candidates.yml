@@ -319,7 +319,7 @@ jobs:
             FIRST_STATE=$(echo "$STATES" | cut -d',' -f1)
             STATE_ARG="--state=$FIRST_STATE"
           fi
-          if php artisan list --raw | grep -q '^politicians:backfill-photos$'; then
+          if php artisan list --raw | grep -qE '^politicians:backfill-photos([[:space:]]|$)'; then
             php artisan politicians:backfill-photos \
               --limit=1000 \
               $STATE_ARG \
@@ -358,6 +358,24 @@ jobs:
       - name: Reconcile politician status
         run: |
           php artisan politicians:reconcile-status \
+            ${{ steps.args.outputs.dry_arg }}
+
+      # ── Clean cross-office ECR conflicts ──────────────────────────────────
+      # Stamps primary_result=eliminated on ECR rows where the matched
+      # politician is already seated in a DIFFERENT office.
+      # Runs after reconcile-status so term_status values are fresh.
+      - name: Clean cross-office ECR conflicts (statewide)
+        run: |
+          php artisan politicians:clean-cross-office-ecrs \
+            --scope=state \
+            ${{ steps.args.outputs.state_args }} \
+            ${{ steps.args.outputs.dry_arg }}
+
+      - name: Clean cross-office ECR conflicts (federal/house)
+        run: |
+          php artisan politicians:clean-cross-office-ecrs \
+            --scope=all \
+            ${{ steps.args.outputs.state_args }} \
             ${{ steps.args.outputs.dry_arg }}
 
       # ── Cross-office conflict audit ───────────────────────────────────────

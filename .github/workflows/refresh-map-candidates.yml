@@ -1,0 +1,272 @@
+name: Refresh Map Candidates
+
+# Lightweight daily map-data refresh (results + status reconciliation).
+# Keeps public map candidate cards accurate between weekly full sync runs.
+on:
+  schedule:
+    - cron: "0 9 * * *"   # Every day at 09:00 UTC
+  workflow_dispatch:
+    inputs:
+      states:
+        description: "Comma-separated state codes to refresh (e.g. CA,TX,NY). Leave blank for all states."
+        default: ""
+        required: false
+      election_year:
+        description: "Election year to target for result scraping (default: 2026)"
+        default: "2026"
+        required: false
+      include_results:
+        description: "Scrape/import election results from Ballotpedia + local voter guides"
+        type: boolean
+        default: true
+      create_missing:
+        description: "Create missing candidate profiles during voter guide import"
+        type: boolean
+        default: false
+      dry_run:
+        description: "Dry-run (report only, no DB writes)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: refresh-map-candidates
+  cancel-in-progress: false
+
+jobs:
+  refresh-map-candidates:
+    name: Refresh map candidate visibility
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, pdo_mysql
+          coverage: none
+
+      - name: Cache Composer packages
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: ${{ runner.os }}-composer-${{ hashFiles('composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Install Composer dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress --no-dev
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+
+      - name: Install Node dependencies
+        run: npm ci
+        env:
+          NODE_ENV: development
+
+      - name: Install Playwright Chromium
+        run: npx playwright install chromium --with-deps
+
+      - name: Write .env
+        run: |
+          cat > .env <<EOF
+          APP_ENV=production
+          APP_KEY=${{ secrets.APP_KEY }}
+          APP_DEBUG=false
+          APP_URL=${{ secrets.APP_URL }}
+
+          DB_CONNECTION=mysql
+          DB_HOST=${{ secrets.DB_HOST }}
+          DB_PORT=${{ secrets.DB_PORT }}
+          DB_DATABASE=${{ secrets.DB_DATABASE }}
+          DB_USERNAME=${{ secrets.DB_USERNAME }}
+          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+
+          ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}
+
+          CACHE_DRIVER=database
+          SESSION_DRIVER=database
+          QUEUE_CONNECTION=sync
+          LOG_CHANNEL=stderr
+          EOF
+
+      - name: Run pending migrations
+        run: php artisan migrate --force --no-interaction
+
+      - name: Build args
+        id: args
+        run: |
+          STATES="${{ github.event.inputs.states }}"
+          STATE_ARGS=""
+          if [ -n "$STATES" ]; then
+            for state in $(echo "$STATES" | tr ',' ' '); do
+              STATE_ARGS="$STATE_ARGS --state=$state"
+            done
+          fi
+
+          DRY_ARG=""
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            DRY_ARG="--dry-run"
+          fi
+
+          echo "state_args=$STATE_ARGS" >> $GITHUB_OUTPUT
+          echo "dry_arg=$DRY_ARG" >> $GITHUB_OUTPUT
+
+      - name: Sync primary results
+        run: |
+          STATES="${{ github.event.inputs.states }}"
+          DRY="${{ steps.args.outputs.dry_arg }}"
+          if [ -n "$STATES" ]; then
+            for state in $(echo "$STATES" | tr ',' ' '); do
+              echo "=== Syncing primary results for $state ==="
+              php artisan politicians:sync-primary-results \
+                --state="$state" \
+                --force \
+                $DRY
+            done
+          else
+            php artisan politicians:sync-primary-results --force $DRY
+          fi
+
+      # ── Sync district boundary config ─────────────────────────────────────
+      # Determines the active Congress number from the date, resolves the
+      # correct TIGERweb layer + CD field, and builds the district → party
+      # map from seated U.S. House members in the DB.
+      # The map reads this via GET /api/v1/map/district-config on page load,
+      # so district borders and party colors update automatically each day
+      # without a code deploy.
+      - name: Sync district boundary config
+        run: |
+          php artisan geo:sync-district-config \
+            ${{ steps.args.outputs.dry_arg }}
+
+      - name: Reconcile politician status
+        run: |
+          php artisan politicians:reconcile-status \
+            ${{ steps.args.outputs.dry_arg }}
+
+      - name: Scrape Ballotpedia election results
+        if: ${{ github.event.inputs.include_results != 'false' }}
+        run: |
+          YEAR="${{ github.event.inputs.election_year || '2026' }}"
+          STATES="${{ github.event.inputs.states }}"
+          STATE_ARG=""
+          if [ -n "$STATES" ]; then
+            FIRST_STATE=$(echo "$STATES" | cut -d',' -f1)
+            STATE_ARG="--state=$FIRST_STATE"
+          fi
+
+          node scripts/scrape-ballotpedia.js \
+            --office=statewide \
+            --strategy=direct \
+            --year="$YEAR" \
+            --results \
+            $STATE_ARG \
+            --out=storage/app/imports/ballotpedia-results-${YEAR}.json
+
+      - name: Import Ballotpedia election results
+        if: ${{ github.event.inputs.include_results != 'false' }}
+        run: |
+          YEAR="${{ github.event.inputs.election_year || '2026' }}"
+          php artisan politicians:import-election-results \
+            --file=storage/app/imports/ballotpedia-results-${YEAR}.json \
+            --create-missing \
+            ${{ steps.args.outputs.dry_arg }}
+
+      - name: Scrape state voter guides (short cache)
+        if: ${{ github.event.inputs.include_results != 'false' }}
+        run: |
+          YEAR="${{ github.event.inputs.election_year || '2026' }}"
+          STATES="${{ github.event.inputs.states }}"
+          STATE_ARG=""
+          if [ -n "$STATES" ]; then
+            STATE_ARG="--states=$STATES"
+          fi
+
+          node scripts/scrape-state-voter-guides.js \
+            --year="$YEAR" \
+            $STATE_ARG \
+            --cache-hours=24 \
+            --out=storage/app/imports/state-voter-guides-${YEAR}.json
+
+      - name: Import local voter guide results
+        if: ${{ github.event.inputs.include_results != 'false' }}
+        run: |
+          YEAR="${{ github.event.inputs.election_year || '2026' }}"
+          CREATE_ARG=""
+          if [ "${{ github.event.inputs.create_missing }}" = "true" ]; then
+            CREATE_ARG="--create-missing"
+          fi
+
+          php artisan politicians:import-election-results \
+            --file=storage/app/imports/state-voter-guides-${YEAR}.json \
+            --skip-fresh-days=1 \
+            $CREATE_ARG \
+            ${{ steps.args.outputs.dry_arg }}
+
+      # ── Clean cross-office ECR conflicts ──────────────────────────────────
+      # Stamps primary_result=eliminated on any ECR row where the matched
+      # politician is already seated in a DIFFERENT office.
+      # Runs AFTER result imports so newly imported results are respected
+      # before we mark anything eliminated.
+      # --scope=state only touches statewide ECRs that affect the map panel.
+      # --scope=all also cleans up federal/house office-name mismatches.
+      - name: Clean cross-office ECR conflicts (statewide)
+        run: |
+          STATES="${{ github.event.inputs.states }}"
+          STATE_ARG=""
+          if [ -n "$STATES" ]; then
+            FIRST_STATE=$(echo "$STATES" | cut -d',' -f1)
+            STATE_ARG="--state=$FIRST_STATE"
+          fi
+          php artisan politicians:clean-cross-office-ecrs \
+            --scope=state \
+            $STATE_ARG \
+            ${{ steps.args.outputs.dry_arg }}
+
+      - name: Clean cross-office ECR conflicts (federal/house)
+        run: |
+          STATES="${{ github.event.inputs.states }}"
+          STATE_ARG=""
+          if [ -n "$STATES" ]; then
+            FIRST_STATE=$(echo "$STATES" | cut -d',' -f1)
+            STATE_ARG="--state=$FIRST_STATE"
+          fi
+          php artisan politicians:clean-cross-office-ecrs \
+            --scope=all \
+            $STATE_ARG \
+            ${{ steps.args.outputs.dry_arg }}
+
+      - name: Cross-office conflict audit
+        run: |
+          php artisan tinker --execute="
+            \$conflicts = \Illuminate\Support\Facades\DB::select(\"
+              SELECT p.id, p.full_name, p.state, p.political_office AS seated_office,
+                     e.political_office AS candidate_office, e.id AS ecr_id
+              FROM politicians p
+              JOIN election_candidate_records e
+                ON LOWER(e.full_name) = LOWER(p.full_name)
+               AND UPPER(COALESCE(e.state,'')) = UPPER(COALESCE(p.state,''))
+               AND LOWER(COALESCE(e.political_office,'')) != LOWER(COALESCE(p.political_office,''))
+              WHERE p.term_status IN ('seated','current')
+                AND COALESCE(JSON_UNQUOTE(JSON_EXTRACT(e.payload,'$.primary_result')),'') != 'eliminated'
+              ORDER BY p.state, p.full_name
+            \"
+            );
+            if (count(\$conflicts) === 0) {
+              echo 'No cross-office conflicts found.' . PHP_EOL;
+            } else {
+              echo 'CROSS-OFFICE CONFLICTS (' . count(\$conflicts) . '):' . PHP_EOL;
+              foreach (\$conflicts as \$c) {
+                echo '  [' . \$c->state . '] ' . \$c->full_name . ' - seated: ' . \$c->seated_office . ' | running-for: ' . \$c->candidate_office . PHP_EOL;
+              }
+            }
+          " || true

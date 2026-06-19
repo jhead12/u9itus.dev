@@ -136,12 +136,48 @@ class MapStateCandidatesController
                    'term_status', 'verified_official', 'ballotpedia_id',
                    'website_url', 'bio']);
 
+        // Lost statewide candidates on the platform should also suppress matching
+        // scraped running rows when payload.primary_result is missing/stale.
+        $lostPlatformKeys = [];
+        Politician::query()
+            ->whereRaw('UPPER(COALESCE(state, \'\')) = ?', [$state])
+            ->whereRaw('LOWER(COALESCE(governance_level, \'\')) = ?', ['state'])
+            ->whereRaw('LOWER(COALESCE(term_status, \'\')) = ?', ['lost'])
+            ->get(['full_name', 'political_office'])
+            ->each(function ($pol) use (&$lostPlatformKeys) {
+                $canonical = $this->canonicalise($pol->political_office);
+                $key = strtolower(trim((string) $pol->full_name)) . '|' . strtolower($canonical);
+                $lostPlatformKeys[$key] = true;
+            });
+
         // ── 2. Scraped ElectionCandidateRecords (not yet on platform) ─────────
         $scrapedRecords = ElectionCandidateRecord::query()
             ->whereRaw('UPPER(COALESCE(state, \'\')) = ?', [$state])
             ->whereRaw('LOWER(COALESCE(governance_level, \'\')) = ?', ['state'])
             ->get(['id', 'full_name', 'political_office', 'party_affiliation',
                    'election_date', 'source', 'external_candidate_id', 'payload']);
+
+        // If a scraped candidate row has already been marked eliminated,
+        // suppress matching platform "running" cards for the same person+office.
+        $eliminatedRunningKeys = [];
+        foreach ($scrapedRecords as $rec) {
+            $payload = is_array($rec->payload) ? $rec->payload : [];
+            $primaryResult = strtolower(trim((string) ($payload['primary_result'] ?? '')));
+            $resultStatus = strtolower(trim((string) ($payload['result_status'] ?? '')));
+            $status = strtolower(trim((string) ($payload['status'] ?? '')));
+            if (
+                $primaryResult === 'eliminated'
+                || in_array($resultStatus, ['lost', 'eliminated', 'defeated'], true)
+                || in_array($status, ['lost', 'eliminated', 'defeated'], true)
+            ) {
+                $canonical = $this->canonicalise($rec->political_office);
+                $key = strtolower(trim((string) $rec->full_name)) . '|' . strtolower($canonical);
+                $eliminatedRunningKeys[$key] = true;
+            }
+        }
+
+        // Merge explicit ECR eliminations with platform-lost candidates.
+        $excludedRunningKeys = $eliminatedRunningKeys + $lostPlatformKeys;
 
         // ── 2b. Federal (House) politicians for this state ────────────────────
         $housePoliticians = Politician::query()
@@ -185,8 +221,14 @@ class MapStateCandidatesController
         $seenGlobal = [];
 
         foreach ($platformPoliticians as $pol) {
-            $seenGlobal[strtolower($pol->full_name)] = true;
             $canonical = $this->canonicalise($pol->political_office);
+
+            $platformKey = strtolower(trim((string) $pol->full_name)) . '|' . strtolower($canonical);
+            if ((bool) $pol->is_running_candidate && isset($excludedRunningKeys[$platformKey])) {
+                continue;
+            }
+
+            $seenGlobal[strtolower($pol->full_name)] = true;
             $grouped[$canonical]['candidates'][] = [
                 'source'          => 'platform',
                 'uuid'            => $pol->uuid,
@@ -217,6 +259,25 @@ class MapStateCandidatesController
         foreach ($scrapedRecords as $rec) {
             $canonical  = $this->canonicalise($rec->political_office);
             $nameLower  = strtolower($rec->full_name);
+            $payload    = is_array($rec->payload) ? $rec->payload : [];
+            $primaryResult = strtolower(trim((string) ($payload['primary_result'] ?? '')));
+            $resultStatus = strtolower(trim((string) ($payload['result_status'] ?? '')));
+            $payloadStatus = strtolower(trim((string) ($payload['status'] ?? '')));
+            $suppressionKey = $nameLower . '|' . strtolower($canonical);
+
+            if ($primaryResult === '') {
+                $primaryResult = null;
+            }
+
+            // Exclude candidates with any explicit "lost/eliminated" signal.
+            if (
+                $primaryResult === 'eliminated'
+                || in_array($resultStatus, ['lost', 'eliminated', 'defeated'], true)
+                || in_array($payloadStatus, ['lost', 'eliminated', 'defeated'], true)
+                || isset($excludedRunningKeys[$suppressionKey])
+            ) {
+                continue;
+            }
 
             // Skip globally if this person already appears under ANY office bucket
             // (prevents duplicates like "Adam Schiff" as both a Senate ECR and
@@ -224,15 +285,8 @@ class MapStateCandidatesController
             if (isset($seenGlobal[$nameLower])) {
                 continue;
             }
-            $seenGlobal[$nameLower] = true;
-            $payload       = is_array($rec->payload) ? $rec->payload : [];
-            $primaryResult = $payload['primary_result'] ?? null;
-            $recStatus     = $payload['status'] ?? null;
 
-            // Always exclude eliminated candidates.
-            if ($primaryResult === 'eliminated') {
-                continue;
-            }
+            $recStatus     = $payload['status'] ?? null;
 
             // If the primary election date has passed, only show candidates who
             // explicitly advanced to the general. Records with no primary_result
@@ -245,6 +299,7 @@ class MapStateCandidatesController
                 }
             }
 
+            $seenGlobal[$nameLower] = true;
             $recStatus = $payload['status'] ?? 'running';
             $grouped[$canonical]['candidates'][] = [
                 'source'          => 'scraped',
