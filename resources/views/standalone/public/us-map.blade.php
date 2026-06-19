@@ -860,6 +860,174 @@
         }
         .gov-cap-tag { font-size: 9px; color: #64748b; white-space: nowrap; letter-spacing:.03em; }
         .gov-marker:hover .gov-name-tag { border-color: rgba(6,182,212,0.8); background: rgba(20,26,58,0.98); }
+
+        /* ── Floating district label layer ──────────────────────────────── */
+        #map-labels-layer {
+            position: fixed; inset: 0; pointer-events: none; z-index: 20;
+            overflow: hidden;
+        }
+        .map-label {
+            position: absolute; pointer-events: auto;
+            transform: translate(-50%, -50%);
+            display: none; align-items: center; gap: 4px;
+            background: rgba(6,9,26,0.82); border: 1px solid rgba(99,102,241,0.22);
+            border-radius: 999px; padding: 2px 8px 2px 6px;
+            font-size: 10px; cursor: pointer; white-space: nowrap;
+            transition: background 0.1s, border-color 0.1s;
+            backdrop-filter: blur(6px);
+        }
+        .map-label.visible { display: flex; }
+        .map-label:hover { background: rgba(15,20,45,0.96); border-color: rgba(99,102,241,0.5); }
+        .ml-dot {
+            width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+        }
+        .ml-name { color: #e2e8f0; font-weight: 600; max-width: 90px; overflow: hidden; text-overflow: ellipsis; }
+        .ml-dist { color: #475569; font-size: 9px; }
+
+        /* ── Politician profile drawer ───────────────────────────────────── */
+        #pol-drawer {
+            position: fixed; top: 86px; left: 12px; bottom: 12px;
+            width: 320px; z-index: 150;
+            background: rgba(8, 12, 30, 0.97);
+            border: 1px solid rgba(99,102,241,0.25);
+            border-radius: 14px;
+            backdrop-filter: blur(22px);
+            box-shadow: 0 24px 64px rgba(0,0,0,0.65), 0 0 0 1px rgba(99,102,241,0.08) inset;
+            display: flex; flex-direction: column;
+            transform: translateX(calc(-100% - 20px));
+            transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow: hidden;
+        }
+        #pol-drawer[hidden] { display: flex; } /* keep flex layout; hidden handled by transform */
+        #pol-drawer.open { transform: translateX(0); }
+
+        #pol-drawer-close {
+            position: absolute; top: 12px; right: 14px;
+            background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.2);
+            color: #475569; font-size: 16px; cursor: pointer;
+            border-radius: 6px; padding: 3px 8px; line-height: 1;
+            transition: color 0.12s, background 0.12s; z-index: 2;
+        }
+        #pol-drawer-close:hover { color: #94a3b8; background: rgba(99,102,241,0.18); }
+
+        /* Hero */
+        .pol-hero {
+            display: flex; align-items: center; gap: 14px;
+            padding: 18px 18px 14px; flex-shrink: 0;
+            border-bottom: 1px solid rgba(99,102,241,0.1);
+        }
+        .pol-avatar-lg {
+            width: 64px; height: 64px; border-radius: 50%;
+            object-fit: cover; flex-shrink: 0;
+            border: 2px solid rgba(99,102,241,0.35);
+        }
+        .pol-avatar-ph {
+            width: 64px; height: 64px; border-radius: 50%; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+            background: rgba(99,102,241,0.1); border: 2px solid rgba(99,102,241,0.25);
+            overflow: hidden;
+        }
+        .pol-hero-info { flex: 1; min-width: 0; }
+        .pol-name {
+            font-size: 15px; font-weight: 700; color: #f1f5f9;
+            margin: 0 32px 3px 0; line-height: 1.25;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .pol-title { font-size: 11px; color: #64748b; margin: 0 0 7px; }
+        .pol-badges { display: flex; flex-wrap: wrap; gap: 5px; }
+
+        /* Tabs */
+        .pol-tabs {
+            display: flex; gap: 0; flex-shrink: 0;
+            border-bottom: 1px solid rgba(99,102,241,0.12);
+            padding: 0 14px;
+        }
+        .pol-tab {
+            padding: 9px 14px; font-size: 12px; font-weight: 500;
+            color: #475569; background: none; border: none;
+            border-bottom: 2px solid transparent; margin-bottom: -1px;
+            cursor: pointer; transition: color 0.12s, border-color 0.12s;
+        }
+        .pol-tab:hover { color: #94a3b8; }
+        .pol-tab.active { color: #818cf8; border-bottom-color: #6366f1; }
+
+        /* Body */
+        .pol-body {
+            flex: 1; overflow-y: auto; padding: 16px 18px 20px;
+            scrollbar-width: thin; scrollbar-color: rgba(99,102,241,0.35) transparent;
+        }
+        .pol-section-label {
+            font-size: 9px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: .1em; color: #334155; margin: 0 0 8px;
+        }
+        .pol-bio {
+            font-size: 12px; color: #94a3b8; line-height: 1.6; margin: 0 0 14px;
+        }
+        .pol-empty { font-size: 12px; color: #334155; margin: 0; }
+
+        /* Stat grid */
+        .pol-stat-grid {
+            display: grid; grid-template-columns: 1fr 1fr;
+            gap: 8px; margin-bottom: 16px;
+        }
+        .pol-stat {
+            background: rgba(99,102,241,0.06);
+            border: 1px solid rgba(99,102,241,0.12);
+            border-radius: 8px; padding: 8px 10px;
+        }
+        .pol-stat-val {
+            display: block; font-size: 13px; font-weight: 700;
+            color: #e2e8f0; margin-bottom: 2px;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .pol-stat-lbl {
+            font-size: 9px; color: #475569;
+            text-transform: uppercase; letter-spacing: .06em; line-height: 1.3;
+        }
+
+        /* Industry bars */
+        .pol-industry-row { margin-bottom: 10px; }
+        .pol-industry-label {
+            display: flex; justify-content: space-between;
+            font-size: 11px; color: #94a3b8; margin-bottom: 4px;
+        }
+        .pol-industry-track {
+            height: 5px; background: rgba(99,102,241,0.12);
+            border-radius: 3px; overflow: hidden;
+        }
+        .pol-industry-fill {
+            height: 100%; background: linear-gradient(90deg, #6366f1, #818cf8);
+            border-radius: 3px; transition: width 0.4s ease;
+        }
+
+        /* Contact links */
+        .pol-link-row { display: flex; flex-direction: column; gap: 8px; }
+        .pol-link {
+            display: block; padding: 9px 14px; border-radius: 8px;
+            font-size: 12px; font-weight: 600; text-decoration: none;
+            text-align: center; transition: opacity 0.15s;
+        }
+        .pol-link:hover { opacity: 0.82; }
+        .pol-link-primary {
+            background: linear-gradient(135deg, #6366f1, #4f46e5);
+            color: #fff;
+        }
+        .pol-link-alt {
+            background: rgba(99,102,241,0.1);
+            border: 1px solid rgba(99,102,241,0.28);
+            color: #818cf8;
+        }
+
+        /* Mobile: drawer becomes bottom sheet */
+        @media (max-width: 768px) {
+            #pol-drawer {
+                left: 0; right: 0; bottom: 0; top: auto;
+                width: 100%; border-radius: 14px 14px 0 0;
+                max-height: 72vh;
+                transform: translateY(100%);
+            }
+            #pol-drawer.open { transform: translateY(0); }
+        }
     </style>
 </head>
 <body>
