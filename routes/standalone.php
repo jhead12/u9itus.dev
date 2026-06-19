@@ -49,6 +49,10 @@ Route::middleware('guest')->group(function () {
     Route::get('/register/voter', [AuthController::class, 'showRegisterVoter'])->name('register.voter');
     Route::post('/register/voter', [AuthController::class, 'registerVoter'])->name('register.voter.submit');
 
+    // Registration closed — mailing list capture (always accessible regardless of registration_open flag)
+    Route::get('/register/closed', [AuthController::class, 'showRegisterClosed'])->name('register.closed');
+    Route::post('/register/closed', [AuthController::class, 'storeMailingListSubscriber'])->name('register.mailing-list.store');
+
     Route::get('/forgot-password', [AuthController::class, 'showForgotPassword'])->name('password.request');
     Route::post('/forgot-password', [AuthController::class, 'sendResetLink'])->name('password.email');
 
