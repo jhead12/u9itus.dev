@@ -775,8 +775,7 @@
             <tbody>
                 <tr><td><kbd>Tab</kbd></td><td>Focus the map canvas</td></tr>
                 <tr><td><kbd>Enter</kbd> / <kbd>Space</kbd></td><td>Open search to select a state</td></tr>
-                <tr><td><kbd>←</kbd> <kbd>→</kbd></td><td>Rotate map left / right</td></tr>
-                <tr><td><kbd>↑</kbd> <kbd>↓</kbd></td><td>Tilt map up / down</td></tr>
+                <tr><td><kbd>↑</kbd> <kbd>↓</kbd></td><td>Tilt map (max 40°)</td></tr>
                 <tr><td><kbd>+</kbd> / <kbd>=</kbd></td><td>Zoom in</td></tr>
                 <tr><td><kbd>−</kbd></td><td>Zoom out</td></tr>
                 <tr><td><kbd>R</kbd></td><td>Reset view</td></tr>
@@ -885,10 +884,6 @@
                     <span>Reset View</span>
                     <span class="cm-kbd">R</span>
                 </button>
-                <button class="cm-item" id="cm-btn-rotate" role="menuitem">
-                    <span>Auto-Rotate</span>
-                    <span class="cm-toggle" aria-hidden="true"></span>
-                </button>
                 <button class="cm-item" id="cm-btn-districts" role="menuitem">
                     <span>District Boundaries</span>
                     <span class="cm-toggle" aria-hidden="true"></span>
@@ -924,7 +919,6 @@
         <!-- Hidden legacy buttons kept for JS compatibility (visible in mobile drawer) -->
         <button class="top-btn" id="btn-districts" style="display:none">District Boundaries: OFF</button>
         <button class="top-btn" id="btn-reset" style="display:none">Reset View</button>
-        <button class="top-btn" id="btn-rotate" style="display:none">Auto-Rotate: OFF</button>
         <!-- Mobile only: hamburger -->
         <button id="mobile-menu-btn" aria-label="Open menu" aria-expanded="false" aria-controls="mobile-menu">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
@@ -941,9 +935,6 @@
     <div class="mobile-menu-row">
         <button class="mobile-menu-btn" id="mob-btn-districts">
             📍 Districts<br><span style="font-size:10px;opacity:.7;">OFF</span>
-        </button>
-        <button class="mobile-menu-btn" id="mob-btn-rotate">
-            🔄 Auto-Rotate<br><span style="font-size:10px;opacity:.7;">OFF</span>
         </button>
         <button class="mobile-menu-btn" id="mob-btn-reset">
             🏠 Reset View
@@ -1056,7 +1047,7 @@
 </div>
 
 <div id="hint" style="position:fixed;bottom:28px;right:24px;z-index:50;color:#334155;font-size:11px;text-align:right;pointer-events:none;">
-    Drag to rotate &nbsp;·&nbsp; Scroll to zoom &nbsp;·&nbsp; Click a state
+    Scroll to zoom &nbsp;·&nbsp; ↑↓ tilt &nbsp;·&nbsp; Click a state
 </div>
 
 <script type="module">
@@ -1347,8 +1338,10 @@ sun.position.set(0, 20, 10); scene.add(sun);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true; controls.dampingFactor = 0.07;
 controls.minDistance = 2; controls.maxDistance = 45;
-controls.maxPolarAngle = Math.PI / 2;   // allow fully top-down view
-controls.autoRotate = false; controls.autoRotateSpeed = 0.4;
+controls.minPolarAngle = 0;                       // full top-down allowed
+controls.maxPolarAngle = 40 * Math.PI / 180;      // max 40° tilt from zenith
+controls.minAzimuthAngle = 0;                     // lock horizontal rotation
+controls.maxAzimuthAngle = 0;
 controls.target.set(0, 0, 0);
 
 /* Stars */
@@ -1746,7 +1739,7 @@ function enterOverviewMode() {
     infoPanel.classList.remove('open');
     resizeRenderer();
     document.getElementById('btn-back').style.display = 'none';
-    document.getElementById('hint').innerHTML = 'Drag to rotate &nbsp;·&nbsp; Scroll to zoom &nbsp;·&nbsp; Click a state';
+    document.getElementById('hint').innerHTML = 'Scroll to zoom &nbsp;·&nbsp; ↑↓ tilt &nbsp;·&nbsp; Click a state';
     // Restore all state meshes to full opacity
     for (const m of stateMeshes) {
         m.material.transparent = false;
@@ -1755,7 +1748,6 @@ function enterOverviewMode() {
         m.parent.position.z    = 0;
     }
     showRegionLegend();
-    controls.autoRotate = false; updateRotateBtn(false);
     flyTo(new THREE.Vector3(0, 7, 13), new THREE.Vector3(0, 0, 0));
     updateBreadcrumb();
 }
@@ -1766,7 +1758,6 @@ function enterRegionMode(regionName, region) {
     mapMode = 'region'; activeRegion = regionName; activeState = null; selectedState = null;
     clearDistricts(); infoPanel.classList.remove('open');
     resizeRenderer();
-    controls.autoRotate = false; updateRotateBtn(false);
     document.getElementById('btn-back').style.display = '';
     document.getElementById('hint').innerHTML = `Click a state in the <span style="color:${region.hex}">${regionName}</span> region`;
     // Restore all state mesh opacity before dimming by region
@@ -1785,7 +1776,6 @@ function enterRegionMode(regionName, region) {
 async function enterStateMode(stateName, regionName, region) {
     const requestId = ++statePanelRequestId;
     mapMode = 'state'; activeRegion = regionName; activeState = stateName; selectedState = stateName;
-    controls.autoRotate = false; updateRotateBtn(false);
     document.getElementById('btn-back').style.display = '';
     document.getElementById('hint').innerHTML = 'Click a congressional district to see candidates';
 
@@ -2167,35 +2157,23 @@ mapRegion.addEventListener('keydown', e => {
         return;
     }
     if (e.key === '?') { toggleKbHelp(true); return; }
-    if (e.key === 'r' || e.key === 'R') { enterOverviewMode(); updateRotateBtn(false); return; }
+    if (e.key === 'r' || e.key === 'R') { enterOverviewMode(); return; }
 
-    // Arrow keys: rotate/tilt the camera using OrbitControls
-    // Shift+Arrow pans the target instead
-    const ROTATE_STEP = 0.04;  // radians per keypress
-    const ZOOM_STEP   = 1.15;  // zoom factor per keypress
+    // ↑↓ tilt (polar angle), +/- zoom — horizontal rotation is locked
+    const TILT_STEP = 0.04;  // radians per keypress
+    const ZOOM_STEP = 1.15;  // zoom factor per keypress
 
     if (!controls) return;
 
     switch (e.key) {
-        case 'ArrowLeft':
-            e.preventDefault();
-            controls.minAzimuthAngle = -Infinity; controls.maxAzimuthAngle = Infinity;
-            controls.rotateLeft(ROTATE_STEP);
-            controls.update();
-            break;
-        case 'ArrowRight':
-            e.preventDefault();
-            controls.rotateLeft(-ROTATE_STEP);
-            controls.update();
-            break;
         case 'ArrowUp':
             e.preventDefault();
-            controls.rotateUp(ROTATE_STEP);
+            controls.rotateUp(TILT_STEP);
             controls.update();
             break;
         case 'ArrowDown':
             e.preventDefault();
-            controls.rotateUp(-ROTATE_STEP);
+            controls.rotateUp(-TILT_STEP);
             controls.update();
             break;
         case '+': case '=':
@@ -3081,7 +3059,6 @@ searchOverlay.addEventListener('click', e => {
 const mobileMenuBtn   = document.getElementById('mobile-menu-btn');
 const mobileMenu      = document.getElementById('mobile-menu');
 const mobBtnDistricts = document.getElementById('mob-btn-districts');
-const mobBtnRotate    = document.getElementById('mob-btn-rotate');
 const mobBtnReset     = document.getElementById('mob-btn-reset');
 
 function closeMobileMenu() {
@@ -3106,11 +3083,6 @@ mobBtnDistricts.addEventListener('click', () => {
     closeMobileMenu();
 });
 
-mobBtnRotate.addEventListener('click', () => {
-    document.getElementById('btn-rotate').click();
-    closeMobileMenu();
-});
-
 mobBtnReset.addEventListener('click', () => {
     document.getElementById('btn-reset').click();
     closeMobileMenu();
@@ -3119,14 +3091,7 @@ mobBtnReset.addEventListener('click', () => {
 /* ════════════════════════════════════════════════════════
    CONTROLS
 ════════════════════════════════════════════════════════ */
-function updateRotateBtn(on) {
-    // Update dropdown toggle state
-    document.getElementById('cm-btn-rotate')?.classList.toggle('active', on);
-    // Mobile drawer
-    const span = mobBtnRotate?.querySelector('span');
-    if (span) span.textContent = on ? 'ON' : 'OFF';
-    mobBtnRotate?.classList.toggle('active', on);
-}
+function updateRotateBtn(_on) { /* rotation disabled */ }
 
 function updateDistrictsBtn(on) {
     document.getElementById('cm-btn-districts')?.classList.toggle('active', on);
@@ -3167,13 +3132,6 @@ document.addEventListener('keydown', e => {
 document.getElementById('cm-btn-reset').addEventListener('click', () => {
     openControlsMenu(false);
     enterOverviewMode();
-    updateRotateBtn(false);
-});
-
-document.getElementById('cm-btn-rotate').addEventListener('click', () => {
-    controls.autoRotate = !controls.autoRotate;
-    updateRotateBtn(controls.autoRotate);
-    // Keep menu open so user can see the toggle state change
 });
 
 document.getElementById('cm-btn-districts').addEventListener('click', () => {
@@ -3206,9 +3164,7 @@ document.getElementById('cm-btn-zoomout').addEventListener('click', () => stepZo
 
 document.getElementById('btn-back').addEventListener('click', handleBack);
 
-controls.addEventListener('start', () => {
-    if (mapMode === 'overview') { controls.autoRotate = false; updateRotateBtn(false); }
-});
+/* horizontal rotation locked — no autoRotate listener needed */
 
 document.getElementById('panel-close').addEventListener('click', () => {
     infoPanel.classList.remove('open');
