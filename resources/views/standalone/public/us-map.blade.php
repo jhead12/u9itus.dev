@@ -1120,6 +1120,57 @@
     Scroll to zoom &nbsp;·&nbsp; ↑↓ tilt &nbsp;·&nbsp; Click a state
 </div>
 
+{{-- ════════════════════════════════════════════════════
+     MAP INTERACTION ANALYTICS
+     Tracks anonymous click events for UX research.
+     No PII — session_id is a random localStorage UUID.
+════════════════════════════════════════════════════ --}}
+<script>
+(function () {
+    /* ── Anonymous session ID (localStorage, never tied to a user account) ── */
+    let _sid = null;
+    try {
+        _sid = localStorage.getItem('u9_map_sid');
+        if (!_sid) {
+            _sid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+                const r = Math.random() * 16 | 0;
+                return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+            });
+            localStorage.setItem('u9_map_sid', _sid);
+        }
+    } catch { _sid = 'anon'; }
+
+    /**
+     * Fire-and-forget analytics ping.
+     * @param {string} eventType
+     * @param {object} payload
+     */
+    window.__mapTrack = function (eventType, payload = {}) {
+        try {
+            const body = {
+                session_id: _sid,
+                event_type: eventType,
+                referrer:   document.referrer?.slice(0, 512) || null,
+                ...payload,
+            };
+            // Use sendBeacon when available (survives page unload); fall back to fetch
+            const url  = '/api/v1/map/interaction';
+            const blob = new Blob([JSON.stringify(body)], { type: 'application/json' });
+            if (navigator.sendBeacon) {
+                navigator.sendBeacon(url, blob);
+            } else {
+                fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content ?? '' },
+                    body: JSON.stringify(body),
+                    keepalive: true,
+                }).catch(() => {});
+            }
+        } catch { /* analytics must never break the UX */ }
+    };
+})();
+</script>
+
 <script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -1543,7 +1594,7 @@ function buildState(feature) {
     for (const poly of polys) {
         const shape = buildShapeFromRings(poly);
         if (!shape) continue;
-        const geo = new THREE.ExtrudeGeometry(shape, { depth: 2.0, bevelEnabled: false });
+        const geo = new THREE.ExtrudeGeometry(shape, { depth: 0.25, bevelEnabled: false });
         const mat = new THREE.MeshLambertMaterial({ color });
         const mesh = new THREE.Mesh(geo, mat);
         mesh.userData = { name, regionName, region, originalColor: color };
@@ -1650,7 +1701,7 @@ function resetDistrictSelection() {
     for (const d of districtMeshes) {
         d.material.color.setHex(d.userData.originalColor);
         d.material.opacity = 0.88;
-        d.position.z       = 2.005;
+        d.position.z       = 0.255;
     }
 }
 
@@ -1693,7 +1744,7 @@ async function buildDistrictOverlay(stateName, regionHex) {
                 color: shade, transparent: true, opacity: 0.88,
             });
             const mesh = new THREE.Mesh(geo, mat);
-            mesh.position.z = 2.005;
+            mesh.position.z = 0.255;
             mesh.userData   = { districtNum: distNum, districtLabel: label, stateName, regionHex, party, partyHex: PARTY_HEX[party], originalColor: colorInt };
             districtGroup.add(mesh);
             districtMeshes.push(mesh);
@@ -1702,7 +1753,7 @@ async function buildDistrictOverlay(stateName, regionHex) {
             const eg = new THREE.EdgesGeometry(geo, 1);
             const em = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.75 });
             const el = new THREE.LineSegments(eg, em);
-            el.position.z = 2.005;
+            el.position.z = 0.255;
             el.renderOrder = 1;          // draw borders on top of fills
             districtGroup.add(el);
         }
@@ -1841,6 +1892,7 @@ function enterRegionMode(regionName, region) {
     const rMeshes = stateMeshes.filter(m => m.userData.regionName === regionName);
     flyToMeshes(rMeshes, 1.35);
     updateBreadcrumb();
+    window.__mapTrack('region_click', { region: regionName });
 }
 
 async function enterStateMode(stateName, regionName, region) {
@@ -1848,6 +1900,11 @@ async function enterStateMode(stateName, regionName, region) {
     mapMode = 'state'; activeRegion = regionName; activeState = stateName; selectedState = stateName;
     document.getElementById('btn-back').style.display = '';
     document.getElementById('hint').innerHTML = 'Click a congressional district to see candidates';
+    window.__mapTrack('state_click', {
+        state:      stateName,
+        state_abbr: STATE_ABBR_MAP[stateName] || null,
+        region:     regionName,
+    });
 
     /* Dim all other states and make the selected state nearly transparent
      * so the district fills are the primary visual layer. The state mesh
@@ -1882,7 +1939,9 @@ async function enterStateMode(stateName, regionName, region) {
     document.getElementById('panel-state').textContent = stateName;
     const badge = document.getElementById('panel-badge');
     badge.textContent = (regionName||'') + ' Region';
-    badge.style.cssText = `display:inline-block;padding:3px 12px;border-radius:999px;font-size:11px;font-weight:600;background:${(region?.hex||'#888')}22;color:${region?.hex||'#888'};border:1px solid ${region?.hex||'#888'}55;`;
+    badge.style.cssText = `display:inline-block;padding:3px 12px;border-radius:999px;font-size:11px;font-weight:600;background:${(region?.hex||'#888')}22;color:${region?.hex||'#888'};border:1px solid ${region?.hex||'#888'}55;cursor:pointer;`;
+    badge.title = `Back to ${regionName} region`;
+    badge.onclick = () => enterRegionMode(regionName, REGIONS[regionName]);
 
     /* Region chips — clicking a sibling state navigates to it */
     const statesEl = document.getElementById('panel-states');
@@ -2025,7 +2084,7 @@ renderer.domElement.addEventListener('mousemove', e => {
                 hoveredDistrict.material.color.setHex(hoveredDistrict.userData.originalColor);
             hoveredDistrict = dm;
             /* Brighten on hover — skip selected districts and population-density overlay */
-            if (dm.position.z < 2.05 && !ACTIVE_LAYERS.has('population')) {
+            if (dm.position.z < 0.30 && !ACTIVE_LAYERS.has('population')) {
                 dm.material.color.setHex(lighten(dm.userData.originalColor, 90));
                 dm.material.opacity = 0.95;
             }
@@ -2040,7 +2099,7 @@ renderer.domElement.addEventListener('mousemove', e => {
             renderer.domElement.style.cursor = 'pointer';
             return;
         }
-        if (hoveredDistrict && hoveredDistrict.position.z < 2.05) {
+        if (hoveredDistrict && hoveredDistrict.position.z < 0.30) {
             if (!ACTIVE_LAYERS.has('population'))
                 hoveredDistrict.material.color.setHex(hoveredDistrict.userData.originalColor);
             hoveredDistrict.material.opacity = 0.72;
@@ -2121,15 +2180,22 @@ renderer.domElement.addEventListener('click', () => {
             for (const d of districtMeshes) {
                 d.material.color.setHex(d.userData.originalColor);
                 d.material.opacity = 0.72;
-                d.position.z       = 2.005;
+                d.position.z       = 0.255;
             }
             /* Selected district: brightened party color, slightly raised, fully opaque */
             const bright = new THREE.Color(dm.userData.partyHex || dm.userData.regionHex || '#6366f1')
                 .lerp(new THREE.Color(0xffffff), 0.55);
             dm.material.color.setHex(bright.getHex());
             dm.material.opacity  = 1.0;
-            dm.position.z        = 2.06;
+            dm.position.z        = 0.31;
             openDistrictPanel(dm.userData.districtNum, dm.userData.districtLabel, dm.userData.stateName, dm.userData.regionHex, dm.userData.party);
+            window.__mapTrack('district_click', {
+                state:      dm.userData.stateName,
+                state_abbr: STATE_ABBR_MAP[dm.userData.stateName] || null,
+                district:   dm.userData.districtLabel,
+                party:      dm.userData.party || null,
+                region:     dm.userData.regionName || null,
+            });
             return;
         }
     }
@@ -2751,7 +2817,7 @@ function buildLineLoopsFromFeature(feat, color) {
             const pts = [];
             for (const coord of ring) {
                 const p = project(coord);
-                if (p) pts.push(new THREE.Vector3(p[0], p[1], 2.008));
+                if (p) pts.push(new THREE.Vector3(p[0], p[1], 0.258));
             }
             if (pts.length < 2) continue;
             const geo = new THREE.BufferGeometry().setFromPoints(pts);
@@ -3038,6 +3104,13 @@ function setActiveIdx(idx) {
 
 async function activateResult(item) {
     closeSearch();
+    window.__mapTrack('search_result_select', {
+        state:      item.stateName  || null,
+        state_abbr: item.abbr       || null,
+        region:     item.regionName || null,
+        district:   item.type === 'district' ? `${item.abbr}-${item.districtNum}` : null,
+        meta:       { resultType: item.type, label: item.label },
+    });
     if (item.type === 'region') {
         enterRegionMode(item.regionName, item.region);
         return;
@@ -3058,13 +3131,13 @@ async function activateResult(item) {
             for (const d of districtMeshes) {
                 d.material.color.setHex(d.userData.originalColor);
                 d.material.opacity = 0.45;
-                d.position.z       = 2.005;
+                d.position.z       = 0.255;
             }
             const bright = new THREE.Color(target.userData.regionHex || '#6366f1')
                 .lerp(new THREE.Color(0xffffff), 0.72);
             target.material.color.setHex(bright.getHex());
             target.material.opacity = 1.0;
-            target.position.z       = 2.06;
+            target.position.z       = 0.31;
             flyToMeshesTopDown([target], 2.6);
             openDistrictPanel(target.userData.districtNum, target.userData.districtLabel, target.userData.stateName, target.userData.regionHex, target.userData.party);
         }
@@ -3076,6 +3149,7 @@ function openSearch() {
     searchInput.value = '';
     renderSearchResults('');
     setTimeout(() => searchInput.focus(), 40);
+    window.__mapTrack('search_opened', { state: activeState || null });
 }
 function closeSearch() {
     searchOverlay.classList.remove('open');
@@ -3270,6 +3344,10 @@ function syncLayerChip(layerKey, isActive) {
 function toggleLayer(layerKey) {
     const isActive = !ACTIVE_LAYERS.has(layerKey);
     syncLayerChip(layerKey, isActive);
+    window.__mapTrack('layer_toggle', {
+        state: activeState || null,
+        meta:  { layer: layerKey, active: isActive },
+    });
     switch (layerKey) {
         case 'districts':
             toggleNationalBoundaries();
@@ -3403,6 +3481,11 @@ function buildCityMarkers(stateName) {
             // Open pol-drawer: use city officials if available, otherwise show city stats
             const officials = stateData?.city_officials?.[name] ?? [];
             const mayor     = officials.find(o => /mayor/i.test(o.political_office || '')) ?? officials[0];
+            window.__mapTrack('city_marker_click', {
+                state:      activeState || null,
+                state_abbr: activeState ? STATE_ABBR_MAP[activeState] : null,
+                meta:       { cityName: name, cityPop: popK },
+            });
             if (mayor) {
                 openPolDrawer(
                     { ...mayor, office: mayor.political_office || 'Mayor', full_name: mayor.full_name },
@@ -3515,6 +3598,11 @@ function buildGovMarkers(stateName) {
         const officials = stateData?.city_officials?.[city] ?? [];
         const governor  = stateData?.offices?.find?.(g => /governor/i.test(g.office))?.candidates?.[0] ?? null;
         const rep       = governor ?? officials[0] ?? null;
+        window.__mapTrack('gov_marker_click', {
+            state:      activeState || null,
+            state_abbr: activeState ? STATE_ABBR_MAP[activeState] : null,
+            meta:       { cityName: city, isCapital: true },
+        });
         if (rep) {
             openPolDrawer(
                 { ...rep, office: rep.political_office || rep.office || 'State Capital' },
@@ -3604,7 +3692,7 @@ async function loadCityBoundaries(stateName) {
                 const pts = [];
                 for (const coord of ring) {
                     const p = project(coord);
-                    if (p) pts.push(new THREE.Vector3(p[0], p[1], 2.012));
+                    if (p) pts.push(new THREE.Vector3(p[0], p[1], 0.262));
                 }
                 if (pts.length < 3) continue;
                 const geo = new THREE.BufferGeometry().setFromPoints(pts);
@@ -3802,6 +3890,14 @@ function openPolDrawer(cand, accentColor, extra = {}) {
     polBodyEl.setAttribute('aria-labelledby', 'pol-tab-overview');
     polDrawer.style.setProperty('--pol-accent', _polCtx.accentColor);
     polDrawer.removeAttribute('hidden');
+    window.__mapTrack('pol_drawer_open', {
+        candidate_name: cand?.full_name  || null,
+        candidate_slug: cand?.slug       || null,
+        party:          cand?.party      || null,
+        state:          activeState      || null,
+        state_abbr:     activeState ? STATE_ABBR_MAP[activeState] : null,
+        meta: extra?.cityName ? { cityName: extra.cityName } : null,
+    });
 
     // Hero section
     const c   = cand;
