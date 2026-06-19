@@ -143,6 +143,19 @@ class MapStateCandidatesController
             ->get(['id', 'full_name', 'political_office', 'party_affiliation',
                    'election_date', 'source', 'external_candidate_id', 'payload']);
 
+        // If a scraped candidate row has already been marked eliminated,
+        // suppress matching platform "running" cards for the same person+office.
+        $eliminatedRunningKeys = [];
+        foreach ($scrapedRecords as $rec) {
+            $payload = is_array($rec->payload) ? $rec->payload : [];
+            $primaryResult = strtolower(trim((string) ($payload['primary_result'] ?? '')));
+            if ($primaryResult === 'eliminated') {
+                $canonical = $this->canonicalise($rec->political_office);
+                $key = strtolower(trim((string) $rec->full_name)) . '|' . strtolower($canonical);
+                $eliminatedRunningKeys[$key] = true;
+            }
+        }
+
         // ── 2b. Federal (House) politicians for this state ────────────────────
         $housePoliticians = Politician::query()
             ->whereRaw('UPPER(COALESCE(state, \'\')) = ?', [$state])
@@ -185,8 +198,14 @@ class MapStateCandidatesController
         $seenGlobal = [];
 
         foreach ($platformPoliticians as $pol) {
-            $seenGlobal[strtolower($pol->full_name)] = true;
             $canonical = $this->canonicalise($pol->political_office);
+
+            $platformKey = strtolower(trim((string) $pol->full_name)) . '|' . strtolower($canonical);
+            if ((bool) $pol->is_running_candidate && isset($eliminatedRunningKeys[$platformKey])) {
+                continue;
+            }
+
+            $seenGlobal[strtolower($pol->full_name)] = true;
             $grouped[$canonical]['candidates'][] = [
                 'source'          => 'platform',
                 'uuid'            => $pol->uuid,
@@ -226,7 +245,10 @@ class MapStateCandidatesController
             }
             $seenGlobal[$nameLower] = true;
             $payload       = is_array($rec->payload) ? $rec->payload : [];
-            $primaryResult = $payload['primary_result'] ?? null;
+            $primaryResult = strtolower(trim((string) ($payload['primary_result'] ?? '')));
+            if ($primaryResult === '') {
+                $primaryResult = null;
+            }
             $recStatus     = $payload['status'] ?? null;
 
             // Always exclude eliminated candidates.

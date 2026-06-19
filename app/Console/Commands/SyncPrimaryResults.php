@@ -73,14 +73,15 @@ class SyncPrimaryResults extends Command
             $this->line('<fg=yellow>[dry-run] No DB writes will occur.</>');
         }
 
-        // Fetch all statewide candidate records whose election_date is in the past.
-        // The district filter is intentionally broad — Ballotpedia imports can produce
-        // 'Statewide', NULL, or office-name values.  We rely on governance_level=State
-        // to scope correctly and skip congressional/local races.
+        // Fetch statewide candidate records that are still relevant to primary sync.
+        // We intentionally do NOT require election_date < today because Ballotpedia
+        // imports often store the GENERAL election date on the row. If we filtered by
+        // past election_date, eliminated primary candidates would never be processed.
+        // The district filter remains broad; governance_level=State is the scope guard.
         $query = DB::table('election_candidate_records')
             ->whereRaw('LOWER(COALESCE(governance_level,\'\')) = ?', ['state'])
-            ->whereNotNull('election_date')
-            ->where('election_date', '<', now()->toDateString())
+            // Ignore seated officeholder rows; they are not on the primary ballot.
+            ->whereRaw("COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload,'$.status')),'') != 'seated'")
             // Exclude rows already stamped eliminated to avoid re-processing them
             ->whereRaw("COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload,'$.primary_result')),'') != 'eliminated'");
 
@@ -91,7 +92,7 @@ class SyncPrimaryResults extends Command
         $records = $query->get(['id', 'external_candidate_id', 'full_name', 'political_office',
                                 'party_affiliation', 'state', 'election_date', 'source', 'payload']);
 
-        $this->info("Found {$records->count()} statewide candidate record(s) with past election dates.");
+        $this->info("Found {$records->count()} statewide candidate record(s) eligible for primary-result sync.");
 
         $stats = ['advanced' => 0, 'eliminated' => 0, 'unknown' => 0, 'skipped' => 0];
 
