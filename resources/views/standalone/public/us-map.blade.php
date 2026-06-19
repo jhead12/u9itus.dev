@@ -1397,21 +1397,64 @@ function buildState(feature) {
 
 /* ════════════════════════════════════════════════════════
    CONGRESSIONAL DISTRICT OVERLAY
-   Data: US Census Bureau TIGERweb REST API — 119th Congress
-   Each state fetched on demand and cached.
+   Data: US Census Bureau TIGERweb REST API
+   Config (Congress number, layer, CD field, party map) is fetched from
+   /api/v1/map/district-config and refreshed daily by the workflow.
+   Each state's geometry is fetched on demand and cached.
 ════════════════════════════════════════════════════════ */
 let districtGroup   = null;
 let districtMeshes  = [];
 let hoveredDistrict = null;
 const districtCache = {};  // keyed by state FIPS
 
-const TIGERWEB_URL = 'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Legislative/MapServer/0/query';
+// Dynamic district config — populated by initDistrictConfig() on page load.
+// Fallback values mirror the 119th Congress (safe until the first daily sync).
+let DISTRICT_CONFIG = {
+    congress_number : 119,
+    tigerweb_layer  : 0,
+    cd_field        : 'CD119',
+    congress_label  : '119th Congress (2025–2027)',
+    party_map       : null,   // null = use the static DISTRICT_PARTY_MAP fallback
+};
+
+// Resolves to true once the config has been fetched (or the fetch has failed).
+let _districtConfigReady = false;
+
+async function initDistrictConfig() {
+    try {
+        const res  = await fetch('/api/v1/map/district-config', { cache: 'no-store' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const cfg  = await res.json();
+        if (cfg && cfg.cd_field) {
+            DISTRICT_CONFIG.congress_number = cfg.congress_number ?? 119;
+            DISTRICT_CONFIG.tigerweb_layer  = cfg.tigerweb_layer  ?? 0;
+            DISTRICT_CONFIG.cd_field        = cfg.cd_field        ?? 'CD119';
+            DISTRICT_CONFIG.congress_label  = cfg.congress_label  ?? '119th Congress (2025–2027)';
+            // Overlay the DB party map on top of the static fallback.
+            // DB data wins when present; static fill covers any missing districts.
+            if (cfg.party_map && typeof cfg.party_map === 'object' && Object.keys(cfg.party_map).length > 0) {
+                DISTRICT_CONFIG.party_map = cfg.party_map;
+                Object.assign(DISTRICT_PARTY_MAP, cfg.party_map);
+            }
+        }
+    } catch (e) {
+        console.warn('[district-config] fetch failed, using static fallback:', e.message);
+    }
+    _districtConfigReady = true;
+}
+
+// Build the TIGERweb URL dynamically so we always target the right layer.
+function getTigerwebUrl() {
+    const layer = DISTRICT_CONFIG.tigerweb_layer ?? 0;
+    return `https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Legislative/MapServer/${layer}/query`;
+}
 
 async function loadCongressionalDistricts(fips) {
     if (districtCache[fips]) return districtCache[fips];
+    const cdField = DISTRICT_CONFIG.cd_field;
     const params = new URLSearchParams({
         where:            `STATE='${fips}'`,
-        outFields:        'STATE,CD119,NAME,GEOID',
+        outFields:        `STATE,${cdField},NAME,GEOID`,
         returnGeometry:   'true',
         f:                'geojson',
         geometryPrecision:'3',
@@ -1424,7 +1467,7 @@ async function loadCongressionalDistricts(fips) {
     let data;
     for (let attempt = 0; attempt < 2; attempt++) {
         try {
-            const res = await fetch(`${TIGERWEB_URL}?${params}`, { cache: 'no-store' });
+            const res = await fetch(`${getTigerwebUrl()}?${params}`, { cache: 'no-store' });
             data = await res.json();
             if (data.features?.length) break;
         } catch (e) {
@@ -1465,12 +1508,13 @@ async function buildDistrictOverlay(stateName, regionHex) {
     const abbr      = STATE_ABBR_MAP[stateName];
 
     features.forEach((feat, i) => {
-        const cdRaw     = String(feat.properties.CD119 ?? '0').padStart(2, '0');
+        const cdField   = DISTRICT_CONFIG.cd_field;
+        const cdRaw     = String(feat.properties[cdField] ?? feat.properties['CD119'] ?? '0').padStart(2, '0');
         const isAtLarge = cdRaw === '00';
         const distNum   = isAtLarge ? 'AL' : String(parseInt(cdRaw));
         const label     = isAtLarge ? 'At-Large' : `District ${distNum}`;
 
-        /* Color by seated-member party (119th Congress) */
+        /* Color by seated-member party (current Congress) */
         const partyKey = isAtLarge ? `${abbr}-AL` : `${abbr}-${distNum}`;
         const party    = DISTRICT_PARTY_MAP[partyKey] || 'U';
         const shade    = new THREE.Color(PARTY_INT[party]);
@@ -1524,6 +1568,9 @@ fetch('https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json')
         setTimeout(() => { loadingEl.style.display = 'none'; }, 520);
         // Pre-fetch all governor parties in background so Party Control mode is ready
         fetchAllGovernorParties();
+        // Pre-fetch district config (congress number, TIGERweb layer, CD field, party map)
+        // so district overlays use the correct data when the user first clicks a state.
+        initDistrictConfig();
     })
     .catch(err => {
         loadingEl.innerHTML = `<p style="color:#ef4444;font-size:14px;">Failed to load map data.<br>${err.message}</p>`;
@@ -2356,7 +2403,7 @@ async function openStatePanel(stateName, regionName, region, districtCount, pane
             : '';
         html += `<div style="background:${color}0f;border:1px solid ${color}33;border-radius:8px;padding:10px 12px;margin-bottom:14px;">
             <p style="color:${color};font-size:12px;font-weight:600;margin:0 0 4px;">🗺 ${districtCount} of ${expected} Congressional Districts loaded</p>
-            <p style="color:#475569;font-size:11px;margin:0 0 4px;">119th Congress (2025–2027) district boundaries</p>
+            <p style="color:#475569;font-size:11px;margin:0 0 4px;">${DISTRICT_CONFIG.congress_label} district boundaries</p>
             <p style="color:#475569;font-size:11px;margin:0;">Click any district on the map to view its U.S. House candidates</p>
             ${popLine}
         </div>`;
@@ -2577,16 +2624,17 @@ const fipsToRegionHex = (() => {
 
 async function fetchStateDistrictsLow(fips) {
     // Re-use the existing per-state endpoint (CORS allowed) but with lower precision
+    const cdField = DISTRICT_CONFIG.cd_field;
     const params = new URLSearchParams({
         where:             `STATE='${fips}'`,
-        outFields:         'STATE,CD119',
+        outFields:         `STATE,${cdField}`,
         returnGeometry:    'true',
         f:                 'geojson',
         geometryPrecision: '2',   // lower precision = faster + smaller payload
         inSR:              '4326',
         outSR:             '4326',
     });
-    const res  = await fetch(`${TIGERWEB_URL}?${params}`);
+    const res  = await fetch(`${getTigerwebUrl()}?${params}`);
     const data = await res.json();
     return data.features || [];
 }
@@ -2618,8 +2666,9 @@ async function loadNationalBoundaries() {
                 try {
                     const features = await fetchStateDistrictsLow(fips);
                     const stateAbbr = FIPS_TO_ABBR[fips];
+                    const cdField   = DISTRICT_CONFIG.cd_field;
                     for (const feat of features) {
-                        const cdRaw = String(feat.properties.CD119 ?? '0').padStart(2,'0');
+                        const cdRaw = String(feat.properties[cdField] ?? feat.properties['CD119'] ?? '0').padStart(2,'0');
                         const dn    = cdRaw === '00' ? 'AL' : String(parseInt(cdRaw));
                         const pKey  = dn === 'AL' ? `${stateAbbr}-AL` : `${stateAbbr}-${dn}`;
                         const party = DISTRICT_PARTY_MAP[pKey] || 'U';
