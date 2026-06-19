@@ -73,12 +73,16 @@ class SyncPrimaryResults extends Command
             $this->line('<fg=yellow>[dry-run] No DB writes will occur.</>');
         }
 
-        // Fetch all statewide candidate records whose election_date is in the past
+        // Fetch all statewide candidate records whose election_date is in the past.
+        // The district filter is intentionally broad — Ballotpedia imports can produce
+        // 'Statewide', NULL, or office-name values.  We rely on governance_level=State
+        // to scope correctly and skip congressional/local races.
         $query = DB::table('election_candidate_records')
             ->whereRaw('LOWER(COALESCE(governance_level,\'\')) = ?', ['state'])
-            ->where('district', 'Statewide')
             ->whereNotNull('election_date')
-            ->where('election_date', '<', now()->toDateString());
+            ->where('election_date', '<', now()->toDateString())
+            // Exclude rows already stamped eliminated to avoid re-processing them
+            ->whereRaw("COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload,'$.primary_result')),'') != 'eliminated'");
 
         if ($stateFilter) {
             $query->whereRaw('UPPER(COALESCE(state,\'\')) = ?', [$stateFilter]);

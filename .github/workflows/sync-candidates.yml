@@ -319,7 +319,7 @@ jobs:
             FIRST_STATE=$(echo "$STATES" | cut -d',' -f1)
             STATE_ARG="--state=$FIRST_STATE"
           fi
-          if php artisan list --raw | grep -q '^politicians:backfill-photos$'; then
+          if php artisan list --raw | grep -qE '^politicians:backfill-photos([[:space:]]|$)'; then
             php artisan politicians:backfill-photos \
               --limit=1000 \
               $STATE_ARG \
