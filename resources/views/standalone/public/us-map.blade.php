@@ -338,6 +338,42 @@
         .panel-label-chevron { transition: transform 0.2s ease; font-style:normal; font-size:12px; }
         .panel-label-toggle.collapsed .panel-label-chevron { transform: rotate(-90deg); }
         #panel-candidates.section-collapsed { display:none; }
+
+        /* ── Guided tour overlay ── */
+        #tutorial-overlay { position:fixed; inset:0; z-index:9000; display:none; }
+        #tutorial-overlay.active { display:block; }
+        #tutorial-backdrop { position:absolute; inset:0; background:rgba(0,0,0,0.68); }
+        #tutorial-highlight {
+            position:absolute; border-radius:10px; z-index:9001; pointer-events:none;
+            box-shadow: 0 0 0 9999px rgba(0,0,0,0.68), 0 0 0 2px #6366f1, 0 0 22px 6px rgba(99,102,241,0.45);
+            transition: top .3s cubic-bezier(.4,0,.2,1), left .3s cubic-bezier(.4,0,.2,1),
+                        width .3s cubic-bezier(.4,0,.2,1), height .3s cubic-bezier(.4,0,.2,1), opacity .25s;
+        }
+        #tutorial-highlight.hidden { opacity:0; box-shadow:none; }
+        #tutorial-card {
+            position:absolute; width:300px;
+            background:#0f172a; border:1px solid rgba(99,102,241,0.45);
+            border-radius:14px; padding:20px 22px 16px;
+            z-index:9002; pointer-events:all;
+            box-shadow:0 20px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(99,102,241,0.08);
+            transition: top .3s cubic-bezier(.4,0,.2,1), left .3s cubic-bezier(.4,0,.2,1), transform .3s;
+        }
+        .t-label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.1em; color:#6366f1; margin:0 0 6px; }
+        .t-title { font-size:15px; font-weight:700; color:#e2e8f0; margin:0 0 8px; line-height:1.35; }
+        .t-body  { font-size:12px; color:#94a3b8; line-height:1.65; margin:0 0 16px; }
+        .t-body kbd { background:#1e293b; border:1px solid #334155; border-radius:4px; padding:1px 6px; font-size:11px; color:#e2e8f0; }
+        .t-actions { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+        .t-dots { display:flex; gap:5px; align-items:center; }
+        .t-dot { width:6px; height:6px; border-radius:50%; background:#334155; transition:all .2s; flex-shrink:0; }
+        .t-dot.active { background:#6366f1; width:16px; border-radius:3px; }
+        .t-btns { display:flex; gap:8px; align-items:center; }
+        .t-btn-skip  { font-size:11px; color:#475569; background:none; border:none; cursor:pointer; padding:0; text-decoration:underline; }
+        .t-btn-skip:hover  { color:#64748b; }
+        .t-btn-back  { background:#1e293b; color:#94a3b8; border:1px solid #334155; border-radius:8px; padding:7px 12px; font-size:12px; cursor:pointer; }
+        .t-btn-back:hover  { background:#263248; }
+        .t-btn-next  { background:#6366f1; color:#fff; border:none; border-radius:8px; padding:7px 16px; font-size:12px; font-weight:600; cursor:pointer; }
+        .t-btn-next:hover  { background:#818cf8; }
+
         .panel-divider { border: none; border-top: 1px solid rgba(99,102,241,0.12); margin: 16px 0; }
         .state-chip {
             display: inline-block; padding: 3px 9px; border-radius: 999px;
@@ -979,6 +1015,10 @@
                     <span>Keyboard Shortcuts</span>
                     <span class="cm-kbd">?</span>
                 </button>
+                <button class="cm-item" id="cm-btn-tutorial" role="menuitem">
+                    <span>Replay Tutorial</span>
+                    <span style="font-size:13px;">🗺</span>
+                </button>
                 <hr class="cm-divider">
                 <div class="cm-section">Zoom</div>
                 <button class="cm-item" id="cm-btn-zoomin" role="menuitem">
@@ -1144,6 +1184,13 @@
 
 <div id="hint" style="position:fixed;bottom:28px;right:24px;z-index:50;color:#334155;font-size:11px;text-align:right;pointer-events:none;">
     Scroll to zoom &nbsp;·&nbsp; ↑↓ tilt &nbsp;·&nbsp; ←→ rotate &nbsp;·&nbsp; Click a state
+</div>
+
+{{-- ── Guided tour overlay ── --}}
+<div id="tutorial-overlay" role="dialog" aria-modal="true" aria-label="Map feature tour">
+    <div id="tutorial-backdrop"></div>
+    <div id="tutorial-highlight" class="hidden"></div>
+    <div id="tutorial-card"></div>
 </div>
 
 {{-- ════════════════════════════════════════════════════
@@ -3527,6 +3574,11 @@ document.getElementById('cm-btn-party-colors').addEventListener('click', () => {
 document.getElementById('cm-btn-kb-help').addEventListener('click', () => {
     openControlsMenu(false);
     toggleKbHelp(true);
+});
+
+document.getElementById('cm-btn-tutorial').addEventListener('click', () => {
+    openControlsMenu(false);
+    setTimeout(() => window.startTutorial?.(true), 150);
 });
 
 function stepZoom(factor) {
