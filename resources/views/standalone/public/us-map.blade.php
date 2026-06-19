@@ -1303,6 +1303,8 @@ let mapMode      = 'overview'; // 'overview' | 'region' | 'state'
 let activeRegion = null;
 let activeState  = null;
 let selectedState = null;
+// Guards async state-panel loading to prevent stale cross-state data bleed.
+let statePanelRequestId = 0;
 
 /* ════════════════════════════════════════════════════════
    CAMERA ANIMATION
@@ -1594,6 +1596,8 @@ function clearDim() {
    MODE TRANSITIONS
 ════════════════════════════════════════════════════════ */
 function enterOverviewMode() {
+    statePanelRequestId++;
+    stateData = null;
     mapMode = 'overview'; activeRegion = null; activeState = null; selectedState = null;
     clearDim(); clearDistricts();
     infoPanel.classList.remove('open');
@@ -1614,6 +1618,8 @@ function enterOverviewMode() {
 }
 
 function enterRegionMode(regionName, region) {
+    statePanelRequestId++;
+    stateData = null;
     mapMode = 'region'; activeRegion = regionName; activeState = null; selectedState = null;
     clearDistricts(); infoPanel.classList.remove('open');
     resizeRenderer();
@@ -1634,6 +1640,7 @@ function enterRegionMode(regionName, region) {
 }
 
 async function enterStateMode(stateName, regionName, region) {
+    const requestId = ++statePanelRequestId;
     mapMode = 'state'; activeRegion = regionName; activeState = stateName; selectedState = stateName;
     controls.autoRotate = false; updateRotateBtn(false);
     document.getElementById('btn-back').style.display = '';
@@ -1696,6 +1703,7 @@ async function enterStateMode(stateName, regionName, region) {
     let distCount = 0;
     try {
         distCount = await buildDistrictOverlay(stateName, region?.hex);
+        if (requestId !== statePanelRequestId) return;
     } catch (err) {
         // Degrade gracefully — show error in panel, still show statewide candidates
         console.warn(`District overlay failed for ${stateName}:`, err);
@@ -1704,16 +1712,17 @@ async function enterStateMode(stateName, regionName, region) {
     }
 
     // Fetch live candidate data from the API and cache it for district panels
-    stateData = null;
+    let nextStateData = null;
     const abbr = STATE_ABBR_MAP[stateName];
     // 'live' | 'empty' | 'unreachable'
     let apiStatus = 'unreachable';
     if (abbr) {
         try {
             const apiRes = await fetch(`/api/v1/map/state-candidates?state=${abbr}`);
+            if (requestId !== statePanelRequestId) return;
             if (apiRes.ok) {
-                stateData = await apiRes.json();
-                apiStatus  = stateData?.offices?.length ? 'live' : 'empty';
+                nextStateData = await apiRes.json();
+                apiStatus  = nextStateData?.offices?.length ? 'live' : 'empty';
             } else {
                 apiStatus = 'unreachable';
             }
@@ -1722,11 +1731,14 @@ async function enterStateMode(stateName, regionName, region) {
             apiStatus = 'unreachable';
         }
     }
+    if (requestId !== statePanelRequestId) return;
     // Attach status so panel renderers can show the right badge
-    if (stateData) stateData._apiStatus = apiStatus;
-    else stateData = { _apiStatus: apiStatus };    // sentinel so panels can read it
+    if (nextStateData) nextStateData._apiStatus = apiStatus;
+    else nextStateData = { _apiStatus: apiStatus };    // sentinel so panels can read it
+    stateData = nextStateData;
 
-    await openStatePanel(stateName, regionName, region, distCount);
+    await openStatePanel(stateName, regionName, region, distCount, nextStateData);
+    if (requestId !== statePanelRequestId) return;
     /* Switch legend to party breakdown */
     const breakdown = {};
     for (const m of districtMeshes) { const p = m.userData.party || 'U'; breakdown[p] = (breakdown[p]||0)+1; }
@@ -2309,15 +2321,16 @@ function noDataNotice(msg) {
 // Cached API response for the currently-viewed state (populated by enterStateMode)
 let stateData = null;
 
-async function openStatePanel(stateName, regionName, region, districtCount) {
+async function openStatePanel(stateName, regionName, region, districtCount, panelData = null) {
+    const data = panelData || stateData || {};
     const color  = region?.hex || '#6366f1';
     const candEl = document.getElementById('panel-candidates');
 
     await new Promise(r => setTimeout(r, 380));
 
     _officeIdx = 0; // reset accordion counter for each new state
-    const offices   = stateData?.offices ?? [];
-    const apiStatus = stateData?._apiStatus || 'unreachable';
+    const offices   = data?.offices ?? [];
+    const apiStatus = data?._apiStatus || 'unreachable';
 
     const DATA_BANNERS = {
         live:        '',
@@ -2337,8 +2350,8 @@ async function openStatePanel(stateName, regionName, region, districtCount) {
 
     if (districtCount > 0) {
         const expected = DISTRICT_COUNTS[stateName] || districtCount;
-        const popLine = (stateData?.population)
-            ? `<p style="color:#475569;font-size:11px;margin:4px 0 0;">👥 State population: <strong style="color:#e2e8f0;">${stateData.population.formatted}</strong> <span style="opacity:.6">(${stateData.population.census_year} Census)</span></p>`
+        const popLine = (data?.population)
+            ? `<p style="color:#475569;font-size:11px;margin:4px 0 0;">👥 State population: <strong style="color:#e2e8f0;">${data.population.formatted}</strong> <span style="opacity:.6">(${data.population.census_year} Census)</span></p>`
             : '';
         html += `<div style="background:${color}0f;border:1px solid ${color}33;border-radius:8px;padding:10px 12px;margin-bottom:14px;">
             <p style="color:${color};font-size:12px;font-weight:600;margin:0 0 4px;">🗺 ${districtCount} of ${expected} Congressional Districts loaded</p>
@@ -2353,7 +2366,7 @@ async function openStatePanel(stateName, regionName, region, districtCount) {
         : noDataNotice('Statewide candidate records for this state are not yet available. Check back after the next weekly sync.');
 
     // City officials section (mayors etc.) — only seated unclaimed officeholders
-    const cityOfficials = stateData?.city_officials ?? {};
+    const cityOfficials = data?.city_officials ?? {};
     const cityEntries   = Object.entries(cityOfficials);
     if (cityEntries.length > 0) {
         html += `<div style="border-top:1px solid ${color}20;margin:16px 0 14px;display:flex;align-items:center;gap:8px;">

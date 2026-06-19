@@ -73,7 +73,11 @@ class BackfillPoliticianPhotos extends Command
         $this->line("Scanning {$total} politician(s) for missing photos...\n");
 
         foreach ($politicians as $pol) {
-            $photoUrl = $this->fetchWikipediaPhoto($pol->full_name);
+            $photoUrl = $this->fetchWikipediaPhoto(
+                (string) $pol->full_name,
+                (string) ($pol->state ?? ''),
+                (string) ($pol->political_office ?? '')
+            );
 
             if ($photoUrl) {
                 $this->line("  <fg=cyan>✓</> {$pol->full_name}");
@@ -99,21 +103,23 @@ class BackfillPoliticianPhotos extends Command
     }
 
     /**
-     * Look up the politician on Wikipedia and return the thumbnail URL if one exists.
+     * Look up the politician on Wikipedia and return a likely headshot URL.
      *
-     * Uses the MediaWiki action API with prop=pageimages, which returns the
-     * "lead" image from the article — always the politician's headshot for
-     * biography pages.
+     * We first try the exact-title page, then search candidate pages and score
+     * them for biography-likelihood. We reject obvious non-person images
+     * (flags, seals, coats of arms, logos).
      */
-    private function fetchWikipediaPhoto(string $name): ?string
+    private function fetchWikipediaPhoto(string $name, string $state = '', string $office = ''): ?string
     {
         try {
+            // 1) Exact title lookup first (fast path)
             $response = Http::timeout(10)
                 ->withHeaders(['User-Agent' => self::USER_AGENT])
                 ->get('https://en.wikipedia.org/w/api.php', [
                     'action'        => 'query',
                     'titles'        => $name,
-                    'prop'          => 'pageimages',
+                    'prop'          => 'pageimages|description',
+                    'piprop'        => 'thumbnail|name',
                     'pithumbsize'   => 400,
                     'pilicense'     => 'any',
                     'format'        => 'json',
@@ -133,10 +139,111 @@ class BackfillPoliticianPhotos extends Command
                 }
 
                 $thumb = $page['thumbnail']['source'] ?? null;
+                $imageName = (string) ($page['pageimage'] ?? '');
+                $title = (string) ($page['title'] ?? '');
+                $description = (string) ($page['description'] ?? '');
 
-                if ($thumb && str_starts_with($thumb, 'https://')) {
+                if (
+                    $thumb
+                    && str_starts_with($thumb, 'https://')
+                    && $this->isLikelyPersonPage($title, $description, $name, $office)
+                    && ! $this->isLikelyNonPersonImage($thumb, $imageName)
+                ) {
                     return $thumb;
                 }
+            }
+
+            // 2) Search and score likely biography pages when exact title misses
+            $searchQuery = trim($name . ' ' . $state . ' ' . $office . ' politician');
+            $searchResp = Http::timeout(10)
+                ->withHeaders(['User-Agent' => self::USER_AGENT])
+                ->get('https://en.wikipedia.org/w/api.php', [
+                    'action'        => 'query',
+                    'list'          => 'search',
+                    'srsearch'      => $searchQuery,
+                    'srlimit'       => 5,
+                    'srwhat'        => 'title',
+                    'format'        => 'json',
+                    'formatversion' => '2',
+                ]);
+
+            if (! $searchResp->ok()) {
+                return null;
+            }
+
+            $titles = collect($searchResp->json('query.search') ?? [])
+                ->pluck('title')
+                ->filter(fn($t) => is_string($t) && trim($t) !== '')
+                ->values()
+                ->all();
+
+            if (empty($titles)) {
+                return null;
+            }
+
+            $candidatesResp = Http::timeout(10)
+                ->withHeaders(['User-Agent' => self::USER_AGENT])
+                ->get('https://en.wikipedia.org/w/api.php', [
+                    'action'        => 'query',
+                    'titles'        => implode('|', $titles),
+                    'prop'          => 'pageimages|description',
+                    'piprop'        => 'thumbnail|name',
+                    'pithumbsize'   => 400,
+                    'pilicense'     => 'any',
+                    'format'        => 'json',
+                    'formatversion' => '2',
+                ]);
+
+            if (! $candidatesResp->ok()) {
+                return null;
+            }
+
+            $bestScore = -1;
+            $bestThumb = null;
+            $targetName = strtolower(trim($name));
+
+            foreach (($candidatesResp->json('query.pages') ?? []) as $page) {
+                if (isset($page['missing']) || ($page['pageid'] ?? -1) < 0) {
+                    continue;
+                }
+
+                $title       = (string) ($page['title'] ?? '');
+                $description = (string) ($page['description'] ?? '');
+                $thumb       = (string) ($page['thumbnail']['source'] ?? '');
+                $imageName   = (string) ($page['pageimage'] ?? '');
+
+                if ($thumb === '' || ! str_starts_with($thumb, 'https://')) {
+                    continue;
+                }
+                if (! $this->isLikelyPersonPage($title, $description, $name, $office)) {
+                    continue;
+                }
+                if ($this->isLikelyNonPersonImage($thumb, $imageName)) {
+                    continue;
+                }
+
+                $score = 0;
+                $lowerTitle = strtolower($title);
+                $lowerDesc  = strtolower($description);
+
+                if ($lowerTitle === $targetName) {
+                    $score += 60;
+                }
+                if (str_contains($lowerTitle, $targetName)) {
+                    $score += 25;
+                }
+                if (str_contains($lowerDesc, 'politician') || str_contains($lowerDesc, 'mayor') || str_contains($lowerDesc, 'governor') || str_contains($lowerDesc, 'attorney general') || str_contains($lowerDesc, 'senator') || str_contains($lowerDesc, 'representative')) {
+                    $score += 25;
+                }
+
+                if ($score > $bestScore) {
+                    $bestScore = $score;
+                    $bestThumb = $thumb;
+                }
+            }
+
+            if (is_string($bestThumb) && $bestThumb !== '') {
+                return $bestThumb;
             }
         } catch (\Throwable $e) {
             Log::debug('politicians:backfill-photos wikipedia fetch failed', [
@@ -146,5 +253,55 @@ class BackfillPoliticianPhotos extends Command
         }
 
         return null;
+    }
+
+    private function isLikelyPersonPage(string $title, string $description, string $targetName, string $office): bool
+    {
+        $t = strtolower(trim($title));
+        $d = strtolower(trim($description));
+        $n = strtolower(trim($targetName));
+        $o = strtolower(trim($office));
+
+        if ($t === '' || str_contains($t, 'disambiguation')) {
+            return false;
+        }
+
+        // Reject institutional pages that often produce flags/seals.
+        foreach (['governor of ', 'secretary of state of ', 'attorney general of ', 'state treasurer of ', 'state controller of ', 'office of ', 'flag of ', 'seal of ', 'coat of arms'] as $bad) {
+            if (str_starts_with($t, $bad) || str_contains($t, $bad)) {
+                return false;
+            }
+        }
+
+        // Prefer pages that look like a personal biography.
+        if ($n !== '' && str_contains($t, $n)) {
+            return true;
+        }
+
+        if ($d !== '') {
+            foreach (['politician', 'mayor', 'governor', 'attorney general', 'senator', 'representative', 'american politician'] as $signal) {
+                if (str_contains($d, $signal)) {
+                    return true;
+                }
+            }
+            if ($o !== '' && str_contains($d, $o)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function isLikelyNonPersonImage(string $thumbUrl, string $imageName = ''): bool
+    {
+        $v = strtolower($thumbUrl . ' ' . $imageName);
+
+        foreach (['flag_of_', 'state_flag', 'seal_of_', 'state_seal', 'coat_of_arms', 'logo', 'wordmark'] as $bad) {
+            if (str_contains($v, $bad)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
