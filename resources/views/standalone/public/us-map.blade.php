@@ -1953,6 +1953,7 @@ function enterOverviewMode() {
     showRegionLegend();
     flyTo(new THREE.Vector3(0, 7.5, 13.0), new THREE.Vector3(0, 0, 0));
     updateBreadcrumb();
+    _syncNatDistVisibility();
 }
 
 function enterRegionMode(regionName, region) {
@@ -1975,11 +1976,13 @@ function enterRegionMode(regionName, region) {
     flyToMeshes(rMeshes, 1.35);
     updateBreadcrumb();
     window.__mapTrack('region_click', { region: regionName });
+    _syncNatDistVisibility();
 }
 
 async function enterStateMode(stateName, regionName, region) {
     const requestId = ++statePanelRequestId;
     mapMode = 'state'; activeRegion = regionName; activeState = stateName; selectedState = stateName;
+    _syncNatDistVisibility();   // hide national boundary lines — district fills cover this view
     document.getElementById('btn-back').style.display = '';
     document.getElementById('hint').innerHTML = 'Click a congressional district to see candidates';
     window.__mapTrack('state_click', {
@@ -3085,10 +3088,40 @@ async function openDistrictPanel(districtNum, districtLabel, stateName, regionHe
    Fetches ALL 444 districts in one TIGERweb request.
    Rendered as LineSegments only (no fill) — works at any zoom.
 ════════════════════════════════════════════════════════ */
-let nationalDistGroup = null;
-let nationalDistLoaded = false;
-let nationalDistVisible = false;
-let nationalDistLoading = false;
+const nationalDistGroups    = {};         // scopeKey (regionName | '__all__') → THREE.Group
+const nationalDistLoadedFor = new Set();  // which scope keys have been fully loaded
+let   nationalDistVisible   = false;
+let   nationalDistLoading   = false;
+
+/* Returns the current scope key: region name in region/state mode, '__all__' in overview */
+function _natDistScopeKey() {
+    return (mapMode === 'overview' || !activeRegion) ? '__all__' : activeRegion;
+}
+
+/* Returns the FIPS codes to load for a given scope key */
+function _natDistFips(scopeKey) {
+    if (scopeKey === '__all__') return [...new Set(Object.values(STATE_FIPS))].sort();
+    const region = REGIONS[scopeKey];
+    if (!region) return [];
+    return region.states.map(s => STATE_FIPS[s]).filter(Boolean);
+}
+
+/* Hides all non-current scope groups; lazy-loads the current scope if needed.
+   In state mode, hides everything — district fills already cover the view. */
+function _syncNatDistVisibility() {
+    if (!nationalDistVisible) return;
+    if (mapMode === 'state') {
+        for (const grp of Object.values(nationalDistGroups)) grp.visible = false;
+        return;
+    }
+    const scopeKey = _natDistScopeKey();
+    for (const [key, grp] of Object.entries(nationalDistGroups)) {
+        grp.visible = (key === scopeKey);
+    }
+    if (!nationalDistLoadedFor.has(scopeKey) && !nationalDistLoading) {
+        loadNationalBoundaries(scopeKey);
+    }
+}
 
 function buildLineLoopsFromFeature(feat, color) {
     // Build flat LineLoop geometries from GeoJSON polygon rings
@@ -3143,7 +3176,19 @@ async function fetchStateDistrictsLow(fips) {
     return data.features || [];
 }
 
-async function loadNationalBoundaries() {
+async function loadNationalBoundaries(scopeKey) {
+    if (scopeKey === undefined) scopeKey = _natDistScopeKey();
+
+    // Already cached — just make it visible and return
+    if (nationalDistLoadedFor.has(scopeKey)) {
+        for (const [key, grp] of Object.entries(nationalDistGroups)) {
+            grp.visible = (key === scopeKey);
+        }
+        nationalDistVisible = true;
+        updateDistrictsBtn(true);
+        return;
+    }
+
     if (nationalDistLoading) return;
     nationalDistLoading = true;
 
@@ -3152,11 +3197,11 @@ async function loadNationalBoundaries() {
     progress.style.display = 'block';
 
     try {
-        nationalDistGroup = new THREE.Group();
-        mapGroup.add(nationalDistGroup);
+        const grp = new THREE.Group();
+        mapGroup.add(grp);
+        nationalDistGroups[scopeKey] = grp;
 
-        // All unique state FIPS codes
-        const allFips = [...new Set(Object.values(STATE_FIPS))].sort();
+        const allFips = _natDistFips(scopeKey);
         let done = 0;
 
         // Fetch in parallel batches of 8
@@ -3178,7 +3223,7 @@ async function loadNationalBoundaries() {
                         const party = DISTRICT_PARTY_MAP[pKey] || 'U';
                         const col   = new THREE.Color(PARTY_INT[party]).lerp(new THREE.Color(0xffffff), 0.38).getHex();
                         for (const line of buildLineLoopsFromFeature(feat, col)) {
-                            nationalDistGroup.add(line);
+                            grp.add(line);
                         }
                     }
                 } catch { /* skip failed states silently */ }
@@ -3186,11 +3231,14 @@ async function loadNationalBoundaries() {
             }));
         }
 
-        nationalDistLoaded  = true;
+        nationalDistLoadedFor.add(scopeKey);
         nationalDistVisible = true;
+        // Hide other scopes, show this one
+        for (const [key, g] of Object.entries(nationalDistGroups)) {
+            g.visible = (key === scopeKey);
+        }
         progress.style.display = 'none';
-        document.getElementById('btn-districts').textContent = 'District Boundaries: ON';
-        document.getElementById('btn-districts').classList.add('active');
+        updateDistrictsBtn(true);
     } catch (err) {
         progress.style.display = 'none';
         progress.textContent   = `⚠ Failed: ${err.message}`;
@@ -3202,16 +3250,19 @@ async function loadNationalBoundaries() {
 }
 
 function toggleNationalBoundaries() {
-    if (!nationalDistLoaded) {
-        loadNationalBoundaries();
+    const scopeKey = _natDistScopeKey();
+    if (!nationalDistLoadedFor.has(scopeKey)) {
+        // First activation for this scope — load it
+        nationalDistVisible = true;
+        loadNationalBoundaries(scopeKey);
         return;
     }
     nationalDistVisible = !nationalDistVisible;
-    if (nationalDistGroup) nationalDistGroup.visible = nationalDistVisible;
-    // Keep the hidden btn-districts text in sync (used by mobile drawer)
+    if (nationalDistGroups[scopeKey]) {
+        nationalDistGroups[scopeKey].visible = nationalDistVisible;
+    }
     const btn = document.getElementById('btn-districts');
     if (btn) { btn.textContent = `District Boundaries: ${nationalDistVisible ? 'ON' : 'OFF'}`; btn.classList.toggle('active', nationalDistVisible); }
-    // Sync the dropdown toggle
     updateDistrictsBtn(nationalDistVisible);
 }
 
