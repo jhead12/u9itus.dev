@@ -1003,6 +1003,10 @@
                     <span>Party Control Colors</span>
                     <span class="cm-toggle" aria-hidden="true"></span>
                 </button>
+                <button class="cm-item" id="cm-btn-small-cities" role="menuitem" title="Also show cities with fewer than 500K residents">
+                    <span>Cities &lt; 500K</span>
+                    <span class="cm-toggle" aria-hidden="true"></span>
+                </button>
                 <hr class="cm-divider">
                 <div class="cm-section">Mouse</div>
                 <div class="cm-item" style="cursor:default;pointer-events:none;">
@@ -3571,6 +3575,15 @@ document.getElementById('cm-btn-party-colors').addEventListener('click', () => {
     // Keep menu open so the toggle state is visible
 });
 
+document.getElementById('cm-btn-small-cities').addEventListener('click', () => {
+    showSmallCities = !showSmallCities;
+    document.getElementById('cm-btn-small-cities').classList.toggle('active', showSmallCities);
+    if (mapMode === 'state' && activeState && ACTIVE_LAYERS.has('topcities')) {
+        buildCityMarkers(activeState);
+    }
+    try { localStorage.setItem('u9map_small_cities', showSmallCities ? '1' : '0'); } catch (_) {}
+});
+
 document.getElementById('cm-btn-kb-help').addEventListener('click', () => {
     openControlsMenu(false);
     toggleKbHelp(true);
@@ -3738,6 +3751,7 @@ function fmtPop(thousands) {
 ════════════════════════════════════════════════════════ */
 let citySprites = [];   // { el, worldPos, name, popK, pinPos }
 let govSprites  = [];   // { el, worldPos, city, stateName, pinPos }
+let showSmallCities = false;  // when false, only show cities with popK >= 500
 
 // (sprite builder removed — dots are now HTML overlays projected via camera each frame)
 
@@ -3757,9 +3771,10 @@ function buildCityMarkers(stateName) {
     if (!cities?.length) return;
 
     for (const [name, lat, lng, popK] of cities) {
+        if (!showSmallCities && popK < 500) continue;   // filtered out unless toggle is on
         const xy = project([lng, lat]);
         if (!xy) continue;
-        const worldPos = new THREE.Vector3(xy[0], xy[1], 0.15);
+        const worldPos = new THREE.Vector3(xy[0], xy[1], 0.35);
 
         const el = document.createElement('button');
         el.className = 'city-marker';
@@ -3853,7 +3868,7 @@ function buildGovMarkers(stateName) {
     const xy = project([lng, lat]);
     if (!xy) return;
 
-    const worldPos = new THREE.Vector3(xy[0], xy[1], 0.15);
+    const worldPos = new THREE.Vector3(xy[0], xy[1], 0.38);
     const el = document.createElement('button');
     el.className = 'gov-marker';
     el.setAttribute('aria-label', `${city} — State Capital`);
@@ -4003,6 +4018,13 @@ layersPanel.querySelectorAll('.lp-chip').forEach(chip => {
 try {
     const _saved = JSON.parse(localStorage.getItem('u9map_layers') || '[]');
     for (const key of _saved) syncLayerChip(key, true);
+} catch (_) {}
+
+try {
+    if (localStorage.getItem('u9map_small_cities') === '1') {
+        showSmallCities = true;
+        document.getElementById('cm-btn-small-cities').classList.add('active');
+    }
 } catch (_) {}
 
 /* ════════════════════════════════════════════════════════
