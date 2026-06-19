@@ -4,6 +4,15 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>U.S. Regional Map – {{ config('app.name', 'U9itus') }}</title>
+    <meta name="description" content="Explore an interactive 3D map of all 50 U.S. states and 435 congressional districts. Discover politicians, candidates, and civic officials for your area.">
+    <link rel="canonical" href="{{ url('/map') }}">
+    <meta property="og:type"        content="website">
+    <meta property="og:url"         content="{{ url('/map') }}">
+    <meta property="og:title"       content="U.S. Regional Map – {{ config('app.name', 'U9itus') }}">
+    <meta property="og:description" content="Explore an interactive 3D map of all 50 U.S. states and 435 congressional districts. Discover politicians, candidates, and civic officials for your area.">
+    <meta name="twitter:card"       content="summary">
+    <meta name="twitter:title"      content="U.S. Regional Map – {{ config('app.name', 'U9itus') }}">
+    <meta name="twitter:description" content="Explore an interactive 3D map of all 50 U.S. states and 435 congressional districts.">
 
     @if (file_exists(public_path('build/manifest.json')) || file_exists(public_path('hot')))
         @vite(['resources/css/app.css'])
@@ -825,7 +834,7 @@
             <tbody>
                 <tr><td><kbd>Tab</kbd></td><td>Focus the map canvas</td></tr>
                 <tr><td><kbd>Enter</kbd> / <kbd>Space</kbd></td><td>Open search to select a state</td></tr>
-                <tr><td><kbd>↑</kbd> <kbd>↓</kbd></td><td>Tilt map (max 40°)</td></tr>
+                <tr><td><kbd>↑</kbd> <kbd>↓</kbd></td><td>Tilt map (max 38°)</td></tr>
                 <tr><td><kbd>+</kbd> / <kbd>=</kbd></td><td>Zoom in</td></tr>
                 <tr><td><kbd>−</kbd></td><td>Zoom out</td></tr>
                 <tr><td><kbd>R</kbd></td><td>Reset view</td></tr>
@@ -1444,7 +1453,7 @@ scene.background = new THREE.Color(0x06091a);
 scene.fog = new THREE.FogExp2(0x060914, 0.004);
 
 const camera = new THREE.PerspectiveCamera(42, W() / H(), 0.1, 300);
-camera.position.set(0, 7, 13);
+camera.position.set(0, 11.8, 9.2); // 38° polar, distance 15
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(W(), H());
@@ -1459,8 +1468,8 @@ sun.position.set(0, 20, 10); scene.add(sun);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true; controls.dampingFactor = 0.07;
 controls.minDistance = 2; controls.maxDistance = 45;
-controls.minPolarAngle = 10 * Math.PI / 180;      // minimum 10° — never fully flat
-controls.maxPolarAngle = Math.PI / 2;             // full 90° — side-on for 3D terrain
+controls.minPolarAngle = 0;                       // fully top-down allowed
+controls.maxPolarAngle = 38 * Math.PI / 180;      // 38° max tilt
 controls.minAzimuthAngle = 0;                     // lock horizontal rotation
 controls.maxAzimuthAngle = 0;
 controls.target.set(0, 0, 0);
@@ -1869,7 +1878,7 @@ function enterOverviewMode() {
         m.parent.position.z    = 0;
     }
     showRegionLegend();
-    flyTo(new THREE.Vector3(0, 7, 13), new THREE.Vector3(0, 0, 0));
+    flyTo(new THREE.Vector3(0, 11.8, 9.2), new THREE.Vector3(0, 0, 0));
     updateBreadcrumb();
 }
 
@@ -2297,7 +2306,7 @@ mapRegion.addEventListener('keydown', e => {
     if (e.key === '?') { toggleKbHelp(true); return; }
     if (e.key === 'r' || e.key === 'R') { enterOverviewMode(); return; }
 
-    // ↑↓ tilt (polar angle), +/- zoom — horizontal rotation is locked
+    // ↑↓ tilt (0°–38° max), +/- zoom — horizontal rotation is locked
     const TILT_STEP = 0.04;  // radians per keypress
     const ZOOM_STEP = 1.15;  // zoom factor per keypress
 
@@ -3452,6 +3461,15 @@ function fmtPop(thousands) {
 let cityMarkers = [];   // { el, worldPos }
 const _cityVec  = new THREE.Vector3();
 
+/* Returns up to n district label entries closest to worldPos */
+function nearestDistricts(worldPos, n = 3) {
+    if (!districtLabels.length) return [];
+    return [...districtLabels]
+        .map(lbl => ({ ...lbl, dist: worldPos.distanceTo(lbl.worldPos) }))
+        .sort((a, b) => a.dist - b.dist)
+        .slice(0, n);
+}
+
 function buildCityMarkers(stateName) {
     clearCityMarkers();
     const abbr   = STATE_ABBR_MAP[stateName];
@@ -3477,28 +3495,31 @@ function buildCityMarkers(stateName) {
             `<div class="city-name-tag">${name}</div>` +
             `<div class="city-pop-tag">${fmtPop(popK)} residents</div>`;
 
-        el.addEventListener('click', () => {
-            // Open pol-drawer: use city officials if available, otherwise show city stats
-            const officials = stateData?.city_officials?.[name] ?? [];
-            const mayor     = officials.find(o => /mayor/i.test(o.political_office || '')) ?? officials[0];
+        el.addEventListener('click', e => {
+            e.stopPropagation();
             window.__mapTrack('city_marker_click', {
                 state:      activeState || null,
                 state_abbr: activeState ? STATE_ABBR_MAP[activeState] : null,
                 meta:       { cityName: name, cityPop: popK },
             });
-            if (mayor) {
-                openPolDrawer(
-                    { ...mayor, office: mayor.political_office || 'Mayor', full_name: mayor.full_name },
-                    '#f59e0b',
-                    { population: null, cityName: name, cityPop: popK }
-                );
-            } else {
-                openPolDrawer(
-                    { full_name: name, office: `City · ${stateName}`, party: null, status: null },
-                    '#f59e0b',
-                    { population: null, cityName: name, cityPop: popK }
-                );
-            }
+            // Find nearest districts to derive political leaning + district rep
+            const nearby      = nearestDistricts(worldPos, 3);
+            const nearestKey  = nearby[0]?.key ?? null;
+            const nearbyParties = nearby.map(d => {
+                const cands  = stateData?.house_candidates?.[d.key] ?? [];
+                const seated = cands.find(c => c.status === 'seated') ?? cands[0];
+                return seated?.party ?? null;
+            }).filter(Boolean);
+            const rCount = nearbyParties.filter(p => /^R/i.test(p)).length;
+            const dCount = nearbyParties.filter(p => /^D/i.test(p)).length;
+            const leaning = rCount > dCount ? 'R' : dCount > rCount ? 'D' : 'Mixed';
+            const nearCands = stateData?.house_candidates?.[nearestKey] ?? [];
+            const nearRep   = nearCands.find(c => c.status === 'seated') ?? nearCands[0] ?? null;
+            openPolDrawer(
+                { full_name: name, office: `City · ${stateName}`, party: leaning === 'Mixed' ? null : leaning },
+                '#f59e0b',
+                { isCityView: true, cityName: name, cityPop: popK, district: nearestKey, rep: nearRep, leaning }
+            );
         });
 
         mapLabelsLayer.appendChild(el);
@@ -3902,23 +3923,39 @@ function openPolDrawer(cand, accentColor, extra = {}) {
     // Hero section
     const c   = cand;
     const ac  = _polCtx.accentColor;
-    const ph  = c.photo;
-    const avH = ph
-        ? `<img class="pol-avatar-lg" src="${ph}" alt="${c.full_name}" onerror="this.outerHTML='<div class=\\'pol-avatar-ph\\'>' + avatarInitials('${c.full_name}','${ac}',64) + '</div>'">`
-        : `<div class="pol-avatar-ph">${avatarInitials(c.full_name, ac, 64)}</div>`;
 
-    polHeroEl.innerHTML = `
-        ${avH}
-        <div class="pol-hero-info">
-            <h2 class="pol-name" id="pol-drawer-name">${c.full_name}</h2>
-            <p class="pol-title">${c.office || '—'}</p>
-            <div class="pol-badges">
-                <span class="party-pill ${partyClass(c.party)}">${PARTY_LABEL[c.party] || c.party || '—'}</span>
-                ${c.status === 'seated' ? `<span style="background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.25);color:#818cf8;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:600;">In Office</span>` : ''}
-                ${c.is_running ? `<span style="background:rgba(52,211,153,0.1);border:1px solid rgba(52,211,153,0.25);color:#34d399;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:600;">Running 2026</span>` : ''}
-                ${c.verified   ? `<span title="Verified" style="color:#fbbf24;font-size:13px;line-height:1;">✓</span>` : ''}
-            </div>
-        </div>`;
+    if (extra?.isCityView) {
+        const leanColor = extra.leaning === 'R' ? '#ef4444' : extra.leaning === 'D' ? '#3b82f6' : '#94a3b8';
+        const leanLabel = extra.leaning === 'R' ? 'Republican leaning' : extra.leaning === 'D' ? 'Democratic leaning' : 'Mixed / Split';
+        polHeroEl.innerHTML = `
+            <div class="pol-avatar-ph" style="font-size:26px;background:rgba(245,158,11,0.1);border:2px solid rgba(245,158,11,0.25);">🏙</div>
+            <div class="pol-hero-info">
+                <h2 class="pol-name" id="pol-drawer-name">${c.full_name}</h2>
+                <p class="pol-title">${c.office || '—'}</p>
+                <div class="pol-badges">
+                    <span style="background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.3);color:#f59e0b;padding:2px 10px;border-radius:999px;font-size:11px;font-weight:700;">${fmtPop(extra.cityPop)} residents</span>
+                    ${extra.district ? `<span style="background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.25);color:#818cf8;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:600;">${extra.district}</span>` : ''}
+                    <span style="background:rgba(0,0,0,0.2);border:1px solid ${leanColor}44;color:${leanColor};padding:2px 8px;border-radius:999px;font-size:10px;font-weight:600;">${leanLabel}</span>
+                </div>
+            </div>`;
+    } else {
+        const ph  = c.photo;
+        const avH = ph
+            ? `<img class="pol-avatar-lg" src="${ph}" alt="${c.full_name}" onerror="this.outerHTML='<div class=\\'pol-avatar-ph\\'>' + avatarInitials('${c.full_name}','${ac}',64) + '</div>'">`
+            : `<div class="pol-avatar-ph">${avatarInitials(c.full_name, ac, 64)}</div>`;
+        polHeroEl.innerHTML = `
+            ${avH}
+            <div class="pol-hero-info">
+                <h2 class="pol-name" id="pol-drawer-name">${c.full_name}</h2>
+                <p class="pol-title">${c.office || '—'}</p>
+                <div class="pol-badges">
+                    <span class="party-pill ${partyClass(c.party)}">${PARTY_LABEL[c.party] || c.party || '—'}</span>
+                    ${c.status === 'seated' ? `<span style="background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.25);color:#818cf8;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:600;">In Office</span>` : ''}
+                    ${c.is_running ? `<span style="background:rgba(52,211,153,0.1);border:1px solid rgba(52,211,153,0.25);color:#34d399;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:600;">Running 2026</span>` : ''}
+                    ${c.verified   ? `<span title="Verified" style="color:#fbbf24;font-size:13px;line-height:1;">✓</span>` : ''}
+                </div>
+            </div>`;
+    }
 
     _renderPolBody();
     requestAnimationFrame(() => polDrawer.classList.add('open'));
@@ -3937,6 +3974,47 @@ function _renderPolBody() {
     const pop = extra?.population ?? null;
 
     if (_polTab === 'overview') {
+        // City view: show population, leaning, district, rep card
+        if (extra?.isCityView) {
+            const { cityPop, district, rep, leaning } = extra;
+            const leanColor = leaning === 'R' ? '#ef4444' : leaning === 'D' ? '#3b82f6' : '#94a3b8';
+            const leanLabel = leaning === 'R' ? 'Republican' : leaning === 'D' ? 'Democratic' : 'Mixed / Split';
+            const repName   = rep?.full_name ?? '—';
+            const repOffice = district ? `${district} · U.S. House` : '—';
+            polBodyEl.innerHTML = `
+                <div class="pol-stat-grid">
+                    <div class="pol-stat">
+                        <span class="pol-stat-val" style="color:#f59e0b;">${fmtPop(cityPop)}</span>
+                        <span class="pol-stat-lbl">City Population</span>
+                    </div>
+                    <div class="pol-stat">
+                        <span class="pol-stat-val" style="color:${leanColor};">${leanLabel}</span>
+                        <span class="pol-stat-lbl">Political Leaning</span>
+                    </div>
+                    <div class="pol-stat">
+                        <span class="pol-stat-val">${district ?? '—'}</span>
+                        <span class="pol-stat-lbl">Congressional District</span>
+                    </div>
+                    <div class="pol-stat">
+                        <span class="pol-stat-val" style="color:${PARTY_HEX[rep?.party]||'#94a3b8'}">${repName}</span>
+                        <span class="pol-stat-lbl">District Rep</span>
+                    </div>
+                </div>
+                ${rep ? `
+                <p class="pol-section-label" style="margin-top:16px;">District Representative</p>
+                <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:rgba(255,255,255,0.04);border-radius:10px;border:1px solid rgba(255,255,255,0.06);">
+                    ${rep.photo
+                        ? `<img src="${rep.photo}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;border:2px solid ${PARTY_HEX[rep.party]||'#334155'};flex-shrink:0;" onerror="this.style.display='none'">`
+                        : `<div style="width:40px;height:40px;border-radius:50%;background:rgba(99,102,241,0.15);display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;">${avatarInitials(rep.full_name,'#6366f1',40)}</div>`}
+                    <div>
+                        <div style="font-size:13px;font-weight:600;color:#e2e8f0;">${rep.full_name}</div>
+                        <div style="font-size:11px;color:#64748b;margin-top:2px;">${repOffice}</div>
+                        <span class="party-pill ${partyClass(rep.party)}" style="margin-top:5px;display:inline-block;">${PARTY_LABEL[rep.party]||rep.party||'—'}</span>
+                    </div>
+                </div>` : ''}`;
+            return;
+        }
+
         const elDate = c.general_date || c.election_date || null;
         const elStr  = elDate ? (() => { try { return new Date(elDate).toLocaleDateString('en-US',{month:'short',year:'numeric'}); } catch { return '—'; } })() : '—';
         const popVal = pop ? pop.formatted : '—';
