@@ -1453,7 +1453,7 @@ scene.background = new THREE.Color(0x06091a);
 scene.fog = new THREE.FogExp2(0x060914, 0.004);
 
 const camera = new THREE.PerspectiveCamera(42, W() / H(), 0.1, 300);
-camera.position.set(0, 2.6, 14.8); // polar ≈80° — flat default, room to tilt both ways
+camera.position.set(0, 7.5, 13.0); // polar ≈60° — isometric 3D default, shows slab depth
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(W(), H());
@@ -1468,8 +1468,8 @@ sun.position.set(0, 20, 10); scene.add(sun);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true; controls.dampingFactor = 0.07;
 controls.minDistance = 2; controls.maxDistance = 45;
-controls.minPolarAngle = 20 * Math.PI / 180;      // 20° — near top-down
-controls.maxPolarAngle = 89 * Math.PI / 180;      // 89° — near edge-on
+controls.minPolarAngle = 15 * Math.PI / 180;      // 15° — near top-down
+controls.maxPolarAngle = 90 * Math.PI / 180;      // 90° — perfectly flat (hard stop)
 controls.target.set(0, 0, 0);
 
 /* Stars */
@@ -1883,7 +1883,7 @@ function enterOverviewMode() {
         m.parent.position.z    = 0;
     }
     showRegionLegend();
-    flyTo(new THREE.Vector3(0, 2.6, 14.8), new THREE.Vector3(0, 0, 0));
+    flyTo(new THREE.Vector3(0, 7.5, 13.0), new THREE.Vector3(0, 0, 0));
     updateBreadcrumb();
 }
 
@@ -2185,6 +2185,39 @@ renderer.domElement.addEventListener('mouseleave', () => {
 renderer.domElement.addEventListener('click', () => {
     raycaster.setFromCamera(mouse, camera);
 
+    /* City / Capital flag sprite click (state mode) */
+    if (mapMode === 'state') {
+        const allSprites = [
+            ...citySprites.map(c => c.sprite),
+            ...govSprites.map(g => g.sprite),
+        ];
+        if (allSprites.length) {
+            const spHits = raycaster.intersectObjects(allSprites);
+            if (spHits.length) {
+                const hit  = spHits[0].object;
+                const cDat = citySprites.find(c => c.sprite === hit);
+                if (cDat) { _openCityDrawer(cDat.name, cDat.popK, activeState, cDat.pinPos); return; }
+                const gDat = govSprites.find(g => g.sprite === hit);
+                if (gDat) {
+                    const officials = stateData?.city_officials?.[gDat.city] ?? [];
+                    const governor  = stateData?.offices?.find?.(o => /governor/i.test(o.office))?.candidates?.[0] ?? null;
+                    const rep       = governor ?? officials[0] ?? null;
+                    window.__mapTrack('gov_marker_click', {
+                        state: activeState || null, state_abbr: activeState ? STATE_ABBR_MAP[activeState] : null,
+                        meta: { cityName: gDat.city, isCapital: true },
+                    });
+                    openPolDrawer(
+                        rep ? { ...rep, office: rep.political_office || rep.office || 'Governor' }
+                            : { full_name: gDat.city, office: `State Capital · ${gDat.stateName}`, party: null },
+                        '#06b6d4',
+                        { population: null, cityName: gDat.city, isCapital: true }
+                    );
+                    return;
+                }
+            }
+        }
+    }
+
     /* District click */
     if (mapMode === 'state' && districtMeshes.length) {
         const dHits = raycaster.intersectObjects(districtMeshes);
@@ -2289,6 +2322,21 @@ function toggleKbHelp(open) {
 kbHelpClose.addEventListener('click', () => toggleKbHelp(false));
 kbBadge.addEventListener('click',     () => toggleKbHelp(true));
 
+/* Tilt camera by delta radians (negative = more overhead, positive = more face-on) */
+function tiltCamera(delta) {
+    if (!controls || !camera) return;
+    const dist = camera.position.length();
+    let phi   = Math.atan2(Math.sqrt(camera.position.x ** 2 + camera.position.z ** 2), camera.position.y);
+    const theta = Math.atan2(camera.position.x, camera.position.z);
+    phi = Math.max(controls.minPolarAngle, Math.min(controls.maxPolarAngle, phi + delta));
+    camera.position.set(
+        dist * Math.sin(phi) * Math.sin(theta),
+        dist * Math.cos(phi),
+        dist * Math.sin(phi) * Math.cos(theta)
+    );
+    controls.update();
+}
+
 // Close help on Escape
 document.addEventListener('keydown', e => {
     if (e.key === 'Escape' && kbHelp.classList.contains('open')) {
@@ -2311,23 +2359,12 @@ mapRegion.addEventListener('keydown', e => {
     if (e.key === '?') { toggleKbHelp(true); return; }
     if (e.key === 'r' || e.key === 'R') { enterOverviewMode(); return; }
 
-    // ↑↓ tilt (0°–38° max), +/- zoom — horizontal rotation is locked
-    const TILT_STEP = 0.04;  // radians per keypress
-    const ZOOM_STEP = 1.15;  // zoom factor per keypress
+    // +/- zoom (only when mapRegion is focused)
+    const ZOOM_STEP = 1.15;
 
     if (!controls) return;
 
     switch (e.key) {
-        case 'ArrowUp':
-            e.preventDefault();
-            controls.rotateUp(TILT_STEP);
-            controls.update();
-            break;
-        case 'ArrowDown':
-            e.preventDefault();
-            controls.rotateUp(-TILT_STEP);
-            controls.update();
-            break;
         case '+': case '=':
             e.preventDefault();
             stepZoom(1 / ZOOM_STEP);
@@ -2339,10 +2376,21 @@ mapRegion.addEventListener('keydown', e => {
     }
 });
 
-// Global ? shortcut (when canvas not focused)
+// Global shortcuts — fire regardless of focus (except inputs)
 document.addEventListener('keydown', e => {
-    if (e.key === '?' && !e.target.matches('input, textarea, [contenteditable]')) {
-        toggleKbHelp();
+    if (e.target.matches('input, textarea, [contenteditable]')) return;
+    const TILT_STEP = 0.06;
+    const ZOOM_STEP = 1.15;
+    switch (e.key) {
+        case '?': toggleKbHelp(); break;
+        case 'ArrowUp':
+            e.preventDefault();
+            tiltCamera(-TILT_STEP);  // more overhead
+            break;
+        case 'ArrowDown':
+            e.preventDefault();
+            tiltCamera(+TILT_STEP);  // more face-on
+            break;
     }
 });
 // Click outside popup to close
@@ -3462,10 +3510,126 @@ function fmtPop(thousands) {
 }
 
 /* ════════════════════════════════════════════════════════
-   CITY CENSUS MARKERS (HTML overlays, always-on in state mode)
+   CITY & CAPITAL FLAG SPRITES  (THREE.js, moves with map)
 ════════════════════════════════════════════════════════ */
-let cityMarkers = [];   // { el, worldPos }
-const _cityVec  = new THREE.Vector3();
+let citySprites = [];   // { sprite, name, popK }
+let govSprites  = [];   // { sprite, city, stateName }
+
+/**
+ * Build a canvas-textured THREE.Sprite shaped like a map pin flag.
+ * The sprite's internal _pinOffsetY tells callers how far above the
+ * pin-base the sprite centre sits, so callers can position it correctly.
+ */
+function makeFlagSprite(name, line2, hexColor) {
+    const DPR = Math.min(window.devicePixelRatio || 1, 2);
+    const LW = 108, LH = 56;   // compact logical canvas
+    const canvas = document.createElement('canvas');
+    canvas.width  = LW * DPR;
+    canvas.height = LH * DPR;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(DPR, DPR);
+
+    const px = 19, py = 15, pr = 10;     // pin circle centre + radius
+    const anchorY = 50, anchorR = 2.5;   // stem anchor dot
+
+    // ambient glow
+    const glow = ctx.createRadialGradient(px, py, 0, px, py, pr * 2.4);
+    glow.addColorStop(0,   hexColor + 'aa');
+    glow.addColorStop(0.5, hexColor + '33');
+    glow.addColorStop(1,   'transparent');
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, px + pr * 2.6, py + pr * 2.6);
+
+    // pin shadow
+    ctx.shadowColor   = 'rgba(0,0,0,0.55)';
+    ctx.shadowBlur    = 7;
+    ctx.shadowOffsetY = 2;
+    ctx.fillStyle = hexColor;
+    ctx.beginPath();
+    ctx.arc(px, py, pr, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowColor = 'transparent';
+
+    // inner radial highlight
+    const grad = ctx.createRadialGradient(px - 3, py - 3, 1, px, py, pr);
+    grad.addColorStop(0, 'rgba(255,255,255,0.30)');
+    grad.addColorStop(1, 'rgba(0,0,0,0.05)');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(px, py, pr, 0, Math.PI * 2);
+    ctx.fill();
+
+    // white ring
+    ctx.strokeStyle = 'rgba(255,255,255,0.80)';
+    ctx.lineWidth   = 1.5;
+    ctx.beginPath();
+    ctx.arc(px, py, pr, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // stem
+    ctx.strokeStyle = 'rgba(190,210,235,0.60)';
+    ctx.lineWidth   = 1.5;
+    ctx.lineCap     = 'round';
+    ctx.beginPath();
+    ctx.moveTo(px, py + pr + 1);
+    ctx.lineTo(px, anchorY - anchorR - 1);
+    ctx.stroke();
+
+    // anchor dot
+    ctx.shadowColor = 'rgba(0,0,0,0.40)';
+    ctx.shadowBlur  = 4;
+    ctx.fillStyle   = hexColor;
+    ctx.beginPath();
+    ctx.arc(px, anchorY, anchorR, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowColor = 'transparent';
+    ctx.strokeStyle = 'rgba(255,255,255,0.80)';
+    ctx.lineWidth   = 0.8;
+    ctx.beginPath();
+    ctx.arc(px, anchorY, anchorR, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // label pill
+    const lx = px + pr + 5, ly = py - 11;
+    const lw = LW - lx - 3, lh = 22;
+    ctx.fillStyle   = 'rgba(6,12,28,0.82)';
+    ctx.strokeStyle = 'rgba(255,255,255,0.09)';
+    ctx.lineWidth   = 0.5;
+    ctx.beginPath();
+    const r = 11;
+    ctx.moveTo(lx + r, ly);
+    ctx.lineTo(lx + lw - r, ly);   ctx.quadraticCurveTo(lx + lw, ly,      lx + lw, ly + r);
+    ctx.lineTo(lx + lw, ly + lh - r); ctx.quadraticCurveTo(lx + lw, ly + lh, lx + lw - r, ly + lh);
+    ctx.lineTo(lx + r, ly + lh);   ctx.quadraticCurveTo(lx, ly + lh,  lx,      ly + lh - r);
+    ctx.lineTo(lx, ly + r);        ctx.quadraticCurveTo(lx, ly,       lx + r,  ly);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // label text — fit to pill width
+    ctx.fillStyle    = '#dde4f0';
+    ctx.font         = `600 9px -apple-system,system-ui,'Segoe UI',sans-serif`;
+    ctx.textBaseline = 'middle';
+    const maxW = lw - 12;
+    let label = name;
+    while (ctx.measureText(label).width > maxW && label.length > 3)
+        label = label.slice(0, -1);
+    if (label !== name) label = label.slice(0, -1) + '\u2026';
+    ctx.fillText(label, lx + 6, ly + lh / 2);
+
+    const tex = new THREE.CanvasTexture(canvas);
+    const mat = new THREE.SpriteMaterial({
+        map: tex, transparent: true, depthTest: false, sizeAttenuation: true,
+    });
+    const sprite = new THREE.Sprite(mat);
+    const scl = 0.0022;
+    sprite.scale.set(LW * scl, LH * scl, 1);
+    sprite.renderOrder = 10;
+    // anchor (anchorY px from top) must align with worldPos;
+    // sprite centre must be (anchorY - LH/2) px above it in canvas→world mapping
+    sprite._pinOffsetY = (anchorY - LH / 2) * scl;   // +ve = centre above worldPos
+    return sprite;
+}
 
 /* Returns up to n district label entries closest to worldPos */
 function nearestDistricts(worldPos, n = 3) {
@@ -3485,79 +3649,46 @@ function buildCityMarkers(stateName) {
     for (const [name, lat, lng, popK] of cities) {
         const xy = project([lng, lat]);
         if (!xy) continue;
-        const worldPos = new THREE.Vector3(xy[0], xy[1], 0.08);
+        const pinPos = new THREE.Vector3(xy[0], xy[1], 0.40);
 
-        // Dot size by population tier
-        const dotSize  = popK >= 1000 ? 10 : popK >= 500 ? 8 : popK >= 200 ? 6 : 5;
-        const ringSize = dotSize + 6;
-
-        const el = document.createElement('button');
-        el.className = 'city-marker';
-        el.setAttribute('aria-label', `${name} — ${fmtPop(popK)} population`);
-        el.innerHTML =
-            `<div class="city-dot-ring" style="width:${ringSize}px;height:${ringSize}px;">` +
-                `<div class="city-dot-core" style="width:${dotSize}px;height:${dotSize}px;"></div>` +
-            `</div>` +
-            `<div class="city-name-tag">${name}</div>` +
-            `<div class="city-pop-tag">${fmtPop(popK)} residents</div>`;
-
-        el.addEventListener('click', e => {
-            e.stopPropagation();
-            window.__mapTrack('city_marker_click', {
-                state:      activeState || null,
-                state_abbr: activeState ? STATE_ABBR_MAP[activeState] : null,
-                meta:       { cityName: name, cityPop: popK },
-            });
-            // Find nearest districts to derive political leaning + district rep
-            const nearby      = nearestDistricts(worldPos, 3);
-            const nearestKey  = nearby[0]?.key ?? null;
-            const nearbyParties = nearby.map(d => {
-                const cands  = stateData?.house_candidates?.[d.key] ?? [];
-                const seated = cands.find(c => c.status === 'seated') ?? cands[0];
-                return seated?.party ?? null;
-            }).filter(Boolean);
-            const rCount = nearbyParties.filter(p => /^R/i.test(p)).length;
-            const dCount = nearbyParties.filter(p => /^D/i.test(p)).length;
-            const leaning = rCount > dCount ? 'R' : dCount > rCount ? 'D' : 'Mixed';
-            const nearCands = stateData?.house_candidates?.[nearestKey] ?? [];
-            const nearRep   = nearCands.find(c => c.status === 'seated') ?? nearCands[0] ?? null;
-            openPolDrawer(
-                { full_name: name, office: `City · ${stateName}`, party: leaning === 'Mixed' ? null : leaning },
-                '#f59e0b',
-                { isCityView: true, cityName: name, cityPop: popK, district: nearestKey, rep: nearRep, leaning }
-            );
-        });
-
-        mapLabelsLayer.appendChild(el);
-        cityMarkers.push({ el, worldPos });
-        requestAnimationFrame(() => el.classList.add('visible'));
+        const sprite = makeFlagSprite(name, fmtPop(popK) + ' residents', '#d97706');
+        sprite.position.set(pinPos.x, pinPos.y + sprite._pinOffsetY, pinPos.z);
+        mapGroup.add(sprite);
+        citySprites.push({ sprite, name, popK, pinPos });
     }
 }
 
 function clearCityMarkers() {
-    for (const m of cityMarkers) m.el.remove();
-    cityMarkers = [];
+    for (const c of citySprites) {
+        mapGroup.remove(c.sprite);
+        c.sprite.material.map?.dispose();
+        c.sprite.material.dispose();
+    }
+    citySprites = [];
 }
 
-function updateCityMarkers() {
-    if (!cityMarkers.length) return;
-    const W = renderer.domElement.clientWidth;
-    const H = renderer.domElement.clientHeight;
-    for (const cm of cityMarkers) {
-        _cityVec.copy(cm.worldPos);
-        _cityVec.project(camera);
-        const sx = ( _cityVec.x * 0.5 + 0.5) * W;
-        const sy = (-_cityVec.y * 0.5 + 0.5) * H;
-        const behind  = _cityVec.z > 1;
-        const outside = sx < -60 || sx > W + 60 || sy < 40 || sy > H + 60;
-        if (behind || outside) {
-            cm.el.style.display = 'none';
-        } else {
-            cm.el.style.display = 'flex';
-            cm.el.style.left = sx + 'px';
-            cm.el.style.top  = sy + 'px';
-        }
-    }
+function _openCityDrawer(name, popK, stateName, pinPos) {
+    window.__mapTrack('city_marker_click', {
+        state: activeState || null, state_abbr: activeState ? STATE_ABBR_MAP[activeState] : null,
+        meta: { cityName: name, cityPop: popK },
+    });
+    const nearby  = nearestDistricts(pinPos, 3);
+    const nearKey = nearby[0]?.key ?? null;
+    const nearbyParties = nearby.map(d => {
+        const cands  = stateData?.house_candidates?.[d.key] ?? [];
+        const seated = cands.find(c => c.status === 'seated') ?? cands[0];
+        return seated?.party ?? null;
+    }).filter(Boolean);
+    const rCount  = nearbyParties.filter(p => /^R/i.test(p)).length;
+    const dCount  = nearbyParties.filter(p => /^D/i.test(p)).length;
+    const leaning = rCount > dCount ? 'R' : dCount > rCount ? 'D' : 'Mixed';
+    const nearRep = (stateData?.house_candidates?.[nearKey] ?? []).find(c => c.status === 'seated')
+                    ?? (stateData?.house_candidates?.[nearKey] ?? [])[0] ?? null;
+    openPolDrawer(
+        { full_name: name, office: `City · ${stateName}`, party: leaning === 'Mixed' ? null : leaning },
+        '#f59e0b',
+        { isCityView: true, cityName: name, cityPop: popK, district: nearKey, rep: nearRep, leaning }
+    );
 }
 
 const cityBoundaryCache = {};
@@ -3597,9 +3728,6 @@ const STATE_CAPITALS = {
 /* ════════════════════════════════════════════════════════
    GOVERNMENT / CAPITOL MARKERS
 ════════════════════════════════════════════════════════ */
-let govMarkers = [];
-const _govVec  = new THREE.Vector3();
-
 function buildGovMarkers(stateName) {
     clearGovMarkers();
     const abbr = STATE_ABBR_MAP[stateName];
@@ -3609,71 +3737,20 @@ function buildGovMarkers(stateName) {
     const xy = project([lng, lat]);
     if (!xy) return;
 
-    const worldPos = new THREE.Vector3(xy[0], xy[1], 0.10); // above city markers
-
-    const el = document.createElement('button');
-    el.className = 'gov-marker';
-    el.setAttribute('aria-label', `${city} — State Capital`);
-    el.innerHTML =
-        `<div class="gov-dot-ring" style="width:18px;height:18px;">` +
-            `<div class="gov-dot-core" style="width:11px;height:11px;"></div>` +
-        `</div>` +
-        `<div class="gov-name-tag">★ ${city}</div>` +
-        `<div class="gov-cap-tag">State Capital</div>`;
-
-    el.addEventListener('click', () => {
-        const officials = stateData?.city_officials?.[city] ?? [];
-        const governor  = stateData?.offices?.find?.(g => /governor/i.test(g.office))?.candidates?.[0] ?? null;
-        const rep       = governor ?? officials[0] ?? null;
-        window.__mapTrack('gov_marker_click', {
-            state:      activeState || null,
-            state_abbr: activeState ? STATE_ABBR_MAP[activeState] : null,
-            meta:       { cityName: city, isCapital: true },
-        });
-        if (rep) {
-            openPolDrawer(
-                { ...rep, office: rep.political_office || rep.office || 'State Capital' },
-                '#06b6d4',
-                { population: null, cityName: city, isCapital: true }
-            );
-        } else {
-            openPolDrawer(
-                { full_name: city, office: `State Capital · ${stateName}`, party: null, status: null },
-                '#06b6d4',
-                { population: null, cityName: city, isCapital: true }
-            );
-        }
-    });
-
-    mapLabelsLayer.appendChild(el);
-    govMarkers.push({ el, worldPos });
-    requestAnimationFrame(() => el.classList.add('visible'));
+    const pinPos = new THREE.Vector3(xy[0], xy[1], 0.42); // slightly above city flags
+    const sprite = makeFlagSprite('★ ' + city, 'State Capital', '#0891b2');
+    sprite.position.set(pinPos.x, pinPos.y + sprite._pinOffsetY, pinPos.z);
+    mapGroup.add(sprite);
+    govSprites.push({ sprite, city, stateName, pinPos });
 }
 
 function clearGovMarkers() {
-    for (const m of govMarkers) m.el.remove();
-    govMarkers = [];
-}
-
-function updateGovMarkers() {
-    if (!govMarkers.length) return;
-    const W = renderer.domElement.clientWidth;
-    const H = renderer.domElement.clientHeight;
-    for (const gm of govMarkers) {
-        _govVec.copy(gm.worldPos);
-        _govVec.project(camera);
-        const sx = ( _govVec.x * 0.5 + 0.5) * W;
-        const sy = (-_govVec.y * 0.5 + 0.5) * H;
-        const behind  = _govVec.z > 1;
-        const outside = sx < -60 || sx > W + 60 || sy < 40 || sy > H + 60;
-        if (behind || outside) {
-            gm.el.style.display = 'none';
-        } else {
-            gm.el.style.display = 'flex';
-            gm.el.style.left = sx + 'px';
-            gm.el.style.top  = sy + 'px';
-        }
+    for (const g of govSprites) {
+        mapGroup.remove(g.sprite);
+        g.sprite.material.map?.dispose();
+        g.sprite.material.dispose();
     }
+    govSprites = [];
 }
 
 function clearCityLayer() {
@@ -4100,8 +4177,6 @@ function animate() {
     controls.update();
     renderer.render(scene, camera);
     updateDistrictLabels();
-    updateCityMarkers();
-    updateGovMarkers();
 }
 animate();
 
