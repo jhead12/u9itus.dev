@@ -45,7 +45,7 @@
                 </div>
                 
                 <div class="hidden md:flex items-center space-x-8">
-                    <a href="#platform" class="text-slate-300 hover:text-white transition text-sm font-medium">Journeys</a>
+                    <a href="#featured-candidates" class="text-slate-300 hover:text-white transition text-sm font-medium">Featured</a>
                     <a href="{{ route('politicians.directory') }}" class="text-slate-300 hover:text-white transition text-sm font-medium">Browse Candidates</a>
                     <a href="{{ route('us.map') }}" class="text-slate-300 hover:text-white transition text-sm font-medium flex items-center gap-1.5">
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
@@ -174,7 +174,7 @@
         
         <!-- Scroll Indicator -->
         <div class="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce">
-            <a href="#platform" class="text-slate-400 hover:text-white transition">
+            <a href="#featured-candidates" class="text-slate-400 hover:text-white transition">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"/>
                 </svg>
@@ -293,87 +293,6 @@
     </section>
     @endif
     @endisset
-
-    <!-- Platform Section -->
-    <section id="platform" class="relative py-24 bg-slate-900">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="text-center mb-16">
-                <h2 class="text-4xl sm:text-5xl font-bold">
-                    The Two Journeys Inside <span class="text-emerald-400">U9itus</span>
-                </h2>
-            </div>
-            
-            <div class="grid md:grid-cols-2 gap-8">
-                <!-- Card 1 -->
-                <div class="group relative bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl p-8 border border-slate-700 hover:border-emerald-500/50 transition duration-300 overflow-hidden">
-                    <div class="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl group-hover:bg-emerald-500/10 transition"></div>
-                    <div class="relative">
-                        <div class="w-16 h-16 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-xl flex items-center justify-center text-3xl mb-6 shadow-lg shadow-emerald-500/30">
-                            🎯
-                        </div>
-                        <h3 class="text-2xl font-bold mb-4">Politician Journey</h3>
-                        <p class="text-slate-300 leading-relaxed mb-6">
-                            Get on platform, load credits, introduce yourself, answer real voter questions, and target voters by district and governance level.
-                        </p>
-                        <ul class="space-y-3">
-                            <li class="flex items-center text-slate-300">
-                                <svg class="w-5 h-5 mr-3 text-emerald-400" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-                                </svg>
-                                P1: Create account and office profile
-                            </li>
-                            <li class="flex items-center text-slate-300">
-                                <svg class="w-5 h-5 mr-3 text-emerald-400" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-                                </svg>
-                                P2: Load credits with transparent post-fee balance
-                            </li>
-                            <li class="flex items-center text-slate-300">
-                                <svg class="w-5 h-5 mr-3 text-emerald-400" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-                                </svg>
-                                P3-P5: Intro video, Q&A videos, district targeting
-                            </li>
-                        </ul>
-                    </div>
-                </div>
-
-                <!-- Card 2 -->
-                <div class="group relative bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl p-8 border border-slate-700 hover:border-teal-500/50 transition duration-300 overflow-hidden">
-                    <div class="absolute top-0 right-0 w-64 h-64 bg-teal-500/5 rounded-full blur-3xl group-hover:bg-teal-500/10 transition"></div>
-                    <div class="relative">
-                        <div class="w-16 h-16 bg-gradient-to-br from-teal-500 to-blue-500 rounded-xl flex items-center justify-center text-3xl mb-6 shadow-lg shadow-teal-500/30">
-                            🗳️
-                        </div>
-                        <h3 class="text-2xl font-bold mb-4">Voter Journey</h3>
-                        <p class="text-slate-300 leading-relaxed mb-6">
-                            Discover who is on your ballot before signup, then learn through direct candidate videos and issue-based answers built around your district.
-                        </p>
-                        <ul class="space-y-3">
-                            <li class="flex items-center text-slate-300">
-                                <svg class="w-5 h-5 mr-3 text-teal-400" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-                                </svg>
-                                V1-V2: Enter address and browse district candidates
-                            </li>
-                            <li class="flex items-center text-slate-300">
-                                <svg class="w-5 h-5 mr-3 text-teal-400" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-                                </svg>
-                                V3-V5: Watch intro videos and issue-by-issue Q&A in one place
-                            </li>
-                            <li class="flex items-center text-slate-300">
-                                <svg class="w-5 h-5 mr-3 text-teal-400" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-                                </svg>
-                                Stay informed first, with compensated engagement as a secondary benefit
-                            </li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
 
     <!-- Interactive Map Section -->
     <section id="explore-map" class="relative py-24 bg-gradient-to-b from-slate-800 to-slate-900 overflow-hidden">
@@ -670,7 +589,7 @@
                 <div>
                     <h3 class="font-semibold mb-4">Platform</h3>
                     <ul class="space-y-2 text-slate-400 text-sm">
-                        <li><a href="#platform" class="hover:text-white transition">Journeys</a></li>
+                        <li><a href="#featured-candidates" class="hover:text-white transition">Featured Candidates</a></li>
                         <li><a href="#revenue" class="hover:text-white transition">Voter Value</a></li>
                         <li><a href="#how-it-works" class="hover:text-white transition">Transparency Layer</a></li>
                         <li><a href="{{ route('about') }}" class="hover:text-white transition">About Us</a></li>
