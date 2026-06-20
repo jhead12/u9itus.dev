@@ -32,5 +32,7 @@
                 </a>
             </div>
         </div>
+
+        <x-feedback-widget />
     </body>
 </html>

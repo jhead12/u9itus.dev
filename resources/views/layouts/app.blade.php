@@ -50,5 +50,7 @@
         </div>
         <!-- Bootstrap JS Bundle (includes Popper) -->
         <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-9ND8Kq3l9z1X5Y2gZ3f8b1Y2h9K1V7K2qD3e1Q6z9e2q1Z4Yb3c6h9K1V7K2qD9" crossorigin="anonymous"></script>
+
+        <x-feedback-widget />
     </body>
 </html>
