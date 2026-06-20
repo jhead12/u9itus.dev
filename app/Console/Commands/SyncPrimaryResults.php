@@ -111,6 +111,13 @@ class SyncPrimaryResults extends Command
                 continue;
             }
 
+            if ($rec->election_date === null) {
+                $this->line("\n<fg=yellow>[{$rec->state}]</> {$rec->full_name} — {$rec->political_office} — skipped (no election_date)");
+                Log::warning('SyncPrimaryResults: skipping record with null election_date', ['id' => $rec->id, 'name' => $rec->full_name]);
+                $stats['skipped']++;
+                continue;
+            }
+
             $this->line("\n<fg=green>[{$rec->state}]</> {$rec->full_name} — {$rec->political_office}");
 
             $result = $this->resolvePrimaryResult($rec->full_name, $rec->state, $rec->political_office, $rec->election_date);
@@ -162,7 +169,7 @@ class SyncPrimaryResults extends Command
         string $name,
         string $state,
         string $office,
-        string $electionDate
+        ?string $electionDate
     ): ?string {
         // ── Tier 1: Ballotpedia candidate page ────────────────────────────────
         $bpSlug = str_replace(' ', '_', $name);
@@ -200,7 +207,7 @@ class SyncPrimaryResults extends Command
     /**
      * Fetch a URL and classify its text content as advanced/eliminated/null.
      */
-    private function checkUrl(string $url, string $name, string $electionDate): ?string
+    private function checkUrl(string $url, string $name, ?string $electionDate): ?string
     {
         try {
             $resp = Http::timeout(15)
@@ -221,7 +228,7 @@ class SyncPrimaryResults extends Command
     /**
      * Classify page text as advanced_to_general, eliminated, or null.
      */
-    private function classify(string $text, string $electionDate): ?string
+    private function classify(string $text, ?string $electionDate): ?string
     {
         foreach (self::ELIMINATED_SIGNALS as $signal) {
             if (str_contains($text, $signal)) {
