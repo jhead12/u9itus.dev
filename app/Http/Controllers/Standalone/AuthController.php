@@ -213,12 +213,55 @@ class AuthController extends Controller
             'email' => ['required', 'email', 'max:255'],
         ]);
 
+        $email = strtolower(trim($request->email));
+
         \Illuminate\Support\Facades\DB::table('mailing_list_subscribers')->updateOrInsert(
-            ['email' => strtolower(trim($request->email))],
+            ['email' => $email],
             ['source' => 'register_closed', 'updated_at' => now(), 'created_at' => now()]
         );
 
-        return back()->with('mailing_list_success', "You're on the list! We'll email #{$request->email} as soon as registration opens.");
+        // Sync to Mailgun mailing list if configured
+        $this->addToMailgunMailingList($email);
+
+        return back()->with('mailing_list_success', "You're on the list! We'll email {$email} as soon as registration opens.");
+    }
+
+    /**
+     * Add an email address to the configured Mailgun mailing list via the Members API.
+     * Silently logs and returns on any failure — never breaks the user-facing flow.
+     */
+    private function addToMailgunMailingList(string $email): void
+    {
+        $listAddress = config('services.mailgun.mailing_list');
+        $apiKey      = config('services.mailgun.secret');
+        $endpoint    = config('services.mailgun.endpoint', 'api.mailgun.net');
+
+        if (! $listAddress || ! $apiKey) {
+            return; // Not configured — skip silently
+        }
+
+        try {
+            $response = \Illuminate\Support\Facades\Http::withBasicAuth('api', $apiKey)
+                ->asForm()
+                ->post("https://{$endpoint}/v3/lists/{$listAddress}/members", [
+                    'address'    => $email,
+                    'subscribed' => 'yes',
+                    'upsert'     => 'yes', // update if already exists
+                ]);
+
+            if (! $response->successful()) {
+                \Illuminate\Support\Facades\Log::warning('MailingList: Mailgun Members API error', [
+                    'email'  => $email,
+                    'status' => $response->status(),
+                    'body'   => $response->body(),
+                ]);
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('MailingList: Mailgun Members API exception', [
+                'email' => $email,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     // -------------------------------------------------------------------------
