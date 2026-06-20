@@ -526,7 +526,7 @@
             </p>
 
             <div class="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12">
-                <a href="https://docs.google.com/forms/d/e/1FAIpQLScWgfrJPf1HCxFUsHYH8pOdhKPV4wjDkRw_STP5xkKHINvD7w/viewform?usp=header"
+                <a href="https://www.ageofmentality.com/?offerId=95&appName=klav"
                    target="_blank" rel="noopener noreferrer"
                    class="inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-white bg-gradient-to-r from-emerald-500 to-teal-500 rounded-xl hover:from-emerald-600 hover:to-teal-600 transition shadow-2xl shadow-emerald-500/40 hover:-translate-y-0.5 transform">
                     Let's Unite! Share Your Thoughts
