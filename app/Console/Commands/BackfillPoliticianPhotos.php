@@ -80,6 +80,14 @@ class BackfillPoliticianPhotos extends Command
             );
 
             if ($photoUrl) {
+                // TEXT columns support long URLs; guard against anything pathological
+                if (mb_strlen($photoUrl) > 65535) {
+                    $this->line("  <fg=yellow>⚠</> {$pol->full_name}: URL too long (" . mb_strlen($photoUrl) . " chars), skipping");
+                    Log::warning('BackfillPoliticianPhotos: URL too long, skipping', ['id' => $pol->id, 'name' => $pol->full_name, 'url_length' => mb_strlen($photoUrl)]);
+                    $missing++;
+                    continue;
+                }
+
                 $this->line("  <fg=cyan>✓</> {$pol->full_name}");
                 $this->line("      → {$photoUrl}");
 
