@@ -152,6 +152,17 @@ class CandidateNewsService
      */
     protected function persistArticles(array $articles, ?int $politicianId, string $candidateName, array &$seen): void
     {
+        // Verify the politician actually exists before using it as a FK value.
+        // If it has been deleted or was never imported, save articles as unlinked
+        // (politician_id = null) rather than throwing a constraint violation.
+        if ($politicianId !== null && ! Politician::where('id', $politicianId)->exists()) {
+            Log::warning('CandidateNewsService: politician_id not found in politicians table; saving articles as unlinked', [
+                'politician_id'  => $politicianId,
+                'candidate_name' => $candidateName,
+            ]);
+            $politicianId = null;
+        }
+
         foreach (array_slice($articles, 0, $this->maxPerProvider) as $article) {
             $hash = $article['source_hash'] ?? hash('sha256', $article['source_url'] ?? '');
 
