@@ -12,7 +12,7 @@ on:
         required: false
       limit:
         description: "Max candidates to refresh per run"
-        default: "50"
+        default: "100"
         required: false
       dry_run:
         description: "Dry-run (report only, no fetching)"
