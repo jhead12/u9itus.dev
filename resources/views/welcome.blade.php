@@ -11,6 +11,7 @@
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     @else
         <script src="https://cdn.tailwindcss.com"></script>
+        <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     @endif
     {{-- Animation styles always included regardless of asset pipeline --}}
     <style>
@@ -181,12 +182,123 @@
         </div>
     </section>
 
+    @isset($featuredCandidates)
+    @if($featuredCandidates->isNotEmpty())
+    <!-- Featured Candidates (geo-aware, rotating) -->
+    <section id="featured-candidates" class="relative py-20 bg-gradient-to-b from-slate-900 to-slate-800/60">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-12">
+                <span class="text-emerald-400 font-semibold text-sm tracking-wider uppercase">
+                    @if(!empty($visitorState))
+                        — Candidates Near You · {{ $visitorState }}
+                    @else
+                        — Featured Candidates
+                    @endif
+                </span>
+                <h2 class="mt-4 text-3xl sm:text-4xl font-bold">
+                    Who's <span class="text-emerald-400">On Your Ballot</span> Right Now
+                </h2>
+                <p class="mt-3 text-slate-400 text-sm">A rotating snapshot of candidates and recent news in the platform.</p>
+            </div>
+
+            <div
+                x-data="{
+                    active: 0,
+                    total: {{ $featuredCandidates->count() }},
+                    timer: null,
+                    start() {
+                        if (this.total <= 1) return;
+                        this.timer = setInterval(() => { this.active = (this.active + 1) % this.total; }, 6000);
+                    },
+                    stop() { if (this.timer) clearInterval(this.timer); }
+                }"
+                x-init="start()"
+                @mouseenter="stop()"
+                @mouseleave="start()"
+                class="relative"
+            >
+                <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    @foreach($featuredCandidates as $index => $candidate)
+                        @php
+                            $news = $candidate->latest_news ?? null;
+                            $office = trim((string) ($candidate->political_office ?? ''));
+                            $district = trim((string) ($candidate->district ?? ''));
+                            $state = trim((string) ($candidate->state ?? ''));
+                            $jobTitle = $office !== '' ? $office : 'Candidate';
+                            $districtLine = trim($district . ($district && $state ? ', ' : '') . $state);
+                        @endphp
+                        <a href="{{ route('politician.public.show', $candidate->slug) }}"
+                           :class="active === {{ $index }} ? 'ring-2 ring-emerald-500/60 scale-[1.01]' : 'opacity-90 hover:opacity-100'"
+                           class="group block bg-slate-800/70 border border-slate-700 hover:border-emerald-500/50 rounded-2xl overflow-hidden transition transform duration-300">
+                            <div class="aspect-[16/10] relative bg-gradient-to-br from-slate-700 to-slate-900">
+                                @if(!empty($candidate->profile_photo_url))
+                                    <img src="{{ $candidate->profile_photo_url }}"
+                                         alt="{{ $candidate->full_name }}"
+                                         class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                                @else
+                                    <div class="w-full h-full flex items-center justify-center text-5xl font-bold text-slate-600">
+                                        {{ strtoupper(substr((string) $candidate->full_name, 0, 1)) }}
+                                    </div>
+                                @endif
+                                @if($candidate->verified_official)
+                                <div class="absolute top-3 right-3 bg-emerald-500 rounded-full p-1.5">
+                                    <svg class="w-3.5 h-3.5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                                    </svg>
+                                </div>
+                                @endif
+                            </div>
+                            <div class="p-5">
+                                <h3 class="text-white font-semibold text-lg group-hover:text-emerald-400 transition truncate">
+                                    {{ $candidate->full_name }}
+                                </h3>
+                                <p class="text-emerald-400 text-xs font-medium uppercase tracking-wider mt-1 truncate">
+                                    {{ $jobTitle }}
+                                </p>
+                                @if($districtLine !== '')
+                                    <p class="text-slate-400 text-xs mt-1 truncate">{{ $districtLine }}</p>
+                                @endif
+
+                                <div class="mt-4 pt-4 border-t border-slate-700/60">
+                                    @if($news)
+                                        <p class="text-[11px] uppercase tracking-wide text-slate-500 mb-1">Recent News</p>
+                                        <p class="text-slate-300 text-sm line-clamp-3">
+                                            {{ \Illuminate\Support\Str::limit($news->headline ?? '', 140) }}
+                                        </p>
+                                        @if(!empty($news->source_name))
+                                            <p class="text-slate-500 text-[11px] mt-2">{{ $news->source_name }}</p>
+                                        @endif
+                                    @else
+                                        <p class="text-slate-500 text-sm italic">No recent news available — view profile for full transparency record.</p>
+                                    @endif
+                                </div>
+                            </div>
+                        </a>
+                    @endforeach
+                </div>
+
+                @if($featuredCandidates->count() > 1)
+                <div class="flex items-center justify-center gap-2 mt-8">
+                    @foreach($featuredCandidates as $index => $candidate)
+                        <button type="button"
+                                @click="active = {{ $index }}"
+                                :class="active === {{ $index }} ? 'bg-emerald-400 w-6' : 'bg-slate-600 w-2 hover:bg-slate-500'"
+                                class="h-2 rounded-full transition-all duration-300"
+                                aria-label="Show candidate {{ $index + 1 }}"></button>
+                    @endforeach
+                </div>
+                @endif
+            </div>
+        </div>
+    </section>
+    @endif
+    @endisset
+
     <!-- Platform Section -->
     <section id="platform" class="relative py-24 bg-slate-900">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="text-center mb-16">
-                <span class="text-emerald-400 font-semibold text-sm tracking-wider uppercase">— Phase 1 & 2</span>
-                <h2 class="mt-4 text-4xl sm:text-5xl font-bold">
+                <h2 class="text-4xl sm:text-5xl font-bold">
                     The Two Journeys Inside <span class="text-emerald-400">U9itus</span>
                 </h2>
             </div>

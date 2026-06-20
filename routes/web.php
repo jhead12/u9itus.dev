@@ -46,8 +46,76 @@ Route::get('/', function () {
     $referralCode = request()->session()->get('referral.code')
         ?: request()->cookie('u9_referral_code');
 
+    // Resolve visitor state via ipinfo.io (cached 6h) — non-fatal.
+    $visitorState = null;
+    try {
+        $ip = request()->ip();
+        $apiKey = config('u9itus.fraud.ipinfo_api_key');
+        if (!empty($ip) && !empty($apiKey) && filter_var($ip, FILTER_VALIDATE_IP)) {
+            $visitorState = \Illuminate\Support\Facades\Cache::remember(
+                "geo:state:{$ip}",
+                now()->addHours(6),
+                function () use ($ip, $apiKey) {
+                    $resp = \Illuminate\Support\Facades\Http::timeout(2)
+                        ->get("https://ipinfo.io/{$ip}/json", ['token' => $apiKey]);
+                    if (!$resp->ok()) return null;
+                    $region = $resp->json('region');
+                    return is_string($region) && $region !== '' ? $region : null;
+                }
+            );
+        }
+    } catch (\Throwable $e) {
+        \Illuminate\Support\Facades\Log::info('Welcome geo lookup failed', ['error' => $e->getMessage()]);
+    }
+
+    // Build featured candidates query — geo-preferred, then nationwide fallback.
+    $featuredCandidates = collect();
+    try {
+        $base = \App\Models\Politician::query()
+            ->where('page_published', true)
+            ->where('is_active', true)
+            ->whereNotNull('profile_photo_url')
+            ->whereNotNull('slug');
+
+        if ($visitorState) {
+            $featuredCandidates = (clone $base)
+                ->where('state', $visitorState)
+                ->inRandomOrder()
+                ->limit(3)
+                ->get();
+        }
+
+        if ($featuredCandidates->count() < 3) {
+            $needed = 3 - $featuredCandidates->count();
+            $extras = (clone $base)
+                ->when($featuredCandidates->isNotEmpty(), fn ($q) => $q->whereNotIn('id', $featuredCandidates->pluck('id')))
+                ->inRandomOrder()
+                ->limit($needed)
+                ->get();
+            $featuredCandidates = $featuredCandidates->concat($extras);
+        }
+
+        // Attach latest news snippet per candidate (single query).
+        if ($featuredCandidates->isNotEmpty() && \Illuminate\Support\Facades\Schema::hasTable('candidate_news_articles')) {
+            $ids = $featuredCandidates->pluck('id')->all();
+            $newsByPolitician = \App\Models\CandidateNewsArticle::query()
+                ->whereIn('politician_id', $ids)
+                ->orderByDesc('published_at')
+                ->get()
+                ->groupBy('politician_id');
+            $featuredCandidates->each(function ($p) use ($newsByPolitician) {
+                $p->setAttribute('latest_news', optional($newsByPolitician->get($p->id))->first());
+            });
+        }
+    } catch (\Throwable $e) {
+        \Illuminate\Support\Facades\Log::warning('Featured candidates load failed', ['error' => $e->getMessage()]);
+        $featuredCandidates = collect();
+    }
+
     return view('welcome', [
-        'referralCode' => $referralCode,
+        'referralCode'       => $referralCode,
+        'featuredCandidates' => $featuredCandidates,
+        'visitorState'       => $visitorState,
     ]);
 });
 
