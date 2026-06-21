@@ -387,11 +387,11 @@
             @php
                 // Exclude running candidates whose name is already shown above
                 // (either in the U9itus candidates section or the officials section).
-                $shownBeforeRunning = $shownCandidateNames + $dedupedOfficials
+                $shownBeforeRunning = $shownCandidateNames + ($dedupedOfficials
                     ->map(fn ($o) => strtolower(trim((string) ($o['full_name'] ?? ''))))
                     ->filter()
                     ->flip()
-                    ->all();
+                    ->all());
 
                 $topContenderNames = $topContenders
                     ->map(fn ($c) => strtolower(trim((string) ($c['full_name'] ?? ''))))
