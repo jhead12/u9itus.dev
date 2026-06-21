@@ -178,7 +178,7 @@
                 const serviceUrl = 'https://services2.arcgis.com/FiaPA4ga0iQKduv3/arcgis/rest/services/Congressional_Districts_v1/FeatureServer/0/query';
                 const params = new URLSearchParams({
                     where: `GEOID='${GEOID}'`,
-                    outFields: 'GEOID,NAME,STATE_ABBR,CDSESSN',
+                    outFields: 'GEOID,NAME,STATE,CD119',
                     returnGeometry: 'true',
                     f: 'geojson',
                 });
