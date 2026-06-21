@@ -267,31 +267,13 @@
                 @endif
             </section>
 
-            @php
-                // Names already shown in the U9itus candidates section — used to suppress
-                // the same person appearing again in the two sections below.
-                $shownCandidateNames = $candidates
-                    ->map(fn ($c) => strtolower(trim((string) ($c->full_name ?? ''))))
-                    ->filter()
-                    ->flip()
-                    ->all();
-
-                $dedupedOfficials = $currentOfficials->reject(
-                    fn ($o) => isset($shownCandidateNames[strtolower(trim((string) ($o['full_name'] ?? '')))])
-                );
-            @endphp
-
             <section class="mt-10">
                 <div class="flex items-center justify-between mb-4">
                     <h2 class="text-xl font-bold text-white">Current Politicians For This Location</h2>
-                    @if($dedupedOfficials->count() !== $currentOfficials->count())
-                        <span class="text-sm text-slate-400">{{ $dedupedOfficials->count() }} found</span>
-                    @else
-                        <span class="text-sm text-slate-400">{{ $currentOfficials->count() }} found</span>
-                    @endif
+                    <span class="text-sm text-slate-400">{{ $currentOfficials->count() }} found</span>
                 </div>
 
-                @if($dedupedOfficials->isEmpty())
+                @if($currentOfficials->isEmpty())
                     <div class="bg-slate-900/60 border border-slate-700/50 rounded-xl p-6">
                         <p class="text-slate-300">No current officeholders were returned for this address.</p>
                     </div>
@@ -313,7 +295,7 @@
                             'City'    => 'text-emerald-400 border-emerald-700/40',
                             'Local'   => 'text-slate-400 border-slate-700/40',
                         ];
-                        $grouped = $dedupedOfficials
+                        $grouped = $currentOfficials
                             ->groupBy(fn($o) => $o['governance_level'] ?? 'Local')
                             ->sortBy(fn($_, $level) => $levelOrder[$level] ?? 99);
                     @endphp
@@ -384,38 +366,13 @@
                 @endif
             </section>
 
-            @php
-                // Exclude running candidates whose name is already shown above
-                // (either in the U9itus candidates section or the officials section).
-                $shownBeforeRunning = $shownCandidateNames + ($dedupedOfficials
-                    ->map(fn ($o) => strtolower(trim((string) ($o['full_name'] ?? ''))))
-                    ->filter()
-                    ->flip()
-                    ->all());
-
-                $topContenderNames = $topContenders
-                    ->map(fn ($c) => strtolower(trim((string) ($c['full_name'] ?? ''))))
-                    ->filter()
-                    ->flip()
-                    ->all();
-
-                $dedupedRunning = $runningCandidates->reject(
-                    fn ($c) => isset($shownBeforeRunning[strtolower(trim((string) ($c['full_name'] ?? '')))])
-                );
-
-                // Remaining candidates after excluding top contenders from the full grid
-                $runningGrid = $dedupedRunning->reject(
-                    fn ($c) => isset($topContenderNames[strtolower(trim((string) ($c['full_name'] ?? '')))])
-                );
-            @endphp
-
             <section class="mt-10">
                 <div class="flex items-center justify-between mb-4">
                     <h2 class="text-xl font-bold text-white">Current Running Candidates (Public Records)</h2>
-                    <span class="text-sm text-slate-400">{{ $dedupedRunning->count() }} found</span>
+                    <span class="text-sm text-slate-400">{{ $runningCandidates->count() }} found</span>
                 </div>
 
-                @if($dedupedRunning->isEmpty())
+                @if($runningCandidates->isEmpty())
                     <div class="bg-slate-900/60 border border-slate-700/50 rounded-xl p-6">
                         <p class="text-slate-300">No current election-record candidates were found for this district yet.</p>
                     </div>

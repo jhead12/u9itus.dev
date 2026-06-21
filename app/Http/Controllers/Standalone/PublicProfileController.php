@@ -82,6 +82,47 @@ class PublicProfileController extends Controller
                     if ($discoveredOfficials->isNotEmpty()) {
                         $candidates = $this->mergeCandidates($candidates, $discoveredOfficials);
                     }
+
+                    // ── Deduplication ────────────────────────────────────────
+                    // Build a name-keyed lookup for everything already in $candidates
+                    // so the two sections below don't repeat the same person.
+                    $shownNames = $candidates
+                        ->map(fn ($c) => strtolower(trim((string) ($c->full_name ?? ''))))
+                        ->filter()
+                        ->values()
+                        ->flip()
+                        ->all();
+
+                    // Remove officials whose name already appears in $candidates.
+                    $currentOfficials = $currentOfficials->reject(
+                        fn ($o) => isset($shownNames[strtolower(trim((string) ($o['full_name'] ?? '')))])
+                    )->values();
+
+                    // Build combined shown-name set (candidates + deduplicated officials).
+                    $shownNames = $shownNames + $currentOfficials
+                        ->map(fn ($o) => strtolower(trim((string) ($o['full_name'] ?? ''))))
+                        ->filter()
+                        ->values()
+                        ->flip()
+                        ->all();
+
+                    // Top contender names — rendered in the amber highlight row.
+                    $topContenderNames = $topContenders
+                        ->map(fn ($c) => strtolower(trim((string) ($c['full_name'] ?? ''))))
+                        ->filter()
+                        ->values()
+                        ->flip()
+                        ->all();
+
+                    // Remove running candidates already shown above, then strip top contenders
+                    // from the regular grid (they appear in the amber row instead).
+                    $runningCandidates = $runningCandidates
+                        ->reject(fn ($c) => isset($shownNames[strtolower(trim((string) ($c['full_name'] ?? '')))]))
+                        ->values();
+
+                    $runningGrid = $runningCandidates
+                        ->reject(fn ($c) => isset($topContenderNames[strtolower(trim((string) ($c['full_name'] ?? '')))]))
+                        ->values();
                 }
 
                 $this->recordDistrictLookupSearch(
@@ -96,14 +137,15 @@ class PublicProfileController extends Controller
         }
 
         return view('standalone.public.district-lookup', [
-            'address' => $address,
-            'lookupResult' => $lookupResult,
-            'candidates' => $candidates,
-            'runningCandidates' => $runningCandidates,
-            'topContenders' => $topContenders,
+            'address'          => $address,
+            'lookupResult'     => $lookupResult,
+            'candidates'       => $candidates,
+            'runningCandidates'=> $runningCandidates,
+            'runningGrid'      => $runningGrid ?? collect(),
+            'topContenders'    => $topContenders,
             'currentOfficials' => $currentOfficials,
-            'states' => $states,
-            'error' => $error,
+            'states'           => $states,
+            'error'            => $error,
         ]);
     }
 
