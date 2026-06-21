@@ -192,25 +192,25 @@
                             return;
                         }
 
-                        // Outer glow layer — thick semi-transparent stroke to make
-                        // irregular district shapes easy to trace at any zoom level.
+                        // Outer glow layer — wide soft halo so the border reads
+                        // clearly against both light and dark map tiles.
                         L.geoJSON(data, {
                             style: {
-                                color: '#10b981',
-                                weight: 14,
-                                opacity: 0.18,
+                                color: '#000000',
+                                weight: 16,
+                                opacity: 0.15,
                                 fill: false,
                             },
                         }).addTo(map);
 
-                        // Main boundary layer — crisp border + light fill.
+                        // Main boundary layer — solid black border + subtle fill.
                         const districtLayer = L.geoJSON(data, {
                             style: {
-                                color: '#10b981',
-                                weight: 3.5,
-                                opacity: 1,
-                                fillColor: '#10b981',
-                                fillOpacity: 0.15,
+                                color: '#1a1a1a',
+                                weight: 4,
+                                opacity: 0.9,
+                                fillColor: '#334155',
+                                fillOpacity: 0.18,
                                 dashArray: null,
                             },
                         }).addTo(map);

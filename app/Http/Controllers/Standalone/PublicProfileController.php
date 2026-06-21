@@ -1396,26 +1396,26 @@ class PublicProfileController extends Controller
     protected function districtVariants(string $state, string $districtNumber): array
     {
         $districtNumber = strtoupper(trim($districtNumber));
-        $variants = [$districtNumber];
 
         if ($districtNumber !== 'AL') {
             $numeric = (string) ((int) $districtNumber);
             $padded = str_pad($numeric, 2, '0', STR_PAD_LEFT);
 
-            $variants = array_merge($variants, [
-                $numeric,
-                $padded,
+            // Only use formats that include a non-numeric prefix/separator so a bare
+            // district number like "29" never accidentally matches "CALIFORNIA-29"
+            // (which belongs to a different representative) via a substring LIKE query.
+            $variants = [
                 'District ' . $numeric,
                 'CD ' . $numeric,
                 'CD-' . $numeric,
-            ]);
+            ];
 
             if ($state !== '') {
                 $variants[] = $state . '-' . $padded;
                 $variants[] = $state . '-' . $numeric;
             }
         } else {
-            $variants = array_merge($variants, ['At-Large', 'At Large']);
+            $variants = ['At-Large', 'At Large'];
 
             if ($state !== '') {
                 $variants[] = $state . '-AL';

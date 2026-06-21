@@ -360,6 +360,17 @@ jobs:
           php artisan politicians:reconcile-status \
             ${{ steps.args.outputs.dry_arg }}
 
+      # ── Normalize stale district formats ──────────────────────────────────
+      # Converts any lingering "FULLSTATENAME-NN" district values (e.g.
+      # "CALIFORNIA-29") to the canonical "ST-NN" format (e.g. "CA-29").
+      # These can appear from legacy imports or third-party data sources that
+      # stored the full state name instead of the 2-letter abbreviation.
+      # Safe to run every sync — no-ops when all records are already clean.
+      - name: Normalize district format
+        run: |
+          php artisan politicians:normalize-district-format \
+            ${{ steps.args.outputs.dry_arg }}
+
       # ── Clean cross-office ECR conflicts ──────────────────────────────────
       # Stamps primary_result=eliminated on ECR rows where the matched
       # politician is already seated in a DIFFERENT office.
