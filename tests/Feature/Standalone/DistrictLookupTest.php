@@ -4,10 +4,7 @@ use App\Models\Politician;
 use App\Models\DistrictLookupSearch;
 use App\Models\ElectionCandidateRecord;
 use Illuminate\Http\Client\Request as HttpRequest;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
-
-uses(RefreshDatabase::class);
 
 const DISTRICT_LOOKUP_TEST_CITY = 'Moreno Valley';
 const DISTRICT_LOOKUP_TEST_ZIP = '92555';
