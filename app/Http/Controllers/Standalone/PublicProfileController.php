@@ -99,12 +99,12 @@ class PublicProfileController extends Controller
                     )->values();
 
                     // Build combined shown-name set (candidates + deduplicated officials).
-                    $shownNames = $shownNames + $currentOfficials
+                    $shownNames = $shownNames + ($currentOfficials
                         ->map(fn ($o) => strtolower(trim((string) ($o['full_name'] ?? ''))))
                         ->filter()
                         ->values()
                         ->flip()
-                        ->all();
+                        ->all());
 
                     // Top contender names — rendered in the amber highlight row.
                     $topContenderNames = $topContenders
