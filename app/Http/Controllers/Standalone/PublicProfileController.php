@@ -281,7 +281,11 @@ class PublicProfileController extends Controller
             })
             ->where(function ($q) use ($variants) {
                 foreach ($variants as $variant) {
-                    $q->orWhere('district', 'like', '%' . $variant . '%');
+                    if (preg_match('/^\d+$/', $variant)) {
+                        $q->orWhere('district', '=', $variant);
+                    } else {
+                        $q->orWhere('district', 'like', '%' . $variant . '%');
+                    }
                 }
             })
             ->where(function ($q) use ($recentThreshold) {
@@ -1375,7 +1379,11 @@ class PublicProfileController extends Controller
         if ($variants !== []) {
             $query->where(function ($q) use ($variants) {
                 foreach ($variants as $variant) {
-                    $q->orWhere('district', 'like', '%' . $variant . '%');
+                    if (preg_match('/^\d+$/', $variant)) {
+                        $q->orWhere('district', '=', $variant);
+                    } else {
+                        $q->orWhere('district', 'like', '%' . $variant . '%');
+                    }
                 }
             });
         }
@@ -1401,10 +1409,12 @@ class PublicProfileController extends Controller
             $numeric = (string) ((int) $districtNumber);
             $padded = str_pad($numeric, 2, '0', STR_PAD_LEFT);
 
-            // Only use formats that include a non-numeric prefix/separator so a bare
-            // district number like "29" never accidentally matches "CALIFORNIA-29"
-            // (which belongs to a different representative) via a substring LIKE query.
+            // Bare numbers (e.g. '12') are returned for exact-match use only.
+            // Prefixed variants (e.g. 'CA-12', 'District 12') are used with LIKE.
+            // This prevents a bare '29' from matching 'CALIFORNIA-29' via LIKE '%29%'.
             $variants = [
+                $numeric,   // exact-match only (see query loops below)
+                $padded,    // exact-match only
                 'District ' . $numeric,
                 'CD ' . $numeric,
                 'CD-' . $numeric,
@@ -1687,7 +1697,11 @@ class PublicProfileController extends Controller
             })
             ->where(function ($q) use ($variants) {
                 foreach ($variants as $variant) {
-                    $q->orWhere('district', 'like', '%' . $variant . '%');
+                    if (preg_match('/^\d+$/', $variant)) {
+                        $q->orWhere('district', '=', $variant);
+                    } else {
+                        $q->orWhere('district', 'like', '%' . $variant . '%');
+                    }
                 }
             })
             ->where(function ($q) use ($recentThreshold, $lastSeenCutoff) {
