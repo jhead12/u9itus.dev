@@ -99,6 +99,119 @@
                 </div>
             </section>
 
+            {{-- ── District boundary map ─────────────────────────────────────── --}}
+            @php
+                // Build the ArcGIS GEOID (2-digit state FIPS + 2-digit district number)
+                $stateFipsMap = [
+                    'AL'=>'01','AK'=>'02','AZ'=>'04','AR'=>'05','CA'=>'06','CO'=>'08',
+                    'CT'=>'09','DE'=>'10','DC'=>'11','FL'=>'12','GA'=>'13','HI'=>'15',
+                    'ID'=>'16','IL'=>'17','IN'=>'18','IA'=>'19','KS'=>'20','KY'=>'21',
+                    'LA'=>'22','ME'=>'23','MD'=>'24','MA'=>'25','MI'=>'26','MN'=>'27',
+                    'MS'=>'28','MO'=>'29','MT'=>'30','NE'=>'31','NV'=>'32','NH'=>'33',
+                    'NJ'=>'34','NM'=>'35','NY'=>'36','NC'=>'37','ND'=>'38','OH'=>'39',
+                    'OK'=>'40','OR'=>'41','PA'=>'42','RI'=>'44','SC'=>'45','SD'=>'46',
+                    'TN'=>'47','TX'=>'48','UT'=>'49','VT'=>'50','VA'=>'51','WA'=>'53',
+                    'WV'=>'54','WI'=>'55','WY'=>'56',
+                ];
+                $mapState    = strtoupper((string) ($lookupResult['state'] ?? ''));
+                $mapDistrict = $lookupResult['district_number'] ?? null;
+                $stateFips   = $stateFipsMap[$mapState] ?? null;
+                $districtNum = ($mapDistrict !== null && strtoupper((string) $mapDistrict) !== 'AL')
+                    ? str_pad((string) (int) $mapDistrict, 2, '0', STR_PAD_LEFT)
+                    : '00';
+                $geoid       = ($stateFips && $mapDistrict !== null) ? $stateFips . $districtNum : null;
+                $congressGovUrl = null;
+                if (!empty($lookupResult['source']) && $mapState && $mapDistrict) {
+                    // Try to find the member's congress.gov slug from current officials
+                    foreach (($currentOfficials ?? collect()) as $off) {
+                        $offDistrict = $off['district_code'] ?? '';
+                        if (
+                            isset($off['bioguide_id']) &&
+                            str_contains((string) $offDistrict, '-' . (int) $mapDistrict)
+                        ) {
+                            $slug = \Illuminate\Support\Str::slug($off['full_name']);
+                            $congressGovUrl = 'https://www.congress.gov/member/district/' . $slug . '/' . $off['bioguide_id'];
+                            break;
+                        }
+                    }
+                }
+            @endphp
+
+            @if($geoid)
+            <section class="mb-8">
+                <div class="flex items-center justify-between mb-3">
+                    <h2 class="text-xl font-bold text-white">District Boundary Map</h2>
+                    <a href="https://www.congress.gov/members?q=%7B%22congress%22%3A%22119%22%2C%22state%22%3A%22{{ $mapState }}%22%7D"
+                       target="_blank" rel="noopener"
+                       class="text-xs text-emerald-400 hover:text-emerald-300 transition">
+                        View on Congress.gov →
+                    </a>
+                </div>
+
+                <div class="bg-slate-900/70 border border-slate-700/50 rounded-2xl overflow-hidden">
+                    <div id="district-boundary-map" style="height:420px;width:100%;"></div>
+                </div>
+
+                <p class="text-slate-600 text-xs mt-2">
+                    Boundary data: <a href="https://www.congress.gov" target="_blank" rel="noopener" class="hover:text-slate-400 transition">Congress.gov</a>
+                    via ArcGIS Congressional Districts FeatureServer (119th Congress).
+                </p>
+            </section>
+
+            <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+            <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV/XN/WLs=" crossorigin=""></script>
+            <script>
+            (function () {
+                const GEOID = '{{ $geoid }}';
+
+                const map = L.map('district-boundary-map', {
+                    zoomControl: true,
+                    scrollWheelZoom: false,
+                    attributionControl: true,
+                });
+
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+                    maxZoom: 14,
+                }).addTo(map);
+
+                const serviceUrl = 'https://services2.arcgis.com/FiaPA4ga0iQKduv3/arcgis/rest/services/Congressional_Districts_v1/FeatureServer/0/query';
+                const params = new URLSearchParams({
+                    where: `GEOID='${GEOID}'`,
+                    outFields: 'GEOID,NAME,STATE_ABBR,CDSESSN',
+                    returnGeometry: 'true',
+                    f: 'geojson',
+                });
+
+                fetch(`${serviceUrl}?${params}`)
+                    .then(r => r.ok ? r.json() : Promise.reject(r.status))
+                    .then(data => {
+                        if (!data.features || data.features.length === 0) {
+                            document.getElementById('district-boundary-map').innerHTML =
+                                '<p class="p-4 text-slate-400 text-sm">District boundary data not available.</p>';
+                            return;
+                        }
+
+                        const districtLayer = L.geoJSON(data, {
+                            style: {
+                                color: '#10b981',
+                                weight: 2.5,
+                                fillColor: '#10b981',
+                                fillOpacity: 0.12,
+                            },
+                        }).addTo(map);
+
+                        map.fitBounds(districtLayer.getBounds(), { padding: [24, 24] });
+                    })
+                    .catch(() => {
+                        document.getElementById('district-boundary-map').innerHTML =
+                            '<p class="p-4 text-slate-400 text-sm">Could not load district boundary.</p>';
+                    });
+            }());
+            </script>
+            @endif
+            {{-- ── End district map ──────────────────────────────────────────── --}}
+
             <section>
                 <div class="flex items-center justify-between mb-4">
                     <h2 class="text-xl font-bold text-white">Candidates Running In Your Area</h2>
@@ -154,13 +267,31 @@
                 @endif
             </section>
 
+            @php
+                // Names already shown in the U9itus candidates section — used to suppress
+                // the same person appearing again in the two sections below.
+                $shownCandidateNames = $candidates
+                    ->map(fn ($c) => strtolower(trim((string) ($c->full_name ?? ''))))
+                    ->filter()
+                    ->flip()
+                    ->all();
+
+                $dedupedOfficials = $currentOfficials->reject(
+                    fn ($o) => isset($shownCandidateNames[strtolower(trim((string) ($o['full_name'] ?? '')))])
+                );
+            @endphp
+
             <section class="mt-10">
                 <div class="flex items-center justify-between mb-4">
                     <h2 class="text-xl font-bold text-white">Current Politicians For This Location</h2>
-                    <span class="text-sm text-slate-400">{{ $currentOfficials->count() }} found</span>
+                    @if($dedupedOfficials->count() !== $currentOfficials->count())
+                        <span class="text-sm text-slate-400">{{ $dedupedOfficials->count() }} found</span>
+                    @else
+                        <span class="text-sm text-slate-400">{{ $currentOfficials->count() }} found</span>
+                    @endif
                 </div>
 
-                @if($currentOfficials->isEmpty())
+                @if($dedupedOfficials->isEmpty())
                     <div class="bg-slate-900/60 border border-slate-700/50 rounded-xl p-6">
                         <p class="text-slate-300">No current officeholders were returned for this address.</p>
                     </div>
@@ -182,7 +313,7 @@
                             'City'    => 'text-emerald-400 border-emerald-700/40',
                             'Local'   => 'text-slate-400 border-slate-700/40',
                         ];
-                        $grouped = $currentOfficials
+                        $grouped = $dedupedOfficials
                             ->groupBy(fn($o) => $o['governance_level'] ?? 'Local')
                             ->sortBy(fn($_, $level) => $levelOrder[$level] ?? 99);
                     @endphp
@@ -253,13 +384,38 @@
                 @endif
             </section>
 
+            @php
+                // Exclude running candidates whose name is already shown above
+                // (either in the U9itus candidates section or the officials section).
+                $shownBeforeRunning = $shownCandidateNames + $dedupedOfficials
+                    ->map(fn ($o) => strtolower(trim((string) ($o['full_name'] ?? ''))))
+                    ->filter()
+                    ->flip()
+                    ->all();
+
+                $topContenderNames = $topContenders
+                    ->map(fn ($c) => strtolower(trim((string) ($c['full_name'] ?? ''))))
+                    ->filter()
+                    ->flip()
+                    ->all();
+
+                $dedupedRunning = $runningCandidates->reject(
+                    fn ($c) => isset($shownBeforeRunning[strtolower(trim((string) ($c['full_name'] ?? '')))])
+                );
+
+                // Remaining candidates after excluding top contenders from the full grid
+                $runningGrid = $dedupedRunning->reject(
+                    fn ($c) => isset($topContenderNames[strtolower(trim((string) ($c['full_name'] ?? '')))])
+                );
+            @endphp
+
             <section class="mt-10">
                 <div class="flex items-center justify-between mb-4">
                     <h2 class="text-xl font-bold text-white">Current Running Candidates (Public Records)</h2>
-                    <span class="text-sm text-slate-400">{{ $runningCandidates->count() }} found</span>
+                    <span class="text-sm text-slate-400">{{ $dedupedRunning->count() }} found</span>
                 </div>
 
-                @if($runningCandidates->isEmpty())
+                @if($dedupedRunning->isEmpty())
                     <div class="bg-slate-900/60 border border-slate-700/50 rounded-xl p-6">
                         <p class="text-slate-300">No current election-record candidates were found for this district yet.</p>
                     </div>
@@ -284,8 +440,9 @@
                         </div>
                     @endif
 
+                    @if($runningGrid->isNotEmpty())
                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        @foreach($runningCandidates as $candidate)
+                        @foreach($runningGrid as $candidate)
                             <div class="bg-slate-900/60 border border-slate-700/50 rounded-xl p-5">
                                 <p class="text-white font-semibold">{{ $candidate['full_name'] }}</p>
                                 <p class="text-slate-400 text-sm mt-1">{{ $candidate['political_office'] ?: 'Candidate' }}</p>

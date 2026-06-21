@@ -193,8 +193,7 @@ class ReconcilePoliticianStatus extends Command
             // Detect office/district mismatch (e.g. Rep→Senator after chamber switch)
             $officeChanged   = $feedOffice !== '' && $politician->political_office !== $feedOffice;
             $districtChanged = $feedDistrict !== null
-                && $politician->district !== null
-                && !str_contains((string) $politician->district, ltrim($feedDistrict, $politician->state ?? ''));
+                && (string) $politician->district !== $feedDistrict;
 
             if ($needsUpdate || $officeChanged || $districtChanged) {
                 $updates = [

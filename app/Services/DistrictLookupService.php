@@ -56,10 +56,10 @@ class DistrictLookupService
 
         try {
             $response = Http::timeout(10)->get($this->baseUrl, [
-                'address' => $normalizedAddress,
+                'address'   => $normalizedAddress,
                 'benchmark' => 'Public_AR_Current',
-                'vintage' => 'Current_Current',
-                'format' => 'json',
+                'vintage'   => 'Census2020_Current',
+                'format'    => 'json',
             ]);
 
             if ($response->successful()) {
@@ -131,23 +131,42 @@ class DistrictLookupService
     }
 
     /**
+     * Prefers the layer with the highest Congress number so redistricted
+     * addresses resolve to the most current district assignment.
+     *
      * @param array<string, mixed> $geographies
      * @return array<string, mixed>|null
      */
     protected function firstCongressionalGeoRow(array $geographies): ?array
     {
+        $bestRow      = null;
+        $bestCongress = -1;
+
         foreach ($geographies as $layerName => $rows) {
             if (stripos((string) $layerName, 'congressional') === false) {
                 continue;
             }
 
-            if (is_array($rows) && ! empty($rows) && is_array($rows[0] ?? null)) {
+            if (! is_array($rows) || empty($rows) || ! is_array($rows[0] ?? null)) {
+                continue;
+            }
+
+            // Extract the Congress session number from the layer name
+            // e.g. "119th Congressional Districts" → 119
+            if (preg_match('/^(\d+)/i', (string) $layerName, $m)) {
+                $num = (int) $m[1];
+                if ($num > $bestCongress) {
+                    $bestCongress = $num;
+                    /** @var array<string, mixed> */
+                    $bestRow = $rows[0];
+                }
+            } elseif ($bestRow === null) {
                 /** @var array<string, mixed> */
-                return $rows[0];
+                $bestRow = $rows[0];
             }
         }
 
-        return null;
+        return $bestRow;
     }
 
     /**
@@ -155,7 +174,9 @@ class DistrictLookupService
      */
     protected function extractDistrictFromNumericKeys(array $row): ?string
     {
-        foreach (['CD119FP', 'CD118FP', 'CD117FP', 'CD116FP', 'DISTRICT', 'district'] as $key) {
+        // The Census Geocoder returns CD119, CD118 … (without the "FP" suffix).
+        // The FP variants are kept as fallbacks for any third-party data sources.
+        foreach (['CD119', 'CD118', 'CD117', 'CD116', 'CD119FP', 'CD118FP', 'CD117FP', 'CD116FP', 'DISTRICT', 'district'] as $key) {
             if (! isset($row[$key])) {
                 continue;
             }
