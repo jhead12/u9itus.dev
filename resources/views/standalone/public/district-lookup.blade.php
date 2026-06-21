@@ -192,16 +192,30 @@
                             return;
                         }
 
-                        const districtLayer = L.geoJSON(data, {
+                        // Outer glow layer — thick semi-transparent stroke to make
+                        // irregular district shapes easy to trace at any zoom level.
+                        L.geoJSON(data, {
                             style: {
                                 color: '#10b981',
-                                weight: 2.5,
-                                fillColor: '#10b981',
-                                fillOpacity: 0.12,
+                                weight: 14,
+                                opacity: 0.18,
+                                fill: false,
                             },
                         }).addTo(map);
 
-                        map.fitBounds(districtLayer.getBounds(), { padding: [24, 24] });
+                        // Main boundary layer — crisp border + light fill.
+                        const districtLayer = L.geoJSON(data, {
+                            style: {
+                                color: '#10b981',
+                                weight: 3.5,
+                                opacity: 1,
+                                fillColor: '#10b981',
+                                fillOpacity: 0.15,
+                                dashArray: null,
+                            },
+                        }).addTo(map);
+
+                        map.fitBounds(districtLayer.getBounds(), { padding: [32, 32] });
                     })
                     .catch(() => {
                         document.getElementById('district-boundary-map').innerHTML =
@@ -391,6 +405,17 @@
                                                 • Election: {{ $candidate['election_date'] }}
                                             @endif
                                         </p>
+                                        @if(!empty($candidate['finance_snapshot']['summary']))
+                                            <div class="pt-2 mt-2 border-t border-amber-700/40 space-y-1 text-xs text-slate-400">
+                                                <p class="text-emerald-300">Campaign finance (open data)</p>
+                                                @if(!empty($candidate['finance_snapshot']['summary']['receipts']))
+                                                    <p>Receipts: {{ $candidate['finance_snapshot']['summary']['receipts'] }}</p>
+                                                @endif
+                                                @if(!empty($candidate['finance_snapshot']['summary']['cash_on_hand']))
+                                                    <p>Cash on hand: {{ $candidate['finance_snapshot']['summary']['cash_on_hand'] }}</p>
+                                                @endif
+                                            </div>
+                                        @endif
                                     </div>
                                 @endforeach
                             </div>
