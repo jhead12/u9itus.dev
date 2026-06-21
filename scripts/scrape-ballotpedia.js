@@ -202,7 +202,7 @@ function buildDirectRaceList(indexes) {
     for (const [stateName, stateAbbr] of Object.entries(STATE_ABBR)) {
       if (stateName === 'District of Columbia') continue; // DC rarely has statewide races
       if (STATE_FILTER && stateAbbr !== STATE_FILTER) continue;
-      const slug = stateName.replace(/ /g, '_');
+      const slug = stateName.replace(/ /g, '_').replace(/'/g, '%27');
       races.push({
         url: tmpl(slug, ELECTION_YEAR),
         stateAbbr,
@@ -365,7 +365,11 @@ async function scrapeRaceLinks(page, indexUrl, chamber) {
       // Match race pages: "/California's_1st_Congressional_District_election,_2026"
       if (href.includes(`election,_${year}`) && !href.includes('#')) {
         const text = (a.textContent ?? '').trim();
-        const full = href.startsWith('http') ? href : 'https://ballotpedia.org' + href;
+        // Encode apostrophes in the path — Ballotpedia uses them in titles like
+        // "Ohio's_4th_Congressional_District_election,_2026" but they cause
+        // navigation failures in some browser contexts when left unencoded.
+        const safePath = href.replace(/'/g, '%27');
+        const full = safePath.startsWith('http') ? safePath : 'https://ballotpedia.org' + safePath;
         results.push({ url: full, text });
       }
     }
