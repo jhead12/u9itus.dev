@@ -337,9 +337,25 @@ class EnrichStatewideOfficeholders extends Command
             $existing = $query->orderByDesc('verified_official')->first();
             $bpSlug   = $bpUrl ? ltrim(parse_url($bpUrl, PHP_URL_PATH) ?? '', '/') : null;
 
+            // Never overwrite an existing non-null party with a scraped value that
+            // came from a race page (where the first party row might belong to a
+            // challenger). Only write party when we have a value AND the existing
+            // record either has no party set or the scraped value matches the major
+            // party codes (D/R) with high confidence from the officeholder's profile.
+            $partyToWrite = $party;
+            if ($existing && $existing->party_affiliation && $partyToWrite) {
+                $existingCode = strtoupper(substr((string) $existing->party_affiliation, 0, 1));
+                $newCode      = strtoupper(substr((string) $partyToWrite, 0, 1));
+                // If existing is D and incoming is R (or vice versa), the scraper
+                // picked up a challenger's party — discard the incoming value.
+                if (in_array($existingCode, ['D', 'R'], true) && $existingCode !== $newCode) {
+                    $partyToWrite = null;
+                }
+            }
+
             $attributes = array_filter([
                 'full_name'            => $name,
-                'party_affiliation'    => $party,
+                'party_affiliation'    => $partyToWrite,
                 'ballotpedia_id'       => $bpSlug ? substr($bpSlug, 0, 255) : null,
                 // Only set photo if we have one — never overwrite a manually-set photo with null
                 'profile_photo_url'    => $photoUrl,
@@ -496,10 +512,23 @@ class EnrichStatewideOfficeholders extends Command
 
     private function extractBallotpediaParty(string $html): ?string
     {
-        // Ballotpedia infoboxes include a "Party" row
-        if (preg_match('/<th[^>]*>Party<\/th>\s*<td[^>]*>([^<]{3,40})</i', $html, $m)) {
-            return trim(strip_tags($m[1])) ?: null;
+        // Only extract party from the officeholder's personal Ballotpedia profile
+        // page infobox, NOT from a race/election page that lists all candidates.
+        // Race pages put multiple parties in the table — the first match might
+        // belong to a challenger (e.g. Republican opponent on the CA Governor page)
+        // rather than the seated officeholder.
+        //
+        // Detect race pages by the presence of "election," in the URL pattern used
+        // in their h1 titles, or by multiple "Party" rows. If there are 2+ party
+        // mentions we are on a race page and cannot reliably identify the incumbent's
+        // party from it — return null and let Wikipedia/Claude fill it in.
+        $partyMatches = [];
+        preg_match_all('/<th[^>]*>Party<\/th>\s*<td[^>]*>([^<]{3,40})</i', $html, $partyMatches);
+
+        if (count($partyMatches[1]) === 1) {
+            return $this->normaliseParty(trim(strip_tags($partyMatches[1][0])));
         }
+
         return null;
     }
 
