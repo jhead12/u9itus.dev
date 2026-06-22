@@ -365,11 +365,10 @@ async function scrapeRaceLinks(page, indexUrl, chamber) {
       // Match race pages: "/California's_1st_Congressional_District_election,_2026"
       if (href.includes(`election,_${year}`) && !href.includes('#')) {
         const text = (a.textContent ?? '').trim();
-        // Encode apostrophes in the path — Ballotpedia uses them in titles like
-        // "Ohio's_4th_Congressional_District_election,_2026" but they cause
-        // navigation failures in some browser contexts when left unencoded.
-        const safePath = href.replace(/'/g, '%27');
-        const full = safePath.startsWith('http') ? safePath : 'https://ballotpedia.org' + safePath;
+        // Strip any trailing punctuation (colon, period, comma) that Ballotpedia
+        // sometimes appends to href values, then encode apostrophes.
+        const cleanHref = href.replace(/[:.,']+$/, '').replace(/'/g, '%27');
+        const full = cleanHref.startsWith('http') ? cleanHref : 'https://ballotpedia.org' + cleanHref;
         results.push({ url: full, text });
       }
     }
