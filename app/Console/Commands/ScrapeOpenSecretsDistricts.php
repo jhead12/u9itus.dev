@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Models\ElectionCandidateRecord;
 use App\Models\Politician;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -127,7 +128,35 @@ class ScrapeOpenSecretsDistricts extends Command
                     ->first();
 
                 if (! $politician) {
-                    $this->line("    – no DB match for: {$name}");
+                    // Log the gap into election_candidate_records so the next
+                    // Ballotpedia / import sync can create the full profile.
+                    // This prevents these candidates from being invisible on the map.
+                    if (! $dryRun) {
+                        ElectionCandidateRecord::updateOrCreate(
+                            [
+                                'source'               => 'opensecrets',
+                                'external_candidate_id' => 'opensecrets_' . md5(strtolower($name) . '|' . $district),
+                            ],
+                            [
+                                'full_name'        => $name,
+                                'state'            => $stateAbbr,
+                                'district'         => $district,
+                                'political_office' => 'U.S. Representative',
+                                'governance_level' => 'Federal',
+                                'party_affiliation' => null,
+                                'election_date'    => $year . '-11-03',
+                                'payload'          => [
+                                    'raised'        => $scraped_candidate['raised']       ?? null,
+                                    'spent'         => $scraped_candidate['spent']        ?? null,
+                                    'cash_on_hand'  => $scraped_candidate['cash_on_hand'] ?? null,
+                                    'is_incumbent'  => (bool) ($scraped_candidate['is_incumbent'] ?? false),
+                                    'source_url'    => $json['source_url'] ?? null,
+                                ],
+                                'last_seen_at'     => now(),
+                            ]
+                        );
+                    }
+                    $this->line("    – no DB match for: {$name} (logged to election_candidate_records)");
                     continue;
                 }
 
