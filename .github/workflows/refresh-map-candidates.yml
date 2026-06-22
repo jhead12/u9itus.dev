@@ -9,7 +9,7 @@ on:
     inputs:
       states:
         description: "Comma-separated state codes to refresh (e.g. CA,TX,NY). Leave blank for all states."
-        default: ""Q
+        default: ""
         required: false
       election_year:
         description: "Election year to target for result scraping (default: 2026)"
