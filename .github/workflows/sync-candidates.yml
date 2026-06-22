@@ -3,7 +3,7 @@ name: Sync Candidates
 # Runs weekly (Sunday 02:00 UTC) and can be triggered manually from the Actions tab.
 on:
   schedule:
-    - cron: "0 2 * * 0"   # Every Sunday at 02:00 UTC
+    - cron: "0 2 * * *"   # Every day at 02:00 UTC
   workflow_dispatch:
     inputs:
       states:
