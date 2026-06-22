@@ -337,25 +337,9 @@ class EnrichStatewideOfficeholders extends Command
             $existing = $query->orderByDesc('verified_official')->first();
             $bpSlug   = $bpUrl ? ltrim(parse_url($bpUrl, PHP_URL_PATH) ?? '', '/') : null;
 
-            // Never overwrite an existing non-null party with a scraped value that
-            // came from a race page (where the first party row might belong to a
-            // challenger). Only write party when we have a value AND the existing
-            // record either has no party set or the scraped value matches the major
-            // party codes (D/R) with high confidence from the officeholder's profile.
-            $partyToWrite = $party;
-            if ($existing && $existing->party_affiliation && $partyToWrite) {
-                $existingCode = strtoupper(substr((string) $existing->party_affiliation, 0, 1));
-                $newCode      = strtoupper(substr((string) $partyToWrite, 0, 1));
-                // If existing is D and incoming is R (or vice versa), the scraper
-                // picked up a challenger's party — discard the incoming value.
-                if (in_array($existingCode, ['D', 'R'], true) && $existingCode !== $newCode) {
-                    $partyToWrite = null;
-                }
-            }
-
             $attributes = array_filter([
                 'full_name'            => $name,
-                'party_affiliation'    => $partyToWrite,
+                'party_affiliation'    => $party,
                 'ballotpedia_id'       => $bpSlug ? substr($bpSlug, 0, 255) : null,
                 // Only set photo if we have one — never overwrite a manually-set photo with null
                 'profile_photo_url'    => $photoUrl,

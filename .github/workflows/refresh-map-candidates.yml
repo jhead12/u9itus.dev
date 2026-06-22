@@ -146,6 +146,23 @@ jobs:
       # The map reads this via GET /api/v1/map/district-config on page load,
       # so district borders and party colors update automatically each day
       # without a code deploy.
+      # ── Re-enrich statewide officeholders (party/name corrections) ──────
+      # Runs Ballotpedia → Wikipedia → Claude for every state so stale party
+      # values (e.g. Newsom showing Republican) are corrected daily.
+      - name: Re-enrich statewide officeholder parties
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          STATES="${{ github.event.inputs.states }}"
+          DRY="${{ steps.args.outputs.dry_arg }}"
+          if [ -n "$STATES" ]; then
+            for state in $(echo "$STATES" | tr ',' ' '); do
+              php artisan politicians:enrich-statewide --scope=statewide --state="$state" $DRY
+            done
+          else
+            php artisan politicians:enrich-statewide --scope=statewide $DRY
+          fi
+
       - name: Sync district boundary config
         run: |
           php artisan geo:sync-district-config \
