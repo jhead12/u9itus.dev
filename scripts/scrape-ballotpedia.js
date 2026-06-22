@@ -202,7 +202,7 @@ function buildDirectRaceList(indexes) {
     for (const [stateName, stateAbbr] of Object.entries(STATE_ABBR)) {
       if (stateName === 'District of Columbia') continue; // DC rarely has statewide races
       if (STATE_FILTER && stateAbbr !== STATE_FILTER) continue;
-      const slug = stateName.replace(/ /g, '_').replace(/'/g, '%27');
+      const slug = stateName.replace(/ /g, '_');
       races.push({
         url: tmpl(slug, ELECTION_YEAR),
         stateAbbr,
@@ -366,8 +366,10 @@ async function scrapeRaceLinks(page, indexUrl, chamber) {
       if (href.includes(`election,_${year}`) && !href.includes('#')) {
         const text = (a.textContent ?? '').trim();
         // Strip any trailing punctuation (colon, period, comma) that Ballotpedia
-        // sometimes appends to href values, then encode apostrophes.
-        const cleanHref = href.replace(/[:.,']+$/, '').replace(/'/g, '%27');
+        // sometimes appends to href values. Do NOT encode apostrophes as %27 —
+        // Ballotpedia's server 301-redirects %27 back to the canonical literal '
+        // which destroys the page.evaluate() execution context mid-flight.
+        const cleanHref = href.replace(/[:.,']+$/, '');
         const full = cleanHref.startsWith('http') ? cleanHref : 'https://ballotpedia.org' + cleanHref;
         results.push({ url: full, text });
       }
@@ -386,7 +388,10 @@ async function scrapeRaceLinks(page, indexUrl, chamber) {
  * Returns an array of candidate objects.
  */
 async function scrapeRacePage(page, raceUrl, chamber, withResults = false) {
-  await page.goto(raceUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+  // Use networkidle so any server-side redirects (e.g. Ballotpedia canonicalising
+  // apostrophes in URLs) fully settle before page.evaluate() runs. domcontentloaded
+  // fires too early and the subsequent navigation destroys the execution context.
+  await page.goto(raceUrl, { waitUntil: 'networkidle', timeout: 45_000 });
   await sleep(DELAY_MS);
 
   return page.evaluate((args) => {
