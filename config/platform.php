@@ -60,6 +60,26 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Map: Voter-Facing Features
+    |--------------------------------------------------------------------------
+    |
+    | Feature flags for the auth-aware map experience. Default off in
+    | production; flip on locally and per-cohort to ship dark.
+    |
+    | - voter_features_enabled: master switch for the entire auth-aware map
+    | - sign_in_cta:            show the "Sign in to earn" header CTA to guests
+    | - capture_ref_param:      drop the u9_referral_code cookie when /map is
+    |                           loaded with ?ref=CODE (works for guests too)
+    |
+    */
+    'map' => [
+        'voter_features_enabled' => env('MAP_VOTER_FEATURES_ENABLED', false),
+        'sign_in_cta'            => env('MAP_SIGN_IN_CTA', false),
+        'capture_ref_param'      => env('MAP_CAPTURE_REF_PARAM', true),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Service Providers
     |--------------------------------------------------------------------------
     |

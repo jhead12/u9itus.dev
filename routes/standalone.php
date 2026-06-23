@@ -452,6 +452,10 @@ Route::get('/district-lookup', [PublicProfileController::class, 'districtLookup'
 
 // Interactive 3D U.S. Regional Map
 Route::get('/map', fn() => view('standalone.public.us-map'))->name('us.map');
+
+// Voter earn explainer — public landing page that teaches users how to earn
+// from watching campaign videos, then funnels into voter registration.
+Route::get('/earn', fn() => view('standalone.public.earn'))->name('earn');
 Route::get('/p/{slug}', [PublicProfileController::class, 'show'])->name('politician.public.show');
 
 // SEO — Sitemap & robots.txt

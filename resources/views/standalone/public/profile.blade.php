@@ -366,6 +366,39 @@
                         </p>
                     @endif
 
+                    {{-- ── View on Map deep-link ─────────────────────────────────
+                         Builds /map?state=CA&district=33&slug=slug-here so the 3D
+                         map flies directly to this politician's state, selects their
+                         congressional district (when applicable), and auto-opens
+                         their candidate card in the panel. --}}
+                    @if($politician->state)
+                        @php
+                            $mapParams = array_filter([
+                                'state'    => $politician->state,
+                                // Extract numeric district from formats like "CA-33", "33", "District 33"
+                                'district' => $politician->district
+                                    ? preg_replace('/[^0-9]/', '', $politician->district) ?: null
+                                    : null,
+                                'slug'     => $politician->slug,
+                            ]);
+                            $mapDeepLink = url('/map') . '?' . http_build_query($mapParams);
+                        @endphp
+                        <a href="{{ $mapDeepLink }}"
+                           class="inline-flex items-center gap-1.5 text-xs font-semibold
+                                  text-indigo-300 hover:text-indigo-200
+                                  border border-indigo-500/30 hover:border-indigo-400/60
+                                  bg-indigo-500/10 hover:bg-indigo-500/20
+                                  rounded-full px-3 py-1 transition mb-2"
+                           title="Open U9itus 3D map and fly to {{ $politician->full_name }}'s district">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+                                 stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                                 aria-hidden="true">
+                                <polygon points="3 11 22 2 13 21 11 13 3 11"/>
+                            </svg>
+                            View on Map
+                        </a>
+                    @endif
+
                     @if($termInfo)
                         @php
                             $termEndDate = $termInfo['end'] ? \Carbon\Carbon::parse($termInfo['end']) : null;

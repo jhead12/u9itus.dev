@@ -14,6 +14,32 @@
     <meta name="twitter:title"      content="U.S. Regional Map – {{ config('app.name', 'U9itus') }}">
     <meta name="twitter:description" content="Explore an interactive 3D map of all 50 U.S. states and 435 congressional districts.">
 
+    {{-- ── Auth-aware map context ──────────────────────────────────────────
+         Lightweight meta tags read once at boot by window.U9.session.
+         Guests get role=guest and a null UUID. Voter referral_code is
+         exposed so client-side share helpers can attach ?ref= to outbound
+         links without an extra fetch. All values are HTML-escaped.
+
+         Behavior is gated by config('platform.map.voter_features_enabled').
+         When the flag is off the entire block is omitted so the map renders
+         identically to the pre-integration version. ────────────────────── --}}
+    @if (config('platform.map.voter_features_enabled'))
+        @auth
+            @php($u9Voter = auth()->user()->voter ?? null)
+            @php(
+                $u9Role = auth()->user()->hasRole('admin') ? 'admin'
+                    : (auth()->user()->hasRole('politician') ? 'politician'
+                        : (auth()->user()->hasRole('voter') ? 'voter' : 'user'))
+            )
+            <meta name="csrf-token"   content="{{ csrf_token() }}">
+            <meta name="u9-user-role" content="{{ $u9Role }}">
+            <meta name="u9-user-uuid" content="{{ $u9Voter?->uuid ?? '' }}">
+            <meta name="u9-ref-code"  content="{{ $u9Voter?->referral_code ?? '' }}">
+        @else
+            <meta name="u9-user-role" content="guest">
+        @endauth
+    @endif
+
     @if (file_exists(public_path('build/manifest.json')) || file_exists(public_path('hot')))
         @vite(['resources/css/app.css'])
     @else
@@ -120,18 +146,21 @@
         }
         #kb-help-close:hover { background: rgba(99,102,241,0.35); }
 
-        /* Keyboard accessibility indicator badge (bottom-right) */
+        /* Keyboard shortcuts badge — now lives in the breadcrumb bar */
         #kb-hint-badge {
-            position: fixed; bottom: 16px; left: 16px; z-index: 60;
-            background: rgba(15,23,42,0.85); border: 1px solid rgba(99,102,241,0.25);
-            border-radius: 8px; padding: 5px 11px;
-            font-size: 11px; color: #475569;
-            display: flex; align-items: center; gap: 6px;
-            pointer-events: auto; cursor: pointer;
-            transition: color 0.15s, border-color 0.15s;
+            background: none; border: 1px solid rgba(99,102,241,0.18);
+            border-radius: 6px; padding: 2px 8px;
+            font-size: 10px; color: #475569;
+            display: inline-flex; align-items: center; gap: 5px;
+            cursor: pointer; transition: color 0.15s, border-color 0.15s;
+            flex-shrink: 0;
         }
-        #kb-hint-badge:hover { color: #94a3b8; border-color: rgba(99,102,241,0.5); }
-        #kb-hint-badge kbd { font-size: 10px; padding: 0 5px; }
+        #kb-hint-badge:hover { color: #94a3b8; border-color: rgba(99,102,241,0.45); }
+        #kb-hint-badge kbd {
+            font-size: 9px; padding: 0 4px;
+            background: rgba(99,102,241,0.12); border: 1px solid rgba(99,102,241,0.25);
+            border-radius: 3px; color: #6366f1;
+        }
 
         #top-bar {
             position: fixed; top: 0; left: 0; right: 0; z-index: 100;
@@ -145,18 +174,89 @@
         #top-bar .sep { color: #334155; font-size: 14px; margin: 0 14px; }
         #top-bar .title { color: #94a3b8; font-size: 14px; }
         .top-btn {
+            display: inline-flex; align-items: center; gap: 5px;
             background: rgba(99,102,241,0.12);
             border: 1px solid rgba(99,102,241,0.28);
-            color: #818cf8; padding: 5px 14px;
+            color: #818cf8; padding: 5px 12px;
             border-radius: 6px; font-size: 12px; font-weight: 500;
             cursor: pointer; transition: background 0.15s;
+            white-space: nowrap;
         }
         .top-btn:hover { background: rgba(99,102,241,0.25); }
+        /* Label slides in to the RIGHT of the icon on hover */
+        .top-btn .btn-hover-label {
+            max-width: 0; overflow: hidden; white-space: nowrap;
+            opacity: 0; transition: max-width .2s ease, opacity .15s ease;
+        }
+        .top-btn:hover .btn-hover-label {
+            max-width: 80px; opacity: 1;
+        }
         .top-btn.active {
             background: rgba(99,102,241,0.35);
             border-color: rgba(99,102,241,0.7);
             color: #c7d2fe;
         }
+        /* ── Auth-aware "$" earn button (guest only) — icon-only pill ── */
+        #btn-signin-cta {
+            background: rgba(99,102,241,0.18);
+            border-color: rgba(99,102,241,0.50);
+            color: #a5b4fc;
+            padding: 5px 10px;
+            position: relative;
+        }
+        #btn-signin-cta:hover, #btn-signin-cta.active {
+            background: rgba(99,102,241,0.32);
+            color: #c7d2fe;
+        }
+        /* ── Earn modal (true viewport center, root-level overlay) ── */
+        #earn-popover {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 9990;
+            /* dim backdrop via inset shadow on the inner card */
+            background: rgba(0,0,0,0.55);
+            align-items: center;
+            justify-content: center;
+        }
+        #earn-popover.open { display: flex; }
+        #earn-popover .ep-card {
+            background: rgba(10,14,35,0.98);
+            border: 1px solid rgba(99,102,241,0.4);
+            border-radius: 18px;
+            box-shadow: 0 24px 64px rgba(0,0,0,0.75);
+            backdrop-filter: blur(20px);
+            padding: 28px 26px 22px;
+            width: min(360px, calc(100vw - 32px));
+            pointer-events: all;
+        }
+        #earn-popover .ep-title {
+            font-size: 13px; font-weight: 700; color: #e2e8f0;
+            margin: 0 0 8px; display: flex; align-items: center; gap: 6px;
+        }
+        #earn-popover .ep-body {
+            font-size: 12px; color: #94a3b8; line-height: 1.65; margin: 0 0 14px;
+        }
+        #earn-popover .ep-body strong { color: #34d399; }
+        #earn-popover .ep-actions {
+            display: flex; gap: 8px; align-items: center;
+        }
+        #earn-popover .ep-btn-primary {
+            flex: 1; background: #6366f1; color: #fff;
+            border: none; border-radius: 8px;
+            padding: 8px 12px; font-size: 12px; font-weight: 700;
+            cursor: pointer; text-decoration: none;
+            display: block; text-align: center;
+            transition: background .15s;
+        }
+        #earn-popover .ep-btn-primary:hover { background: #818cf8; }
+        #earn-popover .ep-btn-close {
+            background: rgba(99,102,241,0.1); color: #64748b;
+            border: 1px solid rgba(99,102,241,0.2); border-radius: 8px;
+            padding: 8px 10px; font-size: 12px; cursor: pointer;
+            transition: color .15s;
+        }
+        #earn-popover .ep-btn-close:hover { color: #94a3b8; }
         /* ── Search palette ── */
         #search-overlay {
             position: fixed; inset: 0; z-index: 300;
@@ -241,15 +341,8 @@
             padding: 1px 4px; font-family: monospace; font-size: 10px; color: #475569;
         }
         /* Search trigger button */
-        #btn-search {
-            background: rgba(99,102,241,0.1);
-            border: 1px solid rgba(99,102,241,0.28);
-            color: #6366f1; padding: 5px 14px;
-            border-radius: 6px; font-size: 12px; font-weight: 500;
-            cursor: pointer; transition: background 0.15s;
-            display: flex; align-items: center; gap: 6px;
-        }
-        #btn-search:hover { background: rgba(99,102,241,0.2); }
+        /* btn-search uses .top-btn base styles; only override the gap */
+        #btn-search { gap: 6px; }
 
         /* Loading toaster for district boundary fetch */
         #dist-progress {
@@ -586,8 +679,8 @@
             position: fixed; top: 54px; left: 0; right: 0; z-index: 45;
             background: rgba(6,9,26,0.8); backdrop-filter: blur(10px);
             border-bottom: 1px solid rgba(99,102,241,0.1);
-            padding: 0 24px; height: 32px;
-            display: flex; align-items: center; gap: 0;
+            padding: 0 16px 0 24px; height: 32px;
+            display: flex; align-items: center; justify-content: space-between;
         }
         .bc-item { color: #475569; font-size: 12px; }
         .bc-link { color: #6366f1; cursor: pointer; text-decoration: none; }
@@ -694,7 +787,7 @@
         .cm-section {
             padding: 4px 14px 2px;
             font-size: 9px; font-weight: 700; letter-spacing: .1em;
-            text-transform: uppercase; color: #334155;
+            text-transform: uppercase; color: #64748b;
         }
         .cm-item {
             display: flex; align-items: center; justify-content: space-between;
@@ -719,8 +812,8 @@
         .cm-item.active .cm-toggle { background: rgba(99,102,241,0.5); border-color: #6366f1; }
         .cm-item.active .cm-toggle::after { transform: translateX(14px); background: #818cf8; }
         .cm-divider { border: none; border-top: 1px solid rgba(99,102,241,0.1); margin: 6px 0; }
-        .cm-kbd { font-size: 10px; color: #334155; font-family: monospace;
-                  border: 1px solid #1e293b; border-radius: 3px; padding: 1px 5px; }
+        .cm-kbd { font-size: 10px; color: #64748b; font-family: monospace;
+                  border: 1px solid #334155; border-radius: 3px; padding: 1px 5px; }
 
         /* ── Layers multi-select panel ─────────────────────────────────── */
         #layers-wrap { position: relative; }
@@ -791,7 +884,7 @@
             #top-bar { padding: 0 10px; height: 48px; }
             #top-bar .sep,
             #top-bar .title { display: none; }
-            #btn-districts, #btn-reset, #btn-rotate, #kb-hint-badge { display: none; }
+            #btn-districts, #btn-reset, #btn-rotate { display: none; }
             #mobile-menu-btn { display: flex; }
             #btn-search { padding: 6px 10px; gap: 4px; font-size: 12px; }
             #btn-back { padding: 5px 10px; font-size: 12px; }
@@ -1138,10 +1231,7 @@
      aria-description="Use arrow keys to rotate, + and - to zoom, Enter to open search."></div>
 <div id="kb-focus-ring" aria-hidden="true"></div>
 
-{{-- Keyboard shortcut badge --}}
-<button id="kb-hint-badge" aria-label="Show keyboard shortcuts" title="Keyboard shortcuts (press ?)">
-    <kbd>?</kbd> Keyboard shortcuts
-</button>
+{{-- Keyboard shortcut badge is now rendered inside #breadcrumb-bar --}}
 
 <div id="loading">
     <svg class="spinner" width="44" height="44" viewBox="0 0 24 24" fill="none" style="color:#6366f1;">
@@ -1159,14 +1249,38 @@
         <span class="title">U.S. Regional Map</span>
     </div>
     <div style="display:flex; gap:8px; align-items:center;">
+        {{-- ── Sign-in CTA (guest only, behind the map.sign_in_cta flag) ──
+             The full /map URL is passed via ?intent=earn so the post-login
+             redirect lands the voter back on the map with their session
+             already attached. Preserve any incoming ?ref= so referrer
+             attribution survives the round-trip through /login. --}}
+        @if (config('platform.map.voter_features_enabled') && config('platform.map.sign_in_cta') && auth()->guest())
+            @php(
+                $u9LoginUrl = url('/earn') . '?' . http_build_query(array_filter([
+                    'ref'  => request()->query('ref'),
+                    'from' => 'map',
+                ]))
+            )
+            <button id="btn-signin-cta" class="top-btn"
+               aria-haspopup="dialog" aria-expanded="false" aria-controls="earn-popover"
+               title="Learn how to earn on U9itus">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2.5"
+                     stroke-linecap="round" stroke-linejoin="round"
+                     aria-hidden="true">
+                    <line x1="12" y1="1" x2="12" y2="23"/>
+                    <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                </svg>
+            </button>
+        @endif
         <button id="btn-back">← Back</button>
-        <button id="btn-search" title="Search states and districts (press /)"
+        <button class="top-btn" id="btn-search" title="Search states and districts (press /)"
             aria-label="Search states and districts">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
                 <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
             </svg>
-            Search
-            <span style="font-size:10px;color:#334155;border:1px solid #1e293b;border-radius:3px;padding:1px 5px;font-family:monospace;">/</span>
+            <span class="btn-hover-label">Search</span>
+            <span class="btn-hover-label" style="font-size:10px;color:#475569;border:1px solid #334155;border-radius:3px;padding:1px 5px;font-family:monospace;">/</span>
         </button>
         <!-- Layers multi-select panel -->
         <div id="layers-wrap">
@@ -1178,7 +1292,7 @@
                     <polyline points="2 17 12 22 22 17"/>
                     <polyline points="2 12 12 17 22 12"/>
                 </svg>
-                Layers
+                <span class="btn-hover-label">Layers</span>
             </button>
             <div id="layers-panel" role="menu" aria-label="Map data layers">
                 <div class="lp-section">Boundaries</div>
@@ -1220,7 +1334,7 @@
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
                     <line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="14" y2="12"/><line x1="4" y1="18" x2="18" y2="18"/>
                 </svg>
-                Controls
+                <span class="btn-hover-label">Controls</span>
             </button>
             <div id="controls-menu" role="menu" aria-label="Map controls">
                 <div class="cm-section">View</div>
@@ -1266,6 +1380,17 @@
                     <span>Zoom Out</span>
                     <span class="cm-kbd">−</span>
                 </button>
+                {{-- Account section — shown to guests only when voter features are enabled --}}
+                @guest
+                @if(config('platform.map.voter_features_enabled'))
+                    <div class="cm-section" style="margin-top:4px;border-top:1px solid rgba(99,102,241,0.15);padding-top:6px;">Account</div>
+                    <a class="cm-item" role="menuitem"
+                       href="{{ url('/login') }}?return={{ urlencode('/map') }}"
+                       style="text-decoration:none;">
+                        <span>Sign In</span>
+                    </a>
+                @endif
+                @endguest
             </div>
         </div>
         <!-- Hidden legacy buttons kept for JS compatibility (visible in mobile drawer) -->
@@ -1371,6 +1496,9 @@
 
 <div id="breadcrumb-bar">
     <div id="breadcrumb"><span class="bc-item bc-active">Overview</span></div>
+    <button id="kb-hint-badge" aria-label="Show keyboard shortcuts" title="Keyboard shortcuts (press ?)">
+        <kbd>?</kbd> Shortcuts
+    </button>
 </div>
 
 <div id="tooltip"></div>
@@ -1424,6 +1552,37 @@
 </div>
 
 {{-- ── Guided tour overlay ── --}}
+{{-- ── Earn modal — true viewport-centered overlay, rendered at root level ── --}}
+@if(config('platform.map.voter_features_enabled') && auth()->guest())
+<div id="earn-popover" role="dialog" aria-modal="true" aria-label="How to earn on U9itus"
+     onclick="if(event.target===this){(function(){var p=document.getElementById('earn-popover'),b=document.getElementById('btn-signin-cta');p.classList.remove('open');b&&b.classList.remove('active');b&&b.setAttribute('aria-expanded','false');})()}">
+    <div class="ep-card">
+        <p class="ep-title">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#34d399"
+                 stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
+                <line x1="12" y1="1" x2="12" y2="23"/>
+                <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+            </svg>
+            Get paid to stay informed
+        </p>
+        <p class="ep-body">
+            Watch political campaign videos from any state on this map and earn
+            <strong>up to $0.50 per video</strong> — deposited directly to your account.
+            Free to join, no experience needed.
+        </p>
+        <div class="ep-actions">
+            <a class="ep-btn-primary" href="{{ $u9LoginUrl }}" target="_blank" rel="noopener">
+                Learn More
+            </a>
+            <button class="ep-btn-close"
+                onclick="(function(){var p=document.getElementById('earn-popover'),b=document.getElementById('btn-signin-cta');p.classList.remove('open');b.classList.remove('active');b.setAttribute('aria-expanded','false');})()">
+                Close
+            </button>
+        </div>
+    </div>
+</div>
+@endif
+
 <div id="tutorial-overlay" role="dialog" aria-modal="true" aria-label="Map feature tour">
     <div id="tutorial-backdrop"></div>
     <div id="tutorial-highlight" class="hidden"></div>
@@ -1484,6 +1643,69 @@
 <script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+/* ════════════════════════════════════════════════════════
+   AUTH-AWARE SESSION CONTEXT  (read once at boot)
+   Populated from meta tags injected server-side when
+   config('platform.map.voter_features_enabled') is true.
+   When the flag is off, all values fall back to guest defaults
+   and the map behaves exactly as it did pre-integration.
+════════════════════════════════════════════════════════ */
+const _meta = (name) => document.querySelector(`meta[name="${name}"]`)?.content || '';
+window.U9 = window.U9 || {};
+window.U9.session = Object.freeze({
+    role:          _meta('u9-user-role') || 'guest',
+    userUuid:      _meta('u9-user-uuid') || null,
+    referralCode:  _meta('u9-ref-code')  || null,
+    isAuthenticated() { return this.role !== 'guest' && this.role !== ''; },
+    isVoter()         { return this.role === 'voter'; },
+    isPolitician()    { return this.role === 'politician'; },
+});
+
+/* Auth-aware CTA telemetry — fires one impression per pageview and a
+   click event when the user clicks. Both use the existing __mapTrack
+   pipeline so they roll up alongside region/state click analytics. */
+(function () {
+    const cta     = document.getElementById('btn-signin-cta');
+    const popover = document.getElementById('earn-popover');
+    if (!cta || !popover) return;
+
+    // Impression tracking — fires once per pageview.
+    setTimeout(() => window.__mapTrack?.('map_signin_cta_shown', { role: window.U9.session.role }), 0);
+
+    // Toggle the earn popover; close Layers/Controls menus first.
+    cta.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isOpen = popover.classList.toggle('open');
+        cta.classList.toggle('active', isOpen);
+        cta.setAttribute('aria-expanded', String(isOpen));
+        if (isOpen) {
+            window.__mapTrack?.('map_signin_cta_click', { role: window.U9.session.role });
+            // Close other open menus
+            document.getElementById('controls-menu')?.classList.remove('open');
+            document.getElementById('layers-panel')?.classList.remove('open');
+        }
+    });
+
+    // Close on outside click.
+    document.addEventListener('click', (e) => {
+        if (!cta.contains(e.target) && !popover.contains(e.target)) {
+            popover.classList.remove('open');
+            cta.classList.remove('active');
+            cta.setAttribute('aria-expanded', 'false');
+        }
+    });
+
+    // Close on Escape.
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && popover.classList.contains('open')) {
+            popover.classList.remove('open');
+            cta.classList.remove('active');
+            cta.setAttribute('aria-expanded', 'false');
+            cta.focus();
+        }
+    });
+})();
 
 /* ════════════════════════════════════════════════════════
    REGION + STATE LOOKUP DATA
@@ -2363,6 +2585,82 @@ window.__mapReset  = enterOverviewMode;
 window.__mapBack   = handleBack;
 window.__mapRegion = name => enterRegionMode(name, REGIONS[name]);
 
+/* ════════════════════════════════════════════════════════
+   DEEP-LINK / PROFILE → MAP NAVIGATION
+   Called by:
+     1. URL params on page load  (?state=CA&district=33&slug=some-slug)
+     2. Any page that does: window.open('/map?state=CA&district=33&slug=...')
+     3. Embedded iframes or same-page links using window.__mapGoTo(...)
+
+   state    — full state name ("California") or 2-letter abbr ("CA")
+   district — optional congressional district number (e.g. 33)
+   slug     — optional politician slug; if provided the profile panel
+              opens automatically once the state panel loads
+════════════════════════════════════════════════════════ */
+window.__mapGoTo = async function (state, district = null, slug = null) {
+    // Resolve abbr → full name if needed
+    const ABBR_TO_NAME = Object.fromEntries(
+        Object.entries(STATE_ABBR_MAP).map(([name, abbr]) => [abbr, name])
+    );
+    const stateName = (state && state.length === 2)
+        ? (ABBR_TO_NAME[state.toUpperCase()] || state)
+        : state;
+
+    const mesh = stateMeshes.find(m => m.userData.name === stateName);
+    if (!mesh) return;
+
+    await enterStateMode(stateName, mesh.userData.regionName, mesh.userData.region);
+
+    // If a district was provided, highlight it after the state panel settles
+    if (district) {
+        const target = String(district).padStart(2, '0');
+        // Wait up to 2s for district meshes to load, then select
+        let waited = 0;
+        const trySelect = setInterval(() => {
+            waited += 100;
+            const dm = districtMeshes.find(m => String(m.userData.district).padStart(2, '0') === target);
+            if (dm) {
+                clearInterval(trySelect);
+                // Simulate a click on the district mesh
+                dm.dispatchEvent(new CustomEvent('select'));
+                flyToDistrictTopDown(dm);
+                dm.material.color.setHex(dm.userData.hoverColor || 0xffffff);
+            }
+            if (waited >= 2000) clearInterval(trySelect);
+        }, 100);
+    }
+
+    // If a politician slug was provided, auto-open their profile card
+    // by finding their name in the panel and clicking it
+    if (slug) {
+        let waited = 0;
+        const tryOpen = setInterval(() => {
+            waited += 150;
+            const link = document.querySelector(`[data-slug="${slug}"], a[href*="${slug}"]`);
+            if (link) { clearInterval(tryOpen); link.click(); }
+            if (waited >= 3000) clearInterval(tryOpen);
+        }, 150);
+    }
+};
+
+/* ── Boot: read URL params and deep-link on first load ─────────────────── */
+(function _bootDeepLink() {
+    const params   = new URLSearchParams(location.search);
+    const pState   = params.get('state');
+    const pDistrict= params.get('district');
+    const pSlug    = params.get('slug');
+    if (!pState) return;
+    // Defer until the map geometry is ready (stateMeshes populated)
+    const tryBoot = setInterval(() => {
+        if (stateMeshes.length > 0) {
+            clearInterval(tryBoot);
+            window.__mapGoTo(pState, pDistrict, pSlug);
+        }
+    }, 200);
+    // Give up after 8s (e.g. slow network)
+    setTimeout(() => clearInterval(tryBoot), 8000);
+})();
+
 /* ── Collapsible "Statewide Executive Offices" section ── */
 const OFFICES_PREF_KEY = 'u9_map_offices_collapsed';
 window.toggleOfficesSection = function () {
@@ -3121,9 +3419,14 @@ function renderCandidate(c, color) {
     const vf = c.verified ? `<span class="verified-badge">✓ Verified</span>` : '';
     // Encode candidate data on the whole card so the full row is clickable
     const popupData = JSON.stringify({ ...c, color });
+    // Extract slug from profile_url so __mapGoTo deep-link can auto-open this card
+    const _slugAttr = c.profile_url
+        ? (() => { try { return new URL(c.profile_url, location.origin).pathname.split('/').filter(Boolean).pop() || ''; } catch { return ''; } })()
+        : '';
     return `<div class="candidate-card"
         style="border-left-color:${color};"
         data-candidate='${popupData.replace(/'/g, '&apos;')}'
+        ${_slugAttr ? `data-slug="${_slugAttr}"` : ''}
         title="Click to learn more about ${c.full_name}"
         role="button" tabindex="0"
         onkeydown="if(event.key==='Enter'||event.key===' ')this.click()">
