@@ -146,20 +146,27 @@
         }
         #kb-help-close:hover { background: rgba(99,102,241,0.35); }
 
-        /* Keyboard shortcuts badge — now lives in the breadcrumb bar */
+        /* Keyboard shortcuts badge — lives in the breadcrumb bar.
+           Brightened for legibility: subtle indigo fill, accent border,
+           lighter text — still recedes when unused but no longer fades. */
         #kb-hint-badge {
-            background: none; border: 1px solid rgba(99,102,241,0.18);
-            border-radius: 6px; padding: 2px 8px;
-            font-size: 10px; color: #475569;
-            display: inline-flex; align-items: center; gap: 5px;
-            cursor: pointer; transition: color 0.15s, border-color 0.15s;
+            background: rgba(99,102,241,0.10);
+            border: 1px solid rgba(99,102,241,0.40);
+            border-radius: 6px; padding: 3px 10px;
+            font-size: 11px; font-weight: 600; color: #c7d2fe;
+            display: inline-flex; align-items: center; gap: 6px;
+            cursor: pointer; transition: background .15s, border-color .15s, color .15s;
             flex-shrink: 0;
         }
-        #kb-hint-badge:hover { color: #94a3b8; border-color: rgba(99,102,241,0.45); }
+        #kb-hint-badge:hover {
+            background: rgba(99,102,241,0.22);
+            border-color: rgba(99,102,241,0.65);
+            color: #e0e7ff;
+        }
         #kb-hint-badge kbd {
-            font-size: 9px; padding: 0 4px;
-            background: rgba(99,102,241,0.12); border: 1px solid rgba(99,102,241,0.25);
-            border-radius: 3px; color: #6366f1;
+            font-size: 10px; padding: 0 5px;
+            background: rgba(99,102,241,0.25); border: 1px solid rgba(99,102,241,0.45);
+            border-radius: 3px; color: #e0e7ff; font-weight: 700;
         }
 
         #top-bar {
@@ -4344,6 +4351,17 @@ btnControls.addEventListener('click', e => {
     openControlsMenu(!ctrlMenu.classList.contains('open'));
 });
 
+/* ── Hover-to-open: opens on enter, closes after a short grace period
+ * on leave so the cursor can travel to the menu without snapping shut.
+ * Pointer-only via media query so touch devices keep click-to-toggle. */
+if (matchMedia('(hover: hover) and (pointer: fine)').matches) {
+    let ctrlCloseTimer = null;
+    const ctrlOpenOnHover  = () => { clearTimeout(ctrlCloseTimer); openControlsMenu(true); };
+    const ctrlCloseOnLeave = () => { clearTimeout(ctrlCloseTimer); ctrlCloseTimer = setTimeout(() => openControlsMenu(false), 200); };
+    ctrlWrap.addEventListener('mouseenter', ctrlOpenOnHover);
+    ctrlWrap.addEventListener('mouseleave', ctrlCloseOnLeave);
+}
+
 // Close on click outside
 document.addEventListener('click', e => {
     if (!ctrlWrap.contains(e.target)) openControlsMenu(false);
@@ -4808,6 +4826,23 @@ btnLayers.addEventListener('click', e => {
     openControlsMenu(false); // close Controls if open
     openLayersPanel(!layersPanel.classList.contains('open'));
 });
+
+/* Hover-to-open mirror of the Controls behaviour (pointer-only). */
+if (matchMedia('(hover: hover) and (pointer: fine)').matches) {
+    let layersCloseTimer = null;
+    const layersOpenOnHover  = () => {
+        clearTimeout(layersCloseTimer);
+        openControlsMenu(false); // close the other one first
+        openLayersPanel(true);
+    };
+    const layersCloseOnLeave = () => {
+        clearTimeout(layersCloseTimer);
+        layersCloseTimer = setTimeout(() => openLayersPanel(false), 200);
+    };
+    layersWrap.addEventListener('mouseenter', layersOpenOnHover);
+    layersWrap.addEventListener('mouseleave', layersCloseOnLeave);
+}
+
 document.addEventListener('click', e => {
     if (!layersWrap.contains(e.target)) openLayersPanel(false);
 });

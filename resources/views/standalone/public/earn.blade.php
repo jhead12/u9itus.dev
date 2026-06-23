@@ -98,6 +98,17 @@
 </head>
 <body>
 
+{{-- Route the primary CTA to /register/voter when registration is open,
+     otherwise to /register/closed (mailing-list waitlist). Either way,
+     preserve the ?ref= attribution code through the redirect. --}}
+@php
+    $ctaRoute   = ($registrationOpen ?? true) ? 'register.voter' : 'register.closed';
+    $ctaQuery   = request()->query('ref') ? '?ref=' . urlencode(request()->query('ref')) : '';
+    $ctaUrl     = route($ctaRoute) . $ctaQuery;
+    $ctaLabel   = ($registrationOpen ?? true) ? 'Create Free Account' : 'Join the Waitlist';
+    $ctaLabelLg = ($registrationOpen ?? true) ? 'Create Your Free Account' : 'Join the Waitlist';
+@endphp
+
 {{-- ── Top nav ── --}}
 <nav style="position:sticky;top:0;z-index:50;background:rgba(6,9,26,0.9);backdrop-filter:blur(12px);border-bottom:1px solid rgba(99,102,241,0.12);">
     <div style="max-width:1100px;margin:0 auto;padding:0 24px;height:60px;display:flex;align-items:center;justify-content:space-between;">
@@ -105,9 +116,9 @@
         <div style="display:flex;gap:12px;align-items:center;">
             <a href="{{ url('/map') }}" style="color:#64748b;font-size:14px;text-decoration:none;font-weight:500;">← Back to Map</a>
             <a href="{{ route('login') }}" style="color:#94a3b8;font-size:14px;text-decoration:none;font-weight:500;">Sign in</a>
-            <a href="{{ route('register.voter') }}{{ request()->query('ref') ? '?ref='.request()->query('ref') : '' }}"
+            <a href="{{ $ctaUrl }}"
                style="background:#6366f1;color:#fff;font-size:13px;font-weight:700;padding:7px 18px;border-radius:8px;text-decoration:none;">
-                Get Started
+                {{ ($registrationOpen ?? true) ? 'Get Started' : 'Join Waitlist' }}
             </a>
         </div>
     </div>
@@ -135,13 +146,16 @@
         </p>
 
         <div style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-bottom:16px;">
-            <a href="{{ route('register.voter') }}{{ request()->query('ref') ? '?ref='.request()->query('ref') : '' }}"
-               class="btn-primary">
-                Create Free Account &rarr;
+            <a href="{{ $ctaUrl }}" class="btn-primary">
+                {{ $ctaLabel }} &rarr;
             </a>
             <a href="{{ url('/map') }}" class="btn-secondary">Explore the map first</a>
         </div>
-        <p style="font-size:12px;color:#475569;margin:0;">Free to join · No credit card · Payouts via Stripe, PayPal, or Cash App</p>
+        @if($registrationOpen ?? true)
+            <p style="font-size:12px;color:#475569;margin:0;">Free to join · No credit card · Payouts via Stripe, PayPal, or Cash App</p>
+        @else
+            <p style="font-size:12px;color:#fbbf24;margin:0;">⏳ Registration is temporarily paused — join the waitlist and we'll email you when spots open.</p>
+        @endif
     </div>
 </section>
 
@@ -253,9 +267,9 @@
 <section style="padding:60px 24px 80px;text-align:center;border-top:1px solid rgba(99,102,241,0.10);">
     <h2 style="font-size:28px;font-weight:800;color:#f1f5f9;margin:0 0 14px;">Ready to start earning?</h2>
     <p style="color:#64748b;font-size:15px;margin:0 0 32px;">Join thousands of citizens already getting paid to stay informed.</p>
-    <a href="{{ route('register.voter') }}{{ request()->query('ref') ? '?ref='.request()->query('ref') : '' }}"
+    <a href="{{ $ctaUrl }}"
        class="btn-primary" style="font-size:17px;padding:16px 40px;">
-        Create Your Free Account &rarr;
+        {{ $ctaLabelLg }} &rarr;
     </a>
     <p style="margin-top:18px;font-size:13px;color:#334155;">
         Already have an account? <a href="{{ route('login') }}" style="color:#818cf8;">Sign in</a>

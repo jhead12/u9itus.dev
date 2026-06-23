@@ -12,6 +12,7 @@
 use App\Http\Controllers\Standalone\AuthController;
 use App\Http\Controllers\Standalone\DashboardController;
 use App\Http\Controllers\Standalone\PoliticianController;
+use App\Http\Controllers\Standalone\PoliticianSongPickController;
 use App\Http\Controllers\Standalone\VoterController;
 use App\Http\Controllers\Standalone\AdminController;
 use App\Http\Controllers\Standalone\AdminOfficeProfileController;
@@ -258,6 +259,12 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         Route::put('/initiatives/{initiative}', [PoliticianController::class, 'updateInitiative'])->name('initiatives.update');
         Route::delete('/initiatives/{initiative}', [PoliticianController::class, 'destroyInitiative'])->name('initiatives.destroy');
 
+        // Favorite Songs — embed-only streaming picks (Spotify / Apple / YouTube)
+        Route::get('/song-picks',              [PoliticianSongPickController::class, 'index'])->name('song-picks.index');
+        Route::post('/song-picks',             [PoliticianSongPickController::class, 'store'])->name('song-picks.store');
+        Route::delete('/song-picks/{songPick}', [PoliticianSongPickController::class, 'destroy'])->name('song-picks.destroy');
+        Route::post('/song-picks/reorder',     [PoliticianSongPickController::class, 'reorder'])->name('song-picks.reorder');
+
         // Phase 16 — Transparency Settings & Profile Verification
         Route::get('/transparency-settings', [PoliticianController::class, 'transparencySettings'])->name('transparency-settings');
         Route::post('/transparency-settings/verify', [PoliticianController::class, 'initiateVerification'])->name('transparency-settings.verify');
@@ -455,7 +462,15 @@ Route::get('/map', fn() => view('standalone.public.us-map'))->name('us.map');
 
 // Voter earn explainer — public landing page that teaches users how to earn
 // from watching campaign videos, then funnels into voter registration.
-Route::get('/earn', fn() => view('standalone.public.earn'))->name('earn');
+// Mirrors the AuthController's `registration_open` check so the CTAs
+// never dangle users when the platform is in waitlist-only mode.
+Route::get('/earn', function () {
+    $isOpen = filter_var(
+        \App\Services\PlatformSettingsService::get('registration_open', null, true),
+        FILTER_VALIDATE_BOOLEAN
+    );
+    return view('standalone.public.earn', ['registrationOpen' => $isOpen]);
+})->name('earn');
 Route::get('/p/{slug}', [PublicProfileController::class, 'show'])->name('politician.public.show');
 
 // SEO — Sitemap & robots.txt

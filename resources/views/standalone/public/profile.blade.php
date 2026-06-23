@@ -483,6 +483,84 @@
         </section>
         @endif
 
+        {{-- ── Favorite Songs ─────────────────────────────────────────
+             Streaming-service embeds curated by the politician. We never
+             host audio; each iframe loads from the official service so
+             licensing/royalties flow normally. Section hides itself if
+             the politician hasn't added any active picks.            --}}
+        @php
+            $songPicks = $politician->songPicks;
+        @endphp
+        @if($songPicks->isNotEmpty())
+        <section x-data="{ open: false, activeIndex: null }">
+            <button type="button"
+                    @@click="open = !open"
+                    :aria-expanded="open.toString()"
+                    class="w-full flex items-center justify-between gap-3 mb-4 group">
+                <h2 class="text-xl font-bold text-white flex items-center gap-2">
+                    <span class="w-1 h-6 rounded-full inline-block" style="background:var(--p13-accent,#f59e0b)"></span>
+                    <span aria-hidden="true">🎵</span>
+                    {{ $politician->full_name }}'s Favorite Songs
+                    <span class="text-xs font-medium text-slate-500 ml-1">({{ $songPicks->count() }})</span>
+                </h2>
+                <svg class="w-5 h-5 text-slate-400 transition-transform"
+                     :class="open ? 'rotate-180' : ''"
+                     fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+            </button>
+
+            <div x-show="open" x-collapse class="space-y-3">
+                @foreach($songPicks as $i => $pick)
+                <article class="bg-slate-800/40 border border-slate-700/40 rounded-xl p-4">
+                    <header class="flex items-start justify-between gap-3 mb-3">
+                        <div class="min-w-0">
+                            <p class="font-semibold text-white truncate">
+                                {{ $pick->track_title ?: 'Untitled track' }}
+                            </p>
+                            @if($pick->artist_name)
+                                <p class="text-sm text-slate-400 truncate">{{ $pick->artist_name }}</p>
+                            @endif
+                        </div>
+                        <span class="shrink-0 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md {{ $pick->service === 'spotify' ? 'bg-green-500/10 border border-green-500/30 text-green-300' : ($pick->service === 'apple' ? 'bg-pink-500/10 border border-pink-500/30 text-pink-300' : 'bg-red-500/10 border border-red-500/30 text-red-300') }}">
+                            {{ $pick->service }}
+                        </span>
+                    </header>
+                    @if($pick->note)
+                        <blockquote class="border-l-2 border-indigo-500/50 pl-3 mb-3
+                                          text-sm text-slate-400 italic leading-relaxed">
+                            {{ $pick->note }}
+                        </blockquote>
+                    @endif
+                    {{-- Lazy-load: only mount the iframe when user clicks the track row. --}}
+                    @if($pick->is_explicit)
+                        <p class="text-xs text-amber-400 mb-2">⚠ Contains explicit content</p>
+                    @endif
+                    <button type="button"
+                            @@click="activeIndex === {{ $i }} ? activeIndex = null : activeIndex = {{ $i }}"
+                            class="text-xs text-indigo-400 hover:text-indigo-300 font-medium">
+                        <span x-show="activeIndex !== {{ $i }}">▶ Play preview</span>
+                        <span x-show="activeIndex === {{ $i }}" x-cloak>Hide player</span>
+                    </button>
+                    <template x-if="activeIndex === {{ $i }}">
+                        <div class="mt-3">
+                            <iframe src="{{ $pick->embedUrl() }}"
+                                    width="100%" height="{{ $pick->embedHeight() }}"
+                                    frameborder="0"
+                                    allow="{{ $pick->embedAllow() }}"
+                                    loading="lazy"
+                                    referrerpolicy="strict-origin-when-cross-origin"
+                                    sandbox="allow-scripts allow-same-origin allow-popups allow-presentation"
+                                    title="{{ $pick->track_title ?: 'Song preview' }}"
+                                    class="rounded-lg overflow-hidden bg-slate-950"></iframe>
+                        </div>
+                    </template>
+                </article>
+                @endforeach
+            </div>
+        </section>
+        @endif
+
         {{-- Initiatives / Platform Section --}}
         @if($page->show_initiatives && $initiatives->isNotEmpty())
         <section>

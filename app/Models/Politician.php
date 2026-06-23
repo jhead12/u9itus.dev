@@ -278,6 +278,19 @@ class Politician extends Model
     }
 
     /**
+     * Public "Favorite Songs" picks rendered on the politician profile
+     * and (V2) inside the map's candidate panel. Only active rows are
+     * returned by default — soft-takedowns stay in the DB but hidden.
+     */
+    public function songPicks(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(PoliticianSongPick::class)
+            ->where('is_active', true)
+            ->orderBy('display_order')
+            ->orderBy('id');
+    }
+
+    /**
      * Cached donor/sponsor snapshot populated by the enrichment pipeline.
      */
     public function donorSnapshot(): \Illuminate\Database\Eloquent\Relations\HasOne
