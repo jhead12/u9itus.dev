@@ -35,15 +35,17 @@
     @endphp
 
     <!-- Navigation -->
-    <nav class="fixed w-full z-50 bg-slate-900/90 backdrop-blur-lg border-b border-slate-800">
+    <nav class="fixed w-full z-50 bg-slate-900/90 backdrop-blur-lg border-b border-slate-800"
+         x-data="{ open: false }">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between items-center h-20">
+            <div class="flex justify-between items-center h-16 sm:h-20">
                 <div class="flex items-center space-x-2">
-                    <div class="text-3xl font-light tracking-tight">
+                    <div class="text-2xl sm:text-3xl font-light tracking-tight">
                         <span class="font-bold">U9</span><span class="text-emerald-400">itus</span>
                     </div>
                 </div>
                 
+                {{-- Desktop nav links --}}
                 <div class="hidden md:flex items-center space-x-8">
                     <a href="#featured-candidates" class="text-slate-300 hover:text-white transition text-sm font-medium">Featured</a>
                     <a href="{{ route('politicians.directory') }}" class="text-slate-300 hover:text-white transition text-sm font-medium">Browse Candidates</a>
@@ -56,27 +58,71 @@
                     <a href="{{ route('about') }}" class="text-slate-300 hover:text-white transition text-sm font-medium">About Us</a>
                 </div>
                 
-                @if (Route::has('login'))
-                    <div class="flex items-center space-x-4">
+                <div class="flex items-center gap-3">
+                    @if (Route::has('login'))
                         @auth
                             <a href="{{ url('/dashboard') }}"
-                               class="inline-flex items-center justify-center px-5 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-emerald-500 to-teal-500 rounded-lg hover:from-emerald-600 hover:to-teal-600 transition shadow-lg shadow-emerald-500/30">
-                                <span class="mr-2">👤</span> Dashboard
+                               class="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-emerald-500 to-teal-500 rounded-lg hover:from-emerald-600 hover:to-teal-600 transition shadow-lg shadow-emerald-500/30">
+                                <span class="mr-1.5">👤</span> Dashboard
                             </a>
                         @else
                             <a href="{{ route('login') }}"
                                class="text-slate-300 hover:text-white transition text-sm font-medium">
                                 Sign In
                             </a>
-                            
                             @if (Route::has('register'))
                                 <a href="{{ $activeReferralCode ? route('register', ['ref' => $activeReferralCode]) : route('register') }}"
-                                   class="inline-flex items-center justify-center px-5 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-emerald-500 to-teal-500 rounded-lg hover:from-emerald-600 hover:to-teal-600 transition shadow-lg shadow-emerald-500/30">
+                                   class="hidden sm:inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-emerald-500 to-teal-500 rounded-lg hover:from-emerald-600 hover:to-teal-600 transition shadow-lg shadow-emerald-500/30">
                                     Get Started
                                 </a>
                             @endif
                         @endauth
+                    @endif
+
+                    {{-- Mobile hamburger --}}
+                    <button @@click="open = !open"
+                            class="md:hidden p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
+                            :aria-expanded="open.toString()"
+                            aria-label="Toggle menu">
+                        <svg x-show="!open" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                        </svg>
+                        <svg x-show="open" x-cloak class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        {{-- Mobile menu drawer --}}
+        <div x-show="open" x-cloak x-transition
+             class="md:hidden border-t border-slate-800 bg-slate-900/95 backdrop-blur-lg">
+            <div class="px-4 py-3 space-y-1">
+                <a href="#featured-candidates" @@click="open=false"
+                   class="block px-3 py-2.5 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800 transition">Featured</a>
+                <a href="{{ route('politicians.directory') }}" @@click="open=false"
+                   class="block px-3 py-2.5 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800 transition">Browse Candidates</a>
+                <a href="{{ route('us.map') }}" @@click="open=false"
+                   class="block px-3 py-2.5 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800 transition flex items-center gap-2">
+                    <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
+                    Explore Map
+                </a>
+                <a href="#revenue" @@click="open=false"
+                   class="block px-3 py-2.5 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800 transition">Voter Value</a>
+                <a href="#how-it-works" @@click="open=false"
+                   class="block px-3 py-2.5 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800 transition">Transparency</a>
+                <a href="{{ route('about') }}" @@click="open=false"
+                   class="block px-3 py-2.5 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800 transition">About Us</a>
+                @if(Route::has('register'))
+                    @guest
+                    <div class="pt-2 pb-1">
+                        <a href="{{ $activeReferralCode ? route('register', ['ref' => $activeReferralCode]) : route('register') }}"
+                           class="block w-full text-center px-4 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-emerald-500 to-teal-500 rounded-lg hover:from-emerald-600 hover:to-teal-600 transition">
+                            Get Started
+                        </a>
                     </div>
+                    @endguest
                 @endif
             </div>
         </div>
@@ -154,19 +200,19 @@
                     @endguest
                 </div>
                 
-                <!-- Stats -->
-                <div class="animate-fade-in-up delay-400 opacity-0 grid grid-cols-3 gap-8 pt-16 max-w-3xl mx-auto">
-                    <div>
-                        <div class="text-4xl font-bold text-emerald-400">ZIP</div>
-                        <div class="text-sm text-slate-400 mt-1">Find your district fast</div>
+                <!-- Stats — stacks to 1-col on phones, 3-col on sm+ -->
+                <div class="animate-fade-in-up delay-400 opacity-0 grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-8 pt-10 sm:pt-16 max-w-3xl mx-auto">
+                    <div class="flex sm:block items-center gap-4 sm:gap-0 bg-slate-800/40 sm:bg-transparent rounded-xl sm:rounded-none px-4 py-3 sm:p-0">
+                        <div class="text-3xl sm:text-4xl font-bold text-emerald-400 shrink-0">ZIP</div>
+                        <div class="text-sm text-slate-400 sm:mt-1">Find your district fast</div>
                     </div>
-                    <div>
-                        <div class="text-4xl font-bold text-teal-400">No Login</div>
-                        <div class="text-sm text-slate-400 mt-1">Browse candidates publicly</div>
+                    <div class="flex sm:block items-center gap-4 sm:gap-0 bg-slate-800/40 sm:bg-transparent rounded-xl sm:rounded-none px-4 py-3 sm:p-0">
+                        <div class="text-3xl sm:text-4xl font-bold text-teal-400 shrink-0">No Login</div>
+                        <div class="text-sm text-slate-400 sm:mt-1">Browse candidates publicly</div>
                     </div>
-                    <div>
-                        <div class="text-4xl font-bold text-blue-400">4 Sources</div>
-                        <div class="text-sm text-slate-400 mt-1">Verify claims with public data</div>
+                    <div class="flex sm:block items-center gap-4 sm:gap-0 bg-slate-800/40 sm:bg-transparent rounded-xl sm:rounded-none px-4 py-3 sm:p-0">
+                        <div class="text-3xl sm:text-4xl font-bold text-blue-400 shrink-0">4 Sources</div>
+                        <div class="text-sm text-slate-400 sm:mt-1">Verify claims with public data</div>
                     </div>
                 </div>
             </div>

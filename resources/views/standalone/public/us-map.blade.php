@@ -1280,6 +1280,7 @@
                 </svg>
             </button>
         @endif
+
         <button id="btn-back">← Back</button>
         <button class="top-btn" id="btn-search" title="Search states and districts (press /)"
             aria-label="Search states and districts">
@@ -1387,16 +1388,20 @@
                     <span>Zoom Out</span>
                     <span class="cm-kbd">−</span>
                 </button>
-                {{-- Account section — shown to guests only when voter features are enabled --}}
+                {{-- Explore & Account — always shown to guests, no flag gating --}}
+                <div class="cm-section" style="margin-top:4px;border-top:1px solid rgba(99,102,241,0.15);padding-top:6px;">Explore</div>
+                <a class="cm-item" role="menuitem"
+                   href="{{ route('politicians.directory') }}"
+                   style="text-decoration:none;">
+                    <span>Browse Politicians</span>
+                </a>
                 @guest
-                @if(config('platform.map.voter_features_enabled'))
                     <div class="cm-section" style="margin-top:4px;border-top:1px solid rgba(99,102,241,0.15);padding-top:6px;">Account</div>
                     <a class="cm-item" role="menuitem"
                        href="{{ url('/login') }}?return={{ urlencode('/map') }}"
                        style="text-decoration:none;">
                         <span>Sign In</span>
                     </a>
-                @endif
                 @endguest
             </div>
         </div>
