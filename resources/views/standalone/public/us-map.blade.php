@@ -1395,6 +1395,11 @@
                    style="text-decoration:none;">
                     <span>Browse Politicians</span>
                 </a>
+                <a class="cm-item" role="menuitem"
+                   href="{{ route('district.lookup') }}"
+                   style="text-decoration:none;">
+                    <span>Find My District</span>
+                </a>
                 @guest
                     <div class="cm-section" style="margin-top:4px;border-top:1px solid rgba(99,102,241,0.15);padding-top:6px;">Account</div>
                     <a class="cm-item" role="menuitem"

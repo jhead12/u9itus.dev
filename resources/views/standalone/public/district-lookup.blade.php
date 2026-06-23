@@ -139,13 +139,36 @@
 
             @if($geoid)
             <section class="mb-8">
-                <div class="flex items-center justify-between mb-3">
+                <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
                     <h2 class="text-xl font-bold text-white">District Boundary Map</h2>
-                    <a href="https://www.congress.gov/members?q=%7B%22congress%22%3A%22119%22%2C%22state%22%3A%22{{ $mapState }}%22%7D"
-                       target="_blank" rel="noopener"
-                       class="text-xs text-emerald-400 hover:text-emerald-300 transition">
-                        View on Congress.gov →
-                    </a>
+                    <div class="flex items-center gap-3">
+                        {{-- Deep-link to the U9itus interactive 3D map, pre-focused on this state + district --}}
+                        @php
+                            $u9MapUrl = route('us.map') . '?' . http_build_query(array_filter([
+                                'state'    => $mapState,
+                                'district' => ($mapDistrict !== null && strtoupper((string)$mapDistrict) !== 'AL')
+                                                ? (int) $mapDistrict : null,
+                            ]));
+                        @endphp
+                        <a href="{{ $u9MapUrl }}"
+                           class="inline-flex items-center gap-1.5 text-xs font-semibold
+                                  text-indigo-300 hover:text-indigo-200
+                                  border border-indigo-500/30 hover:border-indigo-400/60
+                                  bg-indigo-500/10 hover:bg-indigo-500/20
+                                  rounded-full px-3 py-1.5 transition">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+                                 stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                                 stroke-linejoin="round" aria-hidden="true">
+                                <polygon points="3 11 22 2 13 21 11 13 3 11"/>
+                            </svg>
+                            View on U9itus Map
+                        </a>
+                        <a href="https://www.congress.gov/members?q=%7B%22congress%22%3A%22119%22%2C%22state%22%3A%22{{ $mapState }}%22%7D"
+                           target="_blank" rel="noopener"
+                           class="text-xs text-emerald-400 hover:text-emerald-300 transition">
+                            View on Congress.gov →
+                        </a>
+                    </div>
                 </div>
 
                 <div class="bg-slate-900/70 border border-slate-700/50 rounded-2xl overflow-hidden">
