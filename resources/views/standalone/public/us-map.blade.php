@@ -1878,34 +1878,73 @@ const PARTY_LABEL = { D: 'Democratic', R: 'Republican', I: 'Independent', U: 'Un
 
 /* ── Party-control color mode ────────────────────────────────────────────
  * govPartyByAbbr: two-letter state code → party code (D / R / I / U)
- * Populated by fetchAllGovernorParties() called once after map loads.
+ * Lazy-populated by ensureGovernorParties() the first time the user
+ * activates the Party Control layer. Result is cached in localStorage
+ * for 24 hours so subsequent visits skip the 50 API calls entirely.
  * colorMode: 'region' (default) | 'party'
  */
 let govPartyByAbbr = {};   // e.g. { CA: 'D', TX: 'R', ... }
 let colorMode      = 'region';
+let _govPartyPromise = null;
+const GOV_PARTY_CACHE_KEY = 'u9map_gov_parties_v1';
+const GOV_PARTY_CACHE_TTL = 24 * 60 * 60 * 1000;   // 24h
 
-async function fetchAllGovernorParties() {
-    // STATE_ABBR_MAP: state name → abbreviation (already defined in scope)
-    const abbrs = Object.values(STATE_ABBR_MAP).filter(Boolean);
-    // Batch: fetch in groups of 10 to avoid overwhelming the API
-    for (let i = 0; i < abbrs.length; i += 10) {
-        const batch = abbrs.slice(i, i + 10);
-        await Promise.all(batch.map(async abbr => {
-            try {
-                const res = await fetch(`/api/v1/map/state-candidates?state=${abbr}`);
-                if (!res.ok) return;
-                const data = await res.json();
-                const govGroup = (data.offices ?? []).find(g => g.office === 'Governor');
-                const seated = (govGroup?.candidates ?? []).find(c => c.status === 'seated');
-                if (seated?.party) {
-                    const p = seated.party.charAt(0).toUpperCase();
-                    govPartyByAbbr[abbr] = (['D','R','I'].includes(p)) ? p : 'U';
-                } else {
-                    govPartyByAbbr[abbr] = 'U';
-                }
-            } catch { govPartyByAbbr[abbr] = 'U'; }
-        }));
+function _readGovPartyCache() {
+    try {
+        const raw = localStorage.getItem(GOV_PARTY_CACHE_KEY);
+        if (!raw) return null;
+        const { ts, data } = JSON.parse(raw);
+        if (!ts || !data || Date.now() - ts > GOV_PARTY_CACHE_TTL) return null;
+        return data;
+    } catch { return null; }
+}
+
+function _writeGovPartyCache(data) {
+    try { localStorage.setItem(GOV_PARTY_CACHE_KEY, JSON.stringify({ ts: Date.now(), data })); } catch {}
+}
+
+/**
+ * Lazy + cached governor-party loader. Returns a Promise that resolves
+ * once govPartyByAbbr is populated. Safe to call repeatedly — only the
+ * first call triggers any network activity (or even any work at all if
+ * the cache is warm).
+ */
+function ensureGovernorParties() {
+    if (_govPartyPromise) return _govPartyPromise;
+
+    // Cache hit — no network at all on repeat visits within 24h
+    const cached = _readGovPartyCache();
+    if (cached) {
+        govPartyByAbbr = cached;
+        _govPartyPromise = Promise.resolve(cached);
+        return _govPartyPromise;
     }
+
+    _govPartyPromise = (async () => {
+        const abbrs = Object.values(STATE_ABBR_MAP).filter(Boolean);
+        // Batch in groups of 10 to avoid hitting the per-route rate limit
+        for (let i = 0; i < abbrs.length; i += 10) {
+            const batch = abbrs.slice(i, i + 10);
+            await Promise.all(batch.map(async abbr => {
+                try {
+                    const res = await fetch(`/api/v1/map/state-candidates?state=${abbr}`);
+                    if (!res.ok) return;
+                    const data = await res.json();
+                    const govGroup = (data.offices ?? []).find(g => g.office === 'Governor');
+                    const seated = (govGroup?.candidates ?? []).find(c => c.status === 'seated');
+                    if (seated?.party) {
+                        const p = seated.party.charAt(0).toUpperCase();
+                        govPartyByAbbr[abbr] = (['D','R','I'].includes(p)) ? p : 'U';
+                    } else {
+                        govPartyByAbbr[abbr] = 'U';
+                    }
+                } catch { govPartyByAbbr[abbr] = 'U'; }
+            }));
+        }
+        _writeGovPartyCache(govPartyByAbbr);
+        return govPartyByAbbr;
+    })();
+    return _govPartyPromise;
 }
 
 function getStatePartyColor(stateName) {
@@ -2313,10 +2352,9 @@ fetch('https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json')
         if (ACTIVE_LAYERS.has('party')) {
             colorMode = 'party';
             document.getElementById('cm-btn-party-colors')?.classList.add('active');
-            applyColorMode();
+            // Activating party mode lazy-loads governor parties (cached 24h)
+            ensureGovernorParties().then(() => applyColorMode());
         }
-        // Pre-fetch all governor parties in background so Party Control mode is ready
-        fetchAllGovernorParties();
         // Pre-fetch district config (congress number, TIGERweb layer, CD field, party map)
         // so district overlays use the correct data when the user first clicks a state.
         initDistrictConfig();
@@ -4331,8 +4369,13 @@ document.getElementById('cm-btn-districts').addEventListener('click', () => {
 document.getElementById('cm-btn-party-colors').addEventListener('click', () => {
     colorMode = colorMode === 'party' ? 'region' : 'party';
     document.getElementById('cm-btn-party-colors').classList.toggle('active', colorMode === 'party');
-    applyColorMode();
     syncLayerChip('party', colorMode === 'party');
+    if (colorMode === 'party') {
+        // Lazy: fetch only on first activation (cached for 24h thereafter)
+        ensureGovernorParties().then(() => applyColorMode());
+    } else {
+        applyColorMode();
+    }
     // Keep menu open so the toggle state is visible
 });
 
@@ -4416,7 +4459,11 @@ function toggleLayer(layerKey) {
         case 'party':
             colorMode = isActive ? 'party' : 'region';
             document.getElementById('cm-btn-party-colors')?.classList.toggle('active', isActive);
-            applyColorMode();
+            if (isActive) {
+                ensureGovernorParties().then(() => applyColorMode());
+            } else {
+                applyColorMode();
+            }
             break;
         case 'population':
             if (isActive) {
