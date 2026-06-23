@@ -1078,7 +1078,9 @@ scene.background = new THREE.Color(0x06091a);
 scene.fog = new THREE.FogExp2(0x060914, 0.014);
 
 const camera = new THREE.PerspectiveCamera(42, W() / H(), 0.1, 300);
-camera.position.set(0, 7, 13);
+// Default overview framing — tuned so the lower-48 + Alaska/Hawaii inset
+// fills ~70% of the viewport width (matches design reference).
+camera.position.set(0, 5.4, 10.2);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(W(), H());
@@ -1450,7 +1452,7 @@ function enterOverviewMode() {
     }
     showRegionLegend();
     controls.autoRotate = false; updateRotateBtn(false);
-    flyTo(new THREE.Vector3(0, 7, 13), new THREE.Vector3(0, 0, 0));
+    flyTo(new THREE.Vector3(0, 5.4, 10.2), new THREE.Vector3(0, 0, 0));
     updateBreadcrumb();
 }
 

@@ -352,12 +352,77 @@
         #tutorial-highlight.hidden { opacity:0; box-shadow:none; }
         #tutorial-card {
             position:absolute; width:300px;
+            max-width: calc(100vw - 24px);
+            max-height: calc(100vh - 24px);
+            overflow-y: auto;
             background:#0f172a; border:1px solid rgba(99,102,241,0.45);
             border-radius:14px; padding:20px 22px 16px;
             z-index:9002; pointer-events:all;
             box-shadow:0 20px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(99,102,241,0.08);
             transition: top .3s cubic-bezier(.4,0,.2,1), left .3s cubic-bezier(.4,0,.2,1), transform .3s;
+            -webkit-overflow-scrolling: touch;
         }
+        /* Wider variant when tour step embeds a video/audio instructions player */
+        #tutorial-card.has-media { width: 480px; }
+
+        /* ──────────────────────────────────────────────────────────────
+           MOBILE: convert the card into a fixed bottom sheet so it never
+           overflows the viewport, the player remains a comfortable size,
+           and the highlight ring stays unobstructed above it.
+           Activated below 640px (covers all common phones in portrait).
+           ────────────────────────────────────────────────────────────── */
+        @media (max-width: 640px) {
+            #tutorial-card,
+            #tutorial-card.has-media {
+                position: fixed !important;
+                left: 0 !important;
+                right: 0 !important;
+                bottom: 0 !important;
+                top: auto !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                max-height: 70vh;
+                border-radius: 18px 18px 0 0;
+                padding: 18px 18px max(16px, env(safe-area-inset-bottom)) 18px;
+                transform: none !important;
+                transition: transform .25s cubic-bezier(.4,0,.2,1);
+            }
+            #tutorial-card .t-title { font-size: 16px; }
+            #tutorial-card .t-body  { font-size: 13px; }
+            /* Tap targets meet 44×44 minimum (WCAG 2.5.5 / Apple HIG) */
+            #tutorial-card .t-btn-back,
+            #tutorial-card .t-btn-next,
+            #tutorial-card .t-btn-skip {
+                min-height: 44px; padding: 10px 16px; font-size: 13px;
+            }
+            #tutorial-card .t-media-toggle { min-height: 40px; padding: 8px 14px; }
+            /* Slightly larger video on phones since we have full width */
+            #tutorial-card .t-media-wrap video { aspect-ratio: 16 / 9; }
+            /* Push the highlight ring up so the sheet does not cover it */
+            #tutorial-highlight { transform: translateY(-12vh); }
+        }
+        .t-media-wrap {
+            position: relative; margin: 0 0 14px;
+            background: #020617; border: 1px solid rgba(99,102,241,0.18);
+            border-radius: 10px; overflow: hidden;
+        }
+        .t-media-wrap video,
+        .t-media-wrap audio { display: block; width: 100%; outline: none; }
+        .t-media-wrap video { aspect-ratio: 16 / 9; background: #020617; }
+        .t-media-wrap audio { padding: 8px 10px; background: #0b1224; }
+        .t-media-fallback {
+            padding: 14px 16px; font-size: 11px; color: #64748b; line-height: 1.5;
+            border-top: 1px dashed rgba(99,102,241,0.18);
+        }
+        .t-media-fallback strong { color: #94a3b8; }
+        .t-media-toggle {
+            display: inline-flex; align-items: center; gap: 6px;
+            background: rgba(99,102,241,0.10); color: #a5b4fc;
+            border: 1px solid rgba(99,102,241,0.35); border-radius: 8px;
+            padding: 6px 12px; font-size: 11px; font-weight: 600;
+            cursor: pointer; margin: 0 0 12px;
+        }
+        .t-media-toggle:hover { background: rgba(99,102,241,0.18); color: #c7d2fe; }
         .t-label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.1em; color:#6366f1; margin:0 0 6px; }
         .t-title { font-size:15px; font-weight:700; color:#e2e8f0; margin:0 0 8px; line-height:1.35; }
         .t-body  { font-size:12px; color:#94a3b8; line-height:1.65; margin:0 0 16px; }
@@ -1689,7 +1754,9 @@ scene.background = new THREE.Color(0x06091a);
 scene.fog = new THREE.FogExp2(0x060914, 0.004);
 
 const camera = new THREE.PerspectiveCamera(42, W() / H(), 0.1, 300);
-camera.position.set(0, 7.5, 13.0); // polar ≈60° — isometric 3D default, shows slab depth
+// Default overview framing — tuned so the lower-48 + Alaska/Hawaii inset
+// fills ~70% of the viewport width (matches design reference).
+camera.position.set(0, 5.4, 10.2);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(W(), H());
@@ -2119,7 +2186,7 @@ function enterOverviewMode() {
         m.parent.position.z    = 0;
     }
     showRegionLegend();
-    flyTo(new THREE.Vector3(0, 7.5, 13.0), new THREE.Vector3(0, 0, 0));
+    flyTo(new THREE.Vector3(0, 5.4, 10.2), new THREE.Vector3(0, 0, 0));
     updateBreadcrumb();
     _syncNatDistVisibility();
 }
@@ -2653,47 +2720,103 @@ document.addEventListener('keydown', e => {
    GUIDED TOUR
 ════════════════════════════════════════════════════════ */
 const TOUR_KEY = 'u9_map_tour_v1';
+
+/**
+ * Build a tour-step `media` object from a slug.
+ *
+ * Each slug expects these files in public/media/tour/:
+ *   {slug}.webm        (preferred video)
+ *   {slug}.mp4         (Safari/iOS fallback)
+ *   {slug}.mp3         (audio-only / screen-reader fallback)
+ *   {slug}.en.vtt      (WebVTT captions — REQUIRED for ADA / WCAG 1.2.2)
+ *   {slug}-poster.jpg  (optional thumbnail)
+ *
+ * Files that 404 are silently hidden — the player wrapper disappears and the
+ * text transcript remains visible. See public/media/tour/README.md.
+ */
+function _mediaFor(slug, transcript) {
+    const base = `/media/tour/${slug}`;
+    return {
+        video: [
+            { src: `${base}.webm`, type: 'video/webm' },
+            { src: `${base}.mp4`,  type: 'video/mp4'  },
+        ],
+        audio: [
+            { src: `${base}.mp3`,  type: 'audio/mpeg' },
+        ],
+        captions: [
+            { src: `${base}.en.vtt`, srclang: 'en', label: 'English', default: true },
+        ],
+        poster:     `${base}-poster.jpg`,
+        transcript: transcript,
+    };
+}
+
 const TOUR_STEPS = [
     {
         target: null, pos: 'center',
         title: '🗺 Welcome to U9itus',
         body: `Explore U.S. political representation — governors, attorneys general, representatives, and more — all on an interactive 3D map.<br><br>This quick tour covers the key controls. You can skip at any time.`,
+        media: _mediaFor('welcome',
+            `The U9itus U.S. map is totally interactive. It allows you immediate access to political representatives in all states by simply pointing your mouse on the desired state to review, by clicking on this state. The state will separate away from all other states and will show area divisions populating into districts, and names of political representatives serving in these districts. Find the representatives serving any area in the United States. Click on their names and find out all about them. You can check what they stand for from various reliable resources. You can also find out who is bankrolling their campaigns — right here at U9itus. In upcoming seasons, this information will be vital in your making an intelligent choice when you go to the polls.`
+        ),
     },
     {
         target: '#map-canvas-region', pos: 'right',
         title: '↑ ↓  Tilt  ·  ← →  Rotate',
         body: `Press <kbd>↑</kbd> <kbd>↓</kbd> to tilt the map toward overhead or a low-angle view.<br><br>Press <kbd>←</kbd> <kbd>→</kbd> to orbit around it. Hold a key for continuous movement.`,
+        media: _mediaFor('tilt-rotate',
+            `You can change your viewing angle at any time using the arrow keys. Press the up and down arrows to tilt the map between a top-down overhead view and a low, dramatic angle. Press the left and right arrows to orbit around the country. Hold any arrow key down for continuous, smooth movement until you release it.`
+        ),
     },
     {
         target: null, pos: 'center',
         title: '🔍 Zoom',
         body: `<strong style="color:#e2e8f0">Scroll</strong> your mouse wheel to zoom in and out.<br><br>Or use <kbd>+</kbd> to zoom in and <kbd>−</kbd> to zoom out from the keyboard.`,
+        media: _mediaFor('zoom',
+            `Zoom into any part of the country by scrolling your mouse wheel forward to move closer, or backward to pull away. If you prefer the keyboard, press the plus key to zoom in and the minus key to zoom out. Zoom level is preserved as you rotate, so you can frame the exact view you want.`
+        ),
     },
     {
         target: '#btn-search', pos: 'bottom',
         title: '/ Search',
         body: `Press <kbd>/</kbd> to open the search bar and jump to any state or congressional district by name.`,
+        media: _mediaFor('search',
+            `Looking for a specific place? Press the forward-slash key, or click the Search button in the top right, to open the search bar. Start typing any state name or congressional district, and U9itus will fly the camera directly to your selection. Press Escape to dismiss the search at any time.`
+        ),
     },
     {
         target: '#map-canvas-region', pos: 'right',
         title: '🖱 Click a State',
         body: `Click any state to open its political profile — statewide officeholders, 2026 candidates, and congressional district boundaries.`,
+        media: _mediaFor('click-state',
+            `Click directly on any state to open its full political profile. You will see the current statewide officeholders, the candidates running in upcoming elections, and an overlay of congressional district boundaries. From there you can click an individual district to drill down into the representatives serving that area.`
+        ),
     },
     {
         target: '#offices-toggle', pos: 'bottom',
         title: '<kbd>O</kbd>  Offices Toggle',
         body: `Press <kbd>O</kbd> or click the <strong style="color:#e2e8f0">Statewide Executive Offices</strong> header to collapse or expand that section. Your preference is remembered.`,
+        media: _mediaFor('offices-toggle',
+            `When a state is open, you can collapse or expand the Statewide Executive Offices section to focus on just the information you care about. Press the letter O on your keyboard, or click the section header. Your preference is remembered the next time you visit, so the panel always opens the way you like it.`
+        ),
     },
     {
         target: null, pos: 'center',
         title: '<kbd>R</kbd>  Reset View',
         body: `Press <kbd>R</kbd> at any time to snap the camera back to the default isometric overview position, no matter how far you've tilted or orbited.`,
+        media: _mediaFor('reset',
+            `If you ever get lost or want to start over, just press the letter R on your keyboard. The camera will smoothly fly back to the default overview of the entire country, no matter how far you have zoomed, tilted, or rotated. It is the fastest way to reset your view and pick a new state to explore.`
+        ),
     },
     {
         target: '#kb-hint-badge', pos: 'top',
         title: '<kbd>?</kbd>  Keyboard Help',
         body: `Press <kbd>?</kbd> or click this badge to see the full shortcut reference. You can relaunch this tour from there too.`,
         isLast: true,
+        media: _mediaFor('keyboard-help',
+            `Every action on the map has a keyboard shortcut. Press the question mark key, or click the Keyboard shortcuts badge in the bottom left, to open the full reference. From that same dialog you can replay this guided tour any time. That is everything — welcome to U9itus, and happy exploring.`
+        ),
     },
 ];
 
@@ -2720,6 +2843,63 @@ window._tourEnd = function () {
     try { localStorage.setItem(TOUR_KEY, '1'); } catch {}
 };
 
+/**
+ * Build the optional video/audio instructions block for a tour step.
+ * - Renders a <video> with <track> captions when video sources are supplied.
+ * - Falls back to <audio> when only audio is supplied.
+ * - Renders an always-available text transcript for screen readers.
+ * - Self-hides if every <source> fails to load (e.g. files not yet uploaded).
+ */
+function _renderTourMedia(media) {
+    if (!media) return '';
+    const escAttr = (s) => String(s).replace(/"/g, '&quot;');
+    const hasVideo = Array.isArray(media.video) && media.video.length;
+    const hasAudio = Array.isArray(media.audio) && media.audio.length;
+    if (!hasVideo && !hasAudio && !media.transcript) return '';
+
+    const tracks = (media.captions || []).map(c =>
+        `<track kind="captions" src="${escAttr(c.src)}" srclang="${escAttr(c.srclang || 'en')}" label="${escAttr(c.label || 'Captions')}"${c.default ? ' default' : ''}>`
+    ).join('');
+
+    let player = '';
+    if (hasVideo) {
+        const sources = media.video.map(s =>
+            `<source src="${escAttr(s.src)}" type="${escAttr(s.type)}">`
+        ).join('');
+        player = `<video controls preload="metadata" playsinline
+                    ${media.poster ? `poster="${escAttr(media.poster)}"` : ''}
+                    aria-label="Tour instructions video">
+                    ${sources}${tracks}
+                    Your browser does not support embedded video.
+                  </video>`;
+    } else if (hasAudio) {
+        const sources = media.audio.map(s =>
+            `<source src="${escAttr(s.src)}" type="${escAttr(s.type)}">`
+        ).join('');
+        player = `<audio controls preload="metadata" aria-label="Tour instructions audio">
+                    ${sources}
+                    Your browser does not support embedded audio.
+                  </audio>`;
+    }
+
+    const transcriptId = `t-transcript-${Math.random().toString(36).slice(2, 8)}`;
+    const transcriptBlock = media.transcript
+        ? `<button type="button" class="t-media-toggle"
+                aria-expanded="false" aria-controls="${transcriptId}"
+                onclick="(function(b){const p=document.getElementById('${transcriptId}');const o=p.hidden;p.hidden=!o;b.setAttribute('aria-expanded',String(o));b.firstElementChild.textContent=o?'Hide transcript':'Show transcript';})(this)">
+              <span>Show transcript</span>
+           </button>
+           <div id="${transcriptId}" class="t-media-fallback" hidden>
+              <strong>Transcript:</strong> ${media.transcript}
+           </div>`
+        : '';
+
+    return `<div class="t-media-wrap" data-media>
+                ${player}
+            </div>
+            ${transcriptBlock}`;
+}
+
 function _renderTourStep(idx) {
     const step   = TOUR_STEPS[idx];
     const total  = TOUR_STEPS.length;
@@ -2731,9 +2911,13 @@ function _renderTourStep(idx) {
         `<span class="t-dot${i === idx ? ' active' : ''}"></span>`
     ).join('');
 
+    const mediaHtml = _renderTourMedia(step.media);
+    card.classList.toggle('has-media', !!mediaHtml);
+
     card.innerHTML = `
         <p class="t-label">Step ${idx + 1} of ${total}</p>
         <p class="t-title">${step.title}</p>
+        ${mediaHtml}
         <div class="t-body">${step.body}</div>
         <div class="t-actions">
             <div class="t-dots">${dots}</div>
@@ -2746,6 +2930,20 @@ function _renderTourStep(idx) {
             </div>
         </div>`;
 
+    // If every <source> in the embedded player fails (files not uploaded yet),
+    // hide the player wrapper so the card stays clean. Transcript remains.
+    const mediaEl = card.querySelector('video, audio');
+    if (mediaEl) {
+        let failed = 0;
+        const sources = mediaEl.querySelectorAll('source');
+        sources.forEach(s => s.addEventListener('error', () => {
+            if (++failed >= sources.length) {
+                const wrap = card.querySelector('[data-media]');
+                if (wrap) wrap.style.display = 'none';
+            }
+        }));
+    }
+
     // Highlight target element
     const target = step.target ? document.querySelector(step.target) : null;
     if (target) {
@@ -2755,25 +2953,66 @@ function _renderTourStep(idx) {
         hl.style.width  = `${r.width  + pad * 2}px`;
         hl.style.height = `${r.height + pad * 2}px`;
         hl.classList.remove('hidden');
-        _posCard(card, r, step.pos);
+        // Render off-screen first so we can measure the real card size
+        // (which varies with .has-media and dynamic content), then position.
+        card.style.cssText = 'top:-9999px;left:-9999px;transform:none';
+        requestAnimationFrame(() => _posCard(card, r, step.pos));
     } else {
         hl.classList.add('hidden');
-        card.style.cssText = 'top:50%;left:50%;transform:translate(-50%,-50%)';
+        if (window.matchMedia('(max-width: 640px)').matches) {
+            // Bottom-sheet CSS handles positioning on phones.
+            card.style.cssText = '';
+        } else {
+            card.style.cssText = 'top:50%;left:50%;transform:translate(-50%,-50%)';
+        }
     }
 }
 
+/**
+ * Position the tour card next to its target rect, clamping to the viewport.
+ * Measures the actual rendered card so wider .has-media cards (480px) and
+ * variable-height cards never spill off-screen. If the preferred side does
+ * not fit, automatically flips to the opposite side before clamping.
+ *
+ * On mobile (≤640px) we let the CSS bottom-sheet layout take over so the
+ * card always docks flush to the bottom of the viewport.
+ */
 function _posCard(card, rect, side) {
-    const CW = 320, CH = 220, GAP = 16;
+    if (window.matchMedia('(max-width: 640px)').matches) {
+        // Bottom-sheet CSS rules pin the card; clear inline positioning.
+        card.style.cssText = '';
+        return;
+    }
+    const GAP = 16, MARGIN = 12;
     const vw = window.innerWidth, vh = window.innerHeight;
+    const cr = card.getBoundingClientRect();
+    const CW = cr.width  || 320;
+    const CH = cr.height || 220;
+
+    const fits = (s) => {
+        switch (s) {
+            case 'bottom': return rect.bottom + GAP + CH <= vh - MARGIN;
+            case 'top':    return rect.top    - GAP - CH >= MARGIN;
+            case 'left':   return rect.left   - GAP - CW >= MARGIN;
+            case 'right':  return rect.right  + GAP + CW <= vw - MARGIN;
+        }
+        return true;
+    };
+    const opposite = { bottom: 'top', top: 'bottom', left: 'right', right: 'left' };
+    if (side && opposite[side] && !fits(side) && fits(opposite[side])) {
+        side = opposite[side];
+    }
+
     let top, left;
     switch (side) {
-        case 'bottom': top = rect.bottom + GAP; left = rect.left + rect.width / 2 - CW / 2; break;
-        case 'top':    top = rect.top - CH - GAP; left = rect.left + rect.width / 2 - CW / 2; break;
-        case 'left':   top = rect.top + rect.height / 2 - CH / 2; left = rect.left - CW - GAP; break;
-        default:       top = rect.top + rect.height / 2 - CH / 2; left = rect.right + GAP; break;
+        case 'bottom': top = rect.bottom + GAP;             left = rect.left + rect.width / 2 - CW / 2; break;
+        case 'top':    top = rect.top - CH - GAP;           left = rect.left + rect.width / 2 - CW / 2; break;
+        case 'left':   top = rect.top + rect.height / 2 - CH / 2; left = rect.left - CW - GAP;          break;
+        default:       top = rect.top + rect.height / 2 - CH / 2; left = rect.right + GAP;              break;
     }
-    top  = Math.max(12, Math.min(vh - CH - 12, top));
-    left = Math.max(12, Math.min(vw - CW - 12, left));
+    // Clamp inside the viewport using the card's real dimensions.
+    top  = Math.max(MARGIN, Math.min(vh - CH - MARGIN, top));
+    left = Math.max(MARGIN, Math.min(vw - CW - MARGIN, left));
     card.style.cssText = `top:${top}px;left:${left}px;transform:none`;
 }
 
