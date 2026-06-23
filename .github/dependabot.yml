@@ -1,0 +1,54 @@
+# Dependabot configuration.
+#
+# Scopes scanning to the active Laravel 12 codebase only. The legacy/
+# folder contains the archived Laravel 4 codebase from before the
+# 2025 modernization and is intentionally excluded — it never ships to
+# production and its dependencies are pinned to the original
+# end-of-life versions on purpose.
+#
+# Docs: https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+
+version: 2
+updates:
+  # PHP / Composer (root project only)
+  - package-ecosystem: "composer"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "composer"
+    # Group security patches into a single PR so the queue is manageable
+    groups:
+      composer-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
+
+  # JavaScript / npm (root project only)
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "javascript"
+    groups:
+      npm-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
+
+  # GitHub Actions workflows
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    labels:
+      - "dependencies"
+      - "github-actions"

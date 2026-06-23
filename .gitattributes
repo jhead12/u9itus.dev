@@ -9,3 +9,9 @@
 /.github export-ignore
 CHANGELOG.md export-ignore
 .styleci.yml export-ignore
+
+# Mark the archived Laravel 4 codebase as linguist-vendored so GitHub
+# excludes it from language stats AND security scanning (Dependabot
+# already scoped via .github/dependabot.yml). These files never ship.
+legacy/** linguist-vendored=true
+legacy/** linguist-generated=true
