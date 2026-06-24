@@ -435,7 +435,11 @@ function resolveBpHref(h) {
  * Returns an array of candidate objects.
  */
 async function scrapeRacePage(page, raceUrl, chamber, withResults = false) {
-  await page.goto(raceUrl, { waitUntil: 'networkidle', timeout: 45_000 });
+  // Use 'domcontentloaded' — Ballotpedia pages emit endless background analytics
+  // / AdSense / lazy-image requests, so 'networkidle' never settles and the
+  // navigation hits the full timeout. The DOM (tables, headings, anchors) we
+  // evaluate below is fully present after DOMContentLoaded.
+  await page.goto(raceUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
   await sleep(DELAY_MS);
 
   return page.evaluate((args) => {
