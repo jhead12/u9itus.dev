@@ -387,149 +387,226 @@ async function scrapeRaceLinks(page, indexUrl, chamber) {
 }
 
 /**
- * Scrape candidates from a single race page (e.g. a district election page).
- * When withResults=true, also captures elected/defeated/incumbent indicators.
+ * Return true if an href looks like a genuine Ballotpedia candidate profile page.
+ * Rejects: external URLs, election index pages, query strings, fragment anchors,
+ * mailto/javascript, and anything that would overflow VARCHAR(255).
+ * Pure function — called from both Node context and page.evaluate() context.
+ */
+function isValidBpHref(h) {
+  if (!h || h.length < 3 || h.length > 255) return false;
+  const isInternal =
+    (h.startsWith('/') && !h.startsWith('//'))
+    || h.startsWith('https://ballotpedia.org/');
+  if (!isInternal) return false;
+  if (h.includes('?') || h.includes('#') || h.includes('%3F') || h.includes('%23')) return false;
+  if (h.includes(':')) return false; // mailto:, javascript:, etc.
+  if (/elections?,_\d{4}/i.test(h)) return false; // election index pages
+  return true;
+}
+
+/**
+ * Resolve a validated href to a full https://ballotpedia.org/ URL.
+ */
+function resolveBpHref(h) {
+  return h.startsWith('https://') ? h : 'https://ballotpedia.org' + h;
+}
+
+/**
+ * Scrape candidates from a single race page (e.g. California gubernatorial election, 2026).
+ *
+ * THREE-STRATEGY APPROACH — tried in order, results merged and de-duped:
+ *
+ *  Strategy A — wikitable scan (most reliable for statewide races)
+ *    Finds ALL <table class="wikitable"> on the page regardless of heading
+ *    context. Ballotpedia wraps tables in <div> containers so they are NEVER
+ *    direct siblings of the section heading — the old sibling-walk missed them.
+ *    Detects candidate tables by checking header row text for "candidate" /
+ *    "party" / "name". Handles variable column layouts by finding the name
+ *    anchor link dynamically rather than assuming a fixed cell index.
+ *
+ *  Strategy B — heading-scoped deep search
+ *    Walks every element *inside* sections whose heading text mentions
+ *    "candidate" or "general election" (not just direct siblings). Descends
+ *    into <div> wrappers to find tables and lists.
+ *
+ *  Strategy C — <ul> candidate lists (infobox / sidebar format)
+ *    Parses <li> items in the form "Name (Party)" anywhere in the article body.
+ *
  * Returns an array of candidate objects.
  */
 async function scrapeRacePage(page, raceUrl, chamber, withResults = false) {
-  // Use networkidle so any server-side redirects (e.g. Ballotpedia canonicalising
-  // apostrophes in URLs) fully settle before page.evaluate() runs. domcontentloaded
-  // fires too early and the subsequent navigation destroys the execution context.
   await page.goto(raceUrl, { waitUntil: 'networkidle', timeout: 45_000 });
   await sleep(DELAY_MS);
 
   return page.evaluate((args) => {
     const { raceUrl, ELECTION_YEAR, withResults } = args;
-    const results = [];
 
     const titleEl = document.querySelector('h1#firstHeading') ?? document.querySelector('h1.firstHeading');
     const pageTitle = (titleEl?.textContent ?? '').trim();
 
-    /**
-     * Attempt 1: Parse structured candidate tables (Ballotpedia's standard format).
-     * These are usually <table> elements in sections titled "Candidates" or "Primary candidates".
-     */
-    const sections = document.querySelectorAll('h2, h3');
-    let inCandidateSection = false;
+    // ── Helpers (re-defined inside evaluate so they run in the page context) ──
 
-    for (const heading of sections) {
-      const headingText = (heading.textContent ?? '').toLowerCase();
-      inCandidateSection = headingText.includes('candidate') || headingText.includes('general election');
+    function isBpHref(h) {
+      if (!h || h.length < 3 || h.length > 255) return false;
+      const isInternal = (h.startsWith('/') && !h.startsWith('//'))
+        || h.startsWith('https://ballotpedia.org/');
+      if (!isInternal) return false;
+      if (h.includes('?') || h.includes('#') || h.includes('%3F') || h.includes('%23')) return false;
+      if (h.includes(':')) return false;
+      if (/elections?,_\d{4}/i.test(h)) return false;
+      return true;
+    }
 
-      if (!inCandidateSection) continue;
+    function resolveBp(h) {
+      return h.startsWith('https://') ? h : 'https://ballotpedia.org' + h;
+    }
 
-      // Walk siblings until next heading
-      let sibling = heading.nextElementSibling;
-      while (sibling && !['H2', 'H3'].includes(sibling.tagName)) {
-        if (sibling.tagName === 'TABLE') {
-          const rows = sibling.querySelectorAll('tr');
+    /** Find the first valid Ballotpedia profile anchor within an element. */
+    function findBpAnchor(el) {
+      for (const a of el.querySelectorAll('a[href]')) {
+        const h = a.getAttribute('href') ?? '';
+        if (isBpHref(h)) return resolveBp(h);
+      }
+      return null;
+    }
+
+    /** Extract result status from a table row's full text + cells. */
+    function extractResult(row, cells) {
+      if (!withResults) return null;
+      const rowText = row.textContent ?? '';
+      // Checkmarks and explicit win/loss text
+      if (/✓|✔|✅/.test(rowText) || /\bwon\b|\belected\b|\badvanced\b|\bwinner\b/i.test(rowText)) {
+        // Don't false-positive on header rows
+        if (!/^(candidate|name|party|status)/i.test(rowText.trim())) return 'won';
+      }
+      if (/\blost\b|\bdefeated\b|\beliminated\b/i.test(rowText)) return 'lost';
+      // Last cell sometimes contains the plain text "Won" / "Lost"
+      const lastText = (cells[cells.length - 1]?.textContent ?? '').trim().toLowerCase();
+      if (lastText === 'won' || lastText === 'elected' || lastText === 'advanced') return 'won';
+      if (lastText === 'lost' || lastText === 'defeated') return 'lost';
+      return null;
+    }
+
+    const seen = new Set();
+    const results = [];
+
+    function addCandidate(name, party, bpUrl, resultStatus) {
+      name = (name ?? '').replace(/\s+/g, ' ').trim();
+      if (name.length < 3) return;
+      // Skip obvious header/label text
+      if (/^(candidate|name|party|status|office|incumbent|running|general|primary)/i.test(name)) return;
+      const key = name.toLowerCase();
+      if (seen.has(key)) return;
+      seen.add(key);
+      results.push({ name, party: party || null, ballotpedia_url: bpUrl || null, result_status: resultStatus || null });
+    }
+
+    // ── Strategy A: scan ALL wikitables regardless of heading context ─────────
+    // Ballotpedia wraps tables in <div>s so they are never direct siblings of
+    // section headings. We scan the full document for .wikitable elements and
+    // filter to those that look like candidate tables.
+    const wikitables = document.querySelectorAll('table.wikitable, table.bptable, table[class*="candidate"], table[class*="election-result"]');
+
+    for (const table of wikitables) {
+      const rows = Array.from(table.querySelectorAll('tr'));
+      if (rows.length < 2) continue;
+
+      // Inspect the header row to decide if this is a candidate table.
+      // Header cells are <th> or the first <tr> of cells.
+      const headerRow = rows.find(r => r.querySelector('th')) ?? rows[0];
+      const headerText = (headerRow?.textContent ?? '').toLowerCase();
+
+      // Must mention candidate/name/party to be treated as a candidate table.
+      // This excludes reference/footnote tables, navboxes, etc.
+      const isCandidateTable =
+        headerText.includes('candidate') || headerText.includes('name') ||
+        headerText.includes('party') || headerText.includes('office');
+      if (!isCandidateTable) continue;
+
+      // Build a column index map from header text
+      const thCells = Array.from(headerRow.querySelectorAll('th, td'));
+      let nameCol = -1, partyCol = -1, resultCol = -1;
+      thCells.forEach((th, i) => {
+        const t = (th.textContent ?? '').toLowerCase().trim();
+        if (nameCol === -1 && (t.includes('candidate') || t.includes('name') || t === '')) nameCol = i;
+        if (partyCol === -1 && t.includes('party')) partyCol = i;
+        if (resultCol === -1 && (t.includes('result') || t.includes('status') || t.includes('outcome'))) resultCol = i;
+      });
+      // Default: name in col 1 (after possible color-swatch col 0), party in col 2
+      if (nameCol === -1) nameCol = thCells.length > 2 ? 1 : 0;
+      if (partyCol === -1) partyCol = nameCol + 1;
+
+      for (const row of rows) {
+        if (row === headerRow) continue;
+        const cells = Array.from(row.querySelectorAll('td'));
+        if (cells.length < 2) continue;
+
+        // Find name: prefer the cell that contains a valid Ballotpedia anchor,
+        // then fall back to the header-inferred nameCol.
+        let bpUrl = null;
+        let nameCellEl = null;
+        for (const cell of cells) {
+          const href = findBpAnchor(cell);
+          if (href) { bpUrl = href; nameCellEl = cell; break; }
+        }
+        if (!nameCellEl) nameCellEl = cells[nameCol] ?? cells[0];
+
+        const name = (nameCellEl?.textContent ?? '').trim();
+        const party = (cells[partyCol]?.textContent ?? '').trim() || null;
+        const resultStatus = extractResult(row, cells);
+
+        addCandidate(name, party, bpUrl, resultStatus);
+      }
+    }
+
+    // ── Strategy B: heading-scoped deep search ──────────────────────────────
+    // Walk every element inside candidate-section headings, descending into
+    // <div> wrappers that the old sibling-walk missed.
+    const headings = document.querySelectorAll('#mw-content-text h2, #mw-content-text h3');
+    for (const heading of headings) {
+      const ht = (heading.textContent ?? '').toLowerCase();
+      if (!ht.includes('candidate') && !ht.includes('general election') && !ht.includes('primary')) continue;
+
+      // Collect all elements until the next same-level (or higher) heading
+      const level = heading.tagName; // H2 or H3
+      let el = heading.nextElementSibling;
+      while (el) {
+        if (el.tagName === level || el.tagName === 'H2') break;
+
+        // Tables nested anywhere inside this element
+        for (const table of el.querySelectorAll('table')) {
+          const rows = Array.from(table.querySelectorAll('tr'));
           for (const row of rows) {
-            const cells = row.querySelectorAll('td');
+            const cells = Array.from(row.querySelectorAll('td'));
             if (cells.length < 2) continue;
-
-            // Typical layout: | photo? | Name | Party | Status/Note |
-            const nameCell = cells[0]?.textContent?.trim() ?? '';
-            const partyCell = cells[1]?.textContent?.trim() ?? '';
-
-            if (nameCell.length < 2 || nameCell.toLowerCase().includes('candidate')) continue;
-
-            // Find the first anchor that is a genuine Ballotpedia profile page.
-            // Use a strict WHITELIST: only accept root-relative paths (/Page_Name)
-            // or explicit https://ballotpedia.org/ URLs with no query string.
-            // This is intentionally narrow — anything that doesn't look exactly
-            // like an internal Ballotpedia link is dropped, preventing survey/
-            // mailto/campaign URLs from ever reaching the database.
-            // ── Result status (winner / loser / incumbent) ─────────────────
-            let resultStatus = null;
-            if (withResults) {
-              const rowText = row.textContent ?? '';
-              // Ballotpedia uses checkmarks, "Won", "Elected", "Advanced" for winners
-              if (/✓|✔|won|elected|advanced|winner/i.test(rowText)) resultStatus = 'won';
-              else if (/lost|defeated|eliminated/i.test(rowText)) resultStatus = 'lost';
-              // Incumbent column
-              const incumbentCell = Array.from(cells).find(c => /incumbent/i.test(c.textContent ?? ''));
-              if (incumbentCell && !/no/i.test(incumbentCell.textContent ?? '')) resultStatus = resultStatus ?? 'incumbent';
-              // Result column — last cell often holds "Won" / "Lost"
-              const lastCell = cells[cells.length - 1];
-              if (!resultStatus && lastCell) {
-                const lt = (lastCell.textContent ?? '').trim().toLowerCase();
-                if (lt === 'won' || lt === 'elected' || lt === 'advanced') resultStatus = 'won';
-                else if (lt === 'lost' || lt === 'defeated') resultStatus = 'lost';
-              }
-            }
-
-            const cellAnchors = Array.from(cells[0]?.querySelectorAll('a[href]') ?? []);
-            const profileAnchor = cellAnchors.find(a => {
-              const h = a.getAttribute('href') ?? '';
-              // Must be either a root-relative path or an explicit ballotpedia.org URL
-              const isInternal =
-                (h.startsWith('/') && !h.startsWith('//'))       // e.g. /Dale_Strong
-                || h.startsWith('https://ballotpedia.org/');     // e.g. full URL
-              if (!isInternal) return false;
-              // No query strings or fragment anchors
-              if (h.includes('?') || h.includes('#') || h.includes('%3F') || h.includes('%23')) return false;
-              return h.length > 2;
-            });
-            const ballotpediaLink = profileAnchor
-              ? (profileAnchor.href.startsWith('https://ballotpedia.org/')
-                  ? profileAnchor.href
-                  : 'https://ballotpedia.org' + profileAnchor.getAttribute('href'))
-              : null;
-
-            results.push({
-              name: nameCell.replace(/\s+/g, ' ').trim(),
-              party: partyCell,
-              ballotpedia_url: ballotpediaLink,
-              result_status: resultStatus,
-              page_title: pageTitle,
-              election_year: ELECTION_YEAR,
-              source_url: raceUrl,
-            });
+            const bpUrl = (() => { for (const c of cells) { const u = findBpAnchor(c); if (u) return u; } return null; })();
+            if (!bpUrl && cells.every(c => !c.textContent?.trim())) continue;
+            // Name cell: prefer the one with the bp anchor
+            const nameCellEl = bpUrl
+              ? cells.find(c => findBpAnchor(c))
+              : (cells[1] ?? cells[0]);
+            const name = (nameCellEl?.textContent ?? '').trim();
+            const party = (cells.find((c, i) => i !== cells.indexOf(nameCellEl) && /democr|republican|libertarian|green|independ|party/i.test(c.textContent ?? ''))?.textContent ?? '').trim() || null;
+            addCandidate(name, party, bpUrl, extractResult(row, cells));
           }
         }
 
-        // Also parse infobox-style candidate lists (<ul> items)
-        if (sibling.tagName === 'UL') {
-          for (const li of sibling.querySelectorAll('li')) {
-            const text = li.textContent?.trim() ?? '';
-            const link = li.querySelector('a[href]');
-            if (text.length < 3) continue;
+        el = el.nextElementSibling;
+      }
+    }
 
-            // Extract name (before " (Party)" pattern)
-            const partyMatch = text.match(/\(([^)]+)\)$/);
-            const name = partyMatch ? text.slice(0, text.lastIndexOf('(')).trim() : text;
-            const party = partyMatch ? partyMatch[1] : null;
-
-            if (name.length < 2) continue;
-
-            // Strict whitelist: only root-relative paths or explicit ballotpedia.org URLs,
-            // no query strings (literal or percent-encoded), no fragments.
-            const rawHref = link ? (link.getAttribute('href') ?? '') : '';
-            const isValidBpLink = rawHref.length > 2
-              && (
-                (rawHref.startsWith('/') && !rawHref.startsWith('//'))   // /Page_Name
-                || rawHref.startsWith('https://ballotpedia.org/')        // full URL
-              )
-              && !rawHref.includes('?')
-              && !rawHref.includes('#')
-              && !rawHref.includes('%3F')
-              && !rawHref.includes('%23');
-            const resolvedBpUrl = isValidBpLink
-              ? (rawHref.startsWith('https://') ? rawHref : 'https://ballotpedia.org' + rawHref)
-              : null;
-
-            results.push({
-              name,
-              party,
-              ballotpedia_url: resolvedBpUrl,
-              page_title: pageTitle,
-              election_year: ELECTION_YEAR,
-              source_url: raceUrl,
-            });
-          }
-        }
-
-        sibling = sibling.nextElementSibling;
+    // ── Strategy C: <ul> candidate lists (e.g. "Name (Party)" per line) ─────
+    const contentEl = document.querySelector('#mw-content-text');
+    if (contentEl) {
+      for (const li of contentEl.querySelectorAll('li')) {
+        const text = (li.textContent ?? '').trim();
+        if (text.length < 3 || text.length > 120) continue;
+        const partyMatch = text.match(/\(([^)]{2,40})\)\s*$/);
+        if (!partyMatch) continue; // require "(Party)" to avoid false positives
+        const name = text.slice(0, text.lastIndexOf('(')).trim();
+        const party = partyMatch[1];
+        const bpUrl = findBpAnchor(li);
+        addCandidate(name, party, bpUrl, null);
       }
     }
 
