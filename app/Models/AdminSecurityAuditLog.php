@@ -6,6 +6,7 @@ use App\Events\AdminSecurityAuditLogged;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class AdminSecurityAuditLog extends Model
 {
@@ -33,6 +34,9 @@ class AdminSecurityAuditLog extends Model
 
     /**
      * Persist an admin security event and dispatch a domain event.
+     *
+     * The domain event is dispatched best-effort: a misbehaving listener
+     * must never break the actual audit-write or the calling request.
      */
     public static function record(User $admin, string $event, array $metadata = [], ?Request $request = null): self
     {
@@ -44,7 +48,16 @@ class AdminSecurityAuditLog extends Model
             'user_agent' => $request?->userAgent(),
         ]);
 
-        event(new AdminSecurityAuditLogged($log));
+        try {
+            event(new AdminSecurityAuditLogged($log));
+        } catch (\Throwable $e) {
+            Log::error('AdminSecurityAuditLog listener failed', [
+                'event' => $event,
+                'admin_id' => $admin->id,
+                'error' => $e->getMessage(),
+                'exception' => get_class($e),
+            ]);
+        }
 
         return $log;
     }

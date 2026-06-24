@@ -3562,29 +3562,51 @@ HTML;
             return back()->withErrors(['code' => 'Invalid authenticator code for setup confirmation.']);
         }
 
-        $recoveryCodes = $twoFactorService->generateRecoveryCodes();
+        try {
+            $recoveryCodes = $twoFactorService->generateRecoveryCodes();
 
-        $user->forceFill([
-            'admin_two_factor_secret' => $secret,
-            'admin_two_factor_confirmed_at' => now(),
-            'admin_two_factor_recovery_codes' => $recoveryCodes,
-        ])->save();
+            $user->forceFill([
+                'admin_two_factor_secret' => $secret,
+                'admin_two_factor_confirmed_at' => now(),
+                'admin_two_factor_recovery_codes' => $recoveryCodes,
+            ])->save();
 
-        $request->session()->forget('admin_2fa_setup_secret');
-        $request->session()->put('admin_2fa_verified_user_id', (int) $user->id);
-        $request->session()->put('admin_2fa_verified_at', now()->toIso8601String());
-        $request->session()->flash('admin_2fa_new_recovery_codes', $recoveryCodes);
+            $request->session()->forget('admin_2fa_setup_secret');
+            $request->session()->put('admin_2fa_verified_user_id', (int) $user->id);
+            $request->session()->put('admin_2fa_verified_at', now()->toIso8601String());
+            $request->session()->flash('admin_2fa_new_recovery_codes', $recoveryCodes);
 
-        Log::info('Admin enabled two-factor authentication', [
-            'admin_id' => $user->id,
-        ]);
+            Log::info('Admin enabled two-factor authentication', [
+                'admin_id' => $user->id,
+            ]);
 
-        AdminSecurityAuditLog::record(
-            $user,
-            'admin.2fa.enabled',
-            ['recovery_code_count' => count($recoveryCodes)],
-            $request
-        );
+            // Audit logging is best-effort; never break the user-facing enable flow.
+            try {
+                AdminSecurityAuditLog::record(
+                    $user,
+                    'admin.2fa.enabled',
+                    ['recovery_code_count' => count($recoveryCodes)],
+                    $request
+                );
+            } catch (\Throwable $auditError) {
+                Log::error('Admin 2FA enable: audit log write failed', [
+                    'admin_id' => $user->id,
+                    'error' => $auditError->getMessage(),
+                    'exception' => get_class($auditError),
+                ]);
+            }
+        } catch (\Throwable $e) {
+            Log::error('Admin 2FA enable failed', [
+                'admin_id' => $user?->id,
+                'error' => $e->getMessage(),
+                'exception' => get_class($e),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return back()->withErrors([
+                'code' => 'Unable to enable two-factor authentication right now. Please try again or contact support.',
+            ]);
+        }
 
         return back()->with('success', 'Two-factor authentication enabled successfully.');
     }

@@ -178,12 +178,20 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
     // so admins can complete TOTP setup/challenge when required).
     Route::prefix('admin')->name('admin.')->middleware(['role:admin'])->group(function () {
         Route::get('/2fa/challenge', [AuthController::class, 'showAdminTwoFactorChallenge'])->name('2fa.challenge');
-        Route::post('/2fa/challenge', [AuthController::class, 'verifyAdminTwoFactorChallenge'])->name('2fa.challenge.verify');
+        Route::post('/2fa/challenge', [AuthController::class, 'verifyAdminTwoFactorChallenge'])
+            ->middleware('throttle:6,1')
+            ->name('2fa.challenge.verify');
 
         Route::get('/security/2fa', [AdminController::class, 'twoFactorSetup'])->name('2fa.setup');
-        Route::post('/security/2fa/enable', [AdminController::class, 'enableTwoFactor'])->name('2fa.setup.enable');
-        Route::post('/security/2fa/disable', [AdminController::class, 'disableTwoFactor'])->name('2fa.setup.disable');
-        Route::post('/security/2fa/recovery-codes/rotate', [AdminController::class, 'rotateRecoveryCodes'])->name('2fa.setup.recovery.rotate');
+        Route::post('/security/2fa/enable', [AdminController::class, 'enableTwoFactor'])
+            ->middleware('throttle:6,1')
+            ->name('2fa.setup.enable');
+        Route::post('/security/2fa/disable', [AdminController::class, 'disableTwoFactor'])
+            ->middleware('throttle:6,1')
+            ->name('2fa.setup.disable');
+        Route::post('/security/2fa/recovery-codes/rotate', [AdminController::class, 'rotateRecoveryCodes'])
+            ->middleware('throttle:6,1')
+            ->name('2fa.setup.recovery.rotate');
     });
     
     // Main Dashboard (role-based redirect)
