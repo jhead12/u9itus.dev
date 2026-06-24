@@ -224,14 +224,18 @@ jobs:
       - name: Scrape OpenSecrets district finance data
         run: |
           YEAR="${{ github.event.inputs.election_year || '2026' }}"
-          STATES="${{ github.event.inputs.states }}"
+          # Strip any trailing commas from the states input before building the
+          # --states option. A bare "IL," (trailing comma) was being passed as a
+          # positional argument by the shell, causing:
+          #   RuntimeException: No arguments expected for "opensecrets:scrape-districts"
+          STATES=$(echo "${{ github.event.inputs.states }}" | sed 's/,*$//')
           STATE_ARG=""
           if [ -n "$STATES" ]; then
-            STATE_ARG="--states=$STATES"
+            STATE_ARG="--states=${STATES}"
           fi
           php artisan opensecrets:scrape-districts \
             --year="$YEAR" \
-            $STATE_ARG \
+            ${STATE_ARG} \
             ${{ steps.args.outputs.dry_arg }}
 
       # ── Sync Census Bureau population data ───────────────────────────────

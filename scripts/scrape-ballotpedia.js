@@ -255,6 +255,10 @@ function normaliseParty(raw) {
   if (p.includes('libertarian')) return 'Libertarian';
   if (p.includes('green')) return 'Green';
   if (p.includes('independent') || p === 'ind') return 'Independent';
+  // California "No Party Preference" is a ballot-access designation, not a party.
+  // Return null so no misleading badge is stored — same logic as PHP normaliseParty().
+  if (p.includes('no party') || p.includes('non-partisan') || p.includes('nonpartisan')
+      || p === 'npp' || p === 'dts' /* decline to state */) return null;
   return raw.trim();
 }
 

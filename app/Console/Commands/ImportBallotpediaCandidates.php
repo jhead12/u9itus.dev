@@ -112,8 +112,9 @@ class ImportBallotpediaCandidates extends Command
                         if ($row['district'] ?? null) {
                             $updates['district'] = $row['district'];
                         }
-                        if ($row['party_affiliation'] ?? null) {
-                            $updates['party_affiliation'] = $row['party_affiliation'];
+                        $normParty = $this->normaliseParty($row['party_affiliation'] ?? null);
+                        if ($normParty !== null) {
+                            $updates['party_affiliation'] = $normParty;
                         }
                         if ($row['campaign_website'] ?? null) {
                             $updates['website_url'] = $row['campaign_website'];
@@ -163,7 +164,7 @@ class ImportBallotpediaCandidates extends Command
                         'governance_level'     => $row['governance_level'] ?? 'Federal',
                         'state'                => $state,
                         'district'             => $row['district'] ?? null,
-                        'party_affiliation'    => $row['party_affiliation'] ?? null,
+                        'party_affiliation'    => $this->normaliseParty($row['party_affiliation'] ?? null),
                         'website_url'          => $row['campaign_website'] ?? null,
                         'bio'                  => $row['bio_excerpt'] ?? null,
                         'ballotpedia_id'       => $bpIdForCreate,
@@ -237,7 +238,7 @@ class ImportBallotpediaCandidates extends Command
                 'governance_level'   => strtolower($row['governance_level'] ?? 'state'),
                 'state'              => $state,
                 'district'           => $row['district'] ?? 'Statewide',
-                'party_affiliation'  => $row['party_affiliation'] ?? null,
+                'party_affiliation'  => $this->normaliseParty($row['party_affiliation'] ?? null),
                 'source'             => 'ballotpedia',
                 'election_date'      => $row['election_date'] ?? "{$electionYear}-11-03",
                 'payload'            => $payload ?: null,
@@ -330,6 +331,32 @@ class ImportBallotpediaCandidates extends Command
 
         // Hard clamp to column limit as a last-resort safety net
         return substr($slug, 0, 255);
+    }
+
+    /**
+     * Normalise a raw party string from the scraper to a canonical label.
+     *
+     * Returns null for California's "No Party Preference" / "Decline to State"
+     * ballot designations — these are not party affiliations and must not be
+     * stored as one (they were causing Gavin Newsom to appear as "Independent").
+     */
+    private function normaliseParty(?string $raw): ?string
+    {
+        if ($raw === null || trim($raw) === '') {
+            return null;
+        }
+        $p = strtolower(trim($raw));
+        if (str_contains($p, 'democrat')) return 'Democratic';
+        if (str_contains($p, 'republican')) return 'Republican';
+        if (str_contains($p, 'libertarian')) return 'Libertarian';
+        if (str_contains($p, 'green')) return 'Green';
+        if (str_contains($p, 'independent') || $p === 'ind') return 'Independent';
+        // Suppress non-party ballot designations
+        if (str_contains($p, 'no party') || str_contains($p, 'non-partisan')
+            || str_contains($p, 'nonpartisan') || $p === 'npp' || $p === 'dts') {
+            return null;
+        }
+        return ucwords(trim($raw)) ?: null;
     }
 
     private function generateSlug(string $fullName): string
