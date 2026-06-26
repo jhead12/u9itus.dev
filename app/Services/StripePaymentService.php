@@ -119,6 +119,11 @@ class StripePaymentService
 
     /**
      * Verify webhook signature (returns payload array on success).
+     *
+     * STRIPE_WEBHOOK_SECRET may be a comma-separated list of `whsec_...` secrets
+     * so the app can validate events from multiple Stripe endpoints (e.g. one for
+     * `payment_intent.*`, another for `account.updated`) without re-deploys when
+     * Stripe rotates a single secret.
      */
     public function parseWebhook(string $payload, string $sigHeader)
     {
@@ -133,8 +138,8 @@ class StripePaymentService
             return json_decode($payload, true);
         }
 
-        $secret = config('services.stripe.webhook_secret');
-        if (empty($secret)) {
+        $secrets = $this->webhookSecrets();
+        if (empty($secrets)) {
             // Fail closed — no secret means we cannot trust the payload
             if (! in_array(config('app.env'), ['local', 'testing'])) {
                 throw new \RuntimeException(
@@ -146,16 +151,49 @@ class StripePaymentService
             return json_decode($payload, true);
         }
 
-        try {
-            $event = \Stripe\Webhook::constructEvent($payload, $sigHeader, $secret);
-            return $event;
-        } catch (\UnexpectedValueException $e) {
-            Log::error('Stripe webhook payload invalid: ' . $e->getMessage());
-            throw $e;
-        } catch (\Stripe\Exception\SignatureVerificationException $e) {
-            Log::error('Stripe webhook signature verification failed: ' . $e->getMessage());
-            throw $e;
+        $lastError = null;
+        foreach ($secrets as $index => $secret) {
+            try {
+                return \Stripe\Webhook::constructEvent($payload, $sigHeader, $secret);
+            } catch (\UnexpectedValueException $e) {
+                // Malformed JSON — same for every secret, bail immediately.
+                Log::error('Stripe webhook payload invalid: ' . $e->getMessage());
+                throw $e;
+            } catch (\Stripe\Exception\SignatureVerificationException $e) {
+                $lastError = $e;
+                Log::debug('Stripe webhook signature mismatch for configured secret.', [
+                    'secret_index'  => $index,
+                    'secret_prefix' => substr($secret, 0, 10),
+                    'sig_header_prefix' => substr($sigHeader, 0, 24),
+                ]);
+                continue;
+            }
         }
+
+        Log::error('Stripe webhook signature verification failed against all configured secrets.', [
+            'secrets_tried'    => count($secrets),
+            'sig_header_present' => $sigHeader !== '',
+            'sig_header_prefix' => substr($sigHeader, 0, 24),
+            'payload_bytes'    => strlen($payload),
+            'error'            => $lastError?->getMessage(),
+        ]);
+
+        throw $lastError ?? new \RuntimeException('Stripe webhook signature verification failed.');
+    }
+
+    /**
+     * Parse one or more whsec_ secrets from STRIPE_WEBHOOK_SECRET.
+     * Accepts comma, semicolon, or whitespace separators.
+     */
+    private function webhookSecrets(): array
+    {
+        $raw = (string) config('services.stripe.webhook_secret', '');
+        if ($raw === '') {
+            return [];
+        }
+
+        $parts = preg_split('/[\s,;]+/', $raw, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        return array_values(array_unique(array_filter($parts, fn ($s) => str_starts_with($s, 'whsec_'))));
     }
 
     /**

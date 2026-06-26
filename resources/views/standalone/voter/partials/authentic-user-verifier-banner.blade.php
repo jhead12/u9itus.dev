@@ -9,9 +9,13 @@
             $hideActionPrompt = false;
         }
     }
+
+    // If Stripe Connect is not wired up, hide the CTA rather than letting
+    // voters click into a guaranteed error.
+    $stripeConnectReady = ! empty(config('services.stripe.secret'));
 @endphp
 
-@if(!empty($needsAuthenticUserVerifierMigration) && !$hideActionPrompt)
+@if(!empty($needsAuthenticUserVerifierMigration) && !$hideActionPrompt && $stripeConnectReady)
 <div class="bg-cyan-500/10 border border-cyan-400/30 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
     <div class="min-w-0">
         <p class="text-cyan-200 font-semibold text-sm">Action Required: Complete Authentic User Verifier</p>
@@ -21,9 +25,12 @@
         </p>
         <p class="text-slate-500 text-xs mt-1">Legacy verification records remain read-only for historical reference.</p>
     </div>
-    <a href="{{ route('voter.authentic-user-verifier.start') }}"
-       class="shrink-0 inline-flex items-center justify-center gap-2 bg-cyan-600 hover:bg-cyan-500 text-white text-sm font-semibold px-4 py-2 rounded-xl transition">
-        Start Authentic User Verifier
-    </a>
+    <form method="POST" action="{{ route('voter.authentic-user-verifier.start') }}" class="shrink-0">
+        @csrf
+        <button type="submit"
+                class="inline-flex items-center justify-center gap-2 bg-cyan-600 hover:bg-cyan-500 text-white text-sm font-semibold px-4 py-2 rounded-xl transition">
+            Start Authentic User Verifier
+        </button>
+    </form>
 </div>
 @endif

@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Exceptions\StripeConnectException;
 use App\Models\Voter;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class StripeConnectService
@@ -44,6 +46,41 @@ class StripeConnectService
             return (string) $voter->stripe_account_id;
         }
 
+        // Prevent two concurrent clicks from creating duplicate Stripe accounts.
+        // Cache-lock survives across processes (DB driver) and the DB transaction
+        // guards against stale in-process reads of stripe_account_id.
+        $lock = Cache::lock("voter:{$voter->id}:stripe-connect", 10);
+
+        try {
+            $lock->block(5);
+        } catch (\Illuminate\Contracts\Cache\LockTimeoutException $e) {
+            throw new StripeConnectException(
+                'Another payout setup attempt is in progress. Please wait a few seconds and try again.',
+                0, $e
+            );
+        }
+
+        try {
+            return DB::transaction(function () use ($voter) {
+                $fresh = Voter::whereKey($voter->id)->lockForUpdate()->first();
+                if ($fresh && ! empty($fresh->stripe_account_id)) {
+                    $voter->setRawAttributes($fresh->getAttributes(), true);
+                    return (string) $fresh->stripe_account_id;
+                }
+
+                return $this->createExpressAccount($voter);
+            });
+        } finally {
+            optional($lock)->release();
+        }
+    }
+
+    /**
+     * Actual Stripe account creation. Must run inside ensureExpressAccount's
+     * lock + transaction so concurrent callers do not duplicate accounts.
+     */
+    private function createExpressAccount(Voter $voter): string
+    {
         $email = trim((string) ($voter->email ?: optional($voter->user)->email ?: ''));
 
         $accountPayload = [
@@ -307,13 +344,16 @@ class StripeConnectService
         $isActive = (bool) $account->charges_enabled && (bool) $account->payouts_enabled;
         $status = $isActive ? 'active' : 'pending';
 
+        // Mirror Stripe state both ways for voters who started Authentic User
+        // Verifier. We never call this for legacy-only voters (no stripe_account_id),
+        // so demoting is_verified when Stripe revokes is safe here.
         $voter->update([
             'stripe_account_status' => $status,
-            'is_verified' => $isActive ? true : $voter->is_verified,
+            'is_verified'           => $isActive,
         ]);
 
-        if ($isActive && $voter->user) {
-            $voter->user->update(['is_verified' => true]);
+        if ($voter->user) {
+            $voter->user->update(['is_verified' => $isActive]);
         }
 
         return [

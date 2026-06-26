@@ -19,7 +19,17 @@ class StripeWebhookController extends Controller
         try {
             $event = $stripe->parseWebhook($payload, $sigHeader);
         } catch (\Exception $e) {
-            Log::warning('Stripe webhook verification failed: ' . $e->getMessage());
+            // Best-effort metadata extraction from the unverified payload so
+            // ops can correlate Stripe Dashboard 400s without leaking content.
+            $peek = json_decode($payload, true);
+            Log::warning('Stripe webhook verification failed', [
+                'error'             => $e->getMessage(),
+                'event_id'          => is_array($peek) ? ($peek['id'] ?? null) : null,
+                'event_type'        => is_array($peek) ? ($peek['type'] ?? null) : null,
+                'livemode'          => is_array($peek) ? ($peek['livemode'] ?? null) : null,
+                'sig_header_present' => $sigHeader !== '',
+                'payload_bytes'     => strlen($payload),
+            ]);
             return response()->json(['error' => 'Invalid webhook'], 400);
         }
 
@@ -84,19 +94,31 @@ class StripeWebhookController extends Controller
             return;
         }
 
-        $status = ($chargesEnabled && $payoutsEnabled) ? 'active' : 'pending';
+        $isActive = $chargesEnabled && $payoutsEnabled;
+        $status   = $isActive ? 'active' : 'pending';
 
         $voters = Voter::where('stripe_account_id', $accountId)->get();
         foreach ($voters as $voter) {
+            // Mirror Stripe state both ways. We don't demote legacy voters who
+            // were manually verified before adopting Stripe Connect — only voters
+            // who actually started Authentic User Verifier (have a stripe_account_id)
+            // are touched here, so this is safe.
             $voter->update([
                 'stripe_account_status' => $status,
-                // Keep legacy compatibility for existing verification checks.
-                'is_verified' => $status === 'active' ? true : $voter->is_verified,
+                'is_verified'           => $isActive,
             ]);
 
-            if ($status === 'active' && $voter->user) {
-                $voter->user->update(['is_verified' => true]);
+            if ($voter->user) {
+                $voter->user->update(['is_verified' => $isActive]);
             }
+
+            Log::info('Stripe account.updated synced voter', [
+                'voter_id'         => $voter->id,
+                'stripe_account_id' => $accountId,
+                'status'           => $status,
+                'charges_enabled'  => $chargesEnabled,
+                'payouts_enabled'  => $payoutsEnabled,
+            ]);
         }
     }
 

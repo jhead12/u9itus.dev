@@ -53,7 +53,9 @@ class SendAuthenticUserVerifierReminders extends Command
         $sent = 0;
         $failed = 0;
 
-        $startUrl = route('voter.authentic-user-verifier.start');
+        // The start route is POST-only (state-mutating). Email links must point
+        // to the earnings page, where the banner exposes a CSRF-protected form.
+        $startUrl = route('voter.earnings');
         $payoutUrl = route('voter.earnings');
 
         foreach ($voters as $voter) {

@@ -367,14 +367,18 @@ trait ManagesVoterAuxiliaryActions
             ]);
         }
 
-        try {
-            $link = $stripeConnect->createOnboardingLink(
-                $voter,
-                secure_url(route('voter.earnings', [], false)),
-                secure_url(route('voter.earnings', [], false))
-            );
+        // return_url: where Stripe sends the voter after they finish/abandon.
+        // refresh_url: where Stripe sends them if the onboarding link expires
+        // mid-flow — must restart the flow, not dump them on earnings.
+        $returnUrl  = secure_url(route('voter.earnings', [], false));
+        $refreshUrl = secure_url(route('voter.authentic-user-verifier.start', [], false));
 
-            $voter->update(['payment_method' => 'stripe']);
+        try {
+            $link = $stripeConnect->createOnboardingLink($voter, $returnUrl, $refreshUrl);
+
+            // NOTE: We intentionally do NOT set payment_method=stripe here.
+            // The voter may abandon Stripe onboarding; payment_method should
+            // only flip once the account.updated webhook reports activation.
 
             return redirect()->away((string) $link['url']);
         } catch (\Throwable $e) {
@@ -409,8 +413,8 @@ trait ManagesVoterAuxiliaryActions
                 'stripe_account_id' => $voter->stripe_account_id,
                 'app_url'          => config('app.url'),
                 'request_url'      => request()->fullUrl(),
-                'return_url'       => secure_url(route('voter.earnings', [], false)),
-                'refresh_url'      => secure_url(route('voter.earnings', [], false)),
+                'return_url'       => $returnUrl,
+                'refresh_url'      => $refreshUrl,
                 ...$stripeCtx,
             ];
 
