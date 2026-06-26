@@ -87,7 +87,11 @@ class StripeConnectService
             'type' => 'express',
             'country' => 'US',
             'capabilities' => [
-                'transfers' => ['requested' => true],
+                // Stripe requires card_payments alongside transfers unless the
+                // platform has explicit approval to skip it. Both are requested;
+                // voters only receive payouts (transfers), they won't charge cards.
+                'transfers'    => ['requested' => true],
+                'card_payments' => ['requested' => true],
             ],
             'metadata' => [
                 'voter_id' => (string) $voter->id,
@@ -267,6 +271,18 @@ class StripeConnectService
         $errorCode  = (string) ($e->getError()?->code ?? '');
         $errorParam = (string) ($e->getError()?->param ?? '');
         $msgLower   = strtolower($e->getMessage());
+
+        // Platform not approved to request transfers without card_payments.
+        if (
+            $errorParam === 'requested_capabilities' ||
+            str_contains($msgLower, 'transfers') && str_contains($msgLower, 'card_payments') ||
+            str_contains($msgLower, 'platform needs approval')
+        ) {
+            return new StripeConnectException(
+                'Payout setup is temporarily unavailable while platform capabilities are being configured. Please contact support.',
+                (int) $e->getCode(), $e
+            );
+        }
 
         // URL issues — most common on Railway when env vars are missing/wrong.
         if (
