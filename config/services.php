@@ -104,6 +104,18 @@ return [
 
     'google' => [
         'civic_api_key' => env('GOOGLE_CIVIC_API_KEY'),
+
+        // Google Analytics 4 measurement ID (e.g. "G-XXXXXXXXXX").
+        // Falls back to the `google_analytics_id` platform setting at runtime.
+        'analytics_id' => env('GOOGLE_ANALYTICS_ID'),
+
+        // Google Tag Manager container ID (e.g. "GTM-XXXXXXX"). Optional.
+        // Falls back to the `google_tag_manager_id` platform setting at runtime.
+        'tag_manager_id' => env('GOOGLE_TAG_MANAGER_ID'),
+
+        // Google Ads conversion ID (e.g. "AW-123456789"). Optional.
+        // Falls back to the `google_ads_conversion_id` platform setting at runtime.
+        'ads_conversion_id' => env('GOOGLE_ADS_CONVERSION_ID'),
     ],
 
     'congress' => [

@@ -3791,7 +3791,7 @@ HTML;
             'key' => 'required|string|max:255',
             'value' => 'required',
             'description' => 'nullable|string|max:500',
-            'category' => 'nullable|string|in:pricing,fraud,video,referral,general',
+            'category' => 'nullable|string|in:pricing,fraud,video,referral,general,analytics',
             'user_tier' => 'nullable|string|in:early_adopter,regular',
             'effective_from' => 'nullable|date',
             'effective_until' => 'nullable|date|after:effective_from',

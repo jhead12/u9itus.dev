@@ -157,6 +157,11 @@ class PlatformSettingsService
         // Clear cache
         self::clearCache($key, $userTier);
 
+        // Bust composite caches that aggregate multiple keys.
+        if (in_array($key, ['google_analytics_id', 'google_tag_manager_id', 'google_ads_conversion_id'], true)) {
+            Cache::forget('analytics_tags:ids');
+        }
+
         Log::info('Platform setting updated', [
             'key' => $key,
             'value' => $value,
@@ -183,6 +188,10 @@ class PlatformSettingsService
 
         $deleted = $query->delete();
         self::clearCache($key, $userTier);
+
+        if (in_array($key, ['google_analytics_id', 'google_tag_manager_id', 'google_ads_conversion_id'], true)) {
+            Cache::forget('analytics_tags:ids');
+        }
 
         return $deleted > 0;
     }

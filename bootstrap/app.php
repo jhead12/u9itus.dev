@@ -22,6 +22,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->appendToGroup('web', [
             \App\Http\Middleware\CaptureReferralContext::class,
+            \App\Http\Middleware\InjectAnalyticsTags::class,
         ]);
         
         $middleware->alias([

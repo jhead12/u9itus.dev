@@ -240,6 +240,100 @@
         </div>
     </div>
 
+    {{-- Google Analytics / Tag Manager / Ads --}}
+    @php
+        $gaEnvId   = (string) config('services.google.analytics_id');
+        $gtmEnvId  = (string) config('services.google.tag_manager_id');
+        $adsEnvId  = (string) config('services.google.ads_conversion_id');
+        $gaCurrent  = (string) \App\Services\PlatformSettingsService::get('google_analytics_id', null, '');
+        $gtmCurrent = (string) \App\Services\PlatformSettingsService::get('google_tag_manager_id', null, '');
+        $adsCurrent = (string) \App\Services\PlatformSettingsService::get('google_ads_conversion_id', null, '');
+    @endphp
+    <div class="mt-8 bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+        <h2 class="text-xl font-semibold text-white mb-2 flex items-center gap-2">
+            <svg class="w-6 h-6 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+            </svg>
+            Google Analytics &amp; Ads Tags
+        </h2>
+        <p class="text-slate-400 text-sm mb-6">
+            Inject gtag.js, Google Tag Manager, and Google Ads conversion snippets site-wide. Admin sessions are excluded automatically.
+            Values set here override the corresponding <code class="text-slate-300">.env</code> entries
+            (<code class="text-slate-300">GOOGLE_ANALYTICS_ID</code>, <code class="text-slate-300">GOOGLE_TAG_MANAGER_ID</code>, <code class="text-slate-300">GOOGLE_ADS_CONVERSION_ID</code>).
+            Cache refreshes within 60s, or use <strong>Clear Cache</strong> above.
+        </p>
+
+        <div class="space-y-4">
+            {{-- GA4 --}}
+            <form action="{{ route('admin.platform-settings.update') }}" method="POST"
+                  class="pb-4 border-b border-slate-700/60">
+                @csrf
+                <input type="hidden" name="key" value="google_analytics_id">
+                <input type="hidden" name="category" value="analytics">
+                <input type="hidden" name="description" value="Google Analytics 4 measurement ID (gtag.js)">
+                <label class="block text-sm font-medium text-white mb-1">Google Analytics 4 Measurement ID</label>
+                <p class="text-xs text-slate-400 mb-2">
+                    Format: <code class="text-slate-300">G-XXXXXXXXXX</code>.
+                    @if($gaEnvId !== '') <span class="text-emerald-400">env value: {{ $gaEnvId }}</span> @endif
+                </p>
+                <div class="flex gap-2">
+                    <input type="text" name="value" value="{{ $gaCurrent }}"
+                           placeholder="G-XXXXXXXXXX"
+                           class="flex-1 bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+                    <button type="submit"
+                            class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg transition text-sm font-medium whitespace-nowrap">
+                        Save GA4 ID
+                    </button>
+                </div>
+            </form>
+
+            {{-- GTM --}}
+            <form action="{{ route('admin.platform-settings.update') }}" method="POST"
+                  class="pb-4 border-b border-slate-700/60">
+                @csrf
+                <input type="hidden" name="key" value="google_tag_manager_id">
+                <input type="hidden" name="category" value="analytics">
+                <input type="hidden" name="description" value="Google Tag Manager container ID">
+                <label class="block text-sm font-medium text-white mb-1">Google Tag Manager Container ID</label>
+                <p class="text-xs text-slate-400 mb-2">
+                    Format: <code class="text-slate-300">GTM-XXXXXXX</code>. Optional — only set if you use GTM.
+                    @if($gtmEnvId !== '') <span class="text-emerald-400">env value: {{ $gtmEnvId }}</span> @endif
+                </p>
+                <div class="flex gap-2">
+                    <input type="text" name="value" value="{{ $gtmCurrent }}"
+                           placeholder="GTM-XXXXXXX"
+                           class="flex-1 bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+                    <button type="submit"
+                            class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg transition text-sm font-medium whitespace-nowrap">
+                        Save GTM ID
+                    </button>
+                </div>
+            </form>
+
+            {{-- Google Ads --}}
+            <form action="{{ route('admin.platform-settings.update') }}" method="POST">
+                @csrf
+                <input type="hidden" name="key" value="google_ads_conversion_id">
+                <input type="hidden" name="category" value="analytics">
+                <input type="hidden" name="description" value="Google Ads conversion tracking ID">
+                <label class="block text-sm font-medium text-white mb-1">Google Ads Conversion ID</label>
+                <p class="text-xs text-slate-400 mb-2">
+                    Format: <code class="text-slate-300">AW-123456789</code>. Required if you run Google Ads campaigns pointing to u9itus.
+                    @if($adsEnvId !== '') <span class="text-emerald-400">env value: {{ $adsEnvId }}</span> @endif
+                </p>
+                <div class="flex gap-2">
+                    <input type="text" name="value" value="{{ $adsCurrent }}"
+                           placeholder="AW-123456789"
+                           class="flex-1 bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+                    <button type="submit"
+                            class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg transition text-sm font-medium whitespace-nowrap">
+                        Save Ads ID
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     {{-- Create Promotional Setting --}}
     <div class="mt-8 bg-gradient-to-br from-amber-500/10 to-orange-500/10 border border-amber-500/30 rounded-xl p-6">
         <h2 class="text-xl font-semibold text-white mb-2 flex items-center gap-2">
