@@ -9,6 +9,7 @@ use App\Http\Resources\ViewSessionResource;
 use App\Models\Voter;
 use App\Models\ViewSession;
 use App\Models\PoliticalCampaign;
+use App\Services\EarlyBankWebhookService;
 use App\Services\StripeConnectService;
 use App\Services\PoliticalViewService;
 use App\Services\FraudPreventionService;
@@ -26,6 +27,7 @@ class VoterController extends Controller
     public function __construct(
         protected PoliticalViewService $viewService,
         protected FraudPreventionService $fraudService,
+        protected EarlyBankWebhookService $earlyBankWebhook,
     ) {}
 
     /**
@@ -44,7 +46,27 @@ class VoterController extends Controller
             unset($validated['referral_code']);
         }
 
+        // Capture Early-bank member referral at registration time so we can
+        // fire webhooks later without requiring a separate API round-trip.
+        $earlybankMemberId = $validated['earlybank_member_id'] ?? null;
+        unset($validated['earlybank_member_id']);
+
+        if ($earlybankMemberId) {
+            $validated['earlybank_member_id'] = $earlybankMemberId;
+            $validated['earlybank_linked_at']  = now();
+        }
+
         $voter = Voter::create($validated);
+
+        // Notify Early-bank that the referral linkage is established.
+        // Fire-and-forget — does not block registration response.
+        if ($earlybankMemberId) {
+            $this->earlyBankWebhook->dispatch('voter.registered', [
+                'voter_uuid'          => $voter->uuid,
+                'earlybank_member_id' => $earlybankMemberId,
+                'registered_at'       => $voter->created_at->toIso8601String(),
+            ]);
+        }
 
         return response()->json([
             'message'       => 'Voter registered successfully',
