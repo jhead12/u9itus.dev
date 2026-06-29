@@ -16,6 +16,7 @@
 
 use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\BillingController;
+use App\Http\Controllers\Api\EarlyBankController;
 use App\Http\Controllers\Api\MapDistrictConfigController;
 use App\Http\Controllers\Api\MapInteractionController;
 use App\Http\Controllers\Api\MapStateCandidatesController;
@@ -174,4 +175,27 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             });
         });
     });
+
+    /*
+    |----------------------------------------------------------------------
+    | Early-bank.com Server-to-Server API
+    |----------------------------------------------------------------------
+    | Authenticated by a shared bearer token (EARLYBANK_API_TOKEN).
+    | These endpoints are expected to be called only from the earlybank
+    | sibling service over Railway's private network. Rate-limited as a
+    | defense-in-depth measure.
+    */
+    Route::middleware(['earlybank.api', 'throttle:120,1'])
+        ->prefix('/earlybank')
+        ->name('earlybank.')
+        ->group(function () {
+            Route::post('/register-referral', [EarlyBankController::class, 'registerReferral'])
+                ->name('register-referral');
+
+            Route::get('/voter/{voter:uuid}/earnings', [EarlyBankController::class, 'voterEarnings'])
+                ->name('voter.earnings');
+
+            Route::get('/member/{member_id}/stats', [EarlyBankController::class, 'memberStats'])
+                ->name('member.stats');
+        });
 });

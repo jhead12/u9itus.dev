@@ -9,12 +9,14 @@ use App\Http\Resources\ViewSessionResource;
 use App\Models\Voter;
 use App\Models\ViewSession;
 use App\Models\PoliticalCampaign;
+use App\Http\Middleware\CaptureEarlyBankReferral;
 use App\Services\EarlyBankWebhookService;
 use App\Services\StripeConnectService;
 use App\Services\PoliticalViewService;
 use App\Services\FraudPreventionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cookie;
 
 /**
  * REST API for voters — registration, watching videos, earnings, referrals.
@@ -68,11 +70,19 @@ class VoterController extends Controller
             ]);
         }
 
-        return response()->json([
+        // Clear the Early-bank referral cookie so the same browser cannot
+        // accidentally attribute a future voter registration to the same member.
+        $response = response()->json([
             'message'       => 'Voter registered successfully',
             'voter'         => new VoterResource($voter),
             'referral_code' => $voter->referral_code,
         ], 201);
+
+        if ($earlybankMemberId) {
+            $response->withCookie(Cookie::forget(CaptureEarlyBankReferral::COOKIE_NAME));
+        }
+
+        return $response;
     }
 
     /**

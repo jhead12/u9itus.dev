@@ -51,6 +51,27 @@ return [
         'connect_refresh_url' => env('STRIPE_CONNECT_REFRESH_URL', env('APP_URL') . '/payout'),
     ],
 
+    // Early-bank.com — sibling Railway service. Talks to u9itus over private
+    // network. See app/Http/Middleware/EarlyBankApiAuth.php and
+    // app/Services/EarlyBankWebhookService.php.
+    'earlybank' => [
+        // Bearer token presented by Early-bank when calling /api/v1/earlybank/*.
+        // Must match U9ITUS_API_TOKEN on the earlybank service.
+        'api_token'      => env('EARLYBANK_API_TOKEN'),
+
+        // Outbound webhook destination (Early-bank's u9itus webhook receiver).
+        // Use Railway private URL in production.
+        'webhook_url'    => env('EARLYBANK_WEBHOOK_URL'),
+
+        // Shared secret used to sign outbound webhook payloads (HMAC-SHA256).
+        'webhook_secret' => env('EARLYBANK_WEBHOOK_SECRET'),
+
+        // Master switch — when false, no outbound webhooks fire and the API
+        // group still authenticates but is effectively dormant. Useful while
+        // Early-bank.com is being deployed.
+        'enabled'        => env('EARLYBANK_ENABLED', false),
+    ],
+
     'paypal' => [
         'client_id'     => env('PAYPAL_CLIENT_ID'),
         'client_secret' => env('PAYPAL_CLIENT_SECRET'),

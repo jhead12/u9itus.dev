@@ -27,8 +27,10 @@ class PoliticalViewService
         protected FraudPreventionService $fraudService,
         protected CampaignBillingService $billingService,
         protected ?ReverbBroadcastService $broadcastService = null,
+        protected ?EarlyBankWebhookService $earlyBankWebhook = null,
     ) {
         $this->broadcastService ??= app(ReverbBroadcastService::class);
+        $this->earlyBankWebhook ??= app(EarlyBankWebhookService::class);
     }
 
     /**
@@ -154,6 +156,10 @@ class PoliticalViewService
         // Broadcast outside the transaction so the event only fires on commit (Phase 11)
         // Notifies the voter's private channel + admin monitor channel.
         $this->broadcastService->viewSessionCompleted($completed);
+
+        // Notify Early-bank.com if this voter was referred by an Early-bank member.
+        // Fire-and-forget — failures are logged but do not affect u9itus payouts.
+        $this->earlyBankWebhook->notifyViewSessionCompleted($completed);
 
         return $completed;
     }

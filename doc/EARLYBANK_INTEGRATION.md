@@ -105,7 +105,48 @@ EARLYBANK_API_TOKEN=<openssl rand -hex 32>         # shared bearer token
 EARLYBANK_WEBHOOK_URL=<earlybank private Railway URL>/webhooks/u9itus
 EARLYBANK_WEBHOOK_SECRET=<openssl rand -hex 32>    # HMAC signing key
 EARLYBANK_ENABLED=false                            # flip to true after Phase 3
+EARLYBANK_REFERRAL_COOKIE_DAYS=30                  # optional, default 30
 ```
+
+---
+
+## Phase 1.1 — Referral attribution cookie
+**Status: COMPLETE.**
+**Repo:** u9itus.dev
+
+### Problem it solves
+Without a cookie, `earlybank_member_id` is only captured if `?ref=<uuid>` is
+on the URL at the exact moment the voter submits the registration form. Attribution
+breaks whenever a visitor clicks the referral link, browses, and returns later.
+
+### What was built
+
+| File | Change |
+|---|---|
+| `app/Http/Middleware/CaptureEarlyBankReferral.php` | New middleware — reads `?ref=<uuid>` from any URL, validates UUID format, writes a 30-day httpOnly `earlybank_ref` cookie |
+| `bootstrap/app.php` | Appended `CaptureEarlyBankReferral` to the `web` middleware group (runs on every page load) |
+| `app/Http/Requests/StoreVoterRequest.php` | Added `prepareForValidation()` — reads `earlybank_ref` cookie as fallback when `earlybank_member_id` field is absent; form field always wins over cookie |
+| `app/Http/Controllers/Api/VoterController.php` | Clears the `earlybank_ref` cookie on the response after successful registration, preventing double-attribution on shared machines |
+
+### Attribution rules
+- **Last click wins** — every `?ref=<uuid>` visit overwrites the cookie with the latest referrer UUID
+- **Cookie wins over nothing** — if the voter has the cookie but no query param at registration time, the cookie is used
+- **Form field wins over cookie** — if `earlybank_member_id` is explicitly posted (e.g. via the JSON API), it takes priority
+- **30-day window** — configurable via `EARLYBANK_REFERRAL_COOKIE_DAYS` env var
+
+### Cookie properties
+- `Name:` `earlybank_ref`
+- `HttpOnly:` true (not readable by JavaScript — XSS-safe)
+- `SameSite:` Lax (sent on top-level navigation from earlybank.com links)
+- `Secure:` true in production, false in local dev
+- `TTL:` 30 days (2,592,000 seconds)
+
+### Test cases (add to u9itus test suite)
+1. Visit any URL with `?ref=<valid-uuid>` → cookie is set
+2. Visit with `?ref=<not-a-uuid>` → cookie is NOT set
+3. Cookie set → visit `/register` without `?ref=` → voter created with `earlybank_member_id` from cookie
+4. Cookie set + `?ref=<different-uuid>` on registration form → form value wins
+5. Successful registration → response clears the `earlybank_ref` cookie
 
 ---
 

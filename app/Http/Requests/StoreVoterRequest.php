@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests;
 
+use App\Http\Middleware\CaptureEarlyBankReferral;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Str;
 
 /**
  * Validates voter registration requests.
@@ -12,6 +14,22 @@ class StoreVoterRequest extends FormRequest
     public function authorize(): bool
     {
         return true; // Authorization handled by middleware
+    }
+
+    /**
+     * Fall back to the earlybank_ref cookie if the form field is not present.
+     * This preserves attribution when the voter clicked the referral link,
+     * browsed around, and returned later without the ?ref= query parameter.
+     * Form field always wins over cookie when both are present.
+     */
+    protected function prepareForValidation(): void
+    {
+        if (! $this->filled('earlybank_member_id')) {
+            $cookie = $this->cookie(CaptureEarlyBankReferral::COOKIE_NAME);
+            if (is_string($cookie) && Str::isUuid($cookie)) {
+                $this->merge(['earlybank_member_id' => $cookie]);
+            }
+        }
     }
 
     /**

@@ -22,6 +22,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->appendToGroup('web', [
             \App\Http\Middleware\CaptureReferralContext::class,
+            \App\Http\Middleware\CaptureEarlyBankReferral::class,
             \App\Http\Middleware\InjectAnalyticsTags::class,
         ]);
         
@@ -35,6 +36,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'check.admin.onboarding' => \App\Http\Middleware\CheckAdminOnboarding::class,
             'admin.2fa' => \App\Http\Middleware\EnsureAdminTwoFactorVerified::class,
             'no.cache' => \App\Http\Middleware\DisableAuthPageCache::class,
+            'earlybank.api' => \App\Http\Middleware\EarlyBankApiAuth::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
