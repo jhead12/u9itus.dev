@@ -3746,8 +3746,16 @@ async function openDistrictPanel(districtNum, districtLabel, stateName, regionHe
 
     await new Promise(r => setTimeout(r, 320));
 
-    // District candidates: use live API data keyed by district label, fall back to mock
-    const liveDist = stateData?.house_candidates?.[districtLabel];
+    // Compute canonical district key matching API response format.
+    // Both house_candidates and district_populations are keyed "FL-01" (zero-padded,
+    // matching politicians.district stored by import/normalize commands and census label).
+    const _stateAbbr  = STATE_ABBR_MAP[stateName] || '';
+    const _distNumInt = (districtNum === 'AL') ? null : parseInt(districtNum, 10);
+    const houseKey    = (_distNumInt !== null) ? `${_stateAbbr}-${String(_distNumInt).padStart(2, '0')}` : `${_stateAbbr}-AL`;
+    const popKey      = houseKey;
+
+    // District candidates: use live API data keyed by district key, fall back to mock
+    const liveDist = stateData?.house_candidates?.[houseKey];
     let seated, challenger, third;
     if (liveDist?.length) {
         // Map live records to the shape renderCandidate() expects
@@ -3774,14 +3782,14 @@ async function openDistrictPanel(districtNum, districtLabel, stateName, regionHe
     const stateOffices = stateData?.offices ?? [];
 
     // District population from cached API response
-    const distPop = stateData?.district_populations?.[districtLabel];
+    const distPop = stateData?.district_populations?.[popKey];
     const statePop = stateData?.population;
     const popBadge = distPop
         ? `<span style="color:#94a3b8;font-size:11px;margin-left:8px;">👥 ${distPop.formatted} residents <span style="opacity:.6">(${distPop.census_year} Census)</span></span>`
         : (statePop ? `<span style="color:#94a3b8;font-size:11px;margin-left:8px;">👥 State pop: ${statePop.formatted}</span>` : '');
 
     const _distApiStatus = stateData?._apiStatus || 'unreachable';
-    const _distLive       = !!(stateData?.house_candidates?.[districtLabel]?.length);
+    const _distLive       = !!(stateData?.house_candidates?.[houseKey]?.length);
 
     // Determine election phase for this district race
     const distCands   = [seated, challenger, third].filter(Boolean);
