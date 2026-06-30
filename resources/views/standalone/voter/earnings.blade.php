@@ -16,6 +16,7 @@
     </div>
 
     @include('standalone.voter.partials.authentic-user-verifier-banner')
+    @include('standalone.voter.partials.earlybank-referral-banner')
 
     @if($voter)
 

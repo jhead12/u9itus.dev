@@ -10,6 +10,7 @@ use App\Models\Voter;
 use App\Models\ViewSession;
 use App\Models\PoliticalCampaign;
 use App\Http\Middleware\CaptureEarlyBankReferral;
+use App\Mail\EarlyBankReferralEnrolledMail;
 use App\Services\EarlyBankWebhookService;
 use App\Services\StripeConnectService;
 use App\Services\PoliticalViewService;
@@ -17,6 +18,8 @@ use App\Services\FraudPreventionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cookie;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 /**
  * REST API for voters — registration, watching videos, earnings, referrals.
@@ -68,6 +71,22 @@ class VoterController extends Controller
                 'earlybank_member_id' => $earlybankMemberId,
                 'registered_at'       => $voter->created_at->toIso8601String(),
             ]);
+
+            // Send the voter a confirmation email so they know they were
+            // enrolled in the Early-bank referral program. Fire-and-forget:
+            // mail failures must NOT block registration.
+            if (! empty($voter->email)) {
+                try {
+                    Mail::to($voter->email)->queue(
+                        new EarlyBankReferralEnrolledMail($voter, (string) $earlybankMemberId)
+                    );
+                } catch (\Throwable $e) {
+                    Log::warning('EarlyBank referral enrollment email failed', [
+                        'voter_uuid' => $voter->uuid,
+                        'error'      => $e->getMessage(),
+                    ]);
+                }
+            }
         }
 
         // Clear the Early-bank referral cookie so the same browser cannot

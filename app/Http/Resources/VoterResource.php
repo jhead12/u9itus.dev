@@ -34,6 +34,8 @@ class VoterResource extends JsonResource
             'trust_score'                => $this->trust_score,
             'is_verified'                => $this->is_verified,
             'preferred_governance_levels' => $this->preferred_governance_levels,
+            'earlybank_member_id'        => $this->earlybank_member_id,
+            'earlybank_linked_at'        => $this->earlybank_linked_at,
             'created_at'                 => $this->created_at,
         ];
     }
