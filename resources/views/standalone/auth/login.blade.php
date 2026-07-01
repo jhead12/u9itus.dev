@@ -32,6 +32,11 @@
             class="portal-tab flex-1 py-2 rounded-lg text-sm font-medium transition-colors text-slate-400 hover:text-white">
             🏛️ Politician
         </button>
+        <button type="button" id="tab-citizen"
+            onclick="setPortal('citizen')"
+            class="portal-tab flex-1 py-2 rounded-lg text-sm font-medium transition-colors text-slate-400 hover:text-white">
+            🏘️ Citizen
+        </button>
         <button type="button" id="tab-voter"
             onclick="setPortal('voter')"
             class="portal-tab flex-1 py-2 rounded-lg text-sm font-medium transition-colors text-slate-400 hover:text-white">
@@ -118,10 +123,12 @@
 <script>
     const subtitles = {
         politician: 'Sign in to manage your campaigns and billing.',
+        citizen: 'Sign in to manage your local and community ads.',
         voter: 'Sign in to watch ads and check your earnings.',
     };
     const colors = {
         politician: 'border-emerald-500/40',
+        citizen: 'border-amber-500/40',
         voter: 'border-blue-500/40',
     };
     const card = document.querySelector('.bg-slate-800\\/60');
