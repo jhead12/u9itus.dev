@@ -10,7 +10,9 @@
  */
 
 use App\Http\Controllers\Standalone\AuthController;
+use App\Http\Controllers\Standalone\BadgeController;
 use App\Http\Controllers\Standalone\DashboardController;
+use App\Http\Controllers\Standalone\FavoriteController;
 use App\Http\Controllers\Standalone\PoliticianController;
 use App\Http\Controllers\Standalone\PoliticianSongPickController;
 use App\Http\Controllers\Standalone\VoterController;
@@ -277,6 +279,10 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         Route::get('/transparency-settings', [PoliticianController::class, 'transparencySettings'])->name('transparency-settings');
         Route::post('/transparency-settings/verify', [PoliticianController::class, 'initiateVerification'])->name('transparency-settings.verify');
         Route::put('/transparency-settings', [PoliticianController::class, 'updateTransparencySettings'])->name('transparency-settings.update');
+
+        // Phase 19 — Profile Badges
+        Route::post('/badges/{topicId}', [BadgeController::class, 'politicianStore'])->name('badges.store');
+        Route::delete('/badges/{topicId}', [BadgeController::class, 'politicianDestroy'])->name('badges.destroy');
     });
     
     /*
@@ -330,6 +336,15 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         // KYC Document Upload
         Route::post('/kyc/upload', [VoterController::class, 'uploadKycDocument'])->name('kyc.upload');
         Route::get('/kyc/document', [VoterController::class, 'viewKycDocument'])->name('kyc.view');
+
+        // ── Badges ───────────────────────────────────────────────────────────
+        Route::post('/badges/{topicId}', [BadgeController::class, 'voterStore'])->name('badges.store');
+        Route::delete('/badges/{topicId}', [BadgeController::class, 'voterDestroy'])->name('badges.destroy');
+
+        // ── Favorites (follow politicians) ───────────────────────────────────
+        Route::get('/favorites', [FavoriteController::class, 'index'])->name('favorites.index');
+        Route::post('/favorites/{politicianId}', [FavoriteController::class, 'store'])->name('favorites.store');
+        Route::delete('/favorites/{politicianId}', [FavoriteController::class, 'destroy'])->name('favorites.destroy');
     });
     
     /*

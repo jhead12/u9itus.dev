@@ -1,0 +1,185 @@
+<?php
+
+use App\Models\Politician;
+use App\Models\PoliticianTopic;
+use App\Models\ProfileBadge;
+use App\Models\User;
+use App\Models\Voter;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+
+uses(RefreshDatabase::class);
+
+beforeEach(function () {
+    \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'voter',      'guard_name' => 'web']);
+    \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'politician', 'guard_name' => 'web']);
+});
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function makeVoterUser(): User
+{
+    $user = User::factory()->create(['platform' => 'standalone']);
+    $user->assignRole('voter');
+    Voter::factory()->create(['user_id' => $user->id]);
+    skipOnboarding($user, 'voter');
+    return $user->load('voter');
+}
+
+function makePoliticianUser(): User
+{
+    $user = User::factory()->create(['platform' => 'standalone']);
+    $user->assignRole('politician');
+    Politician::factory()->create(['user_id' => $user->id]);
+    skipOnboarding($user, 'politician');
+    return $user->load('politician');
+}
+
+function seedTopic(string $name = 'Healthcare', string $slug = 'healthcare'): PoliticianTopic
+{
+    return PoliticianTopic::create([
+        'name'             => $name,
+        'slug'             => $slug,
+        'icon'             => '🏥',
+        'sort_order'       => 0,
+        'is_active'        => true,
+        'voter_selectable' => true,
+        'auto_earned_only' => false,
+    ]);
+}
+
+// ── Voter — self-declare badge ────────────────────────────────────────────────
+
+test('voter can add a badge to their profile', function () {
+    $user  = makeVoterUser();
+    $voter = $user->voter;
+    $topic = seedTopic();
+
+    $response = $this->actingAs($user)
+        ->post(route('voter.badges.store', $topic->id));
+
+    $response->assertRedirect();
+
+    $this->assertDatabaseHas('profile_badges', [
+        'badgeable_type' => Voter::class,
+        'badgeable_id'   => $voter->id,
+        'topic_id'       => $topic->id,
+        'badge_type'     => 'self_declared',
+    ]);
+});
+
+test('voter cannot add a badge for an inactive topic', function () {
+    $user  = makeVoterUser();
+    $topic = seedTopic();
+    $topic->update(['is_active' => false]);
+
+    // Web routes redirect back with session errors on validation failure
+    $this->actingAs($user)
+        ->post(route('voter.badges.store', $topic->id))
+        ->assertRedirect();
+
+    $this->assertDatabaseMissing('profile_badges', ['topic_id' => $topic->id]);
+});
+
+test('voter cannot add a badge for an auto_earned_only topic', function () {
+    $user  = makeVoterUser();
+    $topic = seedTopic();
+    $topic->update(['auto_earned_only' => true, 'voter_selectable' => false]);
+
+    $this->actingAs($user)
+        ->post(route('voter.badges.store', $topic->id))
+        ->assertRedirect();
+
+    $this->assertDatabaseMissing('profile_badges', ['topic_id' => $topic->id]);
+});
+
+test('voter adding duplicate badge is idempotent — returns success without 500', function () {
+    $user  = makeVoterUser();
+    $topic = seedTopic();
+
+    $this->actingAs($user)->post(route('voter.badges.store', $topic->id));
+    $response = $this->actingAs($user)->post(route('voter.badges.store', $topic->id));
+
+    $response->assertRedirect();
+    expect(ProfileBadge::count())->toBe(1);
+});
+
+test('voter can remove a self-declared badge', function () {
+    $user  = makeVoterUser();
+    $voter = $user->voter;
+    $topic = seedTopic();
+    $voter->addBadge($topic->id);
+
+    $response = $this->actingAs($user)
+        ->delete(route('voter.badges.destroy', $topic->id));
+
+    $response->assertRedirect();
+
+    $this->assertDatabaseMissing('profile_badges', [
+        'badgeable_id' => $voter->id,
+        'topic_id'     => $topic->id,
+    ]);
+});
+
+test('guest cannot add a badge', function () {
+    $topic = seedTopic();
+
+    $this->post(route('voter.badges.store', $topic->id))
+        ->assertRedirect(route('login'));
+});
+
+// ── Politician — self-declare badge ──────────────────────────────────────────
+
+test('politician can add a badge to their profile', function () {
+    $user       = makePoliticianUser();
+    $politician = $user->politician;
+    $topic      = seedTopic();
+
+    $response = $this->actingAs($user)
+        ->post(route('politician.badges.store', $topic->id));
+
+    $response->assertRedirect();
+
+    $this->assertDatabaseHas('profile_badges', [
+        'badgeable_type' => Politician::class,
+        'badgeable_id'   => $politician->id,
+        'topic_id'       => $topic->id,
+    ]);
+});
+
+test('politician can remove a badge', function () {
+    $user       = makePoliticianUser();
+    $politician = $user->politician;
+    $topic      = seedTopic();
+    $politician->addBadge($topic->id);
+
+    $this->actingAs($user)
+        ->delete(route('politician.badges.destroy', $topic->id))
+        ->assertRedirect();
+
+    $this->assertDatabaseMissing('profile_badges', [
+        'badgeable_id' => $politician->id,
+        'topic_id'     => $topic->id,
+    ]);
+});
+
+// ── Public profile badges ─────────────────────────────────────────────────────
+
+test('public politician profile is accessible and badge exists in DB', function () {
+    $politician = Politician::factory()->create([
+        'slug'          => 'a3f9b-governor-jane-doe-ca',
+        'page_published'=> true,
+    ]);
+    $topic = seedTopic();
+    $politician->addBadge($topic->id);
+
+    // Badge is persisted correctly for the politician
+    $this->assertDatabaseHas('profile_badges', [
+        'badgeable_type' => Politician::class,
+        'badgeable_id'   => $politician->id,
+        'topic_id'       => $topic->id,
+    ]);
+
+    // Public profile page is reachable
+    $this->get(route('politician.public.show', $politician->slug))
+         ->assertOk();
+});

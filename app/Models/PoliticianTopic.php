@@ -23,13 +23,20 @@ class PoliticianTopic extends Model
         'icon',
         'sort_order',
         'is_active',
+        // Phase 19 — badge catalog fields
+        'badge_icon_url',
+        'badge_color',
+        'voter_selectable',
+        'auto_earned_only',
     ];
 
     protected function casts(): array
     {
         return [
-            'is_active' => 'boolean',
-            'sort_order' => 'integer',
+            'is_active'        => 'boolean',
+            'sort_order'       => 'integer',
+            'voter_selectable' => 'boolean',
+            'auto_earned_only' => 'boolean',
         ];
     }
 
