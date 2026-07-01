@@ -131,7 +131,8 @@ class MapStateCandidatesController
             ->where('is_active', true)
             ->whereRaw('LOWER(COALESCE(governance_level, \'\')) = ?', ['state'])
             ->whereIn('term_status', ['seated', 'active'])
-            ->get(['uuid', 'full_name', 'political_office', 'party_affiliation',
+            ->with(['publicBadges.topic'])
+            ->get(['id', 'uuid', 'full_name', 'political_office', 'party_affiliation',
                    'profile_photo_url', 'slug', 'is_running_candidate',
                    'term_status', 'verified_official', 'ballotpedia_id',
                    'website_url', 'bio']);
@@ -185,7 +186,8 @@ class MapStateCandidatesController
             ->where('is_active', true)
             ->whereRaw('LOWER(COALESCE(governance_level, \'\')) = ?', ['federal'])
             ->where(fn($q) => $q->where('term_status', '!=', 'lost')->orWhereNull('term_status'))
-            ->get(['uuid', 'full_name', 'political_office', 'party_affiliation',
+            ->with(['publicBadges.topic'])
+            ->get(['id', 'uuid', 'full_name', 'political_office', 'party_affiliation',
                    'profile_photo_url', 'slug', 'is_running_candidate',
                    'term_status', 'verified_official', 'ballotpedia_id',
                    'district', 'website_url', 'bio']);
@@ -203,7 +205,8 @@ class MapStateCandidatesController
             ->whereNotNull('city')   // must have a city name set
             ->orderBy('city')
             ->orderBy('full_name')
-            ->get(['uuid', 'full_name', 'political_office', 'party_affiliation',
+            ->with(['publicBadges.topic'])
+            ->get(['id', 'uuid', 'full_name', 'political_office', 'party_affiliation',
                    'profile_photo_url', 'slug', 'is_running_candidate',
                    'term_status', 'verified_official', 'ballotpedia_id',
                    'city', 'governance_level', 'website_url', 'bio']);
@@ -253,6 +256,7 @@ class MapStateCandidatesController
                 'website'         => $pol->website_url,
                 'profile_url'     => $pol->slug ? url('/p/' . $pol->slug) : null,
                 'bio_excerpt'     => $pol->bio ? Str::limit($pol->bio, 180) : null,
+                'badges'          => $this->formatBadges($pol),
             ];
         }
 
@@ -322,6 +326,7 @@ class MapStateCandidatesController
                 'website'         => $payload['website'] ?? null,
                 'profile_url'     => null,
                 'bio_excerpt'     => null,
+                'badges'          => [],
             ];
         }
 
@@ -418,6 +423,7 @@ class MapStateCandidatesController
                 'website'         => $pol->website_url,
                 'profile_url'     => $pol->slug ? url('/p/' . $pol->slug) : null,
                 'bio_excerpt'     => $pol->bio ? Str::limit($pol->bio, 180) : null,
+                'badges'          => $this->formatBadges($pol),
             ];
         }
 
@@ -442,6 +448,7 @@ class MapStateCandidatesController
                 'website'         => $pol->website_url,
                 'profile_url'     => $pol->slug ? url('/p/' . $pol->slug) : null,
                 'bio_excerpt'     => $pol->bio ? Str::limit($pol->bio, 180) : null,
+                'badges'          => $this->formatBadges($pol),
             ];
         }
 
@@ -466,6 +473,25 @@ class MapStateCandidatesController
                 'formatted'   => number_format($r->total_population),
             ]),
         ]);
+    }
+
+    /**
+     * Format a politician's public badges for the map candidate drawer.
+     * Limited to 4 to keep the badge row compact.
+     *
+     * @return array<int, array{name: string, icon: ?string, color: string}>
+     */
+    private function formatBadges(Politician $pol): array
+    {
+        return $pol->publicBadges
+            ->take(4)
+            ->map(fn ($badge) => [
+                'name'  => $badge->topic->name ?? '',
+                'icon'  => $badge->topic->badge_icon_url ?? $badge->topic->icon ?? null,
+                'color' => $badge->topic->badge_color ?? '#6366f1',
+            ])
+            ->values()
+            ->all();
     }
 
     /**

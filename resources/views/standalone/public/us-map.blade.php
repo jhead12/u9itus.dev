@@ -5026,6 +5026,20 @@ polTabBtns.forEach(tab => {
     });
 });
 
+function renderProfileBadges(badges) {
+    if (!badges || !badges.length) return '';
+    const chips = badges.map(b => {
+        const color = b.color || '#6366f1';
+        const icon  = b.icon
+            ? (/^https?:\/\//.test(b.icon) || b.icon.startsWith('/')
+                ? `<img src="${b.icon}" alt="" style="width:12px;height:12px;object-fit:contain;">`
+                : `<span>${b.icon}</span>`)
+            : '';
+        return `<span class="profile-badge-chip" style="background:${color}22;border:1px solid ${color}55;color:${color};display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:600;">${icon}${b.name || ''}</span>`;
+    }).join('');
+    return `<div class="pol-badges" style="margin-top:6px;">${chips}</div>`;
+}
+
 function openPolDrawer(cand, accentColor, extra = {}) {
     _polCtx = { cand, accentColor: accentColor || '#6366f1', extra };
     _polTab = 'overview';
@@ -5079,6 +5093,7 @@ function openPolDrawer(cand, accentColor, extra = {}) {
                     ${c.is_running ? `<span style="background:rgba(52,211,153,0.1);border:1px solid rgba(52,211,153,0.25);color:#34d399;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:600;">Running 2026</span>` : ''}
                     ${c.verified   ? `<span title="Verified" style="color:#fbbf24;font-size:13px;line-height:1;">✓</span>` : ''}
                 </div>
+                ${renderProfileBadges(c.badges)}
             </div>`;
     }
 

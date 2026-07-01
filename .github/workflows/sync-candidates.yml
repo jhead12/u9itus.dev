@@ -198,13 +198,21 @@ jobs:
             --election-year=${YEAR} \
             ${{ steps.args.outputs.dry_arg }}
 
-      # ── U.S. House races (index strategy: multi-district per state) ──────────
+      # ── U.S. House races (widget strategy: one page per state covers every
+      #    district in a single request) ─────────────────────────────────────
+      # The old --strategy=index relied on Ballotpedia's central House index page
+      # linking to all 435 district race pages. That index is frequently
+      # incomplete/lagging, so districts not yet linked there were silently
+      # skipped — the root cause of missing House candidates. The widget
+      # strategy visits each state's "Elections in {State}, {year}" overview
+      # page and parses its full offices table, so every district is captured
+      # regardless of whether the central index has been updated.
       - name: Scrape Ballotpedia U.S. House candidates
         run: |
           YEAR="${{ github.event.inputs.election_year || '2026' }}"
           node scripts/scrape-ballotpedia.js \
             --office=house \
-            --strategy=index \
+            --strategy=widget \
             --year="$YEAR" \
             --fetch-websites \
             ${{ steps.args.outputs.state_args }} \
