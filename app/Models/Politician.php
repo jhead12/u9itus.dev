@@ -3,8 +3,10 @@
 namespace App\Models;
 
 use App\Jobs\MatchPoliticianToElectionData;
+use App\Traits\HasProfileBadges;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Str;
 use App\Models\ReferralEarning;
 use App\Models\PoliticianPage;
@@ -17,7 +19,7 @@ use App\Models\PoliticianOfficeProfile;
  */
 class Politician extends Model
 {
-    use HasFactory;
+    use HasFactory, HasProfileBadges;
 
     protected $table = 'politicians';
 
@@ -324,6 +326,29 @@ class Politician extends Model
     public function viewSessions(): \Illuminate\Database\Eloquent\Relations\HasManyThrough
     {
         return $this->hasManyThrough(ViewSession::class, PoliticalCampaign::class);
+    }
+
+    /**
+     * Voters who have favorited this politician.
+     */
+    public function favoritedByVoters(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            Voter::class,
+            'voter_favorite_politicians',
+            'politician_id',
+            'voter_id'
+        )->withPivot('favorited_at');
+    }
+
+    /**
+     * Whether this politician is eligible to enable the Sovereign (MeToken) tier.
+     * Restricted to gubernatorial candidates only.
+     */
+    public function isEligibleForMeToken(): bool
+    {
+        return $this->governance_level === 'state'
+            && strcasecmp($this->political_office ?? '', 'Governor') === 0;
     }
 
     /**

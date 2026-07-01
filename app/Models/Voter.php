@@ -2,8 +2,10 @@
 
 namespace App\Models;
 
+use App\Traits\HasProfileBadges;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Str;
 
 /**
@@ -11,7 +13,7 @@ use Illuminate\Support\Str;
  */
 class Voter extends Model
 {
-    use HasFactory;
+    use HasFactory, HasProfileBadges;
 
     protected $table = 'voters';
 
@@ -139,6 +141,19 @@ class Voter extends Model
     public function fraudSignals(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(\App\Models\FraudSignal::class);
+    }
+
+    /**
+     * Politicians this voter has favorited / follows.
+     */
+    public function favoritePoliticians(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            Politician::class,
+            'voter_favorite_politicians',
+            'voter_id',
+            'politician_id'
+        )->withPivot('favorited_at');
     }
 
     /**

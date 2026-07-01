@@ -161,6 +161,24 @@ class PoliticalViewService
         // Fire-and-forget — failures are logged but do not affect u9itus payouts.
         $this->earlyBankWebhook->notifyViewSessionCompleted($completed);
 
+        // Phase 19 — Auto-earn topic badges based on view completion count.
+        // Fire-and-forget; badge failures never affect payouts.
+        if ($completed->status === \App\Enums\ViewSessionStatus::Completed) {
+            try {
+                $badgeService = app(\App\Services\BadgeService::class);
+                $voter        = $completed->voter;
+                $topicIds     = $completed->campaign->topics->pluck('id');
+                foreach ($topicIds as $topicId) {
+                    $badgeService->checkAndGrantViewBadge($voter, $topicId);
+                }
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('Phase 19: badge auto-earn failed', [
+                    'view_session_id' => $completed->id,
+                    'error'           => $e->getMessage(),
+                ]);
+            }
+        }
+
         return $completed;
     }
 
