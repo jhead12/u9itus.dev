@@ -284,7 +284,7 @@ class FECService
      * @param string $candidateId
      * @return array
      */
-    protected function getCandidateCommittees(string $candidateId): array
+    public function getCandidateCommittees(string $candidateId): array
     {
         $response = Http::timeout(10)->get("{$this->baseUrl}/candidate/{$candidateId}/committees/", [
             'api_key' => $this->apiKey,
@@ -308,6 +308,61 @@ class FECService
                 'type' => $committee['committee_type_full'] ?? null,
             ];
         }, $results);
+    }
+
+    /**
+     * Get top PAC (committee-to-committee) contributions to a candidate's
+     * committee, sourced directly from FEC Schedule A itemized receipts.
+     *
+     * Filters to `contributor_type=committee` to isolate PAC money (as
+     * opposed to individual donor contributions), and takes the first page
+     * sorted by amount descending — sufficient for surfacing well-known
+     * PAC names without needing full keyset pagination through every
+     * itemized receipt.
+     *
+     * @param string $committeeId
+     * @param int $perPage
+     * @return array<int, array{name: string, total: mixed}>
+     */
+    public function getCommitteeContributions(string $committeeId, int $perPage = 20): array
+    {
+        if (!$this->isConfigured()) {
+            return [];
+        }
+
+        try {
+            $response = Http::timeout(10)->get("{$this->baseUrl}/schedules/schedule_a/", [
+                'api_key' => $this->apiKey,
+                'committee_id' => [$committeeId],
+                'contributor_type' => 'committee',
+                'sort' => '-contribution_receipt_amount',
+                'per_page' => $perPage,
+            ]);
+
+            if (!$response->successful()) {
+                $this->logHttpFailure('get_committee_contributions', $response->status(), [
+                    'committee_id' => $committeeId,
+                ]);
+
+                return [];
+            }
+
+            $results = $response->json('results', []);
+
+            return array_map(function ($receipt) {
+                return [
+                    'name' => $receipt['contributor_name'] ?? 'Unknown',
+                    'total' => $this->formatCurrency($receipt['contribution_receipt_amount'] ?? 0),
+                ];
+            }, $results);
+
+        } catch (\Throwable $e) {
+            $this->logProviderException('get_committee_contributions', $e, [
+                'committee_id' => $committeeId,
+            ]);
+
+            return [];
+        }
     }
 
     /**

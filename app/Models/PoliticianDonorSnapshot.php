@@ -21,6 +21,7 @@ class PoliticianDonorSnapshot extends Model
         'top_industries',
         'fec_summary',
         'outside_spending',
+        'pac_affiliations',
         'opensecrets_source_url',
         'fec_source_url',
         'election_cycle',
@@ -34,6 +35,7 @@ class PoliticianDonorSnapshot extends Model
             'top_industries'   => 'array',
             'fec_summary'      => 'array',
             'outside_spending' => 'array',
+            'pac_affiliations' => 'array',
             'enriched_at'      => 'datetime',
         ];
     }
@@ -73,6 +75,11 @@ class PoliticianDonorSnapshot extends Model
         return !empty($this->outside_spending);
     }
 
+    public function hasPacAffiliations(): bool
+    {
+        return !empty($this->pac_affiliations);
+    }
+
     public function hasAnyData(): bool
     {
         return $this->hasContributors()
@@ -81,3 +88,4 @@ class PoliticianDonorSnapshot extends Model
             || $this->hasOutsideSpending();
     }
 }
+
