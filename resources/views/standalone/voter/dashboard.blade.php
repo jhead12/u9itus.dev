@@ -345,78 +345,83 @@
     @endif
 
     {{-- ═══════════════════════════════════════════════════════════════
-         CITIZEN CANDIDATE UPGRADE CARD
-         Shown to all voters. Lets local candidates/activists (city
-         council, school board, community advocate) upgrade to a paying
-         profile that unlocks the same campaign-video tools as politicians.
-         Pricing TBD — the card links to the upgrade inquiry page.
+         CITIZEN ACCOUNT CARD
+         Shown to all voters. Explains the Citizen role — local businesses,
+         community groups, and ballot-issue advocates who want to reach
+         nearby voters via pay-per-view ads. Links directly to registration.
     ═══════════════════════════════════════════════════════════════ --}}
-    <div class="relative overflow-hidden rounded-2xl border border-indigo-500/30
-                bg-gradient-to-br from-indigo-950/60 via-slate-900/80 to-slate-900/60
+    <div class="relative overflow-hidden rounded-2xl border border-amber-500/30
+                bg-gradient-to-br from-amber-950/40 via-slate-900/80 to-slate-900/60
                 p-6 sm:p-8">
 
         {{-- Background glow --}}
         <div class="pointer-events-none absolute -top-16 -right-16 w-64 h-64 rounded-full
-                    bg-indigo-500/10 blur-3xl"></div>
+                    bg-amber-500/10 blur-3xl"></div>
 
         <div class="relative flex flex-col sm:flex-row gap-6 items-start sm:items-center">
             {{-- Icon --}}
-            <div class="w-14 h-14 rounded-2xl bg-indigo-500/15 border border-indigo-500/30
-                        flex items-center justify-center shrink-0">
-                <svg class="w-7 h-7 text-indigo-400" fill="none" stroke="currentColor"
-                     stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round"
-                          d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
-                </svg>
+            <div class="w-14 h-14 rounded-2xl bg-amber-500/15 border border-amber-500/30
+                        flex items-center justify-center shrink-0 text-3xl">
+                🏘️
             </div>
 
             {{-- Copy --}}
             <div class="flex-1 min-w-0">
                 <div class="flex flex-wrap items-center gap-2 mb-1">
-                    <h3 class="text-base font-700 text-white font-bold">Citizen Candidate Profile</h3>
+                    <h3 class="text-base font-bold text-white">Want to reach voters as a Citizen?</h3>
                     <span class="text-xs font-semibold px-2 py-0.5 rounded-full
                                  bg-amber-400/15 border border-amber-400/30 text-amber-300">
-                        Coming Soon
+                        Now Open
                     </span>
                 </div>
                 <p class="text-sm text-slate-400 leading-relaxed mb-3">
-                    Running for city council, school board, or a local office?
-                    Upgrade to a <strong class="text-slate-200">Citizen Candidate</strong> paying profile
-                    and unlock the same campaign video tools used by state politicians —
-                    reach voters in your district, pay only when someone watches.
+                    A <strong class="text-slate-200">Citizen account</strong> lets local businesses,
+                    community groups, and civic advocates run short video ads to nearby voters —
+                    without the FEC/election-commission requirements that apply to politicians.
+                    Pay only when someone watches. Start from <strong class="text-slate-200">$0.75/view</strong>,
+                    with a 500-view daily cap to keep costs predictable.
                 </p>
-                {{-- Feature chips --}}
-                <div class="flex flex-wrap gap-2">
+
+                {{-- Ad type chips --}}
+                <div class="flex flex-wrap gap-2 mb-3">
                     @foreach ([
-                        '📹 Upload campaign videos',
-                        '🗺️ Appear on the U9itus map',
-                        '💳 Pay-per-view pricing',
-                        '📊 Voter reach analytics',
-                        '✅ Verified local candidate badge',
-                    ] as $feat)
-                    <span class="text-xs px-2.5 py-1 rounded-lg
-                                 bg-slate-800 border border-slate-700/60 text-slate-300">
-                        {{ $feat }}
+                        ['🏪', 'Local Business',       'Promote your shop, restaurant, or service'],
+                        ['📢', 'Community Notice',     'Events, drives, neighborhood announcements'],
+                        ['🗳️', 'Ballot Issue',         'PAC-registered measures — $1.00/view, admin reviewed'],
+                        ['📣', 'General Announcement', 'Other local messages'],
+                    ] as [$icon, $label, $desc])
+                    <span title="{{ $desc }}"
+                          class="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg
+                                 bg-slate-800 border border-slate-700/60 text-slate-300 cursor-default">
+                        {{ $icon }} {{ $label }}
                     </span>
                     @endforeach
+                </div>
+
+                {{-- Pricing row --}}
+                <div class="flex flex-wrap gap-x-5 gap-y-1 text-xs text-slate-400">
+                    <span><span class="text-amber-400 font-medium">$0.75</span> / view (standard)</span>
+                    <span><span class="text-amber-400 font-medium">$0.50</span> voter payout</span>
+                    <span><span class="text-amber-400 font-medium">$10</span> minimum campaign</span>
+                    <span><span class="text-amber-400 font-medium">500</span> daily view cap</span>
                 </div>
             </div>
 
             {{-- CTA --}}
             <div class="shrink-0 flex flex-col items-stretch gap-2 w-full sm:w-auto">
-                <a href="mailto:support@u9itus.com?subject=Citizen Candidate Profile Interest&body=Name: {{ urlencode(auth()->user()->name ?? '') }}%0AAccount: {{ urlencode(auth()->user()->email ?? '') }}"
+                <a href="{{ route('register.citizen') }}"
                    class="inline-flex items-center justify-center gap-2
-                          bg-indigo-600 hover:bg-indigo-500
-                          text-white text-sm font-semibold
+                          bg-amber-500 hover:bg-amber-400
+                          text-slate-900 text-sm font-semibold
                           px-5 py-2.5 rounded-xl transition">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2"
                          viewBox="0 0 24 24" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round"
                               d="M13 7l5 5m0 0l-5 5m5-5H6"/>
                     </svg>
-                    Express Interest
+                    Register as Citizen
                 </a>
-                <p class="text-center text-xs text-slate-500">No commitment · We'll notify you</p>
+                <p class="text-center text-xs text-slate-500">Separate account · Free to create</p>
             </div>
         </div>
     </div>
