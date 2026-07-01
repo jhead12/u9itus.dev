@@ -992,6 +992,10 @@ class PublicProfileController extends Controller
         $transparencyData = $this->buildTransparencyData($politician);
         $digDeeperData = $this->buildDigDeeperData($politician, $transparencyData);
 
+        // PAC affiliation tags (e.g. "AIPAC / Pro-Israel") derived from donor snapshot
+        // enrichment. Shown alongside the "Follow the Money" transparency data.
+        $pacAffiliations = $politician->donorSnapshot?->pac_affiliations ?? [];
+
         // Load candidate record (e.g. congress_legislators import) to show term/election status
         $termInfo = null;
         $candidateRecord = \App\Models\ElectionCandidateRecord::where('state', $politician->state)
@@ -1069,6 +1073,7 @@ class PublicProfileController extends Controller
             'initiatives',
             'transparencyData',
             'digDeeperData',
+            'pacAffiliations',
             'termInfo',
             'ogTitle',
             'ogDescription',

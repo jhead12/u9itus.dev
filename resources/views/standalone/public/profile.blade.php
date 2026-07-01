@@ -1123,13 +1123,27 @@
             $topDonors   = $donorData['sections']['top_contributors']['items'] ?? [];
             $topIndustries = $donorData['sections']['top_industries']['items'] ?? [];
             $fecSummary  = $fecData['sections']['summary'] ?? null;
+            $pacTags     = $pacAffiliations ?? [];
         @endphp
-        @if(!empty($topDonors) || !empty($topIndustries) || $fecSummary)
+        @if(!empty($topDonors) || !empty($topIndustries) || $fecSummary || !empty($pacTags))
         <section>
             <h2 class="text-xl font-bold text-white mb-4 flex items-center gap-2">
                 <span class="w-1 h-6 rounded-full inline-block" style="background:var(--p13-accent,#f59e0b)"></span>
                 Follow the Money
             </h2>
+
+            {{-- PAC affiliation tags (e.g. AIPAC / Pro-Israel) --}}
+            @if(!empty($pacTags))
+            <div class="flex flex-wrap gap-2 mb-4">
+                @foreach($pacTags as $tag)
+                <span class="inline-flex items-center gap-1.5 bg-amber-900/30 border border-amber-700/50 text-amber-300 text-xs font-medium px-3 py-1.5 rounded-full"
+                      title="Matched contributor: {{ $tag['matched_name'] ?? '' }}{{ !empty($tag['total']) ? ' (' . $tag['total'] . ')' : '' }}">
+                    🏷️ {{ $tag['label'] ?? ($tag['group'] ?? 'PAC') }}
+                </span>
+                @endforeach
+            </div>
+            @endif
+
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
                 {{-- FEC totals banner --}}
