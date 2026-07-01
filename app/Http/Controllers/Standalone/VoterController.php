@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Standalone;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Standalone\Concerns\ManagesVoterAuxiliaryActions;
 use App\Models\AdViewToken;
+use App\Models\Citizen;
 use App\Models\EngagementSurveyResponse;
 use App\Models\PoliticalCampaign;
 use App\Models\Voter;
@@ -766,6 +767,66 @@ class VoterController extends Controller
             'success' => true,
             'message' => 'Your question was received. It will appear publicly after moderation review.',
         ]);
+    }
+
+    // ── Citizen profile upgrade ──────────────────────────────────────────────
+
+    /**
+     * GET /voter/add-citizen-profile
+     * Show the form to add a Citizen profile to the existing voter account.
+     */
+    public function showAddCitizenProfile()
+    {
+        $user = Auth::user();
+
+        // Already has a citizen profile — send them straight to the citizen dashboard.
+        if ($user->citizen) {
+            return redirect()->route('citizen.dashboard')
+                ->with('info', 'You already have a Citizen profile on this account.');
+        }
+
+        $citizenRate     = (float) PlatformSettingsService::get('citizen_revenue_per_view', null, 0.75);
+        $ballotIssueRate = (float) PlatformSettingsService::get('ballot_issue_revenue_per_view', null, 1.00);
+
+        return view('standalone.voter.add-citizen-profile', [
+            'user'            => $user,
+            'citizenRate'     => $citizenRate,
+            'ballotIssueRate' => $ballotIssueRate,
+        ]);
+    }
+
+    /**
+     * POST /voter/add-citizen-profile
+     * Create a Citizen row for this voter account, assign the citizen Spatie role.
+     * The user keeps their voter role and email — no second account required.
+     */
+    public function addCitizenProfile(Request $request)
+    {
+        $user = Auth::user();
+
+        if ($user->citizen) {
+            return redirect()->route('citizen.dashboard');
+        }
+
+        $validated = $request->validate([
+            'full_name'      => ['required', 'string', 'max:255'],
+            'business_name'  => ['nullable', 'string', 'max:255'],
+            'address_line_1' => ['required', 'string', 'max:255'],
+            'address_line_2' => ['nullable', 'string', 'max:255'],
+            'city'           => ['required', 'string', 'max:100'],
+            'state'          => ['required', 'string', 'size:2'],
+            'zip'            => ['required', 'digits:5'],
+        ]);
+
+        Citizen::create(array_merge($validated, [
+            'user_id'   => $user->id,
+            'is_active' => true,
+        ]));
+
+        $user->assignRole('citizen');
+
+        return redirect()->route('portal-pick')
+            ->with('success', 'Citizen profile created! You can now switch between your Voter and Citizen portals.');
     }
 
 }

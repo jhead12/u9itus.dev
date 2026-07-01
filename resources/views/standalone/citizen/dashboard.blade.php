@@ -17,6 +17,12 @@
                 @if($citizen?->city && $citizen?->state) · {{ $citizen->city }}, {{ $citizen->state }} @endif
             </p>
         </div>
+        @if($user->hasRole('voter'))
+        <a href="{{ route('voter.dashboard') }}"
+           class="shrink-0 inline-flex items-center gap-1.5 text-xs font-medium text-slate-400 hover:text-white border border-slate-600 hover:border-slate-500 rounded-lg px-3 py-2 transition">
+            🗳️ Switch to Voter Portal
+        </a>
+        @endif
     </div>
 
     {{-- Campaign stats + CTA --}}

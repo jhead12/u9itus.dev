@@ -16,9 +16,17 @@
             <h1 class="text-2xl font-bold text-white">Dashboard</h1>
             <p class="text-slate-400 text-sm mt-0.5">Welcome back, <span class="text-emerald-400 font-medium">{{ $user->name }}</span></p>
         </div>
-        <span class="text-xs bg-emerald-900/30 border border-emerald-700/40 text-emerald-400 rounded-full px-3 py-1 mt-1 shrink-0">
-            {{ now()->format('l, M j') }}
-        </span>
+        <div class="flex items-center gap-2 shrink-0">
+            @if(auth()->user()->hasRole('citizen'))
+            <a href="{{ route('citizen.dashboard') }}"
+               class="text-xs font-medium text-amber-400 hover:text-amber-300 border border-amber-500/30 hover:border-amber-400/50 rounded-lg px-3 py-1.5 transition">
+                🏘️ Citizen Portal
+            </a>
+            @endif
+            <span class="text-xs bg-emerald-900/30 border border-emerald-700/40 text-emerald-400 rounded-full px-3 py-1">
+                {{ now()->format('l, M j') }}
+            </span>
+        </div>
     </div>
 
     @include('standalone.voter.partials.authentic-user-verifier-banner')
@@ -409,7 +417,8 @@
 
             {{-- CTA --}}
             <div class="shrink-0 flex flex-col items-stretch gap-2 w-full sm:w-auto">
-                <a href="{{ route('register.citizen') }}"
+                @if(auth()->user()->citizen)
+                <a href="{{ route('citizen.dashboard') }}"
                    class="inline-flex items-center justify-center gap-2
                           bg-amber-500 hover:bg-amber-400
                           text-slate-900 text-sm font-semibold
@@ -419,9 +428,24 @@
                         <path stroke-linecap="round" stroke-linejoin="round"
                               d="M13 7l5 5m0 0l-5 5m5-5H6"/>
                     </svg>
-                    Register as Citizen
+                    Go to Citizen Portal
                 </a>
-                <p class="text-center text-xs text-slate-500">Separate account · Free to create</p>
+                <p class="text-center text-xs text-slate-500">Already on this account</p>
+                @else
+                <a href="{{ route('voter.add-citizen-profile') }}"
+                   class="inline-flex items-center justify-center gap-2
+                          bg-amber-500 hover:bg-amber-400
+                          text-slate-900 text-sm font-semibold
+                          px-5 py-2.5 rounded-xl transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2"
+                         viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round"
+                              d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                    </svg>
+                    Add Citizen Profile
+                </a>
+                <p class="text-center text-xs text-slate-500">Same account · No new email needed</p>
+                @endif
             </div>
         </div>
     </div>

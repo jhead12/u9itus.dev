@@ -67,25 +67,33 @@ class AuthController extends Controller
      */
     private function roleRedirect(\App\Models\User $user): string
     {
-        $destination = match ($user->user_type) {
-            'admin'      => route('admin.dashboard'),
-            'politician' => route('politician.dashboard'),
-            'voter'      => route('voter.dashboard'),
-            'citizen'    => route('citizen.dashboard'),
-            default      => route('dashboard'),
-        };
-
-        if ($user->hasRole('admin')) {
-            $destination = route('admin.dashboard');
-        } elseif ($user->hasRole('politician')) {
-            $destination = route('politician.dashboard');
-        } elseif ($user->hasRole('voter')) {
-            $destination = route('voter.dashboard');
-        } elseif ($user->hasRole('citizen')) {
-            $destination = route('citizen.dashboard');
+        // Dual-role: voter who has also added a Citizen profile → portal picker.
+        if ($user->hasRole('voter') && $user->hasRole('citizen')) {
+            return route('portal-pick');
         }
 
-        return $destination;
+        if ($user->hasRole('admin')) {
+            return route('admin.dashboard');
+        }
+
+        if ($user->hasRole('politician')) {
+            return route('politician.dashboard');
+        }
+
+        if ($user->hasRole('citizen')) {
+            return route('citizen.dashboard');
+        }
+
+        if ($user->hasRole('voter')) {
+            return route('voter.dashboard');
+        }
+
+        return match ($user->user_type) {
+            'admin'      => route('admin.dashboard'),
+            'politician' => route('politician.dashboard'),
+            'citizen'    => route('citizen.dashboard'),
+            default      => route('voter.dashboard'),
+        };
     }
 
     // -------------------------------------------------------------------------

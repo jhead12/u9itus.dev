@@ -203,6 +203,15 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
     
     // Main Dashboard (role-based redirect)
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+
+    // Portal picker — shown to users who hold both voter + citizen roles
+    Route::get('/portal-pick', function () {
+        $user = auth()->user();
+        if (! $user->hasRole('citizen') || ! $user->hasRole('voter')) {
+            return redirect()->route('dashboard');
+        }
+        return view('standalone.auth.portal-pick', ['user' => $user]);
+    })->name('portal-pick');
     
     /*
     |--------------------------------------------------------------------------
@@ -350,6 +359,10 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         Route::get('/favorites', [FavoriteController::class, 'index'])->name('favorites.index');
         Route::post('/favorites/{politicianId}', [FavoriteController::class, 'store'])->name('favorites.store');
         Route::delete('/favorites/{politicianId}', [FavoriteController::class, 'destroy'])->name('favorites.destroy');
+
+        // ── Citizen profile upgrade (add Citizen role to existing voter account) ──
+        Route::get('/add-citizen-profile', [VoterController::class, 'showAddCitizenProfile'])->name('add-citizen-profile');
+        Route::post('/add-citizen-profile', [VoterController::class, 'addCitizenProfile'])->name('add-citizen-profile.submit');
     });
 
     /*
