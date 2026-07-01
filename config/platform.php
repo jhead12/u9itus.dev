@@ -30,7 +30,7 @@ return [
             'session_lifetime' => 120, // minutes
             'admin_2fa' => [
                 'enabled_default' => env('ADMIN_2FA_ENFORCED_DEFAULT', false),
-                'totp_window' => (int) env('ADMIN_2FA_TOTP_WINDOW', 1),
+                'totp_window' => (int) env('ADMIN_2FA_TOTP_WINDOW', 2),
                 'session_ttl_minutes' => (int) env('ADMIN_2FA_SESSION_TTL_MINUTES', 120),
             ],
         ],

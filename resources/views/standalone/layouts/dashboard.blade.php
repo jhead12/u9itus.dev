@@ -307,6 +307,9 @@
                 <h1 class="text-base font-semibold text-slate-200">@yield('page-title', 'Dashboard')</h1>
             </div>
 
+            {{-- Live local clock --}}
+            <span id="header-local-clock" class="hidden sm:inline-block text-xs text-slate-500 tabular-nums select-none"></span>
+
             {{-- Notifications bell (Alpine.js) --}}
             <div x-data="notificationBell()" x-cloak class="relative">
                 <button @click="toggle()"
@@ -515,6 +518,21 @@
 @endif
 
 <script>
+    // ── Live local clock ────────────────────────────────────────────────
+    (function () {
+        var targets = [
+            document.getElementById('header-local-clock'),
+            document.getElementById('totp-local-clock'),
+        ].filter(Boolean);
+        if (!targets.length) return;
+        function tick() {
+            var t = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+            targets.forEach(function (el) { el.textContent = t; });
+        }
+        tick();
+        setInterval(tick, 1000);
+    })();
+
     function toggleSidebar() {
         const sidebar = document.getElementById('sidebar');
         const overlay = document.getElementById('sidebar-overlay');

@@ -38,11 +38,7 @@
         </div>
     @endif
 
-    @if($errors->any())
-        <div class="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 text-sm">
-            {{ $errors->first() }}
-        </div>
-    @endif
+    {{-- Validation errors are rendered globally by the dashboard layout; no local errors block to avoid duplicates. --}}
 
     <div class="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-6 space-y-5">
         <div class="flex items-center justify-between">
@@ -80,7 +76,10 @@
             <form method="POST" action="{{ route('admin.2fa.setup.enable') }}" class="space-y-4">
                 @csrf
                 <div>
-                    <label for="code" class="block text-sm font-medium text-slate-300 mb-1.5">2. Enter current 6-digit code</label>
+                    <label for="code" class="block text-sm font-medium text-slate-300 mb-1.5">
+                        2. Enter current 6-digit code
+                        <span class="ml-2 text-xs font-normal text-slate-500">your time: <span id="totp-local-clock"></span></span>
+                    </label>
                     <input
                         id="code"
                         type="text"
@@ -175,3 +174,16 @@
     </div>
 </div>
 @endsection
+@push('scripts')
+<script>
+(function () {
+    var el = document.getElementById('local-clock');
+    if (!el) return;
+    function tick() {
+        el.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+    }
+    tick();
+    setInterval(tick, 1000);
+})();
+</script>
+@endpush
