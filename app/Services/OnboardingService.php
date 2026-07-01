@@ -111,6 +111,15 @@ class OnboardingService
     ];
 
     /**
+     * Citizen onboarding phases
+     *
+     * No required phases yet — the full citizen onboarding wizard is built out
+     * in a later phase. Kept empty (rather than omitted) so isOnboardingRequired()
+     * short-circuits to false instead of blocking citizens from their dashboard.
+     */
+    public const CITIZEN_PHASES = [];
+
+    /**
      * Get or create onboarding progress for a user
      */
     public function getOrCreate(User $user, string $userType): OnboardingProgress
@@ -135,6 +144,7 @@ class OnboardingService
             'voter' => self::VOTER_PHASES,
             'politician' => self::POLITICIAN_PHASES,
             'admin' => self::ADMIN_PHASES,
+            'citizen' => self::CITIZEN_PHASES,
             default => [],
         };
     }

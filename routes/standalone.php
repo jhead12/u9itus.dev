@@ -11,6 +11,7 @@
 
 use App\Http\Controllers\Standalone\AuthController;
 use App\Http\Controllers\Standalone\BadgeController;
+use App\Http\Controllers\Standalone\CitizenController;
 use App\Http\Controllers\Standalone\DashboardController;
 use App\Http\Controllers\Standalone\FavoriteController;
 use App\Http\Controllers\Standalone\PoliticianController;
@@ -52,6 +53,10 @@ Route::middleware('guest')->group(function () {
     // Voter registration
     Route::get('/register/voter', [AuthController::class, 'showRegisterVoter'])->name('register.voter');
     Route::post('/register/voter', [AuthController::class, 'registerVoter'])->name('register.voter.submit');
+
+    // Citizen registration
+    Route::get('/register/citizen', [AuthController::class, 'showRegisterCitizen'])->name('register.citizen');
+    Route::post('/register/citizen', [AuthController::class, 'registerCitizen'])->name('register.citizen.submit');
 
     // Registration closed — mailing list capture (always accessible regardless of registration_open flag)
     Route::get('/register/closed', [AuthController::class, 'showRegisterClosed'])->name('register.closed');
@@ -346,7 +351,16 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         Route::post('/favorites/{politicianId}', [FavoriteController::class, 'store'])->name('favorites.store');
         Route::delete('/favorites/{politicianId}', [FavoriteController::class, 'destroy'])->name('favorites.destroy');
     });
-    
+
+    /*
+    |--------------------------------------------------------------------------
+    | Citizen Dashboard
+    |--------------------------------------------------------------------------
+    */
+    Route::prefix('citizen')->name('citizen.')->middleware(['role:citizen', 'check.citizen.onboarding'])->group(function () {
+        Route::get('/dashboard', [CitizenController::class, 'dashboard'])->name('dashboard');
+    });
+
     /*
     |--------------------------------------------------------------------------
     | Admin Dashboard & Management

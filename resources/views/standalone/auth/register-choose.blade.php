@@ -16,8 +16,9 @@
 <body class="min-h-screen bg-slate-900 flex items-center justify-center px-4 py-12 antialiased">
 @php
     $voterPayoutPerView = number_format((float) \App\Services\PlatformSettingsService::get('viewer_payout_per_view', null, 0.25), 2);
+    $citizenRatePerView = number_format((float) \App\Services\PlatformSettingsService::get('revenue_per_view', 'citizen', 0.75), 2);
 @endphp
-<div class="w-full max-w-2xl">
+<div class="w-full max-w-4xl">
 
     {{-- Logo --}}
     <div class="text-center mb-10">
@@ -40,7 +41,7 @@
     @endif
 
     {{-- Role choice cards --}}
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
 
         {{-- Politician card --}}
         <a href="{{ !empty($referralCode) ? route('register.politician', ['ref' => $referralCode]) : route('register.politician') }}"
@@ -62,11 +63,31 @@
             </span>
         </a>
 
+        {{-- Citizen card --}}
+        <a href="{{ !empty($referralCode) ? route('register.citizen', ['ref' => $referralCode]) : route('register.citizen') }}"
+           class="group block bg-slate-800/60 border border-slate-700/50 hover:border-amber-500/60 rounded-2xl p-8 shadow-2xl transition-all duration-200 hover:-translate-y-1 hover:shadow-amber-500/10">
+            <div class="text-5xl mb-4">🏘️</div>
+            <h2 class="text-xl font-semibold text-white mb-2 group-hover:text-amber-400 transition-colors">Citizen</h2>
+            <p class="text-slate-400 text-sm mb-5 leading-relaxed">
+                Promote your local business, community notice, or ballot issue to nearby voters. No election-commission burden for standard ads.
+            </p>
+            <ul class="space-y-2 text-sm text-slate-400 mb-6">
+                <li class="flex items-center gap-2"><span class="text-amber-400">✓</span> <span>${{ $citizenRatePerView }} per verified view</span></li>
+                <li class="flex items-center gap-2"><span class="text-amber-400">✓</span> Auto-approval once verified</li>
+                <li class="flex items-center gap-2"><span class="text-amber-400">✓</span> Local &amp; community targeting</li>
+                <li class="flex items-center gap-2"><span class="text-amber-400">✓</span> Ballot-issue support (PAC ID)</li>
+            </ul>
+            <span class="inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-white text-sm font-semibold px-5 py-2.5 rounded-lg transition-colors">
+                Register as Citizen
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            </span>
+        </a>
+
         {{-- Voter card --}}
         <a href="{{ !empty($referralCode) ? route('register.voter', ['ref' => $referralCode]) : route('register.voter') }}"
            class="group block bg-slate-800/60 border border-slate-700/50 hover:border-blue-500/60 rounded-2xl p-8 shadow-2xl transition-all duration-200 hover:-translate-y-1 hover:shadow-blue-500/10">
             <div class="text-5xl mb-4">🗳️</div>
-            <h2 class="text-xl font-semibold text-white mb-2 group-hover:text-blue-400 transition-colors">Voter / Citizen</h2>
+            <h2 class="text-xl font-semibold text-white mb-2 group-hover:text-blue-400 transition-colors">Voter</h2>
             <p class="text-slate-400 text-sm mb-5 leading-relaxed">
                 Watch short political messages from candidates in your area and earn money for your time. Stay informed and get paid.
             </p>

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Standalone;
 
 use App\Http\Controllers\Controller;
+use App\Models\Citizen;
 use App\Models\Politician;
 use App\Models\User;
 use App\Models\Voter;
@@ -70,6 +71,7 @@ class AuthController extends Controller
             'admin'      => route('admin.dashboard'),
             'politician' => route('politician.dashboard'),
             'voter'      => route('voter.dashboard'),
+            'citizen'    => route('citizen.dashboard'),
             default      => route('dashboard'),
         };
 
@@ -79,6 +81,8 @@ class AuthController extends Controller
             $destination = route('politician.dashboard');
         } elseif ($user->hasRole('voter')) {
             $destination = route('voter.dashboard');
+        } elseif ($user->hasRole('citizen')) {
+            $destination = route('citizen.dashboard');
         }
 
         return $destination;
@@ -416,8 +420,135 @@ class AuthController extends Controller
         return redirect()->route('phone.verify');
     }
 
+    // -------------------------------------------------------------------------    // Citizen Registration
     // -------------------------------------------------------------------------
-    // Voter Registration
+
+    public function showRegisterCitizen(Request $request)
+    {
+        if (! filter_var(PlatformSettingsService::get('registration_open', null, true), FILTER_VALIDATE_BOOLEAN)) {
+            return redirect()->route('register.closed');
+        }
+
+        return view('standalone.auth.register-citizen', [
+            'referralCode' => $this->resolveIncomingReferralCode($request),
+        ]);
+    }
+
+    public function registerCitizen(Request $request)
+    {
+        if (! filter_var(PlatformSettingsService::get('registration_open', null, true), FILTER_VALIDATE_BOOLEAN)) {
+            return redirect()->route('register.closed');
+        }
+
+        $request->validate([
+            'first_name'          => ['required', 'string', 'max:255'],
+            'last_name'           => ['required', 'string', 'max:255'],
+            'email'               => ['required', 'string', 'email', 'max:255', 'unique:users'],
+            'password'            => ['required', 'confirmed', Rules\Password::defaults()],
+            'phone'               => ['required', 'string', 'max:20', 'unique:users,phone'],
+            'business_name'       => ['nullable', 'string', 'max:255'],
+            'state'               => ['required', 'string', 'size:2'],
+            'city'                => ['required', 'string', 'max:100'],
+            'address_line_1'      => ['required', 'string', 'max:255'],
+            'address_line_2'      => ['nullable', 'string', 'max:255'],
+            'zip'                 => ['required', 'string', 'max:10', 'regex:/^\d{5}(-\d{4})?$/'],
+            'referral_code'       => ['nullable', 'string', 'max:20'],
+            'terms'               => ['accepted'],
+        ]);
+
+        // ── Pre-registration security checks (IP, rate limit, KYC duplicate) ──
+        app(RegistrationSecurityService::class)->checkOrFail($request, $request->email);
+
+        $user = User::create([
+            'first_name'      => $request->first_name,
+            'last_name'       => $request->last_name,
+            'email'           => $request->email,
+            'password'        => Hash::make($request->password),
+            'phone'           => $request->phone,
+            'city'            => $request->city,
+            'state'           => $request->state,
+            'platform'        => 'standalone',
+            'user_type'       => 'citizen',
+            'registration_ip' => $request->ip(),
+        ]);
+
+        $user->assignRole('citizen');
+
+        // Resolve referral code — could belong to a voter OR a politician
+        $referredByVoterId      = null;
+        $referredByPoliticianId = null;
+        $refCode = $this->resolveIncomingReferralCode($request);
+        if ($refCode) {
+            $voterReferrer = Voter::where('referral_code', $refCode)->first();
+            if ($voterReferrer) {
+                $referredByVoterId = $voterReferrer->id;
+            } else {
+                $politicianReferrer = Politician::where('referral_code', $refCode)->first();
+                $referredByPoliticianId = $politicianReferrer?->id;
+            }
+        }
+
+        $citizenPayload = [
+            'user_id'                   => $user->id,
+            'full_name'                 => trim($request->first_name . ' ' . $request->last_name),
+            'business_name'             => $request->business_name,
+            'state'                     => $request->state,
+            'city'                      => $request->city,
+            'address_line_1'            => $request->address_line_1,
+            'address_line_2'            => $request->address_line_2,
+            'zip'                       => $request->zip,
+            'referred_by_voter_id'      => $referredByVoterId,
+            'referred_by_politician_id' => $referredByPoliticianId,
+        ];
+
+        Citizen::create($citizenPayload);
+
+        $this->markReferralConversion($request, $refCode, $user);
+
+        // ── Trigger phone verification OTP ────────────────────────────────────
+        try {
+            app(PhoneVerificationService::class)->sendVerificationCode($user->phone, $user);
+        } catch (\Exception $e) {
+            Log::error('Failed to send phone verification code for citizen', [
+                'user_id' => $user->id,
+                'phone'   => substr($user->phone, -4),
+                'error'   => $e->getMessage(),
+            ]);
+        }
+
+        event(new Registered($user));
+
+        // Send welcome email (non-fatal if SMTP not yet configured)
+        try {
+            Mail::to($user->email)->send(new WelcomeMail($user));
+        } catch (\Exception $e) {
+            Log::error('WelcomeMail failed for citizen', [
+                'user_id' => $user->id,
+                'email'   => $user->email,
+                'error'   => $e->getMessage(),
+            ]);
+        }
+
+        // Notify all admins of the new citizen signup
+        try {
+            $user->loadMissing('citizen');
+            $admins = User::where('user_type', 'admin')->whereNotNull('email')->get();
+            foreach ($admins as $admin) {
+                Mail::to($admin->email)->send(new AdminNewUserNotificationMail($user));
+            }
+        } catch (\Exception $e) {
+            Log::error('AdminNewUserNotificationMail failed for citizen', [
+                'user_id' => $user->id,
+                'error'   => $e->getMessage(),
+            ]);
+        }
+
+        Auth::login($user);
+
+        return redirect()->route('phone.verify');
+    }
+
+    // -------------------------------------------------------------------------    // Voter Registration
     // -------------------------------------------------------------------------
 
     public function showRegisterVoter(Request $request)

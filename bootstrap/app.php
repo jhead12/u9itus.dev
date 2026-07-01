@@ -33,6 +33,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'check.role'        => \App\Http\Middleware\CheckUserRole::class,
             'check.voter.onboarding' => \App\Http\Middleware\CheckVoterOnboarding::class,
             'check.politician.onboarding' => \App\Http\Middleware\CheckPoliticianOnboarding::class,
+            'check.citizen.onboarding' => \App\Http\Middleware\CheckCitizenOnboarding::class,
             'check.admin.onboarding' => \App\Http\Middleware\CheckAdminOnboarding::class,
             'admin.2fa' => \App\Http\Middleware\EnsureAdminTwoFactorVerified::class,
             'no.cache' => \App\Http\Middleware\DisableAuthPageCache::class,

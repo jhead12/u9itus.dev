@@ -156,6 +156,14 @@ class User extends Authenticatable
     }
 
     /**
+     * Citizen profile linked to this user.
+     */
+    public function citizen(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(Citizen::class);
+    }
+
+    /**
      * Notification preferences for this user.
      */
     public function notificationPreference(): \Illuminate\Database\Eloquent\Relations\HasOne
@@ -168,7 +176,7 @@ class User extends Authenticatable
     /**
      * Valid user_type values for the standalone political platform.
      */
-    public const ROLES = ['admin', 'politician', 'voter'];
+    public const ROLES = ['admin', 'politician', 'voter', 'citizen'];
 
     /**
      * Scope to admin users.
@@ -195,11 +203,27 @@ class User extends Authenticatable
     }
 
     /**
+     * Scope to citizen users.
+     */
+    public function scopeCitizens($query): void
+    {
+        $query->where('user_type', 'citizen');
+    }
+
+    /**
      * Determine whether the user is an admin.
      */
     public function isAdmin(): bool
     {
         return $this->hasRole('admin') || $this->user_type === 'admin';
+    }
+
+    /**
+     * Determine whether the user is a citizen.
+     */
+    public function isCitizen(): bool
+    {
+        return $this->hasRole('citizen') || $this->user_type === 'citizen';
     }
 
     /**

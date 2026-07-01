@@ -1,0 +1,150 @@
+<?php
+
+namespace App\Models;
+
+use App\Traits\HasProfileBadges;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Support\Str;
+
+/**
+ * A citizen — pays to distribute local/community/ballot-issue content
+ * without the FEC/election-commission burden that applies to Politicians.
+ */
+class Citizen extends Model
+{
+    use HasFactory, HasProfileBadges;
+
+    protected $table = 'citizens';
+
+    protected $fillable = [
+        'user_id',
+        'uuid',
+        'full_name',
+        'business_name',
+        'state',
+        'city',
+        'address_line_1',
+        'address_line_2',
+        'zip',
+        'bio',
+        'profile_photo_url',
+        'is_active',
+        'referral_code',
+        'slug',
+        'referred_by_voter_id',
+        'referred_by_politician_id',
+        'neighborhood_group_id',
+        'stripe_verification_session_id',
+        'stripe_verified_at',
+        'verified_at',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'is_active'          => 'boolean',
+            'stripe_verified_at' => 'datetime',
+            'verified_at'        => 'datetime',
+        ];
+    }
+
+    protected static function boot(): void
+    {
+        parent::boot();
+
+        static::creating(function (Citizen $citizen): void {
+            if (empty($citizen->uuid)) {
+                $citizen->uuid = (string) Str::uuid();
+            }
+            if (empty($citizen->referral_code)) {
+                do {
+                    $code = 'C' . strtoupper(Str::random(7));
+                } while (self::where('referral_code', $code)->exists());
+                $citizen->referral_code = $code;
+            }
+            if (empty($citizen->slug)) {
+                $citizen->slug = static::generateSlug($citizen);
+            }
+        });
+
+        static::updating(function (Citizen $citizen): void {
+            if ($citizen->isDirty(['full_name', 'city']) && ! $citizen->isDirty('slug')) {
+                $citizen->slug = static::generateSlug($citizen);
+            }
+        });
+    }
+
+    /**
+     * Generate a unique slug: {5-char-uuid-prefix}-{seo-readable-name}
+     * e.g. a3f9b-jane-doe-bakery-chicago
+     */
+    public static function generateSlug(Citizen $citizen): string
+    {
+        $uuid   = $citizen->uuid ?: (string) Str::uuid();
+        $prefix = substr($uuid, 0, 5);
+        $name   = $citizen->business_name ?: $citizen->full_name;
+        $city   = $citizen->city ?? '';
+        $base   = Str::slug("{$name} {$city}");
+        $cand   = "{$prefix}-{$base}";
+
+        $counter = 0;
+        $exists = fn(string $s) => static::where('slug', $s)
+            ->when($citizen->id, fn($q) => $q->where('id', '!=', $citizen->id))
+            ->exists();
+
+        while ($exists($cand)) {
+            $counter++;
+            $cand = "{$prefix}-{$base}-{$counter}";
+        }
+        return $cand;
+    }
+
+    public function user(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    /**
+     * The voter who referred this citizen to the platform.
+     */
+    public function voterReferrer(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(Voter::class, 'referred_by_voter_id');
+    }
+
+    /**
+     * The politician who referred this citizen to the platform.
+     */
+    public function politicianReferrer(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(Politician::class, 'referred_by_politician_id');
+    }
+
+    /**
+     * Whether this citizen has completed Stripe identity verification.
+     * Standard/community ad types auto-approve once this is true;
+     * ballot-issue ads always require admin review regardless.
+     */
+    public function isIdentityVerified(): bool
+    {
+        return $this->verified_at !== null;
+    }
+
+    /**
+     * Whether this citizen is eligible to enable the Neighborhood Token
+     * (Sprint 9.5 — MeToken opt-in). Stubbed until neighborhood groups ship.
+     */
+    public function isEligibleForMeToken(): bool
+    {
+        return false;
+    }
+
+    /**
+     * Route model binding key.
+     */
+    public function getRouteKeyName(): string
+    {
+        return 'uuid';
+    }
+}
