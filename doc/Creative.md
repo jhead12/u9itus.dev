@@ -10,7 +10,7 @@ Reference: patterns from `creativeplatform/crtv3` (MeTokens, Livepeer, Story Pro
 |---|---|---|
 | **Phase 19** | Profile Badges + Voter Favorites | ✅ **Completed** (2026-06-30) |
 | Sprint 7 | MeToken subgraph read-only enrichment (governor profiles) | ⏳ Not started |
-| Sprint 7.5 | Citizen role foundation | ⏳ Not started |
+| **Sprint 7.5** | Citizen role foundation | ✅ **Completed** (2026-07-01) |
 | Sprint 8 | Livepeer as selectable `media_type` | ⏳ Not started |
 | Sprint 8.5 | Neighborhood Groups schema + admin UI | ⏳ Not started |
 | Sprint 9 | MeToken opt-in — governor candidates (Sovereign tier) | ⏳ Not started (blocked on legal review) |
@@ -135,7 +135,36 @@ Voters never *choose* Web3 either — they silently get a wallet address (via Ac
 
 **Cost to platform:** $0. **Risk:** minimal — pure enrichment on the existing transparency layer.
 
-### Sprint 7.5 — Citizen Role Foundation
+### ✅ Sprint 7.5 — Citizen Role Foundation (Completed 2026-07-01)
+
+**Branch:** `feature/citizen-role` — merged to `master` (commit `eae359e5`). **475/475 tests passing.**
+
+#### What shipped
+
+- **`citizens` table + `Citizen` model** — UUID, slug, referral code (`C` prefix), `user_id` FK, address fields, `neighborhood_group_id` (nullable placeholder for Sprint 8.5), `verified_at`, `stripe_verified_at`.
+- **`citizen_campaigns` table + `CitizenCampaign` model** — parallel to `political_campaigns` (separate for compliance/audit), plus `citizen_ad_type`, `target_zip`, `target_zip_radius`, `pac_registration_id`, `daily_view_cap` (500 standard, uncapped for ballot issue). Boot hook applies tier-scoped pricing via `PlatformSettingsService`.
+- **`CitizenAdType` enum** — `local_business`, `community_notice`, `ballot_issue`, `general_announcement`.
+- **Tiered pricing via `CitizenTierPricingSeeder`** — `citizen_revenue_per_view` = $0.75, `ballot_issue_revenue_per_view` = $1.00 (namespaced keys; `platform_settings.key` has a standalone unique index).
+- **Registration flow** — `/register/citizen` (address + ad-type selection), `CheckCitizenOnboarding` middleware, `citizen` Spatie role, onboarding bypass (phases empty for 7.5).
+- **Full campaign CRUD** — `CitizenController`: create, store, show, edit, update, destroy, submitForReview + full S3 upload pipeline (`uploadVideo`, `getS3UploadUrl`, `processS3UploadedVideo`) reusing shared `HandlesCampaignVideoUpload` trait (also deduped from `PoliticianController` and `AdminController`).
+- **Form requests** — `CreateCitizenCampaignRequest` (tier-aware pricing, `q_and_a` blocked, PAC ID conditional on ballot issue) + `UpdateCitizenCampaignRequest`.
+- **Blade views** — `citizen/campaigns/{index,create,show,edit}` + updated dashboard with campaign count + CTA.
+- **Admin ballot-issue approval queue** — `AdminController::pendingCampaigns` now unions both political and citizen pending campaigns; `approveCitizenCampaign` / `rejectCitizenCampaign` with separate tab in `campaigns-pending.blade.php`.
+- **Tests** — 26 new tests (`CitizenCampaignCrudTest`, `CitizenCampaignModerationTest`, `CitizenCampaignModelTest`).
+
+#### Deliberately deferred
+
+- Voter watch/earn from citizen campaigns — requires `view_sessions` polymorphism (Phase E).
+- `citizen_credits` ledger + Stripe billing for citizens (Phase F).
+- `CampaignAuditLog` polymorphism — FK currently targets `political_campaigns` only.
+- Mail/notification/broadcast wiring for citizen approval events.
+- Auto-approval for verified non-ballot citizens (Phase F, after Stripe Identity).
+- Public `/c/{slug}` citizen profile directory (Phase G).
+- `neighborhood_groups` table (Sprint 8.5).
+
+---
+
+### Sprint 7.5 — Citizen Role Foundation (original spec)
 
 New user segment: pays to distribute content at smaller scale, without FEC/election-commission burden.
 
