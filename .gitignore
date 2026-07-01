@@ -19,7 +19,7 @@ yarn-error.log
 /.idea
 /.vscode
 database/database.sqlite
-.DS_Store
+*/.DS_Store
 
 # Mobile artifacts (React Native / Android / iOS)
 /mobile/node_modules/
