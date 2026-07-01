@@ -27,6 +27,7 @@ class RoleSeeder extends Seeder
         $adminRole      = Role::firstOrCreate(['name' => 'admin']);
         $politicianRole = Role::firstOrCreate(['name' => 'politician']);
         $voterRole      = Role::firstOrCreate(['name' => 'voter']);
+        $citizenRole    = Role::firstOrCreate(['name' => 'citizen']);
         // Legacy roles kept for backward compatibility
         Role::firstOrCreate(['name' => 'advertiser']);
         Role::firstOrCreate(['name' => 'viewer']);
@@ -35,5 +36,6 @@ class RoleSeeder extends Seeder
         $adminRole->syncPermissions([$manageAssignments->name, $manageCampaigns->name, $viewReports->name]);
         $politicianRole->syncPermissions([$manageCampaigns->name, $viewReports->name]);
         $voterRole->syncPermissions([$watchAds->name]);
+        $citizenRole->syncPermissions([$manageCampaigns->name]);
     }
 }

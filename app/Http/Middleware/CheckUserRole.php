@@ -27,6 +27,7 @@ class CheckUserRole
         'admin'      => 'admin.dashboard',
         'politician' => 'politician.dashboard',
         'voter'      => 'voter.dashboard',
+        'citizen'    => 'citizen.dashboard',
     ];
 
     public function handle(Request $request, Closure $next): Response

@@ -22,6 +22,7 @@ class DashboardController extends Controller
         'admin'      => 'admin.dashboard',
         'politician' => 'politician.dashboard',
         'voter'      => 'voter.dashboard',
+        'citizen'    => 'citizen.dashboard',
     ];
 
     /**

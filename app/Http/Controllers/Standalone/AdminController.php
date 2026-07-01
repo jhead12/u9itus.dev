@@ -7,6 +7,7 @@ use App\Enums\CampaignStatus;
 use App\Enums\PaymentStatus;
 use App\Enums\ViewPaymentStatus;
 use App\Enums\ViewSessionStatus;
+use App\Http\Controllers\Concerns\HandlesCampaignVideoUpload;
 use App\Http\Controllers\Concerns\PaymentModeFilterable;
 use App\Http\Controllers\Controller;
 use App\Jobs\MatchPoliticianToElectionData;
@@ -69,6 +70,7 @@ use Illuminate\Support\Facades\Storage;
  */
 class AdminController extends Controller
 {
+    use HandlesCampaignVideoUpload;
     use PaymentModeFilterable;
 
     // ── SMTP / Mailgun env keys this controller manages ─────────────────────
@@ -155,47 +157,6 @@ class AdminController extends Controller
         }
 
         app(PoliticalPaymentService::class)->chargeCampaign($campaign);
-    }
-
-    /**
-     * Store a campaign video on the configured disk and return its public URL.
-     */
-    private function storeCampaignVideoAndGetUrl(UploadedFile $video, PoliticalCampaign $campaign): ?string
-    {
-        $disk = (string) config('filesystems.default', 'local');
-        $disks = (array) config('filesystems.disks', []);
-
-        if (! array_key_exists($disk, $disks)) {
-            Log::error('Admin campaign video upload failed: filesystem disk is not configured', [
-                'campaign_id' => $campaign->id,
-                'disk' => $disk,
-            ]);
-
-            return null;
-        }
-
-        try {
-            $path = $video->store("campaigns/{$campaign->id}/video", $disk);
-
-            if (! is_string($path) || $path === '') {
-                Log::error('Admin campaign video upload failed: storage returned empty path', [
-                    'campaign_id' => $campaign->id,
-                    'disk' => $disk,
-                ]);
-
-                return null;
-            }
-
-            return Storage::disk($disk)->url($path);
-        } catch (\Throwable $e) {
-            Log::error('Admin campaign video upload failed with exception', [
-                'campaign_id' => $campaign->id,
-                'disk' => $disk,
-                'error' => $e->getMessage(),
-            ]);
-
-            return null;
-        }
     }
 
     /**
@@ -420,7 +381,59 @@ class AdminController extends Controller
             ->latest()
             ->paginate(20);
 
-        return view('standalone.admin.campaigns-pending', compact('campaigns'));
+        $citizenCampaigns = \App\Models\CitizenCampaign::with('citizen.user')
+            ->where('approval_status', 'pending')
+            ->latest()
+            ->paginate(20);
+
+        return view('standalone.admin.campaigns-pending', compact('campaigns', 'citizenCampaigns'));
+    }
+
+    /**
+     * Approve a citizen campaign (ballot-issue queue).
+     *
+     * Deliberately separate from approveCampaign (political) so the two
+     * moderation queues remain independent for compliance auditing.
+     * Mail/notification/broadcast wiring is deferred to Phase F.
+     */
+    public function approveCitizenCampaign(\App\Models\CitizenCampaign $campaign)
+    {
+        $newStatus = ($campaign->scheduled_start_at && $campaign->scheduled_start_at->isFuture())
+            ? CampaignStatus::Scheduled->value
+            : CampaignStatus::Active->value;
+
+        $campaign->update([
+            'approval_status' => ApprovalStatus::Approved->value,
+            'status'          => $newStatus,
+            'approved_at'     => now(),
+            'started_at'      => $newStatus === CampaignStatus::Active->value ? now() : null,
+        ]);
+
+        // Note: CampaignAuditLog.campaign_id FK targets political_campaigns only.
+        // Citizen campaign audit logging deferred to Phase F (polymorphic audit table).
+
+        return back()->with('success', 'Citizen campaign "' . $campaign->title . '" has been approved.');
+    }
+
+    /**
+     * Reject a citizen campaign (ballot-issue queue).
+     */
+    public function rejectCitizenCampaign(Request $request, \App\Models\CitizenCampaign $campaign)
+    {
+        $request->validate([
+            'reason' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $campaign->update([
+            'approval_status'  => ApprovalStatus::Rejected->value,
+            'status'           => CampaignStatus::Draft->value,
+            'rejection_reason' => $request->input('reason', 'Does not meet content guidelines.'),
+        ]);
+
+        // Note: CampaignAuditLog.campaign_id FK targets political_campaigns only.
+        // Citizen campaign audit logging deferred to Phase F (polymorphic audit table).
+
+        return back()->with('success', 'Citizen campaign "' . $campaign->title . '" has been rejected.');
     }
 
     /**

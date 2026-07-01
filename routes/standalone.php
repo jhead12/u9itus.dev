@@ -11,6 +11,7 @@
 
 use App\Http\Controllers\Standalone\AuthController;
 use App\Http\Controllers\Standalone\BadgeController;
+use App\Http\Controllers\Standalone\CitizenController;
 use App\Http\Controllers\Standalone\DashboardController;
 use App\Http\Controllers\Standalone\FavoriteController;
 use App\Http\Controllers\Standalone\PoliticianController;
@@ -52,6 +53,10 @@ Route::middleware('guest')->group(function () {
     // Voter registration
     Route::get('/register/voter', [AuthController::class, 'showRegisterVoter'])->name('register.voter');
     Route::post('/register/voter', [AuthController::class, 'registerVoter'])->name('register.voter.submit');
+
+    // Citizen registration
+    Route::get('/register/citizen', [AuthController::class, 'showRegisterCitizen'])->name('register.citizen');
+    Route::post('/register/citizen', [AuthController::class, 'registerCitizen'])->name('register.citizen.submit');
 
     // Registration closed — mailing list capture (always accessible regardless of registration_open flag)
     Route::get('/register/closed', [AuthController::class, 'showRegisterClosed'])->name('register.closed');
@@ -346,7 +351,31 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         Route::post('/favorites/{politicianId}', [FavoriteController::class, 'store'])->name('favorites.store');
         Route::delete('/favorites/{politicianId}', [FavoriteController::class, 'destroy'])->name('favorites.destroy');
     });
-    
+
+    /*
+    |--------------------------------------------------------------------------
+    | Citizen Dashboard
+    |--------------------------------------------------------------------------
+    */
+    Route::prefix('citizen')->name('citizen.')->middleware(['role:citizen', 'check.citizen.onboarding'])->group(function () {
+        Route::get('/dashboard', [CitizenController::class, 'dashboard'])->name('dashboard');
+
+        // Campaign CRUD
+        Route::get('/campaigns', [CitizenController::class, 'campaigns'])->name('campaigns.index');
+        Route::get('/campaigns/create', [CitizenController::class, 'createCampaign'])->name('campaigns.create');
+        Route::post('/campaigns', [CitizenController::class, 'storeCampaign'])->name('campaigns.store');
+        Route::get('/campaigns/{campaign}', [CitizenController::class, 'showCampaign'])->name('campaigns.show');
+        Route::get('/campaigns/{campaign}/edit', [CitizenController::class, 'editCampaign'])->name('campaigns.edit');
+        Route::put('/campaigns/{campaign}', [CitizenController::class, 'updateCampaign'])->name('campaigns.update');
+        Route::delete('/campaigns/{campaign}', [CitizenController::class, 'destroyCampaign'])->name('campaigns.destroy');
+        Route::post('/campaigns/{campaign}/submit-review', [CitizenController::class, 'submitForReview'])->name('campaigns.submit-review');
+
+        // Video uploads (shared S3 pipeline)
+        Route::post('/campaigns/{campaign}/upload-video', [CitizenController::class, 'uploadVideo'])->name('campaigns.upload-video');
+        Route::post('/campaigns/{campaign}/s3-upload-url', [CitizenController::class, 'getS3UploadUrl'])->name('campaigns.s3-upload-url');
+        Route::post('/campaigns/{campaign}/process-s3-video', [CitizenController::class, 'processS3UploadedVideo'])->name('campaigns.process-s3-video');
+    });
+
     /*
     |--------------------------------------------------------------------------
     | Admin Dashboard & Management
@@ -355,12 +384,16 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
     Route::prefix('admin')->name('admin.')->middleware(['role:admin', 'check.admin.onboarding', 'admin.2fa'])->group(function () {
         Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
         
-        // Campaign Approval
+        // Campaign Approval (political campaigns)
         Route::get('/campaigns/pending', [AdminController::class, 'pendingCampaigns'])->name('campaigns.pending');
         Route::get('/campaigns/running', [AdminController::class, 'runningCampaigns'])->name('campaigns.running');
         Route::post('/campaigns/bulk-action', [AdminController::class, 'bulkCampaignAction'])->name('campaigns.bulk-action');
         Route::post('/campaigns/{campaign}/approve', [AdminController::class, 'approveCampaign'])->name('campaigns.approve');
         Route::post('/campaigns/{campaign}/reject', [AdminController::class, 'rejectCampaign'])->name('campaigns.reject');
+
+        // Citizen Campaign Approval (ballot-issue queue — separate from political for compliance)
+        Route::post('/citizen-campaigns/{campaign}/approve', [AdminController::class, 'approveCitizenCampaign'])->name('citizen-campaigns.approve');
+        Route::post('/citizen-campaigns/{campaign}/reject', [AdminController::class, 'rejectCitizenCampaign'])->name('citizen-campaigns.reject');
 
         // Campaign Editing (admin can edit any campaign)
         Route::get('/campaigns/{campaign}/edit', [AdminController::class, 'editCampaign'])->name('campaigns.edit');
