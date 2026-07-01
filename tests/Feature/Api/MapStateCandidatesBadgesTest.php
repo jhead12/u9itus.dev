@@ -102,14 +102,15 @@ class MapStateCandidatesBadgesTest extends TestCase
     public function test_scraped_candidates_without_a_platform_profile_have_empty_badges(): void
     {
         \App\Models\ElectionCandidateRecord::create([
-            'full_name'         => 'Jane Scraped Candidate',
-            'political_office'  => 'Secretary of State',
-            'party_affiliation' => 'Independent',
-            'state'             => 'NY',
-            'governance_level'  => 'state',
-            'election_date'     => now()->addMonths(6)->toDateString(),
-            'source'            => 'ballotpedia',
-            'payload'           => ['status' => 'running'],
+            'source'                 => 'ballotpedia',
+            'external_candidate_id'  => 'jane-scraped-candidate-ny',
+            'full_name'              => 'Jane Scraped Candidate',
+            'political_office'       => 'Secretary of State',
+            'party_affiliation'      => 'Independent',
+            'state'                  => 'NY',
+            'governance_level'       => 'state',
+            'election_date'          => now()->addMonths(6)->toDateString(),
+            'payload'                => ['status' => 'running'],
         ]);
 
         $response = $this->getJson('/api/v1/map/state-candidates?state=NY');
