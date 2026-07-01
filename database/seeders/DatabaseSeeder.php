@@ -19,6 +19,7 @@ class DatabaseSeeder extends Seeder
             RoleSeeder::class,
             AdminUserSeeder::class,
             PoliticianCampaignSeeder::class,
+            CitizenTierPricingSeeder::class,
         ]);
     }
 }

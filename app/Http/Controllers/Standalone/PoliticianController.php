@@ -6,6 +6,7 @@ use App\Enums\ApprovalStatus;
 use App\Enums\CampaignStatus;
 use App\Enums\CampaignType;
 use App\Enums\PaymentStatus;
+use App\Http\Controllers\Concerns\HandlesCampaignVideoUpload;
 use App\Http\Controllers\Concerns\PaymentModeFilterable;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CreateCampaignRequest;
@@ -42,6 +43,7 @@ use Throwable;
  */
 class PoliticianController extends Controller
 {
+    use HandlesCampaignVideoUpload;
     use PaymentModeFilterable;
 
     private function inferMediaTypeFromUrl(?string $url, ?string $fallback = null): ?string
@@ -109,51 +111,6 @@ class PoliticianController extends Controller
             ]);
 
             return collect();
-        }
-    }
-
-    /**
-     * Store a campaign video on the configured disk and return its canonical URL.
-     *
-     * Persisting long temporary signed URLs can overflow the media_url column, so we
-     * store the stable disk URL here and only generate temporary signed URLs when
-     * rendering for playback.
-     */
-    private function storeCampaignVideoAndGetUrl(UploadedFile $video, PoliticalCampaign $campaign): ?string
-    {
-        $disk = (string) config('filesystems.default', 'local');
-        $disks = (array) config('filesystems.disks', []);
-
-        if (! array_key_exists($disk, $disks)) {
-            Log::error('Campaign video upload failed: filesystem disk is not configured', [
-                'campaign_id' => $campaign->id,
-                'disk' => $disk,
-            ]);
-
-            return null;
-        }
-
-        try {
-            $path = $video->store("campaigns/{$campaign->id}/video", $disk);
-
-            if (! is_string($path) || $path === '') {
-                Log::error('Campaign video upload failed: storage returned empty path', [
-                    'campaign_id' => $campaign->id,
-                    'disk' => $disk,
-                ]);
-
-                return null;
-            }
-
-            return Storage::disk($disk)->url($path);
-        } catch (Throwable $e) {
-            Log::error('Campaign video upload failed with exception', [
-                'campaign_id' => $campaign->id,
-                'disk' => $disk,
-                'error' => $e->getMessage(),
-            ]);
-
-            return null;
         }
     }
 

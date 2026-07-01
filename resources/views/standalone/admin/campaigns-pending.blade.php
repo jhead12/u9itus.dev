@@ -242,5 +242,95 @@
         @endif
     </div>
 
-</div>
-@endsection
+    {{-- ── Citizen Ballot-Issue Campaigns ─────────────────────────────── --}}
+    <div class="bg-slate-800/50 border border-amber-500/20 rounded-xl overflow-hidden">
+        <div class="px-5 py-4 border-b border-amber-500/20">
+            <h3 class="text-sm font-semibold text-white">Citizen Campaigns — Ballot Issue</h3>
+            <p class="text-xs text-slate-500 mt-0.5">
+                {{ $citizenCampaigns->total() }} ballot-issue campaign(s) awaiting review
+                · PAC registration required · $1.00/view pricing
+            </p>
+        </div>
+
+        @if($citizenCampaigns->isEmpty())
+        <div class="px-5 py-10 text-center">
+            <p class="text-sm text-slate-500">No citizen ballot-issue campaigns pending approval.</p>
+        </div>
+        @else
+        <div class="divide-y divide-slate-700/30">
+            @foreach($citizenCampaigns as $campaign)
+            @php
+                $adTypeLabels = [
+                    'local_business' => 'Local Business', 'community_notice' => 'Community Notice',
+                    'ballot_issue' => 'Ballot Issue', 'general_announcement' => 'General Announcement',
+                ];
+                $rawAdType = $campaign->getRawOriginal('citizen_ad_type') ?? $campaign->citizen_ad_type?->value ?? '';
+            @endphp
+            <div class="px-5 py-4 space-y-3">
+                <div class="flex flex-col sm:flex-row sm:items-start gap-4">
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <h4 class="text-sm font-semibold text-white">{{ $campaign->title }}</h4>
+                            <span class="text-xs px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                                {{ $adTypeLabels[$rawAdType] ?? $rawAdType }}
+                            </span>
+                        </div>
+                        <p class="text-xs text-slate-400 mt-0.5">
+                            {{ $campaign->citizen?->full_name ?? '—' }}
+                            @if($campaign->citizen?->city) · {{ $campaign->citizen->city }}, {{ $campaign->citizen->state }} @endif
+                        </p>
+                        <div class="flex items-center gap-3 mt-1 text-xs text-slate-500 flex-wrap">
+                            <span>{{ number_format($campaign->total_views_requested) }} views requested</span>
+                            <span>·</span>
+                            <span>${{ number_format($campaign->total_budget, 2) }} budget</span>
+                            <span>·</span>
+                            <span>ZIP {{ $campaign->target_zip }}{{ $campaign->target_zip_radius ? ' ±' . $campaign->target_zip_radius . 'mi' : '' }}</span>
+                        </div>
+                        @if($campaign->pac_registration_id)
+                        <p class="text-xs text-amber-300 mt-1">
+                            <span class="font-medium">PAC ID:</span> {{ $campaign->pac_registration_id }}
+                        </p>
+                        @else
+                        <p class="text-xs text-red-400 mt-1">⚠ No PAC registration ID on file</p>
+                        @endif
+                        @if($campaign->message_summary)
+                        <p class="text-xs text-slate-400 mt-2 line-clamp-2">{{ $campaign->message_summary }}</p>
+                        @endif
+                    </div>
+                    <div class="flex gap-2 shrink-0">
+                        <form method="POST" action="{{ route('admin.citizen-campaigns.approve', $campaign) }}">
+                            @csrf
+                            <button type="submit"
+                                class="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-white text-xs font-semibold transition">
+                                Approve
+                            </button>
+                        </form>
+                    </div>
+                </div>
+                {{-- Reject form --}}
+                <div class="bg-slate-900/40 border border-slate-700/30 rounded-lg p-3" x-data="{ open: false }">
+                    <button @click="open = !open" type="button"
+                        class="text-xs text-red-400 hover:text-red-300 transition font-medium">
+                        Reject this campaign
+                    </button>
+                    <form x-show="open" x-cloak method="POST"
+                          action="{{ route('admin.citizen-campaigns.reject', $campaign) }}"
+                          class="mt-3 space-y-2">
+                        @csrf
+                        <textarea name="reason" rows="2" maxlength="500" placeholder="Rejection reason (optional)..."
+                            class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-3 py-2 text-white text-xs placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-red-500/40 resize-none"></textarea>
+                        <button type="submit"
+                            class="px-4 py-2 rounded-lg bg-red-500 hover:bg-red-400 text-white text-xs font-semibold transition">
+                            Confirm Reject
+                        </button>
+                    </form>
+                </div>
+            </div>
+            @endforeach
+        </div>
+        <div class="px-5 py-4 border-t border-slate-700/50">
+            {{ $citizenCampaigns->links() }}
+        </div>
+        @endif
+    </div>
+

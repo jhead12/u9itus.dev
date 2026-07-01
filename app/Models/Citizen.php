@@ -121,6 +121,11 @@ class Citizen extends Model
         return $this->belongsTo(Politician::class, 'referred_by_politician_id');
     }
 
+    public function campaigns(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(CitizenCampaign::class);
+    }
+
     /**
      * Whether this citizen has completed Stripe identity verification.
      * Standard/community ad types auto-approve once this is true;

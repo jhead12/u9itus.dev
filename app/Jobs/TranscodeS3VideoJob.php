@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Models\CitizenCampaign;
 use App\Models\PoliticalCampaign;
 use App\Services\VideoTranscodingService;
 use Illuminate\Bus\Queueable;
@@ -25,7 +26,7 @@ class TranscodeS3VideoJob implements ShouldQueue
      * Create a new job instance.
      */
     public function __construct(
-        public PoliticalCampaign $campaign,
+        public PoliticalCampaign|CitizenCampaign $campaign,
         public string $sourceS3Path,
         public string $destinationS3Path,
     ) {}
