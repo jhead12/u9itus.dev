@@ -182,6 +182,20 @@
                         <p class="pp-body">
                             We use Stripe for risk and identity verification services. We share personally identifying information with Stripe, which analyzes and uses it to operate and improve the services it provides to us, including for risk evaluation and identity verification. You can learn more about Stripe and read its privacy policy <a href="https://stripe.com/privacy" target="_blank" rel="noopener noreferrer" class="text-emerald-400 hover:text-emerald-300 underline">here</a>.
                         </p>
+
+                        <div class="bg-slate-900/50 border border-emerald-500/20 rounded-lg p-5 space-y-3">
+                            <p class="text-emerald-300 text-sm font-semibold">Google Analytics</p>
+                            <p class="pp-body">
+                                We use Google Tag Manager to manage and deploy analytics and marketing scripts on our website. Google Tag Manager itself does not collect personal data, but the tags it deploys (such as Google Analytics) may.
+                            </p>
+                            <p class="pp-body">
+                                We use Google Analytics to understand how visitors interact with our website. Google Analytics collects information such as how often you visit, which pages you view, and what site you came from. Google may use this data to personalize ads across its network. We do not upload any personally identifiable information (such as names or email addresses) to Google Analytics.
+                            </p>
+                            <p class="pp-body">
+                                You can opt out of Google Analytics tracking by installing the <a href="https://tools.google.com/dlpage/gaoptout" target="_blank" rel="noopener noreferrer" class="text-emerald-400 hover:text-emerald-300 underline">Google Analytics Opt-out Browser Add-on</a>. For more information, see <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" class="text-emerald-400 hover:text-emerald-300 underline">Google's Privacy Policy</a>.
+                            </p>
+                        </div>
+
                         <p class="pp-body">
                             As part of such engagements, if you initiate a transaction on the Site or through the Services, Head Enterprises, et al may give such third parties access to your pertinent credit card and other personal information.
                         </p>
