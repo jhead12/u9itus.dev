@@ -97,7 +97,9 @@ class Politician extends Model
             'show_opensecrets_data' => 'boolean',
             'show_votesmart_data' => 'boolean',
             'show_fec_data' => 'boolean',
-            'video_links'          => 'array',
+            // video_links is intentionally NOT cast to 'array' here.
+            // Some imported records contain non-JSON values that cause JsonException
+            // on access. Use the getVideoLinksAttribute accessor instead.
             'claim_requested_at'   => 'datetime',
         ];
     }
@@ -303,6 +305,23 @@ class Politician extends Model
     /**
      * Return the page config, creating one with defaults if it doesn't exist yet.
      */
+    /**
+     * Safe accessor for video_links — returns [] instead of throwing on bad JSON.
+     */
+    public function getVideoLinksAttribute(): array
+    {
+        $raw = $this->getRawOriginal('video_links');
+        if ($raw === null || $raw === '' || $raw === 'null') {
+            return [];
+        }
+        try {
+            $decoded = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
+            return is_array($decoded) ? $decoded : [];
+        } catch (\JsonException) {
+            return [];
+        }
+    }
+
     public function getOrCreatePage(): PoliticianPage
     {
         return $this->page ?? PoliticianPage::create(PoliticianPage::defaults($this->id));
