@@ -2666,35 +2666,51 @@ window.__mapGoTo = async function (state, district = null, slug = null) {
 
     await enterStateMode(stateName, mesh.userData.regionName, mesh.userData.region);
 
-    // If a district was provided, highlight it after the state panel settles
+    // Helper: poll the panel until a [data-slug] card appears, then click it.
+    // Starts polling immediately; gives up after `maxMs` ms.
+    function _openSlugCard(slugVal, maxMs) {
+        let waited = 0;
+        const tryOpen = setInterval(() => {
+            waited += 150;
+            const card = document.querySelector(`[data-slug="${slugVal}"]`);
+            if (card) {
+                clearInterval(tryOpen);
+                // Scroll card into view then click to open the drawer
+                card.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                card.click();
+            }
+            if (waited >= maxMs) clearInterval(tryOpen);
+        }, 150);
+    }
+
+    // If a district was provided, highlight it after the state panel settles,
+    // then start the slug poll once the district is selected (so candidates
+    // have time to render before we try to click).
     if (district) {
         const target = String(district).padStart(2, '0');
-        // Wait up to 2s for district meshes to load, then select
         let waited = 0;
         const trySelect = setInterval(() => {
             waited += 100;
             const dm = districtMeshes.find(m => String(m.userData.district).padStart(2, '0') === target);
             if (dm) {
                 clearInterval(trySelect);
-                // Simulate a click on the district mesh
                 dm.dispatchEvent(new CustomEvent('select'));
                 flyToDistrictTopDown(dm);
                 dm.material.color.setHex(dm.userData.hoverColor || 0xffffff);
+                // Start slug poll AFTER district is selected — candidates
+                // load asynchronously so give up to 6s from this point.
+                if (slug) _openSlugCard(slug, 6000);
             }
-            if (waited >= 2000) clearInterval(trySelect);
+            if (waited >= 2000) {
+                clearInterval(trySelect);
+                // District mesh never appeared; still try the slug against
+                // whatever candidates are already in the state panel.
+                if (slug) _openSlugCard(slug, 4000);
+            }
         }, 100);
-    }
-
-    // If a politician slug was provided, auto-open their profile card
-    // by finding their name in the panel and clicking it
-    if (slug) {
-        let waited = 0;
-        const tryOpen = setInterval(() => {
-            waited += 150;
-            const link = document.querySelector(`[data-slug="${slug}"], a[href*="${slug}"]`);
-            if (link) { clearInterval(tryOpen); link.click(); }
-            if (waited >= 3000) clearInterval(tryOpen);
-        }, 150);
+    } else if (slug) {
+        // No district — slug poll against the state-level candidate list.
+        _openSlugCard(slug, 5000);
     }
 };
 
@@ -3455,10 +3471,13 @@ function openCandidatePopup(c, color, anchorEl) {
 
 function renderCandidate(c, color) {
     color = color || '#6366f1';
-    // On image load failure, swap to initials SVG rather than a broken icon.
-    const _initSvg36 = avatarInitials(c.full_name, color, 36).replace(/'/g, "\\'");
+    // On image load failure, call avatarInitials() at runtime so the SVG's
+    // double-quoted attributes never appear inside a double-quoted HTML attribute
+    // (which would terminate the attribute early and leak SVG markup as visible text).
+    const _nameEsc  = (c.full_name || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    const _colorEsc = color.replace(/'/g, '');
     const av = c.photo
-        ? `<img class="candidate-avatar" src="${c.photo}" loading="lazy" alt="${c.full_name}" onerror="this.outerHTML='<span class=\\'candidate-avatar-placeholder\\'>${_initSvg36}</span>'">`
+        ? `<img class="candidate-avatar" src="${c.photo}" loading="lazy" alt="${c.full_name}" onerror="this.outerHTML='<span class=\\'candidate-avatar-placeholder\\'>' + avatarInitials('${_nameEsc}', '${_colorEsc}', 36) + '</span>'">`
         : `<span class="candidate-avatar-placeholder">${avatarInitials(c.full_name, color, 36)}</span>`;
     const py = c.party  ? `<span class="party-pill ${partyClass(c.party)}">${c.party}</span>` : '';
     // Format next election date if available
