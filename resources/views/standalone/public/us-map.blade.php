@@ -3472,6 +3472,21 @@ function renderCandidate(c, color) {
         : '';
     const st = c.status === 'seated' ? `<span class="status-seated">● Seated</span>` : c.is_running ? `<span class="status-running">● Running 2026</span>${elBadge}` : '';
     const vf = c.verified ? `<span class="verified-badge">✓ Verified</span>` : '';
+    // Badge chips — show up to 3, reuse the renderProfileBadges chip style
+    const badgeRow = (c.badges && c.badges.length)
+        ? (() => {
+            const chips = c.badges.slice(0, 3).map(b => {
+                const bc = b.color || color;
+                const icon = b.icon
+                    ? (/^https?:\/\//.test(b.icon) || b.icon.startsWith('/')
+                        ? `<img src="${b.icon}" alt="" style="width:10px;height:10px;object-fit:contain;">`
+                        : `<span>${b.icon}</span>`)
+                    : '';
+                return `<span style="background:${bc}22;border:1px solid ${bc}55;color:${bc};display:inline-flex;align-items:center;gap:3px;padding:1px 6px;border-radius:999px;font-size:9px;font-weight:600;white-space:nowrap;">${icon}${b.name || ''}</span>`;
+            }).join('');
+            return `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:5px;">${chips}</div>`;
+        })()
+        : '';
     // Encode candidate data on the whole card so the full row is clickable
     const popupData = JSON.stringify({ ...c, color });
     // Extract slug from profile_url so __mapGoTo deep-link can auto-open this card
@@ -3489,6 +3504,7 @@ function renderCandidate(c, color) {
         <div style="flex:1;min-width:0;">
             <div class="candidate-name">${c.full_name}</div>
             <div class="candidate-meta">${py}${st}${vf}</div>
+            ${badgeRow}
         </div></div>`;
 }
 
