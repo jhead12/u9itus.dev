@@ -829,8 +829,9 @@
         </section>
         @endif
 
-        {{-- Sprint 4: Dig Deeper research section --}}
-        @if(!empty($digDeeperData['panels'] ?? []))
+        {{-- Sprint 4: Dig Deeper research section
+             (Sprint 7: also shown when only meToken data is present) --}}
+        @if(!empty($digDeeperData['panels'] ?? []) || !empty($meTokenData ?? null))
         <section id="dig-deeper">
             <div class="flex items-end justify-between gap-4 mb-4">
                 <div>
@@ -845,7 +846,7 @@
                 <div class="text-right">
                     <p class="text-xs text-slate-400">Sources available</p>
                     <p class="text-sm font-semibold text-white">
-                        {{ $digDeeperData['available_sources_count'] }} / {{ $digDeeperData['enabled_sources_count'] }}
+                        {{ $digDeeperData['available_sources_count'] ?? 0 }} / {{ $digDeeperData['enabled_sources_count'] ?? 0 }}
                     </p>
                 </div>
             </div>
@@ -892,6 +893,11 @@
                     @endif
                 </article>
                 @endforeach
+
+                {{-- Sprint 7 — MeToken read-only transparency panel --}}
+                @if(!empty($meTokenData ?? null))
+                    @include('standalone.public.partials.metoken-panel', ['data' => $meTokenData])
+                @endif
             </div>
         </section>
         @endif
@@ -1123,27 +1129,13 @@
             $topDonors   = $donorData['sections']['top_contributors']['items'] ?? [];
             $topIndustries = $donorData['sections']['top_industries']['items'] ?? [];
             $fecSummary  = $fecData['sections']['summary'] ?? null;
-            $pacTags     = $pacAffiliations ?? [];
         @endphp
-        @if(!empty($topDonors) || !empty($topIndustries) || $fecSummary || !empty($pacTags))
+        @if(!empty($topDonors) || !empty($topIndustries) || $fecSummary)
         <section>
             <h2 class="text-xl font-bold text-white mb-4 flex items-center gap-2">
                 <span class="w-1 h-6 rounded-full inline-block" style="background:var(--p13-accent,#f59e0b)"></span>
                 Follow the Money
             </h2>
-
-            {{-- PAC affiliation tags (e.g. AIPAC / Pro-Israel) --}}
-            @if(!empty($pacTags))
-            <div class="flex flex-wrap gap-2 mb-4">
-                @foreach($pacTags as $tag)
-                <span class="inline-flex items-center gap-1.5 bg-amber-900/30 border border-amber-700/50 text-amber-300 text-xs font-medium px-3 py-1.5 rounded-full"
-                      title="Matched contributor: {{ $tag['matched_name'] ?? '' }}{{ !empty($tag['total']) ? ' (' . $tag['total'] . ')' : '' }}">
-                    🏷️ {{ $tag['label'] ?? ($tag['group'] ?? 'PAC') }}
-                </span>
-                @endforeach
-            </div>
-            @endif
-
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
                 {{-- FEC totals banner --}}

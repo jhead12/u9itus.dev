@@ -918,21 +918,6 @@ class PublicProfileController extends Controller
      */
     public function show(Request $request, string $slug)
     {
-        try {
-            return $this->doShow($request, $slug);
-        } catch (\Throwable $e) {
-            Log::error('Public profile 500', [
-                'slug'  => $slug,
-                'error' => $e->getMessage(),
-                'file'  => $e->getFile() . ':' . $e->getLine(),
-                'trace' => collect(explode("\n", $e->getTraceAsString()))->take(10)->implode("\n"),
-            ]);
-            abort(500);
-        }
-    }
-
-    protected function doShow(Request $request, string $slug)
-    {
         $politician = $this->resolvePublicPolitician($slug);
 
         // If still not found, throw 404
@@ -1007,9 +992,11 @@ class PublicProfileController extends Controller
         $transparencyData = $this->buildTransparencyData($politician);
         $digDeeperData = $this->buildDigDeeperData($politician, $transparencyData);
 
-        // PAC affiliation tags (e.g. "AIPAC / Pro-Israel") derived from donor snapshot
-        // enrichment. Shown alongside the "Follow the Money" transparency data.
-        $pacAffiliations = $politician->donorSnapshot?->pac_affiliations ?? [];
+        // Sprint 7 — MeToken subgraph enrichment (read-only, gated).
+        // Only fetched when the platform kill-switch is on, the politician is
+        // eligible for the Sovereign (MeToken) tier, and an address is set.
+        // Any failure returns null; the panel silently disappears.
+        $meTokenData = $this->buildMeTokenData($request, $politician);
 
         // Load candidate record (e.g. congress_legislators import) to show term/election status
         $termInfo = null;
@@ -1088,7 +1075,7 @@ class PublicProfileController extends Controller
             'initiatives',
             'transparencyData',
             'digDeeperData',
-            'pacAffiliations',
+            'meTokenData',
             'termInfo',
             'ogTitle',
             'ogDescription',
@@ -1100,6 +1087,53 @@ class PublicProfileController extends Controller
             'activeProviders',
             'articlesJson'
         ));
+    }
+
+    /**
+     * Sprint 7 — Build the read-only MeToken subgraph panel payload for a
+     * politician, or return null when the panel should be omitted.
+     *
+     * Panel is omitted when any of the following are true:
+     *   - PlatformSetting `web3_features_enabled` is off (default)
+     *   - Politician is not eligible for the Sovereign (MeToken) tier
+     *   - Neither wallet_address nor metoken_address is populated
+     *   - The subgraph fetch fails or returns no data
+     *
+     * Admins may append `?refresh=1` to bust the service cache once per hit.
+     *
+     * @return array<string, mixed>|null
+     */
+    protected function buildMeTokenData(Request $request, Politician $politician): ?array
+    {
+        $enabled = \App\Services\PlatformSettingsService::get('web3_features_enabled', null, false);
+        if (! $enabled) {
+            return null;
+        }
+
+        if (! $politician->isEligibleForMeToken()) {
+            return null;
+        }
+
+        if (empty($politician->wallet_address) && empty($politician->metoken_address)) {
+            return null;
+        }
+
+        $user = auth()->user();
+        $forceRefresh = $request->boolean('refresh')
+            && $user
+            && method_exists($user, 'hasRole')
+            && $user->hasRole('admin');
+
+        try {
+            return app(\App\Services\Web3\MeTokenSubgraphService::class)
+                ->fetchForPolitician($politician, $forceRefresh);
+        } catch (\Throwable $e) {
+            Log::warning('MeToken panel build failed', [
+                'politician_id' => $politician->id,
+                'error'         => $e->getMessage(),
+            ]);
+            return null;
+        }
     }
 
     protected function resolvePublicPolitician(string $slug): ?Politician

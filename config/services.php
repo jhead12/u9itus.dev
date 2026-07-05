@@ -162,4 +162,19 @@ return [
         'model'   => env('ANTHROPIC_ENRICH_MODEL', 'claude-haiku-4-5'),
     ],
 
+    // Sprint 7 — MeToken subgraph (Goldsky public endpoint) for read-only
+    // on-chain loyalty stats on eligible politician profiles.
+    // Kill-switched by the `web3_features_enabled` platform setting.
+    'metokens' => [
+        'subgraph_url' => env(
+            'METOKENS_SUBGRAPH_URL',
+            'https://api.goldsky.com/api/public/project_cmh0iv6s500dbw2p22vsxcfo6/subgraphs/metokens/1.0.2/gn'
+        ),
+        // Cache TTL in seconds; defaults to 24 h. Admin-only ?refresh=1 on
+        // the politician public profile can bust this on demand.
+        'cache_ttl' => (int) env('METOKENS_SUBGRAPH_CACHE_TTL', 86400),
+        // Basescan token URL prefix — user-facing verification link.
+        'basescan_prefix' => env('METOKENS_BASESCAN_PREFIX', 'https://basescan.org/token/'),
+    ],
+
 ];

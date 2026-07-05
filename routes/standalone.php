@@ -297,6 +297,9 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         // Phase 19 — Profile Badges
         Route::post('/badges/{topicId}', [BadgeController::class, 'politicianStore'])->name('badges.store');
         Route::delete('/badges/{topicId}', [BadgeController::class, 'politicianDestroy'])->name('badges.destroy');
+
+        // ── Interactive Map (portal-embedded) ────────────────────────────────
+        Route::get('/map', fn() => view('standalone.politician.map'))->name('map');
     });
     
     /*
@@ -363,6 +366,9 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         // ── Citizen profile upgrade (add Citizen role to existing voter account) ──
         Route::get('/add-citizen-profile', [VoterController::class, 'showAddCitizenProfile'])->name('add-citizen-profile');
         Route::post('/add-citizen-profile', [VoterController::class, 'addCitizenProfile'])->name('add-citizen-profile.submit');
+
+        // ── Interactive Map (portal-embedded) ────────────────────────────────
+        Route::get('/map', fn() => view('standalone.voter.map'))->name('map');
     });
 
     /*
