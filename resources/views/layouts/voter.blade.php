@@ -19,6 +19,8 @@
         .sidebar-scroll { scrollbar-width: none; }
         .sidebar-scroll::-webkit-scrollbar { display: none; }
     </style>
+
+    @stack('styles')
 </head>
 <body class="bg-slate-900 text-white antialiased">
 
