@@ -5,20 +5,50 @@
 
 @push('styles')
 <style>
-    /* Remove padding so the iframe fills the content area edge-to-edge */
-    #politician-map-wrapper { display: flex; flex-direction: column; height: calc(100vh - 4rem); }
-    #politician-map-iframe  { flex: 1; width: 100%; border: none; display: block; }
+    /*
+     * Pin the iframe to the exact usable viewport area.
+     * Header is h-16 (64px). Sidebar is w-64 (256px) on lg+ and hidden on mobile.
+     * Fixed positioning takes it out of the normal scroll flow so the
+     * layout's flex chain does not clip or constrain the map.
+     */
+    #politician-map-iframe {
+        position: fixed;
+        top: 64px;    /* below sticky header */
+        left: 0;
+        right: 0;
+        bottom: 0;
+        width: 100%;
+        height: calc(100dvh - 64px);
+        border: none;
+        display: block;
+        z-index: 10;  /* below header (z-30) and mobile sidebar overlay (z-40) */
+    }
+
+    /* On desktop the sidebar is 256px wide — shift iframe to the right of it */
+    @media (min-width: 1024px) {
+        #politician-map-iframe {
+            left: 256px;
+            width: calc(100% - 256px);
+        }
+    }
+
+    /* Placeholder keeps layout flow intact */
+    #politician-map-placeholder {
+        height: calc(100dvh - 64px);
+        pointer-events: none;
+    }
 </style>
 @endpush
 
 @section('content')
-<div id="politician-map-wrapper">
-    <iframe
-        id="politician-map-iframe"
-        src="{{ url('/map') }}"
-        title="U.S. Interactive Map"
-        allowfullscreen
-        loading="eager"
-    ></iframe>
-</div>
+{{-- Placeholder keeps layout flow intact while iframe is fixed-positioned --}}
+<div id="politician-map-placeholder" aria-hidden="true"></div>
+
+<iframe
+    id="politician-map-iframe"
+    src="{{ url('/map') }}"
+    title="U.S. Interactive Map"
+    allowfullscreen
+    loading="eager"
+></iframe>
 @endsection
