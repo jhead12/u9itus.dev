@@ -363,3 +363,89 @@ test('voterEarningsSummary returns correct totals', function () {
         ->and((float) $summary['pending_earnings'])->toBe(1.25)
         ->and((int) $summary['total_views'])->toBe(20);
 });
+// ── completeView() — EarlyBank referral gating ────────────────────────────────
+
+test('completeView does NOT create internal ReferralEarning when voter is EarlyBank-linked', function () {
+    // A voter who signed up via an EarlyBank referral link carries earlybank_member_id.
+    // Their voter-view commission must flow to EarlyBank via webhook only — not here.
+    config([
+        'u9itus.fraud.device_fingerprint_required' => false,
+        'u9itus.referral_commission_percent'        => 10,
+    ]);
+
+    $referrerVoter = cleanVoter(['pending_earnings' => 0.00]);
+
+    // Voter arrived via EarlyBank AND was also referred internally.
+    $ebVoter = cleanVoter([
+        'pending_earnings'        => 0.00,
+        'referred_by_voter_id'    => $referrerVoter->id,
+        'earlybank_member_id'     => 'eb-member-uuid-' . uniqid(),
+    ]);
+
+    $campaign = activeCampaignForView([
+        'media_duration'         => 60,
+        'min_watch_time_percent' => 80,
+        'voter_payout_per_view'  => 0.25,
+    ]);
+    $session = $svc = null;
+    $svc     = viewService();
+    $session = $svc->assignView($campaign, $ebVoter, readyRequest());
+
+    $completed = $svc->completeView($session, 54); // 90% — qualifies
+
+    // Voter still receives their own payout.
+    $ebVoter->refresh();
+    expect((float) $ebVoter->pending_earnings)->toBe(0.25);
+
+    // Internal referrer must NOT receive a commission or a ReferralEarning row.
+    $referrerVoter->refresh();
+    expect((float) $referrerVoter->pending_earnings)->toBe(0.00);
+
+    $this->assertDatabaseMissing('referral_earnings', [
+        'referrer_voter_id' => $referrerVoter->id,
+        'referred_voter_id' => $ebVoter->id,
+    ]);
+
+    // The session's referral_commission column should be zero.
+    expect((float) $completed->referral_commission)->toBe(0.00);
+});
+
+test('completeView DOES create internal ReferralEarning for grandfathered voter (no EarlyBank link)', function () {
+    // Voters referred internally BEFORE EarlyBank existed keep earning the 10% commission.
+    config([
+        'u9itus.fraud.device_fingerprint_required' => false,
+        'u9itus.referral_commission_percent'        => 10,
+    ]);
+
+    $referrerVoter = cleanVoter(['pending_earnings' => 0.00]);
+
+    // Voter referred internally only — no earlybank_member_id.
+    $internalVoter = cleanVoter([
+        'pending_earnings'     => 0.00,
+        'referred_by_voter_id' => $referrerVoter->id,
+        'earlybank_member_id'  => null,
+    ]);
+
+    $campaign = activeCampaignForView([
+        'media_duration'         => 60,
+        'min_watch_time_percent' => 80,
+        'voter_payout_per_view'  => 0.25,
+    ]);
+
+    $svc       = viewService();
+    $session   = $svc->assignView($campaign, $internalVoter, readyRequest());
+    $completed = $svc->completeView($session, 54); // 90% — qualifies
+
+    // Referrer earns the 10% commission (~$0.025).
+    $referrerVoter->refresh();
+    expect((float) $referrerVoter->pending_earnings)->toBeGreaterThan(0.00);
+
+    $this->assertDatabaseHas('referral_earnings', [
+        'referrer_voter_id' => $referrerVoter->id,
+        'referred_voter_id' => $internalVoter->id,
+        'referral_type'     => ReferralEarning::TYPE_VOTER_VIEW,
+    ]);
+
+    // Session commission column should be non-zero.
+    expect((float) $completed->referral_commission)->toBeGreaterThan(0.00);
+});

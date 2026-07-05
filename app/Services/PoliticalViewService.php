@@ -108,8 +108,17 @@ class PoliticalViewService
             $platformRevenueCents = $qualifies ? \App\Support\Money::toCents($campaign->revenue_per_view) - $voterPayoutCents : 0;
             $referralCommissionCents = 0;
 
-            // Referral commission: 10% of voter payout if the voter was referred
-            if ($qualifies && $session->voter->referred_by_voter_id) {
+            // Referral commission: 10% of voter payout if the voter was referred internally.
+            // Gated on earlybank_member_id being absent — when the voter signed up via an
+            // Early-bank referral link, the 10% commission is handled by the EarlyBank webhook
+            // (notifyViewSessionCompleted below) so we must not double-pay it here.
+            // Grandfathered voters (referred_by_voter_id or referred_by_politician_id set,
+            // no earlybank link) continue to earn on the internal system.
+            $hasInternalReferrer = $session->voter->referred_by_voter_id
+                || $session->voter->referred_by_politician_id;
+            $routedToEarlyBank   = !empty($session->voter->earlybank_member_id);
+
+            if ($qualifies && $hasInternalReferrer && !$routedToEarlyBank) {
                 $referralCommissionCents = \App\Support\Money::percentOf($voterPayoutCents, config('u9itus.referral_commission_percent', 10));
                 $platformRevenueCents -= $referralCommissionCents;
             }

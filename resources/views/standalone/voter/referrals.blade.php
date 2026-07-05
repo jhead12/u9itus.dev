@@ -35,7 +35,7 @@
             </div>
             <p class="text-slate-400 text-xs leading-relaxed">
                 Earn <strong class="text-emerald-400">${{ number_format($referralPerViewAmount, $referralPerViewAmountDecimals) }}</strong> every time someone you referred watches a full ad.
-                Recurring — pays as long as your referral is active.
+                Recurring — applies to voters not enrolled in Early-bank.
             </p>
             <p class="text-slate-500 text-xs mt-2">{{ $referrals->count() }} voter{{ $referrals->count() === 1 ? '' : 's' }} referred &nbsp;·&nbsp; <span class="text-emerald-400">${{ number_format($totalReferralEarnings, 2) }} earned</span></p>
         </div>
@@ -60,6 +60,9 @@
             <p class="text-slate-500 text-xs mt-2">{{ $referredPoliticians->count() }} politician{{ $referredPoliticians->count() === 1 ? '' : 's' }} recruited &nbsp;·&nbsp; <span class="text-amber-400">${{ number_format($totalProcurementEarnings, 2) }} earned</span></p>
         </div>
     </div>
+
+    {{-- ── Early-bank CTA / enrollment status ────────────────────── --}}
+    @include('standalone.voter.partials.earlybank-referral-cta')
 
     {{-- ── Stats Row ────────────────────────────────────────────── --}}
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
