@@ -5,7 +5,7 @@
 
 @section('content')
 @php
-    $earlybankUrl = rtrim(config('services.earlybank.public_url', 'https://earlybank.com'), '/');
+    $earlybankUrl = rtrim(config('services.earlybank.public_url', 'https://www.early-bank.com'), '/');
 @endphp
 <div class="space-y-7 max-w-4xl">
 

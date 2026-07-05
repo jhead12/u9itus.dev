@@ -4,7 +4,7 @@
        2. Voter IS an Early-bank member     → confirmation + link to their Early-bank dashboard.
 --}}
 @php
-    $earlybankUrl = rtrim(config('services.earlybank.public_url', 'https://earlybank.com'), '/');
+    $earlybankUrl = rtrim(config('services.earlybank.public_url', 'https://www.early-bank.com'), '/');
 @endphp
 
 @if(empty($voter->earlybank_member_id))

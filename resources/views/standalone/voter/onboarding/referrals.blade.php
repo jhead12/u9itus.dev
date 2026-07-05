@@ -50,7 +50,7 @@
                             Earn a <strong class="text-indigo-300">$10 bonus</strong> each time someone you invite joins,
                             plus <strong class="text-indigo-300">10% recurring</strong> on their U9itus viewing activity — paid weekly via Stripe.
                         </p>
-                        <a href="{{ rtrim(config('services.earlybank.public_url', 'https://earlybank.com'), '/') . '/register?return_to=' . urlencode(route('voter.onboarding.referrals')) }}"
+                        <a href="{{ rtrim(config('services.earlybank.public_url', 'https://www.early-bank.com'), '/') . '/register?return_to=' . urlencode(route('voter.onboarding.referrals')) }}"
                            target="_blank" rel="noopener noreferrer"
                            class="inline-flex items-center gap-2 mt-3 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold px-4 py-2 rounded-xl transition">
                             Join Early-bank to Earn

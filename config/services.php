@@ -57,7 +57,7 @@ return [
     'earlybank' => [
         // Public-facing URL of the Early-bank site (used in Blade links / CTAs).
         // Set EARLYBANK_PUBLIC_URL on Railway once DNS is live.
-        'public_url'     => env('EARLYBANK_PUBLIC_URL', 'https://earlybank.com'),
+        'public_url'     => env('EARLYBANK_PUBLIC_URL', 'https://www.early-bank.com'),
 
         // Bearer token presented by Early-bank when calling /api/v1/earlybank/*.
         // Must match U9ITUS_API_TOKEN on the earlybank service.
