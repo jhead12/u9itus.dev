@@ -200,9 +200,9 @@
                 </svg>
             </div>
             <div>
-                <p class="text-white font-semibold text-sm">Refer friends &amp; earn</p>
+                <p class="text-white font-semibold text-sm">Refer friends</p>
                 <p class="text-slate-400 text-xs mt-0.5">
-                    Earn <span class="text-purple-400 font-semibold">10% commission</span> on every view your referrals complete
+                    Share your referral links — earn commissions via <span class="text-indigo-400 font-semibold">Early-bank</span>
                 </p>
             </div>
         </div>

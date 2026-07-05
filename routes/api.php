@@ -192,6 +192,12 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::post('/register-referral', [EarlyBankController::class, 'registerReferral'])
                 ->name('register-referral');
 
+            // Fired by earlybank.com when a U9itus user (voter or politician) joins
+            // Early-bank as a paying member. Stores their own EB member UUID so U9itus
+            // can surface their personal EB referral link in the referrals page.
+            Route::post('/member-enrolled', [EarlyBankController::class, 'memberEnrolled'])
+                ->name('member-enrolled');
+
             Route::get('/voter/{voter:uuid}/earnings', [EarlyBankController::class, 'voterEarnings'])
                 ->name('voter.earnings');
 

@@ -243,16 +243,17 @@ test('completing a view creates referral earning for referrer', function () {
         'total_seconds_watched' => 50,
     ])->assertOk();
 
-    // Referral earning row created
-    $this->assertDatabaseHas('referral_earnings', [
+    // No internal referral_earning row — voter-view commissions are handled
+    // exclusively by Early-bank.com via the voter.earned outbound webhook.
+    $this->assertDatabaseMissing('referral_earnings', [
         'referrer_voter_id' => $referrer->id,
         'referred_voter_id' => $voter->id,
         'view_session_id'   => $session->id,
     ]);
 
-    // Referrer gets 10% of 0.25 = 0.025
+    // Referrer's pending_earnings unchanged; Early-bank handles the commission.
     $referrer->refresh();
-    expect((float) $referrer->pending_earnings)->toBeGreaterThan(0);
+    expect((float) $referrer->pending_earnings)->toBe(0.0);
 });
 
 // ── View history ──────────────────────────────────────────────────────────────

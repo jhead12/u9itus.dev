@@ -100,9 +100,11 @@ test('addCredits with negative amount reduces balance', function () {
     expect((float) $debit->balance_after)->toBe(80.00);
 });
 
-// ── Procurement commission ────────────────────────────────────────────────────
+// ── Procurement commission (routed to Early-bank in future sprint) ────────────
 
-test('addCredits fires procurement commission on first purchase when voter referred politician', function () {
+test('addCredits does NOT create internal procurement commission — routed to Early-bank', function () {
+    // triggerProcurementCommission() is a no-op; politician.purchased webhook
+    // to earlybank.com will be implemented in a future sprint.
     config(['u9itus.procurement_commission_percent' => 10]);
 
     $referrer   = Voter::factory()->create(['pending_earnings' => 0.00]);
@@ -114,18 +116,19 @@ test('addCredits fires procurement commission on first purchase when voter refer
 
     $svc->addCredits($politician, 100.00, ['transaction_type' => 'purchase']);
 
-    $this->assertDatabaseHas('referral_earnings', [
+    // No internal ReferralEarning row should be created.
+    $this->assertDatabaseMissing('referral_earnings', [
         'referrer_voter_id' => $referrer->id,
         'politician_id'     => $politician->id,
-        'commission_amount' => 10.00,
         'referral_type'     => ReferralEarning::TYPE_POLITICIAN_PROCUREMENT,
     ]);
 
+    // Referrer's pending_earnings must remain zero.
     $referrer->refresh();
-    expect((float) $referrer->pending_earnings)->toBe(10.00);
+    expect((float) $referrer->pending_earnings)->toBe(0.00);
 });
 
-test('procurement commission fires only once per politician', function () {
+test('addCredits with multiple purchases still creates no procurement commissions', function () {
     config(['u9itus.procurement_commission_percent' => 10]);
 
     $referrer   = Voter::factory()->create(['pending_earnings' => 0.00]);
@@ -142,7 +145,7 @@ test('procurement commission fires only once per politician', function () {
         ->where('referral_type', ReferralEarning::TYPE_POLITICIAN_PROCUREMENT)
         ->count();
 
-    expect($count)->toBe(1);
+    expect($count)->toBe(0);
 });
 
 // ── finalizePaymentIntent() ───────────────────────────────────────────────────

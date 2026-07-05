@@ -272,14 +272,15 @@ test('voter referral page filters commissions to the active stripe payment mode'
     $response = $this->actingAs($user)->get(route('voter.referrals'));
 
     $response->assertOk();
-    $response->assertSee('Live Production Campaign');
-    $response->assertDontSee('Internal Test Campaign');
-    $response->assertSee('Live Recruit');
-    $response->assertDontSee('Test Recruit');
+
+    // Historical totals are still summed from the DB for backwards-compatibility reporting.
+    // New commissions route through Early-bank; internal ReferralEarning rows no longer created.
     $response->assertViewHas('totalReferralEarnings', 1.5);
     $response->assertViewHas('totalProcurementEarnings', 3.25);
-    $response->assertViewHas('referralEarnings', fn ($earnings) => $earnings->count() === 1 && $earnings->first()->payment_mode === 'live');
-    $response->assertViewHas('procurementEarnings', fn ($earnings) => $earnings->count() === 1 && $earnings->first()->payment_mode === 'live');
+
+    // Collections are now empty — the page no longer renders per-earning detail rows.
+    $response->assertViewHas('referralEarnings', fn ($earnings) => $earnings->count() === 0);
+    $response->assertViewHas('procurementEarnings', fn ($earnings) => $earnings->count() === 0);
 });
 
 test('politician referral page filters commissions to the active stripe payment mode', function () {

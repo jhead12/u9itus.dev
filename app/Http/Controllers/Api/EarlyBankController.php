@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Politician;
 use App\Models\ViewSession;
 use App\Models\Voter;
 use Illuminate\Http\JsonResponse;
@@ -149,5 +150,76 @@ class EarlyBankController extends Controller
             'sessions_completed'  => (int) ($agg->sessions ?? 0),
             'total_voter_payout'  => (float) ($agg->total_payout ?? 0),
         ]);
+    }
+
+    /**
+     * POST /api/v1/earlybank/member-enrolled
+     *
+     * Called by Early-bank.com when a U9itus user (voter or politician) joins
+     * Early-bank as a paying member. Stores their own EB member UUID on the
+     * appropriate model so U9itus can display their personal EB referral link.
+     *
+     * Body: {
+     *   uuid:         string (the U9itus voter or politician uuid),
+     *   member_uuid:  string (the Early-bank member UUID),
+     *   u9itus_role:  'voter' | 'politician' | 'citizen'
+     * }
+     *
+     * Idempotent: enrolling with the same member_uuid is a no-op success.
+     */
+    public function memberEnrolled(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'uuid'        => ['required', 'string', 'uuid'],
+            'member_uuid' => ['required', 'string', 'uuid'],
+            'u9itus_role' => ['required', 'string', 'in:voter,politician,citizen'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'error'  => 'validation_failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $uuid       = $request->string('uuid')->value();
+        $memberUuid = $request->string('member_uuid')->value();
+        $role       = $request->string('u9itus_role')->value();
+
+        // Route to the correct model based on role.
+        if ($role === 'politician') {
+            $model = Politician::where('uuid', $uuid)->first();
+            $label = 'politician';
+        } else {
+            // Both 'voter' and 'citizen' roles live on the voters table.
+            $model = Voter::where('uuid', $uuid)->first();
+            $label = 'voter';
+        }
+
+        if (! $model) {
+            return response()->json(['error' => "{$label}_not_found"], 404);
+        }
+
+        // Idempotency: already enrolled with the same member UUID — succeed silently.
+        if ($model->earlybank_own_member_uuid === $memberUuid) {
+            return response()->json([
+                'status'      => 'already_enrolled',
+                'uuid'        => $uuid,
+                'member_uuid' => $memberUuid,
+                'linked_at'   => optional($model->earlybank_own_linked_at)->toIso8601String(),
+            ]);
+        }
+
+        $model->forceFill([
+            'earlybank_own_member_uuid' => $memberUuid,
+            'earlybank_own_linked_at'   => now(),
+        ])->save();
+
+        return response()->json([
+            'status'      => 'enrolled',
+            'uuid'        => $uuid,
+            'member_uuid' => $memberUuid,
+            'linked_at'   => $model->earlybank_own_linked_at->toIso8601String(),
+        ], 201);
     }
 }

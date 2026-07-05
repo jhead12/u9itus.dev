@@ -3,68 +3,19 @@
 @section('title', 'My Referrals')
 
 @section('content')
-@php
-    $viewerPayoutPerView = (float) \App\Services\PlatformSettingsService::get('viewer_payout_per_view', null, 0.25);
-    $referralCommissionPercent = (float) \App\Services\PlatformSettingsService::get('referral_commission_percent', null, config('u9itus.referral_commission_percent', 10));
-    $referralPerViewAmount = $viewerPayoutPerView * ($referralCommissionPercent / 100);
-    $referralPerViewAmountDecimals = $referralPerViewAmount < 0.1 ? 3 : 2;
-@endphp
 <div class="px-4 sm:px-6 lg:px-8 py-8 max-w-4xl mx-auto space-y-7">
 
     <div>
         <h1 class="text-2xl font-bold text-white">Referrals</h1>
-        <p class="text-slate-400 text-sm mt-0.5">Two ways to earn — refer voters or recruit politicians to the platform</p>
+        <p class="text-slate-400 text-sm mt-0.5">Share U9itus with others — referral commissions are earned through Early-bank</p>
     </div>
 
     @if($voter)
 
-    {{-- ── Commission Structure Banner ─────────────────────────── --}}
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {{-- Voter referral card --}}
-        <div class="bg-emerald-900/20 border border-emerald-500/20 rounded-2xl p-5">
-            <div class="flex items-center gap-3 mb-3">
-                <div class="w-9 h-9 rounded-xl bg-emerald-500/20 flex items-center justify-center shrink-0">
-                    <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
-                    </svg>
-                </div>
-                <div>
-                    <p class="text-white font-semibold text-sm">Refer a Voter</p>
-                    <p class="text-emerald-400 text-xs font-mono">{{ number_format($referralCommissionPercent, 0) }}% per view completed</p>
-                </div>
-            </div>
-            <p class="text-slate-400 text-xs leading-relaxed">
-                Earn <strong class="text-emerald-400">${{ number_format($referralPerViewAmount, $referralPerViewAmountDecimals) }}</strong> every time someone you referred watches a full ad.
-                Recurring — applies to voters not enrolled in Early-bank.
-            </p>
-            <p class="text-slate-500 text-xs mt-2">{{ $referrals->count() }} voter{{ $referrals->count() === 1 ? '' : 's' }} referred &nbsp;·&nbsp; <span class="text-emerald-400">${{ number_format($totalReferralEarnings, 2) }} earned</span></p>
-        </div>
-
-        {{-- Politician procurement card --}}
-        <div class="bg-amber-900/20 border border-amber-500/20 rounded-2xl p-5">
-            <div class="flex items-center gap-3 mb-3">
-                <div class="w-9 h-9 rounded-xl bg-amber-500/20 flex items-center justify-center shrink-0">
-                    <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-2 5h2a2 2 0 002-2v-2a2 2 0 00-2-2h-2a2 2 0 00-2 2v2a2 2 0 002 2z"/>
-                    </svg>
-                </div>
-                <div>
-                    <p class="text-white font-semibold text-sm">Recruit a Politician</p>
-                    <p class="text-amber-400 text-xs font-mono">10% residual income</p>
-                </div>
-            </div>
-            <p class="text-slate-400 text-xs leading-relaxed">
-                Earn <strong class="text-amber-400">10% residual income</strong> as a Founding Member when you recruit a politician.
-                Ongoing commissions on their spending.
-            </p>
-            <p class="text-slate-500 text-xs mt-2">{{ $referredPoliticians->count() }} politician{{ $referredPoliticians->count() === 1 ? '' : 's' }} recruited &nbsp;·&nbsp; <span class="text-amber-400">${{ number_format($totalProcurementEarnings, 2) }} earned</span></p>
-        </div>
-    </div>
-
-    {{-- ── Early-bank CTA / enrollment status ────────────────────── --}}
+    {{-- ── Early-bank CTA / enrollment status (always first) ──── --}}
     @include('standalone.voter.partials.earlybank-referral-cta')
 
-    {{-- ── Stats Row ────────────────────────────────────────────── --}}
+    {{-- ── Activity Summary ─────────────────────────────────────── --}}
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <div class="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-4">
             <p class="text-slate-400 text-xs font-medium uppercase tracking-wide">Referral Code</p>
@@ -79,8 +30,8 @@
             <p class="text-xl font-bold text-white mt-2">{{ $referredPoliticians->count() }}</p>
         </div>
         <div class="bg-slate-800/50 border border-slate-700 rounded-2xl p-4">
-            <p class="text-slate-400 text-xs font-medium uppercase tracking-wide">Total Earned</p>
-            <p class="text-xl font-bold text-purple-400 mt-2">${{ number_format($totalReferralEarnings + $totalProcurementEarnings, 2) }}</p>
+            <p class="text-slate-400 text-xs font-medium uppercase tracking-wide">Conversions</p>
+            <p class="text-xl font-bold text-emerald-400 mt-2">{{ number_format($referralConversions) }}</p>
         </div>
     </div>
 
@@ -102,9 +53,6 @@
             <p class="text-xl font-bold text-emerald-400 mt-2">{{ number_format($referralConversionRate, 1) }}%</p>
         </div>
     </div>
-
-    {{-- ── Earnings Calculator Widget ────────────────────────────── --}}
-    <x-earnings-calculator />
 
     {{-- ── Share Links ──────────────────────────────────────────── --}}
     @php
@@ -136,7 +84,7 @@
         <div class="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-6 items-start">
             <div class="space-y-2">
                 <p class="text-sm font-medium text-emerald-400">Voter Registration Link</p>
-                <p class="text-slate-400 text-xs">Earn ${{ number_format($referralPerViewAmount, $referralPerViewAmountDecimals) }} per view forever for every voter you refer.</p>
+                <p class="text-slate-400 text-xs">Invite others to join U9itus as a voter — earn commissions via Early-bank.</p>
                 <div class="flex gap-2">
                     <input id="voter-referral-link" type="text" readonly
                         value="{{ $voterRefUrl }}"
@@ -180,7 +128,7 @@
         <div class="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-6 items-start">
             <div class="space-y-2">
                 <p class="text-sm font-medium text-amber-400">Politician Registration Link</p>
-                <p class="text-slate-400 text-xs">Earn 10% residual income as a Founding Member when you recruit a politician.</p>
+                <p class="text-slate-400 text-xs">Invite politicians to join U9itus — politician recruitment commissions coming via Early-bank.</p>
                 <div class="flex gap-2">
                     <input id="politician-referral-link" type="text" readonly
                         value="{{ $politicianRefUrl }}"

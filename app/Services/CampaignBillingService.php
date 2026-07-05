@@ -153,62 +153,9 @@ class CampaignBillingService
      */
     private function triggerProcurementCommission(Politician $politician, float $purchaseAmount): void
     {
-        // One-time only — skip if a procurement commission already exists
-        $alreadyPaid = ReferralEarning::where('politician_id', $politician->id)
-            ->where('referral_type', ReferralEarning::TYPE_POLITICIAN_PROCUREMENT)
-            ->exists();
-
-        if ($alreadyPaid) {
-            return;
-        }
-
-        $pct        = (float) config('u9itus.procurement_commission_percent', 10);
-        $commission = round($purchaseAmount * ($pct / 100), 2);
-        $paymentMode = ReferralEarning::normalizePaymentMode($this->configuredPaymentModeFromConfig());
-
-        if ($commission <= 0) {
-            return;
-        }
-
-        // Referred by a voter
-        if ($politician->referred_by_voter_id) {
-            ReferralEarning::create([
-                'referrer_voter_id' => $politician->referred_by_voter_id,
-                'referred_voter_id' => null,
-                'view_session_id'   => null,
-                'commission_amount' => $commission,
-                'payment_mode'      => $paymentMode,
-                'referral_type'     => ReferralEarning::TYPE_POLITICIAN_PROCUREMENT,
-                'politician_id'     => $politician->id,
-            ]);
-            $politician->referrer?->increment('pending_earnings', $commission);
-
-            Log::info('Procurement commission awarded to voter', [
-                'politician_id'     => $politician->id,
-                'referrer_voter_id' => $politician->referred_by_voter_id,
-                'commission'        => $commission,
-            ]);
-        }
-
-        // Referred by a politician
-        if ($politician->referred_by_politician_id) {
-            ReferralEarning::create([
-                'referrer_politician_id' => $politician->referred_by_politician_id,
-                'referred_voter_id'      => null,
-                'view_session_id'        => null,
-                'commission_amount'      => $commission,
-                'payment_mode'           => $paymentMode,
-                'referral_type'          => ReferralEarning::TYPE_POLITICIAN_PROCUREMENT,
-                'politician_id'          => $politician->id,
-            ]);
-            $politician->politicianReferrer?->increment('pending_earnings', $commission);
-
-            Log::info('Procurement commission awarded to politician', [
-                'politician_id'          => $politician->id,
-                'referrer_politician_id' => $politician->referred_by_politician_id,
-                'commission'             => $commission,
-            ]);
-        }
+        // Politician first-purchase commissions will be routed through Early-bank.com
+        // via a dedicated politician.purchased webhook — scheduled for a future sprint.
+        // This method is intentionally a no-op until that sprint is complete.
     }
 
     /**

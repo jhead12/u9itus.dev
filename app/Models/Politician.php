@@ -78,6 +78,9 @@ class Politician extends Model
         // Sprint 7 — Web3 read-only enrichment (MeToken subgraph)
         'wallet_address',
         'metoken_address',
+        // Early-bank own membership (set via member-enrolled webhook)
+        'earlybank_own_member_uuid',
+        'earlybank_own_linked_at',
     ];
 
     protected function casts(): array
@@ -102,6 +105,7 @@ class Politician extends Model
             'show_fec_data' => 'boolean',
             'video_links'          => 'array',
             'claim_requested_at'   => 'datetime',
+            'earlybank_own_linked_at' => 'datetime',
         ];
     }
 

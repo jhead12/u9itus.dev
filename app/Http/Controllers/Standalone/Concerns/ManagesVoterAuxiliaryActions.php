@@ -270,24 +270,11 @@ trait ManagesVoterAuxiliaryActions
             ->latest()
             ->get();
 
-        // Per-view referral earnings (voter_view type)
-        $referralEarnings = $voter->referralEarnings()
-            ->voterViews()
-            ->forActiveStripeMode()
-            ->with('viewSession.campaign')
-            ->latest()
-            ->take(20)
-            ->get();
-
-        // Procurement commission earnings (politician_procurement type)
-        $procurementEarnings = $voter->referralEarnings()
-            ->procurements()
-            ->forActiveStripeMode()
-            ->with('politician')
-            ->latest()
-            ->get();
-
-        $totalReferralEarnings  = (float) $voter->referralEarnings()->voterViews()->forActiveStripeMode()->sum('commission_amount');
+        // Historical referral/procurement earnings — kept for backwards compatibility with
+        // any admin reports that reference these. New commissions are handled by Early-bank.
+        $referralEarnings     = collect();
+        $procurementEarnings  = collect();
+        $totalReferralEarnings    = (float) $voter->referralEarnings()->voterViews()->forActiveStripeMode()->sum('commission_amount');
         $totalProcurementEarnings = (float) $voter->referralEarnings()->procurements()->forActiveStripeMode()->sum('commission_amount');
 
         $visitQuery = ReferralVisit::where('referrer_voter_id', $voter->id);

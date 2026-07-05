@@ -40,6 +40,8 @@ class Voter extends Model
         'referred_by_politician_id',
         'earlybank_member_id',
         'earlybank_linked_at',
+        'earlybank_own_member_uuid',
+        'earlybank_own_linked_at',
         'referral_code',
         'user_tier',               // 'early_adopter', 'regular', null
         'early_adopter_until',     // Expiry timestamp for early adopter status
@@ -77,6 +79,7 @@ class Voter extends Model
             'last_view_at' => 'datetime',
             'early_adopter_until' => 'datetime',
             'earlybank_linked_at' => 'datetime',
+            'earlybank_own_linked_at' => 'datetime',
         ];
     }
 

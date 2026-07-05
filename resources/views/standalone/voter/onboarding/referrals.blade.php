@@ -32,25 +32,33 @@
     @endphp
     <div class="space-y-6">
         <!-- Referral Benefits -->
-        <div class="bg-gradient-to-r from-green-900 to-blue-900 rounded-lg p-6">
-            <h3 class="text-xl font-bold text-white mb-4">Earn Two Ways:</h3>
-            
-            <div class="space-y-4">
-                <div>
-                    <div class="flex items-center space-x-2 mb-2">
-                        <span class="text-2xl">👥</span>
-                        <h4 class="font-semibold text-white">Refer Voters (Recurring)</h4>
-                    </div>
-                    <p class="text-gray-200">Earn {{ number_format($referralCommissionPercent, 0) }}% commission (${{ number_format($referralPerViewAmount, $referralPerViewAmountDecimals) }}) on every ad your referrals watch - forever!</p>
-                    <p class="text-green-400 font-bold mt-1">Your Code: {{ $voter->referral_code ?? 'N/A' }}</p>
-                </div>
+        <div class="bg-gradient-to-r from-slate-800 to-indigo-900 rounded-lg p-6">
+            <h3 class="text-xl font-bold text-white mb-2">Share U9itus with others</h3>
+            <p class="text-gray-300 text-sm mb-4">Use your referral links below to invite voters and politicians to the platform. Your referral code is <strong class="text-emerald-400 font-mono">{{ $voter->referral_code ?? 'N/A' }}</strong>.</p>
 
-                <div>
-                    <div class="flex items-center space-x-2 mb-2">
-                        <span class="text-2xl">🏛️</span>
-                        <h4 class="font-semibold text-white">Refer Politicians (Residual Income)</h4>
+            <div class="bg-indigo-900/60 border border-indigo-500/30 rounded-xl p-5">
+                <div class="flex items-start gap-3">
+                    <div class="w-9 h-9 rounded-lg bg-indigo-500/20 flex items-center justify-center shrink-0 mt-0.5">
+                        <svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                        </svg>
                     </div>
-                    <p class="text-gray-200">Earn 10% residual income as a Founding Member (ongoing commissions)</p>
+                    <div>
+                        <p class="text-indigo-200 font-semibold text-sm">Want to earn referral commissions?</p>
+                        <p class="text-gray-300 text-sm mt-1">
+                            Join <strong>Early-bank</strong> for a one-time $20 fee and get a dedicated referral link.
+                            Earn a <strong class="text-indigo-300">$10 bonus</strong> each time someone you invite joins,
+                            plus <strong class="text-indigo-300">10% recurring</strong> on their U9itus viewing activity — paid weekly via Stripe.
+                        </p>
+                        <a href="{{ rtrim(config('services.earlybank.public_url', 'https://earlybank.com'), '/') . '/register?return_to=' . urlencode(route('voter.onboarding.referrals')) }}"
+                           target="_blank" rel="noopener noreferrer"
+                           class="inline-flex items-center gap-2 mt-3 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold px-4 py-2 rounded-xl transition">
+                            Join Early-bank to Earn
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                            </svg>
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>

@@ -106,22 +106,10 @@ class PoliticalViewService
             // Calculate payout amounts using integer-cent arithmetic to avoid drift.
             $voterPayoutCents     = $qualifies ? \App\Support\Money::toCents($campaign->voter_payout_per_view) : 0;
             $platformRevenueCents = $qualifies ? \App\Support\Money::toCents($campaign->revenue_per_view) - $voterPayoutCents : 0;
+            // Referral commissions are handled exclusively by Early-bank.com via the
+            // voter.earned outbound webhook (notifyViewSessionCompleted, below).
+            // No internal commission is calculated or credited here.
             $referralCommissionCents = 0;
-
-            // Referral commission: 10% of voter payout if the voter was referred internally.
-            // Gated on earlybank_member_id being absent — when the voter signed up via an
-            // Early-bank referral link, the 10% commission is handled by the EarlyBank webhook
-            // (notifyViewSessionCompleted below) so we must not double-pay it here.
-            // Grandfathered voters (referred_by_voter_id or referred_by_politician_id set,
-            // no earlybank link) continue to earn on the internal system.
-            $hasInternalReferrer = $session->voter->referred_by_voter_id
-                || $session->voter->referred_by_politician_id;
-            $routedToEarlyBank   = !empty($session->voter->earlybank_member_id);
-
-            if ($qualifies && $hasInternalReferrer && !$routedToEarlyBank) {
-                $referralCommissionCents = \App\Support\Money::percentOf($voterPayoutCents, config('u9itus.referral_commission_percent', 10));
-                $platformRevenueCents -= $referralCommissionCents;
-            }
 
             $voterPayout        = (float) \App\Support\Money::fromCents($voterPayoutCents);
             $platformRevenue    = (float) \App\Support\Money::fromCents($platformRevenueCents);
@@ -342,37 +330,12 @@ class PoliticalViewService
 
     private function creditReferrer(ViewSession $session, float $commission): void
     {
-        if ($commission <= 0) {
-            return;
-        }
-
-        $voter = $session->voter;
-
-        // Voter referred by another voter
-        if ($voter->referred_by_voter_id && $voter->referrer) {
-            ReferralEarning::create([
-                'referrer_voter_id' => $voter->referred_by_voter_id,
-                'referred_voter_id' => $voter->id,
-                'view_session_id'   => $session->id,
-                'commission_amount' => $commission,
-                'payment_mode'      => ReferralEarning::normalizePaymentMode(app(StripePaymentService::class)->configuredMode()),
-                'referral_type'     => ReferralEarning::TYPE_VOTER_VIEW,
-            ]);
-            $voter->referrer->increment('pending_earnings', $commission);
-        }
-
-        // Voter referred by a politician
-        if ($voter->referred_by_politician_id && $voter->politicianReferrer) {
-            ReferralEarning::create([
-                'referrer_politician_id' => $voter->referred_by_politician_id,
-                'referred_voter_id'      => $voter->id,
-                'view_session_id'        => $session->id,
-                'commission_amount'      => $commission,
-                'payment_mode'           => ReferralEarning::normalizePaymentMode(app(StripePaymentService::class)->configuredMode()),
-                'referral_type'          => ReferralEarning::TYPE_VOTER_VIEW,
-            ]);
-            $voter->politicianReferrer->increment('pending_earnings', $commission);
-        }
+        // Voter-view referral commissions are handled exclusively by Early-bank.com.
+        // The voter.earned webhook (notifyViewSessionCompleted) reports every qualifying
+        // session to earlybank.com, which credits the EarlyBank member who referred this voter.
+        // Politician first-purchase commissions (politician.purchased) will be added to
+        // earlybank.com in a future sprint.
+        // This method is intentionally a no-op.
     }
 
     private function updateCampaignSpend(PoliticalCampaign $campaign): void
