@@ -804,22 +804,38 @@ class EnrichStatewideOfficeholders extends Command
         $name = trim(strip_tags($raw));
         // Remove trailing parentheticals like "(D)" or "(born 1967)"
         $name = preg_replace('/\s*\(.*\)\s*$/', '', $name) ?? $name;
+        // Strip leading party/title prefixes Claude occasionally emits:
+        // "Republican Brian Kemp" → "Brian Kemp"
+        // "governor is Democrat Josh Green" → reject (too long / not a name)
+        $name = preg_replace('/^(?:Republican|Democratic|Democrat|Independent|Libertarian|Green|governor|senator|representative|lieutenant)\s+/i', '', $name) ?? $name;
         // Collapse whitespace
         $name = preg_replace('/\s+/', ' ', $name) ?? $name;
+        $name = trim($name);
+        // Reject AI artifacts: strings containing verb phrases, sentence-like content,
+        // or clearly not a person name (> 5 words, or contains 'is ', 'are ', 'resign', 'no incumbent')
+        if (preg_match('/\b(is |are |resign|no incumbent|no candidate|outcome|election|source|democrat|republican)\b/i', $name)) {
+            return '';
+        }
+        if (str_word_count($name) > 5) {
+            return '';
+        }
         return strlen($name) >= 3 ? $name : '';
     }
 
     private function normaliseParty(string $raw): ?string
     {
-        $p = strtolower($raw);
+        $p = strtolower(trim($raw));
+        if ($p === '') return null;
         if (str_contains($p, 'democrat') || $p === 'd') return 'Democratic';
         if (str_contains($p, 'republican') || $p === 'r') return 'Republican';
-        if (str_contains($p, 'independent')) return 'Independent';
-        if (str_contains($p, 'libertarian')) return 'Libertarian';
-        if (str_contains($p, 'green')) return 'Green';
+        if (str_contains($p, 'independent') || $p === 'i') return 'Independent';
+        if (str_contains($p, 'libertarian') || $p === 'l') return 'Libertarian';
+        if (str_contains($p, 'green') || $p === 'g') return 'Green';
         // California "No Party Preference" is a ballot designation, not a party affiliation.
         // Return null so no misleading party badge appears for the officeholder.
         if (str_contains($p, 'no party') || str_contains($p, 'non-partisan') || str_contains($p, 'nonpartisan')) return null;
+        // Reject multi-word strings that are clearly not party names (AI leakage)
+        if (str_word_count($p) > 3) return null;
         return ucwords($raw) ?: null;
     }
 

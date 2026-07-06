@@ -32,7 +32,12 @@ class ReconcileMissingCandidateProfiles extends Command
             ->orderByDesc('id');
 
         if ($year !== null) {
-            $query->whereYear('election_date', $year);
+            // Only filter by year when election_date is set — records with a null
+            // election_date (e.g. manually-corrected imports) must never be excluded.
+            $query->where(function ($q) use ($year) {
+                $q->whereNull('election_date')
+                  ->orWhereYear('election_date', $year);
+            });
         }
 
         if ($states !== []) {
