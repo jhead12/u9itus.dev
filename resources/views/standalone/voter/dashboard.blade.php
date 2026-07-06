@@ -234,7 +234,7 @@
     </div>
 
     {{-- Earnings Calculator Widget --}}
-    <x-earnings-calculator />
+    <!-- <x-earnings-calculator /> -->
 
     {{-- Voter Registration Prompt (shown if status unknown or not registered) --}}
     @if(is_null($voter->is_registered_voter) || $voter->is_registered_voter === false)
@@ -456,6 +456,8 @@
         <p class="text-slate-500 text-sm mt-2">Please contact support if you believe this is an error.</p>
     </div>
     @endif
+
+<!-- Create a local news for candidates in the GEO location of account, take the news from the auto generated profiles and post a small thumbnail of a picture to a news site article with the link of the politician beneath it.  -->
 
 </div>
 @endsection
