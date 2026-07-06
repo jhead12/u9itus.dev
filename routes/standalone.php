@@ -549,6 +549,7 @@ Route::get('/earn', function () {
     return view('standalone.public.earn', ['registrationOpen' => $isOpen]);
 })->name('earn');
 Route::get('/p/{slug}', [PublicProfileController::class, 'show'])->name('politician.public.show');
+Route::get('/p/{slug}/news', [PublicProfileController::class, 'news'])->name('politician.public.news');
 
 // SEO — Sitemap & robots.txt
 Route::get('/sitemap.xml', [SitemapController::class, 'index'])->name('sitemap');
