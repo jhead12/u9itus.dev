@@ -1049,6 +1049,10 @@ class PublicProfileController extends Controller
             ]);
         }
 
+        // ?embed=1 strips the nav/footer so the page renders cleanly inside
+        // the map's in-page iframe overlay.
+        $embed = $request->boolean('embed');
+
         return view('standalone.public.profile', compact(
             'politician',
             'page',
@@ -1066,7 +1070,8 @@ class PublicProfileController extends Controller
             'ogUrl',
             'isGuestBrowsing',
             'newsArticles',
-            'newsTotal'
+            'newsTotal',
+            'embed'
         ));
     }
 

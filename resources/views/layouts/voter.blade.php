@@ -101,6 +101,21 @@
 
         <div class="flex-1"></div>
 
+        {{-- Favorites drawer toggle --}}
+        @auth
+        @if(auth()->user()->voter)
+        <button onclick="toggleFavoritesPanel()"
+            class="relative text-slate-400 hover:text-amber-300 transition p-2 rounded-lg hover:bg-slate-800"
+            aria-label="Favorites"
+            aria-controls="favorites-panel">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/>
+            </svg>
+        </button>
+        @endif
+        @endauth
+
         {{-- Notifications bell (Alpine.js) --}}
         <div x-data="notificationBell()" x-cloak class="relative">
             <button @click="open = !open"
@@ -391,6 +406,109 @@
 
     </div>{{-- end flex body --}}
 </div>{{-- end min-h-screen --}}
+
+{{-- ── Favorites side panel (slide-in drawer) ───────────────────────── --}}
+@auth
+@if(auth()->user()->voter)
+<button id="favorites-panel-overlay"
+    type="button"
+    class="fixed inset-0 bg-black/60 z-40 hidden"
+    onclick="toggleFavoritesPanel()"
+    aria-label="Close favorites panel"></button>
+
+<aside id="favorites-panel"
+    class="fixed top-0 right-0 bottom-0 z-50 w-[min(92vw,22rem)]
+           bg-slate-900 border-l border-slate-700/60 shadow-2xl
+           flex flex-col
+           translate-x-full transition-transform duration-200 ease-in-out"
+    aria-hidden="true">
+
+    <div class="h-16 px-4 flex items-center justify-between border-b border-slate-800 shrink-0">
+        <div class="flex items-center gap-2">
+            <svg class="w-5 h-5 text-amber-300" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/>
+            </svg>
+            <h2 class="text-sm font-semibold text-white">My Favorites</h2>
+        </div>
+        <button onclick="toggleFavoritesPanel()"
+            class="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
+            aria-label="Close favorites panel">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+        </button>
+    </div>
+
+    <div id="favorites-panel-body" class="flex-1 overflow-y-auto p-3" data-loaded="0">
+        <div class="py-10 text-center text-sm text-slate-500">Loading…</div>
+    </div>
+
+    <div class="p-3 border-t border-slate-800 shrink-0">
+        <a href="{{ route('voter.favorites.index') }}"
+           class="block w-full text-center bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-sm font-medium py-2.5 rounded-lg transition">
+            View all followed politicians →
+        </a>
+    </div>
+</aside>
+
+<script>
+    function toggleFavoritesPanel() {
+        const panel   = document.getElementById('favorites-panel');
+        const overlay = document.getElementById('favorites-panel-overlay');
+        const isHidden = panel.classList.contains('translate-x-full');
+
+        panel.classList.toggle('translate-x-full', !isHidden);
+        overlay.classList.toggle('hidden', !isHidden);
+        panel.setAttribute('aria-hidden', isHidden ? 'false' : 'true');
+
+        if (isHidden) loadFavoritesPanel();
+    }
+
+    function loadFavoritesPanel(force = false) {
+        const body = document.getElementById('favorites-panel-body');
+        if (!force && body.dataset.loaded === '1') return;
+
+        fetch('{{ route('voter.favorites.panel') }}', {
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'text/html' },
+            credentials: 'same-origin',
+        })
+        .then(r => r.ok ? r.text() : Promise.reject())
+        .then(html => {
+            body.innerHTML = html;
+            body.dataset.loaded = '1';
+        })
+        .catch(() => {
+            body.innerHTML = '<div class="py-10 text-center text-sm text-red-400">Could not load favorites.</div>';
+        });
+    }
+
+    // Unfollow from inside the panel without a page reload.
+    document.addEventListener('submit', function (e) {
+        const form = e.target.closest('form[data-favorite-unfollow]');
+        if (!form) return;
+        e.preventDefault();
+
+        fetch(form.action, {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+                'Accept': 'application/json',
+            },
+            credentials: 'same-origin',
+            body: new FormData(form),
+        }).then(() => loadFavoritesPanel(true));
+    });
+
+    // Close on Escape.
+    document.addEventListener('keydown', function (e) {
+        if (e.key !== 'Escape') return;
+        const panel = document.getElementById('favorites-panel');
+        if (panel && !panel.classList.contains('translate-x-full')) toggleFavoritesPanel();
+    });
+</script>
+@endif
+@endauth
 
 {{-- ── Toast notifications (Alpine.js) ──────────────────────────────── --}}
 <div

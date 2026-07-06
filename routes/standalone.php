@@ -360,6 +360,7 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
 
         // ── Favorites (follow politicians) ───────────────────────────────────
         Route::get('/favorites', [FavoriteController::class, 'index'])->name('favorites.index');
+        Route::get('/favorites/panel', [FavoriteController::class, 'panel'])->name('favorites.panel');
         Route::post('/favorites/{politicianId}', [FavoriteController::class, 'store'])->name('favorites.store');
         Route::delete('/favorites/{politicianId}', [FavoriteController::class, 'destroy'])->name('favorites.destroy');
 

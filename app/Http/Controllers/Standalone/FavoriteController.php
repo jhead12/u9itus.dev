@@ -33,6 +33,26 @@ class FavoriteController extends Controller
     }
 
     /**
+     * GET /voter/favorites/panel
+     * HTML fragment for the slide-in favorites side panel (AJAX).
+     */
+    public function panel(Request $request)
+    {
+        $voter = $request->user()->voter;
+
+        if (! $voter) {
+            abort(403, 'No voter profile found.');
+        }
+
+        $favorites = $voter->favoritePoliticians()
+            ->orderByPivot('favorited_at', 'desc')
+            ->limit(15)
+            ->get();
+
+        return view('standalone.voter.favorites.panel', compact('favorites'));
+    }
+
+    /**
      * POST /voter/favorites/{politician}
      * Add a politician to the voter's favorites.
      */
@@ -58,7 +78,7 @@ class FavoriteController extends Controller
      * DELETE /voter/favorites/{politician}
      * Remove a politician from the voter's favorites.
      */
-    public function destroy(Request $request, int $politicianId): RedirectResponse
+    public function destroy(Request $request, int $politicianId)
     {
         $voter = $request->user()->voter;
 
@@ -67,6 +87,10 @@ class FavoriteController extends Controller
         }
 
         $voter->favoritePoliticians()->detach($politicianId);
+
+        if ($request->expectsJson()) {
+            return response()->json(['ok' => true]);
+        }
 
         return back()->with('success', 'Removed from your followed politicians.');
     }

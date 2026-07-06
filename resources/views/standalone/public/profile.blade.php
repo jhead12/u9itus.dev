@@ -141,6 +141,7 @@
     @endphp
 
     {{-- ── Top Nav Bar ── --}}
+    @unless($embed ?? false)
     <nav class="sticky top-0 z-40 bg-slate-900/80 backdrop-blur-md border-b border-slate-700/50">
         <div class="max-w-5xl mx-auto px-4 sm:px-6 flex items-center justify-between h-14">
             <div class="flex items-center gap-4">
@@ -175,6 +176,7 @@
             </div>
         </div>
     </nav>
+    @endunless
 
     {{-- ── Unclaimed Profile Banner ── --}}
     @if(is_null($politician->user_id))
@@ -1245,6 +1247,7 @@
     </main>
 
     {{-- ── Footer ── --}}
+    @unless($embed ?? false)
     <footer class="border-t border-slate-800 py-8 text-center text-sm text-slate-500">
         <p>
             <a href="{{ url('/') }}" class="font-bold text-slate-300 hover:text-white transition">
@@ -1258,6 +1261,7 @@
             <a href="{{ route('register.politician') }}" class="hover:text-slate-300 transition">Register as a Politician</a>
         </p>
     </footer>
+    @endunless
 
     @if($showReferralShareModal)
     <script>

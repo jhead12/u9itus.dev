@@ -1193,6 +1193,70 @@
             }
             #pol-drawer.open { transform: translateY(0); }
         }
+
+        /* ── In-map profile overlay (right-side slide-over) ──────────────── */
+        #profile-overlay-backdrop {
+            position: fixed; inset: 0; z-index: 300;
+            background: rgba(0,0,0,0.55);
+            opacity: 0; pointer-events: none;
+            transition: opacity 0.28s ease;
+        }
+        #profile-overlay-backdrop.open {
+            opacity: 1; pointer-events: auto;
+        }
+        #profile-overlay {
+            position: fixed; top: 0; right: 0; bottom: 0; z-index: 301;
+            width: min(94vw, 860px);
+            background: #0d1117;
+            box-shadow: -8px 0 40px rgba(0,0,0,0.7);
+            display: flex; flex-direction: column;
+            transform: translateX(100%);
+            transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        #profile-overlay.open { transform: translateX(0); }
+        #profile-overlay-bar {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 10px 14px; flex-shrink: 0;
+            background: rgba(8,12,30,0.97);
+            border-bottom: 1px solid rgba(99,102,241,0.2);
+            gap: 10px;
+        }
+        #profile-overlay-bar .po-title {
+            font-size: 12px; color: #64748b; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        #profile-overlay-bar .po-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+        .po-btn {
+            display: inline-flex; align-items: center; gap: 5px;
+            padding: 5px 11px; border-radius: 6px; font-size: 11px; font-weight: 600;
+            text-decoration: none; cursor: pointer; border: none; line-height: 1;
+            transition: opacity 0.15s;
+        }
+        .po-btn:hover { opacity: 0.82; }
+        .po-btn-open {
+            background: rgba(99,102,241,0.15);
+            border: 1px solid rgba(99,102,241,0.3);
+            color: #818cf8;
+        }
+        .po-btn-close {
+            background: rgba(99,102,241,0.08);
+            border: 1px solid rgba(99,102,241,0.18);
+            color: #475569;
+            font-size: 16px; padding: 4px 9px;
+        }
+        .po-btn-close:hover { color: #94a3b8; background: rgba(99,102,241,0.18); }
+        #profile-overlay-frame {
+            flex: 1; border: none; width: 100%; display: block;
+            background: #0d1117;
+        }
+
+        /* External-link ↗ icon */
+        .ext-link-icon {
+            display: inline-block;
+            width: 10px; height: 10px; margin-left: 4px; vertical-align: middle;
+            opacity: 0.65;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6'/%3E%3Cpolyline points='15 3 21 3 21 9'/%3E%3Cline x1='10' y1='14' x2='21' y2='3'/%3E%3C/svg%3E");
+            background-repeat: no-repeat; background-size: contain;
+        }
     </style>
 </head>
 <body>
@@ -1484,8 +1548,10 @@
     </div>
     <p class="popup-stance" id="popup-stance"></p>
     <div class="popup-actions">
-        <a id="popup-campaign-link" href="#" class="popup-btn popup-btn-primary" target="_blank">👤 View Profile</a>
-        <a id="popup-bp-link" href="#" class="popup-btn popup-btn-secondary" target="_blank" rel="noopener">Ballotpedia →</a>
+        <a id="popup-campaign-link" href="#" class="popup-btn popup-btn-primary"
+           onclick="if(this.href&&this.href!==location.href+'#'){event.preventDefault();openProfileOverlay(this.href,this.dataset.name||'');}">
+           👤 View Profile</a>
+        <a id="popup-bp-link" href="#" class="popup-btn popup-btn-secondary" target="_blank" rel="noopener">Ballotpedia <span class="ext-link-icon" aria-hidden="true"></span></a>
     </div>
 </div>
 
@@ -1502,6 +1568,25 @@
         <button class="pol-tab"        role="tab" data-tab="contact"  aria-selected="false" id="pol-tab-contact">Contact</button>
     </nav>
     <div class="pol-body" id="pol-body" role="tabpanel" aria-labelledby="pol-tab-overview"><!-- filled by JS --></div>
+</div>
+
+{{-- ── In-map profile overlay ──────────────────────────────────────── --}}
+<div id="profile-overlay-backdrop" onclick="closeProfileOverlay()" aria-hidden="true"></div>
+<div id="profile-overlay" role="dialog" aria-modal="true" aria-label="Politician profile">
+    <div id="profile-overlay-bar">
+        <span class="po-title" id="profile-overlay-title">Profile</span>
+        <div class="po-actions">
+            <a id="profile-overlay-fullpage" href="#" target="_blank" rel="noopener"
+               class="po-btn po-btn-open">
+                Open full page
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+                </svg>
+            </a>
+            <button class="po-btn po-btn-close" onclick="closeProfileOverlay()" aria-label="Close profile">✕</button>
+        </div>
+    </div>
+    <iframe id="profile-overlay-frame" src="about:blank" title="Politician profile" loading="lazy" allowfullscreen></iframe>
 </div>
 
 <div id="dist-progress">
@@ -3424,9 +3509,10 @@ function openCandidatePopup(c, color, anchorEl) {
         stanceEl.style.display = 'none';
     }
 
-    // CTAs — primary goes to the candidate's U9itus profile page
+    // CTAs — primary opens the in-map profile overlay for U9itus profiles
     const campLink = document.getElementById('popup-campaign-link');
     campLink.href = c.profile_url || '#';
+    campLink.dataset.name = c.name || '';
     campLink.style.background = `linear-gradient(135deg, ${color}, ${color}cc)`;
     campLink.style.opacity    = c.profile_url ? '1' : '0.45';
     campLink.style.pointerEvents = c.profile_url ? '' : 'none';
@@ -3837,7 +3923,7 @@ async function openDistrictPanel(districtNum, districtLabel, stateName, regionHe
     <!-- U.S. House district section -->
     <div style="background:${color}0a;border:1px solid ${color}22;border-radius:8px;padding:8px 10px;margin-bottom:12px;font-size:11px;color:#475569;">
         <span style="color:${color};font-weight:600;">119th Congress</span> &nbsp;·&nbsp; 2025–2027
-        &nbsp;·&nbsp; <a href="https://www.house.gov" target="_blank" rel="noopener" style="color:${color};text-decoration:none;">house.gov →</a>
+        &nbsp;·&nbsp; <a href="https://www.house.gov" target="_blank" rel="noopener" style="color:${color};text-decoration:none;">house.gov <span class="ext-link-icon" aria-hidden="true"></span></a>
         ${popBadge}
     </div>
     <div class="office-section">
@@ -5186,9 +5272,9 @@ function _renderPolBody() {
 
     } else { // contact
         const links = [];
-        if (c.profile_url)       links.push(`<a href="${c.profile_url}" target="_blank" rel="noopener" class="pol-link pol-link-primary">👤 U9itus Profile</a>`);
-        if (c.website)           links.push(`<a href="${c.website}"     target="_blank" rel="noopener" class="pol-link pol-link-alt">Official Website →</a>`);
-        if (c.ballotpedia_url)   links.push(`<a href="${c.ballotpedia_url}" target="_blank" rel="noopener" class="pol-link pol-link-alt">Ballotpedia →</a>`);
+        if (c.profile_url)       links.push(`<a href="${c.profile_url}" class="pol-link pol-link-primary" onclick="event.preventDefault();openProfileOverlay('${c.profile_url.replace(/'/g,"\\'")}',' ${(c.name||'').replace(/'/g,"\\'")}')">👤 U9itus Profile</a>`);
+        if (c.website)           links.push(`<a href="${c.website}"     target="_blank" rel="noopener" class="pol-link pol-link-alt">Official Website <span class='ext-link-icon' aria-hidden='true'></span></a>`);
+        if (c.ballotpedia_url)   links.push(`<a href="${c.ballotpedia_url}" target="_blank" rel="noopener" class="pol-link pol-link-alt">Ballotpedia <span class='ext-link-icon' aria-hidden='true'></span></a>`);
         polBodyEl.innerHTML = `
             <p class="pol-section-label">Links &amp; Resources</p>
             ${links.length
@@ -5216,6 +5302,60 @@ function animate() {
 animate();
 
 window.addEventListener('resize', resizeRenderer);
+
+/* ════════════════════════════════════════════════════════
+   IN-MAP PROFILE OVERLAY
+   Opens /p/{slug}?embed=1 in a right-side iframe slide-over.
+   External links (Ballotpedia, websites) are unaffected.
+════════════════════════════════════════════════════════ */
+(function () {
+    'use strict';
+
+    const overlay    = document.getElementById('profile-overlay');
+    const backdrop   = document.getElementById('profile-overlay-backdrop');
+    const frame      = document.getElementById('profile-overlay-frame');
+    const titleEl    = document.getElementById('profile-overlay-title');
+    const fullPageEl = document.getElementById('profile-overlay-fullpage');
+
+    window.openProfileOverlay = function (profileUrl, candidateName) {
+        if (!profileUrl || profileUrl === '#') return;
+
+        // Build embed URL: strip any existing embed param, then add it.
+        let embedUrl;
+        try {
+            const u = new URL(profileUrl, location.origin);
+            u.searchParams.set('embed', '1');
+            embedUrl = u.toString();
+        } catch (_) {
+            embedUrl = profileUrl + (profileUrl.includes('?') ? '&' : '?') + 'embed=1';
+        }
+
+        frame.src      = embedUrl;
+        titleEl.textContent = candidateName || 'Profile';
+        fullPageEl.href     = profileUrl;
+
+        overlay.classList.add('open');
+        backdrop.classList.add('open');
+        overlay.removeAttribute('aria-hidden');
+        document.body.style.overflow = 'hidden';
+    };
+
+    window.closeProfileOverlay = function () {
+        overlay.classList.remove('open');
+        backdrop.classList.remove('open');
+        overlay.setAttribute('aria-hidden', 'true');
+        document.body.style.overflow = '';
+        // Defer src clear so the close animation plays first.
+        setTimeout(function () { frame.src = 'about:blank'; }, 340);
+    };
+
+    // Close on Escape
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && overlay.classList.contains('open')) {
+            window.closeProfileOverlay();
+        }
+    });
+}());
 </script>
 </body>
 </html>
