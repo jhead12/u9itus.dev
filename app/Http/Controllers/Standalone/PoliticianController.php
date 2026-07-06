@@ -1788,7 +1788,6 @@ class PoliticianController extends Controller
             'background_style'    => 'required|in:dark,light,gradient,image',
             'hero_banner_url'     => 'nullable|url|max:500',
             'hero_banner_file'    => 'nullable|image|mimes:jpeg,jpg,png,webp|max:5120',
-            'hero_banner_edited'  => 'nullable|string',
             'show_bio'            => 'boolean',
             'show_initiatives'    => 'boolean',
             'show_campaigns'      => 'boolean',
@@ -1804,24 +1803,22 @@ class PoliticianController extends Controller
         }
 
         // ── Handle Hero Banner Upload ──
+        /** @var \App\Services\MediaStorageService $media */
+        $media = app(\App\Services\MediaStorageService::class);
+
         $heroBannerUrl = $validated['hero_banner_url'] ?? null;
 
-        // Priority 1: Edited image data (base64)
-        if (!empty($validated['hero_banner_edited'])) {
-            $heroBannerUrl = $this->storeBase64Image(
-                $validated['hero_banner_edited'],
-                'hero-banners',
-                $politician->id
-            );
+        // Priority 1: Uploaded file
+        if ($request->hasFile('hero_banner_file')) {
+            $existing = \App\Models\PoliticianPage::where('politician_id', $politician->id)
+                ->value('hero_banner_url');
+            $newUrl = $media->storeImage($request->file('hero_banner_file'), 'hero-banners', $politician->id);
+            if ($newUrl) {
+                $media->deleteByUrl($existing);
+                $heroBannerUrl = $newUrl;
+            }
         }
-        // Priority 2: Uploaded file
-        elseif ($request->hasFile('hero_banner_file')) {
-            $file = $request->file('hero_banner_file');
-            $filename = 'hero-banner-' . $politician->id . '-' . time() . '.' . $file->getClientOriginalExtension();
-            $path = $file->storeAs('public/hero-banners', $filename);
-            $heroBannerUrl = asset('storage/' . str_replace('public/', '', $path));
-        }
-        // Priority 3: URL input (already in $validated)
+        // Priority 2: URL input (already in $validated, may be null to clear)
 
         // Update hero_banner_url in validated data
         $validated['hero_banner_url'] = $heroBannerUrl;
@@ -1829,45 +1826,13 @@ class PoliticianController extends Controller
         // Upsert politician_pages
         \App\Models\PoliticianPage::updateOrCreate(
             ['politician_id' => $politician->id],
-            \Illuminate\Support\Arr::except($validated, ['page_published', 'hero_banner_file', 'hero_banner_edited'])
+            \Illuminate\Support\Arr::except($validated, ['page_published', 'hero_banner_file'])
         );
 
         // Update page_published on the politician itself
         $politician->update(['page_published' => $validated['page_published']]);
 
         return back()->with('success', 'Public page settings saved.');
-    }
-
-    /**
-     * Store base64 encoded image to disk
-     */
-    private function storeBase64Image(string $base64Data, string $directory, int $userId): ?string
-    {
-        try {
-            // Extract base64 data and mime type
-            if (preg_match('/^data:image\/(\w+);base64,(.+)$/', $base64Data, $matches)) {
-                $extension = $matches[1];
-                $data = base64_decode($matches[2]);
-                
-                if ($data === false) {
-                    return null;
-                }
-
-                // Generate filename
-                $filename = $directory . '-' . $userId . '-' . time() . '.' . $extension;
-                $path = "public/{$directory}/{$filename}";
-
-                // Store file
-                \Storage::put($path, $data);
-
-                return asset('storage/' . str_replace('public/', '', $path));
-            }
-
-            return null;
-        } catch (\Exception $e) {
-            \Log::error('Failed to store base64 image: ' . $e->getMessage());
-            return null;
-        }
     }
 
     // ── Initiatives ────────────────────────────────────────────────────────
