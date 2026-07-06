@@ -637,3 +637,25 @@ jobs:
             --limit=1000 \
             $STATE_ARGS \
             ${{ steps.args.outputs.dry_arg }}
+
+      # ── Data-integrity audit ──────────────────────────────────────────────
+      # Scans politician rows against PoliticianDataRules: bad names, unknown
+      # parties, invalid state codes, unknown term_status values.
+      # --fix normalises party/state in place (safe, non-destructive).
+      # --deactivate hides artifact-name rows (garbage AI output) so they
+      # never surface on the public map or profile pages.
+      # Exits 0 always — this is a warning step, not a blocker.
+      - name: Audit & fix politician data integrity
+        run: |
+          STATES="${{ steps.args.outputs.states }}"
+          STATE_ARG=""
+          if [ -n "$STATES" ]; then
+            FIRST=$(echo "$STATES" | cut -d',' -f1)
+            STATE_ARG="--state=$FIRST"
+          fi
+          php artisan politicians:audit-data-integrity \
+            --fix \
+            --deactivate \
+            --limit=5000 \
+            $STATE_ARG \
+            ${{ steps.args.outputs.dry_arg }} || true

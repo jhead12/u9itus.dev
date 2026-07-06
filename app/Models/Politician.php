@@ -117,6 +117,48 @@ class Politician extends Model
     protected static function boot(): void
     {
         parent::boot();
+
+        // ── Data-integrity gate ────────────────────────────────────────────
+        // Every save (create or update, from any import/scraper/AI path) is
+        // validated against the central rules. Fixable issues are normalized
+        // in place; unfixable garbage (artifact names) aborts the save.
+        static::saving(function (Politician $politician): void {
+            // Normalize party to canonical form; unmappable strings become null.
+            if ($politician->isDirty('party_affiliation')) {
+                $politician->party_affiliation =
+                    \App\Support\PoliticianDataRules::normalizeParty($politician->party_affiliation);
+            }
+
+            // Uppercase state codes.
+            if ($politician->isDirty('state') && $politician->state !== null) {
+                $politician->state = strtoupper(trim($politician->state));
+            }
+
+            // Reject artifact names outright — these must never persist.
+            if ($politician->isDirty('full_name')) {
+                $violation = \App\Support\PoliticianDataRules::nameViolation($politician->full_name);
+                if ($violation !== null) {
+                    \Illuminate\Support\Facades\Log::warning('Politician save blocked by data rules', [
+                        'id' => $politician->id,
+                        'full_name' => $politician->full_name,
+                        'violation' => $violation,
+                    ]);
+                    throw new \InvalidArgumentException(
+                        "Politician full_name rejected ({$violation}): \"{$politician->full_name}\""
+                    );
+                }
+            }
+
+            // Invalid state codes are cleared (kept nullable) rather than fatal.
+            if (\App\Support\PoliticianDataRules::stateViolation($politician->state) !== null) {
+                \Illuminate\Support\Facades\Log::warning('Politician state cleared by data rules', [
+                    'id' => $politician->id,
+                    'state' => $politician->state,
+                ]);
+                $politician->state = null;
+            }
+        });
+
         static::creating(function (Politician $politician): void {
             if (empty($politician->uuid)) {
                 $politician->uuid = (string) Str::uuid();

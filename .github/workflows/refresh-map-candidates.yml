@@ -265,6 +265,25 @@ jobs:
             $STATE_ARG \
             ${{ steps.args.outputs.dry_arg }}
 
+      # ── Data-integrity audit ──────────────────────────────────────────────
+      # Runs PoliticianDataRules against every active row; normalises parties
+      # and deactivates artifact-name rows created by stale AI imports.
+      # Always exits 0 so the job does not fail on marginal data quality.
+      - name: Audit & fix politician data integrity
+        run: |
+          STATES="${{ github.event.inputs.states }}"
+          STATE_ARG=""
+          if [ -n "$STATES" ]; then
+            FIRST=$(echo "$STATES" | cut -d',' -f1)
+            STATE_ARG="--state=$FIRST"
+          fi
+          php artisan politicians:audit-data-integrity \
+            --fix \
+            --deactivate \
+            --limit=5000 \
+            $STATE_ARG \
+            ${{ steps.args.outputs.dry_arg }} || true
+
       - name: Cross-office conflict audit
         run: |
           php artisan tinker --execute="
