@@ -73,15 +73,22 @@ class AuditPoliticianDataIntegrity extends Command
                 continue;
             }
 
-            // Fixable: normalize party/state in place.
+            // Fixable: normalize party/state/term_status in place.
             if ($fix) {
                 $pol->party_affiliation = PoliticianDataRules::normalizeParty($pol->party_affiliation);
+
+                // Resolve full state names (e.g. 'CALIFORNIA') to 2-letter
+                // abbrevs first; only clear when truly unmappable.
                 if (PoliticianDataRules::stateViolation($pol->state) !== null) {
-                    $pol->state = null;
+                    $pol->state = PoliticianDataRules::resolveStateAbbreviation($pol->state);
                 }
+
+                // term_status is NOT NULL in prod — fall back to 'running'
+                // (neutral, hides from seated/lost filters) instead of null.
                 if (PoliticianDataRules::termStatusViolation($pol->term_status) !== null) {
-                    $pol->term_status = null;
+                    $pol->term_status = 'running';
                 }
+
                 $pol->saveQuietly();
                 $fixed++;
             } else {

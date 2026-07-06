@@ -149,13 +149,10 @@ class Politician extends Model
                 }
             }
 
-            // Invalid state codes are cleared (kept nullable) rather than fatal.
+            // Resolve full state names (e.g. 'CALIFORNIA' → 'CA') before
+            // clearing; only null it out when truly unmappable.
             if (\App\Support\PoliticianDataRules::stateViolation($politician->state) !== null) {
-                \Illuminate\Support\Facades\Log::warning('Politician state cleared by data rules', [
-                    'id' => $politician->id,
-                    'state' => $politician->state,
-                ]);
-                $politician->state = null;
+                $politician->state = \App\Support\PoliticianDataRules::resolveStateAbbreviation($politician->state);
             }
         });
 
