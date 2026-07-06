@@ -233,8 +233,11 @@
         </a>
     </div>
 
-    {{-- Earnings Calculator Widget --}}
-    <!-- <x-earnings-calculator /> -->
+    <!-- {{-- Earnings Calculator Widget --}}
+    <x-earnings-calculator /> -->
+
+    {{-- Local Candidate News --}}
+    @include('standalone.voter.partials.candidate-news', ['candidateNews' => $candidateNews])
 
     {{-- Voter Registration Prompt (shown if status unknown or not registered) --}}
     @if(is_null($voter->is_registered_voter) || $voter->is_registered_voter === false)

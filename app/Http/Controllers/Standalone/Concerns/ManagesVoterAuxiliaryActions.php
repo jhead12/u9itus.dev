@@ -15,6 +15,7 @@ use App\Services\PlatformSettingsService;
 use App\Services\StripeConnectService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
@@ -70,6 +71,21 @@ trait ManagesVoterAuxiliaryActions
             ->orderBy('effective_until')
             ->get();
 
+        // Local candidate news — cached per state (15 min) so the DB is hit at most once
+        // per state per cache window. Falls back to most recent global articles if the
+        // voter has no state set.
+        $newsCacheKey = 'voter-dashboard-news-' . ($voter->state ?: 'all');
+        $candidateNews = Cache::remember($newsCacheKey, now()->addMinutes(15), function () use ($voter) {
+            return \App\Models\CandidateNewsArticle::query()
+                ->with('politician:id,full_name,slug')
+                ->when($voter->state, fn ($q) =>
+                    $q->whereHas('politician', fn ($p) => $p->where('state', $voter->state))
+                )
+                ->orderByDesc('published_at')
+                ->take(3)
+                ->get();
+        });
+
         return view('standalone.voter.dashboard', [
             'user'            => Auth::user(),
             'voter'           => $voter,
@@ -78,6 +94,7 @@ trait ManagesVoterAuxiliaryActions
             'availableCampaignsCount' => $availableCampaignsCount,
             'recentSessions'  => $recentSessions,
             'activePromotions' => $activePromotions,
+            'candidateNews'   => $candidateNews,
             'needsAuthenticUserVerifierMigration' => $voter->needsAuthenticUserVerifierMigration(),
         ]);
     }
