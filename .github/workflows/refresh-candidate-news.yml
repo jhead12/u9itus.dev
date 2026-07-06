@@ -80,6 +80,14 @@ jobs:
           EOF
 
       # ── Run migrations (only new ones; safe to run on every job) ─────────────
+      - name: Debug migration source
+        run: |
+          echo "Workflow SHA: $GITHUB_SHA"
+          git rev-parse HEAD
+          echo "--- migration guard check (profile_photo_status) ---"
+          grep -n "hasColumn('politicians', 'profile_photo_status')\|profile_photo_status" \
+            database/migrations/2026_07_06_120001_add_photo_validation_and_news_verification_fields.php || true
+
       - name: Run pending migrations
         run: php artisan migrate --force --no-interaction
 
