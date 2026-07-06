@@ -4,10 +4,12 @@ namespace App\Services;
 
 use App\Models\CandidateNewsArticle;
 use App\Models\Politician;
+use App\Models\PoliticianTopic;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 /**
  * Candidate News Service
@@ -28,6 +30,12 @@ class CandidateNewsService
 
     /** Maximum articles stored per provider per candidate. */
     protected int $maxPerProvider = 6;
+
+    /** Max rows requested from paid APIs before local filtering. */
+    protected int $maxArticles = 12;
+
+    /** Balanced verification threshold for name+context relevance. */
+    protected float $verificationThreshold = 0.65;
 
     public function __construct(
         protected ?string $newsApiKey = null,
@@ -145,6 +153,70 @@ class CandidateNewsService
     }
 
     /**
+     * Re-run verification/topic extraction on existing stored articles.
+     * Useful for backfills and quality-cleaning workflows.
+     */
+    public function reverifyStoredArticles(int $limit = 500, ?int $politicianId = null): array
+    {
+        $query = CandidateNewsArticle::query()
+            ->when($politicianId, fn ($q, $id) => $q->where('politician_id', $id))
+            ->orderByDesc('published_at')
+            ->limit($limit);
+
+        $articles = $query->get();
+        $verified = 0;
+        $rejected = 0;
+
+        foreach ($articles as $article) {
+            $politician = $article->politician_id
+                ? Politician::query()->find($article->politician_id)
+                : null;
+
+            $verification = $this->verifyCandidateRelevance(
+                candidateName: (string) $article->candidate_name,
+                headline: (string) $article->headline,
+                snippet: (string) ($article->snippet ?? ''),
+                sourceName: (string) ($article->source_name ?? ''),
+                state: (string) ($politician?->state ?? ''),
+                office: (string) ($politician?->political_office ?? ''),
+            );
+
+            $topic = $verification['status'] === 'verified'
+                ? $this->extractTopicKey((string) $article->headline, (string) ($article->snippet ?? ''))
+                : ['topic_key' => null, 'topic_confidence' => null];
+
+            $article->update([
+                'verification_status' => $verification['status'],
+                'verification_reason' => $verification['reason'],
+                'verification_confidence' => $verification['confidence'],
+                'name_match_score' => $verification['name_match_score'],
+                'context_match_score' => $verification['context_match_score'],
+                'verified_at' => $verification['status'] === 'verified' ? now() : null,
+                'verification_meta' => [
+                    'full_name_match' => $verification['full_name_match'],
+                    'surname_match' => $verification['surname_match'],
+                    'context_hits' => $verification['context_hits'],
+                    'reverified' => true,
+                ],
+                'topic_key' => $topic['topic_key'],
+                'topic_confidence' => $topic['topic_confidence'],
+            ]);
+
+            if ($verification['status'] === 'verified') {
+                $verified++;
+            } else {
+                $rejected++;
+            }
+        }
+
+        return [
+            'processed' => $articles->count(),
+            'verified' => $verified,
+            'rejected' => $rejected,
+        ];
+    }
+
+    /**
      * Upsert a batch of articles, skipping already-seen URL hashes.
      *
      * @param array<int, array<string, mixed>> $articles
@@ -152,6 +224,8 @@ class CandidateNewsService
      */
     protected function persistArticles(array $articles, ?int $politicianId, string $candidateName, array &$seen): void
     {
+        $politician = $politicianId ? Politician::query()->find($politicianId) : null;
+
         // Verify the politician actually exists before using it as a FK value.
         // If it has been deleted or was never imported, save articles as unlinked
         // (politician_id = null) rather than throwing a constraint violation.
@@ -171,15 +245,165 @@ class CandidateNewsService
             }
             $seen[$hash] = true;
 
+            $verification = $this->verifyCandidateRelevance(
+                candidateName: $candidateName,
+                headline: (string) ($article['headline'] ?? ''),
+                snippet: (string) ($article['snippet'] ?? ''),
+                sourceName: (string) ($article['source_name'] ?? ''),
+                state: (string) ($politician?->state ?? ''),
+                office: (string) ($politician?->political_office ?? ''),
+            );
+
+            $topic = $verification['status'] === 'verified'
+                ? $this->extractTopicKey(
+                    headline: (string) ($article['headline'] ?? ''),
+                    snippet: (string) ($article['snippet'] ?? '')
+                )
+                : ['topic_key' => null, 'topic_confidence' => null];
+
             CandidateNewsArticle::updateOrCreate(
                 ['source_hash' => $hash],
                 array_merge($article, [
                     'politician_id'  => $politicianId,
                     'candidate_name' => $candidateName,
                     'scraped_at'     => now(),
+                    'verification_status' => $verification['status'],
+                    'verification_reason' => $verification['reason'],
+                    'verification_confidence' => $verification['confidence'],
+                    'name_match_score' => $verification['name_match_score'],
+                    'context_match_score' => $verification['context_match_score'],
+                    'verified_at' => $verification['status'] === 'verified' ? now() : null,
+                    'verification_meta' => [
+                        'full_name_match' => $verification['full_name_match'],
+                        'surname_match' => $verification['surname_match'],
+                        'context_hits' => $verification['context_hits'],
+                    ],
+                    'topic_key' => $topic['topic_key'],
+                    'topic_confidence' => $topic['topic_confidence'],
                 ]),
             );
         }
+    }
+
+    /**
+     * First-pass relevance gate (balanced policy):
+     * - Accept exact full-name matches.
+     * - Else accept surname match with office/state/news context terms.
+     * - Else reject (kept in DB as rejected for audit).
+     *
+     * @return array{status:string,reason:string,confidence:float,name_match_score:float,context_match_score:float,full_name_match:bool,surname_match:bool,context_hits:array<int,string>}
+     */
+    protected function verifyCandidateRelevance(
+        string $candidateName,
+        string $headline,
+        string $snippet,
+        string $sourceName,
+        string $state,
+        string $office,
+    ): array {
+        $haystack = Str::lower(trim($headline . ' ' . $snippet));
+        $fullName = Str::lower(trim(preg_replace('/\s+/', ' ', $candidateName)));
+
+        $parts = preg_split('/\s+/', trim($candidateName)) ?: [];
+        $surname = Str::lower((string) end($parts));
+        if (in_array($surname, ['jr', 'sr', 'ii', 'iii', 'iv'], true) && count($parts) > 1) {
+            $surname = Str::lower((string) $parts[count($parts) - 2]);
+        }
+
+        $fullNameMatch = $fullName !== '' && str_contains($haystack, $fullName);
+        $surnameMatch = $surname !== '' && strlen($surname) >= 3 && preg_match('/\b' . preg_quote($surname, '/') . '\b/u', $haystack) === 1;
+
+        $contextTerms = array_filter(array_unique(array_map('strtolower', [
+            trim($state),
+            trim($office),
+            'election', 'campaign', 'candidate', 'primary', 'general election',
+            'governor', 'senator', 'representative', 'congress', 'mayor', 'attorney general',
+            strtolower(trim($sourceName)),
+        ])));
+
+        $contextHits = [];
+        foreach ($contextTerms as $term) {
+            if ($term !== '' && strlen($term) >= 3 && str_contains($haystack, $term)) {
+                $contextHits[] = $term;
+            }
+        }
+
+        $nameScore = $fullNameMatch ? 1.0 : ($surnameMatch ? 0.65 : 0.0);
+        $contextScore = min(1.0, count($contextHits) / 3.0);
+        $confidence = max($nameScore, ($surnameMatch ? 0.55 : 0.0) + (0.35 * $contextScore));
+
+        $isVerified = $fullNameMatch || ($surnameMatch && $contextScore >= 0.35 && $confidence >= $this->verificationThreshold);
+
+        return [
+            'status' => $isVerified ? 'verified' : 'rejected',
+            'reason' => $isVerified
+                ? ($fullNameMatch ? 'full-name match' : 'surname + context match')
+                : 'candidate name/context mismatch',
+            'confidence' => round($confidence, 3),
+            'name_match_score' => round($nameScore, 3),
+            'context_match_score' => round($contextScore, 3),
+            'full_name_match' => $fullNameMatch,
+            'surname_match' => (bool) $surnameMatch,
+            'context_hits' => array_values($contextHits),
+        ];
+    }
+
+    /**
+     * Lightweight issue/topic extraction for verified articles.
+     * Uses active PoliticianTopic slugs and names as keyword anchors.
+     *
+     * @return array{topic_key:?string,topic_confidence:?float}
+     */
+    protected function extractTopicKey(string $headline, string $snippet): array
+    {
+        $text = Str::lower(trim($headline . ' ' . $snippet));
+        if ($text === '') {
+            return ['topic_key' => null, 'topic_confidence' => null];
+        }
+
+        $topics = Cache::remember('news:topic-slug-map', 300, function () {
+            return PoliticianTopic::query()
+                ->where('is_active', true)
+                ->get(['slug', 'name'])
+                ->map(fn (PoliticianTopic $t) => [
+                    'slug' => strtolower((string) $t->slug),
+                    'name' => strtolower((string) $t->name),
+                ])
+                ->all();
+        });
+
+        $best = null;
+        $bestScore = 0;
+
+        foreach ($topics as $topic) {
+            $slug = (string) ($topic['slug'] ?? '');
+            $name = (string) ($topic['name'] ?? '');
+            if ($slug === '' && $name === '') {
+                continue;
+            }
+
+            $score = 0;
+            if ($slug !== '' && str_contains($text, str_replace('-', ' ', $slug))) {
+                $score += 0.65;
+            }
+            if ($name !== '' && str_contains($text, $name)) {
+                $score += 0.55;
+            }
+
+            if ($score > $bestScore) {
+                $bestScore = $score;
+                $best = $slug ?: null;
+            }
+        }
+
+        if ($best === null || $bestScore < 0.55) {
+            return ['topic_key' => null, 'topic_confidence' => null];
+        }
+
+        return [
+            'topic_key' => $best,
+            'topic_confidence' => round(min(1.0, $bestScore), 3),
+        ];
     }
 
     // -------------------------------------------------------------------------

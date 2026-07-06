@@ -340,6 +340,28 @@ jobs:
             echo "WARNING: politicians:backfill-photos is unavailable for this run SHA; skipping photo backfill step."
           fi
 
+      # ── Validate profile photos (face vs logo/symbol) ─────────────────────
+      # Ensures profile_photo_url points to a likely headshot. Uses Anthropic
+      # vision classification and quarantines likely non-face images
+      # (e.g. logos, seals, flags) for review. Limited per run for predictable CI cost.
+      - name: Validate profile photos are face images
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          STATES="${{ github.event.inputs.states }}"
+          STATE_ARG=""
+          if [ -n "$STATES" ]; then
+            FIRST_STATE=$(echo "$STATES" | cut -d',' -f1)
+            STATE_ARG="--state=$FIRST_STATE"
+          fi
+          php artisan politicians:validate-profile-photos \
+            --require-ai \
+            --quarantine-only \
+            --min-confidence=0.70 \
+            --limit=500 \
+            ${STATE_ARG} \
+            ${{ steps.args.outputs.dry_arg }}
+
       # ── Sync primary election results ────────────────────────────────────
       # For each statewide candidate whose election_date is in the past,
       # scrapes Ballotpedia/Wikipedia to determine if they advanced to the

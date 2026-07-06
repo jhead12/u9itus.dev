@@ -37,6 +37,9 @@ class Politician extends Model
         'website_url',
         'bio',
         'profile_photo_url',
+        'profile_photo_status',
+        'profile_photo_validation_confidence',
+        'profile_photo_last_validated_at',
         'verified_official',
         'kyc_status',
         'stripe_customer_id',
@@ -90,6 +93,8 @@ class Politician extends Model
             'pending_earnings' => 'decimal:4',
             'total_spent'      => 'decimal:2',
             'verified_official' => 'boolean',
+            'profile_photo_validation_confidence' => 'decimal:3',
+            'profile_photo_last_validated_at' => 'datetime',
             'is_active'              => 'boolean',
             'is_running_candidate'   => 'boolean',
             'term_ends_on'            => 'date',
@@ -219,6 +224,11 @@ class Politician extends Model
     public function politicianReferrer(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(Politician::class, 'referred_by_politician_id');
+    }
+
+    public function photoQuarantines(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(PoliticianPhotoQuarantine::class);
     }
 
     /**

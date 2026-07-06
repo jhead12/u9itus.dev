@@ -1,0 +1,104 @@
+name: Validate Candidate Profile Photos
+
+on:
+  schedule:
+    - cron: "30 3 * * *"   # Daily at 03:30 UTC
+  workflow_dispatch:
+    inputs:
+      state:
+        description: "Optional single state code (e.g. CA)"
+        default: ""
+        required: false
+      limit:
+        description: "Max politicians to validate"
+        default: "800"
+        required: false
+      include_claimed:
+        description: "Also validate claimed profiles"
+        type: boolean
+        default: false
+      fix_invalid:
+        description: "Enable auto-clear mode (otherwise quarantine-first only)"
+        type: boolean
+        default: false
+      dry_run:
+        description: "Report only, no DB writes"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  validate-profile-photos:
+    name: Validate profile photos are face images
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, pdo_mysql
+          coverage: none
+
+      - name: Cache Composer packages
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: ${{ runner.os }}-composer-${{ hashFiles('composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Install Composer dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress --no-dev
+
+      - name: Write .env
+        run: |
+          cat > .env <<EOF
+          APP_ENV=production
+          APP_KEY=${{ secrets.APP_KEY }}
+          APP_DEBUG=false
+          APP_URL=${{ secrets.APP_URL }}
+
+          DB_CONNECTION=mysql
+          DB_HOST=${{ secrets.DB_HOST }}
+          DB_PORT=${{ secrets.DB_PORT }}
+          DB_DATABASE=${{ secrets.DB_DATABASE }}
+          DB_USERNAME=${{ secrets.DB_USERNAME }}
+          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+
+          CACHE_DRIVER=database
+          SESSION_DRIVER=database
+          QUEUE_CONNECTION=sync
+          LOG_CHANNEL=stderr
+
+          ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}
+          EOF
+
+      - name: Run pending migrations
+        run: php artisan migrate --force --no-interaction
+
+      - name: Validate profile photos
+        run: |
+          STATE="${{ github.event.inputs.state }}"
+          LIMIT="${{ github.event.inputs.limit || '800' }}"
+          INCLUDE_CLAIMED="${{ github.event.inputs.include_claimed == 'true' && '--include-claimed' || '' }}"
+          AUTO_CLEAR="${{ github.event.inputs.fix_invalid == 'true' && '--auto-clear --fix-invalid' || '' }}"
+          DRY="${{ github.event.inputs.dry_run == 'true' && '--dry-run' || '' }}"
+          STATE_ARG=""
+          if [ -n "$STATE" ]; then
+            STATE_ARG="--state=${STATE}"
+          fi
+
+          php artisan politicians:validate-profile-photos \
+            --require-ai \
+            --quarantine-only \
+            --min-confidence=0.70 \
+            --limit="${LIMIT}" \
+            ${STATE_ARG} \
+            ${INCLUDE_CLAIMED} \
+            ${AUTO_CLEAR} \
+            ${DRY}

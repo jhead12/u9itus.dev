@@ -93,3 +93,12 @@ jobs:
             --stale-hours="${STALE}" \
             --limit="${LIMIT}" \
             ${DRY}
+
+      # ── Verify + clean news relevance (candidate name/context gate) ───────
+      - name: Verify candidate news relevance
+        run: |
+          LIMIT=${{ github.event.inputs.limit || '100' }}
+          DRY=${{ github.event.inputs.dry_run == 'true' && '--dry-run' || '' }}
+          php artisan candidates:verify-news \
+            --limit="${LIMIT}" \
+            ${DRY}

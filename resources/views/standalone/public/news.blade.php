@@ -191,6 +191,13 @@
                     <p class="mt-1.5 text-xs text-slate-500">
                         {{ $article->source_name ? $article->source_name . ' · ' : '' }}{{ $article->published_at?->diffForHumans() }}
                     </p>
+                    @if($article->topic_key)
+                    <p class="mt-1.5">
+                        <span class="inline-flex items-center rounded-full border border-emerald-600/40 bg-emerald-900/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-300">
+                            {{ str_replace('-', ' ', $article->topic_key) }}
+                        </span>
+                    </p>
+                    @endif
                     @if($article->snippet)
                     <p class="mt-1.5 text-xs text-slate-400 line-clamp-2">{{ $article->snippet }}</p>
                     @endif
@@ -240,6 +247,12 @@
                                 <span>·</span>
                             @endif
                             <span>{{ $article->published_at?->diffForHumans() }}</span>
+                            @if($article->topic_key)
+                                <span>·</span>
+                                <span class="inline-flex items-center rounded-full border border-emerald-600/40 bg-emerald-900/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-300">
+                                    {{ str_replace('-', ' ', $article->topic_key) }}
+                                </span>
+                            @endif
                         </p>
                         @if($article->snippet)
                         <p class="mt-1 text-xs text-slate-500 line-clamp-1">{{ $article->snippet }}</p>
@@ -284,6 +297,12 @@
                         <span>·</span>
                     @endif
                     <span>{{ $article->published_at?->format('M j, Y') }}</span>
+                    @if($article->topic_key)
+                        <span>·</span>
+                        <span class="inline-flex items-center rounded-full border border-emerald-600/40 bg-emerald-900/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-300">
+                            {{ str_replace('-', ' ', $article->topic_key) }}
+                        </span>
+                    @endif
                 </p>
                 @if($article->snippet)
                 <p class="mt-1 text-xs text-slate-500 line-clamp-1">{{ $article->snippet }}</p>

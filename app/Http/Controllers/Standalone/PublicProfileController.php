@@ -1035,9 +1035,11 @@ class PublicProfileController extends Controller
             if (Schema::hasTable('candidate_news_articles')) {
                 $newsTotal    = \App\Models\CandidateNewsArticle::query()
                     ->where('politician_id', $politician->id)
+                    ->where('verification_status', 'verified')
                     ->count();
                 $newsArticles = \App\Models\CandidateNewsArticle::query()
                     ->where('politician_id', $politician->id)
+                    ->where('verification_status', 'verified')
                     ->orderByDesc('published_at')
                     ->limit(6)
                     ->get();
@@ -1173,6 +1175,7 @@ class PublicProfileController extends Controller
         $searchTerm = $q;
         $query = \App\Models\CandidateNewsArticle::query()
             ->where('politician_id', $politician->id)
+            ->where('verification_status', 'verified')
             ->when($sources, fn($b) => $b->whereIn('provider', $sources))
             ->when($searchTerm, fn($b) => $b->where(fn($w) =>
                 $w->where('headline', 'like', "%{$searchTerm}%")
@@ -1205,6 +1208,7 @@ class PublicProfileController extends Controller
         // ── Source map for TOPIC mode pills ──────────────────────────────
         $allProviders = \App\Models\CandidateNewsArticle::query()
             ->where('politician_id', $politician->id)
+            ->where('verification_status', 'verified')
             ->select('provider')
             ->distinct()
             ->pluck('provider')
