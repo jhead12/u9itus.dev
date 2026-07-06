@@ -244,21 +244,39 @@ class ValidatePoliticianProfilePhotos extends Command
     ): void {
         $photoUrlHash = hash('sha256', strtolower(trim($photoUrl)));
 
-        PoliticianPhotoQuarantine::updateOrCreate(
-            [
-                'politician_id' => $politician->id,
-                'photo_url_hash' => $photoUrlHash,
-            ],
-            [
-                'photo_url' => $photoUrl,
-                'status' => $status,
-                'validator' => $validator,
-                'confidence' => $confidence,
-                'reason' => $reason,
-                'meta' => is_array($meta) ? $meta : null,
-                'resolved_at' => in_array($status, ['approved', 'rejected', 'auto_cleared'], true) ? now() : null,
-            ]
-        );
+        $attributes = [
+            'photo_url'   => $photoUrl,
+            'status'      => $status,
+            'validator'   => $validator,
+            'confidence'  => $confidence,
+            'reason'      => $reason,
+            'meta'        => is_array($meta) ? $meta : null,
+            'resolved_at' => in_array($status, ['approved', 'rejected', 'auto_cleared'], true) ? now() : null,
+        ];
+
+        try {
+            PoliticianPhotoQuarantine::updateOrCreate(
+                [
+                    'politician_id'  => $politician->id,
+                    'photo_url_hash' => $photoUrlHash,
+                ],
+                $attributes
+            );
+        } catch (\Illuminate\Database\QueryException $e) {
+            // SQLSTATE 23000 / 23505 = duplicate key — the row already exists
+            // (race condition between concurrent runs or a retry). Fall back to
+            // a direct UPDATE so the command never aborts for this reason.
+            if (in_array($e->getCode(), ['23000', '23505'], true)) {
+                PoliticianPhotoQuarantine::where('politician_id', $politician->id)
+                    ->where('photo_url_hash', $photoUrlHash)
+                    ->update(array_merge($attributes, [
+                        'meta'       => is_array($meta) ? json_encode($meta) : null,
+                        'updated_at' => now(),
+                    ]));
+            } else {
+                throw $e;
+            }
+        }
     }
 
     private function looksLikeLogoOrSymbolUrl(string $url): bool
