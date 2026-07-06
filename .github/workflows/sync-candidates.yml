@@ -534,3 +534,25 @@ jobs:
             --skip-fresh-days=7 \
             $CREATE_ARG \
             ${{ steps.args.outputs.dry_arg }}
+
+      # ── Reconcile missing profiles from election candidate records ───────
+      # Creates unclaimed profiles for election_candidate_records that still
+      # have no linked politician, then writes candidate_identity_links so
+      # future runs stay idempotent. This catches gaps where records were
+      # imported but no profile row exists yet.
+      - name: Reconcile missing unclaimed candidate profiles
+        run: |
+          YEAR="${{ github.event.inputs.election_year || '2026' }}"
+          STATES="${{ github.event.inputs.states }}"
+          STATE_ARGS=""
+          if [ -n "$STATES" ]; then
+            for state in $(echo "$STATES" | tr ',' ' '); do
+              STATE_ARGS="$STATE_ARGS --state=$state"
+            done
+          fi
+
+          php artisan politicians:reconcile-missing-profiles \
+            --election-year="$YEAR" \
+            --limit=1000 \
+            $STATE_ARGS \
+            ${{ steps.args.outputs.dry_arg }}
