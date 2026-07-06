@@ -152,6 +152,44 @@ class PoliticianDataRules
             : "term_status '{$status}' not in allowed list";
     }
 
+    /** Map full state/territory names to USPS abbreviations. */
+    private const STATE_NAME_TO_CODE = [
+        'ALABAMA' => 'AL', 'ALASKA' => 'AK', 'ARIZONA' => 'AZ', 'ARKANSAS' => 'AR',
+        'CALIFORNIA' => 'CA', 'COLORADO' => 'CO', 'CONNECTICUT' => 'CT', 'DELAWARE' => 'DE',
+        'FLORIDA' => 'FL', 'GEORGIA' => 'GA', 'HAWAII' => 'HI', 'IDAHO' => 'ID',
+        'ILLINOIS' => 'IL', 'INDIANA' => 'IN', 'IOWA' => 'IA', 'KANSAS' => 'KS',
+        'KENTUCKY' => 'KY', 'LOUISIANA' => 'LA', 'MAINE' => 'ME', 'MARYLAND' => 'MD',
+        'MASSACHUSETTS' => 'MA', 'MICHIGAN' => 'MI', 'MINNESOTA' => 'MN', 'MISSISSIPPI' => 'MS',
+        'MISSOURI' => 'MO', 'MONTANA' => 'MT', 'NEBRASKA' => 'NE', 'NEVADA' => 'NV',
+        'NEW HAMPSHIRE' => 'NH', 'NEW JERSEY' => 'NJ', 'NEW MEXICO' => 'NM', 'NEW YORK' => 'NY',
+        'NORTH CAROLINA' => 'NC', 'NORTH DAKOTA' => 'ND', 'OHIO' => 'OH', 'OKLAHOMA' => 'OK',
+        'OREGON' => 'OR', 'PENNSYLVANIA' => 'PA', 'RHODE ISLAND' => 'RI', 'SOUTH CAROLINA' => 'SC',
+        'SOUTH DAKOTA' => 'SD', 'TENNESSEE' => 'TN', 'TEXAS' => 'TX', 'UTAH' => 'UT',
+        'VERMONT' => 'VT', 'VIRGINIA' => 'VA', 'WASHINGTON' => 'WA', 'WEST VIRGINIA' => 'WV',
+        'WISCONSIN' => 'WI', 'WYOMING' => 'WY', 'DISTRICT OF COLUMBIA' => 'DC',
+        'PUERTO RICO' => 'PR', 'GUAM' => 'GU', 'VIRGIN ISLANDS' => 'VI',
+        'AMERICAN SAMOA' => 'AS', 'NORTHERN MARIANA ISLANDS' => 'MP',
+    ];
+
+    /**
+     * Normalize state input to a valid 2-letter code when possible.
+     * Handles full names (e.g. 'CALIFORNIA' → 'CA') and already-valid
+     * uppercase codes. Returns null when input is empty or unmappable.
+     */
+    public static function resolveStateAbbreviation(?string $state): ?string
+    {
+        $state = strtoupper(trim((string) $state));
+        if ($state === '') {
+            return null;
+        }
+
+        if (in_array($state, self::ALLOWED_STATES, true)) {
+            return $state;
+        }
+
+        return self::STATE_NAME_TO_CODE[$state] ?? null;
+    }
+
     /**
      * Run every rule against a politician attribute set.
      *
