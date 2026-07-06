@@ -242,12 +242,15 @@ class ValidatePoliticianProfilePhotos extends Command
         ?string $reason,
         mixed $meta,
     ): void {
+        $photoUrlHash = hash('sha256', strtolower(trim($photoUrl)));
+
         PoliticianPhotoQuarantine::updateOrCreate(
             [
                 'politician_id' => $politician->id,
-                'photo_url' => $photoUrl,
+                'photo_url_hash' => $photoUrlHash,
             ],
             [
+                'photo_url' => $photoUrl,
                 'status' => $status,
                 'validator' => $validator,
                 'confidence' => $confidence,

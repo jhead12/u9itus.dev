@@ -28,6 +28,7 @@ return new class extends Migration
                 $table->id();
                 $table->foreignId('politician_id')->constrained('politicians')->cascadeOnDelete();
                 $table->string('photo_url', 2048);
+                $table->char('photo_url_hash', 64);
                 $table->string('status', 24)->default('pending'); // pending|approved|rejected|auto_cleared
                 $table->string('validator', 32)->nullable(); // heuristic|anthropic
                 $table->decimal('confidence', 4, 3)->nullable();
@@ -37,8 +38,41 @@ return new class extends Migration
                 $table->timestamps();
 
                 $table->index(['status', 'created_at']);
-                $table->unique(['politician_id', 'photo_url']);
+                $table->unique(['politician_id', 'photo_url_hash'], 'politician_photo_quarantines_unique_photo_hash');
             });
+        } else {
+            Schema::table('politician_photo_quarantines', function (Blueprint $table) {
+                if (! Schema::hasColumn('politician_photo_quarantines', 'photo_url_hash')) {
+                    $table->char('photo_url_hash', 64)->nullable()->after('photo_url');
+                }
+            });
+
+            DB::table('politician_photo_quarantines')
+                ->where(function ($q) {
+                    $q->whereNull('photo_url_hash')->orWhere('photo_url_hash', '');
+                })
+                ->orderBy('id')
+                ->select(['id', 'photo_url'])
+                ->chunkById(250, function ($rows) {
+                    foreach ($rows as $row) {
+                        $hash = hash('sha256', strtolower(trim((string) $row->photo_url)));
+                        DB::table('politician_photo_quarantines')
+                            ->where('id', $row->id)
+                            ->update(['photo_url_hash' => $hash]);
+                    }
+                });
+
+            try {
+                DB::statement('ALTER TABLE politician_photo_quarantines MODIFY photo_url_hash CHAR(64) NOT NULL');
+            } catch (\Throwable) {
+                // Ignore when engine/version already has compatible definition.
+            }
+
+            try {
+                DB::statement('CREATE UNIQUE INDEX politician_photo_quarantines_unique_photo_hash ON politician_photo_quarantines (politician_id, photo_url_hash)');
+            } catch (\Throwable) {
+                // Index already exists or cannot be created on this engine/version.
+            }
         }
 
         if (Schema::hasTable('candidate_news_articles')) {

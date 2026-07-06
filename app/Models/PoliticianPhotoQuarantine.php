@@ -9,6 +9,7 @@ class PoliticianPhotoQuarantine extends Model
     protected $fillable = [
         'politician_id',
         'photo_url',
+        'photo_url_hash',
         'status',
         'validator',
         'confidence',
@@ -16,6 +17,13 @@ class PoliticianPhotoQuarantine extends Model
         'meta',
         'resolved_at',
     ];
+
+    protected static function booted(): void
+    {
+        static::saving(function (PoliticianPhotoQuarantine $row): void {
+            $row->photo_url_hash = hash('sha256', strtolower(trim((string) $row->photo_url)));
+        });
+    }
 
     protected function casts(): array
     {
