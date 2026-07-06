@@ -20,9 +20,10 @@
 
     {{-- ── Avatar / identity card ─────────────────────────────────────── --}}
     <div class="bg-slate-800/60 border border-slate-700/50 rounded-2xl px-6 py-5 flex items-center gap-5">
-        <div class="w-16 h-16 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-2xl font-bold text-emerald-400 shrink-0">
-            {{ strtoupper(substr($user->name, 0, 1)) }}
-        </div>
+        <img src="{{ $user->avatar_url }}"
+             alt="{{ $user->name }}"
+             class="w-16 h-16 rounded-full object-cover shrink-0 border border-emerald-500/30"
+             onerror="this.onerror=null;this.src='https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&s=128'">
         <div class="min-w-0">
             <p class="text-base font-semibold text-white truncate">{{ $user->name }}</p>
             <p class="text-sm text-slate-400 truncate">{{ $user->email }}</p>

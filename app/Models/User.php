@@ -106,6 +106,19 @@ class User extends Authenticatable
     }
 
     /**
+     * Gravatar avatar URL derived from the user's email address.
+     * Uses SHA256 hash (Gravatar v3 standard); falls back to mystery-person
+     * silhouette (d=mp) so new users always see a clean placeholder.
+     */
+    public function getAvatarUrlAttribute(): string
+    {
+        $hash = hash('sha256', strtolower(trim($this->attributes['email'] ?? '')));
+        $base = config('services.gravatar.avatar_url', 'https://www.gravatar.com/avatar');
+
+        return "{$base}/{$hash}?s=128&d=mp&r=g";
+    }
+
+    /**
      * Set the user's name by splitting into first and last name.
      * This allows backward compatibility with code that sets 'name' directly.
      */

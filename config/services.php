@@ -76,6 +76,12 @@ return [
         'enabled'        => env('EARLYBANK_ENABLED', false),
     ],
 
+    'gravatar' => [
+        'api_key' => env('AVATAR_API_KEY'),
+        'base_url' => 'https://api.gravatar.com/v3',
+        'avatar_url' => 'https://www.gravatar.com/avatar',
+    ],
+
     'paypal' => [
         'client_id'     => env('PAYPAL_CLIENT_ID'),
         'client_secret' => env('PAYPAL_CLIENT_SECRET'),

@@ -14,12 +14,14 @@
 
     {{-- Avatar / Identity card --}}
     <div class="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-6 flex items-center gap-5">
-        <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-700 flex items-center justify-center text-white text-2xl font-bold shrink-0 shadow-lg">
-            {{ strtoupper(substr($user->name ?? 'V', 0, 1)) }}
-        </div>
+        <img src="{{ $user->avatar_url }}"
+             alt="{{ $user->name ?? 'User' }}"
+             class="w-16 h-16 rounded-2xl object-cover shadow-lg shrink-0"
+             onerror="this.onerror=null;this.src='https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&s=128'">
         <div class="min-w-0">
             <p class="text-white text-lg font-semibold truncate">{{ $user->name }}</p>
             <p class="text-slate-400 text-sm truncate">{{ $user->email }}</p>
+            <a href="https://gravatar.com" target="_blank" rel="noopener" class="text-xs text-slate-500 hover:text-emerald-400 transition">Change profile photo at gravatar.com &rarr;</a>
             <div class="flex items-center gap-2 mt-1.5 flex-wrap">
                 @if($voter->is_verified)
                 <span class="inline-flex items-center gap-1 text-xs bg-emerald-900/40 border border-emerald-700/40 text-emerald-400 rounded-full px-2.5 py-0.5">
