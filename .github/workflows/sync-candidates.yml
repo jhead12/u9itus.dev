@@ -433,11 +433,13 @@ jobs:
             FIRST_STATE=$(echo "$STATES" | cut -d',' -f1)
             STATE_ARG="--state=$FIRST_STATE"
           fi
+          # --require-ai omitted: quota exhaustion opens the circuit breaker
+          # automatically and finishes remaining photos with URL heuristics.
+          # --limit=150 keeps daily AI usage conservative (~150 images/day).
           php artisan politicians:validate-profile-photos \
-            --require-ai \
             --quarantine-only \
             --min-confidence=0.70 \
-            --limit=500 \
+            --limit=150 \
             ${STATE_ARG} \
             ${{ steps.args.outputs.dry_arg }}
 

@@ -88,6 +88,14 @@ class ValidatePoliticianProfilePhotos extends Command
             $url = trim((string) $politician->profile_photo_url);
             $result = $this->validatePhotoUrl($url, ! $skipAi);
 
+            // Circuit breaker: first quota-exhausted response flips $skipAi
+            // for all remaining iterations — no more wasted API calls.
+            if (($result['validator'] ?? '') === 'quota_exhausted') {
+                $this->warn('  ⚡ Anthropic quota exhausted — switching to heuristic-only for remaining photos.');
+                $skipAi = true;
+                $result = $this->validatePhotoUrl($url, false);
+            }
+
             if ($result['status'] === 'valid') {
                 $valid++;
                 $this->line("  <fg=green>✓</> #{$politician->id} {$politician->full_name}");
@@ -363,10 +371,16 @@ class ValidatePoliticianProfilePhotos extends Command
                 ]);
 
             if (! $response->ok()) {
+                $body = $response->body();
                 Log::warning('politicians:validate-profile-photos anthropic error', [
                     'status' => $response->status(),
-                    'body' => $response->body(),
+                    'body'   => $body,
                 ]);
+                // Permanent quota exhaustion — return a sentinel so the
+                // caller can open the circuit breaker and stop wasting calls.
+                if ($response->status() === 400 && str_contains($body, 'usage limits')) {
+                    return ['validator' => 'quota_exhausted', 'status' => 'unknown', 'reason' => 'anthropic quota exhausted'];
+                }
                 return null;
             }
 
