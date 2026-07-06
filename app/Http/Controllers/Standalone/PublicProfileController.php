@@ -928,7 +928,11 @@ class PublicProfileController extends Controller
         $isGuestBrowsing = ! auth()->check();
 
         // Eager-load what we need for the public page
-        $politician->load(['page', 'initiatives' => fn($q) => $q->published()->ordered()]);
+        $politician->load([
+            'page',
+            'initiatives' => fn($q) => $q->published()->ordered(),
+            'publicBadges.topic',
+        ]);
 
         // Page config (use defaults if politician hasn't saved one yet)
         $page = $politician->page ?? new \App\Models\PoliticianPage(\App\Models\PoliticianPage::defaults($politician->id));
@@ -988,6 +992,48 @@ class PublicProfileController extends Controller
             ->get();
 
         $initiatives = $politician->initiatives;
+
+        $issueContextTags = $politician->publicBadges
+            ->map(function ($badge) {
+                $topic = $badge->topic;
+                if (! $topic || ! filled($topic->name)) {
+                    return null;
+                }
+
+                return [
+                    'name'  => (string) $topic->name,
+                    'slug'  => \Illuminate\Support\Str::slug((string) $topic->name),
+                    'icon'  => $topic->badge_icon_url ?: $topic->icon,
+                    'color' => $topic->badge_color ?: '#6366f1',
+                ];
+            })
+            ->filter()
+            ->unique('slug')
+            ->take(16)
+            ->values();
+
+        // Fallback: if no formal badges exist yet, expose initiative titles as
+        // issue context tags so profile search/filter can still index them later.
+        if ($issueContextTags->isEmpty() && $initiatives->isNotEmpty()) {
+            $issueContextTags = $initiatives
+                ->map(function ($initiative) {
+                    $title = trim((string) ($initiative->title ?? ''));
+                    if ($title === '') {
+                        return null;
+                    }
+
+                    return [
+                        'name'  => $title,
+                        'slug'  => \Illuminate\Support\Str::slug($title),
+                        'icon'  => $initiative->icon ?: null,
+                        'color' => '#6366f1',
+                    ];
+                })
+                ->filter()
+                ->unique('slug')
+                ->take(12)
+                ->values();
+        }
 
         $transparencyData = $this->buildTransparencyData($politician);
         $digDeeperData = $this->buildDigDeeperData($politician, $transparencyData);
@@ -1062,6 +1108,7 @@ class PublicProfileController extends Controller
             'pastCampaigns',
             'publicBoardQuestions',
             'initiatives',
+            'issueContextTags',
             'transparencyData',
             'digDeeperData',
             'meTokenData',

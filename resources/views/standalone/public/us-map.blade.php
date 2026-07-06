@@ -1100,6 +1100,13 @@
         }
         .pol-title { font-size: 11px; color: #64748b; margin: 0 0 7px; }
         .pol-badges { display: flex; flex-wrap: wrap; gap: 5px; }
+        /* Shared pill/badge — issue-context tags, status chips, all map badges */
+        .u9-pill {
+            display: inline-flex; align-items: center; gap: 4px;
+            padding: 2px 8px; border-radius: 999px;
+            font-size: 10px; font-weight: 600; line-height: 1.4;
+        }
+        .u9-pill svg { flex-shrink: 0; }
 
         /* Tabs */
         .pol-tabs {
@@ -3030,6 +3037,41 @@ function partyClass(p) {
     return 'party-I';
 }
 
+/* ── Unified badge/pill builder ─────────────────────────────────────────
+   All map badge pills route through here so styling stays consistent and
+   issue-context tags render everywhere badges appear.
+   ─────────────────────────────────────────────────────────────────────── */
+function pill(text, color = '#6366f1', title = '') {
+    const t = title ? ` title="${title}"` : '';
+    return `<span class="u9-pill"${t} style="background:${color}1a;border:1px solid ${color}40;color:${color};">${text}</span>`;
+}
+
+/**
+ * Render the full badge row for a candidate object.
+ * Covers: party, status, running, verified, issue-context tags (c.badges).
+ */
+function renderBadgeRow(c) {
+    const parts = [];
+    if (c.party) {
+        parts.push(`<span class="party-pill ${partyClass(c.party)}">${PARTY_LABEL[c.party] || c.party || '—'}</span>`);
+    }
+    if (c.status === 'seated') {
+        parts.push(pill('In Office', '#818cf8'));
+    }
+    if (c.is_running) {
+        parts.push(pill('Running 2026', '#34d399'));
+    }
+    if (c.verified) {
+        parts.push(`<span title="Verified" style="color:#fbbf24;font-size:13px;line-height:1;">✓</span>`);
+    }
+    // Issue-context tags from the API's `badges` field (publicBadges topics)
+    for (const b of (c.badges || []).slice(0, 4)) {
+        const dot = `<svg width="6" height="6" viewBox="0 0 6 6" aria-hidden="true" style="fill:${b.color || '#6366f1'};flex-shrink:0;"><circle cx="3" cy="3" r="3"/></svg>`;
+        parts.push(pill(dot + (b.name || ''), b.color || '#6366f1', `Issue: ${b.name || ''}`));
+    }
+    return `<div class="pol-badges">${parts.join('')}</div>`;
+}
+
 /* ── Candidate popup ── */
 const candPopup = document.getElementById('cand-popup');
 document.getElementById('cand-popup-close').addEventListener('click', closePopup);
@@ -3502,7 +3544,13 @@ function openCandidatePopup(c, color, anchorEl) {
     document.getElementById('popup-party-badge').style.cssText = 'display:block;font-size:12px;font-weight:700;padding:2px 0;border:none;background:none;';
 
     const stanceEl = document.getElementById('popup-stance');
-    if (c.stance_topic) {
+    if (Array.isArray(c.badges) && c.badges.length) {
+        stanceEl.innerHTML = c.badges.slice(0, 5).map(b => {
+            const dot = `<svg width="6" height="6" viewBox="0 0 6 6" aria-hidden="true" style="fill:${b.color || '#6366f1'};flex-shrink:0;"><circle cx="3" cy="3" r="3"/></svg>`;
+            return pill(dot + (b.name || ''), b.color || '#6366f1', `Issue: ${b.name || ''}`);
+        }).join(' ');
+        stanceEl.style.display = '';
+    } else if (c.stance_topic) {
         stanceEl.innerHTML = `<strong>${c.stance_topic}:</strong> ${c.stance_text}`;
         stanceEl.style.display = '';
     } else {
@@ -3558,6 +3606,10 @@ function renderCandidate(c, color) {
         : '';
     const st = c.status === 'seated' ? `<span class="status-seated">● Seated</span>` : c.is_running ? `<span class="status-running">● Running 2026</span>${elBadge}` : '';
     const vf = c.verified ? `<span class="verified-badge">✓ Verified</span>` : '';
+    const issuePills = (c.badges || []).slice(0, 2).map(b => {
+        const dot = `<svg width="6" height="6" viewBox="0 0 6 6" aria-hidden="true" style="fill:${b.color || '#6366f1'};flex-shrink:0;"><circle cx="3" cy="3" r="3"/></svg>`;
+        return pill(dot + (b.name || ''), b.color || '#6366f1', `Issue: ${b.name || ''}`);
+    }).join('');
     // Encode candidate data on the whole card so the full row is clickable
     const popupData = JSON.stringify({ ...c, color });
     // Extract slug from profile_url so __mapGoTo deep-link can auto-open this card
@@ -3574,7 +3626,7 @@ function renderCandidate(c, color) {
         ${av}
         <div style="flex:1;min-width:0;">
             <div class="candidate-name">${c.full_name}</div>
-            <div class="candidate-meta">${py}${st}${vf}</div>
+            <div class="candidate-meta">${py}${st}${vf}${issuePills}</div>
         </div></div>`;
 }
 
@@ -5159,12 +5211,7 @@ function openPolDrawer(cand, accentColor, extra = {}) {
             <div class="pol-hero-info">
                 <h2 class="pol-name" id="pol-drawer-name">${c.full_name}</h2>
                 <p class="pol-title">${c.office || '—'}</p>
-                <div class="pol-badges">
-                    <span class="party-pill ${partyClass(c.party)}">${PARTY_LABEL[c.party] || c.party || '—'}</span>
-                    ${c.status === 'seated' ? `<span style="background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.25);color:#818cf8;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:600;">In Office</span>` : ''}
-                    ${c.is_running ? `<span style="background:rgba(52,211,153,0.1);border:1px solid rgba(52,211,153,0.25);color:#34d399;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:600;">Running 2026</span>` : ''}
-                    ${c.verified   ? `<span title="Verified" style="color:#fbbf24;font-size:13px;line-height:1;">✓</span>` : ''}
-                </div>
+                ${renderBadgeRow(c)}
             </div>`;
     }
 
