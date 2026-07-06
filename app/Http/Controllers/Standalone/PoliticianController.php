@@ -1681,7 +1681,27 @@ class PoliticianController extends Controller
             'video_links'            => 'nullable|array|max:20',
             'video_links.*.url'      => 'required|url|max:500',
             'video_links.*.title'    => 'nullable|string|max:200',
+            // Sprint 7 — Web3 read-only fields. Only accepted when the
+            // politician is eligible for the Sovereign (MeToken) tier;
+            // otherwise stripped below to prevent drive-by writes.
+            'wallet_address'         => 'nullable|string|regex:/^0x[a-fA-F0-9]{40}$/',
+            'metoken_address'        => 'nullable|string|regex:/^0x[a-fA-F0-9]{40}$/',
         ]);
+
+        if (! $politician->isEligibleForMeToken()) {
+            unset($validated['wallet_address'], $validated['metoken_address']);
+        } else {
+            // Normalize to lowercase to match the service's address handling
+            // and the unique index behavior in the DB.
+            foreach (['wallet_address', 'metoken_address'] as $addr) {
+                if (isset($validated[$addr]) && $validated[$addr] !== null && $validated[$addr] !== '') {
+                    $validated[$addr] = strtolower($validated[$addr]);
+                } elseif (array_key_exists($addr, $validated)) {
+                    // Empty string → treat as unset (allows clearing the field).
+                    $validated[$addr] = null;
+                }
+            }
+        }
 
         // Filter out any rows where url is empty (safety for the repeater UI)
         if (isset($validated['video_links'])) {

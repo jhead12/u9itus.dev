@@ -133,6 +133,50 @@
             </button>
         </div>
 
+        {{-- Sprint 7 — Web3 read-only enrichment (gated by MeToken eligibility
+             + platform kill-switch). Only rendered when both conditions are met
+             so we do not confuse non-eligible politicians with unrelated fields. --}}
+        @php
+            $web3Enabled = \App\Services\PlatformSettingsService::get('web3_features_enabled', null, false);
+        @endphp
+        @if($web3Enabled && $politician?->isEligibleForMeToken())
+            <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6 space-y-4">
+                <div>
+                    <h2 class="text-sm font-semibold text-slate-200 flex items-center gap-2">
+                        <span aria-hidden="true">🔗</span>
+                        On-Chain Loyalty (Base L2)
+                    </h2>
+                    <p class="mt-1 text-xs text-slate-400 leading-relaxed">
+                        Paste an already-deployed wallet address or MeToken contract to surface a public transparency panel on your profile. Read-only — U9itus never signs on your behalf.
+                    </p>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-slate-300 mb-1.5">Wallet Address</label>
+                    <input type="text" name="wallet_address"
+                        value="{{ old('wallet_address', $politician?->wallet_address) }}"
+                        pattern="^0x[a-fA-F0-9]{40}$"
+                        placeholder="0x…"
+                        class="w-full font-mono bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition" />
+                    @error('wallet_address')
+                        <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
+                    @enderror
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-slate-300 mb-1.5">MeToken Contract</label>
+                    <input type="text" name="metoken_address"
+                        value="{{ old('metoken_address', $politician?->metoken_address) }}"
+                        pattern="^0x[a-fA-F0-9]{40}$"
+                        placeholder="0x… (optional, overrides wallet lookup)"
+                        class="w-full font-mono bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition" />
+                    @error('metoken_address')
+                        <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
+                    @enderror
+                </div>
+            </div>
+        @endif
+
         <button type="submit"
             class="w-full sm:w-auto bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-semibold rounded-lg px-8 py-2.5 text-sm transition">
             Save Profile

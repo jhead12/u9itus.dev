@@ -55,10 +55,6 @@ return [
     // network. See app/Http/Middleware/EarlyBankApiAuth.php and
     // app/Services/EarlyBankWebhookService.php.
     'earlybank' => [
-        // Public-facing URL of the Early-bank site (used in Blade links / CTAs).
-        // Set EARLYBANK_PUBLIC_URL on Railway once DNS is live.
-        'public_url'     => env('EARLYBANK_PUBLIC_URL', 'https://www.early-bank.com'),
-
         // Bearer token presented by Early-bank when calling /api/v1/earlybank/*.
         // Must match U9ITUS_API_TOKEN on the earlybank service.
         'api_token'      => env('EARLYBANK_API_TOKEN'),
@@ -74,12 +70,6 @@ return [
         // group still authenticates but is effectively dormant. Useful while
         // Early-bank.com is being deployed.
         'enabled'        => env('EARLYBANK_ENABLED', false),
-    ],
-
-    'gravatar' => [
-        'api_key' => env('AVATAR_API_KEY'),
-        'base_url' => 'https://api.gravatar.com/v3',
-        'avatar_url' => 'https://www.gravatar.com/avatar',
     ],
 
     'paypal' => [

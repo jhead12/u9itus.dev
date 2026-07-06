@@ -928,11 +928,7 @@ class PublicProfileController extends Controller
         $isGuestBrowsing = ! auth()->check();
 
         // Eager-load what we need for the public page
-        $politician->load([
-            'page',
-            'initiatives' => fn($q) => $q->published()->ordered(),
-            'publicBadges.topic',
-        ]);
+        $politician->load(['page', 'initiatives' => fn($q) => $q->published()->ordered()]);
 
         // Page config (use defaults if politician hasn't saved one yet)
         $page = $politician->page ?? new \App\Models\PoliticianPage(\App\Models\PoliticianPage::defaults($politician->id));
@@ -993,48 +989,6 @@ class PublicProfileController extends Controller
 
         $initiatives = $politician->initiatives;
 
-        $issueContextTags = $politician->publicBadges
-            ->map(function ($badge) {
-                $topic = $badge->topic;
-                if (! $topic || ! filled($topic->name)) {
-                    return null;
-                }
-
-                return [
-                    'name'  => (string) $topic->name,
-                    'slug'  => \Illuminate\Support\Str::slug((string) $topic->name),
-                    'icon'  => $topic->badge_icon_url ?: $topic->icon,
-                    'color' => $topic->badge_color ?: '#6366f1',
-                ];
-            })
-            ->filter()
-            ->unique('slug')
-            ->take(16)
-            ->values();
-
-        // Fallback: if no formal badges exist yet, expose initiative titles as
-        // issue context tags so profile search/filter can still index them later.
-        if ($issueContextTags->isEmpty() && $initiatives->isNotEmpty()) {
-            $issueContextTags = $initiatives
-                ->map(function ($initiative) {
-                    $title = trim((string) ($initiative->title ?? ''));
-                    if ($title === '') {
-                        return null;
-                    }
-
-                    return [
-                        'name'  => $title,
-                        'slug'  => \Illuminate\Support\Str::slug($title),
-                        'icon'  => $initiative->icon ?: null,
-                        'color' => '#6366f1',
-                    ];
-                })
-                ->filter()
-                ->unique('slug')
-                ->take(12)
-                ->values();
-        }
-
         $transparencyData = $this->buildTransparencyData($politician);
         $digDeeperData = $this->buildDigDeeperData($politician, $transparencyData);
 
@@ -1074,20 +1028,13 @@ class PublicProfileController extends Controller
 
         // Load cached news articles only — never trigger live RSS fetching on a web request.
         // The artisan command (candidates:refresh-news) handles background fetching on a schedule.
-        // Profile shows 6 preview cards; the full archive is at /p/{slug}/news.
         $newsArticles = collect();
-        $newsTotal    = 0;
         try {
             if (Schema::hasTable('candidate_news_articles')) {
-                $newsTotal    = \App\Models\CandidateNewsArticle::query()
-                    ->where('politician_id', $politician->id)
-                    ->where('verification_status', 'verified')
-                    ->count();
                 $newsArticles = \App\Models\CandidateNewsArticle::query()
                     ->where('politician_id', $politician->id)
-                    ->where('verification_status', 'verified')
                     ->orderByDesc('published_at')
-                    ->limit(6)
+                    ->limit(60)
                     ->get();
             }
         } catch (\Throwable $e) {
@@ -1097,9 +1044,27 @@ class PublicProfileController extends Controller
             ]);
         }
 
-        // ?embed=1 strips the nav/footer so the page renders cleanly inside
-        // the map's in-page iframe overlay.
-        $embed = $request->boolean('embed');
+        // Build source map for the news filter pills.
+        $nationalSources = config('news_sources.national', []);
+        $stateSources    = config('news_sources.state.' . strtoupper((string) ($politician->state ?? '')), []);
+        $sourceMap = [];
+        foreach (array_merge($nationalSources, $stateSources) as $src) {
+            $sourceMap[$src['id']] = ['label' => $src['label'], 'icon' => $src['icon']];
+        }
+        $sourceMap['newsapi'] = ['label' => 'NewsAPI', 'icon' => '📰'];
+        $sourceMap['gnews']   = ['label' => 'GNews',   'icon' => '📰'];
+
+        $activeProviders = $newsArticles->pluck('provider')->unique()->values()->all();
+        $articlesJson    = $newsArticles->map(fn($a) => [
+            'id'           => $a->id,
+            'provider'     => $a->provider,
+            'headline'     => $a->headline,
+            'source_name'  => $a->source_name,
+            'source_url'   => $a->source_url,
+            'snippet'      => $a->snippet,
+            'image_url'    => $a->image_url,
+            'published_at' => $a->published_at?->diffForHumans(),
+        ])->values()->toJson();
 
         return view('standalone.public.profile', compact(
             'politician',
@@ -1108,7 +1073,6 @@ class PublicProfileController extends Controller
             'pastCampaigns',
             'publicBoardQuestions',
             'initiatives',
-            'issueContextTags',
             'transparencyData',
             'digDeeperData',
             'meTokenData',
@@ -1119,8 +1083,9 @@ class PublicProfileController extends Controller
             'ogUrl',
             'isGuestBrowsing',
             'newsArticles',
-            'newsTotal',
-            'embed'
+            'sourceMap',
+            'activeProviders',
+            'articlesJson'
         ));
     }
 
@@ -1169,130 +1134,6 @@ class PublicProfileController extends Controller
             ]);
             return null;
         }
-    }
-
-    /**
-     * Dedicated news archive for a politician's public page.
-     *
-     * URL: /p/{slug}/news
-     * Supports server-side filtering via query params:
-     *   ?mode=time|topic  — browse mode (default: time)
-     *   ?sort=newest|oldest|source
-     *   ?source=gnews,newsapi   — comma-separated provider ids (topic mode)
-     *   ?q=search term
-     *   ?from=YYYY-MM-DD  ?to=YYYY-MM-DD
-     *   ?page=N
-     */
-    public function news(Request $request, string $slug)
-    {
-        $politician = $this->resolvePublicPolitician($slug);
-        if (! $politician) {
-            abort(404);
-        }
-
-        $politician->load(['page']);
-        $page = $politician->page ?? new \App\Models\PoliticianPage(\App\Models\PoliticianPage::defaults($politician->id));
-
-        // ── Sanitise query params ─────────────────────────────────────────
-        $mode  = in_array($request->input('mode'), ['time', 'topic'], true)
-            ? $request->input('mode') : 'time';
-
-        $sort  = match ($request->input('sort', 'newest')) {
-            'oldest' => 'oldest',
-            'source' => 'source',
-            default  => 'newest',
-        };
-
-        $rawSources = $request->input('source', '');
-        $sources    = collect(explode(',', $rawSources))
-            ->map(fn($s) => trim($s))
-            ->filter()
-            ->values()
-            ->all();
-
-        $q    = mb_substr(strip_tags((string) $request->input('q', '')), 0, 100);
-        $from = $request->input('from');
-        $to   = $request->input('to');
-
-        // Validate date inputs — silently ignore malformed values.
-        $from = $from && preg_match('/^\d{4}-\d{2}-\d{2}$/', $from) ? $from : null;
-        $to   = $to   && preg_match('/^\d{4}-\d{2}-\d{2}$/', $to)   ? $to   : null;
-
-        // ── Query ─────────────────────────────────────────────────────────
-        $searchTerm = $q;
-        $query = \App\Models\CandidateNewsArticle::query()
-            ->where('politician_id', $politician->id)
-            ->where('verification_status', 'verified')
-            ->when($sources, fn($b) => $b->whereIn('provider', $sources))
-            ->when($searchTerm, fn($b) => $b->where(fn($w) =>
-                $w->where('headline', 'like', "%{$searchTerm}%")
-                  ->orWhere('snippet',  'like', "%{$searchTerm}%")
-            ))
-            ->when($from, fn($b, $d) => $b->whereDate('published_at', '>=', $d))
-            ->when($to,   fn($b, $d) => $b->whereDate('published_at', '<=', $d));
-
-        match ($sort) {
-            'oldest' => $query->orderBy('published_at'),
-            'source' => $query->orderBy('source_name')->orderByDesc('published_at'),
-            default  => $query->orderByDesc('published_at'),
-        };
-
-        $articles = $query->paginate(24)->withQueryString();
-
-        // ── Breaking Now (first 2 articles, page 1 only) ──────────────────
-        $breakingNow = $articles->currentPage() === 1 && $mode === 'time' && ! $q && ! $sources
-            ? $articles->getCollection()->take(2)
-            : collect();
-
-        // ── Date grouping for TIME mode ───────────────────────────────────
-        // Group the paginated collection by human-readable date header.
-        $grouped = $mode === 'time'
-            ? $articles->getCollection()
-                ->skip($breakingNow->count())
-                ->groupBy(fn($a) => $a->published_at?->format('l, F j, Y') ?? 'Unknown date')
-            : collect();
-
-        // ── Source map for TOPIC mode pills ──────────────────────────────
-        $allProviders = \App\Models\CandidateNewsArticle::query()
-            ->where('politician_id', $politician->id)
-            ->where('verification_status', 'verified')
-            ->select('provider')
-            ->distinct()
-            ->pluck('provider')
-            ->all();
-
-        $nationalSources = config('news_sources.national', []);
-        $stateSources    = config('news_sources.state.' . strtoupper((string) ($politician->state ?? '')), []);
-        $sourceMap = [];
-        foreach (array_merge($nationalSources, $stateSources) as $src) {
-            $sourceMap[$src['id']] = ['label' => $src['label'], 'icon' => $src['icon']];
-        }
-        $sourceMap['newsapi'] = ['label' => 'NewsAPI', 'icon' => '📰'];
-        $sourceMap['gnews']   = ['label' => 'GNews',   'icon' => '📰'];
-
-        // ── OG meta ───────────────────────────────────────────────────────
-        $ogTitle       = 'News about ' . $politician->full_name . ' — U9itus';
-        $ogDescription = 'Browse all curated news articles about ' . $politician->full_name . '.';
-        $ogUrl         = route('politician.public.news', $slug);
-
-        return view('standalone.public.news', compact(
-            'politician',
-            'page',
-            'articles',
-            'breakingNow',
-            'grouped',
-            'mode',
-            'sort',
-            'sources',
-            'q',
-            'from',
-            'to',
-            'allProviders',
-            'sourceMap',
-            'ogTitle',
-            'ogDescription',
-            'ogUrl',
-        ));
     }
 
     protected function resolvePublicPolitician(string $slug): ?Politician

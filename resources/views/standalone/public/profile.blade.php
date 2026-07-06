@@ -141,7 +141,6 @@
     @endphp
 
     {{-- ── Top Nav Bar ── --}}
-    @unless($embed ?? false)
     <nav class="sticky top-0 z-40 bg-slate-900/80 backdrop-blur-md border-b border-slate-700/50">
         <div class="max-w-5xl mx-auto px-4 sm:px-6 flex items-center justify-between h-14">
             <div class="flex items-center gap-4">
@@ -176,7 +175,6 @@
             </div>
         </div>
     </nav>
-    @endunless
 
     {{-- ── Unclaimed Profile Banner ── --}}
     @if(is_null($politician->user_id))
@@ -399,26 +397,6 @@
                             </svg>
                             View on Map
                         </a>
-                    @endif
-
-                    {{-- ── Issue-context badge chips ──────────────────────────────
-                         Derived from publicBadges topics (falling back to initiative
-                         titles). Each chip links to the directory filtered by that
-                         tag — ready for future search/filter integration. --}}
-                    @if(isset($issueContextTags) && $issueContextTags->isNotEmpty())
-                        <div class="flex flex-wrap items-center gap-1.5 mb-2" data-issue-tags>
-                            <span class="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mr-0.5">Issues</span>
-                            @foreach($issueContextTags as $tag)
-                                <a href="{{ route('politicians.directory', ['q' => $tag['name']]) }}"
-                                   class="inline-flex items-center gap-x-1 rounded-full px-2.5 py-0.5 text-[10px] font-semibold border transition-all hover:brightness-125 focus:outline-none focus:ring-2 focus:ring-offset-1"
-                                   style="color:{{ $tag['color'] }};border-color:{{ $tag['color'] }}40;background-color:{{ $tag['color'] }}1a;--tw-ring-color:{{ $tag['color'] }};"
-                                   title="Browse candidates focused on {{ $tag['name'] }}"
-                                   data-issue-tag="{{ $tag['slug'] }}">
-                                    <svg class="h-1.5 w-1.5 flex-shrink-0" viewBox="0 0 6 6" aria-hidden="true" style="fill:{{ $tag['color'] }};"><circle cx="3" cy="3" r="3"/></svg>
-                                    {{ $tag['name'] }}
-                                </a>
-                            @endforeach
-                        </div>
                     @endif
 
                     @if($termInfo)
@@ -1049,107 +1027,98 @@
         @endif
 
         {{-- ── In the News ─────────────────────────────────────────────────── --}}
-        {{-- $newsArticles (6 items), $newsTotal passed from controller --}}
+        {{-- $newsArticles, $sourceMap, $activeProviders, $articlesJson passed from controller --}}
         @if($newsArticles->isNotEmpty())
-        <section>
+        <section
+            x-data="{
+                articles: {{ $articlesJson }},
+                selected: [],
+                get filtered() {
+                    if (this.selected.length === 0) return this.articles;
+                    return this.articles.filter(a => this.selected.includes(a.provider));
+                },
+                toggle(id) {
+                    if (this.selected.includes(id)) {
+                        this.selected = this.selected.filter(s => s !== id);
+                    } else {
+                        this.selected.push(id);
+                    }
+                },
+                isActive(id) { return this.selected.includes(id); }
+            }"
+        >
             <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
                 <h2 class="text-xl font-bold text-white flex items-center gap-2">
                     <span class="w-1 h-6 rounded-full inline-block flex-shrink-0" style="background:var(--p13-accent,#f59e0b)"></span>
                     In the News
                 </h2>
-                @if($newsTotal > 6)
-                <a href="{{ route('politician.public.news', $politician->slug) }}"
-                   class="text-xs text-emerald-400 hover:text-emerald-300 transition font-medium">
-                    View all {{ number_format($newsTotal) }} articles →
-                </a>
-                @endif
+                <span class="text-xs text-slate-500">
+                    Select sources to filter &nbsp;·&nbsp;
+                    <button type="button" @click="selected = []" class="text-emerald-400 hover:underline">Show all</button>
+                </span>
             </div>
 
-            @php
-                $newsHero  = $newsArticles->first();
-                $newsThumbs = $newsArticles->skip(1)->values();
-            @endphp
+            {{-- Source-picker pills --}}
+            <div class="flex flex-wrap gap-2 mb-5">
+                {{-- "All" shortcut --}}
+                <button
+                    type="button"
+                    @click="selected = []"
+                    :class="selected.length === 0
+                        ? 'bg-emerald-600 border-emerald-500 text-white'
+                        : 'bg-slate-800/60 border-slate-700/60 text-slate-400 hover:border-slate-600 hover:text-white'"
+                    class="inline-flex items-center gap-1.5 text-xs font-medium border rounded-full px-3 py-1 transition">
+                    All
+                </button>
 
-            {{-- Breaking story — hero card --}}
-            <a href="{{ $newsHero->source_url }}" target="_blank" rel="noopener noreferrer"
-               class="group block rounded-2xl overflow-hidden border border-slate-700/50 hover:border-slate-600 bg-slate-800/40 transition mb-4">
-                @if($newsHero->image_url)
-                <div class="relative w-full h-48 bg-slate-700 overflow-hidden">
-                    <img src="{{ $newsHero->image_url }}" alt=""
-                         class="w-full h-full object-cover group-hover:scale-105 transition duration-500"
-                         loading="lazy"
-                         onerror="this.parentElement.style.display='none'">
-                    <div class="absolute inset-0 bg-gradient-to-t from-slate-900/80 to-transparent"></div>
-                    <span class="absolute top-3 left-3 text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-full text-white"
-                          style="background:var(--p13-accent,#f59e0b);color:#0f172a">Breaking Now</span>
-                </div>
-                @else
-                <div class="w-full h-16 flex items-center gap-3 px-5"
-                     style="background:linear-gradient(135deg,var(--p13-primary,#1e40af),var(--p13-accent,#f59e0b))">
-                    <span class="text-xs font-bold uppercase tracking-wider text-white/80">Breaking Now</span>
-                </div>
-                @endif
-                <div class="p-4">
-                    <p class="text-base font-semibold text-white group-hover:text-emerald-300 line-clamp-2 leading-snug transition">
-                        {{ $newsHero->headline }}
-                    </p>
-                    <p class="mt-1.5 text-xs text-slate-500 flex items-center gap-2">
-                        @if($newsHero->source_name)
-                            <span class="font-medium text-slate-400">{{ $newsHero->source_name }}</span>
-                            <span>·</span>
-                        @endif
-                        <span>{{ $newsHero->published_at?->diffForHumans() }}</span>
-                    </p>
-                    @if($newsHero->snippet)
-                    <p class="mt-1.5 text-xs text-slate-400 line-clamp-2">{{ $newsHero->snippet }}</p>
-                    @endif
-                </div>
-            </a>
-
-            {{-- Thumbnail grid — remaining 5 --}}
-            @if($newsThumbs->isNotEmpty())
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                @foreach($newsThumbs as $article)
-                <a href="{{ $article->source_url }}" target="_blank" rel="noopener noreferrer"
-                   class="group flex gap-3 bg-slate-800/40 border border-slate-700/40 hover:border-slate-600/60 rounded-xl p-3 transition">
-                    @if($article->image_url)
-                    <img src="{{ $article->image_url }}" alt=""
-                         class="w-16 h-14 object-cover rounded-lg flex-shrink-0 bg-slate-700"
-                         loading="lazy"
-                         onerror="this.style.display='none'">
-                    @else
-                    <div class="w-16 h-14 rounded-lg flex-shrink-0 flex items-center justify-center text-xl"
-                         style="background:linear-gradient(135deg,var(--p13-primary,#1e40af)33,var(--p13-accent,#f59e0b)33)">
-                        📰
-                    </div>
-                    @endif
-                    <div class="min-w-0 flex-1">
-                        <p class="text-xs font-medium text-slate-200 group-hover:text-white line-clamp-2 leading-snug transition">
-                            {{ $article->headline }}
-                        </p>
-                        <p class="mt-1 text-xs text-slate-500 truncate">
-                            {{ $article->source_name ? $article->source_name . ' · ' : '' }}{{ $article->published_at?->diffForHumans() }}
-                        </p>
-                    </div>
-                </a>
+                @foreach($activeProviders as $providerId)
+                @php
+                    $srcMeta = $sourceMap[$providerId] ?? ['label' => $providerId, 'icon' => '📰'];
+                @endphp
+                <button
+                    type="button"
+                    @click="toggle('{{ $providerId }}')"
+                    :class="isActive('{{ $providerId }}')
+                        ? 'bg-emerald-600 border-emerald-500 text-white'
+                        : 'bg-slate-800/60 border-slate-700/60 text-slate-400 hover:border-slate-600 hover:text-white'"
+                    class="inline-flex items-center gap-1.5 text-xs font-medium border rounded-full px-3 py-1 transition">
+                    <span>{{ $srcMeta['icon'] }}</span>
+                    <span>{{ $srcMeta['label'] }}</span>
+                </button>
                 @endforeach
             </div>
-            @endif
 
-            {{-- View more footer --}}
-            @if($newsTotal > 6)
-            <div class="mt-4 text-center">
-                <a href="{{ route('politician.public.news', $politician->slug) }}"
-                   class="inline-flex items-center gap-2 text-sm font-semibold px-5 py-2.5 rounded-xl border transition
-                          border-slate-700 text-slate-300 hover:border-slate-500 hover:text-white bg-slate-800/50 hover:bg-slate-800">
-                    Explore the full archive
-                    <span class="text-xs text-slate-500">{{ number_format($newsTotal) }} articles</span>
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/>
-                    </svg>
-                </a>
+            {{-- Article list (filtered by Alpine) --}}
+            <div class="space-y-3">
+                <template x-for="article in filtered" :key="article.id">
+                    <a :href="article.source_url" target="_blank" rel="noopener noreferrer"
+                       class="flex gap-4 bg-slate-800/40 border border-slate-700/40 hover:border-slate-600/60 rounded-xl p-4 transition group">
+                        <template x-if="article.image_url">
+                            <img :src="article.image_url" alt=""
+                                 class="w-20 h-16 object-cover rounded-lg flex-shrink-0 bg-slate-700"
+                                 loading="lazy" x-on:error="$el.style.display='none'">
+                        </template>
+                        <div class="min-w-0 flex-1">
+                            <p class="text-sm font-medium text-slate-200 group-hover:text-white line-clamp-2 leading-snug transition"
+                               x-text="article.headline"></p>
+                            <p class="mt-1 text-xs text-slate-500 flex items-center gap-2">
+                                <span class="font-medium text-slate-400" x-text="article.source_name"></span>
+                                <span x-show="article.source_name && article.published_at">·</span>
+                                <span x-text="article.published_at"></span>
+                            </p>
+                            <p class="mt-1 text-xs text-slate-500 line-clamp-2" x-text="article.snippet"></p>
+                        </div>
+                        <span class="text-slate-600 group-hover:text-slate-400 flex-shrink-0 self-center transition">↗</span>
+                    </a>
+                </template>
+
+                {{-- Empty state when a filter returns no results --}}
+                <p x-show="filtered.length === 0"
+                   class="text-sm text-slate-500 text-center py-6 bg-slate-800/30 border border-slate-700/40 rounded-xl">
+                    No articles from the selected source(s) yet. Try another or
+                    <button type="button" @click="selected = []" class="text-emerald-400 hover:underline">show all</button>.
+                </p>
             </div>
-            @endif
         </section>
         @endif
 
@@ -1267,7 +1236,6 @@
     </main>
 
     {{-- ── Footer ── --}}
-    @unless($embed ?? false)
     <footer class="border-t border-slate-800 py-8 text-center text-sm text-slate-500">
         <p>
             <a href="{{ url('/') }}" class="font-bold text-slate-300 hover:text-white transition">
@@ -1281,7 +1249,6 @@
             <a href="{{ route('register.politician') }}" class="hover:text-slate-300 transition">Register as a Politician</a>
         </p>
     </footer>
-    @endunless
 
     @if($showReferralShareModal)
     <script>

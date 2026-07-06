@@ -215,6 +215,14 @@
                     </svg>
                     Preferences
                 </a>
+                <a href="https://docs.google.com/forms/d/1eUabk9YnV2nNPSaTzpdWxXgJxNJmrxxhnpqVat7Q_jY/viewform"
+                    target="_blank" rel="noopener noreferrer"
+                    class="flex items-center gap-2 px-4 py-2.5 text-sm text-slate-300 hover:text-white hover:bg-slate-700/60 transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/>
+                    </svg>
+                    Bug Report / Feedback ↗
+                </a>
                 <div class="border-t border-slate-700 my-1"></div>
                 <form method="POST" action="{{ route('logout') }}">
                     @csrf
