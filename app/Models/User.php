@@ -114,8 +114,11 @@ class User extends Authenticatable
     {
         $hash = hash('sha256', strtolower(trim($this->attributes['email'] ?? '')));
         $base = config('services.gravatar.avatar_url', 'https://www.gravatar.com/avatar');
+        $name = urlencode($this->attributes['name'] ?? $this->attributes['first_name'] ?? 'User');
 
-        return "{$base}/{$hash}?s=128&d=mp&r=g";
+        // d=initials: Gravatar generates a colored-initial avatar when no photo is set,
+        // matching the existing UI style. Falls back to mystery-person if initials unsupported.
+        return "{$base}/{$hash}?s=128&d=initials&name={$name}&r=g";
     }
 
     /**

@@ -73,9 +73,9 @@
             <div class="divide-y divide-slate-700/30">
                 @forelse($recentUsers as $u)
                 <div class="px-5 py-3 flex items-center gap-3">
-                    <div class="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-xs font-semibold text-slate-300 shrink-0">
-                        {{ strtoupper(substr($u->name, 0, 1)) }}
-                    </div>
+                    <img src="{{ $u->avatar_url }}"
+                         alt="{{ $u->name }}"
+                         class="w-8 h-8 rounded-full object-cover shrink-0">
                     <div class="min-w-0 flex-1">
                         <p class="text-sm font-medium text-white truncate">{{ $u->name }}</p>
                         <p class="text-xs text-slate-500 truncate">{{ $u->email }}</p>

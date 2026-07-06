@@ -56,9 +56,9 @@
                 <div class="flex flex-col sm:flex-row sm:items-start gap-4">
                     {{-- Avatar + info --}}
                     <div class="flex items-start gap-3 flex-1 min-w-0">
-                        <div class="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center text-sm font-bold text-slate-200 shrink-0">
-                            {{ strtoupper(substr($user->name, 0, 1)) }}
-                        </div>
+                        <img src="{{ $user->avatar_url }}"
+                             alt="{{ $user->name }}"
+                             class="w-10 h-10 rounded-full object-cover shrink-0">
                         <div class="min-w-0">
                             <div class="flex items-center gap-2 flex-wrap">
                                 <p class="text-sm font-semibold text-white">{{ $user->name }}</p>

@@ -42,9 +42,9 @@
     {{-- User Card --}}
     <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl overflow-hidden">
         <div class="px-6 py-5 border-b border-slate-700/50 flex items-center gap-4">
-            <div class="w-12 h-12 rounded-full bg-slate-700 flex items-center justify-center text-lg font-bold text-slate-200 shrink-0">
-                {{ strtoupper(substr($user->name, 0, 1)) }}
-            </div>
+            <img src="{{ $user->avatar_url }}"
+                 alt="{{ $user->name }}"
+                 class="w-12 h-12 rounded-full object-cover shrink-0">
             <div>
                 <h2 class="text-base font-semibold text-white">{{ $user->name }}</h2>
                 <p class="text-sm text-slate-400">{{ $user->email }}</p>

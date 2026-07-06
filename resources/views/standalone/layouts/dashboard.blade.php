@@ -273,9 +273,9 @@
         {{-- Footer --}}
         <div class="px-3 py-4 border-t border-slate-800">
             <div class="flex items-center gap-3 px-3 py-2 mb-2">
-                <div class="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400 text-sm font-bold">
-                    {{ strtoupper(substr(auth()->user()?->name ?? 'U', 0, 1)) }}
-                </div>
+                <img src="{{ auth()->user()?->avatar_url }}"
+                     alt="{{ auth()->user()?->name }}"
+                     class="w-8 h-8 rounded-full object-cover shrink-0">
                 <div class="flex-1 min-w-0">
                     <p class="text-sm font-medium text-slate-200 truncate">{{ auth()->user()?->name }}</p>
                     <p class="text-xs text-slate-500 truncate">{{ auth()->user()?->email }}</p>

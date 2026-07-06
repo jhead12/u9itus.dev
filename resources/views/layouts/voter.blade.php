@@ -190,9 +190,9 @@
         <div class="relative" x-data="{ open: false }">
             <button @click="open = !open"
                 class="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-full pl-3 pr-2 py-1.5 text-sm transition">
-                <div class="w-7 h-7 rounded-full bg-emerald-700 flex items-center justify-center text-white text-xs font-bold shrink-0">
-                    {{ strtoupper(substr(auth()->user()->name ?? 'V', 0, 1)) }}
-                </div>
+                <img src="{{ auth()->user()->avatar_url }}"
+                     alt="{{ auth()->user()->name }}"
+                     class="w-7 h-7 rounded-full object-cover shrink-0">
                 <span class="hidden sm:block text-slate-200 max-w-[100px] truncate">{{ auth()->user()->name }}</span>
                 <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
@@ -249,9 +249,9 @@
             @php $voter = $voter ?? auth()->user()->voter; @endphp
             <div class="p-4 border-b border-slate-800">
                 <div class="flex items-center gap-3">
-                    <div class="w-11 h-11 rounded-full bg-gradient-to-br from-emerald-600 to-teal-700 flex items-center justify-center text-white font-bold text-lg shrink-0">
-                        {{ strtoupper(substr(auth()->user()->name ?? 'V', 0, 1)) }}
-                    </div>
+                    <img src="{{ auth()->user()->avatar_url }}"
+                         alt="{{ auth()->user()->name }}"
+                         class="w-11 h-11 rounded-full object-cover shrink-0">
                     <div class="min-w-0">
                         <p class="text-white text-sm font-semibold truncate">{{ auth()->user()->name }}</p>
                         @if($voter)
