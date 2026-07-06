@@ -6,6 +6,64 @@ on:
     - cron: "0 2 * * *"   # Every day at 02:00 UTC
   workflow_dispatch:
     inputs:
+      state:
+        description: "Single state to sync/enrich (e.g. CA). Used when 'states' is blank."
+        type: choice
+        default: ""
+        required: false
+        options:
+          - ""
+          - AL
+          - AK
+          - AZ
+          - AR
+          - CA
+          - CO
+          - CT
+          - DE
+          - FL
+          - GA
+          - HI
+          - ID
+          - IL
+          - IN
+          - IA
+          - KS
+          - KY
+          - LA
+          - ME
+          - MD
+          - MA
+          - MI
+          - MN
+          - MS
+          - MO
+          - MT
+          - NE
+          - NV
+          - NH
+          - NJ
+          - NM
+          - NY
+          - NC
+          - ND
+          - OH
+          - OK
+          - OR
+          - PA
+          - RI
+          - SC
+          - SD
+          - TN
+          - TX
+          - UT
+          - VT
+          - VA
+          - WA
+          - WV
+          - WI
+          - WY
+          - DC
       states:
         description: "Comma-separated state codes to sync (e.g. CA,TX,NY). Leave blank for all states."
         default: ""
@@ -101,7 +159,12 @@ jobs:
       - name: Build import arguments
         id: args
         run: |
-          STATES="${{ github.event.inputs.states }}"
+          STATES_INPUT="${{ github.event.inputs.states }}"
+          STATE_PICKER="${{ github.event.inputs.state }}"
+          STATES="$STATES_INPUT"
+          if [ -z "$STATES" ] && [ -n "$STATE_PICKER" ]; then
+            STATES="$STATE_PICKER"
+          fi
           STATE_ARGS=""
           if [ -n "$STATES" ]; then
             for state in $(echo "$STATES" | tr ',' ' '); do
@@ -119,7 +182,22 @@ jobs:
             DRY_ARG="--dry-run"
           fi
 
+          RUN_CA="false"
+          if [ -z "$STATES" ]; then
+            # No filter means "all states", so include the CA-specific pass.
+            RUN_CA="true"
+          else
+            for state in $(echo "$STATES" | tr ',' ' '); do
+              if [ "$state" = "CA" ]; then
+                RUN_CA="true"
+                break
+              fi
+            done
+          fi
+
           echo "state_args=$STATE_ARGS" >> $GITHUB_OUTPUT
+          echo "states=$STATES" >> $GITHUB_OUTPUT
+          echo "run_ca=$RUN_CA" >> $GITHUB_OUTPUT
           echo "former_arg=$FORMER_ARG" >> $GITHUB_OUTPUT
           echo "dry_arg=$DRY_ARG" >> $GITHUB_OUTPUT
 
@@ -134,6 +212,7 @@ jobs:
 
       # ── Sync California-specific federal profiles ─────────────────────────────
       - name: Sync California federal profiles (dedicated command)
+        if: ${{ steps.args.outputs.run_ca == 'true' }}
         run: |
           php artisan politicians:import-unclaimed-ca \
             ${{ steps.args.outputs.dry_arg }}
@@ -168,9 +247,9 @@ jobs:
         run: |
           YEAR="${{ github.event.inputs.election_year || '2026' }}"
           STATE_ARG=""
-          if [ -n "${{ github.event.inputs.states }}" ]; then
+          if [ -n "${{ steps.args.outputs.states }}" ]; then
             # single-state runs pass the first state only (direct mode takes --state)
-            FIRST_STATE=$(echo "${{ github.event.inputs.states }}" | cut -d',' -f1)
+            FIRST_STATE=$(echo "${{ steps.args.outputs.states }}" | cut -d',' -f1)
             STATE_ARG="--state=$FIRST_STATE"
           fi
           # --fetch-websites visits each candidate's Ballotpedia profile page to
@@ -236,7 +315,7 @@ jobs:
           # --states option. A bare "IL," (trailing comma) was being passed as a
           # positional argument by the shell, causing:
           #   RuntimeException: No arguments expected for "opensecrets:scrape-districts"
-          STATES=$(echo "${{ github.event.inputs.states }}" | sed 's/,*$//')
+          STATES=$(echo "${{ steps.args.outputs.states }}" | sed 's/,*$//')
           STATE_ARG=""
           if [ -n "$STATES" ]; then
             STATE_ARG="--states=${STATES}"
@@ -269,7 +348,7 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
-          STATES="${{ github.event.inputs.states }}"
+          STATES="${{ steps.args.outputs.states }}"
           DRY="${{ steps.args.outputs.dry_arg }}"
           if [ -n "$STATES" ]; then
             for state in $(echo "$STATES" | tr ',' ' '); do
@@ -298,7 +377,7 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
-          STATES="${{ github.event.inputs.states }}"
+          STATES="${{ steps.args.outputs.states }}"
           DRY="${{ steps.args.outputs.dry_arg }}"
           if [ -n "$STATES" ]; then
             for state in $(echo "$STATES" | tr ',' ' '); do
@@ -325,7 +404,7 @@ jobs:
       # remaining gaps are picked up on the next scheduled run.
       - name: Backfill profile photos from Wikipedia
         run: |
-          STATES="${{ github.event.inputs.states }}"
+          STATES="${{ steps.args.outputs.states }}"
           STATE_ARG=""
           if [ -n "$STATES" ]; then
             FIRST_STATE=$(echo "$STATES" | cut -d',' -f1)
@@ -348,7 +427,7 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
-          STATES="${{ github.event.inputs.states }}"
+          STATES="${{ steps.args.outputs.states }}"
           STATE_ARG=""
           if [ -n "$STATES" ]; then
             FIRST_STATE=$(echo "$STATES" | cut -d',' -f1)
@@ -372,7 +451,7 @@ jobs:
       # are picked up on every weekly run.
       - name: Sync primary results
         run: |
-          STATES="${{ github.event.inputs.states }}"
+          STATES="${{ steps.args.outputs.states }}"
           DRY="${{ steps.args.outputs.dry_arg }}"
           if [ -n "$STATES" ]; then
             for state in $(echo "$STATES" | tr ',' ' '); do
@@ -468,7 +547,7 @@ jobs:
         if: ${{ github.event.inputs.include_results != 'false' }}
         run: |
           YEAR="${{ github.event.inputs.election_year || '2026' }}"
-          STATES="${{ github.event.inputs.states }}"
+          STATES="${{ steps.args.outputs.states }}"
           STATE_ARG=""
           if [ -n "$STATES" ]; then
             FIRST_STATE=$(echo "$STATES" | cut -d',' -f1)
@@ -502,7 +581,7 @@ jobs:
         if: ${{ github.event.inputs.include_results != 'false' }}
         run: |
           YEAR="${{ github.event.inputs.election_year || '2026' }}"
-          STATES="${{ github.event.inputs.states }}"
+          STATES="${{ steps.args.outputs.states }}"
           STATE_ARG=""
           if [ -n "$STATES" ]; then
             STATE_ARG="--states=$STATES"
@@ -543,7 +622,7 @@ jobs:
       - name: Reconcile missing unclaimed candidate profiles
         run: |
           YEAR="${{ github.event.inputs.election_year || '2026' }}"
-          STATES="${{ github.event.inputs.states }}"
+          STATES="${{ steps.args.outputs.states }}"
           STATE_ARGS=""
           if [ -n "$STATES" ]; then
             for state in $(echo "$STATES" | tr ',' ' '); do
