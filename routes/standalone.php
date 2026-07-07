@@ -26,6 +26,7 @@ use App\Http\Controllers\Standalone\VoterOnboardingController;
 use App\Http\Controllers\Standalone\PoliticianOnboardingController;
 use App\Http\Controllers\Standalone\AdminOnboardingController;
 use App\Http\Controllers\Standalone\IdmeController;
+use App\Http\Controllers\Standalone\TwoFactorController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -200,7 +201,27 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
             ->middleware('throttle:6,1')
             ->name('2fa.setup.recovery.rotate');
     });
-    
+
+    // ── Generic 2FA (voter / politician / citizen) ────────────────────────────
+    // Outside role groups + 2fa middleware so setup/challenge are reachable
+    // before 2FA is enrolled or passed.
+    Route::middleware(['role:voter|politician|citizen'])->group(function () {
+        Route::get('/2fa/setup', [TwoFactorController::class, 'showSetup'])->name('2fa.setup');
+        Route::post('/2fa/setup/enable', [TwoFactorController::class, 'enable'])
+            ->middleware('throttle:6,1')
+            ->name('2fa.setup.enable');
+        Route::post('/2fa/setup/disable', [TwoFactorController::class, 'disable'])
+            ->middleware('throttle:6,1')
+            ->name('2fa.setup.disable');
+        Route::post('/2fa/setup/recovery-codes/rotate', [TwoFactorController::class, 'rotateRecoveryCodes'])
+            ->middleware('throttle:6,1')
+            ->name('2fa.recovery.rotate');
+        Route::get('/2fa/challenge', [TwoFactorController::class, 'showChallenge'])->name('2fa.challenge');
+        Route::post('/2fa/challenge', [TwoFactorController::class, 'verifyChallenge'])
+            ->middleware('throttle:6,1')
+            ->name('2fa.challenge.verify');
+    });
+
     // Main Dashboard (role-based redirect)
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
@@ -218,7 +239,7 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
     | Politician Dashboard & Campaign Management
     |--------------------------------------------------------------------------
     */
-    Route::prefix('politician')->name('politician.')->middleware(['role:politician', 'check.politician.onboarding'])->group(function () {
+    Route::prefix('politician')->name('politician.')->middleware(['role:politician', 'check.politician.onboarding', '2fa'])->group(function () {
         Route::get('/dashboard', [PoliticianController::class, 'dashboard'])->name('dashboard');
         
         // Campaign Management
@@ -307,7 +328,7 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
     | Voter Dashboard & Earnings
     |--------------------------------------------------------------------------
     */
-    Route::prefix('voter')->name('voter.')->middleware(['role:voter', 'check.voter.onboarding'])->group(function () {
+    Route::prefix('voter')->name('voter.')->middleware(['role:voter', 'check.voter.onboarding', '2fa'])->group(function () {
         Route::get('/dashboard', [VoterController::class, 'dashboard'])->name('dashboard');
 
         // ── Ad Viewing Room ──────────────────────────────────────────────────
@@ -381,7 +402,7 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
     | Citizen Dashboard
     |--------------------------------------------------------------------------
     */
-    Route::prefix('citizen')->name('citizen.')->middleware(['role:citizen', 'check.citizen.onboarding'])->group(function () {
+    Route::prefix('citizen')->name('citizen.')->middleware(['role:citizen', 'check.citizen.onboarding', '2fa'])->group(function () {
         Route::get('/dashboard', [CitizenController::class, 'dashboard'])->name('dashboard');
 
         // Campaign CRUD

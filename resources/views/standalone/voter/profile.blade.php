@@ -323,6 +323,24 @@
         </form>
     </div>
 
+    {{-- ── Two-Factor Authentication ────────────────────────────────────────── --}}
+    <div class="bg-slate-800/50 border border-slate-700/60 rounded-2xl overflow-hidden mt-6">
+        <div class="px-6 pt-5 pb-2 border-b border-slate-700/50 flex items-center justify-between">
+            <div>
+                <h2 class="text-base font-semibold text-white">Two-Factor Authentication</h2>
+                <p class="text-xs text-slate-400 mt-0.5">Add an extra layer of security to your account with a TOTP authenticator app.</p>
+            </div>
+            <span class="px-3 py-1 rounded-full text-xs font-medium {{ auth()->user()->hasTwoFactorEnabled() ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-slate-700 text-slate-300 border border-slate-600' }}">
+                {{ auth()->user()->hasTwoFactorEnabled() ? 'Enabled' : 'Disabled' }}
+            </span>
+        </div>
+        <div class="px-6 py-4">
+            <a href="{{ route('2fa.setup') }}" class="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition">
+                {{ auth()->user()->hasTwoFactorEnabled() ? 'Manage Two-Factor Authentication' : 'Enable Two-Factor Authentication' }}
+            </a>
+        </div>
+    </div>
+
     @else
     <div class="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-10 text-center">
         <p class="text-slate-400">No voter profile found. Contact support.</p>

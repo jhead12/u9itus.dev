@@ -54,5 +54,14 @@
         </div>
     </div>
 
-</div>
-@endsection
+    {{-- ── Two-Factor Authentication ────────────────────────────────────────── --}}
+    <div class="mt-6 bg-slate-800/50 border border-slate-700/60 rounded-2xl px-6 py-4 flex items-center justify-between">
+        <div>
+            <p class="text-sm font-semibold text-white">Two-Factor Authentication</p>
+            <p class="text-xs text-slate-400 mt-0.5">{{ auth()->user()->hasTwoFactorEnabled() ? 'Enabled — your account is protected.' : 'Not enabled — add extra security to your account.' }}</p>
+        </div>
+        <a href="{{ route('2fa.setup') }}" class="ml-4 shrink-0 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-4 py-2 rounded-lg transition">
+            {{ auth()->user()->hasTwoFactorEnabled() ? 'Manage' : 'Enable' }}
+        </a>
+    </div>
+

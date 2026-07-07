@@ -26,6 +26,9 @@ class User extends Authenticatable
         'admin_two_factor_secret',
         'admin_two_factor_confirmed_at',
         'admin_two_factor_recovery_codes',
+        'two_factor_secret',
+        'two_factor_confirmed_at',
+        'two_factor_recovery_codes',
         'user_type',
         'first_name',
         'last_name',
@@ -60,6 +63,8 @@ class User extends Authenticatable
         'remember_token',
         'admin_two_factor_secret',
         'admin_two_factor_recovery_codes',
+        'two_factor_secret',
+        'two_factor_recovery_codes',
     ];
 
     /**
@@ -78,6 +83,9 @@ class User extends Authenticatable
             'admin_two_factor_confirmed_at' => 'datetime',
             'admin_two_factor_secret' => 'encrypted',
             'admin_two_factor_recovery_codes' => 'encrypted:array',
+            'two_factor_confirmed_at' => 'datetime',
+            'two_factor_secret' => 'encrypted',
+            'two_factor_recovery_codes' => 'encrypted:array',
             'password'           => 'hashed',
             'is_verified'        => 'boolean',
         ];
@@ -250,8 +258,24 @@ class User extends Authenticatable
         try {
             return !empty($this->admin_two_factor_secret) && $this->admin_two_factor_confirmed_at !== null;
         } catch (\Throwable $e) {
-            // Fail closed if legacy/corrupt encrypted payloads cannot be decrypted.
             Log::warning('Unable to read admin two-factor state for user', [
+                'user_id' => $this->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return false;
+        }
+    }
+
+    /**
+     * Whether this user (any non-admin role) has TOTP 2FA configured and confirmed.
+     */
+    public function hasTwoFactorEnabled(): bool
+    {
+        try {
+            return !empty($this->two_factor_secret) && $this->two_factor_confirmed_at !== null;
+        } catch (\Throwable $e) {
+            Log::warning('Unable to read two-factor state for user', [
                 'user_id' => $this->id,
                 'error' => $e->getMessage(),
             ]);

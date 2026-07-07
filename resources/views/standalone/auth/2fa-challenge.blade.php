@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Admin Two-Factor Verification — {{ config('app.name', 'U9itus') }}</title>
+    <title>Two-Factor Verification — {{ config('app.name', 'U9itus') }}</title>
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=inter:300,400,500,600,700&display=swap" rel="stylesheet" />
     @if (file_exists(public_path('build/manifest.json')) || file_exists(public_path('hot')))
@@ -16,11 +16,11 @@
 <body class="min-h-screen bg-slate-900 flex items-center justify-center px-4 antialiased">
 
 <div class="w-full max-w-md">
-    @include('standalone.partials.auth-logo', ['subtitle' => 'Admin Security Verification'])
+    @include('standalone.partials.auth-logo', ['subtitle' => 'Security Verification'])
 
     <div class="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-8 shadow-2xl">
         <h1 class="text-xl font-semibold text-white mb-1">Security Challenge</h1>
-        <p class="text-sm text-slate-400 mb-6">Enter your authenticator code or one-time recovery code to continue.</p>
+        <p class="text-sm text-slate-400 mb-6">Enter your authenticator code or a one-time recovery code to continue.</p>
 
         @if(session('warning'))
             <div class="mb-4 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 text-sm">
@@ -34,7 +34,7 @@
             </div>
         @endif
 
-        <form method="POST" action="{{ route('admin.2fa.challenge.verify') }}" class="space-y-4">
+        <form method="POST" action="{{ route('2fa.challenge.verify') }}" class="space-y-4">
             @csrf
             <div>
                 <label for="code" class="block text-sm font-medium text-slate-300 mb-1.5">Code</label>
@@ -47,6 +47,7 @@
                     autofocus
                     placeholder="123456 or XXXX-XXXX"
                     class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm tracking-[0.12em] text-center focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500"
+                    autocomplete="one-time-code"
                 />
             </div>
 
@@ -56,7 +57,8 @@
         </form>
 
         <div class="mt-5 text-xs text-slate-500">
-            Need to reconfigure 2FA? Visit <a class="text-emerald-400 hover:text-emerald-300" href="{{ route('admin.2fa.setup') }}">Admin 2FA setup</a>.
+            Need to reconfigure 2FA? Visit your
+            <a class="text-emerald-400 hover:text-emerald-300" href="{{ route('2fa.setup') }}">account security settings</a>.
         </div>
     </div>
 </div>

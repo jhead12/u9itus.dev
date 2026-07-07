@@ -36,6 +36,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'check.citizen.onboarding' => \App\Http\Middleware\CheckCitizenOnboarding::class,
             'check.admin.onboarding' => \App\Http\Middleware\CheckAdminOnboarding::class,
             'admin.2fa' => \App\Http\Middleware\EnsureAdminTwoFactorVerified::class,
+            '2fa'       => \App\Http\Middleware\EnsureTwoFactorVerified::class,
             'no.cache' => \App\Http\Middleware\DisableAuthPageCache::class,
             'earlybank.api' => \App\Http\Middleware\EarlyBankApiAuth::class,
         ]);
