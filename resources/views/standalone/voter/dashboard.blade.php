@@ -23,6 +23,17 @@
                 🏘️ Citizen Portal
             </a>
             @endif
+            <button id="dash-help-btn"
+                    onclick="window.startDashTour(true)"
+                    aria-label="Launch dashboard walkthrough"
+                    title="Dashboard help tour"
+                    class="inline-flex items-center gap-1.5 text-xs font-medium text-slate-400 hover:text-white border border-slate-700 hover:border-slate-500 rounded-lg px-3 py-1.5 transition">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                Help
+            </button>
             <span class="text-xs bg-emerald-900/30 border border-emerald-700/40 text-emerald-400 rounded-full px-3 py-1">
                 {{ now()->format('l, M j') }}
             </span>
@@ -310,8 +321,8 @@
     @endif
 
     {{-- Recent Sessions --}}
-    @if($recentSessions->isNotEmpty())
-    <div>
+    @if($recentSessions->isNotEmpty() || ($voter && $voter->earlybank_member_id))
+    <div id="dash-section-activity">
         <h2 class="text-lg font-semibold text-white mb-4">Recent Activity</h2>
         <div class="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
             <table class="w-full text-sm">
@@ -324,6 +335,25 @@
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-700/50">
+                    {{-- EarlyBank membership — synthetic first-transaction row --}}
+                    @if($voter && $voter->earlybank_member_id)
+                    <tr class="hover:bg-amber-950/20 transition bg-amber-950/10">
+                        <td class="px-4 py-3 text-white">
+                            <span class="inline-flex items-center gap-1.5">
+                                🏦 Joined Early-bank
+                                <a href="https://earlybank.com" target="_blank" rel="noopener"
+                                   class="text-[10px] text-amber-400 hover:text-amber-300 underline">earlybank.com ↗</a>
+                            </span>
+                        </td>
+                        <td class="px-4 py-3 text-slate-400 text-xs">
+                            {{ $voter->earlybank_linked_at?->format('M j, Y') ?? '—' }}
+                        </td>
+                        <td class="px-4 py-3">
+                            <span class="inline-block px-2 py-0.5 rounded text-xs bg-amber-900/50 text-amber-400">Member</span>
+                        </td>
+                        <td class="px-4 py-3 text-right text-amber-400 font-medium">−$20.00</td>
+                    </tr>
+                    @endif
                     @foreach($recentSessions as $session)
                     <tr class="hover:bg-slate-700/20 transition">
                         <td class="px-4 py-3 text-white">{{ $session->campaign->title ?? '—' }}</td>
@@ -463,4 +493,139 @@
 <!-- Create a local news for candidates in the GEO location of account, take the news from the auto generated profiles and post a small thumbnail of a picture to a news site article with the link of the politician beneath it.  -->
 
 </div>
+
+{{-- ── Dashboard Help Tour overlay ── --}}
+<div id="dash-tour-overlay" role="dialog" aria-modal="true" aria-label="Dashboard walkthrough">
+    <div id="dash-tour-backdrop" onclick="window._dashTourEnd()"></div>
+    <div id="dash-tour-card"></div>
+</div>
+
 @endsection
+
+@push('styles')
+<style>
+    #dash-tour-overlay { position:fixed; inset:0; z-index:9000; display:none; }
+    #dash-tour-overlay.active { display:block; }
+    #dash-tour-backdrop { position:absolute; inset:0; background:rgba(0,0,0,0.68); }
+    #dash-tour-card {
+        position:fixed; bottom:0; left:50%; transform:translateX(-50%);
+        width:min(480px, calc(100vw - 24px));
+        max-height:85vh; overflow-y:auto;
+        background:#0f172a; border:1px solid rgba(99,102,241,0.45);
+        border-radius:18px 18px 0 0; padding:22px 22px 28px;
+        z-index:9001; pointer-events:all;
+        box-shadow:0 -8px 40px rgba(0,0,0,0.6), 0 0 0 1px rgba(99,102,241,0.08);
+        -webkit-overflow-scrolling: touch;
+    }
+    @media (min-width: 640px) {
+        #dash-tour-card {
+            bottom:auto; top:50%; left:50%;
+            transform:translate(-50%,-50%);
+            border-radius:14px;
+        }
+    }
+    .dt-label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.1em; color:#6366f1; margin:0 0 6px; }
+    .dt-title { font-size:16px; font-weight:700; color:#e2e8f0; margin:0 0 10px; line-height:1.35; }
+    .dt-body  { font-size:13px; color:#94a3b8; line-height:1.65; margin:0 0 18px; }
+    .dt-body strong { color:#e2e8f0; }
+    .dt-body em { color:#a5b4fc; font-style:normal; }
+    .dt-actions { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+    .dt-dots { display:flex; gap:5px; align-items:center; }
+    .dt-dot { width:6px; height:6px; border-radius:50%; background:#334155; transition:all .2s; flex-shrink:0; }
+    .dt-dot.active { background:#6366f1; width:16px; border-radius:3px; }
+    .dt-btns { display:flex; gap:8px; align-items:center; }
+    .dt-btn-skip  { font-size:11px; color:#475569; background:none; border:none; cursor:pointer; padding:0; text-decoration:underline; }
+    .dt-btn-skip:hover  { color:#64748b; }
+    .dt-btn-back  { background:#1e293b; color:#94a3b8; border:1px solid #334155; border-radius:8px; padding:8px 14px; font-size:12px; cursor:pointer; min-height:44px; }
+    .dt-btn-back:hover  { background:#263248; }
+    .dt-btn-next  { background:#6366f1; color:#fff; border:none; border-radius:8px; padding:8px 18px; font-size:12px; font-weight:600; cursor:pointer; min-height:44px; }
+    .dt-btn-next:hover  { background:#818cf8; }
+</style>
+@endpush
+
+@push('scripts')
+<script>
+(function () {
+    var TOUR_KEY = 'u9itus_dash_tour_v1';
+    var _step = 0;
+
+    var STEPS = [
+        {
+            title: '👋 Welcome to Your Dashboard',
+            body: 'This is your home base on U9itus. Here you watch campaign videos, track your earnings, request payouts, and browse politicians.<br><br>This quick tour walks through each section. Skip at any time.',
+        },
+        {
+            title: '▶ Running Campaigns',
+            body: 'These are the live campaign videos available to watch right now. Each completed view earns you <strong>$0.50</strong>. Click <em>View All Campaigns</em> to open the full ad room.',
+        },
+        {
+            title: '💰 Your Earnings',
+            body: 'Four cards track your money at a glance: <strong>Wallet Balance</strong> (cleared to withdraw), <strong>Pending Earnings</strong> (views being verified), <strong>Total Earned</strong> all-time, and <strong>Total Views</strong> completed.',
+        },
+        {
+            title: '🏦 Requesting a Payout',
+            body: 'Once your pending earnings reach the minimum threshold, a <em>Request Payout</em> button appears here. Payouts are processed within 1–2 business days via your connected payout method.',
+        },
+        {
+            title: '🔗 Referrals & Early-bank',
+            body: 'Share your referral link to earn commissions on every recruit. If you joined <strong>Early-bank</strong> for $20, your membership appears as your first transaction in Recent Activity below.',
+        },
+        {
+            title: '📋 Recent Activity',
+            body: 'Every session you start or complete appears here. <em>Completed</em> rows show your payout amount. If you joined Early-bank, that $20 membership is pinned at the top as your first transaction.',
+            isLast: true,
+        },
+    ];
+
+    window.startDashTour = function (force) {
+        if (!force && localStorage.getItem(TOUR_KEY)) return;
+        _step = 0;
+        document.getElementById('dash-tour-overlay').classList.add('active');
+        _render(0);
+    };
+
+    window._dashTourNext = function () {
+        _step = Math.min(_step + 1, STEPS.length - 1);
+        _render(_step);
+    };
+    window._dashTourBack = function () {
+        _step = Math.max(_step - 1, 0);
+        _render(_step);
+    };
+    window._dashTourEnd = function () {
+        document.getElementById('dash-tour-overlay').classList.remove('active');
+        try { localStorage.setItem(TOUR_KEY, '1'); } catch (e) {}
+    };
+
+    function _render(idx) {
+        var step  = STEPS[idx];
+        var total = STEPS.length;
+        var card  = document.getElementById('dash-tour-card');
+
+        var dots = STEPS.map(function (_, i) {
+            return '<span class="dt-dot' + (i === idx ? ' active' : '') + '"></span>';
+        }).join('');
+
+        card.innerHTML =
+            '<p class="dt-label">Step ' + (idx + 1) + ' of ' + total + '</p>' +
+            '<p class="dt-title">' + step.title + '</p>' +
+            '<div class="dt-body">' + step.body + '</div>' +
+            '<div class="dt-actions">' +
+                '<div class="dt-dots">' + dots + '</div>' +
+                '<div class="dt-btns">' +
+                    (idx > 0 ? '<button class="dt-btn-back" onclick="window._dashTourBack()">← Back</button>' : '') +
+                    (step.isLast
+                        ? '<button class="dt-btn-next" onclick="window._dashTourEnd()">Finish 🎉</button>'
+                        : '<button class="dt-btn-skip" onclick="window._dashTourEnd()">Skip</button>' +
+                          '<button class="dt-btn-next" onclick="window._dashTourNext()">Next →</button>'
+                    ) +
+                '</div>' +
+            '</div>';
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        window.startDashTour(false);
+    });
+}());
+</script>
+@endpush
