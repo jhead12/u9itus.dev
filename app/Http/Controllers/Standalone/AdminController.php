@@ -3644,6 +3644,13 @@ HTML;
         try {
             $recoveryCodes = $twoFactorService->generateRecoveryCodes();
 
+            // Clear any stale encrypted values first (prevents DecryptException
+            // when a previous key was used to encrypt existing column data).
+            \DB::table('users')->where('id', $user->id)->update([
+                'admin_two_factor_secret'         => null,
+                'admin_two_factor_confirmed_at'   => null,
+                'admin_two_factor_recovery_codes' => null,
+            ]);
             $user->forceFill([
                 'admin_two_factor_secret' => $secret,
                 'admin_two_factor_confirmed_at' => now(),
@@ -3675,12 +3682,16 @@ HTML;
                 ]);
             }
         } catch (\Throwable $e) {
-            Log::error('Admin 2FA enable failed', [
-                'admin_id' => $user?->id,
-                'error' => $e->getMessage(),
+            // Log to both file AND stderr so Railway's log stream captures it.
+            $errorContext = [
+                'admin_id'  => $user?->id,
+                'error'     => $e->getMessage(),
                 'exception' => get_class($e),
-                'trace' => $e->getTraceAsString(),
-            ]);
+                'file'      => $e->getFile() . ':' . $e->getLine(),
+            ];
+            Log::error('Admin 2FA enable failed', $errorContext);
+            // Write to stderr so Railway stdout log captures it in production.
+            fwrite(STDERR, '[Admin 2FA] enable failed: ' . $e->getMessage() . ' (' . get_class($e) . ') at ' . $e->getFile() . ':' . $e->getLine() . PHP_EOL);
 
             return back()->withErrors([
                 'code' => 'Unable to enable two-factor authentication right now. Please try again or contact support.',
