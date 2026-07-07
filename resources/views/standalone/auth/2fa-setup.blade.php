@@ -51,8 +51,37 @@
         {{-- Recovery codes shown once after enabling or rotating --}}
         @if(!empty($newRecoveryCodes))
             <div class="p-4 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-100 text-sm space-y-3">
-                <p class="font-semibold text-indigo-200">Save these recovery codes now</p>
-                <p class="text-indigo-200/80 text-xs">These codes are shown only once. Each can be used once if you lose your authenticator app.</p>
+                <div class="flex items-start justify-between gap-4">
+                    <div>
+                        <p class="font-semibold text-indigo-200">Save these recovery codes now</p>
+                        <p class="text-indigo-200/80 text-xs mt-1">These codes are shown only once. Each can be used once if you lose your authenticator app.</p>
+                    </div>
+                    <button
+                        type="button"
+                        onclick="(function(){
+                            const codes = @json($newRecoveryCodes);
+                            const d = new Date().toISOString().slice(0,10);
+                            const text = [
+                                'U9itus — Two-Factor Recovery Codes',
+                                'Generated: ' + d,
+                                '',
+                                'Keep these codes in a safe place.',
+                                'Each code can only be used once.',
+                                '',
+                            ].concat(codes).join('\n');
+                            const a = document.createElement('a');
+                            a.href = 'data:text/plain;charset=utf-8,' + encodeURIComponent(text);
+                            a.download = 'u9itus-2fa-recovery-codes-' + d + '.txt';
+                            a.click();
+                        })()"
+                        class="shrink-0 inline-flex items-center gap-1.5 bg-indigo-600/30 hover:bg-indigo-500/40 border border-indigo-500/50 text-indigo-200 text-xs font-semibold px-3 py-2 rounded-lg transition whitespace-nowrap"
+                    >
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                        </svg>
+                        Download .txt
+                    </button>
+                </div>
                 <div class="grid grid-cols-2 gap-2">
                     @foreach($newRecoveryCodes as $code)
                         <div class="font-mono text-xs bg-slate-950/70 border border-indigo-500/20 rounded-md px-3 py-2 tracking-[0.1em]">
