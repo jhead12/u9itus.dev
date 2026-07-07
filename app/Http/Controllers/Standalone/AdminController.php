@@ -22,6 +22,8 @@ use App\Services\PoliticianElectionMatcher;
 use App\Mail\KycApprovedMail;
 use App\Mail\KycRejectedMail;
 use App\Models\AdminSecurityAuditLog;
+use App\Models\DeletedAccount;
+use App\Services\UserDeletionService;
 use App\Models\CampaignAuditLog;
 use App\Models\CampaignTransaction;
 use App\Models\EmailTemplate;
@@ -1137,6 +1139,70 @@ class AdminController extends Controller
         }])->findOrFail($userId);
 
         return view('standalone.admin.user-details', compact('user'));
+    }
+
+    public function deleteUser(Request $request, $userId, UserDeletionService $service)
+    {
+        $user = User::findOrFail($userId);
+
+        if ($user->user_type === 'admin') {
+            return back()->withErrors(['error' => 'Admin accounts cannot be deleted.']);
+        }
+
+        if ($user->id === $request->user()->id) {
+            return back()->withErrors(['error' => 'You cannot delete your own account.']);
+        }
+
+        $validated = $request->validate([
+            'deletion_reason' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        try {
+            $service->archiveAndDelete(
+                $user,
+                $request->user(),
+                $validated['deletion_reason'] ?? null,
+                $request->ip()
+            );
+        } catch (\Throwable $e) {
+            Log::error('AdminController@deleteUser failed', ['error' => $e->getMessage(), 'user_id' => $userId]);
+            return back()->withErrors(['error' => 'Failed to delete account: ' . $e->getMessage()]);
+        }
+
+        return redirect()->route('admin.users.index')
+            ->with('success', 'Account for ' . $user->email . ' has been deleted and archived.');
+    }
+
+    public function deletedAccounts(Request $request)
+    {
+        $query = DeletedAccount::latest('deleted_at');
+
+        if ($search = trim((string) $request->query('q', ''))) {
+            $query->where(function ($q) use ($search) {
+                $q->where('email', 'like', "%{$search}%")
+                  ->orWhere('first_name', 'like', "%{$search}%")
+                  ->orWhere('last_name', 'like', "%{$search}%");
+            });
+        }
+
+        $records = $query->paginate(30)->withQueryString();
+
+        return view('standalone.admin.deleted-accounts', compact('records'));
+    }
+
+    public function restoreDeletedAccount(Request $request, $recordId, UserDeletionService $service)
+    {
+        $record = DeletedAccount::findOrFail($recordId);
+
+        try {
+            $newUser = $service->restore($record, $request->user(), $request->ip());
+        } catch (\Throwable $e) {
+            Log::error('AdminController@restoreDeletedAccount failed', ['error' => $e->getMessage(), 'record_id' => $recordId]);
+            return back()->withErrors(['error' => 'Restore failed: ' . $e->getMessage()]);
+        }
+
+        return redirect()->route('admin.users.show', $newUser->id)
+            ->with('success', 'Account for ' . $newUser->email . ' has been restored. A password reset email has been sent.');
     }
 
     /**

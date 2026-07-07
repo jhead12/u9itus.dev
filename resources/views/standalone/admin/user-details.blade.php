@@ -272,6 +272,56 @@
                 </button>
             </form>
             @endif
+
+            {{-- Delete account --}}
+            <hr class="border-slate-700/50">
+            <p class="text-xs text-slate-500">
+                Permanently deletes this account and all associated data. The account is archived and can be restored later (with a new ID).
+            </p>
+            <div>
+                <button type="button"
+                        onclick="document.getElementById('delete-account-modal').classList.remove('hidden')"
+                        class="px-4 py-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 text-sm font-medium transition">
+                    Delete Account
+                </button>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    {{-- Delete confirmation modal --}}
+    @if($user->user_type !== 'admin')
+    <div id="delete-account-modal"
+         class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+         onclick="if(event.target===this) this.classList.add('hidden')">
+        <div class="bg-slate-900 border border-red-500/30 rounded-xl shadow-2xl w-full max-w-md mx-4 p-6 space-y-4">
+            <h3 class="text-base font-semibold text-red-400">Delete Account</h3>
+            <p class="text-sm text-slate-400">
+                This will permanently delete <span class="text-white font-medium">{{ $user->email }}</span> and all associated profiles, campaigns, and sessions. The account will be archived and can be restored.
+            </p>
+            <form method="POST" action="{{ route('admin.users.destroy', $user) }}">
+                @csrf
+                @method('DELETE')
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-xs text-slate-500 mb-1">Reason (optional)</label>
+                        <input type="text" name="deletion_reason"
+                            placeholder="e.g. user request, policy violation…"
+                            class="w-full bg-slate-800 border border-slate-600/50 rounded-lg px-3 py-2 text-sm text-slate-300 placeholder-slate-600 focus:outline-none focus:border-red-500/50">
+                    </div>
+                    <div class="flex gap-3 pt-1">
+                        <button type="submit"
+                            class="flex-1 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white text-sm font-semibold transition">
+                            Confirm Delete
+                        </button>
+                        <button type="button"
+                            onclick="document.getElementById('delete-account-modal').classList.add('hidden')"
+                            class="flex-1 px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 text-sm font-medium transition">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            </form>
         </div>
     </div>
     @endif

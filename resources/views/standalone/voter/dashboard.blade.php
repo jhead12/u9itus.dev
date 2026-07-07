@@ -13,7 +13,19 @@
     {{-- Page Header --}}
     <div class="flex items-start justify-between gap-4">
         <div>
-            <h1 class="text-2xl font-bold text-white">Dashboard</h1>
+            <div class="flex items-center gap-2">
+                <h1 class="text-2xl font-bold text-white">Dashboard</h1>
+                <button id="dash-help-btn"
+                        onclick="window.startDashTour(true)"
+                        aria-label="Launch dashboard walkthrough"
+                        title="Dashboard help tour"
+                        class="inline-flex items-center justify-center text-slate-400 hover:text-white border border-slate-700 hover:border-slate-500 rounded-lg p-1.5 transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                </button>
+            </div>
             <p class="text-slate-400 text-sm mt-0.5">Welcome back, <span class="text-emerald-400 font-medium">{{ $user->name }}</span></p>
         </div>
         <div class="flex items-center gap-2 shrink-0">
@@ -23,17 +35,6 @@
                 🏘️ Citizen Portal
             </a>
             @endif
-            <button id="dash-help-btn"
-                    onclick="window.startDashTour(true)"
-                    aria-label="Launch dashboard walkthrough"
-                    title="Dashboard help tour"
-                    class="inline-flex items-center gap-1.5 text-xs font-medium text-slate-400 hover:text-white border border-slate-700 hover:border-slate-500 rounded-lg px-3 py-1.5 transition">
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                          d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                </svg>
-                Help
-            </button>
             <span class="text-xs bg-emerald-900/30 border border-emerald-700/40 text-emerald-400 rounded-full px-3 py-1">
                 {{ now()->format('l, M j') }} · <span id="dash-local-clock" aria-live="polite" aria-atomic="true">—</span>
             </span>
@@ -43,7 +44,7 @@
     @include('standalone.voter.partials.authentic-user-verifier-banner')
 
     {{-- Running Campaigns -- primary action shown first for better accessibility and task clarity --}}
-    <div class="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-5">
+    <div id="dash-section-campaigns" class="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-5">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
             <div>
                 <h2 class="text-white font-semibold text-lg">Running Campaigns</h2>
@@ -101,7 +102,7 @@
 
     {{-- Earnings Stats --}}
     @if($voter)
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <div id="dash-section-earnings" class="grid grid-cols-2 lg:grid-cols-4 gap-4">
         @php
             $statCards = [
                 ['label' => 'Wallet Balance',   'value' => '$' . number_format($summary['wallet_balance'] ?? 0, 2),   'color' => 'emerald',
@@ -165,7 +166,7 @@
     {{-- Payout CTA --}}
     @if(($summary['approved_earnings'] ?? 0) > 0)
     {{-- Already requested — show in-review banner instead of the request button --}}
-    <div class="bg-gradient-to-r from-amber-900/30 to-yellow-900/20 border border-amber-500/30 rounded-2xl p-5 flex items-center gap-5">
+    <div id="dash-section-payout" class="bg-gradient-to-r from-amber-900/30 to-yellow-900/20 border border-amber-500/30 rounded-2xl p-5 flex items-center gap-5">
         <div class="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center shrink-0">
             <svg class="w-5 h-5 text-amber-400 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
@@ -203,7 +204,7 @@
     @endif
 
     {{-- Referral Banner --}}
-    <div class="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-5 flex items-center gap-4 justify-between">
+    <div id="dash-section-referral" class="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-5 flex items-center gap-4 justify-between">
         <div class="flex items-center gap-4">
             <div class="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center shrink-0">
                 <svg class="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -506,23 +507,41 @@
 <style>
     #dash-tour-overlay { position:fixed; inset:0; z-index:9000; display:none; }
     #dash-tour-overlay.active { display:block; }
-    #dash-tour-backdrop { position:absolute; inset:0; background:rgba(0,0,0,0.68); }
+    #dash-tour-backdrop { position:absolute; inset:0; background:rgba(0,0,0,0.55); }
     #dash-tour-card {
-        position:fixed; bottom:0; left:50%; transform:translateX(-50%);
-        width:min(480px, calc(100vw - 24px));
-        max-height:85vh; overflow-y:auto;
+        position:fixed;
+        width:min(340px, calc(100vw - 24px));
+        max-height:70vh; overflow-y:auto;
         background:#0f172a; border:1px solid rgba(99,102,241,0.45);
-        border-radius:18px 18px 0 0; padding:22px 22px 28px;
+        border-radius:14px; padding:18px 20px 16px;
         z-index:9001; pointer-events:all;
-        box-shadow:0 -8px 40px rgba(0,0,0,0.6), 0 0 0 1px rgba(99,102,241,0.08);
+        box-shadow:0 8px 40px rgba(0,0,0,0.7), 0 0 0 1px rgba(99,102,241,0.08);
+        transition: top .25s cubic-bezier(.4,0,.2,1), left .25s cubic-bezier(.4,0,.2,1);
         -webkit-overflow-scrolling: touch;
     }
-    @media (min-width: 640px) {
+    /* Arrow pointer on the card */
+    #dash-tour-card::before {
+        content: '';
+        position: absolute;
+        width: 10px; height: 10px;
+        background: #0f172a;
+        border-left: 1px solid rgba(99,102,241,0.45);
+        border-top: 1px solid rgba(99,102,241,0.45);
+        transform: rotate(45deg);
+    }
+    #dash-tour-card.arrow-top::before    { top:-6px; left:24px; transform:rotate(45deg); }
+    #dash-tour-card.arrow-bottom::before { bottom:-6px; left:24px; transform:rotate(225deg); }
+    #dash-tour-card.arrow-left::before   { left:-6px; top:24px; transform:rotate(-45deg); }
+    #dash-tour-card.arrow-right::before  { right:-6px; top:24px; transform:rotate(135deg); }
+    #dash-tour-card.arrow-none::before   { display:none; }
+    @media (max-width: 639px) {
         #dash-tour-card {
-            bottom:auto; top:50%; left:50%;
-            transform:translate(-50%,-50%);
-            border-radius:14px;
+            position:fixed; bottom:0; left:0 !important; top:auto !important;
+            width:100%; max-width:100%; border-radius:18px 18px 0 0;
+            padding:18px 18px max(16px, env(safe-area-inset-bottom)) 18px;
+            transition:none;
         }
+        #dash-tour-card::before { display:none; }
     }
     .dt-label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.1em; color:#6366f1; margin:0 0 6px; }
     .dt-title { font-size:16px; font-weight:700; color:#e2e8f0; margin:0 0 10px; line-height:1.35; }
@@ -553,26 +572,32 @@
         {
             title: '👋 Welcome to Your Dashboard',
             body: 'This is your home base on U9itus. Here you watch campaign videos, track your earnings, request payouts, and browse politicians.<br><br>This quick tour walks through each section. Skip at any time.',
+            target: null,
         },
         {
             title: '▶ Running Campaigns',
             body: 'These are the live campaign videos available to watch right now. Each completed view earns you <strong>$0.50</strong>. Click <em>View All Campaigns</em> to open the full ad room.',
+            target: 'dash-section-campaigns',
         },
         {
             title: '💰 Your Earnings',
             body: 'Four cards track your money at a glance: <strong>Wallet Balance</strong> (cleared to withdraw), <strong>Pending Earnings</strong> (views being verified), <strong>Total Earned</strong> all-time, and <strong>Total Views</strong> completed.',
+            target: 'dash-section-earnings',
         },
         {
             title: '🏦 Requesting a Payout',
             body: 'Once your pending earnings reach the minimum threshold, a <em>Request Payout</em> button appears here. Payouts are processed within 1–2 business days via your connected payout method.',
+            target: 'dash-section-payout',
         },
         {
             title: '🔗 Referrals & Early-bank',
             body: 'Share your referral link to earn commissions on every recruit. If you joined <strong>Early-bank</strong> for $20, your membership appears as your first transaction in Recent Activity below.',
+            target: 'dash-section-referral',
         },
         {
             title: '📋 Recent Activity',
             body: 'Every session you start or complete appears here. <em>Completed</em> rows show your payout amount. If you joined Early-bank, that $20 membership is pinned at the top as your first transaction.',
+            target: 'dash-section-activity',
             isLast: true,
         },
     ];
@@ -621,6 +646,80 @@
                     ) +
                 '</div>' +
             '</div>';
+
+        _positionCard(card, step.target);
+    }
+
+    function _positionCard(card, targetId) {
+        // Mobile: CSS handles it as a bottom sheet — no JS positioning needed
+        if (window.innerWidth < 640) return;
+
+        var target = targetId ? document.getElementById(targetId) : null;
+
+        // No target — center on screen
+        if (!target) {
+            card.className = 'arrow-none';
+            card.style.top  = '50%';
+            card.style.left = '50%';
+            card.style.transform = 'translate(-50%, -50%)';
+            return;
+        }
+
+        card.style.transform = 'none';
+
+        // Scroll target into view (offset by 80px for sticky header)
+        var rect = target.getBoundingClientRect();
+        if (rect.top < 80 || rect.bottom > window.innerHeight) {
+            target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // Re-read rect after a brief paint
+            setTimeout(function () { _anchorCard(card, target); }, 320);
+        } else {
+            _anchorCard(card, target);
+        }
+    }
+
+    function _anchorCard(card, target) {
+        var rect      = target.getBoundingClientRect();
+        var cardW     = card.offsetWidth  || 340;
+        var cardH     = card.offsetHeight || 200;
+        var vw        = window.innerWidth;
+        var vh        = window.innerHeight;
+        var GAP       = 16;
+
+        // Preferred: place card to the RIGHT of the target
+        var leftRight = rect.right + GAP;
+        var topRight  = Math.max(12, Math.min(rect.top, vh - cardH - 12));
+
+        if (leftRight + cardW < vw - 12) {
+            // Right side
+            card.className = 'arrow-left';
+            card.style.top  = topRight + 'px';
+            card.style.left = leftRight + 'px';
+            return;
+        }
+
+        // Try LEFT side
+        var leftLeft = rect.left - cardW - GAP;
+        if (leftLeft > 12) {
+            card.className = 'arrow-right';
+            card.style.top  = topRight + 'px';
+            card.style.left = leftLeft + 'px';
+            return;
+        }
+
+        // Fallback: BELOW the target
+        var topBelow  = rect.bottom + GAP;
+        var leftAlign = Math.max(12, Math.min(rect.left, vw - cardW - 12));
+        if (topBelow + cardH < vh - 12) {
+            card.className = 'arrow-top';
+            card.style.top  = topBelow + 'px';
+            card.style.left = leftAlign + 'px';
+        } else {
+            // Above
+            card.className = 'arrow-bottom';
+            card.style.top  = Math.max(12, rect.top - cardH - GAP) + 'px';
+            card.style.left = leftAlign + 'px';
+        }
     }
 
     document.addEventListener('DOMContentLoaded', function () {

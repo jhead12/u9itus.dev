@@ -434,8 +434,11 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         Route::get('/users', [AdminController::class, 'users'])->name('users.index');
         Route::post('/users/bulk-action', [AdminController::class, 'bulkUserAction'])->name('users.bulk-action');
         Route::get('/users/{user}', [AdminController::class, 'showUser'])->name('users.show');
+        Route::delete('/users/{user}', [AdminController::class, 'deleteUser'])->name('users.destroy');
         Route::match(['PUT', 'POST'], '/users/{user}/suspend', [AdminController::class, 'suspendUser'])->name('users.suspend');
         Route::match(['PUT', 'POST'], '/users/{user}/unsuspend', [AdminController::class, 'unsuspendUser'])->name('users.unsuspend');
+        Route::get('/deleted-accounts', [AdminController::class, 'deletedAccounts'])->name('deleted-accounts.index');
+        Route::post('/deleted-accounts/{record}/restore', [AdminController::class, 'restoreDeletedAccount'])->name('deleted-accounts.restore');
 
         // Candidate Matching Review
         Route::get('/candidate-matches', [AdminController::class, 'candidateMatchReviews'])->name('candidate-matches.index');
