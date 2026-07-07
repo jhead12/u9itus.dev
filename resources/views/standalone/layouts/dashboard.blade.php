@@ -66,6 +66,7 @@
     <meta name="auth-user-id" content="{{ auth()->id() }}">
     <meta name="auth-user-role" content="{{ auth()->user()?->getRoleNames()->first() }}">
     <title>@yield('title', 'Dashboard') — {{ config('app.name', 'U9itus') }}</title>
+    @include('standalone.partials.seo-head')
 
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=inter:300,400,500,600,700&display=swap" rel="stylesheet" />

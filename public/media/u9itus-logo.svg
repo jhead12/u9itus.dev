@@ -1,4 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 60" width="220" height="60">
-  <text x="0" y="48" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="52" font-weight="700" fill="#ffffff" letter-spacing="-1">U9</text>
-  <text x="112" y="48" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="52" font-weight="300" fill="#34d399" letter-spacing="-1">itus</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 44" width="200" height="44">
+  <text y="38" font-family="Inter,system-ui,-apple-system,sans-serif" font-size="40" letter-spacing="-1">
+    <tspan font-weight="900" fill="#ffffff">U9</tspan><tspan font-weight="300" fill="#34d399">itus</tspan>
+  </text>
 </svg>

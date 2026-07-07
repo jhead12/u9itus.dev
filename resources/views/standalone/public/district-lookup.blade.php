@@ -6,6 +6,7 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
     <title>District Lookup — {{ config('app.name', 'U9itus') }}</title>
+    @include('standalone.partials.seo-head')
     <meta name="description" content="Enter your address to find your congressional district and view verified candidates, current officeholders, and campaign finance data for your area.">
     <link rel="canonical" href="{{ url('/district-lookup') }}">
     <meta property="og:type"        content="website">

@@ -4,6 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Earn Money Watching Political Campaigns — U9itus</title>
+    @include('standalone.partials.seo-head')
     <meta name="description" content="Get paid $0.50 every time you watch a political campaign video on U9itus. Free to join. No experience needed.">
     <link rel="canonical" href="{{ url('/earn') }}">
     <meta property="og:title"       content="Earn Money Watching Political Campaigns — U9itus">

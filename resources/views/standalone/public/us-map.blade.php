@@ -4,6 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>U.S. Regional Map – {{ config('app.name', 'U9itus') }}</title>
+    @include('standalone.partials.seo-head')
     <meta name="description" content="Explore an interactive 3D map of all 50 U.S. states and 435 congressional districts. Discover politicians, candidates, and civic officials for your area.">
     <link rel="canonical" href="{{ url('/map') }}">
     <meta property="og:type"        content="website">

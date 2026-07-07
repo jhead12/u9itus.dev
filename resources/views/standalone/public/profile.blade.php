@@ -6,6 +6,7 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
     <title>{{ $ogTitle }} — {{ config('app.name', 'U9itus') }}</title>
+    @include('standalone.partials.seo-head')
 
     {{-- Open Graph / Social Sharing --}}
     <meta property="og:type"        content="profile">

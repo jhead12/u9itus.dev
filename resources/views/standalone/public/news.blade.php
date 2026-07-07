@@ -4,6 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ $ogTitle }}</title>
+    @include('standalone.partials.seo-head')
 
     <meta property="og:type"        content="website">
     <meta property="og:url"         content="{{ $ogUrl }}">
