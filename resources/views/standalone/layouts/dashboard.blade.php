@@ -94,8 +94,8 @@
 
         {{-- Logo --}}
         <div class="flex items-center gap-2 px-6 py-5 border-b border-slate-800">
-            <div class="text-2xl font-light tracking-tight">
-                <span class="font-bold">U9</span><span class="text-emerald-400">itus</span>
+            <div>
+                <img src="{{ asset('media/u9itus-logo.svg') }}" alt="U9itus" class="h-7">
             </div>
             <span class="ml-auto text-xs text-slate-500 uppercase tracking-wide">
                 {{ auth()->user()?->getRoleNames()->first() ?? 'Portal' }}

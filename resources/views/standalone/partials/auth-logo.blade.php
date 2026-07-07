@@ -1,9 +1,14 @@
 <div class="text-center mb-8">
     <a href="/" class="inline-block">
-        {{-- Use image asset when available; always render accessible text markup --}}
-        @if(file_exists(public_path('media/u9itus-logo.png')))
+        {{-- SVG preferred; falls back to PNG, then text markup --}}
+        @php
+            $logoSrc = file_exists(public_path('media/u9itus-logo.svg'))
+                ? asset('media/u9itus-logo.svg')
+                : (file_exists(public_path('media/u9itus-logo.png')) ? asset('media/u9itus-logo.png') : null);
+        @endphp
+        @if($logoSrc)
             <img
-                src="{{ asset('media/u9itus-logo.png') }}"
+                src="{{ $logoSrc }}"
                 alt="U9itus"
                 class="h-12 mx-auto mb-2"
             >

@@ -24,9 +24,7 @@
 
     {{-- Logo --}}
     <div class="text-center mb-8">
-        <a href="/" class="text-3xl font-light tracking-tight">
-            <span class="font-bold text-white">U9</span><span class="text-emerald-400">itus</span>
-        </a>
+        <a href="/" class="inline-block"><img src="{{ asset('media/u9itus-logo.svg') }}" alt="U9itus" class="h-10 mx-auto mb-2"></a>
         <p class="mt-2 text-slate-400 text-sm">Political Loyalty Ads Platform</p>
     </div>
 
