@@ -35,7 +35,7 @@
                 Help
             </button>
             <span class="text-xs bg-emerald-900/30 border border-emerald-700/40 text-emerald-400 rounded-full px-3 py-1">
-                {{ now()->format('l, M j') }}
+                {{ now()->format('l, M j') }} · <span id="dash-local-clock" aria-live="polite" aria-atomic="true">—</span>
             </span>
         </div>
     </div>
@@ -626,6 +626,22 @@
     document.addEventListener('DOMContentLoaded', function () {
         window.startDashTour(false);
     });
+}());
+
+// Local clock
+(function () {
+    function tick() {
+        var el = document.getElementById('dash-local-clock');
+        if (!el) return;
+        var now = new Date();
+        var h = now.getHours();
+        var m = now.getMinutes();
+        var ampm = h >= 12 ? 'PM' : 'AM';
+        h = h % 12 || 12;
+        el.textContent = h + ':' + (m < 10 ? '0' : '') + m + ' ' + ampm;
+    }
+    tick();
+    setInterval(tick, 1000);
 }());
 </script>
 @endpush
