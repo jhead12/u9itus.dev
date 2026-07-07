@@ -36,11 +36,14 @@ class AdminTwoFactorService
         $issuer = rawurlencode((string) config('app.name', 'U9itus'));
         $label = rawurlencode((string) config('app.name', 'U9itus') . ':' . $user->email);
 
+        $logoUrl = rawurlencode(config('app.url') . '/media/u9itus-logo.svg');
+
         return sprintf(
-            'otpauth://totp/%s?secret=%s&issuer=%s&algorithm=SHA1&digits=6&period=30',
+            'otpauth://totp/%s?secret=%s&issuer=%s&algorithm=SHA1&digits=6&period=30&image=%s',
             $label,
             $secret,
-            $issuer
+            $issuer,
+            $logoUrl
         );
     }
 
