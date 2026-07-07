@@ -160,6 +160,19 @@ class Voter extends Model
     }
 
     /**
+     * News articles this voter has saved / liked.
+     */
+    public function savedArticles(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            \App\Models\CandidateNewsArticle::class,
+            'voter_saved_articles',
+            'voter_id',
+            'candidate_news_article_id'
+        )->withPivot('saved_at');
+    }
+
+    /**
      * Route model binding key.
      */
     public function getRouteKeyName(): string

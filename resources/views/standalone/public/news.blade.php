@@ -14,6 +14,7 @@
     <meta name="twitter:description" content="{{ $ogDescription }}">
     <meta name="description"         content="{{ $ogDescription }}">
     <link rel="canonical"            href="{{ $ogUrl }}">
+    <meta name="csrf-token"          content="{{ csrf_token() }}">
 
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=inter:300,400,500,600,700,800&display=swap" rel="stylesheet" />
@@ -200,8 +201,17 @@
                     @endif
                     @if($article->snippet)
                     <p class="mt-1.5 text-xs text-slate-400 line-clamp-2">{{ $article->snippet }}</p>
-                    @endif
-                </div>
+                    @endif                    @auth
+                    <button class="article-save-btn mt-2 inline-flex items-center gap-1 text-xs text-slate-500 hover:text-rose-400 transition"
+                            data-article-id="{{ $article->id }}"
+                            data-saved="{{ in_array($article->id, $savedArticleIds) ? '1' : '0' }}"
+                            aria-label="Save article">
+                        <svg class="w-4 h-4" fill="{{ in_array($article->id, $savedArticleIds) ? 'currentColor' : 'none' }}" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+                        </svg>
+                        <span>{{ in_array($article->id, $savedArticleIds) ? 'Saved' : 'Save' }}</span>
+                    </button>
+                    @endauth                </div>
             </a>
             @endforeach
         </div>
@@ -257,6 +267,17 @@
                         @if($article->snippet)
                         <p class="mt-1 text-xs text-slate-500 line-clamp-1">{{ $article->snippet }}</p>
                         @endif
+                        @auth
+                        <button class="article-save-btn mt-1 inline-flex items-center gap-1 text-xs text-slate-500 hover:text-rose-400 transition"
+                                data-article-id="{{ $article->id }}"
+                                data-saved="{{ in_array($article->id, $savedArticleIds) ? '1' : '0' }}"
+                                aria-label="Save article">
+                            <svg class="w-3.5 h-3.5" fill="{{ in_array($article->id, $savedArticleIds) ? 'currentColor' : 'none' }}" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+                            </svg>
+                            <span>{{ in_array($article->id, $savedArticleIds) ? 'Saved' : 'Save' }}</span>
+                        </button>
+                        @endauth
                     </div>
                     <span class="text-slate-600 group-hover:text-slate-400 flex-shrink-0 self-center transition text-lg">↗</span>
                 </a>
@@ -307,6 +328,17 @@
                 @if($article->snippet)
                 <p class="mt-1 text-xs text-slate-500 line-clamp-1">{{ $article->snippet }}</p>
                 @endif
+                @auth
+                <button class="article-save-btn mt-1 inline-flex items-center gap-1 text-xs text-slate-500 hover:text-rose-400 transition"
+                        data-article-id="{{ $article->id }}"
+                        data-saved="{{ in_array($article->id, $savedArticleIds) ? '1' : '0' }}"
+                        aria-label="Save article">
+                    <svg class="w-3.5 h-3.5" fill="{{ in_array($article->id, $savedArticleIds) ? 'currentColor' : 'none' }}" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+                    </svg>
+                    <span>{{ in_array($article->id, $savedArticleIds) ? 'Saved' : 'Save' }}</span>
+                </button>
+                @endauth
             </div>
             <span class="text-slate-600 group-hover:text-slate-400 flex-shrink-0 self-center transition text-lg">↗</span>
         </a>
@@ -362,5 +394,39 @@
     </a>
 </footer>
 
+@auth
+<script>
+document.addEventListener('click', function (e) {
+    const btn = e.target.closest('.article-save-btn');
+    if (!btn) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    const articleId = btn.dataset.articleId;
+    const saved     = btn.dataset.saved === '1';
+    const method    = saved ? 'DELETE' : 'POST';
+    const url       = `/voter/articles/${articleId}/save`;
+    const svg       = btn.querySelector('svg');
+    const label     = btn.querySelector('span');
+    const csrf      = document.querySelector('meta[name="csrf-token"]')?.content
+                   || '{{ csrf_token() }}';
+
+    fetch(url, {
+        method,
+        headers: { 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json' },
+    })
+    .then(r => r.json())
+    .then(data => {
+        const isSaved = data.saved;
+        btn.dataset.saved = isSaved ? '1' : '0';
+        svg.setAttribute('fill', isSaved ? 'currentColor' : 'none');
+        btn.classList.toggle('text-rose-400', isSaved);
+        btn.classList.toggle('text-slate-500', !isSaved);
+        if (label) label.textContent = isSaved ? 'Saved' : 'Save';
+    })
+    .catch(() => {});
+});
+</script>
+@endauth
 </body>
 </html>

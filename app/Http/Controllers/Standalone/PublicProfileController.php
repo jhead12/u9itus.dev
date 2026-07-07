@@ -1890,4 +1890,128 @@ class PublicProfileController extends Controller
             default => ucwords(str_replace('_', ' ', $source)),
         };
     }
+
+    /**
+     * GET /p/{slug}/news
+     * Standalone paginated news feed for a politician.
+     */
+    public function news(\Illuminate\Http\Request $request, string $slug)
+    {
+        $politician = $this->resolvePublicPolitician($slug);
+
+        if (! $politician) {
+            abort(404);
+        }
+
+        $page = $politician->page
+            ?? new \App\Models\PoliticianPage(\App\Models\PoliticianPage::defaults($politician->id));
+
+        $mode = in_array($request->query('mode'), ['time', 'topic'], true)
+            ? $request->query('mode') : 'time';
+        $q    = trim((string) $request->query('q', ''));
+        $sort = in_array($request->query('sort'), ['newest', 'oldest', 'source'], true)
+            ? $request->query('sort') : 'newest';
+        $from = $request->query('from', '');
+        $to   = $request->query('to', '');
+        $sources = array_filter(explode(',', (string) $request->query('source', '')));
+
+        $query = \App\Models\CandidateNewsArticle::query()
+            ->where('politician_id', $politician->id)
+            ->where('verification_status', 'verified');
+
+        if ($q !== '') {
+            $query->where(function ($sq) use ($q) {
+                $sq->where('headline', 'like', "%{$q}%")
+                   ->orWhere('snippet', 'like', "%{$q}%");
+            });
+        }
+        if ($from) {
+            $query->where('published_at', '>=', $from);
+        }
+        if ($to) {
+            $query->where('published_at', '<=', $to . ' 23:59:59');
+        }
+        if (! empty($sources)) {
+            $query->whereIn('provider', $sources);
+        }
+
+        $query->orderBy(match ($sort) {
+            'oldest' => 'published_at',
+            'source' => 'source_name',
+            default  => 'published_at',
+        }, $sort === 'oldest' ? 'asc' : 'desc');
+
+        $articles = $query->paginate(20)->withQueryString();
+
+        // Breaking Now: first 2 verified articles from last 3 days (only page 1, no filters).
+        $breakingNow = collect();
+        if ($articles->currentPage() === 1 && $q === '' && ! $from && ! $to && empty($sources)) {
+            $breakingNow = \App\Models\CandidateNewsArticle::query()
+                ->where('politician_id', $politician->id)
+                ->where('verification_status', 'verified')
+                ->where('published_at', '>=', now()->subDays(3))
+                ->orderByDesc('published_at')
+                ->limit(2)
+                ->get();
+        }
+
+        // Date-grouped archive for time mode.
+        $grouped = collect();
+        if ($mode === 'time') {
+            $grouped = $articles->getCollection()
+                ->filter(fn ($a) => ! $breakingNow->contains('id', $a->id))
+                ->groupBy(fn ($a) => $a->published_at?->format('l, F j, Y') ?? 'Unknown date');
+        }
+
+        // All providers present for topic-mode source pills.
+        $allProviders = \App\Models\CandidateNewsArticle::query()
+            ->where('politician_id', $politician->id)
+            ->where('verification_status', 'verified')
+            ->distinct()->pluck('provider')->all();
+
+        $nationalSources = config('news_sources.national', []);
+        $stateSources    = config('news_sources.state.' . strtoupper((string) ($politician->state ?? '')), []);
+        $sourceMap = [];
+        foreach (array_merge($nationalSources, $stateSources) as $src) {
+            $sourceMap[$src['id']] = ['label' => $src['label'], 'icon' => $src['icon']];
+        }
+        $sourceMap['newsapi'] = ['label' => 'NewsAPI', 'icon' => '📰'];
+        $sourceMap['gnews']   = ['label' => 'GNews',   'icon' => '📰'];
+
+        // IDs of articles the authenticated voter has already saved.
+        $savedArticleIds = [];
+        if (auth()->check()) {
+            $voter = auth()->user()->voter;
+            if ($voter) {
+                $savedArticleIds = $voter->savedArticles()
+                    ->wherePivot('voter_id', $voter->id)
+                    ->pluck('candidate_news_article_id')
+                    ->all();
+            }
+        }
+
+        $ogTitle       = $politician->full_name . ' — In the News';
+        $ogDescription = "Latest news coverage of {$politician->full_name} on U9itus.";
+        $ogUrl         = route('politician.public.news', $slug);
+
+        return view('standalone.public.news', compact(
+            'politician',
+            'page',
+            'articles',
+            'breakingNow',
+            'grouped',
+            'allProviders',
+            'sourceMap',
+            'mode',
+            'q',
+            'sort',
+            'from',
+            'to',
+            'sources',
+            'savedArticleIds',
+            'ogTitle',
+            'ogDescription',
+            'ogUrl',
+        ));
+    }
 }

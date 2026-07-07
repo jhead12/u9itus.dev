@@ -12,7 +12,8 @@ Reference: patterns from `creativeplatform/crtv3` (MeTokens, Livepeer, Story Pro
 | Sprint 7 | MeToken subgraph read-only enrichment (governor profiles) | ⏳ Not started |
 | **Sprint 7.5** | Citizen role foundation | ✅ **Completed** (2026-07-01) |
 | Sprint 8 | Livepeer as selectable `media_type` | ⏳ Not started |
-| Sprint 8.5 | Neighborhood Groups schema + admin UI | ⏳ Not started |
+| Sprint 8.5 | Neighborhood Groups (Partify-style) + Patreon funding + Group badges/themes | ⏳ Not started |
+| **Sprint 8.6** | Profile Themes window + Custom color palette (all user types) | ⏳ Not started |
 | Sprint 9 | MeToken opt-in — governor candidates (Sovereign tier) | ⏳ Not started (blocked on legal review) |
 | Sprint 9.5 | Neighborhood Token opt-in | ⏳ Not started |
 | Sprint 10 | Voter smart wallet provisioning | ⏳ Not started |
@@ -231,9 +232,161 @@ New Spatie role: `citizen`. New registration route: `/register/citizen` (address
 - Update watch view player switch for `media_type === 'livepeer'` (Livepeer's `@livepeer/react` player or HLS.js).
 - `PoliticalPaymentService::chargePerView()` — read tier from campaign, apply surcharge.
 
-### Sprint 8.5 — Neighborhood Groups Schema + Admin UI
+### Sprint 8.5 — Neighborhood Groups (Partify-style) + Patreon Funding + Group Badges & Themes
 
-Group creation, member invites, shared campaign attribution for the Citizen Neighborhood Token model.
+**Expanded scope (2026-07-06):** Groups are a full Partify-style community system with Patreon-style crowd-funding that feeds directly into the group's u9itus ad budget — not cash-out. Backers fund *impact* (views, signatures, awareness), not a person.
+
+#### Group System
+
+- Any citizen (or voter) can **create a group** around a cause: ballot measure signature drive, neighborhood association, workshop organizer fanbase, local issue coalition.
+- Groups have a public page `/groups/{slug}` showing: cause description, goal amount, backer progress bar, member count, active campaigns.
+- Members join freely; backers contribute money that pools into the group's `citizen_campaign` ad budget.
+- Group admin (founding citizen) launches `CitizenCampaign` rows drawing from the pooled `group_campaign_budget`.
+- Early-bank members can recruit **group backers** as a third earning category (P6 gap — commission on backer contributions not yet in spec).
+
+#### Schema
+
+```sql
+neighborhood_groups
+  id, uuid, slug, name, city, state, zip
+  description, goal_amount_cents
+  admin_citizen_id  (FK → citizens)
+  metoken_address (nullable — Sprint 9.5)
+  -- Theme
+  primary_color varchar(7)
+  secondary_color varchar(7)
+  accent_color varchar(7)
+  badge_bg_color varchar(7)
+  banner_photo_url text (nullable)
+  allow_member_theme_override boolean default true
+  theme_locked boolean default false
+
+group_memberships
+  id, neighborhood_group_id, user_id
+  role (member|admin)
+  contribution_tier (supporter|backer|founding_member)
+  joined_at
+
+group_contributions
+  id, neighborhood_group_id, user_id
+  amount_cents int          -- integer cents via Money.php
+  stripe_payment_intent_id
+  is_recurring boolean default false
+  recurring_interval (monthly|one_time)
+  contributed_at
+
+group_campaign_budget
+  id, neighborhood_group_id
+  balance_cents int          -- pooled credit from contributions
+  updated_at
+```
+
+#### Group Custom Badges
+
+- Extends existing polymorphic `profile_badges` table — `NeighborhoodGroup` becomes a third badgeable type alongside `Politician` and `Voter`. Uses existing `HasProfileBadges` trait.
+- New `badge_type` enum value: `group_member` (alongside `self_declared`, `earned_views`, `earned_referral`, `endorsed`).
+- Groups define their own badge: `badge_icon_url`, `badge_label` (e.g. "Coalition Member"), `badge_color` stored on `neighborhood_groups`.
+- Tiered membership badges auto-granted on contribution:
+
+| Contribution | Badge label |
+|---|---|
+| Join (free) | Supporter |
+| $25+ | Backer |
+| $100+ | Founding Member |
+
+- Badge appears on voter/citizen profile card linking to `/groups/{slug}`.
+- `badge_requires_contribution` flag on group restricts badge display to paid backers only (optional).
+
+#### Group Themes
+
+- On group creation, a `profile_themes` row is auto-generated from the group's color + banner fields (`source_type = 'group'`, `source_id = group.id`).
+- Members see the group's theme in their Profile Appearance window under **"Your Groups"** (Sprint 8.6).
+- Leaving a group marks the theme unavailable in the picker but does not force-reset the active theme.
+- `allow_member_theme_override = false` prevents members using the group theme from customizing individual colors.
+
+#### Blocked By
+
+- `citizen_credits` ledger + Stripe billing for citizens (Phase F — deferred in Sprint 7.5). `group_campaign_budget` draws from the same credit infrastructure.
+- `view_sessions` polymorphism (Phase E) — needed for voters to earn from group-funded citizen campaigns.
+
+---
+
+### Sprint 8.6 — Profile Themes Window + Custom Color Palette
+
+Accessible from profile settings for all user types: voter, citizen, politician, group admin.
+
+#### Two-Level Theme System
+
+```
+┌─────────────────────────────────────────┐
+│  Profile Appearance                     │
+├─────────────────────────────────────────┤
+│  PRESETS  (quick pick)                  │
+│  [Civic Blue] [Democracy Red] [Classic] │
+│  [Dark Slate] [Gold & Black] [Forest]   │
+├─────────────────────────────────────────┤
+│  YOUR GROUPS  (if member of any)        │
+│  [🏘️ East Side Coalition — Blue/Gold]   │
+│  [🏫 School Board Committee — Navy]     │
+├─────────────────────────────────────────┤
+│  POLITICIAN SUPPORTER  (if favorited)   │
+│  [🏛️ Jane Smith Campaign — Red/White]   │
+├─────────────────────────────────────────┤
+│  CUSTOM  ▼ expand                       │
+│  Primary    [████] #1a56db  [picker]    │
+│  Secondary  [████] #ffffff  [picker]    │
+│  Accent     [████] #f59e0b  [picker]    │
+│  Badge bg   [████] #1e3a5f  [picker]    │
+│  Banner     [Upload / URL]              │
+│  [Preview]       [Save as My Theme]     │
+└─────────────────────────────────────────┘
+```
+
+#### Storage
+
+- `profile_themes` table — platform preset rows (`is_preset = true`). Group and politician themes auto-inserted with `source_type`/`source_id`.
+- Active theme stored as a `theme` JSON column added to `voters` and `citizens` tables. Politicians use existing `PoliticianPage` fields.
+
+```json
+{
+  "source": "custom",
+  "primary_color": "#1a56db",
+  "secondary_color": "#ffffff",
+  "accent_color": "#f59e0b",
+  "badge_bg_color": "#1e3a5f",
+  "banner_photo_url": null
+}
+```
+
+When `source` is `"preset"` or `"group"`, only the slug/id is stored — colors resolved at render time from `profile_themes`.
+
+#### Technical Implementation
+
+- Color picker: **Pickr** (vanilla JS, 3KB gzipped) or native `<input type="color">` — no Vue/React required, fits existing Blade/Vite stack.
+- Preview via CSS custom properties injected on the profile card partial:
+```css
+--theme-primary: #1a56db;
+--theme-secondary: #ffffff;
+--theme-accent: #f59e0b;
+```
+- **WCAG AA contrast enforcement** — client-side 4.5:1 contrast ratio check on primary vs secondary before save request fires.
+- **Admin `theme_locked`** on user record — forces a theme (useful for verified politicians with campaign brand standards).
+- **Group `allow_member_override`** — group admin locks group theme colors for members.
+
+#### Social Signal Effect
+
+A voter displaying a group theme on their profile is free advertising for that group every time another user views their profile — same principle as Twitch subscriber badges, civic-flavored. "X members using this theme" shown on the group page reinforces group identity.
+
+#### Build Dependencies
+
+| Piece | Depends on |
+|---|---|
+| Platform preset themes + custom picker | Independent — can ship any time |
+| `voters.theme` / `citizens.theme` columns | Migration only |
+| Group themes in picker | Sprint 8.5 `neighborhood_groups` |
+| Politician themes in picker | `PoliticianPage` already exists |
+
+---
 
 ### Sprint 9 — MeToken Opt-In for Politicians (Governor tier only)
 
@@ -304,7 +457,11 @@ A politician-branded meToken with monetary value earned by watching political ad
 
 ### Business framing
 
-Three revenue sources flow to voters: political ads (high-value, $1.00/view), ballot issue ads (similar economics), and local voice ads (lower-value, $0.75/view, broader supply). A voter could earn from a governor race, a school-board bond measure, and a corner bakery's grand-opening ad in the same afternoon — a stronger engagement pitch than a pure political platform.
+Four revenue sources flow to voters: political ads ($1.00/view), ballot issue ads ($1.00/view), citizen/local-business ads ($0.75/view), and group-funded community campaigns ($0.75/view). A voter could earn from a governor race, a school-board bond measure, a corner bakery's grand-opening ad, and a neighborhood coalition's signature drive campaign in the same afternoon — a stronger engagement pitch than a pure political platform.
+
+The citizen tier unlocks everyday advertiser inventory that keeps voters earning **between election cycles** — the supply drought that kills pure political platforms in off-years. A yoga instructor, a startup recruiting workshop attendees, or a block association collecting petition signatures all self-serve without a campaign manager or FEC filing. This is the long-tail supply engine.
+
+Group themes and custom color palettes (Sprints 8.5–8.6) create visible social identity signals on user profiles — driving group membership, backer contributions, and referral virality through the same mechanic Twitch uses for subscriber badges, applied to civic participation.
 
 ---
 

@@ -153,16 +153,33 @@ bring 1 more buyer organically.
 
 ---
 
-### Channel 4 — Politician/Advertiser Supply Development
-**Critical:** Without politicians spending, voters churn immediately.
+### Channel 4 — Advertiser Supply Development (Politicians, Citizens & Groups)
+**Critical:** Without spending advertisers, voters churn immediately. Run in parallel with voter acquisition from day one.
 
-**Action items:**
-- Outbound to local campaigns (city council, school board, county supervisor)
-- Ballot measure committees (Yes/No campaigns for propositions)
-- Citizens / merchants via `CitizenCampaign` tier
-- Minimum viable inventory: 10 active campaigns × 2,000 views/day = 20,000 views/day
-  (enough to let voters earn ~$25/week, above the churn threshold)
-- Consider introductory pricing for first 3 campaigns to seed the marketplace
+#### Politician / ballot measure outbound
+- Local campaigns: city council, school board, county supervisor, judicial races
+- Ballot measure committees (Yes/No propositions and local ordinances)
+- PACs and issue advocacy orgs
+- Pitch: *"Reach verified voters in your district who watch the full message — guaranteed 100% completion, verified real person, no bots."*
+
+#### Citizen advertiser — lowest friction, highest long-tail volume
+- Small businesses: workshops, grand openings, local services, startups recruiting beta users
+- Nonprofits collecting signatures or building petition drives
+- Community organizers forming neighborhood groups (also seeds Sprint 8.5 groups)
+- Pitch: *"Reach 500 verified local voters for $50. Your ad plays only to people in your zip code who watch the whole thing. No bots, no skip buttons."*
+- Self-serve checkout, no sales call required — this is your off-cycle inventory that keeps voters earning between elections
+
+#### Group campaigns (Sprint 8.5)
+- Neighborhood groups pool Patreon-style backer contributions into a shared ad budget
+- Each group campaign is a citizen campaign funded collectively
+- Early-bank members can recruit group backers (P6 gap — advertiser referral commission not yet implemented; currently `REFERRAL_COMMISSION_PERCENT=10` only fires on viewer earnings, not advertiser spend)
+
+#### Minimum viable inventory
+10 active campaigns × 2,000 views/day = 20,000 views/day
+(enough for voters to earn ~$50/week at $0.50/view — above the churn threshold)
+
+#### Introductory pricing
+Consider waiving the first campaign's 15% platform fee for citizen advertisers to seed inventory. The voter payout economics still hold and you gain the supply flywheel.
 
 ---
 

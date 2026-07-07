@@ -364,6 +364,10 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         Route::post('/favorites/{politicianId}', [FavoriteController::class, 'store'])->name('favorites.store');
         Route::delete('/favorites/{politicianId}', [FavoriteController::class, 'destroy'])->name('favorites.destroy');
 
+        // ── Saved articles (like/bookmark news articles) ─────────────────────
+        Route::post('/articles/{articleId}/save', [FavoriteController::class, 'saveArticle'])->name('articles.save');
+        Route::delete('/articles/{articleId}/save', [FavoriteController::class, 'unsaveArticle'])->name('articles.unsave');
+
         // ── Citizen profile upgrade (add Citizen role to existing voter account) ──
         Route::get('/add-citizen-profile', [VoterController::class, 'showAddCitizenProfile'])->name('add-citizen-profile');
         Route::post('/add-citizen-profile', [VoterController::class, 'addCitizenProfile'])->name('add-citizen-profile.submit');

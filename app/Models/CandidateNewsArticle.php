@@ -69,4 +69,15 @@ class CandidateNewsArticle extends Model
 
         return $query->where('candidate_name', $candidateName);
     }
+
+    /** Voters who have saved this article. */
+    public function savedByVoters(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(
+            \App\Models\Voter::class,
+            'voter_saved_articles',
+            'candidate_news_article_id',
+            'voter_id'
+        )->withPivot('saved_at');
+    }
 }

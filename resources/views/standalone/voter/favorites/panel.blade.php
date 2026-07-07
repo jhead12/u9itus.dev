@@ -1,5 +1,35 @@
 {{-- HTML fragment rendered inside the favorites side panel (see layouts/voter.blade.php) --}}
 
+{{-- ── Saved Articles ──────────────────────────────────────────────────── --}}
+@if(isset($savedArticles) && $savedArticles->isNotEmpty())
+<div class="px-2 pb-3 border-b border-slate-700/60 mb-3">
+    <p class="text-[10px] uppercase tracking-widest text-slate-500 font-semibold px-2 mb-2">Saved Articles</p>
+    <ul class="space-y-1">
+        @foreach($savedArticles as $article)
+        <li>
+            <a href="{{ $article->source_url }}" target="_blank" rel="noopener noreferrer"
+               class="group flex items-start gap-2 rounded-lg px-2 py-2 hover:bg-slate-800/70 transition">
+                <svg class="w-3.5 h-3.5 mt-0.5 text-rose-400 shrink-0" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+                </svg>
+                <div class="min-w-0">
+                    <p class="text-xs text-slate-300 group-hover:text-white line-clamp-2 leading-snug">{{ $article->headline }}</p>
+                    @if($article->politician)
+                    <p class="text-[10px] text-slate-600 mt-0.5 truncate">{{ $article->politician->full_name }}</p>
+                    @endif
+                </div>
+            </a>
+        </li>
+        @endforeach
+    </ul>
+    <a href="{{ route('voter.favorites.index') }}#saved-articles"
+       class="block text-[10px] text-slate-500 hover:text-emerald-400 text-center mt-2 transition">
+        View all saved articles →
+    </a>
+</div>
+@endif
+
+{{-- ── Followed Politicians ─────────────────────────────────────────────── --}}
 @if($favorites->isEmpty())
     <div class="py-12 px-4 text-center">
         <div class="text-3xl mb-2">⭐</div>

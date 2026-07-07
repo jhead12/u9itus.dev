@@ -29,7 +29,12 @@ class FavoriteController extends Controller
             ->orderByPivot('favorited_at', 'desc')
             ->paginate(20);
 
-        return view('standalone.voter.favorites.index', compact('favorites'));
+        $savedArticles = $voter->savedArticles()
+            ->with('politician:id,full_name,slug')
+            ->orderByPivot('saved_at', 'desc')
+            ->paginate(20, ['*'], 'articles_page');
+
+        return view('standalone.voter.favorites.index', compact('favorites', 'savedArticles'));
     }
 
     /**
@@ -49,7 +54,13 @@ class FavoriteController extends Controller
             ->limit(15)
             ->get();
 
-        return view('standalone.voter.favorites.panel', compact('favorites'));
+        $savedArticles = $voter->savedArticles()
+            ->with('politician:id,full_name,slug')
+            ->orderByPivot('saved_at', 'desc')
+            ->limit(5)
+            ->get();
+
+        return view('standalone.voter.favorites.panel', compact('favorites', 'savedArticles'));
     }
 
     /**
@@ -93,5 +104,43 @@ class FavoriteController extends Controller
         }
 
         return back()->with('success', 'Removed from your followed politicians.');
+    }
+
+    /**
+     * POST /voter/articles/{articleId}/save
+     * Save (like) a news article.
+     */
+    public function saveArticle(Request $request, int $articleId)
+    {
+        $voter = $request->user()->voter;
+
+        if (! $voter) {
+            abort(403, 'No voter profile found.');
+        }
+
+        $article = \App\Models\CandidateNewsArticle::findOrFail($articleId);
+
+        if (! $voter->savedArticles()->where('candidate_news_article_id', $article->id)->exists()) {
+            $voter->savedArticles()->attach($article->id, ['saved_at' => now()]);
+        }
+
+        return response()->json(['saved' => true]);
+    }
+
+    /**
+     * DELETE /voter/articles/{articleId}/save
+     * Remove a saved news article.
+     */
+    public function unsaveArticle(Request $request, int $articleId)
+    {
+        $voter = $request->user()->voter;
+
+        if (! $voter) {
+            abort(403, 'No voter profile found.');
+        }
+
+        $voter->savedArticles()->detach($articleId);
+
+        return response()->json(['saved' => false]);
     }
 }
