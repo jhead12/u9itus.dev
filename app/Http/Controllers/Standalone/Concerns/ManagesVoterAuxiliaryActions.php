@@ -26,9 +26,45 @@ trait ManagesVoterAuxiliaryActions
 {
     // ── Dashboard ────────────────────────────────────────────
 
+    /**
+     * If the voter has started Stripe Connect (stripe_account_id is set) but the
+     * account is not yet active in our DB, do a live Stripe API check and sync
+     * the result. This handles the window between the voter returning from Stripe
+     * Connect onboarding and the asynchronous account.updated webhook arriving.
+     *
+     * Only calls the Stripe API when necessary (account_id present, status not active).
+     * No-op when Stripe is not configured or the voter has no account yet.
+     */
+    private function syncStripeAccountIfPending(Voter $voter): void
+    {
+        if (empty($voter->stripe_account_id)) {
+            return;
+        }
+
+        if ($voter->stripe_account_status === 'active') {
+            return;
+        }
+
+        try {
+            $stripeConnect = app(StripeConnectService::class);
+            if ($stripeConnect->isConfigured()) {
+                $stripeConnect->getAccountStatus($voter);
+                $voter->refresh(); // Reload after the sync updates the row.
+            }
+        } catch (\Throwable $e) {
+            // Best-effort — never block page load if Stripe is unreachable.
+            Log::warning('StripeConnect status sync failed on page load', [
+                'voter_id'         => $voter->id,
+                'stripe_account_id' => $voter->stripe_account_id,
+                'error'            => $e->getMessage(),
+            ]);
+        }
+    }
+
     public function dashboard()
     {
         $voter   = $this->resolveVoter()->loadMissing('user');
+        $this->syncStripeAccountIfPending($voter);
         $summary = $this->viewService->voterEarningsSummary($voter);
 
         // Surface watchable campaigns directly on dashboard so voters can start earning immediately.
@@ -188,6 +224,7 @@ trait ManagesVoterAuxiliaryActions
     public function earnings()
     {
         $voter   = $this->resolveVoter()->loadMissing('user');
+        $this->syncStripeAccountIfPending($voter);
         $summary = $this->viewService->voterEarningsSummary($voter);
 
         $sessions = $voter->viewSessions()

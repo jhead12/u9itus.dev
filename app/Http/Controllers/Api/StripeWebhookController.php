@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Mail\VoterVerifiedMail;
 use App\Models\Voter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use App\Services\CampaignBillingService;
 use App\Services\StripePaymentService;
 
@@ -107,6 +109,8 @@ class StripeWebhookController extends Controller
 
         $voters = Voter::where('stripe_account_id', $accountId)->get();
         foreach ($voters as $voter) {
+            $wasActive = $voter->stripe_account_status === 'active';
+
             // Mirror Stripe state both ways. We don't demote legacy voters who
             // were manually verified before adopting Stripe Connect — only voters
             // who actually started Authentic User Verifier (have a stripe_account_id)
@@ -121,12 +125,25 @@ class StripeWebhookController extends Controller
             }
 
             Log::info('Stripe account.updated synced voter', [
-                'voter_id'         => $voter->id,
+                'voter_id'          => $voter->id,
                 'stripe_account_id' => $accountId,
-                'status'           => $status,
-                'charges_enabled'  => $chargesEnabled,
-                'payouts_enabled'  => $payoutsEnabled,
+                'status'            => $status,
+                'charges_enabled'   => $chargesEnabled,
+                'payouts_enabled'   => $payoutsEnabled,
             ]);
+
+            // Send a verification confirmation email the first time the account
+            // becomes active (only on the transition, not on repeated active events).
+            if ($isActive && ! $wasActive && ! empty($voter->email)) {
+                try {
+                    Mail::to($voter->email)->queue(new VoterVerifiedMail($voter));
+                } catch (\Throwable $e) {
+                    Log::warning('VoterVerifiedMail failed to queue', [
+                        'voter_id' => $voter->id,
+                        'error'    => $e->getMessage(),
+                    ]);
+                }
+            }
         }
     }
 
