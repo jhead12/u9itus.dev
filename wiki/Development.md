@@ -191,6 +191,9 @@ All commands below are intended to be run on the production Railway service via 
 | `php artisan roles:ensure` | Ensure all required Spatie permission roles exist |
 | `php artisan email:diagnostic` | Send a test email and verify mail configuration |
 | `php artisan transactions:recover-stuck` | Recover stuck/orphaned campaign transactions |
+| `php artisan users:prune-never-logged-in --dry-run` | Preview seed/inactive accounts that have never logged in (older than 30 days, no earnings, not admin) |
+| `php artisan users:prune-never-logged-in --force` | Delete all such accounts and their voter/politician profiles |
+| `php artisan users:prune-never-logged-in --days=60 --force` | Same, but with a 60-day grace period |
 
 ### Notifications & Comms
 
