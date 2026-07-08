@@ -161,14 +161,15 @@ class PruneNeverLoggedInAccounts extends Command
             // (the real admin@u9itus.com is safe because it doesn't match).
             $this->warn('--include-seed-admins active: seed admin accounts will also be deleted.');
         }
-            // Exclude voters with any financial activity.
+
+        // Always exclude accounts with any financial activity.
+        $query
             ->whereDoesntHave('voter', fn ($q) => $q
                 ->where('total_earned', '>', 0)
                 ->orWhere('wallet_balance', '>', 0)
                 ->orWhere('pending_earnings', '>', 0)
                 ->orWhere('total_views', '>', 0)
             )
-            // Exclude politicians with campaigns or credits.
             ->whereDoesntHave('politician', fn ($q) => $q
                 ->whereHas('campaigns')
                 ->orWhere('credit_balance', '>', 0)
