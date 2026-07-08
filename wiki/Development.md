@@ -147,7 +147,7 @@ All commands below are intended to be run on the production Railway service via 
 
 | Command | Description |
 |---------|-------------|
-| `php artisan payouts:process` | Run the weekly voter payout batch (Stripe/PayPal/CashApp) |
+| `php artisan payouts:process-viewer` | Run the daily voter payout batch (Stripe/PayPal/CashApp) |
 | `php artisan payouts:reconcile-paypal` | Poll PayPal for outstanding payout status updates |
 | `php artisan billing:recover-stuck` | Find succeeded Stripe charges with no credit ledger entry and re-apply credits |
 | `php artisan billing:recover-stuck --dry-run` | Preview affected transactions without applying credits |
@@ -191,9 +191,11 @@ All commands below are intended to be run on the production Railway service via 
 | `php artisan roles:ensure` | Ensure all required Spatie permission roles exist |
 | `php artisan email:diagnostic` | Send a test email and verify mail configuration |
 | `php artisan transactions:recover-stuck` | Recover stuck/orphaned campaign transactions |
-| `php artisan users:prune-never-logged-in --dry-run` | Preview seed/inactive accounts that have never logged in (older than 30 days, no earnings, not admin) |
+| `php artisan users:prune-never-logged-in --dry-run` | Preview accounts that have never logged in (older than 30 days, no earnings, not admin) |
 | `php artisan users:prune-never-logged-in --force` | Delete all such accounts and their voter/politician profiles |
 | `php artisan users:prune-never-logged-in --days=60 --force` | Same, but with a 60-day grace period |
+| `php artisan users:prune-never-logged-in --example-only --dry-run` | Preview all Faker seed accounts (`@example.com/net/org`) regardless of login state |
+| `php artisan users:prune-never-logged-in --example-only --force` | Delete all Faker seed accounts (preserves any with real financial activity) |
 
 ### Notifications & Comms
 

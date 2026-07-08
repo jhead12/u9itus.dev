@@ -11,15 +11,25 @@ class PruneNeverLoggedInAccounts extends Command
 {
     protected $signature = 'users:prune-never-logged-in
                             {--days=30 : Only prune accounts older than this many days}
+                            {--example-only : Only delete accounts with Faker seed emails (@example.com/net/org) — bypasses login/age checks}
                             {--dry-run : Show what would be deleted without deleting}
                             {--force : Skip confirmation prompt}';
 
-    protected $description = 'Delete user accounts (and their voter/politician profiles) that have never logged in and are older than the grace period. Safe exclusions: admins, accounts with earnings, accounts with campaigns.';
+    protected $description = 'Delete user accounts (and their voter/politician profiles) that have never logged in and are older than the grace period. Use --example-only to remove all Faker seed accounts. Safe exclusions: admins, accounts with earnings, accounts with campaigns.';
+
+    /** Faker seed email domains — never belong to real users. */
+    private const SEED_DOMAINS = ['example.com', 'example.net', 'example.org'];
 
     public function handle(): int
     {
+        $dryRun      = (bool) $this->option('dry-run');
+        $exampleOnly = (bool) $this->option('example-only');
+
+        if ($exampleOnly) {
+            return $this->pruneExampleAccounts($dryRun);
+        }
+
         $days   = (int) $this->option('days');
-        $dryRun = (bool) $this->option('dry-run');
         $cutoff = now()->subDays($days);
 
         $this->info("Finding accounts created before {$cutoff->toDateTimeString()} that have never logged in…");
@@ -36,15 +46,20 @@ class PruneNeverLoggedInAccounts extends Command
             ->where(fn ($q) => $q->whereNull('user_type')->orWhereNotIn('user_type', ['admin']))
             // Exclude users who have an active session.
             ->whereNotIn('id', DB::table('sessions')->whereNotNull('user_id')->pluck('user_id'))
-            // Exclude voters who have ever earned or hold a balance.
+            // Exclude voters who have ever earned, hold any balance, or have
+            // earnings still inside the fraud-hold window.
             ->whereDoesntHave('voter', fn ($q) => $q
                 ->where('total_earned', '>', 0)
                 ->orWhere('wallet_balance', '>', 0)
+                ->orWhere('pending_earnings', '>', 0)
                 ->orWhere('total_views', '>', 0)
             )
-            // Exclude politicians who have any campaigns.
+            // Exclude politicians who have any campaigns OR any credit history
+            // (purchased credits without ever creating a campaign).
             ->whereDoesntHave('politician', fn ($q) => $q
                 ->whereHas('campaigns')
+                ->orWhere('credit_balance', '>', 0)
+                ->orWhereHas('credits')
             );
 
         $count = $query->count();
@@ -112,6 +127,106 @@ class PruneNeverLoggedInAccounts extends Command
             'deleted'    => $deleted,
             'failures'   => $failures,
             'older_than' => $this->option('days') . ' days',
+        ]);
+
+        return $failures > 0 ? self::FAILURE : self::SUCCESS;
+    }
+
+    /**
+     * Delete all accounts whose email domain is a known Faker seed domain
+     * (@example.com / @example.net / @example.org), regardless of login state.
+     * Admins and accounts with any financial activity are always excluded.
+     */
+    private function pruneExampleAccounts(bool $dryRun): int
+    {
+        $domainPatterns = array_map(fn ($d) => '%@' . $d, self::SEED_DOMAINS);
+
+        $query = User::query()
+            ->where(function ($q) use ($domainPatterns) {
+                foreach ($domainPatterns as $pattern) {
+                    $q->orWhere('email', 'like', $pattern);
+                }
+            })
+            // Always exclude admins.
+            ->whereDoesntHave('roles', fn ($q) => $q->where('name', 'admin'))
+            ->where(fn ($q) => $q->whereNull('user_type')->orWhereNotIn('user_type', ['admin']))
+            // Exclude voters with any financial activity.
+            ->whereDoesntHave('voter', fn ($q) => $q
+                ->where('total_earned', '>', 0)
+                ->orWhere('wallet_balance', '>', 0)
+                ->orWhere('pending_earnings', '>', 0)
+                ->orWhere('total_views', '>', 0)
+            )
+            // Exclude politicians with campaigns or credits.
+            ->whereDoesntHave('politician', fn ($q) => $q
+                ->whereHas('campaigns')
+                ->orWhere('credit_balance', '>', 0)
+                ->orWhereHas('credits')
+            );
+
+        $count = $query->count();
+
+        $domains = implode(', ', self::SEED_DOMAINS);
+        $this->info("Finding seed accounts with emails matching: {$domains}");
+
+        if ($count === 0) {
+            $this->info('No seed accounts found. Nothing to delete.');
+            return self::SUCCESS;
+        }
+
+        $this->warn("{$count} seed account(s) found.");
+
+        if ($dryRun) {
+            $this->table(
+                ['ID', 'Email', 'Role', 'Created At'],
+                $query->with('roles')->get()->map(fn ($u) => [
+                    $u->id,
+                    $u->email,
+                    $u->roles->pluck('name')->join(', ') ?: $u->user_type ?: '—',
+                    $u->created_at->toDateTimeString(),
+                ])->toArray()
+            );
+            $this->info('--dry-run: no changes made.');
+            return self::SUCCESS;
+        }
+
+        if (
+            ! $this->option('force') &&
+            ! $this->confirm("Permanently delete {$count} seed account(s) and their voter/politician profiles?")
+        ) {
+            $this->info('Aborted.');
+            return self::SUCCESS;
+        }
+
+        $deleted  = 0;
+        $failures = 0;
+
+        $query->chunkById(200, function ($users) use (&$deleted, &$failures) {
+            foreach ($users as $user) {
+                try {
+                    DB::transaction(function () use ($user) {
+                        $user->voter?->delete();
+                        $user->politician?->delete();
+                        $user->delete();
+                    });
+                    $deleted++;
+                } catch (\Throwable $e) {
+                    $failures++;
+                    Log::warning('users:prune-never-logged-in --example-only: failed to delete user', [
+                        'user_id' => $user->id,
+                        'email'   => $user->email,
+                        'error'   => $e->getMessage(),
+                    ]);
+                    $this->warn("  Skipped user #{$user->id} ({$user->email}): {$e->getMessage()}");
+                }
+            }
+        });
+
+        $this->info("Deleted {$deleted} seed account(s)." . ($failures > 0 ? " {$failures} failed — check logs." : ''));
+
+        Log::info('users:prune-never-logged-in --example-only completed', [
+            'deleted'  => $deleted,
+            'failures' => $failures,
         ]);
 
         return $failures > 0 ? self::FAILURE : self::SUCCESS;
