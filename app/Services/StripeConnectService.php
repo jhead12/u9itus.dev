@@ -404,6 +404,7 @@ class StripeConnectService
 
         $isActive = (bool) $account->charges_enabled && (bool) $account->payouts_enabled;
         $status = $isActive ? 'active' : 'pending';
+        $wasActive = $voter->stripe_account_status === 'active';
 
         // Mirror Stripe state both ways for voters who started Authentic User
         // Verifier. We never call this for legacy-only voters (no stripe_account_id),
@@ -415,6 +416,21 @@ class StripeConnectService
 
         if ($voter->user) {
             $voter->user->update(['is_verified' => $isActive]);
+        }
+
+        // If this live sync (rather than the account.updated webhook) is what
+        // activated the account, send the confirmation email here — the webhook
+        // will see status already 'active' and won't double-send.
+        if ($isActive && ! $wasActive && ! empty($voter->email) && \App\Mail\VoterVerifiedMail::isEnabled()) {
+            try {
+                \Illuminate\Support\Facades\Mail::to($voter->email)
+                    ->queue(new \App\Mail\VoterVerifiedMail($voter));
+            } catch (\Throwable $e) {
+                Log::warning('VoterVerifiedMail failed to queue from status sync', [
+                    'voter_id' => $voter->id,
+                    'error'    => $e->getMessage(),
+                ]);
+            }
         }
 
         return [

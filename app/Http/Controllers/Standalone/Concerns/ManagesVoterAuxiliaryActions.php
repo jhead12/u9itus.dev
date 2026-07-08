@@ -359,6 +359,43 @@ trait ManagesVoterAuxiliaryActions
         return response()->json(['link' => $link, 'code' => $voter->referral_code]);
     }
 
+    // ── Early-bank SSO ────────────────────────────────────────
+
+    /**
+     * Generate a short-lived HMAC-signed token and redirect the voter directly
+     * into their Early-bank dashboard without requiring a separate login.
+     *
+     * URL shape: {eb_url}/sso?member=<uuid>&ts=<unix>&sig=<hmac-sha256>
+     * Early-bank validates: sig == HMAC-SHA256(member + '.' + ts, shared_secret)
+     * and rejects tokens older than 5 minutes.
+     *
+     * Fallback: if the voter is not an EB member, or the secret is missing,
+     * redirects to the Early-bank home page instead.
+     */
+    public function earlyBankSso()
+    {
+        $voter  = $this->resolveVoter();
+        $ebUrl  = rtrim((string) config('services.earlybank.public_url', 'https://www.early-bank.com'), '/');
+        $secret = (string) config('services.earlybank.webhook_secret', '');
+
+        // No membership or no shared secret → fall back to plain EB home.
+        if (empty($voter->earlybank_own_member_uuid) || $secret === '') {
+            return redirect()->away($ebUrl);
+        }
+
+        $memberUuid = (string) $voter->earlybank_own_member_uuid;
+        $ts         = (string) time();
+        $sig        = hash_hmac('sha256', $memberUuid . '.' . $ts, $secret);
+
+        $ssoUrl = $ebUrl . '/sso?' . http_build_query([
+            'member' => $memberUuid,
+            'ts'     => $ts,
+            'sig'    => $sig,
+        ]);
+
+        return redirect()->away($ssoUrl);
+    }
+
     // ── Preferences ──────────────────────────────────────────
 
     public function preferences()

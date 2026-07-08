@@ -361,6 +361,10 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         // Referrals
         Route::get('/referrals', [VoterController::class, 'referrals'])->name('referrals');
         Route::get('/referrals/link', [VoterController::class, 'getReferralLink'])->name('referrals.link');
+
+        // Early-bank SSO — generates a signed token and bounces the voter directly
+        // into their Early-bank dashboard without a separate login.
+        Route::get('/earlybank/sso', [VoterController::class, 'earlyBankSso'])->name('earlybank.sso');
         
         // Preferences
         Route::get('/preferences', [VoterController::class, 'preferences'])->name('preferences');

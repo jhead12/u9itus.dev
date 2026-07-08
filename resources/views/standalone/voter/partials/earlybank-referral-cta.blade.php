@@ -50,38 +50,58 @@
 
 @else
 {{-- ── Enrolled: voter is already an Early-bank member ────────────────── --}}
-<div class="bg-emerald-900/20 border border-emerald-500/20 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-    <div class="flex items-start gap-3 min-w-0">
-        <div class="w-9 h-9 rounded-lg bg-emerald-500/20 flex items-center justify-center shrink-0 mt-0.5">
-            <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+@php
+    $ebSsoAvailable = ! empty(config('services.earlybank.webhook_secret'));
+    $ebDashboardHref = $ebSsoAvailable
+        ? route('voter.earlybank.sso')
+        : $earlybankUrl . '/dashboard';
+@endphp
+<div class="bg-emerald-900/20 border border-emerald-500/20 rounded-2xl p-5">
+    <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        {{-- Left: status + copy --}}
+        <div class="flex items-start gap-3 min-w-0">
+            <div class="w-9 h-9 rounded-lg bg-emerald-500/20 flex items-center justify-center shrink-0 mt-0.5">
+                <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+            </div>
+            <div class="min-w-0">
+                <p class="text-emerald-200 font-semibold text-sm">You're an Early-bank member</p>
+                <p class="text-slate-300 text-sm mt-1">
+                    Your referral commissions and voter-view earnings flow through Early-bank.
+                    Access your full dashboard, QR code, referral link, and weekly payout status below.
+                </p>
+                {{-- Member UUID badge --}}
+                <p class="text-slate-500 text-xs mt-2 font-mono truncate" title="{{ $voter->earlybank_own_member_uuid }}">
+                    Member ID: <span class="text-slate-400">{{ $voter->earlybank_own_member_uuid }}</span>
+                </p>
+                @if($voter->earlybank_own_linked_at)
+                <p class="text-slate-600 text-xs mt-0.5">
+                    Linked {{ $voter->earlybank_own_linked_at->format('M j, Y') }}
+                </p>
+                @endif
+            </div>
+        </div>
+
+        {{-- Right: CTA button --}}
+        <a href="{{ $ebDashboardHref }}"
+           @if(!$ebSsoAvailable) target="_blank" rel="noopener noreferrer" @endif
+           class="shrink-0 inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition whitespace-nowrap self-start sm:self-center">
+            @if($ebSsoAvailable)
+            Open My Dashboard
+            {{-- Arrow-right icon (no external-link icon since it's same-tab SSO) --}}
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
             </svg>
-        </div>
-        <div class="min-w-0">
-            <p class="text-emerald-200 font-semibold text-sm">
-                You're an Early-bank member
-            </p>
-            <p class="text-slate-300 text-sm mt-1">
-                Your voter-view commissions flow through Early-bank. Log in to see your full
-                referral dashboard, QR code, and weekly payout status.
-            </p>
-            @if($voter->earlybank_own_linked_at)
-            <p class="text-slate-500 text-xs mt-1">
-                Linked {{ $voter->earlybank_own_linked_at->format('M j, Y') }}
-            </p>
+            @else
+            Early-bank Dashboard
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+            </svg>
             @endif
-        </div>
+        </a>
     </div>
-    <a href="{{ $earlybankUrl }}/dashboard"
-       target="_blank"
-       rel="noopener noreferrer"
-       class="shrink-0 inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition whitespace-nowrap">
-        Early-bank Dashboard
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
-        </svg>
-    </a>
 </div>
 @endif

@@ -76,9 +76,102 @@
             ? $politicianTpl->body_override
             : 'Join U9itus as a politician using my referral link and launch your campaign presence on the platform.';
         $politicianShareBody = $politicianShareMessage . "\n\n" . $politicianRefUrl;
+
+        // Early-bank member links — only built when this voter holds an EB membership.
+        // EB invite:        early-bank.com/?ref=<uuid>  → recruits new EB members ($10 bonus)
+        // U9itus earn link: u9itus.com/earn?ref=<uuid>  → CaptureEarlyBankReferral middleware
+        //                   stores the UUID cookie so new registrants are attributed to this member.
+        $ebMemberUuid  = $voter->earlybank_own_member_uuid ?? null;
+        $ebBaseUrl     = rtrim((string) config('services.earlybank.public_url', 'https://www.early-bank.com'), '/');
+        $ebInviteUrl   = $ebMemberUuid ? ($ebBaseUrl . '/?ref=' . $ebMemberUuid)  : null;
+        $ebEarnUrl     = $ebMemberUuid ? (url('/earn') . '?ref=' . $ebMemberUuid) : null;
+        $ebInviteQrSrc = $ebInviteUrl ? 'https://api.qrserver.com/v1/create-qr-code/?size=120x120&color=059669&bgcolor=FFFFFF&data=' . rawurlencode($ebInviteUrl) . '&qzone=1' : null;
+        $ebEarnQrSrc   = $ebEarnUrl   ? 'https://api.qrserver.com/v1/create-qr-code/?size=120x120&color=6366f1&bgcolor=FFFFFF&data=' . rawurlencode($ebEarnUrl)   . '&qzone=1' : null;
     @endphp
+
+    {{-- ── Early-bank Referral Links (EB members only) ─────────── --}}
+    @if($ebMemberUuid)
+    <div class="bg-emerald-950/40 border border-emerald-700/30 rounded-xl p-6 space-y-7">
+        <div class="flex items-center justify-between gap-4 flex-wrap">
+            <div>
+                <h2 class="text-lg font-semibold text-emerald-200">Your Early-bank Referral Links</h2>
+                <p class="text-slate-400 text-sm mt-0.5">Tied to your Early-bank membership — share these to earn the $10 join bonus and 10% recurring commissions.</p>
+            </div>
+            <a href="{{ route('voter.earlybank.sso') }}"
+               class="shrink-0 text-xs text-emerald-400 hover:text-emerald-300 flex items-center gap-1.5 transition">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                </svg>
+                Open EB Dashboard
+            </a>
+        </div>
+
+        {{-- EB invite link --}}
+        <div class="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-6 items-start">
+            <div class="space-y-2">
+                <p class="text-sm font-medium text-emerald-400">Your Early-bank Invite Link</p>
+                <p class="text-slate-400 text-xs">Share with anyone who wants to join Early-bank and start earning referral commissions themselves. You earn <strong class="text-emerald-300">$10</strong> when they pay their $20 activation fee — they are also automatically enrolled into U9itus.</p>
+                <div class="flex gap-2">
+                    <input id="eb-invite-link" type="text" readonly value="{{ $ebInviteUrl }}"
+                        class="flex-1 bg-slate-900 border border-emerald-700/40 rounded-lg px-4 py-2.5 text-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                    <button onclick="copyLink('eb-invite-link', 'eb-invite-confirm')"
+                        class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition whitespace-nowrap">Copy</button>
+                </div>
+                <p id="eb-invite-confirm" class="text-emerald-400 text-xs hidden">✓ Copied!</p>
+            </div>
+            <div class="flex flex-col items-center gap-2">
+                <div class="w-32 h-32 bg-white rounded-xl p-1 shadow-lg shadow-black/40 flex items-center justify-center">
+                    <img src="{{ $ebInviteQrSrc }}" alt="Early-bank Invite QR Code" class="w-28 h-28 rounded-lg" loading="lazy">
+                </div>
+                <a href="{{ $ebInviteQrSrc }}&download=1" download="eb-invite-qr.png"
+                   class="text-xs text-emerald-400 hover:text-emerald-300 flex items-center gap-1 transition">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                    </svg>
+                    Download PNG
+                </a>
+            </div>
+        </div>
+
+        <div class="border-t border-emerald-800/40"></div>
+
+        {{-- U9itus earn link (EB-attributed) --}}
+        <div class="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-6 items-start">
+            <div class="space-y-2">
+                <p class="text-sm font-medium text-indigo-400">Your U9itus Referral Link</p>
+                <p class="text-slate-400 text-xs">Share with anyone who wants to join U9itus as a Citizen, Voter, or Politician. You earn <strong class="text-indigo-300">10%</strong> of every U9itus viewing session your referred subscribers complete.</p>
+                <div class="flex gap-2">
+                    <input id="eb-earn-link" type="text" readonly value="{{ $ebEarnUrl }}"
+                        class="flex-1 bg-slate-900 border border-indigo-700/40 rounded-lg px-4 py-2.5 text-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <button onclick="copyLink('eb-earn-link', 'eb-earn-confirm')"
+                        class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition whitespace-nowrap">Copy</button>
+                </div>
+                <p id="eb-earn-confirm" class="text-indigo-400 text-xs hidden">✓ Copied!</p>
+            </div>
+            <div class="flex flex-col items-center gap-2">
+                <div class="w-32 h-32 bg-white rounded-xl p-1 shadow-lg shadow-black/40 flex items-center justify-center">
+                    <img src="{{ $ebEarnQrSrc }}" alt="U9itus Earn QR Code" class="w-28 h-28 rounded-lg" loading="lazy">
+                </div>
+                <a href="{{ $ebEarnQrSrc }}&download=1" download="u9itus-earn-qr.png"
+                   class="text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1 transition">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                    </svg>
+                    Download PNG
+                </a>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    {{-- ── U9itus Internal Referral Links ───────────────────────── --}}
     <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-6 space-y-7">
-        <h2 class="text-lg font-semibold text-white">Share Your Referral Links</h2>
+        <div>
+            <h2 class="text-lg font-semibold text-white">{{ $ebMemberUuid ? 'Your U9itus Referral Links' : 'Share Your Referral Links' }}</h2>
+            @if($ebMemberUuid)
+            <p class="text-slate-500 text-xs mt-0.5">Standard U9itus tracking links — separate from your Early-bank links above.</p>
+            @endif
+        </div>
 
         {{-- Voter link --}}
         <div class="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-6 items-start">

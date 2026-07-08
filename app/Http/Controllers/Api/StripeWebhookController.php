@@ -134,7 +134,8 @@ class StripeWebhookController extends Controller
 
             // Send a verification confirmation email the first time the account
             // becomes active (only on the transition, not on repeated active events).
-            if ($isActive && ! $wasActive && ! empty($voter->email)) {
+            // Respects the admin `voter_verified` email template kill switch.
+            if ($isActive && ! $wasActive && ! empty($voter->email) && VoterVerifiedMail::isEnabled()) {
                 try {
                     Mail::to($voter->email)->queue(new VoterVerifiedMail($voter));
                 } catch (\Throwable $e) {
