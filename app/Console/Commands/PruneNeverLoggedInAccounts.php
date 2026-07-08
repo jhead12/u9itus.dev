@@ -12,6 +12,7 @@ class PruneNeverLoggedInAccounts extends Command
     protected $signature = 'users:prune-never-logged-in
                             {--days=30 : Only prune accounts older than this many days}
                             {--example-only : Only delete accounts with Faker seed emails (@example.com/net/org) — bypasses login/age checks}
+                            {--include-seed-admins : When used with --example-only, also removes example-email accounts that hold the admin role (seed admins). Real admin@u9itus.com is always safe.}
                             {--dry-run : Show what would be deleted without deleting}
                             {--force : Skip confirmation prompt}';
 
@@ -22,11 +23,12 @@ class PruneNeverLoggedInAccounts extends Command
 
     public function handle(): int
     {
-        $dryRun      = (bool) $this->option('dry-run');
-        $exampleOnly = (bool) $this->option('example-only');
+        $dryRun           = (bool) $this->option('dry-run');
+        $exampleOnly      = (bool) $this->option('example-only');
+        $includeSeedAdmins = (bool) $this->option('include-seed-admins');
 
         if ($exampleOnly) {
-            return $this->pruneExampleAccounts($dryRun);
+            return $this->pruneExampleAccounts($dryRun, $includeSeedAdmins);
         }
 
         $days   = (int) $this->option('days');
@@ -137,7 +139,7 @@ class PruneNeverLoggedInAccounts extends Command
      * (@example.com / @example.net / @example.org), regardless of login state.
      * Admins and accounts with any financial activity are always excluded.
      */
-    private function pruneExampleAccounts(bool $dryRun): int
+    private function pruneExampleAccounts(bool $dryRun, bool $includeSeedAdmins = false): int
     {
         $domainPatterns = array_map(fn ($d) => '%@' . $d, self::SEED_DOMAINS);
 
@@ -146,10 +148,19 @@ class PruneNeverLoggedInAccounts extends Command
                 foreach ($domainPatterns as $pattern) {
                     $q->orWhere('email', 'like', $pattern);
                 }
-            })
-            // Always exclude admins.
-            ->whereDoesntHave('roles', fn ($q) => $q->where('name', 'admin'))
-            ->where(fn ($q) => $q->whereNull('user_type')->orWhereNotIn('user_type', ['admin']))
+            });
+
+        if (! $includeSeedAdmins) {
+            // Default: protect all admin-role accounts.
+            $query
+                ->whereDoesntHave('roles', fn ($q) => $q->where('name', 'admin'))
+                ->where(fn ($q) => $q->whereNull('user_type')->orWhereNotIn('user_type', ['admin']));
+        } else {
+            // --include-seed-admins: remove example-email admins too, but
+            // never touch accounts whose email doesn't match a seed domain
+            // (the real admin@u9itus.com is safe because it doesn't match).
+            $this->warn('--include-seed-admins active: seed admin accounts will also be deleted.');
+        }
             // Exclude voters with any financial activity.
             ->whereDoesntHave('voter', fn ($q) => $q
                 ->where('total_earned', '>', 0)

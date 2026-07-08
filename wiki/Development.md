@@ -196,6 +196,8 @@ All commands below are intended to be run on the production Railway service via 
 | `php artisan users:prune-never-logged-in --days=60 --force` | Same, but with a 60-day grace period |
 | `php artisan users:prune-never-logged-in --example-only --dry-run` | Preview all Faker seed accounts (`@example.com/net/org`) regardless of login state |
 | `php artisan users:prune-never-logged-in --example-only --force` | Delete all Faker seed accounts (preserves any with real financial activity) |
+| `php artisan users:prune-never-logged-in --example-only --include-seed-admins --dry-run` | Preview seed accounts including those with the admin role |
+| `php artisan users:prune-never-logged-in --example-only --include-seed-admins --force` | Delete all seed accounts including fake admins (real admin@u9itus.com is never affected) |
 
 ### Notifications & Comms
 
