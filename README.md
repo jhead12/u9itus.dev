@@ -660,6 +660,7 @@ Status: `Planned`
 - **[Migration Notes](doc/MIGRATION_NOTES.md)** — Upgrade and migration history
 - **[Changelog](doc/CHANGELOG.md)** — Version history
 - **[California Import Operations Runbook](doc/CALIFORNIA_IMPORT_OPERATIONS.md)** — Scheduler, health check, and incident response steps
+- **[Platform Operations Commands](wiki/Development.md#platform-operations-commands)** — Full reference for all production Artisan commands (payouts, Stripe Connect audit, candidate data, admin, notifications)
 - GitHub Issues: https://github.com/jhead12/u9itus.dev/issues
 
 ## License

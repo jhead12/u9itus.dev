@@ -139,7 +139,78 @@ listenAsVoter(window.AUTH_USER_ID, {
 | Migration errors | Run `php artisan migrate:status`; use `php artisan migrate:fresh` for clean slate (dev only) |
 | Test failures | Run `php artisan test --filter=TestName` to isolate; check `phpunit.xml` for test DB config |
 | Reverb connection issues | Verify `.env` Reverb variables; ensure port 8080 is not blocked |
+## Platform Operations Commands
 
+All commands below are intended to be run on the production Railway service via `railway run php artisan <command>`.
+
+### Payouts
+
+| Command | Description |
+|---------|-------------|
+| `php artisan payouts:process` | Run the weekly voter payout batch (Stripe/PayPal/CashApp) |
+| `php artisan payouts:reconcile-paypal` | Poll PayPal for outstanding payout status updates |
+| `php artisan billing:recover-stuck` | Find succeeded Stripe charges with no credit ledger entry and re-apply credits |
+| `php artisan billing:recover-stuck --dry-run` | Preview affected transactions without applying credits |
+
+### Stripe Connect / Authentic User Verifier
+
+| Command | Description |
+|---------|-------------|
+| `php artisan stripe:audit-connect-accounts` | Find voters whose `stripe_account_id` is stale (created under a different platform key) and clear it so they can re-onboard |
+| `php artisan stripe:audit-connect-accounts --dry-run` | Preview stale accounts without modifying any records |
+| `php artisan stripe:audit-connect-accounts --force` | Clear all stale accounts without an interactive confirmation prompt (for Railway shell) |
+
+### Candidate & Politician Data
+
+| Command | Description |
+|---------|-------------|
+| `php artisan politicians:reconcile-missing-profiles` | Backfill unclaimed politician rows from unlinked election candidate records |
+| `php artisan politicians:reconcile-missing-profiles --dry-run` | Preview backfill without writing |
+| `php artisan politicians:validate-profile-photos` | Validate politician profile photos via Anthropic vision + URL heuristics |
+| `php artisan politicians:validate-profile-photos --fix-invalid` | Quarantine invalid photos |
+| `php artisan candidates:import-election-results` | Import election results |
+| `php artisan candidates:import-election-candidates` | Import candidate data from configured sources |
+| `php artisan candidates:import-ballotpedia` | Pull Ballotpedia candidate data |
+| `php artisan candidates:import-california` | Import California unclaimed politicians |
+| `php artisan candidates:import-united-states` | Import nationwide unclaimed politicians |
+| `php artisan candidates:verify-news` | Set `verification_status` on candidate news articles |
+| `php artisan candidates:refresh-news` | Scrape and verify candidate news articles |
+| `php artisan politicians:enrich-donors` | Enrich politician donor/finance data from OpenSecrets |
+| `php artisan politicians:audit-data-integrity` | Run data integrity checks on all politician records |
+| `php artisan politicians:normalize-district-format` | Normalize district format strings across all politician rows |
+| `php artisan politicians:reconcile-status` | Reconcile politician status against election records |
+| `php artisan politicians:backfill-photos` | Backfill missing profile photos |
+
+### Admin & Platform Health
+
+| Command | Description |
+|---------|-------------|
+| `php artisan admin:create --email=admin@u9itus.com --name="Admin"` | Create a new admin user |
+| `php artisan admin:reset-password --email=admin@u9itus.com` | Reset an admin password |
+| `php artisan admin:data-health` | Run platform-wide data health checks and output a summary |
+| `php artisan roles:ensure` | Ensure all required Spatie permission roles exist |
+| `php artisan email:diagnostic` | Send a test email and verify mail configuration |
+| `php artisan transactions:recover-stuck` | Recover stuck/orphaned campaign transactions |
+
+### Notifications & Comms
+
+| Command | Description |
+|---------|-------------|
+| `php artisan voters:send-authentic-verifier-reminders` | Send reminder emails to voters who haven't completed Authentic User Verifier |
+| `php artisan voters:send-low-balance-alerts` | Alert voters with a balance below the payout threshold |
+| `php artisan voters:send-weekly-digest` | Send weekly earnings digest to active voters |
+| `php artisan receipts:resend-pending` | Resend any pending payment receipts |
+
+### District & Map
+
+| Command | Description |
+|---------|-------------|
+| `php artisan districts:sync-config` | Sync district configuration from external sources |
+| `php artisan districts:normalize-format` | Normalize district format strings |
+| `php artisan districts:sync-census-population` | Sync census population data for districts |
+| `php artisan opensecrets:scrape-districts` | Scrape OpenSecrets district data |
+
+---
 ## References
 
 - [Laravel Docs](https://laravel.com/docs)
