@@ -68,38 +68,52 @@ Route::get('/', function () {
         \Illuminate\Support\Facades\Log::info('Welcome geo lookup failed', ['error' => $e->getMessage()]);
     }
 
-    // Build featured candidates query — geo-preferred, then nationwide fallback.
+    // Build featured candidates — 4 cards: 2 local (photo optional), rest nationwide.
+    // Candidates with the most recent verified news are preferred.
     $featuredCandidates = collect();
     try {
+        $hasNewsTable = \Illuminate\Support\Facades\Schema::hasTable('candidate_news_articles');
+
         $base = \App\Models\Politician::query()
             ->where('page_published', true)
             ->where('is_active', true)
-            ->whereNotNull('profile_photo_url')
             ->whereNotNull('slug');
 
+        $orderByNewsRecency = function ($query) use ($hasNewsTable) {
+            if ($hasNewsTable) {
+                $query->orderByDesc(
+                    \App\Models\CandidateNewsArticle::query()
+                        ->selectRaw('MAX(published_at)')
+                        ->whereColumn('politician_id', 'politicians.id')
+                        ->where('verification_status', 'verified')
+                );
+            }
+            return $query->inRandomOrder();
+        };
+
         if ($visitorState) {
-            $featuredCandidates = (clone $base)
-                ->where('state', $visitorState)
-                ->inRandomOrder()
-                ->limit(3)
-                ->get();
+            // Local slots: allow missing photos, prefer freshest news.
+            $featuredCandidates = $orderByNewsRecency(
+                (clone $base)->where('state', $visitorState)
+            )->limit(2)->get();
         }
 
-        if ($featuredCandidates->count() < 3) {
-            $needed = 3 - $featuredCandidates->count();
-            $extras = (clone $base)
-                ->when($featuredCandidates->isNotEmpty(), fn ($q) => $q->whereNotIn('id', $featuredCandidates->pluck('id')))
-                ->inRandomOrder()
-                ->limit($needed)
-                ->get();
+        if ($featuredCandidates->count() < 4) {
+            $needed = 4 - $featuredCandidates->count();
+            $extras = $orderByNewsRecency(
+                (clone $base)
+                    ->whereNotNull('profile_photo_url')
+                    ->when($featuredCandidates->isNotEmpty(), fn ($q) => $q->whereNotIn('id', $featuredCandidates->pluck('id')))
+            )->limit($needed)->get();
             $featuredCandidates = $featuredCandidates->concat($extras);
         }
 
         // Attach latest news snippet per candidate (single query).
-        if ($featuredCandidates->isNotEmpty() && \Illuminate\Support\Facades\Schema::hasTable('candidate_news_articles')) {
+        if ($featuredCandidates->isNotEmpty() && $hasNewsTable) {
             $ids = $featuredCandidates->pluck('id')->all();
             $newsByPolitician = \App\Models\CandidateNewsArticle::query()
                 ->whereIn('politician_id', $ids)
+                ->where('verification_status', 'verified')
                 ->orderByDesc('published_at')
                 ->get()
                 ->groupBy('politician_id');

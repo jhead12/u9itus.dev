@@ -81,7 +81,11 @@ class StripeConnectService
      */
     private function createExpressAccount(Voter $voter): string
     {
-        $email = trim((string) ($voter->email ?: optional($voter->user)->email ?: ''));
+        $email      = trim((string) ($voter->email ?: optional($voter->user)->email ?: ''));
+        $phone      = trim((string) ($voter->phone ?? ''));
+        $city       = trim((string) ($voter->city ?? ''));
+        $state      = strtoupper(trim((string) ($voter->state ?? '')));
+        $postalCode = trim((string) ($voter->zip_code ?? ''));
 
         $accountPayload = [
             'type' => 'express',
@@ -110,6 +114,31 @@ class StripeConnectService
             Log::warning('Creating Stripe Express account without voter email', [
                 'voter_id' => $voter->id,
             ]);
+        }
+
+        // Pre-populate individual identity so Stripe's onboarding form is
+        // partially filled and automatic tax location can resolve immediately.
+        $individual = [];
+
+        if ($email !== '') {
+            $individual['email'] = $email;
+        }
+
+        if ($phone !== '') {
+            $individual['phone'] = $phone;
+        }
+
+        if ($postalCode !== '' || $state !== '' || $city !== '') {
+            $individual['address'] = array_filter([
+                'city'        => $city,
+                'state'       => $state,
+                'postal_code' => $postalCode,
+                'country'     => 'US',
+            ], fn ($v) => $v !== '');
+        }
+
+        if (! empty($individual)) {
+            $accountPayload['individual'] = $individual;
         }
 
         try {
@@ -152,7 +181,9 @@ class StripeConnectService
 
             if (! empty($voter->stripe_account_id) && (
                 str_contains($message, 'no such account') ||
-                str_contains($message, 'no_such_account')
+                str_contains($message, 'no_such_account') ||
+                str_contains($message, 'not connected to your platform') ||
+                str_contains($message, 'account that is not connected')
             )) {
                 Log::warning('Stripe account missing in Stripe, recreating for voter.', [
                     'voter_id' => $voter->id,
@@ -293,6 +324,17 @@ class StripeConnectService
         ) {
             return new StripeConnectException(
                 'Payout setup is temporarily misconfigured (invalid redirect URL). Please contact support.',
+                (int) $e->getCode(), $e
+            );
+        }
+
+        // Account not connected to this platform (stale account from another environment/key).
+        if (
+            str_contains($msgLower, 'not connected to your platform') ||
+            str_contains($msgLower, 'account that is not connected')
+        ) {
+            return new StripeConnectException(
+                'Your payout account could not be verified. Please start payout setup again.',
                 (int) $e->getCode(), $e
             );
         }

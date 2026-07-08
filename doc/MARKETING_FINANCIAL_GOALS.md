@@ -9,7 +9,7 @@ U9itus is a political advertising marketplace and civic transparency platform.
 Politicians, campaigns, citizens, and ballot measure advocates **pay $1.00 per view**
 to reach voters. Voters **earn $0.50 per view** they complete. Early-bank.com is the
 referral front-end: members pay a **one-time $20 fee** and earn $10 per voter they
-recruit plus 10% of each recruit's viewing revenue (weekly Stripe payouts).
+recruit plus 10% of each recruit's viewing and Ad Spend (Politician) revenue (weekly Stripe payouts). 
 
 ---
 

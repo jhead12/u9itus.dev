@@ -457,6 +457,13 @@ trait ManagesVoterAuxiliaryActions
         }
 
         $voter = $this->resolveVoter();
+
+        // Address fields are locked after Stripe verification — strip them from
+        // the update so a crafted request cannot alter the verified address.
+        if ($voter->is_verified) {
+            unset($validated['city'], $validated['state'], $validated['zip_code']);
+        }
+
         $voter->update($validated);
 
         // Keep User name in sync

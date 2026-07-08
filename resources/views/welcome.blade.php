@@ -4,7 +4,17 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="google-site-verification" content="gqW0SoY5hfBu8rcPBi_HMR-nCbSNdtoFj-XREjjEcmQ">
-    <title>U9itus - The Virtual Town Hall</title>
+    <title>U9itus — See Who's Running in Your District & Get Paid to Watch</title>
+    <meta name="description" content="U9itus is the Virtual Town Hall where candidates pay $1.00 to earn your full attention — and you keep $0.50. Find who's running in your district, verify their record with public data, and get paid to engage with democracy.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="{{ config('app.url') }}">
+    <meta property="og:title" content="U9itus — See Who's Running in Your District">
+    <meta property="og:description" content="Find every candidate in your district. Watch their message. Verify their record with FEC, OpenSecrets, Ballotpedia &amp; Vote Smart. Get paid $0.50 for your full attention.">
+    <meta property="og:image" content="{{ asset('images/og-default.png') }}">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="U9itus — The Virtual Town Hall">
+    <meta name="twitter:description" content="Candidates pay to earn your attention. You keep $0.50 per full view. Verify every claim with public data.">
+    <meta name="twitter:image" content="{{ asset('images/og-default.png') }}">
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=inter:300,400,500,600,700,800&display=swap" rel="stylesheet" />
     
@@ -145,17 +155,17 @@
             <div class="space-y-8">
                 <div class="animate-fade-in-up opacity-0">
                     <span class="inline-block px-4 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-full text-emerald-400 text-sm font-medium mb-6">
-                        — THE VIRTUAL TOWN HALL
+                        — DEMOCRACY PAYS ATTENTION TO YOU
                     </span>
                 </div>
                 
                 <h1 class="animate-fade-in-up delay-100 opacity-0 text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight">
-                    Know Who Is Running<br/>
-                    <span class="bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent">Before You Vote</span>
+                    Who Wants to Represent<br/>
+                    <span class="bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent">Your City?</span>
                 </h1>
                 
                 <p class="animate-fade-in-up delay-200 opacity-0 text-xl sm:text-2xl text-slate-300 max-w-3xl mx-auto leading-relaxed">
-                    Enter your address, see every candidate in your district, watch direct video introductions, and verify what they claim with trusted public data.
+                    Enter your ZIP to find every candidate running in your district. Watch their full message, verify their record with public data — and earn $0.50 for your complete attention. Candidates pay to speak. You decide if they've earned your vote.
                 </p>
 
                 @if ($activeReferralCode)
@@ -201,8 +211,8 @@
                     @endguest
                 </div>
                 
-                <!-- Stats — stacks to 1-col on phones, 3-col on sm+ -->
-                <div class="animate-fade-in-up delay-400 opacity-0 grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-8 pt-10 sm:pt-16 max-w-3xl mx-auto">
+                <!-- Stats — stacks to 1-col on phones, 4-col on sm+ -->
+                <div class="animate-fade-in-up delay-400 opacity-0 grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-8 pt-10 sm:pt-16 max-w-4xl mx-auto">
                     <div class="flex sm:block items-center gap-4 sm:gap-0 bg-slate-800/40 sm:bg-transparent rounded-xl sm:rounded-none px-4 py-3 sm:p-0">
                         <div class="text-3xl sm:text-4xl font-bold text-emerald-400 shrink-0">ZIP</div>
                         <div class="text-sm text-slate-400 sm:mt-1">Find your district fast</div>
@@ -212,8 +222,12 @@
                         <div class="text-sm text-slate-400 sm:mt-1">Browse candidates publicly</div>
                     </div>
                     <div class="flex sm:block items-center gap-4 sm:gap-0 bg-slate-800/40 sm:bg-transparent rounded-xl sm:rounded-none px-4 py-3 sm:p-0">
-                        <div class="text-3xl sm:text-4xl font-bold text-blue-400 shrink-0">4 Sources</div>
-                        <div class="text-sm text-slate-400 sm:mt-1">Verify claims with public data</div>
+                        <div class="text-3xl sm:text-4xl font-bold text-blue-400 shrink-0">$0.50</div>
+                        <div class="text-sm text-slate-400 sm:mt-1">Earned per full video viewed</div>
+                    </div>
+                    <div class="flex sm:block items-center gap-4 sm:gap-0 bg-slate-800/40 sm:bg-transparent rounded-xl sm:rounded-none px-4 py-3 sm:p-0">
+                        <div class="text-3xl sm:text-4xl font-bold text-violet-400 shrink-0">4 Sources</div>
+                        <div class="text-sm text-slate-400 sm:mt-1">Public data to verify any claim</div>
                     </div>
                 </div>
             </div>
@@ -226,6 +240,35 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"/>
                 </svg>
             </a>
+        </div>
+    </section>
+
+    <!-- How It Works — 3-step strip -->
+    <section class="bg-slate-900 border-b border-slate-800/80 py-12">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-8 text-center">
+                <div class="flex flex-col items-center gap-3">
+                    <div class="w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-xl">🔍</div>
+                    <div>
+                        <p class="text-white font-semibold">1. Find Your Ballot</p>
+                        <p class="text-slate-400 text-sm mt-1">Enter your ZIP — see every candidate running in your district in 10 seconds. No account needed.</p>
+                    </div>
+                </div>
+                <div class="flex flex-col items-center gap-3">
+                    <div class="w-12 h-12 rounded-full bg-teal-500/10 border border-teal-500/30 flex items-center justify-center text-xl">📺</div>
+                    <div>
+                        <p class="text-white font-semibold">2. Watch &amp; Verify</p>
+                        <p class="text-slate-400 text-sm mt-1">Watch their full message. Cross-check their claims with FEC filings, donor records, and voting history.</p>
+                    </div>
+                </div>
+                <div class="flex flex-col items-center gap-3">
+                    <div class="w-12 h-12 rounded-full bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-xl">💰</div>
+                    <div>
+                        <p class="text-white font-semibold">3. Get Paid to Engage</p>
+                        <p class="text-slate-400 text-sm mt-1">Candidates pay $1.00 for your verified attention. You keep $0.50. Ask them a question. They answer publicly.</p>
+                    </div>
+                </div>
+            </div>
         </div>
     </section>
 
@@ -245,7 +288,7 @@
                 <h2 class="mt-4 text-3xl sm:text-4xl font-bold">
                     Who's <span class="text-emerald-400">On Your Ballot</span> Right Now
                 </h2>
-                <p class="mt-3 text-slate-400 text-sm">A rotating snapshot of candidates and recent news in the platform.</p>
+                <p class="mt-3 text-slate-400 text-sm">Click any card to open the interactive map and see their district — plus everyone else running nearby.</p>
             </div>
 
             <div
@@ -264,7 +307,7 @@
                 @mouseleave="start()"
                 class="relative"
             >
-                <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
                     @foreach($featuredCandidates as $index => $candidate)
                         @php
                             $news = $candidate->latest_news ?? null;
@@ -273,8 +316,13 @@
                             $state = trim((string) ($candidate->state ?? ''));
                             $jobTitle = $office !== '' ? $office : 'Candidate';
                             $districtLine = trim($district . ($district && $state ? ', ' : '') . $state);
+                            // Deep-link to the map when we have a state; fall back to the public profile.
+                            $mapParams = array_filter(['state' => $state ?: null, 'district' => $district ?: null, 'slug' => $candidate->slug]);
+                            $cardHref = $state
+                                ? route('us.map') . '?' . http_build_query($mapParams)
+                                : route('politician.public.show', $candidate->slug);
                         @endphp
-                        <a href="{{ route('politician.public.show', $candidate->slug) }}"
+                        <a href="{{ $cardHref }}"
                            :class="active === {{ $index }} ? 'ring-2 ring-emerald-500/60 scale-[1.01]' : 'opacity-90 hover:opacity-100'"
                            class="group block bg-slate-800/70 border border-slate-700 hover:border-emerald-500/50 rounded-2xl overflow-hidden transition transform duration-300">
                             <div class="aspect-[16/10] relative bg-gradient-to-br from-slate-700 to-slate-900">
@@ -292,6 +340,12 @@
                                     <svg class="w-3.5 h-3.5 text-white" fill="currentColor" viewBox="0 0 20 20">
                                         <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
                                     </svg>
+                                </div>
+                                @endif
+                                @if($state)
+                                <div class="absolute bottom-3 left-3 flex items-center gap-1 bg-slate-900/80 backdrop-blur-sm rounded-full px-2 py-0.5 text-[10px] text-indigo-300 font-medium">
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
+                                    View on Map
                                 </div>
                                 @endif
                             </div>
@@ -371,7 +425,7 @@
                             ['icon' => '🔴', 'color' => 'text-red-400', 'title' => 'Party coloring', 'desc' => 'Red for Republican, Blue for Democrat, Green for Independent — every district at a glance.'],
                             ['icon' => '🗺', 'color' => 'text-indigo-400', 'title' => 'Drill from region → state → district', 'desc' => 'Click any region to zoom in, then click a state to see all its congressional districts rendered flat and clear.'],
                             ['icon' => '🔍', 'color' => 'text-violet-400', 'title' => 'Instant search', 'desc' => 'Press / and type "CA-38" or "Texas" — the map flies to that district and loads its candidates automatically.'],
-                            ['icon' => '📋', 'color' => 'text-emerald-400', 'title' => 'Candidates on click', 'desc' => 'Select a district to see the seated rep, 2026 challengers, gubernatorial candidates, and links to their profiles.'],
+                            ['icon' => '📋', 'color' => 'text-emerald-400', 'title' => 'Candidates on click', 'desc' => 'Select any district to see the seated rep, challengers, and everyone running in that race — tap a name to open their profile and verify the record.'],
                         ];
                     @endphp
 
@@ -484,12 +538,12 @@
     <section id="revenue" class="relative py-24 bg-gradient-to-b from-slate-900 to-slate-800">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="text-center mb-16">
-                <span class="text-emerald-400 font-semibold text-sm tracking-wider uppercase">— Why Voters Use It</span>
+                <span class="text-emerald-400 font-semibold text-sm tracking-wider uppercase">— The Attention Economy, Inverted</span>
                 <h2 class="mt-4 text-4xl sm:text-5xl font-bold">
-                    What Voters <span class="text-emerald-400">Actually Gain</span>
+                    Your Attention Has Always Had Value.<br/><span class="text-emerald-400">Now It Pays You.</span>
                 </h2>
                 <p class="mt-4 text-xl text-slate-300 max-w-2xl mx-auto">
-                    U9itus reduces the work it normally takes to understand local races and upcoming elections.
+                    Every other platform sells your attention to advertisers. Here, candidates pay $1.00 to earn your full, uninterrupted focus — and you keep $0.50 of it. The rest funds the transparency layer that fact-checks what they say.
                 </p>
             </div>
 
@@ -598,10 +652,10 @@
     <section class="relative py-24 bg-gradient-to-b from-slate-800 to-slate-900">
         <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
             <h2 class="text-4xl sm:text-5xl font-bold mb-6">
-                Start With Your District
+                Democracy starts with<br/><span class="text-emerald-400">knowing a name.</span>
             </h2>
             <p class="text-xl text-slate-300 mb-10 max-w-2xl mx-auto">
-                Researching candidates should not feel hidden, boring, or hard to access. Start by seeing who is running where you live.
+                Find who's running in your city. Watch their full message. Verify their record. You can do all three in under five minutes — no account required.
             </p>
             <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
                 <a href="{{ route('district.lookup') }}"

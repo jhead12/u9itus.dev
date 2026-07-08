@@ -569,7 +569,8 @@ test('profile page loads', function () {
 });
 
 test('profile update saves changes', function () {
-    [$user, $voter] = voterUser();
+    // Use an unverified voter — verified voters have address fields locked.
+    [$user, $voter] = voterUser(['is_verified' => false, 'state' => 'VT', 'zip_code' => '05401']);
 
     $this->actingAs($user)
         ->put(route('voter.profile.update'), [
@@ -583,4 +584,22 @@ test('profile update saves changes', function () {
 
     expect($voter->fresh()->state)->toBe('TX')
         ->and($voter->fresh()->zip_code)->toBe('78701');
+});
+
+test('profile update does not change address for verified voter', function () {
+    [$user, $voter] = voterUser(['state' => 'VT', 'zip_code' => '05401', 'city' => 'Burlington']);
+
+    $this->actingAs($user)
+        ->put(route('voter.profile.update'), [
+            'full_name' => 'Test Full Name',
+            'state'     => 'TX',
+            'zip_code'  => '78701',
+            'city'      => 'Austin',
+        ])
+        ->assertRedirect()
+        ->assertSessionHas('success');
+
+    expect($voter->fresh()->state)->toBe('VT')
+        ->and($voter->fresh()->zip_code)->toBe('05401')
+        ->and($voter->fresh()->city)->toBe('Burlington');
 });

@@ -68,6 +68,9 @@
         <div class="bg-slate-800/50 border border-slate-700/60 rounded-2xl overflow-hidden">
             <div class="px-6 py-4 border-b border-slate-700/60">
                 <h2 class="text-base font-semibold text-white">Voter Details</h2>
+                @if($voter->is_verified)
+                <p class="text-slate-500 text-xs mt-0.5">Contact support to change your address after verification</p>
+                @endif
             </div>
             <div class="px-6 py-5 space-y-5">
                 <div>
@@ -90,32 +93,53 @@
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-slate-300 mb-1.5" for="city">City</label>
+                    @if($voter->is_verified)
+                    <input type="text" disabled
+                        value="{{ $voter->city ?? '' }}"
+                        class="w-full bg-slate-900/50 border border-slate-700 rounded-xl px-4 py-2.5 text-slate-500 text-sm cursor-not-allowed"
+                    >
+                    @else
                     <input
                         id="city" name="city" type="text"
                         value="{{ old('city', $voter->city ?? '') }}"
                         placeholder="Los Angeles"
                         class="w-full bg-slate-900 border border-slate-600 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 transition"
                     >
+                    @endif
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="block text-sm font-medium text-slate-300 mb-1.5" for="state">State</label>
+                        @if($voter->is_verified)
+                        <input type="text" disabled
+                            value="{{ $voter->state ?? '' }}"
+                            class="w-full bg-slate-900/50 border border-slate-700 rounded-xl px-4 py-2.5 text-slate-500 text-sm cursor-not-allowed uppercase"
+                        >
+                        @else
                         <input
                             id="state" name="state" type="text" maxlength="2"
                             value="{{ old('state', $voter->state ?? '') }}"
                             placeholder="CA"
                             class="w-full bg-slate-900 border border-slate-600 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 transition uppercase"
                         >
+                        @endif
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-slate-300 mb-1.5" for="zip_code">ZIP Code</label>
+                        @if($voter->is_verified)
+                        <input type="text" disabled
+                            value="{{ $voter->zip_code ?? '' }}"
+                            class="w-full bg-slate-900/50 border border-slate-700 rounded-xl px-4 py-2.5 text-slate-500 text-sm cursor-not-allowed"
+                        >
+                        @else
                         <input
                             id="zip_code" name="zip_code" type="text" maxlength="10"
-                            required inputmode="numeric" pattern="\d{5}(-\d{4})?"
+                            inputmode="numeric" pattern="\d{5}(-\d{4})?"
                             value="{{ old('zip_code', $voter->zip_code ?? '') }}"
                             placeholder="90210"
                             class="w-full bg-slate-900 border border-slate-600 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 transition"
                         >
+                        @endif
                     </div>
                 </div>
             </div>
