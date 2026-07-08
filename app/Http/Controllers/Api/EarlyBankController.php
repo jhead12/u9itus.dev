@@ -210,6 +210,14 @@ class EarlyBankController extends Controller
             ]);
         }
 
+        // Prevent silent reassignment to a different Early-bank member account.
+        if ($model->earlybank_own_member_uuid !== null) {
+            return response()->json([
+                'error'   => 'already_enrolled_other_member',
+                'message' => 'This U9itus user is already linked to a different Early-bank member account.',
+            ], 409);
+        }
+
         $model->forceFill([
             'earlybank_own_member_uuid' => $memberUuid,
             'earlybank_own_linked_at'   => now(),

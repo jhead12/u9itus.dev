@@ -11,7 +11,9 @@ use App\Mail\AdminNewUserNotificationMail;
 use App\Mail\WelcomeMail;
 use App\Models\AdminSecurityAuditLog;
 use App\Models\ReferralVisit;
+use App\Http\Middleware\CaptureEarlyBankReferral;
 use App\Services\AdminTwoFactorService;
+use App\Services\EarlyBankWebhookService;
 use App\Services\PlatformSettingsService;
 use App\Services\PhoneVerificationService;
 use App\Services\RegistrationSecurityService;
@@ -20,10 +22,12 @@ use Illuminate\Auth\Events\Registered;
 use Illuminate\Auth\Events\Verified;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cookie;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rules;
 
 /**
@@ -687,13 +691,40 @@ class AuthController extends Controller
             $voterPayload['is_registered_voter'] = false;
         }
 
+        // ── Early-bank referral attribution ───────────────────────────────────
+        // Read the httpOnly earlybank_ref cookie (set by CaptureEarlyBankReferral
+        // middleware when the visitor arrived via an EB referral link). The API
+        // path handles this in StoreVoterRequest; here we do it explicitly so
+        // that the standard web-form registration path also captures attribution.
+        $ebMemberId = $request->cookie(CaptureEarlyBankReferral::COOKIE_NAME);
+        if (is_string($ebMemberId) && Str::isUuid($ebMemberId)) {
+            $voterPayload['earlybank_member_id'] = $ebMemberId;
+            $voterPayload['earlybank_linked_at']  = now();
+        } else {
+            $ebMemberId = null;
+        }
+
         // Search by email so that any orphaned voter row (user_id = NULL) created
         // during a failed previous registration attempt is adopted rather than
         // leaving a broken duplicate. Always write user_id into the record.
-        \App\Models\Voter::updateOrCreate(
+        // When adopting an existing row that already has earlybank_member_id set,
+        // preserve the earlier attribution — do not overwrite it.
+        $existingVoter = \App\Models\Voter::where('email', $user->email)->first();
+        if ($existingVoter && $existingVoter->earlybank_member_id !== null) {
+            unset($voterPayload['earlybank_member_id'], $voterPayload['earlybank_linked_at']);
+            $ebMemberId = null;
+        }
+
+        $voter = \App\Models\Voter::updateOrCreate(
             ['email' => $user->email],
             array_merge($voterPayload, ['user_id' => $user->id])
         );
+
+        // Fire the Early-bank voter.registered webhook + enrollment email now
+        // that the voter row exists. Must be outside any transaction.
+        if ($ebMemberId !== null) {
+            app(EarlyBankWebhookService::class)->handleVoterRegistered($voter, $ebMemberId);
+        }
 
         $this->markReferralConversion($request, $refCode, $user);
 
@@ -738,9 +769,17 @@ class AuthController extends Controller
 
         Auth::login($user);
 
-        return $user->phone
+        $destination = $user->phone
             ? redirect()->route('phone.verify')
             : redirect()->route('verification.notice');
+
+        // Clear the EB referral cookie so a future signup on the same browser
+        // does not accidentally re-attribute to the same member.
+        if ($ebMemberId !== null) {
+            $destination->withCookie(Cookie::forget(CaptureEarlyBankReferral::COOKIE_NAME));
+        }
+
+        return $destination;
     }
 
     // -------------------------------------------------------------------------

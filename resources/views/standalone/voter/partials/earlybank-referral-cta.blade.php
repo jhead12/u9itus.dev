@@ -1,13 +1,17 @@
 {{-- Early-bank referral CTA block.
      Shown on the voter referrals page in two states:
-       1. Voter is NOT an Early-bank member → upsell: join to unlock recurring voter-view commissions.
-       2. Voter IS an Early-bank member     → confirmation + link to their Early-bank dashboard.
+       1. Voter is NOT an Early-bank member (earlybank_own_member_uuid is null)
+          → upsell: join to unlock recurring voter-view commissions.
+       2. Voter IS an Early-bank member (earlybank_own_member_uuid is set)
+          → confirmation + link to their Early-bank dashboard.
+     Note: earlybank_member_id (different field) tracks who REFERRED this voter
+     and is unrelated to whether the voter holds their own EB membership.
 --}}
 @php
     $earlybankUrl = rtrim(config('services.earlybank.public_url', 'https://www.early-bank.com'), '/');
 @endphp
 
-@if(empty($voter->earlybank_member_id))
+@if(empty($voter->earlybank_own_member_uuid))
 {{-- ── Upsell: not yet an Early-bank member ────────────────────────────── --}}
 <div class="bg-indigo-900/20 border border-indigo-500/30 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
     <div class="flex items-start gap-3 min-w-0">
@@ -62,9 +66,9 @@
                 Your voter-view commissions flow through Early-bank. Log in to see your full
                 referral dashboard, QR code, and weekly payout status.
             </p>
-            @if($voter->earlybank_linked_at)
+            @if($voter->earlybank_own_linked_at)
             <p class="text-slate-500 text-xs mt-1">
-                Linked {{ $voter->earlybank_linked_at->format('M j, Y') }}
+                Linked {{ $voter->earlybank_own_linked_at->format('M j, Y') }}
             </p>
             @endif
         </div>

@@ -2,10 +2,12 @@
 
 namespace App\Services;
 
+use App\Mail\EarlyBankReferralEnrolledMail;
 use App\Models\ViewSession;
 use App\Models\Voter;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Throwable;
 
 /**
@@ -25,6 +27,40 @@ use Throwable;
  */
 class EarlyBankWebhookService
 {
+    /**
+     * Handle the full Early-bank side-effect when a voter is linked to an EB
+     * member at registration time: fires `voter.registered` webhook and queues
+     * the enrollment confirmation email.
+     *
+     * Extracted here so both the API path (VoterController) and the web-form
+     * path (AuthController) share the same behaviour without duplication.
+     *
+     * Fire-and-forget: failures are logged but must not block registration.
+     */
+    public function handleVoterRegistered(Voter $voter, string $memberId): void
+    {
+        if (! $this->enabled()) {
+            return;
+        }
+
+        $this->dispatch('voter.registered', [
+            'voter_uuid'          => $voter->uuid,
+            'earlybank_member_id' => $memberId,
+            'registered_at'       => optional($voter->created_at)->toIso8601String() ?? now()->toIso8601String(),
+        ]);
+
+        if (! empty($voter->email)) {
+            try {
+                Mail::to($voter->email)->queue(new EarlyBankReferralEnrolledMail($voter, $memberId));
+            } catch (Throwable $e) {
+                Log::warning('EarlyBankWebhookService: enrollment email failed', [
+                    'voter_uuid' => $voter->uuid,
+                    'error'      => $e->getMessage(),
+                ]);
+            }
+        }
+    }
+
     public function notifyViewSessionCompleted(ViewSession $session): void
     {
         if (! $this->enabled()) {
