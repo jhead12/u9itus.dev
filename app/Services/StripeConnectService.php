@@ -138,6 +138,9 @@ class StripeConnectService
         }
 
         if (! empty($individual)) {
+            // Stripe requires business_type whenever `individual` is sent.
+            // Voters are always natural persons receiving payouts.
+            $accountPayload['business_type'] = 'individual';
             $accountPayload['individual'] = $individual;
         }
 
