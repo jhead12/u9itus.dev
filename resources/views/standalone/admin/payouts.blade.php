@@ -106,5 +106,30 @@
         </a>
     </div>
 
+    {{-- Live payout transaction feed (populated by Reverb payout.dispatched events) --}}
+    <div id="payout-live-feed-container" style="display:none;" class="bg-slate-800/50 border border-slate-700/50 rounded-xl overflow-hidden">
+        <div class="px-4 py-3 border-b border-slate-700/50 flex items-center justify-between">
+            <p class="text-sm font-semibold text-white">Live Transaction Feed</p>
+            <span class="text-xs text-slate-500">Updates in real time as each payout is processed</span>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="text-slate-500 text-xs uppercase tracking-wide">
+                        <th class="px-4 py-2 text-left font-medium">Time</th>
+                        <th class="px-4 py-2 text-left font-medium">Outcome</th>
+                        <th class="px-4 py-2 text-left font-medium">Voter</th>
+                        <th class="px-4 py-2 text-left font-medium">Amount</th>
+                        <th class="px-4 py-2 text-left font-medium">Processor</th>
+                        <th class="px-4 py-2 text-left font-medium">Reference</th>
+                    </tr>
+                </thead>
+                <tbody id="payout-live-feed" class="divide-y divide-slate-700/30">
+                    {{-- Rows injected by JS payout.dispatched listener --}}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
 </div>
 @endsection

@@ -55,6 +55,8 @@ class BatchPayoutIdempotencyTest extends TestCase
     ): PoliticalPaymentService {
         $broadcast = Mockery::mock(ReverbBroadcastService::class);
         $broadcast->shouldReceive('payoutProcessed')->andReturn(null)->byDefault();
+        $broadcast->shouldReceive('payoutDispatched')->andReturn(null)->byDefault();
+        $broadcast->shouldReceive('payoutDispatched')->andReturn(null)->byDefault();
 
         $stripe = $stripeConnect ?? Mockery::mock(StripeConnectService::class);
         $pp     = $paypal ?? tap(Mockery::mock(PayPalPayoutService::class), fn ($m) => $m->shouldReceive('isConfigured')->andReturn(false)->byDefault());

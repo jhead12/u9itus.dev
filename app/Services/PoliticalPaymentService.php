@@ -6,11 +6,13 @@ use App\Enums\PaymentStatus;
 use App\Enums\ViewPaymentStatus;
 use App\Jobs\PollPayPalPayoutStatus;
 use App\Models\PayoutAttempt;
+use App\Models\PayoutAttemptEvent;
 use App\Models\PayoutRun;
 use App\Models\PayoutRunSkippedItem;
 use App\Models\PoliticalCampaign;
 use App\Models\Voter;
 use App\Models\ViewSession;
+use App\Notifications\PayoutProcessedNotification;
 use App\Services\CampaignBillingService;
 use App\Services\CashAppPayoutService;
 use App\Services\PayPalPayoutService;
@@ -218,6 +220,15 @@ class PoliticalPaymentService
                 'session_ids'     => $eligibleSessionIds,
             ]);
 
+            // P4: record pending event on fresh attempts
+            if (! $existingAttempt) {
+                $payoutAttempt->recordEvent('pending', 'Attempt created; awaiting processor dispatch.', [
+                    'processor_selected' => $selectedProcessor,
+                    'amount'             => $approvedEarnings,
+                    'session_count'      => count($eligibleSessionIds),
+                ]);
+            }
+
             $batchId = $idempotencyKey;
             $processorExecuted = 'wallet';
             $processorReference = $batchId;
@@ -251,8 +262,10 @@ class PoliticalPaymentService
 
                     // Mark attempt as submitted immediately after external success.
                     $payoutAttempt->update(['status' => 'submitted', 'processor_reference' => $processorReference]);
+                    $payoutAttempt->recordEvent('submitted', 'Stripe transfer dispatched.', ['transfer_id' => $processorReference]);
                 } catch (\Exception $e) {
                     Log::error("Stripe payout failed for voter {$voter->uuid}: " . $e->getMessage());
+                    $payoutAttempt->recordEvent('failed', 'Stripe transfer call failed.', ['error' => $e->getMessage()]);
                     $results['skipped']++;
                     $this->recordSkippedPayout(
                         run: $run,
@@ -263,6 +276,7 @@ class PoliticalPaymentService
                         reasonDetail: 'Stripe transfer call failed during submission.',
                         context: ['error' => $e->getMessage()],
                     );
+                    $this->broadcastService->payoutDispatched($voter, $approvedEarnings, 'stripe', $batchId, $run->id, 'skipped', 'processor_unavailable');
                     continue;
                 }
             } elseif ($canUsePayPal) {
@@ -279,6 +293,7 @@ class PoliticalPaymentService
 
                     // Mark attempt as submitted immediately after external success.
                     $payoutAttempt->update(['status' => 'submitted', 'processor_reference' => $processorReference]);
+                    $payoutAttempt->recordEvent('submitted', 'PayPal batch payout dispatched.', ['batch_id' => $processorReference]);
 
                     DB::transaction(function () use ($voter, $holdCutoff, $processorExecuted, $processorReference) {
                         ViewSession::where('voter_id', $voter->id)
@@ -296,6 +311,7 @@ class PoliticalPaymentService
                     PollPayPalPayoutStatus::dispatch($processorReference)->delay(now()->addMinutes(5));
                 } catch (\Exception $e) {
                     Log::error("PayPal payout failed for voter {$voter->uuid}: " . $e->getMessage());
+                    $payoutAttempt->recordEvent('failed', 'PayPal batch payout call failed.', ['error' => $e->getMessage()]);
                     $results['skipped']++;
                     $this->recordSkippedPayout(
                         run: $run,
@@ -306,6 +322,7 @@ class PoliticalPaymentService
                         reasonDetail: 'PayPal transfer call failed during submission.',
                         context: ['error' => $e->getMessage()],
                     );
+                    $this->broadcastService->payoutDispatched($voter, $approvedEarnings, 'paypal', $batchId, $run->id, 'skipped', 'processor_unavailable');
                     continue;
                 }
             } elseif ($canUseCashApp) {
@@ -323,8 +340,10 @@ class PoliticalPaymentService
 
                     // Mark attempt as submitted immediately after external success.
                     $payoutAttempt->update(['status' => 'submitted', 'processor_reference' => $processorReference]);
+                    $payoutAttempt->recordEvent('submitted', 'Cash App payout dispatched.', ['reference' => $processorReference]);
                 } catch (\Exception $e) {
                     Log::error("Cash App payout failed for voter {$voter->uuid}: " . $e->getMessage());
+                    $payoutAttempt->recordEvent('failed', 'Cash App payout call failed.', ['error' => $e->getMessage()]);
                     $results['skipped']++;
                     $this->recordSkippedPayout(
                         run: $run,
@@ -335,6 +354,7 @@ class PoliticalPaymentService
                         reasonDetail: 'Cash App transfer call failed during submission.',
                         context: ['error' => $e->getMessage()],
                     );
+                    $this->broadcastService->payoutDispatched($voter, $approvedEarnings, 'cashapp', $batchId, $run->id, 'skipped', 'processor_unavailable');
                     continue;
                 }
             } elseif ($selectedProcessor === 'paypal' && empty($voter->paypal_email)) {
@@ -347,6 +367,8 @@ class PoliticalPaymentService
                     selectedProcessor: $selectedProcessor,
                     reasonDetail: 'Voter selected PayPal but has no PayPal email saved.',
                 );
+                $payoutAttempt->recordEvent('skipped', 'Missing PayPal email.');
+                $this->broadcastService->payoutDispatched($voter, $approvedEarnings, 'paypal', $batchId, $run->id, 'skipped', 'missing_paypal_email');
                 continue;
             } elseif ($selectedProcessor === 'stripe' && empty($voter->stripe_account_id)) {
                 $results['skipped']++;
@@ -358,6 +380,8 @@ class PoliticalPaymentService
                     selectedProcessor: $selectedProcessor,
                     reasonDetail: 'Voter selected Stripe but has no connected Stripe account.',
                 );
+                $payoutAttempt->recordEvent('skipped', 'Missing Stripe account.');
+                $this->broadcastService->payoutDispatched($voter, $approvedEarnings, 'stripe', $batchId, $run->id, 'skipped', 'missing_stripe_account');
                 continue;
             } elseif ($selectedProcessor === 'stripe' || $selectedProcessor === 'paypal' || $selectedProcessor === 'cashapp') {
                 Log::warning("Skipping payout for voter {$voter->uuid}: selected processor unavailable", [
@@ -387,6 +411,8 @@ class PoliticalPaymentService
                         'has_cashapp_tag' => ! empty($voter->cashapp_tag),
                     ],
                 );
+                $payoutAttempt->recordEvent('skipped', 'Processor unavailable or not configured.', ['processor' => $selectedProcessor]);
+                $this->broadcastService->payoutDispatched($voter, $approvedEarnings, $selectedProcessor, $batchId, $run->id, 'skipped', 'processor_unavailable');
                 continue;
             }
 
@@ -419,7 +445,6 @@ class PoliticalPaymentService
             $results['processed']++;
             $results['total_paid'] += $approvedEarnings;
 
-            // Notify the voter via WebSocket (Phase 11)
             $displayMethod = match ($processorExecuted) {
                 'stripe' => 'Stripe',
                 'paypal' => 'PayPal',
@@ -427,11 +452,38 @@ class PoliticalPaymentService
                 default => 'Wallet',
             };
 
+            // P4: record paid event in immutable audit trail
+            $payoutAttempt->update(['status' => 'paid']);
+            $payoutAttempt->recordEvent('paid', 'Payout marked as paid.', [
+                'processor' => $processorExecuted,
+                'reference' => $processorReference,
+            ]);
+
+            // P1: persist DB notification for voter (visible in bell even when offline)
+            if ($voter->user) {
+                try {
+                    $voter->user->notify(new PayoutProcessedNotification($approvedEarnings, $displayMethod, $processorReference));
+                } catch (\Throwable $notifyEx) {
+                    Log::warning("Failed to store payout notification for voter {$voter->uuid}: " . $notifyEx->getMessage());
+                }
+            }
+
+            // P2: real-time voter WebSocket notification
             $this->broadcastService->payoutProcessed(
                 $voter,
                 $approvedEarnings,
                 $displayMethod,
                 $processorReference,
+            );
+
+            // P3: real-time admin monitor broadcast
+            $this->broadcastService->payoutDispatched(
+                $voter,
+                $approvedEarnings,
+                $processorExecuted,
+                $processorReference,
+                $run->id,
+                'paid',
             );
 
             Log::info("Payout processed for voter {$voter->uuid}: \${$approvedEarnings}", [

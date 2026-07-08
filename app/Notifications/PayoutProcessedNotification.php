@@ -24,10 +24,13 @@ class PayoutProcessedNotification extends Notification implements ShouldQueue
 
     /**
      * Get the notification's delivery channels.
+     *
+     * Broadcast is intentionally excluded — ReverbBroadcastService fires the
+     * WebSocket event directly so we don't dispatch two separate broadcast jobs.
      */
     public function via(object $notifiable): array
     {
-        return ['database', 'broadcast'];
+        return ['database'];
     }
 
     /**

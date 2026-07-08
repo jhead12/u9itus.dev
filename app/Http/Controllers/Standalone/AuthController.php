@@ -437,6 +437,16 @@ class AuthController extends Controller
             return redirect()->route('register.closed');
         }
 
+        // Already logged in — route to the correct in-account upgrade path.
+        if (auth()->check()) {
+            $user = auth()->user();
+            if ($user->hasRole('citizen')) {
+                return redirect()->route('citizen.dashboard');
+            }
+            return redirect()->route('add-citizen-profile')
+                ->with('info', 'You already have an account. Use this form to add a Citizen advertiser profile to it.');
+        }
+
         return view('standalone.auth.register-citizen', [
             'referralCode' => $this->resolveIncomingReferralCode($request),
         ]);
@@ -446,6 +456,16 @@ class AuthController extends Controller
     {
         if (! filter_var(PlatformSettingsService::get('registration_open', null, true), FILTER_VALIDATE_BOOLEAN)) {
             return redirect()->route('register.closed');
+        }
+
+        // Logged-in user hit the public form — redirect before validation fires.
+        if (auth()->check()) {
+            $user = auth()->user();
+            if ($user->hasRole('citizen')) {
+                return redirect()->route('citizen.dashboard');
+            }
+            return redirect()->route('add-citizen-profile')
+                ->with('info', 'You already have an account. Use this form to add a Citizen advertiser profile to it.');
         }
 
         $request->validate([
@@ -565,6 +585,17 @@ class AuthController extends Controller
             return redirect()->route('register.closed');
         }
 
+        // Already logged in — send them to their dashboard.
+        if (auth()->check()) {
+            $user = auth()->user();
+            if ($user->hasRole('voter')) {
+                return redirect()->route('voter.dashboard');
+            }
+            // Has an account but not yet a voter profile — not a supported upgrade path
+            // from the public registration form; send to dashboard and let them choose.
+            return redirect()->route('dashboard');
+        }
+
         return view('standalone.auth.register-voter', [
             'referralCode' => $this->resolveIncomingReferralCode($request),
         ]);
@@ -574,6 +605,15 @@ class AuthController extends Controller
     {
         if (! filter_var(PlatformSettingsService::get('registration_open', null, true), FILTER_VALIDATE_BOOLEAN)) {
             return redirect()->route('register.closed');
+        }
+
+        // Logged-in user hit the public voter form — redirect before validation fires.
+        if (auth()->check()) {
+            $user = auth()->user();
+            if ($user->hasRole('voter')) {
+                return redirect()->route('voter.dashboard');
+            }
+            return redirect()->route('dashboard');
         }
 
         $request->validate([

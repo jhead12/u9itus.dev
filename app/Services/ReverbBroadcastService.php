@@ -9,6 +9,7 @@ use App\Events\CampaignReactivated;
 use App\Events\CampaignRejected;
 use App\Events\CampaignStopped;
 use App\Events\FraudFlagRaised;
+use App\Events\PayoutDispatched;
 use App\Events\PayoutProcessed;
 use App\Events\ViewSessionCompleted;
 use App\Models\AdViewToken;
@@ -108,6 +109,37 @@ class ReverbBroadcastService
     // -----------------------------------------------------------------------
     // Admin monitor channel
     // -----------------------------------------------------------------------
+
+    /**
+     * Push a payout outcome (paid or skipped) to the admin real-time monitor.
+     * Called once per voter per batch run so admins see a live transaction feed.
+     */
+    public function payoutDispatched(
+        Voter $voter,
+        float $amount,
+        string $processor,
+        string $referenceId,
+        int $runId,
+        string $outcome,
+        ?string $reasonBucket = null,
+    ): void {
+        $voterName = $voter->user?->name ?? ('Voter #' . $voter->id);
+
+        $this->dispatch(
+            fn () => broadcast(new PayoutDispatched(
+                $voter->id,
+                $voterName,
+                $amount,
+                $processor,
+                $referenceId,
+                $runId,
+                $outcome,
+                $reasonBucket,
+            )),
+            'payout.dispatched',
+            $voter->id,
+        );
+    }
 
     /**
      * Push a fraud flag to the admin real-time monitor channel.

@@ -810,6 +810,42 @@
                 })
                 .listen('.session.completed', e => {
                     push('✓ View session completed — campaign #' + (e.campaign_id ?? '?'), 'info');
+                })
+                .listen('.payout.dispatched', e => {
+                    const amt    = '$' + Number(e.amount ?? 0).toFixed(2);
+                    const name   = e.voter_name ?? ('Voter #' + e.voter_id);
+                    const proc   = e.processor ?? 'wallet';
+                    const ref    = e.reference_id ?? '—';
+                    const outcome = e.outcome === 'paid' ? '✅ Paid' : ('⏭ Skipped: ' + (e.reason_bucket ?? 'unknown'));
+                    const msg    = `${outcome} — ${name} ${amt} via ${proc} (${ref})`;
+                    push(msg, e.outcome === 'paid' ? 'success' : 'warning');
+
+                    // Append to live feed table if on payout management page
+                    const feed = document.getElementById('payout-live-feed');
+                    if (feed) {
+                        const row = document.createElement('tr');
+                        row.className = e.outcome === 'paid'
+                            ? 'border-t border-slate-700/50 text-emerald-400'
+                            : 'border-t border-slate-700/50 text-amber-400';
+                        const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                        row.innerHTML = `
+                            <td class="py-2 pr-4 text-xs text-slate-400 tabular-nums whitespace-nowrap">${time}</td>
+                            <td class="py-2 pr-4 text-xs font-medium whitespace-nowrap">${outcome}</td>
+                            <td class="py-2 pr-4 text-xs text-slate-200 whitespace-nowrap">${name}</td>
+                            <td class="py-2 pr-4 text-xs tabular-nums whitespace-nowrap">${amt}</td>
+                            <td class="py-2 pr-4 text-xs text-slate-400 whitespace-nowrap">${proc}</td>
+                            <td class="py-2 text-xs text-slate-500 font-mono truncate max-w-[140px]" title="${ref}">${ref}</td>
+                        `;
+                        feed.prepend(row);
+
+                        // Cap visible rows at 50 to avoid memory growth
+                        const rows = feed.querySelectorAll('tr');
+                        if (rows.length > 50) rows[rows.length - 1].remove();
+
+                        // Show the table container if hidden
+                        const container = document.getElementById('payout-live-feed-container');
+                        if (container) container.style.display = '';
+                    }
                 });
         }
 

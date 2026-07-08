@@ -52,7 +52,12 @@ class UserDeletionService
                 'voter_id'          => $voter?->id,
                 'politician_id'     => $politician?->id,
                 'citizen_id'        => $citizen?->id,
-                'user_snapshot'     => $snapshot,
+                'user_snapshot'     => array_merge($snapshot, [
+                    // full_name lives on the profile table, not users — snapshot it here
+                    // so restore can reconstruct the profile row without a DB NOT NULL error.
+                    '_voter_full_name'   => $voter?->full_name,
+                    '_citizen_full_name' => $citizen?->full_name,
+                ]),
                 'deleted_by_user_id' => $deletedBy?->id,
                 'deletion_reason'   => $reason,
                 'deleted_by_ip'     => $ip,
@@ -138,8 +143,12 @@ class UserDeletionService
 
             // Restore a bare voter profile if the original was a voter
             if ($record->user_type === 'voter' && $record->voter_id !== null) {
+                $voterFullName = $snapshot['_voter_full_name']
+                    ?? trim(($record->first_name ?? '') . ' ' . ($record->last_name ?? ''))
+                    ?: $record->email;
                 Voter::create([
                     'user_id'       => $user->id,
+                    'full_name'     => $voterFullName,
                     'email'         => $record->email,
                     'referral_code' => Str::upper(Str::random(8)),
                 ]);
@@ -147,17 +156,22 @@ class UserDeletionService
 
             // Restore a bare politician profile if the original was a politician
             if ($record->user_type === 'politician' && $record->politician_id !== null) {
+                $politicianName = trim(($record->first_name ?? '') . ' ' . ($record->last_name ?? '')) ?: $record->email;
                 Politician::create([
                     'user_id'   => $user->id,
-                    'full_name' => trim(($record->first_name ?? '') . ' ' . ($record->last_name ?? '')),
-                    'slug'      => Str::slug(trim(($record->first_name ?? '') . ' ' . ($record->last_name ?? '')) . '-' . Str::random(4)),
+                    'full_name' => $politicianName,
+                    'slug'      => Str::slug($politicianName . '-' . Str::random(4)),
                 ]);
             }
 
             // Restore a bare citizen profile if the original was a citizen
             if ($record->user_type === 'citizen' && $record->citizen_id !== null) {
+                $citizenFullName = $snapshot['_citizen_full_name']
+                    ?? trim(($record->first_name ?? '') . ' ' . ($record->last_name ?? ''))
+                    ?: $record->email;
                 Citizen::create([
-                    'user_id' => $user->id,
+                    'user_id'   => $user->id,
+                    'full_name' => $citizenFullName,
                 ]);
             }
 
