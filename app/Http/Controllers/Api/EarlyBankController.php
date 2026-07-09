@@ -153,6 +153,45 @@ class EarlyBankController extends Controller
     }
 
     /**
+     * GET /api/v1/earlybank/voter-by-email?email=<email>
+     *
+     * Resolves a voter's UUID from their email address. Used by the Early-bank
+     * DashboardController to link users who registered on U9itus *before*
+     * creating their Early-bank account — those users have `user_type = 'voter'`
+     * on the shared table but never went through the webhook registration flow,
+     * so Early-bank needs to look them up by email to get their UUID before
+     * calling `member-enrolled`.
+     *
+     * Returns the voter's UUID and current EB membership status.
+     */
+    public function voterByEmail(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'email' => ['required', 'string', 'email', 'max:254'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'error'  => 'validation_failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $voter = Voter::where('email', strtolower(trim($request->string('email')->value())))->first();
+
+        if (! $voter) {
+            return response()->json(['error' => 'voter_not_found'], 404);
+        }
+
+        return response()->json([
+            'voter_uuid'               => $voter->uuid,
+            'earlybank_member_id'      => $voter->earlybank_member_id,       // who referred them
+            'earlybank_own_member_uuid' => $voter->earlybank_own_member_uuid, // their own EB membership (null if not yet linked)
+            'earlybank_own_linked_at'  => optional($voter->earlybank_own_linked_at)->toIso8601String(),
+        ]);
+    }
+
+    /**
      * POST /api/v1/earlybank/member-enrolled
      *
      * Called by Early-bank.com when a U9itus user (voter or politician) joins

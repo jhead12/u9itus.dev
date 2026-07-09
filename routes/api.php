@@ -203,5 +203,11 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
 
             Route::get('/member/{member_id}/stats', [EarlyBankController::class, 'memberStats'])
                 ->name('member.stats');
+
+            // Resolves a voter UUID from their email address.
+            // Used by the Early-bank DashboardController to link users who registered
+            // on U9itus before creating their Early-bank account.
+            Route::get('/voter-by-email', [EarlyBankController::class, 'voterByEmail'])
+                ->name('voter-by-email');
         });
 });
