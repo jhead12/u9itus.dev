@@ -308,9 +308,23 @@ trait ManagesVoterAuxiliaryActions
 
     // ── Referrals ────────────────────────────────────────────
 
-    public function referrals()
+    public function referrals(Request $request)
     {
         $voter = $this->resolveVoter();
+
+        // Auto-link when Early-bank redirects back via return_to with ?eb_member=<uuid>.
+        // Handles the "EB member first, U9itus second" flow where earlybank_own_member_uuid
+        // was never set because the user didn't go through the webhook registration path.
+        if ($voter->earlybank_own_member_uuid === null) {
+            $ebMember = $request->query('eb_member');
+            if (is_string($ebMember) && \Illuminate\Support\Str::isUuid($ebMember)) {
+                $voter->forceFill([
+                    'earlybank_own_member_uuid' => $ebMember,
+                    'earlybank_own_linked_at'   => now(),
+                ])->save();
+                $voter->refresh();
+            }
+        }
 
         // Voters referred by this voter
         $referrals = $voter->referrals()

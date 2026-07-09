@@ -148,11 +148,25 @@ class VoterOnboardingController extends Controller
     /**
      * Referral setup phase
      */
-    public function referralSetup()
+    public function referralSetup(Request $request)
     {
         $progress = $this->onboardingService->getOrCreate(auth()->user(), 'voter');
         $phases = $this->onboardingService->getPhasesForType('voter');
         $voter = Voter::where('user_id', auth()->id())->first();
+
+        // Auto-link when Early-bank redirects back via return_to with ?eb_member=<uuid>.
+        // This covers the "signed up on EB first, then came to U9itus" flow where
+        // earlybank_own_member_uuid is not yet set because no webhook was fired.
+        if ($voter && $voter->earlybank_own_member_uuid === null) {
+            $ebMember = $request->query('eb_member');
+            if (is_string($ebMember) && \Illuminate\Support\Str::isUuid($ebMember)) {
+                $voter->forceFill([
+                    'earlybank_own_member_uuid' => $ebMember,
+                    'earlybank_own_linked_at'   => now(),
+                ])->save();
+                $voter->refresh();
+            }
+        }
 
         return view('standalone.voter.onboarding.referrals', [
             'progress' => $progress,
