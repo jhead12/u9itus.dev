@@ -1145,11 +1145,27 @@ class AdminController extends Controller
      */
     public function showUser($userId)
     {
-        $user = User::with(['politician', 'voter.viewSessions' => function ($q) {
-            $q->latest()->take(10);
-        }])->findOrFail($userId);
+        $user = User::with([
+            'politician',
+            'voter.referrer.user:id,name,email',
+            'voter.politicianReferrer:id,full_name',
+            'voter.fraudSignals' => fn ($q) => $q->latest()->take(5),
+            'voter.viewSessions' => fn ($q) => $q->latest()->take(10),
+        ])->findOrFail($userId);
 
-        return view('standalone.admin.user-details', compact('user'));
+        $voterStats = null;
+        if ($user->voter) {
+            $voterStats = [
+                'referral_count'    => $user->voter->referrals()->count(),
+                'referral_earnings' => (float) $user->voter->referralEarnings()->sum('commission_amount'),
+                'payout_attempts'   => PayoutAttempt::where('voter_id', $user->voter->id)
+                    ->selectRaw("status, COUNT(*) as total")
+                    ->groupBy('status')
+                    ->pluck('total', 'status'),
+            ];
+        }
+
+        return view('standalone.admin.user-details', compact('user', 'voterStats'));
     }
 
     public function deleteUser(Request $request, $userId, UserDeletionService $service)

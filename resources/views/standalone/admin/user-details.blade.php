@@ -222,6 +222,10 @@
                 <dd class="mt-1 text-sm text-white">${{ number_format($user->voter->wallet_balance, 2) }}</dd>
             </div>
             <div class="bg-slate-800/50 px-5 py-4">
+                <dt class="text-xs text-slate-500">Pending Earnings</dt>
+                <dd class="mt-1 text-sm {{ $user->voter->pending_earnings > 0 ? 'text-amber-400' : 'text-white' }}">${{ number_format($user->voter->pending_earnings, 2) }}</dd>
+            </div>
+            <div class="bg-slate-800/50 px-5 py-4">
                 <dt class="text-xs text-slate-500">Payment Method</dt>
                 <dd class="mt-1 text-sm text-white">{{ $user->voter->payment_method ?? '—' }}</dd>
             </div>
@@ -229,8 +233,206 @@
                 <dt class="text-xs text-slate-500">Referral Code</dt>
                 <dd class="mt-1 text-sm font-mono text-white">{{ $user->voter->referral_code }}</dd>
             </div>
+            <div class="bg-slate-800/50 px-5 py-4">
+                <dt class="text-xs text-slate-500">Last View</dt>
+                <dd class="mt-1 text-sm text-white">{{ $user->voter->last_view_at ? $user->voter->last_view_at->format('M j, Y') : '—' }}</dd>
+            </div>
+            <div class="bg-slate-800/50 px-5 py-4">
+                <dt class="text-xs text-slate-500">Registered Voter</dt>
+                <dd class="mt-1 text-sm {{ $user->voter->is_registered_voter ? 'text-emerald-400' : 'text-slate-400' }}">{{ $user->voter->is_registered_voter ? 'Yes' : 'No' }}</dd>
+            </div>
+            <div class="bg-slate-800/50 px-5 py-4">
+                <dt class="text-xs text-slate-500">User Tier</dt>
+                <dd class="mt-1 text-sm text-white">{{ $user->voter->user_tier ?? 'regular' }}</dd>
+            </div>
+            <div class="bg-slate-800/50 px-5 py-4">
+                <dt class="text-xs text-slate-500">Congressional District</dt>
+                <dd class="mt-1 text-sm text-white">{{ $user->voter->congressional_district ?? '—' }}</dd>
+            </div>
+            <div class="bg-slate-800/50 px-5 py-4">
+                <dt class="text-xs text-slate-500">Stripe Account</dt>
+                @php $sas = $user->voter->stripe_account_status ?? null; @endphp
+                <dd class="mt-1 text-sm {{ $sas === 'active' ? 'text-emerald-400' : 'text-slate-400' }}">
+                    {{ $sas ? ucfirst($sas) : 'None' }}
+                </dd>
+            </div>
+            <div class="bg-slate-800/50 px-5 py-4">
+                <dt class="text-xs text-slate-500">Active</dt>
+                <dd class="mt-1 text-sm {{ $user->voter->is_active ? 'text-emerald-400' : 'text-red-400' }}">{{ $user->voter->is_active ? 'Yes' : 'No' }}</dd>
+            </div>
         </dl>
     </div>
+
+    {{-- Payout Accounts --}}
+    @if($user->voter && ($user->voter->paypal_email || $user->voter->cashapp_tag || $user->voter->stripe_account_id))
+    <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl overflow-hidden">
+        <div class="px-5 py-4 border-b border-slate-700/50">
+            <h3 class="text-sm font-semibold text-white">Payout Accounts</h3>
+        </div>
+        <dl class="grid grid-cols-2 sm:grid-cols-3 gap-px bg-slate-700/30">
+            @if($user->voter->paypal_email)
+            <div class="bg-slate-800/50 px-5 py-4">
+                <dt class="text-xs text-slate-500">PayPal Email</dt>
+                <dd class="mt-1 text-sm text-white font-mono">
+                    @php
+                        $pe = $user->voter->paypal_email;
+                        $parts = explode('@', $pe);
+                        $masked = substr($parts[0], 0, 3) . str_repeat('*', max(0, strlen($parts[0]) - 3)) . '@' . ($parts[1] ?? '');
+                    @endphp
+                    {{ $masked }}
+                </dd>
+            </div>
+            @endif
+            @if($user->voter->cashapp_tag)
+            <div class="bg-slate-800/50 px-5 py-4">
+                <dt class="text-xs text-slate-500">Cash App</dt>
+                <dd class="mt-1 text-sm text-white font-mono">${{ substr($user->voter->cashapp_tag, 0, 3) }}***</dd>
+            </div>
+            @endif
+            @if($user->voter->stripe_account_id)
+            <div class="bg-slate-800/50 px-5 py-4">
+                <dt class="text-xs text-slate-500">Stripe Account ID</dt>
+                <dd class="mt-1 text-sm text-white font-mono">{{ $user->voter->stripe_account_id }}</dd>
+            </div>
+            @endif
+            @if($voterStats && $voterStats['payout_attempts']->isNotEmpty())
+            @foreach($voterStats['payout_attempts'] as $status => $count)
+            <div class="bg-slate-800/50 px-5 py-4">
+                <dt class="text-xs text-slate-500">Payout Attempts ({{ ucfirst($status) }})</dt>
+                <dd class="mt-1 text-sm {{ $status === 'failed' ? 'text-red-400' : ($status === 'paid' ? 'text-emerald-400' : 'text-white') }}">{{ $count }}</dd>
+            </div>
+            @endforeach
+            @endif
+        </dl>
+    </div>
+    @endif
+
+    {{-- Early-bank membership --}}
+    @if($user->voter && ($user->voter->earlybank_own_member_uuid || $user->voter->earlybank_member_id))
+    <div class="bg-emerald-950/30 border border-emerald-700/30 rounded-xl overflow-hidden">
+        <div class="px-5 py-4 border-b border-emerald-800/30">
+            <h3 class="text-sm font-semibold text-emerald-200">Early-bank</h3>
+        </div>
+        <dl class="grid grid-cols-2 sm:grid-cols-3 gap-px bg-emerald-900/10">
+            @if($user->voter->earlybank_own_member_uuid)
+            <div class="bg-slate-800/50 px-5 py-4">
+                <dt class="text-xs text-slate-500">EB Member UUID</dt>
+                <dd class="mt-1 text-xs text-emerald-400 font-mono break-all">{{ $user->voter->earlybank_own_member_uuid }}</dd>
+            </div>
+            <div class="bg-slate-800/50 px-5 py-4">
+                <dt class="text-xs text-slate-500">EB Enrolled At</dt>
+                <dd class="mt-1 text-sm text-white">{{ $user->voter->earlybank_own_linked_at?->format('M j, Y') ?? '—' }}</dd>
+            </div>
+            @endif
+            @if($user->voter->earlybank_member_id)
+            <div class="bg-slate-800/50 px-5 py-4">
+                <dt class="text-xs text-slate-500">Attributed EB Member</dt>
+                <dd class="mt-1 text-xs text-indigo-400 font-mono break-all">{{ $user->voter->earlybank_member_id }}</dd>
+            </div>
+            <div class="bg-slate-800/50 px-5 py-4">
+                <dt class="text-xs text-slate-500">EB Attribution Date</dt>
+                <dd class="mt-1 text-sm text-white">{{ $user->voter->earlybank_linked_at?->format('M j, Y') ?? '—' }}</dd>
+            </div>
+            @endif
+        </dl>
+    </div>
+    @endif
+
+    {{-- Referral summary --}}
+    @if($user->voter && $voterStats)
+    <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl overflow-hidden">
+        <div class="px-5 py-4 border-b border-slate-700/50">
+            <h3 class="text-sm font-semibold text-white">Referral Summary</h3>
+        </div>
+        <dl class="grid grid-cols-2 sm:grid-cols-3 gap-px bg-slate-700/30">
+            <div class="bg-slate-800/50 px-5 py-4">
+                <dt class="text-xs text-slate-500">Referred By</dt>
+                <dd class="mt-1 text-sm text-white">
+                    @if($user->voter->referrer)
+                        {{ $user->voter->referrer->full_name ?? $user->voter->referrer->user?->name ?? '—' }}
+                        <span class="text-slate-500 text-xs ml-1">(voter)</span>
+                    @elseif($user->voter->politicianReferrer)
+                        {{ $user->voter->politicianReferrer->full_name }}
+                        <span class="text-slate-500 text-xs ml-1">(politician)</span>
+                    @else
+                        <span class="text-slate-500">Organic</span>
+                    @endif
+                </dd>
+            </div>
+            <div class="bg-slate-800/50 px-5 py-4">
+                <dt class="text-xs text-slate-500">Voters Referred</dt>
+                <dd class="mt-1 text-sm text-white">{{ number_format($voterStats['referral_count']) }}</dd>
+            </div>
+            <div class="bg-slate-800/50 px-5 py-4">
+                <dt class="text-xs text-slate-500">Referral Earnings</dt>
+                <dd class="mt-1 text-sm text-white">${{ number_format($voterStats['referral_earnings'], 2) }}</dd>
+            </div>
+        </dl>
+    </div>
+    @endif
+
+    {{-- Recent view sessions --}}
+    @if($user->voter && $user->voter->viewSessions->isNotEmpty())
+    <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl overflow-hidden">
+        <div class="px-5 py-4 border-b border-slate-700/50">
+            <h3 class="text-sm font-semibold text-white">Recent View Sessions <span class="text-slate-500 font-normal text-xs ml-1">(last 10)</span></h3>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="border-b border-slate-700/50 text-slate-500 text-xs uppercase tracking-wide text-left">
+                        <th class="px-5 py-3 font-medium">Date</th>
+                        <th class="px-5 py-3 font-medium">Status</th>
+                        <th class="px-5 py-3 font-medium">Completion</th>
+                        <th class="px-5 py-3 font-medium">Payout</th>
+                        <th class="px-5 py-3 font-medium">Fraud Score</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-700/30">
+                    @foreach($user->voter->viewSessions as $vs)
+                    <tr class="hover:bg-slate-700/20 transition">
+                        <td class="px-5 py-3 text-slate-400 whitespace-nowrap">{{ $vs->created_at->format('M j, Y') }}</td>
+                        <td class="px-5 py-3">
+                            <span class="text-xs px-2 py-0.5 rounded-full {{ $vs->status === 'completed' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-slate-700 text-slate-400' }}">
+                                {{ $vs->status }}
+                            </span>
+                        </td>
+                        <td class="px-5 py-3 text-white">{{ $vs->completion_percentage !== null ? number_format($vs->completion_percentage, 0) . '%' : '—' }}</td>
+                        <td class="px-5 py-3 text-white">${{ number_format($vs->voter_payout_amount ?? 0, 2) }}</td>
+                        <td class="px-5 py-3">
+                            @php $fs = $vs->fraud_score ?? 0; @endphp
+                            <span class="{{ $fs > 50 ? 'text-red-400 font-semibold' : 'text-slate-400' }}">{{ $fs }}</span>
+                        </td>
+                    </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+    </div>
+    @endif
+
+    {{-- Fraud signals --}}
+    @if($user->voter && $user->voter->fraudSignals->isNotEmpty())
+    <div class="bg-red-950/20 border border-red-700/30 rounded-xl overflow-hidden">
+        <div class="px-5 py-4 border-b border-red-800/30">
+            <h3 class="text-sm font-semibold text-red-300">Fraud Signals <span class="text-red-500 font-normal text-xs ml-1">(last 5)</span></h3>
+        </div>
+        <div class="divide-y divide-red-900/20">
+            @foreach($user->voter->fraudSignals as $signal)
+            <div class="px-5 py-3 flex items-start justify-between gap-4">
+                <div>
+                    <p class="text-sm text-red-300 font-medium">{{ $signal->signal_type ?? 'Unknown' }}</p>
+                    @if(!empty($signal->description))
+                    <p class="text-xs text-slate-400 mt-0.5">{{ $signal->description }}</p>
+                    @endif
+                </div>
+                <p class="text-xs text-slate-500 whitespace-nowrap shrink-0">{{ $signal->created_at->format('M j, Y') }}</p>
+            </div>
+            @endforeach
+        </div>
+    </div>
+    @endif
+
     @endif
 
     {{-- Suspension actions --}}
