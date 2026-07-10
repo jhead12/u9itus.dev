@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Mail\VoterVerifiedMail;
 use App\Models\Voter;
+use App\Services\EarlyBankWebhookService;
+use App\Services\PlatformSettingsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -145,6 +147,24 @@ class StripeWebhookController extends Controller
                     ]);
                 }
             }
+
+            // Fire the Early-bank $10 referral bonus on Stripe verification
+            // when the platform setting `earlybank_referral_bonus_trigger` is
+            // set to 'stripe_verification' (the recommended mode).
+            if ($isActive && ! $wasActive && $voter->earlybank_member_id) {
+                $trigger = PlatformSettingsService::get('earlybank_referral_bonus_trigger', null, 'stripe_verification');
+                if ($trigger === 'stripe_verification') {
+                    try {
+                        app(EarlyBankWebhookService::class)->dispatchReferralBonusOnVerification($voter);
+                    } catch (\Throwable $e) {
+                        Log::warning('EarlyBank referral bonus dispatch failed on Stripe verification', [
+                            'voter_id' => $voter->id,
+                            'error'    => $e->getMessage(),
+                        ]);
+                    }
+                }
+            }
+
         }
     }
 

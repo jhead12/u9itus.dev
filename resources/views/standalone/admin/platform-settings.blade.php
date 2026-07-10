@@ -392,5 +392,62 @@
             </button>
         </form>
     </div>
+
+    {{-- ── Early-bank Integration Settings ─────────────────────────────── --}}
+    <div class="bg-emerald-950/30 border border-emerald-700/30 rounded-xl p-6 mt-6">
+        <h2 class="text-lg font-semibold text-emerald-200 mb-1 flex items-center gap-2">
+            <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+            </svg>
+            Early-bank Integration
+        </h2>
+        <p class="text-slate-500 text-xs mb-6">Controls when U9itus fires the $10 referral bonus webhook to Early-bank.com.</p>
+
+        <form action="{{ route('admin.platform-settings.update') }}" method="POST" class="space-y-4">
+            @csrf
+            <input type="hidden" name="key" value="earlybank_referral_bonus_trigger">
+            <input type="hidden" name="category" value="earlybank">
+
+            <div>
+                <label class="block text-sm font-medium text-slate-300 mb-2">
+                    $10 Referral Bonus Trigger
+                </label>
+                @php
+                    $currentTrigger = $currentValues['earlybank_referral_bonus_trigger'] ?? 'stripe_verification';
+                @endphp
+                <div class="space-y-3">
+                    <label class="flex items-start gap-3 p-4 rounded-xl border cursor-pointer transition
+                        {{ $currentTrigger === 'stripe_verification' ? 'border-emerald-500/50 bg-emerald-900/20' : 'border-slate-700 bg-slate-900/30 hover:border-slate-600' }}">
+                        <input type="radio" name="value" value="stripe_verification"
+                            {{ $currentTrigger === 'stripe_verification' ? 'checked' : '' }}
+                            class="mt-0.5 text-emerald-500 focus:ring-emerald-500/40 shrink-0">
+                        <div>
+                            <p class="text-sm font-medium text-white">On Stripe Connect completion <span class="ml-1.5 text-xs px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/20">Recommended</span></p>
+                            <p class="text-xs text-slate-400 mt-1">The $10 fires the moment the referred voter's Stripe identity verification is approved (charges &amp; payouts enabled). No view session required — the voter must only complete their bank account setup.</p>
+                        </div>
+                    </label>
+                    <label class="flex items-start gap-3 p-4 rounded-xl border cursor-pointer transition
+                        {{ $currentTrigger === 'first_verified_view' ? 'border-sky-500/50 bg-sky-900/20' : 'border-slate-700 bg-slate-900/30 hover:border-slate-600' }}">
+                        <input type="radio" name="value" value="first_verified_view"
+                            {{ $currentTrigger === 'first_verified_view' ? 'checked' : '' }}
+                            class="mt-0.5 text-sky-500 focus:ring-sky-500/40 shrink-0">
+                        <div>
+                            <p class="text-sm font-medium text-white">On first verified view session</p>
+                            <p class="text-xs text-slate-400 mt-1">The $10 fires when the referred voter completes their first view session <em>after</em> Stripe verification is active. Ensures the voter has demonstrated economic participation before the bonus is credited.</p>
+                        </div>
+                    </label>
+                </div>
+            </div>
+
+            <div class="pt-2">
+                <button type="submit" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold rounded-lg transition">
+                    Save Early-bank Setting
+                </button>
+                @if($currentTrigger)
+                <span class="ml-3 text-xs text-slate-500">Current: <span class="text-emerald-400">{{ $currentTrigger === 'stripe_verification' ? 'On Stripe verification' : 'On first verified view' }}</span></span>
+                @endif
+            </div>
+        </form>
+    </div>
 </div>
 @endsection

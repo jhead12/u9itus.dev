@@ -338,6 +338,71 @@
     </div>
     @endif
 
+    {{-- Early-bank webhook event log --}}
+    @if($user->voter && $ebWebhookLogs->isNotEmpty())
+    <div class="bg-slate-800/50 border border-emerald-700/20 rounded-xl overflow-hidden">
+        <div class="px-5 py-4 border-b border-emerald-800/20 flex items-center justify-between gap-4">
+            <div>
+                <h3 class="text-sm font-semibold text-emerald-200">Early-bank Event Log</h3>
+                <p class="text-xs text-slate-500 mt-0.5">Outbound webhook history — registration, referral bonuses &amp; view commissions</p>
+            </div>
+            <span class="text-xs text-slate-500">{{ $ebWebhookLogs->count() }} events (last 25)</span>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-xs">
+                <thead>
+                    <tr class="border-b border-slate-700/50 text-slate-500 uppercase tracking-wide text-left">
+                        <th class="px-5 py-3 font-medium">Event</th>
+                        <th class="px-5 py-3 font-medium">EB Member</th>
+                        <th class="px-5 py-3 font-medium">Payout</th>
+                        <th class="px-5 py-3 font-medium">Delivered</th>
+                        <th class="px-5 py-3 font-medium">Date</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-700/30">
+                    @foreach($ebWebhookLogs as $log)
+                    <tr class="hover:bg-slate-700/20 transition">
+                        <td class="px-5 py-3">
+                            <div class="flex items-center gap-2">
+                                @php
+                                    $evColor = match($log->event_type) {
+                                        'voter.registered' => 'bg-sky-500/10 text-sky-300 border-sky-500/20',
+                                        'voter.referred'   => 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20',
+                                        'voter.earned'     => 'bg-indigo-500/10 text-indigo-300 border-indigo-500/20',
+                                        default            => 'bg-slate-700 text-slate-300 border-slate-600',
+                                    };
+                                @endphp
+                                <span class="px-2 py-0.5 rounded-full border text-[11px] font-medium {{ $evColor }}">
+                                    {{ $log->event_type }}
+                                </span>
+                            </div>
+                            <p class="text-slate-400 mt-0.5">{{ $log->eventLabel() }}</p>
+                        </td>
+                        <td class="px-5 py-3 font-mono text-slate-400 max-w-[140px] truncate" title="{{ $log->earlybank_member_id }}">
+                            {{ $log->earlybank_member_id ? substr($log->earlybank_member_id, 0, 8) . '…' : '—' }}
+                        </td>
+                        <td class="px-5 py-3 text-white">
+                            {{ $log->payout_amount !== null ? '$' . number_format($log->payout_amount, 2) : '—' }}
+                        </td>
+                        <td class="px-5 py-3">
+                            @if($log->delivered)
+                                <span class="text-emerald-400 font-semibold">✓ {{ $log->http_status }}</span>
+                            @else
+                                <span class="text-red-400 font-semibold">✗ {{ $log->http_status ?? 'ERR' }}</span>
+                                @if($log->error_message)
+                                <p class="text-red-400/70 text-[10px] mt-0.5 max-w-[160px] truncate" title="{{ $log->error_message }}">{{ $log->error_message }}</p>
+                                @endif
+                            @endif
+                        </td>
+                        <td class="px-5 py-3 text-slate-400 whitespace-nowrap">{{ $log->created_at->format('M j, Y g:i a') }}</td>
+                    </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+    </div>
+    @endif
+
     {{-- Referral summary --}}
     @if($user->voter && $voterStats)
     <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl overflow-hidden">

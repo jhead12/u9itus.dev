@@ -32,6 +32,7 @@ use App\Models\PoliticalCampaign;
 use App\Models\PoliticianCredit;
 use App\Models\Politician;
 use App\Models\CitizenCampaign;
+use App\Models\EarlyBankWebhookLog;
 use App\Models\PayoutAttempt;
 use App\Models\ReferralEarning;
 use App\Models\ReferralVisit;
@@ -1241,7 +1242,9 @@ class AdminController extends Controller
             'voter.viewSessions' => fn ($q) => $q->latest()->take(10),
         ])->findOrFail($userId);
 
-        $voterStats = null;
+        $voterStats    = null;
+        $ebWebhookLogs = collect();
+
         if ($user->voter) {
             $voterStats = [
                 'referral_count'    => $user->voter->referrals()->count(),
@@ -1251,9 +1254,24 @@ class AdminController extends Controller
                     ->groupBy('status')
                     ->pluck('total', 'status'),
             ];
+
+            // EB webhook history for this voter (as referred voter OR as EB member)
+            $voterUuid = $user->voter->uuid;
+            $ownMemberUuid = $user->voter->earlybank_own_member_uuid;
+
+            $ebQuery = EarlyBankWebhookLog::query()
+                ->where(function ($q) use ($voterUuid, $ownMemberUuid) {
+                    $q->where('voter_uuid', $voterUuid);
+                    if ($ownMemberUuid) {
+                        // Also show events where THIS voter's EB membership was credited
+                        $q->orWhere('earlybank_member_id', $ownMemberUuid);
+                    }
+                });
+
+            $ebWebhookLogs = $ebQuery->latest()->take(25)->get();
         }
 
-        return view('standalone.admin.user-details', compact('user', 'voterStats'));
+        return view('standalone.admin.user-details', compact('user', 'voterStats', 'ebWebhookLogs'));
     }
 
     public function deleteUser(Request $request, $userId, UserDeletionService $service)
