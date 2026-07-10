@@ -60,6 +60,21 @@
             <p class="text-3xl font-bold {{ $stats['suspended_users'] > 0 ? 'text-orange-400' : 'text-white' }}">{{ number_format($stats['suspended_users']) }}</p>
             <p class="text-xs text-slate-500 mt-1">suspended accounts</p>
         </div>
+        <div class="stat-card">
+            <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Early-bank Members</p>
+            <p class="text-3xl font-bold text-emerald-400">{{ number_format($stats['eb_enrolled']) }}</p>
+            <p class="text-xs text-slate-500 mt-1">{{ number_format($stats['eb_attributed']) }} EB-attributed voters</p>
+        </div>
+        <div class="stat-card">
+            <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Citizen Campaigns</p>
+            <p class="text-3xl font-bold {{ $stats['citizen_campaigns_pending'] > 0 ? 'text-amber-400' : 'text-white' }}">{{ number_format($stats['citizen_campaigns_active']) }}</p>
+            <p class="text-xs text-slate-500 mt-1">active · {{ number_format($stats['citizen_campaigns_pending']) }} pending approval</p>
+        </div>
+        <div class="stat-card">
+            <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Unpaid Wallet Liability</p>
+            <p class="text-3xl font-bold {{ $stats['unpaid_wallet_liability'] > 0 ? 'text-amber-400' : 'text-white' }}">${{ number_format($stats['unpaid_wallet_liability'], 2) }}</p>
+            <p class="text-xs text-slate-500 mt-1">total voter wallet balances</p>
+        </div>
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">

@@ -31,7 +31,10 @@ use App\Models\OnboardingHandoffEvent;
 use App\Models\PoliticalCampaign;
 use App\Models\PoliticianCredit;
 use App\Models\Politician;
+use App\Models\CitizenCampaign;
+use App\Models\PayoutAttempt;
 use App\Models\ReferralEarning;
+use App\Models\ReferralVisit;
 use App\Models\PayoutRun;
 use App\Models\PayoutRunSkippedItem;
 use App\Models\User;
@@ -365,6 +368,14 @@ class AdminController extends Controller
             'pending_candidate_matches' => CandidateMatchReview::where('status', CandidateMatchReview::STATUS_PENDING)->count(),
             'suspended_users'   => User::whereNotNull('suspended_at')->count(),
             'flagged_fraud'     => Voter::where('flagged_for_fraud', true)->count(),
+            // Early-bank enrollment
+            'eb_enrolled'       => Voter::whereNotNull('earlybank_own_member_uuid')->count(),
+            'eb_attributed'     => Voter::whereNotNull('earlybank_member_id')->count(),
+            // Citizen campaigns
+            'citizen_campaigns_active'  => CitizenCampaign::where('status', 'active')->count(),
+            'citizen_campaigns_pending' => CitizenCampaign::where('approval_status', 'pending')->count(),
+            // Unpaid wallet liability
+            'unpaid_wallet_liability' => (float) Voter::sum('wallet_balance'),
         ];
 
         $recentUsers = User::latest()->take(5)->get();
@@ -2118,6 +2129,80 @@ class AdminController extends Controller
         $voterHandoffStats = $buildHandoffRoleStats('voter');
         $politicianHandoffStats = $buildHandoffRoleStats('politician');
 
+        // ── Early-bank enrollment ──────────────────────────────────────────
+        $totalVoters    = Voter::count();
+        $ebEnrolled     = Voter::whereNotNull('earlybank_own_member_uuid')->count();
+        $ebAttributed   = Voter::whereNotNull('earlybank_member_id')->count();
+        $ebEnrollRate   = $totalVoters > 0 ? round(($ebEnrolled / $totalVoters) * 100, 1) : 0.0;
+
+        // ── Citizen campaigns ──────────────────────────────────────────────
+        $citizenTotals = CitizenCampaign::query()
+            ->selectRaw('COUNT(*) as total_campaigns')
+            ->selectRaw("SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) as active_campaigns")
+            ->selectRaw("SUM(CASE WHEN approval_status = 'pending' THEN 1 ELSE 0 END) as pending_campaigns")
+            ->selectRaw('COALESCE(SUM(amount_spent), 0) as total_revenue')
+            ->selectRaw('COALESCE(SUM(views_completed), 0) as total_views')
+            ->first();
+
+        // ── Referral funnel (all-time platform-wide) ───────────────────────
+        $refVisitBase         = ReferralVisit::query();
+        $refTotalVisits       = (clone $refVisitBase)->count();
+        $refUniqueVisitors    = (clone $refVisitBase)->whereNotNull('session_id')->distinct('session_id')->count('session_id');
+        $refConversions       = (clone $refVisitBase)->whereNotNull('converted_at')->count();
+        $refConversionRate    = $refTotalVisits > 0 ? round(($refConversions / $refTotalVisits) * 100, 1) : 0.0;
+
+        // ── Payout health ─────────────────────────────────────────────────
+        $unpaidLiability = (float) ViewSession::where('status', ViewSessionStatus::Completed->value)
+            ->whereIn('payment_status', [ViewPaymentStatus::Pending->value, ViewPaymentStatus::Approved->value])
+            ->sum('voter_payout_amount');
+
+        $payoutAttemptCounts = PayoutAttempt::query()
+            ->selectRaw("status, COUNT(*) as total, COALESCE(SUM(amount), 0) as total_amount")
+            ->groupBy('status')
+            ->get()
+            ->keyBy('status');
+
+        $payoutByMethod = PayoutAttempt::query()
+            ->selectRaw("processor, COUNT(*) as total, COALESCE(SUM(amount), 0) as total_amount")
+            ->groupBy('processor')
+            ->get()
+            ->keyBy('processor');
+
+        $totalPayoutAttempts = $payoutAttemptCounts->sum('total');
+        $failedAttempts      = (int) ($payoutAttemptCounts->get('failed')?->total ?? 0);
+        $payoutFailRate      = $totalPayoutAttempts > 0 ? round(($failedAttempts / $totalPayoutAttempts) * 100, 1) : 0.0;
+
+        // ── Voter payment method breakdown ────────────────────────────────
+        $paymentMethodBreakdown = Voter::query()
+            ->selectRaw("COALESCE(payment_method, 'not_set') as method, COUNT(*) as total")
+            ->groupBy('method')
+            ->pluck('total', 'method');
+
+        // ── User growth (last 12 weeks, bucketed by ISO year-week) ──────────
+        $driver = \DB::connection()->getDriverName();
+        $weekExpr = $driver === 'sqlite'
+            ? "strftime('%Y-%W', created_at)"
+            : "DATE_FORMAT(created_at, '%Y-%u')";
+
+        $userGrowth = User::query()
+            ->selectRaw("{$weekExpr} as week_start")
+            ->selectRaw('COUNT(*) as new_users')
+            ->where('created_at', '>=', now()->subWeeks(12))
+            ->groupBy('week_start')
+            ->orderBy('week_start')
+            ->get()
+            ->map(fn ($r) => ['week' => $r->week_start, 'count' => (int) $r->new_users]);
+
+        // ── Fraud session rate (completed sessions with score > 50) ───────
+        $totalCompletedSessions = (clone $completedViewQuery)->count();
+        $fraudSessions = ViewSession::where('status', ViewSessionStatus::Completed->value)
+            ->whereIn('political_campaign_id', $campaignIds)
+            ->where('fraud_score', '>', 50)
+            ->count();
+        $fraudSessionRate = $totalCompletedSessions > 0
+            ? round(($fraudSessions / $totalCompletedSessions) * 100, 1)
+            : 0.0;
+
         return [
             'total_views' => $totalViews,
             'gross_revenue' => $grossDeliveredRevenue,
@@ -2138,6 +2223,44 @@ class AdminController extends Controller
                 'total_opened' => $voterHandoffStats['opened'] + $politicianHandoffStats['opened'],
                 'total_dismissed' => $voterHandoffStats['dismissed'] + $politicianHandoffStats['dismissed'],
             ],
+            // Early-bank
+            'earlybank' => [
+                'enrolled'       => $ebEnrolled,
+                'attributed'     => $ebAttributed,
+                'total_voters'   => $totalVoters,
+                'enroll_rate_pct' => $ebEnrollRate,
+            ],
+            // Citizen campaigns
+            'citizen_campaigns' => [
+                'total'    => (int) ($citizenTotals->total_campaigns ?? 0),
+                'active'   => (int) ($citizenTotals->active_campaigns ?? 0),
+                'pending'  => (int) ($citizenTotals->pending_campaigns ?? 0),
+                'revenue'  => (float) ($citizenTotals->total_revenue ?? 0),
+                'views'    => (int) ($citizenTotals->total_views ?? 0),
+            ],
+            // Referral funnel
+            'referral_funnel' => [
+                'total_visits'      => $refTotalVisits,
+                'unique_visitors'   => $refUniqueVisitors,
+                'conversions'       => $refConversions,
+                'conversion_rate_pct' => $refConversionRate,
+            ],
+            // Payout health
+            'payout_health' => [
+                'unpaid_liability'  => $unpaidLiability,
+                'total_attempts'    => (int) $totalPayoutAttempts,
+                'failed_attempts'   => $failedAttempts,
+                'fail_rate_pct'     => $payoutFailRate,
+                'by_status'         => $payoutAttemptCounts->map(fn ($r) => ['total' => (int) $r->total, 'amount' => (float) $r->total_amount]),
+                'by_method'         => $payoutByMethod->map(fn ($r) => ['total' => (int) $r->total, 'amount' => (float) $r->total_amount]),
+            ],
+            // Voter payment method breakdown
+            'payment_method_breakdown' => $paymentMethodBreakdown,
+            // User growth (12-week time series)
+            'user_growth' => $userGrowth,
+            // Fraud
+            'fraud_session_count' => $fraudSessions,
+            'fraud_session_rate_pct' => $fraudSessionRate,
         ];
     }
 

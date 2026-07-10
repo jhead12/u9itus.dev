@@ -36,7 +36,7 @@ function politicianReferralUser(array $politicianOverrides = []): array
     return [$user, $politician];
 }
 
-test('voter referral page renders email and social share links', function () {
+test('voter referral page renders email and social share links for eb members', function () {
     Role::firstOrCreate(['name' => 'voter', 'guard_name' => 'web']);
 
     $user = User::factory()->create([
@@ -46,22 +46,26 @@ test('voter referral page renders email and social share links', function () {
 
     skipOnboarding($user, 'voter');
 
+    // Must have an EB member UUID to see the share block
     Voter::factory()->create([
-        'user_id' => $user->id,
-        'referral_code' => 'VOTERSHR',
-        'is_verified' => true,
-        'is_active' => true,
+        'user_id'                  => $user->id,
+        'referral_code'            => 'VOTERSHR',
+        'earlybank_own_member_uuid' => \Illuminate\Support\Str::uuid(),
+        'is_verified'              => true,
+        'is_active'                => true,
     ]);
 
     $response = $this->actingAs($user)->get(route('voter.referrals'));
 
     $response->assertOk();
     $response->assertSee('Email Draft');
-    $response->assertSee('https://twitter.com/intent/tweet?text=Join%20U9itus%20as%20a%20voter%20using%20my%20referral%20link', false);
-    $response->assertSee('https://twitter.com/intent/tweet?text=Join%20U9itus%20as%20a%20politician%20using%20my%20referral%20link', false);
-    $response->assertSee('https://api.whatsapp.com/send?text=Join%20U9itus%20as%20a%20voter%20using%20my%20referral%20link', false);
+    // EB invite block share links
+    $response->assertSee('Join Early-bank to earn referral commissions', false);
+    // EB earn block share links
+    $response->assertSee('https://api.whatsapp.com/send?text=', false);
     $response->assertSee('https://t.me/share/url?url=', false);
-    $response->assertSee('mailto:?subject=Join%20U9itus%20as%20a%20voter%20with%20my%20referral%20link', false);
+    $response->assertSee('mailto:?subject=', false);
+    $response->assertSee('https://www.facebook.com/sharer/sharer.php?u=', false);
 });
 
 test('politician referral page renders email and social share links', function () {
@@ -78,7 +82,9 @@ test('politician referral page renders email and social share links', function (
     $response->assertSee('mailto:?subject=Join%20U9itus%20as%20a%20politician%20with%20my%20referral%20link', false);
 });
 
-test('voter referral page reflects admin-overridden share message', function () {
+test('voter referral page loads without error when email templates are configured', function () {
+    // The internal U9itus share section is hidden; email template overrides only
+    // affect the now-hidden section. Verify the page still loads successfully.
     Role::firstOrCreate(['name' => 'voter', 'guard_name' => 'web']);
 
     $user = User::factory()->create(['user_type' => 'voter']);
@@ -100,11 +106,15 @@ test('voter referral page reflects admin-overridden share message', function () 
         'is_active'           => true,
     ]);
 
-    $response = $this->actingAs($user)->get(route('voter.referrals'));
-
-    $response->assertOk();
-    $response->assertSee('Custom voter share message from admin.');
-    $response->assertSee('mailto:?subject=Custom%20voter%20title', false);
+    $this->actingAs($user)
+        ->get(route('voter.referrals'))
+        ->assertOk()
+        ->assertSee('Referrals');
+    // Custom message only surfaces when EB block is rendered (voter has earlybank_own_member_uuid)
+    // Non-EB voters see stats only — no share panel.
+    $this->actingAs($user)
+        ->get(route('voter.referrals'))
+        ->assertDontSee('Custom voter share message from admin.');
 });
 
 test('politician referral page reflects admin-overridden share message', function () {
@@ -126,7 +136,9 @@ test('politician referral page reflects admin-overridden share message', functio
     $response->assertSee('https://twitter.com/intent/tweet?text=Custom%20politician%20share%20message%20from%20admin.', false);
 });
 
-test('inactive referral template falls back to default share message', function () {
+test('inactive referral template body text does not appear on voter referral page', function () {
+    // Internal U9itus voter share section is hidden. Verify inactive
+    // template text never leaks to the page regardless of section visibility.
     Role::firstOrCreate(['name' => 'voter', 'guard_name' => 'web']);
 
     $user = User::factory()->create(['user_type' => 'voter']);
@@ -139,7 +151,6 @@ test('inactive referral template falls back to default share message', function 
         'is_active' => true,
     ]);
 
-    // Seed an inactive override — should NOT be used
     EmailTemplate::updateOrCreate(['key' => 'referral_voter_share'], [
         'name'                => 'Referral: Voter Signup Share',
         'category'            => 'referral',
@@ -149,11 +160,10 @@ test('inactive referral template falls back to default share message', function 
         'is_active'           => false,
     ]);
 
-    $response = $this->actingAs($user)->get(route('voter.referrals'));
-
-    $response->assertOk();
-    $response->assertDontSee('Should not appear');
-    $response->assertSee('Join U9itus as a voter using my referral link');
+    $this->actingAs($user)
+        ->get(route('voter.referrals'))
+        ->assertOk()
+        ->assertDontSee('Should not appear');
 });
 
 test('voter referral page filters commissions to the active stripe payment mode', function () {
