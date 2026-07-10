@@ -440,9 +440,12 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         Route::post('/campaigns/{campaign}/approve', [AdminController::class, 'approveCampaign'])->name('campaigns.approve');
         Route::post('/campaigns/{campaign}/reject', [AdminController::class, 'rejectCampaign'])->name('campaigns.reject');
 
-        // Citizen Campaign Approval (ballot-issue queue — separate from political for compliance)
+        // Citizen Campaign Approval & Lifecycle
         Route::post('/citizen-campaigns/{campaign}/approve', [AdminController::class, 'approveCitizenCampaign'])->name('citizen-campaigns.approve');
         Route::post('/citizen-campaigns/{campaign}/reject', [AdminController::class, 'rejectCitizenCampaign'])->name('citizen-campaigns.reject');
+        Route::post('/citizen-campaigns/{campaign}/pause', [AdminController::class, 'pauseCitizenCampaign'])->name('citizen-campaigns.pause');
+        Route::post('/citizen-campaigns/{campaign}/stop', [AdminController::class, 'stopCitizenCampaign'])->name('citizen-campaigns.stop');
+        Route::post('/citizen-campaigns/{campaign}/reactivate', [AdminController::class, 'reactivateCitizenCampaign'])->name('citizen-campaigns.reactivate');
 
         // Campaign Editing (admin can edit any campaign)
         Route::get('/campaigns/{campaign}/edit', [AdminController::class, 'editCampaign'])->name('campaigns.edit');

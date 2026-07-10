@@ -30,6 +30,11 @@
         {{ session('error') }}
     </div>
     @endif
+    @if($errors->any())
+    <div class="bg-red-500/10 border border-red-500/30 text-red-400 text-sm rounded-lg px-4 py-3">
+        {{ $errors->first() }}
+    </div>
+    @endif
 
     {{-- ── Summary stats ────────────────────────────────────────────────── --}}
     <div class="grid grid-cols-2 xl:grid-cols-4 gap-4">
@@ -457,7 +462,190 @@
         @endif
         @endif
 
-    </div>{{-- end card --}}
+    </div>{{-- end political campaigns card --}}
+
+    {{-- ══ Citizen Campaigns ═══════════════════════════════════════════════ --}}
+    <div class="mt-8 space-y-4">
+
+        <div class="flex items-center justify-between gap-4">
+            <div>
+                <h2 class="text-base font-semibold text-white">Citizen Campaigns</h2>
+                <p class="text-sm text-slate-400 mt-0.5">Active, paused, and scheduled citizen/local campaigns.</p>
+            </div>
+        </div>
+
+        {{-- Citizen summary stats --}}
+        <div class="grid grid-cols-2 xl:grid-cols-4 gap-4">
+            <div class="stat-card">
+                <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Active</p>
+                <p class="text-3xl font-bold text-emerald-400">{{ number_format($citizenSummary['total_active']) }}</p>
+            </div>
+            <div class="stat-card">
+                <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Paused</p>
+                <p class="text-3xl font-bold {{ $citizenSummary['total_paused'] > 0 ? 'text-amber-400' : 'text-white' }}">{{ number_format($citizenSummary['total_paused']) }}</p>
+            </div>
+            <div class="stat-card">
+                <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Total Spend</p>
+                <p class="text-3xl font-bold text-white">${{ number_format($citizenSummary['total_spend'], 2) }}</p>
+            </div>
+            <div class="stat-card">
+                <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Views Delivered</p>
+                <p class="text-3xl font-bold text-white">{{ number_format($citizenSummary['total_views']) }}</p>
+            </div>
+        </div>
+
+        <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl overflow-hidden">
+            <div class="px-5 py-4 border-b border-slate-700/50">
+                <h3 class="text-sm font-semibold text-white">Running Citizen Campaigns</h3>
+                <p class="text-xs text-slate-500 mt-0.5">{{ $citizenCampaigns->total() }} citizen campaign(s) matched</p>
+            </div>
+
+            @if($citizenCampaigns->isEmpty())
+            <div class="px-5 py-14 text-center">
+                <p class="text-sm text-slate-500">No active citizen campaigns.</p>
+            </div>
+            @else
+            <div class="divide-y divide-slate-700/30">
+                @foreach($citizenCampaigns as $cc)
+                @php
+                    $ccAdTypeLabels = [
+                        'local_business'       => 'Local Business',
+                        'community_notice'     => 'Community Notice',
+                        'ballot_issue'         => 'Ballot Issue',
+                        'general_announcement' => 'General Announcement',
+                    ];
+                    $ccRawAdType   = $cc->getRawOriginal('citizen_ad_type') ?? $cc->citizen_ad_type?->value ?? '';
+                    $ccStatusRaw   = $cc->getRawOriginal('status') ?? $cc->status?->value ?? $cc->status ?? 'unknown';
+                    $ccIsActive    = $ccStatusRaw === 'active';
+                    $ccIsPaused    = $ccStatusRaw === 'paused';
+                    $ccBudget      = max((float) ($cc->total_budget ?? 0), 0.01);
+                    $ccSpent       = (float) ($cc->amount_spent ?? 0);
+                    $ccSpentPct    = min(100, round(($ccSpent / $ccBudget) * 100, 1));
+                    $ccTargetViews = max((int) ($cc->total_views_requested ?? 1), 1);
+                    $ccDoneViews   = (int) ($cc->views_completed ?? 0);
+                    $ccViewsPct    = min(100, round(($ccDoneViews / $ccTargetViews) * 100, 1));
+                @endphp
+                <div class="px-5 py-5 space-y-4">
+                    <div class="flex flex-col sm:flex-row sm:items-start gap-4">
+
+                        {{-- Info --}}
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <h4 class="text-sm font-semibold text-white">{{ $cc->title }}</h4>
+                                <span class="text-xs px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/20">
+                                    {{ $ccAdTypeLabels[$ccRawAdType] ?? $ccRawAdType }}
+                                </span>
+                                <span class="text-xs px-2.5 py-0.5 rounded-full font-semibold
+                                    {{ $ccIsActive ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : ($ccIsPaused ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : 'bg-blue-500/10 text-blue-400 border border-blue-500/20') }}">
+                                    <span class="inline-block w-1.5 h-1.5 rounded-full mr-1 align-middle
+                                        {{ $ccIsActive ? 'bg-emerald-400 animate-pulse' : ($ccIsPaused ? 'bg-amber-400' : 'bg-blue-400') }}"></span>
+                                    {{ ucfirst($ccStatusRaw) }}
+                                </span>
+                            </div>
+                            <p class="text-xs text-slate-400 mt-0.5">
+                                {{ $cc->citizen?->full_name ?? '—' }}
+                                @if($cc->citizen?->city) · {{ $cc->citizen->city }}, {{ $cc->citizen->state }} @endif
+                            </p>
+                            <div class="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-slate-500">
+                                <span>ZIP: <span class="text-slate-300">{{ $cc->target_zip ?? '—' }}{{ $cc->target_zip_radius ? ' ±' . $cc->target_zip_radius . 'mi' : '' }}</span></span>
+                                <span>Rate: <span class="text-slate-300">${{ number_format($cc->revenue_per_view ?? 0.75, 2) }}/view</span></span>
+                                <span>Voter payout: <span class="text-slate-300">${{ number_format($cc->voter_payout_per_view ?? 0.50, 2) }}</span></span>
+                                <span>Created: <span class="text-slate-300">{{ $cc->created_at->format('M j, Y') }}</span></span>
+                            </div>
+                        </div>
+
+                        {{-- Actions --}}
+                        <div class="flex flex-wrap gap-2 shrink-0">
+                            @if($ccIsActive)
+                            <form method="POST" action="{{ route('admin.citizen-campaigns.pause', $cc) }}">
+                                @csrf
+                                <button type="submit"
+                                    class="px-3 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 text-xs font-semibold border border-amber-500/20 transition">
+                                    Pause
+                                </button>
+                            </form>
+                            <form method="POST" action="{{ route('admin.citizen-campaigns.stop', $cc) }}"
+                                  onsubmit="return confirm('Stop citizen campaign \'{{ addslashes($cc->title) }}\'? This is permanent.')">
+                                @csrf
+                                <button type="submit"
+                                    class="px-3 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-semibold border border-red-500/20 transition">
+                                    Stop
+                                </button>
+                            </form>
+                            @elseif($ccIsPaused)
+                            <form method="POST" action="{{ route('admin.citizen-campaigns.reactivate', $cc) }}">
+                                @csrf
+                                <button type="submit"
+                                    class="px-3 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-xs font-semibold border border-emerald-500/20 transition">
+                                    Reactivate
+                                </button>
+                            </form>
+                            <form method="POST" action="{{ route('admin.citizen-campaigns.stop', $cc) }}"
+                                  onsubmit="return confirm('Permanently stop citizen campaign \'{{ addslashes($cc->title) }}\'?')">
+                                @csrf
+                                <button type="submit"
+                                    class="px-3 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-semibold border border-red-500/20 transition">
+                                    Stop
+                                </button>
+                            </form>
+                            @else
+                            {{-- Scheduled --}}
+                            <form method="POST" action="{{ route('admin.citizen-campaigns.stop', $cc) }}"
+                                  onsubmit="return confirm('Cancel this scheduled citizen campaign?')">
+                                @csrf
+                                <button type="submit"
+                                    class="px-3 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-semibold border border-red-500/20 transition">
+                                    Cancel
+                                </button>
+                            </form>
+                            @endif
+                        </div>
+                    </div>
+
+                    {{-- Metrics --}}
+                    <div class="grid grid-cols-2 lg:grid-cols-3 gap-3">
+                        <div class="bg-slate-900/50 rounded-lg p-3">
+                            <p class="text-xs text-slate-500 mb-1">Spend</p>
+                            <p class="text-base font-bold text-white">${{ number_format($ccSpent, 2) }}</p>
+                            <p class="text-xs text-slate-500">of ${{ number_format($ccBudget, 2) }} budget</p>
+                            <div class="mt-2 h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                                <div class="h-full rounded-full {{ $ccSpentPct >= 90 ? 'bg-red-400' : ($ccSpentPct >= 70 ? 'bg-amber-400' : 'bg-emerald-400') }}"
+                                     style="width: {{ $ccSpentPct }}%"></div>
+                            </div>
+                            <p class="text-xs text-slate-600 mt-1">{{ $ccSpentPct }}% used</p>
+                        </div>
+                        <div class="bg-slate-900/50 rounded-lg p-3">
+                            <p class="text-xs text-slate-500 mb-1">Views Delivered</p>
+                            <p class="text-base font-bold text-white">{{ number_format($ccDoneViews) }}</p>
+                            <p class="text-xs text-slate-500">of {{ number_format($ccTargetViews) }} target</p>
+                            <div class="mt-2 h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                                <div class="h-full bg-blue-400 rounded-full" style="width: {{ $ccViewsPct }}%"></div>
+                            </div>
+                            <p class="text-xs text-slate-600 mt-1">{{ $ccViewsPct }}% complete</p>
+                        </div>
+                        <div class="bg-slate-900/50 rounded-lg p-3">
+                            <p class="text-xs text-slate-500 mb-1">Daily View Cap</p>
+                            <p class="text-base font-bold text-white">{{ $cc->daily_view_cap ? number_format($cc->daily_view_cap) : 'Unlimited' }}</p>
+                            @if($cc->scheduled_start_at || $cc->scheduled_end_at)
+                            <p class="text-xs text-slate-500 mt-1">
+                                {{ $cc->scheduled_start_at?->format('M j') ?? '—' }}
+                                → {{ $cc->scheduled_end_at?->format('M j, Y') ?? 'Ongoing' }}
+                            </p>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+                @endforeach
+            </div>
+
+            @if($citizenCampaigns->hasPages())
+            <div class="px-5 py-4 border-t border-slate-700/50">
+                {{ $citizenCampaigns->links('vendor.pagination.tailwind') }}
+            </div>
+            @endif
+            @endif
+        </div>
+    </div>{{-- end citizen campaigns section --}}
 
 </div>
 @endsection

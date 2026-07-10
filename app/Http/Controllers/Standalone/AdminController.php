@@ -326,9 +326,18 @@ class AdminController extends Controller
             'pending_campaigns' => PoliticalCampaign::where('approval_status', 'pending')->count(),
             'total_campaigns'   => PoliticalCampaign::whereIn('id', $campaignIds)->count(),
             'active_campaigns'  => PoliticalCampaign::where('status', 'active')->whereIn('id', $campaignIds)->count(),
-            'total_views'       => (clone $completedViewQuery)->count(),
-            'total_revenue'     => (clone $completedViewQuery)->sum('platform_revenue') ?? 0,
-            'total_payouts'     => (clone $completedViewQuery)->sum('voter_payout_amount') ?? 0,
+            'total_views'             => (clone $completedViewQuery)->count(),
+            // Gross platform revenue = political platform_revenue + citizen amount_spent
+            'political_revenue'       => (float) ((clone $completedViewQuery)->sum('platform_revenue') ?? 0),
+            'citizen_revenue'         => (float) CitizenCampaign::sum('amount_spent'),
+            'total_revenue'           => (float) ((clone $completedViewQuery)->sum('platform_revenue') ?? 0)
+                                            + (float) CitizenCampaign::sum('amount_spent'),
+            // EB-attributed: gross spread from sessions where the voter was EB-referred
+            'eb_attributed_revenue'   => (float) ViewSession::where('status', 'completed')
+                                            ->whereIn('political_campaign_id', $campaignIds)
+                                            ->whereHas('voter', fn ($q) => $q->whereNotNull('earlybank_member_id'))
+                                            ->sum('platform_revenue'),
+            'total_payouts'           => (clone $completedViewQuery)->sum('voter_payout_amount') ?? 0,
             'kyc_pending'       => User::where('kyc_status', 'pending')
                                         ->where('user_type', 'politician')->count(),
             'authentic_user_verifier_legacy' => (clone $legacyVoterBase)->count(),
@@ -523,7 +532,86 @@ class AdminController extends Controller
             'total_views'     => (clone $summaryBase)->sum('views_completed'),
         ];
 
-        return view('standalone.admin.campaigns-running', compact('campaigns', 'summary'));
+        // ── Citizen campaigns (active / paused / scheduled) ──────────────
+        $citizenRunningQuery = CitizenCampaign::with('citizen')
+            ->whereIn('status', [
+                CampaignStatus::Active->value,
+                CampaignStatus::Paused->value,
+                CampaignStatus::Scheduled->value,
+            ]);
+
+        if ($search = $request->get('search')) {
+            $citizenRunningQuery->where(function ($q) use ($search) {
+                $q->where('title', 'like', "%{$search}%")
+                  ->orWhereHas('citizen', fn ($cq) => $cq->where('full_name', 'like', "%{$search}%"));
+            });
+        }
+
+        if ($status = $request->get('status')) {
+            $citizenRunningQuery->where('status', $status);
+        }
+
+        $citizenCampaigns = $citizenRunningQuery
+            ->orderByRaw("CASE WHEN status = 'active' THEN 0 WHEN status = 'scheduled' THEN 1 ELSE 2 END")
+            ->latest()
+            ->paginate(25, ['*'], 'citizen_page')
+            ->withQueryString();
+
+        $citizenSummary = [
+            'total_active'    => CitizenCampaign::where('status', CampaignStatus::Active->value)->count(),
+            'total_paused'    => CitizenCampaign::where('status', CampaignStatus::Paused->value)->count(),
+            'total_scheduled' => CitizenCampaign::where('status', CampaignStatus::Scheduled->value)->count(),
+            'total_spend'     => CitizenCampaign::sum('amount_spent'),
+            'total_views'     => CitizenCampaign::sum('views_completed'),
+        ];
+
+        return view('standalone.admin.campaigns-running', compact('campaigns', 'summary', 'citizenCampaigns', 'citizenSummary'));
+    }
+
+    // ── Citizen campaign lifecycle actions ────────────────────────────────
+
+    public function pauseCitizenCampaign(CitizenCampaign $campaign)
+    {
+        if ($campaign->status === CampaignStatus::Paused->value || $campaign->status?->value === CampaignStatus::Paused->value) {
+            return back()->with('error', 'Campaign is already paused.');
+        }
+
+        $campaign->update(['status' => CampaignStatus::Paused->value]);
+
+        return back()->with('success', 'Citizen campaign "' . $campaign->title . '" has been paused.');
+    }
+
+    public function stopCitizenCampaign(Request $request, CitizenCampaign $campaign)
+    {
+        $request->validate(['reason' => ['nullable', 'string', 'max:500']]);
+
+        $campaign->update([
+            'status'           => CampaignStatus::Cancelled->value,
+            'rejection_reason' => $request->input('reason') ?: 'Stopped by admin.',
+            'completed_at'     => now(),
+        ]);
+
+        return back()->with('success', 'Citizen campaign "' . $campaign->title . '" has been stopped.');
+    }
+
+    public function reactivateCitizenCampaign(CitizenCampaign $campaign)
+    {
+        if ($campaign->approval_status !== ApprovalStatus::Approved->value
+            && $campaign->approval_status?->value !== ApprovalStatus::Approved->value) {
+            return back()->with('error', 'Only approved campaigns can be reactivated.');
+        }
+
+        $newStatus = ($campaign->scheduled_start_at && $campaign->scheduled_start_at->isFuture())
+            ? CampaignStatus::Scheduled->value
+            : CampaignStatus::Active->value;
+
+        $campaign->update([
+            'status'           => $newStatus,
+            'rejection_reason' => null,
+            'completed_at'     => null,
+        ]);
+
+        return back()->with('success', 'Citizen campaign "' . $campaign->title . '" has been reactivated.');
     }
 
     /**
@@ -2103,7 +2191,19 @@ class AdminController extends Controller
             ->where('payment_status', ViewPaymentStatus::Paid->value)
             ->sum('voter_payout_amount');
         $totalReferrals = (float) ReferralEarning::forPaymentMode($activePaymentMode)->sum('commission_amount');
-        $grossDeliveredRevenue = $totalNetRevenue + $totalPayouts + $totalReferrals;
+
+        // Citizen campaign revenue (amount charged to citizens/orgs)
+        $citizenRevenue = (float) CitizenCampaign::sum('amount_spent');
+
+        // EB-attributed revenue: political platform spread from EB-referred voters only
+        $ebAttributedRevenue = (float) ViewSession::where('status', ViewSessionStatus::Completed->value)
+            ->whereIn('political_campaign_id', $campaignIds)
+            ->whereHas('voter', fn ($q) => $q->whereNotNull('earlybank_member_id'))
+            ->sum('platform_revenue');
+
+        // Gross platform revenue = political spread + citizen revenue
+        // (voter payouts and referrals are costs, not separate revenue lines here)
+        $grossDeliveredRevenue = $totalNetRevenue + $totalPayouts + $totalReferrals + $citizenRevenue;
 
         // Defensive: check if onboarding_handoff_events table exists (may not be migrated in production)
         $handoffRows = collect();
@@ -2219,9 +2319,15 @@ class AdminController extends Controller
             ? round(($fraudSessions / $totalCompletedSessions) * 100, 1)
             : 0.0;
 
+        $totalPoliticalViews = $totalViews;
+        $totalAllViews = $totalPoliticalViews + (int) ($citizenTotals->total_views ?? 0);
+
         return [
             'total_views' => $totalViews,
             'gross_revenue' => $grossDeliveredRevenue,
+            'political_revenue' => $totalNetRevenue,
+            'citizen_revenue' => $citizenRevenue,
+            'eb_attributed_revenue' => $ebAttributedRevenue,
             'net_revenue' => $totalNetRevenue,
             'total_payouts' => $totalPayouts,
             'total_referrals' => $totalReferrals,

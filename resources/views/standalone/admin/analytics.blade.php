@@ -20,9 +20,15 @@
             <p class="text-xs text-slate-500 mt-1">completed sessions</p>
         </div>
         <div class="stat-card">
-            <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Gross Revenue</p>
+            <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Gross Platform Revenue</p>
             <p class="text-3xl font-bold text-white">${{ number_format($stats['gross_revenue'], 2) }}</p>
-            <p class="text-xs text-slate-500 mt-1">delivered per-view charges</p>
+            <p class="text-xs text-slate-500 mt-1">
+                ${{ number_format($stats['political_revenue'] ?? 0, 2) }} political
+                · ${{ number_format($stats['citizen_revenue'] ?? 0, 2) }} citizen
+            </p>
+            @if(($stats['eb_attributed_revenue'] ?? 0) > 0)
+            <p class="text-xs text-emerald-600 mt-0.5">${{ number_format($stats['eb_attributed_revenue'], 2) }} EB-attributed</p>
+            @endif
         </div>
         <div class="stat-card">
             <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Voter Payouts</p>
@@ -221,7 +227,7 @@
                 <p class="text-2xl font-bold {{ $cc['pending'] > 0 ? 'text-amber-400' : 'text-white' }} mt-1">{{ number_format($cc['pending']) }}</p>
             </div>
             <div class="rounded-xl border border-slate-700/70 bg-slate-900/40 px-4 py-3">
-                <p class="text-xs text-slate-500">Revenue (amount_spent)</p>
+                <p class="text-xs text-slate-500">Revenue (incl. in Gross)</p>
                 <p class="text-2xl font-bold text-emerald-400 mt-1">${{ number_format($cc['revenue'], 2) }}</p>
             </div>
             <div class="rounded-xl border border-slate-700/70 bg-slate-900/40 px-4 py-3">

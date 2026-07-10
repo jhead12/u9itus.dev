@@ -30,9 +30,16 @@
             <p class="text-xs text-slate-500 mt-1">{{ $stats['active_campaigns'] }} active campaigns</p>
         </div>
         <div class="stat-card">
-            <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Platform Revenue</p>
+            <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Gross Platform Revenue</p>
             <p class="text-3xl font-bold text-emerald-400">${{ number_format($stats['total_revenue'], 2) }}</p>
-            <p class="text-xs text-slate-500 mt-1">${{ number_format($stats['total_payouts'], 2) }} paid out</p>
+            <p class="text-xs text-slate-500 mt-1">
+                ${{ number_format($stats['political_revenue'], 2) }} political
+                · ${{ number_format($stats['citizen_revenue'], 2) }} citizen
+            </p>
+            @if($stats['eb_attributed_revenue'] > 0)
+            <p class="text-xs text-emerald-600 mt-0.5">${{ number_format($stats['eb_attributed_revenue'], 2) }} EB-attributed</p>
+            @endif
+            <p class="text-xs text-slate-600 mt-0.5">${{ number_format($stats['total_payouts'], 2) }} paid out to voters</p>
         </div>
         <div class="stat-card">
             <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Politician KYC Pending</p>

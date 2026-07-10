@@ -242,19 +242,19 @@
         @endif
     </div>
 
-    {{-- ── Citizen Ballot-Issue Campaigns ─────────────────────────────── --}}
+    {{-- ── Citizen Campaigns (all types) ──────────────────────────────── --}}
     <div class="bg-slate-800/50 border border-amber-500/20 rounded-xl overflow-hidden">
         <div class="px-5 py-4 border-b border-amber-500/20">
-            <h3 class="text-sm font-semibold text-white">Citizen Campaigns — Ballot Issue</h3>
+            <h3 class="text-sm font-semibold text-white">Citizen Campaigns</h3>
             <p class="text-xs text-slate-500 mt-0.5">
-                {{ $citizenCampaigns->total() }} ballot-issue campaign(s) awaiting review
-                · PAC registration required · $1.00/view pricing
+                {{ $citizenCampaigns->total() }} citizen campaign(s) awaiting review
+                — local business, community notices, ballot issues &amp; general announcements
             </p>
         </div>
 
         @if($citizenCampaigns->isEmpty())
         <div class="px-5 py-10 text-center">
-            <p class="text-sm text-slate-500">No citizen ballot-issue campaigns pending approval.</p>
+            <p class="text-sm text-slate-500">No citizen campaigns pending approval.</p>
         </div>
         @else
         <div class="divide-y divide-slate-700/30">
@@ -286,12 +286,14 @@
                             <span>·</span>
                             <span>ZIP {{ $campaign->target_zip }}{{ $campaign->target_zip_radius ? ' ±' . $campaign->target_zip_radius . 'mi' : '' }}</span>
                         </div>
-                        @if($campaign->pac_registration_id)
-                        <p class="text-xs text-amber-300 mt-1">
-                            <span class="font-medium">PAC ID:</span> {{ $campaign->pac_registration_id }}
-                        </p>
-                        @else
-                        <p class="text-xs text-red-400 mt-1">⚠ No PAC registration ID on file</p>
+                        @if($rawAdType === 'ballot_issue')
+                            @if($campaign->pac_registration_id)
+                            <p class="text-xs text-amber-300 mt-1">
+                                <span class="font-medium">PAC ID:</span> {{ $campaign->pac_registration_id }}
+                            </p>
+                            @else
+                            <p class="text-xs text-red-400 mt-1">⚠ No PAC registration ID on file</p>
+                            @endif
                         @endif
                         @if($campaign->message_summary)
                         <p class="text-xs text-slate-400 mt-2 line-clamp-2">{{ $campaign->message_summary }}</p>
