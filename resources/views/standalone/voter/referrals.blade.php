@@ -87,6 +87,12 @@
         $ebEarnUrl     = $ebMemberUuid ? (url('/earn') . '?ref=' . $ebMemberUuid) : null;
         $ebInviteQrSrc = $ebInviteUrl ? 'https://api.qrserver.com/v1/create-qr-code/?size=120x120&color=059669&bgcolor=FFFFFF&data=' . rawurlencode($ebInviteUrl) . '&qzone=1' : null;
         $ebEarnQrSrc   = $ebEarnUrl   ? 'https://api.qrserver.com/v1/create-qr-code/?size=120x120&color=6366f1&bgcolor=FFFFFF&data=' . rawurlencode($ebEarnUrl)   . '&qzone=1' : null;
+        $ebInviteShareSubject = 'Join Early-bank and earn $10 per referral';
+        $ebInviteShareMessage = 'Join Early-bank to earn referral commissions — you\'ll also be automatically enrolled in U9itus.';
+        $ebInviteShareBody    = $ebInviteShareMessage . "\n\n" . ($ebInviteUrl ?? '');
+        $ebEarnShareSubject   = 'Join U9itus and start earning with my referral link';
+        $ebEarnShareMessage   = 'Join U9itus as a Citizen, Voter, or Politician using my referral link. You earn real money watching political content.';
+        $ebEarnShareBody      = $ebEarnShareMessage . "\n\n" . ($ebEarnUrl ?? '');
     @endphp
 
     {{-- ── Early-bank Referral Links (EB members only) ─────────── --}}
@@ -118,6 +124,12 @@
                         class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition whitespace-nowrap">Copy</button>
                 </div>
                 <p id="eb-invite-confirm" class="text-emerald-400 text-xs hidden">✓ Copied!</p>
+                @include('standalone.shared.referral-share-actions', [
+                    'shareLink'    => $ebInviteUrl,
+                    'shareSubject' => $ebInviteShareSubject,
+                    'shareMessage' => $ebInviteShareMessage,
+                    'shareBody'    => $ebInviteShareBody,
+                ])
             </div>
             <div class="flex flex-col items-center gap-2">
                 <div class="w-32 h-32 bg-white rounded-xl p-1 shadow-lg shadow-black/40 flex items-center justify-center">
@@ -147,6 +159,12 @@
                         class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition whitespace-nowrap">Copy</button>
                 </div>
                 <p id="eb-earn-confirm" class="text-indigo-400 text-xs hidden">✓ Copied!</p>
+                @include('standalone.shared.referral-share-actions', [
+                    'shareLink'    => $ebEarnUrl,
+                    'shareSubject' => $ebEarnShareSubject,
+                    'shareMessage' => $ebEarnShareMessage,
+                    'shareBody'    => $ebEarnShareBody,
+                ])
             </div>
             <div class="flex flex-col items-center gap-2">
                 <div class="w-32 h-32 bg-white rounded-xl p-1 shadow-lg shadow-black/40 flex items-center justify-center">
@@ -164,7 +182,8 @@
     </div>
     @endif
 
-    {{-- ── U9itus Internal Referral Links ───────────────────────── --}}
+    {{-- ── U9itus Internal Referral Links (hidden — share via Early-bank block above) ── --}}
+    @if(false)
     <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-6 space-y-7">
         <div>
             <h2 class="text-lg font-semibold text-white">{{ $ebMemberUuid ? 'Your U9itus Referral Links' : 'Share Your Referral Links' }}</h2>
@@ -259,6 +278,7 @@
             </div>
         </div>
     </div>
+    @endif
 
     {{-- ── Referred Voters Table ────────────────────────────────── --}}
     @if($referrals->isNotEmpty())
