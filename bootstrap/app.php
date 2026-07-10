@@ -95,4 +95,40 @@ return Application::configure(basePath: dirname(__DIR__))
 
             return null;
         });
+
+        // ── Profile 500 auto-repair ──────────────────────────────────────────
+        // When an unhandled exception occurs on a public politician profile page
+        // (/p/{slug}), dispatch a background job that triggers the GitHub
+        // repair-broken-profile workflow via repository_dispatch.
+        //
+        // Only fires for genuine server errors (non-HttpException) so 404s and
+        // 419s are not reported. Rate-limited per slug (30 min) in the job.
+        $exceptions->report(function (\Throwable $e) {
+            // Skip HTTP exceptions (404, 419, 403, …) — those are expected.
+            if ($e instanceof HttpExceptionInterface) {
+                return false; // let the default reporter continue
+            }
+
+            $request = request();
+
+            if (! $request || ! $request->isMethod('GET')) {
+                return false;
+            }
+
+            $path = ltrim($request->path(), '/');
+
+            // Match /p/{slug} only — no sub-pages like /p/{slug}/news or /p/{slug}/claim.
+            if (! preg_match('#^p/([^/]+)$#', $path, $m)) {
+                return false;
+            }
+
+            $slug = $m[1];
+
+            // Dispatch asynchronously so the exception response is not delayed.
+            \App\Jobs\DispatchProfileRepairWorkflow::dispatch($slug, '/' . $path)
+                ->onQueue('default')
+                ->afterCommit();
+
+            return false; // allow the default exception reporter to also log it
+        });
     })->create();

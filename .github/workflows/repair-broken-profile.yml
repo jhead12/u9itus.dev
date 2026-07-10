@@ -1,0 +1,143 @@
+name: Repair Broken Politician Profile
+
+# Triggered two ways:
+#
+#  1. Manually from the Actions tab (workflow_dispatch) — useful for testing
+#     or manually repairing a known-bad slug.
+#
+#  2. Automatically by the application via a GitHub repository_dispatch event
+#     (event_type: "profile.repair") fired by DispatchProfileRepairWorkflow
+#     whenever a 500 error is detected on a /p/{slug} page.
+#
+# Required secrets:
+#   APP_KEY, APP_URL, DB_HOST, DB_PORT, DB_DATABASE, DB_USERNAME, DB_PASSWORD
+#
+# Optional secrets (needed only for transparency-data enrichment):
+#   ANTHROPIC_API_KEY, STRIPE_SECRET, STRIPE_WEBHOOK_SECRET
+
+on:
+  workflow_dispatch:
+    inputs:
+      slug:
+        description: "Politician slug that returned the 500 error (e.g. 1c8a2-united-states-representative-jefferson-shreve)"
+        required: true
+      dry_run:
+        description: "Dry-run — report issues but do not write to the database"
+        type: boolean
+        default: false
+
+  repository_dispatch:
+    types:
+      - profile.repair
+
+permissions:
+  contents: read
+
+concurrency:
+  # One repair per slug at a time; additional triggers queue behind.
+  group: repair-profile-${{ github.event.inputs.slug || github.event.client_payload.slug }}
+  cancel-in-progress: false
+
+jobs:
+  repair:
+    name: Repair /p/${{ github.event.inputs.slug || github.event.client_payload.slug }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, pdo_mysql
+          coverage: none
+
+      - name: Cache Composer packages
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: ${{ runner.os }}-composer-${{ hashFiles('composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Install Composer dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress --no-dev
+
+      - name: Write .env
+        run: |
+          cat > .env <<EOF
+          APP_ENV=production
+          APP_KEY=${{ secrets.APP_KEY }}
+          APP_DEBUG=false
+          APP_URL=${{ secrets.APP_URL }}
+
+          DB_CONNECTION=mysql
+          DB_HOST=${{ secrets.DB_HOST }}
+          DB_PORT=${{ secrets.DB_PORT }}
+          DB_DATABASE=${{ secrets.DB_DATABASE }}
+          DB_USERNAME=${{ secrets.DB_USERNAME }}
+          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+
+          ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}
+
+          STRIPE_SECRET=${{ secrets.STRIPE_SECRET }}
+          STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET }}
+
+          CACHE_DRIVER=database
+          SESSION_DRIVER=database
+          QUEUE_CONNECTION=sync
+          LOG_CHANNEL=stderr
+          EOF
+
+      - name: Run pending migrations
+        run: php artisan migrate --force --no-interaction
+
+      - name: Resolve slug and dry-run flag
+        id: vars
+        run: |
+          # workflow_dispatch uses inputs; repository_dispatch uses client_payload.
+          SLUG="${{ github.event.inputs.slug || github.event.client_payload.slug }}"
+          DRY_RUN="${{ github.event.inputs.dry_run || 'false' }}"
+
+          if [ -z "$SLUG" ]; then
+            echo "ERROR: slug is empty — cannot repair."
+            exit 1
+          fi
+
+          DRY_ARG=""
+          if [ "$DRY_RUN" = "true" ]; then
+            DRY_ARG="--dry-run"
+          fi
+
+          echo "slug=$SLUG"     >> $GITHUB_OUTPUT
+          echo "dry_arg=$DRY_ARG" >> $GITHUB_OUTPUT
+
+      - name: Repair politician profile
+        run: |
+          php artisan politicians:repair-profile \
+            "${{ steps.vars.outputs.slug }}" \
+            ${{ steps.vars.outputs.dry_arg }}
+
+      # ── Optional: run reconcile for the state the slug belongs to ─────────
+      # If the repair created a new profile from an election_candidate_record,
+      # a broader reconcile pass ensures neighbouring missing profiles for that
+      # same state are also backfilled in the same run.
+      - name: Reconcile missing profiles (same state, limit 50)
+        if: steps.vars.outputs.dry_arg == ''
+        run: |
+          # Extract state abbreviation from the politician row we just repaired.
+          STATE=$(php artisan tinker --no-interaction <<'TINKER'
+          $p = \App\Models\Politician::where('slug', '${{ steps.vars.outputs.slug }}')->value('state');
+          echo $p ?? '';
+          TINKER
+          )
+
+          if [ -n "$STATE" ] && [ ${#STATE} -eq 2 ]; then
+            echo "Running reconcile for state: $STATE"
+            php artisan politicians:reconcile-missing-profiles \
+              --state="$STATE" \
+              --limit=50
+          else
+            echo "Could not determine state — skipping broad reconcile."
+          fi

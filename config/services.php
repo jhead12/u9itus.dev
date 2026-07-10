@@ -162,6 +162,15 @@ return [
         'model'   => env('ANTHROPIC_ENRICH_MODEL', 'claude-haiku-4-5'),
     ],
 
+    // Profile auto-repair — GitHub repository_dispatch integration.
+    // Set GITHUB_REPAIR_TOKEN to a fine-grained PAT with:
+    //   repo → Actions → Write access on the u9itus.dev repository.
+    // Set GITHUB_REPO to "owner/repo" (e.g. "HeadEnterprises/u9itus.dev").
+    'github' => [
+        'repair_token' => env('GITHUB_REPAIR_TOKEN'),
+        'repo'         => env('GITHUB_REPO'),
+    ],
+
     // Sprint 7 — MeToken subgraph (Goldsky public endpoint) for read-only
     // on-chain loyalty stats on eligible politician profiles.
     // Kill-switched by the `web3_features_enabled` platform setting.
