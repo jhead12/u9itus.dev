@@ -927,6 +927,20 @@ class PublicProfileController extends Controller
 
         $isGuestBrowsing = ! auth()->check();
 
+        // ── Full-page response cache for unauthenticated visitors ─────────────
+        // Bots and anonymous users get a cached HTML response (15 min TTL).
+        // This prevents live API calls (Ballotpedia, FEC, VoteSmart) from
+        // firing on every crawler hit and causing Railway process timeouts.
+        // Authenticated users always get a fresh render so personalised state
+        // (favourites, claim status, etc.) is always current.
+        if ($isGuestBrowsing && ! $request->has('refresh')) {
+            $pageCacheKey = "profile.page.{$politician->id}";
+            $cached = \Illuminate\Support\Facades\Cache::get($pageCacheKey);
+            if ($cached !== null) {
+                return response($cached, 200)->header('Content-Type', 'text/html');
+            }
+        }
+
         // Eager-load what we need for the public page
         $politician->load(['page', 'initiatives' => fn($q) => $q->published()->ordered()]);
 
@@ -1054,6 +1068,8 @@ class PublicProfileController extends Controller
         $sourceMap['newsapi'] = ['label' => 'NewsAPI', 'icon' => '📰'];
         $sourceMap['gnews']   = ['label' => 'GNews',   'icon' => '📰'];
 
+        $newsTotal       = $newsArticles->count();
+        $newsArticles    = $newsArticles->take(6);
         $activeProviders = $newsArticles->pluck('provider')->unique()->values()->all();
         $articlesJson    = $newsArticles->map(fn($a) => [
             'id'           => $a->id,
@@ -1066,7 +1082,7 @@ class PublicProfileController extends Controller
             'published_at' => $a->published_at?->diffForHumans(),
         ])->values()->toJson();
 
-        return view('standalone.public.profile', compact(
+        $view = view('standalone.public.profile', compact(
             'politician',
             'page',
             'runningCampaigns',
@@ -1083,10 +1099,24 @@ class PublicProfileController extends Controller
             'ogUrl',
             'isGuestBrowsing',
             'newsArticles',
+            'newsTotal',
             'sourceMap',
             'activeProviders',
             'articlesJson'
         ));
+
+        // Store rendered HTML in page cache for guest visitors (15 min).
+        if ($isGuestBrowsing && ! $request->has('refresh')) {
+            $html = $view->render();
+            \Illuminate\Support\Facades\Cache::put(
+                "profile.page.{$politician->id}",
+                $html,
+                now()->addMinutes(15)
+            );
+            return response($html, 200)->header('Content-Type', 'text/html');
+        }
+
+        return $view;
     }
 
     /**
@@ -1160,6 +1190,19 @@ class PublicProfileController extends Controller
     }
 
     protected function buildTransparencyData(Politician $politician): array
+    {
+        // Cache the full transparency payload per politician for 1 hour.
+        // This prevents live API calls (Ballotpedia, FEC, VoteSmart) on every
+        // bot/crawler hit for unclaimed profiles, which was the primary cause
+        // of 4-5s response times and Railway process timeouts (500 errors).
+        $cacheKey = "profile.transparency.{$politician->id}";
+
+        return \Illuminate\Support\Facades\Cache::remember($cacheKey, 3600, function () use ($politician) {
+            return $this->fetchTransparencyData($politician);
+        });
+    }
+
+    protected function fetchTransparencyData(Politician $politician): array
     {
         // Donor/finance data is public record — show for all profiles including unclaimed.
         // For unclaimed federal profiles we always attempt OpenSecrets + FEC even if the
