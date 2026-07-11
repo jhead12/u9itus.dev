@@ -123,11 +123,24 @@ class RepairPoliticianProfile extends Command
             }
         }
 
-        // ── Step 4: Re-activate if dormant ───────────────────────────────────
-        if (! $politician->is_active) {
-            $this->line('  Re-activating politician (is_active = true).');
+        // ── Step 4: Re-activate and re-publish if dormant ────────────────────
+        // reconcile-status sets BOTH is_active and page_published to false.
+        // resolvePublicPolitician requires BOTH to be true, so we must restore both.
+        $needsActivation  = ! $politician->is_active;
+        $needsPublication = ! $politician->page_published;
+
+        if ($needsActivation || $needsPublication) {
+            $restoreFields = [];
+            if ($needsActivation) {
+                $this->line('  Re-activating politician (is_active = true).');
+                $restoreFields['is_active'] = true;
+            }
+            if ($needsPublication) {
+                $this->line('  Re-publishing politician (page_published = true).');
+                $restoreFields['page_published'] = true;
+            }
             if (! $dryRun) {
-                DB::table('politicians')->where('id', $politician->id)->update(['is_active' => true]);
+                DB::table('politicians')->where('id', $politician->id)->update($restoreFields);
             }
             $repaired = true;
         }
