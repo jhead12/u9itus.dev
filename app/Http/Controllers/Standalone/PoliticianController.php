@@ -1610,7 +1610,13 @@ class PoliticianController extends Controller
             Storage::disk('public')->delete($user->kyc_document_path);
         }
 
-        $ext  = $file->getClientOriginalExtension();
+        // SEC-3: derive the stored extension from the file's detected MIME content
+        // (not the client-supplied filename) so a polyglot upload (e.g. a JPEG/HTML
+        // file uploaded as `document.html`) cannot be served as text/html. The
+        // `mimes:` rule above already validates content, so guessExtension() will
+        // return one of the allowed types; fall back to `.bin` defensively.
+        $ext = $file->guessExtension();
+        $ext = in_array($ext, ['jpg', 'jpeg', 'png', 'pdf'], true) ? $ext : 'bin';
         $path = $file->storeAs("kyc/{$user->id}", "document.{$ext}", 'public');
 
         // Save path and reset KYC status to pending so admin reviews the new doc
