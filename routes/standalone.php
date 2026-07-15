@@ -25,6 +25,7 @@ use App\Http\Controllers\Standalone\AdminFraudController;
 use App\Http\Controllers\Standalone\AdminKycController;
 use App\Http\Controllers\Standalone\AdminImportController;
 use App\Http\Controllers\Standalone\AdminPayoutController;
+use App\Http\Controllers\Standalone\AdminUserController;
 use App\Http\Controllers\Standalone\AdminOfficeProfileController;
 use App\Http\Controllers\Standalone\PublicProfileController;
 use App\Http\Controllers\Standalone\ProfileClaimController;
@@ -466,14 +467,14 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         Route::get('/campaigns/{campaign}/audit', [AdminController::class, 'campaignAuditLog'])->name('campaigns.audit');
         
         // User Management
-        Route::get('/users', [AdminController::class, 'users'])->name('users.index');
-        Route::post('/users/bulk-action', [AdminController::class, 'bulkUserAction'])->name('users.bulk-action');
-        Route::get('/users/{user}', [AdminController::class, 'showUser'])->name('users.show');
-        Route::delete('/users/{user}', [AdminController::class, 'deleteUser'])->name('users.destroy');
-        Route::match(['PUT', 'POST'], '/users/{user}/suspend', [AdminController::class, 'suspendUser'])->name('users.suspend');
-        Route::match(['PUT', 'POST'], '/users/{user}/unsuspend', [AdminController::class, 'unsuspendUser'])->name('users.unsuspend');
-        Route::get('/deleted-accounts', [AdminController::class, 'deletedAccounts'])->name('deleted-accounts.index');
-        Route::post('/deleted-accounts/{record}/restore', [AdminController::class, 'restoreDeletedAccount'])->name('deleted-accounts.restore');
+        Route::get('/users', [AdminUserController::class, 'users'])->name('users.index');
+        Route::post('/users/bulk-action', [AdminUserController::class, 'bulkUserAction'])->name('users.bulk-action');
+        Route::get('/users/{user}', [AdminUserController::class, 'showUser'])->name('users.show');
+        Route::delete('/users/{user}', [AdminUserController::class, 'deleteUser'])->name('users.destroy');
+        Route::match(['PUT', 'POST'], '/users/{user}/suspend', [AdminUserController::class, 'suspendUser'])->name('users.suspend');
+        Route::match(['PUT', 'POST'], '/users/{user}/unsuspend', [AdminUserController::class, 'unsuspendUser'])->name('users.unsuspend');
+        Route::get('/deleted-accounts', [AdminUserController::class, 'deletedAccounts'])->name('deleted-accounts.index');
+        Route::post('/deleted-accounts/{record}/restore', [AdminUserController::class, 'restoreDeletedAccount'])->name('deleted-accounts.restore');
 
         // Candidate Matching Review
         Route::get('/candidate-matches', [AdminCandidateMatchController::class, 'candidateMatchReviews'])->name('candidate-matches.index');
