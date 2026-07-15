@@ -18,6 +18,7 @@ use App\Http\Controllers\Standalone\PoliticianController;
 use App\Http\Controllers\Standalone\PoliticianSongPickController;
 use App\Http\Controllers\Standalone\VoterController;
 use App\Http\Controllers\Standalone\AdminController;
+use App\Http\Controllers\Standalone\AdminProfileController;
 use App\Http\Controllers\Standalone\AdminOfficeProfileController;
 use App\Http\Controllers\Standalone\PublicProfileController;
 use App\Http\Controllers\Standalone\ProfileClaimController;
@@ -190,14 +191,14 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
             ->middleware('throttle:6,1')
             ->name('2fa.challenge.verify');
 
-        Route::get('/security/2fa', [AdminController::class, 'twoFactorSetup'])->name('2fa.setup');
-        Route::post('/security/2fa/enable', [AdminController::class, 'enableTwoFactor'])
+        Route::get('/security/2fa', [AdminProfileController::class, 'twoFactorSetup'])->name('2fa.setup');
+        Route::post('/security/2fa/enable', [AdminProfileController::class, 'enableTwoFactor'])
             ->middleware('throttle:6,1')
             ->name('2fa.setup.enable');
-        Route::post('/security/2fa/disable', [AdminController::class, 'disableTwoFactor'])
+        Route::post('/security/2fa/disable', [AdminProfileController::class, 'disableTwoFactor'])
             ->middleware('throttle:6,1')
             ->name('2fa.setup.disable');
-        Route::post('/security/2fa/recovery-codes/rotate', [AdminController::class, 'rotateRecoveryCodes'])
+        Route::post('/security/2fa/recovery-codes/rotate', [AdminProfileController::class, 'rotateRecoveryCodes'])
             ->middleware('throttle:6,1')
             ->name('2fa.setup.recovery.rotate');
     });
@@ -549,8 +550,8 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         Route::get('/email-templates/{template}/preview', [AdminController::class, 'previewEmailTemplate'])->name('email-templates.preview');
 
         // Admin Profile (Phase 11)
-        Route::get('/profile', [AdminController::class, 'profile'])->name('profile');
-        Route::put('/profile', [AdminController::class, 'updateProfile'])->name('profile.update');
+        Route::get('/profile', [AdminProfileController::class, 'profile'])->name('profile');
+        Route::put('/profile', [AdminProfileController::class, 'updateProfile'])->name('profile.update');
     });
 });
 
