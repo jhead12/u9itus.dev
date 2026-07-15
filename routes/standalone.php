@@ -24,6 +24,7 @@ use App\Http\Controllers\Standalone\AdminCandidateMatchController;
 use App\Http\Controllers\Standalone\AdminFraudController;
 use App\Http\Controllers\Standalone\AdminKycController;
 use App\Http\Controllers\Standalone\AdminImportController;
+use App\Http\Controllers\Standalone\AdminPayoutController;
 use App\Http\Controllers\Standalone\AdminOfficeProfileController;
 use App\Http\Controllers\Standalone\PublicProfileController;
 use App\Http\Controllers\Standalone\ProfileClaimController;
@@ -495,11 +496,11 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         Route::get('/kyc/{user}/document', [AdminKycController::class, 'viewKycDocument'])->name('kyc.view');
         
         // Payouts Management
-        Route::get('/payouts', [AdminController::class, 'payouts'])->name('payouts.index');
-        Route::get('/payouts/pending', [AdminController::class, 'pendingPayouts'])->name('payouts.pending');
-        Route::get('/payouts/skipped', [AdminController::class, 'skippedPayouts'])->name('payouts.skipped');
-        Route::post('/payouts/batch-process', [AdminController::class, 'processBatchPayouts'])->name('payouts.batch');
-        Route::post('/payouts/skipped/{skippedItem}/force-pay', [AdminController::class, 'forcePayBelowMinimum'])
+        Route::get('/payouts', [AdminPayoutController::class, 'payouts'])->name('payouts.index');
+        Route::get('/payouts/pending', [AdminPayoutController::class, 'pendingPayouts'])->name('payouts.pending');
+        Route::get('/payouts/skipped', [AdminPayoutController::class, 'skippedPayouts'])->name('payouts.skipped');
+        Route::post('/payouts/batch-process', [AdminPayoutController::class, 'processBatchPayouts'])->name('payouts.batch');
+        Route::post('/payouts/skipped/{skippedItem}/force-pay', [AdminPayoutController::class, 'forcePayBelowMinimum'])
             ->name('payouts.skipped.force-pay');
 
         // Data Imports Monitoring (Sprint 2)
@@ -510,8 +511,8 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
             ->name('imports.ocr-candidates');
 
         // Billing Refunds (unused politician credits only)
-        Route::get('/billing/refunds', [AdminController::class, 'billingRefunds'])->name('billing.refunds');
-        Route::post('/billing/transactions/{transaction}/refund-unused', [AdminController::class, 'refundUnusedCredits'])
+        Route::get('/billing/refunds', [AdminPayoutController::class, 'billingRefunds'])->name('billing.refunds');
+        Route::post('/billing/transactions/{transaction}/refund-unused', [AdminPayoutController::class, 'refundUnusedCredits'])
             ->name('billing.refund-unused');
         
         // Analytics & Reports
