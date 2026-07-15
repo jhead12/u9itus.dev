@@ -26,6 +26,8 @@ use App\Http\Controllers\Standalone\AdminKycController;
 use App\Http\Controllers\Standalone\AdminImportController;
 use App\Http\Controllers\Standalone\AdminPayoutController;
 use App\Http\Controllers\Standalone\AdminUserController;
+use App\Http\Controllers\Standalone\AdminCampaignController;
+use App\Http\Controllers\Standalone\AdminCitizenCampaignController;
 use App\Http\Controllers\Standalone\AdminOfficeProfileController;
 use App\Http\Controllers\Standalone\PublicProfileController;
 use App\Http\Controllers\Standalone\ProfileClaimController;
@@ -442,29 +444,29 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
         
         // Campaign Approval (political campaigns)
-        Route::get('/campaigns/pending', [AdminController::class, 'pendingCampaigns'])->name('campaigns.pending');
-        Route::get('/campaigns/running', [AdminController::class, 'runningCampaigns'])->name('campaigns.running');
-        Route::post('/campaigns/bulk-action', [AdminController::class, 'bulkCampaignAction'])->name('campaigns.bulk-action');
-        Route::post('/campaigns/{campaign}/approve', [AdminController::class, 'approveCampaign'])->name('campaigns.approve');
-        Route::post('/campaigns/{campaign}/reject', [AdminController::class, 'rejectCampaign'])->name('campaigns.reject');
+        Route::get('/campaigns/pending', [AdminCampaignController::class, 'pendingCampaigns'])->name('campaigns.pending');
+        Route::get('/campaigns/running', [AdminCampaignController::class, 'runningCampaigns'])->name('campaigns.running');
+        Route::post('/campaigns/bulk-action', [AdminCampaignController::class, 'bulkCampaignAction'])->name('campaigns.bulk-action');
+        Route::post('/campaigns/{campaign}/approve', [AdminCampaignController::class, 'approveCampaign'])->name('campaigns.approve');
+        Route::post('/campaigns/{campaign}/reject', [AdminCampaignController::class, 'rejectCampaign'])->name('campaigns.reject');
 
         // Citizen Campaign Approval & Lifecycle
-        Route::post('/citizen-campaigns/{campaign}/approve', [AdminController::class, 'approveCitizenCampaign'])->name('citizen-campaigns.approve');
-        Route::post('/citizen-campaigns/{campaign}/reject', [AdminController::class, 'rejectCitizenCampaign'])->name('citizen-campaigns.reject');
-        Route::post('/citizen-campaigns/{campaign}/pause', [AdminController::class, 'pauseCitizenCampaign'])->name('citizen-campaigns.pause');
-        Route::post('/citizen-campaigns/{campaign}/stop', [AdminController::class, 'stopCitizenCampaign'])->name('citizen-campaigns.stop');
-        Route::post('/citizen-campaigns/{campaign}/reactivate', [AdminController::class, 'reactivateCitizenCampaign'])->name('citizen-campaigns.reactivate');
+        Route::post('/citizen-campaigns/{campaign}/approve', [AdminCitizenCampaignController::class, 'approveCitizenCampaign'])->name('citizen-campaigns.approve');
+        Route::post('/citizen-campaigns/{campaign}/reject', [AdminCitizenCampaignController::class, 'rejectCitizenCampaign'])->name('citizen-campaigns.reject');
+        Route::post('/citizen-campaigns/{campaign}/pause', [AdminCitizenCampaignController::class, 'pauseCitizenCampaign'])->name('citizen-campaigns.pause');
+        Route::post('/citizen-campaigns/{campaign}/stop', [AdminCitizenCampaignController::class, 'stopCitizenCampaign'])->name('citizen-campaigns.stop');
+        Route::post('/citizen-campaigns/{campaign}/reactivate', [AdminCitizenCampaignController::class, 'reactivateCitizenCampaign'])->name('citizen-campaigns.reactivate');
 
         // Campaign Editing (admin can edit any campaign)
-        Route::get('/campaigns/{campaign}/edit', [AdminController::class, 'editCampaign'])->name('campaigns.edit');
-        Route::put('/campaigns/{campaign}', [AdminController::class, 'updateCampaign'])->name('campaigns.update');
+        Route::get('/campaigns/{campaign}/edit', [AdminCampaignController::class, 'editCampaign'])->name('campaigns.edit');
+        Route::put('/campaigns/{campaign}', [AdminCampaignController::class, 'updateCampaign'])->name('campaigns.update');
 
         // Campaign Stop / Reactivate
-        Route::post('/campaigns/{campaign}/stop', [AdminController::class, 'stopCampaign'])->name('campaigns.stop');
-        Route::post('/campaigns/{campaign}/reactivate', [AdminController::class, 'reactivateCampaign'])->name('campaigns.reactivate');
+        Route::post('/campaigns/{campaign}/stop', [AdminCampaignController::class, 'stopCampaign'])->name('campaigns.stop');
+        Route::post('/campaigns/{campaign}/reactivate', [AdminCampaignController::class, 'reactivateCampaign'])->name('campaigns.reactivate');
 
         // Campaign Audit Log
-        Route::get('/campaigns/{campaign}/audit', [AdminController::class, 'campaignAuditLog'])->name('campaigns.audit');
+        Route::get('/campaigns/{campaign}/audit', [AdminCampaignController::class, 'campaignAuditLog'])->name('campaigns.audit');
         
         // User Management
         Route::get('/users', [AdminUserController::class, 'users'])->name('users.index');
