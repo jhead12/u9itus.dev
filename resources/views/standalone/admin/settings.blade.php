@@ -61,6 +61,25 @@
                 </span>
             </label>
 
+            @if (!empty($adminTwoFactorEnforced))
+                {{-- SEC-6: current password is required to turn enforcement OFF --}}
+                <div class="pt-2">
+                    <label for="disable_2fa_current_password" class="block text-sm font-medium text-slate-300 mb-1.5">
+                        Current password <span class="text-slate-500 font-normal">(required to disable 2FA enforcement)</span>
+                    </label>
+                    <input
+                        type="password"
+                        id="disable_2fa_current_password"
+                        name="current_password"
+                        autocomplete="current-password"
+                        class="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 @error('current_password') border-red-500 @enderror"
+                    />
+                    @error('current_password')
+                        <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
+                    @enderror
+                </div>
+            @endif
+
             <div class="flex items-center justify-between pt-4 border-t border-slate-700/50">
                 <a href="{{ route('admin.2fa.setup') }}" class="text-sm text-cyan-400 hover:text-cyan-300">Manage my authenticator setup</a>
                 <button type="submit"
