@@ -19,6 +19,7 @@ use App\Http\Controllers\Standalone\PoliticianSongPickController;
 use App\Http\Controllers\Standalone\VoterController;
 use App\Http\Controllers\Standalone\AdminController;
 use App\Http\Controllers\Standalone\AdminProfileController;
+use App\Http\Controllers\Standalone\AdminEmailTemplateController;
 use App\Http\Controllers\Standalone\AdminOfficeProfileController;
 use App\Http\Controllers\Standalone\PublicProfileController;
 use App\Http\Controllers\Standalone\ProfileClaimController;
@@ -543,11 +544,11 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         Route::delete('/office-profiles/{politician}', [AdminOfficeProfileController::class, 'destroy'])->name('office-profiles.destroy');
 
         // Email Template Management (Phase 7b)
-        Route::get('/email-templates', [AdminController::class, 'emailTemplates'])->name('email-templates.index');
-        Route::get('/email-templates/{template}/edit', [AdminController::class, 'editEmailTemplate'])->name('email-templates.edit');
-        Route::put('/email-templates/{template}', [AdminController::class, 'updateEmailTemplate'])->name('email-templates.update');
-        Route::patch('/email-templates/{template}/toggle', [AdminController::class, 'toggleEmailTemplate'])->name('email-templates.toggle');
-        Route::get('/email-templates/{template}/preview', [AdminController::class, 'previewEmailTemplate'])->name('email-templates.preview');
+        Route::get('/email-templates', [AdminEmailTemplateController::class, 'emailTemplates'])->name('email-templates.index');
+        Route::get('/email-templates/{template}/edit', [AdminEmailTemplateController::class, 'editEmailTemplate'])->name('email-templates.edit');
+        Route::put('/email-templates/{template}', [AdminEmailTemplateController::class, 'updateEmailTemplate'])->name('email-templates.update');
+        Route::patch('/email-templates/{template}/toggle', [AdminEmailTemplateController::class, 'toggleEmailTemplate'])->name('email-templates.toggle');
+        Route::get('/email-templates/{template}/preview', [AdminEmailTemplateController::class, 'previewEmailTemplate'])->name('email-templates.preview');
 
         // Admin Profile (Phase 11)
         Route::get('/profile', [AdminProfileController::class, 'profile'])->name('profile');
