@@ -20,6 +20,10 @@ use App\Http\Controllers\Standalone\VoterController;
 use App\Http\Controllers\Standalone\AdminController;
 use App\Http\Controllers\Standalone\AdminProfileController;
 use App\Http\Controllers\Standalone\AdminEmailTemplateController;
+use App\Http\Controllers\Standalone\AdminCandidateMatchController;
+use App\Http\Controllers\Standalone\AdminFraudController;
+use App\Http\Controllers\Standalone\AdminKycController;
+use App\Http\Controllers\Standalone\AdminImportController;
 use App\Http\Controllers\Standalone\AdminOfficeProfileController;
 use App\Http\Controllers\Standalone\PublicProfileController;
 use App\Http\Controllers\Standalone\ProfileClaimController;
@@ -471,24 +475,24 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         Route::post('/deleted-accounts/{record}/restore', [AdminController::class, 'restoreDeletedAccount'])->name('deleted-accounts.restore');
 
         // Candidate Matching Review
-        Route::get('/candidate-matches', [AdminController::class, 'candidateMatchReviews'])->name('candidate-matches.index');
-        Route::post('/candidate-matches/bulk-action', [AdminController::class, 'bulkCandidateMatchAction'])->name('candidate-matches.bulk-action');
-        Route::post('/candidate-matches/import', [AdminController::class, 'importElectionCandidates'])->name('candidate-matches.import');
-        Route::post('/candidate-matches/retry/{politician}', [AdminController::class, 'retryCandidateMatch'])->name('candidate-matches.retry');
-        Route::post('/candidate-matches/{review}/approve', [AdminController::class, 'approveCandidateMatch'])->name('candidate-matches.approve');
-        Route::post('/candidate-matches/{review}/reject', [AdminController::class, 'rejectCandidateMatch'])->name('candidate-matches.reject');
+        Route::get('/candidate-matches', [AdminCandidateMatchController::class, 'candidateMatchReviews'])->name('candidate-matches.index');
+        Route::post('/candidate-matches/bulk-action', [AdminCandidateMatchController::class, 'bulkCandidateMatchAction'])->name('candidate-matches.bulk-action');
+        Route::post('/candidate-matches/import', [AdminCandidateMatchController::class, 'importElectionCandidates'])->name('candidate-matches.import');
+        Route::post('/candidate-matches/retry/{politician}', [AdminCandidateMatchController::class, 'retryCandidateMatch'])->name('candidate-matches.retry');
+        Route::post('/candidate-matches/{review}/approve', [AdminCandidateMatchController::class, 'approveCandidateMatch'])->name('candidate-matches.approve');
+        Route::post('/candidate-matches/{review}/reject', [AdminCandidateMatchController::class, 'rejectCandidateMatch'])->name('candidate-matches.reject');
         
         // Fraud Detection
-        Route::get('/fraud', [AdminController::class, 'fraud'])->name('fraud.index');
-        Route::get('/fraud/flagged-views', [AdminController::class, 'flaggedViews'])->name('fraud.views');
-        Route::post('/fraud/views/{view}/review', [AdminController::class, 'reviewView'])->name('fraud.review');
-        Route::post('/fraud/voters/{voter}/clear-flag', [AdminController::class, 'clearVoterFraud'])->name('fraud.clear-voter');
+        Route::get('/fraud', [AdminFraudController::class, 'fraud'])->name('fraud.index');
+        Route::get('/fraud/flagged-views', [AdminFraudController::class, 'flaggedViews'])->name('fraud.views');
+        Route::post('/fraud/views/{view}/review', [AdminFraudController::class, 'reviewView'])->name('fraud.review');
+        Route::post('/fraud/voters/{voter}/clear-flag', [AdminFraudController::class, 'clearVoterFraud'])->name('fraud.clear-voter');
 
         // KYC Management
-        Route::get('/kyc', [AdminController::class, 'kycQueue'])->name('kyc.index');
-        Route::post('/kyc/{user}/approve', [AdminController::class, 'approveKyc'])->name('kyc.approve');
-        Route::post('/kyc/{user}/reject', [AdminController::class, 'rejectKyc'])->name('kyc.reject');
-        Route::get('/kyc/{user}/document', [AdminController::class, 'viewKycDocument'])->name('kyc.view');
+        Route::get('/kyc', [AdminKycController::class, 'kycQueue'])->name('kyc.index');
+        Route::post('/kyc/{user}/approve', [AdminKycController::class, 'approveKyc'])->name('kyc.approve');
+        Route::post('/kyc/{user}/reject', [AdminKycController::class, 'rejectKyc'])->name('kyc.reject');
+        Route::get('/kyc/{user}/document', [AdminKycController::class, 'viewKycDocument'])->name('kyc.view');
         
         // Payouts Management
         Route::get('/payouts', [AdminController::class, 'payouts'])->name('payouts.index');
@@ -499,10 +503,10 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
             ->name('payouts.skipped.force-pay');
 
         // Data Imports Monitoring (Sprint 2)
-        Route::get('/imports', [AdminController::class, 'imports'])->name('imports');
-        Route::post('/imports/unverified-profile', [AdminController::class, 'seedUnverifiedPoliticianProfile'])
+        Route::get('/imports', [AdminImportController::class, 'imports'])->name('imports');
+        Route::post('/imports/unverified-profile', [AdminImportController::class, 'seedUnverifiedPoliticianProfile'])
             ->name('imports.unverified-profile.seed');
-        Route::post('/imports/ocr-candidates', [AdminController::class, 'importCandidatesFromOcr'])
+        Route::post('/imports/ocr-candidates', [AdminImportController::class, 'importCandidatesFromOcr'])
             ->name('imports.ocr-candidates');
 
         // Billing Refunds (unused politician credits only)
