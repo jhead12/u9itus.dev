@@ -2,8 +2,10 @@
 
 namespace App\Providers;
 
+use Illuminate\Cache\Limit;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -30,6 +32,17 @@ class AppServiceProvider extends ServiceProvider
                 );
             }
         }
+
+        // SEC-7: per-(email|IP) rate limit for login attempts. Keying on email+IP
+        // means an attacker on one IP cannot lock out a victim by spamming that
+        // victim's email (the victim's own attempts come from a different IP and
+        // use a separate bucket), while still throttling brute-force from any IP.
+        RateLimiter::for('login', function ($request): Limit {
+            $key = ($request->input('email') ? strtolower((string) $request->input('email')) : '')
+                . '|' . $request->ip();
+
+            return Limit::perMinute(5)->by($key);
+        });
 
         // Request latency logging for slow web endpoints.
         if (app()->runningInConsole()) {
