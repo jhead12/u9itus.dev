@@ -19,6 +19,7 @@ use App\Services\FraudPreventionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cookie;
+use Illuminate\Support\Facades\Log;
 
 /**
  * REST API for voters — registration, watching videos, earnings, referrals.
@@ -159,7 +160,12 @@ class VoterController extends Controller
      */
     public function trackProgress(Request $request, ViewSession $session): JsonResponse
     {
-        $seconds = (int) $request->input('seconds_watched', 0);
+        $clientSeconds = (int) $request->input('seconds_watched', 0);
+
+        // COR-5: never trust the client-reported seconds. Bound to wall-clock
+        // elapsed since the session started (SEC-4 guarantees the caller owns
+        // this session, but they can still inflate their own claim).
+        $seconds = $this->serverAuthoritativeSeconds($session, $clientSeconds);
 
         $this->viewService->trackProgress($session, $seconds);
 
@@ -171,15 +177,48 @@ class VoterController extends Controller
      */
     public function completeView(Request $request, ViewSession $session): JsonResponse
     {
-        $totalSeconds = (int) $request->input('total_seconds_watched', 0);
+        $clientSeconds = (int) $request->input('total_seconds_watched', 0);
 
-        $session = $this->viewService->completeView($session, $totalSeconds);
+        // COR-5: bound the completion claim to real elapsed time so a voter
+        // cannot inflate total_seconds_watched to force a payout.
+        $seconds = $this->serverAuthoritativeSeconds($session, $clientSeconds);
+
+        $session = $this->viewService->completeView($session, $seconds);
         $session->load('campaign');
 
         return response()->json([
             'message' => 'View completed',
             'session' => new ViewSessionResource($session),
         ]);
+    }
+
+    /**
+     * COR-5: derive a server-authoritative watch-time value for a session.
+     *
+     * A voter cannot have watched more seconds than have actually elapsed on
+     * the server clock since the session was started, so clamp the client's
+     * claim to that bound. Returns 0 when the session has no started_at (e.g.
+     * completed before play was pressed). Materially inflated claims are
+     * logged as a fraud signal.
+     */
+    private function serverAuthoritativeSeconds(ViewSession $session, int $clientClaim): int
+    {
+        if (!$session->started_at) {
+            return 0;
+        }
+
+        $elapsed = max(0, (int) $session->started_at->diffInSeconds(now()));
+
+        if ($clientClaim > $elapsed + 2) {
+            Log::warning('Voter view-time claim exceeds server elapsed', [
+                'view_session_id' => $session->id,
+                'voter_id'       => $session->voter_id,
+                'client_claim'   => $clientClaim,
+                'server_elapsed' => $elapsed,
+            ]);
+        }
+
+        return min($clientClaim, $elapsed);
     }
 
     /**
