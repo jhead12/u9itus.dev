@@ -171,7 +171,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         | Admin API (authenticated via Sanctum)
         |------------------------------------------------------------------
         */
-        Route::prefix('/admin')->name('admin.')->middleware('role:admin')->group(function () {
+        Route::prefix('/admin')->name('admin.')->middleware(['role:admin', 'admin.2fa'])->group(function () {
             Route::get('/analytics', [AdminController::class, 'analytics'])->name('analytics');
             Route::get('/campaigns/pending', [AdminController::class, 'pendingCampaigns'])->name('campaigns.pending');
             Route::post('/campaigns/{campaign:uuid}/approve', [AdminController::class, 'approveCampaign'])->name('campaigns.approve');
