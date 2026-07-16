@@ -8,7 +8,9 @@ use Illuminate\Http\Resources\Json\JsonResource;
 /**
  * Transforms Voter model data for API responses.
  *
- * Hides sensitive fields: device_fingerprint, ip_address, internal IDs.
+ * Hides sensitive fields: device_fingerprint, ip_address, internal IDs, and
+ * PII (email, phone) — SEC-4. Voter contact PII is never returned over the API;
+ * the authenticated voter already knows their own details.
  */
 class VoterResource extends JsonResource
 {
@@ -20,8 +22,6 @@ class VoterResource extends JsonResource
         return [
             'uuid'                       => $this->uuid,
             'full_name'                  => $this->full_name,
-            'email'                      => $this->email,
-            'phone'                      => $this->phone,
             'state'                      => $this->state,
             'city'                       => $this->city,
             'zip_code'                   => $this->zip_code,

@@ -7,8 +7,10 @@ use App\Http\Requests\StoreVoterRequest;
 use App\Http\Resources\VoterResource;
 use App\Http\Resources\ViewSessionResource;
 use App\Models\Voter;
+use App\Models\VoterApiToken;
 use App\Models\ViewSession;
 use App\Models\PoliticalCampaign;
+use App\Http\Middleware\AuthenticateVoterToken;
 use App\Http\Middleware\CaptureEarlyBankReferral;
 use App\Services\EarlyBankWebhookService;
 use App\Services\StripeConnectService;
@@ -66,12 +68,18 @@ class VoterController extends Controller
             $this->earlyBankWebhook->handleVoterRegistered($voter, (string) $earlybankMemberId);
         }
 
+        // SEC-4: issue the voter's first API token. The plaintext is returned
+        // here exactly once — consumers must capture and store it, then send it
+        // as Authorization: Bearer on subsequent voter API calls.
+        $issued = VoterApiToken::createToken($voter);
+
         // Clear the Early-bank referral cookie so the same browser cannot
         // accidentally attribute a future voter registration to the same member.
         $response = response()->json([
             'message'       => 'Voter registered successfully',
             'voter'         => new VoterResource($voter),
             'referral_code' => $voter->referral_code,
+            'token'         => $issued['token'],
         ], 201);
 
         if ($earlybankMemberId) {
@@ -239,5 +247,30 @@ class VoterController extends Controller
     public function connectStatus(Voter $voter, StripeConnectService $stripeConnect): JsonResponse
     {
         return response()->json($stripeConnect->getAccountStatus($voter));
+    }
+
+    /**
+     * SEC-4: rotate the caller's voter API token.
+     *
+     * Requires the current token via the voter-token middleware, which stores
+     * the resolved voter + token record on the request. Issues a new token for
+     * the same voter and revokes (deletes) the current one. The new plaintext is
+     * returned exactly once.
+     */
+    public function rotateToken(Request $request): JsonResponse
+    {
+        $voter = $request->attributes->get(AuthenticateVoterToken::VOTER_ATTR);
+        $current = $request->attributes->get(AuthenticateVoterToken::TOKEN_ATTR);
+
+        $issued = VoterApiToken::createToken($voter);
+
+        if ($current instanceof VoterApiToken) {
+            $current->delete();
+        }
+
+        return response()->json([
+            'message' => 'Voter API token rotated',
+            'token'   => $issued['token'],
+        ]);
     }
 }

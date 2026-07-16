@@ -6,6 +6,7 @@ use App\Traits\HasProfileBadges;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
 
 /**
@@ -99,6 +100,14 @@ class Voter extends Model
     public function user(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * SEC-4: opaque bearer tokens issued to this voter for stateless API auth.
+     */
+    public function apiTokens(): HasMany
+    {
+        return $this->hasMany(VoterApiToken::class);
     }
 
     public function viewSessions(): \Illuminate\Database\Eloquent\Relations\HasMany

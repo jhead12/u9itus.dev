@@ -108,23 +108,40 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         Route::get('/politicians/{politician:uuid}/office-profile', [OfficeProfileController::class, 'show'])
             ->name('politicians.office-profile');
 
+        // SEC-4: rotate the caller's voter API token (requires current token).
+        // Defined before the {voter:uuid} prefix group so the static "token"
+        // segment is never mistaken for a voter UUID.
+        Route::post('/voters/token/rotate', [VoterController::class, 'rotateToken'])
+            ->middleware('voter-token')
+            ->name('voters.token.rotate');
+
         // Voter profile & actions (identified by UUID — prevents enumeration)
-        Route::prefix('/voters/{voter:uuid}')->name('voters.')->group(function () {
-            Route::get('/', [VoterController::class, 'show'])->name('show');
-            Route::get('/campaigns', [VoterController::class, 'availableCampaigns'])->name('campaigns');
-            Route::post('/campaigns/{campaign:uuid}/watch', [VoterController::class, 'startView'])->name('watch')->withoutScopedBindings();
-            Route::get('/history', [VoterController::class, 'viewHistory'])->name('history');
-            Route::get('/earnings', [VoterController::class, 'earnings'])->name('earnings');
-            Route::get('/referrals', [VoterController::class, 'referrals'])->name('referrals');
-            Route::post('/connect/onboard', [VoterController::class, 'connectOnboard'])->name('connect.onboard');
-            Route::get('/connect/status', [VoterController::class, 'connectStatus'])->name('connect.status');
-        });
+        // SEC-4: authenticated via voter bearer token; the token's voter must
+        // match the {voter:uuid} route param (ownership enforced per route).
+        Route::prefix('/voters/{voter:uuid}')
+            ->middleware(['voter-token', 'voter.owns:voter'])
+            ->name('voters.')
+            ->group(function () {
+                Route::get('/', [VoterController::class, 'show'])->name('show');
+                Route::get('/campaigns', [VoterController::class, 'availableCampaigns'])->name('campaigns');
+                Route::post('/campaigns/{campaign:uuid}/watch', [VoterController::class, 'startView'])->name('watch')->withoutScopedBindings();
+                Route::get('/history', [VoterController::class, 'viewHistory'])->name('history');
+                Route::get('/earnings', [VoterController::class, 'earnings'])->name('earnings');
+                Route::get('/referrals', [VoterController::class, 'referrals'])->name('referrals');
+                Route::post('/connect/onboard', [VoterController::class, 'connectOnboard'])->name('connect.onboard');
+                Route::get('/connect/status', [VoterController::class, 'connectStatus'])->name('connect.status');
+            });
 
         // View session lifecycle (identified by UUID)
-        Route::prefix('/sessions/{session:uuid}')->name('sessions.')->group(function () {
-            Route::post('/progress', [VoterController::class, 'trackProgress'])->name('progress');
-            Route::post('/complete', [VoterController::class, 'completeView'])->name('complete');
-        });
+        // SEC-4 / COR-5: authenticated via voter bearer token; the token's
+        // voter must own the {session:uuid} (session.voter_id === token voter).
+        Route::prefix('/sessions/{session:uuid}')
+            ->middleware(['voter-token', 'voter.owns:session'])
+            ->name('sessions.')
+            ->group(function () {
+                Route::post('/progress', [VoterController::class, 'trackProgress'])->name('progress');
+                Route::post('/complete', [VoterController::class, 'completeView'])->name('complete');
+            });
     });
 
     /*
