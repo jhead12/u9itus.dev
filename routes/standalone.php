@@ -38,11 +38,11 @@ use Illuminate\Support\Facades\Route;
 Route::middleware('guest')->group(function () {
     // Shared login (redirects by role after authentication)
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
-    Route::post('/login', [AuthController::class, 'login']);
+    Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:login');
 
     // Admin-specific login portal
     Route::get('/admin/login', [AuthController::class, 'showAdminLogin'])->name('admin.login');
-    Route::post('/admin/login', [AuthController::class, 'adminLogin'])->name('admin.login.submit');
+    Route::post('/admin/login', [AuthController::class, 'adminLogin'])->name('admin.login.submit')->middleware('throttle:login');
 
     // Registration — role chooser landing
     Route::get('/register', [AuthController::class, 'showRegisterChoose'])->name('register');

@@ -29,7 +29,9 @@ return [
             'provider' => 'users',
             'session_lifetime' => 120, // minutes
             'admin_2fa' => [
-                'enabled_default' => env('ADMIN_2FA_ENFORCED_DEFAULT', false),
+                // SEC-6: admin TOTP enforcement defaults to ON. A platform setting
+                // row (set via the admin settings page) still overrides this default.
+                'enabled_default' => env('ADMIN_2FA_ENFORCED_DEFAULT', true),
                 'totp_window' => (int) env('ADMIN_2FA_TOTP_WINDOW', 2),
                 'session_ttl_minutes' => (int) env('ADMIN_2FA_SESSION_TTL_MINUTES', 120),
             ],

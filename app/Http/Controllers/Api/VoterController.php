@@ -7,8 +7,10 @@ use App\Http\Requests\StoreVoterRequest;
 use App\Http\Resources\VoterResource;
 use App\Http\Resources\ViewSessionResource;
 use App\Models\Voter;
+use App\Models\VoterApiToken;
 use App\Models\ViewSession;
 use App\Models\PoliticalCampaign;
+use App\Http\Middleware\AuthenticateVoterToken;
 use App\Http\Middleware\CaptureEarlyBankReferral;
 use App\Services\EarlyBankWebhookService;
 use App\Services\StripeConnectService;
@@ -17,6 +19,7 @@ use App\Services\FraudPreventionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cookie;
+use Illuminate\Support\Facades\Log;
 
 /**
  * REST API for voters — registration, watching videos, earnings, referrals.
@@ -66,12 +69,18 @@ class VoterController extends Controller
             $this->earlyBankWebhook->handleVoterRegistered($voter, (string) $earlybankMemberId);
         }
 
+        // SEC-4: issue the voter's first API token. The plaintext is returned
+        // here exactly once — consumers must capture and store it, then send it
+        // as Authorization: Bearer on subsequent voter API calls.
+        $issued = VoterApiToken::createToken($voter);
+
         // Clear the Early-bank referral cookie so the same browser cannot
         // accidentally attribute a future voter registration to the same member.
         $response = response()->json([
             'message'       => 'Voter registered successfully',
             'voter'         => new VoterResource($voter),
             'referral_code' => $voter->referral_code,
+            'token'         => $issued['token'],
         ], 201);
 
         if ($earlybankMemberId) {
@@ -151,7 +160,12 @@ class VoterController extends Controller
      */
     public function trackProgress(Request $request, ViewSession $session): JsonResponse
     {
-        $seconds = (int) $request->input('seconds_watched', 0);
+        $clientSeconds = (int) $request->input('seconds_watched', 0);
+
+        // COR-5: never trust the client-reported seconds. Bound to wall-clock
+        // elapsed since the session started (SEC-4 guarantees the caller owns
+        // this session, but they can still inflate their own claim).
+        $seconds = $this->serverAuthoritativeSeconds($session, $clientSeconds);
 
         $this->viewService->trackProgress($session, $seconds);
 
@@ -163,15 +177,48 @@ class VoterController extends Controller
      */
     public function completeView(Request $request, ViewSession $session): JsonResponse
     {
-        $totalSeconds = (int) $request->input('total_seconds_watched', 0);
+        $clientSeconds = (int) $request->input('total_seconds_watched', 0);
 
-        $session = $this->viewService->completeView($session, $totalSeconds);
+        // COR-5: bound the completion claim to real elapsed time so a voter
+        // cannot inflate total_seconds_watched to force a payout.
+        $seconds = $this->serverAuthoritativeSeconds($session, $clientSeconds);
+
+        $session = $this->viewService->completeView($session, $seconds);
         $session->load('campaign');
 
         return response()->json([
             'message' => 'View completed',
             'session' => new ViewSessionResource($session),
         ]);
+    }
+
+    /**
+     * COR-5: derive a server-authoritative watch-time value for a session.
+     *
+     * A voter cannot have watched more seconds than have actually elapsed on
+     * the server clock since the session was started, so clamp the client's
+     * claim to that bound. Returns 0 when the session has no started_at (e.g.
+     * completed before play was pressed). Materially inflated claims are
+     * logged as a fraud signal.
+     */
+    private function serverAuthoritativeSeconds(ViewSession $session, int $clientClaim): int
+    {
+        if (!$session->started_at) {
+            return 0;
+        }
+
+        $elapsed = max(0, (int) $session->started_at->diffInSeconds(now()));
+
+        if ($clientClaim > $elapsed + 2) {
+            Log::warning('Voter view-time claim exceeds server elapsed', [
+                'view_session_id' => $session->id,
+                'voter_id'       => $session->voter_id,
+                'client_claim'   => $clientClaim,
+                'server_elapsed' => $elapsed,
+            ]);
+        }
+
+        return min($clientClaim, $elapsed);
     }
 
     /**
@@ -239,5 +286,30 @@ class VoterController extends Controller
     public function connectStatus(Voter $voter, StripeConnectService $stripeConnect): JsonResponse
     {
         return response()->json($stripeConnect->getAccountStatus($voter));
+    }
+
+    /**
+     * SEC-4: rotate the caller's voter API token.
+     *
+     * Requires the current token via the voter-token middleware, which stores
+     * the resolved voter + token record on the request. Issues a new token for
+     * the same voter and revokes (deletes) the current one. The new plaintext is
+     * returned exactly once.
+     */
+    public function rotateToken(Request $request): JsonResponse
+    {
+        $voter = $request->attributes->get(AuthenticateVoterToken::VOTER_ATTR);
+        $current = $request->attributes->get(AuthenticateVoterToken::TOKEN_ATTR);
+
+        $issued = VoterApiToken::createToken($voter);
+
+        if ($current instanceof VoterApiToken) {
+            $current->delete();
+        }
+
+        return response()->json([
+            'message' => 'Voter API token rotated',
+            'token'   => $issued['token'],
+        ]);
     }
 }

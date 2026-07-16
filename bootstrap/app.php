@@ -39,6 +39,9 @@ return Application::configure(basePath: dirname(__DIR__))
             '2fa'       => \App\Http\Middleware\EnsureTwoFactorVerified::class,
             'no.cache' => \App\Http\Middleware\DisableAuthPageCache::class,
             'earlybank.api' => \App\Http\Middleware\EarlyBankApiAuth::class,
+            // SEC-4: stateless voter API bearer-token auth + ownership checks.
+            'voter-token' => \App\Http\Middleware\AuthenticateVoterToken::class,
+            'voter.owns' => \App\Http\Middleware\EnsureVoterTokenMatches::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

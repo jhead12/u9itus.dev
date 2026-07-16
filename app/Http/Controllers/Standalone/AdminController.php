@@ -3430,6 +3430,41 @@ class AdminController extends Controller
             FILTER_VALIDATE_BOOLEAN
         );
 
+        // SEC-6: disabling admin-wide 2FA enforcement requires re-authentication
+        // with the admin's current password and is alarm-audited, so a hijacked
+        // admin session cannot silently weaken the platform's auth posture.
+        if ($newTwoFa === false && $currentTwoFa === true) {
+            $admin = $request->user();
+            $password = (string) $request->input('current_password', '');
+
+            if ($password === '' || !Hash::check($password, (string) $admin->getAuthPassword())) {
+                return back()
+                    ->withErrors(['current_password' => 'Your current password is required to disable 2FA enforcement.'])
+                    ->withInput();
+            }
+
+            PlatformSettingsService::set('admin_2fa_enforced', false, [
+                'description' => 'Global policy toggle requiring TOTP for all admin logins.',
+                'category' => 'general',
+            ]);
+
+            Log::warning('Admin 2FA enforcement DISABLED', [
+                'admin_id' => $admin->id,
+                'key' => 'admin_2fa_enforced',
+                'old_value' => true,
+                'new_value' => false,
+            ]);
+
+            AdminSecurityAuditLog::record(
+                $admin,
+                'policy.admin_2fa.disabled',
+                ['old_value' => true, 'new_value' => false],
+                $request
+            );
+
+            return back()->with('warning', 'Two-factor enforcement has been disabled for all admin logins.');
+        }
+
         PlatformSettingsService::set('admin_2fa_enforced', $newTwoFa, [
             'description' => 'Global policy toggle requiring TOTP for all admin logins.',
             'category' => 'general',
