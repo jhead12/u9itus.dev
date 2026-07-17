@@ -2,6 +2,7 @@
 
 use App\Models\User;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
+use Spatie\Permission\Models\Role;
 
 test('login screen can be rendered', function () {
     $response = $this->get('/login');
@@ -10,7 +11,10 @@ test('login screen can be rendered', function () {
 });
 
 test('users can authenticate using the login screen', function () {
+    Role::firstOrCreate(['name' => 'voter', 'guard_name' => 'web']);
+
     $user = User::factory()->create();
+    $user->assignRole('voter');
 
     $response = $this->post('/login', [
         'email' => $user->email,
@@ -33,7 +37,10 @@ test('users can not authenticate with invalid password', function () {
 });
 
 test('users can logout', function () {
+    Role::firstOrCreate(['name' => 'voter', 'guard_name' => 'web']);
+
     $user = User::factory()->create();
+    $user->assignRole('voter');
 
     $response = $this->actingAs($user)->post('/logout');
 
@@ -42,7 +49,10 @@ test('users can logout', function () {
 });
 
 test('logout request with stale csrf token still signs out in test environment', function () {
+    Role::firstOrCreate(['name' => 'voter', 'guard_name' => 'web']);
+
     $user = User::factory()->create();
+    $user->assignRole('voter');
 
     VerifyCsrfToken::flushState();
     $this->withMiddleware();
