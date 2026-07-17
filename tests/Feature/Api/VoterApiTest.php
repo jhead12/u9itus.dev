@@ -3,6 +3,7 @@
 namespace Tests\Feature\Api;
 
 use App\Models\Voter;
+use App\Models\VoterApiToken;
 use App\Models\PoliticalCampaign;
 use App\Models\ViewSession;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -11,6 +12,19 @@ use Tests\TestCase;
 class VoterApiTest extends TestCase
 {
     use RefreshDatabase;
+
+    /**
+     * Create a voter and issue an API token for SEC-4 bearer auth.
+     *
+     * @return array{voter: Voter, token: string}
+     */
+    private function createVoterWithToken(): array
+    {
+        $voter = Voter::factory()->create(['is_active' => true]);
+        $result = VoterApiToken::createToken($voter);
+
+        return ['voter' => $voter, 'token' => $result['token']];
+    }
 
     public function test_voter_registration_endpoint_exists(): void
     {
@@ -25,89 +39,168 @@ class VoterApiTest extends TestCase
         $this->assertContains($response->status(), [200, 201, 422, 500]);
     }
 
-    public function test_voter_profile_endpoint_exists(): void
+    public function test_voter_profile_endpoint_requires_authentication(): void
     {
         $voter = Voter::factory()->create();
 
+        // Without token → 401
         $response = $this->getJson("/api/v1/voters/{$voter->uuid}");
-
-        $this->assertContains($response->status(), [200, 404, 500]);
+        $this->assertEquals(401, $response->status());
     }
 
-    public function test_voter_available_campaigns_endpoint_exists(): void
+    public function test_voter_profile_endpoint_exists_with_token(): void
+    {
+        ['voter' => $voter, 'token' => $token] = $this->createVoterWithToken();
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/voters/{$voter->uuid}");
+
+        $this->assertContains($response->status(), [200, 404]);
+    }
+
+    public function test_voter_available_campaigns_endpoint_requires_authentication(): void
     {
         $voter = Voter::factory()->create();
 
         $response = $this->getJson("/api/v1/voters/{$voter->uuid}/campaigns");
-
-        $this->assertContains($response->status(), [200, 404, 500]);
+        $this->assertEquals(401, $response->status());
     }
 
-    public function test_voter_start_watch_endpoint_exists(): void
+    public function test_voter_available_campaigns_endpoint_exists_with_token(): void
+    {
+        ['voter' => $voter, 'token' => $token] = $this->createVoterWithToken();
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/voters/{$voter->uuid}/campaigns");
+
+        $this->assertContains($response->status(), [200, 404]);
+    }
+
+    public function test_voter_start_watch_endpoint_requires_authentication(): void
     {
         $voter = Voter::factory()->create();
         $campaign = PoliticalCampaign::factory()->create();
 
         $response = $this->postJson("/api/v1/voters/{$voter->uuid}/campaigns/{$campaign->uuid}/watch");
-
-        $this->assertContains($response->status(), [200, 201, 404, 410, 422, 429, 500]);
+        $this->assertEquals(401, $response->status());
     }
 
-    public function test_voter_view_history_endpoint_exists(): void
+    public function test_voter_start_watch_endpoint_exists_with_token(): void
+    {
+        ['voter' => $voter, 'token' => $token] = $this->createVoterWithToken();
+        $campaign = PoliticalCampaign::factory()->create();
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson("/api/v1/voters/{$voter->uuid}/campaigns/{$campaign->uuid}/watch");
+
+        $this->assertContains($response->status(), [200, 201, 404, 410, 422, 429]);
+    }
+
+    public function test_voter_view_history_endpoint_requires_authentication(): void
     {
         $voter = Voter::factory()->create();
 
         $response = $this->getJson("/api/v1/voters/{$voter->uuid}/history");
-
-        $this->assertContains($response->status(), [200, 404, 500]);
+        $this->assertEquals(401, $response->status());
     }
 
-    public function test_voter_earnings_endpoint_exists(): void
+    public function test_voter_view_history_endpoint_exists_with_token(): void
+    {
+        ['voter' => $voter, 'token' => $token] = $this->createVoterWithToken();
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/voters/{$voter->uuid}/history");
+
+        $this->assertContains($response->status(), [200, 404]);
+    }
+
+    public function test_voter_earnings_endpoint_requires_authentication(): void
     {
         $voter = Voter::factory()->create();
 
         $response = $this->getJson("/api/v1/voters/{$voter->uuid}/earnings");
-
-        $this->assertContains($response->status(), [200, 404, 500]);
+        $this->assertEquals(401, $response->status());
     }
 
-    public function test_voter_referrals_endpoint_exists(): void
+    public function test_voter_earnings_endpoint_exists_with_token(): void
+    {
+        ['voter' => $voter, 'token' => $token] = $this->createVoterWithToken();
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/voters/{$voter->uuid}/earnings");
+
+        $this->assertContains($response->status(), [200, 404]);
+    }
+
+    public function test_voter_referrals_endpoint_requires_authentication(): void
     {
         $voter = Voter::factory()->create();
 
         $response = $this->getJson("/api/v1/voters/{$voter->uuid}/referrals");
-
-        $this->assertContains($response->status(), [200, 404, 500]);
+        $this->assertEquals(401, $response->status());
     }
 
-    public function test_session_progress_tracking_endpoint_exists(): void
+    public function test_voter_referrals_endpoint_exists_with_token(): void
+    {
+        ['voter' => $voter, 'token' => $token] = $this->createVoterWithToken();
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/voters/{$voter->uuid}/referrals");
+
+        $this->assertContains($response->status(), [200, 404]);
+    }
+
+    public function test_session_progress_endpoint_requires_authentication(): void
     {
         $session = ViewSession::factory()->create();
 
         $response = $this->postJson("/api/v1/sessions/{$session->uuid}/progress", [
             'watch_time_seconds' => 30,
         ]);
-
-        $this->assertContains($response->status(), [200, 404, 422, 500]);
+        $this->assertEquals(401, $response->status());
     }
 
-    public function test_session_complete_endpoint_exists(): void
+    public function test_session_progress_tracking_endpoint_exists_with_token(): void
+    {
+        ['voter' => $voter, 'token' => $token] = $this->createVoterWithToken();
+        $session = ViewSession::factory()->create(['voter_id' => $voter->id]);
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson("/api/v1/sessions/{$session->uuid}/progress", [
+                'watch_time_seconds' => 30,
+            ]);
+
+        $this->assertContains($response->status(), [200, 404, 422]);
+    }
+
+    public function test_session_complete_endpoint_requires_authentication(): void
     {
         $session = ViewSession::factory()->create();
 
         $response = $this->postJson("/api/v1/sessions/{$session->uuid}/complete");
+        $this->assertEquals(401, $response->status());
+    }
 
-        $this->assertContains($response->status(), [200, 404, 422, 500]);
+    public function test_session_complete_endpoint_exists_with_token(): void
+    {
+        ['voter' => $voter, 'token' => $token] = $this->createVoterWithToken();
+        $session = ViewSession::factory()->create(['voter_id' => $voter->id]);
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson("/api/v1/sessions/{$session->uuid}/complete");
+
+        $this->assertContains($response->status(), [200, 404, 422]);
     }
 
     public function test_voter_endpoints_are_rate_limited(): void
     {
-        $voter = Voter::factory()->create();
+        ['voter' => $voter, 'token' => $token] = $this->createVoterWithToken();
 
         // Make multiple requests to test rate limiting
         for ($i = 0; $i < 65; $i++) {
-            $response = $this->getJson("/api/v1/voters/{$voter->uuid}");
-            
+            $response = $this->withHeader('Authorization', "Bearer {$token}")
+                ->getJson("/api/v1/voters/{$voter->uuid}");
+
             if ($response->status() === 429) {
                 // Rate limit hit - test passes
                 $this->assertEquals(429, $response->status());

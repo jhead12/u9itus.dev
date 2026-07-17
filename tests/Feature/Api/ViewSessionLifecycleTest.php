@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Models\ReferralEarning;
 use App\Models\ViewSession;
 use App\Models\Voter;
+use App\Models\VoterApiToken;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
@@ -53,14 +54,36 @@ function activeVoter(array $overrides = []): Voter
     ], $overrides));
 }
 
+/**
+ * Create a verified, active voter with an API token (SEC-4 bearer auth).
+ *
+ * @return array{voter: Voter, token: string}
+ */
+function voterWithToken(array $overrides = []): array
+{
+    $voter = activeVoter($overrides);
+    $result = VoterApiToken::createToken($voter);
+
+    return ['voter' => $voter, 'token' => $result['token']];
+}
+
+/**
+ * Build Authorization header for a voter API token.
+ */
+function bearerHeader(string $token): array
+{
+    return ['Authorization' => "Bearer {$token}"];
+}
+
 // ── Campaign availability ─────────────────────────────────────────────────────
 
 test('voter can get available campaigns', function () {
-    $voter = activeVoter(['state' => null]);  // no state → skips JSON targeting filter
+    ['voter' => $voter, 'token' => $token] = voterWithToken(['state' => null]);  // no state → skips JSON targeting filter
     activeCampaign(['target_states' => null]);
     activeCampaign(['target_states' => null]);
 
-    $response = $this->getJson("/api/v1/voters/{$voter->uuid}/campaigns");
+    $response = $this->withHeaders(bearerHeader($token))
+        ->getJson("/api/v1/voters/{$voter->uuid}/campaigns");
 
     $response->assertOk()
         ->assertJsonStructure(['campaigns'])
@@ -68,7 +91,7 @@ test('voter can get available campaigns', function () {
 });
 
 test('completed campaigns are excluded from available list', function () {
-    $voter    = activeVoter();
+    ['voter' => $voter, 'token' => $token] = voterWithToken();
     $campaign = activeCampaign();
 
     // Voter already completed this campaign
@@ -78,19 +101,21 @@ test('completed campaigns are excluded from available list', function () {
         'status'               => ViewSessionStatus::Completed->value,
     ]);
 
-    $response = $this->getJson("/api/v1/voters/{$voter->uuid}/campaigns");
+    $response = $this->withHeaders(bearerHeader($token))
+        ->getJson("/api/v1/voters/{$voter->uuid}/campaigns");
     $response->assertOk()->assertJsonCount(0, 'campaigns');
 });
 
 // ── Start view ────────────────────────────────────────────────────────────────
 
 test('voter can start a view session', function () {
-    $voter    = activeVoter();
+    ['voter' => $voter, 'token' => $token] = voterWithToken();
     $campaign = activeCampaign();
 
-    $response = $this->postJson(
-        "/api/v1/voters/{$voter->uuid}/campaigns/{$campaign->uuid}/watch"
-    );
+    $response = $this->withHeaders(bearerHeader($token))
+        ->postJson(
+            "/api/v1/voters/{$voter->uuid}/campaigns/{$campaign->uuid}/watch"
+        );
 
     $response->assertCreated()
         ->assertJsonStructure([
@@ -109,26 +134,28 @@ test('voter can start a view session', function () {
 });
 
 test('fraudulent voter cannot start view session', function () {
-    $voter    = activeVoter(['flagged_for_fraud' => true]);
+    ['voter' => $voter, 'token' => $token] = voterWithToken(['flagged_for_fraud' => true]);
     $campaign = activeCampaign();
 
-    $response = $this->postJson(
-        "/api/v1/voters/{$voter->uuid}/campaigns/{$campaign->uuid}/watch"
-    );
+    $response = $this->withHeaders(bearerHeader($token))
+        ->postJson(
+            "/api/v1/voters/{$voter->uuid}/campaigns/{$campaign->uuid}/watch"
+        );
 
     $response->assertStatus(429);
 });
 
 test('campaign that reached view goal returns 410', function () {
-    $voter    = activeVoter();
+    ['voter' => $voter, 'token' => $token] = voterWithToken();
     $campaign = activeCampaign([
         'total_views_requested' => 10,
         'views_completed'       => 10,
     ]);
 
-    $response = $this->postJson(
-        "/api/v1/voters/{$voter->uuid}/campaigns/{$campaign->uuid}/watch"
-    );
+    $response = $this->withHeaders(bearerHeader($token))
+        ->postJson(
+            "/api/v1/voters/{$voter->uuid}/campaigns/{$campaign->uuid}/watch"
+        );
 
     $response->assertStatus(410);
 });
@@ -136,7 +163,7 @@ test('campaign that reached view goal returns 410', function () {
 // ── Progress heartbeat ────────────────────────────────────────────────────────
 
 test('progress heartbeat updates watch time', function () {
-    $voter    = activeVoter();
+    ['voter' => $voter, 'token' => $token] = voterWithToken();
     $campaign = activeCampaign();
     $session  = ViewSession::factory()->create([
         'voter_id'             => $voter->id,
@@ -145,9 +172,10 @@ test('progress heartbeat updates watch time', function () {
         'watch_time_seconds'   => 0,
     ]);
 
-    $response = $this->postJson("/api/v1/sessions/{$session->uuid}/progress", [
-        'seconds_watched' => 30,
-    ]);
+    $response = $this->withHeaders(bearerHeader($token))
+        ->postJson("/api/v1/sessions/{$session->uuid}/progress", [
+            'seconds_watched' => 30,
+        ]);
 
     $response->assertOk()->assertJsonPath('status', 'ok');
 
@@ -160,7 +188,7 @@ test('progress heartbeat updates watch time', function () {
 // ── Complete view ─────────────────────────────────────────────────────────────
 
 test('completing a qualifying view credits voter pending earnings', function () {
-    $voter    = activeVoter();
+    ['voter' => $voter, 'token' => $token] = voterWithToken();
     $campaign = activeCampaign([
         'media_duration'         => 60,
         'min_watch_time_percent' => 80,
@@ -174,9 +202,10 @@ test('completing a qualifying view credits voter pending earnings', function () 
     ]);
 
     // 50/60 sec = 83.3% ≥ 80% → qualifies
-    $response = $this->postJson("/api/v1/sessions/{$session->uuid}/complete", [
-        'total_seconds_watched' => 50,
-    ]);
+    $response = $this->withHeaders(bearerHeader($token))
+        ->postJson("/api/v1/sessions/{$session->uuid}/complete", [
+            'total_seconds_watched' => 50,
+        ]);
 
     $response->assertOk()
         ->assertJsonStructure(['message', 'session'])
@@ -197,7 +226,7 @@ test('completing a qualifying view credits voter pending earnings', function () 
 });
 
 test('completing a non-qualifying view does not credit voter', function () {
-    $voter    = activeVoter();
+    ['voter' => $voter, 'token' => $token] = voterWithToken();
     $campaign = activeCampaign([
         'media_duration'         => 60,
         'min_watch_time_percent' => 80,
@@ -210,9 +239,10 @@ test('completing a non-qualifying view does not credit voter', function () {
     ]);
 
     // 20/60 sec = 33.3% < 80% → rejected
-    $response = $this->postJson("/api/v1/sessions/{$session->uuid}/complete", [
-        'total_seconds_watched' => 20,
-    ]);
+    $response = $this->withHeaders(bearerHeader($token))
+        ->postJson("/api/v1/sessions/{$session->uuid}/complete", [
+            'total_seconds_watched' => 20,
+        ]);
 
     $response->assertOk()
         ->assertJsonPath('session.payment_status', ViewPaymentStatus::Rejected->value);
@@ -225,7 +255,7 @@ test('completing a non-qualifying view does not credit voter', function () {
 
 test('completing a view creates referral earning for referrer', function () {
     $referrer = activeVoter();
-    $voter    = activeVoter(['referred_by_voter_id' => $referrer->id]);
+    ['voter' => $voter, 'token' => $token] = voterWithToken(['referred_by_voter_id' => $referrer->id]);
     $campaign = activeCampaign([
         'media_duration'         => 60,
         'min_watch_time_percent' => 80,
@@ -239,9 +269,10 @@ test('completing a view creates referral earning for referrer', function () {
     ]);
 
     // 50/60 sec = 83.3% → qualifies
-    $this->postJson("/api/v1/sessions/{$session->uuid}/complete", [
-        'total_seconds_watched' => 50,
-    ])->assertOk();
+    $this->withHeaders(bearerHeader($token))
+        ->postJson("/api/v1/sessions/{$session->uuid}/complete", [
+            'total_seconds_watched' => 50,
+        ])->assertOk();
 
     // No internal referral_earning row — voter-view commissions are handled
     // exclusively by Early-bank.com via the voter.earned outbound webhook.
@@ -259,7 +290,7 @@ test('completing a view creates referral earning for referrer', function () {
 // ── View history ──────────────────────────────────────────────────────────────
 
 test('voter can retrieve their view history', function () {
-    $voter    = activeVoter();
+    ['voter' => $voter, 'token' => $token] = voterWithToken();
     $campaign = activeCampaign();
 
     ViewSession::factory()->count(3)->create([
@@ -267,7 +298,8 @@ test('voter can retrieve their view history', function () {
         'political_campaign_id' => $campaign->id,
     ]);
 
-    $response = $this->getJson("/api/v1/voters/{$voter->uuid}/history");
+    $response = $this->withHeaders(bearerHeader($token))
+        ->getJson("/api/v1/voters/{$voter->uuid}/history");
 
     $response->assertOk()
         ->assertJsonStructure([
@@ -281,14 +313,15 @@ test('voter can retrieve their view history', function () {
 // ── Earnings ─────────────────────────────────────────────────────────────────
 
 test('voter earnings summary returns correct totals', function () {
-    $voter = activeVoter([
+    ['voter' => $voter, 'token' => $token] = voterWithToken([
         'total_earned'    => 5.00,
         'pending_earnings' => 1.25,
         'wallet_balance'  => 3.75,
         'total_views'     => 20,
     ]);
 
-    $response = $this->getJson("/api/v1/voters/{$voter->uuid}/earnings");
+    $response = $this->withHeaders(bearerHeader($token))
+        ->getJson("/api/v1/voters/{$voter->uuid}/earnings");
 
     $response->assertOk()
         ->assertJsonPath('total_earned', '5.00')
