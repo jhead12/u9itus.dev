@@ -16,10 +16,31 @@ test('users can authenticate using the login screen', function () {
     $user = User::factory()->create();
     $user->assignRole('voter');
 
+    // Debug: verify password is properly hashed
+    $rawPassword = $user->getRawOriginal('password');
+    $passwordCheck = \Illuminate\Support\Facades\Hash::check('password', $rawPassword);
+    if (! $passwordCheck) {
+        $this->fail("Password hash mismatch! Raw: {$rawPassword}");
+    }
+
+    // Debug: try Auth::attempt directly to isolate the issue
+    $directAttempt = \Illuminate\Support\Facades\Auth::attempt([
+        'email' => $user->email,
+        'password' => 'password',
+    ]);
+    if (! $directAttempt) {
+        $this->fail("Direct Auth::attempt failed! Email: {$user->email}, Raw hash: {$rawPassword}");
+    }
+
     $response = $this->post('/login', [
         'email' => $user->email,
         'password' => 'password',
     ]);
+
+    // Debug: check response status and content before asserting auth
+    if (! auth()->check()) {
+        $this->fail("Not authenticated after login POST. Status: {$response->getStatusCode()}, Content: " . substr($response->getContent(), 0, 500));
+    }
 
     $this->assertAuthenticated();
     $response->assertRedirect(route('voter.dashboard', absolute: false));
