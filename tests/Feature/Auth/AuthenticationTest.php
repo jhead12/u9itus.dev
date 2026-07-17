@@ -23,15 +23,6 @@ test('users can authenticate using the login screen', function () {
         $this->fail("Password hash mismatch! Raw: {$rawPassword}");
     }
 
-    // Debug: try Auth::attempt directly to isolate the issue
-    $directAttempt = \Illuminate\Support\Facades\Auth::attempt([
-        'email' => $user->email,
-        'password' => 'password',
-    ]);
-    if (! $directAttempt) {
-        $this->fail("Direct Auth::attempt failed! Email: {$user->email}, Raw hash: {$rawPassword}");
-    }
-
     $response = $this->post('/login', [
         'email' => $user->email,
         'password' => 'password',
