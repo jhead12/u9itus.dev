@@ -11,9 +11,6 @@ test('login screen can be rendered', function () {
 });
 
 test('users can authenticate using the login screen', function () {
-    // Enable exception handling to see the actual error
-    $this->withoutExceptionHandling();
-
     Role::firstOrCreate(['name' => 'voter', 'guard_name' => 'web']);
 
     $user = User::factory()->create();
