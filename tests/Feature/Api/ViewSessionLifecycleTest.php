@@ -169,6 +169,7 @@ test('progress heartbeat updates watch time', function () {
         'voter_id'             => $voter->id,
         'political_campaign_id' => $campaign->id,
         'status'               => ViewSessionStatus::InProgress->value,
+        'started_at'           => now()->subMinute(),
         'watch_time_seconds'   => 0,
     ]);
 
@@ -199,6 +200,7 @@ test('completing a qualifying view credits voter pending earnings', function () 
         'voter_id'             => $voter->id,
         'political_campaign_id' => $campaign->id,
         'status'               => ViewSessionStatus::InProgress->value,
+        'started_at'           => now()->subMinute(),
     ]);
 
     // 50/60 sec = 83.3% ≥ 80% → qualifies
@@ -236,6 +238,7 @@ test('completing a non-qualifying view does not credit voter', function () {
         'voter_id'             => $voter->id,
         'political_campaign_id' => $campaign->id,
         'status'               => ViewSessionStatus::InProgress->value,
+        'started_at'           => now()->subSeconds(20),
     ]);
 
     // 20/60 sec = 33.3% < 80% → rejected
@@ -266,6 +269,7 @@ test('completing a view creates referral earning for referrer', function () {
         'voter_id'             => $voter->id,
         'political_campaign_id' => $campaign->id,
         'status'               => ViewSessionStatus::InProgress->value,
+        'started_at'           => now()->subMinute(),
     ]);
 
     // 50/60 sec = 83.3% → qualifies
