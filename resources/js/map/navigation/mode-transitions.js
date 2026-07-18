@@ -5,7 +5,7 @@
  */
 import * as THREE from 'three';
 import {
-    mapMode, activeRegion, activeState, selectedState, stateData, colorMode, ACTIVE_LAYERS, DISTRICT_CONFIG,
+    mapMode, activeRegion, activeState, selectedState, stateData, statePanelRequestId, colorMode, ACTIVE_LAYERS, DISTRICT_CONFIG,
     setMapMode, setActiveRegion, setActiveState, setSelectedState, nextRequestId, setStateData, setColorMode,
 } from '../state/map-state.js';
 import { stateMeshes } from '../scene/state-meshes.js';
