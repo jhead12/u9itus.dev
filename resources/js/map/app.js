@@ -45,7 +45,7 @@ import { trackEvent } from './api/interaction.js';
 /* ── UI ── */
 import { initSearch, openSearch, closeSearch } from './ui/search.js';
 import { buildLegend, showRegionLegend, showPartyLegend } from './ui/legend.js';
-import { openStatePanel, partyClass, detectElectionPhase, renderCandidate, renderOfficeGroup, noDataNotice, initOfficesToggle } from './ui/panel-state.js';
+import { openStatePanel, partyClass, detectElectionPhase, renderCandidate, renderOfficeGroup, noDataNotice, initOfficesToggle, initCandidateCardClick } from './ui/panel-state.js';
 import { openDistrictPanel } from './ui/panel-district.js';
 import { initPopup, closePopup } from './ui/popup.js';
 import { initPolDrawer, openPolDrawer, closePolDrawer } from './ui/politician-drawer.js';
@@ -97,6 +97,7 @@ initBreadcrumb();
 initTour();
 initKeyboard();
 initOfficesToggle();
+initCandidateCardClick();
 bootDeepLink();
 
 /* Wire back button */
