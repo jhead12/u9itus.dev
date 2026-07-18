@@ -82,7 +82,7 @@ class CandidateNewsService
      *
      * @return Collection<int, CandidateNewsArticle>
      */
-    public function getForCandidateName(string $candidateName, int $limit = 5): Collection
+    public function getForCandidateName(string $candidateName, int $limit = 5, ?string $state = null): Collection
     {
         $fresh = CandidateNewsArticle::query()
             ->where('candidate_name', $candidateName)
@@ -96,7 +96,7 @@ class CandidateNewsService
             return $fresh;
         }
 
-        $this->fetchAndPersist(null, $candidateName);
+        $this->fetchAndPersist(null, $candidateName, $state);
 
         return CandidateNewsArticle::query()
             ->where('candidate_name', $candidateName)

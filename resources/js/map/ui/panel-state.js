@@ -15,6 +15,15 @@ export const OFFICE_DEFAULT_OPEN = new Set([
 ]);
 let _officeIdx = 0;
 
+function escapeHtml(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 export function partyClass(p) {
     if (!p) return 'party-I';
     const l = p.toLowerCase();
@@ -40,10 +49,12 @@ export function detectElectionPhase(candidates) {
 
 export function renderCandidate(c, color) {
     color = color || '#6366f1';
-    const _initSvg36 = window.avatarInitials(c.full_name, color, 36).replace(/'/g, "\\'");
+    const safeName = escapeHtml(c.full_name || 'Unknown Candidate');
+    const avatarSvg = window.avatarInitials(c.full_name, color, 36);
+    const fallbackDataUri = `data:image/svg+xml;utf8,${encodeURIComponent(avatarSvg)}`;
     const av = c.photo
-        ? `<img class="candidate-avatar" src="${c.photo}" loading="lazy" alt="${c.full_name}" onerror="this.outerHTML='<span class=\\'candidate-avatar-placeholder\\'>${_initSvg36}</span>'">`
-        : `<span class="candidate-avatar-placeholder">${window.avatarInitials(c.full_name, color, 36)}</span>`;
+        ? `<img class="candidate-avatar" src="${escapeHtml(c.photo)}" loading="lazy" alt="${safeName}" onerror="this.onerror=null;this.src='${fallbackDataUri}';">`
+        : `<span class="candidate-avatar-placeholder">${avatarSvg}</span>`;
     const py = c.party ? `<span class="party-pill ${partyClass(c.party)}">${c.party}</span>` : '';
     const elDate = c.general_date || c.election_date || null;
     const elDateStr = elDate ? (() => {
@@ -55,20 +66,20 @@ export function renderCandidate(c, color) {
         : '';
     const st = c.status === 'seated' ? `<span class="status-seated">● Seated</span>` : c.is_running ? `<span class="status-running">● Running 2026</span>${elBadge}` : '';
     const vf = c.verified ? `<span class="verified-badge">✓ Verified</span>` : '';
-    const popupData = JSON.stringify({ ...c, color });
+    const popupData = encodeURIComponent(JSON.stringify({ ...c, color }));
     const _slugAttr = c.profile_url
         ? (() => { try { return new URL(c.profile_url, location.origin).pathname.split('/').filter(Boolean).pop() || ''; } catch { return ''; } })()
         : '';
     return `<div class="candidate-card"
         style="border-left-color:${color};"
-        data-candidate='${popupData.replace(/'/g, '&apos;')}'
+        data-candidate="${popupData}"
         ${_slugAttr ? `data-slug="${_slugAttr}"` : ''}
-        title="Click to learn more about ${c.full_name}"
+        title="Click to learn more about ${safeName}"
         role="button" tabindex="0"
         onkeydown="if(event.key==='Enter'||event.key===' ')this.click()">
         ${av}
         <div style="flex:1;min-width:0;">
-            <div class="candidate-name">${c.full_name}</div>
+            <div class="candidate-name">${safeName}</div>
             <div class="candidate-meta">${py}${st}${vf}</div>
         </div></div>`;
 }
@@ -270,7 +281,8 @@ export function initCandidateCardClick() {
         if (!card) return;
         e.stopPropagation();
         try {
-            const c = JSON.parse(card.dataset.candidate.replace(/&apos;/g, "'"));
+            const raw = card.dataset.candidate || '';
+            const c = JSON.parse(decodeURIComponent(raw));
             const _dKey = (c.office || '').match(/([A-Z]{2}-(?:\d+|AL))/)?.[1] ?? null;
             openPolDrawer(c, c.color, {
                 population: _dKey ? (stateData?.district_populations?.[_dKey] ?? null) : null

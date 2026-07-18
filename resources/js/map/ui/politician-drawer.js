@@ -14,6 +14,68 @@ const polBodyEl = document.getElementById('pol-body');
 const polTabBtns = polDrawer.querySelectorAll('.pol-tab');
 let _polTab = 'overview';
 let _polCtx = null;
+let _overviewReqSeq = 0;
+
+function escapeHtml(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function safeUrl(url) {
+    try {
+        const parsed = new URL(url, window.location.origin);
+        if (parsed.protocol === 'http:' || parsed.protocol === 'https:') return parsed.toString();
+    } catch {}
+    return '';
+}
+
+function toEmbedUrl(url) {
+    const safe = safeUrl(url);
+    if (!safe) return '';
+
+    const ytMatch = safe.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([A-Za-z0-9_-]{11})/);
+    if (ytMatch?.[1]) return `https://www.youtube.com/embed/${ytMatch[1]}`;
+
+    const vimeoMatch = safe.match(/vimeo\.com\/(\d+)/);
+    if (vimeoMatch?.[1]) return `https://player.vimeo.com/video/${vimeoMatch[1]}`;
+
+    return safe;
+}
+
+function formatPubDate(iso) {
+    if (!iso) return 'Recent';
+    try {
+        return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    } catch {
+        return 'Recent';
+    }
+}
+
+async function loadOverviewEnrichment(cand) {
+    const reqSeq = ++_overviewReqSeq;
+    const params = new URLSearchParams();
+    params.set('full_name', cand?.full_name || '');
+    if (cand?.slug) params.set('slug', cand.slug);
+    if (activeState) params.set('state', activeState);
+    if (cand?.office) params.set('office', cand.office);
+    if (cand?.scrape_source) params.set('scrape_source', cand.scrape_source);
+    if (cand?.external_candidate_id) params.set('external_candidate_id', cand.external_candidate_id);
+
+    try {
+        const res = await fetch(`/api/v1/map/candidate-overview?${params.toString()}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!_polCtx || reqSeq !== _overviewReqSeq) return;
+        _polCtx.extra = { ..._polCtx.extra, enrichment: data };
+        if (_polTab === 'overview') _renderPolBody();
+    } catch {
+        // Silent fallback: overview still renders base candidate data.
+    }
+}
 
 const INDUSTRY_MOCK = [
     { name: 'Finance & Banking', pct: 64 },
@@ -26,6 +88,7 @@ const INDUSTRY_MOCK = [
 
 export function openPolDrawer(cand, accentColor, extra = {}) {
     _polCtx = { cand, accentColor: accentColor || '#6366f1', extra };
+    loadOverviewEnrichment(cand);
     _polTab = 'overview';
     polTabBtns.forEach(t => {
         t.classList.toggle('active', t.dataset.tab === 'overview');
@@ -85,6 +148,7 @@ export function openPolDrawer(cand, accentColor, extra = {}) {
 }
 
 export function closePolDrawer() {
+    _overviewReqSeq++;
     polDrawer.classList.remove('open');
     setTimeout(() => { if (!polDrawer.classList.contains('open')) polDrawer.setAttribute('hidden', ''); }, 340);
     _polCtx = null;
@@ -143,6 +207,48 @@ function _renderPolBody() {
         const bioHtml = c.bio
             ? `<p class="pol-section-label">About</p><p class="pol-bio">${c.bio}</p>`
             : '';
+        const enrichment = extra?.enrichment || null;
+        const news = Array.isArray(enrichment?.news) ? enrichment.news.slice(0, 3) : [];
+        const activeVideo = enrichment?.active_video || null;
+        const activeVideoUrl = safeUrl(activeVideo?.url || '');
+        const activeVideoEmbed = activeVideoUrl ? toEmbedUrl(activeVideoUrl) : '';
+
+        let videoHtml = '';
+        if (activeVideoUrl) {
+            videoHtml = `
+                <p class="pol-section-label" style="margin-top:16px;">Active Campaign Feed</p>
+                <div style="border:1px solid rgba(148,163,184,0.24);border-radius:10px;overflow:hidden;background:rgba(15,23,42,0.6);">
+                    <div style="padding:8px 10px;border-bottom:1px solid rgba(148,163,184,0.18);font-size:11px;color:#cbd5e1;font-weight:600;">${escapeHtml(activeVideo.title || 'Campaign Video')}</div>
+                    <div style="position:relative;padding-top:56.25%;background:#020617;">
+                        <iframe
+                            src="${escapeHtml(activeVideoEmbed)}"
+                            title="Campaign video feed"
+                            style="position:absolute;inset:0;width:100%;height:100%;border:0;"
+                            loading="lazy"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                            referrerpolicy="strict-origin-when-cross-origin"
+                            allowfullscreen></iframe>
+                    </div>
+                    <div style="padding:8px 10px;font-size:11px;color:#64748b;">Source: ${escapeHtml(activeVideo.source || 'campaign')}</div>
+                </div>`;
+        }
+
+        let newsHtml = '';
+        if (news.length) {
+            newsHtml = `
+                <p class="pol-section-label" style="margin-top:16px;">Recent News</p>
+                <div style="display:grid;gap:8px;">
+                    ${news.map(item => {
+                        const href = safeUrl(item.source_url || '');
+                        if (!href) return '';
+                        return `<a href="${escapeHtml(href)}" target="_blank" rel="noopener" style="display:block;text-decoration:none;padding:8px 10px;border-radius:8px;border:1px solid rgba(148,163,184,0.2);background:rgba(15,23,42,0.5);">
+                            <div style="font-size:12px;color:#e2e8f0;font-weight:600;line-height:1.4;">${escapeHtml(item.headline || 'Article')}</div>
+                            <div style="margin-top:4px;font-size:10px;color:#94a3b8;">${escapeHtml(item.source_name || item.provider || 'News')} · ${escapeHtml(formatPubDate(item.published_at))}</div>
+                        </a>`;
+                    }).join('')}
+                </div>`;
+        }
+
         polBodyEl.innerHTML = `
             <div class="pol-stat-grid">
                 <div class="pol-stat">
@@ -162,7 +268,9 @@ function _renderPolBody() {
                     <span class="pol-stat-lbl">Next Election</span>
                 </div>
             </div>
-            ${bioHtml}`;
+            ${bioHtml}
+            ${videoHtml}
+            ${newsHtml}`;
 
     } else if (_polTab === 'economy') {
         polBodyEl.innerHTML = `

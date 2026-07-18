@@ -43,6 +43,18 @@ This document describes the complete system architecture for U9itus that can be 
     - GET /api/v1/politicians/{id}/campaigns
     - POST /api/v1/politicians/{id}/billing/purchase
 
+
+#### Citizen Dashboard
+
+- **Type**: UI
+- **Technology**: Laravel Blade + Tailwind CSS
+- **URL**: /Citizen/\*
+- **Endpoints Used**:
+    - POST /api/v1/citizens
+    - POST /api/v1/citizens/{id}/campaigns
+    - GET /api/v1/citizens/{id}/campaigns
+    - POST /api/v1/citizens/{id}/billing/purchase
+
 #### Voter Dashboard
 
 - **Type**: UI
@@ -65,6 +77,18 @@ This document describes the complete system architecture for U9itus that can be 
     - POST /api/v1/admin/campaigns/{id}/reject
     - GET /api/v1/admin/voters/flagged
     - POST /api/v1/admin/payouts/process
+
+    #### Permission Dashboard
+
+- **Type**: UI
+- **Technology**: Laravel Blade + Tailwind CSS
+- **URL**: /company_name/\*
+- **Endpoints Used**:
+    - GET /api/v1/company_name/campaigns/pending
+    - POST /api/v1/company_name/campaigns/{id}/approve
+    - POST /api/v1/company_name/campaigns/{id}/reject
+    - GET /api/v1/company_name/voters/flagged
+    - POST /api/v1/company_name/payouts/process
 
 #### Laravel Welcome Page
 
@@ -102,7 +126,7 @@ This document describes the complete system architecture for U9itus that can be 
 - **Responsibilities**:
     - Session-based authentication
     - API token management
-    - Role-based access control (admin, politician, voter)
+    - Role-based access control (admin, politician, voter, citizen)
     - Email verification
 
 #### Campaign Management Service
@@ -117,4 +141,4 @@ This document describes the complete system architecture for U9itus that can be 
 
 ---
 
-... (document truncated here for brevity, original content preserved in repo)
+

@@ -234,6 +234,8 @@ class MapStateCandidatesController
             $seenGlobal[strtolower($pol->full_name)] = true;
             $grouped[$canonical]['candidates'][] = [
                 'source'          => 'platform',
+                'scrape_source'   => null,
+                'external_candidate_id' => null,
                 'uuid'            => $pol->uuid,
                 'full_name'       => $pol->full_name,
                 'party'           => $pol->party_affiliation,
@@ -307,6 +309,8 @@ class MapStateCandidatesController
             $recStatus = $payload['status'] ?? 'running';
             $grouped[$canonical]['candidates'][] = [
                 'source'          => 'scraped',
+                'scrape_source'   => $rec->source,
+                'external_candidate_id' => $rec->external_candidate_id,
                 'uuid'            => null,
                 'full_name'       => $rec->full_name,
                 'party'           => $rec->party_affiliation,
@@ -408,6 +412,9 @@ class MapStateCandidatesController
                 continue;
             }
             $houseCandidates[$distKey][] = [
+                'source'          => 'platform',
+                'scrape_source'   => null,
+                'external_candidate_id' => null,
                 'full_name'       => $pol->full_name,
                 'party'           => $pol->party_affiliation,
                 'photo'           => $pol->profile_photo_url
@@ -432,6 +439,9 @@ class MapStateCandidatesController
         foreach ($cityOfficials as $pol) {
             $cityKey = $pol->city ?? 'Unknown City';
             $cityOfficialsGrouped[$cityKey][] = [
+                'source'          => 'platform',
+                'scrape_source'   => null,
+                'external_candidate_id' => null,
                 'full_name'       => $pol->full_name,
                 'political_office'=> $pol->political_office,
                 'governance_level'=> $pol->governance_level,
