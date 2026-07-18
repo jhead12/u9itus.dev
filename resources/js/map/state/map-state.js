@@ -33,12 +33,14 @@ export const ACTIVE_LAYERS = new Set();
 /** Governor party by state abbreviation — populated by ensureGovernorParties() */
 export let govPartyByAbbr = {};
 
-/** District config — populated by initDistrictConfig() */
+/** District config — populated by initDistrictConfig().
+ *  Fallback values mirror the 119th Congress (safe until the first daily sync). */
 export const DISTRICT_CONFIG = {
     congress_number: 119,
-    congress_label: '119th Congress',
+    tigerweb_layer: 0,
     cd_field: 'CD119',
-    party_map_url: null,
+    congress_label: '119th Congress (2025–2027)',
+    party_map: null,   // null = use the static DISTRICT_PARTY_MAP fallback
 };
 
 /** Per-state district cache for TIGERweb GeoJSON */

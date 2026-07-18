@@ -5,23 +5,23 @@
 
 export const REGIONS = {
     'Northeast': {
-        hex: '#6366f1',
+        color: 0x6366f1, hex: '#6366f1',
         states: ['Connecticut','Delaware','Maine','Maryland','Massachusetts','New Hampshire','New Jersey','New York','Pennsylvania','Rhode Island','Vermont'],
     },
     'Southeast': {
-        hex: '#f59e0b',
+        color: 0xf59e0b, hex: '#f59e0b',
         states: ['Alabama','Arkansas','Florida','Georgia','Kentucky','Louisiana','Mississippi','North Carolina','South Carolina','Tennessee','Virginia','West Virginia'],
     },
     'Midwest': {
-        hex: '#10b981',
+        color: 0x10b981, hex: '#10b981',
         states: ['Illinois','Indiana','Iowa','Kansas','Michigan','Minnesota','Missouri','Nebraska','North Dakota','Ohio','South Dakota','Wisconsin'],
     },
     'Southwest': {
-        hex: '#ef4444',
+        color: 0xef4444, hex: '#ef4444',
         states: ['Arizona','Colorado','Nevada','New Mexico','Oklahoma','Texas','Utah'],
     },
     'West': {
-        hex: '#06b6d4',
+        color: 0x06b6d4, hex: '#06b6d4',
         states: ['Alaska','California','Hawaii','Idaho','Montana','Oregon','Washington','Wyoming'],
     },
 };

@@ -4,56 +4,39 @@
 import * as THREE from 'three';
 import * as topojson from 'topojson-client';
 import { mapGroup } from './setup.js';
-import { project, buildShapeFromRings } from './projection.js';
-import { REGIONS, STATE_ABBR_MAP, PARTY_INT, stateToRegion } from '../config/constants.js';
-import { mapMode, colorMode, ACTIVE_LAYERS } from '../state/map-state.js';
+import { buildShapeFromRings } from './projection.js';
+import { REGIONS, stateToRegion } from '../config/constants.js';
 
 export const stateMeshes = [];
 
-export function buildState(feat) {
-    const name = feat.properties.name;
+export function buildState(feature) {
+    const name       = feature.properties.name;
     const regionName = stateToRegion[name];
-    const region = REGIONS[regionName];
-    const hex = region ? region.hex : '#6366f1';
-    const colorInt = parseInt(hex.slice(1), 16);
-
-    const polys = feat.geometry.type === 'MultiPolygon'
-        ? feat.geometry.coordinates
-        : [feat.geometry.coordinates];
+    const region     = REGIONS[regionName];
+    const color      = region ? region.color : 0x334155;
+    const polys      = feature.geometry.type === 'MultiPolygon'
+        ? feature.geometry.coordinates
+        : [feature.geometry.coordinates];
 
     const group = new THREE.Group();
+    group.userData.stateName = name;
+
     for (const poly of polys) {
         const shape = buildShapeFromRings(poly);
         if (!shape) continue;
-        const geo = new THREE.ExtrudeGeometry(shape, { depth: 0.2, bevelEnabled: false });
-        const mat = new THREE.MeshPhongMaterial({
-            color: colorInt,
-            transparent: true,
-            opacity: 1.0,
-            shininess: 15,
-        });
+        const geo = new THREE.ExtrudeGeometry(shape, { depth: 0.25, bevelEnabled: false });
+        const mat = new THREE.MeshLambertMaterial({ color });
         const mesh = new THREE.Mesh(geo, mat);
-        mesh.userData = {
-            name, regionName, region, hex,
-            originalColor: colorInt,
-            hoverColor: new THREE.Color(colorInt).lerp(new THREE.Color(0xffffff), 0.35).getHex(),
-        };
+        mesh.userData = { name, regionName, region, originalColor: color };
         group.add(mesh);
         stateMeshes.push(mesh);
-    }
 
-    // Border outline
-    for (const poly of polys) {
-        const pts = [];
-        for (const coord of poly[0]) {
-            const p = project(coord);
-            if (p) pts.push(new THREE.Vector3(p[0], p[1], 0.21));
-        }
-        if (pts.length > 2) {
-            const lineGeo = new THREE.BufferGeometry().setFromPoints(pts);
-            const lineMat = new THREE.LineBasicMaterial({ color: 0x818cf8, transparent: true, opacity: 0.35 });
-            group.add(new THREE.Line(lineGeo, lineMat));
-        }
+        // Dark border outline (EdgesGeometry includes the extruded side walls + top rim)
+        const eg = new THREE.EdgesGeometry(geo, 2);
+        group.add(new THREE.LineSegments(
+            eg,
+            new THREE.LineBasicMaterial({ color: 0x090d1f, transparent: true, opacity: 0.85 }),
+        ));
     }
 
     return group;

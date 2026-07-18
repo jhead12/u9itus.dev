@@ -76,6 +76,19 @@ php artisan imports:check-california-health --max-age-hours=30
 - Scheduler logs (if configured): `storage/logs/scheduler.log`
 - Queue logs (if configured): `storage/logs/queue-worker.log`
 
+## Future Development
+
+Expand the import workflow to cover all 50 states and US Territories:
+
+- Generalize the sync and health-check commands to accept a `--state` flag (e.g. `imports:sync --state=CA`, `imports:check-health --state=PR`).
+- Build a state/territory registry (config or database table) that defines endpoint, format, and schedule per jurisdiction.
+- Scale the scheduler to run per-state sync jobs on their own cadences and time zones.
+- Update the admin dashboard (`/admin/imports`) to filter and aggregate metrics across all jurisdictions.
+- Extend notifications to be per-jurisdiction (`success`, `failure`, `stale`) and support a digest mode.
+- Add onboarding runbook for adding a new state/territory import (config, mapping, tests).
+
+Target jurisdictions: all 50 US states plus territories (PR, GU, MP, VI, AS, DC).
+
 ## Change Notes
 
 - Import monitoring route: `/admin/imports`

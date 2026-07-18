@@ -40,16 +40,30 @@ async function loadCongressionalDistricts(fips) {
     const cdField = DISTRICT_CONFIG.cd_field;
     const params = new URLSearchParams({
         where: `STATE='${fips}'`,
-        outFields: `STATE,${cdField}`,
+        outFields: `STATE,${cdField},NAME,GEOID`,
         returnGeometry: 'true',
         f: 'geojson',
+        geometryPrecision: '3',
         inSR: '4326',
         outSR: '4326',
     });
 
-    const res = await fetch(`${getTigerwebUrl()}?${params}`);
-    const data = await res.json();
-    const features = data.features || [];
+    // cache:'no-store' bypasses the browser HTTP cache — prevents
+    // ERR_CACHE_WRITE_FAILURE when the cache is full after national load.
+    // Retry once on any network failure.
+    let data;
+    for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+            const res = await fetch(`${getTigerwebUrl()}?${params}`, { cache: 'no-store' });
+            data = await res.json();
+            if (data.features?.length) break;
+        } catch (e) {
+            if (attempt === 1) throw e;
+            await new Promise(r => setTimeout(r, 600));
+        }
+    }
+    const features = data?.features || [];
+    if (!features.length) throw new Error(`No districts returned for FIPS ${fips}`);
     districtCache[fips] = features;
     return features;
 }

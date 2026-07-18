@@ -2,57 +2,63 @@
  * Camera animation utilities — flyTo, flyToMeshes, flyToMeshesTopDown.
  */
 import * as THREE from 'three';
-import { camera, controls } from './setup.js';
+import { camera, controls, W, H } from './setup.js';
 
-const FLY_DURATION = 900;
-
-function easeOutCubic(t) {
-    return 1 - Math.pow(1 - t, 3);
-}
-
-export function flyTo(targetPos, targetLookAt, duration = FLY_DURATION) {
+function flyTo(endPos, endLook, duration = 950) {
     const startPos  = camera.position.clone();
-    const startLook  = controls.target.clone();
-    const startTime = performance.now();
-
+    const startLook = controls.target.clone();
+    const t0 = performance.now();
     function tick() {
-        const elapsed = performance.now() - startTime;
-        const t = Math.min(elapsed / duration, 1);
-        const e = easeOutCubic(t);
-
-        camera.position.lerpVectors(startPos, targetPos, e);
-        controls.target.lerpVectors(startLook, targetLookAt, e);
+        const raw = Math.min((performance.now() - t0) / duration, 1);
+        // easeInOutQuad
+        const t = raw < 0.5 ? 2 * raw * raw : -1 + (4 - 2 * raw) * raw;
+        camera.position.lerpVectors(startPos, endPos, t);
+        controls.target.lerpVectors(startLook, endLook, t);
         controls.update();
-
-        if (t < 1) requestAnimationFrame(tick);
+        if (raw < 1) requestAnimationFrame(tick);
     }
     requestAnimationFrame(tick);
 }
 
-export function flyToMeshes(meshes, padding = 1.4) {
-    if (!meshes.length) return;
+/* Angled 3D fly-to — used for region zoom (looks dramatic) */
+export function flyToMeshes(meshList, padFactor = 1.5) {
+    if (!meshList.length) return;
     const box = new THREE.Box3();
-    for (const m of meshes) {
-        m.geometry.computeBoundingBox();
-        box.expandByObject(m);
-    }
-    const center = box.getCenter(new THREE.Vector3());
-    const size   = box.getSize(new THREE.Vector3());
-    const dist   = Math.max(size.x, size.y) * padding;
-    const pos    = new THREE.Vector3(center.x, center.y + dist * 0.9, dist);
-    flyTo(pos, center);
+    meshList.forEach(m => box.expandByObject(m));
+    const center = new THREE.Vector3(); box.getCenter(center);
+    const size   = new THREE.Vector3(); box.getSize(size);
+    const fov    = camera.fov * Math.PI / 180;
+    const halfH  = Math.max(size.x / (W() / H()), size.y) / 2;
+    let dist = (halfH / Math.tan(fov / 2)) * padFactor;
+    dist = Math.max(dist, 2.5);
+    const endPos  = new THREE.Vector3(center.x, center.y + dist * 0.35, center.z + dist * 0.93);
+    const endLook = new THREE.Vector3(center.x, center.y, 0);
+    flyTo(endPos, endLook);
 }
 
-export function flyToMeshesTopDown(meshes, padding = 1.4) {
-    if (!meshes.length) return;
+/* Top-down fly-to — used when zooming into a state or district.
+ *
+ * The map geometry lies in the XY plane; extrusions go along +Z toward
+ * the viewer. A "top-down" view means the camera should be high on the Z
+ * axis with only a tiny Y offset for a slight north tilt (so the state
+ * still reads left=west, right=east, top=north). */
+export function flyToMeshesTopDown(meshList, padFactor = 1.25) {
+    if (!meshList.length) return;
     const box = new THREE.Box3();
-    for (const m of meshes) {
-        m.geometry.computeBoundingBox();
-        box.expandByObject(m);
-    }
-    const center = box.getCenter(new THREE.Vector3());
-    const size   = box.getSize(new THREE.Vector3());
-    const dist   = Math.max(size.x, size.y) * padding;
-    const pos    = new THREE.Vector3(center.x, dist * 1.1, center.z + 0.1);
-    flyTo(pos, center);
+    meshList.forEach(m => box.expandByObject(m));
+    const center = new THREE.Vector3(); box.getCenter(center);
+    const size   = new THREE.Vector3(); box.getSize(size);
+    const fov    = camera.fov * Math.PI / 180;
+    // W() already returns the panel-adjusted width on desktop
+    const effectiveAspect = W() / H();
+    const halfH = Math.max(size.x / effectiveAspect, size.y) / 2;
+    let dist = (halfH / Math.tan(fov / 2)) * padFactor;
+    dist = Math.max(dist, 1.5);
+    // Camera almost directly above: high Z, slight Y tilt
+    const endPos  = new THREE.Vector3(center.x, center.y + dist * 0.18, dist * 0.98);
+    const endLook = new THREE.Vector3(center.x, center.y, 0);
+    flyTo(endPos, endLook, 1000);
+
 }
+
+export { flyTo };

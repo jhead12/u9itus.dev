@@ -4,58 +4,66 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
+const container = document.getElementById('map-container');
+
+/**
+ * Effective canvas width: on desktop (>768px) subtract the panel width
+ * when the panel is open so the map renders centered in the visible area,
+ * not behind the side panel.
+ */
+const PANEL_WIDTH = 324; // panel width (300px) + right margin (12px) + border
+export function W() {
+    const panel = document.getElementById('info-panel');
+    if (window.innerWidth > 768 && panel && panel.classList.contains('open')) {
+        return Math.max(container.clientWidth - PANEL_WIDTH, 200);
+    }
+    return container.clientWidth;
+}
+export function H() { return container.clientHeight; }
+
 export const scene = new THREE.Scene();
-export const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 100);
+scene.background = new THREE.Color(0x06091a);
+scene.fog = new THREE.FogExp2(0x060914, 0.004);
+
+// Default overview framing — tuned so the lower-48 + Alaska/Hawaii inset
+// fills ~70% of the viewport width (matches design reference).
+export const camera = new THREE.PerspectiveCamera(42, W() / H(), 0.1, 300);
 camera.position.set(0, 5.4, 10.2);
-camera.up.set(0, 1, 0);
 
-export const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+export const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(W(), H());
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setClearColor(0x06091a, 1);
-renderer.setAnimationLoop(() => {}); // will be replaced by render loop
+container.appendChild(renderer.domElement);
 
-document.getElementById('map-container').appendChild(renderer.domElement);
+/* Flat-map lighting: strong even ambient, minimal directional shadow */
+scene.add(new THREE.AmbientLight(0xffffff, 1.7));
+const sun = new THREE.DirectionalLight(0xffffff, 0.18);
+sun.position.set(0, 20, 10);
+scene.add(sun);
 
 export const controls = new OrbitControls(camera, renderer.domElement);
-controls.enableDamping  = true;
-controls.dampingFactor   = 0.06;
-controls.minDistance      = 2;
-controls.maxDistance      = 25;
-controls.minPolarAngle   = Math.PI * 0.08;  // max tilt: ~85° from vertical
-controls.maxPolarAngle   = Math.PI * 0.46;  // min tilt: ~26° from vertical
-controls.enablePan       = true;
-controls.panSpeed         = 0.6;
-controls.enableRotate    = true;
-controls.rotateSpeed     = 0.35;
+controls.enableDamping = true;
+controls.dampingFactor = 0.07;
+controls.minDistance = 2;
+controls.maxDistance = 45;
+controls.minPolarAngle = 15 * Math.PI / 180;   // 15° — near top-down
+controls.maxPolarAngle = 130 * Math.PI / 180;  // 130° — past horizontal (opposite tilt)
 controls.target.set(0, 0, 0);
 
-/* Lights */
-const hemiLight = new THREE.HemisphereLight(0xc8d8f0, 0x1a2040, 0.7);
-scene.add(hemiLight);
-
-const dirLight = new THREE.DirectionalLight(0xffffff, 0.55);
-dirLight.position.set(5, 10, 8);
-scene.add(dirLight);
-
-const fillLight = new THREE.DirectionalLight(0x818cf8, 0.25);
-fillLight.position.set(-5, 6, -4);
-scene.add(fillLight);
-
-/* Starfield */
-const starGeo = new THREE.BufferGeometry();
-const starPos = new Float32Array(2400);
-for (let i = 0; i < 2400; i++) starPos[i] = (Math.random() - 0.5) * 50;
-starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
-const starMat = new THREE.PointsMaterial({ color: 0x667799, size: 0.04 });
-scene.add(new THREE.Points(starGeo, starMat));
+/* Stars — spherical shell so they read as a distant skybox */
+const sBuf = new Float32Array(2000 * 3);
+for (let i = 0; i < 2000; i++) {
+    const r = 80 + Math.random() * 100, th = Math.random() * Math.PI * 2, ph = Math.acos(2 * Math.random() - 1);
+    sBuf[i * 3]     = r * Math.sin(ph) * Math.cos(th);
+    sBuf[i * 3 + 1] = r * Math.sin(ph) * Math.sin(th);
+    sBuf[i * 3 + 2] = r * Math.cos(ph);
+}
+const sGeo = new THREE.BufferGeometry();
+sGeo.setAttribute('position', new THREE.BufferAttribute(sBuf, 3));
+scene.add(new THREE.Points(sGeo, new THREE.PointsMaterial({ color: 0x8899cc, size: 0.18, sizeAttenuation: true })));
 
 /* Background plane */
-const bgGeo = new THREE.PlaneGeometry(30, 20);
-const bgMat = new THREE.MeshBasicMaterial({ color: 0x06091a });
-const bgPlane = new THREE.Mesh(bgGeo, bgMat);
-bgPlane.position.z = -2;
-scene.add(bgPlane);
+scene.add(new THREE.Mesh(new THREE.PlaneGeometry(22, 14), new THREE.MeshLambertMaterial({ color: 0x0b1429 })));
 
 /* Main group for all map meshes */
 export const mapGroup = new THREE.Group();
@@ -63,13 +71,12 @@ scene.add(mapGroup);
 
 /* Resize */
 export function resizeRenderer() {
-    const container = document.getElementById('map-container');
-    if (!container) return;
-    const w = container.clientWidth;
-    const h = container.clientHeight;
-    renderer.setSize(w, h);
-    camera.aspect = w / h;
+    camera.aspect = W() / H();
     camera.updateProjectionMatrix();
+    renderer.setSize(W(), H(), false); // false = don't update canvas CSS size
+    // Offset the canvas so it fills only the map area (not under the panel)
+    renderer.domElement.style.width = W() + 'px';
+    renderer.domElement.style.height = H() + 'px';
 }
 
 resizeRenderer();
