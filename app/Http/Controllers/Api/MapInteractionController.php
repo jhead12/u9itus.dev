@@ -25,6 +25,20 @@ class MapInteractionController extends Controller
     /** Maximum allowed length for free-text meta fields. */
     private const MAX_META_BYTES = 512;
 
+    /** Maps common full party names to the single-letter codes we store. */
+    private const PARTY_MAP = [
+        'republican' => 'R',
+        'gop'        => 'R',
+        'democratic' => 'D',
+        'democrat'   => 'D',
+        'libertarian'=> 'L',
+        'green'      => 'G',
+        'independent'=> 'I',
+        'unknown'    => null,
+        'unaffiliated'=> null,
+        'u'          => 'U',
+    ];
+
     /**
      * POST /api/v1/map/interaction
      *
@@ -54,7 +68,7 @@ class MapInteractionController extends Controller
                 'state'          => ['nullable', 'string', 'max:64'],
                 'state_abbr'     => ['nullable', 'string', 'max:4'],
                 'district'       => ['nullable', 'string', 'max:16'],
-                'party'          => ['nullable', 'string', 'max:8'],
+                'party'          => ['nullable', 'string', 'max:32'],
                 'candidate_name' => ['nullable', 'string', 'max:128'],
                 'candidate_slug' => ['nullable', 'string', 'max:255'],
                 'meta'           => ['nullable', 'array'],
@@ -74,6 +88,10 @@ class MapInteractionController extends Controller
                 $data['meta'] = $this->sanitiseMeta($data['meta']);
             }
 
+            if (isset($data['party'])) {
+                $data['party'] = $this->normaliseParty($data['party']);
+            }
+
             MapInteractionEvent::create([
                 ...$data,
                 'ip_hash'          => $ipHash,
@@ -88,6 +106,27 @@ class MapInteractionController extends Controller
             Log::warning('[MapInteraction] store failed: ' . $e->getMessage());
             return response()->json(['ok' => false], 500);
         }
+    }
+
+    /**
+     * Normalise a party value to a single-letter code.
+     * Accepts full names from the frontend and maps them to R/D/L/G/I/U.
+     * Unknown/unaffiliated values become null so they don't pollute analytics.
+     */
+    private function normaliseParty(?string $party): ?string
+    {
+        if ($party === null) {
+            return null;
+        }
+
+        $key = strtolower(trim($party));
+        if (isset(self::PARTY_MAP[$key])) {
+            return self::PARTY_MAP[$key];
+        }
+
+        // Single-letter fallback (R, D, I, L, G, U, …)
+        $first = strtoupper($key[0]);
+        return strlen($first) <= 1 ? $first : null;
     }
 
     /**
