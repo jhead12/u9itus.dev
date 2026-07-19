@@ -43,6 +43,10 @@ class Voter extends Model
         'earlybank_linked_at',
         'earlybank_own_member_uuid',
         'earlybank_own_linked_at',
+        'earlybank_payouts_enabled',
+        'earlybank_stripe_connect_account_id',
+        'earlybank_stripe_connect_onboarding_complete',
+        'earlybank_subscription_status',
         'referral_code',
         'user_tier',               // 'early_adopter', 'regular', null
         'early_adopter_until',     // Expiry timestamp for early adopter status
@@ -81,6 +85,9 @@ class Voter extends Model
             'early_adopter_until' => 'datetime',
             'earlybank_linked_at' => 'datetime',
             'earlybank_own_linked_at' => 'datetime',
+            'earlybank_payouts_enabled' => 'boolean',
+            'earlybank_stripe_connect_onboarding_complete' => 'boolean',
+            'earlybank_subscription_status' => 'string',
         ];
     }
 
@@ -148,6 +155,14 @@ class Voter extends Model
     }
 
     /**
+     * Inbound Early-bank earnings reported for this voter.
+     */
+    public function earlybankEarnings(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(EarlyBankEarning::class, 'voter_id');
+    }
+
+    /**
      * Fraud signals raised against this voter (Phase 8).
      */
     public function fraudSignals(): \Illuminate\Database\Eloquent\Relations\HasMany
@@ -187,6 +202,19 @@ class Voter extends Model
     public function getRouteKeyName(): string
     {
         return 'uuid';
+    }
+
+    /**
+     * Sum of Early-bank reported earnings (settled + pending). EB remains the
+     * source of truth; this is for display only.
+     */
+    public function getEarlybankEarningsTotalAttribute(): float
+    {
+        if ($this->relationLoaded('earlybankEarnings')) {
+            return (float) $this->earlybankEarnings->sum('payout_amount');
+        }
+
+        return (float) $this->earlybankEarnings()->sum('payout_amount');
     }
 
     /**

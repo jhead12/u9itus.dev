@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Citizen;
 use App\Models\Politician;
 use App\Models\ViewSession;
 use App\Models\Voter;
+use App\Services\EarlyBankInboundService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -26,6 +28,36 @@ use Illuminate\Support\Facades\Validator;
  */
 class EarlyBankController extends Controller
 {
+    /**
+     * POST /api/v1/earlybank/webhook
+     *
+     * Receives signed inbound events from Early-bank.com (commissions, bonuses,
+     * and member status updates). Requests are authenticated by the shared
+     * `earlybank.api` bearer middleware and then by HMAC signature verification.
+     *
+     * Always returns 200 for verified requests so EB's retry queue does not
+     * back up; unverified requests return 401. A JSON body explains whether the
+     * event was processed.
+     */
+    public function webhook(Request $request, EarlyBankInboundService $service): JsonResponse
+    {
+        $result = $service->handleWebhook($request);
+
+        if (! $result['verified']) {
+            return response()->json([
+                'status'  => 'unverified',
+                'error'   => $result['error'],
+                'event_id' => $result['event_id'],
+            ], 401);
+        }
+
+        return response()->json([
+            'status'    => $result['processed'] ? 'processed' : 'accepted',
+            'event_id'  => $result['event_id'],
+            'error'     => $result['error'],
+        ]);
+    }
+
     /**
      * POST /api/v1/earlybank/register-referral
      *
@@ -104,12 +136,13 @@ class EarlyBankController extends Controller
             ->first();
 
         return response()->json([
-            'voter_uuid'          => $voter->uuid,
-            'earlybank_member_id' => $voter->earlybank_member_id,
-            'sessions_completed'  => (int) ($completed->sessions ?? 0),
-            'total_voter_payout'  => (float) ($completed->total_payout ?? 0),
-            'wallet_balance'      => (float) $voter->wallet_balance,
-            'total_earned'        => (float) $voter->total_earned,
+            'voter_uuid'              => $voter->uuid,
+            'earlybank_member_id'     => $voter->earlybank_member_id,
+            'sessions_completed'      => (int) ($completed->sessions ?? 0),
+            'total_voter_payout'      => (float) ($completed->total_payout ?? 0),
+            'wallet_balance'          => (float) $voter->wallet_balance,
+            'total_earned'            => (float) $voter->total_earned,
+            'earlybank_earnings_total' => (float) $voter->earlybank_earnings_total,
         ]);
     }
 
@@ -188,30 +221,43 @@ class EarlyBankController extends Controller
             'earlybank_member_id'      => $voter->earlybank_member_id,       // who referred them
             'earlybank_own_member_uuid' => $voter->earlybank_own_member_uuid, // their own EB membership (null if not yet linked)
             'earlybank_own_linked_at'  => optional($voter->earlybank_own_linked_at)->toIso8601String(),
+            'earlybank_payouts_enabled'              => (bool) $voter->earlybank_payouts_enabled,
+            'earlybank_stripe_connect_onboarding_complete' => (bool) $voter->earlybank_stripe_connect_onboarding_complete,
         ]);
     }
 
     /**
      * POST /api/v1/earlybank/member-enrolled
      *
-     * Called by Early-bank.com when a U9itus user (voter or politician) joins
-     * Early-bank as a paying member. Stores their own EB member UUID on the
-     * appropriate model so U9itus can display their personal EB referral link.
+     * Called by Early-bank.com when a U9itus user (voter, politician, or
+     * citizen) joins Early-bank as a paying member. Stores their own EB member
+     * UUID on the appropriate model so U9itus can display their personal EB
+     * referral link, plus the member's Stripe Connect / payouts state so U9itus
+     * can gate that surface on onboarding completion.
      *
      * Body: {
-     *   uuid:         string (the U9itus voter or politician uuid),
-     *   member_uuid:  string (the Early-bank member UUID),
-     *   u9itus_role:  'voter' | 'politician' | 'citizen'
+     *   uuid:                                  string (U9itus voter|politician|citizen uuid),
+     *   member_uuid:                            string (Early-bank member UUID),
+     *   u9itus_role:                            'voter' | 'politician' | 'citizen',
+     *   payouts_enabled:                        bool (optional),
+     *   stripe_connect_account_id:              string|null (optional),
+     *   stripe_connect_onboarding_complete:      bool (optional)
      * }
      *
-     * Idempotent: enrolling with the same member_uuid is a no-op success.
+     * Idempotent: re-enrolling with the same member_uuid is a 200 success, but
+     * still syncs the Stripe Connect / payouts fields if provided (onboarding
+     * can complete later and Early-bank re-posts). The member UUID itself is
+     * never silently reassigned — a different member_uuid returns 409.
      */
     public function memberEnrolled(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'uuid'        => ['required', 'string', 'uuid'],
-            'member_uuid' => ['required', 'string', 'uuid'],
-            'u9itus_role' => ['required', 'string', 'in:voter,politician,citizen'],
+            'uuid'                                    => ['required', 'string', 'uuid'],
+            'member_uuid'                             => ['required', 'string', 'uuid'],
+            'u9itus_role'                             => ['required', 'string', 'in:voter,politician,citizen'],
+            'payouts_enabled'                         => ['sometimes', 'boolean'],
+            'stripe_connect_account_id'              => ['sometimes', 'nullable', 'string', 'max:255'],
+            'stripe_connect_onboarding_complete'      => ['sometimes', 'boolean'],
         ]);
 
         if ($validator->fails()) {
@@ -225,12 +271,15 @@ class EarlyBankController extends Controller
         $memberUuid = $request->string('member_uuid')->value();
         $role       = $request->string('u9itus_role')->value();
 
-        // Route to the correct model based on role.
+        // Route to the correct model based on role. Citizens live on their own
+        // `citizens` table (with its own uuid), not the voters table.
         if ($role === 'politician') {
             $model = Politician::where('uuid', $uuid)->first();
             $label = 'politician';
+        } elseif ($role === 'citizen') {
+            $model = Citizen::where('uuid', $uuid)->first();
+            $label = 'citizen';
         } else {
-            // Both 'voter' and 'citizen' roles live on the voters table.
             $model = Voter::where('uuid', $uuid)->first();
             $label = 'voter';
         }
@@ -239,8 +288,16 @@ class EarlyBankController extends Controller
             return response()->json(['error' => "{$label}_not_found"], 404);
         }
 
-        // Idempotency: already enrolled with the same member UUID — succeed silently.
+        $stripeFields = $this->extractStripeState($request);
+
+        // Idempotency: already enrolled with the same member UUID. Still sync the
+        // Stripe Connect / payouts fields if provided (Early-bank re-posts when
+        // onboarding completes), but never touch the member UUID itself.
         if ($model->earlybank_own_member_uuid === $memberUuid) {
+            if (! empty($stripeFields)) {
+                $model->forceFill($stripeFields)->save();
+            }
+
             return response()->json([
                 'status'      => 'already_enrolled',
                 'uuid'        => $uuid,
@@ -257,10 +314,10 @@ class EarlyBankController extends Controller
             ], 409);
         }
 
-        $model->forceFill([
+        $model->forceFill(array_merge([
             'earlybank_own_member_uuid' => $memberUuid,
             'earlybank_own_linked_at'   => now(),
-        ])->save();
+        ], $stripeFields))->save();
 
         return response()->json([
             'status'      => 'enrolled',
@@ -268,5 +325,35 @@ class EarlyBankController extends Controller
             'member_uuid' => $memberUuid,
             'linked_at'   => $model->earlybank_own_linked_at->toIso8601String(),
         ], 201);
+    }
+
+    /**
+     * Pull the optional Stripe Connect / payouts fields off the request,
+     * returning only the ones actually present so forceFill does not blank out
+     * columns Early-bank did not send.
+     *
+     * @return array<string, mixed>
+     */
+    private function extractStripeState(Request $request): array
+    {
+        $fields = [];
+
+        if ($request->has('payouts_enabled')) {
+            $fields['earlybank_payouts_enabled'] = (bool) $request->boolean('payouts_enabled');
+        }
+
+        if ($request->has('stripe_connect_account_id')) {
+            $id = $request->input('stripe_connect_account_id');
+            $fields['earlybank_stripe_connect_account_id'] = is_string($id) ? trim($id) : null;
+            if ($fields['earlybank_stripe_connect_account_id'] === '') {
+                $fields['earlybank_stripe_connect_account_id'] = null;
+            }
+        }
+
+        if ($request->has('stripe_connect_onboarding_complete')) {
+            $fields['earlybank_stripe_connect_onboarding_complete'] = (bool) $request->boolean('stripe_connect_onboarding_complete');
+        }
+
+        return $fields;
     }
 }

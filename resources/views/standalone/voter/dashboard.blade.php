@@ -286,7 +286,7 @@
     </div>
     @endif
 
-    {{-- Voter Registration Prompt (shown if status unknown or not registered) --}}
+    <!-- {{-- Voter Registration Prompt (shown if status unknown or not registered) --}}
     @if(is_null($voter->is_registered_voter) || $voter->is_registered_voter === false)
     <div class="bg-blue-500/10 border border-blue-500/30 rounded-2xl p-5 flex items-start gap-4">
         <div class="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center shrink-0 mt-0.5">
@@ -319,7 +319,7 @@
             </div>
         </div>
     </div>
-    @endif
+    @endif -->
 
     {{-- Recent Sessions --}}
     @if($recentSessions->isNotEmpty() || ($voter && $voter->earlybank_member_id))

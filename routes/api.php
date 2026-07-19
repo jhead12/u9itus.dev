@@ -213,6 +213,12 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::post('/register-referral', [EarlyBankController::class, 'registerReferral'])
                 ->name('register-referral');
 
+            // Inbound webhook from earlybank.com: commissions, bonuses, member status.
+            // Signature verification happens inside the controller so that a failed
+            // signature still returns a structured 401 rather than a middleware abort.
+            Route::post('/webhook', [EarlyBankController::class, 'webhook'])
+                ->name('webhook');
+
             // Fired by earlybank.com when a U9itus user (voter or politician) joins
             // Early-bank as a paying member. Stores their own EB member UUID so U9itus
             // can surface their personal EB referral link in the referrals page.

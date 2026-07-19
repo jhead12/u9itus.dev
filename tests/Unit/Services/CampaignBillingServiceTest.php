@@ -8,6 +8,8 @@ use App\Models\Voter;
 use App\Services\CampaignBillingService;
 use App\Services\StripePaymentService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Http;
 
 uses(RefreshDatabase::class);
 
@@ -100,17 +102,24 @@ test('addCredits with negative amount reduces balance', function () {
     expect((float) $debit->balance_after)->toBe(80.00);
 });
 
-// ── Procurement commission (routed to Early-bank in future sprint) ────────────
+// ── Procurement commission ─────────────────────────────────────────────────
 
-test('addCredits does NOT create internal procurement commission — routed to Early-bank', function () {
-    // triggerProcurementCommission() is a no-op; politician.purchased webhook
-    // to earlybank.com will be implemented in a future sprint.
+test('addCredits dispatches politician.purchased webhook to Early-bank for referred politician', function () {
     config(['u9itus.procurement_commission_percent' => 10]);
 
-    $referrer   = Voter::factory()->create(['pending_earnings' => 0.00]);
+    \Illuminate\Support\Facades\Http::fake();
+    Config::set('services.earlybank.enabled', true);
+    Config::set('services.earlybank.webhook_url', 'https://early-bank.test/webhook');
+    Config::set('services.earlybank.webhook_secret', 'eb-webhook-secret');
+
+    $memberUuid = \Illuminate\Support\Str::uuid()->toString();
+    $referrer   = Voter::factory()->create([
+        'pending_earnings'          => 0.00,
+        'earlybank_own_member_uuid' => $memberUuid,
+    ]);
     $politician = Politician::factory()->create([
-        'credit_balance'        => 0.00,
-        'referred_by_voter_id'  => $referrer->id,
+        'credit_balance'       => 0.00,
+        'referred_by_voter_id' => $referrer->id,
     ]);
     $svc = makeBillingService();
 
@@ -126,10 +135,30 @@ test('addCredits does NOT create internal procurement commission — routed to E
     // Referrer's pending_earnings must remain zero.
     $referrer->refresh();
     expect((float) $referrer->pending_earnings)->toBe(0.00);
+
+    // Outbound log should exist.
+    $this->assertDatabaseHas('earlybank_webhook_logs', [
+        'event_type' => 'politician.purchased',
+        'earlybank_member_id' => $memberUuid,
+    ]);
+
+    // Early-bank should receive the politician.purchased outbound webhook.
+    \Illuminate\Support\Facades\Http::assertSent(function ($request) use ($politician, $memberUuid) {
+        $body = json_decode($request->body(), true);
+
+        return ($body['event'] ?? '') === 'politician.purchased'
+            && ($body['data']['politician_uuid'] ?? '') === (string) $politician->uuid
+            && ($body['data']['earlybank_member_id'] ?? '') === $memberUuid;
+    });
 });
 
-test('addCredits with multiple purchases still creates no procurement commissions', function () {
+test('addCredits skips politician.purchased webhook when referrer has no EB member UUID', function () {
     config(['u9itus.procurement_commission_percent' => 10]);
+
+    \Illuminate\Support\Facades\Http::fake();
+    Config::set('services.earlybank.enabled', true);
+    Config::set('services.earlybank.webhook_url', 'https://early-bank.test/webhook');
+    Config::set('services.earlybank.webhook_secret', 'eb-webhook-secret');
 
     $referrer   = Voter::factory()->create(['pending_earnings' => 0.00]);
     $politician = Politician::factory()->create([
@@ -139,13 +168,33 @@ test('addCredits with multiple purchases still creates no procurement commission
     $svc = makeBillingService();
 
     $svc->addCredits($politician, 100.00, ['transaction_type' => 'purchase']);
+
+    \Illuminate\Support\Facades\Http::assertNothingSent();
+});
+
+test('addCredits dispatches politician.purchased webhook only once per politician', function () {
+    config(['u9itus.procurement_commission_percent' => 10]);
+
+    \Illuminate\Support\Facades\Http::fake();
+    Config::set('services.earlybank.enabled', true);
+    Config::set('services.earlybank.webhook_url', 'https://early-bank.test/webhook');
+    Config::set('services.earlybank.webhook_secret', 'eb-webhook-secret');
+
+    $memberUuid = \Illuminate\Support\Str::uuid()->toString();
+    $referrer   = Voter::factory()->create([
+        'pending_earnings'          => 0.00,
+        'earlybank_own_member_uuid' => $memberUuid,
+    ]);
+    $politician = Politician::factory()->create([
+        'credit_balance'       => 0.00,
+        'referred_by_voter_id' => $referrer->id,
+    ]);
+    $svc = makeBillingService();
+
     $svc->addCredits($politician, 100.00, ['transaction_type' => 'purchase']);
+    $svc->addCredits($politician, 50.00, ['transaction_type' => 'purchase']);
 
-    $count = ReferralEarning::where('politician_id', $politician->id)
-        ->where('referral_type', ReferralEarning::TYPE_POLITICIAN_PROCUREMENT)
-        ->count();
-
-    expect($count)->toBe(0);
+    \Illuminate\Support\Facades\Http::assertSentCount(1);
 });
 
 // ── finalizePaymentIntent() ───────────────────────────────────────────────────

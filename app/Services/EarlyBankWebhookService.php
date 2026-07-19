@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Mail\EarlyBankReferralEnrolledMail;
 use App\Models\EarlyBankWebhookLog;
+use App\Models\Politician;
 use App\Models\ViewSession;
 use App\Models\Voter;
 use App\Services\PlatformSettingsService;
@@ -119,6 +120,56 @@ class EarlyBankWebhookService
             'session_uuid'        => $session->uuid,
             'payout_amount'       => (float) $session->payout_amount,
             'completed_at'        => optional($session->completed_at)->toIso8601String() ?? now()->toIso8601String(),
+        ]);
+    }
+
+    /**
+     * Notify Early-bank.com that a referred politician completed their first
+     * credit purchase, so EB can credit the referrer's EB account with the
+     * procurement commission.
+     *
+     * Fires at most once per politician (guarded by existing outbound log row).
+     */
+    public function notifyPoliticianPurchased(Politician $politician, float $purchaseAmount): void
+    {
+        if (! $this->enabled()) {
+            return;
+        }
+
+        $referrer = $politician->referrer ?? $politician->politicianReferrer;
+        if (! $referrer) {
+            return; // No referrer — nothing to commission.
+        }
+
+        $memberUuid = $referrer->earlybank_own_member_uuid ?? null;
+        if (! $memberUuid) {
+            Log::info('EarlyBankWebhookService: skipping politician.purchased — referrer has no EB member UUID', [
+                'politician_uuid' => $politician->uuid,
+                'referrer_type'   => $referrer instanceof \App\Models\Voter ? 'voter' : 'politician',
+                'referrer_id'     => $referrer->id,
+            ]);
+            return;
+        }
+
+        // Idempotency: only fire once per politician.
+        $alreadyFired = EarlyBankWebhookLog::where('earlybank_member_id', $memberUuid)
+            ->where('event_type', 'politician.purchased')
+            ->whereJsonContains('payload', ['politician_uuid' => $politician->uuid])
+            ->where('delivered', true)
+            ->exists();
+
+        if ($alreadyFired) {
+            Log::info('EarlyBankWebhookService: politician.purchased already delivered, skipping duplicate', [
+                'politician_uuid' => $politician->uuid,
+            ]);
+            return;
+        }
+
+        $this->dispatch('politician.purchased', [
+            'politician_uuid'     => $politician->uuid,
+            'earlybank_member_id' => $memberUuid,
+            'purchase_amount'     => $purchaseAmount,
+            'purchased_at'        => now()->toIso8601String(),
         ]);
     }
 

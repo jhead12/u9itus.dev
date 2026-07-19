@@ -149,13 +149,24 @@ class CampaignBillingService
      * credit purchase.
      *
      * Commission = procurement_commission_percent (10%) of the purchase amount.
-     * Fires at most once per politician (guarded by existing ReferralEarning row).
+     * Fires at most once per politician (guarded by existing outbound log row).
+     *
+     * The actual payout is handled by Early-bank.com; U9itus only notifies EB so
+     * the referrer's EB wallet can be credited. The inbound payout.commission
+     * event will later reconcile the actual settled amount in earlybank_earnings.
      */
     private function triggerProcurementCommission(Politician $politician, float $purchaseAmount): void
     {
-        // Politician first-purchase commissions will be routed through Early-bank.com
-        // via a dedicated politician.purchased webhook — scheduled for a future sprint.
-        // This method is intentionally a no-op until that sprint is complete.
+        try {
+            app(EarlyBankWebhookService::class)->notifyPoliticianPurchased($politician, $purchaseAmount);
+        } catch (\Throwable $e) {
+            // Fire-and-forget: EB notification failures must not break credit purchase.
+            Log::warning('CampaignBillingService: politician.purchased notification failed', [
+                'politician_id' => $politician->id,
+                'amount'        => $purchaseAmount,
+                'error'         => $e->getMessage(),
+            ]);
+        }
     }
 
     /**

@@ -285,6 +285,11 @@ class PoliticalViewService
             ->where('payment_status', ViewPaymentStatus::Approved)
             ->sum('voter_payout_amount');
 
+        // Inbound Early-bank earnings: kept separate from u9itus-native earnings
+        // because EB manages the actual payout of these funds.
+        $ebSettled = (float) $voter->earlybankEarnings()->settled()->sum('payout_amount');
+        $ebPending = (float) $voter->earlybankEarnings()->pending()->sum('payout_amount');
+
         return [
             'total_earned'               => $voter->total_earned,
             'pending_earnings'           => $voter->pending_earnings,
@@ -296,6 +301,10 @@ class PoliticalViewService
             // Politician-procurement commissions: 10% of referred politician's first purchase
             'procurement_earnings'       => (float) $voter->referralEarnings()->procurements()->forActiveStripeMode()->sum('commission_amount'),
             'total_referral_earnings'    => (float) $voter->referralEarnings()->forActiveStripeMode()->sum('commission_amount'),
+            // Early-bank reported earnings (EB is source of truth; these are informational)
+            'earlybank_earnings_settled' => $ebSettled,
+            'earlybank_earnings_pending' => $ebPending,
+            'earlybank_earnings_total'   => $ebSettled + $ebPending,
             'referrals_count'            => $voter->referrals()->count(),
             'referrals_politician_count' => \App\Models\Politician::where('referred_by_voter_id', $voter->id)->count(),
             'views_today'                => $voter->viewSessions()->whereDate('created_at', today())->count(),

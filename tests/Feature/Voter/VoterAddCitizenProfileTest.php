@@ -50,6 +50,32 @@ test('voter can add a citizen profile with same email, creating a citizen row an
     expect(Citizen::where('user_id', $user->id)->exists())->toBeTrue();
     expect($user->fresh()->hasRole('citizen'))->toBeTrue();
     expect($user->fresh()->hasRole('voter'))->toBeTrue();
+    expect($user->fresh()->user_type)->toBe('citizen');
+});
+
+test('upgraded dual-role user can access both voter and citizen dashboards', function () {
+    $user = makeVoterForUpgrade();
+
+    $this->actingAs($user)
+        ->post(route('voter.add-citizen-profile.submit'), [
+            'full_name'      => 'Jay Baker',
+            'business_name'  => 'Maple Bakery',
+            'address_line_1' => '123 Maple St',
+            'city'           => 'Springfield',
+            'state'          => 'CA',
+            'zip'            => '90210',
+        ])
+        ->assertRedirect(route('portal-pick'));
+
+    skipOnboarding($user->fresh(), 'citizen');
+
+    $this->actingAs($user->fresh())
+        ->get(route('citizen.dashboard'))
+        ->assertOk();
+
+    $this->actingAs($user->fresh())
+        ->get(route('voter.dashboard'))
+        ->assertOk();
 });
 
 test('voter is redirected to citizen dashboard if they already have a citizen profile', function () {

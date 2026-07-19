@@ -825,6 +825,14 @@ class VoterController extends Controller
 
         $user->assignRole('citizen');
 
+        // Update the canonical account type so that post-login redirects,
+        // 2FA completion, and admin dashboards recognize the citizen profile.
+        // The voter Spatie role is retained so the user can still switch back.
+        if ($user->user_type !== 'citizen') {
+            $user->user_type = 'citizen';
+            $user->save();
+        }
+
         return redirect()->route('portal-pick')
             ->with('success', 'Citizen profile created! You can now switch between your Voter and Citizen portals.');
     }

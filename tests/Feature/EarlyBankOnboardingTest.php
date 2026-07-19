@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\EarlyBankController;
 use App\Http\Middleware\CaptureEarlyBankReferral;
 use App\Mail\EarlyBankReferralEnrolledMail;
+use App\Models\Citizen;
 use App\Models\Politician;
 use App\Models\User;
 use App\Models\Voter;
@@ -242,4 +243,158 @@ test('handleVoterRegistered is a no-op when earlybank is disabled', function () 
 
     Http::assertNothingSent();
     Mail::assertNothingQueued();
+});
+
+// ---------------------------------------------------------------------------
+// member-enrolled: first-time write + new Stripe Connect / payouts fields
+// ---------------------------------------------------------------------------
+
+function eb_authedHeaders(): array
+{
+    config(['services.earlybank.api_token' => 'test-eb-token']);
+    return ['Authorization' => 'Bearer test-eb-token'];
+}
+
+test('memberEnrolled first-time write persists member uuid and stripe state for a voter', function () {
+    $user  = eb_makeVoterUser('fresh-voter@example.com');
+    $voter = eb_makeVoter($user);
+    $memberUuid = Str::uuid()->toString();
+    $stripeAccount = 'acct_1PM_stripe_connect';
+
+    $response = $this->withHeaders(eb_authedHeaders())
+        ->postJson('/api/v1/earlybank/member-enrolled', [
+            'uuid'                                    => $voter->uuid,
+            'member_uuid'                             => $memberUuid,
+            'u9itus_role'                             => 'voter',
+            'payouts_enabled'                         => false,
+            'stripe_connect_account_id'              => $stripeAccount,
+            'stripe_connect_onboarding_complete'      => false,
+        ]);
+
+    $response->assertStatus(201)
+        ->assertJson(['status' => 'enrolled', 'member_uuid' => $memberUuid]);
+
+    $voter->refresh();
+    expect($voter->earlybank_own_member_uuid)->toBe($memberUuid)
+        ->and($voter->earlybank_own_linked_at)->not->toBeNull()
+        ->and($voter->earlybank_stripe_connect_account_id)->toBe($stripeAccount)
+        ->and($voter->earlybank_payouts_enabled)->toBeFalse()
+        ->and($voter->earlybank_stripe_connect_onboarding_complete)->toBeFalse();
+});
+
+test('memberEnrolled first-time write persists member uuid for a politician', function () {
+    $politician = Politician::factory()->create();
+    $memberUuid = Str::uuid()->toString();
+
+    $response = $this->withHeaders(eb_authedHeaders())
+        ->postJson('/api/v1/earlybank/member-enrolled', [
+            'uuid'        => $politician->uuid,
+            'member_uuid' => $memberUuid,
+            'u9itus_role' => 'politician',
+        ]);
+
+    $response->assertStatus(201)->assertJson(['status' => 'enrolled']);
+
+    $politician->refresh();
+    expect($politician->earlybank_own_member_uuid)->toBe($memberUuid);
+});
+
+test('memberEnrolled first-time write persists member uuid for a citizen', function () {
+    // Regression guard: citizens live on their own `citizens` table. Before the
+    // fix this routed to Voter and returned 404 voter_not_found.
+    $citizen = Citizen::factory()->create();
+    $memberUuid = Str::uuid()->toString();
+
+    $response = $this->withHeaders(eb_authedHeaders())
+        ->postJson('/api/v1/earlybank/member-enrolled', [
+            'uuid'        => $citizen->uuid,
+            'member_uuid' => $memberUuid,
+            'u9itus_role' => 'citizen',
+            'payouts_enabled'                         => true,
+            'stripe_connect_onboarding_complete'      => true,
+        ]);
+
+    $response->assertStatus(201)->assertJson(['status' => 'enrolled']);
+
+    $citizen->refresh();
+    expect($citizen->earlybank_own_member_uuid)->toBe($memberUuid)
+        ->and($citizen->earlybank_own_linked_at)->not->toBeNull()
+        ->and($citizen->earlybank_payouts_enabled)->toBeTrue()
+        ->and($citizen->earlybank_stripe_connect_onboarding_complete)->toBeTrue();
+});
+
+test('memberEnrolled idempotent re-enroll syncs stripe onboarding state', function () {
+    $user  = eb_makeVoterUser('sync-voter@example.com');
+    $voter = eb_makeVoter($user);
+    $memberUuid = Str::uuid()->toString();
+
+    // First enrollment: onboarding not yet complete.
+    $this->withHeaders(eb_authedHeaders())
+        ->postJson('/api/v1/earlybank/member-enrolled', [
+            'uuid'                                => $voter->uuid,
+            'member_uuid'                          => $memberUuid,
+            'u9itus_role'                          => 'voter',
+            'stripe_connect_onboarding_complete'   => false,
+        ])
+        ->assertStatus(201);
+
+    // Replay with the SAME member uuid but onboarding now complete + payouts on.
+    $response = $this->withHeaders(eb_authedHeaders())
+        ->postJson('/api/v1/earlybank/member-enrolled', [
+            'uuid'                                => $voter->uuid,
+            'member_uuid'                          => $memberUuid,
+            'u9itus_role'                          => 'voter',
+            'payouts_enabled'                      => true,
+            'stripe_connect_onboarding_complete'   => true,
+        ]);
+
+    $response->assertOk()->assertJson(['status' => 'already_enrolled']);
+
+    $voter->refresh();
+    expect($voter->earlybank_own_member_uuid)->toBe($memberUuid)
+        ->and($voter->earlybank_payouts_enabled)->toBeTrue()
+        ->and($voter->earlybank_stripe_connect_onboarding_complete)->toBeTrue();
+});
+
+test('memberEnrolled rejects an invalid u9itus_role with 422', function () {
+    $user  = eb_makeVoterUser('role-valid@example.com');
+    $voter = eb_makeVoter($user);
+
+    $this->withHeaders(eb_authedHeaders())
+        ->postJson('/api/v1/earlybank/member-enrolled', [
+            'uuid'        => $voter->uuid,
+            'member_uuid' => Str::uuid()->toString(),
+            'u9itus_role' => 'superuser',
+        ])
+        ->assertStatus(422)
+        ->assertJson(['error' => 'validation_failed']);
+});
+
+test('memberEnrolled returns 404 when the uuid does not match the role', function () {
+    $citizen = Citizen::factory()->create();
+
+    // A citizen uuid posted under the 'voter' role should not resolve on the
+    // voters table.
+    $this->withHeaders(eb_authedHeaders())
+        ->postJson('/api/v1/earlybank/member-enrolled', [
+            'uuid'        => $citizen->uuid,
+            'member_uuid' => Str::uuid()->toString(),
+            'u9itus_role' => 'voter',
+        ])
+        ->assertStatus(404)
+        ->assertJson(['error' => 'voter_not_found']);
+});
+
+test('memberEnrolled requires a bearer token', function () {
+    $user  = eb_makeVoterUser('noauth@example.com');
+    $voter = eb_makeVoter($user);
+
+    // No Authorization header — earlybank.api middleware must reject.
+    config(['services.earlybank.api_token' => 'test-eb-token']);
+
+    $this->postJson('/api/v1/earlybank/member-enrolled', [
+        'uuid'        => $voter->uuid,
+        'member_uuid' => Str::uuid()->toString(),
+        'u9itus_role' => 'voter',
+    ])->assertStatus(401);
 });

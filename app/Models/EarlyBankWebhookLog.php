@@ -57,10 +57,11 @@ class EarlyBankWebhookLog extends Model
     public function eventLabel(): string
     {
         return match ($this->event_type) {
-            'voter.registered' => 'Registration attributed',
-            'voter.referred'   => '$10 referral bonus triggered',
-            'voter.earned'     => '10% view commission',
-            default            => $this->event_type,
+            'voter.registered'    => 'Registration attributed',
+            'voter.referred'      => '$10 referral bonus triggered',
+            'voter.earned'        => '10% view commission',
+            'politician.purchased' => 'Politician procurement commission',
+            default               => $this->event_type,
         };
     }
 }

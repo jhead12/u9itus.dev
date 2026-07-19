@@ -32,6 +32,13 @@ class DashboardController extends Controller
     {
         $user = Auth::user();
 
+        // ── Dual-role voter + citizen ─────────────────────────────────────────
+        // Users who upgraded from voter to citizen hold both roles. Send them
+        // to the portal picker instead of arbitrarily picking one dashboard.
+        if ($user->hasRole('voter') && $user->hasRole('citizen')) {
+            return redirect()->route('portal-pick');
+        }
+
         // ── Spatie roles (authoritative) ──────────────────────────────────────
         foreach (self::ROLE_ROUTES as $role => $routeName) {
             if ($user->hasRole($role)) {

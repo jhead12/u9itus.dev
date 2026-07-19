@@ -84,6 +84,10 @@ class Politician extends Model
         // Early-bank own membership (set via member-enrolled webhook)
         'earlybank_own_member_uuid',
         'earlybank_own_linked_at',
+        'earlybank_payouts_enabled',
+        'earlybank_stripe_connect_account_id',
+        'earlybank_stripe_connect_onboarding_complete',
+        'earlybank_subscription_status',
     ];
 
     protected function casts(): array
@@ -111,6 +115,9 @@ class Politician extends Model
             'video_links'          => 'array',
             'claim_requested_at'   => 'datetime',
             'earlybank_own_linked_at' => 'datetime',
+            'earlybank_payouts_enabled' => 'boolean',
+            'earlybank_stripe_connect_onboarding_complete' => 'boolean',
+            'earlybank_subscription_status' => 'string',
         ];
     }
 
