@@ -24,6 +24,7 @@ use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Spatie\Permission\Models\Role;
 
 /**
  * Standalone Voter Controller
@@ -781,6 +782,17 @@ class VoterController extends Controller
 
         // Already has a citizen profile — send them straight to the citizen dashboard.
         if ($user->citizen) {
+            // Defensive repair: a prior attempt may have created the Citizen row
+            // but failed to assign the Spatie role. Assign it now so the redirect
+            // does not dump them at a 403.
+            if (! $user->hasRole('citizen')) {
+                Role::firstOrCreate(
+                    ['name' => 'citizen'],
+                    ['guard_name' => config('auth.defaults.guard', 'web')]
+                );
+                $user->assignRole('citizen');
+            }
+
             return redirect()->route('citizen.dashboard')
                 ->with('info', 'You already have a Citizen profile on this account.');
         }
@@ -805,6 +817,18 @@ class VoterController extends Controller
         $user = Auth::user();
 
         if ($user->citizen) {
+            // Defensive repair: a prior attempt may have created the Citizen row
+            // but failed to assign the Spatie role (missing role, cache issue,
+            // etc.). Fix the role before redirecting so the user can actually
+            // enter the citizen portal.
+            if (! $user->hasRole('citizen')) {
+                Role::firstOrCreate(
+                    ['name' => 'citizen'],
+                    ['guard_name' => config('auth.defaults.guard', 'web')]
+                );
+                $user->assignRole('citizen');
+            }
+
             return redirect()->route('citizen.dashboard');
         }
 
@@ -818,20 +842,33 @@ class VoterController extends Controller
             'zip'            => ['required', 'digits:5'],
         ]);
 
-        Citizen::create(array_merge($validated, [
-            'user_id'   => $user->id,
-            'is_active' => true,
-        ]));
+        // Ensure the citizen role exists before we attempt assignment. On some
+        // deployments the seeder may not have been run, and without the role
+        // the user would be left with a Citizen row but no portal access.
+        Role::firstOrCreate(
+            ['name' => 'citizen'],
+            ['guard_name' => config('auth.defaults.guard', 'web')]
+        );
 
-        $user->assignRole('citizen');
+        // Wrap the profile creation, role assignment, and user_type update in a
+        // transaction so a partial failure cannot leave the account in a 403
+        // state (Citizen row created but role missing).
+        DB::transaction(function () use ($user, $validated): void {
+            Citizen::create(array_merge($validated, [
+                'user_id'   => $user->id,
+                'is_active' => true,
+            ]));
 
-        // Update the canonical account type so that post-login redirects,
-        // 2FA completion, and admin dashboards recognize the citizen profile.
-        // The voter Spatie role is retained so the user can still switch back.
-        if ($user->user_type !== 'citizen') {
-            $user->user_type = 'citizen';
-            $user->save();
-        }
+            $user->assignRole('citizen');
+
+            // Update the canonical account type so that post-login redirects,
+            // 2FA completion, and admin dashboards recognize the citizen profile.
+            // The voter Spatie role is retained so the user can still switch back.
+            if ($user->user_type !== 'citizen') {
+                $user->user_type = 'citizen';
+                $user->save();
+            }
+        });
 
         return redirect()->route('portal-pick')
             ->with('success', 'Citizen profile created! You can now switch between your Voter and Citizen portals.');
