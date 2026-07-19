@@ -39,7 +39,7 @@ is the ordered work plan (security first, then correctness bugs, then architectu
 
 #### Security
 
-- [ ] **SEC-1 — Committed PayPal credentials** — `.env.example:133-134`
+- [x] **SEC-1 — Committed PayPal credentials** — `.env.example:133-134`
   Real `PAYPAL_CLIENT_ID`/`PAYPAL_CLIENT_SECRET` checked into VCS (surrounding keys are placeholders).
   **Fix:** rotate in PayPal dashboard, replace with placeholders, purge from git history (BFG / `git filter-repo`), audit PayPal API logs for misuse.
 
@@ -351,7 +351,7 @@ is the ordered work plan (security first, then correctness bugs, then architectu
 8. **Money-critical services are mocked, not unit-tested.** Stripe/PayPal/CashApp transfer payloads and
    cents arithmetic are unverified — a real risk for a payouts platform.
 9. **Route map is split across two files with inconsistent grouping and middleware coverage.**
-   `routes/standalone.php` holds all web routes (guest, voter, politician, admin) in a single file
+   `routes/standalone.php` holds all web routes (guest, voter, citizen, politician, admin) in a single file
    — 2,000+ lines mixing `Route::middleware('guest')`, `Route::middleware('auth')`, and
    `Route::middleware('admin')` groups with overlapping concerns. `routes/api.php` holds the
    `/api/v1` routes but the auth/middleware boundary is inconsistent: voter routes sit outside
@@ -464,157 +464,6 @@ don't re-discover them each session:
 
 ---
 
-## Map System Reference
-
-The interactive 3D U.S. map is a standalone frontend application embedded in the Laravel app. This section tracks its architecture, patterns, and known issues so future work doesn't require re-discovering how it works.
-
-### Architecture Overview
-
-| Layer | Tech | Notes |
-|-------|------|-------|
-| 3D rendering | Three.js r164 (CDN import map) | `THREE.WebGLRenderer`, `OrbitControls`, `ExtrudeGeometry` |
-| Geo projection | D3 v7.9 + TopoJSON Client v3.1 (CDN) | `d3.geoAlbersUsa` for lon/lat → screen coords |
-| State boundaries | `us-atlas@3/states-10m.json` (CDN) | Fetched at page load, converted to `THREE.Shape` extrusions |
-| District overlays | US Census TIGERweb REST API | Fetched on-demand per state, cached in `districtCache{}` |
-| Candidate data | `GET /api/v1/map/state-candidates?state=XX` | Merges Politician + ECR + House + City officials |
-| District config | `GET /api/v1/map/district-config` | Congress number, TIGERweb layer, CD field, party map; cached 1hr |
-| Analytics | `POST /api/v1/map/interaction` | Fire-and-forget via `navigator.sendBeacon` |
-| UI framework | Vanilla JS + inline CSS in Blade | No React/Vue/Alpine; all DOM manipulation is imperative |
-| Auth context | `<meta>` tags → `window.U9.session` | Role/UUID/referral code; gated by `platform.map.voter_features_enabled` |
-
-### File Map
-
-```
-resources/views/standalone/public/us-map.blade.php   ← map SHELL only (~500 lines: markup, meta, inline analytics)
-                                                       loads the Vite bundle via @vite(['resources/js/map/app.js'])
-resources/js/map/                                     ← MODULAR frontend (33 ES modules, ~3,740 lines)
-  app.js               ← entry: imports modules, wires handlers, starts render loop
-  config/              ← constants.js, city-data.js, tour-steps.js
-  state/               ← map-state.js (mutable globals), session.js (window.U9.session)
-  scene/               ← setup.js, state-meshes.js, district-overlay.js, national-boundaries.js,
-                         camera-animation.js, projection.js
-  api/                 ← district-config.js, governor-parties.js, interaction.js
-  navigation/          ← mode-transitions.js (overview/region/state), deep-link.js
-  ui/                  ← search, legend, panel-state, panel-district, popup, politician-drawer,
-                         controls-menu, layers-panel, markers, labels-overlay, breadcrumb, tour,
-                         keyboard, info-panel, mobile-menu
-  render-loop.js
-resources/css/map.css                                 ← map styles (~1,110 lines), bundled via app.js import
-vite.config.js                                        ← input: resources/js/map/app.js; manualChunks splits three
-package.json                                          ← three@0.164, d3, topojson-client (npm, not CDN)
-
-resources/views/standalone/politician/map.blade.php   ← iframe wrapper (politician dashboard) → /map
-resources/views/standalone/voter/map.blade.php        ← iframe wrapper (voter dashboard) → /map
-
-app/Http/Controllers/Api/
-  MapStateCandidatesController.php   ← /api/v1/map/state-candidates
-  MapDistrictConfigController.php     ← /api/v1/map/district-config
-  MapInteractionController.php        ← /api/v1/map/interaction (analytics)
-
-app/Models/MapInteractionEvent.php    ← analytics Eloquent model
-database/migrations/2026_06_19_*_create_map_interaction_events_table.php
-database/migrations/2026_06_19_*_create_district_config_table.php
-
-routes/api.php         ← rate-limited public map API routes
-routes/standalone.php  ← /map, /politician/map, /voter/map
-
-config/platform.php    ← map.voter_features_enabled, map.sign_in_cta, map.capture_ref_param
-
-.github/workflows/refresh-map-candidates.yml  ← daily data pipeline
-
-public/media/tour/     ← WebVTT caption files for guided tour (video/audio assets expected but optional)
-```
-
-### Mode State Machine
-
-```
-overview  ──click region──▸  region  ──click state──▸  state
-   ▲                         │                         │
-   └─── back / reset ◄──────┘─── back ◄───────────────┘
-```
-
-- `mapMode` variable: `'overview' | 'region' | 'state'`
-- Each transition: camera fly-to animation, dim/highlight meshes, load district data, update info panel
-- District click within state mode: brightens selected district, opens candidate detail
-
-### Data Flow
-
-```
-User clicks state
-    │
-    ├─► fetch TIGERweb GeoJSON (district boundaries, cached per FIPS)
-    │      └─► buildDistrictOverlay() → THREE.ExtrudeGeometry meshes
-    │
-    ├─► fetch /api/v1/map/state-candidates?state=XX
-    │      └─► render candidate cards in #info-panel + #pol-drawer
-    │
-    └─► fetch /api/v1/map/district-config (pre-loaded on page init)
-           └─► DISTRICT_CONFIG used for TIGERweb URL + party coloring
-```
-
-### Key Frontend Patterns
-
-| Pattern | Implementation |
-|---------|---------------|
-| **Color scheme** | Indigo accent `#6366f1`/`#818cf8` on dark `#06091a`; party colors D=`#2563eb` R=`#dc2626` I=`#16a34a`; regions NE=`#6366f1` MW=`#f59e0b` S=`#ef4444` W=`#10b981` |
-| **State management** | Global mutable vars (`mapMode`, `activeRegion`, `activeState`, `stateData`, `colorMode`, `ACTIVE_LAYERS`) — no state library |
-| **Camera** | `OrbitControls` + custom `flyTo()`/`flyToMeshes()`/`flyToMeshesTopDown()` with ease-in-out interpolation |
-| **Interaction** | `THREE.Raycaster` for hover/click on state and district meshes |
-| **Responsive** | ≤768px: panel→bottom sheet, hamburger menu, popup→bottom sheet; ≤480px: further compacting |
-| **Accessibility** | Skip-to-main link, keyboard nav (`?` help), ARIA labels, focus rings, `#map-canvas-region` focusable |
-| **Search** | Custom fuzzy search overlay (`/` key) over states and districts |
-| **Guided tour** | 8-step `TOUR_STEPS` array with video/audio media support |
-| **Deep linking** | URL params `?state=CA&district=33&slug=...` auto-navigate via `window.__mapGoTo()` |
-| **API calls** | Raw `fetch()` with `cache:'no-store'`; no Axios for map data |
-| **Caching** | `localStorage` for governor party (24h TTL), in-memory `districtCache` keyed by FIPS |
-| **Party data** | Client-side `_GOP`/`_IND` arrays + computed `DISTRICT_PARTY_MAP` for district coloring; API serves party for panel cards |
-| **Analytics** | `window.__mapTrack()` → `POST /api/v1/map/interaction` via `sendBeacon`; anonymous session UUID in localStorage |
-
-### Backend API Patterns
-
-- **`MapStateCandidatesController`** — merges 4 data sources (seated Politicians, ECR scrapes, federal House, city officials), deduplicates by name with quality scoring, suppresses eliminated/lost candidates, returns statewide offices + house candidates by district + city officials + population
-- **`MapDistrictConfigController`** — cached (1hr) JSON for Congress number, TIGERweb layer/field, party map; updated daily by CI
-- **`MapInteractionController`** — SHA-256 hashed IPs, MD5 hashed user agents, localStorage UUID session ID
-
-### Data Pipeline (CI)
-
-`refresh-map-candidates.yml` runs daily at 09:00 UTC:
-1. Syncs primary election results (Ballotpedia)
-2. Re-enriches statewide officeholders (Claude + Ballotpedia + Wikipedia)
-3. Syncs district boundary config
-4. Reconciles politician status
-5. Scrapes + imports state voter guides
-6. Cleans cross-office ECR conflicts
-7. Audits data integrity
-
-### Known Concerns & Improvement Opportunities
-
-- [x] **MONOLITH — us-map.blade.php is 5200+ lines** of inline CSS + JS in a single Blade template. Extracting JS modules (scene setup, interaction handlers, panel rendering, search, tour) and CSS into Vite-compiled assets would dramatically improve maintainability. **RESOLVED** — split into 33 ES modules under `resources/js/map/` + `resources/css/map.css`; the blade is now a ~500-line shell loading the Vite bundle. See "Frontend Split (Vite modularization)" below.
-- [ ] **DUPLICATION — map-preview.html duplicates most of the main map** (~2678 lines) with no shared source. Changes to one must be manually ported to the other.
-- [x] **CDN DEPS — Three.js, D3, TopoJSON** are loaded from `cdn.jsdelivr.net` with pinned versions. No Subresource Integrity (SRI) hashes, no fallback if CDN is down. **RESOLVED** — Three.js/D3/TopoJSON are now npm deps bundled by Vite (`three@0.164`, `d3`, `topojson-client`); `three` is split into its own vendor chunk via `manualChunks`.
-- [ ] **PARTY DATA SYNC — District party coloring** uses a client-side `_GOP` hardcoded array that must be manually updated when Congress changes. The `district-config` API endpoint provides `party_map` but it's only used for the panel, not for map rendering.
-- [x] **NO BUILD PIPELINE — Map JS/CSS** has no Vite compilation, no tree-shaking, no minification. All 5200 lines ship unminified. **RESOLVED** — `resources/js/map/app.js` is a Vite entry; `npm run build` transforms 686 modules, tree-shakes, minifies, and emits hashed assets with a manifest.
-- [ ] **LEGACY GOOGLE MAP** — `legacy/app/views/pages/addials/map.blade.php` has a hardcoded Google Maps API key that should be removed or rotated.
-
-### Frontend Split (Vite modularization)
-
-The 5200-line self-contained `us-map.blade.php` (CDN import-map for Three.js, inline
-CSS/JS) has been decomposed into a Vite-bundled modular frontend. Completion checklist:
-
-- [x] **JS modularization** — 33 ES modules under `resources/js/map/` (`config/ state/ scene/ api/ navigation/ ui/` + `app.js` entry + `render-loop.js`). See File Map above.
-- [x] **CSS extraction** — `resources/css/map.css` (~1,110 lines), imported by `app.js` and emitted via the entry's manifest `css` array.
-- [x] **Dep bundling** — Three.js/D3/TopoJSON moved off the CDN import-map to npm deps; `three` split into its own vendor chunk (`manualChunks`).
-- [x] **Build pipeline** — `npm run build` → `✓ 686 modules transformed`, hashed assets + `public/build/manifest.json`.
-- [x] **Route wiring** — `routes/standalone.php:574` `/map` → `standalone.public.us-map` (the new shell). Politician/voter wrappers iframe `/map` and inherit the new view.
-- [x] **Runtime globals** — `toggleKbHelp` exposed on `window` (kb-tour-btn inline handler); `__mapReset/__mapBack/__mapRegion` de-duplicated (single owner `ui/breadcrumb.js`); `btn-back` listener de-duplicated (orchestrator `app.js` only).
-- [x] **Build warnings** — CSS stray-comment fixed; 2 no-op dynamic imports converted to static; 2 genuine cycle-breaker dynamic imports retained (`legend↔mode-transitions`, `layers-panel↔controls-menu`) with explanatory comments.
-- [x] **Backup cleanup** — redundant `us-map-new.blade.php` (byte-identical dup) and `us-map-original.blade.php` (5222-line pre-split monolith) removed.
-- [ ] **Client-side smoke test** — `npm run build` passes and `/map` renders server-side (HTTP 200, all bundle refs resolve, no manifest errors); browser click-through (tour replay, single back-nav, search, district overlay, deep-link) pending end-user confirmation.
-
-> Build-warnings remaining by design: two "dynamic import will not move module into another chunk" notices for the genuine import-cycle breakers.
-
----
-
 ## Progress Log
 
 | Date | Phase | Item | Commit/PR | Notes |
@@ -630,7 +479,6 @@ CSS/JS) has been decomposed into a Vite-bundled modular frontend. Completion che
 | 2026-07-15 | 0 | SEC-5 — enforce admin 2FA on `/api/v1/admin/*` | `8728abb8` | `admin.2fa` applied to admin API group; `EnsureAdminTwoFactorVerified` returns 403 JSON for `expectsJson()` |
 | 2026-07-15 | 0 | COR-5 — server-authoritative view watch-time | `ee7af95e` | `VoterController::trackProgress`/`completeView` clamp client claim to wall-clock elapsed since `started_at` (`serverAuthoritativeSeconds()`); inflated claims logged |
 | 2026-07-15 | 0 | Phase 0 merged to master (local, unpushed) | `169f45d2` | `fix/security-hotfixes` → master `--no-ff`; 7 commits ahead of `origin/master`; SEC-1/SEC-2 deferred (user/ops). Tests still not runnable here |
-| 2026-07-17 | map | Map frontend split — `us-map` monolith → modular Vite frontend | `f28e75d5` | 33 ES modules under `resources/js/map/` + `resources/css/map.css`; blade → ~500-line shell; Three.js/D3/TopoJSON bundled via npm; `three` vendor chunk; `npm run build` clean (686 modules); `/map` HTTP 200. Runtime globals de-duped; `@vite` manifest fixed. Browser click-through smoke-test pending. See "Frontend Split (Vite modularization)" under Map System Reference. |
 
 <!--
 Append rows here as work ships. When a roadmap checkbox is completed, tick it above AND log the commit here.

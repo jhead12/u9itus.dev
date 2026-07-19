@@ -274,7 +274,7 @@ export function initOfficesToggle() {
     } catch {}
 }
 
-/* Delegate click on any .candidate-card to open popup */
+/* Delegate click on any .candidate-card to open the politician drawer */
 export function initCandidateCardClick() {
     document.getElementById('info-panel').addEventListener('click', e => {
         const card = e.target.closest('.candidate-card[data-candidate]');
@@ -287,6 +287,9 @@ export function initCandidateCardClick() {
             openPolDrawer(c, c.color, {
                 population: _dKey ? (stateData?.district_populations?.[_dKey] ?? null) : null
             });
-        } catch { /* malformed data, ignore */ }
+        } catch (err) {
+            // Surface unexpected errors so we can diagnose drawer-open failures.
+            console.error('[map] candidate-card click failed:', err);
+        }
     });
 }

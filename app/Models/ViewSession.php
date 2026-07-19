@@ -134,14 +134,14 @@ class ViewSession extends Model
     public function isExpired(): bool
     {
         return $this->expires_at && $this->expires_at->isPast()
-            && !in_array($this->status, ['completed', 'flagged']);
+            && !in_array($this->status, [ViewSessionStatus::Completed, ViewSessionStatus::Flagged], true);
     }
 
     // ── Additional Scopes ───────────────────────────────────
 
     public function scopeActive($query)
     {
-        return $query->whereIn('status', ['assigned', 'in_progress']);
+        return $query->whereIn('status', [ViewSessionStatus::Assigned, ViewSessionStatus::InProgress]);
     }
 
     /**
