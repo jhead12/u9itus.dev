@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Services\DistrictLookupService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -48,7 +49,16 @@ class MapGeocodeController
             ], 422);
         }
 
-        $result = $this->lookupCoordinates($lat, $lng);
+        // Round to 3 decimal places (~110m precision) for cache key deduplification
+        // so nearby taps share a cached result without sacrificing accuracy for
+        // district lookups (congressional districts are never smaller than a city block).
+        $latRounded = round($lat, 3);
+        $lngRounded = round($lng, 3);
+        $cacheKey = "map_geocode:{$latRounded}:{$lngRounded}";
+
+        $result = Cache::remember($cacheKey, 86400, function () use ($lat, $lng) {
+            return $this->lookupCoordinates($lat, $lng);
+        });
 
         if ($result === null) {
             return response()->json([

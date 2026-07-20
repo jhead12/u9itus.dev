@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Models\BallotMeasure;
 use App\Models\ElectionCandidateRecord;
 use App\Models\Politician;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -118,6 +120,25 @@ class MapStateCandidatesController
 
         if ($state === '' || strlen($state) !== 2) {
             return response()->json(['error' => 'Provide a valid two-letter state code.'], 422);
+        }
+
+        $data = Cache::remember("map_state_candidates_{$state}", 3600, function () use ($state) {
+            return $this->buildStateData($state);
+        });
+
+        return response()->json($data);
+    }
+
+    /**
+     * Build the full state data payload (result is cached by __invoke).
+     *
+     * @return array<string, mixed>
+     */
+    private function buildStateData(string $state): array
+    {
+        if ($state === '' || strlen($state) !== 2) {
+            // Should never happen — validated before cache call.
+            return [];
         }
 
         // ── 1. Seated statewide officeholders on the platform ─────────────────
@@ -462,7 +483,29 @@ class MapStateCandidatesController
             ];
         }
 
-        return response()->json([
+        // ── 7. Upcoming ballot measures for this state ─────────────────────────
+        // Admin/CSV-curated for now (php artisan ballot-measures:import) — no
+        // automated per-state Secretary-of-State scraper yet.
+        $ballotMeasures = BallotMeasure::query()
+            ->where('state', $state)
+            ->where(function ($q) {
+                $q->whereNull('election_date')->orWhere('election_date', '>=', now()->toDateString());
+            })
+            ->orderBy('election_date')
+            ->limit(10)
+            ->get(['measure_number', 'title', 'summary', 'yes_meaning', 'no_meaning', 'election_date', 'status', 'source_url'])
+            ->map(fn (BallotMeasure $m) => [
+                'measure_number' => $m->measure_number,
+                'title'          => $m->title,
+                'summary'        => $m->summary,
+                'yes_meaning'    => $m->yes_meaning,
+                'no_meaning'     => $m->no_meaning,
+                'election_date'  => optional($m->election_date)?->toDateString(),
+                'status'         => $m->status,
+                'source_url'     => $m->source_url,
+            ]);
+
+        return [
             'state'              => $state,
             'region'             => $regionInfo['region'],
             'region_color'       => $regionInfo['color'],
@@ -470,6 +513,7 @@ class MapStateCandidatesController
             'offices'            => $offices,
             'house_candidates'   => $houseCandidates,
             'city_officials'     => $cityOfficialsGrouped,
+            'ballot_measures'    => $ballotMeasures->values()->all(),
             'office_roles'       => $this->officeRoles(),
             'population'         => $statePopRow ? [
                 'total'       => $statePopRow->total_population,
@@ -481,8 +525,8 @@ class MapStateCandidatesController
                 'total'       => $r->total_population,
                 'census_year' => $r->census_year,
                 'formatted'   => number_format($r->total_population),
-            ]),
-        ]);
+            ])->values()->all(),
+        ];
     }
 
     /**

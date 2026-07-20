@@ -12,7 +12,7 @@ use App\Mail\WelcomeMail;
 use App\Models\AdminSecurityAuditLog;
 use App\Models\ReferralVisit;
 use App\Http\Middleware\CaptureEarlyBankReferral;
-use App\Services\AdminTwoFactorService;
+use App\Services\TwoFactorService;
 use App\Services\EarlyBankWebhookService;
 use App\Services\PlatformSettingsService;
 use App\Services\PhoneVerificationService;
@@ -67,37 +67,10 @@ class AuthController extends Controller
 
     /**
      * Resolve the correct post-login destination for a given user.
-     * Checks Spatie roles first, then falls back to the user_type column.
      */
     private function roleRedirect(\App\Models\User $user): string
     {
-        // Dual-role: voter who has also added a Citizen profile → portal picker.
-        if ($user->hasRole('voter') && $user->hasRole('citizen')) {
-            return route('portal-pick');
-        }
-
-        if ($user->hasRole('admin')) {
-            return route('admin.dashboard');
-        }
-
-        if ($user->hasRole('politician')) {
-            return route('politician.dashboard');
-        }
-
-        if ($user->hasRole('citizen')) {
-            return route('citizen.dashboard');
-        }
-
-        if ($user->hasRole('voter')) {
-            return route('voter.dashboard');
-        }
-
-        return match ($user->user_type) {
-            'admin'      => route('admin.dashboard'),
-            'politician' => route('politician.dashboard'),
-            'citizen'    => route('citizen.dashboard'),
-            default      => route('voter.dashboard'),
-        };
+        return app(\App\Services\UserRoleService::class)->dashboardRouteFor($user);
     }
 
     // -------------------------------------------------------------------------
@@ -164,7 +137,7 @@ class AuthController extends Controller
         return view('standalone.auth.admin-2fa-challenge');
     }
 
-    public function verifyAdminTwoFactorChallenge(Request $request, AdminTwoFactorService $twoFactorService)
+    public function verifyAdminTwoFactorChallenge(Request $request, TwoFactorService $twoFactorService)
     {
         $request->validate([
             'code' => ['required', 'string', 'max:32'],

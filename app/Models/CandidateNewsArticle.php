@@ -17,6 +17,7 @@ class CandidateNewsArticle extends Model
         'image_url',
         'published_at',
         'provider',
+        'content_type',
         'verification_status',
         'verification_reason',
         'verification_confidence',

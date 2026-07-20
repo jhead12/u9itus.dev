@@ -2,7 +2,7 @@
 
 use App\Models\PlatformSetting;
 use App\Models\User;
-use App\Services\AdminTwoFactorService;
+use App\Services\TwoFactorService;
 use Spatie\Permission\Models\Role;
 
 beforeEach(function () {
@@ -84,13 +84,13 @@ test('enabling admin 2fa generates and stores recovery codes', function () {
         'admin_two_factor_recovery_codes' => null,
     ]);
 
-    $mock = Mockery::mock(AdminTwoFactorService::class);
+    $mock = Mockery::mock(TwoFactorService::class);
     $mock->shouldReceive('verifyCode')->once()->andReturnTrue();
     $mock->shouldReceive('generateRecoveryCodes')->once()->andReturn([
         'ABCD-EFGH',
         'JKLM-NPQR',
     ]);
-    $this->app->instance(AdminTwoFactorService::class, $mock);
+    $this->app->instance(TwoFactorService::class, $mock);
 
     $this->actingAs($admin)
         ->withSession(['admin_2fa_setup_secret' => fakeTwoFactorSecret()])
@@ -115,9 +115,9 @@ test('recovery code can complete challenge and is consumed', function () {
 
     setAdminTwoFactorPolicy(true);
 
-    $mock = Mockery::mock(AdminTwoFactorService::class);
+    $mock = Mockery::mock(TwoFactorService::class);
     $mock->shouldReceive('consumeRecoveryCode')->once()->andReturn(['JKLM-NPQR']);
-    $this->app->instance(AdminTwoFactorService::class, $mock);
+    $this->app->instance(TwoFactorService::class, $mock);
 
     $this->actingAs($admin)
         ->post(route('admin.2fa.challenge.verify'), ['code' => 'ABCD-EFGH'])
@@ -135,10 +135,10 @@ test('admin can rotate recovery codes with password and authenticator check', fu
         'admin_two_factor_recovery_codes' => ['ABCD-EFGH'],
     ]);
 
-    $mock = Mockery::mock(AdminTwoFactorService::class);
+    $mock = Mockery::mock(TwoFactorService::class);
     $mock->shouldReceive('verifyCode')->once()->andReturnTrue();
     $mock->shouldReceive('generateRecoveryCodes')->once()->andReturn(['WXYZ-2345', '6789-BCDF']);
-    $this->app->instance(AdminTwoFactorService::class, $mock);
+    $this->app->instance(TwoFactorService::class, $mock);
 
     $this->actingAs($admin)
         ->post(route('admin.2fa.setup.recovery.rotate'), [
@@ -158,14 +158,14 @@ test('admin 2fa setup page shows qr code when renderer succeeds', function () {
         'admin_two_factor_confirmed_at' => null,
     ]);
 
-    $mock = Mockery::mock(AdminTwoFactorService::class);
+    $mock = Mockery::mock(TwoFactorService::class);
     $mock->shouldReceive('getOtpAuthUrl')
         ->once()
         ->andReturn('otpauth://totp/U9itus:test@example.com?secret=' . fakeTwoFactorSecret() . '&issuer=U9itus');
     $mock->shouldReceive('renderOtpAuthQrSvg')
         ->once()
         ->andReturn('<svg viewBox="0 0 100 100"><rect width="100" height="100" fill="#000"/></svg>');
-    $this->app->instance(AdminTwoFactorService::class, $mock);
+    $this->app->instance(TwoFactorService::class, $mock);
 
     $response = $this->actingAs($admin)
         ->withSession(['admin_2fa_setup_secret' => fakeTwoFactorSecret()])

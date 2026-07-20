@@ -164,18 +164,37 @@ export async function enterStateMode(stateName, regionName, region) {
     const abbr = STATE_ABBR_MAP[stateName];
     let apiStatus = 'unreachable';
     if (abbr) {
+        const SC_LS_KEY = `u9_map_sc_${abbr}`;
+        const SC_TTL    = 60 * 60 * 1000; // 1 hour — mirrors server-side Cache::remember TTL
+
+        // Show cached data immediately so the panel feels instant, then refresh.
+        try {
+            const raw = localStorage.getItem(SC_LS_KEY);
+            if (raw) {
+                const { ts, data } = JSON.parse(raw);
+                if (Date.now() - ts < SC_TTL) {
+                    nextStateData = data;
+                    apiStatus = nextStateData?.offices?.length ? 'live' : 'empty';
+                } else {
+                    localStorage.removeItem(SC_LS_KEY);
+                }
+            }
+        } catch { /* ignore */ }
+
         try {
             const apiRes = await fetch(`/api/v1/map/state-candidates?state=${abbr}`);
             if (requestId !== statePanelRequestId) return;
             if (apiRes.ok) {
-                nextStateData = await apiRes.json();
+                const fresh = await apiRes.json();
+                nextStateData = fresh;
                 apiStatus = nextStateData?.offices?.length ? 'live' : 'empty';
-            } else {
+                try { localStorage.setItem(SC_LS_KEY, JSON.stringify({ ts: Date.now(), data: fresh })); } catch {}
+            } else if (!nextStateData) {
                 apiStatus = 'unreachable';
             }
         } catch (e) {
             console.warn('state-candidates API unavailable:', e.message);
-            apiStatus = 'unreachable';
+            if (!nextStateData) apiStatus = 'unreachable';
         }
     }
     if (requestId !== statePanelRequestId) return;

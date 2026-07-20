@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\CandidateNewsArticle;
+use App\Models\CandidateNewsRunLog;
 use App\Models\Politician;
 use App\Services\CandidateNewsService;
 use Illuminate\Console\Command;
@@ -61,37 +62,54 @@ class RefreshCandidateNews extends Command
             return self::SUCCESS;
         }
 
-        $bar = $this->output->createProgressBar($total);
-        $bar->start();
+        $runLog = CandidateNewsRunLog::create([
+            'command_name' => 'candidates:refresh-news',
+            'status' => 'running',
+            'queued_count' => $total,
+            'started_at' => now(),
+        ]);
 
-        foreach ($politicians as $politician) {
-            try {
-                $newsService->fetchAndPersist(
-                    politicianId: $politician->id,
-                    candidateName: (string) $politician->full_name,
-                    state: $politician->state,
-                );
-                $refreshed++;
-            } catch (\Throwable $e) {
-                $failed++;
-                Log::warning('candidates:refresh-news failed for politician', [
-                    'politician_id' => $politician->id,
-                    'name'          => $politician->full_name,
-                    'error'         => $e->getMessage(),
-                ]);
+        try {
+            $bar = $this->output->createProgressBar($total);
+            $bar->start();
+
+            foreach ($politicians as $politician) {
+                try {
+                    $newsService->fetchAndPersist(
+                        politicianId: $politician->id,
+                        candidateName: (string) $politician->full_name,
+                        state: $politician->state,
+                        websiteUrl: $politician->website_url,
+                    );
+                    $refreshed++;
+                } catch (\Throwable $e) {
+                    $failed++;
+                    Log::warning('candidates:refresh-news failed for politician', [
+                        'politician_id' => $politician->id,
+                        'name'          => $politician->full_name,
+                        'error'         => $e->getMessage(),
+                    ]);
+                }
+
+                $bar->advance();
             }
 
-            $bar->advance();
+            $bar->finish();
+            $this->newLine();
+
+            $this->info("Done. Refreshed: {$refreshed} | Failed: {$failed}");
+
+            // Return SUCCESS even when individual candidates fail — a FK mismatch or
+            // transient HTTP error for one record should not fail the entire CI job.
+            // Failures are logged as warnings above for investigation. The run log
+            // (not the exit code) is what the health check watches.
+            $runLog->markSuccess(self::SUCCESS, ['refreshed' => $refreshed, 'failed' => $failed]);
+
+            return self::SUCCESS;
+        } catch (\Throwable $e) {
+            $runLog->markFailed(self::FAILURE, $e->getMessage());
+
+            throw $e;
         }
-
-        $bar->finish();
-        $this->newLine();
-
-        $this->info("Done. Refreshed: {$refreshed} | Failed: {$failed}");
-
-        // Return SUCCESS even when individual candidates fail — a FK mismatch or
-        // transient HTTP error for one record should not fail the entire CI job.
-        // Failures are logged as warnings above for investigation.
-        return self::SUCCESS;
     }
 }

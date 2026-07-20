@@ -5,6 +5,8 @@ namespace App\Services;
 use App\Models\CandidateNewsArticle;
 use App\Models\Politician;
 use App\Models\PoliticianTopic;
+use Illuminate\Http\Client\Pool;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -68,6 +70,7 @@ class CandidateNewsService
             politicianId: $politician->id,
             candidateName: (string) $politician->full_name,
             state: $politician->state,
+            websiteUrl: $politician->website_url,
         );
 
         return CandidateNewsArticle::query()
@@ -110,45 +113,149 @@ class CandidateNewsService
      * Fetch articles from all configured sources and upsert into DB.
      *
      * @param string|null $state Two-letter state abbreviation to include local sources
+     * @param string|null $websiteUrl Candidate's official website — when present, also pulls
+     *                                content from that domain and classifies it as press
+     *                                releases / events rather than third-party news.
      */
-    public function fetchAndPersist(?int $politicianId, string $candidateName, ?string $state = null): void
+    public function fetchAndPersist(?int $politicianId, string $candidateName, ?string $state = null, ?string $websiteUrl = null): void
     {
-        $seen = [];
+        $requests = $this->buildRequestPlan($candidateName, $state, $websiteUrl);
 
-        // ── National RSS sources from config ─────────────────────────────────
-        $nationalSources = config('news_sources.national', []);
-        foreach ($nationalSources as $source) {
-            $articles = $this->fetchFromRss(
-                candidateName: $candidateName,
-                providerId: $source['id'],
-                rssUrl: $source['rss_url'],
-            );
-            $this->persistArticles($articles, $politicianId, $candidateName, $seen);
+        if ($requests === []) {
+            return;
         }
 
-        // ── State-specific local sources ──────────────────────────────────────
+        // Fire every source (national/state RSS + optional paid APIs) concurrently
+        // instead of one blocking HTTP call after another — this endpoint is called
+        // synchronously from the map overview request path on a cache miss, so a
+        // sequential fan-out directly added to that request's latency.
+        $responses = Http::pool(fn (Pool $pool) => collect($requests)
+            ->map(function (array $req, int $index) use ($pool) {
+                $client = $pool->as((string) $index)->timeout(10);
+
+                return isset($req['query']) ? $client->get($req['url'], $req['query']) : $client->get($req['url']);
+            })
+            ->all());
+
+        $seen = [];
+        foreach ($requests as $index => $req) {
+            $articles = $this->parsePooledResponse($req, $responses[(string) $index] ?? null, $candidateName);
+            $this->persistArticles($articles, $politicianId, $candidateName, $seen);
+        }
+    }
+
+    /**
+     * Build the list of pending HTTP requests (national/state RSS + optional
+     * paid APIs + the candidate's own official site) for a candidate, without
+     * issuing any of them yet.
+     *
+     * @return array<int, array{type:string, provider_id:string, url:string, query?:array<string,mixed>}>
+     */
+    protected function buildRequestPlan(string $candidateName, ?string $state, ?string $websiteUrl = null): array
+    {
+        $requests = [];
+
+        foreach (config('news_sources.national', []) as $source) {
+            $requests[] = [
+                'type' => 'rss',
+                'provider_id' => $source['id'],
+                'url' => $this->buildRssUrl($candidateName, $source['id'], $source['rss_url']),
+            ];
+        }
+
         if ($state) {
             $stateCode = strtoupper(trim($state));
-            $localSources = config("news_sources.state.{$stateCode}", []);
-            foreach ($localSources as $source) {
-                $articles = $this->fetchFromRss(
-                    candidateName: $candidateName,
-                    providerId: $source['id'],
-                    rssUrl: $source['rss_url'],
-                );
-                $this->persistArticles($articles, $politicianId, $candidateName, $seen);
+            foreach (config("news_sources.state.{$stateCode}", []) as $source) {
+                $requests[] = [
+                    'type' => 'rss',
+                    'provider_id' => $source['id'],
+                    'url' => $this->buildRssUrl($candidateName, $source['id'], $source['rss_url']),
+                ];
             }
         }
 
-        // ── Optional paid APIs ────────────────────────────────────────────────
+        // Candidate's own official site — same site: scoping technique already used
+        // for the 'ap'/'politico' national sources, just pointed at their own domain
+        // instead of a third-party outlet. Classified as press_release/event below
+        // rather than news, since it's the candidate's own communication.
+        $officialHost = $this->extractHost($websiteUrl);
+        if ($officialHost !== null) {
+            $requests[] = [
+                'type' => 'rss',
+                'provider_id' => 'official_site',
+                'url' => $this->buildRssUrl(
+                    $candidateName,
+                    'official_site',
+                    "https://news.google.com/rss/search?q={QUERY}+site:{$officialHost}&hl=en-US&gl=US&ceid=US:en",
+                ),
+            ];
+        }
+
         if ($this->newsApiKey) {
-            $articles = $this->fetchFromNewsApi($candidateName);
-            $this->persistArticles($articles, $politicianId, $candidateName, $seen);
+            $requests[] = [
+                'type' => 'newsapi',
+                'provider_id' => 'newsapi',
+                'url' => 'https://newsapi.org/v2/everything',
+                'query' => [
+                    'q' => '"' . $candidateName . '"',
+                    'language' => 'en',
+                    'sortBy' => 'publishedAt',
+                    'pageSize' => $this->maxArticles,
+                    'apiKey' => $this->newsApiKey,
+                ],
+            ];
         }
 
         if ($this->gNewsApiKey) {
-            $articles = $this->fetchFromGNews($candidateName);
-            $this->persistArticles($articles, $politicianId, $candidateName, $seen);
+            $requests[] = [
+                'type' => 'gnews',
+                'provider_id' => 'gnews',
+                'url' => 'https://gnews.io/api/v4/search',
+                'query' => [
+                    'q' => '"' . $candidateName . '"',
+                    'lang' => 'en',
+                    'country' => 'us',
+                    'max' => $this->maxArticles,
+                    'apikey' => $this->gNewsApiKey,
+                ],
+            ];
+        }
+
+        return $requests;
+    }
+
+    /**
+     * Parse a single pooled response, tolerating per-source failures the same
+     * way the old sequential fetchers did (log + skip, never throw).
+     *
+     * @param array{type:string, provider_id:string, url:string, query?:array<string,mixed>} $req
+     * @return array<int, array<string, mixed>>
+     */
+    protected function parsePooledResponse(array $req, mixed $response, string $candidateName): array
+    {
+        try {
+            if ($response instanceof \Throwable) {
+                throw $response;
+            }
+
+            if (! $response instanceof Response || ! $response->successful()) {
+                return [];
+            }
+
+            return match ($req['type']) {
+                'rss' => $this->parseRssResponse($response, $req['provider_id']),
+                'newsapi' => $this->parseNewsApiResponse($response),
+                'gnews' => $this->parseGNewsResponse($response),
+                default => [],
+            };
+        } catch (\Throwable $e) {
+            Log::warning('CandidateNewsService: pooled request failed', [
+                'provider' => $req['provider_id'],
+                'candidate' => $candidateName,
+                'error' => $e->getMessage(),
+            ]);
+
+            return [];
         }
     }
 
@@ -245,14 +352,34 @@ class CandidateNewsService
             }
             $seen[$hash] = true;
 
-            $verification = $this->verifyCandidateRelevance(
-                candidateName: $candidateName,
-                headline: (string) ($article['headline'] ?? ''),
-                snippet: (string) ($article['snippet'] ?? ''),
-                sourceName: (string) ($article['source_name'] ?? ''),
-                state: (string) ($politician?->state ?? ''),
-                office: (string) ($politician?->political_office ?? ''),
-            );
+            $providerId = (string) ($article['provider'] ?? '');
+
+            // The name/surname relevance gate exists to filter broad third-party
+            // search results down to ones that actually mention the candidate. It
+            // doesn't apply to the candidate's own official site — the site: scope
+            // already guarantees relevance, and official press releases routinely
+            // don't repeat the candidate's full name (e.g. "Contact Form", "Summer
+            // Dance with constituents"). Gating those the same way as third-party
+            // news would silently drop legitimate press releases/events.
+            $verification = $providerId === 'official_site'
+                ? [
+                    'status' => 'verified',
+                    'reason' => 'official site (site-scoped, name match not required)',
+                    'confidence' => 1.0,
+                    'name_match_score' => 1.0,
+                    'context_match_score' => 1.0,
+                    'full_name_match' => false,
+                    'surname_match' => false,
+                    'context_hits' => [],
+                ]
+                : $this->verifyCandidateRelevance(
+                    candidateName: $candidateName,
+                    headline: (string) ($article['headline'] ?? ''),
+                    snippet: (string) ($article['snippet'] ?? ''),
+                    sourceName: (string) ($article['source_name'] ?? ''),
+                    state: (string) ($politician?->state ?? ''),
+                    office: (string) ($politician?->political_office ?? ''),
+                );
 
             $topic = $verification['status'] === 'verified'
                 ? $this->extractTopicKey(
@@ -261,11 +388,18 @@ class CandidateNewsService
                 )
                 : ['topic_key' => null, 'topic_confidence' => null];
 
+            $contentType = $this->classifyContentType(
+                providerId: $providerId,
+                headline: (string) ($article['headline'] ?? ''),
+                snippet: (string) ($article['snippet'] ?? ''),
+            );
+
             CandidateNewsArticle::updateOrCreate(
                 ['source_hash' => $hash],
                 array_merge($article, [
                     'politician_id'  => $politicianId,
                     'candidate_name' => $candidateName,
+                    'content_type'   => $contentType,
                     'scraped_at'     => now(),
                     'verification_status' => $verification['status'],
                     'verification_reason' => $verification['reason'],
@@ -411,14 +545,12 @@ class CandidateNewsService
     // -------------------------------------------------------------------------
 
     /**
-     * Fetch and parse any RSS feed that accepts a {QUERY} placeholder in its URL.
+     * Build the request URL for any RSS feed that accepts a {QUERY} placeholder.
      *
      * Works for Google News RSS, C-SPAN RSS, and any site: scoped Google News
      * feed defined in config/news_sources.php.
-     *
-     * @return array<int, array<string, mixed>>
      */
-    protected function fetchFromRss(string $candidateName, string $providerId, string $rssUrl): array
+    protected function buildRssUrl(string $candidateName, string $providerId, string $rssUrl): string
     {
         $query = '"' . $candidateName . '"';
         // C-SPAN and some feeds work better without the word "politician" appended
@@ -426,77 +558,116 @@ class CandidateNewsService
             $query .= ' politician';
         }
 
-        $url = str_replace('{QUERY}', rawurlencode($query), $rssUrl);
+        return str_replace('{QUERY}', rawurlencode($query), $rssUrl);
+    }
 
-        try {
-            $response = Http::timeout(10)->get($url);
+    /**
+     * Extract a bare host (no scheme, no "www.") from a candidate's website URL,
+     * suitable for a Google News `site:` search. Returns null when there's no
+     * usable domain to scope to.
+     */
+    protected function extractHost(?string $websiteUrl): ?string
+    {
+        if ($websiteUrl === null || trim($websiteUrl) === '') {
+            return null;
+        }
 
-            if (! $response->successful()) {
-                return [];
+        $host = parse_url(trim($websiteUrl), PHP_URL_HOST)
+            ?? parse_url('https://' . trim($websiteUrl), PHP_URL_HOST);
+
+        if (! is_string($host) || $host === '') {
+            return null;
+        }
+
+        return preg_replace('/^www\./i', '', strtolower($host));
+    }
+
+    /**
+     * Classify a persisted item's content type. Only the candidate's own official
+     * site is ever press_release/event — third-party coverage always stays 'news',
+     * so the distinction reflects who is speaking, not what the headline says.
+     */
+    protected function classifyContentType(string $providerId, string $headline, string $snippet): string
+    {
+        if ($providerId !== 'official_site') {
+            return 'news';
+        }
+
+        $haystack = Str::lower($headline . ' ' . $snippet);
+
+        $eventKeywords = [
+            'town hall', 'townhall', 'office hours', 'community meeting',
+            'listening session', 'meet and greet', 'constituent coffee',
+            'public forum', 'town-hall',
+        ];
+
+        foreach ($eventKeywords as $keyword) {
+            if (str_contains($haystack, $keyword)) {
+                return 'event';
             }
+        }
 
-            $xml = @simplexml_load_string($response->body());
+        return 'press_release';
+    }
 
-            if ($xml === false || ! isset($xml->channel->item)) {
-                return [];
-            }
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    protected function parseRssResponse(Response $response, string $providerId): array
+    {
+        $xml = @simplexml_load_string($response->body());
 
-            $articles = [];
-
-            foreach ($xml->channel->item as $item) {
-                $sourceUrl = (string) ($item->link ?? '');
-                if ($sourceUrl === '') {
-                    continue;
-                }
-
-                $pubDate = null;
-                try {
-                    $pubDate = \Carbon\Carbon::parse((string) ($item->pubDate ?? ''));
-                } catch (\Throwable) {
-                    // leave null
-                }
-
-                // Google News RSS wraps publisher name in <source>; C-SPAN uses <author>
-                $sourceName = (string) ($item->source
-                    ?? $item->author
-                    ?? $item->children('dc', true)->creator
-                    ?? '');
-                if ($sourceName === '') {
-                    // Derive a display name from the config label if we can
-                    $allSources = array_merge(
-                        config('news_sources.national', []),
-                        ...array_values(config('news_sources.state', [])),
-                    );
-                    foreach ($allSources as $src) {
-                        if (($src['id'] ?? '') === $providerId) {
-                            $sourceName = $src['label'];
-                            break;
-                        }
-                    }
-                }
-
-                $articles[] = [
-                    'headline'     => strip_tags((string) ($item->title ?? '')),
-                    'source_name'  => $sourceName ?: null,
-                    'source_url'   => $sourceUrl,
-                    'snippet'      => strip_tags((string) ($item->description ?? '')),
-                    'image_url'    => null,
-                    'published_at' => $pubDate,
-                    'provider'     => $providerId,
-                    'source_hash'  => hash('sha256', $sourceUrl),
-                ];
-            }
-
-            return array_slice($articles, 0, $this->maxPerProvider);
-        } catch (\Throwable $e) {
-            Log::warning('CandidateNewsService: RSS fetch failed', [
-                'provider'  => $providerId,
-                'candidate' => $candidateName,
-                'error'     => $e->getMessage(),
-            ]);
-
+        if ($xml === false || ! isset($xml->channel->item)) {
             return [];
         }
+
+        $articles = [];
+
+        foreach ($xml->channel->item as $item) {
+            $sourceUrl = (string) ($item->link ?? '');
+            if ($sourceUrl === '') {
+                continue;
+            }
+
+            $pubDate = null;
+            try {
+                $pubDate = \Carbon\Carbon::parse((string) ($item->pubDate ?? ''));
+            } catch (\Throwable) {
+                // leave null
+            }
+
+            // Google News RSS wraps publisher name in <source>; C-SPAN uses <author>
+            $sourceName = (string) ($item->source
+                ?? $item->author
+                ?? $item->children('dc', true)->creator
+                ?? '');
+            if ($sourceName === '') {
+                // Derive a display name from the config label if we can
+                $allSources = array_merge(
+                    config('news_sources.national', []),
+                    ...array_values(config('news_sources.state', [])),
+                );
+                foreach ($allSources as $src) {
+                    if (($src['id'] ?? '') === $providerId) {
+                        $sourceName = $src['label'];
+                        break;
+                    }
+                }
+            }
+
+            $articles[] = [
+                'headline'     => strip_tags((string) ($item->title ?? '')),
+                'source_name'  => $sourceName ?: null,
+                'source_url'   => $sourceUrl,
+                'snippet'      => strip_tags((string) ($item->description ?? '')),
+                'image_url'    => null,
+                'published_at' => $pubDate,
+                'provider'     => $providerId,
+                'source_hash'  => hash('sha256', $sourceUrl),
+            ];
+        }
+
+        return array_slice($articles, 0, $this->maxPerProvider);
     }
 
     // -------------------------------------------------------------------------
@@ -506,46 +677,24 @@ class CandidateNewsService
     /**
      * @return array<int, array<string, mixed>>
      */
-    protected function fetchFromNewsApi(string $candidateName): array
+    protected function parseNewsApiResponse(Response $response): array
     {
-        try {
-            $response = Http::timeout(10)
-                ->get('https://newsapi.org/v2/everything', [
-                    'q'        => '"' . $candidateName . '"',
-                    'language' => 'en',
-                    'sortBy'   => 'publishedAt',
-                    'pageSize' => $this->maxArticles,
-                    'apiKey'   => $this->newsApiKey,
-                ]);
+        $data = $response->json('articles', []);
 
-            if (! $response->successful()) {
-                return [];
-            }
+        return array_map(function (array $a): array {
+            $url = $a['url'] ?? '';
 
-            $data = $response->json('articles', []);
-
-            return array_map(function (array $a): array {
-                $url = $a['url'] ?? '';
-
-                return [
-                    'headline'    => $a['title'] ?? '',
-                    'source_name' => $a['source']['name'] ?? null,
-                    'source_url'  => $url,
-                    'snippet'     => $a['description'] ?? null,
-                    'image_url'   => $a['urlToImage'] ?? null,
-                    'published_at' => isset($a['publishedAt']) ? \Carbon\Carbon::parse($a['publishedAt']) : null,
-                    'provider'    => 'newsapi',
-                    'source_hash' => hash('sha256', $url),
-                ];
-            }, $data);
-        } catch (\Throwable $e) {
-            Log::warning('CandidateNewsService: NewsAPI fetch failed', [
-                'candidate' => $candidateName,
-                'error'     => $e->getMessage(),
-            ]);
-
-            return [];
-        }
+            return [
+                'headline'    => $a['title'] ?? '',
+                'source_name' => $a['source']['name'] ?? null,
+                'source_url'  => $url,
+                'snippet'     => $a['description'] ?? null,
+                'image_url'   => $a['urlToImage'] ?? null,
+                'published_at' => isset($a['publishedAt']) ? \Carbon\Carbon::parse($a['publishedAt']) : null,
+                'provider'    => 'newsapi',
+                'source_hash' => hash('sha256', $url),
+            ];
+        }, $data);
     }
 
     // -------------------------------------------------------------------------
@@ -555,45 +704,23 @@ class CandidateNewsService
     /**
      * @return array<int, array<string, mixed>>
      */
-    protected function fetchFromGNews(string $candidateName): array
+    protected function parseGNewsResponse(Response $response): array
     {
-        try {
-            $response = Http::timeout(10)
-                ->get('https://gnews.io/api/v4/search', [
-                    'q'        => '"' . $candidateName . '"',
-                    'lang'     => 'en',
-                    'country'  => 'us',
-                    'max'      => $this->maxArticles,
-                    'apikey'   => $this->gNewsApiKey,
-                ]);
+        $articles = $response->json('articles', []);
 
-            if (! $response->successful()) {
-                return [];
-            }
+        return array_map(function (array $a): array {
+            $url = $a['url'] ?? '';
 
-            $articles = $response->json('articles', []);
-
-            return array_map(function (array $a): array {
-                $url = $a['url'] ?? '';
-
-                return [
-                    'headline'    => $a['title'] ?? '',
-                    'source_name' => $a['source']['name'] ?? null,
-                    'source_url'  => $url,
-                    'snippet'     => $a['description'] ?? null,
-                    'image_url'   => $a['image'] ?? null,
-                    'published_at' => isset($a['publishedAt']) ? \Carbon\Carbon::parse($a['publishedAt']) : null,
-                    'provider'    => 'gnews',
-                    'source_hash' => hash('sha256', $url),
-                ];
-            }, $articles);
-        } catch (\Throwable $e) {
-            Log::warning('CandidateNewsService: GNews fetch failed', [
-                'candidate' => $candidateName,
-                'error'     => $e->getMessage(),
-            ]);
-
-            return [];
-        }
+            return [
+                'headline'    => $a['title'] ?? '',
+                'source_name' => $a['source']['name'] ?? null,
+                'source_url'  => $url,
+                'snippet'     => $a['description'] ?? null,
+                'image_url'   => $a['image'] ?? null,
+                'published_at' => isset($a['publishedAt']) ? \Carbon\Carbon::parse($a['publishedAt']) : null,
+                'provider'    => 'gnews',
+                'source_hash' => hash('sha256', $url),
+            ];
+        }, $articles);
     }
 }

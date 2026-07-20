@@ -198,15 +198,6 @@ class TwoFactorController extends Controller
 
     private function dashboardRoute(\App\Models\User $user): string
     {
-        // Dual-role users choose their destination after passing 2FA.
-        if ($user->hasRole('voter') && $user->hasRole('citizen')) {
-            return route('portal-pick');
-        }
-
-        return match ($user->user_type) {
-            'politician' => route('politician.dashboard'),
-            'citizen'    => route('citizen.dashboard'),
-            default      => route('voter.dashboard'),
-        };
+        return app(\App\Services\UserRoleService::class)->dashboardRouteFor($user);
     }
 }

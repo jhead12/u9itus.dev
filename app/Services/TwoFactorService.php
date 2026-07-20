@@ -29,12 +29,16 @@ class TwoFactorService
         return $secret;
     }
 
-    public function getOtpAuthUrl(User $user, string $secret): string
-    {
-        $issuer = rawurlencode((string) config('app.name', 'U9itus'));
-        $label  = rawurlencode((string) config('app.name', 'U9itus') . ':' . $user->email);
-
-        $logoUrl = config('app.url') . '/media/u9itus-logo.png';
+    public function getOtpAuthUrl(
+        User $user,
+        string $secret,
+        ?string $label = null,
+        ?string $logoPath = null,
+    ): string {
+        $appName = (string) config('app.name', 'U9itus');
+        $issuer  = rawurlencode($appName);
+        $label   = rawurlencode($label ?? $appName . ':' . $user->email);
+        $logoUrl = config('app.url') . '/' . ltrim($logoPath ?? 'media/u9itus-logo.png', '/');
 
         return sprintf(
             'otpauth://totp/%s?secret=%s&issuer=%s&algorithm=SHA1&digits=6&period=30&image=%s',

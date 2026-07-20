@@ -55,6 +55,23 @@ function formatPubDate(iso) {
     }
 }
 
+/** Renders a "Recent News"-style card list — shared by news, press releases, and events. */
+function renderItemListSection(label, items) {
+    if (!items?.length) return '';
+    return `
+        <p class="pol-section-label" style="margin-top:16px;">${escapeHtml(label)}</p>
+        <div style="display:grid;gap:8px;">
+            ${items.map(item => {
+                const href = safeUrl(item.source_url || '');
+                if (!href) return '';
+                return `<a href="${escapeHtml(href)}" target="_blank" rel="noopener" style="display:block;text-decoration:none;padding:8px 10px;border-radius:8px;border:1px solid rgba(148,163,184,0.2);background:rgba(15,23,42,0.5);">
+                    <div style="font-size:12px;color:#e2e8f0;font-weight:600;line-height:1.4;">${escapeHtml(item.headline || 'Article')}</div>
+                    <div style="margin-top:4px;font-size:10px;color:#94a3b8;">${escapeHtml(item.source_name || item.provider || 'News')} · ${escapeHtml(formatPubDate(item.published_at))}</div>
+                </a>`;
+            }).join('')}
+        </div>`;
+}
+
 const OVERVIEW_FETCH_TIMEOUT_MS = 8_000;
 
 async function loadOverviewEnrichment(cand) {
@@ -254,6 +271,8 @@ function _renderPolBody() {
         const isLoadingEnrichment = !!extra?.enrichmentLoading && !enrichment;
         const hasEnrichmentError = !!extra?.enrichmentError && !enrichment;
         const news = Array.isArray(enrichment?.news) ? enrichment.news.slice(0, 3) : [];
+        const pressReleases = Array.isArray(enrichment?.press_releases) ? enrichment.press_releases.slice(0, 3) : [];
+        const events = Array.isArray(enrichment?.events) ? enrichment.events.slice(0, 3) : [];
         const activeVideo = enrichment?.active_video || null;
         const activeVideoUrl = safeUrl(activeVideo?.url || '');
         const activeVideoEmbed = activeVideoUrl ? toEmbedUrl(activeVideoUrl) : '';
@@ -288,21 +307,9 @@ function _renderPolBody() {
                 </div>`;
         }
 
-        let newsHtml = '';
-        if (news.length) {
-            newsHtml = `
-                <p class="pol-section-label" style="margin-top:16px;">Recent News</p>
-                <div style="display:grid;gap:8px;">
-                    ${news.map(item => {
-                        const href = safeUrl(item.source_url || '');
-                        if (!href) return '';
-                        return `<a href="${escapeHtml(href)}" target="_blank" rel="noopener" style="display:block;text-decoration:none;padding:8px 10px;border-radius:8px;border:1px solid rgba(148,163,184,0.2);background:rgba(15,23,42,0.5);">
-                            <div style="font-size:12px;color:#e2e8f0;font-weight:600;line-height:1.4;">${escapeHtml(item.headline || 'Article')}</div>
-                            <div style="margin-top:4px;font-size:10px;color:#94a3b8;">${escapeHtml(item.source_name || item.provider || 'News')} · ${escapeHtml(formatPubDate(item.published_at))}</div>
-                        </a>`;
-                    }).join('')}
-                </div>`;
-        }
+        const newsHtml = renderItemListSection('Recent News', news);
+        const pressReleaseHtml = renderItemListSection('Press Releases', pressReleases);
+        const eventsHtml = renderItemListSection('Upcoming Events', events);
 
         let enrichmentStatusHtml = '';
         if (isLoadingEnrichment) {
@@ -344,6 +351,8 @@ function _renderPolBody() {
             ${bioHtml}
             ${videoHtml}
             ${newsHtml}
+            ${pressReleaseHtml}
+            ${eventsHtml}
             ${enrichmentStatusHtml}`;
 
     } else if (_polTab === 'economy') {

@@ -42,7 +42,7 @@ return [
             'registration' => false,
             'password_reset' => true,
             'email_verification' => true,
-            'two_factor' => false, // TODO: Enable in Phase 2
+            'two_factor' => true, // Enforced per role via PlatformSettingsService
             'api_tokens' => true,
             'teams' => false, // TODO: Enable for enterprise
         ],
@@ -52,11 +52,16 @@ return [
     |--------------------------------------------------------------------------
     | Platform Middleware
     |--------------------------------------------------------------------------
+    |
+    | The real middleware aliases are registered in bootstrap/app.php. This
+    | section is reserved for feature-flag or environment-driven middleware
+    | configuration only. Web routes use Laravel's session 'auth' middleware
+    | directly; Sanctum is only used for politician/admin API routes.
+    |
     */
     'middleware' => [
         'standalone' => [
-            'auth' => 'auth:sanctum',
-            'verified' => 'verified',
+            // Intentionally empty — aliases live in bootstrap/app.php.
         ],
     ],
 
@@ -92,9 +97,8 @@ return [
         'notification' => [
             'standalone' => \App\Services\StandardNotificationService::class,
         ],
-        'auth' => [
-            'standalone' => \App\Services\StandardAuthService::class,
-        ],
+        // Auth is handled by the standalone route/controllers directly.
+        // No platform-swap auth service is currently registered.
     ],
 
 ];

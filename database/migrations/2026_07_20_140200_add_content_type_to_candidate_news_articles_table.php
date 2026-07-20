@@ -1,0 +1,24 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('candidate_news_articles', function (Blueprint $table) {
+            $table->string('content_type', 20)->default('news')->after('provider');
+            $table->index(['content_type', 'published_at']);
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('candidate_news_articles', function (Blueprint $table) {
+            $table->dropIndex(['content_type', 'published_at']);
+            $table->dropColumn('content_type');
+        });
+    }
+};

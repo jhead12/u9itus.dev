@@ -19,6 +19,7 @@ use App\Models\DistrictLookupSearch;
 use App\Models\EngagementSurveyResponse;
 use App\Services\ReverbBroadcastService;
 use App\Services\PoliticianElectionMatcher;
+use App\Services\TwoFactorService;
 use App\Mail\KycApprovedMail;
 use App\Mail\KycRejectedMail;
 use App\Models\AdminSecurityAuditLog;
@@ -45,7 +46,6 @@ use App\Models\VoterWatchReport;
 use App\Models\Voter;
 use App\Notifications\CampaignStatusChangedNotification;
 use App\Notifications\SystemAnnouncementNotification;
-use App\Services\AdminTwoFactorService;
 use App\Services\CampaignBillingService;
 use App\Services\CampaignModerationService;
 use App\Services\CitizenBillingService;
@@ -3993,7 +3993,7 @@ HTML;
     /**
      * Show admin TOTP setup page.
      */
-    public function twoFactorSetup(Request $request, AdminTwoFactorService $twoFactorService)
+    public function twoFactorSetup(Request $request, TwoFactorService $twoFactorService)
     {
         $user = $request->user();
         $isEnabled = $user->hasAdminTwoFactorEnabled();
@@ -4010,7 +4010,13 @@ HTML;
                 $request->session()->put('admin_2fa_setup_secret', $setupSecret);
             }
 
-            $otpAuthUrl = $twoFactorService->getOtpAuthUrl($user, $setupSecret);
+            $label = config('app.name', 'U9itus') . ' Admin:' . $user->email;
+            $otpAuthUrl = $twoFactorService->getOtpAuthUrl(
+                $user,
+                $setupSecret,
+                label: $label,
+                logoPath: 'media/u9itus-logo.svg',
+            );
             $otpQrSvg = $twoFactorService->renderOtpAuthQrSvg($otpAuthUrl);
         }
 
@@ -4020,7 +4026,7 @@ HTML;
     /**
      * Confirm and enable admin TOTP.
      */
-    public function enableTwoFactor(Request $request, AdminTwoFactorService $twoFactorService)
+    public function enableTwoFactor(Request $request, TwoFactorService $twoFactorService)
     {
         $request->validate([
             'code' => ['required', 'digits:6'],
@@ -4105,7 +4111,7 @@ HTML;
     /**
      * Disable admin TOTP after credential verification.
      */
-    public function disableTwoFactor(Request $request, AdminTwoFactorService $twoFactorService)
+    public function disableTwoFactor(Request $request, TwoFactorService $twoFactorService)
     {
         $request->validate([
             'current_password' => ['required', 'current_password'],
@@ -4151,7 +4157,7 @@ HTML;
     /**
      * Rotate recovery codes after password + authenticator verification.
      */
-    public function rotateRecoveryCodes(Request $request, AdminTwoFactorService $twoFactorService)
+    public function rotateRecoveryCodes(Request $request, TwoFactorService $twoFactorService)
     {
         $request->validate([
             'current_password' => ['required', 'current_password'],

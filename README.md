@@ -22,13 +22,13 @@ Unlike traditional ad platforms where users can click repeatedly, U9itus uses **
 
 | Component                                          | Amount                          |
 | -------------------------------------------------- | ------------------------------- |
-| Politician pays per view                           | **$0.60**                       |
-| Voter earns per view                               | **$0.25**                       |
+| Politician pays per view                           | **$1.00**                       |
+| Voter earns per view                               | **$0.50~**                       |
 | Voter-referral commission (10% of voter payout)    | $0.025 per view _(recurring)_   |
 | Politician-procurement commission (10% of 1st buy) | ~$0.06+ _(one-time)_            |
 | Payment processing (Stripe 2.5% gross-up)          | 2.5% of credit top-up amount    |
 | Ops & infrastructure                               | ~$0.03–$0.12                    |
-| **Platform net profit**                            | **$0.18–$0.30 (30–50% margin)** |
+| **Platform net profit**                            | **$0.18–$0.35 (30–50% margin)** |
 
 > **Stripe fee note:** When a politician adds credits, the charge is grossed-up so the platform always receives the full credit value requested. For example, a $100.00 credit purchase generates a $102.56 Stripe charge; after Stripe deducts $2.56 (2.5%), the platform nets exactly $100.00 and the politician's balance is credited $100.00.
 
@@ -656,7 +656,7 @@ Status: `Planned`
 
 ## Support
 
-- **[Development Documentation](DEVELOPMENT.md)** — Development workflow
+- **[Development Documentation](doc/DEVELOPMENT.md)** — Development workflow
 - **[Migration Notes](doc/MIGRATION_NOTES.md)** — Upgrade and migration history
 - **[Changelog](doc/CHANGELOG.md)** — Version history
 - **[California Import Operations Runbook](doc/CALIFORNIA_IMPORT_OPERATIONS.md)** — Scheduler, health check, and incident response steps

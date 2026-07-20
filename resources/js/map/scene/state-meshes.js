@@ -6,6 +6,11 @@ import * as topojson from 'topojson-client';
 import { mapGroup } from './setup.js';
 import { buildShapeFromRings } from './projection.js';
 import { REGIONS, stateToRegion } from '../config/constants.js';
+import { idbGet, idbSet } from '../utils/idb-cache.js';
+
+const TOPO_IDB_KEY = 'u9_map_us_topo_v3';
+const TOPO_TTL     = 7 * 24 * 60 * 60 * 1000; // 7 days
+const TOPO_URL     = 'https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json';
 
 export const stateMeshes = [];
 
@@ -44,26 +49,38 @@ export function buildState(feature) {
 
 /**
  * Fetch US TopoJSON and build state meshes.
+ * Caches the raw JSON in IndexedDB for 7 days so low-connectivity devices
+ * skip the CDN round-trip on repeat visits.
  * Returns a promise so other modules can await data readiness.
  */
-export function loadMapData() {
+export async function loadMapData() {
     const loadingEl = document.getElementById('loading');
 
-    return fetch('https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json')
-        .then(r => { if (!r.ok) throw new Error('Network error'); return r.json(); })
-        .then(us => {
-            const geo = topojson.feature(us, us.objects.states);
-            for (const feat of geo.features) mapGroup.add(buildState(feat));
-            if (loadingEl) {
-                loadingEl.style.opacity = '0';
-                setTimeout(() => { loadingEl.style.display = 'none'; }, 520);
-            }
-            return stateMeshes;
-        })
-        .catch(err => {
-            if (loadingEl) {
-                loadingEl.innerHTML = `<p style="color:#ef4444;font-size:14px;">Failed to load map data.<br>${err.message}</p>`;
-            }
-            throw err;
-        });
+    try {
+        // 1. Try IndexedDB first (zero-network load on cache hit).
+        let us = await idbGet(TOPO_IDB_KEY);
+
+        if (!us) {
+            // 2. Fetch from CDN and persist for next time.
+            const res = await fetch(TOPO_URL);
+            if (!res.ok) throw new Error('Network error');
+            us = await res.json();
+            // Write to IndexedDB in the background — don't block render.
+            idbSet(TOPO_IDB_KEY, us, TOPO_TTL).catch(() => {});
+        }
+
+        const geo = topojson.feature(us, us.objects.states);
+        for (const feat of geo.features) mapGroup.add(buildState(feat));
+
+        if (loadingEl) {
+            loadingEl.style.opacity = '0';
+            setTimeout(() => { loadingEl.style.display = 'none'; }, 520);
+        }
+        return stateMeshes;
+    } catch (err) {
+        if (loadingEl) {
+            loadingEl.innerHTML = `<p style="color:#ef4444;font-size:14px;">Failed to load map data.<br>${err.message}</p>`;
+        }
+        throw err;
+    }
 }

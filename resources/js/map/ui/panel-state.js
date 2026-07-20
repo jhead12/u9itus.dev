@@ -213,6 +213,28 @@ export async function openStatePanel(stateName, regionName, region, districtCoun
         </div>`;
     }
 
+    const ballotMeasures = data?.ballot_measures ?? [];
+    if (ballotMeasures.length > 0) {
+        html += `<div style="border-top:1px solid ${color}20;margin:16px 0 14px;display:flex;align-items:center;gap:8px;">
+            <span style="color:${color};font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;white-space:nowrap;">🗳️ Ballot Measures</span>
+            <div style="flex:1;border-top:1px solid ${color}20;"></div>
+        </div>`;
+        for (const m of ballotMeasures) {
+            const label = [m.measure_number, m.title].filter(Boolean).join(' — ');
+            const dateLine = m.election_date
+                ? `<p style="color:#64748b;font-size:10px;margin:2px 0 0;">${escapeHtml(new Date(m.election_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }))}</p>`
+                : '';
+            const summaryLine = m.summary
+                ? `<p style="color:#94a3b8;font-size:11px;line-height:1.5;margin:4px 0 0;">${escapeHtml(m.summary)}</p>`
+                : '';
+            html += `<div style="margin-bottom:10px;padding:8px 10px;border-radius:8px;border:1px solid rgba(148,163,184,0.2);background:rgba(15,23,42,0.5);">
+                <p style="color:#e2e8f0;font-size:12px;font-weight:600;margin:0;">${escapeHtml(label || 'Ballot Measure')}</p>
+                ${dateLine}
+                ${summaryLine}
+            </div>`;
+        }
+    }
+
     html += offices.length
         ? offices.map(g => renderOfficeGroup(g, OFFICE_ROLES, color)).join('')
         : noDataNotice('Statewide candidate records for this state are not yet available. Check back after the next weekly sync.');
