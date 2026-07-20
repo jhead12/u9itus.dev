@@ -3,13 +3,16 @@
 namespace App\Http\Controllers\Standalone;
 
 use App\Enums\CivicEventStatus;
+use App\Enums\EventRsvpStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CivicEventRequest;
+use App\Mail\EventCancellationMail;
 use App\Models\CivicEvent;
 use App\Models\PoliticianTopic;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 
@@ -73,9 +76,33 @@ class CivicEventController extends Controller
 
         if ($event->status->value !== 'cancelled') {
             $event->update(['status' => CivicEventStatus::Cancelled]);
+            $this->notifyAttendeesOfCancellation($event);
         }
 
         return back()->with('success', 'Event cancelled.');
+    }
+
+    protected function notifyAttendeesOfCancellation(CivicEvent $event): void
+    {
+        $notifiedStatuses = [EventRsvpStatus::Yes, EventRsvpStatus::Approved, EventRsvpStatus::Waitlist];
+
+        $event->rsvps()
+            ->whereIn('status', array_map(fn ($s) => $s->value, $notifiedStatuses))
+            ->with('user')
+            ->chunkById(100, function ($rsvps) use ($event): void {
+                foreach ($rsvps as $rsvp) {
+                    $user = $rsvp->user;
+                    if (! $user || empty($user->email)) {
+                        continue;
+                    }
+
+                    try {
+                        Mail::to($user->email)->send(new EventCancellationMail($event, $user));
+                    } catch (\Throwable $e) {
+                        report($e);
+                    }
+                }
+            });
     }
 
     protected function validatedData(CivicEventRequest $request): array

@@ -6,7 +6,9 @@ use App\Enums\EventRsvpStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\EventRsvpRequest;
 use App\Mail\EventHostRsvpMail;
+use App\Mail\EventWaitlistPromotionMail;
 use App\Models\CivicEvent;
+use App\Models\EventRsvp;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Mail;
 
@@ -74,6 +76,8 @@ class EventRsvpController extends Controller
 
     protected function saveRsvp(CivicEvent $event, EventRsvpStatus $status, int $guestCount, ?string $notes): void
     {
+        $priorStatus = $event->rsvps()->where('user_id', auth()->id())->value('status');
+
         $rsvp = $event->rsvps()->updateOrCreate(
             ['user_id' => auth()->id()],
             [
@@ -89,6 +93,52 @@ class EventRsvpController extends Controller
             $hostEmail = $host?->receipt_email ?: $host?->user?->email;
             if ($hostEmail) {
                 Mail::to($hostEmail)->send(new EventHostRsvpMail($event, $rsvp));
+            }
+        }
+
+        // When a confirmed attendee drops out, promote waitlisted users FIFO.
+        $wasAttending = $priorStatus && in_array($priorStatus->value, [EventRsvpStatus::Yes->value, EventRsvpStatus::Approved->value], true);
+        if ($wasAttending && $status === EventRsvpStatus::No) {
+            $this->promoteWaitlist($event);
+        }
+    }
+
+    protected function promoteWaitlist(CivicEvent $event): void
+    {
+        if (! $event->capacity) {
+            return;
+        }
+
+        $available = $event->capacity - $event->fresh()->attendingCount();
+        if ($available <= 0) {
+            return;
+        }
+
+        $waitlisted = $event->rsvps()
+            ->where('status', EventRsvpStatus::Waitlist)
+            ->where('guest_count', '<=', $available)
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->with('user')
+            ->get();
+
+        foreach ($waitlisted as $rsvp) {
+            $attending = $event->fresh()->attendingCount();
+            $available = $event->capacity - $attending;
+
+            if ($rsvp->guest_count > $available) {
+                continue;
+            }
+
+            $rsvp->update(['status' => EventRsvpStatus::Yes]);
+
+            $user = $rsvp->user;
+            if ($user && $user->email) {
+                try {
+                    Mail::to($user->email)->send(new EventWaitlistPromotionMail($event, $rsvp));
+                } catch (\Throwable $e) {
+                    report($e);
+                }
             }
         }
     }

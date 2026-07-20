@@ -7,8 +7,10 @@ use App\Models\Citizen;
 use App\Models\CivicEvent;
 use App\Models\EventRsvp;
 use App\Models\Politician;
+use App\Mail\EventCancellationMail;
 use App\Mail\EventHostRsvpMail;
 use App\Mail\EventReminderMail;
+use App\Mail\EventWaitlistPromotionMail;
 use App\Models\EventReminder;
 use App\Models\PoliticianTopic;
 use App\Models\User;
@@ -314,4 +316,56 @@ it('notifies the host when someone RSVPs', function (): void {
     ]);
 
     Mail::assertSent(EventHostRsvpMail::class, fn ($mail) => $mail->hasTo($hostUser->email) && $mail->event->id === $event->id);
+});
+
+it('promotes a waitlisted user when a confirmed attendee changes to no', function (): void {
+    Mail::fake();
+
+    [, $citizen] = makeCitizenHost();
+    [$firstUser] = makeVoter();
+    [$secondUser] = makeVoter();
+
+    $event = $citizen->events()->create(validEventPayload([
+        'capacity' => 3,
+    ]));
+
+    $this->actingAs($firstUser)->post(route('events.rsvp', $event->slug), [
+        'status' => EventRsvpStatus::Yes->value,
+        'guest_count' => 3,
+    ]);
+
+    $this->actingAs($secondUser)->post(route('events.rsvp', $event->slug), [
+        'status' => EventRsvpStatus::Yes->value,
+        'guest_count' => 1,
+    ]);
+
+    expect(EventRsvp::where('user_id', $secondUser->id)->value('status')->value)->toBe(EventRsvpStatus::Waitlist->value);
+
+    $this->actingAs($firstUser)->post(route('events.rsvp', $event->slug), [
+        'status' => EventRsvpStatus::No->value,
+        'guest_count' => 1,
+    ]);
+
+    $secondRsvp = EventRsvp::where('user_id', $secondUser->id)->first();
+    expect($secondRsvp->status)->toBe(EventRsvpStatus::Yes);
+    Mail::assertSent(EventWaitlistPromotionMail::class, fn ($mail) => $mail->hasTo($secondUser->email) && $mail->rsvp->id === $secondRsvp->id);
+});
+
+it('notifies attendees when an event is cancelled', function (): void {
+    Mail::fake();
+
+    [$hostUser, $citizen] = makeCitizenHost();
+    [$voterUser] = makeVoter();
+    $event = $citizen->events()->create(validEventPayload());
+
+    EventRsvp::create([
+        'civic_event_id' => $event->id,
+        'user_id' => $voterUser->id,
+        'status' => EventRsvpStatus::Yes,
+        'guest_count' => 1,
+    ]);
+
+    $this->actingAs($hostUser)->patch(route('citizen.events.cancel', $event->slug));
+
+    Mail::assertSent(EventCancellationMail::class, fn ($mail) => $mail->hasTo($voterUser->email) && $mail->event->id === $event->id);
 });
