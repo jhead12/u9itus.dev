@@ -148,7 +148,7 @@ test('voter cannot complete a citizen campaign view when reserved budget is exha
 test('non-voter cannot complete a citizen campaign view', function () {
     $campaign = makeApprovedCitizenCampaign();
 
-    $citizenUser = User::factory()->create(['platform' => 'standalone']);
+    $citizenUser = User::factory()->create(['platform' => 'standalone', 'user_type' => 'citizen']);
     $citizenUser->assignRole('citizen');
     Citizen::factory()->create(['user_id' => $citizenUser->id]);
     skipOnboarding($citizenUser, 'citizen');
@@ -165,6 +165,7 @@ test('non-voter cannot complete a citizen campaign view', function () {
 test('voter ad room shows available citizen campaigns', function () {
     $user     = makeVoterForCitizenView();
     $campaign = makeApprovedCitizenCampaign();
+    $campaign->update(['target_zip' => $user->voter->zip_code]);
 
     $this->actingAs($user)
         ->get(route('voter.ad-room'))

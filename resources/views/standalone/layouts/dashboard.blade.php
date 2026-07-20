@@ -55,6 +55,18 @@
     if (! request()->routeIs('politician.dashboard')) {
         $showPoliticianStartHere = false;
     }
+
+    // For dual-role voter+citizen users, determine which portal they are
+    // currently in from the URL prefix rather than from role priority order.
+    // getRoleNames()->first() returns 'voter' for all dual-role users (voter
+    // role is older), causing the citizen sidebar to never render otherwise.
+    $dashboardActivePortal = match(true) {
+        request()->is('citizen*') => 'citizen',
+        request()->is('voter*')   => 'voter',
+        request()->is('politician*') => 'politician',
+        request()->is('admin*')   => 'admin',
+        default => auth()->user()?->getRoleNames()->first() ?? '',
+    };
 @endphp
 
 <!DOCTYPE html>
@@ -105,20 +117,6 @@
 
         {{-- Navigation --}}
         <nav class="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-        @php
-            // For dual-role voter+citizen users, determine which portal they are
-            // currently in from the URL prefix rather than from role priority order.
-            // getRoleNames()->first() returns 'voter' for all dual-role users (voter
-            // role is older), causing the citizen sidebar to never render otherwise.
-            $dashboardActivePortal = match(true) {
-                request()->is('citizen*') => 'citizen',
-                request()->is('voter*')   => 'voter',
-                request()->is('politician*') => 'politician',
-                request()->is('admin*')   => 'admin',
-                default => auth()->user()?->getRoleNames()->first() ?? '',
-            };
-        @endphp
-
             @if($dashboardActivePortal === 'politician' || (auth()->user()?->hasRole('politician') && $dashboardActivePortal === ''))
                 <p class="px-4 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">Overview</p>
 
