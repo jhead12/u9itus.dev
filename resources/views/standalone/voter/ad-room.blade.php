@@ -477,6 +477,151 @@
     @endif
     @endif
 
+    {{-- ── Community & Local Ads (Citizen Campaigns) ─────────── --}}
+    @if($citizenCampaigns->isNotEmpty())
+    <div class="pt-6 border-t border-slate-700/60">
+        <div class="flex items-center gap-3 mb-5">
+            <div class="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center">
+                <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+                </svg>
+            </div>
+            <div>
+                <h2 class="text-lg font-bold text-white">Community & Local Ads</h2>
+                <p class="text-slate-400 text-xs">Messages from local businesses, community notices, and ballot-issue advocates.</p>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
+            @foreach($citizenCampaigns as $campaign)
+            @php
+                $isWatchedBefore = in_array($campaign->id, $citizenWatchedBeforeIds);
+                $isExcluded      = in_array($campaign->id, $citizenExcludedIds);
+                $citizen         = $campaign->citizen;
+                $remaining       = max(0, $campaign->total_views_requested - $campaign->views_completed);
+                $fillPct         = $campaign->total_views_requested > 0
+                    ? min(100, round(($campaign->views_completed / $campaign->total_views_requested) * 100))
+                    : 0;
+                $adTypeLabels = [
+                    'local_business'     => 'Local Business',
+                    'community_notice'   => 'Community Notice',
+                    'ballot_issue'       => 'Ballot Issue',
+                    'general_announcement' => 'Announcement',
+                ];
+                $adTypeLabel = $adTypeLabels[$campaign->citizen_ad_type->value ?? ''] ?? 'Community Ad';
+                $payout      = (float) ($campaign->voter_payout_per_view ?? 0.50);
+                $dur         = (int) ($campaign->media_duration ?? 0);
+            @endphp
+            <div class="flex flex-col bg-slate-800/50 rounded-2xl overflow-hidden hover:border-slate-600 transition border border-slate-700/60">
+                {{-- Thumbnail --}}
+                <div class="relative bg-slate-900 aspect-video overflow-hidden">
+                    @if($campaign->thumbnail_url)
+                        <img src="{{ $campaign->thumbnail_url }}" alt="{{ $campaign->title }}"
+                            class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                    @else
+                        @php
+                            $placeholderGradient = 'from-amber-950 via-amber-900 to-slate-900';
+                            $sponsorName = $citizen->business_name ?: $citizen->full_name;
+                            $initials = collect(explode(' ', trim($sponsorName)))->map(fn($w) => strtoupper(substr($w,0,1)))->take(2)->implode('');
+                        @endphp
+                        <div class="w-full h-full flex flex-col items-center justify-center gap-3 bg-gradient-to-br {{ $placeholderGradient }}">
+                            <div class="w-14 h-14 rounded-full bg-white/10 border border-white/20 flex items-center justify-center shadow-lg">
+                                @if($initials)
+                                    <span class="text-xl font-bold text-white/80 tracking-wide">{{ $initials }}</span>
+                                @else
+                                    <svg class="w-7 h-7 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                                    </svg>
+                                @endif
+                            </div>
+                            <p class="text-white/60 text-xs font-medium text-center px-4 leading-snug line-clamp-2 max-w-[80%]">{{ $campaign->title }}</p>
+                        </div>
+                    @endif
+
+                    <span class="absolute top-3 left-3 text-xs font-semibold px-2.5 py-1 rounded-full border bg-amber-900/40 border-amber-700/40 text-amber-400">
+                        {{ $adTypeLabel }}
+                    </span>
+
+                    @if($dur)
+                    <span class="absolute top-3 right-3 text-xs bg-black/60 text-slate-300 px-2 py-1 rounded-full">
+                        {{ $dur >= 60 ? floor($dur/60).'m '.($dur%60).'s' : $dur.'s' }}
+                    </span>
+                    @endif
+                </div>
+
+                {{-- Card body --}}
+                <div class="flex flex-col flex-1 p-4 gap-3">
+                    <div>
+                        <div class="flex items-center gap-2 mb-1.5">
+                            <div class="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center text-white text-xs font-bold shrink-0">
+                                {{ strtoupper(substr($sponsorName ?? 'C', 0, 1)) }}
+                            </div>
+                            <span class="text-slate-400 text-xs truncate">{{ $sponsorName ?? 'Community Sponsor' }}
+                                @if($citizen->city ?? false)
+                                    <span class="text-slate-600">·</span> {{ $citizen->city }}
+                                @endif
+                            </span>
+                        </div>
+                        <h3 class="text-white font-semibold text-sm leading-snug line-clamp-2">{{ $campaign->title }}</h3>
+                        @if($campaign->message_summary)
+                        <p class="text-slate-500 text-xs mt-1 line-clamp-2">{{ $campaign->message_summary }}</p>
+                        @endif
+                    </div>
+
+                    {{-- Payout highlight --}}
+                    <div class="flex items-center justify-between bg-emerald-900/25 border border-emerald-500/20 rounded-xl px-3 py-2">
+                        <div class="flex items-center gap-2">
+                            <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            <span class="text-emerald-300 text-xs">Your payout</span>
+                        </div>
+                        <span class="text-emerald-400 font-bold text-base">${{ number_format($payout, 2) }}</span>
+                    </div>
+
+                    {{-- Progress bar --}}
+                    <div>
+                        <div class="flex items-center justify-between text-xs text-slate-500 mb-1">
+                            <span>{{ number_format($remaining) }} spots left</span>
+                            <span>{{ $fillPct }}% filled</span>
+                        </div>
+                        <div class="w-full bg-slate-700 rounded-full h-1.5 overflow-hidden">
+                            <div class="h-full rounded-full transition-all duration-500
+                                {{ $fillPct >= 90 ? 'bg-red-500' : ($fillPct >= 70 ? 'bg-amber-500' : 'bg-emerald-500') }}"
+                                style="width: {{ $fillPct }}%"></div>
+                        </div>
+                    </div>
+
+                    {{-- CTA --}}
+                    <div class="mt-auto pt-1">
+                        @if($isExcluded)
+                            <div class="w-full text-center py-2.5 rounded-xl bg-slate-700/50 text-slate-500 text-sm font-medium cursor-default">
+                                <svg class="w-4 h-4 inline-block mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                                {{ $campaign->allow_repeat_views ? 'View limit reached' : 'Already watched' }}
+                            </div>
+                        @elseif(! $canViewMore)
+                            <div class="w-full text-center py-2.5 rounded-xl bg-slate-700/50 text-slate-500 text-sm font-medium cursor-default" title="Daily limit reached or account restricted">
+                                Unavailable today
+                            </div>
+                        @else
+                            <a href="{{ route('voter.citizen-campaigns.watch', $campaign) }}"
+                               class="block w-full text-center py-2.5 rounded-xl text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-800 bg-amber-600 hover:bg-amber-500 text-white focus:ring-amber-500">
+                                <svg class="w-4 h-4 inline-block mr-1 -mt-0.5 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M8 5v14l11-7z"/>
+                                </svg>
+                                {{ $isWatchedBefore ? 'Watch Again & Earn' : 'Watch & Earn' }} ${{ number_format($payout, 2) }}
+                            </a>
+                        @endif
+                    </div>
+                </div>
+            </div>
+            @endforeach
+        </div>
+    </div>
+    @endif
+
     {{-- ── How it works ─────────────────────────────────────── --}}
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-2">
         @foreach([

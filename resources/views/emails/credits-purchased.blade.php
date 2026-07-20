@@ -89,7 +89,11 @@
       </div>
 
       <div class="btn-wrap">
-        <a href="{{ route('politician.campaigns.index') }}" class="btn">Launch a Campaign →</a>
+        @if($user->hasRole('citizen') && ! $user->hasRole('politician'))
+            <a href="{{ route('citizen.campaigns.index') }}" class="btn">Launch a Campaign →</a>
+        @else
+            <a href="{{ route('politician.campaigns.index') }}" class="btn">Launch a Campaign →</a>
+        @endif
       </div>
 
       <hr class="divider" />
@@ -97,7 +101,11 @@
       <p style="font-size:13px">
         <strong style="color:#cbd5e1">Questions about your billing?</strong><br />
         View your full invoice history at
-        <a href="{{ route('politician.billing.invoices') }}" style="color:#34d399;text-decoration:none;">Billing &amp; Invoices</a>
+        @if($user->hasRole('citizen') && ! $user->hasRole('politician'))
+            <a href="{{ route('citizen.billing.invoices') }}" style="color:#34d399;text-decoration:none;">Billing &amp; Invoices</a>
+        @else
+            <a href="{{ route('politician.billing.invoices') }}" style="color:#34d399;text-decoration:none;">Billing &amp; Invoices</a>
+        @endif
         or reply to this email.
       </p>
     </div>

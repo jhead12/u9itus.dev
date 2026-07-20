@@ -11,6 +11,7 @@
 
 use App\Http\Controllers\Standalone\AuthController;
 use App\Http\Controllers\Standalone\BadgeController;
+use App\Http\Controllers\Standalone\CitizenCampaignVoterController;
 use App\Http\Controllers\Standalone\CitizenController;
 use App\Http\Controllers\Standalone\DashboardController;
 use App\Http\Controllers\Standalone\FavoriteController;
@@ -345,6 +346,12 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         Route::post('/session/{sessionUuid}/progress', [VoterController::class, 'progressHeartbeat'])->name('session.progress');
         Route::post('/session/{sessionUuid}/complete', [VoterController::class, 'markComplete'])->name('session.complete');
         Route::post('/session/{sessionUuid}/survey', [VoterController::class, 'submitSurvey'])->name('session.survey');
+
+        // Citizen campaigns (community ads)
+        Route::get('/citizen-campaigns/{campaign}/watch', [CitizenCampaignVoterController::class, 'watch'])
+            ->name('citizen-campaigns.watch');
+        Route::post('/citizen-campaigns/{campaign}/complete', [CitizenCampaignVoterController::class, 'complete'])
+            ->name('citizen-campaigns.complete');
         // In-watch interactions: error reporting + direct message to politician
         Route::post('/watch/{token}/report-issue', [VoterController::class, 'reportIssue'])->name('watch.report-issue');
         Route::post('/watch/{token}/ask-question', [VoterController::class, 'askQuestion'])->name('watch.ask-question');
@@ -521,6 +528,11 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         Route::get('/billing/refunds', [AdminController::class, 'billingRefunds'])->name('billing.refunds');
         Route::post('/billing/transactions/{transaction}/refund-unused', [AdminController::class, 'refundUnusedCredits'])
             ->name('billing.refund-unused');
+
+        // Citizen Billing Refunds (unused citizen credits)
+        Route::get('/citizen-billing/refunds', [AdminController::class, 'billingRefundsCitizen'])->name('citizen-billing.refunds');
+        Route::post('/citizen-billing/transactions/{transaction}/refund-unused', [AdminController::class, 'refundUnusedCitizenCredits'])
+            ->name('citizen-billing.refund-unused');
         
         // Analytics & Reports
         Route::get('/analytics', [AdminController::class, 'analytics'])->name('analytics');

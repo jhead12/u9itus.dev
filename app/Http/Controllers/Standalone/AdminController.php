@@ -32,6 +32,7 @@ use App\Models\PoliticalCampaign;
 use App\Models\PoliticianCredit;
 use App\Models\Politician;
 use App\Models\CitizenCampaign;
+use App\Models\CitizenTransaction;
 use App\Models\EarlyBankWebhookLog;
 use App\Models\PayoutAttempt;
 use App\Models\ReferralEarning;
@@ -1946,6 +1947,90 @@ class AdminController extends Controller
         $transactions = $query->paginate(20);
 
         return view('standalone.admin.billing-refunds', compact('transactions', 'activePaymentMode'));
+    }
+
+    /**
+     * List citizen credit purchases eligible for unused-credit refunds.
+     */
+    public function billingRefundsCitizen(Request $request)
+    {
+        $activePaymentMode = $this->activePaymentMode();
+
+        $query = CitizenTransaction::where('transaction_type', 'charge')
+            ->where('status', 'succeeded')
+            ->with('citizen.user')
+            ->latest();
+
+        $query = $this->applyPaymentModeFilter($query, $activePaymentMode);
+
+        if ($search = $request->get('search')) {
+            $query->whereHas('citizen', function ($q) use ($search) {
+                $q->where('full_name', 'like', "%{$search}%")
+                  ->orWhereHas('user', fn ($q2) => $q2->where('email', 'like', "%{$search}%"));
+            });
+        }
+
+        $transactions = $query->paginate(20);
+
+        return view('standalone.admin.citizen-billing-refunds', compact('transactions', 'activePaymentMode'));
+    }
+
+    /**
+     * Refund only UNUSED credits for a succeeded citizen purchase transaction.
+     */
+    public function refundUnusedCitizenCredits(Request $request, CitizenTransaction $transaction, CitizenBillingService $billingService)
+    {
+        $request->validate([
+            'credits_amount' => ['nullable', 'numeric', 'gt:0'],
+            'reason'         => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $admin = $request->user();
+        $requestedCredits = $request->filled('credits_amount')
+            ? (float) $request->input('credits_amount')
+            : null;
+        $reason = $request->input('reason');
+
+        try {
+            $summary = $billingService->getUnusedRefundSummary($transaction);
+            $refundTx = $billingService->refundUnusedCredits(
+                $transaction,
+                (int) $admin->id,
+                $requestedCredits,
+                $reason
+            );
+
+            AdminSecurityAuditLog::record(
+                $admin,
+                'admin.refund.citizen_unused_credits.success',
+                [
+                    'purchase_transaction_id' => $transaction->id,
+                    'refund_transaction_id' => $refundTx->id,
+                    'requested_credits'     => $requestedCredits,
+                    'max_refundable_before' => $summary['refundable_credits_now'] ?? null,
+                ],
+                $request
+            );
+
+            $refundedCredits = (float) ($refundTx->metadata['refunded_credits_amount'] ?? 0);
+            return back()->with('success', sprintf(
+                'Citizen refund created successfully. Refunded %.2f unused credits.',
+                $refundedCredits
+            ));
+        } catch (\Throwable $e) {
+            AdminSecurityAuditLog::record(
+                $admin,
+                'admin.refund.citizen_unused_credits.failed',
+                [
+                    'purchase_transaction_id' => $transaction->id,
+                    'requested_credits'     => $requestedCredits,
+                    'error'                 => $e->getMessage(),
+                ],
+                $request
+            );
+
+            return back()->withErrors(['refund' => $e->getMessage()]);
+        }
     }
 
     /**

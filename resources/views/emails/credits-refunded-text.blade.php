@@ -17,7 +17,11 @@ Your unused credit refund has been processed successfully.
   Date                  : {{ now()->format('M j, Y g:i A') }}
 
 View billing and invoices:
+@if($user->hasRole('citizen') && ! $user->hasRole('politician'))
+{{ route('citizen.billing.invoices') }}
+@else
 {{ route('politician.billing.invoices') }}
+@endif
 
 ---
 {{ config('app.url', 'https://u9itus.com') }}

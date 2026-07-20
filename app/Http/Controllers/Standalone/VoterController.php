@@ -11,6 +11,7 @@ use App\Models\PoliticalCampaign;
 use App\Models\Voter;
 use App\Models\VoterWatchReport;
 use App\Models\ViewSession;
+use App\Services\CitizenViewService;
 use App\Services\PlatformSettingsService;
 use App\Services\PoliticalViewService;
 use App\Services\ReverbBroadcastService;
@@ -39,7 +40,11 @@ class VoterController extends Controller
 {
     use ManagesVoterAuxiliaryActions;
 
-    public function __construct(protected PoliticalViewService $viewService) {}
+    public function __construct(
+        protected PoliticalViewService $viewService,
+        protected CitizenViewService $citizenViewService,
+    ) {
+    }
 
     // ── Helpers ──────────────────────────────────────────────
 
@@ -334,6 +339,28 @@ class VoterController extends Controller
         // Sprint 3: Get all active topics for the filter dropdown
         $topics = \App\Models\PoliticianTopic::active()->orderBy('sort_order')->get();
 
+        // ── Citizen campaigns (community / local / ballot-issue ads) ─────────
+        $citizenCampaigns = $this->citizenViewService->availableCampaigns($voter)
+            ->filter(fn ($c) => $this->citizenViewService->voterCanWatch($c, $voter))
+            ->values();
+
+        if ($q = $request->input('q')) {
+            $citizenCampaigns = $citizenCampaigns->filter(function ($c) use ($q) {
+                return str_contains(strtolower($c->title), strtolower($q))
+                    || str_contains(strtolower((string) $c->message_summary), strtolower($q));
+            })->values();
+        }
+
+        $citizenWatchedBeforeIds = \App\Models\CitizenViewSession::where('voter_id', $voter->id)
+            ->where('status', 'completed')
+            ->pluck('citizen_campaign_id')
+            ->unique()
+            ->all();
+
+        $citizenExcludedIds = $citizenCampaigns->filter(function ($c) use ($voter) {
+            return ! $this->citizenViewService->voterCanWatch($c, $voter);
+        })->pluck('id')->all();
+
         return view('standalone.voter.ad-room', [
             'voter'                    => $voter,
             'campaigns'                => $campaigns,
@@ -344,6 +371,9 @@ class VoterController extends Controller
             'watchedBeforeIds'         => $watchedBeforeIds,
             'excludedCampaignIds'      => $excludedCampaignIds,
             'topics'                   => $topics,
+            'citizenCampaigns'         => $citizenCampaigns,
+            'citizenWatchedBeforeIds'  => $citizenWatchedBeforeIds,
+            'citizenExcludedIds'       => $citizenExcludedIds,
         ]);
     }
 
