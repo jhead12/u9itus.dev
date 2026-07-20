@@ -947,6 +947,49 @@ kbd {
 .gov-cap-tag { font-size: 9px; color: #64748b; white-space: nowrap; letter-spacing:.03em; }
 .gov-marker:hover .gov-name-tag { border-color: rgba(6,182,212,0.8); background: rgba(20,26,58,0.98); }
 
+/* ── Geo-tagged blog post pins ───────────────────────────────────── */
+.post-pin {
+    position: absolute; pointer-events: auto;
+    transform: translate(-50%, -50%);
+    display: none; align-items: center; gap: 5px;
+    cursor: pointer; text-decoration: none;
+    background: transparent; border: none; padding: 0;
+}
+.post-pin.visible { display: flex; }
+.post-pin-ring {
+    width: 18px; height: 18px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(168,85,247,0.14); flex-shrink: 0;
+}
+.post-pin-core {
+    width: 9px; height: 9px; border-radius: 50%;
+    background: #a855f7;
+    box-shadow: 0 0 5px #a855f7, 0 0 12px rgba(168,85,247,0.45);
+}
+.post-pin-core.promoted {
+    background: #f59e0b;
+    box-shadow: 0 0 6px #f59e0b, 0 0 14px rgba(245,158,11,0.55);
+}
+.post-pin.event .post-pin-ring { background: rgba(6,182,212,0.14); }
+.post-pin-core.event {
+    background: #06b6d4;
+    box-shadow: 0 0 5px #06b6d4, 0 0 12px rgba(6,182,212,0.45);
+}
+.post-pin.event .post-pin-tag { border-color: rgba(6,182,212,0.38); color: #22d3ee; }
+.post-pin.event:hover .post-pin-tag { border-color: rgba(6,182,212,0.7); background: rgba(20,26,58,0.98); }
+.post-pin-tag {
+    padding: 2px 7px; border-radius: 999px; white-space: nowrap;
+    background: rgba(8,12,30,0.93); border: 1px solid rgba(168,85,247,0.38);
+    font-size: 10px; font-weight: 700; color: #c084fc; line-height: 1.4;
+    max-width: 160px; overflow: hidden; text-overflow: ellipsis;
+}
+.post-pin:hover .post-pin-tag {
+    border-color: rgba(168,85,247,0.7); background: rgba(20,26,58,0.98);
+}
+.post-pin:hover .post-pin-core.promoted + .post-pin-tag {
+    border-color: rgba(245,158,11,0.7); color: #fbbf24;
+}
+
 /* ── Floating district label layer ──────────────────────────────── */
 #map-labels-layer {
     position: fixed; inset: 0; pointer-events: none; z-index: 20;

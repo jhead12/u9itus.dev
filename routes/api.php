@@ -17,6 +17,7 @@
 use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\BillingController;
 use App\Http\Controllers\Api\EarlyBankController;
+use App\Http\Controllers\Api\MapContentController;
 use App\Http\Controllers\Api\MapDistrictConfigController;
 use App\Http\Controllers\Api\MapInteractionController;
 use App\Http\Controllers\Api\MapCandidateOverviewController;
@@ -95,6 +96,10 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         // render district overlays dynamically without a code deploy.
         Route::get('/map/district-config', MapDistrictConfigController::class)
             ->name('map.district-config');
+
+        // Geo-tagged civic content (blog posts, later events) for the 3D map.
+        Route::get('/map/content', MapContentController::class)
+            ->name('map.content');
 
         // Anonymous map click analytics — fire-and-forget from the browser.
         // No auth required; IPs are SHA-256 hashed before storage.

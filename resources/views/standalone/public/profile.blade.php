@@ -731,6 +731,39 @@
         </section>
         @endif
 
+        {{-- Blog Posts Section --}}
+        @if($posts->isNotEmpty())
+        <section>
+            <div class="flex items-end justify-between mb-4">
+                <h2 class="text-xl font-bold text-white flex items-center gap-2">
+                    <span class="w-1 h-6 rounded-full inline-block" style="background:var(--p13-accent,#f59e0b)"></span>
+                    Latest Posts
+                </h2>
+                <a href="{{ route('blog.author', ['type' => 'politician', 'slug' => $politician->slug]) }}" class="text-sm text-amber-400 hover:text-amber-300">
+                    View all →
+                </a>
+            </div>
+            <div class="grid sm:grid-cols-2 gap-4">
+                @foreach($posts as $post)
+                <article class="bg-slate-800/40 border border-slate-700/40 rounded-xl p-5 hover:border-slate-500 transition">
+                    @if($post->featured_image_url)
+                    <a href="{{ route('blog.show', $post) }}" class="block mb-3">
+                        <img src="{{ $post->featured_image_url }}" alt="{{ $post->title }}" class="w-full h-32 object-cover rounded-lg" loading="lazy" />
+                    </a>
+                    @endif
+                    <h3 class="font-semibold text-white mb-2">
+                        <a href="{{ route('blog.show', $post) }}" class="hover:text-amber-400 transition">{{ $post->title }}</a>
+                    </h3>
+                    @if($post->excerpt)
+                    <p class="text-sm text-slate-400 line-clamp-2">{{ $post->excerpt }}</p>
+                    @endif
+                    <p class="mt-3 text-xs text-slate-500">{{ $post->published_at->format('M j, Y') }}</p>
+                </article>
+                @endforeach
+            </div>
+        </section>
+        @endif
+
         {{-- Phase 16: Public Records & Transparency --}}
         @if(!empty($transparencyData))
         <section>

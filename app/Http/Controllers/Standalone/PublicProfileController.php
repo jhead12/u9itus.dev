@@ -1003,6 +1003,13 @@ class PublicProfileController extends Controller
 
         $initiatives = $politician->initiatives;
 
+        $posts = $politician->posts()
+            ->published()
+            ->with('topics')
+            ->latest('published_at')
+            ->take(6)
+            ->get();
+
         $transparencyData = $this->buildTransparencyData($politician);
         $digDeeperData = $this->buildDigDeeperData($politician, $transparencyData);
 
@@ -1089,6 +1096,7 @@ class PublicProfileController extends Controller
             'pastCampaigns',
             'publicBoardQuestions',
             'initiatives',
+            'posts',
             'transparencyData',
             'digDeeperData',
             'meTokenData',
