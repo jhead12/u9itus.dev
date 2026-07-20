@@ -947,6 +947,48 @@ kbd {
 .gov-cap-tag { font-size: 9px; color: #64748b; white-space: nowrap; letter-spacing:.03em; }
 .gov-marker:hover .gov-name-tag { border-color: rgba(6,182,212,0.8); background: rgba(20,26,58,0.98); }
 
+/* ── Statewide candidate markers at capitals ────────────────────── */
+.candidate-marker {
+    position: absolute; pointer-events: auto;
+    transform: translate(-50%, -50%);
+    display: none; align-items: center; gap: 5px;
+    cursor: pointer;
+}
+.candidate-marker.visible { display: flex; }
+.cand-dot-ring {
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    background: rgba(255,255,255,0.08); flex-shrink: 0;
+    width: 18px; height: 18px;
+    border: 1px solid var(--cand-color, #64748b);
+}
+.cand-dot-core {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--cand-color, #64748b);
+    box-shadow: 0 0 5px var(--cand-color, #64748b), 0 0 12px rgba(255,255,255,0.15);
+}
+.cand-dot-core.seated { box-shadow: 0 0 0 2px rgba(6,9,26,0.9), 0 0 6px var(--cand-color, #64748b); }
+.cand-dot-core.running {
+    background: transparent;
+    border: 2px solid var(--cand-color, #64748b);
+    width: 8px; height: 8px;
+}
+.cand-name-tag {
+    display: flex; flex-direction: column;
+    padding: 3px 8px; border-radius: 8px; white-space: nowrap;
+    background: rgba(8,12,30,0.93); border: 1px solid var(--cand-color, #64748b);
+    line-height: 1.2; text-align: left;
+}
+.cand-office {
+    font-size: 9px; font-weight: 700; color: var(--cand-color, #64748b); letter-spacing: 0.03em;
+}
+.cand-name {
+    font-size: 11px; font-weight: 600; color: #e2e8f0;
+}
+.candidate-marker:hover .cand-name-tag {
+    background: rgba(20,26,58,0.98);
+    box-shadow: 0 0 12px color-mix(in srgb, var(--cand-color, #64748b) 35%, transparent);
+}
+
 /* ── Floating district label layer ──────────────────────────────── */
 #map-labels-layer {
     position: fixed; inset: 0; pointer-events: none; z-index: 20;

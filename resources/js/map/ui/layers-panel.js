@@ -6,6 +6,7 @@ import { districtMeshes } from '../scene/district-overlay.js';
 import { toggleNationalBoundaries, _syncNatDistVisibility } from '../scene/national-boundaries.js';
 import { ensureGovernorParties, applyColorMode } from '../api/governor-parties.js';
 import { clearCityMarkers, buildCityMarkers, clearGovMarkers, loadCityBoundaries, clearCityLayer } from './markers.js';
+import { clearCandidateMarkers, buildCandidateMarkers } from './candidate-markers.js';
 import { STATE_ABBR_MAP } from '../config/constants.js';
 import { trackEvent } from '../api/interaction.js';
 import * as THREE from 'three';
@@ -51,6 +52,10 @@ export function toggleLayer(layerKey) {
         case 'topcities':
             if (isActive && activeState) { buildCityMarkers(activeState); buildGovMarkers(); }
             else { clearCityMarkers(); clearGovMarkers(); }
+            break;
+        case 'candidates':
+            if (isActive && activeState) buildCandidateMarkers(activeState);
+            else clearCandidateMarkers();
             break;
     }
 }

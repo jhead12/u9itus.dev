@@ -170,6 +170,11 @@
                         title="Show top cities by 2020 Census population and state government offices">
                         <span class="lp-dot"></span>Top Cities &amp; Gov
                     </button>
+                    <button class="lp-chip" data-layer="candidates"
+                        role="menuitemcheckbox" aria-checked="false"
+                        title="Show statewide candidates at each state capital">
+                        <span class="lp-dot"></span>Statewide Candidates
+                    </button>
                 </div>
                 <div class="lp-section">Data Overlays</div>
                 <div class="lp-chips">

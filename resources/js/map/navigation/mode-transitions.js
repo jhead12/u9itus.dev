@@ -18,6 +18,7 @@ import { openDistrictPanel } from '../ui/panel-district.js';
 import { showRegionLegend, showPartyLegend } from '../ui/legend.js';
 import { clearDistrictLabels, buildDistrictLabels } from '../ui/labels-overlay.js';
 import { clearCityMarkers, buildCityMarkers, clearGovMarkers, loadCityBoundaries } from '../ui/markers.js';
+import { clearCandidateMarkers, buildCandidateMarkers } from '../ui/candidate-markers.js';
 import { closePolDrawer } from '../ui/politician-drawer.js';
 import { closePopup } from '../ui/popup.js';
 import { initDistrictConfig } from '../api/district-config.js';
@@ -54,7 +55,7 @@ export function enterOverviewMode() {
     nextRequestId();
     setStateData(null);
     setMapMode('overview'); setActiveRegion(null); setActiveState(null); setSelectedState(null);
-    clearDim(); clearDistricts(); clearDistrictLabels(); clearCityMarkers(); clearGovMarkers(); closePolDrawer();
+    clearDim(); clearDistricts(); clearDistrictLabels(); clearCityMarkers(); clearGovMarkers(); clearCandidateMarkers(); closePolDrawer();
     document.getElementById('info-panel').classList.remove('open');
     resizeRenderer();
     document.getElementById('btn-back').style.display = 'none';
@@ -75,7 +76,7 @@ export function enterRegionMode(regionName, region) {
     nextRequestId();
     setStateData(null);
     setMapMode('region'); setActiveRegion(regionName); setActiveState(null); setSelectedState(null);
-    clearDistricts(); clearDistrictLabels(); clearCityMarkers(); clearGovMarkers(); closePolDrawer();
+    clearDistricts(); clearDistrictLabels(); clearCityMarkers(); clearGovMarkers(); clearCandidateMarkers(); closePolDrawer();
     document.getElementById('info-panel').classList.remove('open');
     resizeRenderer();
     document.getElementById('btn-back').style.display = '';
@@ -193,6 +194,7 @@ export async function enterStateMode(stateName, regionName, region) {
     showPartyLegend(breakdown);
     buildDistrictLabels(stateName);
     if (ACTIVE_LAYERS.has('topcities')) { buildCityMarkers(stateName); buildGovMarkers(stateName); }
+    if (ACTIVE_LAYERS.has('candidates')) { buildCandidateMarkers(stateName); }
     updateBreadcrumb();
 }
 

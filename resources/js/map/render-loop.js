@@ -4,6 +4,7 @@
 import { renderer, scene, camera, controls } from './scene/setup.js';
 import { districtLabels } from './ui/labels-overlay.js';
 import { citySprites, govSprites } from './ui/markers.js';
+import { updateCandidateMarkers } from './ui/candidate-markers.js';
 import { mapGroup } from './scene/setup.js';
 import * as THREE from 'three';
 
@@ -54,6 +55,7 @@ export function animate() {
     renderer.render(scene, camera);
     updateDistrictLabels();
     updateCityDots();
+    updateCandidateMarkers();
 }
 
 export { updateDistrictLabels, updateCityDots };
