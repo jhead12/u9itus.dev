@@ -7,7 +7,10 @@ use App\Enums\EventRsvpStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CivicEventRequest;
 use App\Mail\EventCancellationMail;
+use App\Mail\EventRsvpApprovedMail;
+use App\Mail\EventRsvpDeclinedMail;
 use App\Models\CivicEvent;
+use App\Models\EventRsvp;
 use App\Models\PoliticianTopic;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -68,6 +71,75 @@ class CivicEventController extends Controller
         return redirect()
             ->route($this->role() . '.events.index')
             ->with('success', 'Event updated successfully.');
+    }
+
+    public function rsvps(CivicEvent $event): View
+    {
+        $this->authorizeHost($event);
+
+        $event->load([
+            'rsvps' => fn ($q) => $q->with('user')->orderByRaw("FIELD(status, 'pending', 'yes', 'approved', 'waitlist', 'maybe', 'declined', 'no')")->orderByDesc('created_at'),
+        ]);
+
+        $pendingCount = $event->rsvps()->where('status', EventRsvpStatus::Pending)->count();
+        $attendingCount = $event->rsvps()->whereIn('status', [EventRsvpStatus::Yes, EventRsvpStatus::Approved])->count();
+        $waitlistCount = $event->rsvps()->where('status', EventRsvpStatus::Waitlist)->count();
+
+        $role = $this->role();
+
+        return view('standalone.' . $role . '.events.rsvps', compact(
+            'event',
+            'pendingCount',
+            'attendingCount',
+            'waitlistCount',
+            'role'
+        ));
+    }
+
+    public function approveRsvp(CivicEvent $event, EventRsvp $rsvp): RedirectResponse
+    {
+        $this->authorizeHost($event);
+        abort_if($rsvp->civic_event_id !== $event->id, 403);
+
+        if ($rsvp->status !== EventRsvpStatus::Pending) {
+            return back()->with('error', 'Only pending RSVPs can be approved.');
+        }
+
+        $rsvp->update(['status' => EventRsvpStatus::Approved]);
+
+        $user = $rsvp->user;
+        if ($user && $user->email) {
+            try {
+                Mail::to($user->email)->send(new EventRsvpApprovedMail($event, $rsvp));
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        }
+
+        return back()->with('success', 'RSVP approved.');
+    }
+
+    public function declineRsvp(CivicEvent $event, EventRsvp $rsvp): RedirectResponse
+    {
+        $this->authorizeHost($event);
+        abort_if($rsvp->civic_event_id !== $event->id, 403);
+
+        if ($rsvp->status !== EventRsvpStatus::Pending) {
+            return back()->with('error', 'Only pending RSVPs can be declined.');
+        }
+
+        $rsvp->update(['status' => EventRsvpStatus::Declined]);
+
+        $user = $rsvp->user;
+        if ($user && $user->email) {
+            try {
+                Mail::to($user->email)->send(new EventRsvpDeclinedMail($event, $rsvp));
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        }
+
+        return back()->with('success', 'RSVP declined.');
     }
 
     public function cancel(Request $request, CivicEvent $event): RedirectResponse

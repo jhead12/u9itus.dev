@@ -48,6 +48,7 @@
                             </td>
                             <td class="px-4 py-3 text-slate-300">{{ $event->attendingCount() }}</td>
                             <td class="px-4 py-3 text-right">
+                                <a href="{{ route('citizen.events.rsvps', $event) }}" class="text-emerald-300 hover:text-emerald-200 text-sm mr-3">RSVPs</a>
                                 <a href="{{ route('citizen.events.edit', $event) }}" class="text-indigo-300 hover:text-indigo-200 text-sm mr-3">Edit</a>
                                 @if($event->status->value !== 'cancelled' && $event->status->value !== 'completed')
                                     <form action="{{ route('citizen.events.cancel', $event) }}" method="POST" class="inline">

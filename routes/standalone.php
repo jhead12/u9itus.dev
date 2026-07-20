@@ -346,6 +346,9 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
             Route::post('/', [CivicEventController::class, 'store'])->name('store');
             Route::get('/{event}/edit', [CivicEventController::class, 'edit'])->name('edit');
             Route::put('/{event}', [CivicEventController::class, 'update'])->name('update');
+            Route::get('/{event}/rsvps', [CivicEventController::class, 'rsvps'])->name('rsvps');
+            Route::patch('/{event}/rsvps/{rsvp}/approve', [CivicEventController::class, 'approveRsvp'])->name('rsvps.approve');
+            Route::patch('/{event}/rsvps/{rsvp}/decline', [CivicEventController::class, 'declineRsvp'])->name('rsvps.decline');
             Route::patch('/{event}/cancel', [CivicEventController::class, 'cancel'])->name('cancel');
         });
 
@@ -495,6 +498,9 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
             Route::post('/', [CivicEventController::class, 'store'])->name('store');
             Route::get('/{event}/edit', [CivicEventController::class, 'edit'])->name('edit');
             Route::put('/{event}', [CivicEventController::class, 'update'])->name('update');
+            Route::get('/{event}/rsvps', [CivicEventController::class, 'rsvps'])->name('rsvps');
+            Route::patch('/{event}/rsvps/{rsvp}/approve', [CivicEventController::class, 'approveRsvp'])->name('rsvps.approve');
+            Route::patch('/{event}/rsvps/{rsvp}/decline', [CivicEventController::class, 'declineRsvp'])->name('rsvps.decline');
             Route::patch('/{event}/cancel', [CivicEventController::class, 'cancel'])->name('cancel');
         });
     });

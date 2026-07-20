@@ -10,6 +10,8 @@ use App\Models\Politician;
 use App\Mail\EventCancellationMail;
 use App\Mail\EventHostRsvpMail;
 use App\Mail\EventReminderMail;
+use App\Mail\EventRsvpApprovedMail;
+use App\Mail\EventRsvpDeclinedMail;
 use App\Mail\EventWaitlistPromotionMail;
 use App\Models\EventReminder;
 use App\Models\PoliticianTopic;
@@ -368,4 +370,76 @@ it('notifies attendees when an event is cancelled', function (): void {
     $this->actingAs($hostUser)->patch(route('citizen.events.cancel', $event->slug));
 
     Mail::assertSent(EventCancellationMail::class, fn ($mail) => $mail->hasTo($voterUser->email) && $mail->event->id === $event->id);
+});
+
+it('allows a host to approve a pending RSVP', function (): void {
+    Mail::fake();
+
+    [$hostUser, $citizen] = makeCitizenHost();
+    [$voterUser] = makeVoter();
+    $event = $citizen->events()->create(validEventPayload([
+        'rsvp_requires_approval' => true,
+    ]));
+
+    $rsvp = EventRsvp::create([
+        'civic_event_id' => $event->id,
+        'user_id' => $voterUser->id,
+        'status' => EventRsvpStatus::Pending,
+        'guest_count' => 2,
+    ]);
+
+    $this->actingAs($hostUser)
+        ->patch(route('citizen.events.rsvps.approve', [$event->slug, $rsvp->id]))
+        ->assertRedirect();
+
+    expect($rsvp->fresh()->status)->toBe(EventRsvpStatus::Approved);
+    Mail::assertSent(EventRsvpApprovedMail::class, fn ($mail) => $mail->hasTo($voterUser->email) && $mail->rsvp->id === $rsvp->id);
+});
+
+it('allows a host to decline a pending RSVP', function (): void {
+    Mail::fake();
+
+    [$hostUser, $citizen] = makeCitizenHost();
+    [$voterUser] = makeVoter();
+    $event = $citizen->events()->create(validEventPayload([
+        'rsvp_requires_approval' => true,
+    ]));
+
+    $rsvp = EventRsvp::create([
+        'civic_event_id' => $event->id,
+        'user_id' => $voterUser->id,
+        'status' => EventRsvpStatus::Pending,
+        'guest_count' => 1,
+    ]);
+
+    $this->actingAs($hostUser)
+        ->patch(route('citizen.events.rsvps.decline', [$event->slug, $rsvp->id]))
+        ->assertRedirect();
+
+    expect($rsvp->fresh()->status)->toBe(EventRsvpStatus::Declined);
+    Mail::assertSent(EventRsvpDeclinedMail::class, fn ($mail) => $mail->hasTo($voterUser->email) && $mail->rsvp->id === $rsvp->id);
+});
+
+it('blocks a host from approving an RSVP for another event', function (): void {
+    [$hostUser, $citizen] = makeCitizenHost();
+    [, $otherCitizen] = makeCitizenHost();
+    [$voterUser] = makeVoter();
+
+    $event = $citizen->events()->create(validEventPayload([
+        'rsvp_requires_approval' => true,
+    ]));
+    $otherEvent = $otherCitizen->events()->create(validEventPayload([
+        'rsvp_requires_approval' => true,
+    ]));
+
+    $rsvp = EventRsvp::create([
+        'civic_event_id' => $otherEvent->id,
+        'user_id' => $voterUser->id,
+        'status' => EventRsvpStatus::Pending,
+        'guest_count' => 1,
+    ]);
+
+    $this->actingAs($hostUser)
+        ->patch(route('citizen.events.rsvps.approve', [$event->slug, $rsvp->id]))
+        ->assertForbidden();
 });
