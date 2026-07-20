@@ -10,9 +10,13 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\CreateCitizenCampaignRequest;
 use App\Http\Requests\UpdateCitizenCampaignRequest;
 use App\Models\CitizenCampaign;
+use App\Models\CitizenPaymentMethod;
+use App\Models\CitizenTransaction;
+use App\Services\CitizenBillingService;
 use App\Services\PlatformSettingsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Throwable;
@@ -32,6 +36,8 @@ use Throwable;
 class CitizenController extends Controller
 {
     use HandlesCampaignVideoUpload;
+
+    public function __construct(protected CitizenBillingService $billing) {}
 
     // ── Helpers ────────────────────────────────────────────────────────────
 
@@ -604,5 +610,301 @@ class CitizenController extends Controller
 
             return back()->withErrors(['video' => 'Error processing your video. Please try again.']);
         }
+    }
+
+    // ── Billing & Payment Methods ────────────────────────────────────────────
+
+    /**
+     * GET /citizen/billing
+     * Credit balance, transaction history, saved cards, and add-funds UI.
+     */
+    public function billing()
+    {
+        $citizen = Auth::user()?->citizen;
+        abort_unless($citizen, 403);
+
+        $creditBalance = $citizen->credit_balance ?? 0;
+
+        $credits = $citizen->credits()
+            ->orderByDesc('created_at')
+            ->paginate(15);
+
+        $transactions = $citizen->transactions()
+            ->orderByDesc('created_at')
+            ->paginate(15);
+
+        $savedPaymentMethods = $citizen->paymentMethods()
+            ->orderByDesc('is_default')
+            ->orderBy('created_at')
+            ->get();
+
+        return view('standalone.citizen.billing', compact(
+            'citizen', 'creditBalance', 'credits', 'transactions', 'savedPaymentMethods'
+        ));
+    }
+
+    /**
+     * POST /citizen/billing/add-funds
+     * Create a Stripe PaymentIntent for citizen credit purchase.
+     */
+    public function addFunds(Request $request)
+    {
+        $citizen = Auth::user()?->citizen;
+        abort_unless($citizen, 403);
+
+        $validated = $request->validate([
+            'amount'                  => ['required', 'numeric', 'min:10', 'max:10000'],
+            'saved_payment_method_id' => ['nullable', 'integer'],
+        ]);
+
+        $options = ['description' => 'Credit top-up for citizen #' . $citizen->id];
+
+        if (! empty($validated['saved_payment_method_id'])) {
+            $savedPaymentMethod = CitizenPaymentMethod::where('id', (int) $validated['saved_payment_method_id'])
+                ->where('citizen_id', $citizen->id)
+                ->first();
+
+            if ($savedPaymentMethod?->stripe_payment_method_id) {
+                $options['payment_method_id'] = $savedPaymentMethod->stripe_payment_method_id;
+            }
+        }
+
+        try {
+            $intentData = $this->billing->createPurchaseIntent($citizen, (float) $validated['amount'], $options);
+        } catch (\Exception $e) {
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json(['error' => $e->getMessage()], 500);
+            }
+
+            return back()->withErrors(['amount' => 'Payment service unavailable: ' . $e->getMessage()]);
+        }
+
+        $response = [
+            'client_secret'       => $intentData['client_secret'],
+            'payment_intent'      => $intentData['payment_intent_id'],
+            'amount'              => $intentData['gross_amount'],
+            'credits_amount'      => $intentData['credits_amount'],
+            'stripe_fee'          => $intentData['stripe_fee'],
+            'stripe_fee_percent'  => $intentData['stripe_fee_percent'],
+            'publishable_key'     => config('services.stripe.public'),
+            'return_url'          => route('citizen.billing.confirm'),
+        ];
+
+        if (! empty($options['payment_method_id'])) {
+            $response['stripe_payment_method_id'] = $options['payment_method_id'];
+        }
+
+        return response()->json($response);
+    }
+
+    /**
+     * GET /citizen/billing/confirm
+     * Handle Stripe redirect after a PaymentIntent completes.
+     */
+    public function confirmPayment(Request $request)
+    {
+        $piId           = $request->query('payment_intent');
+        $redirectStatus = $request->query('redirect_status');
+
+        if ($piId && $redirectStatus === 'succeeded') {
+            $finalized = false;
+            try {
+                $this->billing->finalizePaymentIntent($piId);
+                $finalized = true;
+            } catch (\Exception $e) {
+                Log::error('Citizen confirmPayment finalizePaymentIntent failed: ' . $e->getMessage());
+            }
+
+            return redirect()->route('citizen.billing')
+                ->with($finalized ? 'payment_confirmed' : 'payment_failed', true);
+        }
+
+        if (in_array($redirectStatus, ['failed', 'canceled'], true)) {
+            return redirect()->route('citizen.billing')
+                ->with('payment_failed', true);
+        }
+
+        return redirect()->route('citizen.billing');
+    }
+
+    /** POST /citizen/billing/update-receipt-email */
+    public function updateReceiptEmail(Request $request)
+    {
+        $citizen = Auth::user()?->citizen;
+        abort_unless($citizen, 403);
+
+        $validated = $request->validate([
+            'receipt_email' => ['nullable', 'email', 'max:255'],
+        ]);
+
+        $citizen->receipt_email = $validated['receipt_email'] ?? null;
+        $citizen->saveQuietly();
+
+        return back()->with('success', 'Receipt email updated.');
+    }
+
+    /** GET /citizen/billing/invoices */
+    public function invoices()
+    {
+        $citizen = Auth::user()?->citizen;
+        abort_unless($citizen, 403);
+
+        $transactions = $citizen->transactions()
+            ->orderByDesc('created_at')
+            ->paginate(25);
+
+        return view('standalone.citizen.invoices', compact('citizen', 'transactions'));
+    }
+
+    /** POST /citizen/billing/setup-intent */
+    public function createSetupIntent(Request $request)
+    {
+        $citizen = Auth::user()?->citizen;
+        abort_unless($citizen, 403);
+
+        $stripe = app(\App\Services\StripePaymentService::class);
+        try {
+            $customerId = $stripe->ensureCustomer($citizen);
+            if (! $customerId) {
+                return response()->json(['error' => 'Payment service unavailable.'], 500);
+            }
+
+            $setupIntent = $stripe->createSetupIntent($customerId);
+
+            return response()->json([
+                'client_secret'   => $setupIntent->client_secret,
+                'publishable_key' => config('services.stripe.public'),
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Citizen createSetupIntent failed: ' . $e->getMessage());
+            return response()->json(['error' => 'Could not initialize card setup.'], 500);
+        }
+    }
+
+    /** POST /citizen/billing/payment-methods */
+    public function storePaymentMethod(Request $request)
+    {
+        $citizen = Auth::user()?->citizen;
+        abort_unless($citizen, 403);
+
+        $validated = $request->validate([
+            'payment_method_id' => ['required', 'string', 'regex:/^pm_/'],
+        ]);
+
+        $stripe = app(\App\Services\StripePaymentService::class);
+
+        try {
+            $paymentMethod = $stripe->retrievePaymentMethod($validated['payment_method_id']);
+            $customerId = $stripe->ensureCustomer($citizen);
+
+            if ((string) ($paymentMethod->customer ?? '') !== (string) $customerId) {
+                return response()->json(['error' => 'Invalid payment method.'], 422);
+            }
+
+            $existing = CitizenPaymentMethod::where('citizen_id', $citizen->id)
+                ->where('stripe_payment_method_id', $paymentMethod->id)
+                ->first();
+
+            if ($existing) {
+                return response()->json([
+                    'message' => 'Card already saved.',
+                    'id'      => $existing->id,
+                ]);
+            }
+
+            $card  = $paymentMethod->card ?? null;
+            $brand = $card ? ucfirst((string) ($card->brand ?? 'card')) : 'Card';
+            $last4 = $card ? (string) ($card->last4 ?? '????') : '????';
+            $exp   = $card ? ((string) ($card->exp_month ?? '')) . '/' . ((string) ($card->exp_year ?? '')) : '';
+            $label = "{$brand} •••• {$last4}" . ($exp !== '/' ? " expires {$exp}" : '');
+
+            $isDefault = ! CitizenPaymentMethod::where('citizen_id', $citizen->id)->exists();
+
+            $saved = CitizenPaymentMethod::create([
+                'citizen_id'               => $citizen->id,
+                'stripe_customer_id'       => $customerId,
+                'stripe_payment_method_id' => $paymentMethod->id,
+                'label'                    => $label,
+                'is_default'               => $isDefault,
+            ]);
+
+            Log::info('Saved payment method for citizen', [
+                'citizen_id' => $citizen->id,
+                'pm_id'      => $paymentMethod->id,
+                'label'      => $label,
+            ]);
+
+            return response()->json([
+                'message'    => 'Card saved.',
+                'id'         => $saved->id,
+                'label'      => $label,
+                'is_default' => $saved->is_default,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Citizen storePaymentMethod failed: ' . $e->getMessage());
+            return response()->json(['error' => 'Could not save payment method.'], 500);
+        }
+    }
+
+    /** DELETE /citizen/billing/payment-methods/{paymentMethod} */
+    public function deletePaymentMethod(CitizenPaymentMethod $paymentMethod)
+    {
+        $citizen = Auth::user()?->citizen;
+        abort_unless($citizen && (int) $citizen->id === (int) $paymentMethod->citizen_id, 403);
+
+        $stripe = app(\App\Services\StripePaymentService::class);
+
+        try {
+            if ($paymentMethod->stripe_payment_method_id) {
+                $stripe->detachPaymentMethod($paymentMethod->stripe_payment_method_id);
+            }
+        } catch (\Exception $e) {
+            Log::warning('Citizen Stripe detach failed (continuing delete): ' . $e->getMessage());
+        }
+
+        $wasDefault = $paymentMethod->is_default;
+        $citizenId  = $paymentMethod->citizen_id;
+
+        $paymentMethod->delete();
+
+        if ($wasDefault) {
+            $next = CitizenPaymentMethod::where('citizen_id', $citizenId)->first();
+            $next?->update(['is_default' => true]);
+        }
+
+        return response()->json(['message' => 'Card removed.']);
+    }
+
+    /** GET /citizen/billing/invoices/{transaction}/details */
+    public function invoiceDetails(CitizenTransaction $transaction)
+    {
+        $citizen = Auth::user()?->citizen;
+        abort_unless($citizen && (int) $transaction->citizen_id === (int) $citizen->id, 403);
+
+        return response()->json([
+            'data' => [
+                'uuid'                   => $transaction->uuid,
+                'date'                   => $transaction->created_at?->toIso8601String(),
+                'description'            => $transaction->description,
+                'transaction_type'       => $transaction->transaction_type,
+                'status'                 => $transaction->status,
+                'amount'                 => $transaction->amount,
+                'currency'               => $transaction->currency,
+                'stripe_payment_intent_id' => $transaction->stripe_payment_intent_id,
+                'metadata'               => $transaction->metadata,
+                'citizen_id'             => $transaction->citizen_id,
+            ],
+        ]);
+    }
+
+    /** POST /citizen/billing/invoices/{transaction}/send-receipt */
+    public function sendReceipt(CitizenTransaction $transaction)
+    {
+        $citizen = Auth::user()?->citizen;
+        abort_unless($citizen && (int) $transaction->citizen_id === (int) $citizen->id, 403);
+
+        $this->billing->sendCreditsPurchaseReceiptForTransaction($transaction);
+
+        return back()->with('success', 'Receipt sent.');
     }
 }

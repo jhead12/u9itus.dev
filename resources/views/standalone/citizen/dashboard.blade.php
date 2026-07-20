@@ -37,7 +37,12 @@
                 @endif
             </p>
         </div>
-        <div class="flex gap-2">
+        <div class="flex flex-wrap gap-2">
+            <a href="{{ route('citizen.billing') }}"
+               class="inline-flex items-center gap-1.5 text-sm font-medium text-emerald-300 hover:text-emerald-200 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 rounded-lg px-4 py-2 transition">
+                <span>${{ number_format($citizen->credit_balance ?? 0, 2) }}</span>
+                Billing
+            </a>
             @if($campaignCount > 0)
             <a href="{{ route('citizen.campaigns.index') }}"
                class="inline-flex items-center gap-1.5 text-sm font-medium text-slate-300 hover:text-white bg-slate-700/50 hover:bg-slate-700 rounded-lg px-4 py-2 transition">

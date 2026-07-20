@@ -47,6 +47,7 @@ use App\Notifications\SystemAnnouncementNotification;
 use App\Services\AdminTwoFactorService;
 use App\Services\CampaignBillingService;
 use App\Services\CampaignModerationService;
+use App\Services\CitizenBillingService;
 use App\Services\CampaignQuestionDigestService;
 use App\Services\PoliticalPaymentService;
 use App\Services\CampaignQandAService;
@@ -419,8 +420,28 @@ class AdminController extends Controller
      * moderation queues remain independent for compliance auditing.
      * Mail/notification/broadcast wiring is deferred to Phase F.
      */
-    public function approveCitizenCampaign(\App\Models\CitizenCampaign $campaign)
+    public function approveCitizenCampaign(\App\Models\CitizenCampaign $campaign, CitizenBillingService $billing)
     {
+        $citizen = $campaign->citizen;
+        if (! $citizen) {
+            return back()->withErrors(['campaign' => 'Campaign owner not found.']);
+        }
+
+        try {
+            $billing->reserveCampaignBudget($citizen, $campaign);
+        } catch (\LogicException $e) {
+            return back()->withErrors([
+                'campaign' => 'Cannot approve: ' . $e->getMessage() . ' Please add funds in the citizen billing portal.',
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to reserve citizen campaign budget', [
+                'campaign_id' => $campaign->id,
+                'citizen_id'  => $citizen->id,
+                'error'       => $e->getMessage(),
+            ]);
+            return back()->withErrors(['campaign' => 'Unable to reserve campaign budget. Please try again.']);
+        }
+
         $newStatus = ($campaign->scheduled_start_at && $campaign->scheduled_start_at->isFuture())
             ? CampaignStatus::Scheduled->value
             : CampaignStatus::Active->value;
@@ -431,9 +452,6 @@ class AdminController extends Controller
             'approved_at'     => now(),
             'started_at'      => $newStatus === CampaignStatus::Active->value ? now() : null,
         ]);
-
-        // Note: CampaignAuditLog.campaign_id FK targets political_campaigns only.
-        // Citizen campaign audit logging deferred to Phase F (polymorphic audit table).
 
         return back()->with('success', 'Citizen campaign "' . $campaign->title . '" has been approved.');
     }

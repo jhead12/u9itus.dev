@@ -423,6 +423,20 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         Route::post('/campaigns/{campaign}/upload-video', [CitizenController::class, 'uploadVideo'])->name('campaigns.upload-video');
         Route::post('/campaigns/{campaign}/s3-upload-url', [CitizenController::class, 'getS3UploadUrl'])->name('campaigns.s3-upload-url');
         Route::post('/campaigns/{campaign}/process-s3-video', [CitizenController::class, 'processS3UploadedVideo'])->name('campaigns.process-s3-video');
+
+        // Billing & Payments (mirrors politician billing portal)
+        Route::get('/billing', [CitizenController::class, 'billing'])->name('billing');
+        Route::post('/billing/add-funds', [CitizenController::class, 'addFunds'])->name('billing.add-funds');
+        Route::get('/billing/confirm', [CitizenController::class, 'confirmPayment'])->name('billing.confirm');
+        Route::post('/billing/update-receipt-email', [CitizenController::class, 'updateReceiptEmail'])->name('billing.update-receipt-email');
+        Route::get('/billing/invoices', [CitizenController::class, 'invoices'])->name('billing.invoices');
+        Route::get('/billing/invoices/{transaction}/details', [CitizenController::class, 'invoiceDetails'])
+            ->name('billing.invoices.details');
+        Route::post('/billing/invoices/{transaction}/send-receipt', [CitizenController::class, 'sendReceipt'])
+            ->name('billing.invoices.send-receipt');
+        Route::post('/billing/setup-intent', [CitizenController::class, 'createSetupIntent'])->name('billing.setup-intent');
+        Route::post('/billing/payment-methods', [CitizenController::class, 'storePaymentMethod'])->name('billing.payment-methods.store');
+        Route::delete('/billing/payment-methods/{paymentMethod}', [CitizenController::class, 'deletePaymentMethod'])->name('billing.payment-methods.delete');
     });
 
     /*

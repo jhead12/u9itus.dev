@@ -29,6 +29,17 @@ function makePendingBallotCampaign(array $attrs = []): CitizenCampaign
 {
     $citizen = Citizen::factory()->create();
 
+    // Seed sufficient wallet credits so approval-time budget reservation succeeds.
+    $budget = (float) ($attrs['total_budget'] ?? 100.00);
+    \App\Models\CitizenCredit::factory()->create([
+        'citizen_id'      => $citizen->id,
+        'transaction_type' => 'purchase',
+        'amount'          => $budget,
+        'balance_after'   => $budget,
+        'description'     => 'Test opening balance',
+    ]);
+    $citizen->syncCreditBalance();
+
     return CitizenCampaign::factory()->create(array_merge([
         'citizen_id'          => $citizen->id,
         'citizen_ad_type'     => CitizenAdType::BallotIssue->value,
