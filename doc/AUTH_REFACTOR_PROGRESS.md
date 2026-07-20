@@ -16,7 +16,7 @@ Last updated: 2026-07-20
 | 3 | Single source of truth for roles | ✅ Done |
 | 4 | Split `AuthController` into focused controllers | ✅ Done — routes rewired, `AuthController` deleted, tests green |
 | 5 | Clean up voter API auth + docs | ❌ Not started |
-| 6 | Config and comment hygiene | ⚠️ Partial — 2FA TTL key not fixed |
+| 6 | Config and comment hygiene | ✅ Done |
 | 7 | Final verification | ❌ Not run |
 
 ---
@@ -114,10 +114,10 @@ Last updated: 2026-07-20
 
 - [x] `config/platform.php` — `features.two_factor` → `true`
 - [x] `config/platform.php` — `services.auth.standalone` mapping removed (verify)
-- [ ] **`app/Http/Middleware/EnsureTwoFactorVerified.php:58`** reads TTL from `platform.standalone.auth.admin_2fa.session_ttl_minutes` — a non-admin middleware using an `admin_2fa` key. Add `platform.standalone.auth.two_factor.session_ttl_minutes` and read from that.
-- [ ] `bootstrap/app.php` — inline comment above `'2fa'` and `'admin.2fa'` aliases explaining the split
-- [ ] Verify: `php artisan config:cache` succeeds
-- [ ] Verify: no `StandardAuthService` / `AuthServiceInterface` references remain
+- [x] **`app/Http/Middleware/EnsureTwoFactorVerified.php`** — was reading TTL from `platform.standalone.auth.admin_2fa.session_ttl_minutes` (a non-admin middleware using the `admin_2fa` key). Added a new `platform.standalone.auth.two_factor.session_ttl_minutes` block (`config/platform.php`, env var `TWO_FACTOR_SESSION_TTL_MINUTES`, default 120) and pointed the middleware at it. `EnsureAdminTwoFactorVerified` is untouched and still correctly uses `admin_2fa.session_ttl_minutes`. (2026-07-20)
+- [x] `bootstrap/app.php` — inline comment added above the `'2fa'`/`'admin.2fa'` aliases explaining the two independent 2FA flows (columns, config keys, enforcement)
+- [x] Verify: `php artisan config:cache` succeeds; `config('platform.standalone.auth.two_factor.session_ttl_minutes')` resolves to `120`
+- [x] Verify: no `StandardAuthService` / `AuthServiceInterface` references remain (confirmed via repo-wide grep)
 
 ## Phase 7 — Final verification ❌
 

@@ -55,7 +55,7 @@ class EnsureTwoFactorVerified
                 return redirect()->route('2fa.challenge');
             }
 
-            $expiresInMinutes = (int) config('platform.standalone.auth.admin_2fa.session_ttl_minutes', 120);
+            $expiresInMinutes = (int) config('platform.standalone.auth.two_factor.session_ttl_minutes', 120);
             $verifiedTimestamp = strtotime((string) $verifiedAt);
 
             if (!$verifiedTimestamp || ($verifiedTimestamp + ($expiresInMinutes * 60)) < time()) {

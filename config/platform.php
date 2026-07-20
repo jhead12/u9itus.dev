@@ -35,6 +35,12 @@ return [
                 'totp_window' => (int) env('ADMIN_2FA_TOTP_WINDOW', 2),
                 'session_ttl_minutes' => (int) env('ADMIN_2FA_SESSION_TTL_MINUTES', 120),
             ],
+            // Generic (voter/politician/citizen) TOTP 2FA session TTL. Read by
+            // EnsureTwoFactorVerified — kept separate from admin_2fa so the two
+            // policies can be tuned independently.
+            'two_factor' => [
+                'session_ttl_minutes' => (int) env('TWO_FACTOR_SESSION_TTL_MINUTES', 120),
+            ],
         ],
         
         // Features available in standalone mode
