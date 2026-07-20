@@ -58,7 +58,7 @@ export function enterOverviewMode() {
     document.getElementById('info-panel').classList.remove('open');
     resizeRenderer();
     document.getElementById('btn-back').style.display = 'none';
-    document.getElementById('hint').innerHTML = 'Scroll to zoom &nbsp;·&nbsp; ↑↓ tilt &nbsp;·&nbsp; drag to pan &nbsp;·&nbsp; Click a state';
+    document.getElementById('hint').innerHTML = 'Scroll / pinch to zoom &nbsp;·&nbsp; ↑↓ tilt &nbsp;·&nbsp; drag to pan &nbsp;·&nbsp; Click a state';
     for (const m of stateMeshes) {
         m.material.transparent = false;
         m.material.opacity = 1.0;

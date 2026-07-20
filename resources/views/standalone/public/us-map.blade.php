@@ -69,6 +69,10 @@
                 <tr><td>Drag</td><td>Pan map</td></tr>
                 <tr><td>Scroll wheel</td><td>Zoom in / out</td></tr>
                 <tr><td>Right-drag</td><td>Pan map</td></tr>
+                <tr><td colspan="2" style="padding-top:10px;padding-bottom:2px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#475569;">Touch</td></tr>
+                <tr><td>One-finger drag</td><td>Pan map</td></tr>
+                <tr><td>Two-finger pinch</td><td>Zoom in / out</td></tr>
+                <tr><td>Two-finger drag</td><td>Pan while zoomed</td></tr>
             </tbody>
         </table>
         <button id="kb-help-close" aria-label="Close keyboard help">Close</button>
@@ -412,7 +416,7 @@
 </div>
 
 <div id="hint" style="position:fixed;bottom:28px;right:24px;z-index:50;color:#334155;font-size:11px;text-align:right;pointer-events:none;">
-    Scroll to zoom &nbsp;·&nbsp; ↑↓ tilt &nbsp;·&nbsp; drag to pan &nbsp;·&nbsp; Click a state
+    Scroll / pinch to zoom &nbsp;·&nbsp; ↑↓ tilt &nbsp;·&nbsp; drag to pan &nbsp;·&nbsp; Click a state
 </div>
 
 {{-- ── Earn modal — true viewport-centered overlay, rendered at root level ── --}}

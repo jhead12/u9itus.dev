@@ -41,9 +41,9 @@ export const TOUR_STEPS = [
     {
         target: null, pos: 'center',
         title: '🔍 Zoom',
-        body: `<strong style="color:#e2e8f0">Scroll</strong> your mouse wheel to zoom in and out.<br><br>Or use <kbd>+</kbd> to zoom in and <kbd>−</kbd> to zoom out from the keyboard.`,
+        body: `<strong style="color:#e2e8f0">Scroll</strong> your mouse wheel, or <strong style="color:#e2e8f0">pinch</strong> with two fingers on a touchscreen, to zoom in and out.<br><br>Or use <kbd>+</kbd> to zoom in and <kbd>−</kbd> to zoom out from the keyboard.`,
         media: _mediaFor('zoom',
-            `Zoom into any part of the country by scrolling your mouse wheel forward to move closer, or backward to pull away. If you prefer the keyboard, press the plus key to zoom in and the minus key to zoom out. You can still tilt the map while zoomed in, so you can frame the exact view you want.`
+            `Zoom into any part of the country by scrolling your mouse wheel forward to move closer, or backward to pull away. On a phone or tablet, pinch two fingers apart to zoom in, or pinch together to zoom out. If you prefer the keyboard, press the plus key to zoom in and the minus key to zoom out. You can still tilt the map while zoomed in, so you can frame the exact view you want.`
         ),
     },
     {
