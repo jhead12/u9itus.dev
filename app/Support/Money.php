@@ -55,4 +55,18 @@ class Money
         $divisor = bcsub('1', $feeRate, 10);
         return (int) ceil(bcdiv((string) $netCents, $divisor, 10));
     }
+
+    /**
+     * Parse a loosely-formatted currency string (e.g. "$1,234,000", scraped
+     * from OpenSecrets/FEC display data) into a float dollar amount. Returns
+     * 0.0 for empty or non-numeric input. Not precision-safe (uses float,
+     * not bcmath) — only intended for display-side ranking/percentages, not
+     * financial arithmetic.
+     */
+    public static function parseLoose(string $raw): float
+    {
+        $cleaned = preg_replace('/[^0-9.\-]/', '', $raw) ?? '';
+
+        return $cleaned === '' || ! is_numeric($cleaned) ? 0.0 : (float) $cleaned;
+    }
 }

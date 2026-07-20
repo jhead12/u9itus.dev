@@ -15,6 +15,7 @@ const polTabBtns = polDrawer?.querySelectorAll('.pol-tab') ?? [];
 let _polTab = 'overview';
 let _polCtx = null;
 let _overviewReqSeq = 0;
+let _economyReqSeq = 0;
 
 function escapeHtml(value) {
     return String(value ?? '')
@@ -116,14 +117,118 @@ async function loadOverviewEnrichment(cand) {
     }
 }
 
-const INDUSTRY_MOCK = [
-    { name: 'Finance & Banking', pct: 64 },
-    { name: 'Technology', pct: 51 },
-    { name: 'Healthcare', pct: 43 },
-    { name: 'Real Estate', pct: 35 },
-    { name: 'Energy & Environment', pct: 27 },
-    { name: 'Defense', pct: 18 },
-];
+const ECONOMY_FETCH_TIMEOUT_MS = 8_000;
+
+async function loadEconomyEnrichment(cand) {
+    const reqSeq = ++_economyReqSeq;
+    const params = new URLSearchParams();
+    params.set('full_name', cand?.full_name || '');
+    if (cand?.slug) params.set('slug', cand.slug);
+    if (activeState) params.set('state', activeState);
+    if (cand?.office) params.set('office', cand.office);
+
+    if (_polCtx) {
+        _polCtx.extra = { ..._polCtx.extra, economyLoading: true, economyError: false };
+        if (_polTab === 'economy') _renderPolBody();
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), ECONOMY_FETCH_TIMEOUT_MS);
+
+    try {
+        const res = await fetch(`/api/v1/map/candidate-economy?${params.toString()}`, {
+            signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (!_polCtx || reqSeq !== _economyReqSeq) return;
+        _polCtx.extra = { ..._polCtx.extra, economy: data, economyLoading: false, economyError: false };
+        if (_polTab === 'economy') _renderPolBody();
+    } catch (err) {
+        clearTimeout(timeoutId);
+        if (err?.name === 'AbortError') {
+            console.warn('[map] candidate-economy fetch timed out; economy tab will show an error state');
+        } else {
+            console.warn('[map] candidate-economy fetch failed:', err);
+        }
+        if (_polCtx && reqSeq === _economyReqSeq) {
+            _polCtx.extra = { ..._polCtx.extra, economyLoading: false, economyError: true };
+            if (_polTab === 'economy') _renderPolBody();
+        }
+    }
+}
+
+/** Endorsement / PAC-affiliation badges — logo (if any) + label, linking out to the org's site. */
+function renderPacBadges(pacAffiliations) {
+    if (!pacAffiliations?.length) return '';
+    return `
+        <p class="pol-section-label" style="margin-top:16px;">Endorsements &amp; PAC Affiliations</p>
+        <div class="pol-badges" style="margin-bottom:2px;">
+            ${pacAffiliations.map(b => {
+                const href = safeUrl(b.website_url || '');
+                const logo = safeUrl(b.logo_url || '');
+                const inner = `${logo ? `<img src="${escapeHtml(logo)}" alt="" onerror="this.remove()">` : ''}<span>${escapeHtml(b.label)}</span>`;
+                return href
+                    ? `<a class="pol-badge-logo" href="${escapeHtml(href)}" target="_blank" rel="noopener">${inner}</a>`
+                    : `<span class="pol-badge-logo">${inner}</span>`;
+            }).join('')}
+        </div>
+        <p style="font-size:9px;color:#475569;margin:4px 0 0;">Inferred from campaign-finance contributor matching, not a confirmed public endorsement.</p>`;
+}
+
+function renderIndustryBars(industries) {
+    if (!industries?.length) return '';
+    return `
+        <p class="pol-section-label" style="margin-top:16px;">Top Industry Support</p>
+        ${industries.map(ind => `
+            <div class="pol-industry-row">
+                <div class="pol-industry-label">
+                    <span>${escapeHtml(ind.name)}</span>
+                    <span style="color:#64748b;">${escapeHtml(ind.total_display || '')}</span>
+                </div>
+                <div class="pol-industry-track">
+                    <div class="pol-industry-fill" style="width:${Math.max(0, Math.min(100, ind.pct || 0))}%"></div>
+                </div>
+            </div>`).join('')}`;
+}
+
+function renderContributors(contributors) {
+    if (!contributors?.length) return '';
+    return `
+        <p class="pol-section-label" style="margin-top:16px;">Top Contributors</p>
+        <div style="display:grid;gap:6px;">
+            ${contributors.map(c => `
+                <div style="display:flex;justify-content:space-between;gap:8px;padding:6px 10px;border-radius:8px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);">
+                    <span style="font-size:11px;color:#cbd5e1;">${escapeHtml(c.name)}</span>
+                    <span style="font-size:11px;color:#64748b;font-weight:600;">${escapeHtml(c.total_display || '')}</span>
+                </div>`).join('')}
+        </div>`;
+}
+
+function renderFecSummary(fec) {
+    if (!fec || !(fec.receipts || fec.disbursements || fec.cash_on_hand || fec.debt)) return '';
+    return `
+        <p class="pol-section-label" style="margin-top:16px;">FEC Financial Summary</p>
+        <div class="pol-stat-grid">
+            <div class="pol-stat"><span class="pol-stat-val">${escapeHtml(fec.receipts || '—')}</span><span class="pol-stat-lbl">Total Raised</span></div>
+            <div class="pol-stat"><span class="pol-stat-val">${escapeHtml(fec.disbursements || '—')}</span><span class="pol-stat-lbl">Total Spent</span></div>
+            <div class="pol-stat"><span class="pol-stat-val">${escapeHtml(fec.cash_on_hand || '—')}</span><span class="pol-stat-lbl">Cash on Hand</span></div>
+            <div class="pol-stat"><span class="pol-stat-val">${escapeHtml(fec.debt || '—')}</span><span class="pol-stat-lbl">Debt</span></div>
+        </div>`;
+}
+
+function renderEconomySources(sources, enrichedAt) {
+    const links = [];
+    const os = safeUrl(sources?.opensecrets_url || '');
+    const fecUrl = safeUrl(sources?.fec_url || '');
+    if (os) links.push(`<a href="${escapeHtml(os)}" target="_blank" rel="noopener" class="pol-link pol-link-alt">OpenSecrets →</a>`);
+    if (fecUrl) links.push(`<a href="${escapeHtml(fecUrl)}" target="_blank" rel="noopener" class="pol-link pol-link-alt">FEC.gov →</a>`);
+    const updated = enrichedAt ? formatPubDate(enrichedAt) : null;
+    return `
+        ${updated ? `<p style="font-size:10px;color:#475569;margin:16px 0 0;">Data updated ${escapeHtml(updated)}</p>` : ''}
+        ${links.length ? `<div class="pol-link-row" style="margin-top:6px;">${links.join('')}</div>` : ''}`;
+}
 
 export function openPolDrawer(cand, accentColor, extra = {}) {
     if (!polDrawer || !polHeroEl || !polBodyEl) {
@@ -356,20 +461,54 @@ function _renderPolBody() {
             ${enrichmentStatusHtml}`;
 
     } else if (_polTab === 'economy') {
+        if (extra?.isCityView) {
+            polBodyEl.innerHTML = `
+                <p class="pol-section-label">Economy</p>
+                <p class="pol-empty">Campaign finance data is shown for individual candidates — select a specific representative to view it.</p>`;
+            return;
+        }
+
+        const economy = extra?.economy || null;
+        const isLoadingEconomy = !!extra?.economyLoading && !economy;
+        const hasEconomyError = !!extra?.economyError && !economy;
+
+        if (isLoadingEconomy) {
+            polBodyEl.innerHTML = `
+                <p class="pol-section-label">Economy</p>
+                <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:8px;border:1px solid rgba(99,102,241,0.15);background:rgba(99,102,241,0.06);">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="animation:spin 1s linear infinite;color:#6366f1;">
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-dasharray="31.4" stroke-dashoffset="10" stroke-linecap="round"/>
+                    </svg>
+                    <span style="font-size:11px;color:#94a3b8;">Loading campaign finance data…</span>
+                </div>`;
+            return;
+        }
+
+        if (hasEconomyError) {
+            polBodyEl.innerHTML = `
+                <p class="pol-section-label">Economy</p>
+                <div style="padding:10px 12px;border-radius:8px;border:1px solid rgba(239,68,68,0.2);background:rgba(239,68,68,0.06);">
+                    <span style="font-size:11px;color:#f87171;">⚠ Campaign finance data unavailable right now.</span>
+                </div>`;
+            return;
+        }
+
+        if (!economy || !economy.has_data) {
+            const message = economy?.reason === 'not_on_platform'
+                ? 'This candidate has not claimed a U9itus profile yet, so campaign finance data is not available.'
+                : 'Campaign finance data has not been enriched for this candidate yet — check back after the next nightly update.';
+            polBodyEl.innerHTML = `
+                <p class="pol-section-label">Economy</p>
+                <p class="pol-empty">${escapeHtml(message)}</p>`;
+            return;
+        }
+
         polBodyEl.innerHTML = `
-            <p class="pol-section-label">Top Industry Support</p>
-            <p style="font-size:11px;color:#475569;line-height:1.55;margin:0 0 14px;">Estimated donor-industry breakdown. Full FEC / OpenSecrets integration is planned for a future sprint.</p>
-            ${INDUSTRY_MOCK.map(ind => `
-                <div class="pol-industry-row">
-                    <div class="pol-industry-label">
-                        <span>${ind.name}</span>
-                        <span style="color:#64748b;">${ind.pct}%</span>
-                    </div>
-                    <div class="pol-industry-track">
-                        <div class="pol-industry-fill" style="width:${ind.pct}%"></div>
-                    </div>
-                </div>`).join('')}
-            <p style="font-size:10px;color:#1e293b;margin:16px 0 0;font-style:italic;">Placeholder data — wired to OpenSecrets API in Sprint 2.</p>`;
+            ${renderPacBadges(economy.pac_affiliations)}
+            ${renderIndustryBars(economy.top_industries)}
+            ${renderContributors(economy.top_contributors)}
+            ${renderFecSummary(economy.fec_summary)}
+            ${renderEconomySources(economy.sources, economy.enriched_at)}`;
 
     } else {
         const links = [];
@@ -420,6 +559,13 @@ export function initPolDrawer() {
                 t.setAttribute('aria-selected', t.dataset.tab === _polTab);
             });
             polBodyEl.setAttribute('aria-labelledby', `pol-tab-${_polTab}`);
+            // Economy data is fetched lazily — only once, the first time the
+            // tab is actually opened — to avoid doubling requests per drawer
+            // open for data most users never view.
+            if (_polTab === 'economy' && _polCtx && !_polCtx.extra?.isCityView
+                && !_polCtx.extra?.economy && !_polCtx.extra?.economyLoading) {
+                loadEconomyEnrichment(_polCtx.cand);
+            }
             _renderPolBody();
         });
     });

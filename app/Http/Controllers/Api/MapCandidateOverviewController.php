@@ -6,13 +6,14 @@ use App\Models\ElectionCandidateRecord;
 use App\Models\PoliticalCampaign;
 use App\Models\Politician;
 use App\Services\CandidateNewsService;
+use App\Services\PoliticianResolver;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 
 class MapCandidateOverviewController
 {
-    public function __invoke(Request $request, CandidateNewsService $newsService): JsonResponse
+    public function __invoke(Request $request, CandidateNewsService $newsService, PoliticianResolver $resolver): JsonResponse
     {
         $slug = trim((string) $request->query('slug', ''));
         $fullName = trim((string) $request->query('full_name', ''));
@@ -36,9 +37,9 @@ class MapCandidateOverviewController
         // Cache for 15 minutes — short enough to pick up newly published news,
         // long enough to absorb a burst of drawer-opens on the same candidate.
         $data = Cache::remember($cacheKey, 900, function () use (
-            $slug, $fullName, $state, $office, $scrapeSource, $externalCandidateId, $newsService
+            $slug, $fullName, $state, $office, $scrapeSource, $externalCandidateId, $newsService, $resolver
         ) {
-            $politician = $this->resolvePolitician($slug, $fullName, $state, $office);
+            $politician = $resolver->resolve($slug, $fullName, $state, $office);
             $scraped = $this->resolveScrapedRecord($fullName, $state, $office, $scrapeSource, $externalCandidateId);
 
             // 40, not 24 — the pool now also covers the candidate's official-site
@@ -90,27 +91,6 @@ class MapCandidateOverviewController
         });
 
         return response()->json($data);
-    }
-
-    private function resolvePolitician(string $slug, string $fullName, string $state, string $office): ?Politician
-    {
-        if ($slug !== '') {
-            return Politician::query()
-                ->where('slug', $slug)
-                ->where('is_active', true)
-                ->first();
-        }
-
-        if ($fullName === '') {
-            return null;
-        }
-
-        return Politician::query()
-            ->where('is_active', true)
-            ->whereRaw('LOWER(full_name) = ?', [strtolower($fullName)])
-            ->when($state !== '', fn ($q) => $q->whereRaw("UPPER(COALESCE(state, '')) = ?", [$state]))
-            ->when($office !== '', fn ($q) => $q->whereRaw("LOWER(COALESCE(political_office, '')) LIKE ?", ['%' . strtolower($office) . '%']))
-            ->first();
     }
 
     private function resolveScrapedRecord(string $fullName, string $state, string $office, string $scrapeSource, string $externalCandidateId): ?ElectionCandidateRecord
