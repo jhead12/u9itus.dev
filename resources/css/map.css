@@ -600,6 +600,29 @@ kbd {
     color: #334155; font-size: 11px; text-align: right; pointer-events: none;
 }
 
+/* Map toast */
+.map-toast {
+    position: fixed; bottom: 28px; left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    z-index: 200;
+    background: rgba(8, 12, 30, 0.96);
+    border: 1px solid rgba(99, 102, 241, 0.35);
+    border-radius: 10px;
+    padding: 10px 18px;
+    color: #e2e8f0; font-size: 12px;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.55);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s, transform 0.25s;
+    max-width: min(420px, 90vw);
+    text-align: center;
+}
+.map-toast.visible {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+.map-toast.error { border-color: rgba(239, 68, 68, 0.5); color: #fecaca; }
+
 /* Breadcrumb */
 #breadcrumb-bar {
     position: fixed; top: 54px; left: 0; right: 0; z-index: 45;

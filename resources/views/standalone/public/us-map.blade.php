@@ -62,6 +62,7 @@
                 <tr><td><kbd>+</kbd> / <kbd>=</kbd></td><td>Zoom in</td></tr>
                 <tr><td><kbd>−</kbd></td><td>Zoom out</td></tr>
                 <tr><td><kbd>R</kbd></td><td>Reset view</td></tr>
+                <tr><td><kbd>L</kbd></td><td>Find my district</td></tr>
                 <tr><td><kbd>O</kbd></td><td>Toggle offices section</td></tr>
                 <tr><td><kbd>Esc</kbd></td><td>Close panel / popup</td></tr>
                 <tr><td><kbd>?</kbd></td><td>Show / hide this help</td></tr>
@@ -132,6 +133,15 @@
         @endif
 
         <button id="btn-back">← Back</button>
+        <button class="top-btn" id="btn-find-district" title="Find my district using my location (press L)"
+            aria-label="Find my district using my location">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M12 2L12 8M12 16L12 22M2 12L8 12M16 12L22 12"/>
+            </svg>
+            <span class="btn-hover-label">Find My District</span>
+            <span class="btn-hover-label" style="font-size:10px;color:#475569;border:1px solid #334155;border-radius:3px;padding:1px 5px;font-family:monospace;">L</span>
+        </button>
         <button class="top-btn" id="btn-search" title="Search states and districts (press /)"
             aria-label="Search states and districts">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
@@ -218,10 +228,16 @@
                     <span class="cm-toggle" aria-hidden="true"></span>
                 </button>
                 <hr class="cm-divider">
+                <div class="cm-section">Location</div>
+                <button class="cm-item" id="cm-btn-find-district" role="menuitem">
+                    <span>Find My District</span>
+                    <span class="cm-kbd">L</span>
+                </button>
+                <hr class="cm-divider">
                 <div class="cm-section">Mouse</div>
                 <div class="cm-item" style="cursor:default;pointer-events:none;">
                     <span>Pan Map</span>
-                    <span class="cm-kbd">Shift + Drag</span>
+                    <span class="cm-kbd">Drag</span>
                 </div>
                 <hr class="cm-divider">
                 <div class="cm-section">Keyboard</div>
@@ -347,6 +363,9 @@
 
 <!-- Floating district labels layer -->
 <div id="map-labels-layer" aria-hidden="true"></div>
+
+<!-- Map toast for geolocation / lookup messages -->
+<div id="map-toast" class="map-toast" role="status" aria-live="polite"></div>
 
 <!-- Politician profile drawer -->
 <div id="pol-drawer" role="dialog" aria-modal="true" aria-labelledby="pol-drawer-name" hidden>

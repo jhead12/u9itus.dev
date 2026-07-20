@@ -4,6 +4,7 @@
  */
 import { controls, camera } from '../scene/setup.js';
 import { enterOverviewMode } from '../navigation/mode-transitions.js';
+import { findMyDistrict } from './location-button.js';
 import * as THREE from 'three';
 
 const kbHelp = document.getElementById('kb-help');
@@ -102,6 +103,10 @@ export function initKeyboard() {
             case '?': toggleKbHelp(); break;
             case 'r': case 'R': enterOverviewMode(); break;
             case 'o': case 'O': window.toggleOfficesSection?.(); break;
+            case 'l': case 'L':
+                e.preventDefault();
+                findMyDistrict();
+                break;
             case 'ArrowUp':
                 e.preventDefault();
                 tiltCamera(-TILT_STEP, 1.0);

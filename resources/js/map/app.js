@@ -58,6 +58,7 @@ import { initTour, startTutorial } from './ui/tour.js';
 import { initKeyboard, toggleKbHelp, stepZoom } from './ui/keyboard.js';
 import { initInfoPanel, openInfoPanel } from './ui/info-panel.js';
 import { initMobileMenu } from './ui/mobile-menu.js';
+import { initLocationButton } from './ui/location-button.js';
 
 /* ── Navigation ── */
 import { enterOverviewMode, enterRegionMode, enterStateMode, handleBack, initHoverClick, hoveredMesh } from './navigation/mode-transitions.js';
@@ -98,6 +99,7 @@ initTour();
 initKeyboard();
 initOfficesToggle();
 initCandidateCardClick();
+initLocationButton();
 bootDeepLink();
 
 /* Wire back button */
