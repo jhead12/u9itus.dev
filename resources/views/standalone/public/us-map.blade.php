@@ -58,7 +58,7 @@
             <tbody>
                 <tr><td><kbd>Tab</kbd></td><td>Focus the map canvas</td></tr>
                 <tr><td><kbd>Enter</kbd> / <kbd>Space</kbd></td><td>Open search to select a state</td></tr>
-                <tr><td><kbd>↑</kbd> <kbd>↓</kbd></td><td>Tilt map (max 38°)</td></tr>
+                <tr><td><kbd>↑</kbd> <kbd>↓</kbd></td><td>Tilt map</td></tr>
                 <tr><td><kbd>+</kbd> / <kbd>=</kbd></td><td>Zoom in</td></tr>
                 <tr><td><kbd>−</kbd></td><td>Zoom out</td></tr>
                 <tr><td><kbd>R</kbd></td><td>Reset view</td></tr>
@@ -66,7 +66,7 @@
                 <tr><td><kbd>Esc</kbd></td><td>Close panel / popup</td></tr>
                 <tr><td><kbd>?</kbd></td><td>Show / hide this help</td></tr>
                 <tr><td colspan="2" style="padding-top:10px;padding-bottom:2px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#475569;">Mouse</td></tr>
-                <tr><td><kbd>Shift</kbd> + drag</td><td>Pan map</td></tr>
+                <tr><td>Drag</td><td>Pan map</td></tr>
                 <tr><td>Scroll wheel</td><td>Zoom in / out</td></tr>
                 <tr><td>Right-drag</td><td>Pan map</td></tr>
             </tbody>
@@ -84,8 +84,8 @@
 <div id="map-canvas-region"
      tabindex="0"
      role="application"
-     aria-label="Interactive U.S. map. Use arrow keys to rotate, + and - to zoom, Enter to search for a state, ? for keyboard help."
-     aria-description="Use arrow keys to rotate, + and - to zoom, Enter to open search."></div>
+     aria-label="Interactive U.S. map. Use arrow keys to tilt, + and - to zoom, Enter to search for a state, ? for keyboard help."
+     aria-description="Use arrow keys to tilt, + and - to zoom, Enter to open search."></div>
 <div id="kb-focus-ring" aria-hidden="true"></div>
 
 {{-- Keyboard shortcut badge is now rendered inside #breadcrumb-bar --}}
@@ -412,7 +412,7 @@
 </div>
 
 <div id="hint" style="position:fixed;bottom:28px;right:24px;z-index:50;color:#334155;font-size:11px;text-align:right;pointer-events:none;">
-    Scroll to zoom &nbsp;·&nbsp; ↑↓ tilt &nbsp;·&nbsp; ←→ rotate &nbsp;·&nbsp; Click a state
+    Scroll to zoom &nbsp;·&nbsp; ↑↓ tilt &nbsp;·&nbsp; drag to pan &nbsp;·&nbsp; Click a state
 </div>
 
 {{-- ── Earn modal — true viewport-centered overlay, rendered at root level ── --}}

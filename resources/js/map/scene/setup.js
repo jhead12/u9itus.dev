@@ -50,6 +50,23 @@ controls.minPolarAngle = 15 * Math.PI / 180;   // 15° — near top-down
 controls.maxPolarAngle = 130 * Math.PI / 180;  // 130° — past horizontal (opposite tilt)
 controls.target.set(0, 0, 0);
 
+/* Lock rotation: the map should only tilt, zoom, and pan. */
+controls.enableRotate = false;
+controls.minAzimuthAngle = 0;
+controls.maxAzimuthAngle = 0;
+
+/* Left-drag and right-drag both pan; scroll wheel zooms; touch pans/zooms. */
+controls.mouseButtons = {
+    LEFT: THREE.MOUSE.PAN,
+    MIDDLE: THREE.MOUSE.DOLLY,
+    RIGHT: THREE.MOUSE.PAN,
+};
+controls.touches = {
+    ONE: THREE.TOUCH.PAN,
+    TWO: THREE.TOUCH.DOLLY_PAN,
+};
+controls.screenSpacePanning = true;
+
 /* Stars — spherical shell so they read as a distant skybox */
 const sBuf = new Float32Array(2000 * 3);
 for (let i = 0; i < 2000; i++) {

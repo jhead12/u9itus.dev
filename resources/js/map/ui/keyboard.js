@@ -1,5 +1,6 @@
 /**
- * Keyboard accessibility — tilt, orbit, zoom, and help overlay.
+ * Keyboard accessibility — tilt, zoom, and help overlay.
+ * Map rotation is disabled; arrow keys only tilt the camera.
  */
 import { controls, camera } from '../scene/setup.js';
 import { enterOverviewMode } from '../navigation/mode-transitions.js';
@@ -32,22 +33,6 @@ export function tiltCamera(delta, zoomFactor = 1) {
     let phi = Math.atan2(Math.sqrt(camera.position.x ** 2 + camera.position.z ** 2), camera.position.y);
     const theta = Math.atan2(camera.position.x, camera.position.z);
     phi = Math.max(controls.minPolarAngle, Math.min(controls.maxPolarAngle, phi + delta));
-    camera.position.set(
-        dist * Math.sin(phi) * Math.sin(theta),
-        dist * Math.cos(phi),
-        dist * Math.sin(phi) * Math.cos(theta),
-    );
-    controls.update();
-}
-
-/**
- * Orbit the camera left/right by delta radians (azimuth).
- */
-export function orbitCamera(delta) {
-    if (!controls || !camera) return;
-    const dist = camera.position.length();
-    const phi = Math.atan2(Math.sqrt(camera.position.x ** 2 + camera.position.z ** 2), camera.position.y);
-    const theta = Math.atan2(camera.position.x, camera.position.z) + delta;
     camera.position.set(
         dist * Math.sin(phi) * Math.sin(theta),
         dist * Math.cos(phi),
@@ -113,7 +98,6 @@ export function initKeyboard() {
     document.addEventListener('keydown', e => {
         if (e.target.matches('input, textarea, [contenteditable]')) return;
         const TILT_STEP = 0.08;
-        const ORBIT_STEP = 0.05;
         switch (e.key) {
             case '?': toggleKbHelp(); break;
             case 'r': case 'R': enterOverviewMode(); break;
@@ -125,14 +109,6 @@ export function initKeyboard() {
             case 'ArrowDown':
                 e.preventDefault();
                 tiltCamera(+TILT_STEP, 1.0);
-                break;
-            case 'ArrowLeft':
-                e.preventDefault();
-                orbitCamera(-ORBIT_STEP);
-                break;
-            case 'ArrowRight':
-                e.preventDefault();
-                orbitCamera(+ORBIT_STEP);
                 break;
         }
     });
