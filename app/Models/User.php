@@ -239,7 +239,7 @@ class User extends Authenticatable
      */
     public function isAdmin(): bool
     {
-        return $this->hasRole('admin') || $this->user_type === 'admin';
+        return app(\App\Services\UserRoleService::class)->hasRole($this, 'admin');
     }
 
     /**
@@ -247,7 +247,7 @@ class User extends Authenticatable
      */
     public function isCitizen(): bool
     {
-        return $this->hasRole('citizen') || $this->user_type === 'citizen';
+        return app(\App\Services\UserRoleService::class)->hasRole($this, 'citizen');
     }
 
     /**

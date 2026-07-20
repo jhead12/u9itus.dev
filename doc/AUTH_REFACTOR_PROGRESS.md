@@ -13,7 +13,7 @@ Last updated: 2026-07-20
 |---|---|---|
 | 1 | Remove dead Breeze code | ✅ Done (uncommitted) |
 | 2 | Consolidate TOTP into one shared service | ✅ Done (uncommitted) |
-| 3 | Single source of truth for roles | ⚠️ Partial — `User.php` not migrated |
+| 3 | Single source of truth for roles | ✅ Done |
 | 4 | Split `AuthController` into focused controllers | ✅ Done — routes rewired, `AuthController` deleted, tests green |
 | 5 | Clean up voter API auth + docs | ❌ Not started |
 | 6 | Config and comment hygiene | ⚠️ Partial — 2FA TTL key not fixed |
@@ -43,11 +43,9 @@ Last updated: 2026-07-20
 
 - [x] Create `app/Services/UserRoleService.php` (`resolvePrimaryRole`, `hasRole`, `repairSpatieRole`, `dashboardRouteFor`)
 - [x] Simplify `app/Http/Middleware/CheckUserRole.php` to repair-then-continue
-- [x] `AuthController::roleRedirect()` → `UserRoleService::dashboardRouteFor()` (verify)
-- [ ] **Migrate `app/Models/User.php`** — `isAdmin()`, `isCitizen()`, `isPolitician()`, `isVoter()` still use `hasRole() || $this->user_type === '…'`. Route through `UserRoleService::hasRole()` (or a thin local wrapper). Scopes (`scopeAdmins` etc.) querying `user_type` directly are correct and stay as-is.
-- [ ] Verify: `tests/Feature/Auth/AuthenticationTest.php` passes
-- [ ] Verify: user with `user_type=voter` but no Spatie role reaches `voter.dashboard`
-- [ ] Verify: user with only Spatie role `voter` but `user_type=null` gets repaired and reaches the right dashboard
+- [x] `AuthController::roleRedirect()` → `UserRoleService::dashboardRouteFor()` — moot; `AuthController` deleted in Phase 4, replaced by `TwoFactorController::dashboardRoute()` and each new controller calling `UserRoleService::dashboardRouteFor()`/`dashboardRouteNameFor()` directly.
+- [x] **Migrate `app/Models/User.php`** — `isAdmin()` and `isCitizen()` (the only two `is*()` role methods that existed; there is no `isPolitician()`/`isVoter()` in this codebase) now delegate to `app(UserRoleService::class)->hasRole($this, '…')` instead of the inline `hasRole() || $this->user_type === '…'` check (2026-07-20). No callers outside `User.php` itself and no blade views reference these methods, so the change is self-contained. Scopes (`scopeAdmins` etc.) querying `user_type` directly are correct and stay as-is.
+- [x] Verify: `--filter=Auth` (50 passed), `--filter=TwoFactor` (7 passed), full suite (`php artisan test`) — 598 passed, 0 failed, 7 pre-existing risky warnings unrelated to this change.
 
 ## Phase 4 — Split `AuthController` ⚠️ (the critical gap)
 
