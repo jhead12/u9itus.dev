@@ -592,6 +592,37 @@
         sidebar.classList.toggle('-translate-x-full');
         overlay.classList.toggle('hidden');
     }
+
+    // Convert all <time class="local-time" datetime="ISO-UTC-string"> elements
+    // to the browser's local timezone. Falls back gracefully when JS is disabled
+    // or the datetime attribute is missing/invalid — the server-rendered UTC text
+    // remains visible in that case.
+    (function localiseTimestamps() {
+        function format(isoString) {
+            const d = new Date(isoString);
+            if (Number.isNaN(d.getTime())) return null;
+            return new Intl.DateTimeFormat(undefined, {
+                year: 'numeric', month: 'short', day: 'numeric',
+                hour: '2-digit', minute: '2-digit',
+            }).format(d);
+        }
+
+        function applyAll() {
+            document.querySelectorAll('time.local-time[datetime]').forEach(function (el) {
+                const formatted = format(el.getAttribute('datetime'));
+                if (formatted) el.textContent = formatted;
+            });
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', applyAll);
+        } else {
+            applyAll();
+        }
+
+        // Re-run after any dynamic content is injected (e.g. modals, pagination).
+        document.addEventListener('localtime:refresh', applyAll);
+    })();
 </script>
 
 @stack('scripts')

@@ -36,6 +36,7 @@ class StripePaymentService
         array $metadata = [],
         ?string $customerId = null,
         ?string $paymentMethodId = null,
+        ?string $idempotencyKey = null,
     ) {
         if (! $this->client) {
             throw new \RuntimeException('Stripe SDK not available. Run `composer require stripe/stripe-php`.');
@@ -58,7 +59,9 @@ class StripePaymentService
             $params['payment_method'] = $paymentMethodId;
         }
 
-        $pi = $this->client->paymentIntents->create($params);
+        $requestOptions = $idempotencyKey ? ['idempotency_key' => $idempotencyKey] : [];
+
+        $pi = $this->client->paymentIntents->create($params, $requestOptions);
 
         Log::info('Created Stripe PaymentIntent', ['id' => $pi->id, 'amount' => $amount]);
 

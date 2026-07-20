@@ -703,16 +703,25 @@ class CitizenController extends Controller
      */
     public function confirmPayment(Request $request)
     {
+        $citizen = Auth::user()?->citizen;
+        abort_unless($citizen, 403);
+
         $piId           = $request->query('payment_intent');
         $redirectStatus = $request->query('redirect_status');
 
         if ($piId && $redirectStatus === 'succeeded') {
+            $tx        = null;
             $finalized = false;
             try {
-                $this->billing->finalizePaymentIntent($piId);
-                $finalized = true;
+                $tx        = $this->billing->finalizePaymentIntent($piId);
+                $finalized = $tx !== null;
             } catch (\Exception $e) {
                 Log::error('Citizen confirmPayment finalizePaymentIntent failed: ' . $e->getMessage());
+            }
+
+            // Ensure the PaymentIntent belongs to the authenticated citizen.
+            if ($tx && (int) $tx->citizen_id !== (int) $citizen->id) {
+                abort(403);
             }
 
             return redirect()->route('citizen.billing')
@@ -891,7 +900,7 @@ class CitizenController extends Controller
                 'amount'                 => $transaction->amount,
                 'currency'               => $transaction->currency,
                 'stripe_payment_intent_id' => $transaction->stripe_payment_intent_id,
-                'metadata'               => $transaction->metadata,
+                'metadata'               => collect($transaction->metadata)->except(['client_secret'])->toArray(),
                 'citizen_id'             => $transaction->citizen_id,
             ],
         ]);

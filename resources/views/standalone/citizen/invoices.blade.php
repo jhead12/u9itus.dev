@@ -43,7 +43,9 @@
                         @endphp
                         <tr class="hover:bg-slate-700/10 transition">
                             <td class="px-5 py-3 text-slate-500 text-xs whitespace-nowrap">
-                                {{ $tx->created_at?->format('M j, Y H:i') }}
+                                <time class="local-time" datetime="{{ $tx->created_at?->toIso8601String() }}">
+                                    {{ $tx->created_at?->format('M j, Y H:i') }} UTC
+                                </time>
                             </td>
                             <td class="px-5 py-3 text-slate-500 text-xs font-mono truncate max-w-[120px]">
                                 {{ $tx->uuid ?? '—' }}

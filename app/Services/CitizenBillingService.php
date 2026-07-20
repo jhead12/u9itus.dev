@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Mail\CreditsPurchasedMail;
 use App\Mail\CreditsRefundedMail;
 use App\Models\Citizen;
+use Illuminate\Support\Str;
 use App\Models\CitizenCampaign;
 use App\Models\CitizenCredit;
 use App\Models\CitizenTransaction;
@@ -262,6 +263,8 @@ class CitizenBillingService
         try {
             $customerId = $this->stripe->ensureCustomer($citizen);
 
+            $idempotencyKey = 'citizen-credits-' . $citizen->id . '-' . ($opts['idempotency_key'] ?? (string) Str::uuid());
+
             $pi = $this->stripe->createPaymentIntent(
                 $grossAmount,
                 'usd',
@@ -271,6 +274,7 @@ class CitizenBillingService
                 ],
                 $customerId,
                 $opts['payment_method_id'] ?? null,
+                $idempotencyKey,
             );
 
             $piId         = $pi->id ?? null;
@@ -561,22 +565,34 @@ class CitizenBillingService
             }
         }
 
-        DB::transaction(function () use ($tx, $status, $chargeId, $amount, $resolvedPaymentMode, $resolvedLiveMode) {
-            $tx->status = $status;
-            if ($chargeId) {
-                $tx->stripe_charge_id = $chargeId;
+        $alreadyFinalized = false;
+
+        DB::transaction(function () use ($tx, $status, $chargeId, $amount, $resolvedPaymentMode, $resolvedLiveMode, &$alreadyFinalized) {
+            // Re-fetch with an exclusive row lock so concurrent webhook / redirect-confirm
+            // calls on the same PaymentIntent cannot both pass the pending-status guard.
+            $fresh = CitizenTransaction::lockForUpdate()->find($tx->id);
+            if (in_array($fresh->status, ['succeeded', 'failed', 'refunded'])) {
+                $alreadyFinalized = true;
+                $tx->status = $fresh->status;
+                return;
             }
-            $tx->metadata = array_merge($tx->metadata ?? [], [
+
+            $fresh->status = $status;
+            if ($chargeId) {
+                $fresh->stripe_charge_id = $chargeId;
+            }
+            $fresh->metadata = array_merge($fresh->metadata ?? [], [
                 'payment_mode'    => $resolvedPaymentMode,
                 'stripe_livemode' => $resolvedLiveMode,
             ]);
-            $tx->save();
+            $fresh->save();
+
+            // Sync mutations back to $tx so post-transaction code sees the right state.
+            $tx->status   = $status;
+            $tx->metadata = $fresh->metadata;
 
             if ($status === 'succeeded') {
-                $citizen = null;
-                if ($tx->citizen_id) {
-                    $citizen = Citizen::find($tx->citizen_id);
-                }
+                $citizen = $tx->citizen_id ? Citizen::find($tx->citizen_id) : null;
 
                 if ($citizen) {
                     $creditsAmount = isset($tx->metadata['credits_amount'])
@@ -601,6 +617,11 @@ class CitizenBillingService
                 }
             }
         });
+
+        if ($alreadyFinalized) {
+            Log::info('Citizen transaction already finalized (concurrent request)', ['tx' => $tx->id, 'status' => $tx->status]);
+            return $tx;
+        }
 
         Log::info('Finalized citizen PaymentIntent', [
             'payment_intent' => $paymentIntentId,

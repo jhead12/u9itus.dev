@@ -184,7 +184,9 @@
                         @foreach($credits as $credit)
                         <tr>
                             <td class="px-5 py-3 text-slate-500 text-xs whitespace-nowrap">
-                                {{ $credit->created_at?->format('M j, Y H:i') }}
+                                <time class="local-time" datetime="{{ $credit->created_at?->toIso8601String() }}">
+                                    {{ $credit->created_at?->format('M j, Y H:i') }} UTC
+                                </time>
                             </td>
                             <td class="px-5 py-3 text-slate-300">{{ $credit->description ?? ucfirst(str_replace('_', ' ', $credit->transaction_type)) }}</td>
                             <td class="px-5 py-3">
@@ -241,7 +243,9 @@
                         @endphp
                         <tr>
                             <td class="px-5 py-3 text-slate-500 text-xs whitespace-nowrap">
-                                {{ $tx->created_at?->format('M j, Y H:i') }}
+                                <time class="local-time" datetime="{{ $tx->created_at?->toIso8601String() }}">
+                                    {{ $tx->created_at?->format('M j, Y H:i') }} UTC
+                                </time>
                             </td>
                             <td class="px-5 py-3 text-slate-300">{{ $tx->description ?? ucfirst(str_replace('_', ' ', $tx->transaction_type)) }}</td>
                             <td class="px-5 py-3">
