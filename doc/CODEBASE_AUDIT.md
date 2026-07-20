@@ -24,9 +24,9 @@ is the ordered work plan (security first, then correctness bugs, then architectu
 3. **The voter API is unauthenticated** (`routes/api.php:101-128`) — UUID is the only gate.
    It leaks PII (email, phone, wallet) and lets anyone mint a Stripe Connect onboarding link
    for any voter (`Api/VoterController.php:214`).
-4. **`ViewSession::isExpired()` is broken** (`ViewSession.php:134-138`) — an enum-vs-string
-   `in_array` compare makes the completed/flagged guard dead code, so completed sessions can
-   be misclassified as expired. Affects payout-eligibility logic.
+4. ~~**`ViewSession::isExpired()` is broken** (`ViewSession.php:134-138`)~~ — **fixed** (`32b840877`,
+   2026-07-19). The enum-vs-string `in_array` compare that made the completed/flagged guard dead code
+   is now a strict `in_array(..., true)` against the enum values. (Kept here for history.)
 5. **Batch payouts run live Stripe/PayPal/CashApp calls synchronously in the web request**
    (`AdminPayoutController.php:174` → `PoliticalPaymentService.php:135`) — will exceed the
    Railway web-worker timeout and leave half-dispatched runs.
@@ -42,6 +42,9 @@ is the ordered work plan (security first, then correctness bugs, then architectu
 - [x] **SEC-1 — Committed PayPal credentials** — `.env.example:133-134`
   Real `PAYPAL_CLIENT_ID`/`PAYPAL_CLIENT_SECRET` checked into VCS (surrounding keys are placeholders).
   **Fix:** rotate in PayPal dashboard, replace with placeholders, purge from git history (BFG / `git filter-repo`), audit PayPal API logs for misuse.
+  **Partial** (`37fa13e2`): `.env.example` values blanked to placeholders. Still outstanding (user/ops):
+  purge the real secrets from git history (BFG / `git filter-repo` — they remain in pre-`37fa13e2`
+  history), rotate the keys in the PayPal dashboard, and audit PayPal API logs for misuse.
 
 - [ ] **SEC-2 — KYC documents on the public disk** — `app/Http/Controllers/Standalone/PoliticianController.php:1614`, `config/filesystems.php:41-48`
   `uploadKycDocument()` stores to the `public` disk (web-served via `storage:link`); path uses the
@@ -88,11 +91,12 @@ is the ordered work plan (security first, then correctness bugs, then architectu
 
 #### Correctness / Data Integrity
 
-- [ ] **COR-1 — `ViewSession::isExpired()` dead status guard** — `app/Models/ViewSession.php:134-138`
+- [x] **COR-1 — `ViewSession::isExpired()` dead status guard** — `app/Models/ViewSession.php:134-138`
   `!in_array($this->status, ['completed', 'flagged'])` where `status` is cast to `ViewSessionStatus`
   (backed enum). Non-strict `in_array` against a backed enum is always `false`, so `isExpired()` returns
   true whenever `expires_at` is past **regardless of status** — completed/flagged sessions misclassified.
   **Fix:** `!in_array($this->status, [ViewSessionStatus::Completed, ViewSessionStatus::Flagged], true)`.
+  **Done** (`32b840877`, 2026-07-19): strict `in_array(..., true)` with the enum values — verified at `ViewSession.php:137`.
 
 - [ ] **COR-2 — `payout_attempts.voter_id` has no foreign key** —
   `database/migrations/2026_04_29_100000_create_payout_attempts_table.php:13`
@@ -175,10 +179,16 @@ is the ordered work plan (security first, then correctness bugs, then architectu
   `MediaStorageService` already exists.
   **Fix:** `MediaStorageService::temporaryUrlForCampaign(PoliticalCampaign): ?string` used by both.
 
-- [ ] **CTL-6 — Registration side-effect block triplicated** — `AuthController.php:362-428,509-576,652-768`
+- [x] **CTL-6 — Registration side-effect block triplicated** — formerly `AuthController.php:362-428,509-576,652-768`
   (politician/citizen/voter). Referral-resolution `Voter::where('referral_code')... ?? Politician::...`
   copy-pasted verbatim ×3.
   **Fix:** `RegistrationService::register(array $input, string $role): User` + `ReferralResolver`.
+  **Done** (auth refactor, 2026-07-20): `AuthController` deleted; the ×3 referral-resolution copy-paste is
+  now single-sourced in `ReferralService::resolveReferrerIds()` (called by all three `register*` methods in
+  `RegistrationController`), and the side-effects (welcome email, phone OTP, admin notify) moved to shared
+  private helpers. The three role-specific `register*` methods remain separate rather than collapsed into
+  one `RegistrationService::register`, but the duplication this finding called out is resolved. Commits:
+  `bd6f63d5` (route rewire + `AuthController` deletion), `82a880ad` (`UserRoleService`).
 
 #### Models / DB
 
@@ -251,6 +261,9 @@ is the ordered work plan (security first, then correctness bugs, then architectu
 - [ ] **DUP-9 — Dead/decorative contracts** — `app/Contracts/AuthServiceInterface.php` (no implementation,
   no binding), `NotificationServiceInterface` (implemented but never bound/type-hinted).
   **Fix:** implement + bind, or delete. Missing `PayoutProcessor` strategy contract for the 3 payment backends.
+  **Partial** (auth refactor, 2026-07-20): `AuthServiceInterface` deleted (it was never implemented/bound).
+  Still open: `NotificationServiceInterface` is `implements`-ed by `StandardNotificationService` but never
+  bound in a provider / type-hinted by consumers, and the `PayoutProcessor` strategy contract is not added.
 
 #### Testing / Quality
 
@@ -383,7 +396,7 @@ Ordered by risk: **security first, then correctness bugs, then architecture, the
 Each phase is independently shippable. Tick boxes as work lands; note commit hash.
 
 ### Phase 0 — Security hotfixes (do now, before any merge)
-- [ ] SEC-1 — Rotate & remove PayPal credentials from `.env.example` + git history _(deferred — user/ops action)_
+- [ ] SEC-1 — Rotate & purge PayPal credentials from git history + rotate in dashboard + audit logs _(partially done: `.env.example` blanked in `37fa13e2`; history purge + rotation + audit remain — user/ops)_
 - [ ] SEC-2 — Move KYC docs off the public disk + serve via admin controller only _(deferred — user/ops action)_
 - [x] SEC-3 — Derive KYC stored extension from detected MIME (`guessExtension()`) — `0280d7ea`
 - [x] SEC-4 — Authenticate the voter API (per-voter bearer tokens, NOT sanctum+VoterPolicy) + strip PII from `VoterResource` — `4401c558` _(BREAKING)_
@@ -393,7 +406,7 @@ Each phase is independently shippable. Tick boxes as work lands; note commit has
 - [x] COR-5 — Bind view-completion to authenticated voter identity (depends on SEC-4 auth) — `ee7af95e`
 
 ### Phase 1 — Correctness & data-integrity bugs
-- [ ] COR-1 — Fix `ViewSession::isExpired()` enum compare (strict `in_array`)
+- [x] COR-1 — Fix `ViewSession::isExpired()` enum compare (strict `in_array`) — `32b840877`
 - [ ] COR-2 — Add FK to `payout_attempts.voter_id` (+ decide cascade vs nullOnDelete)
 - [ ] COR-3 — Replace MySQL-only JSON syntax with driver-branch / PHP-side filtering
 - [ ] COR-4 — Eager-load `withCount` to fix `PoliticalViewService` N+1
@@ -409,6 +422,7 @@ Each phase is independently shippable. Tick boxes as work lands; note commit has
 - [ ] CTL-3 — Convert inline validation to Form Requests (prioritize payment/upload endpoints)
 - [ ] CTL-4 — Shared JSON envelope + API Resources; move billing JSON to `Api/BillingController`
 - [ ] CTL-5 / CTL-6 / DUP-4 — De-duplicate S3 URL gen, registration flow, referral-earnings query
+  - [x] CTL-6 (registration referral-resolution) — done via `ReferralService` in the auth refactor (`bd6f63d5`); see finding above
 - [ ] ARCH-2 — Delete dead policy map; create real policies; adopt `authorize()` everywhere
 
 ### Phase 3 — Service-layer & event pipeline
@@ -420,6 +434,7 @@ Each phase is independently shippable. Tick boxes as work lands; note commit has
 - [ ] DUP-6 / DUP-7 / DUP-L1 / DUP-L2 — Queue all mail; move receipts to listeners
 - [ ] DUP-8 — Queue the unverified-profile Artisan call
 - [ ] DUP-9 — Implement/delete dead contracts; add `PayoutProcessor` strategy contract
+  - [x] `AuthServiceInterface` deleted (auth refactor, `bd6f63d5`); `NotificationServiceInterface` still unbound, `PayoutProcessor` contract still missing
 
 ### Phase 4 — DB & enum cleanup
 - [ ] DB-2 — Backed enums for `KycStatus`/`UserType`/`TermStatus`/`ProfilePhotoStatus`
@@ -479,6 +494,8 @@ don't re-discover them each session:
 | 2026-07-15 | 0 | SEC-5 — enforce admin 2FA on `/api/v1/admin/*` | `8728abb8` | `admin.2fa` applied to admin API group; `EnsureAdminTwoFactorVerified` returns 403 JSON for `expectsJson()` |
 | 2026-07-15 | 0 | COR-5 — server-authoritative view watch-time | `ee7af95e` | `VoterController::trackProgress`/`completeView` clamp client claim to wall-clock elapsed since `started_at` (`serverAuthoritativeSeconds()`); inflated claims logged |
 | 2026-07-15 | 0 | Phase 0 merged to master (local, unpushed) | `169f45d2` | `fix/security-hotfixes` → master `--no-ff`; 7 commits ahead of `origin/master`; SEC-1/SEC-2 deferred (user/ops). Tests still not runnable here |
+| 2026-07-19 | 1 | COR-1 — strict enum compare in `ViewSession::isExpired()` | `32b840877` | `in_array(..., [ViewSessionStatus::Completed, ViewSessionStatus::Flagged], true)`; shipped in "updates to the map and other quality of life fixes" — not logged at the time |
+| 2026-07-20 | — | Auth refactor (Phases 1–7 of `doc/AUTH_REFACTOR_PLAN.md`) | `bd6f63d5`, `82a880ad`, `7ec7170c`, `60eeab81` | Deleted dead Breeze code + `AuthServiceInterface` (DUP-9 partial); consolidated TOTP into one `TwoFactorService`; `UserRoleService` as single role source of truth (`User::isAdmin/isCitizen` routed through it); split `AuthController` into `Login/Registration/PasswordReset/PhoneVerification/EmailVerification/AdminTwoFactorController` + extracted `ReferralService` (CTL-6 done); voter API auth docs (`doc/auth-architecture.md`); dedicated `two_factor.session_ttl_minutes` config key. Full suite 613 passed, 0 failed. See `doc/AUTH_REFACTOR_PROGRESS.md` |
 
 <!--
 Append rows here as work ships. When a roadmap checkbox is completed, tick it above AND log the commit here.
