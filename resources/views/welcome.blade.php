@@ -288,7 +288,7 @@
                 <h2 class="mt-4 text-3xl sm:text-4xl font-bold">
                     Who's <span class="text-emerald-400">On Your Ballot</span> Right Now
                 </h2>
-                <p class="mt-3 text-slate-400 text-sm">Click any card to open the interactive map and see their district — plus everyone else running nearby.</p>
+                <p class="mt-3 text-slate-400 text-sm">Click any card to view their full profile, campaign record, and latest news.</p>
             </div>
 
             <div
@@ -316,11 +316,8 @@
                             $state = trim((string) ($candidate->state ?? ''));
                             $jobTitle = $office !== '' ? $office : 'Candidate';
                             $districtLine = trim($district . ($district && $state ? ', ' : '') . $state);
-                            // Deep-link to the map when we have a state; fall back to the public profile.
-                            $mapParams = array_filter(['state' => $state ?: null, 'district' => $district ?: null, 'slug' => $candidate->slug]);
-                            $cardHref = $state
-                                ? route('us.map') . '?' . http_build_query($mapParams)
-                                : route('politician.public.show', $candidate->slug);
+                            // Featured cards now always point to the candidate's public profile page.
+                            $cardHref = route('politician.public.show', $candidate->slug);
                         @endphp
                         <a href="{{ $cardHref }}"
                            :class="active === {{ $index }} ? 'ring-2 ring-emerald-500/60 scale-[1.01]' : 'opacity-90 hover:opacity-100'"
@@ -342,12 +339,10 @@
                                     </svg>
                                 </div>
                                 @endif
-                                @if($state)
                                 <div class="absolute bottom-3 left-3 flex items-center gap-1 bg-slate-900/80 backdrop-blur-sm rounded-full px-2 py-0.5 text-[10px] text-indigo-300 font-medium">
-                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
-                                    View on Map
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                                    View Profile
                                 </div>
-                                @endif
                             </div>
                             <div class="p-5">
                                 <h3 class="text-white font-semibold text-lg group-hover:text-emerald-400 transition truncate">
