@@ -7,9 +7,14 @@ use App\Models\Citizen;
 use App\Models\CivicEvent;
 use App\Models\EventRsvp;
 use App\Models\Politician;
+use App\Mail\EventHostRsvpMail;
+use App\Mail\EventReminderMail;
+use App\Models\EventReminder;
 use App\Models\PoliticianTopic;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Mail;
 
 uses(RefreshDatabase::class);
 
@@ -241,4 +246,72 @@ it('returns events in the map content API', function (): void {
     $response->assertOk();
     $response->assertJsonPath('events.0.id', $event->uuid);
     $response->assertJsonPath('events.0.type', 'event');
+});
+
+it('sends 24-hour and 1-hour reminder emails to attendees', function (): void {
+    Mail::fake();
+
+    [, $citizen] = makeCitizenHost();
+    [$voterUser] = makeVoter();
+    $event = $citizen->events()->create(validEventPayload([
+        'starts_at' => now()->addHours(24)->format('Y-m-d\\TH:i'),
+        'ends_at' => now()->addHours(26)->format('Y-m-d\\TH:i'),
+    ]));
+
+    EventRsvp::create([
+        'civic_event_id' => $event->id,
+        'user_id' => $voterUser->id,
+        'status' => EventRsvpStatus::Yes,
+        'guest_count' => 1,
+    ]);
+
+    Artisan::call('events:send-reminders');
+
+    Mail::assertSent(EventReminderMail::class, fn ($mail) => $mail->event->id === $event->id && $mail->hoursUntilStart === 24);
+    expect(EventReminder::where(['civic_event_id' => $event->id, 'user_id' => $voterUser->id, 'hours_before' => 24])->exists())->toBeTrue();
+});
+
+it('suppresses duplicate event reminders', function (): void {
+    Mail::fake();
+
+    [, $citizen] = makeCitizenHost();
+    [$voterUser] = makeVoter();
+    $event = $citizen->events()->create(validEventPayload([
+        'starts_at' => now()->addHours(1)->format('Y-m-d\\TH:i'),
+        'ends_at' => now()->addHours(3)->format('Y-m-d\\TH:i'),
+    ]));
+
+    EventRsvp::create([
+        'civic_event_id' => $event->id,
+        'user_id' => $voterUser->id,
+        'status' => EventRsvpStatus::Yes,
+        'guest_count' => 1,
+    ]);
+
+    EventReminder::create([
+        'civic_event_id' => $event->id,
+        'user_id' => $voterUser->id,
+        'hours_before' => 1,
+    ]);
+
+    Artisan::call('events:send-reminders');
+
+    Mail::assertNotSent(EventReminderMail::class);
+});
+
+it('notifies the host when someone RSVPs', function (): void {
+    Mail::fake();
+
+    [$hostUser, $citizen] = makeCitizenHost();
+    $citizen->update(['receipt_email' => $hostUser->email]);
+    [$voterUser] = makeVoter();
+    $event = $citizen->events()->create(validEventPayload());
+
+    $this->actingAs($voterUser)->post(route('events.rsvp', $event->slug), [
+        'status' => EventRsvpStatus::Yes->value,
+        'guest_count' => 2,
+        'notes' => 'Bringing a friend',
+    ]);
+
+    Mail::assertSent(EventHostRsvpMail::class, fn ($mail) => $mail->hasTo($hostUser->email) && $mail->event->id === $event->id);
 });

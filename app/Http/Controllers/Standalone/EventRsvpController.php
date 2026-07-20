@@ -5,8 +5,10 @@ namespace App\Http\Controllers\Standalone;
 use App\Enums\EventRsvpStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\EventRsvpRequest;
+use App\Mail\EventHostRsvpMail;
 use App\Models\CivicEvent;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Mail;
 
 class EventRsvpController extends Controller
 {
@@ -72,7 +74,7 @@ class EventRsvpController extends Controller
 
     protected function saveRsvp(CivicEvent $event, EventRsvpStatus $status, int $guestCount, ?string $notes): void
     {
-        $event->rsvps()->updateOrCreate(
+        $rsvp = $event->rsvps()->updateOrCreate(
             ['user_id' => auth()->id()],
             [
                 'status' => $status,
@@ -80,5 +82,14 @@ class EventRsvpController extends Controller
                 'notes' => $notes,
             ]
         );
+
+        // Notify the host for any non-no RSVP (new or updated).
+        if ($status !== EventRsvpStatus::No) {
+            $host = $event->host;
+            $hostEmail = $host?->receipt_email ?: $host?->user?->email;
+            if ($hostEmail) {
+                Mail::to($hostEmail)->send(new EventHostRsvpMail($event, $rsvp));
+            }
+        }
     }
 }

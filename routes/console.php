@@ -54,3 +54,8 @@ Schedule::command('politicians:reconcile-status')
     ->weeklyOn(0, '04:00')
     ->withoutOverlapping();
 
+// Phase 20 — Event reminder emails (24-hour and 1-hour before start).
+Schedule::command('events:send-reminders')
+    ->hourly()
+    ->withoutOverlapping();
+

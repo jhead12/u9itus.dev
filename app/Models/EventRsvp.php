@@ -43,6 +43,12 @@ class EventRsvp extends Model
         return $this->belongsTo(User::class);
     }
 
+    public function reminders(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(EventReminder::class, 'user_id', 'user_id')
+            ->whereColumn('event_reminders.civic_event_id', 'event_rsvps.civic_event_id');
+    }
+
     public function isAttending(): bool
     {
         return in_array($this->status?->value, [EventRsvpStatus::Yes->value, EventRsvpStatus::Approved->value], true);
