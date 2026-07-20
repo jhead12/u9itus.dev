@@ -340,16 +340,19 @@ class VoterController extends Controller
         $topics = \App\Models\PoliticianTopic::active()->orderBy('sort_order')->get();
 
         // ── Citizen campaigns (community / local / ballot-issue ads) ─────────
-        $citizenCampaigns = $this->citizenViewService->availableCampaigns($voter)
-            ->filter(fn ($c) => $this->citizenViewService->voterCanWatch($c, $voter))
-            ->values();
+        // Fetch all geo-eligible campaigns first, then split into watchable vs
+        // excluded so the view can render "Already watched" / "Limit reached"
+        // badges rather than silently hiding those campaigns.
+        $allCitizenCampaigns = $this->citizenViewService->availableCampaigns($voter);
 
         if ($q = $request->input('q')) {
-            $citizenCampaigns = $citizenCampaigns->filter(function ($c) use ($q) {
+            $allCitizenCampaigns = $allCitizenCampaigns->filter(function ($c) use ($q) {
                 return str_contains(strtolower($c->title), strtolower($q))
                     || str_contains(strtolower((string) $c->message_summary), strtolower($q));
             })->values();
         }
+
+        $citizenCampaigns = $allCitizenCampaigns->values();
 
         $citizenWatchedBeforeIds = \App\Models\CitizenViewSession::where('voter_id', $voter->id)
             ->where('status', 'completed')
@@ -357,7 +360,9 @@ class VoterController extends Controller
             ->unique()
             ->all();
 
-        $citizenExcludedIds = $citizenCampaigns->filter(function ($c) use ($voter) {
+        // Campaigns the voter is no longer eligible to watch (already completed
+        // max views, cooldown active, etc.) — shown as disabled cards in the view.
+        $citizenExcludedIds = $allCitizenCampaigns->filter(function ($c) use ($voter) {
             return ! $this->citizenViewService->voterCanWatch($c, $voter);
         })->pluck('id')->all();
 

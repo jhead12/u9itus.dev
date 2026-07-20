@@ -99,14 +99,27 @@
                 <img src="{{ asset('media/u9itus-logo.svg') }}" alt="U9itus" class="h-7">
             </div>
             <span class="ml-auto text-xs text-slate-500 uppercase tracking-wide">
-                {{ auth()->user()?->getRoleNames()->first() ?? 'Portal' }}
+                {{ $dashboardActivePortal ?: (auth()->user()?->getRoleNames()->first() ?? 'Portal') }}
             </span>
         </div>
 
         {{-- Navigation --}}
         <nav class="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+        @php
+            // For dual-role voter+citizen users, determine which portal they are
+            // currently in from the URL prefix rather than from role priority order.
+            // getRoleNames()->first() returns 'voter' for all dual-role users (voter
+            // role is older), causing the citizen sidebar to never render otherwise.
+            $dashboardActivePortal = match(true) {
+                request()->is('citizen*') => 'citizen',
+                request()->is('voter*')   => 'voter',
+                request()->is('politician*') => 'politician',
+                request()->is('admin*')   => 'admin',
+                default => auth()->user()?->getRoleNames()->first() ?? '',
+            };
+        @endphp
 
-            @if(auth()->user()?->hasRole('politician'))
+            @if($dashboardActivePortal === 'politician' || (auth()->user()?->hasRole('politician') && $dashboardActivePortal === ''))
                 <p class="px-4 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">Overview</p>
 
                 <a href="{{ route('politician.dashboard') }}"
@@ -170,7 +183,7 @@
                     Public Page
                 </a>
 
-            @elseif(auth()->user()?->hasRole('voter'))
+            @elseif($dashboardActivePortal === 'voter' && auth()->user()?->hasRole('voter'))
                 <a href="{{ route('voter.dashboard') }}" class="sidebar-link {{ request()->routeIs('voter.dashboard') ? 'active' : '' }}">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
                     Dashboard
@@ -179,7 +192,7 @@
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                     Earnings
                 </a>
-            @elseif(auth()->user()?->hasRole('citizen'))
+            @elseif($dashboardActivePortal === 'citizen' && auth()->user()?->hasRole('citizen'))
                 <p class="px-4 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">Overview</p>
 
                 <a href="{{ route('citizen.dashboard') }}"
@@ -210,7 +223,7 @@
                     Billing & Credits
                 </a>
 
-            @elseif(auth()->user()?->hasRole('admin'))
+            @elseif($dashboardActivePortal === 'admin' && auth()->user()?->hasRole('admin'))
                 <p class="px-4 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">Overview</p>
 
                 <a href="{{ route('admin.dashboard') }}" class="sidebar-link {{ request()->routeIs('admin.dashboard') ? 'active' : '' }}">
@@ -328,6 +341,13 @@
                     <p class="text-xs text-slate-500 truncate">{{ auth()->user()?->email }}</p>
                 </div>
             </div>
+            @if(auth()->user()?->hasRole('voter') && auth()->user()?->hasRole('citizen'))
+            <a href="{{ route('portal-pick') }}"
+               class="w-full sidebar-link text-left text-slate-400 hover:text-white mb-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
+                Switch Portal
+            </a>
+            @endif
             <form method="POST" action="{{ route('logout') }}">
                 @csrf
                 <button type="submit" class="w-full sidebar-link text-left hover:text-red-400">

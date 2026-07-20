@@ -136,6 +136,8 @@ class CitizenViewService
      */
     public function availableCampaigns(Voter $voter): \Illuminate\Database\Eloquent\Collection
     {
+        $voterZip = $voter->zip_code;
+
         return CitizenCampaign::query()
             ->where('status', CampaignStatus::Active)
             ->where('approval_status', \App\Enums\ApprovalStatus::Approved)
@@ -149,6 +151,15 @@ class CitizenViewService
             })
             ->whereColumn('views_completed', '<', 'total_views_requested')
             ->whereColumn('amount_spent', '<', 'total_budget')
+            // Geo-targeting: campaigns with no target_zip are shown to all voters.
+            // Campaigns with a target_zip are only shown to voters whose zip_code
+            // matches OR whose zip is null (zip unknown → include for reach).
+            ->where(function ($q) use ($voterZip): void {
+                $q->whereNull('target_zip');
+                if ($voterZip) {
+                    $q->orWhere('target_zip', $voterZip);
+                }
+            })
             ->orderByDesc('revenue_per_view')
             ->get();
     }
