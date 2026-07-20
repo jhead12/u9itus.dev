@@ -14,7 +14,7 @@ Last updated: 2026-07-20
 | 1 | Remove dead Breeze code | ✅ Done (uncommitted) |
 | 2 | Consolidate TOTP into one shared service | ✅ Done (uncommitted) |
 | 3 | Single source of truth for roles | ⚠️ Partial — `User.php` not migrated |
-| 4 | Split `AuthController` into focused controllers | ⚠️ Partial — controllers built, **routes not rewired** |
+| 4 | Split `AuthController` into focused controllers | ✅ Done — routes rewired, `AuthController` deleted, tests green |
 | 5 | Clean up voter API auth + docs | ❌ Not started |
 | 6 | Config and comment hygiene | ⚠️ Partial — 2FA TTL key not fixed |
 | 7 | Final verification | ❌ Not run |
@@ -58,10 +58,14 @@ Last updated: 2026-07-20
 - [x] Create `EmailVerificationController` (`showVerifyEmail`, `verifyEmail`, `resendVerification`)
 - [x] Create `AdminTwoFactorController` (`showChallenge`, `verifyChallenge`)
 - [x] Create `app/Services/ReferralService.php` + `MailingListService.php`
-- [ ] **Rewire `routes/standalone.php`** — see mapping table below. Currently every auth route still points at `AuthController` (28 references). The new controllers are dead code until this is done.
-- [ ] **Delete `app/Http/Controllers/Standalone/AuthController.php`** once routes are switched and no other code references it
-- [ ] Verify: `php artisan route:list` shows all auth routes pointing at the new controllers
-- [ ] Verify: auth tests pass (names unchanged → external links/bookmarks keep working)
+- [x] **Rewire `routes/standalone.php`** — all 28 `AuthController` references replaced with the new controllers per the mapping table below (2026-07-20). Stale `AuthController` mentions in `EarlyBankWebhookService` and `CampaignCrudTest` comments updated to `RegistrationController`.
+- [x] **Delete `app/Http/Controllers/Standalone/AuthController.php`** — deleted after `grep -rn 'AuthController' app/ routes/ tests/ resources/` returned only the class definition. `route:list` confirms all auth routes resolve to the new controllers.
+- [x] Verify: `php artisan route:list` shows all auth routes pointing at the new controllers
+- [x] Verify: auth tests pass — `--filter=Auth` → 50 passed, 1 risky (pre-existing), 0 failed; `--filter=TwoFactor` → 7 passed
+
+### Bug fixes found while completing Phase 4 (2026-07-20)
+- [x] **`ReferralService::resolveReferrerIds()`** returned camelCase keys via `compact()` but its PHPDoc contract and all three callers (`RegistrationController` politician/citizen/voter) destructure snake_case keys → "Undefined array key referred_by_voter_id" 500 on every registration with no `ref` param. Fixed both return statements to emit `referred_by_voter_id` / `referred_by_politician_id`. This would have broken production registration.
+- [x] **`tests/Feature/Auth/EmailVerificationTest.php`** asserted the old generic `route('dashboard')` redirect; the new `EmailVerificationController` uses role-aware `UserRoleService::dashboardRouteFor()` (intended per Phase 3), which falls back to `voter.dashboard` for a role-less factory user. Updated the assertion to `route('voter.dashboard')`.
 
 ### Route → controller mapping (Phase 4 rewiring)
 

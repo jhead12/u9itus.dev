@@ -9,7 +9,12 @@
  * Framework: Laravel 12 (Standalone Architecture)
  */
 
-use App\Http\Controllers\Standalone\AuthController;
+use App\Http\Controllers\Standalone\AdminTwoFactorController;
+use App\Http\Controllers\Standalone\EmailVerificationController;
+use App\Http\Controllers\Standalone\LoginController;
+use App\Http\Controllers\Standalone\PasswordResetController;
+use App\Http\Controllers\Standalone\PhoneVerificationController;
+use App\Http\Controllers\Standalone\RegistrationController;
 use App\Http\Controllers\Standalone\BadgeController;
 use App\Http\Controllers\Standalone\CitizenCampaignVoterController;
 use App\Http\Controllers\Standalone\CitizenController;
@@ -38,47 +43,47 @@ use Illuminate\Support\Facades\Route;
 
 Route::middleware('guest')->group(function () {
     // Shared login (redirects by role after authentication)
-    Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
-    Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:login');
+    Route::get('/login', [LoginController::class, 'showLogin'])->name('login');
+    Route::post('/login', [LoginController::class, 'login'])->middleware('throttle:login');
 
     // Admin-specific login portal
-    Route::get('/admin/login', [AuthController::class, 'showAdminLogin'])->name('admin.login');
-    Route::post('/admin/login', [AuthController::class, 'adminLogin'])->name('admin.login.submit')->middleware('throttle:login');
+    Route::get('/admin/login', [LoginController::class, 'showAdminLogin'])->name('admin.login');
+    Route::post('/admin/login', [LoginController::class, 'adminLogin'])->name('admin.login.submit')->middleware('throttle:login');
 
     // Registration — role chooser landing
-    Route::get('/register', [AuthController::class, 'showRegisterChoose'])->name('register');
+    Route::get('/register', [RegistrationController::class, 'showRegisterChoose'])->name('register');
 
     // Politician registration
-    Route::get('/register/politician', [AuthController::class, 'showRegisterPolitician'])->name('register.politician');
-    Route::post('/register/politician', [AuthController::class, 'registerPolitician'])->name('register.politician.submit');
+    Route::get('/register/politician', [RegistrationController::class, 'showRegisterPolitician'])->name('register.politician');
+    Route::post('/register/politician', [RegistrationController::class, 'registerPolitician'])->name('register.politician.submit');
 
     // Voter registration
-    Route::get('/register/voter', [AuthController::class, 'showRegisterVoter'])->name('register.voter');
-    Route::post('/register/voter', [AuthController::class, 'registerVoter'])->name('register.voter.submit');
+    Route::get('/register/voter', [RegistrationController::class, 'showRegisterVoter'])->name('register.voter');
+    Route::post('/register/voter', [RegistrationController::class, 'registerVoter'])->name('register.voter.submit');
 
     // Citizen registration
-    Route::get('/register/citizen', [AuthController::class, 'showRegisterCitizen'])->name('register.citizen');
-    Route::post('/register/citizen', [AuthController::class, 'registerCitizen'])->name('register.citizen.submit');
+    Route::get('/register/citizen', [RegistrationController::class, 'showRegisterCitizen'])->name('register.citizen');
+    Route::post('/register/citizen', [RegistrationController::class, 'registerCitizen'])->name('register.citizen.submit');
 
     // Registration closed — mailing list capture (always accessible regardless of registration_open flag)
-    Route::get('/register/closed', [AuthController::class, 'showRegisterClosed'])->name('register.closed');
-    Route::post('/register/closed', [AuthController::class, 'storeMailingListSubscriber'])->name('register.mailing-list.store');
+    Route::get('/register/closed', [RegistrationController::class, 'showRegisterClosed'])->name('register.closed');
+    Route::post('/register/closed', [RegistrationController::class, 'storeMailingListSubscriber'])->name('register.mailing-list.store');
 
-    Route::get('/forgot-password', [AuthController::class, 'showForgotPassword'])->name('password.request');
-    Route::post('/forgot-password', [AuthController::class, 'sendResetLink'])->name('password.email');
+    Route::get('/forgot-password', [PasswordResetController::class, 'showForgotPassword'])->name('password.request');
+    Route::post('/forgot-password', [PasswordResetController::class, 'sendResetLink'])->name('password.email');
 
-    Route::get('/reset-password/{token}', [AuthController::class, 'showResetPassword'])->name('password.reset');
-    Route::post('/reset-password', [AuthController::class, 'resetPassword'])->name('password.update');
+    Route::get('/reset-password/{token}', [PasswordResetController::class, 'showResetPassword'])->name('password.reset');
+    Route::post('/reset-password', [PasswordResetController::class, 'resetPassword'])->name('password.update');
 });
 
 // Logout (authenticated users only)
-Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->name('logout');
+Route::post('/logout', [LoginController::class, 'logout'])->middleware('auth')->name('logout');
 
 // Phone verification (authenticated only)
 Route::middleware('auth')->group(function () {
-    Route::get('/verify-phone', [AuthController::class, 'showVerifyPhone'])->name('phone.verify');
-    Route::post('/verify-phone', [AuthController::class, 'verifyPhone'])->name('phone.verify.submit');
-    Route::post('/resend-phone-code', [AuthController::class, 'resendPhoneCode'])->name('phone.resend');
+    Route::get('/verify-phone', [PhoneVerificationController::class, 'showVerifyPhone'])->name('phone.verify');
+    Route::post('/verify-phone', [PhoneVerificationController::class, 'verifyPhone'])->name('phone.verify.submit');
+    Route::post('/resend-phone-code', [PhoneVerificationController::class, 'resendPhoneCode'])->name('phone.resend');
 });
 
 /*
@@ -88,9 +93,9 @@ Route::middleware('auth')->group(function () {
 */
 
 Route::middleware(['auth', 'no.cache'])->group(function () {
-    Route::get('/email/verify', [AuthController::class, 'showVerifyEmail'])->name('verification.notice');
-    Route::get('/email/verify/{id}/{hash}', [AuthController::class, 'verifyEmail'])->middleware('signed')->name('verification.verify');
-    Route::post('/email/resend', [AuthController::class, 'resendVerification'])->name('verification.send');
+    Route::get('/email/verify', [EmailVerificationController::class, 'showVerifyEmail'])->name('verification.notice');
+    Route::get('/email/verify/{id}/{hash}', [EmailVerificationController::class, 'verifyEmail'])->middleware('signed')->name('verification.verify');
+    Route::post('/email/resend', [EmailVerificationController::class, 'resendVerification'])->name('verification.send');
 });
 
 /*
@@ -186,8 +191,8 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
     // Admin security routes (kept outside onboarding + enforcement middleware
     // so admins can complete TOTP setup/challenge when required).
     Route::prefix('admin')->name('admin.')->middleware(['role:admin'])->group(function () {
-        Route::get('/2fa/challenge', [AuthController::class, 'showAdminTwoFactorChallenge'])->name('2fa.challenge');
-        Route::post('/2fa/challenge', [AuthController::class, 'verifyAdminTwoFactorChallenge'])
+        Route::get('/2fa/challenge', [AdminTwoFactorController::class, 'showChallenge'])->name('2fa.challenge');
+        Route::post('/2fa/challenge', [AdminTwoFactorController::class, 'verifyChallenge'])
             ->middleware('throttle:6,1')
             ->name('2fa.challenge.verify');
 
@@ -601,7 +606,7 @@ Route::get('/map', fn() => view('standalone.public.us-map'))->name('us.map');
 
 // Voter earn explainer — public landing page that teaches users how to earn
 // from watching campaign videos, then funnels into voter registration.
-// Mirrors the AuthController's `registration_open` check so the CTAs
+// Mirrors the RegistrationController's `registration_open` check so the CTAs
 // never dangle users when the platform is in waitlist-only mode.
 Route::get('/earn', function () {
     $isOpen = filter_var(

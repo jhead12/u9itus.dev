@@ -44,7 +44,10 @@ class ReferralService
         $referredByPoliticianId = null;
 
         if (! is_string($refCode) || trim($refCode) === '') {
-            return compact('referredByVoterId', 'referredByPoliticianId');
+            return [
+            'referred_by_voter_id'      => $referredByVoterId,
+            'referred_by_politician_id' => $referredByPoliticianId,
+        ];
         }
 
         $voterReferrer = Voter::where('referral_code', $refCode)->first();
@@ -55,7 +58,10 @@ class ReferralService
             $referredByPoliticianId = $politicianReferrer?->id;
         }
 
-        return compact('referredByVoterId', 'referredByPoliticianId');
+        return [
+            'referred_by_voter_id'      => $referredByVoterId,
+            'referred_by_politician_id' => $referredByPoliticianId,
+        ];
     }
 
     /**

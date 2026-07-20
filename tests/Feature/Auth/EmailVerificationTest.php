@@ -28,7 +28,9 @@ test('email can be verified', function () {
 
     Event::assertDispatched(Verified::class);
     expect($user->fresh()->hasVerifiedEmail())->toBeTrue();
-    $response->assertRedirect(route('dashboard', absolute: false).'?verified=1');
+    // Role-aware redirect via UserRoleService::dashboardRouteFor();
+    // a factory user with no role falls back to the voter dashboard.
+    $response->assertRedirect(route('voter.dashboard', absolute: false).'?verified=1');
 });
 
 test('email is not verified with invalid hash', function () {

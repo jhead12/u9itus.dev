@@ -36,7 +36,7 @@ class EarlyBankWebhookService
      * the enrollment confirmation email.
      *
      * Extracted here so both the API path (VoterController) and the web-form
-     * path (AuthController) share the same behaviour without duplication.
+     * path (RegistrationController) share the same behaviour without duplication.
      *
      * Fire-and-forget: failures are logged but must not block registration.
      */
