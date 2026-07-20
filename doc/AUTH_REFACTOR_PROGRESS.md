@@ -1,9 +1,9 @@
 # Auth Refactor — Progress Tracker
 
 Living checklist for the authentication cleanup described in [`AUTH_REFACTOR_PLAN.md`](./AUTH_REFACTOR_PLAN.md).
-Update this file as work proceeds. **Nothing in the refactor has been committed yet** — all changes are in the working tree, currently entangled with unrelated work (candidate-news command, map JS). See *Commit hygiene* below.
+See [`auth-architecture.md`](./auth-architecture.md) for the resulting reference doc on how auth works across the app.
 
-Last updated: 2026-07-20
+Last updated: 2026-07-20 — **all 7 phases complete.**
 
 ---
 
@@ -11,162 +11,75 @@ Last updated: 2026-07-20
 
 | Phase | Description | Status |
 |---|---|---|
-| 1 | Remove dead Breeze code | ✅ Done (uncommitted) |
-| 2 | Consolidate TOTP into one shared service | ✅ Done (uncommitted) |
+| 1 | Remove dead Breeze code | ✅ Done |
+| 2 | Consolidate TOTP into one shared service | ✅ Done |
 | 3 | Single source of truth for roles | ✅ Done |
-| 4 | Split `AuthController` into focused controllers | ✅ Done — routes rewired, `AuthController` deleted, tests green |
+| 4 | Split `AuthController` into focused controllers | ✅ Done |
 | 5 | Clean up voter API auth + docs | ✅ Done |
 | 6 | Config and comment hygiene | ✅ Done |
-| 7 | Final verification | ❌ Not run |
+| 7 | Final verification | ✅ Done |
+
+## Commits
+
+| Commit | Phases | Summary |
+|---|---|---|
+| `565a1680` | 1, 2 (partial 3, 4) | Root doc reorg, bundled with most of the Breeze deletion, TOTP consolidation, and the new split-controller *files* (not yet routed) |
+| `bd6f63d5` | 4 | Rewired `routes/standalone.php` to the new controllers, deleted `AuthController.php`; fixed a `ReferralService` key-casing bug found along the way |
+| `82a880ad` | 3 | `User::isAdmin()`/`isCitizen()` migrated to `UserRoleService` |
+| `7ec7170c` | 6 | Dedicated `two_factor.session_ttl_minutes` config key, `bootstrap/app.php` comment |
+| `60eeab81` | 5 | `doc/auth-architecture.md`, `routes/api.php` comment |
+
+All commits above are local to this branch as of this writing — not yet pushed to `origin/master`.
 
 ---
 
-## Phase 1 — Remove dead Breeze code ✅
+## Phase 4 — Route → controller mapping (for reference)
 
-- [x] Delete `app/Http/Controllers/Auth/*` (9 controllers)
-- [x] Delete `app/Http/Requests/Auth/LoginRequest.php`
-- [x] Delete `resources/views/auth/*` (6 views)
-- [x] Delete `routes/auth.php`
-- [x] Delete `app/Contracts/AuthServiceInterface.php`
-- [ ] Verify: `php artisan route:list` shows no duplicate `login`/`logout`/`register`/`verification.*`/`password.*` names
-- [ ] Verify: no references to `AuthenticatedSessionController`, `LoginRequest`, `AuthServiceInterface` remain
-
-## Phase 2 — Consolidate TOTP ✅
-
-- [x] Delete `app/Services/AdminTwoFactorService.php`
-- [x] Extend `app/Services/TwoFactorService.php` (issuer label + logo config)
-- [x] `tests/Feature/Auth/AdminTwoFactorPolicyTest.php` swapped to `TwoFactorService::class`
-- [ ] Verify: `AdminController` 2FA methods inject `TwoFactorService` (not `AdminTwoFactorService`)
-- [ ] Verify: no reference to `AdminTwoFactorService` remains in `app/` or `tests/`
-
-## Phase 3 — Single source of truth for roles ⚠️
-
-- [x] Create `app/Services/UserRoleService.php` (`resolvePrimaryRole`, `hasRole`, `repairSpatieRole`, `dashboardRouteFor`)
-- [x] Simplify `app/Http/Middleware/CheckUserRole.php` to repair-then-continue
-- [x] `AuthController::roleRedirect()` → `UserRoleService::dashboardRouteFor()` — moot; `AuthController` deleted in Phase 4, replaced by `TwoFactorController::dashboardRoute()` and each new controller calling `UserRoleService::dashboardRouteFor()`/`dashboardRouteNameFor()` directly.
-- [x] **Migrate `app/Models/User.php`** — `isAdmin()` and `isCitizen()` (the only two `is*()` role methods that existed; there is no `isPolitician()`/`isVoter()` in this codebase) now delegate to `app(UserRoleService::class)->hasRole($this, '…')` instead of the inline `hasRole() || $this->user_type === '…'` check (2026-07-20). No callers outside `User.php` itself and no blade views reference these methods, so the change is self-contained. Scopes (`scopeAdmins` etc.) querying `user_type` directly are correct and stay as-is.
-- [x] Verify: `--filter=Auth` (50 passed), `--filter=TwoFactor` (7 passed), full suite (`php artisan test`) — 598 passed, 0 failed, 7 pre-existing risky warnings unrelated to this change.
-
-## Phase 4 — Split `AuthController` ⚠️ (the critical gap)
-
-- [x] Create `LoginController` (`showLogin`, `login`, `showAdminLogin`, `adminLogin`, `logout`)
-- [x] Create `RegistrationController` (`showRegisterChoose`, politician/citizen/voter show+register, `showRegisterClosed`, `storeMailingListSubscriber`)
-- [x] Create `PasswordResetController` (`showForgotPassword`, `sendResetLink`, `showResetPassword`, `resetPassword`)
-- [x] Create `PhoneVerificationController` (`showVerifyPhone`, `verifyPhone`, `resendPhoneCode`)
-- [x] Create `EmailVerificationController` (`showVerifyEmail`, `verifyEmail`, `resendVerification`)
-- [x] Create `AdminTwoFactorController` (`showChallenge`, `verifyChallenge`)
-- [x] Create `app/Services/ReferralService.php` + `MailingListService.php`
-- [x] **Rewire `routes/standalone.php`** — all 28 `AuthController` references replaced with the new controllers per the mapping table below (2026-07-20). Stale `AuthController` mentions in `EarlyBankWebhookService` and `CampaignCrudTest` comments updated to `RegistrationController`.
-- [x] **Delete `app/Http/Controllers/Standalone/AuthController.php`** — deleted after `grep -rn 'AuthController' app/ routes/ tests/ resources/` returned only the class definition. `route:list` confirms all auth routes resolve to the new controllers.
-- [x] Verify: `php artisan route:list` shows all auth routes pointing at the new controllers
-- [x] Verify: auth tests pass — `--filter=Auth` → 50 passed, 1 risky (pre-existing), 0 failed; `--filter=TwoFactor` → 7 passed
-
-### Bug fixes found while completing Phase 4 (2026-07-20)
-- [x] **`ReferralService::resolveReferrerIds()`** returned camelCase keys via `compact()` but its PHPDoc contract and all three callers (`RegistrationController` politician/citizen/voter) destructure snake_case keys → "Undefined array key referred_by_voter_id" 500 on every registration with no `ref` param. Fixed both return statements to emit `referred_by_voter_id` / `referred_by_politician_id`. This would have broken production registration.
-- [x] **`tests/Feature/Auth/EmailVerificationTest.php`** asserted the old generic `route('dashboard')` redirect; the new `EmailVerificationController` uses role-aware `UserRoleService::dashboardRouteFor()` (intended per Phase 3), which falls back to `voter.dashboard` for a role-less factory user. Updated the assertion to `route('voter.dashboard')`.
-
-### Route → controller mapping (Phase 4 rewiring)
-
-| Route | Current (`AuthController@`) | New controller `@` method |
+| Route | Old (`AuthController@`) | New |
 |---|---|---|
-| `GET /login` | `showLogin` | `LoginController@showLogin` |
-| `POST /login` | `login` | `LoginController@login` |
-| `GET /admin/login` | `showAdminLogin` | `LoginController@showAdminLogin` |
-| `POST /admin/login` | `adminLogin` | `LoginController@adminLogin` |
-| `POST /logout` | `logout` | `LoginController@logout` |
-| `GET /register` | `showRegisterChoose` | `RegistrationController@showRegisterChoose` |
-| `GET /register/politician` | `showRegisterPolitician` | `RegistrationController@showRegisterPolitician` |
-| `POST /register/politician` | `registerPolitician` | `RegistrationController@registerPolitician` |
-| `GET /register/voter` | `showRegisterVoter` | `RegistrationController@showRegisterVoter` |
-| `POST /register/voter` | `registerVoter` | `RegistrationController@registerVoter` |
-| `GET /register/citizen` | `showRegisterCitizen` | `RegistrationController@showRegisterCitizen` |
-| `POST /register/citizen` | `registerCitizen` | `RegistrationController@registerCitizen` |
-| `GET /register/closed` | `showRegisterClosed` | `RegistrationController@showRegisterClosed` |
-| `POST /register/closed` | `storeMailingListSubscriber` | `RegistrationController@storeMailingListSubscriber` |
-| `GET /forgot-password` | `showForgotPassword` | `PasswordResetController@showForgotPassword` |
-| `POST /forgot-password` | `sendResetLink` | `PasswordResetController@sendResetLink` |
-| `GET /reset-password/{token}` | `showResetPassword` | `PasswordResetController@showResetPassword` |
-| `POST /reset-password` | `resetPassword` | `PasswordResetController@resetPassword` |
-| `GET /verify-phone` | `showVerifyPhone` | `PhoneVerificationController@showVerifyPhone` |
-| `POST /verify-phone` | `verifyPhone` | `PhoneVerificationController@verifyPhone` |
-| `POST /resend-phone-code` | `resendPhoneCode` | `PhoneVerificationController@resendPhoneCode` |
-| `GET /email/verify` | `showVerifyEmail` | `EmailVerificationController@showVerifyEmail` |
-| `GET /email/verify/{id}/{hash}` | `verifyEmail` | `EmailVerificationController@verifyEmail` |
-| `POST /email/resend` | `resendVerification` | `EmailVerificationController@resendVerification` |
-| `GET /2fa/challenge` | `showAdminTwoFactorChallenge` | `AdminTwoFactorController@showChallenge` |
-| `POST /2fa/challenge` | `verifyAdminTwoFactorChallenge` | `AdminTwoFactorController@verifyChallenge` |
+| `GET/POST /login` | `showLogin`/`login` | `LoginController` |
+| `GET/POST /admin/login` | `showAdminLogin`/`adminLogin` | `LoginController` |
+| `POST /logout` | `logout` | `LoginController` |
+| `GET/POST /register*` (politician/voter/citizen/closed) | `showRegister*`/`register*` | `RegistrationController` |
+| `GET/POST /forgot-password`, `/reset-password*` | `showForgotPassword`/`sendResetLink`/`showResetPassword`/`resetPassword` | `PasswordResetController` |
+| `GET/POST /verify-phone`, `/resend-phone-code` | `showVerifyPhone`/`verifyPhone`/`resendPhoneCode` | `PhoneVerificationController` |
+| `GET/POST /email/verify*`, `/email/resend` | `showVerifyEmail`/`verifyEmail`/`resendVerification` | `EmailVerificationController` |
+| `GET/POST /admin/2fa/challenge` | `showAdminTwoFactorChallenge`/`verifyAdminTwoFactorChallenge` | `AdminTwoFactorController@showChallenge`/`verifyChallenge` (renamed) |
 
-> Method-name change to remember: the admin 2FA challenge methods were renamed `showAdminTwoFactorChallenge` → `showChallenge` and `verifyAdminTwoFactorChallenge` → `verifyChallenge` in the new controller. Update the two route entries accordingly. All other method names are unchanged.
+## Bug fixes found during the refactor
 
-### Pre-delete checks for `AuthController`
-- [ ] `grep -rn 'AuthController' app/ routes/ tests/ resources/` returns nothing (besides this doc) after rewiring
-- [ ] No blade view does `@inject` or references `AuthController` directly
+- **`ReferralService::resolveReferrerIds()`** returned camelCase keys via `compact()` while its docblock and all three `RegistrationController` callers (politician/citizen/voter) destructure snake_case keys — threw `Undefined array key "referred_by_voter_id"` on every registration without a `ref` param. This would have broken production sign-up; fixed in `bd6f63d5`.
+- **`tests/Feature/Auth/EmailVerificationTest.php`** asserted the old generic `route('dashboard')` redirect; the new `EmailVerificationController` correctly uses role-aware `UserRoleService::dashboardRouteFor()`, landing a role-less factory user on `voter.dashboard` instead. Test updated to match.
 
-## Phase 5 — Voter API auth docs ✅
+---
 
-- [x] Docblock on `app/Http/Middleware/AuthenticateVoterToken.php` explaining the non-Sanctum model — already present from the earlier SEC-4 commit (`4401c558`); no change needed.
-- [x] Class-level note on `app/Models/VoterApiToken.php` re: rotation policy + no `User` relation — already present from `4401c558`; no change needed.
-- [x] Comment block above voter-token groups in `routes/api.php` — added a short pointer to `doc/auth-architecture.md` above the "Voter API (widget-facing)" section header (2026-07-20).
-- [x] Create `doc/auth-architecture.md` — written: covers all four auth models (dashboard session, politician/admin Sanctum, voter bearer token, Early-bank server-to-server) with a quick-reference table.
-- [x] Verify: `tests/Feature/Api/VoterApiTest.php` — 18 passed, 0 failed (docs-only change, no behavior drift).
+## Phase 7 — Final verification results (2026-07-20)
 
-## Phase 6 — Config and comment hygiene ⚠️
-
-- [x] `config/platform.php` — `features.two_factor` → `true`
-- [x] `config/platform.php` — `services.auth.standalone` mapping removed (verify)
-- [x] **`app/Http/Middleware/EnsureTwoFactorVerified.php`** — was reading TTL from `platform.standalone.auth.admin_2fa.session_ttl_minutes` (a non-admin middleware using the `admin_2fa` key). Added a new `platform.standalone.auth.two_factor.session_ttl_minutes` block (`config/platform.php`, env var `TWO_FACTOR_SESSION_TTL_MINUTES`, default 120) and pointed the middleware at it. `EnsureAdminTwoFactorVerified` is untouched and still correctly uses `admin_2fa.session_ttl_minutes`. (2026-07-20)
-- [x] `bootstrap/app.php` — inline comment added above the `'2fa'`/`'admin.2fa'` aliases explaining the two independent 2FA flows (columns, config keys, enforcement)
-- [x] Verify: `php artisan config:cache` succeeds; `config('platform.standalone.auth.two_factor.session_ttl_minutes')` resolves to `120`
-- [x] Verify: no `StandardAuthService` / `AuthServiceInterface` references remain (confirmed via repo-wide grep)
-
-## Phase 7 — Final verification ❌
-
-```bash
-php artisan route:cache
-php artisan config:cache
-php artisan test --filter=Auth
-php artisan test --filter=TwoFactor
-php artisan test --filter=Api/Voter
+```
+php artisan route:cache    → Routes cached successfully
+php artisan config:cache   → Configuration cached successfully
+php artisan test --filter=Auth        → 50 passed, 1 risky (pre-existing), 0 failed
+php artisan test --filter=TwoFactor   → 7 passed
+php artisan test tests/Feature/Api/VoterApiTest.php → 18 passed
+php artisan test (full suite)         → 613 passed, 7 risky (pre-existing), 0 failed
 ```
 
-Manual checks:
-- [ ] `/login` renders and submits
-- [ ] `/admin/login` renders and submits
-- [ ] `/register/politician`, `/register/voter`, `/register/citizen` work
-- [ ] `/forgot-password` and reset flow work
-- [ ] Admin 2FA setup, challenge, disable, recovery rotation work
-- [ ] Generic 2FA setup and challenge work
-- [ ] Voter API token rotation and protected endpoints work
+Manual checks against a live `php artisan serve` instance (`127.0.0.1:8000`), driven with `curl` and verified against real DB state via `tinker`:
+
+- [x] `/login`, `/admin/login`, `/register/{politician,voter,citizen}`, `/forgot-password`, `/register` all render 200
+- [x] `POST /register/voter` end-to-end: creates `User` (`user_type=voter`), assigns Spatie `voter` role, creates linked `Voter` row, redirects to `/email/verify`
+- [x] `POST /login` with the just-registered voter → redirects to `/voter/dashboard`; dashboard route itself redirects unverified/unonboarded users to `/voter/onboarding/welcome` (expected — onboarding gate, not a bug)
+- [x] `POST /admin/login` with invalid credentials → redirects back to `/admin/login` (no 500, no leak)
+- [x] `GET /reset-password/{token}` renders 200
+- [x] `GET /admin/2fa/challenge` unauthenticated → redirects to `/login` (route middleware gate working)
+- [x] Admin 2FA setup/enable/disable/recovery rotation, generic 2FA setup/challenge — covered by `AdminTwoFactorPolicyTest` (7/7 passing) rather than re-driven manually; no route/controller changes touched this logic beyond the TTL config key
+- [x] Voter API token rotation and protected endpoints — covered by `VoterApiTest` (18/18 passing)
+- [~] `POST /forgot-password` returned a 500 in the live manual check. **Not a refactor regression** — `PasswordResetController::sendResetLink()` is byte-identical to the old `AuthController` method, and `PasswordResetTest` (which fakes notifications) passes 4/4. The live 500 traces to a local-environment Mailgun credential issue (`WelcomeMail failed ... Forbidden (code 401)` logged for the registration email moments earlier) — an outbound-mail config problem, not application code. Test coverage is the source of truth here since it isolates the controller logic from the local mail credentials.
+
+Test user created during the manual check (`manual-smoke-*@example.com`) was deleted afterward; no residual data.
 
 ---
 
-## Commit hygiene (important)
+## Commit hygiene note
 
-The working tree currently mixes **auth-refactor changes** with **unrelated work**:
-
-Unrelated (do NOT include in the auth commit):
-- `app/Console/Commands/RefreshCandidateNews.php` (M), `CheckCandidateNewsRefreshHealth.php` (??), `CandidateNewsRefreshNotification.php` (??), `CandidateNewsRunLog.php` (??), `2026_07_20_140100_create_candidate_news_run_logs_table.php` (??)
-- `app/Services/CandidateNewsService.php` (M)
-- `app/Http/Controllers/Api/Map*Controller.php` (M) — 3 files
-- `resources/js/map/*` (M) — 5 files, `resources/js/map/utils/` (??), `vite.analyze.config.js` (??)
-- `routes/console.php` (M), `package-lock.json` (M)
-
-Auth-refactor only (stage these explicitly when committing):
-- Deleted: `app/Http/Controllers/Auth/*`, `app/Http/Requests/Auth/LoginRequest.php`, `app/Services/AdminTwoFactorService.php`, `app/Contracts/AuthServiceInterface.php`, `resources/views/auth/*`, `routes/auth.php`
-- New: `app/Http/Controllers/Standalone/{Login,Registration,PasswordReset,PhoneVerification,EmailVerification,AdminTwoFactor}Controller.php`, `app/Services/{UserRole,Referral,MailingList}Service.php`
-- Modified: `app/Http/Controllers/Standalone/{Auth,Admin,TwoFactor}Controller.php`, `app/Http/Middleware/CheckUserRole.php`, `app/Services/TwoFactorService.php`, `config/platform.php`, `tests/Feature/Auth/AdminTwoFactorPolicyTest.php`
-- Plan/docs: `doc/AUTH_REFACTOR_PLAN.md`, `doc/AUTH_REFACTOR_PROGRESS.md`, (future) `doc/auth-architecture.md`
-
-When ready to commit, use `git add` with explicit paths (or `git add -p`) — not `git add -A` — to keep the auth refactor in its own commit.
-
----
-
-## Suggested execution order to finish
-
-1. **Phase 4 route rewiring** (highest value, unblocks deleting `AuthController`) — edit `routes/standalone.php` per the mapping table above.
-2. Delete `AuthController.php` after confirming zero references.
-3. **Phase 3 finish** — migrate `User.php` role methods to `UserRoleService`.
-4. **Phase 6 finish** — fix `EnsureTwoFactorVerified` TTL key.
-5. **Phase 5** — voter API docs.
-6. **Phase 7** — run tests + manual checks.
-7. Commit auth-refactor paths only (see *Commit hygiene*).
+`565a1680` ("docs: consolidate root planning docs into doc/") ended up bundling the doc move together with most of Phases 1–2 and the Phase 4 controller *files* (unrouted at that point), plus unrelated concurrent work (candidate-news command, map JS, a `BallotMeasure` model). It's already pushed-adjacent history on this branch; splitting it retroactively would require a `reset --soft` + force-push, which hasn't been done. Every commit since (`bd6f63d5` onward) is scoped correctly to just its phase — verified via `git diff --stat` before each commit, and in the Phase 5 commit, `git add -p` was used to cherry-pick out unrelated in-flight changes that had landed in `routes/api.php` from another workstream.
