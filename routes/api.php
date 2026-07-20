@@ -82,6 +82,9 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
     |----------------------------------------------------------------------
     | Voter API (widget-facing — rate-limited, UUID-based)
     |----------------------------------------------------------------------
+    | Auth model: opaque bearer token (voter-token / voter.owns middleware),
+    | not Sanctum — voters using only the widget may have no `users` row.
+    | Full auth model comparison: doc/auth-architecture.md
     */
     // ── Public map data — no auth, rate-limited ──────────────────────────────
     Route::middleware('throttle:120,1')->group(function () {

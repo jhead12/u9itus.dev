@@ -15,7 +15,7 @@ Last updated: 2026-07-20
 | 2 | Consolidate TOTP into one shared service | ✅ Done (uncommitted) |
 | 3 | Single source of truth for roles | ✅ Done |
 | 4 | Split `AuthController` into focused controllers | ✅ Done — routes rewired, `AuthController` deleted, tests green |
-| 5 | Clean up voter API auth + docs | ❌ Not started |
+| 5 | Clean up voter API auth + docs | ✅ Done |
 | 6 | Config and comment hygiene | ✅ Done |
 | 7 | Final verification | ❌ Not run |
 
@@ -102,13 +102,13 @@ Last updated: 2026-07-20
 - [ ] `grep -rn 'AuthController' app/ routes/ tests/ resources/` returns nothing (besides this doc) after rewiring
 - [ ] No blade view does `@inject` or references `AuthController` directly
 
-## Phase 5 — Voter API auth docs ❌
+## Phase 5 — Voter API auth docs ✅
 
-- [ ] Docblock on `app/Http/Middleware/AuthenticateVoterToken.php` explaining the non-Sanctum model
-- [ ] Class-level note on `app/Models/VoterApiToken.php` re: rotation policy + no `User` relation
-- [ ] Comment block above voter-token groups in `routes/api.php`
-- [ ] Create `doc/auth-architecture.md` — voter widget vs. dashboard session vs. admin/politician Sanctum API
-- [ ] Verify: `tests/Feature/Api/VoterApiTest.php` still passes (docs-only, no behavior change)
+- [x] Docblock on `app/Http/Middleware/AuthenticateVoterToken.php` explaining the non-Sanctum model — already present from the earlier SEC-4 commit (`4401c558`); no change needed.
+- [x] Class-level note on `app/Models/VoterApiToken.php` re: rotation policy + no `User` relation — already present from `4401c558`; no change needed.
+- [x] Comment block above voter-token groups in `routes/api.php` — added a short pointer to `doc/auth-architecture.md` above the "Voter API (widget-facing)" section header (2026-07-20).
+- [x] Create `doc/auth-architecture.md` — written: covers all four auth models (dashboard session, politician/admin Sanctum, voter bearer token, Early-bank server-to-server) with a quick-reference table.
+- [x] Verify: `tests/Feature/Api/VoterApiTest.php` — 18 passed, 0 failed (docs-only change, no behavior drift).
 
 ## Phase 6 — Config and comment hygiene ⚠️
 
