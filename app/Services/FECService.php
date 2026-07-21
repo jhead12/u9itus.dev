@@ -375,8 +375,194 @@ class FECService
     }
 
     /**
+     * Get independent expenditures (outside spending) reported against a
+     * candidate on FEC Schedule E — i.e. committees spending independently
+     * to support or oppose them, with no coordination with the campaign.
+     *
+     * This is the "who is trying to influence this race" signal that the
+     * candidate's own filing summary can't show. Unlike Schedule A receipts
+     * (which are committee-to-committee contributions to the candidate),
+     * Schedule E items are stand-alone disbursements by outside groups, so
+     * we aggregate them by spender × support/oppose.
+     *
+     * Implementation notes (verified against the live FEC API):
+     *  - Schedule E line items carry the spender only as `committee_id`;
+     *    `committee` (name) is consistently null and `payee_name` is the
+     *    *vendor*, not the spender. So after aggregating, committee names
+     *    are resolved in one batch call to /committees/ (repeated
+     *    `committee_id=` params — array `[]` and comma-list forms do NOT
+     *    filter on this endpoint).
+     *  - The Schedule E aggregate endpoints all 404 in this API version, so
+     *    we fetch the top line items by amount and roll them up client-side.
+     *  - `is_notice` is NOT a spam signal — legitimate 24/48-hour IE reports
+     *    are `is_notice=true`. The FEC spam filings ($9.9B joke entries from
+     *    a recurring bad-filer) are instead excluded by an amount cap.
+     *  - Coverage caveat: we fetch only the top page sorted by amount, so a
+     *    committee making many small buys can be under-counted relative to
+     *    one making a few huge buys. For most candidates the full IE volume
+     *    is modest and this captures the dominant spenders; only mega-profile
+     *    races (e.g. a presidential) have a tail this single page misses.
+     *
+     * Two API calls per candidate. Amounts are kept numeric so the profile
+     * blade formats them via its shared `$fmtMoney` helper.
+     *
+     * @param string $candidateId  FEC candidate ID (e.g. H8CA32123)
+     * @param int $cycle           2-year FEC cycle (e.g. 2024)
+     * @return array<int, array{committee_name: string, total: float, support_oppose: 'S'|'O'}>
+     */
+    public function getOutsideSpending(string $candidateId, int $cycle): array
+    {
+        if (!$this->isConfigured() || $candidateId === '') {
+            return [];
+        }
+
+        try {
+            $response = Http::timeout(10)->get("{$this->baseUrl}/schedules/schedule_e/", [
+                'api_key' => $this->apiKey,
+                'candidate_id' => $candidateId,
+                'two_year_transaction_period' => $cycle,
+                'sort' => '-expenditure_amount',
+                'per_page' => 100,
+            ]);
+
+            if (!$response->successful()) {
+                $this->logHttpFailure('get_outside_spending', $response->status(), [
+                    'candidate_id' => $candidateId,
+                    'cycle' => $cycle,
+                ]);
+
+                return [];
+            }
+
+            // Aggregate by spender × support/oppose.
+            // Drop memoed subtotals and the $9.9B spam filings (a recurring
+            // bad-filer submits absurd amounts). $500M is well above any
+            // legitimate single IE; real big-money buys top out in the tens
+            // of millions per disbursement.
+            $buckets = [];
+            $committeeIds = [];
+            foreach ($response->json('results', []) as $item) {
+                if (!empty($item['memoed_subtotal'])) {
+                    continue;
+                }
+                $amount = (float) ($item['expenditure_amount'] ?? 0);
+                if ($amount > 500_000_000.0) {
+                    continue;
+                }
+                // Defensive: the API filter scopes to this candidate, but a
+                // loose search could still return a mismatched row.
+                if (($item['candidate_id'] ?? null) !== $candidateId) {
+                    continue;
+                }
+
+                $committeeId = (string) ($item['committee_id'] ?? '');
+                $bucketKey = ($committeeId !== '' ? $committeeId : ('payee:' . ($item['payee_name'] ?? '')))
+                    . '|' . ($item['support_oppose_indicator'] ?? '');
+
+                if (!isset($buckets[$bucketKey])) {
+                    $buckets[$bucketKey] = [
+                        'committee_id' => $committeeId,
+                        'committee_name' => $committeeId !== '' ? $committeeId : ($item['payee_name'] ?? 'Unknown spender'),
+                        'total' => 0.0,
+                        'support_oppose' => ($item['support_oppose_indicator'] ?? 'S') === 'O' ? 'O' : 'S',
+                    ];
+                    if ($committeeId !== '' && !in_array($committeeId, $committeeIds, true)) {
+                        $committeeIds[] = $committeeId;
+                    }
+                }
+                $buckets[$bucketKey]['total'] += $amount;
+            }
+
+            if ($buckets === []) {
+                return [];
+            }
+
+            // Rank by total desc, cap at the top 20 spenders, then resolve names.
+            $ranked = array_values($buckets);
+            usort($ranked, fn($a, $b) => $b['total'] <=> $a['total']);
+            $ranked = array_slice($ranked, 0, 20);
+
+            $this->resolveCommitteeNames($ranked);
+
+            return array_map(fn($b) => [
+                'committee_name' => $b['committee_name'],
+                'total' => $b['total'],
+                'support_oppose' => $b['support_oppose'],
+            ], $ranked);
+
+        } catch (\Throwable $e) {
+            $this->logProviderException('get_outside_spending', $e, [
+                'candidate_id' => $candidateId,
+                'cycle' => $cycle,
+            ]);
+
+            return [];
+        }
+    }
+
+    /**
+     * Resolve human-readable committee names for the top outside spenders
+     * in-place, via one batch /committees/ call. Falls back to the existing
+     * committee_id label when a name can't be resolved or the batch call
+     * fails — never blocks returning the spending data.
+     *
+     * @param array<int, array{committee_id: string, committee_name: string, ...}> $ranked
+     * @return void
+     */
+    protected function resolveCommitteeNames(array &$ranked): void
+    {
+        $ids = array_values(array_unique(array_filter(
+            array_map(fn($b) => $b['committee_id'] ?? '', $ranked),
+            fn($id) => $id !== '',
+        )));
+
+        if ($ids === []) {
+            return;
+        }
+
+        try {
+            // The /committees/ endpoint only filters with *repeated plain*
+            // committee_id= params. Laravel's Http::get would render an array
+            // value as committee_id[]=… which this endpoint silently ignores,
+            // so build the query string by hand. Cap the lookup to the top 20.
+            $query = 'api_key=' . urlencode((string) $this->apiKey) . '&per_page=100';
+            foreach (array_slice($ids, 0, 20) as $id) {
+                $query .= '&committee_id=' . urlencode($id);
+            }
+
+            $response = Http::timeout(10)->get("{$this->baseUrl}/committees/?{$query}");
+
+            if (!$response->successful()) {
+                $this->logHttpFailure('resolve_committee_names', $response->status(), [
+                    'committee_ids' => implode(',', array_slice($ids, 0, 20)),
+                ]);
+                return;
+            }
+
+            $nameById = [];
+            foreach ($response->json('results', []) as $committee) {
+                if (!empty($committee['committee_id']) && !empty($committee['name'])) {
+                    $nameById[$committee['committee_id']] = $committee['name'];
+                }
+            }
+
+            foreach ($ranked as &$bucket) {
+                $id = $bucket['committee_id'] ?? '';
+                if ($id !== '' && isset($nameById[$id])) {
+                    $bucket['committee_name'] = $nameById[$id];
+                }
+            }
+            unset($bucket);
+        } catch (\Throwable $e) {
+            $this->logProviderException('resolve_committee_names', $e, [
+                'committee_ids' => implode(',', array_slice($ids, 0, 20)),
+            ]);
+        }
+    }
+
+    /**
      * Format currency for display
-     * 
+     *
      * @param mixed $amount
      * @return string
      */
@@ -425,12 +611,24 @@ class FECService
         $snapshot = \App\Models\PoliticianDonorSnapshot::where('politician_id', $politician->id)->first();
 
         if ($snapshot && $snapshot->enriched_at && !empty($snapshot->fec_summary)) {
+            $sections = [
+                'summary' => $snapshot->fec_summary,
+            ];
+            // Independent expenditures (Schedule E) are persisted alongside
+            // the filing summary during nightly enrichment. Surface them as a
+            // separate section so the blade can render the "who is spending
+            // to support/oppose this candidate" block. Live-fetched outside
+            // spending is intentionally NOT added to the fallback tier below
+            // (extra API calls on page render; the snapshot is the source of
+            // truth).
+            if ($snapshot->hasOutsideSpending()) {
+                $sections['outside_spending'] = ['items' => $snapshot->outside_spending];
+            }
+
             return [
                 'source'     => 'Federal Election Commission',
                 'source_url' => $snapshot->fec_source_url ?? 'https://www.fec.gov/data/',
-                'sections'   => [
-                    'summary' => $snapshot->fec_summary,
-                ],
+                'sections'   => $sections,
             ];
         }
 

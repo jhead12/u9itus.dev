@@ -129,9 +129,13 @@ class EnrichPoliticianDonors extends Command
 
         // ── OpenSecrets (scraped — no API key required) ───────────────────────
         try {
-            // Clear cache when --force is set so a fresh scrape runs
+            // Clear caches when --force is set so a fresh scrape + FEC fetch run.
+            // Without clearing the FEC cache, a forced re-enrich reuses the
+            // 24h-cached candidate id/filings — which matters now that outside
+            // spending depends on a freshly resolved fec_candidate_id.
             if ($this->option('force')) {
                 $openSecrets->clearCache($politician);
+                $fec->clearCache($politician);
             }
             $data = $openSecrets->fetchCampaignFinanceData($politician);
             if (is_array($data)) {
@@ -202,6 +206,15 @@ class EnrichPoliticianDonors extends Command
                             $snapshot['pac_affiliations'] = $existing;
                             $this->line("    FEC: " . count($fecPacMatches) . " pac affiliation match(es) from Schedule A");
                         }
+                    }
+
+                    // Independent expenditures (Schedule E): who is spending
+                    // to support/oppose this candidate, outside their campaign.
+                    // Uses the same fec_candidate_id resolved above.
+                    $outsideSpending = $fec->getOutsideSpending($candidateId, (int) $snapshot['election_cycle']);
+                    if ($outsideSpending !== []) {
+                        $snapshot['outside_spending'] = $outsideSpending;
+                        $this->line("    FEC: " . count($outsideSpending) . " outside spender(s) from Schedule E");
                     }
                 }
             } catch (\Throwable $e) {

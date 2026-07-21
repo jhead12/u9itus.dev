@@ -1162,6 +1162,7 @@
             $topIndustries      = $donorData['sections']['top_industries']['items'] ?? [];
             $fecSummary         = $fecData['sections']['summary'] ?? null;
             $openSecretsSummary = $donorData['sections']['summary'] ?? null;
+            $outsideSpending    = $fecData['sections']['outside_spending']['items'] ?? null;
             $pacAffiliations    = $donorData['pac_affiliations'] ?? null;
             $electionCycle      = $donorData['election_cycle'] ?? $fecSummary['cycle'] ?? null;
 
@@ -1176,7 +1177,7 @@
                 return str_starts_with($s, '$') ? $s : '$' . number_format((float) $s);
             };
         @endphp
-        @if(!empty($topDonors) || !empty($topIndustries) || $fecSummary || $openSecretsSummary || !empty($pacAffiliations))
+        @if(!empty($topDonors) || !empty($topIndustries) || $fecSummary || $openSecretsSummary || !empty($outsideSpending) || !empty($pacAffiliations))
         <section>
             <h2 class="text-xl font-bold text-white mb-4 flex items-center gap-2">
                 <span class="w-1 h-6 rounded-full inline-block" style="background:var(--p13-accent,#f59e0b)"></span>
@@ -1285,6 +1286,45 @@
                         </div>
                         @endif
                     </dl>
+                </div>
+                @endif
+
+                {{-- Independent spending (FEC Schedule E — outside groups supporting/opposing) --}}
+                @if(!empty($outsideSpending))
+                <div class="sm:col-span-2 bg-slate-800/40 border border-slate-700/40 rounded-xl p-5">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-3">
+                        Independent Spending
+                        <span class="text-slate-500 font-normal normal-case tracking-normal">· outside groups, not the campaign</span>
+                        @if(!empty($fecData['source_url']))
+                            · <a href="{{ $fecData['source_url'] }}" target="_blank" rel="noopener" class="text-emerald-400 hover:underline">FEC.gov ↗</a>
+                        @endif
+                    </p>
+                    @php
+                        // Show the top spenders; cap the visible list and note how many more.
+                        $shownSpending = array_slice($outsideSpending, 0, 12);
+                        $hiddenSpending = max(0, count($outsideSpending) - count($shownSpending));
+                    @endphp
+                    <ol class="space-y-2">
+                        @foreach($shownSpending as $i => $spender)
+                        <li class="flex items-center justify-between gap-3">
+                            <span class="flex items-center gap-2 min-w-0 flex-1">
+                                <span class="text-xs text-slate-500 tabular-nums w-4 shrink-0">{{ $i + 1 }}.</span>
+                                <span class="text-sm text-slate-200 truncate">{{ $spender['committee_name'] ?? '—' }}</span>
+                                <span class="shrink-0 text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-full border {{ ($spender['support_oppose'] ?? '') === 'O'
+                                    ? 'border-rose-500/40 bg-rose-500/10 text-rose-300'
+                                    : 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300' }}">
+                                    {{ ($spender['support_oppose'] ?? '') === 'O' ? 'Oppose' : 'Support' }}
+                                </span>
+                            </span>
+                            @if($fmtMoney($spender['total'] ?? null))
+                            <span class="text-sm font-semibold text-white tabular-nums">{{ $fmtMoney($spender['total']) }}</span>
+                            @endif
+                        </li>
+                        @endforeach
+                    </ol>
+                    @if($hiddenSpending > 0)
+                    <p class="mt-3 text-xs text-slate-500">+ {{ $hiddenSpending }} more spender(s) — see FEC.gov for the full list.</p>
+                    @endif
                 </div>
                 @endif
 
