@@ -69,3 +69,12 @@ Schedule::command('politicians:reconcile-status')
     ->weeklyOn(0, '04:00')
     ->withoutOverlapping();
 
+// Traffic-responsive state sync — checks 3-D map click volume over a
+// trailing window and, for whichever states are trending right now (e.g.
+// a surge of clicks on NY versus CA), triggers refresh-map-candidates.yml
+// and sync-census-demographics.yml via GitHub workflow_dispatch instead of
+// waiting for the next scheduled full sync.
+Schedule::command('map:sync-hot-states')
+    ->everyThreeHours()
+    ->withoutOverlapping();
+

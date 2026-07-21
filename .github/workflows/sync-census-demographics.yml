@@ -20,7 +20,11 @@ on:
         default: "2022"
         required: false
       state:
-        description: "Two-letter state filter (repeat not supported here; leave blank for all states)"
+        description: "Two-letter state filter (single). Ignored if 'states' is set."
+        default: ""
+        required: false
+      states:
+        description: "Comma-separated state codes to sync (e.g. CA,TX,NY). Leave blank for all states."
         default: ""
         required: false
       dry_run:
@@ -86,14 +90,22 @@ jobs:
       - name: Sync city demographics (ACS)
         run: |
           YEAR="${{ github.event.inputs.year || '2022' }}"
-          STATE="${{ github.event.inputs.state || '' }}"
+          STATES="${{ github.event.inputs.states }}"
+          STATE_PICKER="${{ github.event.inputs.state }}"
+          if [ -z "$STATES" ] && [ -n "$STATE_PICKER" ]; then
+            STATES="$STATE_PICKER"
+          fi
           DRY=${{ github.event.inputs.dry_run == 'true' && '--dry-run' || '' }}
-          STATE_ARG=""
-          if [ -n "$STATE" ]; then STATE_ARG="--state=$STATE"; fi
+          STATE_ARGS=""
+          if [ -n "$STATES" ]; then
+            for state in $(echo "$STATES" | tr ',' ' '); do
+              STATE_ARGS="$STATE_ARGS --state=$state"
+            done
+          fi
 
           php artisan geo:sync-census-demographics \
             --year="${YEAR}" \
-            ${STATE_ARG} \
+            ${STATE_ARGS} \
             ${DRY}
 
       - name: Sync state & district populations (Census)

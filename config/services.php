@@ -162,13 +162,22 @@ return [
         'model'   => env('ANTHROPIC_ENRICH_MODEL', 'claude-haiku-4-5'),
     ],
 
-    // Profile auto-repair — GitHub repository_dispatch integration.
-    // Set GITHUB_REPAIR_TOKEN to a fine-grained PAT with:
-    //   repo → Actions → Write access on the u9itus.dev repository.
-    // Set GITHUB_REPO to "owner/repo" (e.g. "HeadEnterprises/u9itus.dev").
+    // GitHub Actions dispatch integration. GITHUB_REPO is "owner/repo" (e.g.
+    // "HeadEnterprises/u9itus.dev"), shared by all dispatchers below. Each
+    // dispatcher gets its own fine-grained PAT (repo → Actions → Write access
+    // on the u9itus.dev repository) so a bug or leak in one blast-radius
+    // can't be used to trigger the other's workflows:
+    //   - repair_token   → DispatchProfileRepairWorkflow
+    //                      (repository_dispatch: profile.repair)
+    //   - hotstate_token → DispatchHotStatesSyncWorkflow
+    //                      (workflow_dispatch on the map's state-scoped sync
+    //                      workflows, triggered by map:sync-hot-states)
     'github' => [
-        'repair_token' => env('GITHUB_REPAIR_TOKEN'),
-        'repo'         => env('GITHUB_REPO'),
+        'repair_token'   => env('GITHUB_REPAIR_TOKEN'),
+        'hotstate_token' => env('GITHUB_HOTSTATE_TOKEN'),
+        'repo'           => env('GITHUB_REPO'),
+        // Branch ref used for workflow_dispatch API calls.
+        'ref'            => env('GITHUB_DISPATCH_REF', 'master'),
     ],
 
     // Sprint 7 — MeToken subgraph (Goldsky public endpoint) for read-only
