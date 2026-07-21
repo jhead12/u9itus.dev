@@ -599,6 +599,10 @@ kbd {
     position: fixed; bottom: 28px; right: 24px; z-index: 50;
     color: #334155; font-size: 11px; text-align: right; pointer-events: none;
 }
+/* #info-panel occupies the same bottom-right area (top:86px to bottom:12px) —
+   once it's open with real content, the corner hint text is both redundant
+   and visually overlaps/obscures the panel's last item. */
+body:has(#info-panel.open) #hint { display: none; }
 
 /* Map toast */
 .map-toast {
@@ -840,6 +844,12 @@ kbd {
     #btn-search { padding: 6px 10px; gap: 4px; font-size: 12px; }
     #btn-back { padding: 5px 10px; font-size: 12px; }
     #top-bar a { font-size: 16px; }
+
+    /* Tap targets meet 44×44 minimum (WCAG 2.5.5 / Apple HIG) — the visible
+       top-bar buttons (find-district, search, layers, controls) were 26-30px
+       tall, well under that bar. */
+    .top-btn { min-height: 44px; padding-top: 0; padding-bottom: 0; }
+    #mobile-menu-btn { min-width: 44px; min-height: 44px; }
 
     /* Breadcrumb */
     #breadcrumb-bar { top: 48px; padding: 0 10px; height: 28px; }
@@ -1189,4 +1199,14 @@ kbd {
         transform: translateY(100%);
     }
     #pol-drawer.open { transform: translateY(0); }
+
+    /* Tap targets meet 44×44 minimum (WCAG 2.5.5 / Apple HIG), matching the
+       tutorial card's mobile treatment — these were 24-34px tall. */
+    .pol-tab { min-height: 44px; }
+    #pol-drawer-close {
+        min-width: 44px; min-height: 44px;
+        display: flex; align-items: center; justify-content: center;
+        top: 6px; right: 8px;
+    }
+    .pol-link { display: flex; align-items: center; justify-content: center; min-height: 44px; }
 }

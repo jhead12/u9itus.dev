@@ -196,7 +196,19 @@ class MapGeocodeController
             return null;
         }
 
-        foreach (['CD119', 'CD118', 'CD117', 'CD119FP', 'CD118FP', 'CD117FP', 'DISTRICT', 'district'] as $key) {
+        // Match any CD<congress-number>[FP] key dynamically rather than a fixed
+        // list of Congress numbers — the Census Geocoder has returned district
+        // fields under older sessions (e.g. CD116) for at-large states like VT,
+        // WY, and AK even on the "current" benchmark/vintage, which a hardcoded
+        // CD119/CD118/CD117 list silently missed (falling through to a 404).
+        $candidateKeys = array_filter(
+            array_keys($bestRow),
+            fn ($key) => preg_match('/^CD\d+(FP)?$/i', (string) $key) === 1,
+        );
+        // Prefer the highest Congress number if more than one is present.
+        usort($candidateKeys, fn ($a, $b) => (int) preg_replace('/\D/', '', $b) <=> (int) preg_replace('/\D/', '', $a));
+
+        foreach ([...$candidateKeys, 'DISTRICT', 'district'] as $key) {
             $candidate = trim((string) ($bestRow[$key] ?? ''));
             if ($candidate === '') {
                 continue;

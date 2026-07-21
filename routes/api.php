@@ -22,6 +22,7 @@ use App\Http\Controllers\Api\MapGeocodeController;
 use App\Http\Controllers\Api\MapInteractionController;
 use App\Http\Controllers\Api\MapCandidateEconomyController;
 use App\Http\Controllers\Api\MapCandidateOverviewController;
+use App\Http\Controllers\Api\MapRegionDemographicsController;
 use App\Http\Controllers\Api\MapStateCandidatesController;
 use App\Http\Controllers\Api\OfficeProfileController;
 use App\Http\Controllers\Api\PayPalWebhookController;
@@ -91,6 +92,11 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
     Route::middleware('throttle:120,1')->group(function () {
         Route::get('/map/state-candidates', MapStateCandidatesController::class)
             ->name('map.state-candidates');
+
+        // Region panel — cities + Census ACS demographics (poverty, education,
+        // income) for the states within a region.
+        Route::get('/map/region-demographics', MapRegionDemographicsController::class)
+            ->name('map.region-demographics');
 
         Route::get('/map/candidate-overview', MapCandidateOverviewController::class)
             ->name('map.candidate-overview');

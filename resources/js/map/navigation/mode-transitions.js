@@ -13,7 +13,7 @@ import { flyTo, flyToMeshes, flyToMeshesTopDown } from '../scene/camera-animatio
 import { camera, controls, renderer, mapGroup, resizeRenderer } from '../scene/setup.js';
 import { REGIONS, STATE_ABBR_MAP, PARTY_HEX, PARTY_LABEL, DISTRICT_COUNTS } from '../config/constants.js';
 import { clearDistricts, buildDistrictOverlay, resetDistrictSelection, districtMeshes, hoveredDistrict, setHoveredDistrict } from '../scene/district-overlay.js';
-import { openStatePanel, partyClass } from '../ui/panel-state.js';
+import { openStatePanel, partyClass, initOfficesToggle } from '../ui/panel-state.js';
 import { openDistrictPanel } from '../ui/panel-district.js';
 import { showRegionLegend, showPartyLegend } from '../ui/legend.js';
 import { clearDistrictLabels, buildDistrictLabels } from '../ui/labels-overlay.js';
@@ -28,6 +28,7 @@ import { trackEvent } from '../api/interaction.js';
 import { updateBreadcrumb } from '../ui/breadcrumb.js';
 import { updateDistrictLabels, updateCityDots } from '../render-loop.js';
 import { openInfoPanel } from '../ui/info-panel.js';
+import { openRegionPanel } from '../ui/panel-region.js';
 
 /* ── Colour helpers ── */
 export function lighten(hex, amt = 55) {
@@ -77,7 +78,7 @@ export function enterRegionMode(regionName, region) {
     setStateData(null);
     setMapMode('region'); setActiveRegion(regionName); setActiveState(null); setSelectedState(null);
     clearDistricts(); clearDistrictLabels(); clearCityMarkers(); clearGovMarkers(); clearCandidateMarkers(); closePolDrawer();
-    document.getElementById('info-panel').classList.remove('open');
+    openRegionPanel(regionName, region);
     resizeRenderer();
     document.getElementById('btn-back').style.display = '';
     document.getElementById('hint').innerHTML = `Click a state in the <span style="color:${region.hex}">${regionName}</span> region`;
@@ -98,6 +99,13 @@ export function enterRegionMode(regionName, region) {
 export async function enterStateMode(stateName, regionName, region) {
     const requestId = nextRequestId();
     setMapMode('state'); setActiveRegion(regionName); setActiveState(stateName); setSelectedState(stateName);
+
+    // Undo the region panel's relabel/force-open of the offices toggle (see
+    // panel-region.js::openRegionPanel) and reapply the user's actual
+    // state-mode collapse preference.
+    const officesLabel = document.getElementById('offices-toggle')?.querySelector('span');
+    if (officesLabel) officesLabel.textContent = 'Statewide Executive Offices';
+    initOfficesToggle();
     _syncNatDistVisibility();
     document.getElementById('btn-back').style.display = '';
     document.getElementById('hint').innerHTML = 'Click a congressional district to see candidates';

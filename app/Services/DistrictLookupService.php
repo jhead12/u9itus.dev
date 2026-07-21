@@ -174,9 +174,18 @@ class DistrictLookupService
      */
     protected function extractDistrictFromNumericKeys(array $row): ?string
     {
-        // The Census Geocoder returns CD119, CD118 … (without the "FP" suffix).
-        // The FP variants are kept as fallbacks for any third-party data sources.
-        foreach (['CD119', 'CD118', 'CD117', 'CD116', 'CD119FP', 'CD118FP', 'CD117FP', 'CD116FP', 'DISTRICT', 'district'] as $key) {
+        // Match any CD<congress-number>[FP] key dynamically — the Census
+        // Geocoder has returned district fields under Congress sessions older
+        // than the hardcoded list here for at-large states, silently failing
+        // the lookup. See MapGeocodeController::extractDistrictNumber() for
+        // the same fix.
+        $candidateKeys = array_filter(
+            array_keys($row),
+            fn ($key) => preg_match('/^CD\d+(FP)?$/i', (string) $key) === 1,
+        );
+        usort($candidateKeys, fn ($a, $b) => (int) preg_replace('/\D/', '', $b) <=> (int) preg_replace('/\D/', '', $a));
+
+        foreach ([...$candidateKeys, 'DISTRICT', 'district'] as $key) {
             if (! isset($row[$key])) {
                 continue;
             }
