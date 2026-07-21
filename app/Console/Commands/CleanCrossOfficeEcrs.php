@@ -53,6 +53,13 @@ class CleanCrossOfficeEcrs extends Command
         //  1. Match a politician who is seated in a DIFFERENT office
         //  2. Are not already resolved (not 'eliminated' or 'advanced_to_general')
         //  3. Have an election_date in the past OR no election_date
+        //
+        // Driver-branching JSON extraction: SQLite (test env) lacks MySQL's
+        // JSON_UNQUOTE(JSON_EXTRACT(...)); both forms return the unquoted scalar.
+        $primaryResultExpr = DB::connection()->getDriverName() === 'sqlite'
+            ? "json_extract(e.payload,'$.primary_result')"
+            : "JSON_UNQUOTE(JSON_EXTRACT(e.payload,'$.primary_result'))";
+
         $sql = "
             SELECT e.id,
                    e.full_name,
@@ -69,9 +76,7 @@ class CleanCrossOfficeEcrs extends Command
              AND UPPER(COALESCE(e.state,''))               = UPPER(COALESCE(p.state,''))
              AND LOWER(COALESCE(e.political_office,''))    != LOWER(COALESCE(p.political_office,''))
             WHERE p.term_status IN ('seated','current')
-              AND COALESCE(
-                    JSON_UNQUOTE(JSON_EXTRACT(e.payload,'$.primary_result')),''
-                  ) NOT IN ('eliminated','advanced_to_general')
+              AND COALESCE({$primaryResultExpr},'') NOT IN ('eliminated','advanced_to_general')
               AND (e.election_date IS NULL OR e.election_date < :today)
         ";
 

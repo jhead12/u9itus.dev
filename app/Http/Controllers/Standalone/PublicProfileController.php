@@ -1784,6 +1784,12 @@ class PublicProfileController extends Controller
         // preventing stale imports (e.g. retired members) from surfacing indefinitely.
         $lastSeenCutoff = now()->subDays(180);
 
+        // Driver-branching JSON extraction so the test env (SQLite) doesn't choke
+        // on the MySQL `->>` operator. Both return the unquoted scalar.
+        $primaryResultExpr = \DB::connection()->getDriverName() === 'sqlite'
+            ? "json_extract(payload,'$.primary_result')"
+            : "payload->>'$.primary_result'";
+
         $records = ElectionCandidateRecord::query()
             ->where(function ($q) use ($state, $stateName) {
                 $q->whereRaw('UPPER(state) = ?', [$state]);
@@ -1809,7 +1815,7 @@ class PublicProfileController extends Controller
                 })->orWhereDate('election_date', '>=', $recentThreshold);
             })
             // Exclude records marked as eliminated by reconcile-status
-            ->whereRaw("COALESCE(payload->>'$.primary_result', '') != 'eliminated'")
+            ->whereRaw("COALESCE({$primaryResultExpr}, '') != 'eliminated'")
             ->orderBy('election_date')
             ->orderByDesc('last_seen_at')
             ->limit(150)

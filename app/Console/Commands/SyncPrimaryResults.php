@@ -78,12 +78,19 @@ class SyncPrimaryResults extends Command
         // imports often store the GENERAL election date on the row. If we filtered by
         // past election_date, eliminated primary candidates would never be processed.
         // The district filter remains broad; governance_level=State is the scope guard.
+        // Driver-branching JSON extraction so the SQLite test env doesn't choke on
+        // MySQL's JSON_UNQUOTE(JSON_EXTRACT(...)). Both return the unquoted scalar.
+        $driver = DB::connection()->getDriverName();
+        $extract = fn (string $key): string => $driver === 'sqlite'
+            ? "json_extract(payload,'{$key}')"
+            : "JSON_UNQUOTE(JSON_EXTRACT(payload,'{$key}'))";
+
         $query = DB::table('election_candidate_records')
             ->whereRaw('LOWER(COALESCE(governance_level,\'\')) = ?', ['state'])
             // Ignore seated officeholder rows; they are not on the primary ballot.
-            ->whereRaw("COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload,'$.status')),'') != 'seated'")
+            ->whereRaw('COALESCE(' . $extract('$.status') . ',\'\') != ?', ['seated'])
             // Exclude rows already stamped eliminated to avoid re-processing them
-            ->whereRaw("COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload,'$.primary_result')),'') != 'eliminated'");
+            ->whereRaw('COALESCE(' . $extract('$.primary_result') . ',\'\') != ?', ['eliminated']);
 
         if ($stateFilter) {
             $query->whereRaw('UPPER(COALESCE(state,\'\')) = ?', [$stateFilter]);
