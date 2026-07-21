@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Standalone;
 
 use App\Http\Controllers\Controller;
+use App\Services\TwoFactorRecoveryService;
 use App\Services\TwoFactorService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -154,7 +155,9 @@ class TwoFactorController extends Controller
             return redirect()->route('2fa.setup');
         }
 
-        return view('standalone.auth.2fa-challenge');
+        $phoneVerified = (bool) $user->phone_verified_at;
+
+        return view('standalone.auth.2fa-challenge', compact('phoneVerified'));
     }
 
     public function verifyChallenge(Request $request, TwoFactorService $twoFactor)
@@ -194,6 +197,86 @@ class TwoFactorController extends Controller
         $request->session()->put('2fa_verified_at', now()->toIso8601String());
 
         return redirect()->intended($this->dashboardRoute($user));
+    }
+
+    // ── SMS recovery (lost authenticator + recovery codes) ─────────────────────
+
+    public function showRecovery(Request $request)
+    {
+        $user = $request->user();
+
+        if (!$user || $user->hasRole('admin')) {
+            abort(403);
+        }
+
+        if (!$user->hasTwoFactorEnabled()) {
+            return redirect()->route('2fa.setup');
+        }
+
+        $phoneVerified = (bool) $user->phone_verified_at;
+
+        return view('standalone.auth.2fa-recovery-sms-request', compact('phoneVerified'));
+    }
+
+    public function sendRecoveryCode(Request $request, TwoFactorRecoveryService $recovery)
+    {
+        $user = $request->user();
+
+        if (!$user || $user->hasRole('admin')) {
+            abort(403);
+        }
+
+        if (!$user->hasTwoFactorEnabled()) {
+            return redirect()->route('2fa.setup');
+        }
+
+        if (!$user->phone_verified_at) {
+            return back()->withErrors(['recovery' => 'This account does not have a verified phone number on file, so SMS recovery is not available.']);
+        }
+
+        if (!$recovery->sendRecoveryCode($user)) {
+            return back()->withErrors(['recovery' => 'Unable to send a recovery code right now. Please try again in a minute, or contact support.']);
+        }
+
+        return redirect()->route('2fa.recovery-sms.verify')
+            ->with('success', 'A recovery code was sent to your phone ending in ' . substr((string) $user->phone, -4) . '.');
+    }
+
+    public function showRecoveryVerify(Request $request)
+    {
+        $user = $request->user();
+
+        if (!$user || $user->hasRole('admin')) {
+            abort(403);
+        }
+
+        if (!$user->hasTwoFactorEnabled()) {
+            return redirect()->route('2fa.setup');
+        }
+
+        return view('standalone.auth.2fa-recovery-sms-verify');
+    }
+
+    public function verifyRecoveryCode(Request $request, TwoFactorRecoveryService $recovery)
+    {
+        $request->validate([
+            'code' => ['required', 'string', 'size:6', 'regex:/^\d{6}$/'],
+        ]);
+
+        $user = $request->user();
+
+        if (!$user || $user->hasRole('admin')) {
+            abort(403);
+        }
+
+        if (!$recovery->verifyAndDisable($user, (string) $request->input('code'))) {
+            return back()->withErrors(['code' => 'Invalid or expired code. Please try again or request a new code.']);
+        }
+
+        $request->session()->forget(['2fa_verified_user_id', '2fa_verified_at']);
+
+        return redirect()->intended($this->dashboardRoute($user))
+            ->with('success', 'Two-factor authentication has been disabled for your account. You can re-enable it anytime from Security Settings.');
     }
 
     private function dashboardRoute(\App\Models\User $user): string

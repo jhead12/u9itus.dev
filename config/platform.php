@@ -40,6 +40,14 @@ return [
             // policies can be tuned independently.
             'two_factor' => [
                 'session_ttl_minutes' => (int) env('TWO_FACTOR_SESSION_TTL_MINUTES', 120),
+                // Self-service SMS recovery: lets a user with a verified phone
+                // disable their own stuck 2FA without needing the
+                // auth:reset-2fa artisan command run over SSH.
+                'recovery_sms' => [
+                    'code_ttl_minutes' => (int) env('TWO_FACTOR_RECOVERY_SMS_CODE_TTL_MINUTES', 10),
+                    'max_attempts' => (int) env('TWO_FACTOR_RECOVERY_SMS_MAX_ATTEMPTS', 5),
+                    'resend_cooldown_seconds' => (int) env('TWO_FACTOR_RECOVERY_SMS_RESEND_COOLDOWN_SECONDS', 60),
+                ],
             ],
         ],
         

@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Two-Factor Verification — {{ config('app.name', 'U9itus') }}</title>
+    <title>SMS Recovery — {{ config('app.name', 'U9itus') }}</title>
     @include('standalone.partials.seo-head')
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=inter:300,400,500,600,700&display=swap" rel="stylesheet" />
@@ -20,12 +20,12 @@
     @include('standalone.partials.auth-logo', ['subtitle' => 'Security Verification'])
 
     <div class="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-8 shadow-2xl">
-        <h1 class="text-xl font-semibold text-white mb-1">Security Challenge</h1>
-        <p class="text-sm text-slate-400 mb-6">Enter your authenticator code or a one-time recovery code to continue.</p>
+        <h1 class="text-xl font-semibold text-white mb-1">Enter Recovery Code</h1>
+        <p class="text-sm text-slate-400 mb-6">Enter the 6-digit code we texted you. This will disable your current two-factor authentication.</p>
 
-        @if(session('warning'))
-            <div class="mb-4 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 text-sm">
-                {{ session('warning') }}
+        @if(session('success'))
+            <div class="mb-4 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-sm">
+                {{ session('success') }}
             </div>
         @endif
 
@@ -35,7 +35,7 @@
             </div>
         @endif
 
-        <form method="POST" action="{{ route('2fa.challenge.verify') }}" class="space-y-4">
+        <form method="POST" action="{{ route('2fa.recovery-sms.verify.submit') }}" class="space-y-4">
             @csrf
             <div>
                 <label for="code" class="block text-sm font-medium text-slate-300 mb-1.5">Code</label>
@@ -43,31 +43,30 @@
                     id="code"
                     type="text"
                     name="code"
-                    maxlength="32"
+                    maxlength="6"
+                    inputmode="numeric"
+                    pattern="\d{6}"
                     required
                     autofocus
-                    placeholder="123456 or XXXX-XXXX"
+                    placeholder="123456"
                     class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm tracking-[0.12em] text-center focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500"
                     autocomplete="one-time-code"
                 />
             </div>
 
             <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2.5 rounded-lg transition">
-                Verify and Continue
+                Verify and Disable 2FA
             </button>
         </form>
 
-        <div class="mt-5 text-xs text-slate-500">
-            Need to reconfigure 2FA? Visit your
-            <a class="text-emerald-400 hover:text-emerald-300" href="{{ route('2fa.setup') }}">account security settings</a>.
-        </div>
+        <form method="POST" action="{{ route('2fa.recovery-sms.send') }}" class="mt-3">
+            @csrf
+            <button type="submit" class="text-xs text-emerald-400 hover:text-emerald-300">Didn't get a code? Request another</button>
+        </form>
 
-        @if($phoneVerified)
-            <div class="mt-3 text-xs text-slate-500">
-                Lost your authenticator and recovery codes?
-                <a class="text-emerald-400 hover:text-emerald-300" href="{{ route('2fa.recovery-sms') }}">Text me a recovery code</a>.
-            </div>
-        @endif
+        <div class="mt-5 text-xs text-slate-500">
+            <a class="text-emerald-400 hover:text-emerald-300" href="{{ route('2fa.challenge') }}">Back to security challenge</a>.
+        </div>
     </div>
 </div>
 
