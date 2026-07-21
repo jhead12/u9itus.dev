@@ -2257,7 +2257,8 @@ class AdminController extends Controller
             abort(404, 'No KYC document found for this user.');
         }
 
-        $path = storage_path('app/public/' . $user->kyc_document_path);
+        // SEC-2: serve from the private `local` disk, not the public symlink.
+        $path = Storage::disk('local')->path($user->kyc_document_path);
 
         if (!file_exists($path)) {
             abort(404, 'KYC document file not found on server.');
