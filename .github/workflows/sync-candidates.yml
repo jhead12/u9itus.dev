@@ -1,6 +1,8 @@
 name: Sync Candidates
 
-# Runs weekly (Sunday 02:00 UTC) and can be triggered manually from the Actions tab.
+# Runs daily at 02:00 UTC and can be triggered manually from the Actions tab.
+# The weekly politicians:reconcile-status schedule (Sun 04:00 UTC) runs after
+# this daily sync on Sundays.
 on:
   schedule:
     - cron: "0 2 * * *"   # Every day at 02:00 UTC
