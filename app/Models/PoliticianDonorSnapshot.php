@@ -20,6 +20,7 @@ class PoliticianDonorSnapshot extends Model
         'top_contributors',
         'top_industries',
         'fec_summary',
+        'opensecrets_summary',
         'outside_spending',
         'pac_affiliations',
         'opensecrets_source_url',
@@ -34,6 +35,7 @@ class PoliticianDonorSnapshot extends Model
             'top_contributors' => 'array',
             'top_industries'   => 'array',
             'fec_summary'      => 'array',
+            'opensecrets_summary' => 'array',
             'outside_spending' => 'array',
             'pac_affiliations' => 'array',
             'enriched_at'      => 'datetime',
@@ -70,6 +72,11 @@ class PoliticianDonorSnapshot extends Model
         return !empty($this->fec_summary);
     }
 
+    public function hasOpenSecretsSummary(): bool
+    {
+        return !empty($this->opensecrets_summary);
+    }
+
     public function hasOutsideSpending(): bool
     {
         return !empty($this->outside_spending);
@@ -85,6 +92,7 @@ class PoliticianDonorSnapshot extends Model
         return $this->hasContributors()
             || $this->hasIndustries()
             || $this->hasFecSummary()
+            || $this->hasOpenSecretsSummary()
             || $this->hasOutsideSpending();
     }
 }

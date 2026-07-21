@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\Log;
 class EnrichPoliticianDonors extends Command
 {
     protected $signature = 'politicians:enrich-donors
-        {--limit=50          : Max politicians to process per run}
+        {--limit=200         : Max politicians to process per run}
         {--stale-hours=48    : Re-enrich snapshots older than N hours}
         {--politician=       : Process a single politician by ID or slug}
         {--force             : Re-enrich even if snapshot is fresh}
@@ -119,6 +119,7 @@ class EnrichPoliticianDonors extends Command
             'top_contributors'       => null,
             'top_industries'         => null,
             'fec_summary'            => null,
+            'opensecrets_summary'    => null,
             'outside_spending'       => null,
             'pac_affiliations'       => null,
             'opensecrets_source_url' => null,
@@ -136,6 +137,7 @@ class EnrichPoliticianDonors extends Command
             if (is_array($data)) {
                 $snapshot['top_contributors']       = $data['top_contributors'] ?? null;
                 $snapshot['top_industries']         = $data['top_industries']   ?? null;
+                $snapshot['opensecrets_summary']    = $data['candidate_summary'] ?? null;
                 $snapshot['opensecrets_source_url'] = $data['profile_url']      ?? null;
 
                 // Derived: flag known advocacy-group PACs (e.g. AIPAC-aligned) found

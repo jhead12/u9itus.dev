@@ -48,8 +48,18 @@ Schedule::command('news:check-refresh-health')
 
 // Donor/sponsor enrichment — refresh cached OpenSecrets + FEC data nightly.
 // The GitHub Actions workflow (enrich-donor-snapshots.yml) also fires this.
-Schedule::command('politicians:enrich-donors --stale-hours=48 --limit=50')
+Schedule::command('politicians:enrich-donors --stale-hours=48 --limit=200')
     ->dailyAt('03:00')
+    ->withoutOverlapping();
+
+// Census city demographics — refresh poverty / education / income + precomputed
+// congressional districts for the curated ~200-city allow-list (all 50 states
+// + DC). ACS data updates yearly, so weekly is plenty. The GitHub Actions
+// workflow (sync-census-demographics.yml, Sunday 05:00 UTC) is the primary
+// runner; this in-app schedule is a backstop so it still runs when web traffic
+// is driving the scheduler even if the GA cron silently stops.
+Schedule::command('geo:sync-census-demographics')
+    ->weeklyOn(0, '07:00')
     ->withoutOverlapping();
 
 // Weekly politician lifecycle reconciliation — marks seated/retired/lost/running.

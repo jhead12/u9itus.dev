@@ -186,8 +186,10 @@ class OpenSecretsService
 
         $topContributors = $snapshot->top_contributors ?? [];
         $topIndustries   = $snapshot->top_industries   ?? [];
+        $openSecretsSummary = $snapshot->opensecrets_summary ?? [];
+        $pacAffiliations = $snapshot->pac_affiliations ?? [];
 
-        if (empty($topContributors) && empty($topIndustries)) {
+        if (empty($topContributors) && empty($topIndustries) && empty($openSecretsSummary) && empty($pacAffiliations)) {
             return null; // Enriched but no data found on OpenSecrets
         }
 
@@ -203,11 +205,16 @@ class OpenSecretsService
         if (! empty($topIndustries)) {
             $sections['top_industries'] = ['items' => $topIndustries];
         }
+        if (! empty($openSecretsSummary)) {
+            $sections['summary'] = $openSecretsSummary;
+        }
 
         return [
-            'source'     => 'OpenSecrets',
-            'source_url' => $sourceUrl,
-            'sections'   => $sections,
+            'source'           => 'OpenSecrets',
+            'source_url'       => $sourceUrl,
+            'sections'         => $sections,
+            'pac_affiliations'  => $snapshot->pac_affiliations,
+            'election_cycle'    => $snapshot->election_cycle,
         ];
     }
 

@@ -88,7 +88,16 @@ class FECService
             return null;
         }
 
-        if (!$politician->show_fec_data || !$this->isFederalCandidate($politician)) {
+        // FEC reporting is a hard federal-only constraint. The per-polician
+        // show_fec_data display toggle is enforced by the caller
+        // (PublicProfileController::fetchTransparencyData gates on
+        // show_fec_data || isUnclaimed), NOT here — re-gating here would
+        // block unclaimed federal profiles (show_fec_data defaults false)
+        // from ever receiving FEC data, defeating the controller's intent
+        // to always surface finance data for unclaimed federal officials,
+        // and would prevent the nightly enrich job from populating their
+        // snapshots at all.
+        if (!$this->isFederalCandidate($politician)) {
             return null;
         }
 

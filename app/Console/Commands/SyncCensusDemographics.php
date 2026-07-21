@@ -3,9 +3,14 @@
 namespace App\Console\Commands;
 
 use App\Models\CityDemographic;
+use App\Models\ImportRunLog;
+use App\Models\User;
+use App\Notifications\ImportRunFailedNotification;
 use App\Services\DistrictLookupService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
 
 /**
@@ -144,15 +149,94 @@ class SyncCensusDemographics extends Command
 
         $this->info('Census demographics sync — year=' . $year . ' states=' . count($states) . ($dryRun ? ' [DRY RUN]' : ''));
 
+        // Record this run for admin visibility (ImportRunLog is shared with the
+        // politician import pipeline; command_name distinguishes them).
+        $runLog = ImportRunLog::create([
+            'command_name' => 'geo:sync-census-demographics',
+            'source_url'   => "https://api.census.gov/data/{$year}/acs/acs5",
+            'with_campaigns' => false,
+            'dry_run'      => $dryRun,
+            'status'       => 'running',
+            'started_at'   => now(),
+        ]);
+
+        $perState = [];
         $upserted = 0;
-        foreach ($states as $abbr => $fips) {
-            $upserted += $this->syncState($abbr, $fips, $year, $dryRun, $districtLookup);
+
+        try {
+            foreach ($states as $abbr => $fips) {
+                $count = $this->syncState($abbr, $fips, $year, $dryRun, $districtLookup);
+                $perState[$abbr] = $count;
+                $upserted += $count;
+            }
+
+            $suffix = $dryRun ? ' (dry-run — no DB writes)' : '';
+            $this->info("Done. {$upserted} rows upserted{$suffix}.");
+
+            // A non-dry-run that touches states but upserts zero rows almost
+            // always means a systemic Census API problem (bad key, outage,
+            // schema change). Surface it as a failure so admins get alerted
+            // instead of silently losing all city demographics.
+            if (! $dryRun && $upserted === 0) {
+                $summary = $this->buildRunSummary($year, $states, $perState, $upserted, $dryRun);
+                $runLog->markFailed(self::SUCCESS, $summary, 'Census demographics sync completed but upserted 0 rows across ' . count($states) . ' states — likely a Census API problem.');
+                $this->alertAdmins($runLog);
+                $this->error('0 rows upserted — possible Census API failure. Admins alerted.');
+
+                return self::FAILURE;
+            }
+
+            $summary = $this->buildRunSummary($year, $states, $perState, $upserted, $dryRun);
+            $runLog->markSuccess(self::SUCCESS, $summary, ['created' => $upserted, 'updated' => 0, 'skipped' => 0, 'campaigns_created' => 0]);
+
+            return self::SUCCESS;
+        } catch (\Throwable $e) {
+            $summary = $this->buildRunSummary($year, $states, $perState, $upserted, $dryRun);
+            $runLog->markFailed(-1, $summary, $e->getMessage());
+            $this->alertAdmins($runLog);
+
+            Log::error('Census demographics sync crashed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            $this->error('Sync crashed: ' . $e->getMessage() . ' — admins alerted.');
+
+            return self::FAILURE;
+        }
+    }
+
+    /**
+     * Build a compact, admin-readable run summary for the ImportRunLog output.
+     *
+     * @param array<string, string> $states
+     * @param array<string, int> $perState
+     */
+    protected function buildRunSummary(int $year, array $states, array $perState, int $upserted, bool $dryRun): string
+    {
+        $lines = ["year={$year} states=" . count($states) . " upserted={$upserted}" . ($dryRun ? ' [DRY RUN]' : '')];
+        foreach ($perState as $abbr => $count) {
+            $lines[] = "  {$abbr}: {$count}";
         }
 
-        $suffix = $dryRun ? ' (dry-run — no DB writes)' : '';
-        $this->info("Done. {$upserted} rows upserted{$suffix}.");
+        return implode("\n", $lines);
+    }
 
-        return self::SUCCESS;
+    /**
+     * Queue a failure notification to all admin users.
+     */
+    protected function alertAdmins(ImportRunLog $runLog): void
+    {
+        try {
+            $admins = User::where('user_type', 'admin')->get();
+            if ($admins->isNotEmpty()) {
+                Notification::send($admins, new ImportRunFailedNotification($runLog, 'Census Demographics Sync'));
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Census demographics sync: failed to queue admin alert', [
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     private function syncState(string $abbr, string $fips, int $year, bool $dryRun, DistrictLookupService $districtLookup): int

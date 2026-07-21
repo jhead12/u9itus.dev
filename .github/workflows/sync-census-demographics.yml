@@ -1,27 +1,28 @@
-name: Enrich Donor Snapshots
+name: Sync Census Demographics
 
-# Runs nightly at 03:00 UTC and can be triggered manually.
+# Populates city_demographics (poverty / education / income + precomputed
+# congressional district) and state/district populations for the curated
+# ~200-city allow-list across all 50 states + DC. This is the data behind the
+# 3D map's region panel ("Cities & Demographics") and the state/district
+# population stats.
+#
+# Runs weekly (Sunday 05:00 UTC, after the Sunday 02:00 candidate sync) and
+# can be triggered manually. Requires the CENSUS_DATA_API secret (free key,
+# https://api.census.gov/data/key_signup.html).
+
 on:
   schedule:
-    - cron: "0 3 * * *"
+    - cron: "0 5 * * 0"
   workflow_dispatch:
     inputs:
-      limit:
-        description: "Max politicians to enrich per run"
-        default: "200"
+      year:
+        description: "ACS 5-year vintage to pull"
+        default: "2022"
         required: false
-      stale_hours:
-        description: "Re-enrich snapshots older than N hours"
-        default: "48"
-        required: false
-      politician:
-        description: "Single politician ID or slug (leave blank for batch)"
+      state:
+        description: "Two-letter state filter (repeat not supported here; leave blank for all states)"
         default: ""
         required: false
-      force:
-        description: "Force re-enrich even if snapshot is fresh"
-        type: boolean
-        default: false
       dry_run:
         description: "Dry-run (report only, no DB writes)"
         type: boolean
@@ -31,8 +32,8 @@ permissions:
   contents: read
 
 jobs:
-  enrich-donors:
-    name: Fetch donor/sponsor snapshots
+  sync-census:
+    name: Fetch Census ACS demographics + populations
     runs-on: ubuntu-latest
 
     steps:
@@ -56,20 +57,6 @@ jobs:
       - name: Install Composer dependencies
         run: composer install --prefer-dist --no-interaction --no-progress --no-dev
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "24"
-          cache: "npm"
-
-      - name: Install Node dependencies
-        run: npm ci
-        env:
-          NODE_ENV: development
-
-      - name: Install Playwright Chromium
-        run: npx playwright install chromium --with-deps
-
       - name: Write .env
         run: |
           cat > .env <<EOF
@@ -85,7 +72,7 @@ jobs:
           DB_USERNAME=${{ secrets.DB_USERNAME }}
           DB_PASSWORD=${{ secrets.DB_PASSWORD }}
 
-          FEC_API_KEY=${{ secrets.FEC_API_KEY }}
+          CENSUS_DATA_API=${{ secrets.CENSUS_DATA_API }}
 
           CACHE_DRIVER=database
           SESSION_DRIVER=database
@@ -96,19 +83,18 @@ jobs:
       - name: Run pending migrations
         run: php artisan migrate --force --no-interaction
 
-      - name: Enrich donor snapshots
+      - name: Sync city demographics (ACS)
         run: |
-          LIMIT="${{ github.event.inputs.limit || '50' }}"
-          STALE="${{ github.event.inputs.stale_hours || '48' }}"
-          POL="${{ github.event.inputs.politician || '' }}"
-          FORCE=${{ github.event.inputs.force == 'true' && '--force' || '' }}
+          YEAR="${{ github.event.inputs.year || '2022' }}"
+          STATE="${{ github.event.inputs.state || '' }}"
           DRY=${{ github.event.inputs.dry_run == 'true' && '--dry-run' || '' }}
-          POL_ARG=""
-          if [ -n "$POL" ]; then POL_ARG="--politician=$POL"; fi
+          STATE_ARG=""
+          if [ -n "$STATE" ]; then STATE_ARG="--state=$STATE"; fi
 
-          php artisan politicians:enrich-donors \
-            --limit="${LIMIT}" \
-            --stale-hours="${STALE}" \
-            ${POL_ARG} \
-            ${FORCE} \
+          php artisan geo:sync-census-demographics \
+            --year="${YEAR}" \
+            ${STATE_ARG} \
             ${DRY}
+
+      - name: Sync state & district populations (Census)
+        run: php artisan geo:sync-census-population

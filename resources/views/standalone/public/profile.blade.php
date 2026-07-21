@@ -1156,19 +1156,61 @@
 
         {{-- ── Follow the Money (OpenSecrets / FEC donor data) ────────────── --}}
         @php
-            $donorData   = $transparencyData['opensecrets'] ?? null;
-            $fecData     = $transparencyData['fec'] ?? null;
-            $topDonors   = $donorData['sections']['top_contributors']['items'] ?? [];
-            $topIndustries = $donorData['sections']['top_industries']['items'] ?? [];
-            $fecSummary  = $fecData['sections']['summary'] ?? null;
+            $donorData          = $transparencyData['opensecrets'] ?? null;
+            $fecData            = $transparencyData['fec'] ?? null;
+            $topDonors          = $donorData['sections']['top_contributors']['items'] ?? [];
+            $topIndustries      = $donorData['sections']['top_industries']['items'] ?? [];
+            $fecSummary         = $fecData['sections']['summary'] ?? null;
+            $openSecretsSummary = $donorData['sections']['summary'] ?? null;
+            $pacAffiliations    = $donorData['pac_affiliations'] ?? null;
+            $electionCycle      = $donorData['election_cycle'] ?? $fecSummary['cycle'] ?? null;
+
+            // Stored finance values are pre-formatted strings ("$1,234,567").
+            // Render those as-is; format bare numerics. Avoids the prior bug
+            // where number_format("$52,000") cast to 52 and rendered "$52".
+            $fmtMoney = function ($v) {
+                if ($v === null || $v === '') {
+                    return null;
+                }
+                $s = trim((string) $v);
+                return str_starts_with($s, '$') ? $s : '$' . number_format((float) $s);
+            };
         @endphp
-        @if(!empty($topDonors) || !empty($topIndustries) || $fecSummary)
+        @if(!empty($topDonors) || !empty($topIndustries) || $fecSummary || $openSecretsSummary || !empty($pacAffiliations))
         <section>
             <h2 class="text-xl font-bold text-white mb-4 flex items-center gap-2">
                 <span class="w-1 h-6 rounded-full inline-block" style="background:var(--p13-accent,#f59e0b)"></span>
                 Follow the Money
+                @if(!empty($electionCycle))
+                    <span class="text-xs font-medium text-slate-400 ml-1">{{ $electionCycle }} cycle</span>
+                @endif
             </h2>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+                {{-- PAC affiliation chips (high-signal "who funds them") --}}
+                @if(!empty($pacAffiliations))
+                <div class="sm:col-span-2 bg-slate-800/40 border border-slate-700/40 rounded-xl p-5">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-3">
+                        Known PAC Affiliations
+                        @if(!empty($donorData['source_url']))
+                            · <a href="{{ $donorData['source_url'] }}" target="_blank" rel="noopener" class="text-emerald-400 hover:underline">OpenSecrets ↗</a>
+                        @endif
+                    </p>
+                    <div class="flex flex-wrap gap-2">
+                        @foreach($pacAffiliations as $match)
+                            <span class="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 text-amber-200">
+                                {{ $match['label'] ?? $match['group'] ?? 'PAC' }}
+                                @if(!empty($match['matched_name']))
+                                    <span class="text-amber-100/70">· {{ $match['matched_name'] }}</span>
+                                @endif
+                                @if($fmtMoney($match['total'] ?? null))
+                                    <span class="text-amber-100/70 tabular-nums">{{ $fmtMoney($match['total']) }}</span>
+                                @endif
+                            </span>
+                        @endforeach
+                    </div>
+                </div>
+                @endif
 
                 {{-- FEC totals banner --}}
                 @if($fecSummary)
@@ -1180,22 +1222,66 @@
                         @endif
                     </p>
                     <dl class="flex flex-wrap gap-6">
-                        @if(!empty($fecSummary['total_receipts']))
+                        @if($fmtMoney($fecSummary['receipts'] ?? null))
                         <div>
                             <dt class="text-xs text-slate-500">Total Raised</dt>
-                            <dd class="text-lg font-bold text-white">${{ number_format($fecSummary['total_receipts']) }}</dd>
+                            <dd class="text-lg font-bold text-white">{{ $fmtMoney($fecSummary['receipts']) }}</dd>
                         </div>
                         @endif
-                        @if(!empty($fecSummary['total_disbursements']))
+                        @if($fmtMoney($fecSummary['disbursements'] ?? null))
                         <div>
                             <dt class="text-xs text-slate-500">Total Spent</dt>
-                            <dd class="text-lg font-bold text-white">${{ number_format($fecSummary['total_disbursements']) }}</dd>
+                            <dd class="text-lg font-bold text-white">{{ $fmtMoney($fecSummary['disbursements']) }}</dd>
                         </div>
                         @endif
-                        @if(!empty($fecSummary['cash_on_hand_end_period']))
+                        @if($fmtMoney($fecSummary['cash_on_hand'] ?? null))
                         <div>
                             <dt class="text-xs text-slate-500">Cash on Hand</dt>
-                            <dd class="text-lg font-bold text-emerald-400">${{ number_format($fecSummary['cash_on_hand_end_period']) }}</dd>
+                            <dd class="text-lg font-bold text-emerald-400">{{ $fmtMoney($fecSummary['cash_on_hand']) }}</dd>
+                        </div>
+                        @endif
+                        @if($fmtMoney($fecSummary['debt'] ?? null))
+                        <div>
+                            <dt class="text-xs text-slate-500">Debt Owed</dt>
+                            <dd class="text-lg font-bold text-rose-400">{{ $fmtMoney($fecSummary['debt']) }}</dd>
+                        </div>
+                        @endif
+                    </dl>
+                </div>
+                @endif
+
+                {{-- OpenSecrets totals banner (primary finance source for non-federal candidates) --}}
+                @if($openSecretsSummary)
+                <div class="sm:col-span-2 bg-slate-800/40 border border-slate-700/40 rounded-xl p-5">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-3">
+                        OpenSecrets Summary
+                        @if(!empty($donorData['source_url']))
+                            · <a href="{{ $donorData['source_url'] }}" target="_blank" rel="noopener" class="text-emerald-400 hover:underline">View on OpenSecrets ↗</a>
+                        @endif
+                    </p>
+                    <dl class="flex flex-wrap gap-6">
+                        @if($fmtMoney($openSecretsSummary['total_raised'] ?? null))
+                        <div>
+                            <dt class="text-xs text-slate-500">Total Raised</dt>
+                            <dd class="text-lg font-bold text-white">{{ $fmtMoney($openSecretsSummary['total_raised']) }}</dd>
+                        </div>
+                        @endif
+                        @if($fmtMoney($openSecretsSummary['total_spent'] ?? null))
+                        <div>
+                            <dt class="text-xs text-slate-500">Total Spent</dt>
+                            <dd class="text-lg font-bold text-white">{{ $fmtMoney($openSecretsSummary['total_spent']) }}</dd>
+                        </div>
+                        @endif
+                        @if($fmtMoney($openSecretsSummary['cash_on_hand'] ?? null))
+                        <div>
+                            <dt class="text-xs text-slate-500">Cash on Hand</dt>
+                            <dd class="text-lg font-bold text-emerald-400">{{ $fmtMoney($openSecretsSummary['cash_on_hand']) }}</dd>
+                        </div>
+                        @endif
+                        @if($fmtMoney($openSecretsSummary['debt'] ?? null))
+                        <div>
+                            <dt class="text-xs text-slate-500">Debt Owed</dt>
+                            <dd class="text-lg font-bold text-rose-400">{{ $fmtMoney($openSecretsSummary['debt']) }}</dd>
                         </div>
                         @endif
                     </dl>
@@ -1211,8 +1297,8 @@
                         <li class="flex items-center justify-between gap-2">
                             <span class="text-xs text-slate-400 tabular-nums w-4">{{ $i + 1 }}.</span>
                             <span class="text-sm text-slate-200 flex-1 truncate">{{ $donor['name'] ?? '—' }}</span>
-                            @if(!empty($donor['total']))
-                            <span class="text-sm font-semibold text-white tabular-nums">${{ number_format($donor['total']) }}</span>
+                            @if($fmtMoney($donor['total'] ?? null))
+                            <span class="text-sm font-semibold text-white tabular-nums">{{ $fmtMoney($donor['total']) }}</span>
                             @endif
                         </li>
                         @endforeach
@@ -1233,8 +1319,8 @@
                         <li class="flex items-center justify-between gap-2">
                             <span class="text-xs text-slate-400 tabular-nums w-4">{{ $i + 1 }}.</span>
                             <span class="text-sm text-slate-200 flex-1 truncate">{{ $industry['industry_name'] ?? $industry['name'] ?? '—' }}</span>
-                            @if(!empty($industry['total']))
-                            <span class="text-sm font-semibold text-white tabular-nums">${{ number_format($industry['total']) }}</span>
+                            @if($fmtMoney($industry['total'] ?? null))
+                            <span class="text-sm font-semibold text-white tabular-nums">{{ $fmtMoney($industry['total']) }}</span>
                             @endif
                         </li>
                         @endforeach
