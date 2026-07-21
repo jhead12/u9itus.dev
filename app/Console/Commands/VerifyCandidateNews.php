@@ -10,6 +10,7 @@ class VerifyCandidateNews extends Command
     protected $signature = 'candidates:verify-news
         {--limit=500      : Max stored articles to verify}
         {--politician=    : Optional politician ID}
+        {--state=          : Two-letter state code — limit to one state}
         {--dry-run        : Report only, do not write updates}';
 
     protected $description = 'Re-verify stored candidate news relevance and assign issue/topic keys.';
@@ -18,6 +19,7 @@ class VerifyCandidateNews extends Command
     {
         $limit = max(1, (int) ($this->option('limit') ?? 500));
         $politicianId = $this->option('politician') !== null ? (int) $this->option('politician') : null;
+        $state = $this->option('state') ? strtoupper(trim((string) $this->option('state'))) : null;
         $dryRun = (bool) $this->option('dry-run');
 
         if ($dryRun) {
@@ -26,7 +28,7 @@ class VerifyCandidateNews extends Command
             return self::SUCCESS;
         }
 
-        $result = $newsService->reverifyStoredArticles($limit, $politicianId);
+        $result = $newsService->reverifyStoredArticles($limit, $politicianId, $state);
 
         $this->info(sprintf(
             'News verification done: processed=%d, verified=%d, rejected=%d',

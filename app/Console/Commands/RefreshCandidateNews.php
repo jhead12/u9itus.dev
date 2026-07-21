@@ -15,6 +15,7 @@ class RefreshCandidateNews extends Command
         {--stale-hours=6      : Only refresh candidates whose news is older than this many hours}
         {--limit=50           : Maximum number of candidates to process per run}
         {--politician=        : Refresh a single politician by ID}
+        {--state=              : Two-letter state code — limit to one state}
         {--dry-run            : Report which candidates would be refreshed without fetching}';
 
     protected $description = 'Fetch and cache recent news articles for candidates from Google News RSS (and optional NewsAPI/GNews).';
@@ -24,6 +25,7 @@ class RefreshCandidateNews extends Command
         $staleHours  = (int) $this->option('stale-hours');
         $limit       = (int) $this->option('limit');
         $politicianId = $this->option('politician');
+        $state       = $this->option('state') ? strtoupper(trim((string) $this->option('state'))) : null;
         $dryRun      = (bool) $this->option('dry-run');
 
         $staleThreshold = now()->subHours($staleHours);
@@ -45,6 +47,7 @@ class RefreshCandidateNews extends Command
             $politicians = Politician::query()
                 ->where('is_active', true)
                 ->whereNotIn('id', $recentlyFetched)
+                ->when($state, fn ($q) => $q->whereRaw('UPPER(COALESCE(state, \'\')) = ?', [$state]))
                 ->orderByDesc('total_views_received') // prioritise high-traffic profiles
                 ->limit($limit)
                 ->get();

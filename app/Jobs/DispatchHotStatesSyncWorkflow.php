@@ -12,10 +12,10 @@ use Illuminate\Support\Facades\Log;
 
 /**
  * Triggers workflow_dispatch on the map's state-scoped GitHub Actions
- * workflows (refresh-map-candidates, sync-census-demographics, and the full
- * sync-candidates pipeline) for whichever states are currently trending on
- * the 3-D map, so candidate/results/demographics data for those states
- * refreshes ahead of the next scheduled full sync.
+ * workflows (refresh-map-candidates, sync-census-demographics, the full
+ * sync-candidates pipeline, and refresh-candidate-news) for whichever states
+ * are currently trending on the 3-D map, so candidate/results/demographics/
+ * news data for those states refreshes ahead of the next scheduled full sync.
  *
  * Fired by the map:sync-hot-states command, which already applies the
  * click-volume threshold and per-state dispatch cooldown — this job just
@@ -43,6 +43,7 @@ class DispatchHotStatesSyncWorkflow implements ShouldQueue
         'refresh-map-candidates.yml',
         'sync-census-demographics.yml',
         'sync-candidates.yml',
+        'refresh-candidate-news.yml',
     ];
 
     /**

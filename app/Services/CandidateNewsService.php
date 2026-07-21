@@ -263,10 +263,14 @@ class CandidateNewsService
      * Re-run verification/topic extraction on existing stored articles.
      * Useful for backfills and quality-cleaning workflows.
      */
-    public function reverifyStoredArticles(int $limit = 500, ?int $politicianId = null): array
+    public function reverifyStoredArticles(int $limit = 500, ?int $politicianId = null, ?string $state = null): array
     {
         $query = CandidateNewsArticle::query()
             ->when($politicianId, fn ($q, $id) => $q->where('politician_id', $id))
+            ->when($state, fn ($q, $s) => $q->whereHas(
+                'politician',
+                fn ($pq) => $pq->whereRaw('UPPER(COALESCE(state, \'\')) = ?', [$s])
+            ))
             ->orderByDesc('published_at')
             ->limit($limit);
 
