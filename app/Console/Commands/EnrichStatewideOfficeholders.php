@@ -20,19 +20,27 @@ use Illuminate\Support\Str;
  *   php artisan politicians:enrich-statewide
  *   php artisan politicians:enrich-statewide --state=CA
  *   php artisan politicians:enrich-statewide --clean --dry-run
+ *   php artisan politicians:enrich-statewide --state=CA --force
  *
  * --clean removes unverified statewide politician records whose full_name
  * does not match any name returned by the enrichment pass, preventing
  * garbage scraper rows (e.g. "Linda Martinez") from showing on the map.
+ *
+ * --stale-hours skips an office/mayor entirely (no Ballotpedia/Wikipedia
+ * fetch, no Claude Tier-3 fallback) when a verified record already exists
+ * and was updated within the window — officeholders rarely change, so this
+ * avoids re-running the whole resolution pipeline (including the paid
+ * Claude fallback) for a state that was just enriched. --force bypasses it.
  */
 class EnrichStatewideOfficeholders extends Command
 {
     protected $signature = 'politicians:enrich-statewide
-        {--state=         : Two-letter state code. Omit to process all 50 states.}
-        {--scope=all      : What to enrich: all, statewide, mayors}
-        {--clean          : Delete unverified statewide records not matched by enrichment.}
-        {--dry-run        : Report only — no DB writes.}
-        {--force          : Re-enrich even records already marked verified.}';
+        {--state=          : Two-letter state code. Omit to process all 50 states.}
+        {--scope=all       : What to enrich: all, statewide, mayors}
+        {--clean           : Delete unverified statewide records not matched by enrichment.}
+        {--dry-run         : Report only — no DB writes.}
+        {--force           : Re-enrich even records already marked verified or still fresh.}
+        {--stale-hours=24  : Skip officeholders already updated within N hours (0 disables).}';
 
     protected $description = 'Enrich statewide executive officeholder data from Ballotpedia, Wikipedia, and (optionally) OpenAI.';
 
@@ -192,6 +200,7 @@ class EnrichStatewideOfficeholders extends Command
         $dryRun = (bool) $this->option('dry-run');
         $clean  = (bool) $this->option('clean');
         $force  = (bool) $this->option('force');
+        $staleHours = (int) $this->option('stale-hours');
 
         // DC is valid for mayors but not in STATE_NAMES (no Governor), so allow it explicitly
         $validStates = array_merge(array_keys(self::STATE_NAMES), ['DC']);
@@ -223,6 +232,14 @@ class EnrichStatewideOfficeholders extends Command
                 $this->line("\n<fg=green>[{$abbr}]</> {$stateName}");
 
                 foreach (self::OFFICES as $office => $config) {
+                    $existing = $this->findExistingRecord($abbr, $office, 'State', null);
+                    if ($this->isFresh($existing, $staleHours, $force)) {
+                        $this->line("  <fg=gray>· {$office}: fresh ({$existing->full_name}, updated " . $existing->status_updated_at?->diffForHumans() . ') — skipped</>');
+                        $this->enrichedKeys[] = strtolower("{$abbr}|{$office}|{$existing->full_name}");
+                        $skipped++;
+                        continue;
+                    }
+
                     $result = $this->resolveCurrentHolder($abbr, $stateName, $office, $config);
 
                     if ($result === null) {
@@ -260,6 +277,14 @@ class EnrichStatewideOfficeholders extends Command
                 $city      = $mayorConfig['city'];
                 $stateName = $mayorConfig['state_label'] ?? (self::STATE_NAMES[$abbr] ?? $abbr);
                 $this->line("\n<fg=green>[{$abbr}]</> {$city} Mayor");
+
+                $existing = $this->findExistingRecord($abbr, 'Mayor', 'City', $city);
+                if ($this->isFresh($existing, $staleHours, $force)) {
+                    $this->line("  <fg=gray>· Mayor of {$city}: fresh ({$existing->full_name}, updated " . $existing->status_updated_at?->diffForHumans() . ') — skipped</>');
+                    $this->enrichedKeys[] = strtolower("{$abbr}|mayor|{$existing->full_name}");
+                    $skipped++;
+                    continue;
+                }
 
                 $config = [
                     'wiki_patterns' => $mayorConfig['wiki'],
@@ -303,6 +328,42 @@ class EnrichStatewideOfficeholders extends Command
         );
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Look up the existing Politician row for a state/office (or mayor city),
+     * used to decide whether the resolution pipeline can be skipped as fresh.
+     */
+    private function findExistingRecord(string $abbr, string $office, string $governanceLevel, ?string $city): ?Politician
+    {
+        $query = Politician::query()
+            ->whereRaw('UPPER(COALESCE(state, \'\')) = ?', [$abbr])
+            ->whereRaw('LOWER(COALESCE(political_office, \'\')) = ?', [strtolower($office)])
+            ->where('governance_level', $governanceLevel);
+
+        if ($city !== null) {
+            $query->whereRaw('LOWER(COALESCE(city, \'\')) = ?', [strtolower($city)]);
+        }
+
+        return $query->orderByDesc('verified_official')->first();
+    }
+
+    /**
+     * True when an existing, unclaimed record was updated within the stale
+     * window — meaning the whole Ballotpedia → Wikipedia → Claude resolution
+     * pipeline can be skipped for it this run. --force and --stale-hours=0
+     * both disable the check. Claimed profiles (user_id set) are never
+     * considered "fresh" here since this command doesn't manage them.
+     */
+    private function isFresh(?Politician $existing, int $staleHours, bool $force): bool
+    {
+        if ($force || $staleHours <= 0 || ! $existing || $existing->user_id !== null) {
+            return false;
+        }
+
+        $lastUpdated = $existing->status_updated_at ?? $existing->updated_at;
+
+        return $lastUpdated !== null && $lastUpdated->gt(now()->subHours($staleHours));
     }
 
     /**

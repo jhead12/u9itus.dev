@@ -7,6 +7,10 @@
  *
  * Usage:
  *   node scripts/scrape-ballotpedia.js [--office=<filter>] [--state=CA] [--out=path/to/output.json]
+ *   node scripts/scrape-ballotpedia.js --office=statewide --state=CA --cache-hours=3 --out=...
+ *
+ * --cache-hours=N skips the scrape entirely (no browser launch) if --out
+ * already exists and is younger than N hours. Default 0 (always scrape).
  *
  * --office values:
  *   all              All federal + statewide offices (default)
@@ -37,7 +41,7 @@
  */
 
 import { chromium } from 'playwright';
-import { writeFileSync, mkdirSync } from 'fs';
+import { writeFileSync, mkdirSync, existsSync, statSync, readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -65,6 +69,13 @@ const ELECTION_YEAR  = args.year ? parseInt(args.year, 10) : 2026;
 const OUT_PATH       = args.out
   ? resolve(process.cwd(), args.out)
   : resolve(__dirname, `../storage/app/imports/ballotpedia-${ELECTION_YEAR}.json`);
+
+/**
+ * --cache-hours=N — if the output JSON already exists and was written within
+ * N hours, skip launching Playwright entirely and exit early, reusing the
+ * file already on disk. Set 0 (default) to always scrape.
+ */
+const CACHE_HOURS = args['cache-hours'] ? parseFloat(args['cache-hours']) : 0;
 
 /**
  * --strategy=direct  bypasses the Ballotpedia index pages and constructs
@@ -927,6 +938,24 @@ async function runWidgetStrategy(newPage, allCandidates) {
 }
 
 async function main() {
+  // ── Cache check: skip Playwright entirely if output JSON is still fresh ──
+  // When --cache-hours=N is set and the output file exists and is younger
+  // than N hours, exit immediately instead of launching a browser. This
+  // stops the hot-state map dispatcher (or a re-triggered manual run) from
+  // paying the Playwright cost again when nothing has likely changed on
+  // Ballotpedia since the last scrape for this exact office/state/year.
+  if (CACHE_HOURS > 0 && existsSync(OUT_PATH)) {
+    const ageMs  = Date.now() - statSync(OUT_PATH).mtimeMs;
+    const ageHrs = ageMs / 1000 / 3600;
+    if (ageHrs < CACHE_HOURS) {
+      const existing = JSON.parse(readFileSync(OUT_PATH, 'utf8'));
+      console.log(`\n✓ Cache hit — output file is ${ageHrs.toFixed(1)}h old (< ${CACHE_HOURS}h).`);
+      console.log(`  ${existing.length} candidate(s) already on disk at ${OUT_PATH}`);
+      console.log('  Pass --cache-hours=0 to force a full re-scrape.');
+      return;
+    }
+  }
+
   const indexes = ELECTION_INDEXES.filter(e => {
     if (OFFICE_FILTER === 'all') return true;
     if (OFFICE_FILTER === 'federal') return e.group === 'federal';
