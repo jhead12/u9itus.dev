@@ -1325,6 +1325,9 @@
                     @if($hiddenSpending > 0)
                     <p class="mt-3 text-xs text-slate-500">+ {{ $hiddenSpending }} more spender(s) — see FEC.gov for the full list.</p>
                     @endif
+                    <p class="mt-3 text-xs text-slate-500">
+                        Figures are sums of itemized independent-expenditure filings reported to the FEC for the {{ $electionCycle ?? '' }} cycle; a spender's full total may be higher than shown.
+                    </p>
                 </div>
                 @endif
 

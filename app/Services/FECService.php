@@ -393,18 +393,21 @@ class FECService
      *    `committee_id=` params — array `[]` and comma-list forms do NOT
      *    filter on this endpoint).
      *  - The Schedule E aggregate endpoints all 404 in this API version, so
-     *    we fetch the top line items by amount and roll them up client-side.
+     *    we page through line items and roll them up client-side using FEC's
+     *    keyset cursor (`last_index` + `last_expenditure_amount`).
      *  - `is_notice` is NOT a spam signal — legitimate 24/48-hour IE reports
      *    are `is_notice=true`. The FEC spam filings ($9.9B joke entries from
      *    a recurring bad-filer) are instead excluded by an amount cap.
-     *  - Coverage caveat: we fetch only the top page sorted by amount, so a
-     *    committee making many small buys can be under-counted relative to
-     *    one making a few huge buys. For most candidates the full IE volume
-     *    is modest and this captures the dominant spenders; only mega-profile
-     *    races (e.g. a presidential) have a tail this single page misses.
+     *  - Coverage: pages until a page returns fewer than `per_page` items
+     *    (the candidate's full IE volume) or a 10-page cap (~1000 items), so
+     *    normal candidates get exact per-spender totals while only mega-profile
+     *    races (e.g. a presidential with 30k+ items) hit the cap and under-count
+     *    their tail. The profile renders a footnote noting full totals may be
+     *    higher, so the cap is never presented as a complete figure.
      *
-     * Two API calls per candidate. Amounts are kept numeric so the profile
-     * blade formats them via its shared `$fmtMoney` helper.
+     * Up to ~11 API calls per candidate (10 item pages + 1 name resolution).
+     * Amounts are kept numeric so the profile blade formats them via its
+     * shared `$fmtMoney` helper.
      *
      * @param string $candidateId  FEC candidate ID (e.g. H8CA32123)
      * @param int $cycle           2-year FEC cycle (e.g. 2024)
@@ -416,61 +419,86 @@ class FECService
             return [];
         }
 
+        $maxPages = 10;
+        $perPage = 100;
+
         try {
-            $response = Http::timeout(10)->get("{$this->baseUrl}/schedules/schedule_e/", [
-                'api_key' => $this->apiKey,
-                'candidate_id' => $candidateId,
-                'two_year_transaction_period' => $cycle,
-                'sort' => '-expenditure_amount',
-                'per_page' => 100,
-            ]);
-
-            if (!$response->successful()) {
-                $this->logHttpFailure('get_outside_spending', $response->status(), [
-                    'candidate_id' => $candidateId,
-                    'cycle' => $cycle,
-                ]);
-
-                return [];
-            }
-
-            // Aggregate by spender × support/oppose.
-            // Drop memoed subtotals and the $9.9B spam filings (a recurring
-            // bad-filer submits absurd amounts). $500M is well above any
-            // legitimate single IE; real big-money buys top out in the tens
-            // of millions per disbursement.
             $buckets = [];
-            $committeeIds = [];
-            foreach ($response->json('results', []) as $item) {
-                if (!empty($item['memoed_subtotal'])) {
-                    continue;
-                }
-                $amount = (float) ($item['expenditure_amount'] ?? 0);
-                if ($amount > 500_000_000.0) {
-                    continue;
-                }
-                // Defensive: the API filter scopes to this candidate, but a
-                // loose search could still return a mismatched row.
-                if (($item['candidate_id'] ?? null) !== $candidateId) {
-                    continue;
+            $lastIndex = null;
+            $lastAmount = null;
+
+            for ($page = 1; $page <= $maxPages; $page++) {
+                $params = [
+                    'api_key' => $this->apiKey,
+                    'candidate_id' => $candidateId,
+                    'two_year_transaction_period' => $cycle,
+                    'sort' => '-expenditure_amount',
+                    'per_page' => $perPage,
+                ];
+                if ($lastIndex !== null) {
+                    $params['last_index'] = $lastIndex;
+                    $params['last_expenditure_amount'] = $lastAmount;
                 }
 
-                $committeeId = (string) ($item['committee_id'] ?? '');
-                $bucketKey = ($committeeId !== '' ? $committeeId : ('payee:' . ($item['payee_name'] ?? '')))
-                    . '|' . ($item['support_oppose_indicator'] ?? '');
+                $response = Http::timeout(10)->get("{$this->baseUrl}/schedules/schedule_e/", $params);
 
-                if (!isset($buckets[$bucketKey])) {
-                    $buckets[$bucketKey] = [
-                        'committee_id' => $committeeId,
-                        'committee_name' => $committeeId !== '' ? $committeeId : ($item['payee_name'] ?? 'Unknown spender'),
-                        'total' => 0.0,
-                        'support_oppose' => ($item['support_oppose_indicator'] ?? 'S') === 'O' ? 'O' : 'S',
-                    ];
-                    if ($committeeId !== '' && !in_array($committeeId, $committeeIds, true)) {
-                        $committeeIds[] = $committeeId;
+                if (!$response->successful()) {
+                    $this->logHttpFailure('get_outside_spending', $response->status(), [
+                        'candidate_id' => $candidateId,
+                        'cycle' => $cycle,
+                        'page' => $page,
+                    ]);
+                    break;
+                }
+
+                $results = $response->json('results', []);
+
+                // Aggregate this page's items by spender × support/oppose.
+                // Drop memoed subtotals and the $9.9B spam filings (a recurring
+                // bad-filer submits absurd amounts). $500M is well above any
+                // legitimate single IE; real big-money buys top out in the tens
+                // of millions per disbursement.
+                foreach ($results as $item) {
+                    if (!empty($item['memoed_subtotal'])) {
+                        continue;
                     }
+                    $amount = (float) ($item['expenditure_amount'] ?? 0);
+                    if ($amount > 500_000_000.0) {
+                        continue;
+                    }
+                    // Defensive: the API filter scopes to this candidate, but a
+                    // loose search could still return a mismatched row.
+                    if (($item['candidate_id'] ?? null) !== $candidateId) {
+                        continue;
+                    }
+
+                    $committeeId = (string) ($item['committee_id'] ?? '');
+                    $bucketKey = ($committeeId !== '' ? $committeeId : ('payee:' . ($item['payee_name'] ?? '')))
+                        . '|' . ($item['support_oppose_indicator'] ?? '');
+
+                    if (!isset($buckets[$bucketKey])) {
+                        $buckets[$bucketKey] = [
+                            'committee_id' => $committeeId,
+                            'committee_name' => $committeeId !== '' ? $committeeId : ($item['payee_name'] ?? 'Unknown spender'),
+                            'total' => 0.0,
+                            'support_oppose' => ($item['support_oppose_indicator'] ?? 'S') === 'O' ? 'O' : 'S',
+                        ];
+                    }
+                    $buckets[$bucketKey]['total'] += $amount;
                 }
-                $buckets[$bucketKey]['total'] += $amount;
+
+                // Stop when there are no more pages, or we've reached the cap.
+                // The cursor comes from the API's own last item (independent of
+                // our amount-cap filtering), so skipping spam doesn't stall paging.
+                $cursor = $response->json('pagination.last_indexes');
+                if (count($results) < $perPage || empty($cursor)) {
+                    break;
+                }
+                $lastIndex = $cursor['last_index'] ?? null;
+                $lastAmount = $cursor['last_expenditure_amount'] ?? null;
+                if ($lastIndex === null) {
+                    break;
+                }
             }
 
             if ($buckets === []) {
@@ -498,6 +526,47 @@ class FECService
 
             return [];
         }
+    }
+
+    /**
+     * Resolve a candidate's most recent 2-year FEC filing cycle from
+     * /candidate/{id}/, cached for 24h. Used so outside-spending (and the
+     * profile's displayed cycle label) targets the cycle the candidate
+     * actually filed/ran in, rather than assuming the current even year —
+     * which would silently return nothing for a recently-retired candidate
+     * whose independent-expenditure data lives in a prior cycle.
+     *
+     * @param string $candidateId
+     * @return int|null
+     */
+    public function getLatestCycle(string $candidateId): ?int
+    {
+        if (!$this->isConfigured() || $candidateId === '') {
+            return null;
+        }
+
+        return Cache::remember("fec.candidate.{$candidateId}.cycle", $this->cacheDuration, function () use ($candidateId) {
+            try {
+                $response = Http::timeout(10)->get("{$this->baseUrl}/candidate/{$candidateId}/", [
+                    'api_key' => $this->apiKey,
+                ]);
+
+                if (!$response->successful()) {
+                    $this->logHttpFailure('get_latest_cycle', $response->status(), [
+                        'candidate_id' => $candidateId,
+                    ]);
+                    return null;
+                }
+
+                $cycles = $response->json('results.0.cycles', []);
+                return $cycles ? max(array_map('intval', $cycles)) : null;
+            } catch (\Throwable $e) {
+                $this->logProviderException('get_latest_cycle', $e, [
+                    'candidate_id' => $candidateId,
+                ]);
+                return null;
+            }
+        });
     }
 
     /**

@@ -210,7 +210,14 @@ class EnrichPoliticianDonors extends Command
 
                     // Independent expenditures (Schedule E): who is spending
                     // to support/oppose this candidate, outside their campaign.
-                    // Uses the same fec_candidate_id resolved above.
+                    // Target the candidate's actual most-recent FEC cycle (from
+                    // /candidate/{id}/.cycles) rather than the default "current
+                    // even year", so a recently-retired candidate still surfaces
+                    // the IE data from the cycle they actually ran in.
+                    $latestCycle = $fec->getLatestCycle($candidateId);
+                    if ($latestCycle) {
+                        $snapshot['election_cycle'] = $latestCycle;
+                    }
                     $outsideSpending = $fec->getOutsideSpending($candidateId, (int) $snapshot['election_cycle']);
                     if ($outsideSpending !== []) {
                         $snapshot['outside_spending'] = $outsideSpending;
