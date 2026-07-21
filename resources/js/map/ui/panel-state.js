@@ -307,7 +307,8 @@ export function initCandidateCardClick() {
             const c = JSON.parse(decodeURIComponent(raw));
             const _dKey = (c.office || '').match(/([A-Z]{2}-(?:\d+|AL))/)?.[1] ?? null;
             openPolDrawer(c, c.color, {
-                population: _dKey ? (stateData?.district_populations?.[_dKey] ?? null) : null
+                population: _dKey ? (stateData?.district_populations?.[_dKey] ?? null) : null,
+                districtNumber: _dKey ? _dKey.split('-')[1] : null
             });
         } catch (err) {
             // Surface unexpected errors so we can diagnose drawer-open failures.

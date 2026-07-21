@@ -5,7 +5,7 @@ import { STATE_ABBR_MAP, PARTY_HEX, PARTY_LABEL, OFFICE_ROLES } from '../config/
 import { stateData, statePanelRequestId, mapMode, activeRegion, activeState } from '../state/map-state.js';
 import { districtMeshes } from '../scene/district-overlay.js';
 import { openInfoPanel } from './info-panel.js';
-import { renderCandidate, partyClass, detectElectionPhase, noDataNotice } from './panel-state.js';
+import { renderCandidate, renderOfficeGroup, partyClass, detectElectionPhase, noDataNotice } from './panel-state.js';
 import { openPolDrawer } from './politician-drawer.js';
 
 export async function openDistrictPanel(districtNum, districtLabel, stateName, regionHex, party = 'U') {

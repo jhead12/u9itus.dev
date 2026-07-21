@@ -832,6 +832,17 @@ body:has(#info-panel.open) #hint { display: none; }
 #legend-toggle-icon { display: inline-block; transition: transform 0.2s; }
 
 /* ══════════════════════════════════════════
+   TOUCH TARGETS — any touch-primary device
+   Capability-based (not a width breakpoint): a tablet in landscape can be
+   1024px+ wide, well past the ≤768px rule below, but still has no mouse.
+   `pointer: coarse` reflects the primary input device, so a laptop with a
+   touchscreen (but mouse/trackpad as primary) won't match this.
+══════════════════════════════════════════ */
+@media (pointer: coarse) {
+    .top-btn { min-height: 44px; padding-top: 0; padding-bottom: 0; }
+}
+
+/* ══════════════════════════════════════════
    RESPONSIVE — TABLET & MOBILE (≤ 768 px)
 ══════════════════════════════════════════ */
 @media (max-width: 768px) {
@@ -1136,6 +1147,17 @@ body:has(#info-panel.open) #hint { display: none; }
     font-size: 12px; color: #94a3b8; line-height: 1.6; margin: 0 0 14px;
 }
 .pol-empty { font-size: 12px; color: #334155; margin: 0; }
+
+/* Article cards (news / press releases / events) */
+.pol-article-card {
+    display: block; text-decoration: none; padding: 8px 10px; border-radius: 8px;
+    border: 1px solid rgba(148,163,184,0.2); background: rgba(15,23,42,0.5);
+}
+.pol-article-headline { font-size: 12px; color: #e2e8f0; font-weight: 600; line-height: 1.4; }
+.pol-article-meta { margin-top: 4px; font-size: 10px; color: #94a3b8; }
+.pol-article-card.visited { opacity: .62; border-color: rgba(148,163,184,0.12); }
+.pol-article-card.visited .pol-article-headline { color: #94a3b8; }
+.pol-article-check { color: #34d399; font-weight: 700; }
 
 /* Stat grid */
 .pol-stat-grid {

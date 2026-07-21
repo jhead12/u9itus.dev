@@ -27,6 +27,7 @@ function escapeHtml(value) {
 }
 
 function safeUrl(url) {
+    if (!url) return '';
     try {
         const parsed = new URL(url, window.location.origin);
         if (parsed.protocol === 'http:' || parsed.protocol === 'https:') return parsed.toString();
@@ -56,6 +57,38 @@ function formatPubDate(iso) {
     }
 }
 
+const VISITED_ARTICLES_KEY = 'u9itus_visited_articles';
+const VISITED_ARTICLES_MAX = 500;
+
+function getVisitedArticles() {
+    try {
+        const raw = localStorage.getItem(VISITED_ARTICLES_KEY);
+        return raw ? new Set(JSON.parse(raw)) : new Set();
+    } catch {
+        return new Set();
+    }
+}
+
+function markArticleVisited(url) {
+    if (!url) return;
+    try {
+        const visited = getVisitedArticles();
+        if (visited.has(url)) return;
+        visited.add(url);
+        // Cap storage growth — evict oldest entries once past the limit.
+        const arr = Array.from(visited).slice(-VISITED_ARTICLES_MAX);
+        localStorage.setItem(VISITED_ARTICLES_KEY, JSON.stringify(arr));
+    } catch {}
+}
+
+function isArticleVisited(url) {
+    try {
+        return getVisitedArticles().has(url);
+    } catch {
+        return false;
+    }
+}
+
 /** Renders a "Recent News"-style card list — shared by news, press releases, and events. */
 function renderItemListSection(label, items) {
     if (!items?.length) return '';
@@ -65,9 +98,10 @@ function renderItemListSection(label, items) {
             ${items.map(item => {
                 const href = safeUrl(item.source_url || '');
                 if (!href) return '';
-                return `<a href="${escapeHtml(href)}" target="_blank" rel="noopener" style="display:block;text-decoration:none;padding:8px 10px;border-radius:8px;border:1px solid rgba(148,163,184,0.2);background:rgba(15,23,42,0.5);">
-                    <div style="font-size:12px;color:#e2e8f0;font-weight:600;line-height:1.4;">${escapeHtml(item.headline || 'Article')}</div>
-                    <div style="margin-top:4px;font-size:10px;color:#94a3b8;">${escapeHtml(item.source_name || item.provider || 'News')} · ${escapeHtml(formatPubDate(item.published_at))}</div>
+                const visited = isArticleVisited(href);
+                return `<a href="${escapeHtml(href)}" target="_blank" rel="noopener" data-article-url="${escapeHtml(href)}" class="pol-article-card${visited ? ' visited' : ''}">
+                    <div class="pol-article-headline">${visited ? '<span class="pol-article-check">✓</span> ' : ''}${escapeHtml(item.headline || 'Article')}</div>
+                    <div class="pol-article-meta">${escapeHtml(item.source_name || item.provider || 'News')} · ${escapeHtml(formatPubDate(item.published_at))}</div>
                 </a>`;
             }).join('')}
         </div>`;
@@ -515,6 +549,19 @@ function _renderPolBody() {
         if (c.profile_url) links.push(`<a href="${c.profile_url}" target="_blank" rel="noopener" class="pol-link pol-link-primary">👤 U9itus Profile</a>`);
         if (c.website) links.push(`<a href="${c.website}" target="_blank" rel="noopener" class="pol-link pol-link-alt">Official Website →</a>`);
         if (c.ballotpedia_url) links.push(`<a href="${c.ballotpedia_url}" target="_blank" rel="noopener" class="pol-link pol-link-alt">Ballotpedia →</a>`);
+
+        const stateAbbr = activeState ? STATE_ABBR_MAP[activeState] : null;
+        if (stateAbbr) {
+            const districtNumber = extra?.districtNumber;
+            const browseUrl = districtNumber
+                ? `/politicians?state=${encodeURIComponent(stateAbbr)}&district=${encodeURIComponent(districtNumber)}&status=running`
+                : `/politicians?state=${encodeURIComponent(stateAbbr)}&status=running`;
+            const browseLabel = districtNumber
+                ? `See all running candidates in ${stateAbbr}-${districtNumber} →`
+                : `See all running candidates in ${stateAbbr} →`;
+            links.push(`<a href="${browseUrl}" class="pol-link pol-link-alt">${browseLabel}</a>`);
+        }
+
         polBodyEl.innerHTML = `
             <p class="pol-section-label">Links &amp; Resources</p>
             ${links.length
@@ -546,6 +593,18 @@ export function initPolDrawer() {
         iframe.src = src;
         iframe.style.display = 'block';
     };
+
+    // Delegated on polDrawer (not polBodyEl) since its innerHTML is replaced
+    // wholesale on every _renderPolBody() call — a direct listener would be
+    // discarded along with the old content.
+    polDrawer.addEventListener('click', e => {
+        const link = e.target.closest('a[data-article-url]');
+        if (!link || link.classList.contains('visited')) return;
+        markArticleVisited(link.dataset.articleUrl);
+        link.classList.add('visited');
+        const headline = link.querySelector('.pol-article-headline');
+        if (headline) headline.insertAdjacentHTML('afterbegin', '<span class="pol-article-check">✓</span> ');
+    });
 
     polDrawerClose.addEventListener('click', closePolDrawer);
     polDrawer.addEventListener('keydown', e => {

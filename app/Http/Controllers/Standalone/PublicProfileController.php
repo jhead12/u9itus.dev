@@ -625,9 +625,28 @@ class PublicProfileController extends Controller
             });
         }
 
-        // District filter (free-text, tolerant of formatting differences)
+        // District filter (free-text, tolerant of formatting differences).
+        // When a state is also given, expand into the same match variants
+        // used by the address-based district lookup (see districtVariants()
+        // below) so "33" reliably matches rows stored as "CA-33", "District 33",
+        // etc. — a bare LIKE alone under-matches most real district values.
         if ($district = trim((string) $request->input('district', ''))) {
-            $query->where('district', 'like', '%' . $district . '%');
+            $districtState = strtoupper(trim((string) $request->input('state', '')));
+
+            if ($districtState !== '') {
+                $variants = $this->districtVariants($districtState, $district);
+                $query->where(function ($q) use ($variants) {
+                    foreach ($variants as $variant) {
+                        if (preg_match('/^\d+$/', $variant)) {
+                            $q->orWhere('district', '=', $variant);
+                        } else {
+                            $q->orWhere('district', 'like', '%' . $variant . '%');
+                        }
+                    }
+                });
+            } else {
+                $query->where('district', 'like', '%' . $district . '%');
+            }
         }
 
         // Topic filter: match profile bio + campaign titles/summaries + initiative text
@@ -664,6 +683,15 @@ class PublicProfileController extends Controller
         // Party filter
         if ($party = $request->input('party')) {
             $query->where('party_affiliation', $party);
+        }
+
+        // Status filter: currently running for office vs already seated
+        if ($status = $request->input('status')) {
+            if ($status === 'running') {
+                $query->where('is_running_candidate', true);
+            } elseif ($status === 'seated') {
+                $query->where('term_status', 'seated');
+            }
         }
 
         // Unclaimed-only filter
