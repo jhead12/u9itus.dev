@@ -10,6 +10,7 @@ use App\Http\Controllers\Concerns\PaymentModeFilterable;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\CampaignResource;
 use App\Http\Resources\VoterResource;
+use App\Jobs\ProcessBatchPayoutsJob;
 use App\Models\CampaignTransaction;
 use App\Models\PoliticalCampaign;
 use App\Models\Politician;
@@ -173,15 +174,18 @@ class AdminController extends Controller
     }
 
     /**
-     * Process batch payouts for eligible voters.
+     * Process batch payouts for eligible voters — dispatches a queued job and
+     * returns immediately so live processor calls don't block the request.
      */
     public function processBatchPayouts(): JsonResponse
     {
-        $results = $this->paymentService->processBatchPayouts();
+        $run = $this->paymentService->createPayoutRun();
+        ProcessBatchPayoutsJob::dispatch($run);
 
         return response()->json([
-            'message' => 'Batch payout processing complete',
-            'results' => $results,
+            'message' => 'Batch payout processing queued',
+            'run_id'  => $run->id,
+            'status'  => $run->status,
         ]);
     }
 

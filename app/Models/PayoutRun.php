@@ -17,6 +17,10 @@ class PayoutRun extends Model
         'skipped_count',
         'total_paid',
         'meta',
+        'status',
+        'started_at',
+        'completed_at',
+        'failed_at',
     ];
 
     protected function casts(): array
@@ -25,6 +29,9 @@ class PayoutRun extends Model
             'min_payout_amount' => 'decimal:2',
             'total_paid' => 'decimal:2',
             'meta' => 'array',
+            'started_at' => 'datetime',
+            'completed_at' => 'datetime',
+            'failed_at' => 'datetime',
         ];
     }
 

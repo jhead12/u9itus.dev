@@ -11,6 +11,7 @@ use App\Http\Controllers\Concerns\HandlesCampaignVideoUpload;
 use App\Http\Controllers\Concerns\PaymentModeFilterable;
 use App\Http\Controllers\Controller;
 use App\Jobs\MatchPoliticianToElectionData;
+use App\Jobs\ProcessBatchPayoutsJob;
 use App\Jobs\ProcessOcrCandidateImportJob;
 use App\Mail\CampaignReactivatedMail;
 use App\Mail\AccountUnsuspendedMail;
@@ -1838,8 +1839,11 @@ class AdminController extends Controller
     }
 
     /**
-     * Process batch payouts — moves approved earnings to voters via PayPal
-     * (or credits the on-platform wallet for voters without a PayPal email).
+     * Process batch payouts — dispatches a queued job that moves approved
+     * earnings to voters via Stripe/PayPal/CashApp (or credits the on-platform
+     * wallet). Returns immediately so the live processor calls don't block the
+     * request. The job updates the PayoutRun status (pending → running →
+     * completed|failed) and increments its counters as it goes.
      */
     public function processBatchPayouts(Request $request)
     {
@@ -1847,20 +1851,19 @@ class AdminController extends Controller
         $paymentService = app(\App\Services\PoliticalPaymentService::class);
 
         try {
-            $results = $paymentService->processBatchPayouts(
+            $run = $paymentService->createPayoutRun(
                 triggeredByAdminId: (int) $request->user()->id,
                 triggerSource: 'admin',
             );
+            ProcessBatchPayoutsJob::dispatch($run);
         } catch (\Exception $e) {
-            Log::error('Batch payout run failed: ' . $e->getMessage());
-            return back()->withErrors(['error' => 'Payout run failed: ' . $e->getMessage()]);
+            Log::error('Batch payout run failed to dispatch: ' . $e->getMessage());
+            return back()->withErrors(['error' => 'Payout run failed to dispatch: ' . $e->getMessage()]);
         }
 
         return back()->with('success', sprintf(
-            'Batch payouts complete — %d paid ($%.2f total), %d skipped.',
-            $results['processed'],
-            $results['total_paid'],
-            $results['skipped'],
+            'Payout run #%d queued — voters will be paid in the background. Track progress on the payouts page.',
+            $run->id,
         ));
     }
 
