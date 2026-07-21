@@ -117,7 +117,7 @@ class FECService
 
                 $candidateId = $politician->fec_candidate_id ?? $this->findCandidateId(
                     $candidateName,
-                    $politician->state
+                    $politician->state ?? ''
                 );
 
                 if (!$candidateId) {
@@ -146,20 +146,28 @@ class FECService
     }
 
     /**
-     * Find candidate ID by name and state
-     * 
+     * Find candidate ID by name and state.
+     *
+     * State is omitted from the query when blank — this is the case for
+     * at-large federal offices with no home state on file (e.g. President).
+     *
      * @param string $name
      * @param string $state
      * @return string|null
      */
     protected function findCandidateId(string $name, string $state): ?string
     {
-        $response = Http::timeout(10)->get("{$this->baseUrl}/candidates/search/", [
+        $params = [
             'api_key' => $this->apiKey,
             'q' => $name,
-            'state' => $state,
             'sort' => '-election_years',
-        ]);
+        ];
+
+        if ($state !== '') {
+            $params['state'] = $state;
+        }
+
+        $response = Http::timeout(10)->get("{$this->baseUrl}/candidates/search/", $params);
 
         if (!$response->successful()) {
             $this->logHttpFailure('find_candidate_id', $response->status(), [
