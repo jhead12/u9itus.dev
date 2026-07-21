@@ -23,18 +23,29 @@ return new class extends Migration
 {
     public function up(): void
     {
+        // Guarded: an earlier partial run of this migration (e.g. a non-fatal
+        // `migrate --force` on web boot that failed on the FK step below) can
+        // leave the index already dropped without the migration being recorded
+        // as applied. MySQL DDL auto-commits per statement, so retries must
+        // tolerate that half-applied state instead of erroring on re-drop.
         Schema::table('payout_attempts', function (Blueprint $table) {
-            // Drop the plain index; the FK below will provide an equivalent one.
-            $table->dropIndex(['voter_id']);
+            if (Schema::hasIndex('payout_attempts', ['voter_id'])) {
+                $table->dropIndex(['voter_id']);
+            }
             $table->unsignedBigInteger('voter_id')->nullable()->change();
         });
 
-        Schema::table('payout_attempts', function (Blueprint $table) {
-            $table->foreign('voter_id')
-                  ->references('id')
-                  ->on('voters')
-                  ->nullOnDelete();
-        });
+        $hasForeignKey = collect(Schema::getForeignKeys('payout_attempts'))
+            ->contains(fn ($fk) => $fk['columns'] === ['voter_id']);
+
+        if (! $hasForeignKey) {
+            Schema::table('payout_attempts', function (Blueprint $table) {
+                $table->foreign('voter_id')
+                      ->references('id')
+                      ->on('voters')
+                      ->nullOnDelete();
+            });
+        }
     }
 
     public function down(): void
@@ -45,7 +56,9 @@ return new class extends Migration
 
         Schema::table('payout_attempts', function (Blueprint $table) {
             $table->unsignedBigInteger('voter_id')->nullable(false)->change();
-            $table->index('voter_id');
+            if (! Schema::hasIndex('payout_attempts', ['voter_id'])) {
+                $table->index('voter_id');
+            }
         });
     }
 };
