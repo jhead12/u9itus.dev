@@ -71,6 +71,8 @@ class MapRegionDemographicsController
             $byState[$city->state]['_seen'][$seenKey] = true;
             $byState[$city->state]['cities'][] = [
                 'city' => $city->city_name,
+                'district_number' => $city->district_number,
+                'district_code' => $city->district_code,
                 'population' => $city->population,
                 'poverty_rate' => $city->poverty_rate !== null ? (float) $city->poverty_rate : null,
                 'pct_bachelors_or_higher' => $city->pct_bachelors_or_higher !== null ? (float) $city->pct_bachelors_or_higher : null,

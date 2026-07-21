@@ -4,7 +4,6 @@
  */
 import { openInfoPanel } from './info-panel.js';
 import { noDataNotice } from './panel-state.js';
-import { TOP_CITIES } from '../config/city-data.js';
 
 let _regionReqSeq = 0;
 const toastEl = document.getElementById('map-toast');
@@ -35,21 +34,14 @@ function fmtPct(n) {
     return Number(n).toFixed(1) + '%';
 }
 
-/** Look up a city's lat/lng from the same static list already used for map markers. */
-function findCityCoords(state, cityName) {
-    const cities = TOP_CITIES[state] || [];
-    const match = cities.find(c => c[0] === cityName);
-    return match ? { lat: match[1], lng: match[2] } : null;
-}
-
 function renderCityCard(city, state, color) {
-    const hasCoords = !!findCityCoords(state, city.city);
-    const cursor = hasCoords ? 'cursor:pointer;' : '';
-    return `<div class="region-city-card" data-state="${escapeHtml(state)}" data-city="${escapeHtml(city.city)}"
+    const hasDistrict = !!city.district_number;
+    const cursor = hasDistrict ? 'cursor:pointer;' : '';
+    return `<div class="region-city-card" data-state="${escapeHtml(state)}" data-city="${escapeHtml(city.city)}" data-district="${escapeHtml(city.district_number ?? '')}"
             style="margin-bottom:10px;padding:10px 12px;border-radius:8px;border:1px solid rgba(148,163,184,0.2);background:rgba(15,23,42,0.5);${cursor}"
-            ${hasCoords ? `title="View ${escapeHtml(city.city)}'s congressional district"` : ''}>
+            ${hasDistrict ? `title="View ${escapeHtml(city.district_code)}"` : ''}>
         <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;">
-            <span style="font-size:13px;font-weight:700;color:#e2e8f0;">${escapeHtml(city.city)}${hasCoords ? ' <span style="opacity:.5;font-weight:400;">→ district</span>' : ''}</span>
+            <span style="font-size:13px;font-weight:700;color:#e2e8f0;">${escapeHtml(city.city)}${hasDistrict ? ` <span style="opacity:.5;font-weight:400;">→ ${escapeHtml(city.district_code)}</span>` : ''}</span>
             <span style="font-size:10px;color:#64748b;white-space:nowrap;">${city.population ? Number(city.population).toLocaleString('en-US') : '—'} people</span>
         </div>
         <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
@@ -60,29 +52,11 @@ function renderCityCard(city, state, color) {
     </div>`;
 }
 
-/** Resolve a city to its congressional district (same endpoint "Find my district" uses) and navigate there. */
-async function goToCityDistrict(state, cityName) {
-    const coords = findCityCoords(state, cityName);
-    if (!coords) return;
-
-    showToast(`Finding ${cityName}'s congressional district…`, 'info');
-
-    try {
-        const res = await fetch(`/api/v1/map/geocode?lat=${encodeURIComponent(coords.lat)}&lng=${encodeURIComponent(coords.lng)}`, {
-            headers: { 'Accept': 'application/json' },
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok || !data.ok || !data.state || !data.district_number) {
-            throw new Error(data.error || `We could not determine ${cityName}'s congressional district.`);
-        }
-
-        toastEl?.classList.remove('visible');
-        if (typeof window.__mapGoTo === 'function') {
-            window.__mapGoTo(data.state, data.district_number, null);
-        }
-    } catch (err) {
-        showToast(err.message || `Could not find ${cityName}'s district.`, 'error');
-    }
+/** Navigate to a city's congressional district — precomputed at sync time (geo:sync-census-demographics), no live geocode call needed. */
+function goToCityDistrict(state, districtNumber, cityName) {
+    if (!districtNumber || typeof window.__mapGoTo !== 'function') return;
+    showToast(`Opening ${cityName}'s congressional district…`, 'info');
+    window.__mapGoTo(state, districtNumber, null);
 }
 
 export async function openRegionPanel(regionName, region) {
@@ -144,7 +118,8 @@ export async function openRegionPanel(regionName, region) {
     }
     candEl.innerHTML = html;
 
-    candEl.querySelectorAll('.region-city-card[data-state]').forEach(card => {
-        card.addEventListener('click', () => goToCityDistrict(card.dataset.state, card.dataset.city));
+    candEl.querySelectorAll('.region-city-card[data-district]').forEach(card => {
+        if (!card.dataset.district) return;
+        card.addEventListener('click', () => goToCityDistrict(card.dataset.state, card.dataset.district, card.dataset.city));
     });
 }

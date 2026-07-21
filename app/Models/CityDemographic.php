@@ -9,6 +9,8 @@ class CityDemographic extends Model
     protected $fillable = [
         'state',
         'city_name',
+        'district_number',
+        'district_code',
         'population',
         'poverty_rate',
         'pct_bachelors_or_higher',

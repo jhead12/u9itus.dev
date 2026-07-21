@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\CityDemographic;
+use App\Services\DistrictLookupService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
@@ -56,68 +57,71 @@ class SyncCensusDemographics extends Command
     ];
 
     /**
-     * Allow-list of city names per state, mirroring TOP_CITIES in
+     * Allow-list of cities per state (name + lat/lng), mirroring TOP_CITIES in
      * resources/js/map/config/city-data.js — bounds this sync to the same
      * ~200 cities already shown on the map instead of ingesting every
-     * Census-designated place.
+     * Census-designated place. Coordinates are used to resolve each city's
+     * congressional district via the same geocoder the map's "Find My
+     * District" and region-panel city clicks use, precomputed here instead
+     * of on every click.
      *
-     * @var array<string, array<int, string>>
+     * @var array<string, array<int, array{0:string,1:float,2:float}>>
      */
     private const CITY_ALLOWLIST = [
-        'AK' => ["Anchorage", "Fairbanks", "Juneau"],
-        'AL' => ["Huntsville", "Birmingham", "Montgomery", "Mobile"],
-        'AR' => ["Little Rock", "Fayetteville", "Fort Smith"],
-        'AZ' => ["Phoenix", "Tucson", "Mesa", "Chandler", "Gilbert", "Scottsdale"],
-        'CA' => ["Los Angeles", "San Diego", "San Jose", "San Francisco", "Fresno", "Sacramento", "Long Beach", "Oakland", "Bakersfield", "Anaheim"],
-        'CO' => ["Denver", "Colorado Springs", "Aurora", "Fort Collins", "Lakewood"],
-        'CT' => ["Bridgeport", "Stamford", "New Haven", "Hartford"],
-        'DC' => ["Washington"],
-        'DE' => ["Wilmington", "Dover"],
-        'FL' => ["Jacksonville", "Miami", "Tampa", "Orlando", "St. Petersburg", "Hialeah"],
-        'GA' => ["Atlanta", "Columbus", "Augusta", "Macon", "Savannah"],
-        'HI' => ["Honolulu", "Pearl City", "Hilo"],
-        'IA' => ["Des Moines", "Cedar Rapids", "Davenport"],
-        'ID' => ["Boise", "Meridian", "Nampa"],
-        'IL' => ["Chicago", "Aurora", "Joliet", "Naperville", "Rockford", "Springfield"],
-        'IN' => ["Indianapolis", "Fort Wayne", "Evansville", "South Bend"],
-        'KS' => ["Wichita", "Overland Park", "Kansas City"],
-        'KY' => ["Louisville", "Lexington", "Bowling Green"],
-        'LA' => ["New Orleans", "Baton Rouge", "Shreveport", "Lafayette"],
-        'MA' => ["Boston", "Worcester", "Springfield", "Cambridge"],
-        'MD' => ["Baltimore", "Frederick", "Rockville"],
-        'ME' => ["Portland", "Lewiston"],
-        'MI' => ["Detroit", "Grand Rapids", "Warren", "Sterling Heights", "Ann Arbor"],
-        'MN' => ["Minneapolis", "Saint Paul", "Rochester", "Duluth"],
-        'MO' => ["Kansas City", "St. Louis", "Springfield", "Columbia"],
-        'MS' => ["Jackson", "Gulfport", "Southaven"],
-        'MT' => ["Billings", "Missoula", "Great Falls"],
-        'NC' => ["Charlotte", "Raleigh", "Greensboro", "Durham", "Winston-Salem"],
-        'ND' => ["Fargo", "Bismarck"],
-        'NE' => ["Omaha", "Lincoln", "Bellevue"],
-        'NH' => ["Manchester", "Nashua", "Concord"],
-        'NJ' => ["Newark", "Jersey City", "Paterson", "Elizabeth"],
-        'NM' => ["Albuquerque", "Las Cruces", "Rio Rancho"],
-        'NV' => ["Las Vegas", "Henderson", "Reno", "North Las Vegas"],
-        'NY' => ["New York City", "Buffalo", "Rochester", "Yonkers", "Syracuse", "Albany"],
-        'OH' => ["Columbus", "Cleveland", "Cincinnati", "Toledo", "Akron"],
-        'OK' => ["Oklahoma City", "Tulsa", "Norman", "Broken Arrow"],
-        'OR' => ["Portland", "Eugene", "Salem", "Gresham"],
-        'PA' => ["Philadelphia", "Pittsburgh", "Allentown", "Erie", "Reading"],
-        'RI' => ["Providence", "Cranston", "Woonsocket"],
-        'SC' => ["Charleston", "Columbia", "North Charleston", "Mount Pleasant"],
-        'SD' => ["Sioux Falls", "Rapid City"],
-        'TN' => ["Nashville", "Memphis", "Knoxville", "Chattanooga", "Clarksville"],
-        'TX' => ["Houston", "San Antonio", "Dallas", "Austin", "Fort Worth", "El Paso", "Arlington", "Corpus Christi"],
-        'UT' => ["Salt Lake City", "West Valley City", "West Jordan", "Provo"],
-        'VA' => ["Virginia Beach", "Chesapeake", "Norfolk", "Arlington", "Richmond"],
-        'VT' => ["Burlington", "South Burlington"],
-        'WA' => ["Seattle", "Spokane", "Tacoma", "Vancouver", "Bellevue"],
-        'WI' => ["Milwaukee", "Madison", "Green Bay", "Kenosha"],
-        'WV' => ["Charleston", "Huntington", "Morgantown"],
-        'WY' => ["Cheyenne", "Casper"],
+        'AK' => [['Anchorage', 61.218, -149.9], ['Fairbanks', 64.838, -147.716], ['Juneau', 58.301, -134.42]],
+        'AL' => [['Huntsville', 34.73, -86.586], ['Birmingham', 33.52, -86.8], ['Montgomery', 32.366, -86.3], ['Mobile', 30.694, -88.043]],
+        'AR' => [['Little Rock', 34.746, -92.289], ['Fayetteville', 36.082, -94.157], ['Fort Smith', 35.385, -94.398]],
+        'AZ' => [['Phoenix', 33.448, -112.074], ['Tucson', 32.221, -110.926], ['Mesa', 33.415, -111.831], ['Chandler', 33.308, -111.841], ['Gilbert', 33.353, -111.789], ['Scottsdale', 33.494, -111.926]],
+        'CA' => [['Los Angeles', 34.052, -118.244], ['San Diego', 32.715, -117.157], ['San Jose', 37.338, -121.886], ['San Francisco', 37.774, -122.419], ['Fresno', 36.737, -119.787], ['Sacramento', 38.581, -121.494], ['Long Beach', 33.77, -118.194], ['Oakland', 37.804, -122.271], ['Bakersfield', 35.373, -119.019], ['Anaheim', 33.837, -117.914]],
+        'CO' => [['Denver', 39.739, -104.984], ['Colorado Springs', 38.833, -104.821], ['Aurora', 39.729, -104.832], ['Fort Collins', 40.585, -105.084], ['Lakewood', 39.705, -105.081]],
+        'CT' => [['Bridgeport', 41.179, -73.189], ['Stamford', 41.053, -73.538], ['New Haven', 41.308, -72.928], ['Hartford', 41.764, -72.685]],
+        'DC' => [['Washington', 38.907, -77.037]],
+        'DE' => [['Wilmington', 39.745, -75.547], ['Dover', 39.158, -75.524]],
+        'FL' => [['Jacksonville', 30.332, -81.656], ['Miami', 25.774, -80.194], ['Tampa', 27.947, -82.459], ['Orlando', 28.538, -81.379], ['St. Petersburg', 27.771, -82.64], ['Hialeah', 25.858, -80.279]],
+        'GA' => [['Atlanta', 33.749, -84.388], ['Columbus', 32.46, -84.987], ['Augusta', 33.47, -81.975], ['Macon', 32.84, -83.632], ['Savannah', 32.083, -81.099]],
+        'HI' => [['Honolulu', 21.306, -157.858], ['Pearl City', 21.397, -157.975], ['Hilo', 19.702, -155.085]],
+        'IA' => [['Des Moines', 41.619, -93.598], ['Cedar Rapids', 41.978, -91.665], ['Davenport', 41.524, -90.578]],
+        'ID' => [['Boise', 43.615, -116.202], ['Meridian', 43.612, -116.392], ['Nampa', 43.54, -116.563]],
+        'IL' => [['Chicago', 41.878, -87.63], ['Aurora', 41.757, -88.32], ['Joliet', 41.525, -88.082], ['Naperville', 41.786, -88.147], ['Rockford', 42.271, -89.094], ['Springfield', 39.801, -89.643]],
+        'IN' => [['Indianapolis', 39.768, -86.158], ['Fort Wayne', 41.13, -85.129], ['Evansville', 37.975, -87.557], ['South Bend', 41.676, -86.252]],
+        'KS' => [['Wichita', 37.687, -97.33], ['Overland Park', 38.982, -94.671], ['Kansas City', 39.114, -94.627]],
+        'KY' => [['Louisville', 38.254, -85.759], ['Lexington', 38.049, -84.499], ['Bowling Green', 36.99, -86.444]],
+        'LA' => [['New Orleans', 29.951, -90.071], ['Baton Rouge', 30.457, -91.154], ['Shreveport', 32.525, -93.75], ['Lafayette', 30.224, -92.02]],
+        'MA' => [['Boston', 42.36, -71.059], ['Worcester', 42.263, -71.803], ['Springfield', 42.101, -72.59], ['Cambridge', 42.374, -71.106]],
+        'MD' => [['Baltimore', 39.29, -76.612], ['Frederick', 39.414, -77.411], ['Rockville', 39.084, -77.153]],
+        'ME' => [['Portland', 43.657, -70.259], ['Lewiston', 44.1, -70.215]],
+        'MI' => [['Detroit', 42.331, -83.046], ['Grand Rapids', 42.963, -85.668], ['Warren', 42.469, -83.026], ['Sterling Heights', 42.58, -83.031], ['Ann Arbor', 42.281, -83.748]],
+        'MN' => [['Minneapolis', 44.977, -93.265], ['Saint Paul', 44.954, -93.102], ['Rochester', 44.022, -92.47], ['Duluth', 46.786, -92.1]],
+        'MO' => [['Kansas City', 39.099, -94.579], ['St. Louis', 38.627, -90.197], ['Springfield', 37.215, -93.298], ['Columbia', 38.952, -92.334]],
+        'MS' => [['Jackson', 32.298, -90.185], ['Gulfport', 30.367, -89.093], ['Southaven', 34.989, -90.001]],
+        'MT' => [['Billings', 45.783, -108.501], ['Missoula', 46.872, -113.994], ['Great Falls', 47.502, -111.301]],
+        'NC' => [['Charlotte', 35.227, -80.843], ['Raleigh', 35.78, -78.639], ['Greensboro', 36.072, -79.791], ['Durham', 35.994, -78.899], ['Winston-Salem', 36.099, -80.244]],
+        'ND' => [['Fargo', 46.878, -96.788], ['Bismarck', 46.809, -100.793]],
+        'NE' => [['Omaha', 41.257, -95.935], ['Lincoln', 40.813, -96.703], ['Bellevue', 41.152, -95.899]],
+        'NH' => [['Manchester', 42.99, -71.464], ['Nashua', 42.765, -71.468], ['Concord', 43.207, -71.537]],
+        'NJ' => [['Newark', 40.735, -74.172], ['Jersey City', 40.719, -74.044], ['Paterson', 40.917, -74.172], ['Elizabeth', 40.665, -74.21]],
+        'NM' => [['Albuquerque', 35.085, -106.651], ['Las Cruces', 32.32, -106.765], ['Rio Rancho', 35.233, -106.664]],
+        'NV' => [['Las Vegas', 36.175, -115.137], ['Henderson', 36.039, -114.982], ['Reno', 39.529, -119.814], ['North Las Vegas', 36.199, -115.117]],
+        'NY' => [['New York City', 40.713, -74.006], ['Buffalo', 42.886, -78.879], ['Rochester', 43.16, -77.611], ['Yonkers', 40.931, -73.899], ['Syracuse', 43.048, -76.147], ['Albany', 42.651, -73.755]],
+        'OH' => [['Columbus', 39.961, -82.999], ['Cleveland', 41.505, -81.693], ['Cincinnati', 39.103, -84.512], ['Toledo', 41.664, -83.556], ['Akron', 41.081, -81.519]],
+        'OK' => [['Oklahoma City', 35.468, -97.516], ['Tulsa', 36.154, -95.993], ['Norman', 35.222, -97.439], ['Broken Arrow', 36.06, -95.791]],
+        'OR' => [['Portland', 45.523, -122.676], ['Eugene', 44.052, -123.087], ['Salem', 44.942, -123.029], ['Gresham', 45.499, -122.43]],
+        'PA' => [['Philadelphia', 39.953, -75.165], ['Pittsburgh', 40.44, -79.996], ['Allentown', 40.607, -75.491], ['Erie', 42.129, -80.085], ['Reading', 40.336, -75.927]],
+        'RI' => [['Providence', 41.824, -71.413], ['Cranston', 41.78, -71.437], ['Woonsocket', 42.002, -71.515]],
+        'SC' => [['Charleston', 32.777, -79.931], ['Columbia', 34.0, -81.035], ['North Charleston', 32.854, -79.974], ['Mount Pleasant', 32.827, -79.828]],
+        'SD' => [['Sioux Falls', 43.549, -96.7], ['Rapid City', 44.081, -103.231]],
+        'TN' => [['Nashville', 36.165, -86.784], ['Memphis', 35.149, -90.049], ['Knoxville', 35.96, -83.921], ['Chattanooga', 35.047, -85.309], ['Clarksville', 36.53, -87.359]],
+        'TX' => [['Houston', 29.763, -95.363], ['San Antonio', 29.425, -98.494], ['Dallas', 32.789, -96.8], ['Austin', 30.267, -97.743], ['Fort Worth', 32.755, -97.333], ['El Paso', 31.759, -106.487], ['Arlington', 32.7, -97.12], ['Corpus Christi', 27.8, -97.396]],
+        'UT' => [['Salt Lake City', 40.76, -111.891], ['West Valley City', 40.688, -112.001], ['West Jordan', 40.602, -111.939], ['Provo', 40.233, -111.658]],
+        'VA' => [['Virginia Beach', 36.853, -75.978], ['Chesapeake', 36.818, -76.275], ['Norfolk', 36.847, -76.286], ['Arlington', 38.88, -77.1], ['Richmond', 37.541, -77.434]],
+        'VT' => [['Burlington', 44.476, -73.212], ['South Burlington', 44.467, -73.171]],
+        'WA' => [['Seattle', 47.607, -122.332], ['Spokane', 47.659, -117.426], ['Tacoma', 47.252, -122.444], ['Vancouver', 45.638, -122.661], ['Bellevue', 47.614, -122.192]],
+        'WI' => [['Milwaukee', 43.038, -87.906], ['Madison', 43.073, -89.401], ['Green Bay', 44.519, -88.02], ['Kenosha', 42.585, -87.821]],
+        'WV' => [['Charleston', 38.349, -81.633], ['Huntington', 38.419, -82.445], ['Morgantown', 39.631, -79.957]],
+        'WY' => [['Cheyenne', 41.14, -104.82], ['Casper', 42.867, -106.313]],
     ];
 
-    public function handle(): int
+    public function handle(DistrictLookupService $districtLookup): int
     {
         $year = (int) $this->option('year');
         $dryRun = (bool) $this->option('dry-run');
@@ -142,7 +146,7 @@ class SyncCensusDemographics extends Command
 
         $upserted = 0;
         foreach ($states as $abbr => $fips) {
-            $upserted += $this->syncState($abbr, $fips, $year, $dryRun);
+            $upserted += $this->syncState($abbr, $fips, $year, $dryRun, $districtLookup);
         }
 
         $suffix = $dryRun ? ' (dry-run — no DB writes)' : '';
@@ -151,7 +155,7 @@ class SyncCensusDemographics extends Command
         return self::SUCCESS;
     }
 
-    private function syncState(string $abbr, string $fips, int $year, bool $dryRun): int
+    private function syncState(string $abbr, string $fips, int $year, bool $dryRun, DistrictLookupService $districtLookup): int
     {
         $allowlist = self::CITY_ALLOWLIST[$abbr] ?? [];
         if ($allowlist === []) {
@@ -185,9 +189,10 @@ class SyncCensusDemographics extends Command
         $detailByPlace = $this->indexByPlaceName($detail);
         $subjectByPlace = $this->indexByPlaceName($subject);
 
+        // Keyed by normalized name -> [cityName, lat, lng].
         $normalizedAllowlist = [];
-        foreach ($allowlist as $name) {
-            $normalizedAllowlist[$this->normalizeName($name)] = $name;
+        foreach ($allowlist as [$name, $lat, $lng]) {
+            $normalizedAllowlist[$this->normalizeName($name)] = [$name, $lat, $lng];
         }
 
         $count = 0;
@@ -197,17 +202,18 @@ class SyncCensusDemographics extends Command
                 continue;
             }
 
-            $cityName = $normalizedAllowlist[$normalized];
+            [$cityName, $lat, $lng] = $normalizedAllowlist[$normalized];
             $subjectRow = $subjectByPlace[$rawName] ?? [];
 
             $population = $this->censusValue($row['B01001_001E'] ?? null);
             $income = $this->censusValue($row['B19013_001E'] ?? null);
             $povertyRate = $this->censusValue($subjectRow['S1701_C03_001E'] ?? null);
             $bachelorsPlus = $this->censusValue($subjectRow['S1501_C02_015E'] ?? null);
+            $district = $this->resolveDistrict($lat, $lng, $districtLookup);
 
             $this->line(sprintf(
-                '  %s, %s: pop=%s income=$%s poverty=%s%% bachelors+=%s%%',
-                $cityName, $abbr,
+                '  %s, %s (%s): pop=%s income=$%s poverty=%s%% bachelors+=%s%%',
+                $cityName, $abbr, $district['code'] ?? 'district unknown',
                 $population !== null ? number_format($population) : 'n/a',
                 $income !== null ? number_format($income) : 'n/a',
                 $povertyRate !== null ? number_format($povertyRate, 1) : 'n/a',
@@ -218,6 +224,8 @@ class SyncCensusDemographics extends Command
                 CityDemographic::updateOrCreate(
                     ['state' => $abbr, 'city_name' => $cityName, 'census_year' => $year],
                     [
+                        'district_number' => $district['number'],
+                        'district_code' => $district['code'],
                         'population' => $population,
                         'poverty_rate' => $povertyRate,
                         'pct_bachelors_or_higher' => $bachelorsPlus,
@@ -295,6 +303,25 @@ class SyncCensusDemographics extends Command
         }
 
         return $value;
+    }
+
+    /**
+     * Resolve a city's congressional district via the same service the map's
+     * "Find My District" button and region-panel city clicks use (in-process,
+     * not an HTTP call to our own app — that's fragile from a console command,
+     * which has no guarantee the app is reachable at its configured APP_URL).
+     * Precomputed here once per sync instead of live on every click.
+     *
+     * @return array{number: ?string, code: ?string}
+     */
+    private function resolveDistrict(float $lat, float $lng, DistrictLookupService $districtLookup): array
+    {
+        $result = $districtLookup->lookupByCoordinates($lat, $lng);
+
+        return [
+            'number' => $result['district_number'] ?? null,
+            'code' => $result['district_code'] ?? null,
+        ];
     }
 
     private function apiKeyParam(): string
