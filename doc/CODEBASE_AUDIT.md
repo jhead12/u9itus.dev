@@ -18,18 +18,22 @@ is the ordered work plan (security first, then correctness bugs, then architectu
 
 1. **Committed PayPal credentials** in `.env.example:133-134` are real (non-placeholder) sandbox
    secrets living in git history. Rotate now regardless of sandbox status.
-2. **KYC government-ID documents are stored on the public disk** (`PoliticianController.php:1614`)
+2. ~~**KYC government-ID documents are stored on the public disk** (`PoliticianController.php:1614`)
    and are web-accessible at `/storage/kyc/{user_id}/document.{ext}` with **no auth** — every
-   politician's ID is retrievable by enumerating sequential user IDs.
+   politician's ID is retrievable by enumerating sequential user IDs.~~ — **fixed** (`45cd633d`,
+   2026-07-20, SEC-2). KYC now reads/writes the `local` disk via `Storage::disk('local')`; a one-time
+   migration moves `storage/app/public/kyc` → `storage/app/private/kyc`. (Kept here for history.)
 3. **The voter API is unauthenticated** (`routes/api.php:101-128`) — UUID is the only gate.
    It leaks PII (email, phone, wallet) and lets anyone mint a Stripe Connect onboarding link
    for any voter (`Api/VoterController.php:214`).
 4. ~~**`ViewSession::isExpired()` is broken** (`ViewSession.php:134-138`)~~ — **fixed** (`32b840877`,
    2026-07-19). The enum-vs-string `in_array` compare that made the completed/flagged guard dead code
    is now a strict `in_array(..., true)` against the enum values. (Kept here for history.)
-5. **Batch payouts run live Stripe/PayPal/CashApp calls synchronously in the web request**
+5. ~~**Batch payouts run live Stripe/PayPal/CashApp calls synchronously in the web request**
    (`AdminPayoutController.php:174` → `PoliticalPaymentService.php:135`) — will exceed the
-   Railway web-worker timeout and leave half-dispatched runs.
+   Railway web-worker timeout and leave half-dispatched runs.~~ — **fixed** (`ea63700d`,
+   2026-07-20, ARCH-1). Web + API entry points now dispatch `ProcessBatchPayoutsJob`; the run has a
+   `status` machine and per-voter counter increments. (Kept here for history.)
 
 ---
 
@@ -46,12 +50,17 @@ is the ordered work plan (security first, then correctness bugs, then architectu
   purge the real secrets from git history (BFG / `git filter-repo` — they remain in pre-`37fa13e2`
   history), rotate the keys in the PayPal dashboard, and audit PayPal API logs for misuse.
 
-- [ ] **SEC-2 — KYC documents on the public disk** — `app/Http/Controllers/Standalone/PoliticianController.php:1614`, `config/filesystems.php:41-48`
+- [x] **SEC-2 — KYC documents on the public disk** — `app/Http/Controllers/Standalone/PoliticianController.php:1614`, `config/filesystems.php:41-48`
   `uploadKycDocument()` stores to the `public` disk (web-served via `storage:link`); path uses the
   sequential auto-increment User ID, so `/storage/kyc/{id}/document.{ext}` is open to enumeration.
   **Fix:** store KYC on `local` disk (`storage_path('app/private')`) or private S3 prefix; serve only
   via the admin-gated `AdminKycController` with `response()->file` after authorization. Re-migrate
   existing files, purge `public/kyc`.
+  **Done** (`45cd633d`): upload delete + `storeAs` + all three viewers (politician self-service, voter
+  self-service, admin) now read/write the `local` disk via `Storage::disk('local')`. `kyc_document_path`
+  stores the path relative to the disk root, so a one-time migration moves `storage/app/public/kyc` →
+  `storage/app/private/kyc` (idempotent, merges if the destination exists) without a row rewrite. The
+  admin view route is already admin-gated (`role:admin` + `admin.2fa` + `check.admin.onboarding`).
 
 - [x] **SEC-3 — KYC upload trusts client-supplied extension** — `PoliticianController.php:1613-1614`
   Stored filename uses `getClientOriginalExtension()` while the `mimes:` rule checks content MIME.
@@ -98,24 +107,35 @@ is the ordered work plan (security first, then correctness bugs, then architectu
   **Fix:** `!in_array($this->status, [ViewSessionStatus::Completed, ViewSessionStatus::Flagged], true)`.
   **Done** (`32b840877`, 2026-07-19): strict `in_array(..., true)` with the enum values — verified at `ViewSession.php:137`.
 
-- [ ] **COR-2 — `payout_attempts.voter_id` has no foreign key** —
+- [x] **COR-2 — `payout_attempts.voter_id` has no foreign key** —
   `database/migrations/2026_04_29_100000_create_payout_attempts_table.php:13`
   Declared `unsignedBigInteger(...)->index()` instead of `foreignId(...)->constrained()`. A hard-deleted
   voter leaves orphaned payout rows; `PayoutAttempt->voter()` returns null, breaking reconciliation/reporting.
   **Fix:** `foreignId('voter_id')->constrained('voters')->cascadeOnDelete()` (or `nullOnDelete` to retain
   audit rows — match `payout_run_skipped_items`).
+  **Done** (`6b184201`): new migration drops the plain index, makes `voter_id` nullable, and adds
+  `foreign('voter_id')->references('id')->on('voters')->nullOnDelete()` (audit-retention, not cascade —
+  the only consumer already guards `if ($user->voter`). Mirrors `payout_run_skipped_items`. Split across
+  two `Schema::table` closures to match the proven `fix_politician_credits` FK pattern.
 
-- [ ] **COR-3 — MySQL-only JSON syntax in SQLite-tested code** —
+- [x] **COR-3 — MySQL-only JSON syntax in SQLite-tested code** —
   `app/Http/Controllers/Standalone/PublicProfileController.php:1812` (`payload->>'$.primary_result'`),
   `app/Console/Commands/SyncPrimaryResults.php:84,86`, `app/Console/Commands/CleanCrossOfficeEcrs.php:73`
   (`JSON_EXTRACT`/`JSON_UNQUOTE`). The repo runs SQLite for tests; these paths throw on SQLite.
   **Fix:** branch on driver (as `AdminAnalyticsController:278` does) or filter decoded `payload` in PHP via `data_get()`.
+  **Done** (`44947335`): all three sites branch on `DB::connection()->getDriverName()` — SQLite uses
+  `json_extract(payload,'$.key')` (unquoted scalar), MySQL keeps `->>`/`JSON_UNQUOTE(JSON_EXTRACT(...))`.
+  Kept as row-reducing `WHERE` filters (not PHP-side) to preserve limits. `CleanCrossOfficeEcrs --dry-run`
+  confirmed on SQLite.
 
-- [ ] **COR-4 — N+1 in `PoliticalViewService::availableCampaigns`** —
+- [x] **COR-4 — N+1 in `PoliticalViewService::availableCampaigns`** —
   `app/Services/PoliticalViewService.php:225`
   Calls `$campaign->voterCompletedViewCount($voter->id)` (a `COUNT(*)` query) inside `->filter()` over the
   campaign list — one query per campaign.
   **Fix:** `withCount(['viewSessions as completed_count' => fn($q) => $q->where('voter_id', $voter->id)->where('status', ViewSessionStatus::Completed)])` on the eager load (line 199), read cached count in the filter.
+  **Done** (`1d652319`): added `withCount(['viewSessions as voter_completed_count' => …])` to the eager-load
+  chain and read `(int) $campaign->voter_completed_count` in the filter. `voterCompletedViewCount()` stays
+  on the model (`voterCanWatch`, `Api/VoterController` use it elsewhere).
 
 - [x] **COR-5 — `Api/VoterController` completion trusts client-supplied watch time** —
   `app/Http/Controllers/Api/VoterController.php:152-175`
@@ -127,17 +147,30 @@ is the ordered work plan (security first, then correctness bugs, then architectu
 
 #### Architecture / Performance
 
-- [ ] **ARCH-1 — Batch payouts synchronous in web request** —
-  `app/Http/Controllers/Standalone/AdminPayoutController.php:174-195` → `app/Services/PoliticalPaymentService.php:135-503`
+- [x] **ARCH-1 — Batch payouts synchronous in web request** —
+  `app/Http/Controllers/Standalone/AdminController.php:1844-1865` → `app/Services/PoliticalPaymentService.php:135-503`
   `POST /admin/payouts/batch-process` loops every eligible voter making live Stripe/PayPal/CashApp calls
   inline. `PayoutRun` created up front but counts only update at the end → partial runs on timeout.
   **Fix:** `ProcessBatchPayoutsJob(PayoutRun $run)`; controller creates `PayoutRun` + dispatches job, returns immediately.
+  **Done** (`ea63700d`): migration adds a `status` (`pending|running|completed|failed`) + `started_at`/
+  `completed_at`/`failed_at` machine to `payout_runs`. New `ProcessBatchPayoutsJob` (`timeout=600`,
+  `tries=1` — no auto-retry double-pay; `PayoutAttempt.idempotency_key` is the manual re-dispatch safety
+  net). `PoliticalPaymentService` split into `createPayoutRun()` + `processBatchPayoutsForRun(PayoutRun)`;
+  counts now `increment()` per voter so partial runs leave accurate counters. Web + API entry points
+  dispatch the job and return a queued response; the scheduled `payouts:process-viewer` command stays
+  synchronous (runs on the worker, not the web request). New `ProcessBatchPayoutsJobTest` covers status
+  transitions, per-voter counter increments, re-dispatch idempotency, per-voter-failure-skips-not-fails,
+  and the `failed()` worker-death hook. **Deferred:** the `dispatchVoterPayout()` de-dup of the processor
+  cascade vs `forcePayBelowMinimum` — orthogonal to the timeout, tracked separately.
 
-- [ ] **ARCH-2 — Dead policy map in `AuthServiceProvider`** — `app/Providers/AuthServiceProvider.php:13-16`
+- [x] **ARCH-2 — Dead policy map in `AuthServiceProvider`** — `app/Providers/AuthServiceProvider.php:13-16`
   Maps `App\Models\Campaign`/`App\Models\AdAssignment` to `App\Policies\*` — none of these classes exist
   (real model is `PoliticalCampaign`, no `app/Policies/` dir). Zero controllers call `authorize()`/`Gate`.
   **Fix:** delete stale map; create real policies (`PoliticalCampaignPolicy`, `VoterPolicy`,
   `ViewSessionPolicy`, `CitizenCampaignPolicy`); replace hand-rolled `abort_unless` ownership checks.
+  **Done** (`03700d81`, map deletion only): dropped the four dead `use` lines + the `$policies` array;
+  kept an empty `boot()` calling `registerPolicies()`. Non-breaking (lazy resolution, zero `authorize()`).
+  Creating real policies + migrating `abort_unless` to `authorize()` is deferred as a separate refactor.
 
 - [ ] **ARCH-3 — No static analysis / Pint config / coverage floor** —
   `composer.json` (no PHPStan/Larastan), no `phpstan.neon`, no `pint.json`, `.github/workflows/tests.yml:59`
@@ -397,7 +430,7 @@ Each phase is independently shippable. Tick boxes as work lands; note commit has
 
 ### Phase 0 — Security hotfixes (do now, before any merge)
 - [ ] SEC-1 — Rotate & purge PayPal credentials from git history + rotate in dashboard + audit logs _(partially done: `.env.example` blanked in `37fa13e2`; history purge + rotation + audit remain — user/ops)_
-- [ ] SEC-2 — Move KYC docs off the public disk + serve via admin controller only _(deferred — user/ops action)_
+- [x] SEC-2 — Move KYC docs off the public disk + serve via admin controller only — `45cd633d`
 - [x] SEC-3 — Derive KYC stored extension from detected MIME (`guessExtension()`) — `0280d7ea`
 - [x] SEC-4 — Authenticate the voter API (per-voter bearer tokens, NOT sanctum+VoterPolicy) + strip PII from `VoterResource` — `4401c558` _(BREAKING)_
 - [x] SEC-5 — Enforce 2FA on admin API routes — `8728abb8`
@@ -407,9 +440,9 @@ Each phase is independently shippable. Tick boxes as work lands; note commit has
 
 ### Phase 1 — Correctness & data-integrity bugs
 - [x] COR-1 — Fix `ViewSession::isExpired()` enum compare (strict `in_array`) — `32b840877`
-- [ ] COR-2 — Add FK to `payout_attempts.voter_id` (+ decide cascade vs nullOnDelete)
-- [ ] COR-3 — Replace MySQL-only JSON syntax with driver-branch / PHP-side filtering
-- [ ] COR-4 — Eager-load `withCount` to fix `PoliticalViewService` N+1
+- [x] COR-2 — Add FK to `payout_attempts.voter_id` (nullOnDelete, audit retention) — `6b184201`
+- [x] COR-3 — Replace MySQL-only JSON syntax with driver-branch — `44947335`
+- [x] COR-4 — Eager-load `withCount` to fix `PoliticalViewService` N+1 — `1d652319`
 - [ ] DB-1 — Document or restore `referral_earnings` delete semantics
 - [ ] DB-4 — Guard `Voter::canViewToday()` against lazy `user` load
 
@@ -423,10 +456,10 @@ Each phase is independently shippable. Tick boxes as work lands; note commit has
 - [ ] CTL-4 — Shared JSON envelope + API Resources; move billing JSON to `Api/BillingController`
 - [ ] CTL-5 / CTL-6 / DUP-4 — De-duplicate S3 URL gen, registration flow, referral-earnings query
   - [x] CTL-6 (registration referral-resolution) — done via `ReferralService` in the auth refactor (`bd6f63d5`); see finding above
-- [ ] ARCH-2 — Delete dead policy map; create real policies; adopt `authorize()` everywhere
+- [x] ARCH-2 — Delete dead policy map — `03700d81` _(creating real policies + adopting `authorize()` is deferred — see finding)_
 
 ### Phase 3 — Service-layer & event pipeline
-- [ ] ARCH-1 — `ProcessBatchPayoutsJob` (async batch payouts)
+- [x] ARCH-1 — `ProcessBatchPayoutsJob` (async batch payouts) — `ea63700d` _(deferred: `dispatchVoterPayout` de-dup, see finding + DUP-1)_
 - [ ] DUP-1 — Extract `dispatchPayoutForVoter` / `markSessionsPaid` in `PoliticalPaymentService`
 - [ ] DUP-2 — Route fraud flag/clear through `FraudPreventionService`
 - [ ] DUP-3 — Introduce `KycService` owning all verification-status writes
@@ -470,12 +503,13 @@ don't re-discover them each session:
 3. **There is no `php artisan test`.** The test runner is `vendor/bin/pest` (the composer `test`
    script's `artisan test` line is effectively dead).
 4. **Pest autoloader is broken** — `vendor/bin/pest` throws `Class "Pest\TestSuite" not found`;
-   `composer dump-autoload` hangs (never completes) in this environment. **The suite is not
-   currently runnable here.** Until resolved, per-step verification relies on
-   `php artisan route:list` (sandbox-disabled), which works reliably.
+   `composer dump-autoload` hangs (never completes) in this environment. **However `php artisan test`
+   runs the full suite reliably** when the sandbox is disabled (626 passed, 7 risky, 0 failed on
+   2026-07-20, ~13s). Use `php artisan test` (sandbox-disabled) as the primary verification; the earlier
+   "suite not runnable here" note is stale.
 
-> **Reliable per-step verification (works now):** `php -l <file>` + `php artisan route:list`
-> (sandbox-disabled). Full test-suite verification is blocked pending item 4.
+> **Reliable per-step verification (works now):** `php -l <file>` + `php artisan test`
+> (sandbox-disabled, full or `--filter`). `php artisan route:list` also works for wiring checks.
 
 ---
 
@@ -496,6 +530,12 @@ don't re-discover them each session:
 | 2026-07-15 | 0 | Phase 0 merged to master (local, unpushed) | `169f45d2` | `fix/security-hotfixes` → master `--no-ff`; 7 commits ahead of `origin/master`; SEC-1/SEC-2 deferred (user/ops). Tests still not runnable here |
 | 2026-07-19 | 1 | COR-1 — strict enum compare in `ViewSession::isExpired()` | `32b840877` | `in_array(..., [ViewSessionStatus::Completed, ViewSessionStatus::Flagged], true)`; shipped in "updates to the map and other quality of life fixes" — not logged at the time |
 | 2026-07-20 | — | Auth refactor (Phases 1–7 of `doc/AUTH_REFACTOR_PLAN.md`) | `bd6f63d5`, `82a880ad`, `7ec7170c`, `60eeab81` | Deleted dead Breeze code + `AuthServiceInterface` (DUP-9 partial); consolidated TOTP into one `TwoFactorService`; `UserRoleService` as single role source of truth (`User::isAdmin/isCitizen` routed through it); split `AuthController` into `Login/Registration/PasswordReset/PhoneVerification/EmailVerification/AdminTwoFactorController` + extracted `ReferralService` (CTL-6 done); voter API auth docs (`doc/auth-architecture.md`); dedicated `two_factor.session_ttl_minutes` config key. Full suite 613 passed, 0 failed. See `doc/AUTH_REFACTOR_PROGRESS.md` |
+| 2026-07-20 | 2 | ARCH-2 — delete dead policy map in `AuthServiceProvider` | `03700d81` | Dropped the four dead `use` lines + `$policies` map (referenced non-existent `Campaign`/`AdAssignment`/`CampaignPolicy`/`AdAssignmentPolicy`); kept empty `boot()` calling `registerPolicies()`. Non-breaking (zero `authorize()`/Gate usage). Real policies + `authorize()` migration deferred |
+| 2026-07-20 | 1 | COR-4 — eager-load completed-view count (N+1) in `availableCampaigns` | `1d652319` | `withCount(['viewSessions as voter_completed_count' => …])` on the eager load; filter reads `(int) $campaign->voter_completed_count`. `voterCompletedViewCount()` retained on the model for `voterCanWatch` + `Api/VoterController` |
+| 2026-07-20 | 1 | COR-3 — driver-branch JSON syntax (SQLite tests) | `44947335` | `PublicProfileController:1812`, `SyncPrimaryResults:84,86`, `CleanCrossOfficeEcrs:73` branch on `DB::connection()->getDriverName()` — SQLite `json_extract(...)` vs MySQL `->>`/`JSON_UNQUOTE(JSON_EXTRACT(...))`. Kept as row-reducing WHERE filters. `clean-cross-office-ecrs --dry-run` confirmed on SQLite |
+| 2026-07-20 | 0 | SEC-2 — KYC docs moved to the `local` disk | `45cd633d` | Upload delete + `storeAs` + all 3 viewers (politician/voter/admin) now read/write `Storage::disk('local')`; one-time migration moves `storage/app/public/kyc` → `storage/app/private/kyc` (idempotent, merges). `kyc_document_path` unchanged (relative). Admin route already admin-gated |
+| 2026-07-20 | 1 | COR-2 — `nullOnDelete` FK on `payout_attempts.voter_id` | `6b184201` | New migration: drop index, make nullable, add `foreign('voter_id')->references('id')->on('voters')->nullOnDelete()`. Mirrors `payout_run_skipped_items`; split across two `Schema::table` closures (proven FK-fix pattern) |
+| 2026-07-20 | 3 | ARCH-1 — async batch payouts via queued job + run status machine | `ea63700d` | Migration adds `status`/`started_at`/`completed_at`/`failed_at` to `payout_runs`. New `ProcessBatchPayoutsJob` (`timeout=600`, `tries=1`). `PoliticalPaymentService` → `createPayoutRun()` + `processBatchPayoutsForRun(PayoutRun)`; counts `increment()` per voter. Web + API entry points dispatch + return queued response; scheduled command stays sync. New `ProcessBatchPayoutsJobTest` (4 cases). `dispatchVoterPayout` de-dup deferred (see DUP-1). **Full suite 626 passed, 7 risky, 0 failed** |
 
 <!--
 Append rows here as work ships. When a roadmap checkbox is completed, tick it above AND log the commit here.
