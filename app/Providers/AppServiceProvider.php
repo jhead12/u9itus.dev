@@ -44,6 +44,14 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(5)->by($key);
         });
 
+        // SMS 2FA recovery: caps paid Twilio sends independently of the
+        // generic 6/min throttle used for code-guessing endpoints.
+        RateLimiter::for('2fa-recovery-sms', function ($request): Limit {
+            $userId = $request->user()?->id ?? 'guest';
+
+            return Limit::perHour(3)->by('2fa-recovery-sms|' . $userId . '|' . $request->ip());
+        });
+
         // Request latency logging for slow web endpoints.
         if (app()->runningInConsole()) {
             return;

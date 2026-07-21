@@ -226,6 +226,18 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         Route::post('/2fa/challenge', [TwoFactorController::class, 'verifyChallenge'])
             ->middleware('throttle:6,1')
             ->name('2fa.challenge.verify');
+
+        // Self-service SMS recovery: disables a stuck user's 2FA via a code
+        // texted to their verified phone, so they don't need support to run
+        // the auth:reset-2fa artisan command.
+        Route::get('/2fa/recovery', [TwoFactorController::class, 'showRecovery'])->name('2fa.recovery-sms');
+        Route::post('/2fa/recovery/send', [TwoFactorController::class, 'sendRecoveryCode'])
+            ->middleware('throttle:2fa-recovery-sms')
+            ->name('2fa.recovery-sms.send');
+        Route::get('/2fa/recovery/verify', [TwoFactorController::class, 'showRecoveryVerify'])->name('2fa.recovery-sms.verify');
+        Route::post('/2fa/recovery/verify', [TwoFactorController::class, 'verifyRecoveryCode'])
+            ->middleware('throttle:6,1')
+            ->name('2fa.recovery-sms.verify.submit');
     });
 
     // Main Dashboard (role-based redirect)
