@@ -126,14 +126,19 @@ class EnrichPoliticianDonors extends Command
         FECService $fec,
         PacAffiliationClassifier $pacClassifier,
     ): array {
+        // Preserve the last good OpenSecrets scrape when this run finds nothing
+        // (e.g. blocked by a bot-check) — a stale-but-real link/summary beats
+        // silently wiping it back to null every time the scraper gets blocked.
+        $priorSnapshot = $politician->donorSnapshot;
+
         $snapshot = [
-            'top_contributors'       => null,
-            'top_industries'         => null,
+            'top_contributors'       => $priorSnapshot->top_contributors ?? null,
+            'top_industries'         => $priorSnapshot->top_industries ?? null,
             'fec_summary'            => null,
-            'opensecrets_summary'    => null,
+            'opensecrets_summary'    => $priorSnapshot->opensecrets_summary ?? null,
             'outside_spending'       => null,
-            'pac_affiliations'       => null,
-            'opensecrets_source_url' => null,
+            'pac_affiliations'       => $priorSnapshot->pac_affiliations ?? null,
+            'opensecrets_source_url' => $priorSnapshot->opensecrets_source_url ?? null,
             'fec_source_url'         => null,
             'election_cycle'         => (int) date('Y') % 2 === 0 ? (int) date('Y') : (int) date('Y') - 1,
         ];

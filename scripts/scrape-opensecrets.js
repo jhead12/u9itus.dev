@@ -94,6 +94,20 @@ function nameSlug(name) {
     .replace(/\s+/g, '-');
 }
 
+/**
+ * Detect a Cloudflare (or similar) bot-check interstitial by page title.
+ * These pages return HTTP 200 with no real content, so they'd otherwise be
+ * treated as a successful-but-empty scrape rather than a blocked one.
+ */
+function isBlockedPageTitle(title) {
+  const t = (title ?? '').toLowerCase();
+  return t.includes('just a moment')
+    || t.includes('attention required')
+    || t.includes('security verification')
+    || t.includes('are you a human')
+    || t.includes('access denied');
+}
+
 // ── Core scraping functions ───────────────────────────────────────────────────
 
 /**
@@ -143,6 +157,11 @@ async function searchCandidate(page, name, state) {
       console.error(`  [search] no-results diag url=${diag.url} title="${diag.title}" consent=${diag.consentGate ?? 'none'}`);
       console.error(`  [search] no-results body: ${diag.bodySnippet}`);
 
+      if (isBlockedPageTitle(diag.title)) {
+        console.error(`  [search] Blocked by bot-check — not falling back to a guessed URL`);
+        return null;
+      }
+
       // Fallback: try direct URL construction with name slug
       const slug = nameSlug(name);
       const directUrl = `https://www.opensecrets.org/profiles/${slug}/us_congress/summary`;
@@ -182,6 +201,10 @@ async function scrapeProfilePage(page, profileUrl) {
   const title = await page.title();
   if (title.toLowerCase().includes('not found') || title.toLowerCase().includes('page not found')) {
     console.error(`  [scrape] 404 — page not found`);
+    return null;
+  }
+  if (isBlockedPageTitle(title)) {
+    console.error(`  [scrape] Blocked by bot-check (title="${title}") — discarding, not a real scrape`);
     return null;
   }
 
