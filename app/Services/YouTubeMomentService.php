@@ -136,8 +136,9 @@ class YouTubeMomentService
 
     /**
      * Run a search.list call and return up to $maxClips video IDs, ordered by
-     * view count (relevance + recency is handled by the recency decay in
-     * scoring; ordering by viewCount here surfaces the genuinely viral clips).
+     * publish date (most recent first). Scoring (view velocity/decay/authority)
+     * still runs downstream in MomentScoreService, but discovery now surfaces
+     * the newest clips rather than the highest-view ones.
      *
      * @return list<string>
      */
@@ -149,7 +150,7 @@ class YouTubeMomentService
             'type' => 'video',
             'q' => $query,
             'maxResults' => $this->maxClips,
-            'order' => 'viewCount',
+            'order' => 'date',
             'publishedAfter' => now()->subDays((int) config('u9itus.moments.eligibility_window_days', 30))->toIso8601String(),
         ]);
 
