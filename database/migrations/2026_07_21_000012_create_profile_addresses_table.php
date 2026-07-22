@@ -20,6 +20,13 @@ return new class extends Migration
 {
     public function up(): void
     {
+        // Self-heal: skip if a prior partial batch already created the table
+        // (see profile_enrichment_runs migration for the MySQL DDL rationale).
+        // This is the table that surfaced SQLSTATE 42S01/1050 in production.
+        if (Schema::hasTable('profile_addresses')) {
+            return;
+        }
+
         Schema::create('profile_addresses', function (Blueprint $table) {
             $table->id();
 
