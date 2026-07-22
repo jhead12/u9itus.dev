@@ -28,6 +28,27 @@ class FECService
     protected ?string $apiKey;
     protected int $cacheDuration = 86400; // 24 hours
 
+    /**
+     * Per-process telemetry + throttle state. Static so a single `php artisan`
+     * invocation shares one throttle window and one rate-limit counter across
+     * all candidates in the batch; a new process starts fresh.
+     *
+     * The donor-enrichment run was hammering FEC with thousands of uncached
+     * calls and no backoff, blowing the 1000 req/hour ceiling and spending
+     * ~9 minutes failing fast on cascading 429s. These counters let the request
+     * helper short-circuit once FEC has clearly rate-limited us (so the rest of
+     * the run stops burning time) and let the command report what happened.
+     */
+    protected static ?float $lastRequestTime = null;
+    protected static int $consecutiveRateLimits = 0;
+    protected static int $httpCallCount = 0;
+    protected static int $rateLimitCount = 0;
+    protected static bool $shortCircuited = false;
+
+    protected const MIN_REQUEST_INTERVAL_MS = 120;      // spaces calls under FEC's per-second ceiling
+    protected const MAX_BACKOFF_ATTEMPTS = 3;           // 429/5xx: initial + up to 2 retries
+    protected const RATE_LIMIT_SHORT_CIRCUIT_THRESHOLD = 5; // consecutive 429s → stop hitting FEC
+
     public function __construct()
     {
         $this->apiKey = config('services.fec.api_key');
@@ -39,6 +60,160 @@ class FECService
     public function isConfigured(): bool
     {
         return !empty($this->apiKey);
+    }
+
+    /**
+     * Central GET for every FEC endpoint: 429/5xx exponential backoff (honoring
+     * Retry-After), a per-second throttle, and a consecutive-rate-limit
+     * short-circuit. Returns the full decoded JSON body, or null on terminal
+     * failure / short-circuit. Failures route through the existing telemetry
+     * helpers (with the response body captured on 4xx for diagnosis).
+     *
+     * @param string $operation  telemetry label, e.g. 'get_candidate_committees'
+     * @param string $url        full endpoint URL
+     * @param array  $params     query params WITHOUT api_key (added here)
+     * @param array  $context    extra telemetry context (candidate_id, etc.)
+     * @param string|null $queryString  pre-built query string for endpoints that
+     *     reject Laravel's array-param rendering (e.g. repeated plain
+     *     committee_id= params). When set, api_key is appended to it and the
+     *     params array is ignored.
+     * @return array|null
+     */
+    protected function request(string $operation, string $url, array $params = [], array $context = [], ?string $queryString = null): ?array
+    {
+        if (! $this->isConfigured()) {
+            return null;
+        }
+
+        // Once FEC has rate-limited us repeatedly, stop asking — every further
+        // call in this process would 429 again and just burn wall-clock.
+        if (self::$consecutiveRateLimits >= self::RATE_LIMIT_SHORT_CIRCUIT_THRESHOLD) {
+            self::$shortCircuited = true;
+            return null;
+        }
+
+        $this->throttle();
+
+        // When a caller hand-builds the query (for endpoints that reject the
+        // committee_id[]= array form), bake it into the URL so Http::get gets a
+        // single ready query string instead of re-rendering params.
+        if ($queryString !== null) {
+            $separator = str_contains($url, '?') ? '&' : '?';
+            $url = $url . $separator . $queryString . '&api_key=' . urlencode((string) $this->apiKey);
+            $params = [];
+        } else {
+            $params['api_key'] = $this->apiKey;
+        }
+
+        $attempt = 0;
+
+        while (true) {
+            $attempt++;
+            try {
+                $response = Http::timeout(10)->get($url, $params);
+            } catch (\Throwable $e) {
+                $this->logProviderException($operation, $e, $context);
+                return null;
+            }
+
+            self::$httpCallCount++;
+
+            if ($response->successful()) {
+                self::$consecutiveRateLimits = 0;
+                return $response->json() ?: [];
+            }
+
+            $status = $response->status();
+
+            // Retryable: 429 (rate-limited) and 5xx (transient server error).
+            if ($status === 429 || $status >= 500) {
+                if ($status === 429) {
+                    self::$consecutiveRateLimits++;
+                    self::$rateLimitCount++;
+                }
+                if ($attempt < self::MAX_BACKOFF_ATTEMPTS) {
+                    $this->sleepMicroseconds((int) ($this->backoffSeconds($response, $attempt) * 1_000_000));
+                    $this->throttle();
+                    continue;
+                }
+                $this->logHttpFailure($operation, $status, array_merge($context, ['attempt' => $attempt]), $response);
+                return null;
+            }
+
+            // 4xx (incl. 400) — not retryable. Capture the body so the FEC
+            // error text is visible in logs (the schedule_a 400s gave no clue
+            // before because we only logged the status).
+            $this->logHttpFailure($operation, $status, $context, $response);
+            return null;
+        }
+    }
+
+    /**
+     * Enforce a minimum gap between FEC requests so a tight loop over
+     * candidates/committees/pages can't exceed FEC's per-second ceiling.
+     */
+    protected function throttle(): void
+    {
+        if (self::$lastRequestTime !== null) {
+            $elapsedMs = (microtime(true) - self::$lastRequestTime) * 1000.0;
+            $waitMs = self::MIN_REQUEST_INTERVAL_MS - $elapsedMs;
+            if ($waitMs > 0) {
+                $this->sleepMicroseconds((int) ($waitMs * 1000));
+            }
+        }
+        self::$lastRequestTime = microtime(true);
+    }
+
+    /**
+     * Indirection over usleep() so tests can no-op the backoff/throttle
+     * sleeps without slowing the suite (and without env-sniffing in prod).
+     */
+    protected function sleepMicroseconds(int $microseconds): void
+    {
+        usleep($microseconds);
+    }
+
+    /**
+     * Seconds to wait before a retry. Prefer the server's Retry-After header
+     * (capped, so a hostile value can't stall the run), else exponential 1/2/4s.
+     *
+     * @param \Illuminate\Http\Client\Response $response
+     * @param int $attempt  1-based attempt that just failed
+     */
+    protected function backoffSeconds($response, int $attempt): float
+    {
+        $retryAfter = $response->header('Retry-After');
+        if (is_numeric($retryAfter) && (float) $retryAfter > 0) {
+            return min((float) $retryAfter, 30.0);
+        }
+        return (float) (2 ** ($attempt - 1)); // 1s, 2s, 4s
+    }
+
+    /**
+     * Per-run telemetry for the enricher's summary line.
+     */
+    public static function resetTelemetry(): void
+    {
+        self::$lastRequestTime = null;
+        self::$consecutiveRateLimits = 0;
+        self::$httpCallCount = 0;
+        self::$rateLimitCount = 0;
+        self::$shortCircuited = false;
+    }
+
+    public static function getHttpCallCount(): int
+    {
+        return self::$httpCallCount;
+    }
+
+    public static function getRateLimitCount(): int
+    {
+        return self::$rateLimitCount;
+    }
+
+    public static function wasShortCircuited(): bool
+    {
+        return self::$shortCircuited;
     }
 
     /**
@@ -158,7 +333,6 @@ class FECService
     protected function findCandidateId(string $name, string $state): ?string
     {
         $params = [
-            'api_key' => $this->apiKey,
             'q' => $name,
             'sort' => '-election_years',
         ];
@@ -167,17 +341,11 @@ class FECService
             $params['state'] = $state;
         }
 
-        $response = Http::timeout(10)->get("{$this->baseUrl}/candidates/search/", $params);
+        $body = $this->request('find_candidate_id', "{$this->baseUrl}/candidates/search/", $params, [
+            'state' => $state,
+        ]);
 
-        if (!$response->successful()) {
-            $this->logHttpFailure('find_candidate_id', $response->status(), [
-                'state' => $state,
-            ]);
-
-            return null;
-        }
-
-        $results = $response->json('results', []);
+        $results = $body['results'] ?? [];
 
         // Return the most recent candidate ID
         return $results[0]['candidate_id'] ?? null;
@@ -191,19 +359,11 @@ class FECService
      */
     protected function getCandidateInfo(string $candidateId): array
     {
-        $response = Http::timeout(10)->get("{$this->baseUrl}/candidate/{$candidateId}/", [
-            'api_key' => $this->apiKey,
+        $body = $this->request('get_candidate_info', "{$this->baseUrl}/candidate/{$candidateId}/", [], [
+            'candidate_id' => $candidateId,
         ]);
 
-        if (!$response->successful()) {
-            $this->logHttpFailure('get_candidate_info', $response->status(), [
-                'candidate_id' => $candidateId,
-            ]);
-
-            return [];
-        }
-
-        $results = $response->json('results', []);
+        $results = $body['results'] ?? [];
         $info = $results[0] ?? [];
 
         return [
@@ -230,22 +390,15 @@ class FECService
         $currentYear = date('Y');
         $cycle = $currentYear % 2 === 0 ? $currentYear : $currentYear + 1;
 
-        $response = Http::timeout(10)->get("{$this->baseUrl}/candidate/{$candidateId}/totals/", [
-            'api_key' => $this->apiKey,
+        $body = $this->request('get_financial_summary', "{$this->baseUrl}/candidate/{$candidateId}/totals/", [
             'cycle' => $cycle,
             'sort' => '-cycle',
+        ], [
+            'candidate_id' => $candidateId,
+            'cycle' => $cycle,
         ]);
 
-        if (!$response->successful()) {
-            $this->logHttpFailure('get_financial_summary', $response->status(), [
-                'candidate_id' => $candidateId,
-                'cycle' => $cycle,
-            ]);
-
-            return [];
-        }
-
-        $results = $response->json('results', []);
+        $results = $body['results'] ?? [];
         $totals = $results[0] ?? [];
 
         return [
@@ -266,21 +419,14 @@ class FECService
      */
     protected function getRecentFilings(string $candidateId): array
     {
-        $response = Http::timeout(10)->get("{$this->baseUrl}/candidate/{$candidateId}/filings/", [
-            'api_key' => $this->apiKey,
+        $body = $this->request('get_recent_filings', "{$this->baseUrl}/candidate/{$candidateId}/filings/", [
             'per_page' => 5,
             'sort' => '-receipt_date',
+        ], [
+            'candidate_id' => $candidateId,
         ]);
 
-        if (!$response->successful()) {
-            $this->logHttpFailure('get_recent_filings', $response->status(), [
-                'candidate_id' => $candidateId,
-            ]);
-
-            return [];
-        }
-
-        $results = $response->json('results', []);
+        $results = $body['results'] ?? [];
 
         return array_map(function ($filing) {
             return [
@@ -303,28 +449,25 @@ class FECService
      */
     public function getCandidateCommittees(string $candidateId): array
     {
-        $response = Http::timeout(10)->get("{$this->baseUrl}/candidate/{$candidateId}/committees/", [
-            'api_key' => $this->apiKey,
-        ]);
-
-        if (!$response->successful()) {
-            $this->logHttpFailure('get_candidate_committees', $response->status(), [
+        // Cached 24h — previously uncached, so every nightly run re-fetched
+        // every federal candidate's committee list (one of the calls blowing
+        // the FEC 1000/hour ceiling).
+        return Cache::remember("fec.candidate.{$candidateId}.committees", $this->cacheDuration, function () use ($candidateId) {
+            $body = $this->request('get_candidate_committees', "{$this->baseUrl}/candidate/{$candidateId}/committees/", [], [
                 'candidate_id' => $candidateId,
             ]);
 
-            return [];
-        }
+            $results = $body['results'] ?? [];
 
-        $results = $response->json('results', []);
-
-        return array_map(function ($committee) {
-            return [
-                'name' => $committee['name'] ?? 'Unknown',
-                'committee_id' => $committee['committee_id'] ?? null,
-                'designation' => $committee['designation_full'] ?? null,
-                'type' => $committee['committee_type_full'] ?? null,
-            ];
-        }, $results);
+            return array_map(function ($committee) {
+                return [
+                    'name' => $committee['name'] ?? 'Unknown',
+                    'committee_id' => $committee['committee_id'] ?? null,
+                    'designation' => $committee['designation_full'] ?? null,
+                    'type' => $committee['committee_type_full'] ?? null,
+                ];
+            }, $results);
+        });
     }
 
     /**
@@ -343,28 +486,28 @@ class FECService
      */
     public function getCommitteeContributions(string $committeeId, int $perPage = 20): array
     {
-        if (!$this->isConfigured()) {
+        if (!$this->isConfigured() || $committeeId === '') {
             return [];
         }
 
-        try {
-            $response = Http::timeout(10)->get("{$this->baseUrl}/schedules/schedule_a/", [
-                'api_key' => $this->apiKey,
-                'committee_id' => [$committeeId],
+        // Cached 24h — previously uncached, so every nightly run re-fetched
+        // Schedule A for every committee of every federal candidate.
+        return Cache::remember("fec.committee.{$committeeId}.contributions", $this->cacheDuration, function () use ($committeeId, $perPage) {
+            // committee_id is passed as a plain STRING (not wrapped in []) so
+            // Laravel renders it as `committee_id=C00…` rather than the array
+            // form `committee_id[]=C00…` — the array form is what triggered the
+            // schedule_a 400s (same gotcha resolveCommitteeNames works around
+            // for the multi-id /committees/ call, which needs repeated params).
+            $body = $this->request('get_committee_contributions', "{$this->baseUrl}/schedules/schedule_a/", [
+                'committee_id' => $committeeId,
                 'contributor_type' => 'committee',
                 'sort' => '-contribution_receipt_amount',
                 'per_page' => $perPage,
+            ], [
+                'committee_id' => $committeeId,
             ]);
 
-            if (!$response->successful()) {
-                $this->logHttpFailure('get_committee_contributions', $response->status(), [
-                    'committee_id' => $committeeId,
-                ]);
-
-                return [];
-            }
-
-            $results = $response->json('results', []);
+            $results = $body['results'] ?? [];
 
             return array_map(function ($receipt) {
                 return [
@@ -372,14 +515,7 @@ class FECService
                     'total' => $this->formatCurrency($receipt['contribution_receipt_amount'] ?? 0),
                 ];
             }, $results);
-
-        } catch (\Throwable $e) {
-            $this->logProviderException('get_committee_contributions', $e, [
-                'committee_id' => $committeeId,
-            ]);
-
-            return [];
-        }
+        });
     }
 
     /**
@@ -427,113 +563,118 @@ class FECService
             return [];
         }
 
-        $maxPages = 10;
-        $perPage = 100;
+        // Cached 24h — previously uncached, so every nightly run re-paged
+        // through Schedule E (up to 10 pages) for every federal candidate.
+        // That paged volume was the single biggest FEC call-count contributor.
+        return Cache::remember("fec.candidate.{$candidateId}.outside_spending.{$cycle}", $this->cacheDuration, function () use ($candidateId, $cycle) {
+            $maxPages = 10;
+            $perPage = 100;
 
-        try {
-            $buckets = [];
-            $lastIndex = null;
-            $lastAmount = null;
+            try {
+                $buckets = [];
+                $lastIndex = null;
+                $lastAmount = null;
 
-            for ($page = 1; $page <= $maxPages; $page++) {
-                $params = [
-                    'api_key' => $this->apiKey,
-                    'candidate_id' => $candidateId,
-                    'two_year_transaction_period' => $cycle,
-                    'sort' => '-expenditure_amount',
-                    'per_page' => $perPage,
-                ];
-                if ($lastIndex !== null) {
-                    $params['last_index'] = $lastIndex;
-                    $params['last_expenditure_amount'] = $lastAmount;
-                }
+                for ($page = 1; $page <= $maxPages; $page++) {
+                    $params = [
+                        'candidate_id' => $candidateId,
+                        'two_year_transaction_period' => $cycle,
+                        'sort' => '-expenditure_amount',
+                        'per_page' => $perPage,
+                    ];
+                    if ($lastIndex !== null) {
+                        $params['last_index'] = $lastIndex;
+                        $params['last_expenditure_amount'] = $lastAmount;
+                    }
 
-                $response = Http::timeout(10)->get("{$this->baseUrl}/schedules/schedule_e/", $params);
-
-                if (!$response->successful()) {
-                    $this->logHttpFailure('get_outside_spending', $response->status(), [
+                    $body = $this->request('get_outside_spending', "{$this->baseUrl}/schedules/schedule_e/", $params, [
                         'candidate_id' => $candidateId,
                         'cycle' => $cycle,
                         'page' => $page,
                     ]);
-                    break;
-                }
 
-                $results = $response->json('results', []);
-
-                // Aggregate this page's items by spender × support/oppose.
-                // Drop memoed subtotals and the $9.9B spam filings (a recurring
-                // bad-filer submits absurd amounts). $500M is well above any
-                // legitimate single IE; real big-money buys top out in the tens
-                // of millions per disbursement.
-                foreach ($results as $item) {
-                    if (!empty($item['memoed_subtotal'])) {
-                        continue;
-                    }
-                    $amount = (float) ($item['expenditure_amount'] ?? 0);
-                    if ($amount > 500_000_000.0) {
-                        continue;
-                    }
-                    // Defensive: the API filter scopes to this candidate, but a
-                    // loose search could still return a mismatched row.
-                    if (($item['candidate_id'] ?? null) !== $candidateId) {
-                        continue;
+                    // request() returns null on terminal failure or rate-limit
+                    // short-circuit — stop paging and return what we have.
+                    if ($body === null) {
+                        break;
                     }
 
-                    $committeeId = (string) ($item['committee_id'] ?? '');
-                    $bucketKey = ($committeeId !== '' ? $committeeId : ('payee:' . ($item['payee_name'] ?? '')))
-                        . '|' . ($item['support_oppose_indicator'] ?? '');
+                    $results = $body['results'] ?? [];
 
-                    if (!isset($buckets[$bucketKey])) {
-                        $buckets[$bucketKey] = [
-                            'committee_id' => $committeeId,
-                            'committee_name' => $committeeId !== '' ? $committeeId : ($item['payee_name'] ?? 'Unknown spender'),
-                            'total' => 0.0,
-                            'support_oppose' => ($item['support_oppose_indicator'] ?? 'S') === 'O' ? 'O' : 'S',
-                        ];
+                    // Aggregate this page's items by spender × support/oppose.
+                    // Drop memoed subtotals and the $9.9B spam filings (a recurring
+                    // bad-filer submits absurd amounts). $500M is well above any
+                    // legitimate single IE; real big-money buys top out in the tens
+                    // of millions per disbursement.
+                    foreach ($results as $item) {
+                        if (!empty($item['memoed_subtotal'])) {
+                            continue;
+                        }
+                        $amount = (float) ($item['expenditure_amount'] ?? 0);
+                        if ($amount > 500_000_000.0) {
+                            continue;
+                        }
+                        // Defensive: the API filter scopes to this candidate, but a
+                        // loose search could still return a mismatched row.
+                        if (($item['candidate_id'] ?? null) !== $candidateId) {
+                            continue;
+                        }
+
+                        $committeeId = (string) ($item['committee_id'] ?? '');
+                        $bucketKey = ($committeeId !== '' ? $committeeId : ('payee:' . ($item['payee_name'] ?? '')))
+                            . '|' . ($item['support_oppose_indicator'] ?? '');
+
+                        if (!isset($buckets[$bucketKey])) {
+                            $buckets[$bucketKey] = [
+                                'committee_id' => $committeeId,
+                                'committee_name' => $committeeId !== '' ? $committeeId : ($item['payee_name'] ?? 'Unknown spender'),
+                                'total' => 0.0,
+                                'support_oppose' => ($item['support_oppose_indicator'] ?? 'S') === 'O' ? 'O' : 'S',
+                            ];
+                        }
+                        $buckets[$bucketKey]['total'] += $amount;
                     }
-                    $buckets[$bucketKey]['total'] += $amount;
+
+                    // Stop when there are no more pages, or we've reached the cap.
+                    // The cursor comes from the API's own last item (independent of
+                    // our amount-cap filtering), so skipping spam doesn't stall paging.
+                    $cursor = $body['pagination']['last_indexes'] ?? null;
+                    if (count($results) < $perPage || empty($cursor)) {
+                        break;
+                    }
+                    $lastIndex = $cursor['last_index'] ?? null;
+                    $lastAmount = $cursor['last_expenditure_amount'] ?? null;
+                    if ($lastIndex === null) {
+                        break;
+                    }
                 }
 
-                // Stop when there are no more pages, or we've reached the cap.
-                // The cursor comes from the API's own last item (independent of
-                // our amount-cap filtering), so skipping spam doesn't stall paging.
-                $cursor = $response->json('pagination.last_indexes');
-                if (count($results) < $perPage || empty($cursor)) {
-                    break;
+                if ($buckets === []) {
+                    return [];
                 }
-                $lastIndex = $cursor['last_index'] ?? null;
-                $lastAmount = $cursor['last_expenditure_amount'] ?? null;
-                if ($lastIndex === null) {
-                    break;
-                }
-            }
 
-            if ($buckets === []) {
+                // Rank by total desc, cap at the top 20 spenders, then resolve names.
+                $ranked = array_values($buckets);
+                usort($ranked, fn($a, $b) => $b['total'] <=> $a['total']);
+                $ranked = array_slice($ranked, 0, 20);
+
+                $this->resolveCommitteeNames($ranked);
+
+                return array_map(fn($b) => [
+                    'committee_name' => $b['committee_name'],
+                    'total' => $b['total'],
+                    'support_oppose' => $b['support_oppose'],
+                ], $ranked);
+
+            } catch (\Throwable $e) {
+                $this->logProviderException('get_outside_spending', $e, [
+                    'candidate_id' => $candidateId,
+                    'cycle' => $cycle,
+                ]);
+
                 return [];
             }
-
-            // Rank by total desc, cap at the top 20 spenders, then resolve names.
-            $ranked = array_values($buckets);
-            usort($ranked, fn($a, $b) => $b['total'] <=> $a['total']);
-            $ranked = array_slice($ranked, 0, 20);
-
-            $this->resolveCommitteeNames($ranked);
-
-            return array_map(fn($b) => [
-                'committee_name' => $b['committee_name'],
-                'total' => $b['total'],
-                'support_oppose' => $b['support_oppose'],
-            ], $ranked);
-
-        } catch (\Throwable $e) {
-            $this->logProviderException('get_outside_spending', $e, [
-                'candidate_id' => $candidateId,
-                'cycle' => $cycle,
-            ]);
-
-            return [];
-        }
+        });
     }
 
     /**
@@ -555,18 +696,15 @@ class FECService
 
         return Cache::remember("fec.candidate.{$candidateId}.cycle", $this->cacheDuration, function () use ($candidateId) {
             try {
-                $response = Http::timeout(10)->get("{$this->baseUrl}/candidate/{$candidateId}/", [
-                    'api_key' => $this->apiKey,
+                $body = $this->request('get_latest_cycle', "{$this->baseUrl}/candidate/{$candidateId}/", [], [
+                    'candidate_id' => $candidateId,
                 ]);
 
-                if (!$response->successful()) {
-                    $this->logHttpFailure('get_latest_cycle', $response->status(), [
-                        'candidate_id' => $candidateId,
-                    ]);
+                if ($body === null) {
                     return null;
                 }
 
-                $cycles = $response->json('results.0.cycles', []);
+                $cycles = $body['results'][0]['cycles'] ?? [];
                 return $cycles ? max(array_map('intval', $cycles)) : null;
             } catch (\Throwable $e) {
                 $this->logProviderException('get_latest_cycle', $e, [
@@ -601,23 +739,27 @@ class FECService
             // The /committees/ endpoint only filters with *repeated plain*
             // committee_id= params. Laravel's Http::get would render an array
             // value as committee_id[]=… which this endpoint silently ignores,
-            // so build the query string by hand. Cap the lookup to the top 20.
-            $query = 'api_key=' . urlencode((string) $this->apiKey) . '&per_page=100';
+            // so build the query string by hand (request() appends api_key).
+            // Cap the lookup to the top 20.
+            $queryString = 'per_page=100';
             foreach (array_slice($ids, 0, 20) as $id) {
-                $query .= '&committee_id=' . urlencode($id);
+                $queryString .= '&committee_id=' . urlencode($id);
             }
 
-            $response = Http::timeout(10)->get("{$this->baseUrl}/committees/?{$query}");
+            $body = $this->request(
+                'resolve_committee_names',
+                "{$this->baseUrl}/committees/",
+                [],
+                ['committee_ids' => implode(',', array_slice($ids, 0, 20))],
+                $queryString,
+            );
 
-            if (!$response->successful()) {
-                $this->logHttpFailure('resolve_committee_names', $response->status(), [
-                    'committee_ids' => implode(',', array_slice($ids, 0, 20)),
-                ]);
+            if ($body === null) {
                 return;
             }
 
             $nameById = [];
-            foreach ($response->json('results', []) as $committee) {
+            foreach ($body['results'] ?? [] as $committee) {
                 if (!empty($committee['committee_id']) && !empty($committee['name'])) {
                     $nameById[$committee['committee_id']] = $committee['name'];
                 }
@@ -648,13 +790,24 @@ class FECService
         return '$' . number_format((float)$amount, 0);
     }
 
-    protected function logHttpFailure(string $operation, int $status, array $context = []): void
+    protected function logHttpFailure(string $operation, int $status, array $context = [], $response = null): void
     {
-        Log::warning('FECService telemetry: HTTP request failed', array_merge($context, [
+        // Capture a truncated response body on 4xx so FEC's actual error text
+        // surfaces in logs — the schedule_a 400s were previously opaque (only
+        // the status code was logged), which blocked diagnosing the bad
+        // committee_id param form.
+        $body = null;
+        if ($response !== null && $status >= 400 && $status < 500) {
+            $raw = (string) $response->body();
+            $body = $raw === '' ? null : substr($raw, 0, 500);
+        }
+
+        Log::warning('FECService telemetry: HTTP request failed', array_merge($context, array_filter([
             'operation' => $operation,
             'status' => $status,
             'is_rate_limited' => $status === 429,
-        ]));
+            'response_body' => $body,
+        ])));
     }
 
     protected function logProviderException(string $operation, \Throwable $exception, array $context = []): void

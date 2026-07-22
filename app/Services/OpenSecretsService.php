@@ -96,14 +96,33 @@ class OpenSecretsService
         if (! $process->isSuccessful()) {
             Log::info('OpenSecretsService: scraper returned non-zero', [
                 'politician_id' => $politician->id,
-                'stderr'        => substr($process->getErrorOutput(), 0, 500),
+                'stderr'        => substr($process->getErrorOutput(), 0, 2000),
             ]);
             return null;
         }
 
         $json = json_decode($process->getOutput(), true);
         if (! is_array($json) || isset($json['error'])) {
+            // Surface the scraper's stderr (it carries the [search]/[scrape]
+            // diagnostic lines) so a systemic "no data returned" isn't silent.
+            Log::info('OpenSecretsService: scraper returned no usable JSON', [
+                'politician_id' => $politician->id,
+                'stderr'        => substr($process->getErrorOutput(), 0, 2000),
+            ]);
             return null;
+        }
+
+        // The scraper can succeed (valid JSON) but parse nothing — the
+        // "0 contributors / 0 industries" symptom. Log the stderr trail so the
+        // workflow log shows whether it died at search (0 results) or at the
+        // profile scrape (stale table selectors), instead of just "0 contributors".
+        $contributors = $json['top_contributors'] ?? [];
+        $industries   = $json['top_industries']   ?? [];
+        if ($contributors === [] && $industries === []) {
+            Log::info('OpenSecretsService: scraper succeeded but parsed no contributors/industries', [
+                'politician_id' => $politician->id,
+                'stderr'        => substr($process->getErrorOutput(), 0, 2000),
+            ]);
         }
 
         // Persist the mpid back to the politician for faster future lookups
