@@ -21,6 +21,7 @@ use App\Http\Controllers\Api\MapDistrictConfigController;
 use App\Http\Controllers\Api\MapGeocodeController;
 use App\Http\Controllers\Api\MapInteractionController;
 use App\Http\Controllers\Api\MapCandidateEconomyController;
+use App\Http\Controllers\Api\MapCandidateMomentsController;
 use App\Http\Controllers\Api\MapCandidateOverviewController;
 use App\Http\Controllers\Api\MapRegionDemographicsController;
 use App\Http\Controllers\Api\MapStateCandidatesController;
@@ -109,6 +110,9 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
 
         Route::get('/map/candidate-economy', MapCandidateEconomyController::class)
             ->name('map.candidate-economy');
+
+        Route::get('/map/candidate-moments', MapCandidateMomentsController::class)
+            ->name('map.candidate-moments');
 
         // District boundary config — congress number, TIGERweb layer, CD field,
         // and party map derived from seated House members. Used by the 3D map to

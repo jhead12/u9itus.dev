@@ -392,4 +392,26 @@ return [
             'x'           => 0.50,
         ],
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Marketing: Plugin Marketplace Spine
+    |--------------------------------------------------------------------------
+    | Feature flags + first-party channel map for the MarketingChannel plugin
+    | system (App\Contracts\MarketingChannel). The `enabled` master switch
+    | gates the whole marketing dispatch path; the first-party channel map
+    | lists the in-repo plugin classes that the marketing_channels seeder row's
+    | provider_class points at. Third-party (marketplace) channels register the
+    | same contract but are added through the admin approval queue
+    | (ChannelStatus::Pending → Active).
+    */
+    'marketing' => [
+        'enabled' => env('MARKETING_ENABLED', true),
+
+        // First-party channels shipped with the platform. Keyed by the
+        // marketing_channels.key slug that the seeder inserts.
+        'first_party_channels' => [
+            'email' => \App\Services\Marketing\Channels\EmailChannel::class,
+        ],
+    ],
 ];
