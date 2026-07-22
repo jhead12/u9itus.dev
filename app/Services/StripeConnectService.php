@@ -247,6 +247,30 @@ class StripeConnectService
     }
 
     /**
+     * One-time login link into the voter's Stripe Express Dashboard, where they
+     * can view balance/payout history and manage bank details. Single-use and
+     * short-lived — must be generated fresh on every click, never cached.
+     */
+    public function createLoginLink(Voter $voter): string
+    {
+        if (! $this->client) {
+            throw new StripeConnectException(self::NOT_CONFIGURED);
+        }
+
+        if (empty($voter->stripe_account_id)) {
+            throw new StripeConnectException('No payout account found. Please complete payout setup first.');
+        }
+
+        try {
+            $link = $this->client->accounts->createLoginLink((string) $voter->stripe_account_id, []);
+        } catch (\Throwable $e) {
+            throw $this->classifyStripeException($e);
+        }
+
+        return (string) $link->url;
+    }
+
+    /**
      * Some legacy/partially configured Stripe accounts cannot open onboarding again.
      * Retry with account_update so users can still complete required updates.
      */

@@ -21,7 +21,7 @@ window.__mapGoTo = async function (state, district = null, slug = null) {
         : state;
 
     const mesh = stateMeshes.find(m => m.userData.name === stateName);
-    if (!mesh) return;
+    if (!mesh) return false;
 
     await enterStateMode(stateName, mesh.userData.regionName, mesh.userData.region);
 
@@ -67,6 +67,8 @@ window.__mapGoTo = async function (state, district = null, slug = null) {
             if (waited >= 3000) clearInterval(tryOpen);
         }, 150);
     }
+
+    return true;
 };
 
 // __mapReset / __mapBack / __mapRegion are owned by ui/breadcrumb.js

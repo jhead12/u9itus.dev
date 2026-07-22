@@ -413,7 +413,10 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         // POST-only: this mutates state (creates a Stripe account, redirects to
         // Stripe-hosted onboarding). GET would be triggered by link prefetchers.
         Route::post('/authentic-user-verifier/start', [VoterController::class, 'startAuthenticUserVerifier'])->name('authentic-user-verifier.start');
-        
+        // POST-only: generates a single-use Stripe login link and immediately
+        // redirects away with it — GET would let prefetchers burn the link.
+        Route::post('/wallet/manage', [VoterController::class, 'openStripeDashboard'])->name('wallet.manage');
+
         // Referrals
         Route::get('/referrals', [VoterController::class, 'referrals'])->name('referrals');
         Route::get('/referrals/link', [VoterController::class, 'getReferralLink'])->name('referrals.link');

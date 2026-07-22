@@ -522,6 +522,53 @@ trait ManagesVoterAuxiliaryActions
         }
     }
 
+    /**
+     * Redirect the voter into their Stripe Express Dashboard (same tab) to view
+     * balance, payout history, and manage bank details.
+     */
+    public function openStripeDashboard(StripeConnectService $stripeConnect)
+    {
+        $voter = $this->resolveVoter();
+
+        if (! $stripeConnect->isConfigured()) {
+            return back()->withErrors([
+                'payout' => 'Wallet management is temporarily unavailable. Please try again shortly.',
+            ]);
+        }
+
+        try {
+            $url = $stripeConnect->createLoginLink($voter);
+
+            return redirect()->away($url);
+        } catch (\Throwable $e) {
+            $reference = (string) Str::ulid();
+
+            $classified = $e instanceof StripeConnectException
+                ? $e
+                : $stripeConnect->classifyStripeException($e);
+
+            $context = [
+                'reference'         => $reference,
+                'voter_id'          => $voter->id,
+                'exception'         => $e::class,
+                'code'              => $e->getCode(),
+                'error'             => $e->getMessage(),
+                'user_message'      => $classified->getMessage(),
+                'stripe_account_id' => $voter->stripe_account_id,
+                ...$this->stripeErrorContext($e),
+            ];
+
+            Log::warning('Unable to open Stripe Express Dashboard', $context);
+            Log::channel('stderr')->warning('Unable to open Stripe Express Dashboard', $context);
+
+            report($e);
+
+            return back()->withErrors([
+                'payout' => $classified->getMessage() . ' Reference: ' . $reference,
+            ]);
+        }
+    }
+
     public function updateProfile(Request $request)
     {
         $validated = $request->validate([

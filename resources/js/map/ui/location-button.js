@@ -50,6 +50,11 @@ export async function findMyDistrict() {
         return;
     }
 
+    if (window.isSecureContext === false) {
+        showToast('Location requires a secure (HTTPS) connection. Use the search bar instead.', 'error');
+        return;
+    }
+
     isLocating = true;
     showToast('Finding your congressional district…', 'info');
     trackEvent('find_my_district_click', {});
@@ -76,16 +81,23 @@ export async function findMyDistrict() {
             district: data.district_code,
         });
 
-        // Fly the map to the district.
-        if (typeof window.__mapGoTo === 'function') {
-            window.__mapGoTo(data.state, data.district_number, null);
-        } else {
-            // Fallback if deep-link module has not loaded yet.
+        // Fly the map to the district. If __mapGoTo isn't available yet, or
+        // the 3D state meshes haven't finished loading (it returns false),
+        // fall back to a full reload with deep-link params so bootDeepLink can
+        // retry once the map is ready — previously this was a silent no-op.
+        const deepLink = () => {
             const params = new URLSearchParams({
                 state: data.state,
                 district: data.district_number,
             });
             location.assign(`${location.pathname}?${params.toString()}`);
+        };
+
+        if (typeof window.__mapGoTo === 'function') {
+            const handled = await window.__mapGoTo(data.state, data.district_number, null);
+            if (!handled) deepLink();
+        } else {
+            deepLink();
         }
     } catch (err) {
         const message = err?.code
@@ -107,8 +119,6 @@ export function initLocationButton() {
         findMyDistrict();
     });
 
-    document.getElementById('cm-btn-find-district')?.addEventListener('click', () => {
-        // Controls menu closes itself via its own handler; just trigger the lookup.
-        findMyDistrict();
-    });
+    // cm-btn-find-district is wired in controls-menu.js, whose handler also
+    // closes the dropdown. Avoid a duplicate listener here.
 }
