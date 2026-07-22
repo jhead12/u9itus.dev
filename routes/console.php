@@ -77,6 +77,25 @@ Schedule::command('politicians:enrich-moments --stale-hours=48 --limit=200')
     ->dailyAt('05:00')
     ->withoutOverlapping();
 
+// Marketing content agent — auto-draft blog Posts from recent news / viral
+// moments for politicians. Drafts are saved as PendingApproval and require a
+// human to publish. Slotted at 06:00 to follow the 05:00 viral-moments enrich
+// job so freshly-scored moments + verified news are available for selection.
+// Gated on config('u9itus.marketing.drafting.enabled') (default false).
+Schedule::command('marketing:draft-posts --limit=20')
+    ->dailyAt('06:00')
+    ->withoutOverlapping()
+    ->runInBackground();
+
+// Daily admin digest of the marketing content agent's new PendingApproval
+// drafts (created since the last digest). Slotted at 07:00, after the 06:00
+// draft job, so the day's freshly drafted posts are included. The command is
+// itself gated on config('u9itus.marketing.drafting.digest_enabled').
+Schedule::command('marketing:drafts-digest')
+    ->dailyAt('07:00')
+    ->withoutOverlapping()
+    ->runInBackground();
+
 // Census city demographics — refresh poverty / education / income + precomputed
 // congressional districts for the curated ~200-city allow-list (all 50 states
 // + DC). ACS data updates yearly, so weekly is plenty. The GitHub Actions

@@ -413,5 +413,26 @@ return [
         'first_party_channels' => [
             'email' => \App\Services\Marketing\Channels\EmailChannel::class,
         ],
+
+        // Marketing content agent — auto-drafts blog Posts from a politician's
+        // recent news / viral moments (App\Services\Marketing\PostDraftingService).
+        // Drafts are saved as PendingApproval and require a human to publish via
+        // the existing Post editor; nothing is auto-published. Defaults to OFF.
+        'drafting' => [
+            'enabled'                  => env('MARKETING_DRAFTING_ENABLED', false),
+            // Override the Anthropic model for drafting; null falls back to services.anthropic.model.
+            'model'                     => env('MARKETING_DRAFTING_MODEL', null),
+            // Min moment_score for a viral moment to be drafted (0 = any eligible clip).
+            'moment_score_threshold'    => env('MARKETING_MOMENT_SCORE_THRESHOLD', 0.0),
+            // How many recent verified news articles to consider per politician.
+            'news_recency_limit'        => 60,
+            // Eligibility window (days) for viral moments via scopeEligible().
+            'viral_eligible_days'       => 30,
+
+            // Daily admin digest of new PendingApproval drafts. Recipients:
+            // a comma-separated email list here, else all admin users (User::admins()).
+            'digest_enabled'             => env('MARKETING_DRAFTS_DIGEST_ENABLED', true),
+            'digest_recipients'          => env('MARKETING_DRAFTS_DIGEST_RECIPIENTS', null),
+        ],
     ],
 ];

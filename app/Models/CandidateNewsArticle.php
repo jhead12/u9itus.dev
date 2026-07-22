@@ -4,9 +4,11 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class CandidateNewsArticle extends Model
 {
+    use HasFactory;
     protected $fillable = [
         'politician_id',
         'candidate_name',
