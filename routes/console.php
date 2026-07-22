@@ -46,6 +46,14 @@ Schedule::command('candidates:refresh-news --stale-hours=6 --limit=50')
 Schedule::command('news:check-refresh-health')
     ->hourly();
 
+// Endorsement backfill/re-scan — live ingestion (CandidateNewsService::
+// persistArticles) already classifies each article once at fetch time, so
+// this only needs to catch stragglers and pick up config/endorsements.php
+// pattern updates on already-stored articles. Daily is plenty.
+Schedule::command('candidates:detect-endorsements --limit=300')
+    ->daily()
+    ->withoutOverlapping();
+
 // Donor/sponsor enrichment — refresh cached OpenSecrets + FEC data nightly.
 // The GitHub Actions workflow (enrich-donor-snapshots.yml) also fires this.
 Schedule::command('politicians:enrich-donors --stale-hours=48 --limit=200')

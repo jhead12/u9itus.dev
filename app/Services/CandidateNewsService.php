@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\CandidateNewsArticle;
 use App\Models\Politician;
+use App\Models\PoliticianEndorsement;
 use App\Models\PoliticianTopic;
 use Illuminate\Http\Client\Pool;
 use Illuminate\Http\Client\Response;
@@ -42,9 +43,11 @@ class CandidateNewsService
     public function __construct(
         protected ?string $newsApiKey = null,
         protected ?string $gNewsApiKey = null,
+        protected ?EndorsementClassifier $endorsementClassifier = null,
     ) {
         $this->newsApiKey  = config('services.newsapi.api_key');
         $this->gNewsApiKey = config('services.gnews.api_key');
+        $this->endorsementClassifier ??= new EndorsementClassifier();
     }
 
     /**
@@ -260,6 +263,38 @@ class CandidateNewsService
     }
 
     /**
+     * Re-run endorsement detection over already-stored verified articles.
+     * Needed for the initial backfill, and whenever config/endorsements.php
+     * patterns change — live ingestion (see persistArticles) only classifies
+     * an article once, at fetch time.
+     */
+    public function detectEndorsementsForStoredArticles(int $limit = 500, ?int $politicianId = null): array
+    {
+        $query = CandidateNewsArticle::query()
+            ->where('verification_status', 'verified')
+            ->whereNotNull('politician_id')
+            ->when($politicianId, fn ($q, $id) => $q->where('politician_id', $id))
+            ->orderByDesc('published_at')
+            ->limit($limit);
+
+        $articles = $query->get();
+
+        foreach ($articles as $article) {
+            $this->detectEndorsements(
+                politicianId: $article->politician_id,
+                headline: (string) $article->headline,
+                snippet: (string) ($article->snippet ?? ''),
+                articleId: $article->id,
+                sourceUrl: (string) ($article->source_url ?? ''),
+            );
+        }
+
+        return [
+            'processed' => $articles->count(),
+        ];
+    }
+
+    /**
      * Re-run verification/topic extraction on existing stored articles.
      * Useful for backfills and quality-cleaning workflows.
      */
@@ -398,7 +433,7 @@ class CandidateNewsService
                 snippet: (string) ($article['snippet'] ?? ''),
             );
 
-            CandidateNewsArticle::updateOrCreate(
+            $saved = CandidateNewsArticle::updateOrCreate(
                 ['source_hash' => $hash],
                 array_merge($article, [
                     'politician_id'  => $politicianId,
@@ -419,6 +454,58 @@ class CandidateNewsService
                     'topic_key' => $topic['topic_key'],
                     'topic_confidence' => $topic['topic_confidence'],
                 ]),
+            );
+
+            // Endorsements need a real politician row to attach to — unlike news
+            // articles, which tolerate politician_id = null for unregistered candidates.
+            if ($verification['status'] === 'verified' && $politicianId !== null) {
+                $this->detectEndorsements(
+                    politicianId: $politicianId,
+                    headline: (string) ($article['headline'] ?? ''),
+                    snippet: (string) ($article['snippet'] ?? ''),
+                    articleId: $saved->id,
+                    sourceUrl: (string) ($article['source_url'] ?? ''),
+                );
+            }
+        }
+    }
+
+    /**
+     * Detect endorsement claims in one article's text and upsert them into
+     * politician_endorsements, deduped per (politician, group). Repeat
+     * coverage of the same endorsement strengthens match_count/confidence
+     * and grows the detected_article_ids evidence trail instead of creating
+     * duplicate rows.
+     */
+    protected function detectEndorsements(int $politicianId, string $headline, string $snippet, int $articleId, string $sourceUrl): void
+    {
+        $matches = $this->endorsementClassifier->classify($headline, $snippet);
+        if (empty($matches)) {
+            return;
+        }
+
+        foreach ($matches as $match) {
+            $existing = PoliticianEndorsement::query()
+                ->where('politician_id', $politicianId)
+                ->where('group_key', $match['group'])
+                ->first();
+
+            $articleIds = array_unique(array_merge($existing->detected_article_ids ?? [], [$articleId]));
+
+            PoliticianEndorsement::updateOrCreate(
+                ['politician_id' => $politicianId, 'group_key' => $match['group']],
+                [
+                    'label' => $match['label'],
+                    'endorser_name' => $match['endorser_name'] ?? $existing?->endorser_name,
+                    'matched_phrase' => $existing && $existing->confidence >= $match['confidence']
+                        ? $existing->matched_phrase
+                        : $match['matched_phrase'],
+                    'confidence' => max($match['confidence'], (float) ($existing->confidence ?? 0)),
+                    'source_article_id' => $articleId,
+                    'source_url' => $sourceUrl !== '' ? $sourceUrl : $existing?->source_url,
+                    'detected_article_ids' => array_values($articleIds),
+                    'match_count' => count($articleIds),
+                ],
             );
         }
     }

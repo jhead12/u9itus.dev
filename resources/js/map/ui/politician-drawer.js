@@ -193,11 +193,11 @@ async function loadEconomyEnrichment(cand) {
     }
 }
 
-/** Endorsement / PAC-affiliation badges — logo (if any) + label, linking out to the org's site. */
+/** PAC-affiliation badges — logo (if any) + label, linking out to the org's site. */
 function renderPacBadges(pacAffiliations) {
     if (!pacAffiliations?.length) return '';
     return `
-        <p class="pol-section-label" style="margin-top:16px;">Endorsements &amp; PAC Affiliations</p>
+        <p class="pol-section-label" style="margin-top:16px;">PAC Affiliations</p>
         <div class="pol-badges" style="margin-bottom:2px;">
             ${pacAffiliations.map(b => {
                 const href = safeUrl(b.website_url || '');
@@ -209,6 +209,22 @@ function renderPacBadges(pacAffiliations) {
             }).join('')}
         </div>
         <p style="font-size:9px;color:#475569;margin:4px 0 0;">Inferred from campaign-finance contributor matching, not a confirmed public endorsement.</p>`;
+}
+
+/** Real, news-detected endorsements (e.g. "Governor Endorsed") — text-confirmed, not donor-inferred like the PAC badges below. */
+function renderEndorsementBadges(endorsements) {
+    if (!endorsements?.length) return '';
+    return `
+        <p class="pol-section-label">Endorsements</p>
+        <div class="pol-badges" style="margin-bottom:2px;">
+            ${endorsements.map(e => {
+                const href = safeUrl(e.source_url || '');
+                const inner = `<span>${escapeHtml(e.badge_text || `${e.label} Endorsed`)}</span>`;
+                return href
+                    ? `<a class="pol-badge-logo" href="${escapeHtml(href)}" target="_blank" rel="noopener">${inner}</a>`
+                    : `<span class="pol-badge-logo">${inner}</span>`;
+            }).join('')}
+        </div>`;
 }
 
 function renderIndustryBars(industries) {
@@ -532,12 +548,14 @@ function _renderPolBody() {
                 ? 'This candidate has not claimed a U9itus profile yet, so campaign finance data is not available.'
                 : 'Campaign finance data has not been enriched for this candidate yet — check back after the next nightly update.';
             polBodyEl.innerHTML = `
+                ${renderEndorsementBadges(economy?.endorsements)}
                 <p class="pol-section-label">Economy</p>
                 <p class="pol-empty">${escapeHtml(message)}</p>`;
             return;
         }
 
         polBodyEl.innerHTML = `
+            ${renderEndorsementBadges(economy.endorsements)}
             ${renderPacBadges(economy.pac_affiliations)}
             ${renderIndustryBars(economy.top_industries)}
             ${renderContributors(economy.top_contributors)}

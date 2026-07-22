@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Models\Organization;
+use App\Models\Politician;
 use App\Models\PoliticianDonorSnapshot;
 use App\Services\PoliticianResolver;
 use App\Support\Money;
@@ -49,8 +50,14 @@ class MapCandidateEconomyController
                     'candidate' => $candidate,
                     'has_data' => false,
                     'reason' => 'not_on_platform',
+                    'endorsements' => [],
                 ];
             }
+
+            // Detected from news coverage, independent of donor-snapshot data — load
+            // it before the snapshot gate below so it's still present even when the
+            // candidate has no donor snapshot yet.
+            $endorsements = $this->formatEndorsements($politician);
 
             $snapshot = PoliticianDonorSnapshot::where('politician_id', $politician->id)->first();
 
@@ -59,6 +66,7 @@ class MapCandidateEconomyController
                     'candidate' => $candidate,
                     'has_data' => false,
                     'reason' => 'not_yet_enriched',
+                    'endorsements' => $endorsements,
                 ];
             }
 
@@ -72,6 +80,7 @@ class MapCandidateEconomyController
                 'top_contributors' => $this->formatContributors($snapshot->top_contributors ?? []),
                 'fec_summary' => $snapshot->fec_summary,
                 'pac_affiliations' => Organization::badgesForPacAffiliations($snapshot->pac_affiliations ?? []),
+                'endorsements' => $endorsements,
                 'sources' => [
                     'opensecrets_url' => $snapshot->opensecrets_source_url,
                     'fec_url' => $snapshot->fec_source_url,
@@ -80,6 +89,23 @@ class MapCandidateEconomyController
         });
 
         return response()->json($data);
+    }
+
+    /**
+     * News-detected endorsements (e.g. "Governor Endorsed") — distinct from
+     * the donor-inferred pac_affiliations badges above.
+     *
+     * @return array<int, array{group: string, label: string, badge_text: string, endorser_name: ?string, source_url: ?string}>
+     */
+    private function formatEndorsements(Politician $politician): array
+    {
+        return $politician->endorsements()->active()->get()->map(fn ($e) => [
+            'group' => $e->group_key,
+            'label' => $e->label,
+            'badge_text' => $e->label . ' Endorsed',
+            'endorser_name' => $e->endorser_name,
+            'source_url' => $e->source_url,
+        ])->all();
     }
 
     /**

@@ -1034,6 +1034,10 @@ class PublicProfileController extends Controller
         $transparencyData = $this->buildTransparencyData($politician);
         $digDeeperData = $this->buildDigDeeperData($politician, $transparencyData);
 
+        // News-detected endorsements (e.g. "Governor Endorsed") — distinct from the
+        // donor-inferred PAC affiliation chips rendered from $transparencyData below.
+        $endorsements = $politician->endorsements()->active()->get();
+
         // Sprint 7 — MeToken subgraph enrichment (read-only, gated).
         // Only fetched when the platform kill-switch is on, the politician is
         // eligible for the Sovereign (MeToken) tier, and an address is set.
@@ -1119,6 +1123,7 @@ class PublicProfileController extends Controller
             'initiatives',
             'transparencyData',
             'digDeeperData',
+            'endorsements',
             'meTokenData',
             'termInfo',
             'ogTitle',
