@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
@@ -34,6 +35,13 @@ return new class extends Migration
             }
             $table->unsignedBigInteger('voter_id')->nullable()->change();
         });
+
+        // Orphaned rows (voter hard-deleted before this FK existed) would
+        // otherwise fail the ALTER TABLE below with SQLSTATE[23000] 1452.
+        DB::table('payout_attempts')
+            ->whereNotNull('voter_id')
+            ->whereNotIn('voter_id', DB::table('voters')->select('id'))
+            ->update(['voter_id' => null]);
 
         $hasForeignKey = collect(Schema::getForeignKeys('payout_attempts'))
             ->contains(fn ($fk) => $fk['columns'] === ['voter_id']);
