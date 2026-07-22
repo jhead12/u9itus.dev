@@ -162,6 +162,23 @@ return [
         'model'   => env('ANTHROPIC_ENRICH_MODEL', 'claude-haiku-4-5'),
     ],
 
+    // Public-directory profile enrichment — fetches a politician's official /
+    // campaign website and extracts contact methods, office addresses
+    // (residential rejected), social/newsletter links, and donation page URLs
+    // (link-out only, never embedded). Newsletter posts (Substack JSON → RSS
+    // fallback) are stored as titled links only in candidate_news_articles.
+    // The Anthropic creds above are reused for the Claude haiku fallback tier;
+    // no new secret is required.
+    'profile_enricher' => [
+        'user_agent'      => env('PROFILE_ENRICHER_UA', 'U9itus-civic-enrichment/1.0 (+https://u9itus.dev/about)'),
+        'timeout'          => (int) env('PROFILE_ENRICHER_TIMEOUT', 20),
+        'cache_ttl'        => (int) env('PROFILE_ENRICHER_CACHE_TTL', 86400),
+        'rate_per_host'    => (int) env('PROFILE_ENRICHER_RATE_PER_HOST', 1),
+        'max_posts'        => (int) env('PROFILE_ENRICHER_MAX_POSTS', 10),
+        'anthropic_key'    => env('ANTHROPIC_API_KEY'),
+        'anthropic_model'  => env('ANTHROPIC_ENRICH_MODEL', 'claude-haiku-4-5'),
+    ],
+
     // GitHub Actions dispatch integration. GITHUB_REPO is "owner/repo" (e.g.
     // "HeadEnterprises/u9itus.dev"), shared by all dispatchers below. Each
     // dispatcher gets its own fine-grained PAT (repo → Actions → Write access

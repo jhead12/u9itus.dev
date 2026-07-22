@@ -52,6 +52,14 @@ Schedule::command('politicians:enrich-donors --stale-hours=48 --limit=200')
     ->dailyAt('03:00')
     ->withoutOverlapping();
 
+// Public-directory profile enrichment — fetch each politician's official /
+// campaign website for contact methods, office addresses (residential
+// rejected), social/newsletter links, and donation page URLs (link-out only).
+// Slotted at 04:00 to follow the 03:00 donor-enrich job.
+Schedule::command('politicians:enrich-profiles --stale-hours=48 --limit=200')
+    ->dailyAt('04:00')
+    ->withoutOverlapping();
+
 // Census city demographics — refresh poverty / education / income + precomputed
 // congressional districts for the curated ~200-city allow-list (all 50 states
 // + DC). ACS data updates yearly, so weekly is plenty. The GitHub Actions

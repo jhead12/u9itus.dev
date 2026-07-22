@@ -121,6 +121,55 @@ gh workflow run enrich-donor-snapshots.yml -f force=true -f limit=200
 gh run watch $(gh run list --workflow=enrich-donor-snapshots.yml --limit 1 --json databaseId -q '.[0].databaseId')
 ```
 
+### Sibling job: `politicians:enrich-profiles` (in-app scheduler only — no GA workflow yet)
+
+The session that followed the donor fix added a sibling enrichment command,
+`politicians:enrich-profiles`, that fetches each politician's own
+official/campaign website and extracts contact methods (phone/email/fax),
+office addresses (**residential rejected** — the `address_kind` enum is
+`office|district|mailing` only), social/newsletter links (including Substack
+posts), and donation page URLs (link-out only, never embedded). It mirrors
+`enrich-donors` exactly: signature
+`{--limit=200} {--stale-hours=48} {--politician=} {--force} {--dry-run}`,
+staleness gated on the latest `profile_enrichment_run.enriched_at`. Writes
+five new tables (`profile_enrichment_runs` + four `profile_*` fact tables) and
+reuses `candidate_news_articles` for newsletter posts.
+
+It's slotted into the in-app scheduler at `0 4 * * *` daily, right after the
+`0 3` donor job, so it shows up in `php artisan schedule:list`:
+
+```bash
+php artisan schedule:list | grep enrich-profiles
+# 0   4   * * *   php artisan politicians:enrich-profiles --stale-hours=48 --limit=200
+```
+
+But — unlike the six Group 1 pipelines above — it has **no
+`.github/workflows/enrich-profiles.yml` yet**, so the `gh workflow run` pattern
+does not apply:
+
+```bash
+gh workflow run enrich-profiles.yml     # fails — no such workflow file exists
+gh run list --workflow=enrich-profiles.yml   # nothing to list
+```
+
+To run it on demand today, invoke the artisan command directly rather than via
+`gh`:
+
+```bash
+php artisan politicians:enrich-profiles --politician=<slug> --force
+php artisan politicians:enrich-profiles --dry-run --limit=10   # report only, no DB writes
+php artisan politicians:enrich-profiles --stale-hours=48 --force
+```
+
+If you want GH-CLI parity with the other Group 1 pipelines (a
+`workflow_dispatch` workflow that the in-app `0 4` schedule backstops, the
+same way `enrich-donor-snapshots.yml` backstops `enrich-donors`), copy
+`enrich-donor-snapshots.yml` and point its `run:` step at
+`php artisan politicians:enrich-profiles` with the same `-f` inputs
+(`limit`, `stale_hours`, `politician`, `force`, `dry_run`) — then the
+`gh run list --workflow=enrich-profiles.yml` / `gh workflow run
+enrich-profiles.yml -f dry_run=true` drill works identically to the donor job.
+
 ### Group 2 — on-demand incident response
 
 `repair-broken-profile.yml` has no schedule at all — it only runs when
@@ -230,3 +279,10 @@ gh api repos/jhead12/u9itus.dev/dependabot/alerts --paginate
 6. Try `gh api repos/jhead12/u9itus.dev/dependabot/alerts --paginate | jq '.[] | {severity: .security_advisory.severity, summary: .security_advisory.summary}'`
    to see the raw shape behind the "75 vulnerabilities" banner GitHub shows on
    the repo.
+7. Run `php artisan schedule:list | grep enrich-profiles` to see the
+   `politicians:enrich-profiles` job (04:00 daily) — then run it on demand with
+   `--dry-run` to learn its shape. Note this one is **in-app-scheduler only**
+   (no `enrich-profiles.yml` workflow), so you reach for `php artisan`, not
+   `gh workflow run` — the one scheduled data job in this repo that breaks the
+   `gh`-dispatchable pattern, and a good reminder to check `gh workflow list`
+   before assuming every cron job has a workflow behind it.
