@@ -1154,6 +1154,31 @@
         </section>
         @endif
 
+        {{-- ── Endorsements (news-detected, e.g. "Governor Endorsed") ──────── --}}
+        @if($endorsements->isNotEmpty())
+        <section>
+            <h2 class="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                <span class="w-1 h-6 rounded-full inline-block" style="background:var(--p13-accent,#f59e0b)"></span>
+                Endorsements
+            </h2>
+            <div class="flex flex-wrap gap-2">
+                @foreach($endorsements as $endorsement)
+                    @php $endorsementHref = $endorsement->source_url; @endphp
+                    @if($endorsementHref)
+                        <a href="{{ $endorsementHref }}" target="_blank" rel="noopener"
+                           class="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/20">
+                            {{ $endorsement->label }} Endorsed
+                        </a>
+                    @else
+                        <span class="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-200">
+                            {{ $endorsement->label }} Endorsed
+                        </span>
+                    @endif
+                @endforeach
+            </div>
+        </section>
+        @endif
+
         {{-- ── Follow the Money (OpenSecrets / FEC donor data) ────────────── --}}
         @php
             $donorData          = $transparencyData['opensecrets'] ?? null;

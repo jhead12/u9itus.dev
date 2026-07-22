@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Jobs\MatchPoliticianToElectionData;
 use App\Traits\HasProfileBadges;
+use App\Traits\HasProfileEnrichments;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -19,7 +20,7 @@ use App\Models\PoliticianOfficeProfile;
  */
 class Politician extends Model
 {
-    use HasFactory, HasProfileBadges;
+    use HasFactory, HasProfileBadges, HasProfileEnrichments;
 
     protected $table = 'politicians';
 
@@ -340,6 +341,16 @@ class Politician extends Model
     public function initiatives(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(PoliticianInitiative::class)->orderBy('sort_order')->orderBy('id');
+    }
+
+    /**
+     * Real public endorsements detected from news coverage (see
+     * App\Services\EndorsementClassifier) — distinct from the
+     * donor-inferred PAC affiliation badges.
+     */
+    public function endorsements(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(PoliticianEndorsement::class);
     }
 
     /**
