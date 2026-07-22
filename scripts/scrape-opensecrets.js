@@ -121,7 +121,28 @@ async function searchCandidate(page, name, state) {
         .slice(0, 5);
     });
 
+    // Diagnostic: surface what the search page actually returned so a
+    // systemic "0 results" (stale markup, consent/anti-bot interstitial, or
+    // a blocked GitHub Actions IP) is visible in the workflow log instead of
+    // silently falling through to a slug guess.
+    console.error(`  [search] results=${results.length}` +
+      (results.length ? ` first="${results[0]?.text}" href=${results[0]?.href}` : ''));
+
     if (!results.length) {
+      const diag = await page.evaluate(() => {
+        const bodyText = (document.body?.innerText || '').replace(/\s+/g, ' ').trim().slice(0, 300);
+        const consentMarkers = ['#onetrust-banner', '#consent', '[aria-label*="consent"]', '.cookie'];
+        const hit = consentMarkers.find(s => document.querySelector(s) ? s : null);
+        return {
+          url: window.location.href,
+          title: document.title,
+          consentGate: hit || null,
+          bodySnippet: bodyText,
+        };
+      });
+      console.error(`  [search] no-results diag url=${diag.url} title="${diag.title}" consent=${diag.consentGate ?? 'none'}`);
+      console.error(`  [search] no-results body: ${diag.bodySnippet}`);
+
       // Fallback: try direct URL construction with name slug
       const slug = nameSlug(name);
       const directUrl = `https://www.opensecrets.org/profiles/${slug}/us_congress/summary`;
@@ -188,6 +209,7 @@ async function scrapeProfilePage(page, profileUrl) {
     const result = {
       title: document.title,
       url: window.location.href,
+      tables_count: tables.length,
       summary: null,
       cycle_history: [],
       top_contributors: [],
@@ -251,6 +273,16 @@ async function scrapeProfilePage(page, profileUrl) {
   });
 
   if (!data) return null;
+
+  // Diagnostic: when the profile scrape lands but parses nothing (the
+  // "0 contributors / 0 industries" symptom), surface whether we hit a real
+  // profile whose table markup changed vs. a wrong/placeholder page. Logged to
+  // stderr so it shows up in the workflow log via OpenSecretsService.
+  console.error(`  [scrape] parsed tables=${data.tables_count ?? 0}` +
+    ` summary=${data.summary ? 'yes' : 'no'}` +
+    ` contributors=${data.top_contributors?.length ?? 0}` +
+    ` industries=${data.top_industries?.length ?? 0}` +
+    ` title="${data.title ?? ''}"`);
 
   // Extract mpid from actual URL (may differ from the one we searched)
   const mpidMatch = data.url?.match(/[?&]mpid=(\d+)/);

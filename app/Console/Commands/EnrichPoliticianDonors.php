@@ -29,6 +29,10 @@ class EnrichPoliticianDonors extends Command
         $dryRun     = (bool) $this->option('dry-run');
         $singleId   = $this->option('politician');
 
+        // Per-process FEC throttle/rate-limit state — start the batch clean so
+        // a short-circuit tripped in this run reflects only this run's 429s.
+        FECService::resetTelemetry();
+
         if ($dryRun) {
             $this->info('[dry-run] No data will be written.');
         }
@@ -102,6 +106,13 @@ class EnrichPoliticianDonors extends Command
         }
 
         $this->info("Done. Enriched: {$enriched} | Failed: {$failed}");
+
+        if ($fec->isConfigured()) {
+            $calls       = FECService::getHttpCallCount();
+            $rateLimited = FECService::getRateLimitCount();
+            $tripped     = FECService::wasShortCircuited() ? 'yes' : 'no';
+            $this->info("FEC telemetry: {$calls} API call(s), {$rateLimited} rate-limited (429), short-circuit tripped: {$tripped}");
+        }
 
         return self::SUCCESS;
     }
