@@ -126,6 +126,13 @@ return [
     'google' => [
         'civic_api_key' => env('GOOGLE_CIVIC_API_KEY'),
 
+        // YouTube Data API v3 — used by App\Services\YouTubeMomentService to
+        // fetch view/like counts on viral clips for the moment-score feature.
+        // Default quota is 10,000 units/day; the enricher gates on news freshness
+        // to stay within budget. Add to GitHub Actions secrets + Railway env.
+        'youtube_api_key' => env('YOUTUBE_API_KEY'),
+        'youtube_api_base_url' => env('YOUTUBE_API_BASE_URL', 'https://www.googleapis.com/youtube/v3'),
+
         // Google Analytics 4 measurement ID (e.g. "G-XXXXXXXXXX").
         // Falls back to the `google_analytics_id` platform setting at runtime.
         'analytics_id' => env('GOOGLE_ANALYTICS_ID'),

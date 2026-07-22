@@ -308,22 +308,22 @@
 </div>
 
 <!-- Search Palette -->
-<div id="search-overlay" role="dialog" aria-modal="true" aria-label="Search states and districts">
+<div id="search-overlay" role="dialog" aria-modal="true" aria-label="Search states, districts, and politicians">
     <div id="search-box">
         <div id="search-input-wrap">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
                 <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
             </svg>
-            <input id="search-input" type="text" placeholder="Search state or district… e.g. &quot;California&quot;, &quot;CA-38&quot;, &quot;Texas 7&quot;" autocomplete="off" spellcheck="false">
+            <input id="search-input" type="text" placeholder="Search state, district, or politician… e.g. &quot;California&quot;, &quot;CA-38&quot;, &quot;Elizabeth Warren&quot;" autocomplete="off" spellcheck="false">
             <span id="search-kbd">esc</span>
         </div>
         <div id="search-results" role="listbox"></div>
-        <div id="search-empty">🔍 No results for that state or district</div>
+        <div id="search-empty">🔍 No results for that state, district, or politician</div>
         <div id="search-footer">
             <span><kbd>↵</kbd> select</span>
             <span><kbd>↑</kbd><kbd>↓</kbd> navigate</span>
             <span><kbd>esc</kbd> close</span>
-            <span style="margin-left:auto;">Type a state name, abbrev., or "CA-38"</span>
+            <span style="margin-left:auto;">Type a state, "CA-38", or a politician's name</span>
         </div>
     </div>
 </div>

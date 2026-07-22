@@ -1,5 +1,6 @@
 /**
- * Search palette — state/district search with keyboard navigation.
+ * Search palette — state/district/politician search with keyboard navigation.
+ * Politician results are fetched live from /api/v1/map/politician-search.
  */
 import { stateMeshes } from '../scene/state-meshes.js';
 import { enterRegionMode, enterStateMode } from '../navigation/mode-transitions.js';
@@ -9,6 +10,7 @@ import { activeState } from '../state/map-state.js';
 import { trackEvent } from '../api/interaction.js';
 import { flyToMeshesTopDown } from '../scene/camera-animation.js';
 import { openDistrictPanel } from './panel-district.js';
+import { openPolDrawer } from './politician-drawer.js';
 import * as THREE from 'three';
 
 const searchOverlay = document.getElementById('search-overlay');
@@ -16,6 +18,46 @@ const searchInput   = document.getElementById('search-input');
 const searchResults = document.getElementById('search-results');
 const searchEmpty   = document.getElementById('search-empty');
 let searchActiveIdx = -1;
+
+/* Reverse of STATE_ABBR_MAP: "CA" -> "California" */
+const ABBR_TO_STATE = Object.fromEntries(
+    Object.entries(STATE_ABBR_MAP).map(([name, abbr]) => [abbr, name])
+);
+
+/* Live politician search — debounced fetch against /api/v1/map/politician-search */
+let polResults      = [];
+let polResultsQuery = '';
+let polFetchToken    = 0;
+let polDebounceTimer = null;
+
+function partyColor(party) {
+    const p = (party || '').toLowerCase();
+    if (p.includes('democrat'))   return '#3b82f6';
+    if (p.includes('republican')) return '#ef4444';
+    if (p.includes('libertarian')) return '#eab308';
+    if (p.includes('green'))      return '#22c55e';
+    return '#94a3b8';
+}
+
+function fetchPoliticians(q) {
+    const trimmed = q.trim();
+    if (trimmed.length < 2) {
+        polResults = [];
+        polResultsQuery = trimmed;
+        renderSearchResults(searchInput.value);
+        return;
+    }
+    const token = ++polFetchToken;
+    fetch(`/api/v1/map/politician-search?q=${encodeURIComponent(trimmed)}`)
+        .then(res => res.ok ? res.json() : { results: [] })
+        .then(data => {
+            if (token !== polFetchToken) return; // superseded by a newer keystroke
+            polResults = Array.isArray(data.results) ? data.results : [];
+            polResultsQuery = trimmed;
+            renderSearchResults(searchInput.value);
+        })
+        .catch(() => {});
+}
 
 /* Build searchable index: states + every district per state */
 const SEARCH_INDEX = [];
@@ -118,7 +160,9 @@ function renderSearchResults(q) {
         .sort((a, b) => b.score - a.score)
         .slice(0, 12);
 
-    if (!scored.length) {
+    const politicians = (polResultsQuery === q.trim()) ? polResults : [];
+
+    if (!scored.length && !politicians.length) {
         searchEmpty.style.display = 'block';
         return;
     }
@@ -139,6 +183,22 @@ function renderSearchResults(q) {
         searchResults.appendChild(gl);
         districts.forEach(x => appendResult(x.item));
     }
+    if (politicians.length) {
+        const gl = document.createElement('div');
+        gl.className = 'sr-group-label'; gl.textContent = 'Politicians';
+        searchResults.appendChild(gl);
+        politicians.forEach(pol => {
+            const color = partyColor(pol.party);
+            appendResult({
+                type:  'politician',
+                label: pol.full_name,
+                sub:   [pol.office, pol.state, pol.party].filter(Boolean).join(' · '),
+                abbr:  pol.state || '',
+                color,
+                data:  pol,
+            });
+        });
+    }
 }
 
 function appendResult(item) {
@@ -147,8 +207,9 @@ function appendResult(item) {
     el.setAttribute('role', 'option');
     el.dataset.idx = searchResults.querySelectorAll('.sr-item').length;
 
-    const icon = item.type === 'state'    ? '🏛'
-               : item.type === 'district' ? '📍'
+    const icon = item.type === 'state'      ? '🏛'
+               : item.type === 'district'   ? '📍'
+               : item.type === 'politician' ? '👤'
                : '🗺';
 
     el.innerHTML = `
@@ -179,8 +240,31 @@ async function activateResult(item) {
         state_abbr: item.abbr       || null,
         region:     item.regionName || null,
         district:   item.type === 'district' ? `${item.abbr}-${item.districtNum}` : null,
-        meta:       { resultType: item.type, label: item.label },
+        meta:       { resultType: item.type, label: item.label, politicianSlug: item.data?.slug || null },
     });
+    if (item.type === 'politician') {
+        const pol       = item.data;
+        const stateName = pol.state ? ABBR_TO_STATE[pol.state.toUpperCase()] : null;
+        if (stateName) {
+            const mesh = stateMeshes.find(m => m.userData.name === stateName);
+            if (mesh) await enterStateMode(stateName, mesh.userData.regionName, mesh.userData.region);
+        }
+        openPolDrawer({
+            full_name:       pol.full_name,
+            office:          pol.office,
+            party:           pol.party,
+            photo:           pol.photo,
+            slug:            pol.slug,
+            status:          pol.status,
+            is_running:      pol.is_running,
+            verified:        pol.verified,
+            ballotpedia_url: pol.ballotpedia_url,
+            website:         pol.website,
+            profile_url:     pol.profile_url,
+            bio_excerpt:     pol.bio_excerpt,
+        }, item.color);
+        return;
+    }
     if (item.type === 'region') {
         enterRegionMode(item.regionName, item.region);
         return;
@@ -214,6 +298,9 @@ async function activateResult(item) {
 export function openSearch() {
     searchOverlay.classList.add('open');
     searchInput.value = '';
+    polResults = [];
+    polResultsQuery = '';
+    clearTimeout(polDebounceTimer);
     renderSearchResults('');
     setTimeout(() => searchInput.focus(), 40);
     trackEvent('search_opened', { state: activeState || null });
@@ -227,7 +314,12 @@ export function closeSearch() {
  * Set up search event listeners.
  */
 export function initSearch() {
-    searchInput.addEventListener('input', () => renderSearchResults(searchInput.value));
+    searchInput.addEventListener('input', () => {
+        const q = searchInput.value;
+        renderSearchResults(q);
+        clearTimeout(polDebounceTimer);
+        polDebounceTimer = setTimeout(() => fetchPoliticians(q), 220);
+    });
     searchInput.addEventListener('keydown', e => {
         const items = searchResults.querySelectorAll('.sr-item');
         if (e.key === 'ArrowDown') {

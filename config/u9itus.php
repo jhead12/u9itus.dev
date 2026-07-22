@@ -356,4 +356,40 @@ return [
             ],
         ],
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Viral Moment Score
+    |--------------------------------------------------------------------------
+    |
+    | Tunables for the "Recent media moment" feature (feat/viral-moment-score).
+    | App\Services\MomentScoreService computes a per-clip score from the raw
+    | engagement components; these values control eligibility + the recency
+    | decay curve so the formula can be retuned without a code deploy.
+    |
+    */
+    'moments' => [
+        // Only clips published within this window are eligible to be "featured".
+        'eligibility_window_days' => env('MOMENT_ELIGIBILITY_WINDOW_DAYS', 30),
+
+        // exp(-age_days / half_life) — larger = slower decay, older clips stay relevant longer.
+        'recency_decay_half_life_days' => env('MOMENT_RECENCY_HALF_LIFE_DAYS', 30),
+
+        // Clips below this view count are stored but never scored/featured (noise floor).
+        'min_view_count' => env('MOMENT_MIN_VIEW_COUNT', 1000),
+
+        // How many ranked moments to keep per politician (older/lower-score clips pruned).
+        'max_per_politician' => env('MOMENT_MAX_PER_POLITICIAN', 10),
+
+        // Per-source authority weight — C-SPAN (official floor footage) ranks above
+        // a random YouTube re-upload, which ranks above social re-shares.
+        'authority_weights' => [
+            'cspan'      => 1.00,
+            'news'        => 0.80,
+            'youtube'     => 0.60,
+            'tiktok'      => 0.50,
+            'instagram'   => 0.50,
+            'x'           => 0.50,
+        ],
+    ],
 ];

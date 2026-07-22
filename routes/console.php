@@ -68,6 +68,15 @@ Schedule::command('politicians:enrich-profiles --stale-hours=48 --limit=200')
     ->dailyAt('04:00')
     ->withoutOverlapping();
 
+// Viral-moment enrichment — fetch YouTube clip view counts + score them for the
+// profile "Recent media moment" section and the map pin. Gated on news freshness
+// to stay within YouTube quota. The GitHub Actions workflow
+// (refresh-viral-moments.yml, every 6h) is the primary runner; this in-app
+// schedule is a backstop. Slotted at 05:00 to follow the 04:00 profile-enrich job.
+Schedule::command('politicians:enrich-moments --stale-hours=48 --limit=200')
+    ->dailyAt('05:00')
+    ->withoutOverlapping();
+
 // Census city demographics — refresh poverty / education / income + precomputed
 // congressional districts for the curated ~200-city allow-list (all 50 states
 // + DC). ACS data updates yearly, so weekly is plenty. The GitHub Actions
