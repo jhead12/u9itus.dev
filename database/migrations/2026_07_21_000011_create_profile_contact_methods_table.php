@@ -15,6 +15,12 @@ return new class extends Migration
 {
     public function up(): void
     {
+        // Self-heal: skip if a prior partial batch already created the table
+        // (see profile_enrichment_runs migration for the MySQL DDL rationale).
+        if (Schema::hasTable('profile_contact_methods')) {
+            return;
+        }
+
         Schema::create('profile_contact_methods', function (Blueprint $table) {
             $table->id();
 

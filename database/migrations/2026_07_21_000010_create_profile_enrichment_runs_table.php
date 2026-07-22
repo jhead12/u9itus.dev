@@ -21,6 +21,14 @@ return new class extends Migration
 {
     public function up(): void
     {
+        // Self-heal: on MySQL a prior batch that failed partway can leave the
+        // table created (DDL auto-commits) but no row in the `migrations` table,
+        // so a re-run tries to CREATE again → SQLSTATE 42S01/1050. Skip if it
+        // already exists; Laravel still records the migration as run.
+        if (Schema::hasTable('profile_enrichment_runs')) {
+            return;
+        }
+
         Schema::create('profile_enrichment_runs', function (Blueprint $table) {
             $table->id();
 

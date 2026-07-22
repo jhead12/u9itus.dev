@@ -19,24 +19,53 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('politicians', function (Blueprint $table) {
-            // {title, url, thumbnail_url, source, published_at, view_count}
-            $table->json('featured_moment')->nullable()->after('video_links');
-            $table->decimal('featured_moment_score', 8, 4)->nullable()->after('featured_moment');
-            $table->timestamp('featured_moment_published_at')->nullable()->after('featured_moment_score');
-            $table->timestamp('featured_moment_updated_at')->nullable()->after('featured_moment_published_at');
-        });
+        // Per-column guards: on MySQL an ALTER ADD COLUMN auto-commits, so a
+        // partial batch can leave some columns added and others not (with no
+        // `migrations` row recorded). Adding each column only if missing makes
+        // a re-run self-heal instead of throwing SQLSTATE 42S22/1060 duplicate
+        // column. Order matters — each `after(...)` references the prior column.
+        if (! Schema::hasColumn('politicians', 'featured_moment')) {
+            Schema::table('politicians', function (Blueprint $table) {
+                // {title, url, thumbnail_url, source, published_at, view_count}
+                $table->json('featured_moment')->nullable()->after('video_links');
+            });
+        }
+
+        if (! Schema::hasColumn('politicians', 'featured_moment_score')) {
+            Schema::table('politicians', function (Blueprint $table) {
+                $table->decimal('featured_moment_score', 8, 4)->nullable()->after('featured_moment');
+            });
+        }
+
+        if (! Schema::hasColumn('politicians', 'featured_moment_published_at')) {
+            Schema::table('politicians', function (Blueprint $table) {
+                $table->timestamp('featured_moment_published_at')->nullable()->after('featured_moment_score');
+            });
+        }
+
+        if (! Schema::hasColumn('politicians', 'featured_moment_updated_at')) {
+            Schema::table('politicians', function (Blueprint $table) {
+                $table->timestamp('featured_moment_updated_at')->nullable()->after('featured_moment_published_at');
+            });
+        }
     }
 
     public function down(): void
     {
         Schema::table('politicians', function (Blueprint $table) {
-            $table->dropColumn([
+            // dropColumn is a no-op for columns that don't exist on MySQL when
+            // passed individually, but the array form errors on a missing name —
+            // only drop what's present so rollback is safe on a partial state.
+            $toDrop = array_filter([
                 'featured_moment',
                 'featured_moment_score',
                 'featured_moment_published_at',
                 'featured_moment_updated_at',
-            ]);
+            ], fn ($c) => Schema::hasColumn('politicians', $c));
+
+            if (! empty($toDrop)) {
+                $table->dropColumn(array_values($toDrop));
+            }
         });
     }
 };
