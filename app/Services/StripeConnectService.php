@@ -76,6 +76,20 @@ class StripeConnectService
     }
 
     /**
+     * Voters don't run their own businesses on these accounts — each one exists
+     * solely to receive payouts from u9itus.dev — so Stripe's business
+     * website/description requirement is satisfied with the platform's own
+     * info rather than asking every voter to supply one.
+     */
+    private function defaultBusinessProfile(): array
+    {
+        return [
+            'url' => config('app.url'),
+            'product_description' => 'Payout recipient for u9itus.dev (operated by Head Enterprises): voters are paid for engaging with political livestreams and content.',
+        ];
+    }
+
+    /**
      * Actual Stripe account creation. Must run inside ensureExpressAccount's
      * lock + transaction so concurrent callers do not duplicate accounts.
      */
@@ -97,6 +111,7 @@ class StripeConnectService
                 'transfers'    => ['requested' => true],
                 'card_payments' => ['requested' => true],
             ],
+            'business_profile' => $this->defaultBusinessProfile(),
             'metadata' => [
                 'voter_id' => (string) $voter->id,
                 'voter_uuid' => (string) $voter->uuid,
@@ -377,6 +392,31 @@ class StripeConnectService
             'We could not start payout verification right now. Please try again shortly.',
             (int) $e->getCode(), $e
         );
+    }
+
+    /**
+     * Push the platform's default business_profile onto an already-existing
+     * Connect account that's missing it (e.g. accounts created before this
+     * default existed). Leaves accounts alone if both fields are already set,
+     * so it never clobbers info Stripe has already reviewed.
+     */
+    public function backfillBusinessProfile(Voter $voter): bool
+    {
+        if (! $this->client || empty($voter->stripe_account_id)) {
+            return false;
+        }
+
+        $account = $this->client->accounts->retrieve((string) $voter->stripe_account_id, []);
+
+        if (! empty($account->business_profile?->url) && ! empty($account->business_profile?->product_description)) {
+            return false;
+        }
+
+        $this->client->accounts->update((string) $voter->stripe_account_id, [
+            'business_profile' => $this->defaultBusinessProfile(),
+        ]);
+
+        return true;
     }
 
     public function canReceivePayout(Voter $voter): bool
