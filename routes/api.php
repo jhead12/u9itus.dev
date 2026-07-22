@@ -24,6 +24,7 @@ use App\Http\Controllers\Api\MapCandidateEconomyController;
 use App\Http\Controllers\Api\MapCandidateOverviewController;
 use App\Http\Controllers\Api\MapRegionDemographicsController;
 use App\Http\Controllers\Api\MapStateCandidatesController;
+use App\Http\Controllers\Api\MapPoliticianSearchController;
 use App\Http\Controllers\Api\OfficeProfileController;
 use App\Http\Controllers\Api\PayPalWebhookController;
 use App\Http\Controllers\Api\PoliticianController;
@@ -92,6 +93,11 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
     Route::middleware('throttle:120,1')->group(function () {
         Route::get('/map/state-candidates', MapStateCandidatesController::class)
             ->name('map.state-candidates');
+
+        // Live politician typeahead — powers the "Politicians" group in the
+        // map's search palette (resources/js/map/ui/search.js).
+        Route::get('/map/politician-search', MapPoliticianSearchController::class)
+            ->name('map.politician-search');
 
         // Region panel — cities + Census ACS demographics (poverty, education,
         // income) for the states within a region.
