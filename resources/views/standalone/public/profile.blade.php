@@ -463,6 +463,7 @@
                         </a>
                         @else
                         <a href="{{ route('register.voter') }}"
+                           @click="window.u9GuestNudge && window.u9GuestNudge.trigger($event)"
                            class="p13-btn-primary inline-flex items-center gap-2 text-sm font-semibold px-5 py-2.5 rounded-lg transition">
                             Create Free Account to Watch on U9itus →
                         </a>
@@ -628,6 +629,7 @@
                     <p class="text-xs text-slate-400 mt-0.5">Guests can browse current and past public campaign videos here to learn how this candidate is communicating over time.</p>
                 </div>
                 <a href="{{ route('register.voter') }}"
+                   @click="window.u9GuestNudge && window.u9GuestNudge.trigger($event)"
                    class="flex-shrink-0 bg-emerald-500 hover:bg-emerald-400 text-white text-xs font-bold px-4 py-2 rounded-lg transition whitespace-nowrap shadow-lg">
                     Create Free Account →
                 </a>
@@ -668,7 +670,9 @@
             @endif
 
             <p class="mt-5 text-center text-sm text-slate-400">
-                <a href="{{ auth()->check() ? route('dashboard') : route('register.voter') }}" class="p13-accent hover:underline font-medium">
+                <a href="{{ auth()->check() ? route('dashboard') : route('register.voter') }}"
+                   @if(! auth()->check()) @click="window.u9GuestNudge && window.u9GuestNudge.trigger($event)" @endif
+                   class="p13-accent hover:underline font-medium">
                     {{ auth()->check() ? 'Return to your dashboard to continue inside U9itus →' : 'Create a free account to follow candidates, save your place, and continue inside U9itus →' }}
                 </a>
             </p>
@@ -1583,6 +1587,10 @@
             }, 3000);
         })();
     </script>
+    @endguest
+
+    @guest
+        <x-guest-signup-nudge />
     @endguest
 
 </body>
