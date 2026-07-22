@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Jobs\MatchPoliticianToElectionData;
 use App\Traits\HasProfileBadges;
 use App\Traits\HasProfileEnrichments;
+use App\Traits\HasViralMoments;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -20,7 +21,7 @@ use App\Models\PoliticianOfficeProfile;
  */
 class Politician extends Model
 {
-    use HasFactory, HasProfileBadges, HasProfileEnrichments;
+    use HasFactory, HasProfileBadges, HasProfileEnrichments, HasViralMoments;
 
     protected $table = 'politicians';
 
@@ -89,6 +90,11 @@ class Politician extends Model
         'earlybank_stripe_connect_account_id',
         'earlybank_stripe_connect_onboarding_complete',
         'earlybank_subscription_status',
+        // Viral-moment featured clip (denormalized for map-pin reads)
+        'featured_moment',
+        'featured_moment_score',
+        'featured_moment_published_at',
+        'featured_moment_updated_at',
     ];
 
     protected function casts(): array
@@ -119,6 +125,11 @@ class Politician extends Model
             'earlybank_payouts_enabled' => 'boolean',
             'earlybank_stripe_connect_onboarding_complete' => 'boolean',
             'earlybank_subscription_status' => 'string',
+            // Viral-moment featured clip (denormalized for map-pin reads)
+            'featured_moment' => 'array',
+            'featured_moment_score' => 'decimal:4',
+            'featured_moment_published_at' => 'datetime',
+            'featured_moment_updated_at' => 'datetime',
         ];
     }
 
