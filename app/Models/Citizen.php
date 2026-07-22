@@ -142,6 +142,19 @@ class Citizen extends Model
     }
 
     /**
+     * Blog posts authored by this citizen.
+     */
+    public function posts(): \Illuminate\Database\Eloquent\Relations\MorphMany
+    {
+        return $this->morphMany(Post::class, 'author');
+    }
+
+    public function events(): \Illuminate\Database\Eloquent\Relations\MorphMany
+    {
+        return $this->morphMany(CivicEvent::class, 'host');
+    }
+
+    /**
      * Re-derive credit_balance from the ledger and persist it.
      */
     public function syncCreditBalance(): void

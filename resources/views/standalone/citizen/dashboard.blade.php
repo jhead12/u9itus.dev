@@ -59,6 +59,36 @@
         </div>
     </div>
 
+    {{-- Blog posts + CTA --}}
+    <div class="bg-slate-800/60 border border-slate-700/50 rounded-xl p-6 flex flex-col sm:flex-row sm:items-center gap-4">
+        <div class="flex-1">
+            <h3 class="text-white font-semibold text-base mb-1">Your Blog Posts</h3>
+            @php($postCount = $citizen->posts()->count())
+            <p class="text-slate-400 text-sm">
+                @if($postCount > 0)
+                    You have <span class="text-white font-medium">{{ $postCount }}</span> post{{ $postCount !== 1 ? 's' : '' }}.
+                @else
+                    No posts yet. Articles help you rank in search and show up on the map.
+                @endif
+            </p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+            @if($postCount > 0)
+            <a href="{{ route('citizen.posts.index') }}"
+               class="inline-flex items-center gap-1.5 text-sm font-medium text-slate-300 hover:text-white bg-slate-700/50 hover:bg-slate-700 rounded-lg px-4 py-2 transition">
+                View All
+            </a>
+            @endif
+            <a href="{{ route('citizen.posts.create') }}"
+               class="inline-flex items-center gap-2 bg-indigo-500 hover:bg-indigo-400 text-white font-semibold rounded-lg px-4 py-2.5 text-sm transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
+                </svg>
+                New Post
+            </a>
+        </div>
+    </div>
+
     {{-- ── Two-Factor Authentication ────────────────────────────────────────── --}}
     <div class="mt-6 bg-slate-800/50 border border-slate-700/60 rounded-2xl px-6 py-4 flex items-center justify-between">
         <div>

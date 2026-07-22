@@ -400,6 +400,19 @@ class Politician extends Model
         return $this->hasMany(PoliticalCampaign::class);
     }
 
+    /**
+     * Blog posts authored by this politician.
+     */
+    public function posts(): \Illuminate\Database\Eloquent\Relations\MorphMany
+    {
+        return $this->morphMany(Post::class, 'author');
+    }
+
+    public function events(): \Illuminate\Database\Eloquent\Relations\MorphMany
+    {
+        return $this->morphMany(CivicEvent::class, 'host');
+    }
+
     public function credits(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(PoliticianCredit::class);

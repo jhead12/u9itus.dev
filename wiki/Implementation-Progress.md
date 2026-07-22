@@ -24,6 +24,7 @@ This page tracks the phase-by-phase implementation status of U9itus and the spri
 | Phase 16 | Public Records & Transparency — government email verification, opt-in Ballotpedia/OpenSecrets/Vote Smart/FEC data on public profiles | ✅ Complete |
 | Phase 17 | User Onboarding System — role-specific multi-phase onboarding flows, progress tracking, skip option | ✅ Complete |
 | Phase 18 | In-App Notification System — notification center, real-time bell UI, notification preferences, FCM push, Twilio SMS | ✅ Complete |
+| Phase 20 | Native Blog + Civic Events — citizen/politician blog posts, SEO, promoted posts, map pins, Partiful-style events with RSVPs, waitlist, and calendar export | ✅ Complete |
 
 ## Sprint Roadmap
 
@@ -105,6 +106,9 @@ This page tracks the phase-by-phase implementation status of U9itus and the spri
 | Candidate matching admin review/import flow | ✅ Passing |
 | California import command + health-check simulation | ✅ Passing |
 | Campaign CRUD Q&A campaign creation path | ✅ Passing |
+| Native blog CRUD, promotion, public index, and RSS | ✅ Passing |
+| Civic event CRUD, public browse, RSVP lifecycle, waitlist, and ICS export | ✅ Passing |
+| Geo-tagged posts and events on the 3-D map | ✅ Passing |
 
 ---
 

@@ -126,6 +126,40 @@
         </a>
     </div>
 
+    {{-- ── Promoted community blog posts ──────────────────────── --}}
+    @if($promotedPosts->isNotEmpty())
+    <div class="bg-purple-900/20 border border-purple-500/30 rounded-2xl p-5">
+        <div class="flex items-center gap-3 mb-4">
+            <div class="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center">
+                <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"/>
+                </svg>
+            </div>
+            <div>
+                <h2 class="text-lg font-bold text-white">Latest from the community</h2>
+                <p class="text-slate-400 text-xs">Promoted stories from citizens and politicians.</p>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            @foreach($promotedPosts as $post)
+            <a href="{{ route('blog.show', $post) }}" target="_blank" rel="noopener"
+               class="block bg-slate-800/60 border border-slate-700/60 hover:border-purple-500/40 rounded-xl p-4 transition group">
+                <h3 class="text-white font-semibold text-sm line-clamp-2 group-hover:text-purple-300 transition">{{ $post->title }}</h3>
+                @if($post->excerpt)
+                <p class="mt-2 text-slate-400 text-xs line-clamp-2">{{ $post->excerpt }}</p>
+                @endif
+                <div class="mt-3 flex items-center gap-2 text-xs text-slate-500">
+                    <span>{{ $post->author?->full_name ?? $post->author?->name ?? 'U9itus' }}</span>
+                    <span>·</span>
+                    <time datetime="{{ $post->published_at->toIso8601String() }}">{{ $post->published_at->format('M j, Y') }}</time>
+                </div>
+            </a>
+            @endforeach
+        </div>
+    </div>
+    @endif
+
     {{-- ── Filter bar ──────────────────────────────────────── --}}
     <div class="flex flex-wrap items-center gap-3">
         <form method="GET" action="{{ route('voter.ad-room') }}" class="flex flex-wrap items-center gap-3 flex-1">

@@ -7,6 +7,7 @@ import { toggleNationalBoundaries, _syncNatDistVisibility } from '../scene/natio
 import { ensureGovernorParties, applyColorMode } from '../api/governor-parties.js';
 import { clearCityMarkers, buildCityMarkers, clearGovMarkers, loadCityBoundaries, clearCityLayer } from './markers.js';
 import { clearCandidateMarkers, buildCandidateMarkers } from './candidate-markers.js';
+import { refreshPostPins, clearPostPins } from './post-pins.js';
 import { STATE_ABBR_MAP } from '../config/constants.js';
 import { trackEvent } from '../api/interaction.js';
 import * as THREE from 'three';
@@ -56,6 +57,10 @@ export function toggleLayer(layerKey) {
         case 'candidates':
             if (isActive && activeState) buildCandidateMarkers(activeState);
             else clearCandidateMarkers();
+            break;
+        case 'content':
+            if (isActive) { refreshPostPins(true); }
+            else { clearPostPins(); }
             break;
     }
 }

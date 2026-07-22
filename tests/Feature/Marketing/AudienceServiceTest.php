@@ -11,7 +11,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
 
-function makeVoter(array $overrides = []): Voter
+function marketingVoter(array $overrides = []): Voter
 {
     return Voter::factory()->create(array_merge([
         'is_active'         => true,
@@ -27,8 +27,8 @@ test('political campaign with no targeting reaches every active voter', function
         'target_districts'          => null,
         'target_governance_levels'  => null,
     ]);
-    makeVoter(['state' => 'CA']);
-    makeVoter(['state' => 'TX']);
+    marketingVoter(['state' => 'CA']);
+    marketingVoter(['state' => 'TX']);
 
     $count = (new AudienceService(app(ZipCentroidService::class)))->forCampaign($campaign)->count();
 
@@ -41,8 +41,8 @@ test('political campaign filters by target_states', function () {
         'target_districts'         => null,
         'target_governance_levels' => null,
     ]);
-    makeVoter(['state' => 'CA']);
-    makeVoter(['state' => 'TX']);
+    marketingVoter(['state' => 'CA']);
+    marketingVoter(['state' => 'TX']);
 
     $states = (new AudienceService(app(ZipCentroidService::class)))
         ->forCampaign($campaign)->pluck('state')->all();
@@ -56,10 +56,10 @@ test('political campaign filters by target_districts with normalized code match'
         'target_districts'        => ['CA-12', 'NY-07'],
         'target_governance_levels'  => null,
     ]);
-    makeVoter(['state' => 'CA', 'congressional_district' => 'CA-12']);
-    makeVoter(['state' => 'NY', 'congressional_district' => 'ny-7']); // different format/case
-    makeVoter(['state' => 'TX', 'congressional_district' => 'TX-01']);
-    makeVoter(['state' => 'FL', 'congressional_district' => null]);   // excluded: unconfirmed
+    marketingVoter(['state' => 'CA', 'congressional_district' => 'CA-12']);
+    marketingVoter(['state' => 'NY', 'congressional_district' => 'ny-7']); // different format/case
+    marketingVoter(['state' => 'TX', 'congressional_district' => 'TX-01']);
+    marketingVoter(['state' => 'FL', 'congressional_district' => null]);   // excluded: unconfirmed
 
     $districts = (new AudienceService(app(ZipCentroidService::class)))
         ->forCampaign($campaign)->pluck('congressional_district')->sort()->values()->all();
@@ -73,10 +73,10 @@ test('political campaign filters by target_governance_levels intersection', func
         'target_districts'         => null,
         'target_governance_levels' => ['federal', 'state'],
     ]);
-    makeVoter(['preferred_governance_levels' => ['federal']]);
-    makeVoter(['preferred_governance_levels' => ['state', 'local']]);
-    makeVoter(['preferred_governance_levels' => ['local']]);
-    makeVoter(['preferred_governance_levels' => null]);
+    marketingVoter(['preferred_governance_levels' => ['federal']]);
+    marketingVoter(['preferred_governance_levels' => ['state', 'local']]);
+    marketingVoter(['preferred_governance_levels' => ['local']]);
+    marketingVoter(['preferred_governance_levels' => null]);
 
     $count = (new AudienceService(app(ZipCentroidService::class)))
         ->forCampaign($campaign)->count();
@@ -88,9 +88,9 @@ test('political campaign excludes flagged and inactive voters', function () {
     $campaign = PoliticalCampaign::factory()->create([
         'target_states' => null,
     ]);
-    makeVoter(['is_active' => false]);
-    makeVoter(['flagged_for_fraud' => true]);
-    makeVoter();
+    marketingVoter(['is_active' => false]);
+    marketingVoter(['flagged_for_fraud' => true]);
+    marketingVoter();
 
     $count = (new AudienceService(app(ZipCentroidService::class)))
         ->forCampaign($campaign)->count();
@@ -105,8 +105,8 @@ test('citizen campaign with no target_zip reaches all active voters', function (
         'target_zip'        => null,
         'target_zip_radius' => null,
     ]);
-    makeVoter(['zip_code' => '90210']);
-    makeVoter(['zip_code' => '10001']);
+    marketingVoter(['zip_code' => '90210']);
+    marketingVoter(['zip_code' => '10001']);
 
     $count = (new AudienceService(app(ZipCentroidService::class)))->forCampaign($campaign)->count();
 
@@ -118,9 +118,9 @@ test('citizen campaign exact-zip match includes null-zip voters for reach', func
         'target_zip'        => '90210',
         'target_zip_radius' => 0,
     ]);
-    makeVoter(['zip_code' => '90210']);
-    makeVoter(['zip_code' => '10001']);
-    makeVoter(['zip_code' => null]);
+    marketingVoter(['zip_code' => '90210']);
+    marketingVoter(['zip_code' => '10001']);
+    marketingVoter(['zip_code' => null]);
 
     $zips = (new AudienceService(app(ZipCentroidService::class)))
         ->forCampaign($campaign)->pluck('zip_code')->all();
@@ -133,10 +133,10 @@ test('citizen campaign radius includes voters within radius and excludes others'
         'target_zip'        => '90210',
         'target_zip_radius' => 10,
     ]);
-    makeVoter(['zip_code' => '90210']);
-    makeVoter(['zip_code' => '90211']);
-    makeVoter(['zip_code' => '99999']);
-    makeVoter(['zip_code' => null]);
+    marketingVoter(['zip_code' => '90210']);
+    marketingVoter(['zip_code' => '90211']);
+    marketingVoter(['zip_code' => '99999']);
+    marketingVoter(['zip_code' => null]);
 
     // Deterministic centroids: 90210 center, 90211 ~0.2mi away, 99999 far.
     $fake = new class extends ZipCentroidService {
@@ -162,8 +162,8 @@ test('citizen campaign radius falls back to exact-zip when centroid unavailable'
         'target_zip'        => '90210',
         'target_zip_radius' => 10,
     ]);
-    makeVoter(['zip_code' => '90210']);
-    makeVoter(['zip_code' => '90211']);
+    marketingVoter(['zip_code' => '90210']);
+    marketingVoter(['zip_code' => '90211']);
 
     $fake = new class extends ZipCentroidService {
         public function centroid(string $zip): ?array

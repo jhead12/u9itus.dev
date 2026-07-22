@@ -198,6 +198,11 @@
                         title="Shade congressional districts by resident population — darker = more people">
                         <span class="lp-dot"></span>Population Density
                     </button>
+                    <button class="lp-chip" data-layer="content"
+                        role="menuitemcheckbox" aria-checked="false"
+                        title="Show geo-tagged blog posts and civic events in the visible area">
+                        <span class="lp-dot"></span>Civic Content
+                    </button>
                 </div>
             </div>
         </div>

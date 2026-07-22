@@ -11,6 +11,7 @@ Reference: patterns from `creativeplatform/crtv3` (MeTokens, Livepeer, Story Pro
 | **Phase 19** | Profile Badges + Voter Favorites | ✅ **Completed** (2026-06-30) |
 | Sprint 7 | MeToken subgraph read-only enrichment (governor profiles) | ⏳ Not started |
 | **Sprint 7.5** | Citizen role foundation | ✅ **Completed** (2026-07-01) |
+| **Sprint 7.6** | Native Blog + Civic Events MVP — posts, SEO, promoted pins, Partiful-style RSVP events | ✅ **Completed** (2026-07-19) |
 | Sprint 8 | Livepeer as selectable `media_type` | ⏳ Not started |
 | Sprint 8.5 | Neighborhood Groups (Partify-style) + Patreon funding + Group badges/themes | ⏳ Not started |
 | **Sprint 8.6** | Profile Themes window + Custom color palette (all user types) | ⏳ Not started |

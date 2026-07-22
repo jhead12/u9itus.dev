@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Standalone;
 
 use App\Http\Controllers\Controller;
 use App\Models\Politician;
+use App\Models\Post;
+use App\Models\PoliticianTopic;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Cache;
@@ -44,6 +46,7 @@ class SitemapController extends Controller
             ['loc' => '/',                  'priority' => '1.0',  'freq' => 'weekly'],
             ['loc' => '/map',               'priority' => '0.9',  'freq' => 'daily'],
             ['loc' => '/politicians',       'priority' => '0.9',  'freq' => 'daily'],
+            ['loc' => '/blog',              'priority' => '0.9',  'freq' => 'daily'],
             ['loc' => '/district-lookup',   'priority' => '0.8',  'freq' => 'weekly'],
             ['loc' => '/register',          'priority' => '0.6',  'freq' => 'monthly'],
         ];
@@ -66,6 +69,40 @@ class SitemapController extends Controller
                         $politician->updated_at?->toAtomString() ?? now()->toAtomString(),
                         'weekly',
                         '0.7'
+                    );
+                }
+            });
+
+        // ── Blog topic archives ───────────────────────────────────────────────
+        PoliticianTopic::query()
+            ->where('is_active', true)
+            ->whereNotNull('slug')
+            ->select(['slug', 'updated_at'])
+            ->orderBy('updated_at', 'desc')
+            ->chunk(200, function ($topics) use ($base, &$urls) {
+                foreach ($topics as $topic) {
+                    $urls[] = $this->urlTag(
+                        $base . '/blog/topic/' . $topic->slug,
+                        $topic->updated_at?->toAtomString() ?? now()->toAtomString(),
+                        'weekly',
+                        '0.6'
+                    );
+                }
+            });
+
+        // ── Published blog posts ──────────────────────────────────────────────
+        Post::query()
+            ->published()
+            ->whereNotNull('slug')
+            ->select(['slug', 'updated_at'])
+            ->orderBy('published_at', 'desc')
+            ->chunk(200, function ($posts) use ($base, &$urls) {
+                foreach ($posts as $post) {
+                    $urls[] = $this->urlTag(
+                        $base . '/blog/' . $post->slug,
+                        $post->updated_at?->toAtomString() ?? now()->toAtomString(),
+                        'monthly',
+                        '0.6'
                     );
                 }
             });

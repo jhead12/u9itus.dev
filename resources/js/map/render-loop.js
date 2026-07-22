@@ -5,6 +5,7 @@ import { renderer, scene, camera, controls } from './scene/setup.js';
 import { updateDistrictLabels } from './ui/labels-overlay.js';
 import { citySprites, govSprites } from './ui/markers.js';
 import { updateCandidateMarkers } from './ui/candidate-markers.js';
+import { updatePostPins } from './ui/post-pins.js';
 import { mapGroup } from './scene/setup.js';
 import * as THREE from 'three';
 
@@ -34,6 +35,7 @@ export function animate() {
     updateDistrictLabels();
     updateCityDots();
     updateCandidateMarkers();
+    updatePostPins();
 }
 
 export { updateDistrictLabels, updateCityDots };

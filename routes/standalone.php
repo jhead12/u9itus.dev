@@ -21,6 +21,11 @@ use App\Http\Controllers\Standalone\CitizenController;
 use App\Http\Controllers\Standalone\DashboardController;
 use App\Http\Controllers\Standalone\FavoriteController;
 use App\Http\Controllers\Standalone\PoliticianController;
+use App\Http\Controllers\Standalone\PostController;
+use App\Http\Controllers\Standalone\PublicPostController;
+use App\Http\Controllers\Standalone\CivicEventController;
+use App\Http\Controllers\Standalone\PublicCivicEventController;
+use App\Http\Controllers\Standalone\EventRsvpController;
 use App\Http\Controllers\Standalone\PoliticianSongPickController;
 use App\Http\Controllers\Standalone\VoterController;
 use App\Http\Controllers\Standalone\AdminController;
@@ -337,10 +342,37 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         Route::post('/badges/{topicId}', [BadgeController::class, 'politicianStore'])->name('badges.store');
         Route::delete('/badges/{topicId}', [BadgeController::class, 'politicianDestroy'])->name('badges.destroy');
 
+        // ── Blog Posts ───────────────────────────────────────────────────────
+        Route::prefix('posts')->name('posts.')->group(function () {
+            Route::get('/', [PostController::class, 'index'])->name('index');
+            Route::get('/create', [PostController::class, 'create'])->name('create');
+            Route::post('/', [PostController::class, 'store'])->name('store');
+            Route::get('/{post}', [PostController::class, 'show'])->name('show');
+            Route::get('/{post}/edit', [PostController::class, 'edit'])->name('edit');
+            Route::put('/{post}', [PostController::class, 'update'])->name('update');
+            Route::delete('/{post}', [PostController::class, 'destroy'])->name('destroy');
+            Route::post('/{post}/publish', [PostController::class, 'publish'])->name('publish');
+            Route::post('/{post}/archive', [PostController::class, 'archive'])->name('archive');
+            Route::post('/{post}/promote', [PostController::class, 'promote'])->name('promote');
+        });
+
+        // ── Civic Events ─────────────────────────────────────────────────────
+        Route::prefix('events')->name('events.')->group(function () {
+            Route::get('/', [CivicEventController::class, 'index'])->name('index');
+            Route::get('/create', [CivicEventController::class, 'create'])->name('create');
+            Route::post('/', [CivicEventController::class, 'store'])->name('store');
+            Route::get('/{event}/edit', [CivicEventController::class, 'edit'])->name('edit');
+            Route::put('/{event}', [CivicEventController::class, 'update'])->name('update');
+            Route::get('/{event}/rsvps', [CivicEventController::class, 'rsvps'])->name('rsvps');
+            Route::patch('/{event}/rsvps/{rsvp}/approve', [CivicEventController::class, 'approveRsvp'])->name('rsvps.approve');
+            Route::patch('/{event}/rsvps/{rsvp}/decline', [CivicEventController::class, 'declineRsvp'])->name('rsvps.decline');
+            Route::patch('/{event}/cancel', [CivicEventController::class, 'cancel'])->name('cancel');
+        });
+
         // ── Interactive Map (portal-embedded) ────────────────────────────────
         Route::get('/map', fn() => view('standalone.politician.map'))->name('map');
     });
-    
+
     /*
     |--------------------------------------------------------------------------
     | Voter Dashboard & Earnings
@@ -461,6 +493,33 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         Route::post('/billing/setup-intent', [CitizenController::class, 'createSetupIntent'])->name('billing.setup-intent');
         Route::post('/billing/payment-methods', [CitizenController::class, 'storePaymentMethod'])->name('billing.payment-methods.store');
         Route::delete('/billing/payment-methods/{paymentMethod}', [CitizenController::class, 'deletePaymentMethod'])->name('billing.payment-methods.delete');
+
+        // ── Blog Posts ───────────────────────────────────────────────────────
+        Route::prefix('posts')->name('posts.')->group(function () {
+            Route::get('/', [PostController::class, 'index'])->name('index');
+            Route::get('/create', [PostController::class, 'create'])->name('create');
+            Route::post('/', [PostController::class, 'store'])->name('store');
+            Route::get('/{post}', [PostController::class, 'show'])->name('show');
+            Route::get('/{post}/edit', [PostController::class, 'edit'])->name('edit');
+            Route::put('/{post}', [PostController::class, 'update'])->name('update');
+            Route::delete('/{post}', [PostController::class, 'destroy'])->name('destroy');
+            Route::post('/{post}/publish', [PostController::class, 'publish'])->name('publish');
+            Route::post('/{post}/archive', [PostController::class, 'archive'])->name('archive');
+            Route::post('/{post}/promote', [PostController::class, 'promote'])->name('promote');
+        });
+
+        // ── Civic Events ─────────────────────────────────────────────────────
+        Route::prefix('events')->name('events.')->group(function () {
+            Route::get('/', [CivicEventController::class, 'index'])->name('index');
+            Route::get('/create', [CivicEventController::class, 'create'])->name('create');
+            Route::post('/', [CivicEventController::class, 'store'])->name('store');
+            Route::get('/{event}/edit', [CivicEventController::class, 'edit'])->name('edit');
+            Route::put('/{event}', [CivicEventController::class, 'update'])->name('update');
+            Route::get('/{event}/rsvps', [CivicEventController::class, 'rsvps'])->name('rsvps');
+            Route::patch('/{event}/rsvps/{rsvp}/approve', [CivicEventController::class, 'approveRsvp'])->name('rsvps.approve');
+            Route::patch('/{event}/rsvps/{rsvp}/decline', [CivicEventController::class, 'declineRsvp'])->name('rsvps.decline');
+            Route::patch('/{event}/cancel', [CivicEventController::class, 'cancel'])->name('cancel');
+        });
     });
 
     /*
@@ -615,6 +674,19 @@ Route::get('/district-lookup', [PublicProfileController::class, 'districtLookup'
 
 // Interactive 3D U.S. Regional Map
 Route::get('/map', fn() => view('standalone.public.us-map'))->name('us.map');
+
+// Public Blog
+Route::get('/blog', [PublicPostController::class, 'index'])->name('blog.index');
+Route::get('/blog/feed', [PublicPostController::class, 'feed'])->name('blog.feed');
+Route::get('/blog/topic/{slug}', [PublicPostController::class, 'topic'])->name('blog.topic');
+Route::get('/blog/author/{type}/{slug}', [PublicPostController::class, 'author'])->name('blog.author');
+Route::get('/blog/{slug}', [PublicPostController::class, 'show'])->name('blog.show');
+
+// Public Civic Events
+Route::get('/events', [PublicCivicEventController::class, 'index'])->name('events.index');
+Route::get('/events/{event}', [PublicCivicEventController::class, 'show'])->name('events.show');
+Route::get('/events/{event}/ics', [PublicCivicEventController::class, 'ics'])->name('events.ics');
+Route::post('/events/{event}/rsvp', [EventRsvpController::class, 'store'])->middleware(['auth', 'verified'])->name('events.rsvp');
 
 // Voter earn explainer — public landing page that teaches users how to earn
 // from watching campaign videos, then funnels into voter registration.

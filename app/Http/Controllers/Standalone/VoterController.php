@@ -339,6 +339,15 @@ class VoterController extends Controller
         // Sprint 3: Get all active topics for the filter dropdown
         $topics = \App\Models\PoliticianTopic::active()->orderBy('sort_order')->get();
 
+        // ── Promoted blog posts ───────────────────────────────────────────────
+        $promotedPosts = \App\Models\Post::query()
+            ->with('author')
+            ->published()
+            ->promoted()
+            ->latest('published_at')
+            ->take(3)
+            ->get();
+
         // ── Citizen campaigns (community / local / ballot-issue ads) ─────────
         // Fetch all geo-eligible campaigns first, then split into watchable vs
         // excluded so the view can render "Already watched" / "Limit reached"
@@ -379,6 +388,7 @@ class VoterController extends Controller
             'citizenCampaigns'         => $citizenCampaigns,
             'citizenWatchedBeforeIds'  => $citizenWatchedBeforeIds,
             'citizenExcludedIds'       => $citizenExcludedIds,
+            'promotedPosts'            => $promotedPosts,
         ]);
     }
 

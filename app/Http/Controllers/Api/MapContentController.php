@@ -1,0 +1,119 @@
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Enums\PostStatus;
+use App\Models\CivicEvent;
+use App\Models\Post;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Str;
+
+/**
+ * Public endpoint returning geo-tagged civic content for the 3-D U.S. map.
+ *
+ * Surfaces published blog posts and upcoming civic events.
+ */
+class MapContentController
+{
+    /** Maximum items returned per viewport query to keep payloads small. */
+    private const MAX_ITEMS = 50;
+
+    /**
+     * GET /api/v1/map/content
+     *
+     * Query params:
+     *   south, west, north, east — bounding box (required)
+     *   topic                    — optional politician_topics.slug filter
+     *   limit                    — optional, capped at 50
+     */
+    public function __invoke(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'south' => ['required', 'numeric', 'between:-90,90'],
+            'west'  => ['required', 'numeric', 'between:-180,180'],
+            'north' => ['required', 'numeric', 'between:-90,90', 'gte:south'],
+            'east'  => ['required', 'numeric', 'between:-180,180'],
+            'topic' => ['nullable', 'string', 'max:64'],
+            'limit' => ['nullable', 'integer', 'min:1', 'max:'.self::MAX_ITEMS],
+        ]);
+
+        $south = (float) $data['south'];
+        $west  = (float) $data['west'];
+        $north = (float) $data['north'];
+        $east  = (float) $data['east'];
+
+        // Normalize longitude so a viewport spanning the antimeridian still works.
+        if ($east < $west) {
+            $east += 360;
+        }
+
+        $limit = min((int) ($data['limit'] ?? self::MAX_ITEMS), self::MAX_ITEMS);
+        $topicSlug = ! empty($data['topic']) ? Str::slug($data['topic']) : null;
+
+        $postQuery = Post::query()
+            ->published()
+            ->geoTagged()
+            ->with(['author', 'topics'])
+            ->orderByDesc('published_at')
+            ->limit($limit);
+
+        $eventQuery = CivicEvent::query()
+            ->published()
+            ->upcoming()
+            ->geoTagged()
+            ->with(['host.user', 'topics'])
+            ->orderBy('starts_at')
+            ->limit($limit);
+
+        foreach ([$postQuery, $eventQuery] as $query) {
+            if ($east > 180) {
+                $query->where(function ($q) use ($west, $east, $south, $north): void {
+                    $q->whereBetween('longitude', [$west, 180])
+                      ->orWhereBetween('longitude', [-180, $east - 360]);
+                })->whereBetween('latitude', [$south, $north]);
+            } else {
+                $query->withinBounds($south, $west, $north, $east);
+            }
+
+            if ($topicSlug) {
+                $query->whereHas('topics', fn ($q) => $q->where('slug', $topicSlug));
+            }
+        }
+
+        $posts  = $postQuery->get();
+        $events = $eventQuery->get();
+
+        return response()->json([
+            'posts' => $posts->map(fn (Post $post) => [
+                'id'           => $post->uuid,
+                'type'         => 'post',
+                'title'        => $post->title,
+                'excerpt'      => $post->excerpt ?? Str::limit(strip_tags($post->body ?? ''), 140),
+                'author_name'  => $post->author?->full_name ?? $post->author?->name ?? 'U9itus',
+                'published_at' => $post->published_at?->toIso8601String(),
+                'url'          => route('blog.show', $post),
+                'lat'          => (float) $post->latitude,
+                'lng'          => (float) $post->longitude,
+                'location_name'=> $post->location_name,
+                'is_promoted'  => $post->isPromoted(),
+            ]),
+            'events' => $events->map(fn (CivicEvent $event) => [
+                'id'            => $event->uuid,
+                'type'          => 'event',
+                'title'         => $event->title,
+                'excerpt'       => Str::limit(strip_tags($event->description ?? ''), 140),
+                'host_name'     => $event->host?->public_name ?? $event->host?->organization_name ?? $event->host?->user?->name ?? 'U9itus',
+                'event_type'    => $event->event_type->label(),
+                'starts_at'     => $event->starts_at?->toIso8601String(),
+                'url'           => route('events.show', $event),
+                'lat'           => (float) $event->latitude,
+                'lng'           => (float) $event->longitude,
+                'location_name' => $event->location_name,
+                'is_virtual'    => $event->is_virtual,
+                'is_full'       => $event->isFull(),
+            ]),
+            'total' => $posts->count() + $events->count(),
+        ]);
+    }
+}
