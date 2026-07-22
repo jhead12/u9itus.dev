@@ -256,22 +256,24 @@ function renderMomentCard(moment) {
                 <span style="font-size:11px;color:#cbd5e1;font-weight:600;">${title}</span>
                 ${featuredBadge}
             </div>
-            <div class="pol-video-placeholder" style="position:relative;padding-top:56.25%;background:#020617;cursor:pointer;"
-                 onclick="window.__loadPolVideo(this)"
-                 role="button" tabindex="0" aria-label="Load video">
-                <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;">
-                    <div style="width:48px;height:48px;border-radius:50%;background:rgba(99,102,241,0.2);border:1px solid rgba(99,102,241,0.5);display:flex;align-items:center;justify-content:center;font-size:20px;">▶</div>
-                    <span style="font-size:11px;color:#94a3b8;">Click to load video</span>
+            <div class="pol-video-frame" style="position:relative;padding-top:56.25%;background:#020617;overflow:hidden;">
+                <div class="pol-video-placeholder" style="position:absolute;inset:0;cursor:pointer;"
+                     onclick="window.__loadPolVideo(this)"
+                     role="button" tabindex="0" aria-label="Load video">
+                    <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;">
+                        <div style="width:48px;height:48px;border-radius:50%;background:rgba(99,102,241,0.2);border:1px solid rgba(99,102,241,0.5);display:flex;align-items:center;justify-content:center;font-size:20px;">▶</div>
+                        <span style="font-size:11px;color:#94a3b8;">Click to load video</span>
+                    </div>
                 </div>
+                <iframe
+                    class="pol-video-iframe"
+                    title="${title}"
+                    style="display:none;position:absolute;inset:0;width:100%;height:100%;border:0;"
+                    loading="lazy"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    referrerpolicy="strict-origin-when-cross-origin"
+                    allowfullscreen></iframe>
             </div>
-            <iframe
-                class="pol-video-iframe"
-                title="${title}"
-                style="display:none;position:absolute;inset:0;width:100%;height:100%;border:0;"
-                loading="lazy"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                referrerpolicy="strict-origin-when-cross-origin"
-                allowfullscreen></iframe>
             <div style="padding:8px 10px;font-size:11px;color:#64748b;">${views}Source: ${source}</div>
         </div>`;
 }
@@ -525,22 +527,24 @@ function _renderPolBody() {
                 <p class="pol-section-label" style="margin-top:16px;">Active Campaign Feed</p>
                 <div class="pol-video-wrap" data-video-src="${embedSrc}" data-video-title="${videoTitle}" style="border:1px solid rgba(148,163,184,0.24);border-radius:10px;overflow:hidden;background:rgba(15,23,42,0.6);">
                     <div style="padding:8px 10px;border-bottom:1px solid rgba(148,163,184,0.18);font-size:11px;color:#cbd5e1;font-weight:600;">${videoTitle}</div>
-                    <div class="pol-video-placeholder" style="position:relative;padding-top:56.25%;background:#020617;cursor:pointer;"
-                         onclick="window.__loadPolVideo(this)"
-                         role="button" tabindex="0" aria-label="Load campaign video">
-                        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;">
-                            <div style="width:48px;height:48px;border-radius:50%;background:rgba(99,102,241,0.2);border:1px solid rgba(99,102,241,0.5);display:flex;align-items:center;justify-content:center;font-size:20px;">▶</div>
-                            <span style="font-size:11px;color:#94a3b8;">Click to load video</span>
+                    <div class="pol-video-frame" style="position:relative;padding-top:56.25%;background:#020617;overflow:hidden;">
+                        <div class="pol-video-placeholder" style="position:absolute;inset:0;cursor:pointer;"
+                             onclick="window.__loadPolVideo(this)"
+                             role="button" tabindex="0" aria-label="Load campaign video">
+                            <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;">
+                                <div style="width:48px;height:48px;border-radius:50%;background:rgba(99,102,241,0.2);border:1px solid rgba(99,102,241,0.5);display:flex;align-items:center;justify-content:center;font-size:20px;">▶</div>
+                                <span style="font-size:11px;color:#94a3b8;">Click to load video</span>
+                            </div>
                         </div>
+                        <iframe
+                            class="pol-video-iframe"
+                            title="Campaign video feed"
+                            style="display:none;position:absolute;inset:0;width:100%;height:100%;border:0;"
+                            loading="lazy"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                            referrerpolicy="strict-origin-when-cross-origin"
+                            allowfullscreen></iframe>
                     </div>
-                    <iframe
-                        class="pol-video-iframe"
-                        title="Campaign video feed"
-                        style="display:none;position:absolute;inset:0;width:100%;height:100%;border:0;"
-                        loading="lazy"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                        referrerpolicy="strict-origin-when-cross-origin"
-                        allowfullscreen></iframe>
                     <div style="padding:8px 10px;font-size:11px;color:#64748b;">Source: ${videoSource}</div>
                 </div>`;
         }
