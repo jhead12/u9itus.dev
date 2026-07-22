@@ -374,6 +374,7 @@
     <nav class="pol-tabs" role="tablist" aria-label="Politician information tabs">
         <button class="pol-tab active" role="tab" data-tab="overview" aria-selected="true"  id="pol-tab-overview">Overview</button>
         <button class="pol-tab"        role="tab" data-tab="economy"  aria-selected="false" id="pol-tab-economy">Economy</button>
+        <button class="pol-tab"        role="tab" data-tab="moments"  aria-selected="false" id="pol-tab-moments">Videos</button>
         <button class="pol-tab"        role="tab" data-tab="contact"  aria-selected="false" id="pol-tab-contact">Contact</button>
     </nav>
     <div class="pol-body" id="pol-body" role="tabpanel" aria-labelledby="pol-tab-overview"><!-- filled by JS --></div>

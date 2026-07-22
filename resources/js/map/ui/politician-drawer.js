@@ -16,6 +16,7 @@ let _polTab = 'overview';
 let _polCtx = null;
 let _overviewReqSeq = 0;
 let _economyReqSeq = 0;
+let _momentsReqSeq = 0;
 
 function escapeHtml(value) {
     return String(value ?? '')
@@ -191,6 +192,88 @@ async function loadEconomyEnrichment(cand) {
             if (_polTab === 'economy') _renderPolBody();
         }
     }
+}
+
+const MOMENTS_FETCH_TIMEOUT_MS = 8_000;
+
+async function loadMomentsEnrichment(cand) {
+    const reqSeq = ++_momentsReqSeq;
+    const params = new URLSearchParams();
+    params.set('full_name', cand?.full_name || '');
+    if (cand?.slug) params.set('slug', cand.slug);
+    if (activeState) params.set('state', activeState);
+    if (cand?.office) params.set('office', cand.office);
+
+    if (_polCtx) {
+        _polCtx.extra = { ..._polCtx.extra, momentsLoading: true, momentsError: false };
+        if (_polTab === 'moments') _renderPolBody();
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), MOMENTS_FETCH_TIMEOUT_MS);
+
+    try {
+        const res = await fetch(`/api/v1/map/candidate-moments?${params.toString()}`, {
+            signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (!_polCtx || reqSeq !== _momentsReqSeq) return;
+        _polCtx.extra = { ..._polCtx.extra, moments: data, momentsLoading: false, momentsError: false };
+        if (_polTab === 'moments') _renderPolBody();
+    } catch (err) {
+        clearTimeout(timeoutId);
+        if (err?.name === 'AbortError') {
+            console.warn('[map] candidate-moments fetch timed out; moments tab will show an error state');
+        } else {
+            console.warn('[map] candidate-moments fetch failed:', err);
+        }
+        if (_polCtx && reqSeq === _momentsReqSeq) {
+            _polCtx.extra = { ..._polCtx.extra, momentsLoading: false, momentsError: true };
+            if (_polTab === 'moments') _renderPolBody();
+        }
+    }
+}
+
+/** Lazy-loaded video card — shared markup for each viral-moment clip. */
+function renderMomentCard(moment) {
+    const url = safeUrl(moment?.url || '');
+    const embed = url ? toEmbedUrl(url) : '';
+    if (!url || !embed) return '';
+
+    const title = escapeHtml(moment.title || 'Video');
+    const source = escapeHtml(moment.source || 'YouTube');
+    const views = Number.isFinite(moment.view_count) ? `${moment.view_count.toLocaleString()} views · ` : '';
+    const embedSrc = escapeHtml(embed);
+    const featuredBadge = moment.is_featured
+        ? `<span style="background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.3);color:#f59e0b;padding:1px 8px;border-radius:999px;font-size:9px;font-weight:700;">FEATURED</span>`
+        : '';
+
+    return `
+        <div class="pol-video-wrap" data-video-src="${embedSrc}" data-video-title="${title}" style="border:1px solid rgba(148,163,184,0.24);border-radius:10px;overflow:hidden;background:rgba(15,23,42,0.6);margin-bottom:10px;">
+            <div style="padding:8px 10px;border-bottom:1px solid rgba(148,163,184,0.18);display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                <span style="font-size:11px;color:#cbd5e1;font-weight:600;">${title}</span>
+                ${featuredBadge}
+            </div>
+            <div class="pol-video-placeholder" style="position:relative;padding-top:56.25%;background:#020617;cursor:pointer;"
+                 onclick="window.__loadPolVideo(this)"
+                 role="button" tabindex="0" aria-label="Load video">
+                <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;">
+                    <div style="width:48px;height:48px;border-radius:50%;background:rgba(99,102,241,0.2);border:1px solid rgba(99,102,241,0.5);display:flex;align-items:center;justify-content:center;font-size:20px;">▶</div>
+                    <span style="font-size:11px;color:#94a3b8;">Click to load video</span>
+                </div>
+            </div>
+            <iframe
+                class="pol-video-iframe"
+                title="${title}"
+                style="display:none;position:absolute;inset:0;width:100%;height:100%;border:0;"
+                loading="lazy"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                referrerpolicy="strict-origin-when-cross-origin"
+                allowfullscreen></iframe>
+            <div style="padding:8px 10px;font-size:11px;color:#64748b;">${views}Source: ${source}</div>
+        </div>`;
 }
 
 /** PAC-affiliation badges — logo (if any) + label, linking out to the org's site. */
@@ -562,6 +645,57 @@ function _renderPolBody() {
             ${renderFecSummary(economy.fec_summary)}
             ${renderEconomySources(economy.sources, economy.enriched_at)}`;
 
+    } else if (_polTab === 'moments') {
+        if (extra?.isCityView) {
+            polBodyEl.innerHTML = `
+                <p class="pol-section-label">Videos</p>
+                <p class="pol-empty">Viral moments are shown for individual candidates — select a specific representative to view them.</p>`;
+            return;
+        }
+
+        const moments = extra?.moments || null;
+        const isLoadingMoments = !!extra?.momentsLoading && !moments;
+        const hasMomentsError = !!extra?.momentsError && !moments;
+
+        if (isLoadingMoments) {
+            polBodyEl.innerHTML = `
+                <p class="pol-section-label">Videos</p>
+                <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:8px;border:1px solid rgba(99,102,241,0.15);background:rgba(99,102,241,0.06);">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="animation:spin 1s linear infinite;color:#6366f1;">
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-dasharray="31.4" stroke-dashoffset="10" stroke-linecap="round"/>
+                    </svg>
+                    <span style="font-size:11px;color:#94a3b8;">Loading viral moments…</span>
+                </div>`;
+            return;
+        }
+
+        if (hasMomentsError) {
+            polBodyEl.innerHTML = `
+                <p class="pol-section-label">Videos</p>
+                <div style="padding:10px 12px;border-radius:8px;border:1px solid rgba(239,68,68,0.2);background:rgba(239,68,68,0.06);">
+                    <span style="font-size:11px;color:#f87171;">⚠ Video data unavailable right now.</span>
+                </div>`;
+            return;
+        }
+
+        if (!moments || !moments.has_data || !moments.moments?.length) {
+            const message = moments?.reason === 'not_on_platform'
+                ? 'This candidate has not claimed a U9itus profile yet, so viral moments are not available.'
+                : 'No viral moments have been found for this candidate yet — check back after the next enrichment run.';
+            polBodyEl.innerHTML = `
+                <p class="pol-section-label">Videos</p>
+                <p class="pol-empty">${escapeHtml(message)}</p>`;
+            return;
+        }
+
+        const cards = moments.moments.map(renderMomentCard).join('');
+        const updated = moments.enriched_at ? formatPubDate(moments.enriched_at) : null;
+
+        polBodyEl.innerHTML = `
+            <p class="pol-section-label">Videos</p>
+            ${cards}
+            ${updated ? `<p style="font-size:10px;color:#475569;margin:4px 0 0;">Data updated ${escapeHtml(updated)}</p>` : ''}`;
+
     } else {
         const links = [];
         if (c.profile_url) links.push(`<a href="${c.profile_url}" target="_blank" rel="noopener" class="pol-link pol-link-primary">👤 U9itus Profile</a>`);
@@ -642,6 +776,11 @@ export function initPolDrawer() {
             if (_polTab === 'economy' && _polCtx && !_polCtx.extra?.isCityView
                 && !_polCtx.extra?.economy && !_polCtx.extra?.economyLoading) {
                 loadEconomyEnrichment(_polCtx.cand);
+            }
+            // Moments data is likewise fetched lazily, once, on first tab open.
+            if (_polTab === 'moments' && _polCtx && !_polCtx.extra?.isCityView
+                && !_polCtx.extra?.moments && !_polCtx.extra?.momentsLoading) {
+                loadMomentsEnrichment(_polCtx.cand);
             }
             _renderPolBody();
         });
