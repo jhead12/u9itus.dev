@@ -48,3 +48,34 @@ export const districtCache = {};
 
 /** Per-state city boundary GeoJSON cache */
 export const cityBoundaryCache = {};
+
+/**
+ * Saved boundaries (congressional districts + top cities) for the logged-in
+ * voter. Hydrated at boot from /voter/boundaries when U9.session.isVoter().
+ * Keyed by a stable composite key; values are normalized records:
+ *   { id, type, stateAbbr, districtNum, cityName, label, lat, lng }
+ */
+export const favoriteBoundaries = new Map();
+
+export function favoriteKey({ type, stateAbbr, districtNum, cityName }) {
+    return [type, (stateAbbr || '').toUpperCase(), districtNum || '', cityName || ''].join('|');
+}
+
+export function setFavorites(list) {
+    favoriteBoundaries.clear();
+    for (const b of list) addFavorite(b);
+}
+
+export function addFavorite(b) {
+    favoriteBoundaries.set(favoriteKey(b), b);
+}
+
+export function removeFavoriteById(id) {
+    for (const [k, b] of favoriteBoundaries) {
+        if (b.id === id) { favoriteBoundaries.delete(k); return; }
+    }
+}
+
+export function isFavorite(parts) {
+    return favoriteBoundaries.has(favoriteKey(parts));
+}

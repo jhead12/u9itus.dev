@@ -3,6 +3,7 @@
  */
 import * as THREE from 'three';
 import { camera, controls, W, H } from './setup.js';
+import { project } from './projection.js';
 
 function flyTo(endPos, endLook, duration = 950) {
     const startPos  = camera.position.clone();
@@ -62,3 +63,17 @@ export function flyToMeshesTopDown(meshList, padFactor = 1.25) {
 }
 
 export { flyTo };
+
+/**
+ * Fly the camera to a single lat/lng point (top-down, slight north tilt) —
+ * used by Saved-Boundary city chips to jump to a pinned top city. `dist` is
+ * the camera height in world units (smaller = closer); 3.0 ≈ city level.
+ */
+export function flyToPoint(lat, lng, dist = 3.0) {
+    const xy = project([lng, lat]);
+    if (!xy) return;
+    const [x, y] = xy;
+    const endLook = new THREE.Vector3(x, y, 0);
+    const endPos  = new THREE.Vector3(x, y + dist * 0.18, dist * 0.98);
+    flyTo(endPos, endLook, 1000);
+}

@@ -19,6 +19,7 @@ use App\Http\Controllers\Standalone\BadgeController;
 use App\Http\Controllers\Standalone\CitizenCampaignVoterController;
 use App\Http\Controllers\Standalone\CitizenController;
 use App\Http\Controllers\Standalone\DashboardController;
+use App\Http\Controllers\Standalone\BoundaryFavoriteController;
 use App\Http\Controllers\Standalone\FavoriteController;
 use App\Http\Controllers\Standalone\PoliticianController;
 use App\Http\Controllers\Standalone\PostController;
@@ -451,6 +452,11 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         // ── Saved articles (like/bookmark news articles) ─────────────────────
         Route::post('/articles/{articleId}/save', [FavoriteController::class, 'saveArticle'])->name('articles.save');
         Route::delete('/articles/{articleId}/save', [FavoriteController::class, 'unsaveArticle'])->name('articles.unsave');
+
+        // ── Saved map boundaries (districts + top cities) ────────────────────
+        Route::get('/boundaries', [BoundaryFavoriteController::class, 'index'])->name('boundaries.index');
+        Route::post('/boundaries', [BoundaryFavoriteController::class, 'store'])->name('boundaries.store');
+        Route::delete('/boundaries/{id}', [BoundaryFavoriteController::class, 'destroy'])->name('boundaries.destroy');
 
         // ── Citizen profile upgrade (add Citizen role to existing voter account) ──
         Route::get('/add-citizen-profile', [VoterController::class, 'showAddCitizenProfile'])->name('add-citizen-profile');

@@ -197,6 +197,15 @@ class Voter extends Model
     }
 
     /**
+     * Geographic boundaries (districts / top cities) this voter has saved
+     * for quick access from the 3D map's Layers → Boundaries panel.
+     */
+    public function favoriteBoundaries(): HasMany
+    {
+        return $this->hasMany(VoterFavoriteBoundary::class, 'voter_id');
+    }
+
+    /**
      * Route model binding key.
      */
     public function getRouteKeyName(): string

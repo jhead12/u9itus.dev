@@ -6,6 +6,7 @@ import { activeState } from '../state/map-state.js';
 import { fmtPop } from '../config/city-data.js';
 import { partyClass } from './panel-state.js';
 import { trackEvent } from '../api/interaction.js';
+import { createFavoriteButton } from './boundary-favorite.js';
 
 const polDrawer = document.getElementById('pol-drawer');
 const polDrawerClose = document.getElementById('pol-drawer-close');
@@ -412,6 +413,22 @@ export function openPolDrawer(cand, accentColor, extra = {}) {
                         <span style="background:rgba(0,0,0,0.2);border:1px solid ${leanColor}44;color:${leanColor};padding:2px 8px;border-radius:999px;font-size:10px;font-weight:600;">${leanLabel}</span>
                     </div>
                 </div>`;
+
+            // Save-this-city star (voter) / sign-in nudge (guest).
+            const stateAbbr = activeState ? STATE_ABBR_MAP[activeState] : null;
+            if (stateAbbr && extra.cityName) {
+                document.getElementById('pol-drawer-fav-btn')?.remove();
+                const favBtn = createFavoriteButton({
+                    type: 'city',
+                    state_abbr: stateAbbr,
+                    city_name: extra.cityName,
+                    label: `${extra.cityName}, ${stateAbbr}`,
+                    lat: extra.lat ?? null,
+                    lng: extra.lng ?? null,
+                });
+                favBtn.id = 'pol-drawer-fav-btn';
+                polHeroEl.querySelector('.pol-hero-info')?.appendChild(favBtn);
+            }
         } else {
             const ph = c.photo;
             const avH = ph

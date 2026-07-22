@@ -186,6 +186,11 @@
                         <span class="lp-dot"></span>Statewide Candidates
                     </button>
                 </div>
+                <div class="lp-section lp-saved-section">
+                    Saved Boundaries <span class="lp-saved-count" aria-hidden="true"></span>
+                </div>
+                <div class="lp-chips" id="favorite-boundary-chips" aria-label="Your saved boundaries"></div>
+                <p class="lp-saved-empty" id="favorite-boundary-empty">Save districts and cities you care about to pin them here.</p>
                 <div class="lp-section">Data Overlays</div>
                 <div class="lp-chips">
                     <button class="lp-chip" data-layer="party"

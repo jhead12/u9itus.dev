@@ -42,7 +42,7 @@ export function buildCityMarkers(stateName) {
             `<span class="city-name-tag">${name}</span>`;
         el.addEventListener('click', (e) => {
             e.stopPropagation();
-            _openCityDrawer(name, popK, activeState, worldPos);
+            openCityDrawer(name, popK, activeState, worldPos, lat, lng);
         });
         mapLabelsLayer.appendChild(el);
         requestAnimationFrame(() => el.classList.add('visible'));
@@ -55,7 +55,7 @@ export function clearCityMarkers() {
     citySprites = [];
 }
 
-function _openCityDrawer(name, popK, stateName, pinPos) {
+export function openCityDrawer(name, popK, stateName, pinPos, lat = null, lng = null) {
     trackEvent('city_marker_click', {
         state: activeState || null, state_abbr: activeState ? STATE_ABBR_MAP[activeState] : null,
         meta: { cityName: name, cityPop: popK },
@@ -75,7 +75,7 @@ function _openCityDrawer(name, popK, stateName, pinPos) {
     openPolDrawer(
         { full_name: name, office: `City · ${stateName}`, party: leaning === 'Mixed' ? null : leaning },
         '#f59e0b',
-        { isCityView: true, cityName: name, cityPop: popK, district: nearKey, rep: nearRep, leaning }
+        { isCityView: true, cityName: name, cityPop: popK, district: nearKey, rep: nearRep, leaning, lat, lng }
     );
 }
 

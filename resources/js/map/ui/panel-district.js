@@ -7,6 +7,7 @@ import { districtMeshes } from '../scene/district-overlay.js';
 import { openInfoPanel } from './info-panel.js';
 import { renderCandidate, renderOfficeGroup, partyClass, detectElectionPhase, noDataNotice } from './panel-state.js';
 import { openPolDrawer } from './politician-drawer.js';
+import { createFavoriteButton } from './boundary-favorite.js';
 
 export async function openDistrictPanel(districtNum, districtLabel, stateName, regionHex, party = 'U') {
     const color = PARTY_HEX[party] || regionHex || '#6366f1';
@@ -116,4 +117,25 @@ export async function openDistrictPanel(districtNum, districtLabel, stateName, r
         <div style="flex:1;border-top:1px solid ${color}20;"></div>
     </div>
     ${statewideHtml}`;
+
+    // Star toggle: save this district as a boundary (voter) / sign-in nudge (guest).
+    mountDistrictFav(stateName, _stateAbbr, districtNum, districtLabel);
+}
+
+/**
+ * Mount (or refresh) the save-boundary star in the district panel header.
+ * Replaces any prior instance so repeated panel opens don't stack buttons.
+ */
+function mountDistrictFav(stateName, stateAbbr, districtNum, districtLabel) {
+    const host = document.querySelector('#panel-header > div');
+    if (!host || !stateAbbr) return;
+    document.getElementById('panel-fav-btn')?.remove();
+    const btn = createFavoriteButton({
+        type: 'district',
+        state_abbr: stateAbbr,
+        district_number: districtNum,
+        label: `${stateName} ${districtLabel}`,
+    });
+    btn.id = 'panel-fav-btn';
+    host.appendChild(btn);
 }

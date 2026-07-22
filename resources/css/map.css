@@ -816,6 +816,45 @@ body:has(#info-panel.open) #hint { display: none; }
     .lp-chip { padding: 8px 13px; font-size: 13px; }
 }
 
+/* ─── Saved Boundaries (Layers → Boundaries) ─── */
+.lp-saved-section .lp-saved-count {
+    font-size: 9px; font-weight: 600; color: #475569; margin-left: 2px;
+}
+.lp-saved-empty {
+    margin: 2px 0 8px; font-size: 11px; color: #475569; line-height: 1.4;
+}
+.lp-chip-saved {
+    padding-right: 8px; /* room for the × before tighter chip padding */
+}
+.lp-saved-icon { flex-shrink: 0; font-size: 12px; line-height: 1; }
+.lp-saved-label {
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    max-width: 140px;
+}
+.lp-saved-remove {
+    flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center;
+    width: 15px; height: 15px; border-radius: 50%;
+    font-size: 13px; line-height: 1; color: #64748b;
+    background: rgba(15,23,42,0.4); transition: all 0.12s;
+    margin-left: 2px;
+}
+.lp-saved-remove:hover { color: #fca5a5; background: rgba(239,68,68,0.18); }
+
+/* ─── Save-boundary star button (district panel + city drawer) ─── */
+.boundary-fav-btn {
+    flex-shrink: 0; cursor: pointer; line-height: 1;
+    font-size: 16px; padding: 2px 4px; border-radius: 6px;
+    background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.2);
+    color: #64748b; transition: all 0.12s;
+    -webkit-tap-highlight-color: transparent;
+}
+.boundary-fav-btn:hover { color: #fbbf24; border-color: rgba(251,191,36,0.5); background: rgba(251,191,36,0.12); }
+.boundary-fav-btn.saved { color: #fbbf24; border-color: rgba(251,191,36,0.55); background: rgba(251,191,36,0.14); }
+/* Star lives inline after the badge in the district panel header */
+#panel-fav-btn { margin-left: 6px; vertical-align: middle; }
+/* Star lives in the city drawer hero info */
+.pol-hero-info .boundary-fav-btn { margin-top: 6px; align-self: flex-start; }
+
 /* ─── Scrollbar styles ─── */
 /* WebKit (Chrome, Safari, Edge) */
 ::-webkit-scrollbar              { width: 6px; height: 6px; }
