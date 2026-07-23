@@ -2004,60 +2004,85 @@ class PublicProfileController extends Controller
         $from = $request->query('from', '');
         $to   = $request->query('to', '');
         $sources = array_filter(explode(',', (string) $request->query('source', '')));
+        $pageNumber = (int) $request->query('page', 1);
 
-        $query = \App\Models\CandidateNewsArticle::query()
-            ->where('politician_id', $politician->id)
-            ->where('verification_status', 'verified');
+        // Cache the filtered/paginated feed per politician+query combo. This is a
+        // public, bot-crawlable route (same failure shape as buildTransparencyData()
+        // above, which was previously the cause of a 502/timeout incident): every
+        // hit — including crawlers with no session — re-ran multiple uncached
+        // queries per request, and under concurrent load that exhausted the
+        // PHP-FPM worker pool. Short TTL keeps news feeling fresh while absorbing
+        // bursty/repeat traffic against the same URL.
+        $cacheKey = 'profile.news.' . $politician->id . '.' . md5(json_encode([
+            $mode, $q, $sort, $from, $to, $sources, $pageNumber,
+        ]));
 
-        if ($q !== '') {
-            $query->where(function ($sq) use ($q) {
-                $sq->where('headline', 'like', "%{$q}%")
-                   ->orWhere('snippet', 'like', "%{$q}%");
-            });
-        }
-        if ($from) {
-            $query->where('published_at', '>=', $from);
-        }
-        if ($to) {
-            $query->where('published_at', '<=', $to . ' 23:59:59');
-        }
-        if (! empty($sources)) {
-            $query->whereIn('provider', $sources);
-        }
+        [$articles, $breakingNow, $grouped] = \Illuminate\Support\Facades\Cache::remember(
+            $cacheKey,
+            180,
+            function () use ($politician, $mode, $q, $sort, $from, $to, $sources) {
+                $query = \App\Models\CandidateNewsArticle::query()
+                    ->where('politician_id', $politician->id)
+                    ->where('verification_status', 'verified');
 
-        $query->orderBy(match ($sort) {
-            'oldest' => 'published_at',
-            'source' => 'source_name',
-            default  => 'published_at',
-        }, $sort === 'oldest' ? 'asc' : 'desc');
+                if ($q !== '') {
+                    $query->where(function ($sq) use ($q) {
+                        $sq->where('headline', 'like', "%{$q}%")
+                           ->orWhere('snippet', 'like', "%{$q}%");
+                    });
+                }
+                if ($from) {
+                    $query->where('published_at', '>=', $from);
+                }
+                if ($to) {
+                    $query->where('published_at', '<=', $to . ' 23:59:59');
+                }
+                if (! empty($sources)) {
+                    $query->whereIn('provider', $sources);
+                }
 
-        $articles = $query->paginate(20)->withQueryString();
+                $query->orderBy(match ($sort) {
+                    'oldest' => 'published_at',
+                    'source' => 'source_name',
+                    default  => 'published_at',
+                }, $sort === 'oldest' ? 'asc' : 'desc');
 
-        // Breaking Now: first 2 verified articles from last 3 days (only page 1, no filters).
-        $breakingNow = collect();
-        if ($articles->currentPage() === 1 && $q === '' && ! $from && ! $to && empty($sources)) {
-            $breakingNow = \App\Models\CandidateNewsArticle::query()
+                $articles = $query->paginate(20)->withQueryString();
+
+                // Breaking Now: first 2 verified articles from last 3 days (only page 1, no filters).
+                $breakingNow = collect();
+                if ($articles->currentPage() === 1 && $q === '' && ! $from && ! $to && empty($sources)) {
+                    $breakingNow = \App\Models\CandidateNewsArticle::query()
+                        ->where('politician_id', $politician->id)
+                        ->where('verification_status', 'verified')
+                        ->where('published_at', '>=', now()->subDays(3))
+                        ->orderByDesc('published_at')
+                        ->limit(2)
+                        ->get();
+                }
+
+                // Date-grouped archive for time mode.
+                $grouped = collect();
+                if ($mode === 'time') {
+                    $grouped = $articles->getCollection()
+                        ->filter(fn ($a) => ! $breakingNow->contains('id', $a->id))
+                        ->groupBy(fn ($a) => $a->published_at?->format('l, F j, Y') ?? 'Unknown date');
+                }
+
+                return [$articles, $breakingNow, $grouped];
+            }
+        );
+
+        // All providers present for topic-mode source pills. Changes only when new
+        // articles are ingested, so cache it independently of filters/pagination.
+        $allProviders = \Illuminate\Support\Facades\Cache::remember(
+            "profile.news.providers.{$politician->id}",
+            3600,
+            fn () => \App\Models\CandidateNewsArticle::query()
                 ->where('politician_id', $politician->id)
                 ->where('verification_status', 'verified')
-                ->where('published_at', '>=', now()->subDays(3))
-                ->orderByDesc('published_at')
-                ->limit(2)
-                ->get();
-        }
-
-        // Date-grouped archive for time mode.
-        $grouped = collect();
-        if ($mode === 'time') {
-            $grouped = $articles->getCollection()
-                ->filter(fn ($a) => ! $breakingNow->contains('id', $a->id))
-                ->groupBy(fn ($a) => $a->published_at?->format('l, F j, Y') ?? 'Unknown date');
-        }
-
-        // All providers present for topic-mode source pills.
-        $allProviders = \App\Models\CandidateNewsArticle::query()
-            ->where('politician_id', $politician->id)
-            ->where('verification_status', 'verified')
-            ->distinct()->pluck('provider')->all();
+                ->distinct()->pluck('provider')->all()
+        );
 
         $nationalSources = config('news_sources.national', []);
         $stateSources    = config('news_sources.state.' . strtoupper((string) ($politician->state ?? '')), []);
