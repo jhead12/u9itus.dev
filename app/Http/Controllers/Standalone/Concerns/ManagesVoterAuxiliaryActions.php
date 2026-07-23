@@ -364,6 +364,17 @@ trait ManagesVoterAuxiliaryActions
         $totalReferralEarnings    = (float) $voter->referralEarnings()->voterViews()->forActiveStripeMode()->sum('commission_amount');
         $totalProcurementEarnings = (float) $voter->referralEarnings()->procurements()->forActiveStripeMode()->sum('commission_amount');
 
+        // Early-bank reported earnings — the actual money moving through the delegated
+        // model. EB does not distinguish "view" vs "procurement" commissions on the same
+        // payout.commission event, so we surface one combined commission total plus bonuses
+        // rather than fabricate a split the ledger can't support.
+        $ebCommissionTotal = (float) $voter->earlybankEarnings()
+            ->forEventType(\App\Models\EarlyBankEarning::EVENT_PAYOUT_COMMISSION)
+            ->sum('payout_amount');
+        $ebBonusTotal = (float) $voter->earlybankEarnings()
+            ->forEventType(\App\Models\EarlyBankEarning::EVENT_PAYOUT_BONUS)
+            ->sum('payout_amount');
+
         $visitQuery = ReferralVisit::where('referrer_voter_id', $voter->id);
         $totalReferralVisits = (clone $visitQuery)->count();
         $uniqueReferralVisitors = (clone $visitQuery)
@@ -379,6 +390,7 @@ trait ManagesVoterAuxiliaryActions
             'voter', 'referrals', 'referredPoliticians',
             'referralEarnings', 'procurementEarnings',
             'totalReferralEarnings', 'totalProcurementEarnings',
+            'ebCommissionTotal', 'ebBonusTotal',
             'totalReferralVisits', 'uniqueReferralVisitors',
             'referralConversions', 'referralConversionRate'
         ));

@@ -186,7 +186,7 @@
     </section>
 
     {{-- ── Early-bank Enrollment ─────────────────────────────────────── --}}
-    @php $eb = $stats['earlybank'] ?? ['enrolled' => 0, 'attributed' => 0, 'total_voters' => 0, 'enroll_rate_pct' => 0]; @endphp
+    @php $eb = $stats['earlybank'] ?? ['enrolled' => 0, 'attributed' => 0, 'total_voters' => 0, 'enroll_rate_pct' => 0, 'total_referral_commissions' => 0, 'total_referral_bonuses' => 0]; @endphp
     <section class="bg-emerald-950/30 border border-emerald-700/30 rounded-xl p-5 space-y-4">
         <h3 class="text-sm font-semibold text-emerald-200">Early-bank Enrollment</h3>
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -205,6 +205,14 @@
             <div class="rounded-xl border border-slate-700/70 bg-slate-900/40 px-4 py-3">
                 <p class="text-xs text-slate-500">Enrollment Rate</p>
                 <p class="text-2xl font-bold text-emerald-400 mt-1">{{ number_format($eb['enroll_rate_pct'], 1) }}%</p>
+            </div>
+            <div class="rounded-xl border border-slate-700/70 bg-slate-900/40 px-4 py-3">
+                <p class="text-xs text-slate-500">EB Reported Commissions</p>
+                <p class="text-2xl font-bold text-emerald-400 mt-1">${{ number_format($eb['total_referral_commissions'], 2) }}</p>
+            </div>
+            <div class="rounded-xl border border-slate-700/70 bg-slate-900/40 px-4 py-3">
+                <p class="text-xs text-slate-500">EB Reported Bonuses</p>
+                <p class="text-2xl font-bold text-indigo-400 mt-1">${{ number_format($eb['total_referral_bonuses'], 2) }}</p>
             </div>
         </div>
     </section>

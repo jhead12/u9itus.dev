@@ -35,6 +35,7 @@ use App\Models\PoliticianCredit;
 use App\Models\Politician;
 use App\Models\CitizenCampaign;
 use App\Models\CitizenTransaction;
+use App\Models\EarlyBankEarning;
 use App\Models\EarlyBankWebhookLog;
 use App\Models\PayoutAttempt;
 use App\Models\ReferralEarning;
@@ -2376,6 +2377,10 @@ class AdminController extends Controller
         $ebAttributed   = Voter::whereNotNull('earlybank_member_id')->count();
         $ebEnrollRate   = $totalVoters > 0 ? round(($ebEnrolled / $totalVoters) * 100, 1) : 0.0;
 
+        // ── Early-bank reported earnings (actual money, not payment-mode scoped) ──
+        $ebTotalCommissions = (float) EarlyBankEarning::forEventType(EarlyBankEarning::EVENT_PAYOUT_COMMISSION)->sum('payout_amount');
+        $ebTotalBonuses     = (float) EarlyBankEarning::forEventType(EarlyBankEarning::EVENT_PAYOUT_BONUS)->sum('payout_amount');
+
         // ── Citizen campaigns ──────────────────────────────────────────────
         $citizenTotals = CitizenCampaign::query()
             ->selectRaw('COUNT(*) as total_campaigns')
@@ -2476,6 +2481,8 @@ class AdminController extends Controller
                 'attributed'     => $ebAttributed,
                 'total_voters'   => $totalVoters,
                 'enroll_rate_pct' => $ebEnrollRate,
+                'total_referral_commissions' => $ebTotalCommissions,
+                'total_referral_bonuses'     => $ebTotalBonuses,
             ],
             // Citizen campaigns
             'citizen_campaigns' => [

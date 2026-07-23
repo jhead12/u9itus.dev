@@ -256,7 +256,7 @@ test('completing a non-qualifying view does not credit voter', function () {
     ]);
 });
 
-test('completing a view creates referral earning for referrer', function () {
+test('completing a view does not create internal referral earning — commissions route to Early-bank', function () {
     $referrer = activeVoter();
     ['voter' => $voter, 'token' => $token] = voterWithToken(['referred_by_voter_id' => $referrer->id]);
     $campaign = activeCampaign([

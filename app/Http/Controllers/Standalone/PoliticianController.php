@@ -1761,6 +1761,16 @@ class PoliticianController extends Controller
         $totalVoterViewEarnings  = (float) $politician->referralEarnings()->voterViews()->forActiveStripeMode()->sum('commission_amount');
         $totalProcurementEarnings = (float) $politician->referralEarnings()->procurements()->forActiveStripeMode()->sum('commission_amount');
 
+        // Early-bank reported earnings — see the equivalent comment in
+        // ManagesVoterAuxiliaryActions::referrals() for why these are combined
+        // rather than split by voter-view vs procurement.
+        $ebCommissionTotal = (float) $politician->earlybankEarnings()
+            ->forEventType(\App\Models\EarlyBankEarning::EVENT_PAYOUT_COMMISSION)
+            ->sum('payout_amount');
+        $ebBonusTotal = (float) $politician->earlybankEarnings()
+            ->forEventType(\App\Models\EarlyBankEarning::EVENT_PAYOUT_BONUS)
+            ->sum('payout_amount');
+
         $visitQuery = ReferralVisit::where('referrer_politician_id', $politician->id);
         $totalReferralVisits = (clone $visitQuery)->count();
         $uniqueReferralVisitors = (clone $visitQuery)
@@ -1780,6 +1790,8 @@ class PoliticianController extends Controller
             'procurementEarnings',
             'totalVoterViewEarnings',
             'totalProcurementEarnings',
+            'ebCommissionTotal',
+            'ebBonusTotal',
             'totalReferralVisits',
             'uniqueReferralVisitors',
             'referralConversions',

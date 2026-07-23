@@ -35,6 +35,15 @@
         ],
     ])
 
+    {{-- ── Early-bank Reported Earnings ─────────────────────────── --}}
+    @include('standalone.shared.referral-stat-grid', [
+        'gridClass' => 'grid-cols-2',
+        'cards' => [
+            ['label' => 'Early-bank Commissions', 'value' => '$' . number_format($ebCommissionTotal, 2), 'valueClass' => 'text-emerald-400'],
+            ['label' => 'Early-bank Bonuses', 'value' => '$' . number_format($ebBonusTotal, 2), 'valueClass' => 'text-indigo-400'],
+        ],
+    ])
+
     {{-- ── Share Links ──────────────────────────────────────────── --}}
     @php
         // Early-bank member links — only built when this voter holds an EB membership.

@@ -152,6 +152,39 @@ test('addCredits dispatches politician.purchased webhook to Early-bank for refer
     });
 });
 
+test('politician.purchased payload includes commission percent and computed commission amount', function () {
+    config(['u9itus.procurement_commission_percent' => 10]);
+
+    \Illuminate\Support\Facades\Http::fake();
+    Config::set('services.earlybank.enabled', true);
+    Config::set('services.earlybank.webhook_url', 'https://early-bank.test/webhook');
+    Config::set('services.earlybank.webhook_secret', 'eb-webhook-secret');
+
+    $memberUuid = \Illuminate\Support\Str::uuid()->toString();
+    $referrer   = Voter::factory()->create([
+        'pending_earnings'          => 0.00,
+        'earlybank_own_member_uuid' => $memberUuid,
+    ]);
+    $politician = Politician::factory()->create([
+        'credit_balance'       => 0.00,
+        'referred_by_voter_id' => $referrer->id,
+    ]);
+    $svc = makeBillingService();
+
+    $svc->addCredits($politician, 100.00, ['transaction_type' => 'purchase']);
+
+    // Early-bank must be told the exact commission terms rather than inferring
+    // a percentage from the raw purchase amount.
+    \Illuminate\Support\Facades\Http::assertSent(function ($request) {
+        $body = json_decode($request->body(), true);
+
+        return ($body['event'] ?? '') === 'politician.purchased'
+            && (float) ($body['data']['purchase_amount'] ?? 0) === 100.00
+            && (float) ($body['data']['commission_percent'] ?? 0) === 10.0
+            && (float) ($body['data']['commission_amount'] ?? 0) === 10.00;
+    });
+});
+
 test('addCredits skips politician.purchased webhook when referrer has no EB member UUID', function () {
     config(['u9itus.procurement_commission_percent' => 10]);
 
