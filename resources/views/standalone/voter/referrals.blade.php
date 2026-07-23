@@ -60,22 +60,12 @@
         $politicianRefUrl = url('/?ref=' . $voter->referral_code . '&target=politician');
         $voterQrSrc       = 'https://api.qrserver.com/v1/create-qr-code/?size=120x120&color=059669&bgcolor=FFFFFF&data=' . rawurlencode($voterRefUrl)      . '&qzone=1';
         $politicianQrSrc  = 'https://api.qrserver.com/v1/create-qr-code/?size=120x120&color=d97706&bgcolor=FFFFFF&data=' . rawurlencode($politicianRefUrl) . '&qzone=1';
-        $voterTpl = \App\Models\EmailTemplate::forKey('referral_voter_share');
-        $politicianTpl = \App\Models\EmailTemplate::forKey('referral_politician_share');
-        $voterShareSubject = ($voterTpl && $voterTpl->is_active && $voterTpl->subject_override)
-            ? $voterTpl->subject_override
-            : 'Join U9itus as a voter with my referral link';
-        $voterShareMessage = ($voterTpl && $voterTpl->is_active && $voterTpl->body_override)
-            ? $voterTpl->body_override
-            : 'Join U9itus as a voter using my referral link and start participating on the platform.';
-        $voterShareBody = $voterShareMessage . "\n\n" . $voterRefUrl;
-        $politicianShareSubject = ($politicianTpl && $politicianTpl->is_active && $politicianTpl->subject_override)
-            ? $politicianTpl->subject_override
-            : 'Join U9itus as a politician with my referral link';
-        $politicianShareMessage = ($politicianTpl && $politicianTpl->is_active && $politicianTpl->body_override)
-            ? $politicianTpl->body_override
-            : 'Join U9itus as a politician using my referral link and launch your campaign presence on the platform.';
-        $politicianShareBody = $politicianShareMessage . "\n\n" . $politicianRefUrl;
+        $voterShare = \App\Models\EmailTemplate::shareCopy('referral_voter_share', $voterRefUrl,
+            'Join U9itus as a voter with my referral link',
+            'Join U9itus as a voter using my referral link and start participating on the platform.');
+        $politicianShare = \App\Models\EmailTemplate::shareCopy('referral_politician_share', $politicianRefUrl,
+            'Join U9itus as a politician with my referral link',
+            'Join U9itus as a politician using my referral link and launch your campaign presence on the platform.');
 
         // Early-bank member links — only built when this voter holds an EB membership.
         // EB invite:        early-bank.com/?ref=<uuid>  → recruits new EB members ($10 bonus)
@@ -209,9 +199,9 @@
                 <p id="voter-copy-confirm" class="text-emerald-400 text-xs hidden">✓ Copied!</p>
                 @include('standalone.shared.referral-share-actions', [
                     'shareLink' => $voterRefUrl,
-                    'shareSubject' => $voterShareSubject,
-                    'shareMessage' => $voterShareMessage,
-                    'shareBody' => $voterShareBody,
+                    'shareSubject' => $voterShare['subject'],
+                    'shareMessage' => $voterShare['message'],
+                    'shareBody' => $voterShare['body'],
                 ])
             </div>
             {{-- Voter QR --}}
@@ -253,9 +243,9 @@
                 <p id="politician-copy-confirm" class="text-amber-400 text-xs hidden">✓ Copied!</p>
                 @include('standalone.shared.referral-share-actions', [
                     'shareLink' => $politicianRefUrl,
-                    'shareSubject' => $politicianShareSubject,
-                    'shareMessage' => $politicianShareMessage,
-                    'shareBody' => $politicianShareBody,
+                    'shareSubject' => $politicianShare['subject'],
+                    'shareMessage' => $politicianShare['message'],
+                    'shareBody' => $politicianShare['body'],
                 ])
             </div>
             {{-- Politician QR --}}

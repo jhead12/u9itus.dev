@@ -63,6 +63,36 @@ class EmailTemplate extends Model
     }
 
     /**
+     * Resolve the subject/message/body trio for a referral share template.
+     *
+     * Uses the admin override only when the template exists AND is active;
+     * otherwise falls back to the provided defaults. The body is the
+     * resolved message followed by the referral URL on its own line.
+     *
+     * Centralizes the resolution logic that the voter/politician/onboarding
+     * referral views previously duplicated inline.
+     *
+     * @return array{subject: string, message: string, body: string}
+     */
+    public static function shareCopy(string $key, string $url, string $fallbackSubject, string $fallbackMessage): array
+    {
+        $tpl = static::forKey($key);
+
+        $subject = ($tpl && $tpl->is_active && $tpl->subject_override)
+            ? $tpl->subject_override
+            : $fallbackSubject;
+        $message = ($tpl && $tpl->is_active && $tpl->body_override)
+            ? $tpl->body_override
+            : $fallbackMessage;
+
+        return [
+            'subject' => $subject,
+            'message' => $message,
+            'body'    => $message . "\n\n" . $url,
+        ];
+    }
+
+    /**
      * Resolve the effective subject for a given Mailable default.
      */
     public function effectiveSubject(string $mailableDefault): string

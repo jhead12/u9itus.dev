@@ -13,22 +13,12 @@
         $referralCommissionPercent = (float) \App\Services\PlatformSettingsService::get('referral_commission_percent', null, config('u9itus.referral_commission_percent', 10));
         $referralPerViewAmount = $viewerPayoutPerView * ($referralCommissionPercent / 100);
         $referralPerViewAmountDecimals = $referralPerViewAmount < 0.1 ? 3 : 2;
-        $voterTpl = \App\Models\EmailTemplate::forKey('referral_voter_share');
-        $politicianTpl = \App\Models\EmailTemplate::forKey('referral_politician_share');
-        $voterShareSubject = ($voterTpl && $voterTpl->is_active && $voterTpl->subject_override)
-            ? $voterTpl->subject_override
-            : 'Join U9itus as a voter with my referral link';
-        $voterShareMessage = ($voterTpl && $voterTpl->is_active && $voterTpl->body_override)
-            ? $voterTpl->body_override
-            : 'Join U9itus as a voter using my referral link and start participating on the platform.';
-        $voterShareBody = $voterShareMessage . "\n\n" . $voterLandingReferralUrl;
-        $politicianShareSubject = ($politicianTpl && $politicianTpl->is_active && $politicianTpl->subject_override)
-            ? $politicianTpl->subject_override
-            : 'Join U9itus as a politician with my referral link';
-        $politicianShareMessage = ($politicianTpl && $politicianTpl->is_active && $politicianTpl->body_override)
-            ? $politicianTpl->body_override
-            : 'Join U9itus as a politician using my referral link and launch your campaign presence on the platform.';
-        $politicianShareBody = $politicianShareMessage . "\n\n" . $politicianLandingReferralUrl;
+        $voterShare = \App\Models\EmailTemplate::shareCopy('referral_voter_share', $voterLandingReferralUrl,
+            'Join U9itus as a voter with my referral link',
+            'Join U9itus as a voter using my referral link and start participating on the platform.');
+        $politicianShare = \App\Models\EmailTemplate::shareCopy('referral_politician_share', $politicianLandingReferralUrl,
+            'Join U9itus as a politician with my referral link',
+            'Join U9itus as a politician using my referral link and launch your campaign presence on the platform.');
     @endphp
     <div class="space-y-6">
         <!-- Referral Benefits -->
@@ -116,9 +106,9 @@
                 </div>
                 @include('standalone.shared.referral-share-actions', [
                     'shareLink' => $voterLandingReferralUrl,
-                    'shareSubject' => $voterShareSubject,
-                    'shareMessage' => $voterShareMessage,
-                    'shareBody' => $voterShareBody,
+                    'shareSubject' => $voterShare['subject'],
+                    'shareMessage' => $voterShare['message'],
+                    'shareBody' => $voterShare['body'],
                 ])
             </div>
 
@@ -135,9 +125,9 @@
                 </div>
                 @include('standalone.shared.referral-share-actions', [
                     'shareLink' => $politicianLandingReferralUrl,
-                    'shareSubject' => $politicianShareSubject,
-                    'shareMessage' => $politicianShareMessage,
-                    'shareBody' => $politicianShareBody,
+                    'shareSubject' => $politicianShare['subject'],
+                    'shareMessage' => $politicianShare['message'],
+                    'shareBody' => $politicianShare['body'],
                 ])
             </div>
         </div>
