@@ -26,69 +26,15 @@
             <h3 class="text-xl font-bold text-white mb-2">Share U9itus with others</h3>
             <p class="text-gray-300 text-sm mb-4">Use your referral links below to invite voters and politicians to the platform. Your referral code is <strong class="text-emerald-400 font-mono">{{ $voter->referral_code ?? 'N/A' }}</strong>.</p>
 
-            @if(!empty($voter->earlybank_own_member_uuid))
-            {{-- ── Voter is already an Early-bank member ── --}}
-            @php
-                $ebSsoAvailable = ! empty(config('services.earlybank.webhook_secret'));
-                $ebOnboardingDashboardHref = $ebSsoAvailable
-                    ? route('voter.earlybank.sso')
-                    : rtrim(config('services.earlybank.public_url', 'https://www.early-bank.com'), '/') . '/dashboard';
-            @endphp
-            <div class="bg-emerald-900/20 border border-emerald-500/20 rounded-xl p-5">
-                <div class="flex items-start gap-3">
-                    <div class="w-9 h-9 rounded-lg bg-emerald-500/20 flex items-center justify-center shrink-0 mt-0.5">
-                        <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                        </svg>
-                    </div>
-                    <div>
-                        <p class="text-emerald-200 font-semibold text-sm">You're already an Early-bank member</p>
-                        <p class="text-gray-300 text-sm mt-1">
-                            Your referral commissions flow through Early-bank. Access your referral dashboard,
-                            QR code, and weekly payout status directly below.
-                        </p>
-                        @if($voter->earlybank_own_linked_at)
-                        <p class="text-slate-500 text-xs mt-1.5">Linked {{ $voter->earlybank_own_linked_at->format('M j, Y') }}</p>
-                        @endif
-                        <a href="{{ $ebOnboardingDashboardHref }}"
-                           @if(!$ebSsoAvailable) target="_blank" rel="noopener noreferrer" @endif
-                           class="inline-flex items-center gap-2 mt-3 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold px-4 py-2 rounded-xl transition">
-                            Open My Dashboard
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                            </svg>
-                        </a>
-                    </div>
-                </div>
-            </div>
-            @else
-            {{-- ── Not yet a member: upsell ── --}}
-            <div class="bg-indigo-900/60 border border-indigo-500/30 rounded-xl p-5">
-                <div class="flex items-start gap-3">
-                    <div class="w-9 h-9 rounded-lg bg-indigo-500/20 flex items-center justify-center shrink-0 mt-0.5">
-                        <svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
-                        </svg>
-                    </div>
-                    <div>
-                        <p class="text-indigo-200 font-semibold text-sm">Want to earn referral commissions?</p>
-                        <p class="text-gray-300 text-sm mt-1">
-                            Join <strong>Early-bank</strong> for a one-time $20 fee and get a dedicated referral link.
-                            Earn a <strong class="text-indigo-300">$10 bonus</strong> each time someone you invite joins,
-                            plus <strong class="text-indigo-300">10% recurring</strong> on their U9itus viewing activity — paid weekly via Stripe.
-                        </p>
-                        <a href="{{ rtrim(config('services.earlybank.public_url', 'https://www.early-bank.com'), '/') . '/register?u9itus_voter_uuid=' . ($voter->uuid ?? '') . '&return_to=' . urlencode(route('voter.onboarding.referrals') . '?eb_member={member_uuid}') }}"
-                           target="_blank" rel="noopener noreferrer"
-                           class="inline-flex items-center gap-2 mt-3 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold px-4 py-2 rounded-xl transition">
-                            Join Early-bank to Earn
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
-                            </svg>
-                        </a>
-                    </div>
-                </div>
-            </div>
-            @endif
+            @include('standalone.voter.partials.earlybank-referral-cta', [
+                'returnToRoute'   => route('voter.onboarding.referrals'),
+                'upsellHeading'   => 'Want to earn referral commissions?',
+                'upsellBody'       => 'Join <strong>Early-bank</strong> for a one-time $20 fee and get a dedicated referral link. Earn a <strong class="text-indigo-300">$10 bonus</strong> each time someone you invite joins, plus <strong class="text-indigo-300">10% recurring</strong> on their U9itus viewing activity — paid weekly via Stripe.',
+                'upsellFootnote'  => '',
+                'enrolledHeading' => "You're already an Early-bank member",
+                'enrolledBody'     => 'Your referral commissions flow through Early-bank. Access your referral dashboard, QR code, and weekly payout status directly below.',
+                'showMemberId'     => false,
+            ])
         </div>
 
         <!-- Referral Links -->
