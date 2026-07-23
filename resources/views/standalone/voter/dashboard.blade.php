@@ -44,7 +44,7 @@
     @include('standalone.voter.partials.authentic-user-verifier-banner')
 
     {{-- Running Campaigns -- primary action shown first for better accessibility and task clarity --}}
-    <div id="dash-section-campaigns" class="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-5">
+    <div id="dash-section-campaigns" class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
             <div>
                 <h2 class="text-white font-semibold text-lg">Running Campaigns</h2>
@@ -103,34 +103,34 @@
     {{-- Earnings Stats --}}
     @if($voter)
     <div id="dash-section-earnings" class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        @php
-            $statCards = [
-                ['label' => 'Wallet Balance',   'value' => '$' . number_format($summary['wallet_balance'] ?? 0, 2),   'color' => 'emerald',
-                 'icon'  => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>'],
-                ['label' => 'Pending Earnings', 'value' => '$' . number_format($summary['pending_earnings'] ?? 0, 2), 'color' => 'amber',
-                 'icon'  => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>'],
-                ['label' => 'Total Earned',     'value' => '$' . number_format($summary['total_earned'] ?? 0, 2),     'color' => 'blue',
-                 'icon'  => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>'],
-                ['label' => 'Total Views',      'value' => $summary['total_views'] ?? 0,                              'color' => 'purple',
-                 'icon'  => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.069A1 1 0 0121 8.882v6.236a1 1 0 01-1.447.894L15 14M3 8a2 2 0 00-2 2v4a2 2 0 002 2h9a2 2 0 002-2v-4a2 2 0 00-2-2H3z"/>'],
-            ];
-        @endphp
-        @foreach($statCards as $s)
-        <div class="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-5 group hover:border-{{ $s['color'] }}-500/40 transition">
-            <div class="flex items-center justify-between mb-3">
-                <p class="text-slate-400 text-xs font-medium uppercase tracking-wide">{{ $s['label'] }}</p>
-                <svg class="w-4 h-4 text-{{ $s['color'] }}-500/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    {!! $s['icon'] !!}
-                </svg>
-            </div>
-            <p class="text-2xl font-bold text-{{ $s['color'] }}-400">{{ $s['value'] }}</p>
+        <div class="stat-card">
+            <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Wallet Balance</p>
+            <p class="text-3xl font-bold text-emerald-400">${{ number_format($summary['wallet_balance'] ?? 0, 2) }}</p>
+            <p class="text-xs text-slate-500 mt-1">Available now</p>
         </div>
-        @endforeach
+
+        <div class="stat-card">
+            <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Pending Earnings</p>
+            <p class="text-3xl font-bold text-amber-400">${{ number_format($summary['pending_earnings'] ?? 0, 2) }}</p>
+            <p class="text-xs text-slate-500 mt-1">Being verified</p>
+        </div>
+
+        <div class="stat-card">
+            <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Total Earned</p>
+            <p class="text-3xl font-bold text-blue-400">${{ number_format($summary['total_earned'] ?? 0, 2) }}</p>
+            <p class="text-xs text-slate-500 mt-1">All time</p>
+        </div>
+
+        <div class="stat-card">
+            <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Total Views</p>
+            <p class="text-3xl font-bold text-purple-400">{{ number_format($summary['total_views'] ?? 0) }}</p>
+            <p class="text-xs text-slate-500 mt-1">Completed</p>
+        </div>
     </div>
 
     {{-- Active Promotions --}}
     @if(isset($activePromotions) && $activePromotions->isNotEmpty())
-    <div class="bg-gradient-to-r from-amber-900/20 to-orange-900/20 border border-amber-500/30 rounded-2xl p-5">
+    <div class="bg-gradient-to-r from-amber-900/20 to-orange-900/20 border border-amber-500/30 rounded-xl p-5">
         <div class="flex items-start gap-3 mb-4">
             <div class="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center shrink-0">
                 <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -166,7 +166,7 @@
     {{-- Payout CTA --}}
     @if(($summary['approved_earnings'] ?? 0) > 0)
     {{-- Already requested — show in-review banner instead of the request button --}}
-    <div id="dash-section-payout" class="bg-gradient-to-r from-amber-900/30 to-yellow-900/20 border border-amber-500/30 rounded-2xl p-5 flex items-center gap-5">
+    <div id="dash-section-payout" class="bg-gradient-to-r from-amber-900/30 to-yellow-900/20 border border-amber-500/30 rounded-xl p-5 flex items-center gap-5">
         <div class="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center shrink-0">
             <svg class="w-5 h-5 text-amber-400 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
@@ -180,7 +180,7 @@
         </div>
     </div>
     @elseif(($summary['pending_earnings'] ?? 0) >= $minPayout)
-    <div class="bg-gradient-to-r from-emerald-900/40 to-teal-900/30 border border-emerald-500/30 rounded-2xl p-5 flex items-center gap-5 justify-between">
+    <div class="bg-gradient-to-r from-emerald-900/40 to-teal-900/30 border border-emerald-500/30 rounded-xl p-5 flex items-center gap-5 justify-between">
         <div class="flex items-center gap-4">
             <div class="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center shrink-0">
                 <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -204,7 +204,7 @@
     @endif
 
     {{-- Referral Banner --}}
-    <div id="dash-section-referral" class="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-5 flex items-center gap-4 justify-between">
+    <div id="dash-section-referral" class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5 flex items-center gap-4 justify-between">
         <div class="flex items-center gap-4">
             <div class="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center shrink-0">
                 <svg class="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -225,7 +225,7 @@
     </div>
 
     {{-- Browse Politicians Directory --}}
-    <div class="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-5 flex items-center gap-4 justify-between hover:border-blue-500/40 transition group">
+    <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5 flex items-center gap-4 justify-between hover:border-blue-500/40 transition group">
         <div class="flex items-center gap-4">
             <div class="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center shrink-0 group-hover:bg-blue-500/30 transition">
                 <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -253,7 +253,7 @@
 
     {{-- Voter Registration Prompt (shown if status unknown or not registered) --}}
     @if(is_null($voter->is_registered_voter) || $voter->is_registered_voter === false)
-    <div class="bg-blue-500/10 border border-blue-500/30 rounded-2xl p-5 flex items-start gap-4">
+    <div class="bg-blue-500/10 border border-blue-500/30 rounded-xl p-5 flex items-start gap-4">
         <div class="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center shrink-0 mt-0.5">
             <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
@@ -286,46 +286,11 @@
     </div>
     @endif
 
-    <!-- {{-- Voter Registration Prompt (shown if status unknown or not registered) --}}
-    @if(is_null($voter->is_registered_voter) || $voter->is_registered_voter === false)
-    <div class="bg-blue-500/10 border border-blue-500/30 rounded-2xl p-5 flex items-start gap-4">
-        <div class="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center shrink-0 mt-0.5">
-            <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-            </svg>
-        </div>
-        <div class="flex-1 min-w-0">
-            @if($voter->is_registered_voter === false)
-            <p class="text-blue-200 font-semibold text-sm">You're not registered to vote yet</p>
-            <p class="text-slate-400 text-xs mt-0.5 mb-3">
-                Registering takes just a few minutes and may unlock additional campaigns targeted at registered voters in your area.
-            </p>
-            @else
-            <p class="text-blue-200 font-semibold text-sm">Are you registered to vote?</p>
-            <p class="text-slate-400 text-xs mt-0.5 mb-3">
-                You haven't confirmed your voter registration status yet. Registered voters may receive more targeted campaigns.
-            </p>
-            @endif
-            <div class="flex flex-wrap gap-2">
-                <a href="https://vote.gov" target="_blank" rel="noopener noreferrer"
-                   class="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition">
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
-                    Register to vote at vote.gov
-                </a>
-                <a href="{{ route('voter.profile') }}"
-                   class="inline-flex items-center gap-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs font-medium px-3 py-1.5 rounded-lg transition">
-                    Update registration status in profile &rarr;
-                </a>
-            </div>
-        </div>
-    </div>
-    @endif -->
-
     {{-- Recent Sessions --}}
     @if($recentSessions->isNotEmpty() || ($voter && $voter->earlybank_member_id))
     <div id="dash-section-activity">
         <h2 class="text-lg font-semibold text-white mb-4">Recent Activity</h2>
-        <div class="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
+        <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl overflow-hidden">
             <table class="w-full text-sm">
                 <thead>
                     <tr class="border-b border-slate-700 text-slate-400 text-left">
@@ -392,7 +357,7 @@
          community groups, and ballot-issue advocates who want to reach
          nearby voters via pay-per-view ads. Links directly to registration.
     ═══════════════════════════════════════════════════════════════ --}}
-    <div class="relative overflow-hidden rounded-2xl border border-amber-500/30
+    <div class="relative overflow-hidden rounded-xl border border-amber-500/30
                 bg-gradient-to-br from-amber-950/40 via-slate-900/80 to-slate-900/60
                 p-6 sm:p-8">
 
@@ -402,7 +367,7 @@
 
         <div class="relative flex flex-col sm:flex-row gap-6 items-start sm:items-center">
             {{-- Icon --}}
-            <div class="w-14 h-14 rounded-2xl bg-amber-500/15 border border-amber-500/30
+            <div class="w-14 h-14 rounded-xl bg-amber-500/15 border border-amber-500/30
                         flex items-center justify-center shrink-0 text-3xl">
                 🏘️
             </div>
@@ -485,7 +450,7 @@
     </div>
 
     @else
-    <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-10 text-center">
+    <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-10 text-center">
         <p class="text-slate-400">No voter profile found for your account.</p>
         <p class="text-slate-500 text-sm mt-2">Please contact support if you believe this is an error.</p>
     </div>
