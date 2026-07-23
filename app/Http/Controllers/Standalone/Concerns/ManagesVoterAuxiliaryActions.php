@@ -8,6 +8,7 @@ use App\Exceptions\StripeConnectException;
 use App\Models\AdViewToken;
 use App\Models\PoliticalCampaign;
 use App\Models\ReferralVisit;
+use App\Models\CitizenViewSession;
 use App\Models\Voter;
 use App\Models\VoterWatchReport;
 use App\Models\ViewSession;
@@ -283,8 +284,11 @@ trait ManagesVoterAuxiliaryActions
 
         // Ensure payout-eligible completed sessions are marked approved and carry
         // the voter's latest processor preference for downstream payout routing.
+        // Covers both political (ViewSession) and citizen (CitizenViewSession)
+        // campaigns — previously citizen earnings accrued in pending_earnings but
+        // were never queued for settlement, leaving them stranded.
         $updated = DB::transaction(function () use ($voter, $selectedProcessor): int {
-            return ViewSession::where('voter_id', $voter->id)
+            $political = ViewSession::where('voter_id', $voter->id)
                 ->where('status', \App\Enums\ViewSessionStatus::Completed)
                 ->whereIn('payment_status', [
                     ViewPaymentStatus::Pending,
@@ -295,6 +299,20 @@ trait ManagesVoterAuxiliaryActions
                     'payment_status' => ViewPaymentStatus::Approved,
                     'processor_selected' => $selectedProcessor,
                 ]);
+
+            $citizen = CitizenViewSession::where('voter_id', $voter->id)
+                ->where('status', \App\Enums\ViewSessionStatus::Completed)
+                ->whereIn('payment_status', [
+                    ViewPaymentStatus::Pending,
+                    ViewPaymentStatus::Approved,
+                ])
+                ->where('voter_payout_amount', '>', 0)
+                ->update([
+                    'payment_status' => ViewPaymentStatus::Approved,
+                    'processor_selected' => $selectedProcessor,
+                ]);
+
+            return $political + $citizen;
         });
 
         Log::info('Payout requested', [
