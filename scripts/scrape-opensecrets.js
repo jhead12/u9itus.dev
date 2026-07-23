@@ -122,16 +122,37 @@ async function searchCandidate(page, name, state) {
 
   try {
     await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: TIMEOUT });
+
+    // OpenSecrets search results are a Google Custom Search widget that
+    // injects results into the DOM asynchronously via JS after page load —
+    // a fixed short sleep is a race against that, and losing the race looks
+    // identical to a genuine "no results", which used to fall straight
+    // through to a guessed URL. Wait for the actual result markup (or the
+    // CSE's own "no results" state) before reading the DOM.
+    await page.waitForSelector('a.gs-title, .gsc-webResult, .gs-no-results-result', { timeout: TIMEOUT }).catch(() => {});
     await sleep(DELAY_MS);
 
-    // Extract search result links matching /profiles/ URLs
+    // Extract search result links. OpenSecrets currently uses two URL
+    // schemes for candidate profile pages depending on office type:
+    //  - /profiles/{slug}/us_congress/...  (current/former members of Congress)
+    //  - /officeholders/{slug}/...         (governors, state legislators,
+    //    judicial officeholders, and other non-Congress offices)
     const results = await page.evaluate(() => {
-      return Array.from(document.querySelectorAll('a[href*="/profiles/"]'))
-        .filter(a => a.href.includes('/us_congress/') || a.href.includes('/state-politics/') || a.href.includes('/governors/'))
+      return Array.from(document.querySelectorAll('a.gs-title[href], a[href*="/profiles/"], a[href*="/officeholders/"]'))
+        .filter(a => {
+          if (!a.href) return false;
+          // /us_congress/ = individual member profile. /officeholders/ needs a
+          // slug + sub-page (e.g. /officeholders/gavin-newsom/summary) to be a
+          // candidate profile — bare category links like /officeholders/list
+          // (the "Governors" nav link) must not be mistaken for a match.
+          return a.href.includes('/us_congress/') || /\/officeholders\/[^/?]+\/[^/?]+/.test(a.href);
+        })
         .map(a => ({
           text: a.textContent.trim(),
           href: a.href,
         }))
+        // The CSE widget renders each result twice (title link + snippet link)
+        .filter((r, i, arr) => arr.findIndex(x => x.href === r.href) === i)
         .slice(0, 5);
     });
 
@@ -162,20 +183,25 @@ async function searchCandidate(page, name, state) {
         return null;
       }
 
-      // Fallback: try direct URL construction with name slug
+      // Fallback: try direct URL construction with name slug. This is an
+      // unverified guess (search found nothing) — flagged `guessed: true` so
+      // the caller can discard it rather than persist it if the guess turns
+      // out wrong, instead of storing a plausible-looking but broken link.
       const slug = nameSlug(name);
       const directUrl = `https://www.opensecrets.org/profiles/${slug}/us_congress/summary`;
       console.error(`  [search] No results — trying direct slug: ${directUrl}`);
-      return { profileUrl: directUrl, mpid: null, name };
+      return { profileUrl: directUrl, mpid: null, name, guessed: true };
     }
 
     const best = results[0];
-    // Extract mpid from URL: /profiles/adam-schiff/us_congress/summary?mpid=1105090
-    const mpidMatch = best.href.match(/[?&]mpid=(\d+)/);
+    // Extract the candidate identifier from URL. The /profiles/.../us_congress/
+    // scheme uses ?mpid=, the newer /officeholders/... scheme uses ?id=.
+    const mpidMatch = best.href.match(/[?&](?:mpid|id)=(\d+)/);
     return {
       profileUrl: best.href,
       mpid: mpidMatch ? mpidMatch[1] : null,
       name: best.text,
+      guessed: false,
     };
   } catch (err) {
     console.error(`  [search] Error: ${err.message}`);
@@ -266,12 +292,15 @@ async function scrapeProfilePage(page, profileUrl) {
         continue;
       }
 
-      // Contributors: has "associated_organization" or "org"
+      // Contributors: has "associated_organization"/"org" (us_congress scheme)
+      // or plain "contributor" (officeholders scheme — governors, state
+      // legislators, etc., which don't have the individuals/PACs breakdown).
       // OpenSecrets renders TWO tables per section: one header-only, one with data.
       // We always take the last non-empty match, so skip if rows is empty.
-      if (keys.some(k => k.includes('organization') || k.includes('org'))) {
+      if (keys.some(k => k.includes('organization') || k.includes('org') || k.includes('contributor'))) {
+        const nameKey = keys.find(k => k.includes('organization') || k.includes('org') || k.includes('contributor'));
         const parsed = rows.map(r => ({
-          name:        r[keys.find(k => k.includes('organization') || k.includes('org'))] ?? '',
+          name:        r[nameKey] ?? '',
           total:       r[keys.find(k => k === 'total')] ?? '',
           individuals: r[keys.find(k => k.includes('individual'))] ?? '',
           pacs:        r[keys.find(k => k.includes('pac'))] ?? '',
@@ -335,6 +364,7 @@ async function enrichCandidate(browser, candidate) {
   try {
     let profileUrl = null;
     let mpid = candidate.opensecrets_mpid ?? MPID_ARG ?? null;
+    let guessed = false;
 
     // Direct mpid URL
     if (mpid) {
@@ -346,12 +376,26 @@ async function enrichCandidate(browser, candidate) {
       if (!found) return null;
       profileUrl = found.profileUrl;
       mpid       = found.mpid;
+      guessed    = found.guessed === true;
     }
 
     await sleep(300);
     const scraped = await scrapeProfilePage(page, profileUrl);
+    if (!scraped) return null;
 
-    return scraped ? { ...scraped, mpid: mpid ?? scraped.mpid, input_name: candidate.full_name ?? candidate.name } : null;
+    // A guessed (unverified) slug that didn't turn up any real data isn't a
+    // confirmed match — it's just a plausible-looking URL that may 404 or
+    // point at the wrong person. Discard it rather than let it get persisted
+    // as this politician's OpenSecrets link.
+    const hasRealData = Boolean(scraped.summary && Object.keys(scraped.summary).length)
+      || (scraped.top_contributors?.length ?? 0) > 0
+      || (scraped.top_industries?.length ?? 0) > 0;
+    if (guessed && !hasRealData) {
+      console.error(`  [scrape] Guessed URL returned no real data — discarding unverified link`);
+      return null;
+    }
+
+    return { ...scraped, mpid: mpid ?? scraped.mpid, input_name: candidate.full_name ?? candidate.name };
   } catch (err) {
     console.error(`  Error enriching ${candidate.full_name}: ${err.message}`);
     return null;
