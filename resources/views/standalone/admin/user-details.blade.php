@@ -4,7 +4,7 @@
 @section('page-title', 'User Details')
 
 @section('content')
-<div class="space-y-6 max-w-4xl">
+<div class="space-y-6 max-w-4xl mx-auto">
 
     <div>
         <a href="{{ route('admin.users.index') }}" class="text-sm text-slate-400 hover:text-white transition">← Back to users</a>

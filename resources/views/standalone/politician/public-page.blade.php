@@ -18,7 +18,7 @@
 @endpush
 
 @section('content')
-<div class="max-w-4xl space-y-8">
+<div class="max-w-4xl mx-auto space-y-8">
 
     {{-- Status Banner --}}
     @if(session('success'))

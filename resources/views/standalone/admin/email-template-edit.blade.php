@@ -4,7 +4,7 @@
 @section('page-title', 'Edit Email Template')
 
 @section('content')
-<div class="space-y-6 max-w-3xl">
+<div class="space-y-6 max-w-3xl mx-auto">
 
     {{-- Back link --}}
     <a href="{{ route('admin.email-templates.index') }}"

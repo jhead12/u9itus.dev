@@ -4,7 +4,7 @@
 @section('page-title', 'System Settings')
 
 @section('content')
-<div class="max-w-3xl space-y-8">
+<div class="max-w-3xl mx-auto space-y-8">
 
     @if(session('success'))
         <div class="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-sm">

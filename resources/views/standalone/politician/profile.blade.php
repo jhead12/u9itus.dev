@@ -4,7 +4,7 @@
 @section('page-title', 'Profile & Settings')
 
 @section('content')
-<div class="max-w-2xl space-y-6">
+<div class="max-w-2xl mx-auto space-y-6">
 
     {{-- Politician Profile Form --}}
     <form method="POST" action="{{ route('politician.profile.update') }}" class="space-y-6">

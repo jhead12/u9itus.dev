@@ -7,7 +7,7 @@
 @php
     $earlybankUrl = rtrim(config('services.earlybank.public_url', 'https://www.early-bank.com'), '/');
 @endphp
-<div class="space-y-7 max-w-4xl">
+<div class="space-y-7 max-w-4xl mx-auto">
 
     <div>
         <h1 class="text-2xl font-bold text-white">Referrals</h1>

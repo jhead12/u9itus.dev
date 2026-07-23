@@ -4,7 +4,7 @@
 @section('page-title', 'Edit Campaign')
 
 @section('content')
-<div class="max-w-2xl">
+<div class="max-w-2xl mx-auto">
 
     <div class="mb-6 flex items-center gap-4">
         <a href="{{ route('admin.campaigns.pending') }}" class="text-sm text-slate-400 hover:text-white transition">← Back to pending campaigns</a>

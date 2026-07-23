@@ -4,7 +4,7 @@
 @section('page-title', 'Revenue Report')
 
 @section('content')
-<div class="space-y-6 max-w-3xl">
+<div class="space-y-6 max-w-3xl mx-auto">
 
     <div>
         <a href="{{ route('admin.analytics') }}" class="text-sm text-slate-400 hover:text-white transition">← Back to analytics</a>
