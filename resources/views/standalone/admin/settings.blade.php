@@ -503,7 +503,7 @@
                         </button>
                     @endforeach
                 </div>
-                <p class="mt-2 text-xs text-slate-600">Clicking a preset fills in the host, port, and encryption — you still need to enter your credentials.</p>
+                <p class="mt-2 text-xs text-slate-500">Clicking a preset fills in the host, port, and encryption — you still need to enter your credentials.</p>
             </div>
 
             {{-- Actions --}}

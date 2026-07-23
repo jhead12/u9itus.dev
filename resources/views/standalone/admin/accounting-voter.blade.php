@@ -84,6 +84,7 @@
     {{-- Sessions tab --}}
     @if ($tab === 'sessions')
         <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl overflow-hidden">
+          <div class="overflow-x-auto">
             <table class="w-full text-sm">
                 <thead>
                     <tr class="border-b border-slate-700/50 text-left">
@@ -134,7 +135,7 @@
                             </td>
                             <td class="px-4 py-3 text-slate-400 text-xs font-mono">
                                 {{ $processorExecuted }}
-                                <span class="ml-1 text-slate-600">(selected: {{ $processorSelected }})</span>
+                                <span class="ml-1 text-slate-500">(selected: {{ $processorSelected }})</span>
                             </td>
                             <td class="px-4 py-3 text-slate-400 text-xs font-mono">
                                 {{ $session->processor_reference ?? '—' }}
@@ -156,6 +157,7 @@
                     @endforelse
                 </tbody>
             </table>
+          </div>
         </div>
 
         @if ($sessions->hasPages())
@@ -168,6 +170,7 @@
     {{-- Referrals tab --}}
     @if ($tab === 'referrals')
         <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl overflow-hidden">
+          <div class="overflow-x-auto">
             <table class="w-full text-sm">
                 <thead>
                     <tr class="border-b border-slate-700/50 text-left">
@@ -226,6 +229,7 @@
                     @endforelse
                 </tbody>
             </table>
+          </div>
         </div>
 
         @if ($referrals->hasPages())

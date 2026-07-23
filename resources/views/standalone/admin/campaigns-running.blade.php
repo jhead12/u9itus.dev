@@ -64,7 +64,9 @@
     <form method="GET" action="{{ route('admin.campaigns.running') }}"
           class="flex flex-col sm:flex-row gap-3 bg-slate-800/50 border border-slate-700/50 rounded-xl px-5 py-4">
         <div class="flex-1 min-w-0">
+            <label for="running-campaigns-search" class="sr-only">Search by politician name or office</label>
             <input
+                id="running-campaigns-search"
                 type="text"
                 name="search"
                 value="{{ request('search') }}"
@@ -73,7 +75,8 @@
             >
         </div>
         <div>
-            <select name="status"
+            <label for="running-campaigns-status" class="sr-only">Filter by status</label>
+            <select id="running-campaigns-status" name="status"
                     class="bg-slate-900/60 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-300 focus:outline-none focus:border-emerald-500/50 transition">
                 <option value="">All Statuses</option>
                 <option value="active"  {{ request('status') === 'active'  ? 'selected' : '' }}>Active</option>
@@ -81,7 +84,8 @@
             </select>
         </div>
         <div>
-            <select name="type"
+            <label for="running-campaigns-type" class="sr-only">Filter by type</label>
+            <select id="running-campaigns-type" name="type"
                     class="bg-slate-900/60 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-300 focus:outline-none focus:border-emerald-500/50 transition">
                 <option value="">All Types</option>
                 <option value="video"     {{ request('type') === 'video'     ? 'selected' : '' }}>Video</option>
@@ -115,7 +119,7 @@
                 <div class="flex items-center gap-2">
                     <input id="select-all-campaigns" type="checkbox"
                         class="rounded border-slate-600 bg-slate-900 text-emerald-500 focus:ring-emerald-500/40">
-                    <span class="text-xs text-slate-400">Select all on this page</span>
+                    <label for="select-all-campaigns" class="text-xs text-slate-400">Select all on this page</label>
                 </div>
 
                 <div class="flex items-center gap-2">
@@ -140,12 +144,12 @@
 
         @if($campaigns->isEmpty())
         <div class="px-5 py-14 text-center">
-            <svg class="w-10 h-10 text-slate-600 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-10 h-10 text-slate-500 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.069A1 1 0 0121 8.87v6.26a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
             </svg>
             <p class="text-sm text-slate-500">No running campaigns found.</p>
             @if(request('search') || request('status') || request('type'))
-            <p class="text-xs text-slate-600 mt-1">Try clearing the filters.</p>
+            <p class="text-xs text-slate-500 mt-1">Try clearing the filters.</p>
             @endif
         </div>
         @else
@@ -405,7 +409,7 @@
                                 {{ $spentPct >= 90 ? 'bg-red-400' : ($spentPct >= 70 ? 'bg-amber-400' : 'bg-emerald-400') }}"
                                  style="width: {{ $spentPct }}%"></div>
                         </div>
-                        <p class="text-xs text-slate-600 mt-1">{{ $spentPct }}% used</p>
+                        <p class="text-xs text-slate-500 mt-1">{{ $spentPct }}% used</p>
                     </div>
 
                     {{-- Views Progress --}}
@@ -417,7 +421,7 @@
                             <div class="h-full bg-blue-400 rounded-full transition-all"
                                  style="width: {{ $viewsPct }}%"></div>
                         </div>
-                        <p class="text-xs text-slate-600 mt-1">{{ $viewsPct }}% complete</p>
+                        <p class="text-xs text-slate-500 mt-1">{{ $viewsPct }}% complete</p>
                     </div>
 
                     {{-- Unique Voters --}}
@@ -429,7 +433,7 @@
                             <svg class="w-3 h-3 text-emerald-400" fill="currentColor" viewBox="0 0 20 20">
                                 <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"/>
                             </svg>
-                            <span class="text-xs text-slate-600">voter sessions started</span>
+                            <span class="text-xs text-slate-500">voter sessions started</span>
                         </div>
                     </div>
 
@@ -612,7 +616,7 @@
                                 <div class="h-full rounded-full {{ $ccSpentPct >= 90 ? 'bg-red-400' : ($ccSpentPct >= 70 ? 'bg-amber-400' : 'bg-emerald-400') }}"
                                      style="width: {{ $ccSpentPct }}%"></div>
                             </div>
-                            <p class="text-xs text-slate-600 mt-1">{{ $ccSpentPct }}% used</p>
+                            <p class="text-xs text-slate-500 mt-1">{{ $ccSpentPct }}% used</p>
                         </div>
                         <div class="bg-slate-900/50 rounded-lg p-3">
                             <p class="text-xs text-slate-500 mb-1">Views Delivered</p>
@@ -621,7 +625,7 @@
                             <div class="mt-2 h-1.5 bg-slate-700 rounded-full overflow-hidden">
                                 <div class="h-full bg-blue-400 rounded-full" style="width: {{ $ccViewsPct }}%"></div>
                             </div>
-                            <p class="text-xs text-slate-600 mt-1">{{ $ccViewsPct }}% complete</p>
+                            <p class="text-xs text-slate-500 mt-1">{{ $ccViewsPct }}% complete</p>
                         </div>
                         <div class="bg-slate-900/50 rounded-lg p-3">
                             <p class="text-xs text-slate-500 mb-1">Daily View Cap</p>

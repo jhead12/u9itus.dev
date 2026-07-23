@@ -340,7 +340,7 @@
                      style="height: {{ round(($bucket['count'] / $maxCount) * 64) }}px"
                      title="{{ $bucket['week'] }}: {{ $bucket['count'] }} users">
                 </div>
-                <span class="text-slate-600 text-[9px] rotate-45 origin-left whitespace-nowrap">{{ $bucket['week'] }}</span>
+                <span class="text-slate-500 text-[9px] rotate-45 origin-left whitespace-nowrap">{{ $bucket['week'] }}</span>
             </div>
             @endforeach
         </div>

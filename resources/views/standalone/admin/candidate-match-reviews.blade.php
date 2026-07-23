@@ -140,7 +140,7 @@
                             <p class="font-medium text-slate-200">{{ $review->candidateRecord?->full_name ?? '—' }}</p>
                             <p class="text-xs text-slate-500 mt-1">{{ $review->candidateRecord?->political_office ?? 'Unknown office' }}</p>
                             <p class="text-xs text-slate-500">{{ implode(', ', array_filter([$review->candidateRecord?->city, $review->candidateRecord?->state])) }}</p>
-                            <p class="text-xs text-slate-600 mt-1">{{ $review->candidateRecord?->source }} · {{ $review->candidateRecord?->external_candidate_id }}</p>
+                            <p class="text-xs text-slate-500 mt-1">{{ $review->candidateRecord?->source }} · {{ $review->candidateRecord?->external_candidate_id }}</p>
                         </td>
                         <td class="px-5 py-4 align-top">
                             <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold {{ $review->match_score >= 0.85 ? 'bg-emerald-500/15 text-emerald-400' : 'bg-amber-500/15 text-amber-400' }}">

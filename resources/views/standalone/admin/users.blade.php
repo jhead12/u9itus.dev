@@ -21,7 +21,9 @@
     <form method="GET" action="{{ route('admin.users.index') }}"
         class="flex flex-col lg:flex-row gap-3 bg-slate-800/50 border border-slate-700/50 rounded-xl px-5 py-4">
         <div class="flex-1 min-w-0">
+            <label for="user-search" class="sr-only">Search users</label>
             <input
+                id="user-search"
                 type="text"
                 name="search"
                 value="{{ request('search') }}"
@@ -30,7 +32,8 @@
             >
         </div>
         <div>
-            <select name="role"
+            <label for="user-role-filter" class="sr-only">Filter by role</label>
+            <select id="user-role-filter" name="role"
                 class="w-full lg:w-auto bg-slate-900/60 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-300 focus:outline-none focus:border-emerald-500/50 transition">
                 <option value="">All Roles</option>
                 <option value="admin" {{ request('role') === 'admin' ? 'selected' : '' }}>Admin</option>
@@ -39,7 +42,8 @@
             </select>
         </div>
         <div>
-            <select name="kyc"
+            <label for="user-kyc-filter" class="sr-only">Filter by KYC status</label>
+            <select id="user-kyc-filter" name="kyc"
                 class="w-full lg:w-auto bg-slate-900/60 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-300 focus:outline-none focus:border-emerald-500/50 transition">
                 <option value="">All KYC</option>
                 <option value="approved" {{ request('kyc') === 'approved' ? 'selected' : '' }}>Approved</option>
@@ -48,7 +52,8 @@
             </select>
         </div>
         <div>
-            <select name="account_status"
+            <label for="user-account-status-filter" class="sr-only">Filter by account status</label>
+            <select id="user-account-status-filter" name="account_status"
                 class="w-full lg:w-auto bg-slate-900/60 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-300 focus:outline-none focus:border-emerald-500/50 transition">
                 <option value="">All Account Status</option>
                 <option value="active" {{ request('account_status') === 'active' ? 'selected' : '' }}>Active</option>
@@ -57,7 +62,8 @@
             </select>
         </div>
         <div>
-            <select name="authentic_user_verifier"
+            <label for="user-authentic-verifier-filter" class="sr-only">Filter by authentic user verifier status</label>
+            <select id="user-authentic-verifier-filter" name="authentic_user_verifier"
                 class="w-full lg:w-auto bg-slate-900/60 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-300 focus:outline-none focus:border-emerald-500/50 transition">
                 <option value="">All Authentic User Verifier</option>
                 <option value="pending" {{ request('authentic_user_verifier') === 'pending' ? 'selected' : '' }}>Pending Migration</option>
@@ -107,7 +113,7 @@
                 <thead>
                     <tr class="border-b border-slate-700/50">
                         <th class="px-5 py-3 text-left">
-                            <input id="select-all-users" type="checkbox"
+                            <input id="select-all-users" type="checkbox" aria-label="Select all users on this page"
                                 class="rounded border-slate-600 bg-slate-900 text-emerald-500 focus:ring-emerald-500/40">
                         </th>
                         <th class="px-5 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide">User</th>

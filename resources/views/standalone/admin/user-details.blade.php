@@ -547,7 +547,7 @@
             </p>
             <div>
                 <button type="button"
-                        onclick="document.getElementById('delete-account-modal').classList.remove('hidden')"
+                        onclick="const m=document.getElementById('delete-account-modal'); m.classList.remove('hidden'); m.focus();"
                         class="px-4 py-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 text-sm font-medium transition">
                     Delete Account
                 </button>
@@ -560,9 +560,10 @@
     @if($user->user_type !== 'admin')
     <div id="delete-account-modal"
          class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+         role="dialog" aria-modal="true" aria-labelledby="delete-account-modal-title" tabindex="-1"
          onclick="if(event.target===this) this.classList.add('hidden')">
         <div class="bg-slate-900 border border-red-500/30 rounded-xl shadow-2xl w-full max-w-md mx-4 p-6 space-y-4">
-            <h3 class="text-base font-semibold text-red-400">Delete Account</h3>
+            <h3 id="delete-account-modal-title" class="text-base font-semibold text-red-400">Delete Account</h3>
             <p class="text-sm text-slate-400">
                 This will permanently delete <span class="text-white font-medium">{{ $user->email }}</span> and all associated profiles, campaigns, and sessions. The account will be archived and can be restored.
             </p>
@@ -594,4 +595,13 @@
     @endif
 
 </div>
+
+<script>
+document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    document.querySelectorAll('[role="dialog"]:not(.hidden)').forEach(function (m) {
+        m.classList.add('hidden');
+    });
+});
+</script>
 @endsection

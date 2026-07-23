@@ -62,6 +62,7 @@
 
             @if($log->changes)
             <div class="mt-3 rounded-lg overflow-hidden border border-slate-700/40">
+              <div class="overflow-x-auto">
                 <table class="w-full text-xs">
                     <thead>
                         <tr class="bg-slate-900/60">
@@ -80,6 +81,7 @@
                         @endforeach
                     </tbody>
                 </table>
+              </div>
             </div>
             @endif
         </div>

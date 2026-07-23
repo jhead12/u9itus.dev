@@ -41,7 +41,9 @@
 
     <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4">
         <form method="GET" action="{{ route('admin.district-searches.index') }}" class="grid grid-cols-1 md:grid-cols-5 gap-3">
+            <label for="district-search-q" class="sr-only">Search address or district</label>
             <input
+                id="district-search-q"
                 type="text"
                 name="q"
                 value="{{ request('q') }}"
@@ -49,7 +51,9 @@
                 class="md:col-span-2 bg-slate-900/60 border border-slate-700 text-white placeholder-slate-500 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500"
             />
 
+            <label for="district-search-state" class="sr-only">State</label>
             <input
+                id="district-search-state"
                 type="text"
                 name="state"
                 value="{{ request('state') }}"
@@ -58,7 +62,9 @@
                 class="bg-slate-900/60 border border-slate-700 text-white placeholder-slate-500 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 uppercase"
             />
 
+            <label for="district-search-resolved" class="sr-only">Filter by resolved status</label>
             <select
+                id="district-search-resolved"
                 name="resolved"
                 class="bg-slate-900/60 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500"
             >
@@ -67,7 +73,9 @@
                 <option value="0" @selected(request('resolved') === '0')>Unresolved</option>
             </select>
 
+            <label for="district-search-source" class="sr-only">Filter by source</label>
             <select
+                id="district-search-source"
                 name="source"
                 class="bg-slate-900/60 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500"
             >
