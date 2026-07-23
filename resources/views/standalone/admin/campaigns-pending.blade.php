@@ -299,7 +299,7 @@
                         <p class="text-xs text-slate-400 mt-2 line-clamp-2">{{ $campaign->message_summary }}</p>
                         @endif
                     </div>
-                    <div class="flex gap-2 shrink-0">
+                    <div class="flex gap-2 shrink-0 flex-wrap">
                         <form method="POST" action="{{ route('admin.citizen-campaigns.approve', $campaign) }}">
                             @csrf
                             <button type="submit"
@@ -335,4 +335,6 @@
         </div>
         @endif
     </div>
+</div>
+@endsection
 

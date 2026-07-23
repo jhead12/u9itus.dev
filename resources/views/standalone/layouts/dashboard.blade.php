@@ -98,9 +98,9 @@
 
     @stack('styles')
 </head>
-<body class="h-full bg-slate-900 text-white antialiased">
+<body class="h-full bg-slate-900 text-white antialiased overflow-x-hidden">
 
-<div class="flex h-full min-h-screen">
+<div class="flex h-full min-h-screen overflow-x-hidden">
 
     {{-- ===== SIDEBAR ===== --}}
     <aside id="sidebar" class="fixed inset-y-0 left-0 z-50 w-64 bg-slate-900 border-r border-slate-800 flex flex-col transform -translate-x-full lg:translate-x-0 transition-transform duration-300">
@@ -400,7 +400,7 @@
             aria-label="Close sidebar overlay"></button>
 
     {{-- ===== MAIN CONTENT ===== --}}
-    <div class="flex-1 flex flex-col lg:ml-64 min-h-screen">
+    <div class="flex-1 flex flex-col lg:ml-64 min-h-screen min-w-0">
 
         {{-- Top bar --}}
         <header class="sticky top-0 z-30 bg-slate-900/90 backdrop-blur border-b border-slate-800 px-4 sm:px-6 h-16 flex items-center gap-4">
