@@ -401,17 +401,35 @@ class AdminController extends Controller
     /**
      * Show pending campaigns for approval.
      */
-    public function pendingCampaigns()
+    public function pendingCampaigns(Request $request)
     {
-        $campaigns = PoliticalCampaign::with('politician.user')
-            ->where('approval_status', 'pending')
-            ->latest()
-            ->paginate(20);
+        $query = PoliticalCampaign::with('politician.user')
+            ->where('approval_status', 'pending');
 
-        $citizenCampaigns = \App\Models\CitizenCampaign::with('citizen.user')
-            ->where('approval_status', 'pending')
-            ->latest()
-            ->paginate(20);
+        if ($search = $request->get('search')) {
+            $query->where(function ($q) use ($search) {
+                $q->where('title', 'like', "%{$search}%")
+                  ->orWhereHas('politician', fn ($p) =>
+                      $p->where('full_name', 'like', "%{$search}%")
+                  );
+            });
+        }
+
+        $campaigns = $query->latest()->paginate(20)->withQueryString();
+
+        $citizenQuery = \App\Models\CitizenCampaign::with('citizen.user')
+            ->where('approval_status', 'pending');
+
+        if ($citizenSearch = $request->get('citizen_search')) {
+            $citizenQuery->where(function ($q) use ($citizenSearch) {
+                $q->where('title', 'like', "%{$citizenSearch}%")
+                  ->orWhereHas('citizen', fn ($c) =>
+                      $c->where('full_name', 'like', "%{$citizenSearch}%")
+                  );
+            });
+        }
+
+        $citizenCampaigns = $citizenQuery->latest()->paginate(20, ['*'], 'citizen_page')->withQueryString();
 
         return view('standalone.admin.campaigns-pending', compact('campaigns', 'citizenCampaigns'));
     }

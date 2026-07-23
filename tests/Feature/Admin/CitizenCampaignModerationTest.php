@@ -64,6 +64,45 @@ test('admin sees pending citizen ballot-issue campaign in queue', function () {
         ->assertSee('C00123456');
 });
 
+test('pending citizen campaign row includes an ad preview panel', function () {
+    $admin    = makeAdminUser();
+    $campaign = makePendingBallotCampaign([
+        'title' => 'Vote Yes on Measure Z',
+        'message_summary' => 'Please support Measure Z on the upcoming ballot.',
+        'media_url' => 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+        'media_type' => 'youtube',
+    ]);
+
+    $response = $this->actingAs($admin)->get(route('admin.campaigns.pending'));
+
+    $response->assertOk();
+    // The "Show / hide details" toggle and its target panel are present in the DOM
+    // (hidden via CSS class, not omitted from the response), so the admin can review
+    // the actual ad content before approving.
+    $response->assertSee('id="citizen-details-' . $campaign->id . '"', false);
+    $response->assertSee('Ad Preview');
+    $response->assertSee('Please support Measure Z on the upcoming ballot.');
+});
+
+test('citizen ad preview panel shows video duration, min watch percent, and revenue per view', function () {
+    $admin    = makeAdminUser();
+    $campaign = makePendingBallotCampaign([
+        'media_duration' => 45,
+        'min_watch_time_percent' => 90,
+        'revenue_per_view' => 1.25,
+    ]);
+
+    $response = $this->actingAs($admin)->get(route('admin.campaigns.pending'));
+
+    $response->assertOk();
+    $response->assertSee('Video Duration');
+    $response->assertSee('45s (0.8 min)', false);
+    $response->assertSee('Min Watch %');
+    $response->assertSee('90%');
+    $response->assertSee('Revenue / View');
+    $response->assertSee('$1.25', false);
+});
+
 test('non-admin cannot access the pending campaigns page', function () {
     $citizenUser = User::factory()->create(['platform' => 'standalone']);
     \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'citizen', 'guard_name' => 'web']);

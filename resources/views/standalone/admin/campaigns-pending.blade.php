@@ -37,6 +37,36 @@
     </div>
     @endif
 
+    {{-- ── Political campaign filters ──────────────────────────────────── --}}
+    <form method="GET" action="{{ route('admin.campaigns.pending') }}"
+          class="flex flex-col sm:flex-row gap-3 bg-slate-800/50 border border-slate-700/50 rounded-xl px-5 py-4">
+        {{-- Preserve the citizen-campaign search across submits of this form --}}
+        @if(request('citizen_search'))
+        <input type="hidden" name="citizen_search" value="{{ request('citizen_search') }}">
+        @endif
+        <div class="flex-1 min-w-0">
+            <label for="pending-campaigns-search" class="sr-only">Search by campaign title or politician name</label>
+            <input
+                id="pending-campaigns-search"
+                type="text"
+                name="search"
+                value="{{ request('search') }}"
+                placeholder="Search by campaign title or politician name…"
+                class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/20 transition"
+            >
+        </div>
+        <button type="submit"
+                class="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-white text-sm font-semibold transition shrink-0">
+            Filter
+        </button>
+        @if(request('search'))
+        <a href="{{ route('admin.campaigns.pending', request()->except('search')) }}"
+           class="px-3 py-2 rounded-lg bg-slate-700/50 hover:bg-slate-700 text-slate-400 text-sm transition shrink-0">
+            Clear
+        </a>
+        @endif
+    </form>
+
     <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl overflow-hidden">
         <div class="px-5 py-4 border-b border-slate-700/50">
             <h3 class="text-sm font-semibold text-white">Campaigns Awaiting Review</h3>
@@ -48,7 +78,13 @@
             <svg class="w-10 h-10 text-slate-500 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
             </svg>
-            <p class="text-sm text-slate-500">No campaigns pending approval.</p>
+            <p class="text-sm text-slate-500">
+                @if(request('search'))
+                    No pending campaigns match "{{ request('search') }}".
+                @else
+                    No campaigns pending approval.
+                @endif
+            </p>
         </div>
         @else
         <div class="divide-y divide-slate-700/30">
@@ -242,6 +278,36 @@
         @endif
     </div>
 
+    {{-- ── Citizen campaign filters ────────────────────────────────────── --}}
+    <form method="GET" action="{{ route('admin.campaigns.pending') }}"
+          class="flex flex-col sm:flex-row gap-3 bg-slate-800/50 border border-amber-500/20 rounded-xl px-5 py-4">
+        {{-- Preserve the political-campaign search across submits of this form --}}
+        @if(request('search'))
+        <input type="hidden" name="search" value="{{ request('search') }}">
+        @endif
+        <div class="flex-1 min-w-0">
+            <label for="citizen-campaigns-search" class="sr-only">Search citizen campaigns by title or citizen name</label>
+            <input
+                id="citizen-campaigns-search"
+                type="text"
+                name="citizen_search"
+                value="{{ request('citizen_search') }}"
+                placeholder="Search citizen campaigns by title or citizen name…"
+                class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/20 transition"
+            >
+        </div>
+        <button type="submit"
+                class="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-900 text-sm font-semibold transition shrink-0">
+            Filter
+        </button>
+        @if(request('citizen_search'))
+        <a href="{{ route('admin.campaigns.pending', request()->except('citizen_search')) }}"
+           class="px-3 py-2 rounded-lg bg-slate-700/50 hover:bg-slate-700 text-slate-400 text-sm transition shrink-0">
+            Clear
+        </a>
+        @endif
+    </form>
+
     {{-- ── Citizen Campaigns (all types) ──────────────────────────────── --}}
     <div class="bg-slate-800/50 border border-amber-500/20 rounded-xl overflow-hidden">
         <div class="px-5 py-4 border-b border-amber-500/20">
@@ -254,7 +320,13 @@
 
         @if($citizenCampaigns->isEmpty())
         <div class="px-5 py-10 text-center">
-            <p class="text-sm text-slate-500">No citizen campaigns pending approval.</p>
+            <p class="text-sm text-slate-500">
+                @if(request('citizen_search'))
+                    No pending citizen campaigns match "{{ request('citizen_search') }}".
+                @else
+                    No citizen campaigns pending approval.
+                @endif
+            </p>
         </div>
         @else
         <div class="divide-y divide-slate-700/30">
@@ -298,6 +370,11 @@
                         @if($campaign->message_summary)
                         <p class="text-xs text-slate-400 mt-2 line-clamp-2">{{ $campaign->message_summary }}</p>
                         @endif
+                        <button type="button"
+                                onclick="document.getElementById('citizen-details-{{ $campaign->id }}').classList.toggle('hidden')"
+                                class="mt-2 text-xs text-slate-400 hover:text-white transition underline underline-offset-2">
+                            Show / hide details
+                        </button>
                     </div>
                     <div class="flex gap-2 shrink-0 flex-wrap">
                         <form method="POST" action="{{ route('admin.citizen-campaigns.approve', $campaign) }}">
@@ -309,6 +386,74 @@
                         </form>
                     </div>
                 </div>
+
+                {{-- Expandable details / ad preview --}}
+                <div id="citizen-details-{{ $campaign->id }}" class="hidden bg-slate-900/50 rounded-lg p-4 space-y-3 text-xs">
+                    <div>
+                        <p class="text-slate-500 uppercase tracking-wide font-semibold mb-2">Ad Preview</p>
+                        @php
+                            $citizenPreviewMediaUrl = (string) ($campaign->media_url ?? '');
+                            $citizenPreviewMediaType = (string) ($campaign->media_type ?? '');
+
+                            if ($citizenPreviewMediaUrl !== ''
+                                && in_array($citizenPreviewMediaType, ['direct_file', 's3_cloudfront'], true)
+                                && (str_contains($citizenPreviewMediaUrl, 'amazonaws.com') || str_contains($citizenPreviewMediaUrl, '.s3.'))) {
+                                try {
+                                    $urlParts = parse_url($citizenPreviewMediaUrl);
+                                    $path = ltrim((string) ($urlParts['path'] ?? ''), '/');
+                                    $bucket = (string) config('filesystems.disks.s3.bucket', '');
+
+                                    if ($bucket !== '' && str_starts_with($path, $bucket . '/')) {
+                                        $path = substr($path, strlen($bucket) + 1);
+                                    }
+
+                                    if ($path !== '') {
+                                        $citizenPreviewMediaUrl = \Illuminate\Support\Facades\Storage::disk('s3')
+                                            ->temporaryUrl($path, now()->addHours(2));
+                                    }
+                                } catch (\Throwable $e) {
+                                    // Keep original media URL as fallback for preview rendering.
+                                }
+                            }
+                        @endphp
+                        <div class="max-w-xl">
+                            @include('standalone.public.partials.campaign-preview-card', [
+                                'campaign' => $campaign,
+                                'previewMediaUrl' => $citizenPreviewMediaUrl,
+                            ])
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        @if($campaign->scheduled_start_at)
+                        <div>
+                            <p class="text-slate-500 font-semibold">Scheduled Start</p>
+                            <p class="text-slate-300 mt-0.5">{{ $campaign->scheduled_start_at->format('M j, Y g:i A T') }}</p>
+                        </div>
+                        @endif
+                        @if($campaign->scheduled_end_at)
+                        <div>
+                            <p class="text-slate-500 font-semibold">Scheduled End</p>
+                            <p class="text-slate-300 mt-0.5">{{ $campaign->scheduled_end_at->format('M j, Y g:i A T') }}</p>
+                        </div>
+                        @endif
+                        @if($campaign->media_duration)
+                        <div>
+                            <p class="text-slate-500 font-semibold">Video Duration</p>
+                            <p class="text-slate-300 mt-0.5">{{ $campaign->media_duration }}s ({{ round($campaign->media_duration / 60, 1) }} min)</p>
+                        </div>
+                        @endif
+                        <div>
+                            <p class="text-slate-500 font-semibold">Min Watch %</p>
+                            <p class="text-slate-300 mt-0.5">{{ $campaign->min_watch_time_percent ?? 100 }}%</p>
+                        </div>
+                        <div>
+                            <p class="text-slate-500 font-semibold">Revenue / View</p>
+                            <p class="text-slate-300 mt-0.5">${{ number_format($campaign->revenue_per_view ?? config('u9itus.revenue_per_view', 1.00), 2) }}</p>
+                        </div>
+                    </div>
+                </div>
+
                 {{-- Reject form --}}
                 <div class="bg-slate-900/40 border border-slate-700/30 rounded-lg p-3" x-data="{ open: false }">
                     <button @click="open = !open" type="button"

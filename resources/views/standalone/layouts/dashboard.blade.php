@@ -98,9 +98,9 @@
 
     @stack('styles')
 </head>
-<body class="h-full bg-slate-900 text-white antialiased overflow-x-hidden">
+<body class="h-full bg-slate-900 text-white antialiased">
 
-<div class="flex h-full min-h-screen overflow-x-hidden">
+<div class="flex h-full min-h-screen">
 
     {{-- ===== SIDEBAR ===== --}}
     <aside id="sidebar" class="fixed inset-y-0 left-0 z-50 w-64 bg-slate-900 border-r border-slate-800 flex flex-col transform -translate-x-full lg:translate-x-0 transition-transform duration-300">

@@ -86,6 +86,96 @@ test('admin can view pending campaigns list', function () {
          ->assertViewIs('standalone.admin.campaigns-pending');
 });
 
+// ── search / filter ───────────────────────────────────────────────────────────
+
+test('search filters pending campaigns by title', function () {
+    $matching = makePendingCampaign(['title' => 'Save the Parks Initiative']);
+    $other    = makePendingCampaign(['title' => 'Fund the Schools']);
+
+    $response = $this->actingAs(makeAdmin())
+         ->get(route('admin.campaigns.pending', ['search' => 'Parks']));
+
+    $response->assertOk();
+    $response->assertSee($matching->title);
+    $response->assertDontSee($other->title);
+});
+
+test('search filters pending campaigns by politician name', function () {
+    $matchingPolitician = Politician::factory()->create(['full_name' => 'Alice Johnson']);
+    $otherPolitician     = Politician::factory()->create(['full_name' => 'Bob Smith']);
+
+    $matching = makePendingCampaign(['politician_id' => $matchingPolitician->id]);
+    $other    = makePendingCampaign(['politician_id' => $otherPolitician->id]);
+
+    $response = $this->actingAs(makeAdmin())
+         ->get(route('admin.campaigns.pending', ['search' => 'Alice']));
+
+    $response->assertOk();
+    $response->assertSee($matching->title);
+    $response->assertDontSee($other->title);
+});
+
+test('search with no matches shows an empty state referencing the search term', function () {
+    makePendingCampaign(['title' => 'Fund the Schools']);
+
+    $response = $this->actingAs(makeAdmin())
+         ->get(route('admin.campaigns.pending', ['search' => 'NoSuchCampaignXYZ']));
+
+    $response->assertOk();
+    $response->assertSee('No pending campaigns match "NoSuchCampaignXYZ".', false);
+});
+
+test('clearing the political search preserves the citizen search query param', function () {
+    makePendingCampaign(['title' => 'Fund the Schools']);
+
+    $response = $this->actingAs(makeAdmin())
+         ->get(route('admin.campaigns.pending', ['search' => 'Schools', 'citizen_search' => 'library']));
+
+    $response->assertOk();
+    $response->assertSee(route('admin.campaigns.pending', ['citizen_search' => 'library'], false), false);
+});
+
+test('empty search does not filter the pending campaigns list', function () {
+    makePendingCampaign(['title' => 'Fund the Schools']);
+    makePendingCampaign(['title' => 'Save the Parks Initiative']);
+
+    $response = $this->actingAs(makeAdmin())
+         ->get(route('admin.campaigns.pending', ['search' => '']));
+
+    $response->assertOk();
+    $response->assertSee('2 campaign(s) pending approval');
+});
+
+test('citizen_search filters pending citizen campaigns by title independently of the political search', function () {
+    $matching = \App\Models\CitizenCampaign::factory()->create(['title' => 'Support the local library']);
+    $other    = \App\Models\CitizenCampaign::factory()->create(['title' => 'Repave Main Street']);
+    makePendingCampaign(['title' => 'Fund the Schools']);
+
+    $response = $this->actingAs(makeAdmin())
+         ->get(route('admin.campaigns.pending', ['citizen_search' => 'library']));
+
+    $response->assertOk();
+    $response->assertSee($matching->title);
+    $response->assertDontSee($other->title);
+    // Political campaigns list is unaffected by citizen_search.
+    $response->assertSee('Fund the Schools');
+});
+
+test('citizen_search filters pending citizen campaigns by citizen name', function () {
+    $matchingCitizen = \App\Models\Citizen::factory()->create(['full_name' => 'Dana Lee']);
+    $otherCitizen     = \App\Models\Citizen::factory()->create(['full_name' => 'Sam Carter']);
+
+    $matching = \App\Models\CitizenCampaign::factory()->create(['citizen_id' => $matchingCitizen->id]);
+    $other    = \App\Models\CitizenCampaign::factory()->create(['citizen_id' => $otherCitizen->id]);
+
+    $response = $this->actingAs(makeAdmin())
+         ->get(route('admin.campaigns.pending', ['citizen_search' => 'Dana']));
+
+    $response->assertOk();
+    $response->assertSee($matching->title);
+    $response->assertDontSee($other->title);
+});
+
 // ── approveCampaign() ─────────────────────────────────────────────────────────
 
 test('admin can approve a pending campaign', function () {
