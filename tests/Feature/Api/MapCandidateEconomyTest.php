@@ -82,6 +82,31 @@ class MapCandidateEconomyTest extends TestCase
         ]);
     }
 
+    public function test_returns_not_yet_enriched_when_snapshot_only_has_a_guessed_link_and_all_null_summary(): void
+    {
+        // Reproduces the production James Gallagher case: a guessed/unverified
+        // OpenSecrets link plus a summary table that never actually parsed.
+        // Before the hasOpenSecretsSummary() fix, the all-null summary shape
+        // read as "has data" and the map drawer surfaced the broken link.
+        $politician = Politician::factory()->create(['is_active' => true]);
+
+        PoliticianDonorSnapshot::create([
+            'politician_id' => $politician->id,
+            'opensecrets_source_url' => 'https://www.opensecrets.org/profiles/james-gallagher/us_congress/summary',
+            'opensecrets_summary' => ['total_raised' => null, 'total_spent' => null, 'cash_on_hand' => null, 'debt' => null],
+            'election_cycle' => 2026,
+            'enriched_at' => now(),
+        ]);
+
+        $response = $this->getJson('/api/v1/map/candidate-economy?' . http_build_query(['slug' => $politician->slug]));
+
+        $response->assertOk();
+        $response->assertJson([
+            'has_data' => false,
+            'reason' => 'not_yet_enriched',
+        ]);
+    }
+
     public function test_returns_not_on_platform_when_no_politician_matches(): void
     {
         $response = $this->getJson('/api/v1/map/candidate-economy?' . http_build_query(['full_name' => 'Nobody Real']));

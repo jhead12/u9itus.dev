@@ -11,7 +11,8 @@ use Illuminate\Console\Command;
  * results, and persisted it even when the guess resolved to no real data.
  * Those guesses are indistinguishable from real links once stored — this
  * scans for the guessed URL shape and clears the ones with no backing data
- * to fetch, since the scraper is now fixed to never persist them going
+ * (also clearing the old all-null-values summary shape alongside it, if
+ * present), since the scraper is now fixed to never persist them going
  * forward (see enrichCandidate() in scrape-opensecrets.js).
  *
  * Usage:
@@ -68,7 +69,16 @@ class FixGuessedOpenSecretsLinks extends Command
         }
 
         foreach ($broken as $snapshot) {
-            $snapshot->update(['opensecrets_source_url' => null]);
+            $update = ['opensecrets_source_url' => null];
+
+            // Legacy rows may also carry the old all-null-values summary shape
+            // (see normaliseSummary() in OpenSecretsService) — clear it too so
+            // the stored data doesn't disagree with hasOpenSecretsSummary().
+            if (! $snapshot->hasOpenSecretsSummary() && $snapshot->opensecrets_summary !== null) {
+                $update['opensecrets_summary'] = null;
+            }
+
+            $snapshot->update($update);
         }
 
         $this->info("✓ Cleared {$broken->count()} guessed link(s).");

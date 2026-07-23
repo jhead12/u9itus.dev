@@ -74,7 +74,21 @@ class PoliticianDonorSnapshot extends Model
 
     public function hasOpenSecretsSummary(): bool
     {
-        return !empty($this->opensecrets_summary);
+        // normaliseSummary() always returns a fixed 4-key shape (total_raised,
+        // total_spent, cash_on_hand, debt), so an "empty" scrape still produces
+        // a non-empty array with every value null — !empty() alone can't tell
+        // that apart from a real summary. Check for at least one real value.
+        if (empty($this->opensecrets_summary)) {
+            return false;
+        }
+
+        foreach ($this->opensecrets_summary as $value) {
+            if ($value !== null && $value !== '') {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public function hasOutsideSpending(): bool
