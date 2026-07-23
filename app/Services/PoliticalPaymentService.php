@@ -12,6 +12,7 @@ use App\Models\PayoutRunSkippedItem;
 use App\Models\PoliticalCampaign;
 use App\Models\Voter;
 use App\Models\ViewSession;
+use App\Models\CitizenViewSession;
 use App\Notifications\PayoutProcessedNotification;
 use App\Services\CampaignBillingService;
 use App\Services\CashAppPayoutService;
@@ -186,12 +187,23 @@ class PoliticalPaymentService
         $minPayout  = (float) $run->min_payout_amount;
         $holdCutoff = now()->subHours((int) $run->fraud_hold_hours);
 
-        $eligibleVoterIds = ViewSession::query()
+        // Eligible voters are those with at least one Approved session past the
+        // fraud-hold window across EITHER campaign system (political or citizen).
+        $politicalVoterIds = ViewSession::query()
             ->where('status', 'completed')
             ->where('payment_status', ViewPaymentStatus::Approved)
             ->where('completed_at', '<=', $holdCutoff)
             ->groupBy('voter_id')
             ->pluck('voter_id');
+
+        $citizenVoterIds = CitizenViewSession::query()
+            ->where('status', \App\Enums\ViewSessionStatus::Completed)
+            ->where('payment_status', ViewPaymentStatus::Approved)
+            ->where('completed_at', '<=', $holdCutoff)
+            ->groupBy('voter_id')
+            ->pluck('voter_id');
+
+        $eligibleVoterIds = $politicalVoterIds->merge($citizenVoterIds)->unique()->values();
 
         if ($eligibleVoterIds->isEmpty()) {
             return;
@@ -203,15 +215,20 @@ class PoliticalPaymentService
             ->get();
 
         foreach ($eligibleVoters as $voter) {
-            // Only pay sessions that have passed the hold window
-            $approvedSessionsQuery = ViewSession::where('voter_id', $voter->id)
+            // Approved sessions that have passed the fraud-hold window, across
+            // both campaign systems. Fresh builder factories avoid the
+            // where-clone mutation pitfalls of a single reused query object.
+            $approvedPolitical = fn () => ViewSession::where('voter_id', $voter->id)
                 ->where('status', 'completed')
                 ->where('payment_status', ViewPaymentStatus::Approved)
                 ->where('completed_at', '<=', $holdCutoff);
+            $approvedCitizen = fn () => CitizenViewSession::where('voter_id', $voter->id)
+                ->where('status', \App\Enums\ViewSessionStatus::Completed)
+                ->where('payment_status', ViewPaymentStatus::Approved)
+                ->where('completed_at', '<=', $holdCutoff);
 
-            // Sum in DB returns a decimal string; keep as string for bcmath comparison.
-            $approvedEarningsStr = (string) ($approvedSessionsQuery->sum('voter_payout_amount') ?? '0');
-            $approvedEarnings = (float) $approvedEarningsStr; // float only for legacy API surface
+            $approvedEarnings = (float) $approvedPolitical()->sum('voter_payout_amount')
+                + (float) $approvedCitizen()->sum('voter_payout_amount');
 
             if ($approvedEarnings < $minPayout) {
                 $run->increment('skipped_count');
@@ -227,13 +244,22 @@ class PoliticalPaymentService
                 continue;
             }
 
-            $selectedProcessor = (string) ($approvedSessionsQuery->whereNotNull('processor_selected')->value('processor_selected')
+            $selectedProcessor = (string) ($approvedPolitical()->whereNotNull('processor_selected')->value('processor_selected')
+                ?? $approvedCitizen()->whereNotNull('processor_selected')->value('processor_selected')
                 ?? $voter->payment_method
                 ?? 'wallet');
 
-            // Build a deterministic idempotency key from voter + ordered session IDs.
+            // Build a deterministic idempotency key from voter + ordered session IDs
+            // across both systems. Political IDs stay as plain integers to remain
+            // backward compatible with attempts recorded before citizen payouts
+            // were settleable — a pure-political voter produces the identical key
+            // the old code did. Citizen IDs are prefixed 'c' so a mixed key can
+            // never collide with a historical political-only key for the same voter.
             // This is safe to reuse on retries — same input always produces the same key.
-            $eligibleSessionIds = (clone $approvedSessionsQuery)->pluck('id')->sort()->values()->all();
+            $politicalIds = $approvedPolitical()->pluck('id')->sort()->values()->all();
+            $citizenIds = collect($approvedCitizen()->pluck('id')->sort()->values()->all())
+                ->map(fn ($id) => 'c' . $id)->all();
+            $eligibleSessionIds = array_merge($politicalIds, $citizenIds);
             $idempotencyKey = hash('sha256', 'payout:' . $voter->id . ':' . implode(',', $eligibleSessionIds));
 
             // Persist attempt BEFORE the external call so a crash between the external
@@ -333,6 +359,19 @@ class PoliticalPaymentService
                     DB::transaction(function () use ($voter, $holdCutoff, $processorExecuted, $processorReference) {
                         ViewSession::where('voter_id', $voter->id)
                             ->where('status', 'completed')
+                            ->where('payment_status', ViewPaymentStatus::Approved)
+                            ->where('completed_at', '<=', $holdCutoff)
+                            ->update([
+                                'payment_status' => ViewPaymentStatus::Pending,
+                                'processor_executed' => $processorExecuted,
+                                'processor_reference' => $processorReference,
+                                'processor_fee' => 0,
+                            ]);
+
+                        // Mirror the pending-mark onto citizen sessions so the
+                        // PayPal reconciliation job can flip them Paid too.
+                        CitizenViewSession::where('voter_id', $voter->id)
+                            ->where('status', \App\Enums\ViewSessionStatus::Completed)
                             ->where('payment_status', ViewPaymentStatus::Approved)
                             ->where('completed_at', '<=', $holdCutoff)
                             ->update([
@@ -456,6 +495,21 @@ class PoliticalPaymentService
                 // Mark sessions as paid
                     ViewSession::where('voter_id', $voter->id)
                         ->where('status', 'completed')
+                        ->where('payment_status', ViewPaymentStatus::Approved)
+                        ->where('completed_at', '<=', $holdCutoff)
+                        ->update([
+                            'payment_status' => ViewPaymentStatus::Paid,
+                            'paid_at'        => now(),
+                            'processor_executed' => $processorExecuted,
+                            'processor_reference' => $processorReference,
+                            'processor_fee' => $processorFee,
+                        ]);
+
+                    // Mark citizen-campaign sessions paid too. The pending_earnings
+                    // decrement below uses the combined approvedEarnings, so it is
+                    // applied exactly once across both session types.
+                    CitizenViewSession::where('voter_id', $voter->id)
+                        ->where('status', \App\Enums\ViewSessionStatus::Completed)
                         ->where('payment_status', ViewPaymentStatus::Approved)
                         ->where('completed_at', '<=', $holdCutoff)
                         ->update([

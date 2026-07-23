@@ -4,7 +4,7 @@
 @section('page-title', 'Edit Campaign')
 
 @section('content')
-<div class="max-w-2xl">
+<div class="max-w-2xl mx-auto">
 
     <div class="mb-6 flex items-center gap-4">
         <a href="{{ route('admin.campaigns.pending') }}" class="text-sm text-slate-400 hover:text-white transition">← Back to pending campaigns</a>
@@ -85,7 +85,7 @@
     @endphp
     <div class="mb-6 flex gap-3">
         @if(in_array($currentStatus, ['active', 'pending_approval']))
-        <button type="button" onclick="document.getElementById('stop-modal').classList.remove('hidden')"
+        <button type="button" onclick="const m=document.getElementById('stop-modal'); m.classList.remove('hidden'); m.focus();"
             class="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-semibold border border-red-500/20 transition">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
@@ -95,7 +95,7 @@
         </button>
         @endif
         @if($currentStatus === 'paused')
-        <button type="button" onclick="document.getElementById('reactivate-modal').classList.remove('hidden')"
+        <button type="button" onclick="const m=document.getElementById('reactivate-modal'); m.classList.remove('hidden'); m.focus();"
             class="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-xs font-semibold border border-emerald-500/20 transition">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
@@ -107,9 +107,10 @@
     </div>
 
     {{-- Stop modal --}}
-    <div id="stop-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+    <div id="stop-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+         role="dialog" aria-modal="true" aria-labelledby="stop-modal-title" tabindex="-1">
         <div class="bg-slate-800 border border-slate-700 rounded-xl p-6 w-full max-w-md mx-4 space-y-4">
-            <h3 class="text-sm font-semibold text-white">Stop Campaign</h3>
+            <h3 id="stop-modal-title" class="text-sm font-semibold text-white">Stop Campaign</h3>
             <p class="text-xs text-slate-400">Stopping this campaign will pause it immediately. You must provide a reason (visible in the audit log).</p>
             <form method="POST" action="{{ route('admin.campaigns.stop', $campaign) }}" class="space-y-3">
                 @csrf
@@ -126,9 +127,10 @@
     </div>
 
     {{-- Reactivate modal --}}
-    <div id="reactivate-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+    <div id="reactivate-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+         role="dialog" aria-modal="true" aria-labelledby="reactivate-modal-title" tabindex="-1">
         <div class="bg-slate-800 border border-slate-700 rounded-xl p-6 w-full max-w-md mx-4 space-y-4">
-            <h3 class="text-sm font-semibold text-white">Reactivate Campaign</h3>
+            <h3 id="reactivate-modal-title" class="text-sm font-semibold text-white">Reactivate Campaign</h3>
             <form method="POST" action="{{ route('admin.campaigns.reactivate', $campaign) }}" class="space-y-3">
                 @csrf
                 <textarea name="reason" rows="2" placeholder="Optional note for the audit log…"
@@ -1300,6 +1302,13 @@
         syncMediaSourceUI();
         filterCitiesByState();
         renderQAFieldsFromDOM();
+    });
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Escape') return;
+        document.querySelectorAll('[role="dialog"]:not(.hidden)').forEach((m) => {
+            m.classList.add('hidden');
+        });
     });
 </script>
 @endpush

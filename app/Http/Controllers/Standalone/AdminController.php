@@ -35,6 +35,7 @@ use App\Models\PoliticianCredit;
 use App\Models\Politician;
 use App\Models\CitizenCampaign;
 use App\Models\CitizenTransaction;
+use App\Models\EarlyBankEarning;
 use App\Models\EarlyBankWebhookLog;
 use App\Models\PayoutAttempt;
 use App\Models\ReferralEarning;
@@ -400,17 +401,35 @@ class AdminController extends Controller
     /**
      * Show pending campaigns for approval.
      */
-    public function pendingCampaigns()
+    public function pendingCampaigns(Request $request)
     {
-        $campaigns = PoliticalCampaign::with('politician.user')
-            ->where('approval_status', 'pending')
-            ->latest()
-            ->paginate(20);
+        $query = PoliticalCampaign::with('politician.user')
+            ->where('approval_status', 'pending');
 
-        $citizenCampaigns = \App\Models\CitizenCampaign::with('citizen.user')
-            ->where('approval_status', 'pending')
-            ->latest()
-            ->paginate(20);
+        if ($search = $request->get('search')) {
+            $query->where(function ($q) use ($search) {
+                $q->where('title', 'like', "%{$search}%")
+                  ->orWhereHas('politician', fn ($p) =>
+                      $p->where('full_name', 'like', "%{$search}%")
+                  );
+            });
+        }
+
+        $campaigns = $query->latest()->paginate(20)->withQueryString();
+
+        $citizenQuery = \App\Models\CitizenCampaign::with('citizen.user')
+            ->where('approval_status', 'pending');
+
+        if ($citizenSearch = $request->get('citizen_search')) {
+            $citizenQuery->where(function ($q) use ($citizenSearch) {
+                $q->where('title', 'like', "%{$citizenSearch}%")
+                  ->orWhereHas('citizen', fn ($c) =>
+                      $c->where('full_name', 'like', "%{$citizenSearch}%")
+                  );
+            });
+        }
+
+        $citizenCampaigns = $citizenQuery->latest()->paginate(20, ['*'], 'citizen_page')->withQueryString();
 
         return view('standalone.admin.campaigns-pending', compact('campaigns', 'citizenCampaigns'));
     }
@@ -2376,6 +2395,10 @@ class AdminController extends Controller
         $ebAttributed   = Voter::whereNotNull('earlybank_member_id')->count();
         $ebEnrollRate   = $totalVoters > 0 ? round(($ebEnrolled / $totalVoters) * 100, 1) : 0.0;
 
+        // ── Early-bank reported earnings (actual money, not payment-mode scoped) ──
+        $ebTotalCommissions = (float) EarlyBankEarning::forEventType(EarlyBankEarning::EVENT_PAYOUT_COMMISSION)->sum('payout_amount');
+        $ebTotalBonuses     = (float) EarlyBankEarning::forEventType(EarlyBankEarning::EVENT_PAYOUT_BONUS)->sum('payout_amount');
+
         // ── Citizen campaigns ──────────────────────────────────────────────
         $citizenTotals = CitizenCampaign::query()
             ->selectRaw('COUNT(*) as total_campaigns')
@@ -2476,6 +2499,8 @@ class AdminController extends Controller
                 'attributed'     => $ebAttributed,
                 'total_voters'   => $totalVoters,
                 'enroll_rate_pct' => $ebEnrollRate,
+                'total_referral_commissions' => $ebTotalCommissions,
+                'total_referral_bonuses'     => $ebTotalBonuses,
             ],
             // Citizen campaigns
             'citizen_campaigns' => [

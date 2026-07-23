@@ -31,6 +31,7 @@ use App\Http\Controllers\Standalone\PoliticianSongPickController;
 use App\Http\Controllers\Standalone\VoterController;
 use App\Http\Controllers\Standalone\AdminController;
 use App\Http\Controllers\Standalone\AdminOfficeProfileController;
+use App\Http\Controllers\Standalone\AdminPostController;
 use App\Http\Controllers\Standalone\PublicProfileController;
 use App\Http\Controllers\Standalone\ProfileClaimController;
 use App\Http\Controllers\Standalone\SitemapController;
@@ -658,6 +659,15 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         Route::put('/email-templates/{template}', [AdminController::class, 'updateEmailTemplate'])->name('email-templates.update');
         Route::patch('/email-templates/{template}/toggle', [AdminController::class, 'toggleEmailTemplate'])->name('email-templates.toggle');
         Route::get('/email-templates/{template}/preview', [AdminController::class, 'previewEmailTemplate'])->name('email-templates.preview');
+
+        // Post Moderation (native blog)
+        Route::get('/posts', [AdminPostController::class, 'index'])->name('posts.index');
+        Route::post('/posts/bulk-action', [AdminPostController::class, 'bulkAction'])->name('posts.bulk-action');
+        Route::post('/posts/{post}/approve', [AdminPostController::class, 'approve'])->name('posts.approve');
+        Route::post('/posts/{post}/unpublish', [AdminPostController::class, 'unpublish'])->name('posts.unpublish');
+        Route::post('/posts/{post}/archive', [AdminPostController::class, 'archive'])->name('posts.archive');
+        Route::post('/posts/{post}/restore', [AdminPostController::class, 'restore'])->name('posts.restore');
+        Route::delete('/posts/{post}', [AdminPostController::class, 'destroy'])->name('posts.destroy');
 
         // Admin Profile (Phase 11)
         Route::get('/profile', [AdminController::class, 'profile'])->name('profile');

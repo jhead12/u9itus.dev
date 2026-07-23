@@ -198,7 +198,7 @@
                             </td>
                             <td class="px-5 py-3 text-slate-300">{{ $credit->description ?? ucfirst(str_replace('_', ' ', $credit->transaction_type)) }}</td>
                             <td class="px-5 py-3">
-                                <span class="inline-flex px-2 py-0.5 rounded text-xs font-medium {{ str_contains($credit->transaction_type, 'debit') ? 'bg-red-500/10 text-red-400' : 'bg-emerald-500/10 text-emerald-400' }}">
+                                <span class="inline-flex px-2 py-0.5 rounded text-xs font-medium {{ $credit->amount < 0 ? 'bg-red-500/10 text-red-400' : 'bg-emerald-500/10 text-emerald-400' }}">
                                     {{ ucfirst(str_replace('_', ' ', $credit->transaction_type)) }}
                                 </span>
                             </td>

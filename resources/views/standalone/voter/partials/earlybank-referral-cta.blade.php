@@ -1,14 +1,28 @@
 {{-- Early-bank referral CTA block.
-     Shown on the voter referrals page in two states:
+     Shown on the voter referrals page (and the voter onboarding referrals step)
+     in two states:
        1. Voter is NOT an Early-bank member (earlybank_own_member_uuid is null)
           → upsell: join to unlock recurring voter-view commissions.
        2. Voter IS an Early-bank member (earlybank_own_member_uuid is set)
           → confirmation + link to their Early-bank dashboard.
      Note: earlybank_member_id (different field) tracks who REFERRED this voter
      and is unrelated to whether the voter holds their own EB membership.
+
+     Optional overrides (defaults reproduce the main voter referrals page):
+       $returnToRoute     — route EB redirects back to with ?eb_member={member_uuid}
+       $upsellHeading     $upsellBody     $upsellFootnote
+       $enrolledHeading   $enrolledBody
+       $showMemberId      — show the "Member ID" badge in the enrolled state
 --}}
 @php
     $earlybankUrl = rtrim(config('services.earlybank.public_url', 'https://www.early-bank.com'), '/');
+    $returnToRoute    = $returnToRoute    ?? route('voter.referrals');
+    $upsellHeading    = $upsellHeading    ?? 'Earn more with Early-bank';
+    $upsellBody       = $upsellBody       ?? 'Join Early-bank for a one-time $20 fee and get a dedicated referral link. Earn a <strong class="text-indigo-300">$10 bonus</strong> every time someone you invite joins Early-bank, plus <strong class="text-indigo-300">10% recurring</strong> on all of their U9itus viewing activity — paid weekly via Stripe.';
+    $upsellFootnote   = $upsellFootnote   ?? 'Your existing U9itus referrals are unaffected.';
+    $enrolledHeading  = $enrolledHeading ?? "You're an Early-bank member";
+    $enrolledBody     = $enrolledBody     ?? 'Your referral commissions and voter-view earnings flow through Early-bank. Access your full dashboard, QR code, referral link, and weekly payout status below.';
+    $showMemberId     = $showMemberId     ?? true;
 @endphp
 
 @if(empty($voter->earlybank_own_member_uuid))
@@ -23,20 +37,19 @@
         </div>
         <div class="min-w-0">
             <p class="text-indigo-200 font-semibold text-sm">
-                Earn more with Early-bank
+                {{ $upsellHeading }}
             </p>
             <p class="text-slate-300 text-sm mt-1">
-                Join Early-bank for a one-time $20 fee and get a dedicated referral link.
-                Earn a <strong class="text-indigo-300">$10 bonus</strong> every time someone you invite
-                joins Early-bank, plus <strong class="text-indigo-300">10% recurring</strong> on all of
-                their U9itus viewing activity — paid weekly via Stripe.
+                {!! $upsellBody !!}
             </p>
+            @if($upsellFootnote)
             <p class="text-slate-500 text-xs mt-1.5">
-                Your existing U9itus referrals are unaffected.
+                {{ $upsellFootnote }}
             </p>
+            @endif
         </div>
     </div>
-    <a href="{{ $earlybankUrl . '/register?u9itus_voter_uuid=' . ($voter->uuid ?? '') . '&return_to=' . urlencode(route('voter.referrals') . '?eb_member={member_uuid}') }}"
+    <a href="{{ $earlybankUrl . '/register?u9itus_voter_uuid=' . ($voter->uuid ?? '') . '&return_to=' . urlencode($returnToRoute . '?eb_member={member_uuid}') }}"
        target="_blank"
        rel="noopener noreferrer"
        class="shrink-0 inline-flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition whitespace-nowrap">
@@ -67,15 +80,16 @@
                 </svg>
             </div>
             <div class="min-w-0">
-                <p class="text-emerald-200 font-semibold text-sm">You're an Early-bank member</p>
+                <p class="text-emerald-200 font-semibold text-sm">{{ $enrolledHeading }}</p>
                 <p class="text-slate-300 text-sm mt-1">
-                    Your referral commissions and voter-view earnings flow through Early-bank.
-                    Access your full dashboard, QR code, referral link, and weekly payout status below.
+                    {!! $enrolledBody !!}
                 </p>
+                @if($showMemberId)
                 {{-- Member UUID badge --}}
                 <p class="text-slate-500 text-xs mt-2 font-mono truncate" title="{{ $voter->earlybank_own_member_uuid }}">
                     Member ID: <span class="text-slate-400">{{ $voter->earlybank_own_member_uuid }}</span>
                 </p>
+                @endif
                 @if($voter->earlybank_own_linked_at)
                 <p class="text-slate-600 text-xs mt-0.5">
                     Linked {{ $voter->earlybank_own_linked_at->format('M j, Y') }}

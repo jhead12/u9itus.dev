@@ -8,6 +8,7 @@ use App\Models\Voter;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cookie;
+use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
 
 class CaptureReferralContext
@@ -22,6 +23,13 @@ class CaptureReferralContext
 
         if (is_string($incomingCode) && trim($incomingCode) !== '') {
             $normalizedCode = strtoupper(trim($incomingCode));
+
+            // Early-bank referral links use a UUID in ?ref=<uuid>. Let
+            // CaptureEarlyBankReferral handle those; never clear an existing
+            // internal referral context just because an EB link arrived.
+            if (Str::isUuid($normalizedCode)) {
+                return $next($request);
+            }
 
             if ($this->hasValidFormat($normalizedCode) && $this->referralExists($normalizedCode)) {
                 $request->session()->put(self::SESSION_KEY, $normalizedCode);

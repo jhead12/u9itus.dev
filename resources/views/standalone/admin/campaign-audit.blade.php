@@ -4,7 +4,7 @@
 @section('page-title', 'Campaign Audit Log')
 
 @section('content')
-<div class="max-w-3xl">
+<div class="max-w-3xl mx-auto">
 
     <div class="mb-6 flex items-center gap-4">
         <a href="{{ route('admin.campaigns.edit', $campaign) }}" class="text-sm text-slate-400 hover:text-white transition">← Back to edit</a>
@@ -62,6 +62,7 @@
 
             @if($log->changes)
             <div class="mt-3 rounded-lg overflow-hidden border border-slate-700/40">
+              <div class="overflow-x-auto">
                 <table class="w-full text-xs">
                     <thead>
                         <tr class="bg-slate-900/60">
@@ -80,6 +81,7 @@
                         @endforeach
                     </tbody>
                 </table>
+              </div>
             </div>
             @endif
         </div>

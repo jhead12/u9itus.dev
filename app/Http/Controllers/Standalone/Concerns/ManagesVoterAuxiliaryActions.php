@@ -8,6 +8,7 @@ use App\Exceptions\StripeConnectException;
 use App\Models\AdViewToken;
 use App\Models\PoliticalCampaign;
 use App\Models\ReferralVisit;
+use App\Models\CitizenViewSession;
 use App\Models\Voter;
 use App\Models\VoterWatchReport;
 use App\Models\ViewSession;
@@ -283,8 +284,11 @@ trait ManagesVoterAuxiliaryActions
 
         // Ensure payout-eligible completed sessions are marked approved and carry
         // the voter's latest processor preference for downstream payout routing.
+        // Covers both political (ViewSession) and citizen (CitizenViewSession)
+        // campaigns — previously citizen earnings accrued in pending_earnings but
+        // were never queued for settlement, leaving them stranded.
         $updated = DB::transaction(function () use ($voter, $selectedProcessor): int {
-            return ViewSession::where('voter_id', $voter->id)
+            $political = ViewSession::where('voter_id', $voter->id)
                 ->where('status', \App\Enums\ViewSessionStatus::Completed)
                 ->whereIn('payment_status', [
                     ViewPaymentStatus::Pending,
@@ -295,6 +299,20 @@ trait ManagesVoterAuxiliaryActions
                     'payment_status' => ViewPaymentStatus::Approved,
                     'processor_selected' => $selectedProcessor,
                 ]);
+
+            $citizen = CitizenViewSession::where('voter_id', $voter->id)
+                ->where('status', \App\Enums\ViewSessionStatus::Completed)
+                ->whereIn('payment_status', [
+                    ViewPaymentStatus::Pending,
+                    ViewPaymentStatus::Approved,
+                ])
+                ->where('voter_payout_amount', '>', 0)
+                ->update([
+                    'payment_status' => ViewPaymentStatus::Approved,
+                    'processor_selected' => $selectedProcessor,
+                ]);
+
+            return $political + $citizen;
         });
 
         Log::info('Payout requested', [
@@ -346,6 +364,17 @@ trait ManagesVoterAuxiliaryActions
         $totalReferralEarnings    = (float) $voter->referralEarnings()->voterViews()->forActiveStripeMode()->sum('commission_amount');
         $totalProcurementEarnings = (float) $voter->referralEarnings()->procurements()->forActiveStripeMode()->sum('commission_amount');
 
+        // Early-bank reported earnings — the actual money moving through the delegated
+        // model. EB does not distinguish "view" vs "procurement" commissions on the same
+        // payout.commission event, so we surface one combined commission total plus bonuses
+        // rather than fabricate a split the ledger can't support.
+        $ebCommissionTotal = (float) $voter->earlybankEarnings()
+            ->forEventType(\App\Models\EarlyBankEarning::EVENT_PAYOUT_COMMISSION)
+            ->sum('payout_amount');
+        $ebBonusTotal = (float) $voter->earlybankEarnings()
+            ->forEventType(\App\Models\EarlyBankEarning::EVENT_PAYOUT_BONUS)
+            ->sum('payout_amount');
+
         $visitQuery = ReferralVisit::where('referrer_voter_id', $voter->id);
         $totalReferralVisits = (clone $visitQuery)->count();
         $uniqueReferralVisitors = (clone $visitQuery)
@@ -361,6 +390,7 @@ trait ManagesVoterAuxiliaryActions
             'voter', 'referrals', 'referredPoliticians',
             'referralEarnings', 'procurementEarnings',
             'totalReferralEarnings', 'totalProcurementEarnings',
+            'ebCommissionTotal', 'ebBonusTotal',
             'totalReferralVisits', 'uniqueReferralVisitors',
             'referralConversions', 'referralConversionRate'
         ));

@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\ViewPaymentStatus;
 use App\Models\ViewSession;
+use App\Models\CitizenViewSession;
 use App\Models\Voter;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -72,17 +73,33 @@ class PayPalPayoutReconciliationService
     {
         $finalState = $this->mapPayPalItemStatusToFinalState($itemStatus);
 
-        $sessions = ViewSession::query()
+        $referenceClause = function ($query) use ($batchReference, $senderItemId) {
+            $query->where('processor_reference', $batchReference)
+                ->orWhere('processor_reference', $senderItemId);
+        };
+
+        // A single PayPal batch item can settle sessions from BOTH campaign
+        // systems (political + citizen) for a voter, since requestPayout and
+        // processBatchPayoutsForRun mark them all with the same processor_reference.
+        $politicalSessions = ViewSession::query()
             ->where('processor_executed', 'paypal')
-            ->where(function ($query) use ($batchReference, $senderItemId) {
-                $query->where('processor_reference', $batchReference)
-                    ->orWhere('processor_reference', $senderItemId);
-            })
+            ->where($referenceClause)
             ->whereIn('payment_status', [
                 ViewPaymentStatus::Pending->value,
                 ViewPaymentStatus::Approved->value,
             ])
             ->get();
+
+        $citizenSessions = CitizenViewSession::query()
+            ->where('processor_executed', 'paypal')
+            ->where($referenceClause)
+            ->whereIn('payment_status', [
+                ViewPaymentStatus::Pending->value,
+                ViewPaymentStatus::Approved->value,
+            ])
+            ->get();
+
+        $sessions = $politicalSessions->concat($citizenSessions);
 
         if ($sessions->isEmpty()) {
             return ['updated' => 0, 'pending' => 0, 'rejected' => 0, 'paid' => 0];
@@ -105,6 +122,8 @@ class PayPalPayoutReconciliationService
             }
 
             if ($finalState === 'paid') {
+                // Group across both session types so a voter's combined political
+                // + citizen earnings are decremented from pending_earnings once.
                 $sessionByVoter = $sessions->groupBy('voter_id');
                 foreach ($sessionByVoter as $voterId => $voterSessions) {
                     /** @var Voter|null $voter */

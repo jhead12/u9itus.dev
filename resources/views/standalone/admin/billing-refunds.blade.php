@@ -132,10 +132,11 @@
 </div>
 
 <!-- Refund Modal -->
-<div id="refundModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+<div id="refundModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+     role="dialog" aria-modal="true" aria-labelledby="refundModal-title" tabindex="-1">
     <div class="bg-slate-800 border border-slate-700 rounded-xl max-w-md w-full mx-4 shadow-2xl">
         <div class="px-6 py-4 border-b border-slate-700">
-            <h3 class="text-lg font-semibold text-white">Refund Unused Credits</h3>
+            <h3 id="refundModal-title" class="text-lg font-semibold text-white">Refund Unused Credits</h3>
         </div>
 
         <form id="refundForm" method="POST" class="space-y-4 p-6">
@@ -205,7 +206,9 @@ function openRefundModal(txId, politicianName, creditsPurchased, refundableAmoun
     const form = document.getElementById('refundForm');
     form.action = `/admin/billing/transactions/${txId}/refund-unused`;
     
-    document.getElementById('refundModal').classList.remove('hidden');
+    const modal = document.getElementById('refundModal');
+    modal.classList.remove('hidden');
+    modal.focus();
 }
 
 function closeRefundModal() {
@@ -216,6 +219,10 @@ function closeRefundModal() {
 // Close modal when clicking outside
 document.getElementById('refundModal')?.addEventListener('click', function(e) {
     if (e.target === this) closeRefundModal();
+});
+
+document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') closeRefundModal();
 });
 </script>
 

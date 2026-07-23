@@ -115,11 +115,12 @@ class EarlyBankWebhookService
 
         // 10% per-view commission — always fires for active Stripe voters.
         $this->dispatch('voter.earned', [
-            'voter_uuid'          => $voter->uuid,
-            'earlybank_member_id' => $voter->earlybank_member_id,
-            'session_uuid'        => $session->uuid,
-            'payout_amount'       => (float) $session->payout_amount,
-            'completed_at'        => optional($session->completed_at)->toIso8601String() ?? now()->toIso8601String(),
+            'voter_uuid'                    => $voter->uuid,
+            'earlybank_member_id'           => $voter->earlybank_member_id,
+            'session_uuid'                  => $session->uuid,
+            'payout_amount'                 => (float) $session->payout_amount,
+            'referral_commission_percent'   => (float) config('u9itus.referral_commission_percent', 10),
+            'completed_at'                  => optional($session->completed_at)->toIso8601String() ?? now()->toIso8601String(),
         ]);
     }
 
@@ -165,10 +166,15 @@ class EarlyBankWebhookService
             return;
         }
 
+        $commissionPercent = (float) config('u9itus.procurement_commission_percent', 10);
+        $commissionAmount  = round($purchaseAmount * ($commissionPercent / 100), 2);
+
         $this->dispatch('politician.purchased', [
             'politician_uuid'     => $politician->uuid,
             'earlybank_member_id' => $memberUuid,
             'purchase_amount'     => $purchaseAmount,
+            'commission_percent'  => $commissionPercent,
+            'commission_amount'   => $commissionAmount,
             'purchased_at'        => now()->toIso8601String(),
         ]);
     }

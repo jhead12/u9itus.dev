@@ -6,6 +6,8 @@
 /storage/*.key
 /vendor
 /legacy/vendor
+/legacy/node_modules
+/legacy/bower_components
 .env
 .env.backup
 .env.production

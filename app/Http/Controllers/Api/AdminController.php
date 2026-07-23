@@ -12,6 +12,7 @@ use App\Http\Resources\CampaignResource;
 use App\Http\Resources\VoterResource;
 use App\Jobs\ProcessBatchPayoutsJob;
 use App\Models\CampaignTransaction;
+use App\Models\EarlyBankEarning;
 use App\Models\PoliticalCampaign;
 use App\Models\Politician;
 use App\Models\ReferralEarning;
@@ -62,6 +63,12 @@ class AdminController extends Controller
         $totalPayouts   = (clone $paidViewQuery)->sum('voter_payout_amount');
         $totalReferrals = ReferralEarning::forPaymentMode($activePaymentMode)->sum('commission_amount');
 
+        // Early-bank reported earnings — the actual money moving through the delegated
+        // model. Not segmented by payment_mode: Early-bank does not report a live/test
+        // distinction back to us.
+        $ebTotalCommissions = (float) EarlyBankEarning::forEventType(EarlyBankEarning::EVENT_PAYOUT_COMMISSION)->sum('payout_amount');
+        $ebTotalBonuses     = (float) EarlyBankEarning::forEventType(EarlyBankEarning::EVENT_PAYOUT_BONUS)->sum('payout_amount');
+
         return response()->json([
             'overview' => [
                 'total_politicians'          => Politician::count(),
@@ -74,6 +81,10 @@ class AdminController extends Controller
                 'total_voter_payouts'        => $totalPayouts,
                 'total_referral_commissions' => $totalReferrals,
                 'payment_mode'               => $activePaymentMode,
+            ],
+            'earlybank' => [
+                'total_referral_commissions' => $ebTotalCommissions,
+                'total_referral_bonuses'     => $ebTotalBonuses,
             ],
             'per_view_economics' => $this->paymentService->perViewProfit(),
             'fraud_stats' => [

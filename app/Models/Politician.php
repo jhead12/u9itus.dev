@@ -324,6 +324,14 @@ class Politician extends Model
         return $this->hasMany(ReferralEarning::class, 'referrer_politician_id');
     }
 
+    /**
+     * Inbound Early-bank earnings reported for this politician.
+     */
+    public function earlybankEarnings(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(EarlyBankEarning::class, 'politician_id');
+    }
+
     // ── Civic education: office profile (voter-facing info popup) ─────────
 
     /**
