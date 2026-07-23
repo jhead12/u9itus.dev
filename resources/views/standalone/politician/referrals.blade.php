@@ -70,43 +70,24 @@
     @endif
 
     {{-- ── Activity Summary ──────────────────────────────────────────── --}}
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div class="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-4">
-            <p class="text-slate-400 text-xs font-medium uppercase tracking-wide">Referral Code</p>
-            <p class="text-xl font-bold text-emerald-400 mt-2 tracking-widest font-mono">{{ $politician->referral_code ?? '—' }}</p>
-        </div>
-        <div class="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-4">
-            <p class="text-slate-400 text-xs font-medium uppercase tracking-wide">Voters Recruited</p>
-            <p class="text-xl font-bold text-white mt-2">{{ $referredVoters->count() }}</p>
-        </div>
-        <div class="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-4">
-            <p class="text-slate-400 text-xs font-medium uppercase tracking-wide">Politicians Recruited</p>
-            <p class="text-xl font-bold text-white mt-2">{{ $referredPoliticians->count() }}</p>
-        </div>
-        <div class="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-4">
-            <p class="text-slate-400 text-xs font-medium uppercase tracking-wide">Conversions</p>
-            <p class="text-xl font-bold text-emerald-400 mt-2">{{ number_format($referralConversions) }}</p>
-        </div>
-    </div>
+    @include('standalone.shared.referral-stat-grid', [
+        'gridClass' => 'grid-cols-2 sm:grid-cols-3',
+        'cards' => [
+            ['label' => 'Referral Code', 'value' => $politician->referral_code ?? '—', 'valueClass' => 'text-emerald-400 tracking-widest font-mono'],
+            ['label' => 'Voters Recruited', 'value' => $referredVoters->count()],
+            ['label' => 'Politicians Recruited', 'value' => $referredPoliticians->count()],
+        ],
+    ])
 
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div class="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-4">
-            <p class="text-slate-400 text-xs font-medium uppercase tracking-wide">Referral Visits</p>
-            <p class="text-xl font-bold text-white mt-2">{{ number_format($totalReferralVisits) }}</p>
-        </div>
-        <div class="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-4">
-            <p class="text-slate-400 text-xs font-medium uppercase tracking-wide">Unique Visitors</p>
-            <p class="text-xl font-bold text-white mt-2">{{ number_format($uniqueReferralVisitors) }}</p>
-        </div>
-        <div class="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-4">
-            <p class="text-slate-400 text-xs font-medium uppercase tracking-wide">Conversions</p>
-            <p class="text-xl font-bold text-emerald-400 mt-2">{{ number_format($referralConversions) }}</p>
-        </div>
-        <div class="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-4">
-            <p class="text-slate-400 text-xs font-medium uppercase tracking-wide">Conversion Rate</p>
-            <p class="text-xl font-bold text-emerald-400 mt-2">{{ number_format($referralConversionRate, 1) }}%</p>
-        </div>
-    </div>
+    @include('standalone.shared.referral-stat-grid', [
+        'gridClass' => 'grid-cols-2 sm:grid-cols-4',
+        'cards' => [
+            ['label' => 'Referral Visits', 'value' => number_format($totalReferralVisits)],
+            ['label' => 'Unique Visitors', 'value' => number_format($uniqueReferralVisitors)],
+            ['label' => 'Conversions', 'value' => number_format($referralConversions), 'valueClass' => 'text-emerald-400'],
+            ['label' => 'Conversion Rate', 'value' => number_format($referralConversionRate, 1) . '%', 'valueClass' => 'text-emerald-400'],
+        ],
+    ])
 
     {{-- ── Share Links ───────────────────────────────────────────── --}}
     @php
@@ -349,22 +330,7 @@
 </div>
 
 @push('scripts')
-<script>
-window.copyLink = function (inputId) {
-    const input = document.getElementById(inputId);
-    if (!input) return;
-    navigator.clipboard?.writeText(input.value).catch(() => {
-        input.select();
-        document.execCommand('copy');
-    });
-    const btn = input.nextElementSibling;
-    if (btn) {
-        const orig = btn.textContent.trim();
-        btn.textContent = 'Copied!';
-        setTimeout(() => { btn.textContent = orig; }, 1800);
-    }
-};
-</script>
+@include('standalone.shared.copy-link-script')
 @endpush
 
 @endsection

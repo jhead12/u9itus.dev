@@ -16,57 +16,27 @@
     @include('standalone.voter.partials.earlybank-referral-cta')
 
     {{-- ── Activity Summary ─────────────────────────────────────── --}}
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div class="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-4">
-            <p class="text-slate-400 text-xs font-medium uppercase tracking-wide">Referral Code</p>
-            <p class="text-xl font-bold text-emerald-400 mt-2 tracking-widest font-mono">{{ $voter->referral_code }}</p>
-        </div>
-        <div class="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-4">
-            <p class="text-slate-400 text-xs font-medium uppercase tracking-wide">Voters Referred</p>
-            <p class="text-xl font-bold text-white mt-2">{{ $referrals->count() }}</p>
-        </div>
-        <div class="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-4">
-            <p class="text-slate-400 text-xs font-medium uppercase tracking-wide">Politicians Recruited</p>
-            <p class="text-xl font-bold text-white mt-2">{{ $referredPoliticians->count() }}</p>
-        </div>
-        <div class="bg-slate-800/50 border border-slate-700 rounded-2xl p-4">
-            <p class="text-slate-400 text-xs font-medium uppercase tracking-wide">Conversions</p>
-            <p class="text-xl font-bold text-emerald-400 mt-2">{{ number_format($referralConversions) }}</p>
-        </div>
-    </div>
+    @include('standalone.shared.referral-stat-grid', [
+        'gridClass' => 'grid-cols-2 sm:grid-cols-3',
+        'cards' => [
+            ['label' => 'Referral Code', 'value' => $voter->referral_code, 'valueClass' => 'text-emerald-400 tracking-widest font-mono'],
+            ['label' => 'Voters Referred', 'value' => $referrals->count()],
+            ['label' => 'Politicians Recruited', 'value' => $referredPoliticians->count()],
+        ],
+    ])
 
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div class="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-4">
-            <p class="text-slate-400 text-xs font-medium uppercase tracking-wide">Referral Visits</p>
-            <p class="text-xl font-bold text-white mt-2">{{ number_format($totalReferralVisits) }}</p>
-        </div>
-        <div class="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-4">
-            <p class="text-slate-400 text-xs font-medium uppercase tracking-wide">Unique Visitors</p>
-            <p class="text-xl font-bold text-white mt-2">{{ number_format($uniqueReferralVisitors) }}</p>
-        </div>
-        <div class="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-4">
-            <p class="text-slate-400 text-xs font-medium uppercase tracking-wide">Conversions</p>
-            <p class="text-xl font-bold text-emerald-400 mt-2">{{ number_format($referralConversions) }}</p>
-        </div>
-        <div class="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-4">
-            <p class="text-slate-400 text-xs font-medium uppercase tracking-wide">Conversion Rate</p>
-            <p class="text-xl font-bold text-emerald-400 mt-2">{{ number_format($referralConversionRate, 1) }}%</p>
-        </div>
-    </div>
+    @include('standalone.shared.referral-stat-grid', [
+        'gridClass' => 'grid-cols-2 sm:grid-cols-4',
+        'cards' => [
+            ['label' => 'Referral Visits', 'value' => number_format($totalReferralVisits)],
+            ['label' => 'Unique Visitors', 'value' => number_format($uniqueReferralVisitors)],
+            ['label' => 'Conversions', 'value' => number_format($referralConversions), 'valueClass' => 'text-emerald-400'],
+            ['label' => 'Conversion Rate', 'value' => number_format($referralConversionRate, 1) . '%', 'valueClass' => 'text-emerald-400'],
+        ],
+    ])
 
     {{-- ── Share Links ──────────────────────────────────────────── --}}
     @php
-        $voterRefUrl      = url('/?ref=' . $voter->referral_code . '&target=voter');
-        $politicianRefUrl = url('/?ref=' . $voter->referral_code . '&target=politician');
-        $voterQrSrc       = 'https://api.qrserver.com/v1/create-qr-code/?size=120x120&color=059669&bgcolor=FFFFFF&data=' . rawurlencode($voterRefUrl)      . '&qzone=1';
-        $politicianQrSrc  = 'https://api.qrserver.com/v1/create-qr-code/?size=120x120&color=d97706&bgcolor=FFFFFF&data=' . rawurlencode($politicianRefUrl) . '&qzone=1';
-        $voterShare = \App\Models\EmailTemplate::shareCopy('referral_voter_share', $voterRefUrl,
-            'Join U9itus as a voter with my referral link',
-            'Join U9itus as a voter using my referral link and start participating on the platform.');
-        $politicianShare = \App\Models\EmailTemplate::shareCopy('referral_politician_share', $politicianRefUrl,
-            'Join U9itus as a politician with my referral link',
-            'Join U9itus as a politician using my referral link and launch your campaign presence on the platform.');
-
         // Early-bank member links — only built when this voter holds an EB membership.
         // EB invite:        early-bank.com/?ref=<uuid>  → recruits new EB members ($10 bonus)
         // U9itus earn link: u9itus.com/earn?ref=<uuid>  → CaptureEarlyBankReferral middleware
@@ -164,104 +134,6 @@
                    class="text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1 transition">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
-                    </svg>
-                    Download PNG
-                </a>
-            </div>
-        </div>
-    </div>
-    @endif
-
-    {{-- ── U9itus Internal Referral Links (hidden — share via Early-bank block above) ── --}}
-    @if(false)
-    <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-6 space-y-7">
-        <div>
-            <h2 class="text-lg font-semibold text-white">{{ $ebMemberUuid ? 'Your U9itus Referral Links' : 'Share Your Referral Links' }}</h2>
-            @if($ebMemberUuid)
-            <p class="text-slate-500 text-xs mt-0.5">Standard U9itus tracking links — separate from your Early-bank links above.</p>
-            @endif
-        </div>
-
-        {{-- Voter link --}}
-        <div class="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-6 items-start">
-            <div class="space-y-2">
-                <p class="text-sm font-medium text-emerald-400">Voter Registration Link</p>
-                <p class="text-slate-400 text-xs">Invite others to join U9itus as a voter — earn commissions via Early-bank.</p>
-                <div class="flex gap-2">
-                    <input id="voter-referral-link" type="text" readonly
-                        value="{{ $voterRefUrl }}"
-                        class="flex-1 bg-slate-900 border border-slate-600 rounded-lg px-4 py-2.5 text-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
-                    <button onclick="copyLink('voter-referral-link', 'voter-copy-confirm')"
-                        class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition whitespace-nowrap">
-                        Copy
-                    </button>
-                </div>
-                <p id="voter-copy-confirm" class="text-emerald-400 text-xs hidden">✓ Copied!</p>
-                @include('standalone.shared.referral-share-actions', [
-                    'shareLink' => $voterRefUrl,
-                    'shareSubject' => $voterShare['subject'],
-                    'shareMessage' => $voterShare['message'],
-                    'shareBody' => $voterShare['body'],
-                ])
-            </div>
-            {{-- Voter QR --}}
-            <div class="flex flex-col items-center gap-2">
-                <div class="w-32 h-32 bg-white rounded-xl p-1 shadow-lg shadow-black/40 flex items-center justify-center">
-                    <img src="{{ $voterQrSrc }}"
-                         alt="Voter Referral QR Code"
-                         class="w-28 h-28 rounded-lg"
-                         loading="lazy">
-                </div>
-                <a href="{{ $voterQrSrc }}&download=1"
-                   download="voter-referral-qr.png"
-                   class="text-xs text-emerald-400 hover:text-emerald-300 flex items-center gap-1 transition">
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
-                    </svg>
-                    Download PNG
-                </a>
-            </div>
-        </div>
-
-        <div class="border-t border-slate-700/50"></div>
-
-        {{-- Politician link --}}
-        <div class="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-6 items-start">
-            <div class="space-y-2">
-                <p class="text-sm font-medium text-amber-400">Politician Registration Link</p>
-                <p class="text-slate-400 text-xs">Invite politicians to join U9itus — politician recruitment commissions coming via Early-bank.</p>
-                <div class="flex gap-2">
-                    <input id="politician-referral-link" type="text" readonly
-                        value="{{ $politicianRefUrl }}"
-                        class="flex-1 bg-slate-900 border border-slate-600 rounded-lg px-4 py-2.5 text-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
-                    <button onclick="copyLink('politician-referral-link', 'politician-copy-confirm')"
-                        class="bg-amber-600 hover:bg-amber-500 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition whitespace-nowrap">
-                        Copy
-                    </button>
-                </div>
-                <p id="politician-copy-confirm" class="text-amber-400 text-xs hidden">✓ Copied!</p>
-                @include('standalone.shared.referral-share-actions', [
-                    'shareLink' => $politicianRefUrl,
-                    'shareSubject' => $politicianShare['subject'],
-                    'shareMessage' => $politicianShare['message'],
-                    'shareBody' => $politicianShare['body'],
-                ])
-            </div>
-            {{-- Politician QR --}}
-            <div class="flex flex-col items-center gap-2">
-                <div class="w-32 h-32 bg-white rounded-xl p-1 shadow-lg shadow-black/40 flex items-center justify-center">
-                    <img src="{{ $politicianQrSrc }}"
-                         alt="Politician Referral QR Code"
-                         class="w-28 h-28 rounded-lg"
-                         loading="lazy">
-                </div>
-                <a href="{{ $politicianQrSrc }}&download=1"
-                   download="politician-referral-qr.png"
-                   class="text-xs text-amber-400 hover:text-amber-300 flex items-center gap-1 transition">
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
                     </svg>
                     Download PNG
                 </a>
@@ -428,21 +300,6 @@
 </div>
 
 @push('scripts')
-<script>
-window.copyLink = function (inputId, confirmId) {
-    const input = document.getElementById(inputId);
-    if (!input) return;
-    navigator.clipboard?.writeText(input.value).then(() => {
-        const el = document.getElementById(confirmId);
-        if (el) {
-            el.classList.remove('hidden');
-            setTimeout(() => el.classList.add('hidden'), 3000);
-        }
-    }).catch(() => {
-        input.select();
-        document.execCommand('copy');
-    });
-};
-</script>
+@include('standalone.shared.copy-link-script')
 @endpush
 @endsection
