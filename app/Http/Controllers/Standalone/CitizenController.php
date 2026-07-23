@@ -111,6 +111,9 @@ class CitizenController extends Controller
             'user'          => $user,
             'citizen'       => $citizen,
             'campaignCount' => $campaignCount,
+            'postCount'     => $citizen?->posts()->count() ?? 0,
+            'eventCount'    => $citizen?->events()->count() ?? 0,
+            'creditBalance' => $citizen?->credit_balance ?? 0,
         ]);
     }
 
