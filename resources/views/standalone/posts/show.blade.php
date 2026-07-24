@@ -14,12 +14,12 @@
     <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6 space-y-4">
         <div class="flex items-center gap-2 text-sm">
             <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium
-                @match($post->status->value)
+                @switch($post->status->value)
                     @case('published') bg-emerald-500/10 text-emerald-300 @break
                     @case('pending_approval') bg-amber-500/10 text-amber-300 @break
                     @case('archived') bg-slate-600/20 text-slate-400 @break
                     @default bg-slate-600/20 text-slate-400
-                @endmatch">
+                @endswitch">
                 {{ ucfirst(str_replace('_', ' ', $post->status->value)) }}
             </span>
             @if($post->published_at)

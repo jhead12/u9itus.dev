@@ -1,83 +1,96 @@
-# Citizen Dashboard Layout Alignment Plan
+# Citizen Campaign Voter Preview / Review System
 
-## Problem
-The citizen dashboard (`resources/views/standalone/citizen/dashboard.blade.php`) currently stacks several full-width cards with inconsistent styling:
+## Goal
+Let a citizen preview their draft citizen campaign exactly as a voter will see it before they submit it for admin review. This reduces rejections, builds trust, and matches the politician campaign preview pattern already in the codebase.
 
-- Welcome banner: gradient + flex layout
-- Campaigns CTA: `bg-slate-800/60`, flex row
-- Blog Posts CTA: `bg-slate-800/60`, flex row
-- 2FA row: `rounded-2xl`, `border-slate-700/60`
+## Current state
 
-These cards are all the same width but use different background opacities, border colors, border radii, and content patterns, which makes the page feel uneven. The admin dashboard (`resources/views/standalone/admin/dashboard.blade.php`) was recently tightened up and now uses a consistent grid-based layout:
+- `resources/views/standalone/citizen/campaigns/show.blade.php` shows campaign details but **has no video preview or voter-facing review step**.
+- `resources/views/standalone/politician/campaigns/show.blade.php` already has a **Video Preview Panel** with a test-play button and payout timer simulation — this is the pattern to mirror.
+- `resources/views/standalone/voter/watch-citizen.blade.php` is the real voter watch page (player, earn banner, completion post), but it only allows `status=active && approval_status=approved` campaigns.
+- Citizen campaigns move: `draft` → `submitForReview()` → `pending_approval` → admin approve → `active`.
+- The citizen show page already has a **Submit for Review** button, but there is no explicit review/preview step before submission.
 
-- A simple gradient welcome banner
-- A `stat-card` grid with consistent cards
-- A two-column recent-activity grid
-- A quick-actions grid
+## Proposed approach (recommended)
 
-The shared layout already defines `.stat-card` in its embedded styles, so we should use that same visual language on the citizen dashboard.
+Build a **two-part preview experience**:
 
-## Files to Change
+1. **Inline video preview on the citizen campaign detail page** (mirrors politician pattern).
+   - Shows the actual video player (YouTube / native / Vimeo) when `media_url` is present.
+   - Displays a simulated payout timer so the citizen sees when a voter becomes eligible.
+   - Has a **“Review as Voter”** button that opens the full voter preview.
 
-1. `resources/views/standalone/citizen/dashboard.blade.php`
-2. `app/Http/Controllers/Standalone/CitizenController.php` (minor: pass a few extra derived stats so the new stat grid has real numbers)
+2. **Dedicated “Review as Voter” page** (`GET /citizen/campaigns/{campaign}/review`).
+   - Renders a voter-like view using the same player markup and styling as `watch-citizen.blade.php`.
+   - Runs in **preview mode**: no completion post, no payout credit, no view counter increment, no daily-limit check.
+   - Shows a persistent **“Preview Mode”** banner with:
+     - **Back to campaign** link
+     - **Edit campaign** link (draft only)
+     - **Submit for Review** form button (draft only)
+   - Blocked unless the campaign is `draft` or `cancelled` and owned by the current citizen.
 
-## Proposed Layout Changes
+## Why this approach
 
-### 1. Welcome banner
-Keep the citizen-specific welcome banner but simplify the markup and styling to match the admin dashboard's banner pattern:
+- **Familiar to users**: the politician portal already previews campaigns the same way.
+- **Reuses existing code**: the review page can reuse the same player-detection/JS patterns from `watch-citizen.blade.php` without changing the voter controller.
+- **Safe**: preview mode never mutates view sessions, payouts, or counters, and it keeps draft campaigns inaccessible to real voters.
+- **Clear submission flow**: citizen sees the voter experience, then explicitly submits.
 
-- `bg-gradient-to-r from-amber-500/10 to-slate-800/50 border border-amber-500/20 rounded-xl p-6`
-- Remain a flex row on larger screens so the "Switch to Voter Portal" button can stay in the header if the user has the voter role.
+## Files to change
 
-### 2. Stats grid
-Add a `grid grid-cols-2 lg:grid-cols-4 gap-4` section using the shared `.stat-card` class, populated with:
+### Backend
 
-- **Campaigns** – total campaign count (existing `$campaignCount`)
-- **Blog Posts** – `$citizen->posts()->count()`
-- **Civic Events** – `$citizen->events()->count()` (already a relationship; quick-count)
-- **Credit Balance** – `$citizen->credit_balance` formatted as currency
+1. `routes/standalone.php`
+   - Add `GET /citizen/campaigns/{campaign}/review` → `CitizenController@reviewCampaign` (name: `citizen.campaigns.review`).
 
-This matches the admin dashboard's first stats grid and gives the citizen page the same rhythmic card structure.
+2. `app/Http/Controllers/Standalone/CitizenController.php`
+   - Add `reviewCampaign(CitizenCampaign $campaign)` method:
+     - Authorize ownership.
+     - Restrict to `draft` or `cancelled`.
+     - Require `media_url` or `live_feed_url`; otherwise redirect back with an error.
+     - Compute `$duration`, `$mustWatch`, `$payout` exactly like `CitizenCampaignVoterController::watch()`.
+     - Return view `standalone.citizen.campaigns.review` with `preview => true`.
 
-### 3. Quick actions grid
-Replace the individual CTA cards with a `grid grid-cols-2 sm:grid-cols-4 gap-3` quick-actions section matching the admin page:
+### Frontend
 
-- New Campaign (amber primary action)
-- View Campaigns
-- New Post
-- View Posts
-- Billing & Credits
-- New Event
-- View Events
-- Two-Factor Authentication (moved here from its own standalone row)
+3. `resources/views/standalone/citizen/campaigns/show.blade.php`
+   - Add a **Video Preview Panel** when `media_url` exists (copy/adapt politician show-page preview markup).
+   - Replace the current lone **Submit for Review** button with a two-step action:
+     - **Review as Voter** button/link that goes to the new review route.
+     - On the review page, the citizen can then submit.
 
-Each action uses the same card style as admin quick actions: `bg-slate-800/50 border border-slate-700/50 hover:border-{accent}-500/40 rounded-xl p-4 text-center transition group` with a small icon and label.
+4. `resources/views/standalone/citizen/campaigns/review.blade.php` (new)
+   - Extends `standalone.layouts.dashboard`.
+   - Top banner: “Preview Mode — you are viewing this campaign as a voter will see it.”
+   - Main content mirrors `standalone.voter.watch-citizen.blade.php`:
+     - Campaign header with sponsor name.
+     - Earn banner with `$payout` and `mustWatch%`.
+     - Video player (YouTube/Vimeo/native) with play overlay.
+     - Progress bar (visual only).
+   - Player JS is copied/adapted from `watch-citizen.blade.php` but **without** the `completeUrl` fetch / `handleCompletion()` call.
+   - Bottom action bar:
+     - **Back to Campaign** → `citizen.campaigns.show`
+     - **Edit Campaign** → `citizen.campaigns.edit` (draft only)
+     - **Submit for Review** → POST `citizen.campaigns.submit-review`
 
-### 4. Two-column activity section (optional, if useful)
-If the citizen has recent campaigns or posts, show them in a two-column grid of list cards identical to the admin "Recent Registrations" / "Recent Campaigns" section. If not, this section can be omitted to keep the page light.
+### Tests
 
-## Controller Changes (minimal)
+5. `tests/Feature/Citizen/CitizenCampaignCrudTest.php`
+   - Add tests for the new `citizen.campaigns.review` route:
+     - Owner can access review page for a draft campaign with video.
+     - Non-owner gets 403.
+     - Non-draft campaign gets 403.
+     - Campaign without video/live feed redirects with error.
+   - Add a test that the review page contains expected preview-mode text and does not increment `views_completed` or create a `CitizenViewSession`.
 
-In `CitizenController::dashboard()`:
+## Alternative considered
 
-- Keep existing `$user`, `$citizen`, `$campaignCount`.
-- Add `$postCount = $citizen?->posts()->count() ?? 0;`
-- Add `$eventCount = $citizen?->events()->count() ?? 0;`
-- Add `$creditBalance = $citizen?->credit_balance ?? 0;`
-- Optionally pass `$recentCampaigns` and `$recentPosts` if we implement the two-column activity section.
+- **Open the real voter watch page in preview mode**: reuse `voter.citizen-campaigns.watch` with a `preview` flag. Rejected because it would require adding ownership/citizen exceptions to the voter controller and the voter middleware stack, muddying the separation between citizen and voter portals.
 
-These are all derived from existing relationships and do not introduce new database tables or heavy queries.
+## Open questions
 
-## Visual Consistency Rules
+1. Should live-feed campaigns also be previewable? (The review page can show the live feed URL and scheduled time, but cannot play a non-active stream.)
+2. Should the citizen be able to leave a self-note/confirmation checklist before submitting (e.g., “I confirm the video is clear and the targeting is correct”)?
+3. Should the review page enforce the same ZIP/radius eligibility check so the citizen sees whether they themselves would be eligible, or simply show the chosen targeting?
 
-- All dashboard cards should use `rounded-xl` (not `rounded-2xl`) and `bg-slate-800/50 border border-slate-700/50`.
-- Use the existing `.stat-card` class where appropriate.
-- Keep spacing consistent with `space-y-6` between major sections and `gap-4` / `gap-3` inside grids.
-- Preserve all existing conditional behavior: voter portal switch, billing link with current balance, "View All" links only when content exists, etc.
-
-## Verification
-
-- Run existing citizen feature tests to make sure no behavior is broken.
-- Render the citizen dashboard locally (or via browser screenshot) to confirm the layout now mirrors the admin page's grid rhythm.
-- Confirm all existing route links still resolve after the view refactor.
+The implementation below will assume answers: **(1) yes, with a text placeholder for the live feed; (2) no checklist for now — just preview + submit; (3) show targeting only, no eligibility gate.** If you want any of these changed, say so before I implement.

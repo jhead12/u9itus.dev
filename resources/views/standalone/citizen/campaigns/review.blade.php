@@ -103,6 +103,12 @@
         $vimeoId  = null;
         $mediaUrl = $campaign->media_url ?? '';
         $mediaType = (string) ($campaign->media_type ?? 'youtube');
+        $mediaExt = strtolower(pathinfo(parse_url($mediaUrl, PHP_URL_PATH) ?? '', PATHINFO_EXTENSION));
+        $mediaMime = match ($mediaExt) {
+            'webm' => 'video/webm',
+            'mov'  => 'video/quicktime',
+            default => 'video/mp4',
+        };
 
         if (preg_match('/youtu\.be\/([a-zA-Z0-9_-]+)/', $mediaUrl, $_m))         { $videoId = $_m[1]; }
         elseif (preg_match('/[?&]v=([a-zA-Z0-9_-]+)/', $mediaUrl, $_m))         { $videoId = $_m[1]; }
@@ -138,7 +144,7 @@
                 oncontextmenu="return false;"
             >
                 @if($campaign->media_url)
-                    <source src="{{ $campaign->media_url }}" type="video/mp4">
+                    <source src="{{ $campaign->media_url }}" type="{{ $mediaMime }}">
                 @endif
                 Your browser does not support HTML5 video.
             </video>
