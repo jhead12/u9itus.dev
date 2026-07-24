@@ -183,6 +183,15 @@
         @php
             $previewMediaType = (string) ($campaign->media_type ?? 'direct_file');
             $isDirectVideo = in_array($previewMediaType, ['direct_file', 's3_cloudfront', 'hls_stream'], true);
+            $previewMediaUrl = (string) ($campaign->media_url ?? '');
+            $previewSourceType = 'video/mp4';
+            if (preg_match('/\.m3u8(\?.*)?$/i', $previewMediaUrl)) {
+                $previewSourceType = 'application/x-mpegURL';
+            } elseif (preg_match('/\.(webm)(\?.*)?$/i', $previewMediaUrl)) {
+                $previewSourceType = 'video/webm';
+            } elseif (preg_match('/\.(mov|qt)(\?.*)?$/i', $previewMediaUrl)) {
+                $previewSourceType = 'video/quicktime';
+            }
         @endphp
 
         @if($campaign->isLiveFeed())
@@ -193,7 +202,7 @@
         @elseif($isDirectVideo && $campaign->media_url)
             <div class="bg-black rounded-xl overflow-hidden border border-slate-700/50">
                 <video class="w-full aspect-video" controls controlsList="nodownload" preload="metadata">
-                    <source src="{{ $campaign->media_url }}" type="video/mp4">
+                    <source src="{{ $campaign->media_url }}" type="{{ $previewSourceType }}">
                     Your browser does not support HTML5 video.
                 </video>
             </div>

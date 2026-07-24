@@ -1172,8 +1172,16 @@ function initNativePreview(url) {
     ytContainer.classList.add('hidden');
     nativePlayer.classList.remove('hidden');
     placeholder.classList.add('hidden');
-    
+
+    let sourceType = 'video/mp4';
+    if (/\.(webm)(\?.*)?$/i.test(url)) {
+        sourceType = 'video/webm';
+    } else if (/\.(mov|qt)(\?.*)?$/i.test(url)) {
+        sourceType = 'video/quicktime';
+    }
+
     nativeSource.src = url;
+    nativeSource.type = sourceType;
     nativePlayer.load();
 }
 
