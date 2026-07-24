@@ -9,6 +9,7 @@ use App\Http\Controllers\Concerns\HandlesCampaignVideoUpload;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CreateCitizenCampaignRequest;
 use App\Http\Requests\UpdateCitizenCampaignRequest;
+use App\Models\Citizen;
 use App\Models\CitizenCampaign;
 use App\Models\CitizenPaymentMethod;
 use App\Models\CitizenTransaction;
@@ -221,6 +222,120 @@ class CitizenController extends Controller
         return view('standalone.citizen.campaigns.show', [
             'campaign' => $campaign,
         ]);
+    }
+
+    /** Preview the campaign as a voter will see it (draft-only). */
+    public function reviewCampaign(CitizenCampaign $campaign)
+    {
+        $this->authorizeOwnership($campaign);
+
+        $rawStatus = (string) ($campaign->getRawOriginal('status') ?? '');
+        abort_unless(
+            in_array($rawStatus, [CampaignStatus::Draft->value, CampaignStatus::Cancelled->value], true),
+            403,
+            'Only draft or cancelled campaigns can be reviewed.'
+        );
+
+        if (! $campaign->media_url && ! $campaign->live_feed_url) {
+            return redirect()
+                ->route('citizen.campaigns.show', $campaign)
+                ->withErrors(['review' => 'Please upload a video or set a live stream URL before reviewing.']);
+        }
+
+        $duration  = (int) ($campaign->media_duration ?? 0);
+        $mustWatch = (int) ($campaign->min_watch_time_percent ?? config('u9itus.min_watch_time_percent', 80));
+        $payout    = (float) ($campaign->voter_payout_per_view ?? 0.50);
+
+        $audienceCheck = $this->citizenIsInTargetAudience($campaign, Auth::user()?->citizen);
+
+        return view('standalone.citizen.campaigns.review', [
+            'campaign'      => $campaign,
+            'preview'       => true,
+            'duration'      => $duration,
+            'mustWatch'     => $mustWatch,
+            'payout'        => $payout,
+            'zipMatch'      => $audienceCheck['matches'],
+            'zipMatchLabel' => $audienceCheck['label'],
+            'zipMatchReason' => $audienceCheck['reason'],
+        ]);
+    }
+
+    /**
+     * Determine whether the current citizen's own zip falls inside the campaign's
+     * target ZIP + radius. Used only for the review-page eligibility preview.
+     *
+     * @return array{matches: bool, label: string, reason: string}
+     */
+    private function citizenIsInTargetAudience(CitizenCampaign $campaign, ?Citizen $citizen): array
+    {
+        $targetZip = trim((string) ($campaign->target_zip ?? ''));
+        $radius    = (int) ($campaign->target_zip_radius ?? 0);
+        $citizenZip = trim((string) ($citizen?->zip ?? ''));
+
+        if ($targetZip === '') {
+            return [
+                'matches' => true,
+                'label'   => 'No target ZIP set',
+                'reason'  => 'This campaign is not restricted to a specific ZIP code.',
+            ];
+        }
+
+        if ($citizenZip === '') {
+            return [
+                'matches' => false,
+                'label'   => 'Your ZIP unknown',
+                'reason'  => 'We do not have a ZIP code on your citizen profile, so we cannot show whether you would be eligible.',
+            ];
+        }
+
+        if ($radius <= 0) {
+            $exactMatch = $citizenZip === $targetZip;
+            return [
+                'matches' => $exactMatch,
+                'label'   => $exactMatch ? 'ZIP matches' : 'ZIP does not match',
+                'reason'  => $exactMatch
+                    ? "Your profile ZIP ({$citizenZip}) matches the campaign target."
+                    : "Your profile ZIP ({$citizenZip}) does not match the campaign target ({$targetZip}).",
+            ];
+        }
+
+        try {
+            $zipCentroid = app(\App\Services\Marketing\ZipCentroidService::class);
+            $center      = $zipCentroid->centroid($targetZip);
+            $citizenCentroid = $zipCentroid->centroid($citizenZip);
+
+            if ($center === null || $citizenCentroid === null) {
+                $exactMatch = $citizenZip === $targetZip;
+                return [
+                    'matches' => $exactMatch,
+                    'label'   => $exactMatch ? 'ZIP matches' : 'Distance unknown',
+                    'reason'  => $exactMatch
+                        ? "Your profile ZIP ({$citizenZip}) matches the campaign target."
+                        : "Could not resolve the distance between your ZIP ({$citizenZip}) and the target ZIP ({$targetZip}).",
+                ];
+            }
+
+            $distance = $zipCentroid->distanceMiles($center, $citizenCentroid);
+            $matches  = $distance <= $radius;
+
+            return [
+                'matches' => $matches,
+                'label'   => $matches ? 'Within target radius' : 'Outside target radius',
+                'reason'  => sprintf(
+                    'Your profile ZIP %s is %.1f miles from the target ZIP %s (radius: %d miles).',
+                    $citizenZip,
+                    $distance,
+                    $targetZip,
+                    $radius
+                ),
+            ];
+        } catch (\Throwable $e) {
+            return [
+                'matches' => false,
+                'label'   => 'Eligibility check unavailable',
+                'reason'  => 'Unable to verify ZIP radius eligibility right now.',
+            ];
+        }
     }
 
     /** Show campaign edit form (draft-only). */

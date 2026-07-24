@@ -480,6 +480,7 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         Route::get('/campaigns/create', [CitizenController::class, 'createCampaign'])->name('campaigns.create');
         Route::post('/campaigns', [CitizenController::class, 'storeCampaign'])->name('campaigns.store');
         Route::get('/campaigns/{campaign}', [CitizenController::class, 'showCampaign'])->name('campaigns.show');
+        Route::get('/campaigns/{campaign}/review', [CitizenController::class, 'reviewCampaign'])->name('campaigns.review');
         Route::get('/campaigns/{campaign}/edit', [CitizenController::class, 'editCampaign'])->name('campaigns.edit');
         Route::put('/campaigns/{campaign}', [CitizenController::class, 'updateCampaign'])->name('campaigns.update');
         Route::delete('/campaigns/{campaign}', [CitizenController::class, 'destroyCampaign'])->name('campaigns.destroy');
