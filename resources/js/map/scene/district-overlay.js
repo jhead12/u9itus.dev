@@ -117,7 +117,11 @@ export async function buildDistrictOverlay(stateName, regionHex) {
             });
             const mesh = new THREE.Mesh(geo, mat);
             mesh.position.z = 0.255;
-            mesh.userData = { districtNum: distNum, districtLabel: label, stateName, regionHex, party, partyHex: PARTY_HEX[party], originalColor: colorInt };
+            // Raw GeoJSON rings (lon/lat), kept alongside the render mesh so
+            // "which cities fall inside this district" can be computed with a
+            // point-in-polygon test against real Census boundaries — see
+            // utils/point-in-polygon.js.
+            mesh.userData = { districtNum: distNum, districtLabel: label, stateName, regionHex, party, partyHex: PARTY_HEX[party], originalColor: colorInt, rings: poly };
             districtGroup.add(mesh);
             districtMeshes.push(mesh);
 

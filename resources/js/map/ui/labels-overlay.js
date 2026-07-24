@@ -7,6 +7,7 @@ import { districtMeshes } from '../scene/district-overlay.js';
 import { stateData } from '../state/map-state.js';
 import { camera, renderer } from '../scene/setup.js';
 import { openPolDrawer } from './politician-drawer.js';
+import { openDistrictPanel } from './panel-district.js';
 
 export const mapLabelsLayer = document.getElementById('map-labels-layer');
 export let districtLabels = [];
@@ -43,7 +44,14 @@ export function buildDistrictLabels(stateName) {
             `<span class="ml-dist">${apiKey}</span>`;
 
         el.addEventListener('click', () => {
-            if (!seated) return;
+            // Bare district-number pills (no on-record officeholder to open a
+            // profile for) used to no-op here — clicking them did nothing.
+            // Fall back to the same district panel the underlying map shape
+            // opens, so every pill is clickable.
+            if (!seated) {
+                openDistrictPanel(mesh.userData.districtNum, mesh.userData.districtLabel, mesh.userData.stateName, mesh.userData.regionHex, mesh.userData.party);
+                return;
+            }
             const pop = stateData?.district_populations?.[apiKey] ?? null;
             openPolDrawer(
                 { ...seated, office: `U.S. Representative — ${apiKey}` },

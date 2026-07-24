@@ -9,23 +9,70 @@ import { renderCandidate, renderOfficeGroup, partyClass, detectElectionPhase, no
 import { openPolDrawer } from './politician-drawer.js';
 import { createFavoriteButton } from './boundary-favorite.js';
 import { renderCityCard, fetchCitiesForState, wireCityCardClicks } from './city-demographics-card.js';
+import { fetchStatePlaces } from '../api/tigerweb-places.js';
+import { pointInPolygons } from '../utils/point-in-polygon.js';
 
-/** Renders the "Cities in this District" section — economy cards plus local (city) representatives, scoped to this district only. */
-async function fetchDistrictCitiesSection(regionName, stateAbbr, houseKey, color, cityOfficials) {
+/** Cap on the plain Census-boundary city list, largest-by-land-area first. */
+const MAX_BOUNDARY_CITIES = 15;
+
+/**
+ * Finds which incorporated places (from live Census TIGERweb boundaries)
+ * have their representative point inside this district's polygon(s).
+ * Independent of city_demographics — works even when that table is empty,
+ * since it's a geometry test against real Census boundaries, not a lookup
+ * against our own synced economic data.
+ */
+async function findBoundaryCitiesInDistrict(stateName, districtNum) {
+    const polys = districtMeshes
+        .filter(m => m.userData.districtNum === districtNum && m.userData.stateName === stateName && m.userData.rings)
+        .map(m => m.userData.rings);
+    if (!polys.length) return [];
+
+    const places = await fetchStatePlaces(stateName);
+    if (!places.length) return [];
+
+    return places
+        .filter(p => pointInPolygons(p.lon, p.lat, polys))
+        .sort((a, b) => b.areaLand - a.areaLand)
+        .slice(0, MAX_BOUNDARY_CITIES);
+}
+
+function renderBoundaryCitiesList(cities, color) {
+    if (!cities.length) return '';
+    const items = cities.map(c => `<span style="font-size:11px;padding:3px 10px;border-radius:999px;background:${color}18;border:1px solid ${color}44;color:${color};white-space:nowrap;">${c.name}</span>`).join('');
+    return `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:4px;">${items}</div>
+        <p style="font-size:10px;color:#475569;margin:6px 0 0;">Source: U.S. Census Bureau TIGERweb boundaries.</p>`;
+}
+
+/**
+ * Renders the "Cities in this District" section. Prefers the richer
+ * economy-card view (Census ACS data, once city_demographics is synced);
+ * falls back to a plain name list from live TIGERweb boundaries so the
+ * section still shows something real even before that sync has run.
+ */
+async function fetchDistrictCitiesSection(regionName, stateAbbr, stateName, districtNum, houseKey, color, cityOfficials) {
     const cities = await fetchCitiesForState(regionName, stateAbbr);
     const districtCities = cities.filter(c => c.district_code === houseKey);
-    if (!districtCities.length) return '';
 
-    const cityNames = new Set(districtCities.map(c => c.city));
-    const econHtml = districtCities.map(c => renderCityCard(c, stateAbbr, color)).join('');
-    const officialsHtml = renderCityOfficialsSection(cityOfficials, color, cityNames, '👤 Local Representatives');
+    let bodyHtml;
+    let officialsHtml = '';
+    if (districtCities.length) {
+        const cityNames = new Set(districtCities.map(c => c.city));
+        bodyHtml = districtCities.map(c => renderCityCard(c, stateAbbr, color)).join('');
+        officialsHtml = renderCityOfficialsSection(cityOfficials, color, cityNames, '👤 Local Representatives');
+    } else {
+        const boundaryCities = await findBoundaryCitiesInDistrict(stateName, districtNum);
+        bodyHtml = renderBoundaryCitiesList(boundaryCities, color);
+    }
+
+    if (!bodyHtml) return '';
 
     return `<div id="dist-cities-econ">
         <div style="border-top:1px solid ${color}20;margin:16px 0 14px;display:flex;align-items:center;gap:8px;">
             <span style="color:${color};font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;white-space:nowrap;">🏙 Cities in this District</span>
             <div style="flex:1;border-top:1px solid ${color}20;"></div>
         </div>
-        ${econHtml}
+        ${bodyHtml}
         ${officialsHtml}
     </div>`;
 }
@@ -151,7 +198,7 @@ export async function openDistrictPanel(districtNum, districtLabel, stateName, r
     // (region-demographics) so it doesn't block the rest of the panel.
     if (activeRegion && _stateAbbr) {
         const reqId = statePanelRequestId;
-        fetchDistrictCitiesSection(activeRegion, _stateAbbr, houseKey, color, stateData?.city_officials).then(sectionHtml => {
+        fetchDistrictCitiesSection(activeRegion, _stateAbbr, stateName, districtNum, houseKey, color, stateData?.city_officials).then(sectionHtml => {
             if (reqId !== statePanelRequestId || !sectionHtml) return;
             const placeholder = document.getElementById('dist-cities-econ');
             if (!placeholder) return;
