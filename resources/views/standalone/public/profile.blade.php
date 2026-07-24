@@ -443,6 +443,19 @@
                         </p>
                     @endif
 
+                    @if(!empty($electionDates))
+                        <p class="text-sm mb-3 flex flex-wrap items-center gap-x-3 gap-y-1">
+                            @foreach($electionDates as $stage)
+                                @if($stage['election_date_formatted'])
+                                    <span class="text-emerald-400">🗳️ {{ $stage['stage_name'] }}: {{ $stage['election_date_formatted'] }}</span>
+                                @endif
+                                @if($stage['filing_deadline_formatted'])
+                                    <span class="text-slate-400">📋 {{ $stage['stage_name'] }} filing deadline: {{ $stage['filing_deadline_formatted'] }}</span>
+                                @endif
+                            @endforeach
+                        </p>
+                    @endif
+
                     @if(is_null($politician->user_id))
                         <p class="text-xs text-amber-200/90 mb-3">
                             This public profile is currently unclaimed and generated from public records. Verified campaign staff can claim and manage it after registration.

@@ -167,6 +167,29 @@ export function renderOfficeGroup(g, roles, color) {
     </div>`;
 }
 
+/**
+ * Compact pill row of real election dates for a state — primary/general
+ * election dates and candidate filing deadlines, synced from Vote Smart
+ * (see StateElectionDate::upcomingForState()). Shown at the very top of a
+ * panel since "when" is the most time-sensitive thing a voter needs.
+ */
+export function renderElectionDatesBanner(electionDates, color) {
+    if (!electionDates?.length) return '';
+
+    const pills = [];
+    for (const stage of electionDates) {
+        if (stage.election_date_formatted) {
+            pills.push(`<span style="font-size:11px;padding:3px 10px;border-radius:999px;background:${color}18;border:1px solid ${color}44;color:${color};font-weight:600;white-space:nowrap;">🗳️ ${escapeHtml(stage.stage_name)}: ${escapeHtml(stage.election_date_formatted)}</span>`);
+        }
+        if (stage.filing_deadline_formatted) {
+            pills.push(`<span style="font-size:11px;padding:3px 10px;border-radius:999px;background:rgba(148,163,184,0.1);border:1px solid rgba(148,163,184,0.3);color:#94a3b8;white-space:nowrap;">📋 ${escapeHtml(stage.stage_name)} filing deadline: ${escapeHtml(stage.filing_deadline_formatted)}</span>`);
+        }
+    }
+    if (!pills.length) return '';
+
+    return `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;">${pills.join('')}</div>`;
+}
+
 export function renderBallotMeasuresSection(ballotMeasures, color) {
     if (!ballotMeasures?.length) return '';
     let html = `<div style="border-top:1px solid ${color}20;margin:16px 0 14px;display:flex;align-items:center;gap:8px;">
@@ -273,7 +296,8 @@ export async function openStatePanel(stateName, regionName, region, districtCoun
                         </div>
                       </div>`,
     };
-    let html = DATA_BANNERS[apiStatus] ?? DATA_BANNERS.unreachable;
+    let html = renderElectionDatesBanner(data?.election_dates, color);
+    html += DATA_BANNERS[apiStatus] ?? DATA_BANNERS.unreachable;
 
     if (districtCount > 0) {
         const expected = DISTRICT_COUNTS[stateName] || districtCount;

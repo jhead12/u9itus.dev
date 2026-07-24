@@ -1071,6 +1071,19 @@ class PublicProfileController extends Controller
             }
         }
 
+        // Real primary/general election dates + candidate filing deadlines
+        // for this politician's state, synced from Vote Smart
+        // (php artisan elections:sync-dates). Cached per-state since the
+        // underlying data only changes on the monthly sync, same pattern as
+        // buildTransparencyData()'s 1h cache below.
+        $electionDates = $politician->state
+            ? \Illuminate\Support\Facades\Cache::remember(
+                "state_election_dates:{$politician->state}",
+                3600,
+                fn () => \App\Models\StateElectionDate::upcomingForState($politician->state)
+            )
+            : [];
+
         // Build Open Graph meta
         $ogTitle       = $politician->full_name . ' — ' . ($politician->political_office ?? 'Politician');
         $ogDescription = $politician->bio
@@ -1134,6 +1147,7 @@ class PublicProfileController extends Controller
             'endorsements',
             'meTokenData',
             'termInfo',
+            'electionDates',
             'ogTitle',
             'ogDescription',
             'ogImage',

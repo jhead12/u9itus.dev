@@ -124,6 +124,17 @@ trait ManagesVoterAuxiliaryActions
                 ->get();
         });
 
+        // Real primary/general election dates for the voter's state, synced
+        // from Vote Smart (php artisan elections:sync-dates). Same per-state
+        // cache pattern as $candidateNews above.
+        $electionDates = $voter->state
+            ? Cache::remember(
+                'voter-dashboard-election-dates-' . $voter->state,
+                now()->addHours(6),
+                fn () => \App\Models\StateElectionDate::upcomingForState($voter->state)
+            )
+            : [];
+
         return view('standalone.voter.dashboard', [
             'user'            => Auth::user(),
             'voter'           => $voter,
@@ -133,6 +144,7 @@ trait ManagesVoterAuxiliaryActions
             'recentSessions'  => $recentSessions,
             'activePromotions' => $activePromotions,
             'candidateNews'   => $candidateNews,
+            'electionDates'   => $electionDates,
             'needsAuthenticUserVerifierMigration' => $voter->needsAuthenticUserVerifierMigration(),
         ]);
     }

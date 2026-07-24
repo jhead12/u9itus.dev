@@ -2,9 +2,9 @@
  * Politician profile drawer — slide-in panel with overview/economy/contact tabs.
  */
 import { STATE_ABBR_MAP, PARTY_HEX, PARTY_LABEL } from '../config/constants.js';
-import { activeState } from '../state/map-state.js';
+import { activeState, stateData } from '../state/map-state.js';
 import { fmtPop } from '../config/city-data.js';
-import { partyClass } from './panel-state.js';
+import { partyClass, renderElectionDatesBanner } from './panel-state.js';
 import { trackEvent } from '../api/interaction.js';
 import { createFavoriteButton } from './boundary-favorite.js';
 
@@ -537,6 +537,7 @@ function _renderPolBody() {
             const repName = rep?.full_name ?? '—';
             const repOffice = district ? `${district} · U.S. House` : '—';
             polBodyEl.innerHTML = `
+                ${renderElectionDatesBanner(stateData?.election_dates, ac)}
                 <div class="pol-stat-grid">
                     <div class="pol-stat">
                         <span class="pol-stat-val" style="color:#f59e0b;">${fmtPop(cityPop)}</span>

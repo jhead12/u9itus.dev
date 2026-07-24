@@ -43,6 +43,21 @@
 
     @include('standalone.voter.partials.authentic-user-verifier-banner')
 
+    {{-- Upcoming election dates for the voter's registered state --}}
+    @if(!empty($electionDates))
+        <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl px-5 py-4 flex flex-wrap items-center gap-x-4 gap-y-1.5">
+            <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">🗳️ {{ $voter->state }} Elections</span>
+            @foreach($electionDates as $stage)
+                @if($stage['election_date_formatted'])
+                    <span class="text-sm text-emerald-400">{{ $stage['stage_name'] }}: {{ $stage['election_date_formatted'] }}</span>
+                @endif
+                @if($stage['filing_deadline_formatted'])
+                    <span class="text-sm text-slate-400">{{ $stage['stage_name'] }} filing deadline: {{ $stage['filing_deadline_formatted'] }}</span>
+                @endif
+            @endforeach
+        </div>
+    @endif
+
     {{-- Running Campaigns -- primary action shown first for better accessibility and task clarity --}}
     <div id="dash-section-campaigns" class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">

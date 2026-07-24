@@ -317,13 +317,106 @@ class VoteSmartService
 
     /**
      * Format issue key to readable title
-     * 
+     *
      * @param string $key
      * @return string
      */
     protected function formatIssueKey(string $key): string
     {
         return ucwords(str_replace('_', ' ', $key));
+    }
+
+    /**
+     * Get real election dates (primary, general, etc.) and candidate filing
+     * deadlines for a state/year, from Vote Smart's Election class. This is
+     * the source of truth for actual election dates — unlike the Ballotpedia
+     * scrapers, which stamp every candidate row with a hardcoded "-11-03"
+     * general-election guess and never capture primary dates at all.
+     *
+     * Note: "filing_deadline" is the CANDIDATE filing deadline (when someone
+     * must file to run), not a voter registration deadline — Vote Smart's
+     * Election class doesn't expose the latter.
+     *
+     * @param string $stateAbbr Two-letter state code (or 'NA' for national)
+     * @param int $year
+     * @return array<int, array{stage_name: string, election_date: ?string, filing_deadline: ?string, votesmart_election_id: ?string}>
+     */
+    public function getElectionDates(string $stateAbbr, int $year): array
+    {
+        if (!$this->isConfigured()) {
+            Log::warning('VoteSmartService: API key not configured');
+            return [];
+        }
+
+        $response = Http::timeout(10)->get("{$this->baseUrl}/Election.getElectionByYearState", [
+            'key' => $this->apiKey,
+            'year' => $year,
+            'stateId' => $stateAbbr,
+            'o' => 'JSON',
+        ]);
+
+        if (!$response->successful()) {
+            $this->logHttpFailure('get_election_dates', $response->status(), [
+                'state' => $stateAbbr,
+                'year' => $year,
+            ]);
+
+            return [];
+        }
+
+        $elections = $response->json('elections.election', []);
+
+        if (!is_array($elections)) {
+            return [];
+        }
+
+        // Single result isn't wrapped in an array — same XML→JSON quirk
+        // handled elsewhere in this file (getRatings(), getKeyVotes(), etc.).
+        if (isset($elections['electionId'])) {
+            $elections = [$elections];
+        }
+
+        $stages = [];
+        foreach ($elections as $election) {
+            $electionId = $election['electionId'] ?? null;
+            $stageList = $election['stage'] ?? [];
+
+            if (!is_array($stageList)) {
+                continue;
+            }
+            if (isset($stageList['stageId']) || isset($stageList['name'])) {
+                $stageList = [$stageList];
+            }
+
+            foreach ($stageList as $stage) {
+                $electionDate = $stage['electionDate'] ?? null;
+                $filingDeadline = $stage['filingDeadline'] ?? null;
+
+                if (!$electionDate && !$filingDeadline) {
+                    continue;
+                }
+
+                $stages[] = [
+                    'stage_name' => $stage['name'] ?? ($election['name'] ?? 'Election'),
+                    'election_date' => $electionDate ? $this->normalizeDate($electionDate) : null,
+                    'filing_deadline' => $filingDeadline ? $this->normalizeDate($filingDeadline) : null,
+                    'votesmart_election_id' => $electionId !== null ? (string) $electionId : null,
+                ];
+            }
+        }
+
+        return $stages;
+    }
+
+    /**
+     * Vote Smart dates are typically MM/DD/YYYY — normalize to Y-m-d for
+     * storage. Falls back to the raw string if parsing fails, so an
+     * unexpected format doesn't silently drop the row.
+     */
+    protected function normalizeDate(string $raw): ?string
+    {
+        $ts = strtotime($raw);
+        return $ts !== false ? date('Y-m-d', $ts) : null;
     }
 
     protected function logHttpFailure(string $operation, int $status, array $context = []): void

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Models\BallotMeasure;
 use App\Models\ElectionCandidateRecord;
 use App\Models\Politician;
+use App\Models\StateElectionDate;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -505,6 +506,13 @@ class MapStateCandidatesController
                 'source_url'     => $m->source_url,
             ]);
 
+        // ── 8. Upcoming election dates for this state ──────────────────────────
+        // Real primary/general dates + candidate filing deadlines, synced
+        // from Vote Smart (php artisan elections:sync-dates) — see
+        // StateElectionDate::upcomingForState() for the shared query used by
+        // the map, public profile, and voter dashboard alike.
+        $electionDates = StateElectionDate::upcomingForState($state);
+
         return [
             'state'              => $state,
             'region'             => $regionInfo['region'],
@@ -514,6 +522,7 @@ class MapStateCandidatesController
             'house_candidates'   => $houseCandidates,
             'city_officials'     => $cityOfficialsGrouped,
             'ballot_measures'    => $ballotMeasures->values()->all(),
+            'election_dates'     => $electionDates,
             'office_roles'       => $this->officeRoles(),
             'population'         => $statePopRow ? [
                 'total'       => $statePopRow->total_population,
