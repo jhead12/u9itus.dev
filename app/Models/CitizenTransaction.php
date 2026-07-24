@@ -42,6 +42,16 @@ class CitizenTransaction extends Model
         });
     }
 
+    /**
+     * Credit ledger entries that reference this Stripe transaction.
+     * Used to detect whether a payment has already been credited
+     * (billing:recover-stuck-citizen and finalizePaymentIntent idempotency).
+     */
+    public function credits(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(CitizenCredit::class, 'related_transaction_id');
+    }
+
     public function citizen(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(Citizen::class);

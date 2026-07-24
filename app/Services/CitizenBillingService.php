@@ -565,9 +565,19 @@ class CitizenBillingService
             }
         }
 
+        // A charge that succeeded in a different Stripe mode than the platform is
+        // currently configured for (e.g. a test-mode PaymentIntent succeeding while
+        // STRIPE_SECRET is a live key) collected no real money via the active key.
+        // Withhold credits rather than granting spendable balance for it.
+        $activeMode = $this->configuredPaymentModeFromConfig();
+        $modeMismatch = $status === 'succeeded'
+            && $resolvedPaymentMode !== 'unknown'
+            && $activeMode !== 'unknown'
+            && $resolvedPaymentMode !== $activeMode;
+
         $alreadyFinalized = false;
 
-        DB::transaction(function () use ($tx, $status, $chargeId, $amount, $resolvedPaymentMode, $resolvedLiveMode, &$alreadyFinalized) {
+        DB::transaction(function () use ($tx, $status, $chargeId, $amount, $resolvedPaymentMode, $resolvedLiveMode, $activeMode, $modeMismatch, &$alreadyFinalized) {
             // Re-fetch with an exclusive row lock so concurrent webhook / redirect-confirm
             // calls on the same PaymentIntent cannot both pass the pending-status guard.
             $fresh = CitizenTransaction::lockForUpdate()->find($tx->id);
@@ -581,17 +591,28 @@ class CitizenBillingService
             if ($chargeId) {
                 $fresh->stripe_charge_id = $chargeId;
             }
-            $fresh->metadata = array_merge($fresh->metadata ?? [], [
+            $metadataUpdates = [
                 'payment_mode'    => $resolvedPaymentMode,
                 'stripe_livemode' => $resolvedLiveMode,
-            ]);
+            ];
+            if ($modeMismatch) {
+                $metadataUpdates['payment_mode_mismatch'] = true;
+                $metadataUpdates['payment_mode_mismatch_note'] = "Succeeded in {$resolvedPaymentMode} mode while platform was configured for {$activeMode} mode; credits withheld pending manual review.";
+            }
+            $fresh->metadata = array_merge($fresh->metadata ?? [], $metadataUpdates);
             $fresh->save();
 
             // Sync mutations back to $tx so post-transaction code sees the right state.
             $tx->status   = $status;
             $tx->metadata = $fresh->metadata;
 
-            if ($status === 'succeeded') {
+            if ($status === 'succeeded' && $modeMismatch) {
+                Log::critical('Withholding credits: PaymentIntent succeeded with a payment_mode mismatch against the active platform mode', [
+                    'tx'            => $tx->id,
+                    'resolved_mode' => $resolvedPaymentMode,
+                    'active_mode'   => $activeMode,
+                ]);
+            } elseif ($status === 'succeeded') {
                 $citizen = $tx->citizen_id ? Citizen::find($tx->citizen_id) : null;
 
                 if ($citizen) {
@@ -627,9 +648,12 @@ class CitizenBillingService
             'payment_intent' => $paymentIntentId,
             'tx_id'          => $tx->id,
             'status'         => $status,
+            'mode_mismatch'  => $modeMismatch,
         ]);
 
-        if ($status === 'succeeded') {
+        // Send purchase receipt email (best-effort) after transaction commit.
+        // Skip it for a withheld mode-mismatch charge — no credits were granted.
+        if ($status === 'succeeded' && !$modeMismatch) {
             $this->sendCreditsPurchaseReceiptForTransaction($tx);
         }
 

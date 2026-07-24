@@ -57,23 +57,41 @@
                             ? (float) $tx->metadata['credits_amount']
                             : (float) $tx->amount;
 
-                        try {
-                            $summary = app(\App\Services\CitizenBillingService::class)
-                                ->getUnusedRefundSummary($tx);
-                            $refundable = $summary['refundable_credits_now'];
-                            $hasUnused = $refundable > 0;
-                        } catch (\Exception $e) {
+                        // A flagged row's ledger entry doesn't reflect a normal purchase
+                        // (credits withheld or excluded from analytics for a known reason),
+                        // so the refund-summary math isn't meaningful for it — surface the
+                        // flag instead of a possibly-misleading Unused/Refund figure.
+                        $flagReason = $tx->metadata['analytics_excluded_reason']
+                            ?? (($tx->metadata['payment_mode_mismatch'] ?? false) ? 'payment_mode_mismatch' : null);
+
+                        if ($flagReason) {
                             $refundable = 0;
                             $hasUnused = false;
+                        } else {
+                            try {
+                                $summary = app(\App\Services\CitizenBillingService::class)
+                                    ->getUnusedRefundSummary($tx);
+                                $refundable = $summary['refundable_credits_now'];
+                                $hasUnused = $refundable > 0;
+                            } catch (\Exception $e) {
+                                $refundable = 0;
+                                $hasUnused = false;
+                            }
                         }
                     @endphp
-                    <tr class="hover:bg-slate-700/20 transition">
+                    <tr class="hover:bg-slate-700/20 transition {{ $flagReason ? 'bg-red-500/5' : '' }}">
                         <td class="px-5 py-3">
                             @if($citizen)
                                 <div class="text-sm text-slate-200 font-medium">{{ $citizen->full_name }}</div>
                                 <div class="text-xs text-slate-500">{{ $citizen->user?->email }}</div>
                             @else
                                 <div class="text-sm text-slate-500">—</div>
+                            @endif
+                            @if($flagReason)
+                                <div class="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide bg-red-500/15 text-red-300 border border-red-500/30"
+                                    title="{{ $tx->metadata['payment_mode_mismatch_note'] ?? 'Excluded from analytics: ' . $flagReason }}">
+                                    ⚠ {{ str_replace('_', ' ', $flagReason) }}
+                                </div>
                             @endif
                         </td>
                         <td class="px-5 py-3 text-xs text-slate-400">
@@ -83,20 +101,26 @@
                             ${{ number_format($creditsAmount, 2) }}
                         </td>
                         <td class="px-5 py-3 text-right font-mono text-slate-400">
-                            @php
-                                $spent = 0;
-                                if ($citizen) {
-                                    $spent = \App\Models\CitizenCredit::where('citizen_id', $citizen->id)
-                                        ->where('transaction_type', 'debit_campaign_budget')
-                                        ->where('created_at', '>=', $tx->created_at)
-                                        ->sum('amount');
-                                    $spent = abs($spent);
-                                }
-                            @endphp
-                            ${{ number_format($spent, 2) }}
+                            @if($flagReason)
+                                <span class="text-slate-500">—</span>
+                            @else
+                                @php
+                                    $spent = 0;
+                                    if ($citizen) {
+                                        $spent = \App\Models\CitizenCredit::where('citizen_id', $citizen->id)
+                                            ->where('transaction_type', 'debit_campaign_budget')
+                                            ->where('created_at', '>=', $tx->created_at)
+                                            ->sum('amount');
+                                        $spent = abs($spent);
+                                    }
+                                @endphp
+                                ${{ number_format($spent, 2) }}
+                            @endif
                         </td>
                         <td class="px-5 py-3 text-right font-mono">
-                            @if($hasUnused)
+                            @if($flagReason)
+                                <span class="text-slate-500">—</span>
+                            @elseif($hasUnused)
                                 <span class="font-semibold text-amber-400">
                                     ${{ number_format($refundable, 2) }}
                                 </span>
@@ -105,7 +129,9 @@
                             @endif
                         </td>
                         <td class="px-5 py-3 text-center">
-                            @if($hasUnused)
+                            @if($flagReason)
+                                <span class="text-xs text-red-300">Needs review</span>
+                            @elseif($hasUnused)
                                 <button type="button"
                                     onclick="openRefundModal({{ $tx->id }}, '{{ $citizen?->full_name }}', {{ $creditsAmount }}, {{ $refundable }})"
                                     class="px-3 py-1 bg-amber-600 hover:bg-amber-500 text-white text-xs font-medium rounded transition">
