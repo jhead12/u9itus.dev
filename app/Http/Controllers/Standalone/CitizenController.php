@@ -6,6 +6,7 @@ use App\Enums\ApprovalStatus;
 use App\Enums\CampaignStatus;
 use App\Enums\CitizenAdType;
 use App\Http\Controllers\Concerns\HandlesCampaignVideoUpload;
+use App\Http\Controllers\Concerns\ResolvesPlayableCampaignMedia;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CreateCitizenCampaignRequest;
 use App\Http\Requests\UpdateCitizenCampaignRequest;
@@ -37,6 +38,7 @@ use Throwable;
 class CitizenController extends Controller
 {
     use HandlesCampaignVideoUpload;
+    use ResolvesPlayableCampaignMedia;
 
     public function __construct(protected CitizenBillingService $billing) {}
 
@@ -219,6 +221,10 @@ class CitizenController extends Controller
     {
         $this->authorizeOwnership($campaign);
 
+        if ($resolvedMediaUrl = $this->resolvePlayableCampaignMediaUrl($campaign)) {
+            $campaign->media_url = $resolvedMediaUrl;
+        }
+
         return view('standalone.citizen.campaigns.show', [
             'campaign' => $campaign,
         ]);
@@ -247,6 +253,10 @@ class CitizenController extends Controller
         $payout    = (float) ($campaign->voter_payout_per_view ?? 0.50);
 
         $audienceCheck = $this->citizenIsInTargetAudience($campaign, Auth::user()?->citizen);
+
+        if ($resolvedMediaUrl = $this->resolvePlayableCampaignMediaUrl($campaign)) {
+            $campaign->media_url = $resolvedMediaUrl;
+        }
 
         return view('standalone.citizen.campaigns.review', [
             'campaign'      => $campaign,

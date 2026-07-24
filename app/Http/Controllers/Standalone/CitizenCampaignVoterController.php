@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Standalone;
 
 use App\Enums\CampaignStatus;
 use App\Enums\ApprovalStatus;
+use App\Http\Controllers\Concerns\ResolvesPlayableCampaignMedia;
 use App\Http\Controllers\Controller;
 use App\Models\CitizenCampaign;
 use App\Models\Voter;
@@ -20,6 +21,8 @@ use Illuminate\Support\Facades\Auth;
  */
 class CitizenCampaignVoterController extends Controller
 {
+    use ResolvesPlayableCampaignMedia;
+
     public function __construct(
         protected CitizenViewService $viewService,
     ) {
@@ -49,6 +52,10 @@ class CitizenCampaignVoterController extends Controller
         $duration  = (int) ($campaign->media_duration ?? 0);
         $mustWatch = (int) ($campaign->min_watch_time_percent ?? config('u9itus.min_watch_time_percent', 80));
         $payout    = (float) ($campaign->voter_payout_per_view ?? 0.50);
+
+        if ($resolvedMediaUrl = $this->resolvePlayableCampaignMediaUrl($campaign)) {
+            $campaign->media_url = $resolvedMediaUrl;
+        }
 
         return view('standalone.voter.watch-citizen', compact(
             'campaign', 'voter', 'duration', 'mustWatch', 'payout'
