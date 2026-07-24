@@ -1955,8 +1955,15 @@ class AdminController extends Controller
             ->with('politician.user')
             ->latest();
 
-        // Apply payment mode filter
-        $query = $this->applyPaymentModeFilter($query, $activePaymentMode);
+        // Show transactions in the active payment mode, plus any transaction
+        // flagged for admin review (payment-mode mismatch or excluded from
+        // analytics) regardless of mode — those are exactly the rows that
+        // need investigation and shouldn't be silently filtered out.
+        $query->where(function ($modeQuery) use ($activePaymentMode) {
+            $modeQuery->where('metadata->payment_mode', $activePaymentMode)
+                ->orWhere('metadata->payment_mode_mismatch', true)
+                ->orWhereNotNull('metadata->analytics_excluded_reason');
+        });
 
         // Allow search by politician email or name
         if ($search = $request->get('search')) {
