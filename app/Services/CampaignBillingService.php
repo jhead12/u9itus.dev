@@ -542,10 +542,21 @@ class CampaignBillingService
         // a failed addCredits() cannot leave the transaction as 'succeeded'
         // with no credits applied (which would prevent any retry via the
         // idempotency guard above).
-        DB::transaction(function () use ($tx, $status, $chargeId, $amount, $resolvedPaymentMode, $resolvedLiveMode, $activeMode, $modeMismatch) {
-            $tx->status = $status;
+        $alreadyFinalized = false;
+
+        DB::transaction(function () use ($tx, $status, $chargeId, $amount, $resolvedPaymentMode, $resolvedLiveMode, $activeMode, $modeMismatch, &$alreadyFinalized) {
+            // Re-fetch with an exclusive row lock so concurrent webhook / redirect-confirm
+            // calls on the same PaymentIntent cannot both pass the pending-status guard.
+            $fresh = CampaignTransaction::lockForUpdate()->find($tx->id);
+            if (in_array($fresh->status, ['succeeded', 'failed', 'refunded'])) {
+                $alreadyFinalized = true;
+                $tx->status = $fresh->status;
+                return;
+            }
+
+            $fresh->status = $status;
             if ($chargeId) {
-                $tx->stripe_charge_id = $chargeId;
+                $fresh->stripe_charge_id = $chargeId;
             }
             $metadataUpdates = [
                 'payment_mode'    => $resolvedPaymentMode,
@@ -555,8 +566,12 @@ class CampaignBillingService
                 $metadataUpdates['payment_mode_mismatch'] = true;
                 $metadataUpdates['payment_mode_mismatch_note'] = "Succeeded in {$resolvedPaymentMode} mode while platform was configured for {$activeMode} mode; credits withheld pending manual review.";
             }
-            $tx->metadata = array_merge($tx->metadata ?? [], $metadataUpdates);
-            $tx->save();
+            $fresh->metadata = array_merge($fresh->metadata ?? [], $metadataUpdates);
+            $fresh->save();
+
+            // Sync mutations back to $tx so post-transaction code sees the right state.
+            $tx->status   = $status;
+            $tx->metadata = $fresh->metadata;
 
             // If succeeded, credit the politician's balance.
             // Use the stored credits_amount (net of Stripe fee) if available;
@@ -596,6 +611,11 @@ class CampaignBillingService
                 }
             }
         });
+
+        if ($alreadyFinalized) {
+            Log::info('Campaign transaction already finalized (concurrent request)', ['tx' => $tx->id, 'status' => $tx->status]);
+            return $tx;
+        }
 
         Log::info('Finalized PaymentIntent', ['payment_intent' => $paymentIntentId, 'tx_id' => $tx->id, 'status' => $status, 'mode_mismatch' => $modeMismatch]);
 

@@ -22,6 +22,7 @@ class Citizen extends Model
         'uuid',
         'full_name',
         'business_name',
+        'website_url',
         'state',
         'city',
         'address_line_1',
