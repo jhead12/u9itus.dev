@@ -84,19 +84,10 @@
                             ${{ number_format($creditsAmount, 2) }}
                         </td>
                         <td class="px-5 py-3 text-right font-mono text-slate-400">
-                            @php
-                                $spent = 0;
-                                if ($politician) {
-                                    // Sum usage charges for this politician
-                                    $spent = \App\Models\PoliticianCredit::where('politician_id', $politician->id)
-                                        ->where('transaction_type', 'usage')
-                                        ->where('created_at', '>=', $tx->created_at)
-                                        ->where('created_at', '<=', $tx->updated_at->addMonths(1)) // reasonable window
-                                        ->sum('amount');
-                                    $spent = abs($spent); // usage is negative
-                                }
-                            @endphp
-                            ${{ number_format(abs($spent), 2) }}
+                            {{-- Credits are pooled across purchases (no per-purchase-lot tracking), so
+                                 "spent" for one purchase row isn't independently observable. Derive it
+                                 from the same refund cap below so Spent + Unused always equals Amount. --}}
+                            ${{ number_format(max(0, $creditsAmount - $refundable), 2) }}
                         </td>
                         <td class="px-5 py-3 text-right font-mono">
                             @if($hasUnused)

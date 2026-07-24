@@ -288,6 +288,39 @@ test('finalizePaymentIntent is idempotent for already-succeeded transactions', f
     expect($count)->toBe(0);  // no credits added for already-succeeded tx
 });
 
+test('finalizePaymentIntent withholds credits when payment_mode mismatches the active platform mode', function () {
+    // Test env's STRIPE_SECRET resolves to 'test'; a charge that reports
+    // 'live' mode collected no real money via the active (test) key.
+    $politician = politicianWithBalance(0.00);
+    $svc        = makeBillingService();
+
+    $tx = CampaignTransaction::create([
+        'politician_id'            => $politician->id,
+        'transaction_type'         => 'charge',
+        'amount'                   => 100.00,
+        'currency'                 => 'USD',
+        'stripe_payment_intent_id' => 'pi_mode_mismatch',
+        'status'                   => 'pending',
+        'metadata'                 => [
+            'credits_amount'  => 100.00,
+            'payment_mode'    => 'live',
+            'stripe_livemode' => true,
+        ],
+    ]);
+
+    $result = $svc->finalizePaymentIntent('pi_mode_mismatch');
+
+    expect($result->status)->toBe('succeeded')
+        ->and($result->metadata['payment_mode_mismatch'] ?? null)->toBeTrue();
+
+    $credit = PoliticianCredit::where('politician_id', $politician->id)
+        ->where('transaction_type', 'purchase')
+        ->first();
+
+    expect($credit)->toBeNull();
+    expect((float) $politician->fresh()->credit_balance)->toBe(0.00);
+});
+
 test('getUnusedRefundSummary uses cents-accurate totals', function () {
     $politician = politicianWithBalance(0.00);
     $svc        = makeBillingService();
