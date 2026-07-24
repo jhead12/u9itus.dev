@@ -21,8 +21,30 @@
         <p class="text-slate-400 mt-1.5 text-sm">
             <span class="text-slate-500">Sponsored by</span>
             <span class="text-amber-400 font-medium">{{ $campaign->citizen->business_name ?? $campaign->citizen->full_name ?? 'Community Sponsor' }}</span>
+            @if(!empty($campaign->citizen->website_url))
+                <span class="text-slate-600">&middot;</span>
+                <a href="{{ $campaign->citizen->website_url }}" target="_blank" rel="noopener noreferrer nofollow" class="text-emerald-400 hover:text-emerald-300 underline">
+                    Visit site
+                </a>
+            @endif
         </p>
+        @if(!empty($campaign->citizen->bio))
+        <p class="text-slate-400 text-sm mt-3 leading-relaxed">{{ $campaign->citizen->bio }}</p>
+        @endif
     </div>
+
+    @if(!empty($campaign->video_blurb) || !empty($campaign->message_summary))
+    <div class="mb-5 p-4 bg-slate-800/45 border border-slate-700/60 rounded-2xl">
+        <p class="text-[11px] uppercase tracking-wide text-slate-500 mb-2">About This Video</p>
+        <div class="prose prose-invert prose-sm max-w-none text-slate-200 [&_a]:text-emerald-400 [&_a:hover]:text-emerald-300 [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-lg">
+            @if(!empty($campaign->video_blurb))
+                {!! $campaign->video_blurb !!}
+            @else
+                {{ $campaign->message_summary }}
+            @endif
+        </div>
+    </div>
+    @endif
 
     {{-- Earn Banner --}}
     <div class="bg-emerald-900/30 border border-emerald-500/25 rounded-2xl px-5 py-3.5 mb-5 flex items-center gap-3">
@@ -47,6 +69,14 @@
         $vimeoId  = null;
         $mediaUrl = $campaign->media_url ?? '';
         $mediaType = (string) ($campaign->media_type ?? 'youtube');
+        $isHlsUrl = preg_match('/\.m3u8(\?.*)?$/i', $mediaUrl) === 1;
+        $nativeSourceType = 'video/mp4';
+
+        if (preg_match('/\.(webm)(\?.*)?$/i', $mediaUrl)) {
+            $nativeSourceType = 'video/webm';
+        } elseif (preg_match('/\.(mov|qt)(\?.*)?$/i', $mediaUrl)) {
+            $nativeSourceType = 'video/quicktime';
+        }
 
         if (preg_match('/youtu\.be\/([a-zA-Z0-9_-]+)/', $mediaUrl, $_m))         { $videoId = $_m[1]; }
         elseif (preg_match('/[?&]v=([a-zA-Z0-9_-]+)/', $mediaUrl, $_m))         { $videoId = $_m[1]; }
@@ -58,6 +88,10 @@
             $playerMode = 'youtube';
         } elseif ($mediaType === 'vimeo' && ! empty($vimeoId)) {
             $playerMode = 'vimeo';
+        } elseif ($mediaType === 'hls_stream' && ! empty($mediaUrl)) {
+            $playerMode = 'hls';
+        } elseif ($isHlsUrl) {
+            $playerMode = 'hls';
         } elseif (! empty($videoId)) {
             $playerMode = 'youtube';
         } elseif (! empty($vimeoId)) {
@@ -81,8 +115,8 @@
                 preload="none"
                 oncontextmenu="return false;"
             >
-                @if($campaign->media_url)
-                    <source src="{{ $campaign->media_url }}" type="video/mp4">
+                @if($campaign->media_url && $playerMode !== 'hls')
+                    <source src="{{ $campaign->media_url }}" type="{{ $nativeSourceType }}">
                 @endif
                 Your browser does not support HTML5 video.
             </video>
@@ -136,8 +170,10 @@
     const playerMode  = '{{ $playerMode }}';
     const isYouTube   = playerMode === 'youtube';
     const isVimeo     = playerMode === 'vimeo';
+    const isHls       = playerMode === 'hls';
     const videoId     = '{{ $videoId ?? '' }}';
     const vimeoId     = '{{ $vimeoId ?? '' }}';
+    const mediaUrl    = @json($campaign->media_url ?? '');
 
     let completed = false;
     let ytPlayer  = null;
@@ -268,9 +304,51 @@
         });
     }
 
-    /* ── Native HTML5 video path ──────────────────────────────────── */
-    if (playerMode === 'native') {
+    /* ── HLS player helper ────────────────────────────────────────── */
+    function loadHlsApi() {
+        if (window.Hls) return Promise.resolve();
+        return new Promise((resolve, reject) => {
+            const existing = document.querySelector('script[data-hls-api="1"]');
+            if (existing) {
+                existing.addEventListener('load', () => resolve(), { once: true });
+                existing.addEventListener('error', () => reject(new Error('HLS API failed to load')), { once: true });
+                return;
+            }
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/hls.js@1.5.15/dist/hls.min.js';
+            script.setAttribute('data-hls-api', '1');
+            script.onload = () => resolve();
+            script.onerror = () => reject(new Error('HLS API failed to load'));
+            document.head.appendChild(script);
+        });
+    }
+
+    async function initHls(video) {
+        if (video.canPlayType('application/vnd.apple.mpegurl')) {
+            video.src = mediaUrl;
+            return;
+        }
+
+        await loadHlsApi();
+        if (!window.Hls || !window.Hls.isSupported()) {
+            showStatus('This browser cannot play this video stream.', 'error');
+            return;
+        }
+
+        const hlsPlayer = new window.Hls();
+        hlsPlayer.on(window.Hls.Events.ERROR, function (_event, data) {
+            if (data?.fatal) {
+                showStatus('Video stream interrupted. Please refresh and try again.', 'error');
+            }
+        });
+        hlsPlayer.loadSource(mediaUrl);
+        hlsPlayer.attachMedia(video);
+    }
+
+    /* ── Native HTML5 / HLS video path ────────────────────────────── */
+    if (playerMode === 'native' || isHls) {
         const video = document.getElementById('ad-video');
+        let hlsReady = false;
 
         video.addEventListener('seeking', function () {
             if (!completed && lastTime > 0 && Math.abs(this.currentTime - lastTime) > 1.5) {
@@ -293,9 +371,15 @@
 
         video.addEventListener('ended', () => handleCompletion(video.currentTime || 0));
 
-        overlay.addEventListener('click', () => {
+        overlay.addEventListener('click', async () => {
             overlay.style.display = 'none';
             document.getElementById('control-blocker').classList.remove('hidden');
+
+            if (isHls && !hlsReady) {
+                hlsReady = true;
+                await initHls(video).catch(() => showStatus('Could not load video stream.', 'error'));
+            }
+
             video.play();
         });
     }
