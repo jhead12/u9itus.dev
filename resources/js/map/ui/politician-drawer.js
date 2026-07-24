@@ -557,7 +557,10 @@ function _renderPolBody() {
                 </div>
                 ${rep ? `
                 <p class="pol-section-label" style="margin-top:16px;">District Representative</p>
-                <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:rgba(255,255,255,0.04);border-radius:10px;border:1px solid rgba(255,255,255,0.06);">
+                <div id="pol-district-rep-card" style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:rgba(255,255,255,0.04);border-radius:10px;border:1px solid rgba(255,255,255,0.06);cursor:pointer;"
+                    title="View ${escapeHtml(rep.full_name || 'representative')}'s profile"
+                    role="button" tabindex="0"
+                    onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
                     ${rep.photo
                         ? `<img src="${rep.photo}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;border:2px solid ${PARTY_HEX[rep.party] || '#334155'};flex-shrink:0;" onerror="this.style.display='none'">`
                         : `<div style="width:40px;height:40px;border-radius:50%;background:rgba(99,102,241,0.15);display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;">${window.avatarInitials(rep.full_name, '#6366f1', 40)}</div>`}
@@ -567,6 +570,15 @@ function _renderPolBody() {
                         <span class="party-pill ${partyClass(rep.party)}" style="margin-top:5px;display:inline-block;">${PARTY_LABEL[rep.party] || rep.party || '—'}</span>
                     </div>
                 </div>` : ''}`;
+
+            if (rep) {
+                document.getElementById('pol-district-rep-card')?.addEventListener('click', () => {
+                    openPolDrawer(
+                        { ...rep, office: repOffice },
+                        PARTY_HEX[rep.party] || '#6366f1'
+                    );
+                });
+            }
             return;
         }
 
