@@ -18,6 +18,7 @@ let _polCtx = null;
 let _overviewReqSeq = 0;
 let _economyReqSeq = 0;
 let _momentsReqSeq = 0;
+let _censusReqSeq = 0;
 
 function escapeHtml(value) {
     return String(value ?? '')
@@ -235,6 +236,58 @@ async function loadMomentsEnrichment(cand) {
             if (_polTab === 'moments') _renderPolBody();
         }
     }
+}
+
+const CENSUS_FETCH_TIMEOUT_MS = 8_000;
+
+/** City view's Economy tab — most recent Census ACS demographics for the selected city. */
+async function loadCensusEnrichment(cityName) {
+    const reqSeq = ++_censusReqSeq;
+    const stateAbbr = activeState ? STATE_ABBR_MAP[activeState] : null;
+
+    if (!stateAbbr || !cityName) return;
+
+    if (_polCtx) {
+        _polCtx.extra = { ..._polCtx.extra, censusLoading: true, censusError: false };
+        if (_polTab === 'economy') _renderPolBody();
+    }
+
+    const params = new URLSearchParams({ state: stateAbbr, city: cityName });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), CENSUS_FETCH_TIMEOUT_MS);
+
+    try {
+        const res = await fetch(`/api/v1/map/city-census?${params.toString()}`, {
+            signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (!_polCtx || reqSeq !== _censusReqSeq) return;
+        _polCtx.extra = { ..._polCtx.extra, census: data, censusLoading: false, censusError: false };
+        if (_polTab === 'economy') _renderPolBody();
+    } catch (err) {
+        clearTimeout(timeoutId);
+        if (err?.name === 'AbortError') {
+            console.warn('[map] city-census fetch timed out; economy tab will show an error state');
+        } else {
+            console.warn('[map] city-census fetch failed:', err);
+        }
+        if (_polCtx && reqSeq === _censusReqSeq) {
+            _polCtx.extra = { ..._polCtx.extra, censusLoading: false, censusError: true };
+            if (_polTab === 'economy') _renderPolBody();
+        }
+    }
+}
+
+function fmtMoney(n) {
+    if (n === null || n === undefined) return '—';
+    return '$' + Number(n).toLocaleString('en-US');
+}
+
+function fmtPct(n) {
+    if (n === null || n === undefined) return '—';
+    return Number(n).toFixed(1) + '%';
 }
 
 /** Lazy-loaded video card — shared markup for each viral-moment clip. */
@@ -616,9 +669,59 @@ function _renderPolBody() {
 
     } else if (_polTab === 'economy') {
         if (extra?.isCityView) {
+            const census = extra?.census || null;
+            const isLoadingCensus = !!extra?.censusLoading && !census;
+            const hasCensusError = !!extra?.censusError && !census;
+
+            if (isLoadingCensus) {
+                polBodyEl.innerHTML = `
+                    <p class="pol-section-label">Economy</p>
+                    <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:8px;border:1px solid rgba(99,102,241,0.15);background:rgba(99,102,241,0.06);">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="animation:spin 1s linear infinite;color:#6366f1;">
+                            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-dasharray="31.4" stroke-dashoffset="10" stroke-linecap="round"/>
+                        </svg>
+                        <span style="font-size:11px;color:#94a3b8;">Loading census data…</span>
+                    </div>`;
+                return;
+            }
+
+            if (hasCensusError) {
+                polBodyEl.innerHTML = `
+                    <p class="pol-section-label">Economy</p>
+                    <div style="padding:10px 12px;border-radius:8px;border:1px solid rgba(239,68,68,0.2);background:rgba(239,68,68,0.06);">
+                        <span style="font-size:11px;color:#f87171;">⚠ Census data unavailable right now.</span>
+                    </div>`;
+                return;
+            }
+
+            if (!census || !census.has_data) {
+                polBodyEl.innerHTML = `
+                    <p class="pol-section-label">Economy</p>
+                    <p class="pol-empty">Census data for this city hasn't been synced yet — a data refresh has been queued automatically. Check back after the next sync run.</p>`;
+                return;
+            }
+
             polBodyEl.innerHTML = `
                 <p class="pol-section-label">Economy</p>
-                <p class="pol-empty">Campaign finance data is shown for individual candidates — select a specific representative to view it.</p>`;
+                <div class="pol-stat-grid">
+                    <div class="pol-stat">
+                        <span class="pol-stat-val">${fmtPop(census.population)}</span>
+                        <span class="pol-stat-lbl">Population</span>
+                    </div>
+                    <div class="pol-stat">
+                        <span class="pol-stat-val">${fmtPct(census.poverty_rate)}</span>
+                        <span class="pol-stat-lbl">Poverty Rate</span>
+                    </div>
+                    <div class="pol-stat">
+                        <span class="pol-stat-val">${fmtPct(census.pct_bachelors_or_higher)}</span>
+                        <span class="pol-stat-lbl">Bachelor's+</span>
+                    </div>
+                    <div class="pol-stat">
+                        <span class="pol-stat-val">${fmtMoney(census.median_household_income)}</span>
+                        <span class="pol-stat-lbl">Median Household Income</span>
+                    </div>
+                </div>
+                ${census.census_year ? `<p style="font-size:10px;color:#475569;margin:16px 0 0;">${escapeHtml(String(census.census_year))} Census ACS 5-year estimates</p>` : ''}`;
             return;
         }
 
@@ -797,6 +900,12 @@ export function initPolDrawer() {
             if (_polTab === 'economy' && _polCtx && !_polCtx.extra?.isCityView
                 && !_polCtx.extra?.economy && !_polCtx.extra?.economyLoading) {
                 loadEconomyEnrichment(_polCtx.cand);
+            }
+            // City view's Economy tab shows census data instead — fetched
+            // lazily the same way.
+            if (_polTab === 'economy' && _polCtx && _polCtx.extra?.isCityView
+                && !_polCtx.extra?.census && !_polCtx.extra?.censusLoading) {
+                loadCensusEnrichment(_polCtx.extra?.cityName);
             }
             // Moments data is likewise fetched lazily, once, on first tab open.
             if (_polTab === 'moments' && _polCtx && !_polCtx.extra?.isCityView

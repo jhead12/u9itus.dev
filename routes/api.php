@@ -24,6 +24,7 @@ use App\Http\Controllers\Api\MapInteractionController;
 use App\Http\Controllers\Api\MapCandidateEconomyController;
 use App\Http\Controllers\Api\MapCandidateMomentsController;
 use App\Http\Controllers\Api\MapCandidateOverviewController;
+use App\Http\Controllers\Api\MapCityCensusController;
 use App\Http\Controllers\Api\MapRegionDemographicsController;
 use App\Http\Controllers\Api\MapStateCandidatesController;
 use App\Http\Controllers\Api\MapPoliticianSearchController;
@@ -105,6 +106,12 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         // income) for the states within a region.
         Route::get('/map/region-demographics', MapRegionDemographicsController::class)
             ->name('map.region-demographics');
+
+        // Single-city Census ACS demographics — powers the politician
+        // drawer's city view (Economy tab). Dispatches a census-sync
+        // workflow run when the requested city has no data yet.
+        Route::get('/map/city-census', MapCityCensusController::class)
+            ->name('map.city-census');
 
         Route::get('/map/candidate-overview', MapCandidateOverviewController::class)
             ->name('map.candidate-overview');
