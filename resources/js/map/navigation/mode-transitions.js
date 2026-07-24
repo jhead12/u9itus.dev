@@ -99,6 +99,14 @@ export function enterRegionMode(regionName, region) {
 export async function enterStateMode(stateName, regionName, region) {
     const requestId = nextRequestId();
     setMapMode('state'); setActiveRegion(regionName); setActiveState(stateName); setSelectedState(stateName);
+    // Update the breadcrumb immediately, not just at the end of this function.
+    // Everything below this point is a chain of awaited network calls
+    // (district overlay, candidate data, openStatePanel) with no surrounding
+    // try/catch — if any of them throws, the function aborts silently and
+    // the trailing updateBreadcrumb() call at the bottom never runs, leaving
+    // the breadcrumb stuck on whatever it showed before this navigation even
+    // though the mode/region/state were already committed above.
+    updateBreadcrumb();
 
     // Undo the region panel's relabel/force-open of the offices toggle (see
     // panel-region.js::openRegionPanel) and reapply the user's actual
