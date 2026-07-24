@@ -783,9 +783,16 @@ function _renderPolBody() {
 
     } else if (_polTab === 'moments') {
         if (extra?.isCityView) {
+            const cityName = extra.cityName || c.full_name || '';
+            const stateAbbr = activeState ? STATE_ABBR_MAP[activeState] : null;
+            const searchQuery = `10 things to do in ${cityName}${stateAbbr ? ', ' + stateAbbr : ''}`;
+            const ytUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(searchQuery)}`;
             polBodyEl.innerHTML = `
                 <p class="pol-section-label">Videos</p>
-                <p class="pol-empty">Viral moments are shown for individual candidates — select a specific representative to view them.</p>`;
+                <p class="pol-empty">Viral moments are shown for individual candidates — select a specific representative to view them.</p>
+                <div class="pol-link-row" style="margin-top:12px;">
+                    <a href="${ytUrl}" target="_blank" rel="noopener" class="pol-link pol-link-primary">▶ 10 Things to Do in ${escapeHtml(cityName)}</a>
+                </div>`;
             return;
         }
 
