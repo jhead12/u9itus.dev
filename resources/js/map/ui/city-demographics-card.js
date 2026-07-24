@@ -24,6 +24,18 @@ export function fmtPct(n) {
     return Number(n).toFixed(1) + '%';
 }
 
+/** Fetches all tracked cities for a single state, via the region-demographics endpoint. */
+export async function fetchCitiesForState(regionName, stateAbbr) {
+    let data = null;
+    try {
+        const res = await fetch(`/api/v1/map/region-demographics?region=${encodeURIComponent(regionName)}`);
+        if (res.ok) data = await res.json();
+    } catch (err) {
+        console.warn('[map] region-demographics fetch failed:', err);
+    }
+    return data?.states?.find(s => s.state === stateAbbr)?.cities ?? [];
+}
+
 export function renderCityCard(city, state, color) {
     const hasDistrict = !!city.district_number;
     const cursor = hasDistrict ? 'cursor:pointer;' : '';

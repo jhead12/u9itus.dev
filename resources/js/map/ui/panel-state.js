@@ -7,7 +7,7 @@ import { openDistrictPanel } from './panel-district.js';
 import { openPolDrawer } from './politician-drawer.js';
 import { fmtPop } from '../config/city-data.js';
 import { trackEvent } from '../api/interaction.js';
-import { renderCityCard, wireCityCardClicks } from './city-demographics-card.js';
+import { renderCityCard, wireCityCardClicks, fetchCitiesForState } from './city-demographics-card.js';
 
 export const OFFICE_DEFAULT_OPEN = new Set([
     'Governor', 'Lieutenant Governor', 'Attorney General',
@@ -167,6 +167,66 @@ export function renderOfficeGroup(g, roles, color) {
     </div>`;
 }
 
+export function renderBallotMeasuresSection(ballotMeasures, color) {
+    if (!ballotMeasures?.length) return '';
+    let html = `<div style="border-top:1px solid ${color}20;margin:16px 0 14px;display:flex;align-items:center;gap:8px;">
+        <span style="color:${color};font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;white-space:nowrap;">🗳️ Ballot Measures</span>
+        <div style="flex:1;border-top:1px solid ${color}20;"></div>
+    </div>`;
+    for (const m of ballotMeasures) {
+        const label = [m.measure_number, m.title].filter(Boolean).join(' — ');
+        const dateLine = m.election_date
+            ? `<p style="color:#64748b;font-size:10px;margin:2px 0 0;">${escapeHtml(new Date(m.election_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }))}</p>`
+            : '';
+        const summaryLine = m.summary
+            ? `<p style="color:#94a3b8;font-size:11px;line-height:1.5;margin:4px 0 0;">${escapeHtml(m.summary)}</p>`
+            : '';
+        html += `<div style="margin-bottom:10px;padding:8px 10px;border-radius:8px;border:1px solid rgba(148,163,184,0.2);background:rgba(15,23,42,0.5);">
+            <p style="color:#e2e8f0;font-size:12px;font-weight:600;margin:0;">${escapeHtml(label || 'Ballot Measure')}</p>
+            ${dateLine}
+            ${summaryLine}
+        </div>`;
+    }
+    return html;
+}
+
+/**
+ * @param {Object} cityOfficials keyed by city name -> array of officials
+ * @param {Set<string>|null} filterCities restrict to these city names, or null for all
+ */
+export function renderCityOfficialsSection(cityOfficials, color, filterCities = null, label = '🏙 City Officials') {
+    const cityEntries = Object.entries(cityOfficials ?? {})
+        .filter(([city]) => !filterCities || filterCities.has(city));
+    if (!cityEntries.length) return '';
+
+    let html = `<div style="border-top:1px solid ${color}20;margin:16px 0 14px;display:flex;align-items:center;gap:8px;">
+        <span style="color:${color};font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;white-space:nowrap;">${label}</span>
+        <div style="flex:1;border-top:1px solid ${color}20;"></div>
+    </div>`;
+    for (const [city, officials] of cityEntries) {
+        html += `<div style="margin-bottom:14px;">
+            <p style="color:#94a3b8;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin:0 0 6px;"
+               title="City of ${city}">${city}</p>`;
+        for (const o of officials) {
+            const officeTitle = o.political_office || 'Mayor';
+            const roleDesc = CITY_OFFICE_ROLES[officeTitle] || null;
+            const elDateCity = o.election_date || null;
+            if (roleDesc) {
+                html += `<p class="office-role-tip" style="margin-bottom:6px;">${roleDesc}</p>`;
+            }
+            html += renderCandidate({
+                full_name: o.full_name, party: o.party, status: o.status || 'seated',
+                is_running: false, verified: o.verified || false, photo: o.photo || null,
+                slug: o.slug || null, profile_url: o.profile_url || null,
+                ballotpedia_url: o.ballotpedia_url || null, website: o.website || null,
+                bio: o.bio_excerpt || null, office: officeTitle, general_date: elDateCity,
+            }, color);
+        }
+        html += '</div>';
+    }
+    return html;
+}
+
 export function noDataNotice(msg) {
     return `<div style="display:flex;align-items:center;gap:8px;background:#1e293b;border:1px solid #334155;border-radius:8px;padding:10px 12px;margin-bottom:12px;">
         <span style="font-size:16px;">📭</span>
@@ -176,15 +236,7 @@ export function noDataNotice(msg) {
 
 /** Renders the "Cities & Economy" section for a state, reusing the region panel's per-city Census data. */
 async function fetchStateCitiesEconomy(stateAbbr, regionName, color) {
-    let data = null;
-    try {
-        const res = await fetch(`/api/v1/map/region-demographics?region=${encodeURIComponent(regionName)}`);
-        if (res.ok) data = await res.json();
-    } catch (err) {
-        console.warn('[map] state cities economy fetch failed:', err);
-    }
-
-    const cities = data?.states?.find(s => s.state === stateAbbr)?.cities ?? [];
+    const cities = await fetchCitiesForState(regionName, stateAbbr);
     if (!cities.length) return '';
 
     return `<div id="state-cities-econ">
@@ -238,61 +290,13 @@ export async function openStatePanel(stateName, regionName, region, districtCoun
 
     html += `<div id="state-cities-econ"></div>`;
 
-    const ballotMeasures = data?.ballot_measures ?? [];
-    if (ballotMeasures.length > 0) {
-        html += `<div style="border-top:1px solid ${color}20;margin:16px 0 14px;display:flex;align-items:center;gap:8px;">
-            <span style="color:${color};font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;white-space:nowrap;">🗳️ Ballot Measures</span>
-            <div style="flex:1;border-top:1px solid ${color}20;"></div>
-        </div>`;
-        for (const m of ballotMeasures) {
-            const label = [m.measure_number, m.title].filter(Boolean).join(' — ');
-            const dateLine = m.election_date
-                ? `<p style="color:#64748b;font-size:10px;margin:2px 0 0;">${escapeHtml(new Date(m.election_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }))}</p>`
-                : '';
-            const summaryLine = m.summary
-                ? `<p style="color:#94a3b8;font-size:11px;line-height:1.5;margin:4px 0 0;">${escapeHtml(m.summary)}</p>`
-                : '';
-            html += `<div style="margin-bottom:10px;padding:8px 10px;border-radius:8px;border:1px solid rgba(148,163,184,0.2);background:rgba(15,23,42,0.5);">
-                <p style="color:#e2e8f0;font-size:12px;font-weight:600;margin:0;">${escapeHtml(label || 'Ballot Measure')}</p>
-                ${dateLine}
-                ${summaryLine}
-            </div>`;
-        }
-    }
+    html += renderBallotMeasuresSection(data?.ballot_measures ?? [], color);
 
     html += offices.length
         ? offices.map(g => renderOfficeGroup(g, OFFICE_ROLES, color)).join('')
         : noDataNotice('Statewide candidate records for this state are not yet available. Check back after the next weekly sync.');
 
-    const cityOfficials = data?.city_officials ?? {};
-    const cityEntries = Object.entries(cityOfficials);
-    if (cityEntries.length > 0) {
-        html += `<div style="border-top:1px solid ${color}20;margin:16px 0 14px;display:flex;align-items:center;gap:8px;">
-            <span style="color:${color};font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;white-space:nowrap;">🏙 City Officials</span>
-            <div style="flex:1;border-top:1px solid ${color}20;"></div>
-        </div>`;
-        for (const [city, officials] of cityEntries) {
-            html += `<div style="margin-bottom:14px;">
-                <p style="color:#94a3b8;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin:0 0 6px;"
-                   title="City of ${city}">${city}</p>`;
-            for (const o of officials) {
-                const officeTitle = o.political_office || 'Mayor';
-                const roleDesc = CITY_OFFICE_ROLES[officeTitle] || null;
-                const elDateCity = o.election_date || null;
-                if (roleDesc) {
-                    html += `<p class="office-role-tip" style="margin-bottom:6px;">${roleDesc}</p>`;
-                }
-                html += renderCandidate({
-                    full_name: o.full_name, party: o.party, status: o.status || 'seated',
-                    is_running: false, verified: o.verified || false, photo: o.photo || null,
-                    slug: o.slug || null, profile_url: o.profile_url || null,
-                    ballotpedia_url: o.ballotpedia_url || null, website: o.website || null,
-                    bio: o.bio_excerpt || null, office: officeTitle, general_date: elDateCity,
-                }, color);
-            }
-            html += '</div>';
-        }
-    }
+    html += renderCityOfficialsSection(data?.city_officials, color);
 
     candEl.innerHTML = html;
 

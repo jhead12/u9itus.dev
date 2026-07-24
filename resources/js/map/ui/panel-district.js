@@ -5,9 +5,30 @@ import { STATE_ABBR_MAP, PARTY_HEX, PARTY_LABEL, OFFICE_ROLES } from '../config/
 import { stateData, statePanelRequestId, mapMode, activeRegion, activeState } from '../state/map-state.js';
 import { districtMeshes } from '../scene/district-overlay.js';
 import { openInfoPanel } from './info-panel.js';
-import { renderCandidate, renderOfficeGroup, partyClass, detectElectionPhase, noDataNotice } from './panel-state.js';
+import { renderCandidate, renderOfficeGroup, partyClass, detectElectionPhase, noDataNotice, renderBallotMeasuresSection, renderCityOfficialsSection } from './panel-state.js';
 import { openPolDrawer } from './politician-drawer.js';
 import { createFavoriteButton } from './boundary-favorite.js';
+import { renderCityCard, fetchCitiesForState, wireCityCardClicks } from './city-demographics-card.js';
+
+/** Renders the "Cities in this District" section — economy cards plus local (city) representatives, scoped to this district only. */
+async function fetchDistrictCitiesSection(regionName, stateAbbr, houseKey, color, cityOfficials) {
+    const cities = await fetchCitiesForState(regionName, stateAbbr);
+    const districtCities = cities.filter(c => c.district_code === houseKey);
+    if (!districtCities.length) return '';
+
+    const cityNames = new Set(districtCities.map(c => c.city));
+    const econHtml = districtCities.map(c => renderCityCard(c, stateAbbr, color)).join('');
+    const officialsHtml = renderCityOfficialsSection(cityOfficials, color, cityNames, '👤 Local Representatives');
+
+    return `<div id="dist-cities-econ">
+        <div style="border-top:1px solid ${color}20;margin:16px 0 14px;display:flex;align-items:center;gap:8px;">
+            <span style="color:${color};font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;white-space:nowrap;">🏙 Cities in this District</span>
+            <div style="flex:1;border-top:1px solid ${color}20;"></div>
+        </div>
+        ${econHtml}
+        ${officialsHtml}
+    </div>`;
+}
 
 export async function openDistrictPanel(districtNum, districtLabel, stateName, regionHex, party = 'U') {
     const color = PARTY_HEX[party] || regionHex || '#6366f1';
@@ -112,6 +133,10 @@ export async function openDistrictPanel(districtNum, districtLabel, stateName, r
         ${houseHtml}
     </div>
 
+    ${renderBallotMeasuresSection(stateData?.ballot_measures ?? [], color)}
+
+    <div id="dist-cities-econ"></div>
+
     <div style="border-top:1px solid ${color}20;margin:16px 0 14px;display:flex;align-items:center;gap:8px;">
         <span style="color:${color};font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;white-space:nowrap;">Statewide Races — ${stateName}</span>
         <div style="flex:1;border-top:1px solid ${color}20;"></div>
@@ -120,6 +145,19 @@ export async function openDistrictPanel(districtNum, districtLabel, stateName, r
 
     // Star toggle: save this district as a boundary (voter) / sign-in nudge (guest).
     mountDistrictFav(stateName, _stateAbbr, districtNum, districtLabel);
+
+    // Cities within this district + their local officials — fetched async
+    // (region-demographics) so it doesn't block the rest of the panel.
+    if (activeRegion && _stateAbbr) {
+        const reqId = statePanelRequestId;
+        fetchDistrictCitiesSection(activeRegion, _stateAbbr, houseKey, color, stateData?.city_officials).then(sectionHtml => {
+            if (reqId !== statePanelRequestId || !sectionHtml) return;
+            const placeholder = document.getElementById('dist-cities-econ');
+            if (!placeholder) return;
+            placeholder.outerHTML = sectionHtml;
+            wireCityCardClicks(candEl);
+        });
+    }
 }
 
 /**
