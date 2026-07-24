@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Politician;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -46,8 +47,13 @@ class FECService
     protected static bool $shortCircuited = false;
 
     protected const MIN_REQUEST_INTERVAL_MS = 120;      // spaces calls under FEC's per-second ceiling
-    protected const MAX_BACKOFF_ATTEMPTS = 3;           // 429/5xx: initial + up to 2 retries
+    protected const MAX_BACKOFF_ATTEMPTS = 3;           // 429/5xx/timeout: initial + up to 2 retries
     protected const RATE_LIMIT_SHORT_CIRCUIT_THRESHOLD = 5; // consecutive 429s → stop hitting FEC
+    // schedule_a/schedule_e (itemized contributions/outside spending) are FEC's
+    // slowest endpoints — production logs showed routine "cURL error 28: timed
+    // out after 10002ms" on these two specifically, silently dropping
+    // contributor/outside-spending data. 10s was too tight for them.
+    protected const REQUEST_TIMEOUT_SECONDS = 20;
 
     public function __construct()
     {
@@ -110,7 +116,19 @@ class FECService
         while (true) {
             $attempt++;
             try {
-                $response = Http::timeout(10)->get($url, $params);
+                $response = Http::timeout(self::REQUEST_TIMEOUT_SECONDS)->get($url, $params);
+            } catch (ConnectionException $e) {
+                // Timeouts/connection drops previously fell through to the
+                // generic catch below and gave up on the first attempt — no
+                // retry at all, unlike 429/5xx. Give slow endpoints the same
+                // backoff-and-retry budget instead of silently losing data.
+                if ($attempt < self::MAX_BACKOFF_ATTEMPTS) {
+                    $this->sleepMicroseconds((int) ($this->backoffSeconds(null, $attempt) * 1_000_000));
+                    $this->throttle();
+                    continue;
+                }
+                $this->logProviderException($operation, $e, array_merge($context, ['attempt' => $attempt]));
+                return null;
             } catch (\Throwable $e) {
                 $this->logProviderException($operation, $e, $context);
                 return null;
@@ -176,13 +194,15 @@ class FECService
     /**
      * Seconds to wait before a retry. Prefer the server's Retry-After header
      * (capped, so a hostile value can't stall the run), else exponential 1/2/4s.
+     * $response is null for connection/timeout failures, which have no
+     * headers to read — those always fall through to the exponential default.
      *
-     * @param \Illuminate\Http\Client\Response $response
+     * @param \Illuminate\Http\Client\Response|null $response
      * @param int $attempt  1-based attempt that just failed
      */
     protected function backoffSeconds($response, int $attempt): float
     {
-        $retryAfter = $response->header('Retry-After');
+        $retryAfter = $response?->header('Retry-After');
         if (is_numeric($retryAfter) && (float) $retryAfter > 0) {
             return min((float) $retryAfter, 30.0);
         }

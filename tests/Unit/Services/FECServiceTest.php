@@ -115,6 +115,38 @@ it('retries on 429 then succeeds and returns results', function () {
     expect(FECService::getRateLimitCount())->toBe(1);
 });
 
+it('retries on a connection timeout then succeeds and returns results', function () {
+    config(['services.fec.api_key' => 'DEMO_KEY']);
+
+    // Production logs showed schedule_a/schedule_e routinely hitting cURL
+    // error 28 (timeout) — previously the request() helper had no retry path
+    // for connection failures at all, unlike 429/5xx, and gave up instantly.
+    Http::fake([
+        'api.open.fec.gov/v1/candidate/H8CA32123/*' => Http::sequence()
+            ->pushFailedConnection('cURL error 28: Operation timed out')
+            ->push(['results' => [['cycles' => [2022, 2024]]]], 200),
+    ]);
+
+    $service = fecServiceNoSleep();
+
+    $cycle = $service->getLatestCycle('H8CA32123');
+
+    expect($cycle)->toBe(2024);
+    expect(FECService::getHttpCallCount())->toBe(1); // only the successful attempt counts as a completed HTTP call
+});
+
+it('gives up on a connection timeout after exhausting retries', function () {
+    config(['services.fec.api_key' => 'DEMO_KEY']);
+
+    Http::fake([
+        'api.open.fec.gov/v1/candidate/H8CA32123/*' => Http::failedConnection('cURL error 28: Operation timed out'),
+    ]);
+
+    $service = fecServiceNoSleep();
+
+    expect($service->getLatestCycle('H8CA32123'))->toBeNull();
+});
+
 it('short-circuits after a storm of consecutive 429s and stops hitting the API', function () {
     config(['services.fec.api_key' => 'DEMO_KEY']);
 
