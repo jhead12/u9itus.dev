@@ -7,6 +7,7 @@ import { openDistrictPanel } from './panel-district.js';
 import { openPolDrawer } from './politician-drawer.js';
 import { fmtPop } from '../config/city-data.js';
 import { trackEvent } from '../api/interaction.js';
+import { renderCityCard, wireCityCardClicks } from './city-demographics-card.js';
 
 export const OFFICE_DEFAULT_OPEN = new Set([
     'Governor', 'Lieutenant Governor', 'Attorney General',
@@ -173,6 +174,28 @@ export function noDataNotice(msg) {
     </div>`;
 }
 
+/** Renders the "Cities & Economy" section for a state, reusing the region panel's per-city Census data. */
+async function fetchStateCitiesEconomy(stateAbbr, regionName, color) {
+    let data = null;
+    try {
+        const res = await fetch(`/api/v1/map/region-demographics?region=${encodeURIComponent(regionName)}`);
+        if (res.ok) data = await res.json();
+    } catch (err) {
+        console.warn('[map] state cities economy fetch failed:', err);
+    }
+
+    const cities = data?.states?.find(s => s.state === stateAbbr)?.cities ?? [];
+    if (!cities.length) return '';
+
+    return `<div id="state-cities-econ">
+        <div style="border-top:1px solid ${color}20;margin:16px 0 14px;display:flex;align-items:center;gap:8px;">
+            <span style="color:${color};font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;white-space:nowrap;">🏙 Cities &amp; Economy</span>
+            <div style="flex:1;border-top:1px solid ${color}20;"></div>
+        </div>
+        ${cities.map(c => renderCityCard(c, stateAbbr, color)).join('')}
+    </div>`;
+}
+
 export async function openStatePanel(stateName, regionName, region, districtCount, panelData = null) {
     const data = panelData || stateData || {};
     const color = region?.hex || '#6366f1';
@@ -212,6 +235,8 @@ export async function openStatePanel(stateName, regionName, region, districtCoun
             ${popLine}
         </div>`;
     }
+
+    html += `<div id="state-cities-econ"></div>`;
 
     const ballotMeasures = data?.ballot_measures ?? [];
     if (ballotMeasures.length > 0) {
@@ -270,6 +295,18 @@ export async function openStatePanel(stateName, regionName, region, districtCoun
     }
 
     candEl.innerHTML = html;
+
+    const stateAbbr = STATE_ABBR_MAP[stateName];
+    if (stateAbbr && regionName) {
+        const reqId = statePanelRequestId;
+        fetchStateCitiesEconomy(stateAbbr, regionName, color).then(sectionHtml => {
+            if (reqId !== statePanelRequestId || !sectionHtml) return;
+            const placeholder = document.getElementById('state-cities-econ');
+            if (!placeholder) return;
+            placeholder.outerHTML = sectionHtml;
+            wireCityCardClicks(candEl);
+        });
+    }
 }
 
 /* ── Offices toggle (collapsible section) ── */

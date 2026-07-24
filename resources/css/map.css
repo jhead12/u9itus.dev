@@ -980,6 +980,15 @@ body:has(#info-panel.open) #hint { display: none; }
     #legend { top: 76px; }
 }
 
+/* Raw <button> elements used as marker roots — strip UA button chrome
+   (white background + inset/outset border) so only the pill styling below
+   shows. Without this, browsers render default buttonface/buttonborder
+   around each marker since this map page doesn't load Tailwind preflight. */
+.city-marker, .gov-marker, .candidate-marker, .post-pin {
+    background: none; border: none; padding: 0; margin: 0;
+    font: inherit; color: inherit; appearance: none;
+}
+
 /* ── Top-cities census markers ───────────────────────────────────── */
 .city-marker {
     position: absolute; pointer-events: auto;
