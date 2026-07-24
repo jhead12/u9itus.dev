@@ -118,8 +118,18 @@
                         </th>
                         <th class="px-5 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide">User</th>
                         <th class="px-5 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide">Role</th>
-                        <th class="px-5 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide">KYC</th>
-                        <th class="px-5 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide">Status</th>
+                        <th class="px-5 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide">
+                            <span class="inline-flex items-center gap-1" title="Identity verification. Voters verify via Stripe Connect (label only, not a live status). Admins/politicians show the actual review outcome: pending, approved, or rejected. Independent of the Status column.">
+                                KYC
+                                <svg class="w-3 h-3 text-slate-600" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true"><path fill-rule="evenodd" d="M18 10A8 8 0 11 2 10a8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
+                            </span>
+                        </th>
+                        <th class="px-5 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide">
+                            <span class="inline-flex items-center gap-1" title="Account status. Active = email verified and not suspended. Unverified = email not yet confirmed. Suspended = access revoked by an admin. Independent of the KYC column — a user can be KYC-approved and still show Unverified here if they haven't confirmed their email.">
+                                Status
+                                <svg class="w-3 h-3 text-slate-600" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true"><path fill-rule="evenodd" d="M18 10A8 8 0 11 2 10a8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
+                            </span>
+                        </th>
                         <th class="px-5 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide">Joined</th>
                         <th class="px-5 py-3"></th>
                     </tr>
