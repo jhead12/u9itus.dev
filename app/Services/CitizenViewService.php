@@ -98,8 +98,15 @@ class CitizenViewService
             $completionPct = $this->calculateCompletionPercentage($totalWatchTimeSeconds, $mediaDuration);
             $qualifies = $completionPct >= $campaign->min_watch_time_percent;
 
-            $voterPayoutCents     = $qualifies ? \App\Support\Money::toCents($campaign->voter_payout_per_view) : 0;
-            $platformRevenueCents = $qualifies ? \App\Support\Money::toCents($campaign->revenue_per_view) - $voterPayoutCents : 0;
+            // Re-watches are free: only the voter's first qualifying completed
+            // view credits a payout and charges the sponsor's budget. The
+            // current session is still Started here, so the count reflects only
+            // prior completed views for this voter/campaign.
+            $isRepeat = $this->voterCompletedViewCount($campaign->id, $session->voter_id) > 0;
+            $payable  = $qualifies && ! $isRepeat;
+
+            $voterPayoutCents     = $payable ? \App\Support\Money::toCents($campaign->voter_payout_per_view) : 0;
+            $platformRevenueCents = $payable ? \App\Support\Money::toCents($campaign->revenue_per_view) - $voterPayoutCents : 0;
 
             $voterPayout     = (float) \App\Support\Money::fromCents($voterPayoutCents);
             $platformRevenue = (float) \App\Support\Money::fromCents($platformRevenueCents);
@@ -112,12 +119,12 @@ class CitizenViewService
                 'voter_payout_amount'   => $voterPayout,
                 'platform_revenue'      => $platformRevenue,
                 'referral_commission'   => 0,
-                'payment_status'        => $qualifies
+                'payment_status'        => $payable
                     ? ViewPaymentStatus::Pending
                     : ViewPaymentStatus::Rejected,
             ]);
 
-            if ($qualifies) {
+            if ($payable) {
                 $this->creditVoter($session->voter, $voterPayout);
                 $this->recordCampaignSpend($campaign, $session);
             }

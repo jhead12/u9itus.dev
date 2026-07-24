@@ -42,6 +42,8 @@ class CitizenCampaign extends Model
         'title',
         'message_summary',
         'video_blurb',
+        'call_to_action_url',
+        'call_to_action_label',
         'campaign_type',           // video | live_feed | q_and_a
         'citizen_ad_type',         // local_business | community_notice | ballot_issue | general_announcement
         'media_url',
@@ -155,6 +157,14 @@ class CitizenCampaign extends Model
     public function citizen(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(Citizen::class);
+    }
+
+    /**
+     * Voter-reported issues and voter-to-sponsor questions from the watch page.
+     */
+    public function messages(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(CitizenCampaignMessage::class, 'citizen_campaign_id');
     }
 
     /**

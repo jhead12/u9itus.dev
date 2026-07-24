@@ -7,10 +7,14 @@ use App\Enums\ApprovalStatus;
 use App\Http\Controllers\Concerns\ResolvesPlayableCampaignMedia;
 use App\Http\Controllers\Controller;
 use App\Models\CitizenCampaign;
+use App\Models\CitizenCampaignMessage;
 use App\Models\Voter;
 use App\Services\CitizenViewService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\RateLimiter;
 
 /**
  * Voter-facing actions for citizen-paid campaigns (community notices, local
@@ -109,15 +113,144 @@ class CitizenCampaignVoterController extends Controller
 
         $freshVoter = $voter->fresh();
 
+        // A repeat completed view is recorded but pays nothing (free re-watch).
+        // voterCompletedViewCount now includes the session just completed, so a
+        // count > 1 means a prior completion existed for this voter/campaign.
+        $isRepeat = $this->viewService->voterCompletedViewCount($campaign->id, $voter->id) > 1;
+
         return response()->json([
             'ok'               => true,
             'qualified'        => (float) ($completed->voter_payout_amount ?? 0) > 0,
+            'is_repeat'        => $isRepeat,
             'payout_earned'    => (float) $completed->voter_payout_amount,
             'pending_earnings' => (float) ($freshVoter->pending_earnings ?? 0),
             'wallet_balance'   => (float) ($freshVoter->wallet_balance ?? 0),
             'status'           => $completed->status->value,
             'view_session_uuid' => $completed->uuid,
         ]);
+    }
+
+    /**
+     * POST /voter/citizen-campaigns/{campaign}/report-issue
+     *
+     * Store a voter-reported issue for a citizen campaign and notify platform
+     * support. Mirrors the political-campaign VoterController::reportIssue flow
+     * but against the citizen message store.
+     */
+    public function reportIssue(Request $request, CitizenCampaign $campaign)
+    {
+        $validated = $request->validate([
+            'issue_category' => ['required', 'in:video_not_playing,incorrect_info,offensive_content,other'],
+            'body'           => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $voter = $this->resolveVoter();
+
+        if (! $this->campaignIsAvailable($campaign)) {
+            return response()->json(['success' => false, 'message' => 'This campaign is not currently available.'], 403);
+        }
+
+        CitizenCampaignMessage::create([
+            'voter_id'          => $voter->id,
+            'citizen_campaign_id' => $campaign->id,
+            'type'              => 'issue',
+            'issue_category'    => $validated['issue_category'],
+            'body'              => $validated['body'] ?? '',
+            'status'            => 'open',
+        ]);
+
+        try {
+            Mail::raw(
+                "Issue reported by voter #{$voter->id} ({$voter->email}) on citizen campaign #{$campaign->id}.\n"
+                . "Category: {$validated['issue_category']}\n"
+                . 'Message: ' . ($validated['body'] ?? '(none)'),
+                fn ($m) => $m->to(config('mail.from.address', 'admin@u9itus.com'))
+                              ->subject('[U9itus] Citizen Campaign Issue Report – #' . $campaign->id)
+            );
+        } catch (\Throwable $e) {
+            Log::warning('citizen reportIssue: mail failed', ['error' => $e->getMessage()]);
+        }
+
+        return response()->json(['success' => true, 'message' => 'Your report has been submitted. Thank you!']);
+    }
+
+    /**
+     * POST /voter/citizen-campaigns/{campaign}/ask-question
+     *
+     * Store a voter-to-sponsor question and email it to the citizen who owns
+     * the campaign. No public Q&A board (v1) — the message is delivered
+     * privately to the sponsor.
+     */
+    public function askQuestion(Request $request, CitizenCampaign $campaign)
+    {
+        $validated = $request->validate([
+            'body'                    => ['required', 'string', 'max:1000'],
+            'reference_url'           => ['nullable', 'url', 'max:2048'],
+            'reference_start_seconds' => ['nullable', 'integer', 'min:0', 'max:86400'],
+            'reference_end_seconds'   => ['nullable', 'integer', 'min:0', 'max:86400', 'gte:reference_start_seconds'],
+            'reference_note'          => ['nullable', 'string', 'max:280'],
+        ]);
+
+        $voter = $this->resolveVoter();
+
+        if (! $this->campaignIsAvailable($campaign)) {
+            return response()->json(['success' => false, 'message' => 'This campaign is not currently available.'], 403);
+        }
+
+        // Lightweight rate limit: 3 questions per 10 minutes per voter/campaign.
+        $rateKey = 'citizen-question-submit:' . $voter->id . ':' . $campaign->id;
+        if (RateLimiter::tooManyAttempts($rateKey, 3)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You are submitting too quickly. Please wait before sending another question.',
+                'retry_after_seconds' => RateLimiter::availableIn($rateKey),
+            ], 429);
+        }
+        RateLimiter::hit($rateKey, 600);
+
+        CitizenCampaignMessage::create([
+            'voter_id'               => $voter->id,
+            'citizen_campaign_id'    => $campaign->id,
+            'type'                   => 'message',
+            'issue_category'         => null,
+            'body'                   => $validated['body'],
+            'reference_url'          => $validated['reference_url'] ?? null,
+            'reference_start_seconds' => $validated['reference_start_seconds'] ?? null,
+            'reference_end_seconds'   => $validated['reference_end_seconds'] ?? null,
+            'reference_note'         => filled($validated['reference_note'] ?? null) ? trim((string) $validated['reference_note']) : null,
+            'status'                 => 'open',
+        ]);
+
+        $sponsor = $campaign->citizen;
+        $recipient = $sponsor?->user?->email ?: $sponsor?->receipt_email;
+
+        if ($recipient) {
+            try {
+                Mail::raw(
+                    "A voter asked a question about your campaign \"{$campaign->title}\".\n\n"
+                    . "From voter #{$voter->id}:\n"
+                    . $validated['body']
+                    . (! empty($validated['reference_url'])
+                        ? "\n\nReference: " . $validated['reference_url']
+                        : ''),
+                    fn ($m) => $m->to($recipient)
+                                  ->subject('[U9itus] New question about your campaign: ' . $campaign->title)
+                );
+            } catch (\Throwable $e) {
+                Log::warning('citizen askQuestion: mail failed', ['error' => $e->getMessage()]);
+            }
+        }
+
+        return response()->json(['success' => true, 'message' => 'Your question has been sent to the campaign sponsor.']);
+    }
+
+    /**
+     * A citizen campaign is voter-facing only when active and approved.
+     */
+    private function campaignIsAvailable(CitizenCampaign $campaign): bool
+    {
+        return $campaign->status === CampaignStatus::Active
+            && $campaign->approval_status === ApprovalStatus::Approved;
     }
 
     /**

@@ -403,6 +403,10 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
             ->name('citizen-campaigns.watch');
         Route::post('/citizen-campaigns/{campaign}/complete', [CitizenCampaignVoterController::class, 'complete'])
             ->name('citizen-campaigns.complete');
+        Route::post('/citizen-campaigns/{campaign}/report-issue', [CitizenCampaignVoterController::class, 'reportIssue'])
+            ->name('citizen-campaigns.report-issue');
+        Route::post('/citizen-campaigns/{campaign}/ask-question', [CitizenCampaignVoterController::class, 'askQuestion'])
+            ->name('citizen-campaigns.ask-question');
         // In-watch interactions: error reporting + direct message to politician
         Route::post('/watch/{token}/report-issue', [VoterController::class, 'reportIssue'])->name('watch.report-issue');
         Route::post('/watch/{token}/ask-question', [VoterController::class, 'askQuestion'])->name('watch.ask-question');

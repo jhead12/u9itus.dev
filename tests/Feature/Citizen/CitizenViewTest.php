@@ -118,11 +118,12 @@ test('voter can complete a citizen campaign view and earn payout', function () {
 });
 
 test('voter cannot complete a citizen campaign view when reserved budget is exhausted', function () {
-    $user    = makeVoterForCitizenView();
-    $campaign = makeApprovedCitizenCampaign(3.00, 10); // 4 views possible at $0.75 each
+    $campaign = makeApprovedCitizenCampaign(3.00, 10); // 4 paid views at $0.75 each
 
-    // Exhaust reserved budget
+    // Exhaust reserved budget with 4 distinct voters (repeat views by the
+    // same voter are free, so each paid completion must come from a new voter).
     for ($i = 0; $i < 4; $i++) {
+        $user = makeVoterForCitizenView();
         $this->actingAs($user)
             ->postJson(route('voter.citizen-campaigns.complete', $campaign), [
                 'total_seconds_watched'  => 60,
@@ -136,7 +137,8 @@ test('voter cannot complete a citizen campaign view when reserved budget is exha
     expect((float) $campaign->amount_spent)->toBe(3.00);
 
     // Fifth view should be rejected because the campaign no longer accepts views.
-    $this->actingAs($user)
+    $fifthUser = makeVoterForCitizenView();
+    $this->actingAs($fifthUser)
         ->postJson(route('voter.citizen-campaigns.complete', $campaign), [
             'total_seconds_watched'  => 60,
             'media_duration_seconds' => 60,
