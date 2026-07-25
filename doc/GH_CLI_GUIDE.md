@@ -14,7 +14,7 @@ exhaustive docs.
   body, so write one.
 - Labels are the GitHub defaults (`bug`, `enhancement`, `question`,
   `wontfix`, `duplicate`, `invalid`, `help wanted`) — nothing repo-custom yet.
-- 11 workflows live in `.github/workflows/`: 6 scheduled data pipelines, 1 test
+- 13 workflows live in `.github/workflows/`: 8 scheduled data pipelines, 1 test
   suite, 1 on-demand incident-response job, and 3 event-triggered automations
   borrowed from Laravel's shared org workflows — see the breakdown below.
   This is a civic data platform, so a lot of the CI here means "did last
@@ -72,7 +72,7 @@ Note `.github/workflows/issues.yml` triggers on `issues: types: [labeled]` —
 labeling an issue in this repo isn't just organizational, it may fire
 automation. Check that workflow before assuming a label is "just a label."
 
-## GitHub Actions — all 11 workflows
+## GitHub Actions — all 13 workflows
 
 They fall into three groups, and `gh` interacts with each one differently.
 
@@ -87,7 +87,9 @@ wait for the cron to test a fix or backfill data.
 | `enrich-donor-snapshots.yml` | `0 3 * * *` daily | Populate `politician_donor_snapshots` (FEC/OpenSecrets) — the job this session's fix unblocked | `limit` (default 200), `stale_hours`, `politician`, `force`, `dry_run` |
 | `validate-profile-photos.yml` | `30 3 * * *` daily | Quarantine/validate candidate photos | `state`, `limit`, `include_claimed`, `fix_invalid`, `dry_run` |
 | `refresh-candidate-news.yml` | `0 */6 * * *` every 6h | Refresh news articles per candidate | `stale_hours`, `limit`, `dry_run` |
+| `refresh-viral-moments.yml` | `7 */6 * * *` every 6h | Fetch + score YouTube viral-moment clips per politician and feature the top one (`concurrency` group, off the :00 stampede) | `limit` (default 200), `stale_hours`, `politician`, `force`, `dry_run` |
 | `refresh-map-candidates.yml` | `0 9 * * *` daily | Refresh map-facing candidate data + election results (`concurrency` group, won't overlap itself) | `states`, `election_year`, `include_results`, `create_missing`, `dry_run` |
+| `sync-election-dates.yml` | `0 6 1 * *` monthly (1st) | Sync real election dates per state from Vote Smart | `election_year` (default 2026), `state`, `dry_run` |
 | `sync-census-demographics.yml` | `0 5 * * 0` weekly (Sun) | Pull ACS Census demographics per city/district | `year` (ACS vintage), `state`, `dry_run` |
 
 Almost every input above defaults to something sane, and almost every
@@ -143,7 +145,7 @@ php artisan schedule:list | grep enrich-profiles
 # 0   4   * * *   php artisan politicians:enrich-profiles --stale-hours=48 --limit=200
 ```
 
-But — unlike the six Group 1 pipelines above — it has **no
+But — unlike the eight Group 1 pipelines above — it has **no
 `.github/workflows/enrich-profiles.yml` yet**, so the `gh workflow run` pattern
 does not apply:
 
@@ -169,6 +171,52 @@ same way `enrich-donor-snapshots.yml` backstops `enrich-donors`), copy
 (`limit`, `stale_hours`, `politician`, `force`, `dry_run`) — then the
 `gh run list --workflow=enrich-profiles.yml` / `gh workflow run
 enrich-profiles.yml -f dry_run=true` drill works identically to the donor job.
+
+### More in-app-scheduler-only enrichers (no GA workflow yet)
+
+Three more enrichment commands follow the same `enrich-profiles` shape — same
+`{--limit=200} {--stale-hours=48} {--politician=} {--force} {--dry-run}`
+signature, slotted into the in-app scheduler in `routes/console.php`, but with
+**no `.github/workflows/*.yml` behind them**, so `gh workflow run` does not
+apply. Reach for `php artisan` directly:
+
+```bash
+# C-SPAN video clips — Playwright scrape (scripts/scrape-cspan.js) because
+# c-span.org renders search client-side. Clips have no view counts, so they
+# score 0 and surface in the list by recency; the YouTube clip stays featured.
+# Scheduled 05:30 daily, after the 05:00 YouTube pass.
+php artisan politicians:enrich-cspan-moments --politician=<slug> --force
+php artisan politicians:enrich-cspan-moments --dry-run --limit=10
+
+# Inferred issue/discourse badges — rolls up each politician's verified news
+# (stored topic_key) + viral-moment clip titles + Vote Smart NPAT positions
+# into per-topic scores (keyword tier + Claude haiku LLM fallback) and grants
+# an `inferred_discourse` profile badge for topics crossing the threshold.
+# Scheduled 06:30 daily, after the YouTube/C-SPAN/marketing passes.
+php artisan politicians:enrich-issue-badges --politician=<slug> --dry-run   # preview signals + would-grant
+php artisan politicians:enrich-issue-badges --politician=<slug> --force     # write signals + badges
+
+# Marketing content agent — auto-drafts blog Posts from a politician's recent
+# news/viral moments. Drafts land as PendingApproval (nothing auto-published).
+# Scheduled 06:00 daily; gated on config('u9itus.marketing.drafting.enabled').
+php artisan marketing:draft-posts --limit=20
+```
+
+They show up in `schedule:list` alongside `enrich-profiles`:
+
+```bash
+php artisan schedule:list | grep -E 'enrich-cspan|enrich-issue|draft-posts'
+# 30  5  * * *   php artisan politicians:enrich-cspan-moments --stale-hours=48 --limit=200
+# 0   6  * * *   php artisan marketing:draft-posts --limit=20
+# 30  6  * * *   php artisan politicians:enrich-issue-badges  --stale-hours=48 --limit=200
+```
+
+If you want GH-CLI parity for any of these, the recipe is the same as for
+`enrich-profiles`: copy `refresh-viral-moments.yml` (the closest existing
+analogue — same option surface) and repoint its `run:` step at the new
+command, keeping the `limit` / `stale_hours` / `politician` / `force` /
+`dry_run` inputs. Then `gh workflow run <name>.yml -f dry_run=true` works the
+same as it does for the YouTube moments job.
 
 ### Group 2 — on-demand incident response
 
@@ -228,7 +276,7 @@ gh run view <run-id> --log-failed        # a red PR check, fastest way to see wh
 ### General run/workflow commands
 
 ```bash
-gh workflow list                                # all 11 workflows + enabled state
+gh workflow list                                # all 13 workflows + enabled state
 gh run list --limit 15                          # most recent runs across all workflows
 gh run rerun <run-id> --failed                  # re-run only the failed jobs
 ```
@@ -283,6 +331,8 @@ gh api repos/jhead12/u9itus.dev/dependabot/alerts --paginate
    `politicians:enrich-profiles` job (04:00 daily) — then run it on demand with
    `--dry-run` to learn its shape. Note this one is **in-app-scheduler only**
    (no `enrich-profiles.yml` workflow), so you reach for `php artisan`, not
-   `gh workflow run` — the one scheduled data job in this repo that breaks the
-   `gh`-dispatchable pattern, and a good reminder to check `gh workflow list`
-   before assuming every cron job has a workflow behind it.
+   `gh workflow run`. It's not alone — `politicians:enrich-cspan-moments`,
+   `politicians:enrich-issue-badges`, and `marketing:draft-posts` follow the
+   same pattern (see the "More in-app-scheduler-only enrichers" section). A
+   good reminder to check `gh workflow list` before assuming every cron job has
+   a workflow behind it.
