@@ -47,3 +47,9 @@ database/database.sqlite
 /mobile/ios/**/*.xcuserstate
 /mobile/ios/.xcode.env.local
 tests/.DS_Store
+.DS_Store
+app/Http/.DS_Store
+legacy/.DS_Store
+resources/js/.DS_Store
+storage/framework/.DS_Store
+tests/.DS_Store
