@@ -106,6 +106,18 @@ Schedule::command('marketing:drafts-digest')
     ->withoutOverlapping()
     ->runInBackground();
 
+// Inferred issue/discourse badges — roll up each politician's verified news
+// (stored topic_key) + viral-moment clip titles + Vote Smart NPAT positions
+// into politician_topic_signals, then grant an `inferred_discourse` badge for
+// any topic crossing the configured score threshold. Slotted at 06:30 to
+// follow the 05:00 YouTube + 05:30 C-SPAN moment jobs and the 06:00 marketing
+// draft pass, so all upstream evidence is fresh. Gated on
+// config('u9itus.issues.enabled') (default true).
+Schedule::command('politicians:enrich-issue-badges --stale-hours=48 --limit=200')
+    ->dailyAt('06:30')
+    ->withoutOverlapping()
+    ->runInBackground();
+
 // Census city demographics — refresh poverty / education / income + precomputed
 // congressional districts for the curated ~200-city allow-list (all 50 states
 // + DC). ACS data updates yearly, so weekly is plenty. The GitHub Actions

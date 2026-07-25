@@ -122,6 +122,36 @@
                 </a>
                 @endif
             </form>
+
+            {{-- ── Topic chip row: one-click browse by issue ─────────────────── --}}
+            @if(isset($topics) && $topics->isNotEmpty())
+                @php
+                    $activeTopic = request('topic');
+                    $baseQuery = collect(request()->only(['q', 'district', 'level', 'state', 'party', 'sort', 'unclaimed']))->filter();
+                @endphp
+                <div class="flex flex-wrap items-center gap-1.5 mt-3">
+                    <span class="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mr-0.5">Issues</span>
+                    <a href="{{ route('politicians.directory', $baseQuery->toArray()) }}"
+                       class="inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-semibold border transition {{ empty($activeTopic) ? 'bg-slate-700 border-slate-600 text-white' : 'border-slate-700 text-slate-400 hover:text-white hover:border-slate-600' }}">
+                        All
+                    </a>
+                    @foreach($topics as $topic)
+                        @php
+                            $chipQuery = $baseQuery->put('topic', $topic->slug)->toArray();
+                            $isActive = $activeTopic === $topic->slug;
+                            $color = $topic->badge_color ?: '#6366f1';
+                        @endphp
+                        <a href="{{ route('politicians.directory', $chipQuery) }}"
+                           class="inline-flex items-center gap-x-1 rounded-full px-2.5 py-0.5 text-[10px] font-semibold border transition-all hover:brightness-125 {{ $isActive ? 'ring-2 ring-offset-1 ring-offset-slate-900' : '' }}"
+                           style="color:{{ $color }};border-color:{{ $color }}40;background-color:{{ $color }}1a;--tw-ring-color:{{ $color }};"
+                           title="Browse candidates focused on {{ $topic->name }}"
+                           aria-pressed="{{ $isActive ? 'true' : 'false' }}">
+                            @if(!empty($topic->icon))<span aria-hidden="true">{{ $topic->icon }}</span>@endif
+                            {{ $topic->name }}
+                        </a>
+                    @endforeach
+                </div>
+            @endif
         </div>
     </div>
 

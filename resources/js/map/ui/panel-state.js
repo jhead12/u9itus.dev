@@ -35,6 +35,21 @@ export function partyClass(p) {
     return 'party-I';
 }
 
+/**
+ * Render issue/discourse topic chips from a candidate's `badges` array
+ * (name/icon/color, capped at 4 by the Map API). Used on candidate cards and
+ * the politician drawer hero. Badges may be self-declared or inferred from
+ * news/viral-moment/Vote Smart signals (badge_type='inferred_discourse').
+ */
+export function topicChipsHtml(badges) {
+    if (!badges || !badges.length) return '';
+    return badges.map(b => {
+        const color = b.color || '#6366f1';
+        const icon = b.icon ? `<span style="margin-right:2px;">${escapeHtml(b.icon)}</span>` : '';
+        return `<span class="topic-chip" style="background:${escapeHtml(color)}1a;border:1px solid ${escapeHtml(color)}40;color:${escapeHtml(color)};" title="${escapeHtml(b.name || '')}">${icon}${escapeHtml(b.name || '')}</span>`;
+    }).join('');
+}
+
 export function detectElectionPhase(candidates) {
     const today = new Date();
     let anyPrimaryResult = false, generalPassed = false;
@@ -67,6 +82,7 @@ export function renderCandidate(c, color) {
         : '';
     const st = c.status === 'seated' ? `<span class="status-seated">● Seated</span>` : c.is_running ? `<span class="status-running">● Running 2026</span>${elBadge}` : '';
     const vf = c.verified ? `<span class="verified-badge">✓ Verified</span>` : '';
+    const chips = topicChipsHtml(c.badges);
     const popupData = encodeURIComponent(JSON.stringify({ ...c, color }));
     const _slugAttr = c.profile_url
         ? (() => { try { return new URL(c.profile_url, location.origin).pathname.split('/').filter(Boolean).pop() || ''; } catch { return ''; } })()
@@ -82,6 +98,7 @@ export function renderCandidate(c, color) {
         <div style="flex:1;min-width:0;">
             <div class="candidate-name">${safeName}</div>
             <div class="candidate-meta">${py}${st}${vf}</div>
+            ${chips ? `<div class="candidate-chips">${chips}</div>` : ''}
         </div></div>`;
 }
 

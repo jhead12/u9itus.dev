@@ -2,9 +2,12 @@
 
 namespace App\Services;
 
+use App\Models\Politician;
 use App\Models\PoliticianTopic;
+use App\Models\PoliticianTopicSignal;
 use App\Models\ProfileBadge;
 use App\Models\Voter;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -18,7 +21,8 @@ use Illuminate\Support\Facades\Log;
  */
 class BadgeService
 {
-    const VIEWS_THRESHOLD    = 5;
+    const VIEWS_THRESHOLD = 5;
+
     const REFERRAL_THRESHOLD = 3;
 
     /**
@@ -47,9 +51,7 @@ class BadgeService
      * Called from PoliticalViewService::completeView() for each topic
      * tagged on the completed campaign.
      *
-     * @param  Voter $voter
-     * @param  int   $topicId
-     * @return ProfileBadge|null  The newly-granted badge, or null if threshold not yet met
+     * @return ProfileBadge|null The newly-granted badge, or null if threshold not yet met
      */
     public function checkAndGrantViewBadge(Voter $voter, int $topicId): ?ProfileBadge
     {
@@ -71,7 +73,7 @@ class BadgeService
             Log::warning('BadgeService: view badge check failed', [
                 'voter_id' => $voter->id,
                 'topic_id' => $topicId,
-                'error'    => $e->getMessage(),
+                'error' => $e->getMessage(),
             ]);
         }
 
@@ -98,10 +100,50 @@ class BadgeService
             Log::warning('BadgeService: referral badge check failed', [
                 'voter_id' => $voter->id,
                 'topic_id' => $topicId,
-                'error'    => $e->getMessage(),
+                'error' => $e->getMessage(),
             ]);
         }
 
         return null;
+    }
+
+    /**
+     * Grant inferred issue-discourse badges to a politician from their computed
+     * topic signals. For each signal whose total_score crosses the configured
+     * threshold, add a badge_type='inferred_discourse' row (is_public=true so it
+     * surfaces in publicBadges / map cards).
+     *
+     * Idempotent via the trait's firstOrCreate (match key = topic_id), so:
+     *   - a self-declared badge for the same topic is NOT overwritten, and
+     *   - re-running the enricher never duplicates.
+     *
+     * No auto-revoke in v1: signals refresh nightly, but a granted inferred
+     * badge persists (avoids flapping as recency decays a topic's score).
+     *
+     * @param  Collection<int, PoliticianTopicSignal>  $signals
+     * @return int Number of badges granted this run (0 if all already existed)
+     */
+    public function grantInferredBadges(Politician $politician, Collection $signals): int
+    {
+        $threshold = (float) config('u9itus.issues.signal_threshold', 1.0);
+        $granted = 0;
+
+        foreach ($signals as $signal) {
+            if ((float) $signal->total_score < $threshold) {
+                continue;
+            }
+
+            $before = $politician->badges()->where('topic_id', $signal->topic_id)->exists();
+            $politician->addBadge((int) $signal->topic_id, 'inferred_discourse', [
+                'is_public' => true,
+                'earned_at' => now(),
+            ]);
+
+            if (! $before) {
+                $granted++;
+            }
+        }
+
+        return $granted;
     }
 }

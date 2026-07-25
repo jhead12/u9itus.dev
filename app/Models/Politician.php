@@ -3,17 +3,20 @@
 namespace App\Models;
 
 use App\Jobs\MatchPoliticianToElectionData;
+use App\Support\PoliticianDataRules;
 use App\Traits\HasProfileBadges;
 use App\Traits\HasProfileEnrichments;
 use App\Traits\HasViralMoments;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
-use App\Models\ReferralEarning;
-use App\Models\PoliticianPage;
-use App\Models\PoliticianInitiative;
-use App\Models\PoliticianOfficeProfile;
 
 /**
  * A politician or local governance official who creates campaigns
@@ -100,27 +103,27 @@ class Politician extends Model
     protected function casts(): array
     {
         return [
-            'credit_balance'   => 'decimal:2',
+            'credit_balance' => 'decimal:2',
             'pending_earnings' => 'decimal:4',
-            'total_spent'      => 'decimal:2',
+            'total_spent' => 'decimal:2',
             'verified_official' => 'boolean',
             'profile_photo_validation_confidence' => 'decimal:3',
             'profile_photo_last_validated_at' => 'datetime',
-            'is_active'              => 'boolean',
-            'is_running_candidate'   => 'boolean',
-            'term_ends_on'            => 'date',
-            'status_updated_at'       => 'datetime',
+            'is_active' => 'boolean',
+            'is_running_candidate' => 'boolean',
+            'term_ends_on' => 'date',
+            'status_updated_at' => 'datetime',
             // Phase 13
-            'page_settings'     => 'array',
-            'page_published'    => 'boolean',
+            'page_settings' => 'array',
+            'page_published' => 'boolean',
             // Phase 16
             'verified_at' => 'datetime',
             'show_ballotpedia_data' => 'boolean',
             'show_opensecrets_data' => 'boolean',
             'show_votesmart_data' => 'boolean',
             'show_fec_data' => 'boolean',
-            'video_links'          => 'array',
-            'claim_requested_at'   => 'datetime',
+            'video_links' => 'array',
+            'claim_requested_at' => 'datetime',
             'earlybank_own_linked_at' => 'datetime',
             'earlybank_payouts_enabled' => 'boolean',
             'earlybank_stripe_connect_onboarding_complete' => 'boolean',
@@ -145,7 +148,7 @@ class Politician extends Model
             // Normalize party to canonical form; unmappable strings become null.
             if ($politician->isDirty('party_affiliation')) {
                 $politician->party_affiliation =
-                    \App\Support\PoliticianDataRules::normalizeParty($politician->party_affiliation);
+                    PoliticianDataRules::normalizeParty($politician->party_affiliation);
             }
 
             // Uppercase state codes.
@@ -155,9 +158,9 @@ class Politician extends Model
 
             // Reject artifact names outright — these must never persist.
             if ($politician->isDirty('full_name')) {
-                $violation = \App\Support\PoliticianDataRules::nameViolation($politician->full_name);
+                $violation = PoliticianDataRules::nameViolation($politician->full_name);
                 if ($violation !== null) {
-                    \Illuminate\Support\Facades\Log::warning('Politician save blocked by data rules', [
+                    Log::warning('Politician save blocked by data rules', [
                         'id' => $politician->id,
                         'full_name' => $politician->full_name,
                         'violation' => $violation,
@@ -170,8 +173,8 @@ class Politician extends Model
 
             // Resolve full state names (e.g. 'CALIFORNIA' → 'CA') before
             // clearing; only null it out when truly unmappable.
-            if (\App\Support\PoliticianDataRules::stateViolation($politician->state) !== null) {
-                $politician->state = \App\Support\PoliticianDataRules::resolveStateAbbreviation($politician->state);
+            if (PoliticianDataRules::stateViolation($politician->state) !== null) {
+                $politician->state = PoliticianDataRules::resolveStateAbbreviation($politician->state);
             }
         });
 
@@ -182,7 +185,7 @@ class Politician extends Model
             if (empty($politician->referral_code)) {
                 // Generate a unique 8-char alphanumeric referral code (e.g. POL3X9KW)
                 do {
-                    $code = 'P' . strtoupper(Str::random(7));
+                    $code = 'P'.strtoupper(Str::random(7));
                 } while (self::where('referral_code', $code)->exists());
                 $politician->referral_code = $code;
             }
@@ -223,23 +226,24 @@ class Politician extends Model
      */
     public static function generateSlug(Politician $politician): string
     {
-        $uuid   = $politician->uuid ?: (string) Str::uuid();
+        $uuid = $politician->uuid ?: (string) Str::uuid();
         $prefix = substr($uuid, 0, 5);
         $office = $politician->political_office ?? 'official';
-        $city   = $politician->city ?? '';
-        $base   = Str::slug("{$office} {$politician->full_name} {$city}");
-        $cand   = "{$prefix}-{$base}";
+        $city = $politician->city ?? '';
+        $base = Str::slug("{$office} {$politician->full_name} {$city}");
+        $cand = "{$prefix}-{$base}";
 
         // Guarantee uniqueness
         $counter = 0;
-        $exists = fn(string $s) => static::where('slug', $s)
-            ->when($politician->id, fn($q) => $q->where('id', '!=', $politician->id))
+        $exists = fn (string $s) => static::where('slug', $s)
+            ->when($politician->id, fn ($q) => $q->where('id', '!=', $politician->id))
             ->exists();
 
         while ($exists($cand)) {
             $counter++;
             $cand = "{$prefix}-{$base}-{$counter}";
         }
+
         return $cand;
     }
 
@@ -255,7 +259,7 @@ class Politician extends Model
         $this->saveQuietly();
     }
 
-    public function user(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
@@ -263,7 +267,7 @@ class Politician extends Model
     /**
      * The voter who referred this politician to the platform.
      */
-    public function voterReferrer(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function voterReferrer(): BelongsTo
     {
         return $this->belongsTo(Voter::class, 'referred_by_voter_id');
     }
@@ -271,7 +275,7 @@ class Politician extends Model
     /**
      * Alias kept for backwards compatibility with CampaignBillingService.
      */
-    public function referrer(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function referrer(): BelongsTo
     {
         return $this->voterReferrer();
     }
@@ -279,12 +283,12 @@ class Politician extends Model
     /**
      * The politician who referred this politician to the platform.
      */
-    public function politicianReferrer(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function politicianReferrer(): BelongsTo
     {
         return $this->belongsTo(Politician::class, 'referred_by_politician_id');
     }
 
-    public function photoQuarantines(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function photoQuarantines(): HasMany
     {
         return $this->hasMany(PoliticianPhotoQuarantine::class);
     }
@@ -292,10 +296,10 @@ class Politician extends Model
     /**
      * Procurement referral earning record for this politician (one-time).
      */
-    public function procurementReferralEarning(): \Illuminate\Database\Eloquent\Relations\HasOne
+    public function procurementReferralEarning(): HasOne
     {
         return $this->hasOne(ReferralEarning::class, 'politician_id')
-                    ->where('referral_type', ReferralEarning::TYPE_POLITICIAN_PROCUREMENT);
+            ->where('referral_type', ReferralEarning::TYPE_POLITICIAN_PROCUREMENT);
     }
 
     // ── Politician-as-referrer relationships ──────────────────────────────
@@ -303,7 +307,7 @@ class Politician extends Model
     /**
      * Voters that this politician recruited via their referral link.
      */
-    public function referredVoters(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function referredVoters(): HasMany
     {
         return $this->hasMany(Voter::class, 'referred_by_politician_id');
     }
@@ -311,7 +315,7 @@ class Politician extends Model
     /**
      * Politicians that this politician recruited via their referral link.
      */
-    public function referredPoliticians(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function referredPoliticians(): HasMany
     {
         return $this->hasMany(Politician::class, 'referred_by_politician_id');
     }
@@ -319,7 +323,7 @@ class Politician extends Model
     /**
      * Commission earnings generated from this politician's referral activity.
      */
-    public function referralEarnings(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function referralEarnings(): HasMany
     {
         return $this->hasMany(ReferralEarning::class, 'referrer_politician_id');
     }
@@ -327,7 +331,7 @@ class Politician extends Model
     /**
      * Inbound Early-bank earnings reported for this politician.
      */
-    public function earlybankEarnings(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function earlybankEarnings(): HasMany
     {
         return $this->hasMany(EarlyBankEarning::class, 'politician_id');
     }
@@ -339,7 +343,7 @@ class Politician extends Model
      * salary, responsibilities, community impact, etc.
      * Exposed publicly so voters understand what the role does.
      */
-    public function officeProfile(): \Illuminate\Database\Eloquent\Relations\HasOne
+    public function officeProfile(): HasOne
     {
         return $this->hasOne(PoliticianOfficeProfile::class);
     }
@@ -349,7 +353,7 @@ class Politician extends Model
     /**
      * Public profile page theme configuration (one-to-one).
      */
-    public function page(): \Illuminate\Database\Eloquent\Relations\HasOne
+    public function page(): HasOne
     {
         return $this->hasOne(PoliticianPage::class);
     }
@@ -357,7 +361,7 @@ class Politician extends Model
     /**
      * Policy / platform initiatives shown on the public page.
      */
-    public function initiatives(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function initiatives(): HasMany
     {
         return $this->hasMany(PoliticianInitiative::class)->orderBy('sort_order')->orderBy('id');
     }
@@ -367,7 +371,7 @@ class Politician extends Model
      * App\Services\EndorsementClassifier) — distinct from the
      * donor-inferred PAC affiliation badges.
      */
-    public function endorsements(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function endorsements(): HasMany
     {
         return $this->hasMany(PoliticianEndorsement::class);
     }
@@ -377,7 +381,7 @@ class Politician extends Model
      * and (V2) inside the map's candidate panel. Only active rows are
      * returned by default — soft-takedowns stay in the DB but hidden.
      */
-    public function songPicks(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function songPicks(): HasMany
     {
         return $this->hasMany(PoliticianSongPick::class)
             ->where('is_active', true)
@@ -388,7 +392,7 @@ class Politician extends Model
     /**
      * Cached donor/sponsor snapshot populated by the enrichment pipeline.
      */
-    public function donorSnapshot(): \Illuminate\Database\Eloquent\Relations\HasOne
+    public function donorSnapshot(): HasOne
     {
         return $this->hasOne(PoliticianDonorSnapshot::class);
     }
@@ -403,7 +407,7 @@ class Politician extends Model
 
     // ── Campaign & credit relationships ────────────────────────────────────
 
-    public function campaigns(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function campaigns(): HasMany
     {
         return $this->hasMany(PoliticalCampaign::class);
     }
@@ -411,17 +415,17 @@ class Politician extends Model
     /**
      * Blog posts authored by this politician.
      */
-    public function posts(): \Illuminate\Database\Eloquent\Relations\MorphMany
+    public function posts(): MorphMany
     {
         return $this->morphMany(Post::class, 'author');
     }
 
-    public function events(): \Illuminate\Database\Eloquent\Relations\MorphMany
+    public function events(): MorphMany
     {
         return $this->morphMany(CivicEvent::class, 'host');
     }
 
-    public function credits(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function credits(): HasMany
     {
         return $this->hasMany(PoliticianCredit::class);
     }
@@ -429,9 +433,18 @@ class Politician extends Model
     /**
      * View sessions across all of this politician's campaigns.
      */
-    public function viewSessions(): \Illuminate\Database\Eloquent\Relations\HasManyThrough
+    public function viewSessions(): HasManyThrough
     {
         return $this->hasManyThrough(ViewSession::class, PoliticalCampaign::class);
+    }
+
+    /**
+     * Per-topic evidence rollup (news/viral-moment/Vote Smart signals) that
+     * drives inferred issue badges. Built by PoliticianTopicSignalService.
+     */
+    public function topicSignals(): HasMany
+    {
+        return $this->hasMany(PoliticianTopicSignal::class);
     }
 
     /**

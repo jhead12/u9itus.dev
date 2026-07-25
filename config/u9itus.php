@@ -1,5 +1,7 @@
 <?php
 
+use App\Services\Marketing\Channels\EmailChannel;
+
 return [
     /*
     |--------------------------------------------------------------------------
@@ -39,10 +41,10 @@ return [
     | Gross-up formula: gross = credits / (1 - 0.050)
     |
     */
-    'revenue_per_view'              => env('REVENUE_PER_VIEW', 1.00),
-    'viewer_payout_per_view'        => env('VIEWER_PAYOUT_PER_VIEW', 0.50),
-    'referral_commission_percent'   => env('REFERRAL_COMMISSION_PERCENT', 10),
-    'procurement_commission_percent'=> env('PROCUREMENT_COMMISSION_PERCENT', 10),
+    'revenue_per_view' => env('REVENUE_PER_VIEW', 1.00),
+    'viewer_payout_per_view' => env('VIEWER_PAYOUT_PER_VIEW', 0.50),
+    'referral_commission_percent' => env('REFERRAL_COMMISSION_PERCENT', 10),
+    'procurement_commission_percent' => env('PROCUREMENT_COMMISSION_PERCENT', 10),
 
     /**
      * Number of hours before a viewing assignment expires.
@@ -86,10 +88,10 @@ return [
     | and — when ffprobe/getID3 is available — server-side duration checks.
     |
     */
-    'max_video_duration'  => env('MAX_VIDEO_DURATION', 180),   // 180 seconds (hard cap)
-    'min_video_duration'  => env('MIN_VIDEO_DURATION', 10),    // 10 seconds minimum
-    'max_video_size_mb'   => env('MAX_VIDEO_SIZE_MB', 1024),   // 1 GB upload limit
-    'allow_live_feed'     => env('ALLOW_LIVE_FEED', true),
+    'max_video_duration' => env('MAX_VIDEO_DURATION', 180),   // 180 seconds (hard cap)
+    'min_video_duration' => env('MIN_VIDEO_DURATION', 10),    // 10 seconds minimum
+    'max_video_size_mb' => env('MAX_VIDEO_SIZE_MB', 1024),   // 1 GB upload limit
+    'allow_live_feed' => env('ALLOW_LIVE_FEED', true),
 
     /**
      * When true, the voter watch player renders any per-campaign WebVTT subtitle
@@ -104,9 +106,9 @@ return [
     |--------------------------------------------------------------------------
     */
     'fraud' => [
-        'max_views_per_voter_per_day'   => env('MAX_VIEWS_PER_VOTER_PER_DAY', 50),
-        'device_fingerprint_required'   => env('DEVICE_FINGERPRINT_REQUIRED', true),
-        'payout_hold_hours'             => env('PAYOUT_HOLD_HOURS', 48),
+        'max_views_per_voter_per_day' => env('MAX_VIEWS_PER_VOTER_PER_DAY', 50),
+        'device_fingerprint_required' => env('DEVICE_FINGERPRINT_REQUIRED', true),
+        'payout_hold_hours' => env('PAYOUT_HOLD_HOURS', 48),
         'suspicious_activity_threshold' => env('SUSPICIOUS_ACTIVITY_THRESHOLD', 10),
 
         /*
@@ -118,9 +120,9 @@ return [
          * ipinfo_api_key        — optional ipinfo.io API key for enriched signals.
          *                        Leave empty to rely on the built-in CIDR blocklist.
          */
-        'auto_flag_threshold'    => env('FRAUD_AUTO_FLAG_THRESHOLD', 80),
-        'ip_reputation_enabled'  => env('FRAUD_IP_REPUTATION_ENABLED', true),
-        'ipinfo_api_key'         => env('IPINFO_API_KEY', ''),
+        'auto_flag_threshold' => env('FRAUD_AUTO_FLAG_THRESHOLD', 80),
+        'ip_reputation_enabled' => env('FRAUD_IP_REPUTATION_ENABLED', true),
+        'ipinfo_api_key' => env('IPINFO_API_KEY', ''),
     ],
 
     /*
@@ -133,7 +135,7 @@ return [
     |
     */
     'payout' => [
-        'batch_frequency'  => env('PAYOUT_BATCH_FREQUENCY', 'weekly'),
+        'batch_frequency' => env('PAYOUT_BATCH_FREQUENCY', 'weekly'),
         'threshold_amount' => env('PAYOUT_THRESHOLD_AMOUNT', 5.00),
     ],
 
@@ -143,12 +145,12 @@ return [
     |--------------------------------------------------------------------------
     */
     'governance_levels' => [
-        'federal'     => 'Federal / National',
-        'state'       => 'State',
-        'county'      => 'County',
-        'city'        => 'City / Municipal',
-        'school'      => 'School Board',
-        'special'     => 'Special District',
+        'federal' => 'Federal / National',
+        'state' => 'State',
+        'county' => 'County',
+        'city' => 'City / Municipal',
+        'school' => 'School Board',
+        'special' => 'Special District',
     ],
 
     /*
@@ -384,12 +386,12 @@ return [
         // Per-source authority weight — C-SPAN (official floor footage) ranks above
         // a random YouTube re-upload, which ranks above social re-shares.
         'authority_weights' => [
-            'cspan'      => 1.00,
-            'news'        => 0.80,
-            'youtube'     => 0.60,
-            'tiktok'      => 0.50,
-            'instagram'   => 0.50,
-            'x'           => 0.50,
+            'cspan' => 1.00,
+            'news' => 0.80,
+            'youtube' => 0.60,
+            'tiktok' => 0.50,
+            'instagram' => 0.50,
+            'x' => 0.50,
         ],
 
         // C-SPAN scraper — drives a Playwright browser (scripts/scrape-cspan.js)
@@ -398,10 +400,56 @@ return [
         // exposes no view counts, so clips score 0 and surface in the list by
         // recency rather than featuring (the YouTube-driven clip stays featured).
         'cspan' => [
-            'enabled'       => env('CSPAN_MOMENTS_ENABLED', true),
-            'base_url'       => env('CSPAN_BASE_URL', 'https://www.c-span.org'),
-            'cache_minutes'  => env('CSPAN_CACHE_MINUTES', 1440),
-            'max_clips'      => env('CSPAN_MAX_CLIPS', 10),
+            'enabled' => env('CSPAN_MOMENTS_ENABLED', true),
+            'base_url' => env('CSPAN_BASE_URL', 'https://www.c-span.org'),
+            'cache_minutes' => env('CSPAN_CACHE_MINUTES', 1440),
+            'max_clips' => env('CSPAN_MAX_CLIPS', 10),
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Issues: Inferred discourse badges
+    |--------------------------------------------------------------------------
+    | Drives the issue/discourse-badge system that labels politicians with the
+    | topics they publicly talk about (App\Services\PoliticianTopicSignalService
+    | + IssueClassifierService + BadgeService::grantInferredBadges). Inputs are
+    | verified news articles (stored topic_key), viral-moment clip titles, and
+    | Vote Smart NPAT issue positions. When a politician×topic total_score
+    | crosses `signal_threshold`, an `inferred_discourse` profile badge is
+    | granted. Runs nightly via politicians:enrich-issue-badges.
+    */
+    'issues' => [
+        // Master switch. When false, the enricher command exits early and the
+        // LLM classifier reports unconfigured (keyword tier still works for
+        // rollups that already have stored topic_keys).
+        'enabled' => env('ISSUE_BADGES_ENABLED', true),
+
+        // Allow the Claude LLM fallback when the keyword tier is unconfident.
+        // Disable for a keyword-only deployment (no ANTHROPIC_API_KEY spend).
+        'llm_fallback' => env('ISSUE_LLM_FALLBACK', true),
+
+        // Override the Anthropic model for issue classification; null falls
+        // back to services.anthropic.model (claude-haiku-4-5 by default).
+        'llm_model' => env('ISSUE_LLM_MODEL', null),
+
+        // Only evidence (news/moments) within this lookback window contributes.
+        'recency_window_days' => env('ISSUE_RECENCY_WINDOW_DAYS', 90),
+
+        // exp(-age_days / half_life) per-mention decay — matches the
+        // MomentScoreService recency shape so newer discourse dominates.
+        'recency_half_life_days' => env('ISSUE_RECENCY_HALF_LIFE_DAYS', 60),
+
+        // Min weighted total_score for a politician×topic to earn the badge.
+        'signal_threshold' => env('ISSUE_SIGNAL_THRESHOLD', 1.0),
+
+        // Per-source multipliers on the aggregated (confidence × recency) sum.
+        // Vote Smart NPAT positions are self-stated stances → heaviest; a
+        // viral clip signals active public discourse → next; news is broadest.
+        'source_weights' => [
+            'news' => 1.0,
+            'viral_moment' => 1.2,
+            'votesmart' => 1.5,
         ],
     ],
 
@@ -423,7 +471,7 @@ return [
         // First-party channels shipped with the platform. Keyed by the
         // marketing_channels.key slug that the seeder inserts.
         'first_party_channels' => [
-            'email' => \App\Services\Marketing\Channels\EmailChannel::class,
+            'email' => EmailChannel::class,
         ],
 
         // Marketing content agent — auto-drafts blog Posts from a politician's
@@ -431,20 +479,20 @@ return [
         // Drafts are saved as PendingApproval and require a human to publish via
         // the existing Post editor; nothing is auto-published. Defaults to OFF.
         'drafting' => [
-            'enabled'                  => env('MARKETING_DRAFTING_ENABLED', false),
+            'enabled' => env('MARKETING_DRAFTING_ENABLED', false),
             // Override the Anthropic model for drafting; null falls back to services.anthropic.model.
-            'model'                     => env('MARKETING_DRAFTING_MODEL', null),
+            'model' => env('MARKETING_DRAFTING_MODEL', null),
             // Min moment_score for a viral moment to be drafted (0 = any eligible clip).
-            'moment_score_threshold'    => env('MARKETING_MOMENT_SCORE_THRESHOLD', 0.0),
+            'moment_score_threshold' => env('MARKETING_MOMENT_SCORE_THRESHOLD', 0.0),
             // How many recent verified news articles to consider per politician.
-            'news_recency_limit'        => 60,
+            'news_recency_limit' => 60,
             // Eligibility window (days) for viral moments via scopeEligible().
-            'viral_eligible_days'       => 30,
+            'viral_eligible_days' => 30,
 
             // Daily admin digest of new PendingApproval drafts. Recipients:
             // a comma-separated email list here, else all admin users (User::admins()).
-            'digest_enabled'             => env('MARKETING_DRAFTS_DIGEST_ENABLED', true),
-            'digest_recipients'          => env('MARKETING_DRAFTS_DIGEST_RECIPIENTS', null),
+            'digest_enabled' => env('MARKETING_DRAFTS_DIGEST_ENABLED', true),
+            'digest_recipients' => env('MARKETING_DRAFTS_DIGEST_RECIPIENTS', null),
         ],
     ],
 ];

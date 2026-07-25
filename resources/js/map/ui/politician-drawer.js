@@ -4,7 +4,7 @@
 import { STATE_ABBR_MAP, PARTY_HEX, PARTY_LABEL } from '../config/constants.js';
 import { activeState, stateData } from '../state/map-state.js';
 import { fmtPop } from '../config/city-data.js';
-import { partyClass, renderElectionDatesBanner } from './panel-state.js';
+import { partyClass, renderElectionDatesBanner, topicChipsHtml } from './panel-state.js';
 import { trackEvent } from '../api/interaction.js';
 import { createFavoriteButton } from './boundary-favorite.js';
 
@@ -503,6 +503,7 @@ export function openPolDrawer(cand, accentColor, extra = {}) {
                         ${c.is_running ? `<span style="background:rgba(52,211,153,0.1);border:1px solid rgba(52,211,153,0.25);color:#34d399;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:600;">Running 2026</span>` : ''}
                         ${c.verified ? `<span title="Verified" style="color:#fbbf24;font-size:13px;line-height:1;">✓</span>` : ''}
                     </div>
+                    ${topicChipsHtml(c.badges) ? `<div class="pol-topic-chips">${topicChipsHtml(c.badges)}</div>` : ''}
                 </div>`;
         }
 
