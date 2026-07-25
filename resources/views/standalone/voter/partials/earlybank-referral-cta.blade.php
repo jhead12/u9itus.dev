@@ -64,10 +64,7 @@
 @else
 {{-- ── Enrolled: voter is already an Early-bank member ────────────────── --}}
 @php
-    // SSO disabled: earlybank.com has no /sso route (see doc/EARLYBANK_INTEGRATION.md
-    // Phase 2 route table) — voter.earlybank.sso currently redirects to a 404/400.
-    // Re-enable once earlybank.com implements the signed SSO endpoint.
-    $ebSsoAvailable = false;
+    $ebSsoAvailable = ! empty(config('services.earlybank.webhook_secret'));
     $ebDashboardHref = $ebSsoAvailable
         ? route('voter.earlybank.sso')
         : $earlybankUrl . '/dashboard';
