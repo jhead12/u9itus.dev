@@ -104,7 +104,7 @@
                                 {{ $template->lastEditor->name }}<br />
                                 <span class="text-slate-500">{{ $template->updated_at->format('M j, Y') }}</span>
                             @else
-                                <span class="text-slate-600">—</span>
+                                <span class="text-slate-500">—</span>
                             @endif
                         </td>
                         <td class="px-5 py-3">

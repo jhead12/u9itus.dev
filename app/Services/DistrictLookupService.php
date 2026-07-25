@@ -14,6 +14,109 @@ class DistrictLookupService
 {
     protected string $baseUrl = 'https://geocoding.geo.census.gov/geocoder/geographies/onelineaddress';
 
+    protected string $coordinatesUrl = 'https://geocoding.geo.census.gov/geocoder/geographies/coordinates';
+
+    /**
+     * Resolve a lat/lng into district metadata. Used by both the map's
+     * reverse-geocode endpoint (MapGeocodeController) and the census
+     * demographics sync (which precomputes each city's district instead of
+     * resolving it live on every click) — kept in-process rather than one
+     * calling the other over HTTP, which is fragile from a console command
+     * (no guarantee the app is reachable at its own APP_URL when running).
+     *
+     * @return array{state:string, district_number:string, district_code:?string, district_label:?string}|null
+     */
+    public function lookupByCoordinates(float $lat, float $lng): ?array
+    {
+        // Round to ~110m precision so nearby points share a cached result.
+        $latRounded = round($lat, 3);
+        $lngRounded = round($lng, 3);
+        $cacheKey = "district.lookup_coords.{$latRounded}.{$lngRounded}";
+
+        return Cache::remember($cacheKey, now()->addDay(), function () use ($lat, $lng) {
+            try {
+                $response = Http::timeout(10)->get($this->coordinatesUrl, [
+                    'x' => $lng,
+                    'y' => $lat,
+                    'benchmark' => 'Public_AR_Current',
+                    'vintage' => 'Census2020_Current',
+                    'format' => 'json',
+                ]);
+
+                if (! $response->successful()) {
+                    return null;
+                }
+
+                $geographies = $response->json('result.geographies');
+                if (! is_array($geographies) || empty($geographies)) {
+                    return null;
+                }
+
+                $state = $this->extractStateFromGeographies($geographies);
+                $districtNumber = $this->extractDistrictNumber($geographies);
+
+                if ($state === '' || $districtNumber === null) {
+                    return null;
+                }
+
+                return [
+                    'state' => $state,
+                    'district_number' => $districtNumber,
+                    'district_code' => $this->buildDistrictCode($state, $districtNumber),
+                    'district_label' => $this->buildDistrictLabel($state, $districtNumber),
+                ];
+            } catch (\Throwable $e) {
+                Log::warning('DistrictLookupService coordinates lookup failed', [
+                    'lat' => $lat,
+                    'lng' => $lng,
+                    'error' => $e->getMessage(),
+                ]);
+
+                return null;
+            }
+        });
+    }
+
+    /**
+     * Pull the two-letter state abbreviation from a coordinates-lookup response.
+     *
+     * @param array<string, mixed> $geographies
+     */
+    protected function extractStateFromGeographies(array $geographies): string
+    {
+        $rows = $geographies['States'] ?? [];
+        if (is_array($rows) && ! empty($rows) && is_array($rows[0])) {
+            $stateFips = trim((string) ($rows[0]['STATE'] ?? $rows[0]['STATEFP'] ?? ''));
+            if ($stateFips !== '') {
+                return $this->fipsToAbbreviation($stateFips);
+            }
+        }
+
+        return '';
+    }
+
+    /**
+     * Convert a FIPS state code to its two-letter abbreviation.
+     */
+    protected function fipsToAbbreviation(string $fips): string
+    {
+        $map = [
+            '01' => 'AL', '02' => 'AK', '04' => 'AZ', '05' => 'AR', '06' => 'CA',
+            '08' => 'CO', '09' => 'CT', '10' => 'DE', '11' => 'DC', '12' => 'FL',
+            '13' => 'GA', '15' => 'HI', '16' => 'ID', '17' => 'IL', '18' => 'IN',
+            '19' => 'IA', '20' => 'KS', '21' => 'KY', '22' => 'LA', '23' => 'ME',
+            '24' => 'MD', '25' => 'MA', '26' => 'MI', '27' => 'MN', '28' => 'MS',
+            '29' => 'MO', '30' => 'MT', '31' => 'NE', '32' => 'NV', '33' => 'NH',
+            '34' => 'NJ', '35' => 'NM', '36' => 'NY', '37' => 'NC', '38' => 'ND',
+            '39' => 'OH', '40' => 'OK', '41' => 'OR', '42' => 'PA', '44' => 'RI',
+            '45' => 'SC', '46' => 'SD', '47' => 'TN', '48' => 'TX', '49' => 'UT',
+            '50' => 'VT', '51' => 'VA', '53' => 'WA', '54' => 'WV', '55' => 'WI',
+            '56' => 'WY',
+        ];
+
+        return $map[str_pad($fips, 2, '0', STR_PAD_LEFT)] ?? '';
+    }
+
     /**
      * Resolve address into district metadata.
      *
@@ -174,9 +277,18 @@ class DistrictLookupService
      */
     protected function extractDistrictFromNumericKeys(array $row): ?string
     {
-        // The Census Geocoder returns CD119, CD118 … (without the "FP" suffix).
-        // The FP variants are kept as fallbacks for any third-party data sources.
-        foreach (['CD119', 'CD118', 'CD117', 'CD116', 'CD119FP', 'CD118FP', 'CD117FP', 'CD116FP', 'DISTRICT', 'district'] as $key) {
+        // Match any CD<congress-number>[FP] key dynamically — the Census
+        // Geocoder has returned district fields under Congress sessions older
+        // than the hardcoded list here for at-large states, silently failing
+        // the lookup. See MapGeocodeController::extractDistrictNumber() for
+        // the same fix.
+        $candidateKeys = array_filter(
+            array_keys($row),
+            fn ($key) => preg_match('/^CD\d+(FP)?$/i', (string) $key) === 1,
+        );
+        usort($candidateKeys, fn ($a, $b) => (int) preg_replace('/\D/', '', $b) <=> (int) preg_replace('/\D/', '', $a));
+
+        foreach ([...$candidateKeys, 'DISTRICT', 'district'] as $key) {
             if (! isset($row[$key])) {
                 continue;
             }

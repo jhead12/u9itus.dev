@@ -1,18 +1,32 @@
 /**
  * Layers panel — multi-select data overlay controls.
  */
-import { ACTIVE_LAYERS, showSmallCities, colorMode, stateData, activeState, setColorMode, setShowSmallCities } from '../state/map-state.js';
+import { ACTIVE_LAYERS, showSmallCities, colorMode, stateData, activeState, setColorMode, setShowSmallCities, favoriteBoundaries } from '../state/map-state.js';
 import { districtMeshes } from '../scene/district-overlay.js';
 import { toggleNationalBoundaries, _syncNatDistVisibility } from '../scene/national-boundaries.js';
 import { ensureGovernorParties, applyColorMode } from '../api/governor-parties.js';
-import { clearCityMarkers, buildCityMarkers, clearGovMarkers, loadCityBoundaries, clearCityLayer } from './markers.js';
+import { clearCityMarkers, buildCityMarkers, clearGovMarkers, loadCityBoundaries, clearCityLayer, openCityDrawer } from './markers.js';
+import { clearCandidateMarkers, buildCandidateMarkers } from './candidate-markers.js';
+import { refreshPostPins, clearPostPins } from './post-pins.js';
 import { STATE_ABBR_MAP } from '../config/constants.js';
+import { TOP_CITIES } from '../config/city-data.js';
 import { trackEvent } from '../api/interaction.js';
+import { flyToPoint } from '../scene/camera-animation.js';
+import { project } from '../scene/projection.js';
+import { removeBoundary } from '../api/favorites.js';
 import * as THREE from 'three';
 
 const layersWrap  = document.getElementById('layers-wrap');
 const layersPanel = document.getElementById('layers-panel');
 const btnLayers   = document.getElementById('btn-layers');
+
+const favChipsEl = document.getElementById('favorite-boundary-chips');
+const favEmptyEl = document.getElementById('favorite-boundary-empty');
+const favCountEl = document.querySelector('.lp-saved-count');
+
+const ABBR_TO_NAME = Object.fromEntries(
+    Object.entries(STATE_ABBR_MAP).map(([name, abbr]) => [abbr, name])
+);
 
 /**
  * Toggle a data layer on or off.
@@ -52,6 +66,14 @@ export function toggleLayer(layerKey) {
             if (isActive && activeState) { buildCityMarkers(activeState); buildGovMarkers(); }
             else { clearCityMarkers(); clearGovMarkers(); }
             break;
+        case 'candidates':
+            if (isActive && activeState) buildCandidateMarkers(activeState);
+            else clearCandidateMarkers();
+            break;
+        case 'content':
+            if (isActive) { refreshPostPins(true); }
+            else { clearPostPins(); }
+            break;
     }
 }
 
@@ -89,6 +111,88 @@ export function applyPopulationDensity() {
         if (!rec) continue;
         const t = (rec.total - minP) / range;
         d.material.color.copy(low.clone().lerp(high, t));
+    }
+}
+
+/**
+ * Resolve a top city's population (in thousands) from the TOP_CITIES dataset,
+ * for the city drawer when a saved-city chip is clicked. 0 if not found.
+ */
+function cityPopK(abbr, name) {
+    const list = TOP_CITIES[abbr];
+    if (!list) return 0;
+    const found = list.find(c => c[0] === name);
+    return found ? found[3] : 0;
+}
+
+/**
+ * Fly the map to a saved boundary and open its panel/drawer.
+ * Districts reuse window.__mapGoTo (flies + opens the district panel).
+ * Cities enter the state via __mapGoTo, then fly to the cached point and
+ * open the city drawer.
+ */
+function flyToFavorite(b) {
+    if (b.type === 'district') {
+        window.__mapGoTo?.(b.stateAbbr, b.districtNum, null);
+        trackEvent('boundary_chip_click', { meta: { type: 'district', state: b.stateAbbr, district: b.districtNum } });
+        return;
+    }
+    const stateName = ABBR_TO_NAME[b.stateAbbr] || b.stateAbbr;
+    window.__mapGoTo?.(b.stateAbbr, null, null);
+    trackEvent('boundary_chip_click', { meta: { type: 'city', state: b.stateAbbr, city: b.cityName } });
+    if (b.lat == null || b.lng == null) return;
+    // Wait for state mode + city markers to settle before flying + opening.
+    setTimeout(() => {
+        flyToPoint(b.lat, b.lng);
+        const xy = project([b.lng, b.lat]);
+        if (!xy) return;
+        const worldPos = new THREE.Vector3(xy[0], xy[1], 0.35);
+        openCityDrawer(b.cityName, cityPopK(b.stateAbbr, b.cityName), stateName, worldPos);
+    }, 700);
+}
+
+/**
+ * Render the voter's saved-boundary chips in the Layers → Boundaries panel.
+ * Called at boot (after fetchBoundaries) and after each save/remove.
+ */
+export function renderFavoriteChips() {
+    if (!favChipsEl) return;
+    favChipsEl.innerHTML = '';
+    const entries = [...favoriteBoundaries.values()];
+
+    for (const b of entries) {
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'lp-chip lp-chip-saved';
+        chip.setAttribute('title', `Fly to ${b.label}`);
+        chip.innerHTML =
+            `<span class="lp-saved-icon">${b.type === 'city' ? '📍' : '🗺️'}</span>` +
+            `<span class="lp-saved-label">${b.label}</span>` +
+            `<span class="lp-saved-remove" role="button" aria-label="Remove ${b.label}" title="Remove">×</span>`;
+        chip.addEventListener('click', (e) => {
+            if (e.target.closest('.lp-saved-remove')) {
+                e.stopPropagation();
+                removeBoundary(b.id).then((ok) => {
+                    if (ok) {
+                        renderFavoriteChips();
+                        trackEvent('boundary_unsave', { meta: { id: b.id, type: b.type } });
+                    }
+                });
+                return;
+            }
+            flyToFavorite(b);
+        });
+        favChipsEl.appendChild(chip);
+    }
+
+    const count = entries.length;
+    if (favCountEl) favCountEl.textContent = count > 0 ? `(${count})` : '';
+    if (favEmptyEl) {
+        const isVoter = window.U9?.session?.isVoter?.();
+        favEmptyEl.textContent = isVoter
+            ? 'Save districts and cities you care about to pin them here.'
+            : 'Sign in to save districts and cities you care about.';
+        favEmptyEl.style.display = count > 0 ? 'none' : '';
     }
 }
 
@@ -156,4 +260,12 @@ export function initLayersPanel() {
             document.getElementById('cm-btn-small-cities').classList.add('active');
         }
     } catch (_) {}
+
+    // Initial Saved Boundaries empty-state (re-rendered after fetchBoundaries
+    // resolves for voters, and after each save/remove).
+    renderFavoriteChips();
+
+    // Re-render chips when a star button (district panel / city drawer) saves
+    // or removes a boundary. Decoupled via event to avoid an import cycle.
+    window.addEventListener('u9:favorites-changed', renderFavoriteChips);
 }

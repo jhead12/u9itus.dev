@@ -7,7 +7,7 @@
 @php
     $earlybankUrl = rtrim(config('services.earlybank.public_url', 'https://www.early-bank.com'), '/');
 @endphp
-<div class="space-y-7 max-w-4xl">
+<div class="space-y-7 max-w-4xl mx-auto">
 
     <div>
         <h1 class="text-2xl font-bold text-white">Referrals</h1>
@@ -70,43 +70,33 @@
     @endif
 
     {{-- ── Activity Summary ──────────────────────────────────────────── --}}
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div class="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-4">
-            <p class="text-slate-400 text-xs font-medium uppercase tracking-wide">Referral Code</p>
-            <p class="text-xl font-bold text-emerald-400 mt-2 tracking-widest font-mono">{{ $politician->referral_code ?? '—' }}</p>
-        </div>
-        <div class="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-4">
-            <p class="text-slate-400 text-xs font-medium uppercase tracking-wide">Voters Recruited</p>
-            <p class="text-xl font-bold text-white mt-2">{{ $referredVoters->count() }}</p>
-        </div>
-        <div class="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-4">
-            <p class="text-slate-400 text-xs font-medium uppercase tracking-wide">Politicians Recruited</p>
-            <p class="text-xl font-bold text-white mt-2">{{ $referredPoliticians->count() }}</p>
-        </div>
-        <div class="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-4">
-            <p class="text-slate-400 text-xs font-medium uppercase tracking-wide">Conversions</p>
-            <p class="text-xl font-bold text-emerald-400 mt-2">{{ number_format($referralConversions) }}</p>
-        </div>
-    </div>
+    @include('standalone.shared.referral-stat-grid', [
+        'gridClass' => 'grid-cols-2 sm:grid-cols-3',
+        'cards' => [
+            ['label' => 'Referral Code', 'value' => $politician->referral_code ?? '—', 'valueClass' => 'text-emerald-400 tracking-widest font-mono'],
+            ['label' => 'Voters Recruited', 'value' => $referredVoters->count()],
+            ['label' => 'Politicians Recruited', 'value' => $referredPoliticians->count()],
+        ],
+    ])
 
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div class="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-4">
-            <p class="text-slate-400 text-xs font-medium uppercase tracking-wide">Referral Visits</p>
-            <p class="text-xl font-bold text-white mt-2">{{ number_format($totalReferralVisits) }}</p>
-        </div>
-        <div class="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-4">
-            <p class="text-slate-400 text-xs font-medium uppercase tracking-wide">Unique Visitors</p>
-            <p class="text-xl font-bold text-white mt-2">{{ number_format($uniqueReferralVisitors) }}</p>
-        </div>
-        <div class="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-4">
-            <p class="text-slate-400 text-xs font-medium uppercase tracking-wide">Conversions</p>
-            <p class="text-xl font-bold text-emerald-400 mt-2">{{ number_format($referralConversions) }}</p>
-        </div>
-        <div class="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-4">
-            <p class="text-slate-400 text-xs font-medium uppercase tracking-wide">Conversion Rate</p>
-            <p class="text-xl font-bold text-emerald-400 mt-2">{{ number_format($referralConversionRate, 1) }}%</p>
-        </div>
-    </div>
+    @include('standalone.shared.referral-stat-grid', [
+        'gridClass' => 'grid-cols-2 sm:grid-cols-4',
+        'cards' => [
+            ['label' => 'Referral Visits', 'value' => number_format($totalReferralVisits)],
+            ['label' => 'Unique Visitors', 'value' => number_format($uniqueReferralVisitors)],
+            ['label' => 'Conversions', 'value' => number_format($referralConversions), 'valueClass' => 'text-emerald-400'],
+            ['label' => 'Conversion Rate', 'value' => number_format($referralConversionRate, 1) . '%', 'valueClass' => 'text-emerald-400'],
+        ],
+    ])
+
+    {{-- ── Early-bank Reported Earnings ─────────────────────────── --}}
+    @include('standalone.shared.referral-stat-grid', [
+        'gridClass' => 'grid-cols-2',
+        'cards' => [
+            ['label' => 'Early-bank Commissions', 'value' => '$' . number_format($ebCommissionTotal, 2), 'valueClass' => 'text-emerald-400'],
+            ['label' => 'Early-bank Bonuses', 'value' => '$' . number_format($ebBonusTotal, 2), 'valueClass' => 'text-indigo-400'],
+        ],
+    ])
 
     {{-- ── Share Links ───────────────────────────────────────────── --}}
     @php
@@ -114,22 +104,12 @@
         $politicianRefUrl = url('/?ref=' . ($politician->referral_code ?? '') . '&target=politician');
         $voterQrSrc  = 'https://api.qrserver.com/v1/create-qr-code/?size=120x120&color=059669&bgcolor=FFFFFF&data=' . rawurlencode($voterRefUrl) . '&qzone=1';
         $politicianQrSrc  = 'https://api.qrserver.com/v1/create-qr-code/?size=120x120&color=d97706&bgcolor=FFFFFF&data=' . rawurlencode($politicianRefUrl) . '&qzone=1';
-        $voterTpl = \App\Models\EmailTemplate::forKey('referral_voter_share');
-        $politicianTpl = \App\Models\EmailTemplate::forKey('referral_politician_share');
-        $voterShareSubject = ($voterTpl && $voterTpl->is_active && $voterTpl->subject_override)
-            ? $voterTpl->subject_override
-            : 'Join U9itus as a voter with my referral link';
-        $voterShareMessage = ($voterTpl && $voterTpl->is_active && $voterTpl->body_override)
-            ? $voterTpl->body_override
-            : 'Join U9itus as a voter using my referral link and start participating on the platform.';
-        $voterShareBody = $voterShareMessage . "\n\n" . $voterRefUrl;
-        $politicianShareSubject = ($politicianTpl && $politicianTpl->is_active && $politicianTpl->subject_override)
-            ? $politicianTpl->subject_override
-            : 'Join U9itus as a politician with my referral link';
-        $politicianShareMessage = ($politicianTpl && $politicianTpl->is_active && $politicianTpl->body_override)
-            ? $politicianTpl->body_override
-            : 'Join U9itus as a politician using my referral link and launch your campaign presence on the platform.';
-        $politicianShareBody = $politicianShareMessage . "\n\n" . $politicianRefUrl;
+        $voterShare = \App\Models\EmailTemplate::shareCopy('referral_voter_share', $voterRefUrl,
+            'Join U9itus as a voter with my referral link',
+            'Join U9itus as a voter using my referral link and start participating on the platform.');
+        $politicianShare = \App\Models\EmailTemplate::shareCopy('referral_politician_share', $politicianRefUrl,
+            'Join U9itus as a politician with my referral link',
+            'Join U9itus as a politician using my referral link and launch your campaign presence on the platform.');
     @endphp
     <div class="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-6 space-y-6">
         <h2 class="text-base font-semibold text-white">Your Referral Links</h2>
@@ -150,9 +130,9 @@
                 </div>
                 @include('standalone.shared.referral-share-actions', [
                     'shareLink' => $voterRefUrl,
-                    'shareSubject' => $voterShareSubject,
-                    'shareMessage' => $voterShareMessage,
-                    'shareBody' => $voterShareBody,
+                    'shareSubject' => $voterShare['subject'],
+                    'shareMessage' => $voterShare['message'],
+                    'shareBody' => $voterShare['body'],
                 ])
             </div>
             <div class="flex flex-col items-center gap-2">
@@ -185,9 +165,9 @@
                 </div>
                 @include('standalone.shared.referral-share-actions', [
                     'shareLink' => $politicianRefUrl,
-                    'shareSubject' => $politicianShareSubject,
-                    'shareMessage' => $politicianShareMessage,
-                    'shareBody' => $politicianShareBody,
+                    'shareSubject' => $politicianShare['subject'],
+                    'shareMessage' => $politicianShare['message'],
+                    'shareBody' => $politicianShare['body'],
                 ])
             </div>
             <div class="flex flex-col items-center gap-2">
@@ -359,22 +339,7 @@
 </div>
 
 @push('scripts')
-<script>
-window.copyLink = function (inputId) {
-    const input = document.getElementById(inputId);
-    if (!input) return;
-    navigator.clipboard?.writeText(input.value).catch(() => {
-        input.select();
-        document.execCommand('copy');
-    });
-    const btn = input.nextElementSibling;
-    if (btn) {
-        const orig = btn.textContent.trim();
-        btn.textContent = 'Copied!';
-        setTimeout(() => { btn.textContent = orig; }, 1800);
-    }
-};
-</script>
+@include('standalone.shared.copy-link-script')
 @endpush
 
 @endsection

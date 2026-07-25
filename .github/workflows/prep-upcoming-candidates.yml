@@ -1,0 +1,148 @@
+name: Prep Upcoming-Election Candidates
+
+# Prioritizes candidates currently on the ballot (is_running_candidate=true):
+# tags primary losers (state + federal), discovers missing campaign websites,
+# then refreshes news/finance/video coverage for that same target set — so a
+# brand-new candidate isn't waiting behind high-traffic incumbents in the
+# default staleness/traffic queues. Runs daily and can be triggered manually.
+on:
+  schedule:
+    - cron: "0 4 * * *"   # 04:00 UTC — after sync-candidates (02:00)
+  workflow_dispatch:
+    inputs:
+      states:
+        description: "Comma-separated state codes to scope sync-primary-results/refresh-news (e.g. CA,TX,NY). Leave blank for all states."
+        default: ""
+        required: false
+      limit:
+        description: "Max candidates to process per step"
+        default: "200"
+        required: false
+      dry_run:
+        description: "Dry-run (report only, no writes)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  prep-upcoming-candidates:
+    name: Tag primary losers, discover sites, refresh news/finance/video
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── Checkout ────────────────────────────────────────────────────────────
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # ── PHP ─────────────────────────────────────────────────────────────────
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, pdo_mysql
+          coverage: none
+
+      # ── Composer ────────────────────────────────────────────────────────────
+      - name: Cache Composer packages
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: ${{ runner.os }}-composer-${{ hashFiles('composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Install Composer dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress --no-dev
+
+      # ── Laravel env ─────────────────────────────────────────────────────────
+      # All secrets are set in GitHub → Settings → Secrets → Actions.
+      # Required: APP_KEY, DB_HOST, DB_PORT, DB_DATABASE, DB_USERNAME, DB_PASSWORD
+      # Optional: NEWSAPI_KEY, GNEWS_API_KEY
+      - name: Write .env
+        run: |
+          cat > .env <<EOF
+          APP_ENV=production
+          APP_KEY=${{ secrets.APP_KEY }}
+          APP_DEBUG=false
+          APP_URL=${{ secrets.APP_URL }}
+
+          DB_CONNECTION=mysql
+          DB_HOST=${{ secrets.DB_HOST }}
+          DB_PORT=${{ secrets.DB_PORT }}
+          DB_DATABASE=${{ secrets.DB_DATABASE }}
+          DB_USERNAME=${{ secrets.DB_USERNAME }}
+          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+
+          NEWSAPI_KEY=${{ secrets.NEWSAPI_KEY }}
+          GNEWS_API_KEY=${{ secrets.GNEWS_API_KEY }}
+
+          CACHE_DRIVER=database
+          SESSION_DRIVER=database
+          QUEUE_CONNECTION=sync
+          LOG_CHANNEL=stderr
+          EOF
+
+      - name: Run pending migrations
+        run: php artisan migrate --force --no-interaction
+
+      # ── 1. Tag primary losers (now covers state + federal) ──────────────────
+      - name: Sync primary results
+        run: |
+          STATES="${{ github.event.inputs.states }}"
+          DRY=${{ github.event.inputs.dry_run == 'true' && '--dry-run' || '' }}
+          if [ -z "$STATES" ]; then
+            php artisan politicians:sync-primary-results --force ${DRY}
+          else
+            for state in $(echo "$STATES" | tr ',' ' '); do
+              php artisan politicians:sync-primary-results --state="$state" --force ${DRY}
+            done
+          fi
+
+      # ── 2. Discover missing campaign websites for running candidates ────────
+      - name: Discover campaign websites
+        run: |
+          LIMIT=${{ github.event.inputs.limit || '200' }}
+          DRY=${{ github.event.inputs.dry_run == 'true' && '--dry-run' || '' }}
+          php artisan politicians:discover-websites --limit="${LIMIT}" ${DRY}
+
+      # ── 3. Enrich profiles now that newly-discovered sites are set ──────────
+      - name: Enrich candidate profiles
+        run: |
+          LIMIT=${{ github.event.inputs.limit || '200' }}
+          DRY=${{ github.event.inputs.dry_run == 'true' && '--dry-run' || '' }}
+          php artisan politicians:enrich-profiles --limit="${LIMIT}" --force ${DRY}
+
+      # ── 4. News, prioritized for the upcoming-cycle candidate set ───────────
+      - name: Refresh candidate news
+        run: |
+          LIMIT=${{ github.event.inputs.limit || '200' }}
+          STATES="${{ github.event.inputs.states }}"
+          DRY=${{ github.event.inputs.dry_run == 'true' && '--dry-run' || '' }}
+          if [ -z "$STATES" ]; then
+            php artisan candidates:refresh-news --limit="${LIMIT}" --upcoming-only ${DRY}
+          else
+            for state in $(echo "$STATES" | tr ',' ' '); do
+              php artisan candidates:refresh-news --limit="${LIMIT}" --state="$state" --upcoming-only ${DRY}
+            done
+          fi
+
+      # ── 5. Campaign finance, prioritized for the upcoming-cycle candidate set ─
+      - name: Enrich donor/finance data
+        run: |
+          LIMIT=${{ github.event.inputs.limit || '200' }}
+          DRY=${{ github.event.inputs.dry_run == 'true' && '--dry-run' || '' }}
+          php artisan politicians:enrich-donors --limit="${LIMIT}" --upcoming-only --force ${DRY}
+
+      # ── 6. C-SPAN video coverage, prioritized for the upcoming-cycle set ────
+      - name: Enrich C-SPAN moments
+        run: |
+          LIMIT=${{ github.event.inputs.limit || '200' }}
+          DRY=${{ github.event.inputs.dry_run == 'true' && '--dry-run' || '' }}
+          php artisan politicians:enrich-cspan-moments --limit="${LIMIT}" --upcoming-only ${DRY}
+
+      # ── 7. Reconcile status (catches any post-general changes) ─────────────
+      - name: Reconcile politician status
+        run: |
+          DRY=${{ github.event.inputs.dry_run == 'true' && '--dry-run' || '' }}
+          php artisan politicians:reconcile-status ${DRY}

@@ -72,6 +72,7 @@
 
     {{-- Table --}}
     <div class="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
+      <div class="overflow-x-auto">
         <table class="w-full text-sm">
             <thead>
                 <tr class="border-b border-slate-700 text-left">
@@ -112,7 +113,7 @@
                                 Verified
                             </span>
                         @else
-                            <span class="text-slate-600 text-xs">—</span>
+                            <span class="text-slate-500 text-xs">—</span>
                         @endif
                     </td>
                     <td class="px-5 py-3.5 text-right">
@@ -145,6 +146,7 @@
                 @endforelse
             </tbody>
         </table>
+      </div>
     </div>
 
     {{-- Pagination --}}

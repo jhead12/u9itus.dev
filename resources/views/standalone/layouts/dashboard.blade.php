@@ -55,6 +55,18 @@
     if (! request()->routeIs('politician.dashboard')) {
         $showPoliticianStartHere = false;
     }
+
+    // For dual-role voter+citizen users, determine which portal they are
+    // currently in from the URL prefix rather than from role priority order.
+    // getRoleNames()->first() returns 'voter' for all dual-role users (voter
+    // role is older), causing the citizen sidebar to never render otherwise.
+    $dashboardActivePortal = match(true) {
+        request()->is('citizen*') => 'citizen',
+        request()->is('voter*')   => 'voter',
+        request()->is('politician*') => 'politician',
+        request()->is('admin*')   => 'admin',
+        default => auth()->user()?->getRoleNames()->first() ?? '',
+    };
 @endphp
 
 <!DOCTYPE html>
@@ -99,14 +111,13 @@
                 <img src="{{ asset('media/u9itus-logo.svg') }}" alt="U9itus" class="h-7">
             </div>
             <span class="ml-auto text-xs text-slate-500 uppercase tracking-wide">
-                {{ auth()->user()?->getRoleNames()->first() ?? 'Portal' }}
+                {{ $dashboardActivePortal ?: (auth()->user()?->getRoleNames()->first() ?? 'Portal') }}
             </span>
         </div>
 
         {{-- Navigation --}}
         <nav class="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-
-            @if(auth()->user()?->hasRole('politician'))
+            @if($dashboardActivePortal === 'politician' || (auth()->user()?->hasRole('politician') && $dashboardActivePortal === ''))
                 <p class="px-4 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">Overview</p>
 
                 <a href="{{ route('politician.dashboard') }}"
@@ -127,6 +138,20 @@
                    class="sidebar-link {{ request()->routeIs('politician.campaigns.create') ? 'active' : '' }}">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
                     New Campaign
+                </a>
+
+                <p class="px-4 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider mt-2">Events</p>
+
+                <a href="{{ route('politician.events.index') }}"
+                   class="sidebar-link {{ request()->routeIs('politician.events.*') ? 'active' : '' }}">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                    My Events
+                </a>
+
+                <a href="{{ route('politician.events.create') }}"
+                   class="sidebar-link {{ request()->routeIs('politician.events.create') ? 'active' : '' }}">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                    New Event
                 </a>
 
                 <p class="px-4 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider mt-2">Insights</p>
@@ -170,7 +195,7 @@
                     Public Page
                 </a>
 
-            @elseif(auth()->user()?->hasRole('voter'))
+            @elseif($dashboardActivePortal === 'voter' && auth()->user()?->hasRole('voter'))
                 <a href="{{ route('voter.dashboard') }}" class="sidebar-link {{ request()->routeIs('voter.dashboard') ? 'active' : '' }}">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
                     Dashboard
@@ -179,7 +204,52 @@
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                     Earnings
                 </a>
-            @elseif(auth()->user()?->hasRole('admin'))
+            @elseif($dashboardActivePortal === 'citizen' && auth()->user()?->hasRole('citizen'))
+                <p class="px-4 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">Overview</p>
+
+                <a href="{{ route('citizen.dashboard') }}"
+                   class="sidebar-link {{ request()->routeIs('citizen.dashboard') ? 'active' : '' }}">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+                    Dashboard
+                </a>
+
+                <p class="px-4 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider mt-2">Campaigns</p>
+
+                <a href="{{ route('citizen.campaigns.index') }}"
+                   class="sidebar-link {{ request()->routeIs('citizen.campaigns.index') ? 'active' : '' }}">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.069A1 1 0 0121 8.87v6.26a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                    My Campaigns
+                </a>
+
+                <a href="{{ route('citizen.campaigns.create') }}"
+                   class="sidebar-link {{ request()->routeIs('citizen.campaigns.create') ? 'active' : '' }}">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                    New Campaign
+                </a>
+
+                <p class="px-4 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider mt-2">Events</p>
+
+                <a href="{{ route('citizen.events.index') }}"
+                   class="sidebar-link {{ request()->routeIs('citizen.events.*') ? 'active' : '' }}">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                    My Events
+                </a>
+
+                <a href="{{ route('citizen.events.create') }}"
+                   class="sidebar-link {{ request()->routeIs('citizen.events.create') ? 'active' : '' }}">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                    New Event
+                </a>
+
+                <p class="px-4 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider mt-2">Account</p>
+
+                <a href="{{ route('citizen.billing') }}"
+                   class="sidebar-link {{ request()->routeIs('citizen.billing*') ? 'active' : '' }}">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+                    Billing & Credits
+                </a>
+
+            @elseif($dashboardActivePortal === 'admin' && auth()->user()?->hasRole('admin'))
                 <p class="px-4 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">Overview</p>
 
                 <a href="{{ route('admin.dashboard') }}" class="sidebar-link {{ request()->routeIs('admin.dashboard') ? 'active' : '' }}">
@@ -197,6 +267,13 @@
                 <a href="{{ route('admin.campaigns.running') }}" class="sidebar-link {{ request()->routeIs('admin.campaigns.running') ? 'active' : '' }}">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
                     Running Campaigns
+                </a>
+
+                <p class="px-4 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider mt-2">Content</p>
+
+                <a href="{{ route('admin.posts.index') }}" class="sidebar-link {{ request()->routeIs('admin.posts.*') ? 'active' : '' }}">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                    Blog Posts
                 </a>
 
                 <p class="px-4 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider mt-2">Users</p>
@@ -232,6 +309,16 @@
                 <a href="{{ route('admin.payouts.index') }}" class="sidebar-link {{ request()->routeIs('admin.payouts.*') ? 'active' : '' }}">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
                     Payouts
+                </a>
+
+                <a href="{{ route('admin.billing.refunds') }}" class="sidebar-link {{ request()->routeIs('admin.billing.refunds') ? 'active' : '' }}">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+                    Politician Refunds
+                </a>
+
+                <a href="{{ route('admin.citizen-billing.refunds') }}" class="sidebar-link {{ request()->routeIs('admin.citizen-billing.refunds') ? 'active' : '' }}">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+                    Citizen Refunds
                 </a>
 
                 <a href="{{ route('admin.imports') }}" class="sidebar-link {{ request()->routeIs('admin.imports') ? 'active' : '' }}">
@@ -287,6 +374,13 @@
                     <p class="text-xs text-slate-500 truncate">{{ auth()->user()?->email }}</p>
                 </div>
             </div>
+            @if(auth()->user()?->hasRole('voter') && auth()->user()?->hasRole('citizen'))
+            <a href="{{ route('portal-pick') }}"
+               class="w-full sidebar-link text-left text-slate-400 hover:text-white mb-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
+                Switch Portal
+            </a>
+            @endif
             <form method="POST" action="{{ route('logout') }}">
                 @csrf
                 <button type="submit" class="w-full sidebar-link text-left hover:text-red-400">
@@ -306,7 +400,7 @@
             aria-label="Close sidebar overlay"></button>
 
     {{-- ===== MAIN CONTENT ===== --}}
-    <div class="flex-1 flex flex-col lg:ml-64 min-h-screen">
+    <div class="flex-1 flex flex-col lg:ml-64 min-h-screen min-w-0">
 
         {{-- Top bar --}}
         <header class="sticky top-0 z-30 bg-slate-900/90 backdrop-blur border-b border-slate-800 px-4 sm:px-6 h-16 flex items-center gap-4">
@@ -551,6 +645,37 @@
         sidebar.classList.toggle('-translate-x-full');
         overlay.classList.toggle('hidden');
     }
+
+    // Convert all <time class="local-time" datetime="ISO-UTC-string"> elements
+    // to the browser's local timezone. Falls back gracefully when JS is disabled
+    // or the datetime attribute is missing/invalid — the server-rendered UTC text
+    // remains visible in that case.
+    (function localiseTimestamps() {
+        function format(isoString) {
+            const d = new Date(isoString);
+            if (Number.isNaN(d.getTime())) return null;
+            return new Intl.DateTimeFormat(undefined, {
+                year: 'numeric', month: 'short', day: 'numeric',
+                hour: '2-digit', minute: '2-digit',
+            }).format(d);
+        }
+
+        function applyAll() {
+            document.querySelectorAll('time.local-time[datetime]').forEach(function (el) {
+                const formatted = format(el.getAttribute('datetime'));
+                if (formatted) el.textContent = formatted;
+            });
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', applyAll);
+        } else {
+            applyAll();
+        }
+
+        // Re-run after any dynamic content is injected (e.g. modals, pagination).
+        document.addEventListener('localtime:refresh', applyAll);
+    })();
 </script>
 
 @stack('scripts')

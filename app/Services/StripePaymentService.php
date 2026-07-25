@@ -36,6 +36,7 @@ class StripePaymentService
         array $metadata = [],
         ?string $customerId = null,
         ?string $paymentMethodId = null,
+        ?string $idempotencyKey = null,
     ) {
         if (! $this->client) {
             throw new \RuntimeException('Stripe SDK not available. Run `composer require stripe/stripe-php`.');
@@ -58,7 +59,9 @@ class StripePaymentService
             $params['payment_method'] = $paymentMethodId;
         }
 
-        $pi = $this->client->paymentIntents->create($params);
+        $requestOptions = $idempotencyKey ? ['idempotency_key' => $idempotencyKey] : [];
+
+        $pi = $this->client->paymentIntents->create($params, $requestOptions);
 
         Log::info('Created Stripe PaymentIntent', ['id' => $pi->id, 'amount' => $amount]);
 
@@ -66,52 +69,58 @@ class StripePaymentService
     }
 
     /**
-     * Retrieve or create a Stripe Customer for a politician.
+     * Retrieve or create a Stripe Customer for a billable model (Politician or Citizen).
      *
-     * Saves `stripe_customer_id` back to the politician row so subsequent
-     * calls are instant (idempotent).
+     * Saves `stripe_customer_id` back to the model so subsequent calls are instant.
      */
-    public function ensureCustomer(Politician $politician): ?string
+    public function ensureCustomer($billable): ?string
     {
         if (! $this->client) {
             Log::warning('Stripe SDK not available — cannot ensure customer.');
             return null;
         }
 
-        if (! empty($politician->stripe_customer_id)) {
+        $isCitizen = $billable instanceof \App\Models\Citizen;
+        $isPolitician = $billable instanceof \App\Models\Politician;
+
+        if (! $isCitizen && ! $isPolitician) {
+            throw new \InvalidArgumentException('ensureCustomer expects Citizen or Politician model.');
+        }
+
+        $modelName = $isCitizen ? 'citizen' : 'politician';
+        $displayName = $billable->full_name ?? $billable->business_name ?? optional($billable->user)->name ?? 'Customer';
+        $email = optional($billable->user)->email ?? null;
+
+        if (! empty($billable->stripe_customer_id)) {
             try {
-                // Verify the saved customer still exists in the active Stripe account.
-                $this->client->customers->retrieve($politician->stripe_customer_id, []);
-                return $politician->stripe_customer_id;
+                $this->client->customers->retrieve($billable->stripe_customer_id, []);
+                return $billable->stripe_customer_id;
             } catch (\Stripe\Exception\InvalidRequestException $e) {
-                // Common when a customer id belongs to another Stripe account/mode
-                // or was deleted; recreate and persist a fresh customer id.
                 Log::warning('Stored Stripe customer missing, recreating customer.', [
-                    'politician_id'      => $politician->id,
-                    'stripe_customer_id' => $politician->stripe_customer_id,
-                    'error'              => $e->getMessage(),
+                    $modelName . '_id'      => $billable->id,
+                    'stripe_customer_id'   => $billable->stripe_customer_id,
+                    'error'                => $e->getMessage(),
                 ]);
             }
         }
 
-        // Resolve the best available email from the related User.
-        $email = optional($politician->user)->email ?? null;
+        $metadata = [
+            $modelName . '_id'   => $billable->id,
+            $modelName . '_uuid' => $billable->uuid ?? null,
+        ];
 
         $customer = $this->client->customers->create([
-            'name'     => $politician->full_name,
+            'name'     => $displayName,
             'email'    => $email,
-            'metadata' => [
-                'politician_id'   => $politician->id,
-                'politician_uuid' => $politician->uuid,
-            ],
+            'metadata' => $metadata,
         ]);
 
-        $politician->stripe_customer_id = $customer->id;
-        $politician->saveQuietly();
+        $billable->stripe_customer_id = $customer->id;
+        $billable->saveQuietly();
 
-        Log::info('Created Stripe Customer for politician', [
-            'politician_id'      => $politician->id,
-            'stripe_customer_id' => $customer->id,
+        Log::info('Created Stripe Customer for ' . $modelName, [
+            $modelName . '_id'     => $billable->id,
+            'stripe_customer_id'   => $customer->id,
         ]);
 
         return $customer->id;

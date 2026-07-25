@@ -17,10 +17,17 @@
 use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\BillingController;
 use App\Http\Controllers\Api\EarlyBankController;
+use App\Http\Controllers\Api\MapContentController;
 use App\Http\Controllers\Api\MapDistrictConfigController;
+use App\Http\Controllers\Api\MapGeocodeController;
 use App\Http\Controllers\Api\MapInteractionController;
+use App\Http\Controllers\Api\MapCandidateEconomyController;
+use App\Http\Controllers\Api\MapCandidateMomentsController;
 use App\Http\Controllers\Api\MapCandidateOverviewController;
+use App\Http\Controllers\Api\MapCityCensusController;
+use App\Http\Controllers\Api\MapRegionDemographicsController;
 use App\Http\Controllers\Api\MapStateCandidatesController;
+use App\Http\Controllers\Api\MapPoliticianSearchController;
 use App\Http\Controllers\Api\OfficeProfileController;
 use App\Http\Controllers\Api\PayPalWebhookController;
 use App\Http\Controllers\Api\PoliticianController;
@@ -81,20 +88,53 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
     |----------------------------------------------------------------------
     | Voter API (widget-facing — rate-limited, UUID-based)
     |----------------------------------------------------------------------
+    | Auth model: opaque bearer token (voter-token / voter.owns middleware),
+    | not Sanctum — voters using only the widget may have no `users` row.
+    | Full auth model comparison: doc/auth-architecture.md
     */
     // ── Public map data — no auth, rate-limited ──────────────────────────────
     Route::middleware('throttle:120,1')->group(function () {
         Route::get('/map/state-candidates', MapStateCandidatesController::class)
             ->name('map.state-candidates');
 
+        // Live politician typeahead — powers the "Politicians" group in the
+        // map's search palette (resources/js/map/ui/search.js).
+        Route::get('/map/politician-search', MapPoliticianSearchController::class)
+            ->name('map.politician-search');
+
+        // Region panel — cities + Census ACS demographics (poverty, education,
+        // income) for the states within a region.
+        Route::get('/map/region-demographics', MapRegionDemographicsController::class)
+            ->name('map.region-demographics');
+
+        // Single-city Census ACS demographics — powers the politician
+        // drawer's city view (Economy tab). Dispatches a census-sync
+        // workflow run when the requested city has no data yet.
+        Route::get('/map/city-census', MapCityCensusController::class)
+            ->name('map.city-census');
+
         Route::get('/map/candidate-overview', MapCandidateOverviewController::class)
             ->name('map.candidate-overview');
+
+        Route::get('/map/candidate-economy', MapCandidateEconomyController::class)
+            ->name('map.candidate-economy');
+
+        Route::get('/map/candidate-moments', MapCandidateMomentsController::class)
+            ->name('map.candidate-moments');
 
         // District boundary config — congress number, TIGERweb layer, CD field,
         // and party map derived from seated House members. Used by the 3D map to
         // render district overlays dynamically without a code deploy.
         Route::get('/map/district-config', MapDistrictConfigController::class)
             ->name('map.district-config');
+
+        // Reverse geocode lat/lng → congressional district for the 3D map.
+        Route::get('/map/geocode', MapGeocodeController::class)
+            ->name('map.geocode');
+
+        // Geo-tagged civic content (blog posts, later events) for the 3D map.
+        Route::get('/map/content', MapContentController::class)
+            ->name('map.content');
 
         // Anonymous map click analytics — fire-and-forget from the browser.
         // No auth required; IPs are SHA-256 hashed before storage.

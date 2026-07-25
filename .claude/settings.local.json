@@ -1,0 +1,39 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./vendor/bin/pest *)",
+      "Bash(php -l /Volumes/PRO-BLADE/Github/u9itus.dev/app/Http/Controllers/Standalone/VoterController.php)",
+      "Bash(php -l /Volumes/PRO-BLADE/Github/u9itus.dev/tests/Feature/Voter/VoterAddCitizenProfileTest.php)",
+      "Bash(php -l /Volumes/PRO-BLADE/Github/u9itus.dev/app/Http/Controllers/Standalone/AdminController.php)",
+      "Bash(php -l /Volumes/PRO-BLADE/Github/u9itus.dev/routes/standalone.php)",
+      "Bash(php artisan *)",
+      "Bash(php -l /Volumes/PRO-BLADE/Github/u9itus.dev/app/Services/CitizenBillingService.php)",
+      "Bash(php -l /Volumes/PRO-BLADE/Github/u9itus.dev/app/Services/CitizenViewService.php)",
+      "Bash(php -l /Volumes/PRO-BLADE/Github/u9itus.dev/app/Models/CitizenViewSession.php)",
+      "Bash(php -l /Volumes/PRO-BLADE/Github/u9itus.dev/app/Http/Controllers/Standalone/CitizenCampaignVoterController.php)",
+      "Bash(php -l /Volumes/PRO-BLADE/Github/u9itus.dev/tests/Feature/Citizen/CitizenViewTest.php)",
+      "Bash(php -r \"require 'vendor/autoload.php'; echo ''\")",
+      "Bash(APP_DEBUG=true php artisan test tests/Feature/Auth/AdminTwoFactorPolicyTest.php --filter=\"policy off allows admin dashboard\")",
+      "Bash(echo \"exit: $?\")",
+      "Bash(python3 -)",
+      "Bash(curl -s \"http://127.0.0.1:8000/api/v1/map/candidate-overview?slug=367b3-senator-torrey-reichel-new-adriannahaven&full_name=Torrey%20Reichel&state=UT&office=Senator\" -o /dev/null -w \"time_total:%{time_total}s status:%{http_code}\\\\n\")",
+      "Bash(curl -s \"http://127.0.0.1:8000/api/v1/map/candidate-overview?slug=94df7-senator-odell-klein-janeport&full_name=Odell%20Klein&state=NC&office=Senator\" -o /dev/null -w \"time_total:%{time_total}s status:%{http_code}\\\\n\")",
+      "mcp__chrome-devtools__click",
+      "mcp__chrome-devtools__take_snapshot",
+      "mcp__chrome-devtools__press_key",
+      "mcp__chrome-devtools__take_screenshot",
+      "mcp__chrome-devtools__evaluate_script",
+      "mcp__chrome-devtools__navigate_page",
+      "mcp__chrome-devtools__emulate",
+      "mcp__chrome-devtools__fill",
+      "mcp__chrome-devtools__list_network_requests",
+      "Bash(railway ssh *)",
+      "Bash(sqlite3 database/database.sqlite \"SELECT id, email, is_admin FROM users WHERE email LIKE '%admin%' OR is_admin=1 LIMIT 5;\")",
+      "Bash(sqlite3 database/database.sqlite \".schema users\")",
+      "Bash(RAILWAY_CALLER=\"skill:use-railway@1.3.6\" RAILWAY_AGENT_SESSION=\"railway-skill-incident-$$\" railway deployment list --project 5cf3bc6e-d919-4964-bd1d-83197b7d0441 --environment ed39c7d7-423a-4187-ba84-bd6536a2d686 --service e978c085-3799-47d8-8eda-8e155372f2d7 --limit 3 --json)",
+      "Bash(php -r \"\\\\Illuminate\\\\Support\\\\Facades\\\\Blade::compileString\\(file_get_contents\\('resources/views/standalone/admin/citizen-billing-refunds.blade.php'\\)\\); echo 'blade-ok';\")",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(awk 'NR>=120 && NR<=126' resources/views/standalone/voter/watch-citizen.blade.php)"
+    ]
+  }
+}

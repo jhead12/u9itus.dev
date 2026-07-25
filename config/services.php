@@ -126,6 +126,13 @@ return [
     'google' => [
         'civic_api_key' => env('GOOGLE_CIVIC_API_KEY'),
 
+        // YouTube Data API v3 — used by App\Services\YouTubeMomentService to
+        // fetch view/like counts on viral clips for the moment-score feature.
+        // Default quota is 10,000 units/day; the enricher gates on news freshness
+        // to stay within budget. Add to GitHub Actions secrets + Railway env.
+        'youtube_api_key' => env('YOUTUBE_API_KEY'),
+        'youtube_api_base_url' => env('YOUTUBE_API_BASE_URL', 'https://www.googleapis.com/youtube/v3'),
+
         // Google Analytics 4 measurement ID (e.g. "G-XXXXXXXXXX").
         // Falls back to the `google_analytics_id` platform setting at runtime.
         'analytics_id' => env('GOOGLE_ANALYTICS_ID'),
@@ -162,13 +169,39 @@ return [
         'model'   => env('ANTHROPIC_ENRICH_MODEL', 'claude-haiku-4-5'),
     ],
 
-    // Profile auto-repair — GitHub repository_dispatch integration.
-    // Set GITHUB_REPAIR_TOKEN to a fine-grained PAT with:
-    //   repo → Actions → Write access on the u9itus.dev repository.
-    // Set GITHUB_REPO to "owner/repo" (e.g. "HeadEnterprises/u9itus.dev").
+    // Public-directory profile enrichment — fetches a politician's official /
+    // campaign website and extracts contact methods, office addresses
+    // (residential rejected), social/newsletter links, and donation page URLs
+    // (link-out only, never embedded). Newsletter posts (Substack JSON → RSS
+    // fallback) are stored as titled links only in candidate_news_articles.
+    // The Anthropic creds above are reused for the Claude haiku fallback tier;
+    // no new secret is required.
+    'profile_enricher' => [
+        'user_agent'      => env('PROFILE_ENRICHER_UA', 'U9itus-civic-enrichment/1.0 (+https://u9itus.dev/about)'),
+        'timeout'          => (int) env('PROFILE_ENRICHER_TIMEOUT', 20),
+        'cache_ttl'        => (int) env('PROFILE_ENRICHER_CACHE_TTL', 86400),
+        'rate_per_host'    => (int) env('PROFILE_ENRICHER_RATE_PER_HOST', 1),
+        'max_posts'        => (int) env('PROFILE_ENRICHER_MAX_POSTS', 10),
+        'anthropic_key'    => env('ANTHROPIC_API_KEY'),
+        'anthropic_model'  => env('ANTHROPIC_ENRICH_MODEL', 'claude-haiku-4-5'),
+    ],
+
+    // GitHub Actions dispatch integration. GITHUB_REPO is "owner/repo" (e.g.
+    // "HeadEnterprises/u9itus.dev"), shared by all dispatchers below. Each
+    // dispatcher gets its own fine-grained PAT (repo → Actions → Write access
+    // on the u9itus.dev repository) so a bug or leak in one blast-radius
+    // can't be used to trigger the other's workflows:
+    //   - repair_token   → DispatchProfileRepairWorkflow
+    //                      (repository_dispatch: profile.repair)
+    //   - hotstate_token → DispatchHotStatesSyncWorkflow
+    //                      (workflow_dispatch on the map's state-scoped sync
+    //                      workflows, triggered by map:sync-hot-states)
     'github' => [
-        'repair_token' => env('GITHUB_REPAIR_TOKEN'),
-        'repo'         => env('GITHUB_REPO'),
+        'repair_token'   => env('GITHUB_REPAIR_TOKEN'),
+        'hotstate_token' => env('GITHUB_HOTSTATE_TOKEN'),
+        'repo'           => env('GITHUB_REPO'),
+        // Branch ref used for workflow_dispatch API calls.
+        'ref'            => env('GITHUB_DISPATCH_REF', 'master'),
     ],
 
     // Sprint 7 — MeToken subgraph (Goldsky public endpoint) for read-only

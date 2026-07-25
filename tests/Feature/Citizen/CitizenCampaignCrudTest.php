@@ -345,3 +345,102 @@ test('citizen cannot upload a video to an active campaign', function () {
         ->post(route('citizen.campaigns.upload-video', $campaign), ['video' => $file])
         ->assertSessionHasErrors(['video']);
 });
+
+// ── Review as voter ─────────────────────────────────────────────────────────────
+
+test('citizen can review their draft campaign as a voter', function () {
+    $user     = makeCitizen();
+    $campaign = makeCitizenCampaign($user->citizen, [
+        'status'              => CampaignStatus::Draft->value,
+        'media_url'           => 'https://www.youtube.com/watch?v=abc',
+        'media_duration'      => 60,
+        'voter_payout_per_view' => 0.50,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('citizen.campaigns.review', $campaign))
+        ->assertOk()
+        ->assertSee('Preview Mode')
+        ->assertSee($campaign->title)
+        ->assertSee('Click to Play Preview');
+});
+
+test('citizen cannot review another citizens campaign', function () {
+    $userA = makeCitizen();
+    $userB = makeCitizen();
+    $campaign = makeCitizenCampaign($userA->citizen, [
+        'status'    => CampaignStatus::Draft->value,
+        'media_url' => 'https://www.youtube.com/watch?v=abc',
+    ]);
+
+    $this->actingAs($userB)
+        ->get(route('citizen.campaigns.review', $campaign))
+        ->assertForbidden();
+});
+
+test('citizen cannot review a non-draft campaign', function () {
+    $user     = makeCitizen();
+    $campaign = makeCitizenCampaign($user->citizen, [
+        'status'    => CampaignStatus::PendingApproval->value,
+        'media_url' => 'https://www.youtube.com/watch?v=abc',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('citizen.campaigns.review', $campaign))
+        ->assertForbidden();
+});
+
+test('review page redirects when campaign has no video or live feed', function () {
+    $user     = makeCitizen();
+    $campaign = makeCitizenCampaign($user->citizen, [
+        'status'        => CampaignStatus::Draft->value,
+        'media_url'     => null,
+        'live_feed_url' => null,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('citizen.campaigns.review', $campaign))
+        ->assertRedirect(route('citizen.campaigns.show', $campaign))
+        ->assertSessionHasErrors(['review']);
+});
+
+test('review page does not record views or create sessions', function () {
+    $user     = makeCitizen();
+    $campaign = makeCitizenCampaign($user->citizen, [
+        'status'                => CampaignStatus::Draft->value,
+        'media_url'               => 'https://www.youtube.com/watch?v=abc',
+        'media_duration'          => 60,
+        'views_completed'         => 0,
+        'total_views_requested'   => 100,
+        'voter_payout_per_view'   => 0.50,
+    ]);
+
+    $sessionCount = \App\Models\CitizenViewSession::count();
+
+    $this->actingAs($user)
+        ->get(route('citizen.campaigns.review', $campaign))
+        ->assertOk();
+
+    $campaign->refresh();
+    expect($campaign->views_completed)->toBe(0);
+    expect(\App\Models\CitizenViewSession::count())->toBe($sessionCount);
+});
+
+test('review page shows targeting info and zip eligibility', function () {
+    $user     = makeCitizen();
+    $user->citizen->update(['zip' => '90210']);
+
+    $campaign = makeCitizenCampaign($user->citizen, [
+        'status'            => CampaignStatus::Draft->value,
+        'media_url'         => 'https://www.youtube.com/watch?v=abc',
+        'target_zip'        => '90210',
+        'target_zip_radius' => 10,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('citizen.campaigns.review', $campaign))
+        ->assertOk()
+        ->assertSee('Targeting:')
+        ->assertSeeText('Campaign target: 90210')
+        ->assertSeeText('Radius: 10 miles');
+});

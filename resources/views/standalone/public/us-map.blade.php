@@ -58,17 +58,22 @@
             <tbody>
                 <tr><td><kbd>Tab</kbd></td><td>Focus the map canvas</td></tr>
                 <tr><td><kbd>Enter</kbd> / <kbd>Space</kbd></td><td>Open search to select a state</td></tr>
-                <tr><td><kbd>↑</kbd> <kbd>↓</kbd></td><td>Tilt map (max 38°)</td></tr>
+                <tr><td><kbd>↑</kbd> <kbd>↓</kbd></td><td>Tilt map</td></tr>
                 <tr><td><kbd>+</kbd> / <kbd>=</kbd></td><td>Zoom in</td></tr>
                 <tr><td><kbd>−</kbd></td><td>Zoom out</td></tr>
                 <tr><td><kbd>R</kbd></td><td>Reset view</td></tr>
+                <tr><td><kbd>L</kbd></td><td>Find my district</td></tr>
                 <tr><td><kbd>O</kbd></td><td>Toggle offices section</td></tr>
                 <tr><td><kbd>Esc</kbd></td><td>Close panel / popup</td></tr>
                 <tr><td><kbd>?</kbd></td><td>Show / hide this help</td></tr>
                 <tr><td colspan="2" style="padding-top:10px;padding-bottom:2px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#475569;">Mouse</td></tr>
-                <tr><td><kbd>Shift</kbd> + drag</td><td>Pan map</td></tr>
+                <tr><td>Drag</td><td>Pan map</td></tr>
                 <tr><td>Scroll wheel</td><td>Zoom in / out</td></tr>
                 <tr><td>Right-drag</td><td>Pan map</td></tr>
+                <tr><td colspan="2" style="padding-top:10px;padding-bottom:2px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#475569;">Touch</td></tr>
+                <tr><td>One-finger drag</td><td>Pan map</td></tr>
+                <tr><td>Two-finger pinch</td><td>Zoom in / out</td></tr>
+                <tr><td>Two-finger drag</td><td>Pan while zoomed</td></tr>
             </tbody>
         </table>
         <button id="kb-help-close" aria-label="Close keyboard help">Close</button>
@@ -84,8 +89,8 @@
 <div id="map-canvas-region"
      tabindex="0"
      role="application"
-     aria-label="Interactive U.S. map. Use arrow keys to rotate, + and - to zoom, Enter to search for a state, ? for keyboard help."
-     aria-description="Use arrow keys to rotate, + and - to zoom, Enter to open search."></div>
+     aria-label="Interactive U.S. map. Use arrow keys to tilt, + and - to zoom, Enter to search for a state, ? for keyboard help."
+     aria-description="Use arrow keys to tilt, + and - to zoom, Enter to open search."></div>
 <div id="kb-focus-ring" aria-hidden="true"></div>
 
 {{-- Keyboard shortcut badge is now rendered inside #breadcrumb-bar --}}
@@ -128,6 +133,15 @@
         @endif
 
         <button id="btn-back">← Back</button>
+        <button class="top-btn" id="btn-find-district" title="Find my district using my location (press L)"
+            aria-label="Find my district using my location">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M12 2L12 8M12 16L12 22M2 12L8 12M16 12L22 12"/>
+            </svg>
+            <span class="btn-hover-label">Find My District</span>
+            <span class="btn-hover-label" style="font-size:10px;color:#475569;border:1px solid #334155;border-radius:3px;padding:1px 5px;font-family:monospace;">L</span>
+        </button>
         <button class="top-btn" id="btn-search" title="Search states and districts (press /)"
             aria-label="Search states and districts">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
@@ -166,7 +180,17 @@
                         title="Show top cities by 2020 Census population and state government offices">
                         <span class="lp-dot"></span>Top Cities &amp; Gov
                     </button>
+                    <button class="lp-chip" data-layer="candidates"
+                        role="menuitemcheckbox" aria-checked="false"
+                        title="Show statewide candidates at each state capital">
+                        <span class="lp-dot"></span>Statewide Candidates
+                    </button>
                 </div>
+                <div class="lp-section lp-saved-section">
+                    Saved Boundaries <span class="lp-saved-count" aria-hidden="true"></span>
+                </div>
+                <div class="lp-chips" id="favorite-boundary-chips" aria-label="Your saved boundaries"></div>
+                <p class="lp-saved-empty" id="favorite-boundary-empty">Save districts and cities you care about to pin them here.</p>
                 <div class="lp-section">Data Overlays</div>
                 <div class="lp-chips">
                     <button class="lp-chip" data-layer="party"
@@ -178,6 +202,11 @@
                         role="menuitemcheckbox" aria-checked="false"
                         title="Shade congressional districts by resident population — darker = more people">
                         <span class="lp-dot"></span>Population Density
+                    </button>
+                    <button class="lp-chip" data-layer="content"
+                        role="menuitemcheckbox" aria-checked="false"
+                        title="Show geo-tagged blog posts and civic events in the visible area">
+                        <span class="lp-dot"></span>Civic Content
                     </button>
                 </div>
             </div>
@@ -209,10 +238,16 @@
                     <span class="cm-toggle" aria-hidden="true"></span>
                 </button>
                 <hr class="cm-divider">
+                <div class="cm-section">Location</div>
+                <button class="cm-item" id="cm-btn-find-district" role="menuitem">
+                    <span>Find My District</span>
+                    <span class="cm-kbd">L</span>
+                </button>
+                <hr class="cm-divider">
                 <div class="cm-section">Mouse</div>
                 <div class="cm-item" style="cursor:default;pointer-events:none;">
                     <span>Pan Map</span>
-                    <span class="cm-kbd">Shift + Drag</span>
+                    <span class="cm-kbd">Drag</span>
                 </div>
                 <hr class="cm-divider">
                 <div class="cm-section">Keyboard</div>
@@ -283,22 +318,22 @@
 </div>
 
 <!-- Search Palette -->
-<div id="search-overlay" role="dialog" aria-modal="true" aria-label="Search states and districts">
+<div id="search-overlay" role="dialog" aria-modal="true" aria-label="Search states, districts, and politicians">
     <div id="search-box">
         <div id="search-input-wrap">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
                 <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
             </svg>
-            <input id="search-input" type="text" placeholder="Search state or district… e.g. &quot;California&quot;, &quot;CA-38&quot;, &quot;Texas 7&quot;" autocomplete="off" spellcheck="false">
+            <input id="search-input" type="text" placeholder="Search state, district, or politician… e.g. &quot;California&quot;, &quot;CA-38&quot;, &quot;Elizabeth Warren&quot;" autocomplete="off" spellcheck="false">
             <span id="search-kbd">esc</span>
         </div>
         <div id="search-results" role="listbox"></div>
-        <div id="search-empty">🔍 No results for that state or district</div>
+        <div id="search-empty">🔍 No results for that state, district, or politician</div>
         <div id="search-footer">
             <span><kbd>↵</kbd> select</span>
             <span><kbd>↑</kbd><kbd>↓</kbd> navigate</span>
             <span><kbd>esc</kbd> close</span>
-            <span style="margin-left:auto;">Type a state name, abbrev., or "CA-38"</span>
+            <span style="margin-left:auto;">Type a state, "CA-38", or a politician's name</span>
         </div>
     </div>
 </div>
@@ -339,6 +374,9 @@
 <!-- Floating district labels layer -->
 <div id="map-labels-layer" aria-hidden="true"></div>
 
+<!-- Map toast for geolocation / lookup messages -->
+<div id="map-toast" class="map-toast" role="status" aria-live="polite"></div>
+
 <!-- Politician profile drawer -->
 <div id="pol-drawer" role="dialog" aria-modal="true" aria-labelledby="pol-drawer-name" hidden>
     <button id="pol-drawer-close" aria-label="Close politician profile">✕</button>
@@ -346,6 +384,7 @@
     <nav class="pol-tabs" role="tablist" aria-label="Politician information tabs">
         <button class="pol-tab active" role="tab" data-tab="overview" aria-selected="true"  id="pol-tab-overview">Overview</button>
         <button class="pol-tab"        role="tab" data-tab="economy"  aria-selected="false" id="pol-tab-economy">Economy</button>
+        <button class="pol-tab"        role="tab" data-tab="moments"  aria-selected="false" id="pol-tab-moments">Videos</button>
         <button class="pol-tab"        role="tab" data-tab="contact"  aria-selected="false" id="pol-tab-contact">Contact</button>
     </nav>
     <div class="pol-body" id="pol-body" role="tabpanel" aria-labelledby="pol-tab-overview"><!-- filled by JS --></div>
@@ -412,7 +451,7 @@
 </div>
 
 <div id="hint" style="position:fixed;bottom:28px;right:24px;z-index:50;color:#334155;font-size:11px;text-align:right;pointer-events:none;">
-    Scroll to zoom &nbsp;·&nbsp; ↑↓ tilt &nbsp;·&nbsp; ←→ rotate &nbsp;·&nbsp; Click a state
+    Scroll / pinch to zoom &nbsp;·&nbsp; ↑↓ tilt &nbsp;·&nbsp; drag to pan &nbsp;·&nbsp; Click a state
 </div>
 
 {{-- ── Earn modal — true viewport-centered overlay, rendered at root level ── --}}

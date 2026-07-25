@@ -59,4 +59,12 @@ test('citizen dashboard route resolves for authenticated citizen', function () {
     $response = $this->actingAs($user)->get(route('citizen.dashboard'));
 
     $response->assertOk();
+    $response->assertSeeText('Campaigns');
+    $response->assertSeeText('Blog Posts');
+    $response->assertSeeText('Civic Events');
+    $response->assertSeeText('Credit Balance');
+    $response->assertSeeText('New Campaign');
+    $response->assertSeeText('New Post');
+    $response->assertSee('Billing & Credits');
+    $response->assertSeeText('Two-Factor Auth');
 });

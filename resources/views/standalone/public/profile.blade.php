@@ -403,19 +403,23 @@
                     @endif
 
                     {{-- ── Issue-context badge chips ──────────────────────────────
-                         Derived from publicBadges topics (falling back to initiative
-                         titles). Each chip links to the directory filtered by that
-                         tag — ready for future search/filter integration. --}}
+                         Derived from publicBadges topics (self-declared + inferred
+                         discourse badges). Each chip links to the directory filtered
+                         by that topic's structured slug (?topic=…). --}}
                     @if(isset($issueContextTags) && $issueContextTags->isNotEmpty())
                         <div class="flex flex-wrap items-center gap-1.5 mb-2" data-issue-tags>
                             <span class="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mr-0.5">Issues</span>
                             @foreach($issueContextTags as $tag)
-                                <a href="{{ route('politicians.directory', ['q' => $tag['name']]) }}"
+                                <a href="{{ route('politicians.directory', ['topic' => $tag['slug']]) }}"
                                    class="inline-flex items-center gap-x-1 rounded-full px-2.5 py-0.5 text-[10px] font-semibold border transition-all hover:brightness-125 focus:outline-none focus:ring-2 focus:ring-offset-1"
                                    style="color:{{ $tag['color'] }};border-color:{{ $tag['color'] }}40;background-color:{{ $tag['color'] }}1a;--tw-ring-color:{{ $tag['color'] }};"
                                    title="Browse candidates focused on {{ $tag['name'] }}"
                                    data-issue-tag="{{ $tag['slug'] }}">
-                                    <svg class="h-1.5 w-1.5 flex-shrink-0" viewBox="0 0 6 6" aria-hidden="true" style="fill:{{ $tag['color'] }};"><circle cx="3" cy="3" r="3"/></svg>
+                                    @if(!empty($tag['icon']))
+                                        <span aria-hidden="true">{{ $tag['icon'] }}</span>
+                                    @else
+                                        <svg class="h-1.5 w-1.5 flex-shrink-0" viewBox="0 0 6 6" aria-hidden="true" style="fill:{{ $tag['color'] }};"><circle cx="3" cy="3" r="3"/></svg>
+                                    @endif
                                     {{ $tag['name'] }}
                                 </a>
                             @endforeach
@@ -443,6 +447,19 @@
                         </p>
                     @endif
 
+                    @if(!empty($electionDates))
+                        <p class="text-sm mb-3 flex flex-wrap items-center gap-x-3 gap-y-1">
+                            @foreach($electionDates as $stage)
+                                @if($stage['election_date_formatted'])
+                                    <span class="text-emerald-400">🗳️ {{ $stage['stage_name'] }}: {{ $stage['election_date_formatted'] }}</span>
+                                @endif
+                                @if($stage['filing_deadline_formatted'])
+                                    <span class="text-slate-400">📋 {{ $stage['stage_name'] }} filing deadline: {{ $stage['filing_deadline_formatted'] }}</span>
+                                @endif
+                            @endforeach
+                        </p>
+                    @endif
+
                     @if(is_null($politician->user_id))
                         <p class="text-xs text-amber-200/90 mb-3">
                             This public profile is currently unclaimed and generated from public records. Verified campaign staff can claim and manage it after registration.
@@ -463,6 +480,7 @@
                         </a>
                         @else
                         <a href="{{ route('register.voter') }}"
+                           @click="window.u9GuestNudge && window.u9GuestNudge.trigger($event)"
                            class="p13-btn-primary inline-flex items-center gap-2 text-sm font-semibold px-5 py-2.5 rounded-lg transition">
                             Create Free Account to Watch on U9itus →
                         </a>
@@ -628,6 +646,7 @@
                     <p class="text-xs text-slate-400 mt-0.5">Guests can browse current and past public campaign videos here to learn how this candidate is communicating over time.</p>
                 </div>
                 <a href="{{ route('register.voter') }}"
+                   @click="window.u9GuestNudge && window.u9GuestNudge.trigger($event)"
                    class="flex-shrink-0 bg-emerald-500 hover:bg-emerald-400 text-white text-xs font-bold px-4 py-2 rounded-lg transition whitespace-nowrap shadow-lg">
                     Create Free Account →
                 </a>
@@ -668,7 +687,9 @@
             @endif
 
             <p class="mt-5 text-center text-sm text-slate-400">
-                <a href="{{ auth()->check() ? route('dashboard') : route('register.voter') }}" class="p13-accent hover:underline font-medium">
+                <a href="{{ auth()->check() ? route('dashboard') : route('register.voter') }}"
+                   @if(! auth()->check()) @click="window.u9GuestNudge && window.u9GuestNudge.trigger($event)" @endif
+                   class="p13-accent hover:underline font-medium">
                     {{ auth()->check() ? 'Return to your dashboard to continue inside U9itus →' : 'Create a free account to follow candidates, save your place, and continue inside U9itus →' }}
                 </a>
             </p>
@@ -726,6 +747,39 @@
                             <p class="text-sm text-emerald-100 leading-relaxed whitespace-pre-line">{{ $entry->campaign_reply ?: $entry->admin_notes }}</p>
                         </div>
                     </article>
+                @endforeach
+            </div>
+        </section>
+        @endif
+
+        {{-- Blog Posts Section --}}
+        @if($posts->isNotEmpty())
+        <section>
+            <div class="flex items-end justify-between mb-4">
+                <h2 class="text-xl font-bold text-white flex items-center gap-2">
+                    <span class="w-1 h-6 rounded-full inline-block" style="background:var(--p13-accent,#f59e0b)"></span>
+                    Latest Posts
+                </h2>
+                <a href="{{ route('blog.author', ['type' => 'politician', 'slug' => $politician->slug]) }}" class="text-sm text-amber-400 hover:text-amber-300">
+                    View all →
+                </a>
+            </div>
+            <div class="grid sm:grid-cols-2 gap-4">
+                @foreach($posts as $post)
+                <article class="bg-slate-800/40 border border-slate-700/40 rounded-xl p-5 hover:border-slate-500 transition">
+                    @if($post->featured_image_url)
+                    <a href="{{ route('blog.show', $post) }}" class="block mb-3">
+                        <img src="{{ $post->featured_image_url }}" alt="{{ $post->title }}" class="w-full h-32 object-cover rounded-lg" loading="lazy" />
+                    </a>
+                    @endif
+                    <h3 class="font-semibold text-white mb-2">
+                        <a href="{{ route('blog.show', $post) }}" class="hover:text-amber-400 transition">{{ $post->title }}</a>
+                    </h3>
+                    @if($post->excerpt)
+                    <p class="text-sm text-slate-400 line-clamp-2">{{ $post->excerpt }}</p>
+                    @endif
+                    <p class="mt-3 text-xs text-slate-500">{{ $post->published_at->format('M j, Y') }}</p>
+                </article>
                 @endforeach
             </div>
         </section>
@@ -1154,21 +1208,89 @@
         </section>
         @endif
 
+        {{-- ── Endorsements (news-detected, e.g. "Governor Endorsed") ──────── --}}
+        @if($endorsements->isNotEmpty())
+        <section>
+            <h2 class="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                <span class="w-1 h-6 rounded-full inline-block" style="background:var(--p13-accent,#f59e0b)"></span>
+                Endorsements
+            </h2>
+            <div class="flex flex-wrap gap-2">
+                @foreach($endorsements as $endorsement)
+                    @php $endorsementHref = $endorsement->source_url; @endphp
+                    @if($endorsementHref)
+                        <a href="{{ $endorsementHref }}" target="_blank" rel="noopener"
+                           class="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/20">
+                            {{ $endorsement->label }} Endorsed
+                        </a>
+                    @else
+                        <span class="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-200">
+                            {{ $endorsement->label }} Endorsed
+                        </span>
+                    @endif
+                @endforeach
+            </div>
+        </section>
+        @endif
+
         {{-- ── Follow the Money (OpenSecrets / FEC donor data) ────────────── --}}
         @php
-            $donorData   = $transparencyData['opensecrets'] ?? null;
-            $fecData     = $transparencyData['fec'] ?? null;
-            $topDonors   = $donorData['sections']['top_contributors']['items'] ?? [];
-            $topIndustries = $donorData['sections']['top_industries']['items'] ?? [];
-            $fecSummary  = $fecData['sections']['summary'] ?? null;
+            $donorData          = $transparencyData['opensecrets'] ?? null;
+            $fecData            = $transparencyData['fec'] ?? null;
+            $topDonors          = $donorData['sections']['top_contributors']['items'] ?? [];
+            $topIndustries      = $donorData['sections']['top_industries']['items'] ?? [];
+            $fecSummary         = $fecData['sections']['summary'] ?? null;
+            $openSecretsSummary = $donorData['sections']['summary'] ?? null;
+            $outsideSpending    = $fecData['sections']['outside_spending']['items'] ?? null;
+            $pacAffiliations    = $donorData['pac_affiliations'] ?? null;
+            $electionCycle      = $donorData['election_cycle'] ?? $fecSummary['cycle'] ?? null;
+
+            // Stored finance values are pre-formatted strings ("$1,234,567").
+            // Render those as-is; format bare numerics. Avoids the prior bug
+            // where number_format("$52,000") cast to 52 and rendered "$52".
+            $fmtMoney = function ($v) {
+                if ($v === null || $v === '') {
+                    return null;
+                }
+                $s = trim((string) $v);
+                return str_starts_with($s, '$') ? $s : '$' . number_format((float) $s);
+            };
         @endphp
-        @if(!empty($topDonors) || !empty($topIndustries) || $fecSummary)
+        @if(!empty($topDonors) || !empty($topIndustries) || $fecSummary || $openSecretsSummary || !empty($outsideSpending) || !empty($pacAffiliations))
         <section>
             <h2 class="text-xl font-bold text-white mb-4 flex items-center gap-2">
                 <span class="w-1 h-6 rounded-full inline-block" style="background:var(--p13-accent,#f59e0b)"></span>
                 Follow the Money
+                @if(!empty($electionCycle))
+                    <span class="text-xs font-medium text-slate-400 ml-1">{{ $electionCycle }} cycle</span>
+                @endif
             </h2>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+                {{-- PAC affiliation chips (high-signal "who funds them") --}}
+                @if(!empty($pacAffiliations))
+                <div class="sm:col-span-2 bg-slate-800/40 border border-slate-700/40 rounded-xl p-5">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-3">
+                        Known PAC Affiliations
+                        @if(!empty($donorData['source_url']))
+                            · <a href="{{ $donorData['source_url'] }}" target="_blank" rel="noopener" class="text-emerald-400 hover:underline">OpenSecrets ↗</a>
+                        @endif
+                    </p>
+                    <div class="flex flex-wrap gap-2">
+                        @foreach($pacAffiliations as $match)
+                            <span class="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 text-amber-200">
+                                {{ $match['label'] ?? $match['group'] ?? 'PAC' }}
+                                @if(!empty($match['matched_name']))
+                                    <span class="text-amber-100/70">· {{ $match['matched_name'] }}</span>
+                                @endif
+                                @if($fmtMoney($match['total'] ?? null))
+                                    <span class="text-amber-100/70 tabular-nums">{{ $fmtMoney($match['total']) }}</span>
+                                @endif
+                            </span>
+                        @endforeach
+                    </div>
+                </div>
+                @endif
 
                 {{-- FEC totals banner --}}
                 @if($fecSummary)
@@ -1180,25 +1302,111 @@
                         @endif
                     </p>
                     <dl class="flex flex-wrap gap-6">
-                        @if(!empty($fecSummary['total_receipts']))
+                        @if($fmtMoney($fecSummary['receipts'] ?? null))
                         <div>
                             <dt class="text-xs text-slate-500">Total Raised</dt>
-                            <dd class="text-lg font-bold text-white">${{ number_format($fecSummary['total_receipts']) }}</dd>
+                            <dd class="text-lg font-bold text-white">{{ $fmtMoney($fecSummary['receipts']) }}</dd>
                         </div>
                         @endif
-                        @if(!empty($fecSummary['total_disbursements']))
+                        @if($fmtMoney($fecSummary['disbursements'] ?? null))
                         <div>
                             <dt class="text-xs text-slate-500">Total Spent</dt>
-                            <dd class="text-lg font-bold text-white">${{ number_format($fecSummary['total_disbursements']) }}</dd>
+                            <dd class="text-lg font-bold text-white">{{ $fmtMoney($fecSummary['disbursements']) }}</dd>
                         </div>
                         @endif
-                        @if(!empty($fecSummary['cash_on_hand_end_period']))
+                        @if($fmtMoney($fecSummary['cash_on_hand'] ?? null))
                         <div>
                             <dt class="text-xs text-slate-500">Cash on Hand</dt>
-                            <dd class="text-lg font-bold text-emerald-400">${{ number_format($fecSummary['cash_on_hand_end_period']) }}</dd>
+                            <dd class="text-lg font-bold text-emerald-400">{{ $fmtMoney($fecSummary['cash_on_hand']) }}</dd>
+                        </div>
+                        @endif
+                        @if($fmtMoney($fecSummary['debt'] ?? null))
+                        <div>
+                            <dt class="text-xs text-slate-500">Debt Owed</dt>
+                            <dd class="text-lg font-bold text-rose-400">{{ $fmtMoney($fecSummary['debt']) }}</dd>
                         </div>
                         @endif
                     </dl>
+                </div>
+                @endif
+
+                {{-- OpenSecrets totals banner (primary finance source for non-federal candidates) --}}
+                @if($openSecretsSummary)
+                <div class="sm:col-span-2 bg-slate-800/40 border border-slate-700/40 rounded-xl p-5">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-3">
+                        OpenSecrets Summary
+                        @if(!empty($donorData['source_url']))
+                            · <a href="{{ $donorData['source_url'] }}" target="_blank" rel="noopener" class="text-emerald-400 hover:underline">View on OpenSecrets ↗</a>
+                        @endif
+                    </p>
+                    <dl class="flex flex-wrap gap-6">
+                        @if($fmtMoney($openSecretsSummary['total_raised'] ?? null))
+                        <div>
+                            <dt class="text-xs text-slate-500">Total Raised</dt>
+                            <dd class="text-lg font-bold text-white">{{ $fmtMoney($openSecretsSummary['total_raised']) }}</dd>
+                        </div>
+                        @endif
+                        @if($fmtMoney($openSecretsSummary['total_spent'] ?? null))
+                        <div>
+                            <dt class="text-xs text-slate-500">Total Spent</dt>
+                            <dd class="text-lg font-bold text-white">{{ $fmtMoney($openSecretsSummary['total_spent']) }}</dd>
+                        </div>
+                        @endif
+                        @if($fmtMoney($openSecretsSummary['cash_on_hand'] ?? null))
+                        <div>
+                            <dt class="text-xs text-slate-500">Cash on Hand</dt>
+                            <dd class="text-lg font-bold text-emerald-400">{{ $fmtMoney($openSecretsSummary['cash_on_hand']) }}</dd>
+                        </div>
+                        @endif
+                        @if($fmtMoney($openSecretsSummary['debt'] ?? null))
+                        <div>
+                            <dt class="text-xs text-slate-500">Debt Owed</dt>
+                            <dd class="text-lg font-bold text-rose-400">{{ $fmtMoney($openSecretsSummary['debt']) }}</dd>
+                        </div>
+                        @endif
+                    </dl>
+                </div>
+                @endif
+
+                {{-- Independent spending (FEC Schedule E — outside groups supporting/opposing) --}}
+                @if(!empty($outsideSpending))
+                <div class="sm:col-span-2 bg-slate-800/40 border border-slate-700/40 rounded-xl p-5">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-3">
+                        Independent Spending
+                        <span class="text-slate-500 font-normal normal-case tracking-normal">· outside groups, not the campaign</span>
+                        @if(!empty($fecData['source_url']))
+                            · <a href="{{ $fecData['source_url'] }}" target="_blank" rel="noopener" class="text-emerald-400 hover:underline">FEC.gov ↗</a>
+                        @endif
+                    </p>
+                    @php
+                        // Show the top spenders; cap the visible list and note how many more.
+                        $shownSpending = array_slice($outsideSpending, 0, 12);
+                        $hiddenSpending = max(0, count($outsideSpending) - count($shownSpending));
+                    @endphp
+                    <ol class="space-y-2">
+                        @foreach($shownSpending as $i => $spender)
+                        <li class="flex items-center justify-between gap-3">
+                            <span class="flex items-center gap-2 min-w-0 flex-1">
+                                <span class="text-xs text-slate-500 tabular-nums w-4 shrink-0">{{ $i + 1 }}.</span>
+                                <span class="text-sm text-slate-200 truncate">{{ $spender['committee_name'] ?? '—' }}</span>
+                                <span class="shrink-0 text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-full border {{ ($spender['support_oppose'] ?? '') === 'O'
+                                    ? 'border-rose-500/40 bg-rose-500/10 text-rose-300'
+                                    : 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300' }}">
+                                    {{ ($spender['support_oppose'] ?? '') === 'O' ? 'Oppose' : 'Support' }}
+                                </span>
+                            </span>
+                            @if($fmtMoney($spender['total'] ?? null))
+                            <span class="text-sm font-semibold text-white tabular-nums">{{ $fmtMoney($spender['total']) }}</span>
+                            @endif
+                        </li>
+                        @endforeach
+                    </ol>
+                    @if($hiddenSpending > 0)
+                    <p class="mt-3 text-xs text-slate-500">+ {{ $hiddenSpending }} more spender(s) — see FEC.gov for the full list.</p>
+                    @endif
+                    <p class="mt-3 text-xs text-slate-500">
+                        Figures are sums of itemized independent-expenditure filings reported to the FEC for the {{ $electionCycle ?? '' }} cycle; a spender's full total may be higher than shown.
+                    </p>
                 </div>
                 @endif
 
@@ -1211,8 +1419,8 @@
                         <li class="flex items-center justify-between gap-2">
                             <span class="text-xs text-slate-400 tabular-nums w-4">{{ $i + 1 }}.</span>
                             <span class="text-sm text-slate-200 flex-1 truncate">{{ $donor['name'] ?? '—' }}</span>
-                            @if(!empty($donor['total']))
-                            <span class="text-sm font-semibold text-white tabular-nums">${{ number_format($donor['total']) }}</span>
+                            @if($fmtMoney($donor['total'] ?? null))
+                            <span class="text-sm font-semibold text-white tabular-nums">{{ $fmtMoney($donor['total']) }}</span>
                             @endif
                         </li>
                         @endforeach
@@ -1233,8 +1441,8 @@
                         <li class="flex items-center justify-between gap-2">
                             <span class="text-xs text-slate-400 tabular-nums w-4">{{ $i + 1 }}.</span>
                             <span class="text-sm text-slate-200 flex-1 truncate">{{ $industry['industry_name'] ?? $industry['name'] ?? '—' }}</span>
-                            @if(!empty($industry['total']))
-                            <span class="text-sm font-semibold text-white tabular-nums">${{ number_format($industry['total']) }}</span>
+                            @if($fmtMoney($industry['total'] ?? null))
+                            <span class="text-sm font-semibold text-white tabular-nums">{{ $fmtMoney($industry['total']) }}</span>
                             @endif
                         </li>
                         @endforeach
@@ -1396,6 +1604,10 @@
             }, 3000);
         })();
     </script>
+    @endguest
+
+    @guest
+        <x-guest-signup-nudge />
     @endguest
 
 </body>

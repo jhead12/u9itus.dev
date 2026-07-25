@@ -109,3 +109,20 @@ test('add citizen profile requires full_name and address fields', function () {
         ->post(route('voter.add-citizen-profile.submit'), [])
         ->assertSessionHasErrors(['full_name', 'address_line_1', 'city', 'state', 'zip']);
 });
+
+test('voter with citizen row but missing citizen role gets role repaired and can access citizen dashboard', function () {
+    $user = makeVoterForUpgrade();
+
+    // Simulate the partial-failure state: Citizen row exists, but the Spatie
+    // role was never assigned (or was lost).
+    Citizen::factory()->create(['user_id' => $user->id]);
+    $user->removeRole('citizen');
+    skipOnboarding($user->fresh(), 'citizen');
+
+    $this->actingAs($user->fresh())
+        ->get(route('voter.add-citizen-profile'))
+        ->assertRedirect(route('citizen.dashboard'));
+
+    expect($user->fresh()->hasRole('citizen'))->toBeTrue();
+    expect($user->fresh()->hasRole('voter'))->toBeTrue();
+});

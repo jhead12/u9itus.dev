@@ -265,6 +265,38 @@ test('notifyViewSessionCompleted fires both events in first_verified_view mode',
     expect($logs->every(fn ($l) => $l->delivered))->toBeTrue();
 });
 
+test('voter.earned payload includes referral commission percent', function () {
+    config([
+        'services.earlybank.enabled'        => true,
+        'services.earlybank.webhook_url'    => 'https://fake-eb.test/webhook',
+        'services.earlybank.webhook_secret' => 'test-secret',
+        'u9itus.referral_commission_percent' => 10,
+    ]);
+    Http::fake(['https://fake-eb.test/webhook' => Http::response('ok', 200)]);
+
+    PlatformSettingsService::set('earlybank_referral_bonus_trigger', 'stripe_verification', ['category' => 'earlybank']);
+
+    $voter    = makeEbAttributedVoter(['stripe_account_status' => 'active']);
+    $campaign = makeTestCampaignForEbGate();
+
+    $session = ViewSession::factory()->completed()->create([
+        'political_campaign_id' => $campaign->id,
+        'voter_id'              => $voter->id,
+        'status'                => ViewSessionStatus::Completed->value,
+        'voter_payout_amount'   => 0.50,
+    ]);
+    $session->setRelation('voter', $voter->fresh());
+
+    app(EarlyBankWebhookService::class)->notifyViewSessionCompleted($session);
+
+    Http::assertSent(function ($request) {
+        $body = json_decode($request->body(), true);
+
+        return ($body['event'] ?? '') === 'voter.earned'
+            && (float) ($body['data']['referral_commission_percent'] ?? 0) === 10.0;
+    });
+});
+
 test('notifyViewSessionCompleted fires no events when voter stripe account is not active', function () {
     config([
         'services.earlybank.enabled'        => true,

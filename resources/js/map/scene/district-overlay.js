@@ -9,6 +9,10 @@ import { DISTRICT_CONFIG, districtCache } from '../state/map-state.js';
 import { stateMeshes } from './state-meshes.js';
 import { flyToMeshesTopDown } from './camera-animation.js';
 import { getTigerwebUrl } from '../api/district-config.js';
+import { idbGet, idbSet } from '../utils/idb-cache.js';
+
+// TIGERweb GeoJSON is stable for an entire Congress (~2 years).
+const TIGER_IDB_TTL = 30 * 24 * 60 * 60 * 1000; // 30 days
 
 export let districtGroup = null;
 export let districtMeshes = [];
@@ -35,8 +39,18 @@ export function flyToDistrictTopDown(mesh) {
 }
 
 async function loadCongressionalDistricts(fips) {
+    // 1. In-memory cache (fastest — same session).
     if (districtCache[fips]) return districtCache[fips];
 
+    // 2. IndexedDB cache — survives page reloads and is critical for low-bandwidth users.
+    const idbKey = `u9_tigerweb_dist_${DISTRICT_CONFIG.cd_field}_${fips}`;
+    const cached = await idbGet(idbKey);
+    if (cached?.length) {
+        districtCache[fips] = cached;
+        return cached;
+    }
+
+    // 3. Network fetch (with one retry).
     const cdField = DISTRICT_CONFIG.cd_field;
     const params = new URLSearchParams({
         where: `STATE='${fips}'`,
@@ -48,9 +62,6 @@ async function loadCongressionalDistricts(fips) {
         outSR: '4326',
     });
 
-    // cache:'no-store' bypasses the browser HTTP cache — prevents
-    // ERR_CACHE_WRITE_FAILURE when the cache is full after national load.
-    // Retry once on any network failure.
     let data;
     for (let attempt = 0; attempt < 2; attempt++) {
         try {
@@ -64,7 +75,10 @@ async function loadCongressionalDistricts(fips) {
     }
     const features = data?.features || [];
     if (!features.length) throw new Error(`No districts returned for FIPS ${fips}`);
+
     districtCache[fips] = features;
+    // Persist to IndexedDB for future visits.
+    idbSet(idbKey, features, TIGER_IDB_TTL).catch(() => {});
     return features;
 }
 
@@ -103,7 +117,11 @@ export async function buildDistrictOverlay(stateName, regionHex) {
             });
             const mesh = new THREE.Mesh(geo, mat);
             mesh.position.z = 0.255;
-            mesh.userData = { districtNum: distNum, districtLabel: label, stateName, regionHex, party, partyHex: PARTY_HEX[party], originalColor: colorInt };
+            // Raw GeoJSON rings (lon/lat), kept alongside the render mesh so
+            // "which cities fall inside this district" can be computed with a
+            // point-in-polygon test against real Census boundaries — see
+            // utils/point-in-polygon.js.
+            mesh.userData = { districtNum: distNum, districtLabel: label, stateName, regionHex, party, partyHex: PARTY_HEX[party], originalColor: colorInt, rings: poly };
             districtGroup.add(mesh);
             districtMeshes.push(mesh);
 

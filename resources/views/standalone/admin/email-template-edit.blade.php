@@ -4,7 +4,7 @@
 @section('page-title', 'Edit Email Template')
 
 @section('content')
-<div class="space-y-6 max-w-3xl">
+<div class="space-y-6 max-w-3xl mx-auto">
 
     {{-- Back link --}}
     <a href="{{ route('admin.email-templates.index') }}"
@@ -51,9 +51,9 @@
             <div>
                 <label for="subject_override" class="block text-xs font-medium text-slate-400 mb-1.5">
                     @if($template->category === 'referral')
-                        Custom Share Title <span class="text-slate-600">(used as the email subject and native-share title — leave blank for the built-in default)</span>
+                        Custom Share Title <span class="text-slate-500">(used as the email subject and native-share title — leave blank for the built-in default)</span>
                     @else
-                        Custom Subject <span class="text-slate-600">(leave blank to use the default built into the code)</span>
+                        Custom Subject <span class="text-slate-500">(leave blank to use the default built into the code)</span>
                     @endif
                 </label>
                 <input type="text"
@@ -70,9 +70,9 @@
             <div>
                 <label for="preview_text" class="block text-xs font-medium text-slate-400 mb-1.5">
                     @if($template->category === 'referral')
-                        Admin Notes <span class="text-slate-600">(internal note for your reference — not shown to users)</span>
+                        Admin Notes <span class="text-slate-500">(internal note for your reference — not shown to users)</span>
                     @else
-                        Preview Text <span class="text-slate-600">(the short snippet shown below the subject in email clients — optional)</span>
+                        Preview Text <span class="text-slate-500">(the short snippet shown below the subject in email clients — optional)</span>
                     @endif
                 </label>
                 <input type="text"
@@ -121,7 +121,7 @@
                     <code class="text-xs bg-slate-700/70 text-emerald-400 px-2 py-0.5 rounded">{{ $var }}</code>
                     @endforeach
                 </div>
-                <p class="text-xs text-slate-600 mt-2">
+                <p class="text-xs text-slate-500 mt-2">
                     Note: variable substitution in body overrides requires custom rendering logic.
                     For basic use, paste static HTML and update it as needed.
                 </p>

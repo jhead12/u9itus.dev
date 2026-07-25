@@ -20,6 +20,20 @@ export function project([lon, lat]) {
     return [(p[0] - GEO_TRANSLATE[0]) / NORM, -(p[1] - GEO_TRANSLATE[1]) / NORM];
 }
 
+/**
+ * Inverse of project(): world xy back to [longitude, latitude].
+ * Returns null if the point is outside the Albers USA clip (e.g. AK/HI insets
+ * or far outside the continental view).
+ */
+export function unproject([x, y]) {
+    const p = projection.invert([
+        x * NORM + GEO_TRANSLATE[0],
+        -y * NORM + GEO_TRANSLATE[1],
+    ]);
+    if (!p) return null;
+    return [p[0], p[1]];
+}
+
 export function buildShapeFromRings(poly) {
     const p0 = project(poly[0][0]);
     if (!p0) return null;

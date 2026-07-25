@@ -1,0 +1,93 @@
+name: Sync Election Dates
+
+# Real per-state election dates (primary/general) and candidate filing
+# deadlines from Vote Smart. This calendar only changes a handful of times
+# per election cycle, so a monthly cadence is enough — unlike the daily
+# candidate sync.
+on:
+  schedule:
+    - cron: "0 6 1 * *"   # 06:00 UTC on the 1st of every month
+  workflow_dispatch:
+    inputs:
+      year:
+        description: "Election year to sync"
+        default: "2026"
+        required: false
+      state:
+        description: "Single state to sync (e.g. CA). Leave blank for all states + DC"
+        default: ""
+        required: false
+      dry_run:
+        description: "Dry-run (report only, no DB writes)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  sync-election-dates:
+    name: Sync election dates from Vote Smart
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, pdo_mysql
+          coverage: none
+
+      - name: Cache Composer packages
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: ${{ runner.os }}-composer-${{ hashFiles('composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Install Composer dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress --no-dev
+
+      - name: Write .env
+        run: |
+          cat > .env <<EOF
+          APP_ENV=production
+          APP_KEY=${{ secrets.APP_KEY }}
+          APP_DEBUG=false
+          APP_URL=${{ secrets.APP_URL }}
+
+          DB_CONNECTION=mysql
+          DB_HOST=${{ secrets.DB_HOST }}
+          DB_PORT=${{ secrets.DB_PORT }}
+          DB_DATABASE=${{ secrets.DB_DATABASE }}
+          DB_USERNAME=${{ secrets.DB_USERNAME }}
+          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+
+          VOTESMART_API_KEY=${{ secrets.VOTESMART_API_KEY }}
+
+          CACHE_DRIVER=database
+          SESSION_DRIVER=database
+          QUEUE_CONNECTION=sync
+          LOG_CHANNEL=stderr
+          EOF
+
+      - name: Run pending migrations
+        run: php artisan migrate --force --no-interaction
+
+      - name: Sync election dates
+        run: |
+          YEAR="${{ github.event.inputs.year || '2026' }}"
+          STATE="${{ github.event.inputs.state }}"
+          DRY_ARG=""
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            DRY_ARG="--dry-run"
+          fi
+          STATE_ARG=""
+          if [ -n "$STATE" ]; then
+            STATE_ARG="--state=$STATE"
+          fi
+
+          php artisan elections:sync-dates --year="$YEAR" $STATE_ARG $DRY_ARG

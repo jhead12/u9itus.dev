@@ -14,6 +14,10 @@ on:
         description: "Max candidates to refresh per run"
         default: "100"
         required: false
+      states:
+        description: "Comma-separated state codes to refresh (e.g. CA,TX,NY). Leave blank for all states."
+        default: ""
+        required: false
       dry_run:
         description: "Dry-run (report only, no fetching)"
         type: boolean
@@ -96,17 +100,41 @@ jobs:
         run: |
           STALE=${{ github.event.inputs.stale_hours || '6' }}
           LIMIT=${{ github.event.inputs.limit || '50' }}
+          STATES="${{ github.event.inputs.states }}"
           DRY=${{ github.event.inputs.dry_run == 'true' && '--dry-run' || '' }}
-          php artisan candidates:refresh-news \
-            --stale-hours="${STALE}" \
-            --limit="${LIMIT}" \
-            ${DRY}
+          if [ -z "$STATES" ]; then
+            php artisan candidates:refresh-news \
+              --stale-hours="${STALE}" \
+              --limit="${LIMIT}" \
+              ${DRY}
+          else
+            # candidates:refresh-news only accepts one --state per invocation,
+            # so a multi-state run (e.g. from the hot-state map dispatcher)
+            # loops here instead of only refreshing the first state.
+            for state in $(echo "$STATES" | tr ',' ' '); do
+              php artisan candidates:refresh-news \
+                --stale-hours="${STALE}" \
+                --limit="${LIMIT}" \
+                --state="$state" \
+                ${DRY}
+            done
+          fi
 
       # ── Verify + clean news relevance (candidate name/context gate) ───────
       - name: Verify candidate news relevance
         run: |
           LIMIT=${{ github.event.inputs.limit || '100' }}
+          STATES="${{ github.event.inputs.states }}"
           DRY=${{ github.event.inputs.dry_run == 'true' && '--dry-run' || '' }}
-          php artisan candidates:verify-news \
-            --limit="${LIMIT}" \
-            ${DRY}
+          if [ -z "$STATES" ]; then
+            php artisan candidates:verify-news \
+              --limit="${LIMIT}" \
+              ${DRY}
+          else
+            for state in $(echo "$STATES" | tr ',' ' '); do
+              php artisan candidates:verify-news \
+                --limit="${LIMIT}" \
+                --state="$state" \
+                ${DRY}
+            done
+          fi

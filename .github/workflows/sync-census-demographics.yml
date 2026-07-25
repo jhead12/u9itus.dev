@@ -1,0 +1,112 @@
+name: Sync Census Demographics
+
+# Populates city_demographics (poverty / education / income + precomputed
+# congressional district) and state/district populations for the curated
+# ~200-city allow-list across all 50 states + DC. This is the data behind the
+# 3D map's region panel ("Cities & Demographics") and the state/district
+# population stats.
+#
+# Runs weekly (Sunday 05:00 UTC, after the Sunday 02:00 candidate sync) and
+# can be triggered manually. Requires the CENSUS_DATA_API secret (free key,
+# https://api.census.gov/data/key_signup.html).
+
+on:
+  schedule:
+    - cron: "0 5 * * 0"
+  workflow_dispatch:
+    inputs:
+      year:
+        description: "ACS 5-year vintage to pull"
+        default: "2022"
+        required: false
+      state:
+        description: "Two-letter state filter (single). Ignored if 'states' is set."
+        default: ""
+        required: false
+      states:
+        description: "Comma-separated state codes to sync (e.g. CA,TX,NY). Leave blank for all states."
+        default: ""
+        required: false
+      dry_run:
+        description: "Dry-run (report only, no DB writes)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  sync-census:
+    name: Fetch Census ACS demographics + populations
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, pdo_mysql
+          coverage: none
+
+      - name: Cache Composer packages
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: ${{ runner.os }}-composer-${{ hashFiles('composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Install Composer dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress --no-dev
+
+      - name: Write .env
+        run: |
+          cat > .env <<EOF
+          APP_ENV=production
+          APP_KEY=${{ secrets.APP_KEY }}
+          APP_DEBUG=false
+          APP_URL=${{ secrets.APP_URL }}
+
+          DB_CONNECTION=mysql
+          DB_HOST=${{ secrets.DB_HOST }}
+          DB_PORT=${{ secrets.DB_PORT }}
+          DB_DATABASE=${{ secrets.DB_DATABASE }}
+          DB_USERNAME=${{ secrets.DB_USERNAME }}
+          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+
+          CENSUS_DATA_API=${{ secrets.CENSUS_DATA_API }}
+
+          CACHE_DRIVER=database
+          SESSION_DRIVER=database
+          QUEUE_CONNECTION=sync
+          LOG_CHANNEL=stderr
+          EOF
+
+      - name: Run pending migrations
+        run: php artisan migrate --force --no-interaction
+
+      - name: Sync city demographics (ACS)
+        run: |
+          YEAR="${{ github.event.inputs.year || '2022' }}"
+          STATES="${{ github.event.inputs.states }}"
+          STATE_PICKER="${{ github.event.inputs.state }}"
+          if [ -z "$STATES" ] && [ -n "$STATE_PICKER" ]; then
+            STATES="$STATE_PICKER"
+          fi
+          DRY=${{ github.event.inputs.dry_run == 'true' && '--dry-run' || '' }}
+          STATE_ARGS=""
+          if [ -n "$STATES" ]; then
+            for state in $(echo "$STATES" | tr ',' ' '); do
+              STATE_ARGS="$STATE_ARGS --state=$state"
+            done
+          fi
+
+          php artisan geo:sync-census-demographics \
+            --year="${YEAR}" \
+            ${STATE_ARGS} \
+            ${DRY}
+
+      - name: Sync state & district populations (Census)
+        run: php artisan geo:sync-census-population

@@ -5,6 +5,7 @@ import { toggleNationalBoundaries } from '../scene/national-boundaries.js';
 import { ensureGovernorParties, applyColorMode } from '../api/governor-parties.js';
 import { colorMode, ACTIVE_LAYERS, showSmallCities, setShowSmallCities } from '../state/map-state.js';
 import { stepZoom } from './keyboard.js';
+import { findMyDistrict } from './location-button.js';
 import { enterOverviewMode } from '../navigation/mode-transitions.js';
 import { openInfoPanel } from './info-panel.js';
 import { toggleKbHelp } from './keyboard.js';
@@ -105,4 +106,9 @@ export function initControlsMenu() {
 
     document.getElementById('cm-btn-zoomin')?.addEventListener('click',  () => stepZoom(0.8));
     document.getElementById('cm-btn-zoomout')?.addEventListener('click', () => stepZoom(1.25));
+
+    document.getElementById('cm-btn-find-district')?.addEventListener('click', () => {
+        openControlsMenu(false);
+        findMyDistrict();
+    });
 }

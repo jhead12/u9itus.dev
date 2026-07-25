@@ -41,6 +41,7 @@ import { toggleNationalBoundaries, nationalDistVisible, _syncNatDistVisibility, 
 import { initDistrictConfig } from './api/district-config.js';
 import { ensureGovernorParties, applyColorMode } from './api/governor-parties.js';
 import { trackEvent } from './api/interaction.js';
+import { fetchBoundaries } from './api/favorites.js';
 
 /* ── UI ── */
 import { initSearch, openSearch, closeSearch } from './ui/search.js';
@@ -50,7 +51,7 @@ import { openDistrictPanel } from './ui/panel-district.js';
 import { initPopup, closePopup } from './ui/popup.js';
 import { initPolDrawer, openPolDrawer, closePolDrawer } from './ui/politician-drawer.js';
 import { initControlsMenu, updateDistrictsBtn } from './ui/controls-menu.js';
-import { initLayersPanel, toggleLayer, applyPopulationDensity } from './ui/layers-panel.js';
+import { initLayersPanel, toggleLayer, applyPopulationDensity, renderFavoriteChips } from './ui/layers-panel.js';
 import { buildCityMarkers, clearCityMarkers, buildGovMarkers, clearGovMarkers, updateCityDots, loadCityBoundaries, clearCityLayer, citySprites, govSprites } from './ui/markers.js';
 import { buildDistrictLabels, clearDistrictLabels, updateDistrictLabels, districtLabels, mapLabelsLayer } from './ui/labels-overlay.js';
 import { initBreadcrumb, updateBreadcrumb } from './ui/breadcrumb.js';
@@ -58,6 +59,7 @@ import { initTour, startTutorial } from './ui/tour.js';
 import { initKeyboard, toggleKbHelp, stepZoom } from './ui/keyboard.js';
 import { initInfoPanel, openInfoPanel } from './ui/info-panel.js';
 import { initMobileMenu } from './ui/mobile-menu.js';
+import { initLocationButton } from './ui/location-button.js';
 
 /* ── Navigation ── */
 import { enterOverviewMode, enterRegionMode, enterStateMode, handleBack, initHoverClick, hoveredMesh } from './navigation/mode-transitions.js';
@@ -98,7 +100,13 @@ initTour();
 initKeyboard();
 initOfficesToggle();
 initCandidateCardClick();
+initLocationButton();
 bootDeepLink();
+
+/* Hydrate saved boundaries for logged-in voters (guests keep the empty-state hint). */
+if (window.U9?.session?.isVoter?.()) {
+    fetchBoundaries().then(renderFavoriteChips);
+}
 
 /* Wire back button */
 document.getElementById('btn-back').addEventListener('click', handleBack);

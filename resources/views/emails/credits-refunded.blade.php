@@ -66,7 +66,13 @@
         </div>
 
         <p>
-          You can review the transaction in your Billing &amp; Invoices history.
+          You can review the transaction in your
+          @if($user->hasRole('citizen') && ! $user->hasRole('politician'))
+              <a href="{{ route('citizen.billing.invoices') }}" style="color:#34d399;text-decoration:none;">Billing &amp; Invoices</a>
+          @else
+              <a href="{{ route('politician.billing.invoices') }}" style="color:#34d399;text-decoration:none;">Billing &amp; Invoices</a>
+          @endif
+          history.
         </p>
       </div>
 

@@ -10,7 +10,9 @@ use App\Http\Controllers\Concerns\PaymentModeFilterable;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\CampaignResource;
 use App\Http\Resources\VoterResource;
+use App\Jobs\ProcessBatchPayoutsJob;
 use App\Models\CampaignTransaction;
+use App\Models\EarlyBankEarning;
 use App\Models\PoliticalCampaign;
 use App\Models\Politician;
 use App\Models\ReferralEarning;
@@ -61,6 +63,12 @@ class AdminController extends Controller
         $totalPayouts   = (clone $paidViewQuery)->sum('voter_payout_amount');
         $totalReferrals = ReferralEarning::forPaymentMode($activePaymentMode)->sum('commission_amount');
 
+        // Early-bank reported earnings — the actual money moving through the delegated
+        // model. Not segmented by payment_mode: Early-bank does not report a live/test
+        // distinction back to us.
+        $ebTotalCommissions = (float) EarlyBankEarning::forEventType(EarlyBankEarning::EVENT_PAYOUT_COMMISSION)->sum('payout_amount');
+        $ebTotalBonuses     = (float) EarlyBankEarning::forEventType(EarlyBankEarning::EVENT_PAYOUT_BONUS)->sum('payout_amount');
+
         return response()->json([
             'overview' => [
                 'total_politicians'          => Politician::count(),
@@ -73,6 +81,10 @@ class AdminController extends Controller
                 'total_voter_payouts'        => $totalPayouts,
                 'total_referral_commissions' => $totalReferrals,
                 'payment_mode'               => $activePaymentMode,
+            ],
+            'earlybank' => [
+                'total_referral_commissions' => $ebTotalCommissions,
+                'total_referral_bonuses'     => $ebTotalBonuses,
             ],
             'per_view_economics' => $this->paymentService->perViewProfit(),
             'fraud_stats' => [
@@ -173,15 +185,18 @@ class AdminController extends Controller
     }
 
     /**
-     * Process batch payouts for eligible voters.
+     * Process batch payouts for eligible voters — dispatches a queued job and
+     * returns immediately so live processor calls don't block the request.
      */
     public function processBatchPayouts(): JsonResponse
     {
-        $results = $this->paymentService->processBatchPayouts();
+        $run = $this->paymentService->createPayoutRun();
+        ProcessBatchPayoutsJob::dispatch($run);
 
         return response()->json([
-            'message' => 'Batch payout processing complete',
-            'results' => $results,
+            'message' => 'Batch payout processing queued',
+            'run_id'  => $run->id,
+            'status'  => $run->status,
         ]);
     }
 

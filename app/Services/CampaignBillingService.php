@@ -528,25 +528,61 @@ class CampaignBillingService
             }
         }
 
+        // A charge that succeeded in a different Stripe mode than the platform is
+        // currently configured for (e.g. a test-mode PaymentIntent succeeding while
+        // STRIPE_SECRET is a live key) collected no real money via the active key.
+        // Withhold credits rather than granting spendable balance for it.
+        $activeMode = $this->configuredPaymentModeFromConfig();
+        $modeMismatch = $status === 'succeeded'
+            && $resolvedPaymentMode !== 'unknown'
+            && $activeMode !== 'unknown'
+            && $resolvedPaymentMode !== $activeMode;
+
         // Wrap the status update + credit addition atomically so that
         // a failed addCredits() cannot leave the transaction as 'succeeded'
         // with no credits applied (which would prevent any retry via the
         // idempotency guard above).
-        DB::transaction(function () use ($tx, $status, $chargeId, $amount, $resolvedPaymentMode, $resolvedLiveMode) {
-            $tx->status = $status;
-            if ($chargeId) {
-                $tx->stripe_charge_id = $chargeId;
+        $alreadyFinalized = false;
+
+        DB::transaction(function () use ($tx, $status, $chargeId, $amount, $resolvedPaymentMode, $resolvedLiveMode, $activeMode, $modeMismatch, &$alreadyFinalized) {
+            // Re-fetch with an exclusive row lock so concurrent webhook / redirect-confirm
+            // calls on the same PaymentIntent cannot both pass the pending-status guard.
+            $fresh = CampaignTransaction::lockForUpdate()->find($tx->id);
+            if (in_array($fresh->status, ['succeeded', 'failed', 'refunded'])) {
+                $alreadyFinalized = true;
+                $tx->status = $fresh->status;
+                return;
             }
-            $tx->metadata = array_merge($tx->metadata ?? [], [
+
+            $fresh->status = $status;
+            if ($chargeId) {
+                $fresh->stripe_charge_id = $chargeId;
+            }
+            $metadataUpdates = [
                 'payment_mode'    => $resolvedPaymentMode,
                 'stripe_livemode' => $resolvedLiveMode,
-            ]);
-            $tx->save();
+            ];
+            if ($modeMismatch) {
+                $metadataUpdates['payment_mode_mismatch'] = true;
+                $metadataUpdates['payment_mode_mismatch_note'] = "Succeeded in {$resolvedPaymentMode} mode while platform was configured for {$activeMode} mode; credits withheld pending manual review.";
+            }
+            $fresh->metadata = array_merge($fresh->metadata ?? [], $metadataUpdates);
+            $fresh->save();
+
+            // Sync mutations back to $tx so post-transaction code sees the right state.
+            $tx->status   = $status;
+            $tx->metadata = $fresh->metadata;
 
             // If succeeded, credit the politician's balance.
             // Use the stored credits_amount (net of Stripe fee) if available;
             // otherwise fall back to the gross amount recorded on the transaction.
-            if ($status === 'succeeded') {
+            if ($status === 'succeeded' && $modeMismatch) {
+                Log::critical('Withholding credits: PaymentIntent succeeded with a payment_mode mismatch against the active platform mode', [
+                    'tx'            => $tx->id,
+                    'resolved_mode' => $resolvedPaymentMode,
+                    'active_mode'   => $activeMode,
+                ]);
+            } elseif ($status === 'succeeded') {
                 $politician = null;
                 if ($tx->politician_id) {
                     $politician = \App\Models\Politician::find($tx->politician_id);
@@ -576,10 +612,16 @@ class CampaignBillingService
             }
         });
 
-        Log::info('Finalized PaymentIntent', ['payment_intent' => $paymentIntentId, 'tx_id' => $tx->id, 'status' => $status]);
+        if ($alreadyFinalized) {
+            Log::info('Campaign transaction already finalized (concurrent request)', ['tx' => $tx->id, 'status' => $tx->status]);
+            return $tx;
+        }
+
+        Log::info('Finalized PaymentIntent', ['payment_intent' => $paymentIntentId, 'tx_id' => $tx->id, 'status' => $status, 'mode_mismatch' => $modeMismatch]);
 
         // Send purchase receipt email (best-effort) after transaction commit.
-        if ($status === 'succeeded') {
+        // Skip it for a withheld mode-mismatch charge — no credits were granted.
+        if ($status === 'succeeded' && !$modeMismatch) {
             $this->sendCreditsPurchaseReceiptForTransaction($tx);
         }
 

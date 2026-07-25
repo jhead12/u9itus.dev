@@ -7,6 +7,7 @@ import { openDistrictPanel } from './panel-district.js';
 import { openPolDrawer } from './politician-drawer.js';
 import { fmtPop } from '../config/city-data.js';
 import { trackEvent } from '../api/interaction.js';
+import { renderCityCard, wireCityCardClicks, fetchCitiesForState } from './city-demographics-card.js';
 
 export const OFFICE_DEFAULT_OPEN = new Set([
     'Governor', 'Lieutenant Governor', 'Attorney General',
@@ -32,6 +33,21 @@ export function partyClass(p) {
     if (l.includes('libertarian')) return 'party-L';
     if (l.includes('green')) return 'party-G';
     return 'party-I';
+}
+
+/**
+ * Render issue/discourse topic chips from a candidate's `badges` array
+ * (name/icon/color, capped at 4 by the Map API). Used on candidate cards and
+ * the politician drawer hero. Badges may be self-declared or inferred from
+ * news/viral-moment/Vote Smart signals (badge_type='inferred_discourse').
+ */
+export function topicChipsHtml(badges) {
+    if (!badges || !badges.length) return '';
+    return badges.map(b => {
+        const color = b.color || '#6366f1';
+        const icon = b.icon ? `<span style="margin-right:2px;">${escapeHtml(b.icon)}</span>` : '';
+        return `<span class="topic-chip" style="background:${escapeHtml(color)}1a;border:1px solid ${escapeHtml(color)}40;color:${escapeHtml(color)};" title="${escapeHtml(b.name || '')}">${icon}${escapeHtml(b.name || '')}</span>`;
+    }).join('');
 }
 
 export function detectElectionPhase(candidates) {
@@ -66,6 +82,7 @@ export function renderCandidate(c, color) {
         : '';
     const st = c.status === 'seated' ? `<span class="status-seated">● Seated</span>` : c.is_running ? `<span class="status-running">● Running 2026</span>${elBadge}` : '';
     const vf = c.verified ? `<span class="verified-badge">✓ Verified</span>` : '';
+    const chips = topicChipsHtml(c.badges);
     const popupData = encodeURIComponent(JSON.stringify({ ...c, color }));
     const _slugAttr = c.profile_url
         ? (() => { try { return new URL(c.profile_url, location.origin).pathname.split('/').filter(Boolean).pop() || ''; } catch { return ''; } })()
@@ -81,6 +98,7 @@ export function renderCandidate(c, color) {
         <div style="flex:1;min-width:0;">
             <div class="candidate-name">${safeName}</div>
             <div class="candidate-meta">${py}${st}${vf}</div>
+            ${chips ? `<div class="candidate-chips">${chips}</div>` : ''}
         </div></div>`;
 }
 
@@ -166,10 +184,107 @@ export function renderOfficeGroup(g, roles, color) {
     </div>`;
 }
 
+/**
+ * Compact pill row of real election dates for a state — primary/general
+ * election dates and candidate filing deadlines, synced from Vote Smart
+ * (see StateElectionDate::upcomingForState()). Shown at the very top of a
+ * panel since "when" is the most time-sensitive thing a voter needs.
+ */
+export function renderElectionDatesBanner(electionDates, color) {
+    if (!electionDates?.length) return '';
+
+    const pills = [];
+    for (const stage of electionDates) {
+        if (stage.election_date_formatted) {
+            pills.push(`<span style="font-size:11px;padding:3px 10px;border-radius:999px;background:${color}18;border:1px solid ${color}44;color:${color};font-weight:600;white-space:nowrap;">🗳️ ${escapeHtml(stage.stage_name)}: ${escapeHtml(stage.election_date_formatted)}</span>`);
+        }
+        if (stage.filing_deadline_formatted) {
+            pills.push(`<span style="font-size:11px;padding:3px 10px;border-radius:999px;background:rgba(148,163,184,0.1);border:1px solid rgba(148,163,184,0.3);color:#94a3b8;white-space:nowrap;">📋 ${escapeHtml(stage.stage_name)} filing deadline: ${escapeHtml(stage.filing_deadline_formatted)}</span>`);
+        }
+    }
+    if (!pills.length) return '';
+
+    return `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;">${pills.join('')}</div>`;
+}
+
+export function renderBallotMeasuresSection(ballotMeasures, color) {
+    if (!ballotMeasures?.length) return '';
+    let html = `<div style="border-top:1px solid ${color}20;margin:16px 0 14px;display:flex;align-items:center;gap:8px;">
+        <span style="color:${color};font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;white-space:nowrap;">🗳️ Ballot Measures</span>
+        <div style="flex:1;border-top:1px solid ${color}20;"></div>
+    </div>`;
+    for (const m of ballotMeasures) {
+        const label = [m.measure_number, m.title].filter(Boolean).join(' — ');
+        const dateLine = m.election_date
+            ? `<p style="color:#64748b;font-size:10px;margin:2px 0 0;">${escapeHtml(new Date(m.election_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }))}</p>`
+            : '';
+        const summaryLine = m.summary
+            ? `<p style="color:#94a3b8;font-size:11px;line-height:1.5;margin:4px 0 0;">${escapeHtml(m.summary)}</p>`
+            : '';
+        html += `<div style="margin-bottom:10px;padding:8px 10px;border-radius:8px;border:1px solid rgba(148,163,184,0.2);background:rgba(15,23,42,0.5);">
+            <p style="color:#e2e8f0;font-size:12px;font-weight:600;margin:0;">${escapeHtml(label || 'Ballot Measure')}</p>
+            ${dateLine}
+            ${summaryLine}
+        </div>`;
+    }
+    return html;
+}
+
+/**
+ * @param {Object} cityOfficials keyed by city name -> array of officials
+ * @param {Set<string>|null} filterCities restrict to these city names, or null for all
+ */
+export function renderCityOfficialsSection(cityOfficials, color, filterCities = null, label = '🏙 City Officials') {
+    const cityEntries = Object.entries(cityOfficials ?? {})
+        .filter(([city]) => !filterCities || filterCities.has(city));
+    if (!cityEntries.length) return '';
+
+    let html = `<div style="border-top:1px solid ${color}20;margin:16px 0 14px;display:flex;align-items:center;gap:8px;">
+        <span style="color:${color};font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;white-space:nowrap;">${label}</span>
+        <div style="flex:1;border-top:1px solid ${color}20;"></div>
+    </div>`;
+    for (const [city, officials] of cityEntries) {
+        html += `<div style="margin-bottom:14px;">
+            <p style="color:#94a3b8;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin:0 0 6px;"
+               title="City of ${city}">${city}</p>`;
+        for (const o of officials) {
+            const officeTitle = o.political_office || 'Mayor';
+            const roleDesc = CITY_OFFICE_ROLES[officeTitle] || null;
+            const elDateCity = o.election_date || null;
+            if (roleDesc) {
+                html += `<p class="office-role-tip" style="margin-bottom:6px;">${roleDesc}</p>`;
+            }
+            html += renderCandidate({
+                full_name: o.full_name, party: o.party, status: o.status || 'seated',
+                is_running: false, verified: o.verified || false, photo: o.photo || null,
+                slug: o.slug || null, profile_url: o.profile_url || null,
+                ballotpedia_url: o.ballotpedia_url || null, website: o.website || null,
+                bio: o.bio_excerpt || null, office: officeTitle, general_date: elDateCity,
+            }, color);
+        }
+        html += '</div>';
+    }
+    return html;
+}
+
 export function noDataNotice(msg) {
     return `<div style="display:flex;align-items:center;gap:8px;background:#1e293b;border:1px solid #334155;border-radius:8px;padding:10px 12px;margin-bottom:12px;">
         <span style="font-size:16px;">📭</span>
         <span style="color:#94a3b8;font-size:11px;">${msg}</span>
+    </div>`;
+}
+
+/** Renders the "Cities & Economy" section for a state, reusing the region panel's per-city Census data. */
+async function fetchStateCitiesEconomy(stateAbbr, regionName, color) {
+    const cities = await fetchCitiesForState(regionName, stateAbbr);
+    if (!cities.length) return '';
+
+    return `<div id="state-cities-econ">
+        <div style="border-top:1px solid ${color}20;margin:16px 0 14px;display:flex;align-items:center;gap:8px;">
+            <span style="color:${color};font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;white-space:nowrap;">🏙 Cities &amp; Economy</span>
+            <div style="flex:1;border-top:1px solid ${color}20;"></div>
+        </div>
+        ${cities.map(c => renderCityCard(c, stateAbbr, color)).join('')}
     </div>`;
 }
 
@@ -198,7 +313,8 @@ export async function openStatePanel(stateName, regionName, region, districtCoun
                         </div>
                       </div>`,
     };
-    let html = DATA_BANNERS[apiStatus] ?? DATA_BANNERS.unreachable;
+    let html = renderElectionDatesBanner(data?.election_dates, color);
+    html += DATA_BANNERS[apiStatus] ?? DATA_BANNERS.unreachable;
 
     if (districtCount > 0) {
         const expected = DISTRICT_COUNTS[stateName] || districtCount;
@@ -213,41 +329,29 @@ export async function openStatePanel(stateName, regionName, region, districtCoun
         </div>`;
     }
 
+    html += `<div id="state-cities-econ"></div>`;
+
+    html += renderBallotMeasuresSection(data?.ballot_measures ?? [], color);
+
     html += offices.length
         ? offices.map(g => renderOfficeGroup(g, OFFICE_ROLES, color)).join('')
         : noDataNotice('Statewide candidate records for this state are not yet available. Check back after the next weekly sync.');
 
-    const cityOfficials = data?.city_officials ?? {};
-    const cityEntries = Object.entries(cityOfficials);
-    if (cityEntries.length > 0) {
-        html += `<div style="border-top:1px solid ${color}20;margin:16px 0 14px;display:flex;align-items:center;gap:8px;">
-            <span style="color:${color};font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;white-space:nowrap;">🏙 City Officials</span>
-            <div style="flex:1;border-top:1px solid ${color}20;"></div>
-        </div>`;
-        for (const [city, officials] of cityEntries) {
-            html += `<div style="margin-bottom:14px;">
-                <p style="color:#94a3b8;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin:0 0 6px;"
-                   title="City of ${city}">${city}</p>`;
-            for (const o of officials) {
-                const officeTitle = o.political_office || 'Mayor';
-                const roleDesc = CITY_OFFICE_ROLES[officeTitle] || null;
-                const elDateCity = o.election_date || null;
-                if (roleDesc) {
-                    html += `<p class="office-role-tip" style="margin-bottom:6px;">${roleDesc}</p>`;
-                }
-                html += renderCandidate({
-                    full_name: o.full_name, party: o.party, status: o.status || 'seated',
-                    is_running: false, verified: o.verified || false, photo: o.photo || null,
-                    slug: o.slug || null, profile_url: o.profile_url || null,
-                    ballotpedia_url: o.ballotpedia_url || null, website: o.website || null,
-                    bio: o.bio_excerpt || null, office: officeTitle, general_date: elDateCity,
-                }, color);
-            }
-            html += '</div>';
-        }
-    }
+    html += renderCityOfficialsSection(data?.city_officials, color);
 
     candEl.innerHTML = html;
+
+    const stateAbbr = STATE_ABBR_MAP[stateName];
+    if (stateAbbr && regionName) {
+        const reqId = statePanelRequestId;
+        fetchStateCitiesEconomy(stateAbbr, regionName, color).then(sectionHtml => {
+            if (reqId !== statePanelRequestId || !sectionHtml) return;
+            const placeholder = document.getElementById('state-cities-econ');
+            if (!placeholder) return;
+            placeholder.outerHTML = sectionHtml;
+            wireCityCardClicks(candEl);
+        });
+    }
 }
 
 /* ── Offices toggle (collapsible section) ── */
@@ -285,7 +389,8 @@ export function initCandidateCardClick() {
             const c = JSON.parse(decodeURIComponent(raw));
             const _dKey = (c.office || '').match(/([A-Z]{2}-(?:\d+|AL))/)?.[1] ?? null;
             openPolDrawer(c, c.color, {
-                population: _dKey ? (stateData?.district_populations?.[_dKey] ?? null) : null
+                population: _dKey ? (stateData?.district_populations?.[_dKey] ?? null) : null,
+                districtNumber: _dKey ? _dKey.split('-')[1] : null
             });
         } catch (err) {
             // Surface unexpected errors so we can diagnose drawer-open failures.

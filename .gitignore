@@ -6,6 +6,8 @@
 /storage/*.key
 /vendor
 /legacy/vendor
+/legacy/node_modules
+/legacy/bower_components
 .env
 .env.backup
 .env.production
@@ -19,6 +21,7 @@ yarn-error.log
 /.idea
 /.vscode
 database/database.sqlite
+.DS_Store
 */.DS_Store
 
 # Mobile artifacts (React Native / Android / iOS)
@@ -53,3 +56,6 @@ legacy/.DS_Store
 resources/js/.DS_Store
 storage/framework/.DS_Store
 tests/.DS_Store
+app/Console/.DS_Store
+app/Services/.DS_Store
+storage/framework/.DS_Store

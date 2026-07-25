@@ -61,4 +61,12 @@ class ProfileBadge extends Model
     {
         return $query->where('badge_type', 'self_declared');
     }
+
+    /**
+     * System-inferred issue labels (from news/viral-moment/Vote Smart signals).
+     */
+    public function scopeInferred($query)
+    {
+        return $query->where('badge_type', 'inferred_discourse');
+    }
 }

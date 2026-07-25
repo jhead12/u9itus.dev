@@ -36,6 +36,20 @@ Requires `auth`, `verified`, and `role:politician` middleware.
 | `POST` | `/politician/billing/add-funds` | Create Stripe PaymentIntent to add credits |
 | `GET` | `/politician/profile` | View/edit profile |
 | `PUT` | `/politician/profile` | Update political profile |
+| `GET` | `/politician/posts` | Blog posts list |
+| `GET` | `/politician/posts/create` | New blog post form |
+| `POST` | `/politician/posts` | Store blog post |
+| `GET` | `/politician/posts/{post}/edit` | Edit blog post |
+| `PUT` | `/politician/posts/{post}` | Update blog post |
+| `POST` | `/politician/posts/{post}/publish` | Publish post |
+| `POST` | `/politician/posts/{post}/archive` | Archive post |
+| `POST` | `/politician/posts/{post}/promote` | Promote post with credits |
+| `GET` | `/politician/events` | Civic events list |
+| `GET` | `/politician/events/create` | New civic event form |
+| `POST` | `/politician/events` | Store civic event |
+| `GET` | `/politician/events/{event}/edit` | Edit civic event |
+| `PUT` | `/politician/events/{event}` | Update civic event |
+| `PATCH` | `/politician/events/{event}/cancel` | Cancel civic event |
 
 ### Voter Dashboard (`/voter/*`)
 
@@ -77,6 +91,44 @@ Requires `auth`, `verified`, and `role:admin` middleware.
 | `GET` | `/admin/imports` | California import run logs |
 | `GET` | `/admin/analytics` | Platform analytics |
 | `GET` | `/admin/settings` | System settings |
+
+### Citizen Dashboard (`/citizen/*`)
+
+Requires `auth`, `verified`, and `role:citizen` middleware.
+
+| Method | URL | Purpose |
+|--------|-----|---------|
+| `GET` | `/citizen/posts` | Blog posts list |
+| `GET` | `/citizen/posts/create` | New blog post form |
+| `POST` | `/citizen/posts` | Store blog post |
+| `GET` | `/citizen/posts/{post}/edit` | Edit blog post |
+| `PUT` | `/citizen/posts/{post}` | Update blog post |
+| `POST` | `/citizen/posts/{post}/publish` | Publish post |
+| `POST` | `/citizen/posts/{post}/archive` | Archive post |
+| `POST` | `/citizen/posts/{post}/promote` | Promote post with credits |
+| `GET` | `/citizen/events` | Civic events list |
+| `GET` | `/citizen/events/create` | New civic event form |
+| `POST` | `/citizen/events` | Store civic event |
+| `GET` | `/citizen/events/{event}/edit` | Edit civic event |
+| `PUT` | `/citizen/events/{event}` | Update civic event |
+| `PATCH` | `/citizen/events/{event}/cancel` | Cancel civic event |
+
+### Public Pages
+
+No authentication required.
+
+| Method | URL | Purpose |
+|--------|-----|---------|
+| `GET` | `/blog` | Public blog index |
+| `GET` | `/blog/feed` | RSS feed |
+| `GET` | `/blog/topic/{slug}` | Topic archive |
+| `GET` | `/blog/author/{type}/{slug}` | Author archive |
+| `GET` | `/blog/{slug}` | Single blog post |
+| `GET` | `/events` | Public civic events index |
+| `GET` | `/events/{event}` | Single civic event |
+| `POST` | `/events/{event}/rsvp` | RSVP (auth required) |
+| `GET` | `/events/{event}/ics` | Calendar export (.ics) |
+| `GET` | `/map` | Interactive 3-D U.S. map with civic content pins |
 
 ---
 
@@ -126,6 +178,14 @@ All API routes are protected by `auth:sanctum` middleware.
 | Method | URL | Purpose |
 |--------|-----|---------|
 | `POST` | `/api/stripe/webhooks` | Handle `payment_intent.succeeded` / `payment_intent.payment_failed` |
+
+### Public Map Content API
+
+No authentication required; protected by `throttle:map-data`.
+
+| Method | URL | Purpose |
+|--------|-----|---------|
+| `GET` | `/api/v1/map/content` | Geo-tagged published blog posts and upcoming civic events within a viewport |
 
 ---
 

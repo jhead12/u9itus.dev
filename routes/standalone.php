@@ -9,16 +9,29 @@
  * Framework: Laravel 12 (Standalone Architecture)
  */
 
-use App\Http\Controllers\Standalone\AuthController;
+use App\Http\Controllers\Standalone\AdminTwoFactorController;
+use App\Http\Controllers\Standalone\EmailVerificationController;
+use App\Http\Controllers\Standalone\LoginController;
+use App\Http\Controllers\Standalone\PasswordResetController;
+use App\Http\Controllers\Standalone\PhoneVerificationController;
+use App\Http\Controllers\Standalone\RegistrationController;
 use App\Http\Controllers\Standalone\BadgeController;
+use App\Http\Controllers\Standalone\CitizenCampaignVoterController;
 use App\Http\Controllers\Standalone\CitizenController;
 use App\Http\Controllers\Standalone\DashboardController;
+use App\Http\Controllers\Standalone\BoundaryFavoriteController;
 use App\Http\Controllers\Standalone\FavoriteController;
 use App\Http\Controllers\Standalone\PoliticianController;
+use App\Http\Controllers\Standalone\PostController;
+use App\Http\Controllers\Standalone\PublicPostController;
+use App\Http\Controllers\Standalone\CivicEventController;
+use App\Http\Controllers\Standalone\PublicCivicEventController;
+use App\Http\Controllers\Standalone\EventRsvpController;
 use App\Http\Controllers\Standalone\PoliticianSongPickController;
 use App\Http\Controllers\Standalone\VoterController;
 use App\Http\Controllers\Standalone\AdminController;
 use App\Http\Controllers\Standalone\AdminOfficeProfileController;
+use App\Http\Controllers\Standalone\AdminPostController;
 use App\Http\Controllers\Standalone\PublicProfileController;
 use App\Http\Controllers\Standalone\ProfileClaimController;
 use App\Http\Controllers\Standalone\SitemapController;
@@ -37,47 +50,47 @@ use Illuminate\Support\Facades\Route;
 
 Route::middleware('guest')->group(function () {
     // Shared login (redirects by role after authentication)
-    Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
-    Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:login');
+    Route::get('/login', [LoginController::class, 'showLogin'])->name('login');
+    Route::post('/login', [LoginController::class, 'login'])->middleware('throttle:login');
 
     // Admin-specific login portal
-    Route::get('/admin/login', [AuthController::class, 'showAdminLogin'])->name('admin.login');
-    Route::post('/admin/login', [AuthController::class, 'adminLogin'])->name('admin.login.submit')->middleware('throttle:login');
+    Route::get('/admin/login', [LoginController::class, 'showAdminLogin'])->name('admin.login');
+    Route::post('/admin/login', [LoginController::class, 'adminLogin'])->name('admin.login.submit')->middleware('throttle:login');
 
     // Registration — role chooser landing
-    Route::get('/register', [AuthController::class, 'showRegisterChoose'])->name('register');
+    Route::get('/register', [RegistrationController::class, 'showRegisterChoose'])->name('register');
 
     // Politician registration
-    Route::get('/register/politician', [AuthController::class, 'showRegisterPolitician'])->name('register.politician');
-    Route::post('/register/politician', [AuthController::class, 'registerPolitician'])->name('register.politician.submit');
+    Route::get('/register/politician', [RegistrationController::class, 'showRegisterPolitician'])->name('register.politician');
+    Route::post('/register/politician', [RegistrationController::class, 'registerPolitician'])->name('register.politician.submit');
 
     // Voter registration
-    Route::get('/register/voter', [AuthController::class, 'showRegisterVoter'])->name('register.voter');
-    Route::post('/register/voter', [AuthController::class, 'registerVoter'])->name('register.voter.submit');
+    Route::get('/register/voter', [RegistrationController::class, 'showRegisterVoter'])->name('register.voter');
+    Route::post('/register/voter', [RegistrationController::class, 'registerVoter'])->name('register.voter.submit');
 
     // Citizen registration
-    Route::get('/register/citizen', [AuthController::class, 'showRegisterCitizen'])->name('register.citizen');
-    Route::post('/register/citizen', [AuthController::class, 'registerCitizen'])->name('register.citizen.submit');
+    Route::get('/register/citizen', [RegistrationController::class, 'showRegisterCitizen'])->name('register.citizen');
+    Route::post('/register/citizen', [RegistrationController::class, 'registerCitizen'])->name('register.citizen.submit');
 
     // Registration closed — mailing list capture (always accessible regardless of registration_open flag)
-    Route::get('/register/closed', [AuthController::class, 'showRegisterClosed'])->name('register.closed');
-    Route::post('/register/closed', [AuthController::class, 'storeMailingListSubscriber'])->name('register.mailing-list.store');
+    Route::get('/register/closed', [RegistrationController::class, 'showRegisterClosed'])->name('register.closed');
+    Route::post('/register/closed', [RegistrationController::class, 'storeMailingListSubscriber'])->name('register.mailing-list.store');
 
-    Route::get('/forgot-password', [AuthController::class, 'showForgotPassword'])->name('password.request');
-    Route::post('/forgot-password', [AuthController::class, 'sendResetLink'])->name('password.email');
+    Route::get('/forgot-password', [PasswordResetController::class, 'showForgotPassword'])->name('password.request');
+    Route::post('/forgot-password', [PasswordResetController::class, 'sendResetLink'])->name('password.email');
 
-    Route::get('/reset-password/{token}', [AuthController::class, 'showResetPassword'])->name('password.reset');
-    Route::post('/reset-password', [AuthController::class, 'resetPassword'])->name('password.update');
+    Route::get('/reset-password/{token}', [PasswordResetController::class, 'showResetPassword'])->name('password.reset');
+    Route::post('/reset-password', [PasswordResetController::class, 'resetPassword'])->name('password.update');
 });
 
 // Logout (authenticated users only)
-Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->name('logout');
+Route::post('/logout', [LoginController::class, 'logout'])->middleware('auth')->name('logout');
 
 // Phone verification (authenticated only)
 Route::middleware('auth')->group(function () {
-    Route::get('/verify-phone', [AuthController::class, 'showVerifyPhone'])->name('phone.verify');
-    Route::post('/verify-phone', [AuthController::class, 'verifyPhone'])->name('phone.verify.submit');
-    Route::post('/resend-phone-code', [AuthController::class, 'resendPhoneCode'])->name('phone.resend');
+    Route::get('/verify-phone', [PhoneVerificationController::class, 'showVerifyPhone'])->name('phone.verify');
+    Route::post('/verify-phone', [PhoneVerificationController::class, 'verifyPhone'])->name('phone.verify.submit');
+    Route::post('/resend-phone-code', [PhoneVerificationController::class, 'resendPhoneCode'])->name('phone.resend');
 });
 
 /*
@@ -87,9 +100,9 @@ Route::middleware('auth')->group(function () {
 */
 
 Route::middleware(['auth', 'no.cache'])->group(function () {
-    Route::get('/email/verify', [AuthController::class, 'showVerifyEmail'])->name('verification.notice');
-    Route::get('/email/verify/{id}/{hash}', [AuthController::class, 'verifyEmail'])->middleware('signed')->name('verification.verify');
-    Route::post('/email/resend', [AuthController::class, 'resendVerification'])->name('verification.send');
+    Route::get('/email/verify', [EmailVerificationController::class, 'showVerifyEmail'])->name('verification.notice');
+    Route::get('/email/verify/{id}/{hash}', [EmailVerificationController::class, 'verifyEmail'])->middleware('signed')->name('verification.verify');
+    Route::post('/email/resend', [EmailVerificationController::class, 'resendVerification'])->name('verification.send');
 });
 
 /*
@@ -185,8 +198,8 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
     // Admin security routes (kept outside onboarding + enforcement middleware
     // so admins can complete TOTP setup/challenge when required).
     Route::prefix('admin')->name('admin.')->middleware(['role:admin'])->group(function () {
-        Route::get('/2fa/challenge', [AuthController::class, 'showAdminTwoFactorChallenge'])->name('2fa.challenge');
-        Route::post('/2fa/challenge', [AuthController::class, 'verifyAdminTwoFactorChallenge'])
+        Route::get('/2fa/challenge', [AdminTwoFactorController::class, 'showChallenge'])->name('2fa.challenge');
+        Route::post('/2fa/challenge', [AdminTwoFactorController::class, 'verifyChallenge'])
             ->middleware('throttle:6,1')
             ->name('2fa.challenge.verify');
 
@@ -220,6 +233,18 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         Route::post('/2fa/challenge', [TwoFactorController::class, 'verifyChallenge'])
             ->middleware('throttle:6,1')
             ->name('2fa.challenge.verify');
+
+        // Self-service SMS recovery: disables a stuck user's 2FA via a code
+        // texted to their verified phone, so they don't need support to run
+        // the auth:reset-2fa artisan command.
+        Route::get('/2fa/recovery', [TwoFactorController::class, 'showRecovery'])->name('2fa.recovery-sms');
+        Route::post('/2fa/recovery/send', [TwoFactorController::class, 'sendRecoveryCode'])
+            ->middleware('throttle:2fa-recovery-sms')
+            ->name('2fa.recovery-sms.send');
+        Route::get('/2fa/recovery/verify', [TwoFactorController::class, 'showRecoveryVerify'])->name('2fa.recovery-sms.verify');
+        Route::post('/2fa/recovery/verify', [TwoFactorController::class, 'verifyRecoveryCode'])
+            ->middleware('throttle:6,1')
+            ->name('2fa.recovery-sms.verify.submit');
     });
 
     // Main Dashboard (role-based redirect)
@@ -319,10 +344,37 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         Route::post('/badges/{topicId}', [BadgeController::class, 'politicianStore'])->name('badges.store');
         Route::delete('/badges/{topicId}', [BadgeController::class, 'politicianDestroy'])->name('badges.destroy');
 
+        // ── Blog Posts ───────────────────────────────────────────────────────
+        Route::prefix('posts')->name('posts.')->group(function () {
+            Route::get('/', [PostController::class, 'index'])->name('index');
+            Route::get('/create', [PostController::class, 'create'])->name('create');
+            Route::post('/', [PostController::class, 'store'])->name('store');
+            Route::get('/{post}', [PostController::class, 'show'])->name('show');
+            Route::get('/{post}/edit', [PostController::class, 'edit'])->name('edit');
+            Route::put('/{post}', [PostController::class, 'update'])->name('update');
+            Route::delete('/{post}', [PostController::class, 'destroy'])->name('destroy');
+            Route::post('/{post}/publish', [PostController::class, 'publish'])->name('publish');
+            Route::post('/{post}/archive', [PostController::class, 'archive'])->name('archive');
+            Route::post('/{post}/promote', [PostController::class, 'promote'])->name('promote');
+        });
+
+        // ── Civic Events ─────────────────────────────────────────────────────
+        Route::prefix('events')->name('events.')->group(function () {
+            Route::get('/', [CivicEventController::class, 'index'])->name('index');
+            Route::get('/create', [CivicEventController::class, 'create'])->name('create');
+            Route::post('/', [CivicEventController::class, 'store'])->name('store');
+            Route::get('/{event}/edit', [CivicEventController::class, 'edit'])->name('edit');
+            Route::put('/{event}', [CivicEventController::class, 'update'])->name('update');
+            Route::get('/{event}/rsvps', [CivicEventController::class, 'rsvps'])->name('rsvps');
+            Route::patch('/{event}/rsvps/{rsvp}/approve', [CivicEventController::class, 'approveRsvp'])->name('rsvps.approve');
+            Route::patch('/{event}/rsvps/{rsvp}/decline', [CivicEventController::class, 'declineRsvp'])->name('rsvps.decline');
+            Route::patch('/{event}/cancel', [CivicEventController::class, 'cancel'])->name('cancel');
+        });
+
         // ── Interactive Map (portal-embedded) ────────────────────────────────
         Route::get('/map', fn() => view('standalone.politician.map'))->name('map');
     });
-    
+
     /*
     |--------------------------------------------------------------------------
     | Voter Dashboard & Earnings
@@ -345,6 +397,16 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         Route::post('/session/{sessionUuid}/progress', [VoterController::class, 'progressHeartbeat'])->name('session.progress');
         Route::post('/session/{sessionUuid}/complete', [VoterController::class, 'markComplete'])->name('session.complete');
         Route::post('/session/{sessionUuid}/survey', [VoterController::class, 'submitSurvey'])->name('session.survey');
+
+        // Citizen campaigns (community ads)
+        Route::get('/citizen-campaigns/{campaign}/watch', [CitizenCampaignVoterController::class, 'watch'])
+            ->name('citizen-campaigns.watch');
+        Route::post('/citizen-campaigns/{campaign}/complete', [CitizenCampaignVoterController::class, 'complete'])
+            ->name('citizen-campaigns.complete');
+        Route::post('/citizen-campaigns/{campaign}/report-issue', [CitizenCampaignVoterController::class, 'reportIssue'])
+            ->name('citizen-campaigns.report-issue');
+        Route::post('/citizen-campaigns/{campaign}/ask-question', [CitizenCampaignVoterController::class, 'askQuestion'])
+            ->name('citizen-campaigns.ask-question');
         // In-watch interactions: error reporting + direct message to politician
         Route::post('/watch/{token}/report-issue', [VoterController::class, 'reportIssue'])->name('watch.report-issue');
         Route::post('/watch/{token}/ask-question', [VoterController::class, 'askQuestion'])->name('watch.ask-question');
@@ -357,7 +419,10 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         // POST-only: this mutates state (creates a Stripe account, redirects to
         // Stripe-hosted onboarding). GET would be triggered by link prefetchers.
         Route::post('/authentic-user-verifier/start', [VoterController::class, 'startAuthenticUserVerifier'])->name('authentic-user-verifier.start');
-        
+        // POST-only: generates a single-use Stripe login link and immediately
+        // redirects away with it — GET would let prefetchers burn the link.
+        Route::post('/wallet/manage', [VoterController::class, 'openStripeDashboard'])->name('wallet.manage');
+
         // Referrals
         Route::get('/referrals', [VoterController::class, 'referrals'])->name('referrals');
         Route::get('/referrals/link', [VoterController::class, 'getReferralLink'])->name('referrals.link');
@@ -393,6 +458,11 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         Route::post('/articles/{articleId}/save', [FavoriteController::class, 'saveArticle'])->name('articles.save');
         Route::delete('/articles/{articleId}/save', [FavoriteController::class, 'unsaveArticle'])->name('articles.unsave');
 
+        // ── Saved map boundaries (districts + top cities) ────────────────────
+        Route::get('/boundaries', [BoundaryFavoriteController::class, 'index'])->name('boundaries.index');
+        Route::post('/boundaries', [BoundaryFavoriteController::class, 'store'])->name('boundaries.store');
+        Route::delete('/boundaries/{id}', [BoundaryFavoriteController::class, 'destroy'])->name('boundaries.destroy');
+
         // ── Citizen profile upgrade (add Citizen role to existing voter account) ──
         Route::get('/add-citizen-profile', [VoterController::class, 'showAddCitizenProfile'])->name('add-citizen-profile');
         Route::post('/add-citizen-profile', [VoterController::class, 'addCitizenProfile'])->name('add-citizen-profile.submit');
@@ -414,6 +484,7 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         Route::get('/campaigns/create', [CitizenController::class, 'createCampaign'])->name('campaigns.create');
         Route::post('/campaigns', [CitizenController::class, 'storeCampaign'])->name('campaigns.store');
         Route::get('/campaigns/{campaign}', [CitizenController::class, 'showCampaign'])->name('campaigns.show');
+        Route::get('/campaigns/{campaign}/review', [CitizenController::class, 'reviewCampaign'])->name('campaigns.review');
         Route::get('/campaigns/{campaign}/edit', [CitizenController::class, 'editCampaign'])->name('campaigns.edit');
         Route::put('/campaigns/{campaign}', [CitizenController::class, 'updateCampaign'])->name('campaigns.update');
         Route::delete('/campaigns/{campaign}', [CitizenController::class, 'destroyCampaign'])->name('campaigns.destroy');
@@ -423,6 +494,47 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         Route::post('/campaigns/{campaign}/upload-video', [CitizenController::class, 'uploadVideo'])->name('campaigns.upload-video');
         Route::post('/campaigns/{campaign}/s3-upload-url', [CitizenController::class, 'getS3UploadUrl'])->name('campaigns.s3-upload-url');
         Route::post('/campaigns/{campaign}/process-s3-video', [CitizenController::class, 'processS3UploadedVideo'])->name('campaigns.process-s3-video');
+
+        // Billing & Payments (mirrors politician billing portal)
+        Route::get('/billing', [CitizenController::class, 'billing'])->name('billing');
+        Route::post('/billing/add-funds', [CitizenController::class, 'addFunds'])->name('billing.add-funds');
+        Route::get('/billing/confirm', [CitizenController::class, 'confirmPayment'])->name('billing.confirm');
+        Route::post('/billing/update-receipt-email', [CitizenController::class, 'updateReceiptEmail'])->name('billing.update-receipt-email');
+        Route::get('/billing/invoices', [CitizenController::class, 'invoices'])->name('billing.invoices');
+        Route::get('/billing/invoices/{transaction}/details', [CitizenController::class, 'invoiceDetails'])
+            ->name('billing.invoices.details');
+        Route::post('/billing/invoices/{transaction}/send-receipt', [CitizenController::class, 'sendReceipt'])
+            ->name('billing.invoices.send-receipt');
+        Route::post('/billing/setup-intent', [CitizenController::class, 'createSetupIntent'])->name('billing.setup-intent');
+        Route::post('/billing/payment-methods', [CitizenController::class, 'storePaymentMethod'])->name('billing.payment-methods.store');
+        Route::delete('/billing/payment-methods/{paymentMethod}', [CitizenController::class, 'deletePaymentMethod'])->name('billing.payment-methods.delete');
+
+        // ── Blog Posts ───────────────────────────────────────────────────────
+        Route::prefix('posts')->name('posts.')->group(function () {
+            Route::get('/', [PostController::class, 'index'])->name('index');
+            Route::get('/create', [PostController::class, 'create'])->name('create');
+            Route::post('/', [PostController::class, 'store'])->name('store');
+            Route::get('/{post}', [PostController::class, 'show'])->name('show');
+            Route::get('/{post}/edit', [PostController::class, 'edit'])->name('edit');
+            Route::put('/{post}', [PostController::class, 'update'])->name('update');
+            Route::delete('/{post}', [PostController::class, 'destroy'])->name('destroy');
+            Route::post('/{post}/publish', [PostController::class, 'publish'])->name('publish');
+            Route::post('/{post}/archive', [PostController::class, 'archive'])->name('archive');
+            Route::post('/{post}/promote', [PostController::class, 'promote'])->name('promote');
+        });
+
+        // ── Civic Events ─────────────────────────────────────────────────────
+        Route::prefix('events')->name('events.')->group(function () {
+            Route::get('/', [CivicEventController::class, 'index'])->name('index');
+            Route::get('/create', [CivicEventController::class, 'create'])->name('create');
+            Route::post('/', [CivicEventController::class, 'store'])->name('store');
+            Route::get('/{event}/edit', [CivicEventController::class, 'edit'])->name('edit');
+            Route::put('/{event}', [CivicEventController::class, 'update'])->name('update');
+            Route::get('/{event}/rsvps', [CivicEventController::class, 'rsvps'])->name('rsvps');
+            Route::patch('/{event}/rsvps/{rsvp}/approve', [CivicEventController::class, 'approveRsvp'])->name('rsvps.approve');
+            Route::patch('/{event}/rsvps/{rsvp}/decline', [CivicEventController::class, 'declineRsvp'])->name('rsvps.decline');
+            Route::patch('/{event}/cancel', [CivicEventController::class, 'cancel'])->name('cancel');
+        });
     });
 
     /*
@@ -507,6 +619,11 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         Route::get('/billing/refunds', [AdminController::class, 'billingRefunds'])->name('billing.refunds');
         Route::post('/billing/transactions/{transaction}/refund-unused', [AdminController::class, 'refundUnusedCredits'])
             ->name('billing.refund-unused');
+
+        // Citizen Billing Refunds (unused citizen credits)
+        Route::get('/citizen-billing/refunds', [AdminController::class, 'billingRefundsCitizen'])->name('citizen-billing.refunds');
+        Route::post('/citizen-billing/transactions/{transaction}/refund-unused', [AdminController::class, 'refundUnusedCitizenCredits'])
+            ->name('citizen-billing.refund-unused');
         
         // Analytics & Reports
         Route::get('/analytics', [AdminController::class, 'analytics'])->name('analytics');
@@ -548,6 +665,15 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         Route::patch('/email-templates/{template}/toggle', [AdminController::class, 'toggleEmailTemplate'])->name('email-templates.toggle');
         Route::get('/email-templates/{template}/preview', [AdminController::class, 'previewEmailTemplate'])->name('email-templates.preview');
 
+        // Post Moderation (native blog)
+        Route::get('/posts', [AdminPostController::class, 'index'])->name('posts.index');
+        Route::post('/posts/bulk-action', [AdminPostController::class, 'bulkAction'])->name('posts.bulk-action');
+        Route::post('/posts/{post}/approve', [AdminPostController::class, 'approve'])->name('posts.approve');
+        Route::post('/posts/{post}/unpublish', [AdminPostController::class, 'unpublish'])->name('posts.unpublish');
+        Route::post('/posts/{post}/archive', [AdminPostController::class, 'archive'])->name('posts.archive');
+        Route::post('/posts/{post}/restore', [AdminPostController::class, 'restore'])->name('posts.restore');
+        Route::delete('/posts/{post}', [AdminPostController::class, 'destroy'])->name('posts.destroy');
+
         // Admin Profile (Phase 11)
         Route::get('/profile', [AdminController::class, 'profile'])->name('profile');
         Route::put('/profile', [AdminController::class, 'updateProfile'])->name('profile.update');
@@ -573,9 +699,22 @@ Route::get('/district-lookup', [PublicProfileController::class, 'districtLookup'
 // Interactive 3D U.S. Regional Map
 Route::get('/map', fn() => view('standalone.public.us-map'))->name('us.map');
 
+// Public Blog
+Route::get('/blog', [PublicPostController::class, 'index'])->name('blog.index');
+Route::get('/blog/feed', [PublicPostController::class, 'feed'])->name('blog.feed');
+Route::get('/blog/topic/{slug}', [PublicPostController::class, 'topic'])->name('blog.topic');
+Route::get('/blog/author/{type}/{slug}', [PublicPostController::class, 'author'])->name('blog.author');
+Route::get('/blog/{slug}', [PublicPostController::class, 'show'])->name('blog.show');
+
+// Public Civic Events
+Route::get('/events', [PublicCivicEventController::class, 'index'])->name('events.index');
+Route::get('/events/{event}', [PublicCivicEventController::class, 'show'])->name('events.show');
+Route::get('/events/{event}/ics', [PublicCivicEventController::class, 'ics'])->name('events.ics');
+Route::post('/events/{event}/rsvp', [EventRsvpController::class, 'store'])->middleware(['auth', 'verified'])->name('events.rsvp');
+
 // Voter earn explainer — public landing page that teaches users how to earn
 // from watching campaign videos, then funnels into voter registration.
-// Mirrors the AuthController's `registration_open` check so the CTAs
+// Mirrors the RegistrationController's `registration_open` check so the CTAs
 // never dangle users when the platform is in waitlist-only mode.
 Route::get('/earn', function () {
     $isOpen = filter_var(

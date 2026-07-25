@@ -1607,7 +1607,7 @@ class PoliticianController extends Controller
 
         // Delete old document if one exists
         if ($user->kyc_document_path) {
-            Storage::disk('public')->delete($user->kyc_document_path);
+            Storage::disk('local')->delete($user->kyc_document_path);
         }
 
         // SEC-3: derive the stored extension from the file's detected MIME content
@@ -1617,7 +1617,9 @@ class PoliticianController extends Controller
         // return one of the allowed types; fall back to `.bin` defensively.
         $ext = $file->guessExtension();
         $ext = in_array($ext, ['jpg', 'jpeg', 'png', 'pdf'], true) ? $ext : 'bin';
-        $path = $file->storeAs("kyc/{$user->id}", "document.{$ext}", 'public');
+        // SEC-2: store on the private `local` disk (storage/app/private/kyc/...)
+        // so KYC docs are not web-served via the public storage:link symlink.
+        $path = $file->storeAs("kyc/{$user->id}", "document.{$ext}", 'local');
 
         // Save path and reset KYC status to pending so admin reviews the new doc
         $user->update([
@@ -1642,7 +1644,7 @@ class PoliticianController extends Controller
             abort(404, 'No KYC document found.');
         }
 
-        $path = storage_path('app/public/' . $user->kyc_document_path);
+        $path = Storage::disk('local')->path($user->kyc_document_path);
 
         if (!file_exists($path)) {
             abort(404, 'KYC document file not found on server.');
@@ -1759,6 +1761,16 @@ class PoliticianController extends Controller
         $totalVoterViewEarnings  = (float) $politician->referralEarnings()->voterViews()->forActiveStripeMode()->sum('commission_amount');
         $totalProcurementEarnings = (float) $politician->referralEarnings()->procurements()->forActiveStripeMode()->sum('commission_amount');
 
+        // Early-bank reported earnings — see the equivalent comment in
+        // ManagesVoterAuxiliaryActions::referrals() for why these are combined
+        // rather than split by voter-view vs procurement.
+        $ebCommissionTotal = (float) $politician->earlybankEarnings()
+            ->forEventType(\App\Models\EarlyBankEarning::EVENT_PAYOUT_COMMISSION)
+            ->sum('payout_amount');
+        $ebBonusTotal = (float) $politician->earlybankEarnings()
+            ->forEventType(\App\Models\EarlyBankEarning::EVENT_PAYOUT_BONUS)
+            ->sum('payout_amount');
+
         $visitQuery = ReferralVisit::where('referrer_politician_id', $politician->id);
         $totalReferralVisits = (clone $visitQuery)->count();
         $uniqueReferralVisitors = (clone $visitQuery)
@@ -1778,6 +1790,8 @@ class PoliticianController extends Controller
             'procurementEarnings',
             'totalVoterViewEarnings',
             'totalProcurementEarnings',
+            'ebCommissionTotal',
+            'ebBonusTotal',
             'totalReferralVisits',
             'uniqueReferralVisitors',
             'referralConversions',

@@ -197,6 +197,13 @@ class PoliticalViewService
                   ->whereHas('user');
             })
             ->with('politician:id,full_name,political_office')
+            // Eager-load the per-voter completed-view count once (avoids an
+            // N+1 query inside the PHP filter below).
+            ->withCount([
+                'viewSessions as voter_completed_count' => fn ($q) => $q
+                    ->where('voter_id', $voter->id)
+                    ->where('status', ViewSessionStatus::Completed),
+            ])
             ->where(function ($q) use ($voter): void {
                 if ($voter->state) {
                     $q->whereJsonContains('target_states', $voter->state)
@@ -222,7 +229,7 @@ class PoliticalViewService
                 return true; // already handled by the SQL exclusion above
             }
 
-            $completedCount = $campaign->voterCompletedViewCount($voter->id);
+            $completedCount = (int) $campaign->voter_completed_count;
 
             // Under the per-voter cap?
             if ($completedCount >= $campaign->max_views_per_voter) {

@@ -353,3 +353,80 @@ test('voter resource includes earlybank earnings total', function () {
     expect($resource['earlybank_earnings_total'])->toBe(3.0)
         ->and($resource['earlybank_subscription_status'])->toBeNull();
 });
+
+// ── End-to-end: view completion → outbound voter.earned → inbound payout.commission ──
+
+test('a referred voter completing a view leads to an earlybank_earnings row and updates the referrer dashboard', function () {
+    eb_api_token();
+    Config::set('services.earlybank.enabled', true);
+    Config::set('services.earlybank.webhook_url', 'https://fake-eb.test/webhook');
+
+    // The referrer holds their own EB membership and can receive commissions.
+    $referrer = eb_make_voter_with_eb_member('eb-referrer@example.com');
+
+    // The referred voter was attributed to the referrer's EB member UUID and
+    // has completed Stripe Connect onboarding, so commission events will fire.
+    $referredUser = User::factory()->create(['email' => 'eb-referred@example.com', 'user_type' => 'voter']);
+    $referredUser->assignRole('voter');
+    $referredVoter = Voter::factory()->create([
+        'user_id'              => $referredUser->id,
+        'email'                => $referredUser->email,
+        'earlybank_member_id'  => $referrer->earlybank_own_member_uuid,
+        'stripe_account_status' => 'active',
+    ]);
+
+    $campaign = \App\Models\PoliticalCampaign::factory()->create();
+    $session = \App\Models\ViewSession::factory()->completed()->create([
+        'political_campaign_id' => $campaign->id,
+        'voter_id'              => $referredVoter->id,
+        'voter_payout_amount'   => 0.25,
+    ]);
+    $session->setRelation('voter', $referredVoter);
+
+    \Illuminate\Support\Facades\Http::fake(['https://fake-eb.test/webhook' => \Illuminate\Support\Facades\Http::response('ok', 200)]);
+
+    // Step 1: the view completes and u9itus notifies Early-bank of the 10% commission.
+    app(\App\Services\EarlyBankWebhookService::class)->notifyViewSessionCompleted($session);
+
+    \Illuminate\Support\Facades\Http::assertSent(function ($request) use ($referrer) {
+        $body = json_decode($request->body(), true);
+
+        return ($body['event'] ?? '') === 'voter.earned'
+            && ($body['data']['earlybank_member_id'] ?? '') === $referrer->earlybank_own_member_uuid;
+    });
+
+    // Step 2: Early-bank settles the commission and reports it back inbound.
+    $commissionAmount = round(0.25 * 0.10, 2);
+    $payload = [
+        'event'    => EarlyBankEarning::EVENT_PAYOUT_COMMISSION,
+        'event_id' => Str::uuid()->toString(),
+        'data'     => [
+            'earlybank_member_id' => $referrer->earlybank_own_member_uuid,
+            'voter_uuid'          => $referredVoter->uuid,
+            'payout_amount'       => $commissionAmount,
+            'external_reference'  => 'eb-e2e-batch',
+        ],
+    ];
+
+    $this->withHeaders(eb_inbound_headers($payload))
+        ->postJson('/api/v1/earlybank/webhook', $payload)
+        ->assertOk();
+
+    // Step 3: the referrer's earlybank_earnings ledger reflects the settled commission.
+    $this->assertDatabaseHas('earlybank_earnings', [
+        'voter_id'      => $referrer->id,
+        'event_type'    => EarlyBankEarning::EVENT_PAYOUT_COMMISSION,
+        'payout_amount' => $commissionAmount,
+    ]);
+
+    $referrer->refresh();
+    expect((float) $referrer->earlybankEarnings()->sum('payout_amount'))->toBe($commissionAmount);
+
+    // Step 4: the referrer's own referral dashboard surfaces this Early-bank total.
+    skipOnboarding($referrer->user, 'voter');
+    $response = $this->actingAs($referrer->user)->get(route('voter.referrals'));
+
+    $response->assertOk();
+    $response->assertSee('Early-bank Commissions');
+    $response->assertSee('$' . number_format($commissionAmount, 2));
+});

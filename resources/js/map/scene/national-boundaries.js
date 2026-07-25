@@ -7,6 +7,9 @@ import { project } from './projection.js';
 import { REGIONS, STATE_FIPS, FIPS_TO_ABBR, PARTY_INT, DISTRICT_PARTY_MAP } from '../config/constants.js';
 import { DISTRICT_CONFIG, mapMode, activeRegion, ACTIVE_LAYERS } from '../state/map-state.js';
 import { getTigerwebUrl } from '../api/district-config.js';
+import { idbGet, idbSet } from '../utils/idb-cache.js';
+
+const NAT_TIGER_IDB_TTL = 30 * 24 * 60 * 60 * 1000; // 30 days
 
 export const nationalDistGroups = {};
 export const nationalDistLoadedFor = new Set();
@@ -75,6 +78,12 @@ const fipsToRegionHex = (() => {
 
 async function fetchStateDistrictsLow(fips) {
     const cdField = DISTRICT_CONFIG.cd_field;
+    // Check IndexedDB first — the "low" precision version shares a separate key
+    // from the detailed district-overlay to avoid polluting the detailed cache.
+    const idbKey = `u9_tigerweb_nat_${cdField}_${fips}`;
+    const cached = await idbGet(idbKey);
+    if (cached?.length) return cached;
+
     const params = new URLSearchParams({
         where: `STATE='${fips}'`,
         outFields: `STATE,${cdField}`,
@@ -86,7 +95,9 @@ async function fetchStateDistrictsLow(fips) {
     });
     const res = await fetch(`${getTigerwebUrl()}?${params}`);
     const data = await res.json();
-    return data.features || [];
+    const features = data.features || [];
+    if (features.length) idbSet(idbKey, features, NAT_TIGER_IDB_TTL).catch(() => {});
+    return features;
 }
 
 export async function loadNationalBoundaries(scopeKey) {

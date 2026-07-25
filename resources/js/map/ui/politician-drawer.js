@@ -2,10 +2,11 @@
  * Politician profile drawer — slide-in panel with overview/economy/contact tabs.
  */
 import { STATE_ABBR_MAP, PARTY_HEX, PARTY_LABEL } from '../config/constants.js';
-import { activeState } from '../state/map-state.js';
+import { activeState, stateData } from '../state/map-state.js';
 import { fmtPop } from '../config/city-data.js';
-import { partyClass } from './panel-state.js';
+import { partyClass, renderElectionDatesBanner, topicChipsHtml } from './panel-state.js';
 import { trackEvent } from '../api/interaction.js';
+import { createFavoriteButton } from './boundary-favorite.js';
 
 const polDrawer = document.getElementById('pol-drawer');
 const polDrawerClose = document.getElementById('pol-drawer-close');
@@ -15,6 +16,9 @@ const polTabBtns = polDrawer?.querySelectorAll('.pol-tab') ?? [];
 let _polTab = 'overview';
 let _polCtx = null;
 let _overviewReqSeq = 0;
+let _economyReqSeq = 0;
+let _momentsReqSeq = 0;
+let _censusReqSeq = 0;
 
 function escapeHtml(value) {
     return String(value ?? '')
@@ -26,6 +30,7 @@ function escapeHtml(value) {
 }
 
 function safeUrl(url) {
+    if (!url) return '';
     try {
         const parsed = new URL(url, window.location.origin);
         if (parsed.protocol === 'http:' || parsed.protocol === 'https:') return parsed.toString();
@@ -43,6 +48,11 @@ function toEmbedUrl(url) {
     const vimeoMatch = safe.match(/vimeo\.com\/(\d+)/);
     if (vimeoMatch?.[1]) return `https://player.vimeo.com/video/${vimeoMatch[1]}`;
 
+    // C-SPAN watch URLs (/video/?<id>, /event/.../<id>) → embeddable standalone player.
+    // The raw page is X-Frame-Options blocked; /video/standalone/?<id> iframes fine.
+    const cspanMatch = safe.match(/c-span\.org\/(?:video\/\?|event\/[^?#]*\/|video\/standalone\/\?)([\w-]+)/);
+    if (cspanMatch?.[1]) return `https://www.c-span.org/video/standalone/?${cspanMatch[1]}`;
+
     return safe;
 }
 
@@ -53,6 +63,56 @@ function formatPubDate(iso) {
     } catch {
         return 'Recent';
     }
+}
+
+const VISITED_ARTICLES_KEY = 'u9itus_visited_articles';
+const VISITED_ARTICLES_MAX = 500;
+
+function getVisitedArticles() {
+    try {
+        const raw = localStorage.getItem(VISITED_ARTICLES_KEY);
+        return raw ? new Set(JSON.parse(raw)) : new Set();
+    } catch {
+        return new Set();
+    }
+}
+
+function markArticleVisited(url) {
+    if (!url) return;
+    try {
+        const visited = getVisitedArticles();
+        if (visited.has(url)) return;
+        visited.add(url);
+        // Cap storage growth — evict oldest entries once past the limit.
+        const arr = Array.from(visited).slice(-VISITED_ARTICLES_MAX);
+        localStorage.setItem(VISITED_ARTICLES_KEY, JSON.stringify(arr));
+    } catch {}
+}
+
+function isArticleVisited(url) {
+    try {
+        return getVisitedArticles().has(url);
+    } catch {
+        return false;
+    }
+}
+
+/** Renders a "Recent News"-style card list — shared by news, press releases, and events. */
+function renderItemListSection(label, items) {
+    if (!items?.length) return '';
+    return `
+        <p class="pol-section-label" style="margin-top:16px;">${escapeHtml(label)}</p>
+        <div style="display:grid;gap:8px;">
+            ${items.map(item => {
+                const href = safeUrl(item.source_url || '');
+                if (!href) return '';
+                const visited = isArticleVisited(href);
+                return `<a href="${escapeHtml(href)}" target="_blank" rel="noopener" data-article-url="${escapeHtml(href)}" class="pol-article-card${visited ? ' visited' : ''}">
+                    <div class="pol-article-headline">${visited ? '<span class="pol-article-check">✓</span> ' : ''}${escapeHtml(item.headline || 'Article')}</div>
+                    <div class="pol-article-meta">${escapeHtml(item.source_name || item.provider || 'News')} · ${escapeHtml(formatPubDate(item.published_at))}</div>
+                </a>`;
+            }).join('')}
+        </div>`;
 }
 
 const OVERVIEW_FETCH_TIMEOUT_MS = 8_000;
@@ -99,14 +159,270 @@ async function loadOverviewEnrichment(cand) {
     }
 }
 
-const INDUSTRY_MOCK = [
-    { name: 'Finance & Banking', pct: 64 },
-    { name: 'Technology', pct: 51 },
-    { name: 'Healthcare', pct: 43 },
-    { name: 'Real Estate', pct: 35 },
-    { name: 'Energy & Environment', pct: 27 },
-    { name: 'Defense', pct: 18 },
-];
+const ECONOMY_FETCH_TIMEOUT_MS = 8_000;
+
+async function loadEconomyEnrichment(cand) {
+    const reqSeq = ++_economyReqSeq;
+    const params = new URLSearchParams();
+    params.set('full_name', cand?.full_name || '');
+    if (cand?.slug) params.set('slug', cand.slug);
+    if (activeState) params.set('state', activeState);
+    if (cand?.office) params.set('office', cand.office);
+
+    if (_polCtx) {
+        _polCtx.extra = { ..._polCtx.extra, economyLoading: true, economyError: false };
+        if (_polTab === 'economy') _renderPolBody();
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), ECONOMY_FETCH_TIMEOUT_MS);
+
+    try {
+        const res = await fetch(`/api/v1/map/candidate-economy?${params.toString()}`, {
+            signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (!_polCtx || reqSeq !== _economyReqSeq) return;
+        _polCtx.extra = { ..._polCtx.extra, economy: data, economyLoading: false, economyError: false };
+        if (_polTab === 'economy') _renderPolBody();
+    } catch (err) {
+        clearTimeout(timeoutId);
+        if (err?.name === 'AbortError') {
+            console.warn('[map] candidate-economy fetch timed out; economy tab will show an error state');
+        } else {
+            console.warn('[map] candidate-economy fetch failed:', err);
+        }
+        if (_polCtx && reqSeq === _economyReqSeq) {
+            _polCtx.extra = { ..._polCtx.extra, economyLoading: false, economyError: true };
+            if (_polTab === 'economy') _renderPolBody();
+        }
+    }
+}
+
+const MOMENTS_FETCH_TIMEOUT_MS = 8_000;
+
+async function loadMomentsEnrichment(cand) {
+    const reqSeq = ++_momentsReqSeq;
+    const params = new URLSearchParams();
+    params.set('full_name', cand?.full_name || '');
+    if (cand?.slug) params.set('slug', cand.slug);
+    if (activeState) params.set('state', activeState);
+    if (cand?.office) params.set('office', cand.office);
+
+    if (_polCtx) {
+        _polCtx.extra = { ..._polCtx.extra, momentsLoading: true, momentsError: false };
+        if (_polTab === 'moments') _renderPolBody();
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), MOMENTS_FETCH_TIMEOUT_MS);
+
+    try {
+        const res = await fetch(`/api/v1/map/candidate-moments?${params.toString()}`, {
+            signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (!_polCtx || reqSeq !== _momentsReqSeq) return;
+        _polCtx.extra = { ..._polCtx.extra, moments: data, momentsLoading: false, momentsError: false };
+        if (_polTab === 'moments') _renderPolBody();
+    } catch (err) {
+        clearTimeout(timeoutId);
+        if (err?.name === 'AbortError') {
+            console.warn('[map] candidate-moments fetch timed out; moments tab will show an error state');
+        } else {
+            console.warn('[map] candidate-moments fetch failed:', err);
+        }
+        if (_polCtx && reqSeq === _momentsReqSeq) {
+            _polCtx.extra = { ..._polCtx.extra, momentsLoading: false, momentsError: true };
+            if (_polTab === 'moments') _renderPolBody();
+        }
+    }
+}
+
+const CENSUS_FETCH_TIMEOUT_MS = 8_000;
+
+/** City view's Economy tab — most recent Census ACS demographics for the selected city. */
+async function loadCensusEnrichment(cityName) {
+    const reqSeq = ++_censusReqSeq;
+    const stateAbbr = activeState ? STATE_ABBR_MAP[activeState] : null;
+
+    if (!stateAbbr || !cityName) return;
+
+    if (_polCtx) {
+        _polCtx.extra = { ..._polCtx.extra, censusLoading: true, censusError: false };
+        if (_polTab === 'economy') _renderPolBody();
+    }
+
+    const params = new URLSearchParams({ state: stateAbbr, city: cityName });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), CENSUS_FETCH_TIMEOUT_MS);
+
+    try {
+        const res = await fetch(`/api/v1/map/city-census?${params.toString()}`, {
+            signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (!_polCtx || reqSeq !== _censusReqSeq) return;
+        _polCtx.extra = { ..._polCtx.extra, census: data, censusLoading: false, censusError: false };
+        if (_polTab === 'economy') _renderPolBody();
+    } catch (err) {
+        clearTimeout(timeoutId);
+        if (err?.name === 'AbortError') {
+            console.warn('[map] city-census fetch timed out; economy tab will show an error state');
+        } else {
+            console.warn('[map] city-census fetch failed:', err);
+        }
+        if (_polCtx && reqSeq === _censusReqSeq) {
+            _polCtx.extra = { ..._polCtx.extra, censusLoading: false, censusError: true };
+            if (_polTab === 'economy') _renderPolBody();
+        }
+    }
+}
+
+function fmtMoney(n) {
+    if (n === null || n === undefined) return '—';
+    return '$' + Number(n).toLocaleString('en-US');
+}
+
+function fmtPct(n) {
+    if (n === null || n === undefined) return '—';
+    return Number(n).toFixed(1) + '%';
+}
+
+/** Lazy-loaded video card — shared markup for each viral-moment clip. */
+function renderMomentCard(moment) {
+    const url = safeUrl(moment?.url || '');
+    const embed = url ? toEmbedUrl(url) : '';
+    if (!url || !embed) return '';
+
+    const title = escapeHtml(moment.title || 'Video');
+    const source = escapeHtml(moment.source || 'YouTube');
+    const views = Number.isFinite(moment.view_count) ? `${moment.view_count.toLocaleString()} views · ` : '';
+    const embedSrc = escapeHtml(embed);
+    const featuredBadge = moment.is_featured
+        ? `<span style="background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.3);color:#f59e0b;padding:1px 8px;border-radius:999px;font-size:9px;font-weight:700;">FEATURED</span>`
+        : '';
+
+    return `
+        <div class="pol-video-wrap" data-video-src="${embedSrc}" data-video-title="${title}" style="border:1px solid rgba(148,163,184,0.24);border-radius:10px;overflow:hidden;background:rgba(15,23,42,0.6);margin-bottom:10px;">
+            <div style="padding:8px 10px;border-bottom:1px solid rgba(148,163,184,0.18);display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                <span style="font-size:11px;color:#cbd5e1;font-weight:600;">${title}</span>
+                ${featuredBadge}
+            </div>
+            <div class="pol-video-frame" style="position:relative;padding-top:56.25%;background:#020617;overflow:hidden;">
+                <div class="pol-video-placeholder" style="position:absolute;inset:0;cursor:pointer;"
+                     onclick="window.__loadPolVideo(this)"
+                     role="button" tabindex="0" aria-label="Load video">
+                    <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;">
+                        <div style="width:48px;height:48px;border-radius:50%;background:rgba(99,102,241,0.2);border:1px solid rgba(99,102,241,0.5);display:flex;align-items:center;justify-content:center;font-size:20px;">▶</div>
+                        <span style="font-size:11px;color:#94a3b8;">Click to load video</span>
+                    </div>
+                </div>
+                <iframe
+                    class="pol-video-iframe"
+                    title="${title}"
+                    style="display:none;position:absolute;inset:0;width:100%;height:100%;border:0;"
+                    loading="lazy"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    referrerpolicy="strict-origin-when-cross-origin"
+                    allowfullscreen></iframe>
+            </div>
+            <div style="padding:8px 10px;font-size:11px;color:#64748b;">${views}Source: ${source}</div>
+        </div>`;
+}
+
+/** PAC-affiliation badges — logo (if any) + label, linking out to the org's site. */
+function renderPacBadges(pacAffiliations) {
+    if (!pacAffiliations?.length) return '';
+    return `
+        <p class="pol-section-label" style="margin-top:16px;">PAC Affiliations</p>
+        <div class="pol-badges" style="margin-bottom:2px;">
+            ${pacAffiliations.map(b => {
+                const href = safeUrl(b.website_url || '');
+                const logo = safeUrl(b.logo_url || '');
+                const inner = `${logo ? `<img src="${escapeHtml(logo)}" alt="" onerror="this.remove()">` : ''}<span>${escapeHtml(b.label)}</span>`;
+                return href
+                    ? `<a class="pol-badge-logo" href="${escapeHtml(href)}" target="_blank" rel="noopener">${inner}</a>`
+                    : `<span class="pol-badge-logo">${inner}</span>`;
+            }).join('')}
+        </div>
+        <p style="font-size:9px;color:#475569;margin:4px 0 0;">Inferred from campaign-finance contributor matching, not a confirmed public endorsement.</p>`;
+}
+
+/** Real, news-detected endorsements (e.g. "Governor Endorsed") — text-confirmed, not donor-inferred like the PAC badges below. */
+function renderEndorsementBadges(endorsements) {
+    if (!endorsements?.length) return '';
+    return `
+        <p class="pol-section-label">Endorsements</p>
+        <div class="pol-badges" style="margin-bottom:2px;">
+            ${endorsements.map(e => {
+                const href = safeUrl(e.source_url || '');
+                const inner = `<span>${escapeHtml(e.badge_text || `${e.label} Endorsed`)}</span>`;
+                return href
+                    ? `<a class="pol-badge-logo" href="${escapeHtml(href)}" target="_blank" rel="noopener">${inner}</a>`
+                    : `<span class="pol-badge-logo">${inner}</span>`;
+            }).join('')}
+        </div>`;
+}
+
+function renderIndustryBars(industries) {
+    if (!industries?.length) return '';
+    return `
+        <p class="pol-section-label" style="margin-top:16px;">Top Industry Support</p>
+        ${industries.map(ind => `
+            <div class="pol-industry-row">
+                <div class="pol-industry-label">
+                    <span>${escapeHtml(ind.name)}</span>
+                    <span style="color:#64748b;">${escapeHtml(ind.total_display || '')}</span>
+                </div>
+                <div class="pol-industry-track">
+                    <div class="pol-industry-fill" style="width:${Math.max(0, Math.min(100, ind.pct || 0))}%"></div>
+                </div>
+            </div>`).join('')}`;
+}
+
+function renderContributors(contributors) {
+    if (!contributors?.length) return '';
+    return `
+        <p class="pol-section-label" style="margin-top:16px;">Top Contributors</p>
+        <div style="display:grid;gap:6px;">
+            ${contributors.map(c => `
+                <div style="display:flex;justify-content:space-between;gap:8px;padding:6px 10px;border-radius:8px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);">
+                    <span style="font-size:11px;color:#cbd5e1;">${escapeHtml(c.name)}</span>
+                    <span style="font-size:11px;color:#64748b;font-weight:600;">${escapeHtml(c.total_display || '')}</span>
+                </div>`).join('')}
+        </div>`;
+}
+
+function renderFecSummary(fec) {
+    if (!fec || !(fec.receipts || fec.disbursements || fec.cash_on_hand || fec.debt)) return '';
+    return `
+        <p class="pol-section-label" style="margin-top:16px;">FEC Financial Summary</p>
+        <div class="pol-stat-grid">
+            <div class="pol-stat"><span class="pol-stat-val">${escapeHtml(fec.receipts || '—')}</span><span class="pol-stat-lbl">Total Raised</span></div>
+            <div class="pol-stat"><span class="pol-stat-val">${escapeHtml(fec.disbursements || '—')}</span><span class="pol-stat-lbl">Total Spent</span></div>
+            <div class="pol-stat"><span class="pol-stat-val">${escapeHtml(fec.cash_on_hand || '—')}</span><span class="pol-stat-lbl">Cash on Hand</span></div>
+            <div class="pol-stat"><span class="pol-stat-val">${escapeHtml(fec.debt || '—')}</span><span class="pol-stat-lbl">Debt</span></div>
+        </div>`;
+}
+
+function renderEconomySources(sources, enrichedAt) {
+    const links = [];
+    const os = safeUrl(sources?.opensecrets_url || '');
+    const fecUrl = safeUrl(sources?.fec_url || '');
+    if (os) links.push(`<a href="${escapeHtml(os)}" target="_blank" rel="noopener" class="pol-link pol-link-alt">OpenSecrets →</a>`);
+    if (fecUrl) links.push(`<a href="${escapeHtml(fecUrl)}" target="_blank" rel="noopener" class="pol-link pol-link-alt">FEC.gov →</a>`);
+    const updated = enrichedAt ? formatPubDate(enrichedAt) : null;
+    return `
+        ${updated ? `<p style="font-size:10px;color:#475569;margin:16px 0 0;">Data updated ${escapeHtml(updated)}</p>` : ''}
+        ${links.length ? `<div class="pol-link-row" style="margin-top:6px;">${links.join('')}</div>` : ''}`;
+}
 
 export function openPolDrawer(cand, accentColor, extra = {}) {
     if (!polDrawer || !polHeroEl || !polBodyEl) {
@@ -155,6 +471,22 @@ export function openPolDrawer(cand, accentColor, extra = {}) {
                         <span style="background:rgba(0,0,0,0.2);border:1px solid ${leanColor}44;color:${leanColor};padding:2px 8px;border-radius:999px;font-size:10px;font-weight:600;">${leanLabel}</span>
                     </div>
                 </div>`;
+
+            // Save-this-city star (voter) / sign-in nudge (guest).
+            const stateAbbr = activeState ? STATE_ABBR_MAP[activeState] : null;
+            if (stateAbbr && extra.cityName) {
+                document.getElementById('pol-drawer-fav-btn')?.remove();
+                const favBtn = createFavoriteButton({
+                    type: 'city',
+                    state_abbr: stateAbbr,
+                    city_name: extra.cityName,
+                    label: `${extra.cityName}, ${stateAbbr}`,
+                    lat: extra.lat ?? null,
+                    lng: extra.lng ?? null,
+                });
+                favBtn.id = 'pol-drawer-fav-btn';
+                polHeroEl.querySelector('.pol-hero-info')?.appendChild(favBtn);
+            }
         } else {
             const ph = c.photo;
             const avH = ph
@@ -171,6 +503,7 @@ export function openPolDrawer(cand, accentColor, extra = {}) {
                         ${c.is_running ? `<span style="background:rgba(52,211,153,0.1);border:1px solid rgba(52,211,153,0.25);color:#34d399;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:600;">Running 2026</span>` : ''}
                         ${c.verified ? `<span title="Verified" style="color:#fbbf24;font-size:13px;line-height:1;">✓</span>` : ''}
                     </div>
+                    ${topicChipsHtml(c.badges) ? `<div class="pol-topic-chips">${topicChipsHtml(c.badges)}</div>` : ''}
                 </div>`;
         }
 
@@ -210,6 +543,7 @@ function _renderPolBody() {
             const repName = rep?.full_name ?? '—';
             const repOffice = district ? `${district} · U.S. House` : '—';
             polBodyEl.innerHTML = `
+                ${renderElectionDatesBanner(stateData?.election_dates, ac)}
                 <div class="pol-stat-grid">
                     <div class="pol-stat">
                         <span class="pol-stat-val" style="color:#f59e0b;">${fmtPop(cityPop)}</span>
@@ -230,7 +564,10 @@ function _renderPolBody() {
                 </div>
                 ${rep ? `
                 <p class="pol-section-label" style="margin-top:16px;">District Representative</p>
-                <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:rgba(255,255,255,0.04);border-radius:10px;border:1px solid rgba(255,255,255,0.06);">
+                <div id="pol-district-rep-card" style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:rgba(255,255,255,0.04);border-radius:10px;border:1px solid rgba(255,255,255,0.06);cursor:pointer;"
+                    title="View ${escapeHtml(rep.full_name || 'representative')}'s profile"
+                    role="button" tabindex="0"
+                    onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
                     ${rep.photo
                         ? `<img src="${rep.photo}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;border:2px solid ${PARTY_HEX[rep.party] || '#334155'};flex-shrink:0;" onerror="this.style.display='none'">`
                         : `<div style="width:40px;height:40px;border-radius:50%;background:rgba(99,102,241,0.15);display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;">${window.avatarInitials(rep.full_name, '#6366f1', 40)}</div>`}
@@ -240,6 +577,15 @@ function _renderPolBody() {
                         <span class="party-pill ${partyClass(rep.party)}" style="margin-top:5px;display:inline-block;">${PARTY_LABEL[rep.party] || rep.party || '—'}</span>
                     </div>
                 </div>` : ''}`;
+
+            if (rep) {
+                document.getElementById('pol-district-rep-card')?.addEventListener('click', () => {
+                    openPolDrawer(
+                        { ...rep, office: repOffice },
+                        PARTY_HEX[rep.party] || '#6366f1'
+                    );
+                });
+            }
             return;
         }
 
@@ -254,6 +600,8 @@ function _renderPolBody() {
         const isLoadingEnrichment = !!extra?.enrichmentLoading && !enrichment;
         const hasEnrichmentError = !!extra?.enrichmentError && !enrichment;
         const news = Array.isArray(enrichment?.news) ? enrichment.news.slice(0, 3) : [];
+        const pressReleases = Array.isArray(enrichment?.press_releases) ? enrichment.press_releases.slice(0, 3) : [];
+        const events = Array.isArray(enrichment?.events) ? enrichment.events.slice(0, 3) : [];
         const activeVideo = enrichment?.active_video || null;
         const activeVideoUrl = safeUrl(activeVideo?.url || '');
         const activeVideoEmbed = activeVideoUrl ? toEmbedUrl(activeVideoUrl) : '';
@@ -268,41 +616,31 @@ function _renderPolBody() {
                 <p class="pol-section-label" style="margin-top:16px;">Active Campaign Feed</p>
                 <div class="pol-video-wrap" data-video-src="${embedSrc}" data-video-title="${videoTitle}" style="border:1px solid rgba(148,163,184,0.24);border-radius:10px;overflow:hidden;background:rgba(15,23,42,0.6);">
                     <div style="padding:8px 10px;border-bottom:1px solid rgba(148,163,184,0.18);font-size:11px;color:#cbd5e1;font-weight:600;">${videoTitle}</div>
-                    <div class="pol-video-placeholder" style="position:relative;padding-top:56.25%;background:#020617;cursor:pointer;"
-                         onclick="window.__loadPolVideo(this)"
-                         role="button" tabindex="0" aria-label="Load campaign video">
-                        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;">
-                            <div style="width:48px;height:48px;border-radius:50%;background:rgba(99,102,241,0.2);border:1px solid rgba(99,102,241,0.5);display:flex;align-items:center;justify-content:center;font-size:20px;">▶</div>
-                            <span style="font-size:11px;color:#94a3b8;">Click to load video</span>
+                    <div class="pol-video-frame" style="position:relative;padding-top:56.25%;background:#020617;overflow:hidden;">
+                        <div class="pol-video-placeholder" style="position:absolute;inset:0;cursor:pointer;"
+                             onclick="window.__loadPolVideo(this)"
+                             role="button" tabindex="0" aria-label="Load campaign video">
+                            <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;">
+                                <div style="width:48px;height:48px;border-radius:50%;background:rgba(99,102,241,0.2);border:1px solid rgba(99,102,241,0.5);display:flex;align-items:center;justify-content:center;font-size:20px;">▶</div>
+                                <span style="font-size:11px;color:#94a3b8;">Click to load video</span>
+                            </div>
                         </div>
+                        <iframe
+                            class="pol-video-iframe"
+                            title="Campaign video feed"
+                            style="display:none;position:absolute;inset:0;width:100%;height:100%;border:0;"
+                            loading="lazy"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                            referrerpolicy="strict-origin-when-cross-origin"
+                            allowfullscreen></iframe>
                     </div>
-                    <iframe
-                        class="pol-video-iframe"
-                        title="Campaign video feed"
-                        style="display:none;position:absolute;inset:0;width:100%;height:100%;border:0;"
-                        loading="lazy"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                        referrerpolicy="strict-origin-when-cross-origin"
-                        allowfullscreen></iframe>
                     <div style="padding:8px 10px;font-size:11px;color:#64748b;">Source: ${videoSource}</div>
                 </div>`;
         }
 
-        let newsHtml = '';
-        if (news.length) {
-            newsHtml = `
-                <p class="pol-section-label" style="margin-top:16px;">Recent News</p>
-                <div style="display:grid;gap:8px;">
-                    ${news.map(item => {
-                        const href = safeUrl(item.source_url || '');
-                        if (!href) return '';
-                        return `<a href="${escapeHtml(href)}" target="_blank" rel="noopener" style="display:block;text-decoration:none;padding:8px 10px;border-radius:8px;border:1px solid rgba(148,163,184,0.2);background:rgba(15,23,42,0.5);">
-                            <div style="font-size:12px;color:#e2e8f0;font-weight:600;line-height:1.4;">${escapeHtml(item.headline || 'Article')}</div>
-                            <div style="margin-top:4px;font-size:10px;color:#94a3b8;">${escapeHtml(item.source_name || item.provider || 'News')} · ${escapeHtml(formatPubDate(item.published_at))}</div>
-                        </a>`;
-                    }).join('')}
-                </div>`;
-        }
+        const newsHtml = renderItemListSection('Recent News', news);
+        const pressReleaseHtml = renderItemListSection('Press Releases', pressReleases);
+        const eventsHtml = renderItemListSection('Upcoming Events', events);
 
         let enrichmentStatusHtml = '';
         if (isLoadingEnrichment) {
@@ -344,29 +682,188 @@ function _renderPolBody() {
             ${bioHtml}
             ${videoHtml}
             ${newsHtml}
+            ${pressReleaseHtml}
+            ${eventsHtml}
             ${enrichmentStatusHtml}`;
 
     } else if (_polTab === 'economy') {
+        if (extra?.isCityView) {
+            const census = extra?.census || null;
+            const isLoadingCensus = !!extra?.censusLoading && !census;
+            const hasCensusError = !!extra?.censusError && !census;
+
+            if (isLoadingCensus) {
+                polBodyEl.innerHTML = `
+                    <p class="pol-section-label">Economy</p>
+                    <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:8px;border:1px solid rgba(99,102,241,0.15);background:rgba(99,102,241,0.06);">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="animation:spin 1s linear infinite;color:#6366f1;">
+                            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-dasharray="31.4" stroke-dashoffset="10" stroke-linecap="round"/>
+                        </svg>
+                        <span style="font-size:11px;color:#94a3b8;">Loading census data…</span>
+                    </div>`;
+                return;
+            }
+
+            if (hasCensusError) {
+                polBodyEl.innerHTML = `
+                    <p class="pol-section-label">Economy</p>
+                    <div style="padding:10px 12px;border-radius:8px;border:1px solid rgba(239,68,68,0.2);background:rgba(239,68,68,0.06);">
+                        <span style="font-size:11px;color:#f87171;">⚠ Census data unavailable right now.</span>
+                    </div>`;
+                return;
+            }
+
+            if (!census || !census.has_data) {
+                polBodyEl.innerHTML = `
+                    <p class="pol-section-label">Economy</p>
+                    <p class="pol-empty">Census data for this city hasn't been synced yet — a data refresh has been queued automatically. Check back after the next sync run.</p>`;
+                return;
+            }
+
+            polBodyEl.innerHTML = `
+                <p class="pol-section-label">Economy</p>
+                <div class="pol-stat-grid">
+                    <div class="pol-stat">
+                        <span class="pol-stat-val">${fmtPop(census.population)}</span>
+                        <span class="pol-stat-lbl">Population</span>
+                    </div>
+                    <div class="pol-stat">
+                        <span class="pol-stat-val">${fmtPct(census.poverty_rate)}</span>
+                        <span class="pol-stat-lbl">Poverty Rate</span>
+                    </div>
+                    <div class="pol-stat">
+                        <span class="pol-stat-val">${fmtPct(census.pct_bachelors_or_higher)}</span>
+                        <span class="pol-stat-lbl">Bachelor's+</span>
+                    </div>
+                    <div class="pol-stat">
+                        <span class="pol-stat-val">${fmtMoney(census.median_household_income)}</span>
+                        <span class="pol-stat-lbl">Median Household Income</span>
+                    </div>
+                </div>
+                ${census.census_year ? `<p style="font-size:10px;color:#475569;margin:16px 0 0;">${escapeHtml(String(census.census_year))} Census ACS 5-year estimates</p>` : ''}`;
+            return;
+        }
+
+        const economy = extra?.economy || null;
+        const isLoadingEconomy = !!extra?.economyLoading && !economy;
+        const hasEconomyError = !!extra?.economyError && !economy;
+
+        if (isLoadingEconomy) {
+            polBodyEl.innerHTML = `
+                <p class="pol-section-label">Economy</p>
+                <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:8px;border:1px solid rgba(99,102,241,0.15);background:rgba(99,102,241,0.06);">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="animation:spin 1s linear infinite;color:#6366f1;">
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-dasharray="31.4" stroke-dashoffset="10" stroke-linecap="round"/>
+                    </svg>
+                    <span style="font-size:11px;color:#94a3b8;">Loading campaign finance data…</span>
+                </div>`;
+            return;
+        }
+
+        if (hasEconomyError) {
+            polBodyEl.innerHTML = `
+                <p class="pol-section-label">Economy</p>
+                <div style="padding:10px 12px;border-radius:8px;border:1px solid rgba(239,68,68,0.2);background:rgba(239,68,68,0.06);">
+                    <span style="font-size:11px;color:#f87171;">⚠ Campaign finance data unavailable right now.</span>
+                </div>`;
+            return;
+        }
+
+        if (!economy || !economy.has_data) {
+            const message = economy?.reason === 'not_on_platform'
+                ? 'This candidate has not claimed a U9itus profile yet, so campaign finance data is not available.'
+                : 'Campaign finance data has not been enriched for this candidate yet — check back after the next nightly update.';
+            polBodyEl.innerHTML = `
+                ${renderEndorsementBadges(economy?.endorsements)}
+                <p class="pol-section-label">Economy</p>
+                <p class="pol-empty">${escapeHtml(message)}</p>`;
+            return;
+        }
+
         polBodyEl.innerHTML = `
-            <p class="pol-section-label">Top Industry Support</p>
-            <p style="font-size:11px;color:#475569;line-height:1.55;margin:0 0 14px;">Estimated donor-industry breakdown. Full FEC / OpenSecrets integration is planned for a future sprint.</p>
-            ${INDUSTRY_MOCK.map(ind => `
-                <div class="pol-industry-row">
-                    <div class="pol-industry-label">
-                        <span>${ind.name}</span>
-                        <span style="color:#64748b;">${ind.pct}%</span>
-                    </div>
-                    <div class="pol-industry-track">
-                        <div class="pol-industry-fill" style="width:${ind.pct}%"></div>
-                    </div>
-                </div>`).join('')}
-            <p style="font-size:10px;color:#1e293b;margin:16px 0 0;font-style:italic;">Placeholder data — wired to OpenSecrets API in Sprint 2.</p>`;
+            ${renderEndorsementBadges(economy.endorsements)}
+            ${renderPacBadges(economy.pac_affiliations)}
+            ${renderIndustryBars(economy.top_industries)}
+            ${renderContributors(economy.top_contributors)}
+            ${renderFecSummary(economy.fec_summary)}
+            ${renderEconomySources(economy.sources, economy.enriched_at)}`;
+
+    } else if (_polTab === 'moments') {
+        if (extra?.isCityView) {
+            const cityName = extra.cityName || c.full_name || '';
+            const stateAbbr = activeState ? STATE_ABBR_MAP[activeState] : null;
+            const searchQuery = `10 things to do in ${cityName}${stateAbbr ? ', ' + stateAbbr : ''}`;
+            const ytUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(searchQuery)}`;
+            polBodyEl.innerHTML = `
+                <p class="pol-section-label">Videos</p>
+                <p class="pol-empty">Viral moments are shown for individual candidates — select a specific representative to view them.</p>
+                <div class="pol-link-row" style="margin-top:12px;">
+                    <a href="${ytUrl}" target="_blank" rel="noopener" class="pol-link pol-link-primary">▶ 10 Things to Do in ${escapeHtml(cityName)}</a>
+                </div>`;
+            return;
+        }
+
+        const moments = extra?.moments || null;
+        const isLoadingMoments = !!extra?.momentsLoading && !moments;
+        const hasMomentsError = !!extra?.momentsError && !moments;
+
+        if (isLoadingMoments) {
+            polBodyEl.innerHTML = `
+                <p class="pol-section-label">Videos</p>
+                <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:8px;border:1px solid rgba(99,102,241,0.15);background:rgba(99,102,241,0.06);">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="animation:spin 1s linear infinite;color:#6366f1;">
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-dasharray="31.4" stroke-dashoffset="10" stroke-linecap="round"/>
+                    </svg>
+                    <span style="font-size:11px;color:#94a3b8;">Loading viral moments…</span>
+                </div>`;
+            return;
+        }
+
+        if (hasMomentsError) {
+            polBodyEl.innerHTML = `
+                <p class="pol-section-label">Videos</p>
+                <div style="padding:10px 12px;border-radius:8px;border:1px solid rgba(239,68,68,0.2);background:rgba(239,68,68,0.06);">
+                    <span style="font-size:11px;color:#f87171;">⚠ Video data unavailable right now.</span>
+                </div>`;
+            return;
+        }
+
+        if (!moments || !moments.has_data || !moments.moments?.length) {
+            const message = moments?.reason === 'not_on_platform'
+                ? 'This candidate has not claimed a U9itus profile yet, so viral moments are not available.'
+                : 'No viral moments have been found for this candidate yet — check back after the next enrichment run.';
+            polBodyEl.innerHTML = `
+                <p class="pol-section-label">Videos</p>
+                <p class="pol-empty">${escapeHtml(message)}</p>`;
+            return;
+        }
+
+        const cards = moments.moments.map(renderMomentCard).join('');
+        const updated = moments.enriched_at ? formatPubDate(moments.enriched_at) : null;
+
+        polBodyEl.innerHTML = `
+            <p class="pol-section-label">Videos</p>
+            ${cards}
+            ${updated ? `<p style="font-size:10px;color:#475569;margin:4px 0 0;">Data updated ${escapeHtml(updated)}</p>` : ''}`;
 
     } else {
         const links = [];
         if (c.profile_url) links.push(`<a href="${c.profile_url}" target="_blank" rel="noopener" class="pol-link pol-link-primary">👤 U9itus Profile</a>`);
         if (c.website) links.push(`<a href="${c.website}" target="_blank" rel="noopener" class="pol-link pol-link-alt">Official Website →</a>`);
         if (c.ballotpedia_url) links.push(`<a href="${c.ballotpedia_url}" target="_blank" rel="noopener" class="pol-link pol-link-alt">Ballotpedia →</a>`);
+
+        const stateAbbr = activeState ? STATE_ABBR_MAP[activeState] : null;
+        if (stateAbbr) {
+            const districtNumber = extra?.districtNumber;
+            const browseUrl = districtNumber
+                ? `/politicians?state=${encodeURIComponent(stateAbbr)}&district=${encodeURIComponent(districtNumber)}&status=running`
+                : `/politicians?state=${encodeURIComponent(stateAbbr)}&status=running`;
+            const browseLabel = districtNumber
+                ? `See all running candidates in ${stateAbbr}-${districtNumber} →`
+                : `See all running candidates in ${stateAbbr} →`;
+            links.push(`<a href="${browseUrl}" class="pol-link pol-link-alt">${browseLabel}</a>`);
+        }
+
         polBodyEl.innerHTML = `
             <p class="pol-section-label">Links &amp; Resources</p>
             ${links.length
@@ -399,6 +896,18 @@ export function initPolDrawer() {
         iframe.style.display = 'block';
     };
 
+    // Delegated on polDrawer (not polBodyEl) since its innerHTML is replaced
+    // wholesale on every _renderPolBody() call — a direct listener would be
+    // discarded along with the old content.
+    polDrawer.addEventListener('click', e => {
+        const link = e.target.closest('a[data-article-url]');
+        if (!link || link.classList.contains('visited')) return;
+        markArticleVisited(link.dataset.articleUrl);
+        link.classList.add('visited');
+        const headline = link.querySelector('.pol-article-headline');
+        if (headline) headline.insertAdjacentHTML('afterbegin', '<span class="pol-article-check">✓</span> ');
+    });
+
     polDrawerClose.addEventListener('click', closePolDrawer);
     polDrawer.addEventListener('keydown', e => {
         if (e.key === 'Escape') closePolDrawer();
@@ -411,6 +920,24 @@ export function initPolDrawer() {
                 t.setAttribute('aria-selected', t.dataset.tab === _polTab);
             });
             polBodyEl.setAttribute('aria-labelledby', `pol-tab-${_polTab}`);
+            // Economy data is fetched lazily — only once, the first time the
+            // tab is actually opened — to avoid doubling requests per drawer
+            // open for data most users never view.
+            if (_polTab === 'economy' && _polCtx && !_polCtx.extra?.isCityView
+                && !_polCtx.extra?.economy && !_polCtx.extra?.economyLoading) {
+                loadEconomyEnrichment(_polCtx.cand);
+            }
+            // City view's Economy tab shows census data instead — fetched
+            // lazily the same way.
+            if (_polTab === 'economy' && _polCtx && _polCtx.extra?.isCityView
+                && !_polCtx.extra?.census && !_polCtx.extra?.censusLoading) {
+                loadCensusEnrichment(_polCtx.extra?.cityName);
+            }
+            // Moments data is likewise fetched lazily, once, on first tab open.
+            if (_polTab === 'moments' && _polCtx && !_polCtx.extra?.isCityView
+                && !_polCtx.extra?.moments && !_polCtx.extra?.momentsLoading) {
+                loadMomentsEnrichment(_polCtx.cand);
+            }
             _renderPolBody();
         });
     });

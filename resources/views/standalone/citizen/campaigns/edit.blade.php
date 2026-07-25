@@ -16,6 +16,7 @@
     campaignType: '{{ old('campaign_type', $currentCampaignType) }}',
     citizenRate: {{ $citizenRate }},
     ballotIssueRate: {{ $ballotIssueRate }},
+    repeatViews: {{ old('allow_repeat_views', $campaign->allow_repeat_views) ? 'true' : 'false' }},
     get currentRate() { return this.adType === 'ballot_issue' ? this.ballotIssueRate : this.citizenRate; }
 }">
 
@@ -49,6 +50,21 @@
                 <label class="block text-sm font-medium text-slate-300 mb-1.5">Message Summary</label>
                 <textarea name="message_summary" rows="3" maxlength="2000"
                     class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition resize-none">{{ old('message_summary', $campaign->message_summary) }}</textarea>
+            </div>
+
+            {{-- Call to Action (optional) --}}
+            <div>
+                <label class="block text-sm font-medium text-slate-300 mb-1.5">Call to Action Link <span class="text-slate-500 font-normal">(optional)</span></label>
+                <p class="text-xs text-slate-500 mb-2">Show a button on the watch page linking voters to your site, store, petition, or event.</p>
+                <input type="url" name="call_to_action_url" value="{{ old('call_to_action_url', $campaign->call_to_action_url) }}" maxlength="2048"
+                    class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition"
+                    placeholder="https://your-site.com/offer">
+                <div class="mt-2">
+                    <label for="cta-label" class="block text-xs text-slate-400 mb-1">Button label</label>
+                    <input id="cta-label" type="text" name="call_to_action_label" value="{{ old('call_to_action_label', $campaign->call_to_action_label) }}" maxlength="60"
+                        class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition"
+                        placeholder="Learn More">
+                </div>
             </div>
 
             {{-- Ad Type --}}
@@ -172,6 +188,41 @@
             </div>
             <input type="hidden" name="total_budget" id="totalBudgetInput"
                    value="{{ old('total_budget', $campaign->total_budget) }}" />
+        </div>
+
+        {{-- Repeat Viewing --}}
+        <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6 space-y-4">
+            <div class="flex items-start justify-between gap-4">
+                <div>
+                    <h2 class="text-sm font-semibold text-slate-200">Repeat Viewing</h2>
+                    <p class="text-xs text-slate-500 mt-1">Let the same voter watch this video more than once. Only the first qualifying view pays the voter — re-watches are free for the sponsor.</p>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                    <input type="checkbox" name="allow_repeat_views" value="1" class="sr-only peer"
+                        {{ old('allow_repeat_views', $campaign->allow_repeat_views) ? 'checked' : '' }}
+                        x-model="repeatViews">
+                    <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-amber-500/50 rounded-full peer transition peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+                    <span class="ml-3 text-sm text-slate-300">Allow repeat views</span>
+                </label>
+            </div>
+
+            <div x-show="repeatViews" x-cloak class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-300 mb-1.5">Max views per voter</label>
+                    <input type="number" name="max_views_per_voter" value="{{ old('max_views_per_voter', $campaign->max_views_per_voter) }}"
+                        min="1" max="10"
+                        class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition" />
+                    @error('max_views_per_voter')<p class="text-xs text-red-400 mt-1">{{ $message }}</p>@enderror
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-300 mb-1.5">Cooldown (hours)</label>
+                    <input type="number" name="repeat_view_cooldown_hours" value="{{ old('repeat_view_cooldown_hours', $campaign->repeat_view_cooldown_hours) }}"
+                        min="0" max="720"
+                        class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition" />
+                    <p class="text-xs text-slate-500 mt-1">0 = no wait between re-watches.</p>
+                    @error('repeat_view_cooldown_hours')<p class="text-xs text-red-400 mt-1">{{ $message }}</p>@enderror
+                </div>
+            </div>
         </div>
 
         <div class="flex gap-3">

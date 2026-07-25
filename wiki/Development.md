@@ -181,6 +181,18 @@ All commands below are intended to be run on the production Railway service via 
 | `php artisan politicians:reconcile-status` | Reconcile politician status against election records |
 | `php artisan politicians:backfill-photos` | Backfill missing profile photos |
 
+### Viral Moments & Issue Badges
+
+Enrichment pipelines that score politicians' public discourse and label them with the issues they talk about. All support `--limit`, `--stale-hours`, `--politician=<id|slug>`, `--force`, and `--dry-run`; each is scheduled nightly (see `routes/console.php`).
+
+| Command | Description |
+|---------|-------------|
+| `php artisan politicians:enrich-moments` | Fetch YouTube viral clips, score them, and feature the top one per politician (05:00) |
+| `php artisan politicians:enrich-cspan-moments` | Playwright-scrape C-SPAN video clips and score them (list-only — C-SPAN exposes no view counts, so the YouTube clip stays featured) (05:30) |
+| `php artisan politicians:enrich-issue-badges` | Roll up verified news + viral-moment titles + Vote Smart positions into per-topic scores and grant `inferred_discourse` issue badges (06:30) |
+| `php artisan politicians:enrich-issue-badges --politician=<slug> --dry-run` | Preview computed topic signals and which would grant a badge, without writing |
+| `php artisan marketing:draft-posts` | Auto-draft blog Posts from a politician's recent news/viral moments (PendingApproval — nothing auto-published; gated on `u9itus.marketing.drafting.enabled`) |
+
 ### Admin & Platform Health
 
 | Command | Description |

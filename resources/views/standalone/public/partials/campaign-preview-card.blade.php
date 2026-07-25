@@ -230,6 +230,7 @@
         </div>
 
         <a href="{{ auth()->check() ? route('dashboard') : route('register.voter') }}"
+           @if(! auth()->check()) @click="window.u9GuestNudge && window.u9GuestNudge.trigger($event)" @endif
            class="p13-btn-primary inline-flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg transition w-full">
             <svg class="w-3.5 h-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
             {{ auth()->check() ? 'Open dashboard to continue' : 'Create free account for full access' }}

@@ -97,6 +97,7 @@
     {{-- Sessions tab --}}
     @if ($tab === 'sessions')
         <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl overflow-hidden">
+          <div class="overflow-x-auto">
             <table class="w-full text-sm">
                 <thead>
                     <tr class="border-b border-slate-700/50 text-left">
@@ -159,6 +160,7 @@
                     @endforelse
                 </tbody>
             </table>
+          </div>
         </div>
 
         @if ($sessions->hasPages())
@@ -171,6 +173,7 @@
     {{-- Transactions tab --}}
     @if ($tab === 'transactions')
         <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl overflow-hidden">
+          <div class="overflow-x-auto">
             <table class="w-full text-sm">
                 <thead>
                     <tr class="border-b border-slate-700/50 text-left">
@@ -231,6 +234,7 @@
                     @endforelse
                 </tbody>
             </table>
+          </div>
         </div>
 
         @if ($transactions->hasPages())
@@ -245,6 +249,7 @@
             <p class="text-sm font-semibold text-white">Account-Level Funding Events</p>
             <p class="text-xs text-slate-400 mt-1">These are funding transactions with no campaign ID. They are shown separately and are not treated as campaign payments.</p>
         </div>
+        <div class="overflow-x-auto">
         <table class="w-full text-sm">
             <thead>
                 <tr class="border-b border-slate-700/50 text-left">
@@ -300,6 +305,7 @@
                 @endforelse
             </tbody>
         </table>
+        </div>
         @if ($accountFunding->hasPages())
             <div class="flex justify-center py-4">
                 {{ $accountFunding->links() }}

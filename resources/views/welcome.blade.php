@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="google-site-verification" content="gqW0SoY5hfBu8rcPBi_HMR-nCbSNdtoFj-XREjjEcmQ">
-    <title>U9itus — See Who's Running in Your District & Get Paid to Watch</title>
+    <title>U9itus — See Who's Running in Your District.</title>
     <meta name="description" content="U9itus is the Virtual Town Hall where candidates pay $1.00 to earn your full attention — and you keep $0.50. Find who's running in your district, verify their record with public data, and get paid to engage with democracy.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="{{ config('app.url') }}">
@@ -161,7 +161,7 @@
                 
                 <h1 class="animate-fade-in-up delay-100 opacity-0 text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight">
                     Who Wants to Represent<br/>
-                    <span class="bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent">Your City?</span>
+                    <span class="bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent">You?</span>
                 </h1>
                 
                 <p class="animate-fade-in-up delay-200 opacity-0 text-xl sm:text-2xl text-slate-300 max-w-3xl mx-auto leading-relaxed">

@@ -581,6 +581,9 @@ kbd {
 }
 .candidate-meta { font-size: 11px; color: #64748b; display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
 .party-pill { padding: 2px 7px; border-radius: 999px; font-size: 10px; font-weight: 600; }
+.candidate-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
+.pol-topic-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
+.topic-chip { display: inline-flex; align-items: center; padding: 2px 7px; border-radius: 999px; font-size: 9.5px; font-weight: 600; line-height: 1.4; white-space: nowrap; max-width: 140px; overflow: hidden; text-overflow: ellipsis; }
 .party-D  { background: rgba(59,130,246,0.15); color: #60a5fa; border: 1px solid rgba(59,130,246,0.25); }
 .party-R  { background: rgba(239,68,68,0.15);  color: #f87171; border: 1px solid rgba(239,68,68,0.25); }
 .party-L  { background: rgba(234,179,8,0.15);  color: #facc15; border: 1px solid rgba(234,179,8,0.25); }
@@ -599,6 +602,33 @@ kbd {
     position: fixed; bottom: 28px; right: 24px; z-index: 50;
     color: #334155; font-size: 11px; text-align: right; pointer-events: none;
 }
+/* #info-panel occupies the same bottom-right area (top:86px to bottom:12px) —
+   once it's open with real content, the corner hint text is both redundant
+   and visually overlaps/obscures the panel's last item. */
+body:has(#info-panel.open) #hint { display: none; }
+
+/* Map toast */
+.map-toast {
+    position: fixed; bottom: 28px; left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    z-index: 200;
+    background: rgba(8, 12, 30, 0.96);
+    border: 1px solid rgba(99, 102, 241, 0.35);
+    border-radius: 10px;
+    padding: 10px 18px;
+    color: #e2e8f0; font-size: 12px;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.55);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s, transform 0.25s;
+    max-width: min(420px, 90vw);
+    text-align: center;
+}
+.map-toast.visible {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+.map-toast.error { border-color: rgba(239, 68, 68, 0.5); color: #fecaca; }
 
 /* Breadcrumb */
 #breadcrumb-bar {
@@ -789,6 +819,45 @@ kbd {
     .lp-chip { padding: 8px 13px; font-size: 13px; }
 }
 
+/* ─── Saved Boundaries (Layers → Boundaries) ─── */
+.lp-saved-section .lp-saved-count {
+    font-size: 9px; font-weight: 600; color: #475569; margin-left: 2px;
+}
+.lp-saved-empty {
+    margin: 2px 0 8px; font-size: 11px; color: #475569; line-height: 1.4;
+}
+.lp-chip-saved {
+    padding-right: 8px; /* room for the × before tighter chip padding */
+}
+.lp-saved-icon { flex-shrink: 0; font-size: 12px; line-height: 1; }
+.lp-saved-label {
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    max-width: 140px;
+}
+.lp-saved-remove {
+    flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center;
+    width: 15px; height: 15px; border-radius: 50%;
+    font-size: 13px; line-height: 1; color: #64748b;
+    background: rgba(15,23,42,0.4); transition: all 0.12s;
+    margin-left: 2px;
+}
+.lp-saved-remove:hover { color: #fca5a5; background: rgba(239,68,68,0.18); }
+
+/* ─── Save-boundary star button (district panel + city drawer) ─── */
+.boundary-fav-btn {
+    flex-shrink: 0; cursor: pointer; line-height: 1;
+    font-size: 16px; padding: 2px 4px; border-radius: 6px;
+    background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.2);
+    color: #64748b; transition: all 0.12s;
+    -webkit-tap-highlight-color: transparent;
+}
+.boundary-fav-btn:hover { color: #fbbf24; border-color: rgba(251,191,36,0.5); background: rgba(251,191,36,0.12); }
+.boundary-fav-btn.saved { color: #fbbf24; border-color: rgba(251,191,36,0.55); background: rgba(251,191,36,0.14); }
+/* Star lives inline after the badge in the district panel header */
+#panel-fav-btn { margin-left: 6px; vertical-align: middle; }
+/* Star lives in the city drawer hero info */
+.pol-hero-info .boundary-fav-btn { margin-top: 6px; align-self: flex-start; }
+
 /* ─── Scrollbar styles ─── */
 /* WebKit (Chrome, Safari, Edge) */
 ::-webkit-scrollbar              { width: 6px; height: 6px; }
@@ -805,6 +874,17 @@ kbd {
 #legend-toggle-icon { display: inline-block; transition: transform 0.2s; }
 
 /* ══════════════════════════════════════════
+   TOUCH TARGETS — any touch-primary device
+   Capability-based (not a width breakpoint): a tablet in landscape can be
+   1024px+ wide, well past the ≤768px rule below, but still has no mouse.
+   `pointer: coarse` reflects the primary input device, so a laptop with a
+   touchscreen (but mouse/trackpad as primary) won't match this.
+══════════════════════════════════════════ */
+@media (pointer: coarse) {
+    .top-btn { min-height: 44px; padding-top: 0; padding-bottom: 0; }
+}
+
+/* ══════════════════════════════════════════
    RESPONSIVE — TABLET & MOBILE (≤ 768 px)
 ══════════════════════════════════════════ */
 @media (max-width: 768px) {
@@ -817,6 +897,12 @@ kbd {
     #btn-search { padding: 6px 10px; gap: 4px; font-size: 12px; }
     #btn-back { padding: 5px 10px; font-size: 12px; }
     #top-bar a { font-size: 16px; }
+
+    /* Tap targets meet 44×44 minimum (WCAG 2.5.5 / Apple HIG) — the visible
+       top-bar buttons (find-district, search, layers, controls) were 26-30px
+       tall, well under that bar. */
+    .top-btn { min-height: 44px; padding-top: 0; padding-bottom: 0; }
+    #mobile-menu-btn { min-width: 44px; min-height: 44px; }
 
     /* Breadcrumb */
     #breadcrumb-bar { top: 48px; padding: 0 10px; height: 28px; }
@@ -897,6 +983,15 @@ kbd {
     #legend { top: 76px; }
 }
 
+/* Raw <button> elements used as marker roots — strip UA button chrome
+   (white background + inset/outset border) so only the pill styling below
+   shows. Without this, browsers render default buttonface/buttonborder
+   around each marker since this map page doesn't load Tailwind preflight. */
+.city-marker, .gov-marker, .candidate-marker, .post-pin {
+    background: none; border: none; padding: 0; margin: 0;
+    font: inherit; color: inherit; appearance: none;
+}
+
 /* ── Top-cities census markers ───────────────────────────────────── */
 .city-marker {
     position: absolute; pointer-events: auto;
@@ -946,6 +1041,91 @@ kbd {
 }
 .gov-cap-tag { font-size: 9px; color: #64748b; white-space: nowrap; letter-spacing:.03em; }
 .gov-marker:hover .gov-name-tag { border-color: rgba(6,182,212,0.8); background: rgba(20,26,58,0.98); }
+
+/* ── Statewide candidate markers at capitals ────────────────────── */
+.candidate-marker {
+    position: absolute; pointer-events: auto;
+    transform: translate(-50%, -50%);
+    display: none; align-items: center; gap: 5px;
+    cursor: pointer;
+}
+.candidate-marker.visible { display: flex; }
+.cand-dot-ring {
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    background: rgba(255,255,255,0.08); flex-shrink: 0;
+    width: 18px; height: 18px;
+    border: 1px solid var(--cand-color, #64748b);
+}
+.cand-dot-core {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--cand-color, #64748b);
+    box-shadow: 0 0 5px var(--cand-color, #64748b), 0 0 12px rgba(255,255,255,0.15);
+}
+.cand-dot-core.seated { box-shadow: 0 0 0 2px rgba(6,9,26,0.9), 0 0 6px var(--cand-color, #64748b); }
+.cand-dot-core.running {
+    background: transparent;
+    border: 2px solid var(--cand-color, #64748b);
+    width: 8px; height: 8px;
+}
+.cand-name-tag {
+    display: flex; flex-direction: column;
+    padding: 3px 8px; border-radius: 8px; white-space: nowrap;
+    background: rgba(8,12,30,0.93); border: 1px solid var(--cand-color, #64748b);
+    line-height: 1.2; text-align: left;
+}
+.cand-office {
+    font-size: 9px; font-weight: 700; color: var(--cand-color, #64748b); letter-spacing: 0.03em;
+}
+.cand-name {
+    font-size: 11px; font-weight: 600; color: #e2e8f0;
+}
+.candidate-marker:hover .cand-name-tag {
+    background: rgba(20,26,58,0.98);
+    box-shadow: 0 0 12px color-mix(in srgb, var(--cand-color, #64748b) 35%, transparent);
+}
+
+/* ── Geo-tagged blog post pins ───────────────────────────────────── */
+.post-pin {
+    position: absolute; pointer-events: auto;
+    transform: translate(-50%, -50%);
+    display: none; align-items: center; gap: 5px;
+    cursor: pointer; text-decoration: none;
+    background: transparent; border: none; padding: 0;
+}
+.post-pin.visible { display: flex; }
+.post-pin-ring {
+    width: 18px; height: 18px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(168,85,247,0.14); flex-shrink: 0;
+}
+.post-pin-core {
+    width: 9px; height: 9px; border-radius: 50%;
+    background: #a855f7;
+    box-shadow: 0 0 5px #a855f7, 0 0 12px rgba(168,85,247,0.45);
+}
+.post-pin-core.promoted {
+    background: #f59e0b;
+    box-shadow: 0 0 6px #f59e0b, 0 0 14px rgba(245,158,11,0.55);
+}
+.post-pin.event .post-pin-ring { background: rgba(6,182,212,0.14); }
+.post-pin-core.event {
+    background: #06b6d4;
+    box-shadow: 0 0 5px #06b6d4, 0 0 12px rgba(6,182,212,0.45);
+}
+.post-pin.event .post-pin-tag { border-color: rgba(6,182,212,0.38); color: #22d3ee; }
+.post-pin.event:hover .post-pin-tag { border-color: rgba(6,182,212,0.7); background: rgba(20,26,58,0.98); }
+.post-pin-tag {
+    padding: 2px 7px; border-radius: 999px; white-space: nowrap;
+    background: rgba(8,12,30,0.93); border: 1px solid rgba(168,85,247,0.38);
+    font-size: 10px; font-weight: 700; color: #c084fc; line-height: 1.4;
+    max-width: 160px; overflow: hidden; text-overflow: ellipsis;
+}
+.post-pin:hover .post-pin-tag {
+    border-color: rgba(168,85,247,0.7); background: rgba(20,26,58,0.98);
+}
+.post-pin:hover .post-pin-core.promoted + .post-pin-tag {
+    border-color: rgba(245,158,11,0.7); color: #fbbf24;
+}
 
 /* ── Floating district label layer ──────────────────────────────── */
 #map-labels-layer {
@@ -1022,6 +1202,17 @@ kbd {
 .pol-title { font-size: 11px; color: #64748b; margin: 0 0 7px; }
 .pol-badges { display: flex; flex-wrap: wrap; gap: 5px; }
 
+.pol-badge-logo {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 2px 9px 2px 4px; border-radius: 999px;
+    background: rgba(148,163,184,0.08); border: 1px solid rgba(148,163,184,0.22);
+    color: #cbd5e1; font-size: 10px; font-weight: 600; text-decoration: none;
+}
+.pol-badge-logo img {
+    width: 14px; height: 14px; border-radius: 50%; object-fit: cover; flex-shrink: 0;
+    background: #0f172a;
+}
+
 /* Tabs */
 .pol-tabs {
     display: flex; gap: 0; flex-shrink: 0;
@@ -1050,6 +1241,17 @@ kbd {
     font-size: 12px; color: #94a3b8; line-height: 1.6; margin: 0 0 14px;
 }
 .pol-empty { font-size: 12px; color: #334155; margin: 0; }
+
+/* Article cards (news / press releases / events) */
+.pol-article-card {
+    display: block; text-decoration: none; padding: 8px 10px; border-radius: 8px;
+    border: 1px solid rgba(148,163,184,0.2); background: rgba(15,23,42,0.5);
+}
+.pol-article-headline { font-size: 12px; color: #e2e8f0; font-weight: 600; line-height: 1.4; }
+.pol-article-meta { margin-top: 4px; font-size: 10px; color: #94a3b8; }
+.pol-article-card.visited { opacity: .62; border-color: rgba(148,163,184,0.12); }
+.pol-article-card.visited .pol-article-headline { color: #94a3b8; }
+.pol-article-check { color: #34d399; font-weight: 700; }
 
 /* Stat grid */
 .pol-stat-grid {
@@ -1113,4 +1315,14 @@ kbd {
         transform: translateY(100%);
     }
     #pol-drawer.open { transform: translateY(0); }
+
+    /* Tap targets meet 44×44 minimum (WCAG 2.5.5 / Apple HIG), matching the
+       tutorial card's mobile treatment — these were 24-34px tall. */
+    .pol-tab { min-height: 44px; }
+    #pol-drawer-close {
+        min-width: 44px; min-height: 44px;
+        display: flex; align-items: center; justify-content: center;
+        top: 6px; right: 8px;
+    }
+    .pol-link { display: flex; align-items: center; justify-content: center; min-height: 44px; }
 }

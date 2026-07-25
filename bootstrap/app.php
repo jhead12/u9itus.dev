@@ -35,6 +35,13 @@ return Application::configure(basePath: dirname(__DIR__))
             'check.politician.onboarding' => \App\Http\Middleware\CheckPoliticianOnboarding::class,
             'check.citizen.onboarding' => \App\Http\Middleware\CheckCitizenOnboarding::class,
             'check.admin.onboarding' => \App\Http\Middleware\CheckAdminOnboarding::class,
+            // Admins get a dedicated setup/challenge flow inside the dashboard
+            // security settings (columns: admin_two_factor_*, config key:
+            // platform.standalone.auth.admin_2fa.*). Voters/politicians/citizens
+            // share a separate generic TOTP flow (columns: two_factor_*, config
+            // key: platform.standalone.auth.two_factor.*). The two are enforced,
+            // configured, and TTL'd independently — see EnsureAdminTwoFactorVerified
+            // vs EnsureTwoFactorVerified.
             'admin.2fa' => \App\Http\Middleware\EnsureAdminTwoFactorVerified::class,
             '2fa'       => \App\Http\Middleware\EnsureTwoFactorVerified::class,
             'no.cache' => \App\Http\Middleware\DisableAuthPageCache::class,

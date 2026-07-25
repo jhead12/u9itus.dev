@@ -10,9 +10,20 @@
     @endphp
 
     {{-- Page Header --}}
-    <div>
-        <h1 class="text-2xl font-bold text-white">My Earnings</h1>
-        <p class="text-slate-400 text-sm mt-0.5">Track your ad-view income and request payouts</p>
+    <div class="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+            <h1 class="text-2xl font-bold text-white">My Earnings</h1>
+            <p class="text-slate-400 text-sm mt-0.5">Track your ad-view income and request payouts</p>
+        </div>
+        @if(!empty($voter->stripe_account_id) && $voter->stripe_account_status === 'active')
+        <form method="POST" action="{{ route('voter.wallet.manage') }}">
+            @csrf
+            <button type="submit"
+                class="bg-slate-800 hover:bg-slate-700 border border-slate-700/60 text-slate-200 font-semibold px-4 py-2 rounded-xl transition text-sm">
+                Manage Wallet
+            </button>
+        </form>
+        @endif
     </div>
 
     @include('standalone.voter.partials.authentic-user-verifier-banner')
@@ -39,8 +50,10 @@
         @endforeach
     </div>
 
-    {{-- Referral Earnings row --}}
-    @if(($summary['referral_earnings'] ?? 0) > 0)
+    {{-- Early-bank Referral Earnings row — commissions EB has paid this voter for
+         referring other voters (per-view) or politicians (procurement). EB is the
+         source of truth for these; u9itus only mirrors what it reports back. --}}
+    @if(($summary['earlybank_earnings_total'] ?? 0) > 0)
     <div class="bg-purple-900/20 border border-purple-500/20 rounded-2xl p-5 flex items-center justify-between">
         <div class="flex items-center gap-4">
             <div class="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center shrink-0">
@@ -50,11 +63,19 @@
                 </svg>
             </div>
             <div>
-                <p class="text-white font-semibold text-sm">Referral Earnings</p>
-                <p class="text-slate-400 text-xs mt-0.5">From {{ $summary['referrals_count'] ?? 0 }} referred voter(s)</p>
+                <p class="text-white font-semibold text-sm">Early-bank Referral Earnings</p>
+                <p class="text-slate-400 text-xs mt-0.5">
+                    From {{ $summary['referrals_count'] ?? 0 }} referred voter(s)
+                    @if(($summary['referrals_politician_count'] ?? 0) > 0)
+                        and {{ $summary['referrals_politician_count'] }} referred politician(s)
+                    @endif
+                    @if(($summary['earlybank_earnings_pending'] ?? 0) > 0)
+                        &middot; ${{ number_format($summary['earlybank_earnings_pending'], 2) }} pending settlement
+                    @endif
+                </p>
             </div>
         </div>
-        <p class="text-purple-400 font-bold text-xl">${{ number_format($summary['referral_earnings'], 2) }}</p>
+        <p class="text-purple-400 font-bold text-xl">${{ number_format($summary['earlybank_earnings_total'], 2) }}</p>
     </div>
     @endif
 

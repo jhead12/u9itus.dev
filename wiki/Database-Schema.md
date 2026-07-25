@@ -20,6 +20,11 @@
 | **user_onboarding_progress** | _(Phase 17)_ Per-user onboarding state — current phase, completed phases (JSON), phase data, completion status |
 | **notification_preferences** | _(Phase 18)_ Per-user notification channel preferences — email/in-app/push/SMS toggles, FCM token, phone |
 | **notifications** | _(Phase 18)_ Laravel built-in notifications table — polymorphic notifiable, `read_at`, data (JSON) |
+| **posts** | _(Phase 20)_ Native blog posts — polymorphic author (Citizen/Politician), status, geo-location, SEO fields, promotion flags |
+| **post_topic** | _(Phase 20)_ Pivot linking `posts` to `politician_topics` for topic tagging |
+| **civic_events** | _(Phase 20)_ Partiful-style civic events — polymorphic host (Citizen/Politician), type/status, capacity, geo-location, virtual URL |
+| **civic_event_topic** | _(Phase 20)_ Pivot linking `civic_events` to `politician_topics` |
+| **event_rsvps** | _(Phase 20)_ Event RSVPs — status (`yes`/`maybe`/`no`/`waitlist`/`approved`/`declined`/`pending`), guest count, notes |
 
 ## Service Layer
 
@@ -57,6 +62,13 @@
 | **Api\VoterController** | Registration, view sessions, earnings (API) |
 | **Api\AdminController** | Analytics, approvals, payouts, fraud (API) |
 | **Api\StripeWebhookController** | `payment_intent.succeeded` / `payment_intent.payment_failed` |
+| **Standalone\PostController** | _(Phase 20)_ Citizen/Politician blog post CRUD, publish/archive/promote |
+| **Standalone\PublicPostController** | _(Phase 20)_ Public blog index, topic/author archives, RSS, single post |
+| **Standalone\CivicEventController** | _(Phase 20)_ Citizen/Politician civic event CRUD and cancellation |
+| **Standalone\PublicCivicEventController** | _(Phase 20)_ Public event browse, single event, `.ics` calendar export |
+| **Standalone\EventRsvpController** | _(Phase 20)_ RSVP lifecycle with capacity/waitlist handling |
+| **Api\MapContentController** | _(Phase 20)_ Public viewport API for geo-tagged posts and events |
+| **Services\PostPromotionService** | _(Phase 20)_ Wallet-credit promotion for blog posts |
 
 ---
 

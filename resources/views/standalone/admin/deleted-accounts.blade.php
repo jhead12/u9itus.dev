@@ -76,7 +76,7 @@
                         </td>
                         <td class="px-4 py-3 text-slate-400 text-xs whitespace-nowrap">
                             {{ $record->deleted_at->format('M j, Y') }}
-                            <span class="text-slate-600">{{ $record->deleted_at->format('g:i a') }}</span>
+                            <span class="text-slate-500">{{ $record->deleted_at->format('g:i a') }}</span>
                         </td>
                         <td class="px-4 py-3 text-slate-500 text-xs max-w-xs truncate">
                             {{ $record->deletion_reason ?? '—' }}
@@ -93,7 +93,7 @@
                         <td class="px-4 py-3 text-right">
                             @if(!$record->isRestored())
                             <button type="button"
-                                onclick="document.getElementById('restore-modal-{{ $record->id }}').classList.remove('hidden')"
+                                onclick="const m=document.getElementById('restore-modal-{{ $record->id }}'); m.classList.remove('hidden'); m.focus();"
                                 class="text-xs px-3 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-400 transition">
                                 Restore
                             </button>
@@ -125,9 +125,10 @@
 @if(!$record->isRestored())
 <div id="restore-modal-{{ $record->id }}"
      class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+     role="dialog" aria-modal="true" aria-labelledby="restore-modal-{{ $record->id }}-title" tabindex="-1"
      onclick="if(event.target===this) this.classList.add('hidden')">
     <div class="bg-slate-900 border border-emerald-500/30 rounded-xl shadow-2xl w-full max-w-md mx-4 p-6 space-y-4">
-        <h3 class="text-base font-semibold text-emerald-400">Restore Account</h3>
+        <h3 id="restore-modal-{{ $record->id }}-title" class="text-base font-semibold text-emerald-400">Restore Account</h3>
         <p class="text-sm text-slate-400">
             This will create a <strong class="text-white">new account</strong> for
             <span class="text-white font-medium">{{ $record->email }}</span> with a new user ID.
@@ -153,4 +154,12 @@
 @endif
 @endforeach
 
+<script>
+document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    document.querySelectorAll('[role="dialog"]:not(.hidden)').forEach(function (m) {
+        m.classList.add('hidden');
+    });
+});
+</script>
 @endsection

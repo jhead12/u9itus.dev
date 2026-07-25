@@ -23,7 +23,7 @@ beforeEach(function () {
 });
 
 /**
- * Create a User + linked Politician record (mirrors AuthController::register flow).
+ * Create a User + linked Politician record (mirrors RegistrationController::registerPolitician flow).
  * Returns the User with ->politician already loaded.
  */
 function makePolitician(): User

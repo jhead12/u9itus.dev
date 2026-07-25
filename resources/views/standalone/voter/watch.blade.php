@@ -654,8 +654,14 @@
                 @endif
 
                 {{-- OpenSecrets: campaign finance --}}
-                @if($pol->opensecrets_id && ($pol->show_opensecrets_data ?? true))
-                <a href="https://www.opensecrets.org/politicians/summary?cid={{ urlencode($pol->opensecrets_id) }}"
+                @if($pol->show_opensecrets_data ?? true)
+                @php
+                    $openSecretsSlug = trim(preg_replace('/[^a-z0-9]+/', '-', strtolower($pol->full_name)), '-');
+                    $openSecretsUrl = $pol->opensecrets_id
+                        ? "https://www.opensecrets.org/profiles/{$openSecretsSlug}/us_congress/summary?mpid=" . urlencode($pol->opensecrets_id)
+                        : "https://www.opensecrets.org/search?q={$openSecretsSlug}&type=site#gsc.tab=0&gsc.q={$openSecretsSlug}&gsc.page=1";
+                @endphp
+                <a href="{{ $openSecretsUrl }}"
                    target="_blank" rel="noopener noreferrer"
                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-700/60 hover:bg-slate-700 border border-slate-600/60 text-slate-300 hover:text-white text-xs font-medium transition">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

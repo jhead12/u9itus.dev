@@ -21,7 +21,8 @@ class ValidatePoliticianProfilePhotos extends Command
         {--skip-ai             : Use URL heuristics only (no Anthropic call)}
         {--require-ai          : Fail when ANTHROPIC_API_KEY is missing}
         {--min-confidence=0.70 : AI confidence threshold for auto-clearing}
-        {--fail-on-invalid     : Return non-zero exit code if invalid photos are found}';
+        {--fail-on-invalid     : Return non-zero exit code if invalid photos are found}
+        {--stale-hours=720     : Skip photos already validated within N hours (0 disables; ~30 days default)}';
 
     protected $description = 'Validate politician profile photos and flag/clear likely logos or non-face images.';
 
@@ -41,6 +42,7 @@ class ValidatePoliticianProfilePhotos extends Command
         $requireAi = (bool) $this->option('require-ai');
         $failOnInvalid = (bool) $this->option('fail-on-invalid');
         $minConfidence = max(0.0, min(1.0, (float) $this->option('min-confidence')));
+        $staleHours = (int) $this->option('stale-hours');
         $apiKey = (string) config('services.anthropic.api_key');
 
         if ($dryRun) {
@@ -70,6 +72,17 @@ class ValidatePoliticianProfilePhotos extends Command
             ->where('profile_photo_url', '!=', '')
             ->when(! $includeClaimed, fn ($q) => $q->whereNull('user_id'))
             ->when($state, fn ($q) => $q->whereRaw("UPPER(COALESCE(state, '')) = ?", [$state]))
+            // Skip photos already validated within the stale window so repeated
+            // runs (e.g. the hot-state map dispatcher re-triggering this state)
+            // don't keep spending Claude vision calls on the same photos.
+            ->when($staleHours > 0, fn ($q) => $q->where(function ($sub) use ($staleHours) {
+                $sub->whereNull('profile_photo_last_validated_at')
+                    ->orWhere('profile_photo_last_validated_at', '<', now()->subHours($staleHours));
+            }))
+            // Never-validated photos first, then the longest-stale ones, so each
+            // run makes forward progress instead of re-touching the same rows.
+            ->orderByRaw('profile_photo_last_validated_at IS NULL DESC')
+            ->orderBy('profile_photo_last_validated_at')
             ->orderBy('id')
             ->limit($limit);
 

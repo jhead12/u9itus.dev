@@ -32,18 +32,18 @@ export const TOUR_STEPS = [
     },
     {
         target: '#map-canvas-region', pos: 'right',
-        title: '↑ ↓  Tilt  ·  ← →  Rotate',
-        body: `Press <kbd>↑</kbd> <kbd>↓</kbd> to tilt the map toward overhead or a low-angle view.<br><br>Press <kbd>←</kbd> <kbd>→</kbd> to orbit around it. Hold a key for continuous movement.`,
+        title: '↑ ↓  Tilt',
+        body: `Press <kbd>↑</kbd> <kbd>↓</kbd> to tilt the map toward overhead or a low-angle view. Hold a key for continuous movement.`,
         media: _mediaFor('tilt-rotate',
-            `You can change your viewing angle at any time using the arrow keys. Press the up and down arrows to tilt the map between a top-down overhead view and a low, dramatic angle. Press the left and right arrows to orbit around the country. Hold any arrow key down for continuous, smooth movement until you release it.`
+            `You can change your viewing angle at any time using the up and down arrow keys. Press the up arrow to tilt the map toward a top-down overhead view, or the down arrow for a low, dramatic angle. Hold either key down for continuous, smooth movement until you release it. The map stays locked to the United States, so you can not accidentally rotate away from the country.`
         ),
     },
     {
         target: null, pos: 'center',
         title: '🔍 Zoom',
-        body: `<strong style="color:#e2e8f0">Scroll</strong> your mouse wheel to zoom in and out.<br><br>Or use <kbd>+</kbd> to zoom in and <kbd>−</kbd> to zoom out from the keyboard.`,
+        body: `<strong style="color:#e2e8f0">Scroll</strong> your mouse wheel, or <strong style="color:#e2e8f0">pinch</strong> with two fingers on a touchscreen, to zoom in and out.<br><br>Or use <kbd>+</kbd> to zoom in and <kbd>−</kbd> to zoom out from the keyboard.`,
         media: _mediaFor('zoom',
-            `Zoom into any part of the country by scrolling your mouse wheel forward to move closer, or backward to pull away. If you prefer the keyboard, press the plus key to zoom in and the minus key to zoom out. Zoom level is preserved as you rotate, so you can frame the exact view you want.`
+            `Zoom into any part of the country by scrolling your mouse wheel forward to move closer, or backward to pull away. On a phone or tablet, pinch two fingers apart to zoom in, or pinch together to zoom out. If you prefer the keyboard, press the plus key to zoom in and the minus key to zoom out. You can still tilt the map while zoomed in, so you can frame the exact view you want.`
         ),
     },
     {
@@ -73,9 +73,9 @@ export const TOUR_STEPS = [
     {
         target: null, pos: 'center',
         title: '<kbd>R</kbd>  Reset View',
-        body: `Press <kbd>R</kbd> at any time to snap the camera back to the default isometric overview position, no matter how far you've tilted or orbited.`,
+        body: `Press <kbd>R</kbd> at any time to snap the camera back to the default isometric overview position, no matter how far you've tilted or panned.`,
         media: _mediaFor('reset',
-            `If you ever get lost or want to start over, just press the letter R on your keyboard. The camera will smoothly fly back to the default overview of the entire country, no matter how far you have zoomed, tilted, or rotated. It is the fastest way to reset your view and pick a new state to explore.`
+            `If you ever get lost or want to start over, just press the letter R on your keyboard. The camera will smoothly fly back to the default overview of the entire country, no matter how far you have zoomed, tilted, or panned. It is the fastest way to reset your view and pick a new state to explore.`
         ),
     },
     {

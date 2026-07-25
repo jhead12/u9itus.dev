@@ -13,11 +13,12 @@ import { flyTo, flyToMeshes, flyToMeshesTopDown } from '../scene/camera-animatio
 import { camera, controls, renderer, mapGroup, resizeRenderer } from '../scene/setup.js';
 import { REGIONS, STATE_ABBR_MAP, PARTY_HEX, PARTY_LABEL, DISTRICT_COUNTS } from '../config/constants.js';
 import { clearDistricts, buildDistrictOverlay, resetDistrictSelection, districtMeshes, hoveredDistrict, setHoveredDistrict } from '../scene/district-overlay.js';
-import { openStatePanel, partyClass } from '../ui/panel-state.js';
+import { openStatePanel, partyClass, initOfficesToggle } from '../ui/panel-state.js';
 import { openDistrictPanel } from '../ui/panel-district.js';
 import { showRegionLegend, showPartyLegend } from '../ui/legend.js';
 import { clearDistrictLabels, buildDistrictLabels } from '../ui/labels-overlay.js';
 import { clearCityMarkers, buildCityMarkers, clearGovMarkers, loadCityBoundaries } from '../ui/markers.js';
+import { clearCandidateMarkers, buildCandidateMarkers } from '../ui/candidate-markers.js';
 import { closePolDrawer } from '../ui/politician-drawer.js';
 import { closePopup } from '../ui/popup.js';
 import { initDistrictConfig } from '../api/district-config.js';
@@ -27,6 +28,7 @@ import { trackEvent } from '../api/interaction.js';
 import { updateBreadcrumb } from '../ui/breadcrumb.js';
 import { updateDistrictLabels, updateCityDots } from '../render-loop.js';
 import { openInfoPanel } from '../ui/info-panel.js';
+import { openRegionPanel } from '../ui/panel-region.js';
 
 /* ── Colour helpers ── */
 export function lighten(hex, amt = 55) {
@@ -54,11 +56,11 @@ export function enterOverviewMode() {
     nextRequestId();
     setStateData(null);
     setMapMode('overview'); setActiveRegion(null); setActiveState(null); setSelectedState(null);
-    clearDim(); clearDistricts(); clearDistrictLabels(); clearCityMarkers(); clearGovMarkers(); closePolDrawer();
+    clearDim(); clearDistricts(); clearDistrictLabels(); clearCityMarkers(); clearGovMarkers(); clearCandidateMarkers(); closePolDrawer();
     document.getElementById('info-panel').classList.remove('open');
     resizeRenderer();
     document.getElementById('btn-back').style.display = 'none';
-    document.getElementById('hint').innerHTML = 'Scroll to zoom &nbsp;·&nbsp; ↑↓ tilt &nbsp;·&nbsp; ←→ rotate &nbsp;·&nbsp; Click a state';
+    document.getElementById('hint').innerHTML = 'Scroll / pinch to zoom &nbsp;·&nbsp; ↑↓ tilt &nbsp;·&nbsp; drag to pan &nbsp;·&nbsp; Click a state';
     for (const m of stateMeshes) {
         m.material.transparent = false;
         m.material.opacity = 1.0;
@@ -75,8 +77,8 @@ export function enterRegionMode(regionName, region) {
     nextRequestId();
     setStateData(null);
     setMapMode('region'); setActiveRegion(regionName); setActiveState(null); setSelectedState(null);
-    clearDistricts(); clearDistrictLabels(); clearCityMarkers(); clearGovMarkers(); closePolDrawer();
-    document.getElementById('info-panel').classList.remove('open');
+    clearDistricts(); clearDistrictLabels(); clearCityMarkers(); clearGovMarkers(); clearCandidateMarkers(); closePolDrawer();
+    openRegionPanel(regionName, region);
     resizeRenderer();
     document.getElementById('btn-back').style.display = '';
     document.getElementById('hint').innerHTML = `Click a state in the <span style="color:${region.hex}">${regionName}</span> region`;
@@ -97,6 +99,21 @@ export function enterRegionMode(regionName, region) {
 export async function enterStateMode(stateName, regionName, region) {
     const requestId = nextRequestId();
     setMapMode('state'); setActiveRegion(regionName); setActiveState(stateName); setSelectedState(stateName);
+    // Update the breadcrumb immediately, not just at the end of this function.
+    // Everything below this point is a chain of awaited network calls
+    // (district overlay, candidate data, openStatePanel) with no surrounding
+    // try/catch — if any of them throws, the function aborts silently and
+    // the trailing updateBreadcrumb() call at the bottom never runs, leaving
+    // the breadcrumb stuck on whatever it showed before this navigation even
+    // though the mode/region/state were already committed above.
+    updateBreadcrumb();
+
+    // Undo the region panel's relabel/force-open of the offices toggle (see
+    // panel-region.js::openRegionPanel) and reapply the user's actual
+    // state-mode collapse preference.
+    const officesLabel = document.getElementById('offices-toggle')?.querySelector('span');
+    if (officesLabel) officesLabel.textContent = 'Statewide Executive Offices';
+    initOfficesToggle();
     _syncNatDistVisibility();
     document.getElementById('btn-back').style.display = '';
     document.getElementById('hint').innerHTML = 'Click a congressional district to see candidates';
@@ -163,18 +180,37 @@ export async function enterStateMode(stateName, regionName, region) {
     const abbr = STATE_ABBR_MAP[stateName];
     let apiStatus = 'unreachable';
     if (abbr) {
+        const SC_LS_KEY = `u9_map_sc_${abbr}`;
+        const SC_TTL    = 60 * 60 * 1000; // 1 hour — mirrors server-side Cache::remember TTL
+
+        // Show cached data immediately so the panel feels instant, then refresh.
+        try {
+            const raw = localStorage.getItem(SC_LS_KEY);
+            if (raw) {
+                const { ts, data } = JSON.parse(raw);
+                if (Date.now() - ts < SC_TTL) {
+                    nextStateData = data;
+                    apiStatus = nextStateData?.offices?.length ? 'live' : 'empty';
+                } else {
+                    localStorage.removeItem(SC_LS_KEY);
+                }
+            }
+        } catch { /* ignore */ }
+
         try {
             const apiRes = await fetch(`/api/v1/map/state-candidates?state=${abbr}`);
             if (requestId !== statePanelRequestId) return;
             if (apiRes.ok) {
-                nextStateData = await apiRes.json();
+                const fresh = await apiRes.json();
+                nextStateData = fresh;
                 apiStatus = nextStateData?.offices?.length ? 'live' : 'empty';
-            } else {
+                try { localStorage.setItem(SC_LS_KEY, JSON.stringify({ ts: Date.now(), data: fresh })); } catch {}
+            } else if (!nextStateData) {
                 apiStatus = 'unreachable';
             }
         } catch (e) {
             console.warn('state-candidates API unavailable:', e.message);
-            apiStatus = 'unreachable';
+            if (!nextStateData) apiStatus = 'unreachable';
         }
     }
     if (requestId !== statePanelRequestId) return;
@@ -193,6 +229,7 @@ export async function enterStateMode(stateName, regionName, region) {
     showPartyLegend(breakdown);
     buildDistrictLabels(stateName);
     if (ACTIVE_LAYERS.has('topcities')) { buildCityMarkers(stateName); buildGovMarkers(stateName); }
+    if (ACTIVE_LAYERS.has('candidates')) { buildCandidateMarkers(stateName); }
     updateBreadcrumb();
 }
 

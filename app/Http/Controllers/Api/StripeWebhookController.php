@@ -11,12 +11,17 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use App\Services\CampaignBillingService;
+use App\Services\CitizenBillingService;
 use App\Services\StripePaymentService;
 
 class StripeWebhookController extends Controller
 {
-    public function handle(Request $request, StripePaymentService $stripe, CampaignBillingService $billing)
-    {
+    public function handle(
+        Request $request,
+        StripePaymentService $stripe,
+        CampaignBillingService $billing,
+        CitizenBillingService $citizenBilling
+    ) {
         $payload = $request->getContent();
         $sigHeader = $request->header('Stripe-Signature', '');
 
@@ -42,7 +47,7 @@ class StripeWebhookController extends Controller
         Log::info('Stripe webhook received', ['type' => $type]);
 
         if ($type === 'payment_intent.succeeded' || $type === 'payment_intent.payment_failed') {
-            $this->handlePaymentIntentEvent($payloadEvent, $event, $billing, $type);
+            $this->handlePaymentIntentEvent($payloadEvent, $event, $billing, $citizenBilling, $type);
         }
 
         if ($type === 'account.updated') {
@@ -87,15 +92,29 @@ class StripeWebhookController extends Controller
         return null;
     }
 
-    private function handlePaymentIntentEvent(mixed $payloadEvent, mixed $event, CampaignBillingService $billing, string $type): void
-    {
+    private function handlePaymentIntentEvent(
+        mixed $payloadEvent,
+        mixed $event,
+        CampaignBillingService $billing,
+        CitizenBillingService $citizenBilling,
+        string $type
+    ): void {
         $piId = $this->paymentIntentIdFromPayload($payloadEvent);
         if (! $piId) {
             Log::warning($type . ' missing id in payload');
             return;
         }
 
-        $billing->finalizePaymentIntent($piId, $event);
+        $campaignTx = $billing->finalizePaymentIntent($piId, $event);
+        if (! $campaignTx) {
+            $citizenTx = $citizenBilling->finalizePaymentIntent($piId, $event);
+            if (! $citizenTx) {
+                Log::info('Stripe payment intent event did not match any known transaction', [
+                    'payment_intent' => $piId,
+                    'type'           => $type,
+                ]);
+            }
+        }
     }
 
     private function handleAccountUpdatedEvent(mixed $payloadEvent): void

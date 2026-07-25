@@ -22,6 +22,7 @@ class Citizen extends Model
         'uuid',
         'full_name',
         'business_name',
+        'website_url',
         'state',
         'city',
         'address_line_1',
@@ -38,6 +39,9 @@ class Citizen extends Model
         'stripe_verification_session_id',
         'stripe_verified_at',
         'verified_at',
+        'credit_balance',
+        'stripe_customer_id',
+        'receipt_email',
         // Early-bank own membership (set via member-enrolled webhook)
         'earlybank_own_member_uuid',
         'earlybank_own_linked_at',
@@ -53,6 +57,7 @@ class Citizen extends Model
             'is_active'          => 'boolean',
             'stripe_verified_at' => 'datetime',
             'verified_at'        => 'datetime',
+            'credit_balance'     => 'decimal:2',
             'earlybank_own_linked_at' => 'datetime',
             'earlybank_payouts_enabled' => 'boolean',
             'earlybank_stripe_connect_onboarding_complete' => 'boolean',
@@ -135,6 +140,47 @@ class Citizen extends Model
     public function campaigns(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(CitizenCampaign::class);
+    }
+
+    /**
+     * Blog posts authored by this citizen.
+     */
+    public function posts(): \Illuminate\Database\Eloquent\Relations\MorphMany
+    {
+        return $this->morphMany(Post::class, 'author');
+    }
+
+    public function events(): \Illuminate\Database\Eloquent\Relations\MorphMany
+    {
+        return $this->morphMany(CivicEvent::class, 'host');
+    }
+
+    /**
+     * Re-derive credit_balance from the ledger and persist it.
+     */
+    public function syncCreditBalance(): void
+    {
+        $latest = $this->credits()
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->first();
+        $this->credit_balance = $latest ? $latest->balance_after : 0;
+        $this->saveQuietly();
+    }
+
+    public function credits(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(CitizenCredit::class);
+    }
+
+    public function paymentMethods(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(CitizenPaymentMethod::class);
+    }
+
+    public function transactions(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(CitizenTransaction::class);
     }
 
     /**

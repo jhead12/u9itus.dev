@@ -8,6 +8,7 @@ use App\Exceptions\StripeConnectException;
 use App\Models\AdViewToken;
 use App\Models\PoliticalCampaign;
 use App\Models\ReferralVisit;
+use App\Models\CitizenViewSession;
 use App\Models\Voter;
 use App\Models\VoterWatchReport;
 use App\Models\ViewSession;
@@ -20,6 +21,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 trait ManagesVoterAuxiliaryActions
@@ -122,6 +124,17 @@ trait ManagesVoterAuxiliaryActions
                 ->get();
         });
 
+        // Real primary/general election dates for the voter's state, synced
+        // from Vote Smart (php artisan elections:sync-dates). Same per-state
+        // cache pattern as $candidateNews above.
+        $electionDates = $voter->state
+            ? Cache::remember(
+                'voter-dashboard-election-dates-' . $voter->state,
+                now()->addHours(6),
+                fn () => \App\Models\StateElectionDate::upcomingForState($voter->state)
+            )
+            : [];
+
         return view('standalone.voter.dashboard', [
             'user'            => Auth::user(),
             'voter'           => $voter,
@@ -131,6 +144,7 @@ trait ManagesVoterAuxiliaryActions
             'recentSessions'  => $recentSessions,
             'activePromotions' => $activePromotions,
             'candidateNews'   => $candidateNews,
+            'electionDates'   => $electionDates,
             'needsAuthenticUserVerifierMigration' => $voter->needsAuthenticUserVerifierMigration(),
         ]);
     }
@@ -282,8 +296,11 @@ trait ManagesVoterAuxiliaryActions
 
         // Ensure payout-eligible completed sessions are marked approved and carry
         // the voter's latest processor preference for downstream payout routing.
+        // Covers both political (ViewSession) and citizen (CitizenViewSession)
+        // campaigns — previously citizen earnings accrued in pending_earnings but
+        // were never queued for settlement, leaving them stranded.
         $updated = DB::transaction(function () use ($voter, $selectedProcessor): int {
-            return ViewSession::where('voter_id', $voter->id)
+            $political = ViewSession::where('voter_id', $voter->id)
                 ->where('status', \App\Enums\ViewSessionStatus::Completed)
                 ->whereIn('payment_status', [
                     ViewPaymentStatus::Pending,
@@ -294,6 +311,20 @@ trait ManagesVoterAuxiliaryActions
                     'payment_status' => ViewPaymentStatus::Approved,
                     'processor_selected' => $selectedProcessor,
                 ]);
+
+            $citizen = CitizenViewSession::where('voter_id', $voter->id)
+                ->where('status', \App\Enums\ViewSessionStatus::Completed)
+                ->whereIn('payment_status', [
+                    ViewPaymentStatus::Pending,
+                    ViewPaymentStatus::Approved,
+                ])
+                ->where('voter_payout_amount', '>', 0)
+                ->update([
+                    'payment_status' => ViewPaymentStatus::Approved,
+                    'processor_selected' => $selectedProcessor,
+                ]);
+
+            return $political + $citizen;
         });
 
         Log::info('Payout requested', [
@@ -345,6 +376,17 @@ trait ManagesVoterAuxiliaryActions
         $totalReferralEarnings    = (float) $voter->referralEarnings()->voterViews()->forActiveStripeMode()->sum('commission_amount');
         $totalProcurementEarnings = (float) $voter->referralEarnings()->procurements()->forActiveStripeMode()->sum('commission_amount');
 
+        // Early-bank reported earnings — the actual money moving through the delegated
+        // model. EB does not distinguish "view" vs "procurement" commissions on the same
+        // payout.commission event, so we surface one combined commission total plus bonuses
+        // rather than fabricate a split the ledger can't support.
+        $ebCommissionTotal = (float) $voter->earlybankEarnings()
+            ->forEventType(\App\Models\EarlyBankEarning::EVENT_PAYOUT_COMMISSION)
+            ->sum('payout_amount');
+        $ebBonusTotal = (float) $voter->earlybankEarnings()
+            ->forEventType(\App\Models\EarlyBankEarning::EVENT_PAYOUT_BONUS)
+            ->sum('payout_amount');
+
         $visitQuery = ReferralVisit::where('referrer_voter_id', $voter->id);
         $totalReferralVisits = (clone $visitQuery)->count();
         $uniqueReferralVisitors = (clone $visitQuery)
@@ -360,6 +402,7 @@ trait ManagesVoterAuxiliaryActions
             'voter', 'referrals', 'referredPoliticians',
             'referralEarnings', 'procurementEarnings',
             'totalReferralEarnings', 'totalProcurementEarnings',
+            'ebCommissionTotal', 'ebBonusTotal',
             'totalReferralVisits', 'uniqueReferralVisitors',
             'referralConversions', 'referralConversionRate'
         ));
@@ -512,6 +555,53 @@ trait ManagesVoterAuxiliaryActions
 
             Log::warning('Unable to start Authentic User Verifier onboarding', $context);
             Log::channel('stderr')->warning('Unable to start Authentic User Verifier onboarding', $context);
+
+            report($e);
+
+            return back()->withErrors([
+                'payout' => $classified->getMessage() . ' Reference: ' . $reference,
+            ]);
+        }
+    }
+
+    /**
+     * Redirect the voter into their Stripe Express Dashboard (same tab) to view
+     * balance, payout history, and manage bank details.
+     */
+    public function openStripeDashboard(StripeConnectService $stripeConnect)
+    {
+        $voter = $this->resolveVoter();
+
+        if (! $stripeConnect->isConfigured()) {
+            return back()->withErrors([
+                'payout' => 'Wallet management is temporarily unavailable. Please try again shortly.',
+            ]);
+        }
+
+        try {
+            $url = $stripeConnect->createLoginLink($voter);
+
+            return redirect()->away($url);
+        } catch (\Throwable $e) {
+            $reference = (string) Str::ulid();
+
+            $classified = $e instanceof StripeConnectException
+                ? $e
+                : $stripeConnect->classifyStripeException($e);
+
+            $context = [
+                'reference'         => $reference,
+                'voter_id'          => $voter->id,
+                'exception'         => $e::class,
+                'code'              => $e->getCode(),
+                'error'             => $e->getMessage(),
+                'user_message'      => $classified->getMessage(),
+                'stripe_account_id' => $voter->stripe_account_id,
+                ...$this->stripeErrorContext($e),
+            ];
+
+            Log::warning('Unable to open Stripe Express Dashboard', $context);
+            Log::channel('stderr')->warning('Unable to open Stripe Express Dashboard', $context);
 
             report($e);
 
@@ -799,7 +889,8 @@ trait ManagesVoterAuxiliaryActions
             abort(404, 'No KYC document found.');
         }
 
-        $path = storage_path('app/public/' . $user->kyc_document_path);
+        // SEC-2: serve from the private `local` disk, not the public symlink.
+        $path = Storage::disk('local')->path($user->kyc_document_path);
 
         if (! file_exists($path)) {
             abort(404, 'KYC document file not found on server.');

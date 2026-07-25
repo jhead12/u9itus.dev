@@ -16,10 +16,18 @@ have been added to your balance and are ready to use.
   Date              : {{ now()->format('M j, Y g:i A') }}
 
 Launch a campaign:
+@if($user->hasRole('citizen') && ! $user->hasRole('politician'))
+{{ route('citizen.campaigns.index') }}
+@else
 {{ route('politician.campaigns.index') }}
+@endif
 
 View billing & invoices:
+@if($user->hasRole('citizen') && ! $user->hasRole('politician'))
+{{ route('citizen.billing.invoices') }}
+@else
 {{ route('politician.billing.invoices') }}
+@endif
 
 ---
 © {{ date('Y') }} {{ config('app.name', 'U9itus') }}

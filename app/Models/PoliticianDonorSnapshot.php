@@ -20,6 +20,7 @@ class PoliticianDonorSnapshot extends Model
         'top_contributors',
         'top_industries',
         'fec_summary',
+        'opensecrets_summary',
         'outside_spending',
         'pac_affiliations',
         'opensecrets_source_url',
@@ -34,6 +35,7 @@ class PoliticianDonorSnapshot extends Model
             'top_contributors' => 'array',
             'top_industries'   => 'array',
             'fec_summary'      => 'array',
+            'opensecrets_summary' => 'array',
             'outside_spending' => 'array',
             'pac_affiliations' => 'array',
             'enriched_at'      => 'datetime',
@@ -70,6 +72,25 @@ class PoliticianDonorSnapshot extends Model
         return !empty($this->fec_summary);
     }
 
+    public function hasOpenSecretsSummary(): bool
+    {
+        // normaliseSummary() always returns a fixed 4-key shape (total_raised,
+        // total_spent, cash_on_hand, debt), so an "empty" scrape still produces
+        // a non-empty array with every value null — !empty() alone can't tell
+        // that apart from a real summary. Check for at least one real value.
+        if (empty($this->opensecrets_summary)) {
+            return false;
+        }
+
+        foreach ($this->opensecrets_summary as $value) {
+            if ($value !== null && $value !== '') {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public function hasOutsideSpending(): bool
     {
         return !empty($this->outside_spending);
@@ -85,6 +106,7 @@ class PoliticianDonorSnapshot extends Model
         return $this->hasContributors()
             || $this->hasIndustries()
             || $this->hasFecSummary()
+            || $this->hasOpenSecretsSummary()
             || $this->hasOutsideSpending();
     }
 }

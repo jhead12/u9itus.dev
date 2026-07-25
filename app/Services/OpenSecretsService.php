@@ -96,14 +96,33 @@ class OpenSecretsService
         if (! $process->isSuccessful()) {
             Log::info('OpenSecretsService: scraper returned non-zero', [
                 'politician_id' => $politician->id,
-                'stderr'        => substr($process->getErrorOutput(), 0, 500),
+                'stderr'        => substr($process->getErrorOutput(), 0, 2000),
             ]);
             return null;
         }
 
         $json = json_decode($process->getOutput(), true);
         if (! is_array($json) || isset($json['error'])) {
+            // Surface the scraper's stderr (it carries the [search]/[scrape]
+            // diagnostic lines) so a systemic "no data returned" isn't silent.
+            Log::info('OpenSecretsService: scraper returned no usable JSON', [
+                'politician_id' => $politician->id,
+                'stderr'        => substr($process->getErrorOutput(), 0, 2000),
+            ]);
             return null;
+        }
+
+        // The scraper can succeed (valid JSON) but parse nothing — the
+        // "0 contributors / 0 industries" symptom. Log the stderr trail so the
+        // workflow log shows whether it died at search (0 results) or at the
+        // profile scrape (stale table selectors), instead of just "0 contributors".
+        $contributors = $json['top_contributors'] ?? [];
+        $industries   = $json['top_industries']   ?? [];
+        if ($contributors === [] && $industries === []) {
+            Log::info('OpenSecretsService: scraper succeeded but parsed no contributors/industries', [
+                'politician_id' => $politician->id,
+                'stderr'        => substr($process->getErrorOutput(), 0, 2000),
+            ]);
         }
 
         // Persist the mpid back to the politician for faster future lookups
@@ -127,12 +146,19 @@ class OpenSecretsService
     protected function normaliseSummary(array $raw): array
     {
         // Keys come from the table's "Category" column, lowercased + underscored
-        return [
+        $summary = [
             'total_raised' => $raw['raised']       ?? $raw['total_raised'] ?? null,
             'total_spent'  => $raw['spent']        ?? $raw['total_spent']  ?? null,
             'cash_on_hand' => $raw['cash_on_hand'] ?? null,
             'debt'         => $raw['debts']        ?? $raw['debt']         ?? null,
         ];
+
+        // A summary table that didn't parse (or wasn't there) shouldn't be
+        // persisted as a non-empty, all-null shape — that reads as "has data"
+        // to !empty() checks elsewhere. Collapse it to a real empty array.
+        $hasValue = array_filter($summary, fn ($v) => $v !== null) !== [];
+
+        return $hasValue ? $summary : [];
     }
 
     /**
@@ -186,8 +212,13 @@ class OpenSecretsService
 
         $topContributors = $snapshot->top_contributors ?? [];
         $topIndustries   = $snapshot->top_industries   ?? [];
+        // Legacy rows may still have the old all-null-values summary shape
+        // (see normaliseSummary()) — hasOpenSecretsSummary() knows how to
+        // tell that apart from a real summary, raw !empty() doesn't.
+        $openSecretsSummary = $snapshot->hasOpenSecretsSummary() ? $snapshot->opensecrets_summary : [];
+        $pacAffiliations = $snapshot->pac_affiliations ?? [];
 
-        if (empty($topContributors) && empty($topIndustries)) {
+        if (empty($topContributors) && empty($topIndustries) && empty($openSecretsSummary) && empty($pacAffiliations)) {
             return null; // Enriched but no data found on OpenSecrets
         }
 
@@ -203,11 +234,16 @@ class OpenSecretsService
         if (! empty($topIndustries)) {
             $sections['top_industries'] = ['items' => $topIndustries];
         }
+        if (! empty($openSecretsSummary)) {
+            $sections['summary'] = $openSecretsSummary;
+        }
 
         return [
-            'source'     => 'OpenSecrets',
-            'source_url' => $sourceUrl,
-            'sections'   => $sections,
+            'source'           => 'OpenSecrets',
+            'source_url'       => $sourceUrl,
+            'sections'         => $sections,
+            'pac_affiliations'  => $snapshot->pac_affiliations,
+            'election_cycle'    => $snapshot->election_cycle,
         ];
     }
 

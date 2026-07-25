@@ -11,6 +11,7 @@ use App\Http\Controllers\Concerns\HandlesCampaignVideoUpload;
 use App\Http\Controllers\Concerns\PaymentModeFilterable;
 use App\Http\Controllers\Controller;
 use App\Jobs\MatchPoliticianToElectionData;
+use App\Jobs\ProcessBatchPayoutsJob;
 use App\Jobs\ProcessOcrCandidateImportJob;
 use App\Mail\CampaignReactivatedMail;
 use App\Mail\AccountUnsuspendedMail;
@@ -19,6 +20,7 @@ use App\Models\DistrictLookupSearch;
 use App\Models\EngagementSurveyResponse;
 use App\Services\ReverbBroadcastService;
 use App\Services\PoliticianElectionMatcher;
+use App\Services\TwoFactorService;
 use App\Mail\KycApprovedMail;
 use App\Mail\KycRejectedMail;
 use App\Models\AdminSecurityAuditLog;
@@ -32,6 +34,8 @@ use App\Models\PoliticalCampaign;
 use App\Models\PoliticianCredit;
 use App\Models\Politician;
 use App\Models\CitizenCampaign;
+use App\Models\CitizenTransaction;
+use App\Models\EarlyBankEarning;
 use App\Models\EarlyBankWebhookLog;
 use App\Models\PayoutAttempt;
 use App\Models\ReferralEarning;
@@ -44,9 +48,9 @@ use App\Models\VoterWatchReport;
 use App\Models\Voter;
 use App\Notifications\CampaignStatusChangedNotification;
 use App\Notifications\SystemAnnouncementNotification;
-use App\Services\AdminTwoFactorService;
 use App\Services\CampaignBillingService;
 use App\Services\CampaignModerationService;
+use App\Services\CitizenBillingService;
 use App\Services\CampaignQuestionDigestService;
 use App\Services\PoliticalPaymentService;
 use App\Services\CampaignQandAService;
@@ -397,17 +401,35 @@ class AdminController extends Controller
     /**
      * Show pending campaigns for approval.
      */
-    public function pendingCampaigns()
+    public function pendingCampaigns(Request $request)
     {
-        $campaigns = PoliticalCampaign::with('politician.user')
-            ->where('approval_status', 'pending')
-            ->latest()
-            ->paginate(20);
+        $query = PoliticalCampaign::with('politician.user')
+            ->where('approval_status', 'pending');
 
-        $citizenCampaigns = \App\Models\CitizenCampaign::with('citizen.user')
-            ->where('approval_status', 'pending')
-            ->latest()
-            ->paginate(20);
+        if ($search = $request->get('search')) {
+            $query->where(function ($q) use ($search) {
+                $q->where('title', 'like', "%{$search}%")
+                  ->orWhereHas('politician', fn ($p) =>
+                      $p->where('full_name', 'like', "%{$search}%")
+                  );
+            });
+        }
+
+        $campaigns = $query->latest()->paginate(20)->withQueryString();
+
+        $citizenQuery = \App\Models\CitizenCampaign::with('citizen.user')
+            ->where('approval_status', 'pending');
+
+        if ($citizenSearch = $request->get('citizen_search')) {
+            $citizenQuery->where(function ($q) use ($citizenSearch) {
+                $q->where('title', 'like', "%{$citizenSearch}%")
+                  ->orWhereHas('citizen', fn ($c) =>
+                      $c->where('full_name', 'like', "%{$citizenSearch}%")
+                  );
+            });
+        }
+
+        $citizenCampaigns = $citizenQuery->latest()->paginate(20, ['*'], 'citizen_page')->withQueryString();
 
         return view('standalone.admin.campaigns-pending', compact('campaigns', 'citizenCampaigns'));
     }
@@ -419,8 +441,28 @@ class AdminController extends Controller
      * moderation queues remain independent for compliance auditing.
      * Mail/notification/broadcast wiring is deferred to Phase F.
      */
-    public function approveCitizenCampaign(\App\Models\CitizenCampaign $campaign)
+    public function approveCitizenCampaign(\App\Models\CitizenCampaign $campaign, CitizenBillingService $billing)
     {
+        $citizen = $campaign->citizen;
+        if (! $citizen) {
+            return back()->withErrors(['campaign' => 'Campaign owner not found.']);
+        }
+
+        try {
+            $billing->reserveCampaignBudget($citizen, $campaign);
+        } catch (\LogicException $e) {
+            return back()->withErrors([
+                'campaign' => 'Cannot approve: ' . $e->getMessage() . ' Please add funds in the citizen billing portal.',
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to reserve citizen campaign budget', [
+                'campaign_id' => $campaign->id,
+                'citizen_id'  => $citizen->id,
+                'error'       => $e->getMessage(),
+            ]);
+            return back()->withErrors(['campaign' => 'Unable to reserve campaign budget. Please try again.']);
+        }
+
         $newStatus = ($campaign->scheduled_start_at && $campaign->scheduled_start_at->isFuture())
             ? CampaignStatus::Scheduled->value
             : CampaignStatus::Active->value;
@@ -431,9 +473,6 @@ class AdminController extends Controller
             'approved_at'     => now(),
             'started_at'      => $newStatus === CampaignStatus::Active->value ? now() : null,
         ]);
-
-        // Note: CampaignAuditLog.campaign_id FK targets political_campaigns only.
-        // Citizen campaign audit logging deferred to Phase F (polymorphic audit table).
 
         return back()->with('success', 'Citizen campaign "' . $campaign->title . '" has been approved.');
     }
@@ -1819,8 +1858,11 @@ class AdminController extends Controller
     }
 
     /**
-     * Process batch payouts — moves approved earnings to voters via PayPal
-     * (or credits the on-platform wallet for voters without a PayPal email).
+     * Process batch payouts — dispatches a queued job that moves approved
+     * earnings to voters via Stripe/PayPal/CashApp (or credits the on-platform
+     * wallet). Returns immediately so the live processor calls don't block the
+     * request. The job updates the PayoutRun status (pending → running →
+     * completed|failed) and increments its counters as it goes.
      */
     public function processBatchPayouts(Request $request)
     {
@@ -1828,20 +1870,19 @@ class AdminController extends Controller
         $paymentService = app(\App\Services\PoliticalPaymentService::class);
 
         try {
-            $results = $paymentService->processBatchPayouts(
+            $run = $paymentService->createPayoutRun(
                 triggeredByAdminId: (int) $request->user()->id,
                 triggerSource: 'admin',
             );
+            ProcessBatchPayoutsJob::dispatch($run);
         } catch (\Exception $e) {
-            Log::error('Batch payout run failed: ' . $e->getMessage());
-            return back()->withErrors(['error' => 'Payout run failed: ' . $e->getMessage()]);
+            Log::error('Batch payout run failed to dispatch: ' . $e->getMessage());
+            return back()->withErrors(['error' => 'Payout run failed to dispatch: ' . $e->getMessage()]);
         }
 
         return back()->with('success', sprintf(
-            'Batch payouts complete — %d paid ($%.2f total), %d skipped.',
-            $results['processed'],
-            $results['total_paid'],
-            $results['skipped'],
+            'Payout run #%d queued — voters will be paid in the background. Track progress on the payouts page.',
+            $run->id,
         ));
     }
 
@@ -1914,8 +1955,15 @@ class AdminController extends Controller
             ->with('politician.user')
             ->latest();
 
-        // Apply payment mode filter
-        $query = $this->applyPaymentModeFilter($query, $activePaymentMode);
+        // Show transactions in the active payment mode, plus any transaction
+        // flagged for admin review (payment-mode mismatch or excluded from
+        // analytics) regardless of mode — those are exactly the rows that
+        // need investigation and shouldn't be silently filtered out.
+        $query->where(function ($modeQuery) use ($activePaymentMode) {
+            $modeQuery->where('metadata->payment_mode', $activePaymentMode)
+                ->orWhere('metadata->payment_mode_mismatch', true)
+                ->orWhereNotNull('metadata->analytics_excluded_reason');
+        });
 
         // Allow search by politician email or name
         if ($search = $request->get('search')) {
@@ -1928,6 +1976,90 @@ class AdminController extends Controller
         $transactions = $query->paginate(20);
 
         return view('standalone.admin.billing-refunds', compact('transactions', 'activePaymentMode'));
+    }
+
+    /**
+     * List citizen credit purchases eligible for unused-credit refunds.
+     */
+    public function billingRefundsCitizen(Request $request)
+    {
+        $activePaymentMode = $this->activePaymentMode();
+
+        $query = CitizenTransaction::where('transaction_type', 'charge')
+            ->where('status', 'succeeded')
+            ->with('citizen.user')
+            ->latest();
+
+        $query = $this->applyPaymentModeFilter($query, $activePaymentMode);
+
+        if ($search = $request->get('search')) {
+            $query->whereHas('citizen', function ($q) use ($search) {
+                $q->where('full_name', 'like', "%{$search}%")
+                  ->orWhereHas('user', fn ($q2) => $q2->where('email', 'like', "%{$search}%"));
+            });
+        }
+
+        $transactions = $query->paginate(20);
+
+        return view('standalone.admin.citizen-billing-refunds', compact('transactions', 'activePaymentMode'));
+    }
+
+    /**
+     * Refund only UNUSED credits for a succeeded citizen purchase transaction.
+     */
+    public function refundUnusedCitizenCredits(Request $request, CitizenTransaction $transaction, CitizenBillingService $billingService)
+    {
+        $request->validate([
+            'credits_amount' => ['nullable', 'numeric', 'gt:0'],
+            'reason'         => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $admin = $request->user();
+        $requestedCredits = $request->filled('credits_amount')
+            ? (float) $request->input('credits_amount')
+            : null;
+        $reason = $request->input('reason');
+
+        try {
+            $summary = $billingService->getUnusedRefundSummary($transaction);
+            $refundTx = $billingService->refundUnusedCredits(
+                $transaction,
+                (int) $admin->id,
+                $requestedCredits,
+                $reason
+            );
+
+            AdminSecurityAuditLog::record(
+                $admin,
+                'admin.refund.citizen_unused_credits.success',
+                [
+                    'purchase_transaction_id' => $transaction->id,
+                    'refund_transaction_id' => $refundTx->id,
+                    'requested_credits'     => $requestedCredits,
+                    'max_refundable_before' => $summary['refundable_credits_now'] ?? null,
+                ],
+                $request
+            );
+
+            $refundedCredits = (float) ($refundTx->metadata['refunded_credits_amount'] ?? 0);
+            return back()->with('success', sprintf(
+                'Citizen refund created successfully. Refunded %.2f unused credits.',
+                $refundedCredits
+            ));
+        } catch (\Throwable $e) {
+            AdminSecurityAuditLog::record(
+                $admin,
+                'admin.refund.citizen_unused_credits.failed',
+                [
+                    'purchase_transaction_id' => $transaction->id,
+                    'requested_credits'     => $requestedCredits,
+                    'error'                 => $e->getMessage(),
+                ],
+                $request
+            );
+
+            return back()->withErrors(['refund' => $e->getMessage()]);
+        }
     }
 
     /**
@@ -2154,7 +2286,8 @@ class AdminController extends Controller
             abort(404, 'No KYC document found for this user.');
         }
 
-        $path = storage_path('app/public/' . $user->kyc_document_path);
+        // SEC-2: serve from the private `local` disk, not the public symlink.
+        $path = Storage::disk('local')->path($user->kyc_document_path);
 
         if (!file_exists($path)) {
             abort(404, 'KYC document file not found on server.');
@@ -2269,6 +2402,10 @@ class AdminController extends Controller
         $ebAttributed   = Voter::whereNotNull('earlybank_member_id')->count();
         $ebEnrollRate   = $totalVoters > 0 ? round(($ebEnrolled / $totalVoters) * 100, 1) : 0.0;
 
+        // ── Early-bank reported earnings (actual money, not payment-mode scoped) ──
+        $ebTotalCommissions = (float) EarlyBankEarning::forEventType(EarlyBankEarning::EVENT_PAYOUT_COMMISSION)->sum('payout_amount');
+        $ebTotalBonuses     = (float) EarlyBankEarning::forEventType(EarlyBankEarning::EVENT_PAYOUT_BONUS)->sum('payout_amount');
+
         // ── Citizen campaigns ──────────────────────────────────────────────
         $citizenTotals = CitizenCampaign::query()
             ->selectRaw('COUNT(*) as total_campaigns')
@@ -2369,6 +2506,8 @@ class AdminController extends Controller
                 'attributed'     => $ebAttributed,
                 'total_voters'   => $totalVoters,
                 'enroll_rate_pct' => $ebEnrollRate,
+                'total_referral_commissions' => $ebTotalCommissions,
+                'total_referral_bonuses'     => $ebTotalBonuses,
             ],
             // Citizen campaigns
             'citizen_campaigns' => [
@@ -3890,7 +4029,7 @@ HTML;
     /**
      * Show admin TOTP setup page.
      */
-    public function twoFactorSetup(Request $request, AdminTwoFactorService $twoFactorService)
+    public function twoFactorSetup(Request $request, TwoFactorService $twoFactorService)
     {
         $user = $request->user();
         $isEnabled = $user->hasAdminTwoFactorEnabled();
@@ -3907,7 +4046,13 @@ HTML;
                 $request->session()->put('admin_2fa_setup_secret', $setupSecret);
             }
 
-            $otpAuthUrl = $twoFactorService->getOtpAuthUrl($user, $setupSecret);
+            $label = config('app.name', 'U9itus') . ' Admin:' . $user->email;
+            $otpAuthUrl = $twoFactorService->getOtpAuthUrl(
+                $user,
+                $setupSecret,
+                label: $label,
+                logoPath: 'media/u9itus-logo.svg',
+            );
             $otpQrSvg = $twoFactorService->renderOtpAuthQrSvg($otpAuthUrl);
         }
 
@@ -3917,7 +4062,7 @@ HTML;
     /**
      * Confirm and enable admin TOTP.
      */
-    public function enableTwoFactor(Request $request, AdminTwoFactorService $twoFactorService)
+    public function enableTwoFactor(Request $request, TwoFactorService $twoFactorService)
     {
         $request->validate([
             'code' => ['required', 'digits:6'],
@@ -4002,7 +4147,7 @@ HTML;
     /**
      * Disable admin TOTP after credential verification.
      */
-    public function disableTwoFactor(Request $request, AdminTwoFactorService $twoFactorService)
+    public function disableTwoFactor(Request $request, TwoFactorService $twoFactorService)
     {
         $request->validate([
             'current_password' => ['required', 'current_password'],
@@ -4048,7 +4193,7 @@ HTML;
     /**
      * Rotate recovery codes after password + authenticator verification.
      */
-    public function rotateRecoveryCodes(Request $request, AdminTwoFactorService $twoFactorService)
+    public function rotateRecoveryCodes(Request $request, TwoFactorService $twoFactorService)
     {
         $request->validate([
             'current_password' => ['required', 'current_password'],

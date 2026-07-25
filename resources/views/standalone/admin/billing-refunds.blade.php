@@ -53,28 +53,46 @@
                     @foreach($transactions as $tx)
                     @php
                         $politician = $tx->politician;
-                        $creditsAmount = isset($tx->metadata['credits_amount']) 
+                        $creditsAmount = isset($tx->metadata['credits_amount'])
                             ? (float) $tx->metadata['credits_amount']
                             : (float) $tx->amount;
-                        
-                        try {
-                            // Get refund summary to show unused credits
-                            $summary = app(\App\Services\CampaignBillingService::class)
-                                ->getUnusedRefundSummary($tx);
-                            $refundable = $summary['refundable_credits_now'];
-                            $hasUnused = $refundable > 0;
-                        } catch (\Exception $e) {
+
+                        // A flagged row's ledger entry doesn't reflect a normal purchase
+                        // (credits withheld or excluded from analytics for a known reason),
+                        // so the refund-summary math isn't meaningful for it — surface the
+                        // flag instead of a possibly-misleading Unused/Refund figure.
+                        $flagReason = $tx->metadata['analytics_excluded_reason']
+                            ?? (($tx->metadata['payment_mode_mismatch'] ?? false) ? 'payment_mode_mismatch' : null);
+
+                        if ($flagReason) {
                             $refundable = 0;
                             $hasUnused = false;
+                        } else {
+                            try {
+                                // Get refund summary to show unused credits
+                                $summary = app(\App\Services\CampaignBillingService::class)
+                                    ->getUnusedRefundSummary($tx);
+                                $refundable = $summary['refundable_credits_now'];
+                                $hasUnused = $refundable > 0;
+                            } catch (\Exception $e) {
+                                $refundable = 0;
+                                $hasUnused = false;
+                            }
                         }
                     @endphp
-                    <tr class="hover:bg-slate-700/20 transition">
+                    <tr class="hover:bg-slate-700/20 transition {{ $flagReason ? 'bg-red-500/5' : '' }}">
                         <td class="px-5 py-3">
                             @if($politician)
                                 <div class="text-sm text-slate-200 font-medium">{{ $politician->full_name }}</div>
                                 <div class="text-xs text-slate-500">{{ $politician->user?->email }}</div>
                             @else
                                 <div class="text-sm text-slate-500">—</div>
+                            @endif
+                            @if($flagReason)
+                                <div class="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide bg-red-500/15 text-red-300 border border-red-500/30"
+                                    title="{{ $tx->metadata['payment_mode_mismatch_note'] ?? 'Excluded from analytics: ' . $flagReason }}">
+                                    ⚠ {{ str_replace('_', ' ', $flagReason) }}
+                                </div>
                             @endif
                         </td>
                         <td class="px-5 py-3 text-xs text-slate-400">
@@ -84,22 +102,19 @@
                             ${{ number_format($creditsAmount, 2) }}
                         </td>
                         <td class="px-5 py-3 text-right font-mono text-slate-400">
-                            @php
-                                $spent = 0;
-                                if ($politician) {
-                                    // Sum usage charges for this politician
-                                    $spent = \App\Models\PoliticianCredit::where('politician_id', $politician->id)
-                                        ->where('transaction_type', 'usage')
-                                        ->where('created_at', '>=', $tx->created_at)
-                                        ->where('created_at', '<=', $tx->updated_at->addMonths(1)) // reasonable window
-                                        ->sum('amount');
-                                    $spent = abs($spent); // usage is negative
-                                }
-                            @endphp
-                            ${{ number_format(abs($spent), 2) }}
+                            @if($flagReason)
+                                <span class="text-slate-500">—</span>
+                            @else
+                                {{-- Credits are pooled across purchases (no per-purchase-lot tracking), so
+                                     "spent" for one purchase row isn't independently observable. Derive it
+                                     from the same refund cap below so Spent + Unused always equals Amount. --}}
+                                ${{ number_format(max(0, $creditsAmount - $refundable), 2) }}
+                            @endif
                         </td>
                         <td class="px-5 py-3 text-right font-mono">
-                            @if($hasUnused)
+                            @if($flagReason)
+                                <span class="text-slate-500">—</span>
+                            @elseif($hasUnused)
                                 <span class="font-semibold text-amber-400">
                                     ${{ number_format($refundable, 2) }}
                                 </span>
@@ -108,7 +123,9 @@
                             @endif
                         </td>
                         <td class="px-5 py-3 text-center">
-                            @if($hasUnused)
+                            @if($flagReason)
+                                <span class="text-xs text-red-300">Needs review</span>
+                            @elseif($hasUnused)
                                 <button type="button"
                                     onclick="openRefundModal({{ $tx->id }}, '{{ $politician?->full_name }}', {{ $creditsAmount }}, {{ $refundable }})"
                                     class="px-3 py-1 bg-amber-600 hover:bg-amber-500 text-white text-xs font-medium rounded transition">
@@ -132,10 +149,11 @@
 </div>
 
 <!-- Refund Modal -->
-<div id="refundModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+<div id="refundModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+     role="dialog" aria-modal="true" aria-labelledby="refundModal-title" tabindex="-1">
     <div class="bg-slate-800 border border-slate-700 rounded-xl max-w-md w-full mx-4 shadow-2xl">
         <div class="px-6 py-4 border-b border-slate-700">
-            <h3 class="text-lg font-semibold text-white">Refund Unused Credits</h3>
+            <h3 id="refundModal-title" class="text-lg font-semibold text-white">Refund Unused Credits</h3>
         </div>
 
         <form id="refundForm" method="POST" class="space-y-4 p-6">
@@ -205,7 +223,9 @@ function openRefundModal(txId, politicianName, creditsPurchased, refundableAmoun
     const form = document.getElementById('refundForm');
     form.action = `/admin/billing/transactions/${txId}/refund-unused`;
     
-    document.getElementById('refundModal').classList.remove('hidden');
+    const modal = document.getElementById('refundModal');
+    modal.classList.remove('hidden');
+    modal.focus();
 }
 
 function closeRefundModal() {
@@ -216,6 +236,10 @@ function closeRefundModal() {
 // Close modal when clicking outside
 document.getElementById('refundModal')?.addEventListener('click', function(e) {
     if (e.target === this) closeRefundModal();
+});
+
+document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') closeRefundModal();
 });
 </script>
 

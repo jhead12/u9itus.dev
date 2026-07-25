@@ -25,6 +25,17 @@ class UpdateCitizenCampaignRequest extends FormRequest
     }
 
     /**
+     * Checkboxes are omitted from the request when unchecked, so normalize
+     * the repeat-view toggle to a boolean up front (lets a sponsor disable it).
+     */
+    protected function prepareForValidation(): void
+    {
+        $this->merge([
+            'allow_repeat_views' => $this->boolean('allow_repeat_views'),
+        ]);
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function rules(): array
@@ -52,6 +63,8 @@ class UpdateCitizenCampaignRequest extends FormRequest
             'title'                 => ['sometimes', 'required', 'string', 'max:255'],
             'message_summary'       => ['nullable', 'string', 'max:2000'],
             'video_blurb'           => ['nullable', 'string', 'max:5000'],
+            'call_to_action_url'    => ['nullable', 'url', 'max:2048'],
+            'call_to_action_label'  => ['nullable', 'string', 'max:60'],
             'campaign_type'         => ['sometimes', 'required', 'in:video,live_feed'],
             'citizen_ad_type'       => ['sometimes', 'required', 'in:' . $adTypes],
             'media_url'             => ['nullable', 'url'],

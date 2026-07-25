@@ -2,22 +2,36 @@
 
 namespace App\Http\Controllers\Standalone;
 
-use App\Http\Controllers\Controller;
 use App\Enums\ApprovalStatus;
 use App\Enums\CampaignStatus;
+use App\Http\Controllers\Controller;
+use App\Models\CandidateNewsArticle;
 use App\Models\DistrictLookupSearch;
 use App\Models\ElectionCandidateRecord;
 use App\Models\Politician;
+use App\Models\PoliticianPage;
+use App\Models\PoliticianTopic;
+use App\Models\StateElectionDate;
 use App\Models\VoterWatchReport;
+use App\Services\BallotpediaService;
 use App\Services\CongressGovService;
+use App\Services\DistrictLookupService;
+use App\Services\FECService;
 use App\Services\GoogleCivicService;
 use App\Services\GoogleCivicVoterInfoService;
-use Illuminate\Pagination\LengthAwarePaginator;
+use App\Services\LocalCandidateAggregator;
+use App\Services\OpenSecretsService;
+use App\Services\PlatformSettingsService;
+use App\Services\VoteSmartService;
+use App\Services\Web3\MeTokenSubgraphService;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 
 /**
  * Phase 13 — Public Politician Profile Pages
@@ -55,7 +69,7 @@ class PublicProfileController extends Controller
             if ($validator->fails()) {
                 $error = 'Please enter a valid street address.';
             } else {
-                $lookupService = app(\App\Services\DistrictLookupService::class);
+                $lookupService = app(DistrictLookupService::class);
                 $lookupResult = $lookupService->lookup($address);
 
                 if (! $lookupResult) {
@@ -111,15 +125,15 @@ class PublicProfileController extends Controller
         }
 
         return view('standalone.public.district-lookup', [
-            'address'          => $address,
-            'lookupResult'     => $lookupResult,
-            'candidates'       => $candidates,
-            'runningCandidates'=> $runningCandidates,
-            'runningGrid'      => $runningGrid ?? collect(),
-            'topContenders'    => $topContenders,
+            'address' => $address,
+            'lookupResult' => $lookupResult,
+            'candidates' => $candidates,
+            'runningCandidates' => $runningCandidates,
+            'runningGrid' => $runningGrid ?? collect(),
+            'topContenders' => $topContenders,
             'currentOfficials' => $currentOfficials,
-            'states'           => $states,
-            'error'            => $error,
+            'states' => $states,
+            'error' => $error,
         ]);
     }
 
@@ -169,22 +183,22 @@ class PublicProfileController extends Controller
                 $state = strtoupper(trim((string) ($official['state'] ?? '')));
 
                 return [
-                    'full_name'         => $fullName,
-                    'political_office'  => $office,
-                    'governance_level'  => trim((string) ($official['governance_level'] ?? 'Local')),
+                    'full_name' => $fullName,
+                    'political_office' => $office,
+                    'governance_level' => trim((string) ($official['governance_level'] ?? 'Local')),
                     'party_affiliation' => trim((string) ($official['party_affiliation'] ?? '')),
-                    'state'             => $state,
-                    'district_code'     => trim((string) ($official['district_code'] ?? '')),
-                    'website'           => $this->sanitizePublicWebsiteUrl($official['website'] ?? null) ?? '',
-                    'source'            => trim((string) ($official['source'] ?? 'google_civic')),
-                    'discovery_links'   => $this->buildDiscoveryLinks($fullName, $office, $state),
+                    'state' => $state,
+                    'district_code' => trim((string) ($official['district_code'] ?? '')),
+                    'website' => $this->sanitizePublicWebsiteUrl($official['website'] ?? null) ?? '',
+                    'source' => trim((string) ($official['source'] ?? 'google_civic')),
+                    'discovery_links' => $this->buildDiscoveryLinks($fullName, $office, $state),
                 ];
             })
             ->filter(function (array $official): bool {
                 return ($official['full_name'] ?? '') !== '';
             })
             ->unique(function (array $official): string {
-                return strtolower(($official['full_name'] ?? '') . '|' . ($official['political_office'] ?? ''));
+                return strtolower(($official['full_name'] ?? '').'|'.($official['political_office'] ?? ''));
             })
             ->values();
     }
@@ -192,7 +206,7 @@ class PublicProfileController extends Controller
     /**
      * Fallback current officeholders from Congress.gov for the resolved district.
      *
-     * @param array<string, mixed> $lookupResult
+     * @param  array<string, mixed>  $lookupResult
      * @return Collection<int, array<string, mixed>>
      */
     protected function findCurrentOfficialsForDistrictFromCongress(array $lookupResult): Collection
@@ -254,8 +268,8 @@ class PublicProfileController extends Controller
     /**
      * Fallback current officeholders from local election records for the resolved district.
      *
-     * @param array<string, mixed> $lookupResult
-     * @param array<string, string> $states
+     * @param  array<string, mixed>  $lookupResult
+     * @param  array<string, string>  $states
      * @return Collection<int, array<string, mixed>>
      */
     protected function findCurrentOfficialsForDistrictFromRecords(array $lookupResult, array $states): Collection
@@ -284,7 +298,7 @@ class PublicProfileController extends Controller
                     if (preg_match('/^\d+$/', $variant)) {
                         $q->orWhere('district', '=', $variant);
                     } else {
-                        $q->orWhere('district', 'like', '%' . $variant . '%');
+                        $q->orWhere('district', 'like', '%'.$variant.'%');
                     }
                 }
             })
@@ -313,7 +327,7 @@ class PublicProfileController extends Controller
                 return ($official['full_name'] ?? '') !== '';
             })
             ->unique(function (array $official): string {
-                return strtolower(($official['full_name'] ?? '') . '|' . ($official['political_office'] ?? ''));
+                return strtolower(($official['full_name'] ?? '').'|'.($official['political_office'] ?? ''));
             })
             ->values();
     }
@@ -333,7 +347,7 @@ class PublicProfileController extends Controller
     }
 
     /**
-     * @param array<string, mixed> $lookupResult
+     * @param  array<string, mixed>  $lookupResult
      */
     protected function discoverCandidatesFromGoogleCivic(string $address, array $lookupResult): Collection
     {
@@ -372,15 +386,15 @@ class PublicProfileController extends Controller
             ->withCount([
                 'campaigns as active_campaigns_count' => function ($q) {
                     $q->where('status', 'active')
-                      ->where('approval_status', 'approved');
+                        ->where('approval_status', 'approved');
                 },
             ])
             ->get();
     }
 
     /**
-     * @param array<string, mixed> $official
-     * @param array<string, mixed> $lookupResult
+     * @param  array<string, mixed>  $official
+     * @param  array<string, mixed>  $lookupResult
      */
     protected function persistDiscoveredOfficial(array $official, array $lookupResult, string $address): ?int
     {
@@ -394,12 +408,12 @@ class PublicProfileController extends Controller
         $districtCode = trim((string) ($official['district_code'] ?? ($lookupResult['district_code'] ?? '')));
         $district = $districtCode !== '' ? $districtCode : null;
         if ($district === null && ($official['district_number'] ?? null) !== null) {
-            $district = $state . '-' . str_pad((string) ((int) $official['district_number']), 2, '0', STR_PAD_LEFT);
+            $district = $state.'-'.str_pad((string) ((int) $official['district_number']), 2, '0', STR_PAD_LEFT);
         }
 
         $externalId = trim((string) ($official['external_id'] ?? ''));
         if ($externalId === '') {
-            $externalId = 'google_civic_' . md5(strtolower($fullName . '|' . $office . '|' . $state));
+            $externalId = 'google_civic_'.md5(strtolower($fullName.'|'.$office.'|'.$state));
         }
 
         ElectionCandidateRecord::updateOrCreate(
@@ -492,9 +506,9 @@ class PublicProfileController extends Controller
         $query = implode(' ', $queryParts);
 
         return [
-            'wikipedia' => 'https://en.wikipedia.org/w/index.php?search=' . rawurlencode($query),
-            'youtube' => 'https://www.youtube.com/results?search_query=' . rawurlencode($query),
-            'cspan' => 'https://www.c-span.org/search/?searchtype=Videos&ssearch=' . rawurlencode($query),
+            'wikipedia' => 'https://en.wikipedia.org/w/index.php?search='.rawurlencode($query),
+            'youtube' => 'https://www.youtube.com/results?search_query='.rawurlencode($query),
+            'cspan' => 'https://www.c-span.org/search/?searchtype=Videos&ssearch='.rawurlencode($query),
         ];
     }
 
@@ -522,7 +536,7 @@ class PublicProfileController extends Controller
     }
 
     /**
-     * @param array<string, mixed>|null $lookupResult
+     * @param  array<string, mixed>|null  $lookupResult
      */
     protected function recordDistrictLookupSearch(
         Request $request,
@@ -574,9 +588,9 @@ class PublicProfileController extends Controller
 
     /**
      * Display a directory of all active politicians on the platform.
-        *
-        * Public browsing is view-only. Guests may research profiles and transparency
-        * data without entering any earning flow.
+     *
+     * Public browsing is view-only. Guests may research profiles and transparency
+     * data without entering any earning flow.
      */
     public function index(Request $request)
     {
@@ -601,53 +615,85 @@ class PublicProfileController extends Controller
             }
         }
 
-        $politicianTable = (new Politician())->getTable();
+        $politicianTable = (new Politician)->getTable();
         $hasZipColumn = Schema::hasColumn($politicianTable, 'zip_code');
 
         $query = Politician::query()
             ->where('page_published', true)
             ->where('is_active', true)
-            ->with(['campaigns' => function($q) {
+            ->with(['campaigns' => function ($q) {
                 $q->where('status', 'active')->where('approval_status', 'approved');
             }]);
 
         if ($zipInput !== '' && $zipValidationError === null && $hasZipColumn) {
             $zipPrefix = substr($normalizedZip, 0, 5);
-            $query->where('zip_code', 'like', $zipPrefix . '%');
+            $query->where('zip_code', 'like', $zipPrefix.'%');
         }
 
         // Search filter
         if ($search = $request->input('q')) {
-            $query->where(function($q) use ($search) {
-                $q->where('full_name', 'like', '%' . $search . '%')
-                  ->orWhere('political_office', 'like', '%' . $search . '%')
-                  ->orWhere('bio', 'like', '%' . $search . '%');
+            $query->where(function ($q) use ($search) {
+                $q->where('full_name', 'like', '%'.$search.'%')
+                    ->orWhere('political_office', 'like', '%'.$search.'%')
+                    ->orWhere('bio', 'like', '%'.$search.'%');
             });
         }
 
-        // District filter (free-text, tolerant of formatting differences)
+        // District filter (free-text, tolerant of formatting differences).
+        // When a state is also given, expand into the same match variants
+        // used by the address-based district lookup (see districtVariants()
+        // below) so "33" reliably matches rows stored as "CA-33", "District 33",
+        // etc. — a bare LIKE alone under-matches most real district values.
         if ($district = trim((string) $request->input('district', ''))) {
-            $query->where('district', 'like', '%' . $district . '%');
+            $districtState = strtoupper(trim((string) $request->input('state', '')));
+
+            if ($districtState !== '') {
+                $variants = $this->districtVariants($districtState, $district);
+                $query->where(function ($q) use ($variants) {
+                    foreach ($variants as $variant) {
+                        if (preg_match('/^\d+$/', $variant)) {
+                            $q->orWhere('district', '=', $variant);
+                        } else {
+                            $q->orWhere('district', 'like', '%'.$variant.'%');
+                        }
+                    }
+                });
+            } else {
+                $query->where('district', 'like', '%'.$district.'%');
+            }
         }
 
-        // Topic filter: match profile bio + campaign titles/summaries + initiative text
+        // Topic filter: when ?topic= matches a politician_topics slug, match the
+        // structured badge relationship (so a politician badged "climate-action"
+        // is returned even when "climate" isn't literally in their bio). Keep
+        // the free-text bio/campaign/initiative LIKE matches as a fallback so
+        // ad-hoc topic queries that aren't a catalog slug still work.
         if ($topic = trim((string) $request->input('topic', ''))) {
-            $query->where(function ($q) use ($topic) {
-                $q->where('bio', 'like', '%' . $topic . '%')
-                  ->orWhereHas('campaigns', function ($cq) use ($topic) {
-                      $cq->where('approval_status', 'approved')
-                         ->where(function ($sq) use ($topic) {
-                             $sq->where('title', 'like', '%' . $topic . '%')
-                                ->orWhere('message_summary', 'like', '%' . $topic . '%');
-                         });
-                  })
-                  ->orWhereHas('initiatives', function ($iq) use ($topic) {
-                      $iq->where('is_published', true)
-                         ->where(function ($sq) use ($topic) {
-                             $sq->where('title', 'like', '%' . $topic . '%')
-                                ->orWhere('description', 'like', '%' . $topic . '%');
-                         });
-                  });
+            $topicRow = PoliticianTopic::where('slug', $topic)->where('is_active', true)->first();
+
+            $query->where(function ($q) use ($topic, $topicRow) {
+                $q->where('bio', 'like', '%'.$topic.'%')
+                    ->orWhereHas('campaigns', function ($cq) use ($topic) {
+                        $cq->where('approval_status', 'approved')
+                            ->where(function ($sq) use ($topic) {
+                                $sq->where('title', 'like', '%'.$topic.'%')
+                                    ->orWhere('message_summary', 'like', '%'.$topic.'%');
+                            });
+                    })
+                    ->orWhereHas('initiatives', function ($iq) use ($topic) {
+                        $iq->where('is_published', true)
+                            ->where(function ($sq) use ($topic) {
+                                $sq->where('title', 'like', '%'.$topic.'%')
+                                    ->orWhere('description', 'like', '%'.$topic.'%');
+                            });
+                    });
+
+                // Structured badge match (self-declared + inferred discourse).
+                if ($topicRow) {
+                    $q->orWhereHas('publicBadges', function ($bq) use ($topicRow) {
+                        $bq->where('topic_id', $topicRow->id);
+                    });
+                }
             });
         }
 
@@ -664,6 +710,15 @@ class PublicProfileController extends Controller
         // Party filter
         if ($party = $request->input('party')) {
             $query->where('party_affiliation', $party);
+        }
+
+        // Status filter: currently running for office vs already seated
+        if ($status = $request->input('status')) {
+            if ($status === 'running') {
+                $query->where('is_running_candidate', true);
+            } elseif ($status === 'seated') {
+                $query->where('term_status', 'seated');
+            }
         }
 
         // Unclaimed-only filter
@@ -710,8 +765,8 @@ class PublicProfileController extends Controller
         try {
             if (Schema::hasTable('candidate_news_articles')) {
                 $politicianIds = collect($politicians->items())->pluck('id')->filter()->all();
-                if (!empty($politicianIds)) {
-                    \App\Models\CandidateNewsArticle::query()
+                if (! empty($politicianIds)) {
+                    CandidateNewsArticle::query()
                         ->whereIn('politician_id', $politicianIds)
                         ->where('scraped_at', '>=', now()->subHours(24))
                         ->orderByDesc('published_at')
@@ -726,6 +781,16 @@ class PublicProfileController extends Controller
             Log::warning('Failed to load directory news headlines', ['error' => $e->getMessage()]);
         }
 
+        // Active topic catalog for the browse-page topic chip row (one-click
+        // filtering by issue). Ordered by sort_order; cached lightly to avoid a
+        // query per directory load.
+        $topics = Cache::remember('issues:directory-topics', 300, function () {
+            return PoliticianTopic::where('is_active', true)
+                ->orderBy('sort_order')
+                ->orderBy('name')
+                ->get(['id', 'slug', 'name', 'icon', 'badge_color']);
+        });
+
         $view = $useVoterLayout
             ? 'standalone.voter.politicians-directory'
             : 'standalone.public.politicians-directory';
@@ -738,7 +803,8 @@ class PublicProfileController extends Controller
             'isGuestBrowsing',
             'zipInput',
             'zipValidationError',
-            'latestNewsMap'
+            'latestNewsMap',
+            'topics'
         ));
     }
 
@@ -749,7 +815,7 @@ class PublicProfileController extends Controller
      * (same normalized name + state + profile photo or website), which avoids
      * merging unrelated local/state officials who happen to share a name.
      *
-     * @param Collection<int, Politician> $politicians
+     * @param  Collection<int, Politician>  $politicians
      * @return Collection<int, Politician>
      */
     protected function collapseDirectoryDuplicates(Collection $politicians): Collection
@@ -790,18 +856,18 @@ class PublicProfileController extends Controller
     protected function directoryIdentityKey(Politician $politician): string
     {
         if ($politician->user_id !== null) {
-            return 'claimed:' . $politician->id;
+            return 'claimed:'.$politician->id;
         }
 
         if (! $this->isFederalOfficial($politician)) {
-            return 'non-federal:' . $politician->id;
+            return 'non-federal:'.$politician->id;
         }
 
-        $name  = strtolower(trim((string) $politician->full_name));
+        $name = strtolower(trim((string) $politician->full_name));
         $state = strtoupper(trim((string) $politician->state));
 
         if ($name === '' || $state === '') {
-            return 'fallback:' . $politician->id;
+            return 'fallback:'.$politician->id;
         }
 
         // Primary key: ballotpedia_id is the strongest identity signal — two rows
@@ -809,7 +875,7 @@ class PublicProfileController extends Controller
         // office title, photo URL, or governance_level discrepancies.
         $bpId = trim((string) ($politician->ballotpedia_id ?? ''));
         if ($bpId !== '') {
-            return 'federal-bp:' . $bpId;
+            return 'federal-bp:'.$bpId;
         }
 
         // Secondary: collapse by name + state alone for unclaimed federal officials.
@@ -818,7 +884,7 @@ class PublicProfileController extends Controller
         // governance_level=Local vs Federal mismatch from different import sources).
         // Photo/website are intentionally NOT used as sub-keys because they often
         // differ between import sources for the same real person.
-        return 'federal:' . $name . '|' . $state;
+        return 'federal:'.$name.'|'.$state;
     }
 
     protected function preferDirectoryPolitician(Politician $preferred, Politician $candidate): Politician
@@ -826,8 +892,8 @@ class PublicProfileController extends Controller
         // 1. Prefer the record whose office matches the person's most recent role.
         //    A U.S. Senator record beats a U.S. Representative record (House→Senate transition).
         $senateKeywords = ['senator', 'senate'];
-        $prefIsSenate  = $this->officeContainsKeyword($preferred, $senateKeywords);
-        $candIsSenate  = $this->officeContainsKeyword($candidate, $senateKeywords);
+        $prefIsSenate = $this->officeContainsKeyword($preferred, $senateKeywords);
+        $candIsSenate = $this->officeContainsKeyword($candidate, $senateKeywords);
         if ($candIsSenate !== $prefIsSenate) {
             return $candIsSenate ? $candidate : $preferred;
         }
@@ -869,11 +935,12 @@ class PublicProfileController extends Controller
                 return true;
             }
         }
+
         return false;
     }
 
     /**
-     * @param Collection<int, Politician> $politicians
+     * @param  Collection<int, Politician>  $politicians
      * @return Collection<int, Politician>
      */
     protected function sortDirectoryResults(Collection $politicians, string $sortBy): Collection
@@ -891,7 +958,7 @@ class PublicProfileController extends Controller
     }
 
     /**
-     * @param Collection<int, Politician> $politicians
+     * @param  Collection<int, Politician>  $politicians
      */
     protected function paginateDirectoryResults(Collection $politicians, Request $request, int $perPage = 24): LengthAwarePaginator
     {
@@ -921,7 +988,7 @@ class PublicProfileController extends Controller
         $politician = $this->resolvePublicPolitician($slug);
 
         // If still not found, throw 404
-        if (!$politician) {
+        if (! $politician) {
             abort(404);
         }
 
@@ -935,17 +1002,17 @@ class PublicProfileController extends Controller
         // (favourites, claim status, etc.) is always current.
         if ($isGuestBrowsing && ! $request->has('refresh')) {
             $pageCacheKey = "profile.page.{$politician->id}";
-            $cached = \Illuminate\Support\Facades\Cache::get($pageCacheKey);
+            $cached = Cache::get($pageCacheKey);
             if ($cached !== null) {
                 return response($cached, 200)->header('Content-Type', 'text/html');
             }
         }
 
         // Eager-load what we need for the public page
-        $politician->load(['page', 'initiatives' => fn($q) => $q->published()->ordered()]);
+        $politician->load(['page', 'initiatives' => fn ($q) => $q->published()->ordered()]);
 
         // Page config (use defaults if politician hasn't saved one yet)
-        $page = $politician->page ?? new \App\Models\PoliticianPage(\App\Models\PoliticianPage::defaults($politician->id));
+        $page = $politician->page ?? new PoliticianPage(PoliticianPage::defaults($politician->id));
 
         // Separate current campaign activity from archived campaign history.
         $runningCampaigns = $politician->campaigns()
@@ -956,7 +1023,7 @@ class PublicProfileController extends Controller
                 CampaignStatus::Scheduled,
                 CampaignStatus::Paused,
             ])
-            ->orderByRaw("case when status = ? then 0 when status = ? then 1 else 2 end", [
+            ->orderByRaw('case when status = ? then 0 when status = ? then 1 else 2 end', [
                 CampaignStatus::Active->value,
                 CampaignStatus::Scheduled->value,
             ])
@@ -1003,8 +1070,19 @@ class PublicProfileController extends Controller
 
         $initiatives = $politician->initiatives;
 
+        $posts = $politician->posts()
+            ->published()
+            ->with('topics')
+            ->latest('published_at')
+            ->take(6)
+            ->get();
+
         $transparencyData = $this->buildTransparencyData($politician);
         $digDeeperData = $this->buildDigDeeperData($politician, $transparencyData);
+
+        // News-detected endorsements (e.g. "Governor Endorsed") — distinct from the
+        // donor-inferred PAC affiliation chips rendered from $transparencyData below.
+        $endorsements = $politician->endorsements()->active()->get();
 
         // Sprint 7 — MeToken subgraph enrichment (read-only, gated).
         // Only fetched when the platform kill-switch is on, the politician is
@@ -1014,7 +1092,7 @@ class PublicProfileController extends Controller
 
         // Load candidate record (e.g. congress_legislators import) to show term/election status
         $termInfo = null;
-        $candidateRecord = \App\Models\ElectionCandidateRecord::where('state', $politician->state)
+        $candidateRecord = ElectionCandidateRecord::where('state', $politician->state)
             ->whereRaw('LOWER(full_name) = ?', [strtolower((string) $politician->full_name)])
             ->orderByDesc('last_seen_at')
             ->first();
@@ -1026,26 +1104,39 @@ class PublicProfileController extends Controller
             if ($terms) {
                 $termInfo = [
                     'start' => $terms['start'] ?? null,
-                    'end'   => $terms['end']   ?? null,
-                    'type'  => $terms['type']  ?? null,
+                    'end' => $terms['end'] ?? null,
+                    'type' => $terms['type'] ?? null,
                 ];
             }
         }
 
+        // Real primary/general election dates + candidate filing deadlines
+        // for this politician's state, synced from Vote Smart
+        // (php artisan elections:sync-dates). Cached per-state since the
+        // underlying data only changes on the monthly sync, same pattern as
+        // buildTransparencyData()'s 1h cache below.
+        $electionDates = $politician->state
+            ? Cache::remember(
+                "state_election_dates:{$politician->state}",
+                3600,
+                fn () => StateElectionDate::upcomingForState($politician->state)
+            )
+            : [];
+
         // Build Open Graph meta
-        $ogTitle       = $politician->full_name . ' — ' . ($politician->political_office ?? 'Politician');
+        $ogTitle = $politician->full_name.' — '.($politician->political_office ?? 'Politician');
         $ogDescription = $politician->bio
-            ? \Illuminate\Support\Str::limit($politician->bio, 160)
+            ? Str::limit($politician->bio, 160)
             : "Research {$politician->full_name}'s campaign messages, profile, and public records on U9itus.";
-        $ogImage       = $page->hero_banner_url ?? $politician->profile_photo_url ?? null;
-        $ogUrl         = route('politician.public.show', $slug);
+        $ogImage = $page->hero_banner_url ?? $politician->profile_photo_url ?? null;
+        $ogUrl = route('politician.public.show', $slug);
 
         // Load cached news articles only — never trigger live RSS fetching on a web request.
         // The artisan command (candidates:refresh-news) handles background fetching on a schedule.
         $newsArticles = collect();
         try {
             if (Schema::hasTable('candidate_news_articles')) {
-                $newsArticles = \App\Models\CandidateNewsArticle::query()
+                $newsArticles = CandidateNewsArticle::query()
                     ->where('politician_id', $politician->id)
                     ->orderByDesc('published_at')
                     ->limit(60)
@@ -1060,27 +1151,41 @@ class PublicProfileController extends Controller
 
         // Build source map for the news filter pills.
         $nationalSources = config('news_sources.national', []);
-        $stateSources    = config('news_sources.state.' . strtoupper((string) ($politician->state ?? '')), []);
+        $stateSources = config('news_sources.state.'.strtoupper((string) ($politician->state ?? '')), []);
         $sourceMap = [];
         foreach (array_merge($nationalSources, $stateSources) as $src) {
             $sourceMap[$src['id']] = ['label' => $src['label'], 'icon' => $src['icon']];
         }
         $sourceMap['newsapi'] = ['label' => 'NewsAPI', 'icon' => '📰'];
-        $sourceMap['gnews']   = ['label' => 'GNews',   'icon' => '📰'];
+        $sourceMap['gnews'] = ['label' => 'GNews',   'icon' => '📰'];
 
-        $newsTotal       = $newsArticles->count();
-        $newsArticles    = $newsArticles->take(6);
+        $newsTotal = $newsArticles->count();
+        $newsArticles = $newsArticles->take(6);
         $activeProviders = $newsArticles->pluck('provider')->unique()->values()->all();
-        $articlesJson    = $newsArticles->map(fn($a) => [
-            'id'           => $a->id,
-            'provider'     => $a->provider,
-            'headline'     => $a->headline,
-            'source_name'  => $a->source_name,
-            'source_url'   => $a->source_url,
-            'snippet'      => $a->snippet,
-            'image_url'    => $a->image_url,
+        $articlesJson = $newsArticles->map(fn ($a) => [
+            'id' => $a->id,
+            'provider' => $a->provider,
+            'headline' => $a->headline,
+            'source_name' => $a->source_name,
+            'source_url' => $a->source_url,
+            'snippet' => $a->snippet,
+            'image_url' => $a->image_url,
             'published_at' => $a->published_at?->diffForHumans(),
         ])->values()->toJson();
+
+        // Issue-context badge chips for the profile hero: the politician's
+        // public topic badges (self-declared + inferred discourse), rendered as
+        // clickable chips that link to the browse page's structured topic filter.
+        $issueContextTags = $politician->publicBadges
+            ->map(fn ($badge) => [
+                'name' => $badge->topic?->name ?? '',
+                'slug' => $badge->topic?->slug ?? '',
+                'color' => $badge->topic?->badge_color ?? '#6366f1',
+                'icon' => $badge->topic?->icon ?? null,
+            ])
+            ->filter(fn ($tag) => ! empty($tag['name']) && ! empty($tag['slug']))
+            ->take(8)
+            ->values();
 
         $view = view('standalone.public.profile', compact(
             'politician',
@@ -1089,10 +1194,13 @@ class PublicProfileController extends Controller
             'pastCampaigns',
             'publicBoardQuestions',
             'initiatives',
+            'posts',
             'transparencyData',
             'digDeeperData',
+            'endorsements',
             'meTokenData',
             'termInfo',
+            'electionDates',
             'ogTitle',
             'ogDescription',
             'ogImage',
@@ -1102,17 +1210,19 @@ class PublicProfileController extends Controller
             'newsTotal',
             'sourceMap',
             'activeProviders',
-            'articlesJson'
+            'articlesJson',
+            'issueContextTags'
         ));
 
         // Store rendered HTML in page cache for guest visitors (15 min).
         if ($isGuestBrowsing && ! $request->has('refresh')) {
             $html = $view->render();
-            \Illuminate\Support\Facades\Cache::put(
+            Cache::put(
                 "profile.page.{$politician->id}",
                 $html,
                 now()->addMinutes(15)
             );
+
             return response($html, 200)->header('Content-Type', 'text/html');
         }
 
@@ -1135,7 +1245,7 @@ class PublicProfileController extends Controller
      */
     protected function buildMeTokenData(Request $request, Politician $politician): ?array
     {
-        $enabled = \App\Services\PlatformSettingsService::get('web3_features_enabled', null, false);
+        $enabled = PlatformSettingsService::get('web3_features_enabled', null, false);
         if (! $enabled) {
             return null;
         }
@@ -1155,13 +1265,14 @@ class PublicProfileController extends Controller
             && $user->hasRole('admin');
 
         try {
-            return app(\App\Services\Web3\MeTokenSubgraphService::class)
+            return app(MeTokenSubgraphService::class)
                 ->fetchForPolitician($politician, $forceRefresh);
         } catch (\Throwable $e) {
             Log::warning('MeToken panel build failed', [
                 'politician_id' => $politician->id,
-                'error'         => $e->getMessage(),
+                'error' => $e->getMessage(),
             ]);
+
             return null;
         }
     }
@@ -1197,7 +1308,7 @@ class PublicProfileController extends Controller
         // of 4-5s response times and Railway process timeouts (500 errors).
         $cacheKey = "profile.transparency.{$politician->id}";
 
-        return \Illuminate\Support\Facades\Cache::remember($cacheKey, 3600, function () use ($politician) {
+        return Cache::remember($cacheKey, 3600, function () use ($politician) {
             return $this->fetchTransparencyData($politician);
         });
     }
@@ -1210,10 +1321,10 @@ class PublicProfileController extends Controller
         $isUnclaimed = $politician->user_id === null;
 
         $services = [
-            'ballotpedia' => [$politician->show_ballotpedia_data || $isUnclaimed, \App\Services\BallotpediaService::class],
-            'opensecrets' => [$politician->show_opensecrets_data || $isUnclaimed, \App\Services\OpenSecretsService::class],
-            'votesmart'   => [$politician->show_votesmart_data   || $isUnclaimed, \App\Services\VoteSmartService::class],
-            'fec'         => [$politician->show_fec_data         || $isUnclaimed, \App\Services\FECService::class],
+            'ballotpedia' => [$politician->show_ballotpedia_data || $isUnclaimed, BallotpediaService::class],
+            'opensecrets' => [$politician->show_opensecrets_data || $isUnclaimed, OpenSecretsService::class],
+            'votesmart' => [$politician->show_votesmart_data || $isUnclaimed, VoteSmartService::class],
+            'fec' => [$politician->show_fec_data || $isUnclaimed, FECService::class],
         ];
 
         $transparencyData = [];
@@ -1263,7 +1374,7 @@ class PublicProfileController extends Controller
     /**
      * Build voter-friendly transparency summaries and source panel states.
      *
-     * @param array<string, array<string, mixed>> $transparencyData
+     * @param  array<string, array<string, mixed>>  $transparencyData
      * @return array<string, mixed>
      */
     protected function buildDigDeeperData(Politician $politician, array $transparencyData): array
@@ -1275,7 +1386,7 @@ class PublicProfileController extends Controller
         //       governors should show donor/finance info even without platform
         //       verification).
         $isUnclaimed = $politician->user_id === null;
-        $hasData     = !empty($transparencyData);
+        $hasData = ! empty($transparencyData);
         if ($politician->verification_status !== 'verified' && ! ($isUnclaimed && $hasData)) {
             return [];
         }
@@ -1287,7 +1398,7 @@ class PublicProfileController extends Controller
         // chosen which sources to show and we must respect those flags.
         $enableByDefault = $isUnclaimed && $politician->verification_status !== 'verified';
 
-        $fecService = app(\App\Services\FECService::class);
+        $fecService = app(FECService::class);
         $sources = [
             'ballotpedia' => [
                 'label' => 'Ballotpedia',
@@ -1365,8 +1476,8 @@ class PublicProfileController extends Controller
         }
 
         try {
-            /** @var \App\Services\LocalCandidateAggregator $aggregator */
-            $aggregator = app(\App\Services\LocalCandidateAggregator::class);
+            /** @var LocalCandidateAggregator $aggregator */
+            $aggregator = app(LocalCandidateAggregator::class);
 
             $records = $aggregator->findByState(
                 state: (string) $politician->state,
@@ -1398,7 +1509,7 @@ class PublicProfileController extends Controller
     }
 
     /**
-     * @param array<string, mixed> $details
+     * @param  array<string, mixed>  $details
      */
     protected function buildDigDeeperSummary(array $details): string
     {
@@ -1424,15 +1535,15 @@ class PublicProfileController extends Controller
             });
 
         if ($itemCount > 0) {
-            return $itemCount . ' public records available';
+            return $itemCount.' public records available';
         }
 
         return 'Source connected';
     }
 
     /**
-     * @param array<string, mixed> $lookupResult
-     * @param array<string, string> $states
+     * @param  array<string, mixed>  $lookupResult
+     * @param  array<string, string>  $states
      */
     protected function findCandidatesForDistrict(array $lookupResult, array $states, array $districtHints = []): Collection
     {
@@ -1445,7 +1556,7 @@ class PublicProfileController extends Controller
             ->withCount([
                 'campaigns as active_campaigns_count' => function ($q) {
                     $q->where('status', 'active')
-                      ->where('approval_status', 'approved');
+                        ->where('approval_status', 'approved');
                 },
             ]);
 
@@ -1479,7 +1590,7 @@ class PublicProfileController extends Controller
                     if (preg_match('/^\d+$/', $variant)) {
                         $q->orWhere('district', '=', $variant);
                     } else {
-                        $q->orWhere('district', 'like', '%' . $variant . '%');
+                        $q->orWhere('district', 'like', '%'.$variant.'%');
                     }
                 }
             });
@@ -1512,20 +1623,20 @@ class PublicProfileController extends Controller
             $variants = [
                 $numeric,   // exact-match only (see query loops below)
                 $padded,    // exact-match only
-                'District ' . $numeric,
-                'CD ' . $numeric,
-                'CD-' . $numeric,
+                'District '.$numeric,
+                'CD '.$numeric,
+                'CD-'.$numeric,
             ];
 
             if ($state !== '') {
-                $variants[] = $state . '-' . $padded;
-                $variants[] = $state . '-' . $numeric;
+                $variants[] = $state.'-'.$padded;
+                $variants[] = $state.'-'.$numeric;
             }
         } else {
             $variants = ['At-Large', 'At Large'];
 
             if ($state !== '') {
-                $variants[] = $state . '-AL';
+                $variants[] = $state.'-AL';
             }
         }
 
@@ -1533,7 +1644,7 @@ class PublicProfileController extends Controller
     }
 
     /**
-     * @param Collection<int, Politician> $candidates
+     * @param  Collection<int, Politician>  $candidates
      * @return Collection<int, Politician>
      */
     protected function attachFinanceSnapshotsToPublishedCandidates(Collection $candidates): Collection
@@ -1558,7 +1669,7 @@ class PublicProfileController extends Controller
 
         if ((bool) $politician->show_fec_data) {
             try {
-                $fecDetails = app(\App\Services\FECService::class)->getDisplayData($politician);
+                $fecDetails = app(FECService::class)->getDisplayData($politician);
                 $summary = $this->normalizeFinanceSummary((array) ($fecDetails['summary'] ?? []));
 
                 if ($summary !== []) {
@@ -1579,7 +1690,7 @@ class PublicProfileController extends Controller
 
         if ((bool) $politician->show_opensecrets_data && $politician->user_id !== null) {
             try {
-                $openSecretsDetails = app(\App\Services\OpenSecretsService::class)->getDisplayData($politician);
+                $openSecretsDetails = app(OpenSecretsService::class)->getDisplayData($politician);
                 $summary = $this->normalizeFinanceSummary((array) ($openSecretsDetails['summary'] ?? []));
 
                 if ($summary !== []) {
@@ -1609,7 +1720,7 @@ class PublicProfileController extends Controller
     }
 
     /**
-     * @param array<string, mixed> $summary
+     * @param  array<string, mixed>  $summary
      * @return array<string, string>
      */
     protected function normalizeFinanceSummary(array $summary): array
@@ -1632,8 +1743,8 @@ class PublicProfileController extends Controller
     }
 
     /**
-     * @param array<string, mixed> $summary
-     * @param array<int, string> $keys
+     * @param  array<string, mixed>  $summary
+     * @param  array<int, string>  $keys
      */
     protected function firstPresentSummaryValue(array $summary, array $keys): ?string
     {
@@ -1649,7 +1760,7 @@ class PublicProfileController extends Controller
     }
 
     /**
-     * @param array<string, mixed>|null $voterInfo
+     * @param  array<string, mixed>|null  $voterInfo
      * @return array<int, array<string, mixed>>
      */
     protected function extractFoundLocationsFromVoterInfo(?array $voterInfo): array
@@ -1702,7 +1813,7 @@ class PublicProfileController extends Controller
     }
 
     /**
-     * @param array<string, mixed> $payload
+     * @param  array<string, mixed>  $payload
      * @return array<string, mixed>|null
      */
     protected function financeSnapshotFromRecordPayload(array $payload): ?array
@@ -1749,8 +1860,8 @@ class PublicProfileController extends Controller
     }
 
     /**
-     * @param array<string, mixed> $lookupResult
-     * @param array<string, string> $states
+     * @param  array<string, mixed>  $lookupResult
+     * @param  array<string, string>  $states
      * @return Collection<int, array<string, mixed>>
      */
     protected function findRunningCandidatesForDistrict(array $lookupResult, array $states, array $districtHints = []): Collection
@@ -1784,6 +1895,12 @@ class PublicProfileController extends Controller
         // preventing stale imports (e.g. retired members) from surfacing indefinitely.
         $lastSeenCutoff = now()->subDays(180);
 
+        // Driver-branching JSON extraction so the test env (SQLite) doesn't choke
+        // on the MySQL `->>` operator. Both return the unquoted scalar.
+        $primaryResultExpr = \DB::connection()->getDriverName() === 'sqlite'
+            ? "json_extract(payload,'$.primary_result')"
+            : "payload->>'$.primary_result'";
+
         $records = ElectionCandidateRecord::query()
             ->where(function ($q) use ($state, $stateName) {
                 $q->whereRaw('UPPER(state) = ?', [$state]);
@@ -1797,7 +1914,7 @@ class PublicProfileController extends Controller
                     if (preg_match('/^\d+$/', $variant)) {
                         $q->orWhere('district', '=', $variant);
                     } else {
-                        $q->orWhere('district', 'like', '%' . $variant . '%');
+                        $q->orWhere('district', 'like', '%'.$variant.'%');
                     }
                 }
             })
@@ -1805,11 +1922,11 @@ class PublicProfileController extends Controller
                 $q->where(function ($inner) use ($lastSeenCutoff) {
                     // NULL election_date only valid if the record was seen recently
                     $inner->whereNull('election_date')
-                          ->where('last_seen_at', '>=', $lastSeenCutoff);
+                        ->where('last_seen_at', '>=', $lastSeenCutoff);
                 })->orWhereDate('election_date', '>=', $recentThreshold);
             })
             // Exclude records marked as eliminated by reconcile-status
-            ->whereRaw("COALESCE(payload->>'$.primary_result', '') != 'eliminated'")
+            ->whereRaw("COALESCE({$primaryResultExpr}, '') != 'eliminated'")
             ->orderBy('election_date')
             ->orderByDesc('last_seen_at')
             ->limit(150)
@@ -1855,8 +1972,8 @@ class PublicProfileController extends Controller
             })
             ->unique(function (array $candidate): string {
                 return strtolower(trim((string) ($candidate['full_name'] ?? '')))
-                    . '|' . strtolower(trim((string) ($candidate['political_office'] ?? '')))
-                    . '|' . strtolower(trim((string) ($candidate['district'] ?? '')));
+                    .'|'.strtolower(trim((string) ($candidate['political_office'] ?? '')))
+                    .'|'.strtolower(trim((string) ($candidate['district'] ?? '')));
             })
             ->sortByDesc('contender_score')
             ->values();
@@ -1868,7 +1985,7 @@ class PublicProfileController extends Controller
      * Supports state legislative districts so AD-xx / SD-xx profiles can appear
      * alongside congressional district matches.
      *
-     * @param array<string, mixed>|null $voterInfo
+     * @param  array<string, mixed>|null  $voterInfo
      * @return array<int, string>
      */
     protected function extractDistrictHintsFromVoterInfo(?array $voterInfo, string $state): array
@@ -1897,25 +2014,26 @@ class PublicProfileController extends Controller
 
             $numeric = (int) $id;
             $padded = str_pad((string) $numeric, 2, '0', STR_PAD_LEFT);
-            $statePrefix = $state !== '' ? strtoupper($state) . '-' : '';
+            $statePrefix = $state !== '' ? strtoupper($state).'-' : '';
 
             if ($scope === 'statelower') {
-                $hints[] = 'AD-' . $numeric;
-                $hints[] = 'AD-' . $padded;
-                $hints[] = 'Assembly District ' . $numeric;
-                $hints[] = 'State Assembly District ' . $numeric;
-                $hints[] = $statePrefix . 'AD-' . $numeric;
-                $hints[] = $statePrefix . 'AD-' . $padded;
+                $hints[] = 'AD-'.$numeric;
+                $hints[] = 'AD-'.$padded;
+                $hints[] = 'Assembly District '.$numeric;
+                $hints[] = 'State Assembly District '.$numeric;
+                $hints[] = $statePrefix.'AD-'.$numeric;
+                $hints[] = $statePrefix.'AD-'.$padded;
+
                 continue;
             }
 
             if ($scope === 'stateupper') {
-                $hints[] = 'SD-' . $numeric;
-                $hints[] = 'SD-' . $padded;
-                $hints[] = 'Senate District ' . $numeric;
-                $hints[] = 'State Senate District ' . $numeric;
-                $hints[] = $statePrefix . 'SD-' . $numeric;
-                $hints[] = $statePrefix . 'SD-' . $padded;
+                $hints[] = 'SD-'.$numeric;
+                $hints[] = 'SD-'.$padded;
+                $hints[] = 'Senate District '.$numeric;
+                $hints[] = 'State Senate District '.$numeric;
+                $hints[] = $statePrefix.'SD-'.$numeric;
+                $hints[] = $statePrefix.'SD-'.$padded;
             }
         }
 
@@ -1938,7 +2056,7 @@ class PublicProfileController extends Controller
      * GET /p/{slug}/news
      * Standalone paginated news feed for a politician.
      */
-    public function news(\Illuminate\Http\Request $request, string $slug)
+    public function news(Request $request, string $slug)
     {
         $politician = $this->resolvePublicPolitician($slug);
 
@@ -1947,79 +2065,104 @@ class PublicProfileController extends Controller
         }
 
         $page = $politician->page
-            ?? new \App\Models\PoliticianPage(\App\Models\PoliticianPage::defaults($politician->id));
+            ?? new PoliticianPage(PoliticianPage::defaults($politician->id));
 
         $mode = in_array($request->query('mode'), ['time', 'topic'], true)
             ? $request->query('mode') : 'time';
-        $q    = trim((string) $request->query('q', ''));
+        $q = trim((string) $request->query('q', ''));
         $sort = in_array($request->query('sort'), ['newest', 'oldest', 'source'], true)
             ? $request->query('sort') : 'newest';
         $from = $request->query('from', '');
-        $to   = $request->query('to', '');
+        $to = $request->query('to', '');
         $sources = array_filter(explode(',', (string) $request->query('source', '')));
+        $pageNumber = (int) $request->query('page', 1);
 
-        $query = \App\Models\CandidateNewsArticle::query()
-            ->where('politician_id', $politician->id)
-            ->where('verification_status', 'verified');
+        // Cache the filtered/paginated feed per politician+query combo. This is a
+        // public, bot-crawlable route (same failure shape as buildTransparencyData()
+        // above, which was previously the cause of a 502/timeout incident): every
+        // hit — including crawlers with no session — re-ran multiple uncached
+        // queries per request, and under concurrent load that exhausted the
+        // PHP-FPM worker pool. Short TTL keeps news feeling fresh while absorbing
+        // bursty/repeat traffic against the same URL.
+        $cacheKey = 'profile.news.'.$politician->id.'.'.md5(json_encode([
+            $mode, $q, $sort, $from, $to, $sources, $pageNumber,
+        ]));
 
-        if ($q !== '') {
-            $query->where(function ($sq) use ($q) {
-                $sq->where('headline', 'like', "%{$q}%")
-                   ->orWhere('snippet', 'like', "%{$q}%");
-            });
-        }
-        if ($from) {
-            $query->where('published_at', '>=', $from);
-        }
-        if ($to) {
-            $query->where('published_at', '<=', $to . ' 23:59:59');
-        }
-        if (! empty($sources)) {
-            $query->whereIn('provider', $sources);
-        }
+        [$articles, $breakingNow, $grouped] = Cache::remember(
+            $cacheKey,
+            180,
+            function () use ($politician, $mode, $q, $sort, $from, $to, $sources) {
+                $query = CandidateNewsArticle::query()
+                    ->where('politician_id', $politician->id)
+                    ->where('verification_status', 'verified');
 
-        $query->orderBy(match ($sort) {
-            'oldest' => 'published_at',
-            'source' => 'source_name',
-            default  => 'published_at',
-        }, $sort === 'oldest' ? 'asc' : 'desc');
+                if ($q !== '') {
+                    $query->where(function ($sq) use ($q) {
+                        $sq->where('headline', 'like', "%{$q}%")
+                            ->orWhere('snippet', 'like', "%{$q}%");
+                    });
+                }
+                if ($from) {
+                    $query->where('published_at', '>=', $from);
+                }
+                if ($to) {
+                    $query->where('published_at', '<=', $to.' 23:59:59');
+                }
+                if (! empty($sources)) {
+                    $query->whereIn('provider', $sources);
+                }
 
-        $articles = $query->paginate(20)->withQueryString();
+                $query->orderBy(match ($sort) {
+                    'oldest' => 'published_at',
+                    'source' => 'source_name',
+                    default => 'published_at',
+                }, $sort === 'oldest' ? 'asc' : 'desc');
 
-        // Breaking Now: first 2 verified articles from last 3 days (only page 1, no filters).
-        $breakingNow = collect();
-        if ($articles->currentPage() === 1 && $q === '' && ! $from && ! $to && empty($sources)) {
-            $breakingNow = \App\Models\CandidateNewsArticle::query()
+                $articles = $query->paginate(20)->withQueryString();
+
+                // Breaking Now: first 2 verified articles from last 3 days (only page 1, no filters).
+                $breakingNow = collect();
+                if ($articles->currentPage() === 1 && $q === '' && ! $from && ! $to && empty($sources)) {
+                    $breakingNow = CandidateNewsArticle::query()
+                        ->where('politician_id', $politician->id)
+                        ->where('verification_status', 'verified')
+                        ->where('published_at', '>=', now()->subDays(3))
+                        ->orderByDesc('published_at')
+                        ->limit(2)
+                        ->get();
+                }
+
+                // Date-grouped archive for time mode.
+                $grouped = collect();
+                if ($mode === 'time') {
+                    $grouped = $articles->getCollection()
+                        ->filter(fn ($a) => ! $breakingNow->contains('id', $a->id))
+                        ->groupBy(fn ($a) => $a->published_at?->format('l, F j, Y') ?? 'Unknown date');
+                }
+
+                return [$articles, $breakingNow, $grouped];
+            }
+        );
+
+        // All providers present for topic-mode source pills. Changes only when new
+        // articles are ingested, so cache it independently of filters/pagination.
+        $allProviders = Cache::remember(
+            "profile.news.providers.{$politician->id}",
+            3600,
+            fn () => CandidateNewsArticle::query()
                 ->where('politician_id', $politician->id)
                 ->where('verification_status', 'verified')
-                ->where('published_at', '>=', now()->subDays(3))
-                ->orderByDesc('published_at')
-                ->limit(2)
-                ->get();
-        }
-
-        // Date-grouped archive for time mode.
-        $grouped = collect();
-        if ($mode === 'time') {
-            $grouped = $articles->getCollection()
-                ->filter(fn ($a) => ! $breakingNow->contains('id', $a->id))
-                ->groupBy(fn ($a) => $a->published_at?->format('l, F j, Y') ?? 'Unknown date');
-        }
-
-        // All providers present for topic-mode source pills.
-        $allProviders = \App\Models\CandidateNewsArticle::query()
-            ->where('politician_id', $politician->id)
-            ->where('verification_status', 'verified')
-            ->distinct()->pluck('provider')->all();
+                ->distinct()->pluck('provider')->all()
+        );
 
         $nationalSources = config('news_sources.national', []);
-        $stateSources    = config('news_sources.state.' . strtoupper((string) ($politician->state ?? '')), []);
+        $stateSources = config('news_sources.state.'.strtoupper((string) ($politician->state ?? '')), []);
         $sourceMap = [];
         foreach (array_merge($nationalSources, $stateSources) as $src) {
             $sourceMap[$src['id']] = ['label' => $src['label'], 'icon' => $src['icon']];
         }
         $sourceMap['newsapi'] = ['label' => 'NewsAPI', 'icon' => '📰'];
-        $sourceMap['gnews']   = ['label' => 'GNews',   'icon' => '📰'];
+        $sourceMap['gnews'] = ['label' => 'GNews',   'icon' => '📰'];
 
         // IDs of articles the authenticated voter has already saved.
         $savedArticleIds = [];
@@ -2033,9 +2176,9 @@ class PublicProfileController extends Controller
             }
         }
 
-        $ogTitle       = $politician->full_name . ' — In the News';
+        $ogTitle = $politician->full_name.' — In the News';
         $ogDescription = "Latest news coverage of {$politician->full_name} on U9itus.";
-        $ogUrl         = route('politician.public.news', $slug);
+        $ogUrl = route('politician.public.news', $slug);
 
         return view('standalone.public.news', compact(
             'politician',

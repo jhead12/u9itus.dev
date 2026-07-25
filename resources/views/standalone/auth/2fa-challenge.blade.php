@@ -61,6 +61,13 @@
             Need to reconfigure 2FA? Visit your
             <a class="text-emerald-400 hover:text-emerald-300" href="{{ route('2fa.setup') }}">account security settings</a>.
         </div>
+
+        @if($phoneVerified)
+            <div class="mt-3 text-xs text-slate-500">
+                Lost your authenticator and recovery codes?
+                <a class="text-emerald-400 hover:text-emerald-300" href="{{ route('2fa.recovery-sms') }}">Text me a recovery code</a>.
+            </div>
+        @endif
     </div>
 </div>
 

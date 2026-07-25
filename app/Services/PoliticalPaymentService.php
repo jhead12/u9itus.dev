@@ -12,6 +12,7 @@ use App\Models\PayoutRunSkippedItem;
 use App\Models\PoliticalCampaign;
 use App\Models\Voter;
 use App\Models\ViewSession;
+use App\Models\CitizenViewSession;
 use App\Notifications\PayoutProcessedNotification;
 use App\Services\CampaignBillingService;
 use App\Services\CashAppPayoutService;
@@ -128,36 +129,84 @@ class PoliticalPaymentService
     }
 
     /**
-     * Process batch payouts for voters who have met the minimum threshold.
+     * Create a PayoutRun row capturing the platform settings snapshot at the
+     * moment the run is kicked off (min payout, fraud hold window). The run's
+     * counters start at zero and are incremented as voters are processed.
+     */
+    public function createPayoutRun(?int $triggeredByAdminId = null, string $triggerSource = 'system'): PayoutRun
+    {
+        $minPayout = (float) PlatformSettingsService::get('min_payout_amount', null, 5.00);
+        $holdHours = (int) PlatformSettingsService::get('fraud_payout_hold_hours', null, 48);
+
+        return PayoutRun::create([
+            'triggered_by_admin_id' => $triggeredByAdminId,
+            'trigger_source'        => $triggerSource,
+            'min_payout_amount'     => $minPayout,
+            'fraud_hold_hours'      => $holdHours,
+            'processed_count'       => 0,
+            'skipped_count'         => 0,
+            'total_paid'            => 0,
+            'meta'                  => [],
+            'status'                => 'pending',
+        ]);
+    }
+
+    /**
+     * Synchronous batch payout run: create the run, process it inline, return
+     * the counts. Used by the scheduled `payouts:process-viewer` command and by
+     * the test suite. Web/API entry points dispatch ProcessBatchPayoutsJob
+     * instead so live processor calls don't block the request.
      *
-     * Batching payouts weekly or at threshold reduces per-transaction fees.
+     * @return array{processed: int, total_paid: float, skipped: int, run_id: int}
      */
     public function processBatchPayouts(?int $triggeredByAdminId = null, string $triggerSource = 'system'): array
     {
-        $minPayout  = (float) PlatformSettingsService::get('min_payout_amount', null, 5.00);
-        $holdHours  = (int) PlatformSettingsService::get('fraud_payout_hold_hours', null, 48);
-        $holdCutoff = now()->subHours($holdHours);
+        $run = $this->createPayoutRun($triggeredByAdminId, $triggerSource);
 
-        $run = PayoutRun::create([
-            'triggered_by_admin_id' => $triggeredByAdminId,
-            'trigger_source' => $triggerSource,
-            'min_payout_amount' => $minPayout,
-            'fraud_hold_hours' => $holdHours,
-            'processed_count' => 0,
-            'skipped_count' => 0,
-            'total_paid' => 0,
-            'meta' => [],
-        ]);
+        $run->update(['status' => 'running', 'started_at' => now()]);
+        $this->processBatchPayoutsForRun($run);
+        $run->update(['status' => 'completed', 'completed_at' => now()]);
+        $run->refresh();
 
-        $eligibleVoterIds = ViewSession::query()
+        return [
+            'processed'  => (int) $run->processed_count,
+            'total_paid' => (float) $run->total_paid,
+            'skipped'    => (int) $run->skipped_count,
+            'run_id'     => $run->id,
+        ];
+    }
+
+    /**
+     * Process every eligible voter for a run, dispatching live processor calls
+     * and incrementing the run's counters as it goes. Idempotent: voters with
+     * an existing submitted/paid PayoutAttempt (matched by idempotency_key) are
+     * skipped, so re-running a partially completed run never double-pays.
+     */
+    public function processBatchPayoutsForRun(PayoutRun $run): void
+    {
+        $minPayout  = (float) $run->min_payout_amount;
+        $holdCutoff = now()->subHours((int) $run->fraud_hold_hours);
+
+        // Eligible voters are those with at least one Approved session past the
+        // fraud-hold window across EITHER campaign system (political or citizen).
+        $politicalVoterIds = ViewSession::query()
             ->where('status', 'completed')
             ->where('payment_status', ViewPaymentStatus::Approved)
             ->where('completed_at', '<=', $holdCutoff)
             ->groupBy('voter_id')
             ->pluck('voter_id');
 
+        $citizenVoterIds = CitizenViewSession::query()
+            ->where('status', \App\Enums\ViewSessionStatus::Completed)
+            ->where('payment_status', ViewPaymentStatus::Approved)
+            ->where('completed_at', '<=', $holdCutoff)
+            ->groupBy('voter_id')
+            ->pluck('voter_id');
+
+        $eligibleVoterIds = $politicalVoterIds->merge($citizenVoterIds)->unique()->values();
+
         if ($eligibleVoterIds->isEmpty()) {
-            return ['processed' => 0, 'total_paid' => 0, 'skipped' => 0, 'run_id' => $run->id];
+            return;
         }
 
         $eligibleVoters = Voter::whereIn('id', $eligibleVoterIds)
@@ -165,21 +214,24 @@ class PoliticalPaymentService
             ->where('is_active', true)
             ->get();
 
-        $results = ['processed' => 0, 'total_paid' => 0, 'skipped' => 0, 'run_id' => $run->id];
-
         foreach ($eligibleVoters as $voter) {
-            // Only pay sessions that have passed the hold window
-            $approvedSessionsQuery = ViewSession::where('voter_id', $voter->id)
+            // Approved sessions that have passed the fraud-hold window, across
+            // both campaign systems. Fresh builder factories avoid the
+            // where-clone mutation pitfalls of a single reused query object.
+            $approvedPolitical = fn () => ViewSession::where('voter_id', $voter->id)
                 ->where('status', 'completed')
                 ->where('payment_status', ViewPaymentStatus::Approved)
                 ->where('completed_at', '<=', $holdCutoff);
+            $approvedCitizen = fn () => CitizenViewSession::where('voter_id', $voter->id)
+                ->where('status', \App\Enums\ViewSessionStatus::Completed)
+                ->where('payment_status', ViewPaymentStatus::Approved)
+                ->where('completed_at', '<=', $holdCutoff);
 
-            // Sum in DB returns a decimal string; keep as string for bcmath comparison.
-            $approvedEarningsStr = (string) ($approvedSessionsQuery->sum('voter_payout_amount') ?? '0');
-            $approvedEarnings = (float) $approvedEarningsStr; // float only for legacy API surface
+            $approvedEarnings = (float) $approvedPolitical()->sum('voter_payout_amount')
+                + (float) $approvedCitizen()->sum('voter_payout_amount');
 
             if ($approvedEarnings < $minPayout) {
-                $results['skipped']++;
+                $run->increment('skipped_count');
                 $this->recordSkippedPayout(
                     run: $run,
                     voter: $voter,
@@ -192,13 +244,22 @@ class PoliticalPaymentService
                 continue;
             }
 
-            $selectedProcessor = (string) ($approvedSessionsQuery->whereNotNull('processor_selected')->value('processor_selected')
+            $selectedProcessor = (string) ($approvedPolitical()->whereNotNull('processor_selected')->value('processor_selected')
+                ?? $approvedCitizen()->whereNotNull('processor_selected')->value('processor_selected')
                 ?? $voter->payment_method
                 ?? 'wallet');
 
-            // Build a deterministic idempotency key from voter + ordered session IDs.
+            // Build a deterministic idempotency key from voter + ordered session IDs
+            // across both systems. Political IDs stay as plain integers to remain
+            // backward compatible with attempts recorded before citizen payouts
+            // were settleable — a pure-political voter produces the identical key
+            // the old code did. Citizen IDs are prefixed 'c' so a mixed key can
+            // never collide with a historical political-only key for the same voter.
             // This is safe to reuse on retries — same input always produces the same key.
-            $eligibleSessionIds = (clone $approvedSessionsQuery)->pluck('id')->sort()->values()->all();
+            $politicalIds = $approvedPolitical()->pluck('id')->sort()->values()->all();
+            $citizenIds = collect($approvedCitizen()->pluck('id')->sort()->values()->all())
+                ->map(fn ($id) => 'c' . $id)->all();
+            $eligibleSessionIds = array_merge($politicalIds, $citizenIds);
             $idempotencyKey = hash('sha256', 'payout:' . $voter->id . ':' . implode(',', $eligibleSessionIds));
 
             // Persist attempt BEFORE the external call so a crash between the external
@@ -207,7 +268,7 @@ class PoliticalPaymentService
             if ($existingAttempt && in_array($existingAttempt->status, ['submitted', 'paid'])) {
                 // Already submitted or paid — skip to avoid duplicate payout.
                 Log::info("Payout for voter {$voter->uuid} already {$existingAttempt->status} (key: {$idempotencyKey}), skipping.");
-                $results['skipped']++;
+                $run->increment('skipped_count');
                 continue;
             }
 
@@ -266,7 +327,7 @@ class PoliticalPaymentService
                 } catch (\Exception $e) {
                     Log::error("Stripe payout failed for voter {$voter->uuid}: " . $e->getMessage());
                     $payoutAttempt->recordEvent('failed', 'Stripe transfer call failed.', ['error' => $e->getMessage()]);
-                    $results['skipped']++;
+                    $run->increment('skipped_count');
                     $this->recordSkippedPayout(
                         run: $run,
                         voter: $voter,
@@ -306,13 +367,26 @@ class PoliticalPaymentService
                                 'processor_reference' => $processorReference,
                                 'processor_fee' => 0,
                             ]);
+
+                        // Mirror the pending-mark onto citizen sessions so the
+                        // PayPal reconciliation job can flip them Paid too.
+                        CitizenViewSession::where('voter_id', $voter->id)
+                            ->where('status', \App\Enums\ViewSessionStatus::Completed)
+                            ->where('payment_status', ViewPaymentStatus::Approved)
+                            ->where('completed_at', '<=', $holdCutoff)
+                            ->update([
+                                'payment_status' => ViewPaymentStatus::Pending,
+                                'processor_executed' => $processorExecuted,
+                                'processor_reference' => $processorReference,
+                                'processor_fee' => 0,
+                            ]);
                     });
 
                     PollPayPalPayoutStatus::dispatch($processorReference)->delay(now()->addMinutes(5));
                 } catch (\Exception $e) {
                     Log::error("PayPal payout failed for voter {$voter->uuid}: " . $e->getMessage());
                     $payoutAttempt->recordEvent('failed', 'PayPal batch payout call failed.', ['error' => $e->getMessage()]);
-                    $results['skipped']++;
+                    $run->increment('skipped_count');
                     $this->recordSkippedPayout(
                         run: $run,
                         voter: $voter,
@@ -344,7 +418,7 @@ class PoliticalPaymentService
                 } catch (\Exception $e) {
                     Log::error("Cash App payout failed for voter {$voter->uuid}: " . $e->getMessage());
                     $payoutAttempt->recordEvent('failed', 'Cash App payout call failed.', ['error' => $e->getMessage()]);
-                    $results['skipped']++;
+                    $run->increment('skipped_count');
                     $this->recordSkippedPayout(
                         run: $run,
                         voter: $voter,
@@ -358,7 +432,7 @@ class PoliticalPaymentService
                     continue;
                 }
             } elseif ($selectedProcessor === 'paypal' && empty($voter->paypal_email)) {
-                $results['skipped']++;
+                $run->increment('skipped_count');
                 $this->recordSkippedPayout(
                     run: $run,
                     voter: $voter,
@@ -371,7 +445,7 @@ class PoliticalPaymentService
                 $this->broadcastService->payoutDispatched($voter, $approvedEarnings, 'paypal', $batchId, $run->id, 'skipped', 'missing_paypal_email');
                 continue;
             } elseif ($selectedProcessor === 'stripe' && empty($voter->stripe_account_id)) {
-                $results['skipped']++;
+                $run->increment('skipped_count');
                 $this->recordSkippedPayout(
                     run: $run,
                     voter: $voter,
@@ -396,7 +470,7 @@ class PoliticalPaymentService
                     'cashapp_service_available' => (bool) $this->cashAppService,
                     'cashapp_configured' => $this->cashAppService?->isConfigured() ?? false,
                 ]);
-                $results['skipped']++;
+                $run->increment('skipped_count');
                 $this->recordSkippedPayout(
                     run: $run,
                     voter: $voter,
@@ -431,6 +505,21 @@ class PoliticalPaymentService
                             'processor_fee' => $processorFee,
                         ]);
 
+                    // Mark citizen-campaign sessions paid too. The pending_earnings
+                    // decrement below uses the combined approvedEarnings, so it is
+                    // applied exactly once across both session types.
+                    CitizenViewSession::where('voter_id', $voter->id)
+                        ->where('status', \App\Enums\ViewSessionStatus::Completed)
+                        ->where('payment_status', ViewPaymentStatus::Approved)
+                        ->where('completed_at', '<=', $holdCutoff)
+                        ->update([
+                            'payment_status' => ViewPaymentStatus::Paid,
+                            'paid_at'        => now(),
+                            'processor_executed' => $processorExecuted,
+                            'processor_reference' => $processorReference,
+                            'processor_fee' => $processorFee,
+                        ]);
+
                     // Move from pending to earned using session-derived approved earnings.
                     $voter->decrement('pending_earnings', $approvedEarnings);
                     $voter->increment('total_earned', $approvedEarnings);
@@ -442,8 +531,8 @@ class PoliticalPaymentService
                 });
             }
 
-            $results['processed']++;
-            $results['total_paid'] += $approvedEarnings;
+            $run->increment('processed_count');
+            $run->increment('total_paid', $approvedEarnings);
 
             $displayMethod = match ($processorExecuted) {
                 'stripe' => 'Stripe',
@@ -492,14 +581,6 @@ class PoliticalPaymentService
                 'reference' => $processorReference,
             ]);
         }
-
-        $run->update([
-            'processed_count' => (int) $results['processed'],
-            'skipped_count' => (int) $results['skipped'],
-            'total_paid' => (float) $results['total_paid'],
-        ]);
-
-        return $results;
     }
 
     /**
