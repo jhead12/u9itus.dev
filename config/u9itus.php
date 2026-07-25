@@ -391,6 +391,18 @@ return [
             'instagram'   => 0.50,
             'x'           => 0.50,
         ],
+
+        // C-SPAN scraper — drives a Playwright browser (scripts/scrape-cspan.js)
+        // because c-span.org renders search results client-side and blocks plain
+        // HTTP fetches. Mirrors the OpenSecrets Playwright scraper pattern. C-SPAN
+        // exposes no view counts, so clips score 0 and surface in the list by
+        // recency rather than featuring (the YouTube-driven clip stays featured).
+        'cspan' => [
+            'enabled'       => env('CSPAN_MOMENTS_ENABLED', true),
+            'base_url'       => env('CSPAN_BASE_URL', 'https://www.c-span.org'),
+            'cache_minutes'  => env('CSPAN_CACHE_MINUTES', 1440),
+            'max_clips'      => env('CSPAN_MAX_CLIPS', 10),
+        ],
     ],
 
     /*

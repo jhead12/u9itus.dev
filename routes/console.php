@@ -77,6 +77,16 @@ Schedule::command('politicians:enrich-moments --stale-hours=48 --limit=200')
     ->dailyAt('05:00')
     ->withoutOverlapping();
 
+// C-SPAN viral-moment enrichment — drives the Playwright scrape (scripts/
+// scrape-cspan.js) through the same pipeline as the YouTube pass. Run on its
+// own slot so the slow browser scrape doesn't block the quota-bounded YouTube
+// run. C-SPAN clips carry no view counts → they surface in the list by recency,
+// not as the featured map-pin clip. Slotted at 05:30 to follow the 05:00
+// YouTube-moments job. Gated on CSPAN_MOMENTS_ENABLED + Node/Playwright runtime.
+Schedule::command('politicians:enrich-cspan-moments --stale-hours=48 --limit=200')
+    ->dailyAt('05:30')
+    ->withoutOverlapping();
+
 // Marketing content agent — auto-draft blog Posts from recent news / viral
 // moments for politicians. Drafts are saved as PendingApproval and require a
 // human to publish. Slotted at 06:00 to follow the 05:00 viral-moments enrich

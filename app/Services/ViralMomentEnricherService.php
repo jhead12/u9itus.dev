@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Contracts\MomentFetcher;
 use App\Models\Politician;
 use App\Models\PoliticianViralMoment;
 use App\Models\ViralMomentEnrichmentRun;
@@ -25,21 +26,28 @@ use Illuminate\Support\Facades\Log;
 class ViralMomentEnricherService
 {
     public function __construct(
-        private readonly YouTubeMomentService $youtube,
         private readonly MomentScoreService $scorer,
     ) {}
 
     /**
-     * Run the full pass for a politician. Returns a summary, or null if the
-     * fetch failed before any clips were retrieved.
+     * Run the full pass for a politician against one source fetcher. Returns a
+     * summary, or null if the fetch failed before any clips were retrieved.
+     *
+     * The caller picks the fetcher (YouTubeMomentService, CspanMomentService, …);
+     * scoring/upsert/prune/feature are source-agnostic. recordRun stamps the
+     * run row with the fetcher's own source so provenance is per-source. The
+     * fetcher defaults to YouTube for backward compatibility with callers that
+     * don't specify a source (and for the legacy one-arg test path).
      *
      * @return array{status: string, kept: int, featured: bool}|null
      */
-    public function enrich(Politician $politician): ?array
+    public function enrich(Politician $politician, ?MomentFetcher $fetcher = null): ?array
     {
-        $result = $this->youtube->fetchMoments($politician);
+        $fetcher ??= app(YouTubeMomentService::class);
 
-        $run = $this->recordRun($politician, $result);
+        $result = $fetcher->fetchMoments($politician);
+
+        $run = $this->recordRun($politician, $fetcher, $result);
 
         if ($result['status'] !== 'ok' || empty($result['clips'])) {
             // No new clips this run — still re-promote in case an older clip is
@@ -63,7 +71,7 @@ class ViralMomentEnricherService
 
     // ── Persistence ───────────────────────────────────────────────────────
 
-    protected function recordRun(Politician $politician, array $result): ViralMomentEnrichmentRun
+    protected function recordRun(Politician $politician, MomentFetcher $fetcher, array $result): ViralMomentEnrichmentRun
     {
         $clips = $result['clips'] ?? [];
         $counts = [
@@ -74,7 +82,7 @@ class ViralMomentEnricherService
 
         return ViralMomentEnrichmentRun::create([
             'politician_id' => $politician->id,
-            'source' => 'youtube',
+            'source' => $fetcher->source() ?: 'youtube',
             'fetch_status' => $result['status'],
             'http_status' => $result['http_status'],
             'query_string' => $result['query'],
@@ -226,10 +234,14 @@ class ViralMomentEnricherService
 
         $featured = $moments->first(fn (PoliticianViralMoment $m) => $m->is_featured);
 
+        // Label the feed by whichever source actually surfaced the featured clip
+        // (or the first listed clip). Falls back to 'YouTube' for empty/legacy rows.
+        $labelSource = $featured->source ?? $moments->first()->source ?? 'youtube';
+
         return [
             'featured' => $featured ? $this->mapMoment($featured) : null,
             'moments' => $moments->map(fn (PoliticianViralMoment $m) => $this->mapMoment($m))->values()->all(),
-            'source' => 'YouTube', // expand as more sources come online
+            'source' => $this->sourceLabel((string) $labelSource),
             'enriched_at' => optional($politician->latestViralMomentRun?->enriched_at)?->toIso8601String(),
         ];
     }
@@ -247,6 +259,23 @@ class ViralMomentEnricherService
             'moment_score' => (float) $m->moment_score,
             'is_featured' => $m->is_featured,
         ];
+    }
+
+    /**
+     * Human label for a source slug, for the display payload's `source` field.
+     * Expand as more sources come online.
+     */
+    protected function sourceLabel(string $source): string
+    {
+        return match ($source) {
+            'youtube' => 'YouTube',
+            'cspan' => 'C-SPAN',
+            'news' => 'News',
+            'tiktok' => 'TikTok',
+            'instagram' => 'Instagram',
+            'x' => 'X',
+            default => ucfirst($source),
+        };
     }
 
     // ── News-freshness gate (quota saver) ─────────────────────────────────

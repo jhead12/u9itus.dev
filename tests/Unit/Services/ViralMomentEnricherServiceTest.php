@@ -74,9 +74,10 @@ function cannedClips(): array
 it('upserts clips, records a run, and promotes the top clip to featured', function () {
     $politician = seedMomentPolitician();
 
-    $this->mock(YouTubeMomentService::class, fn ($m) =>
-        $m->shouldReceive('fetchMoments')->once()->andReturn(cannedClips())
-    );
+    $this->mock(YouTubeMomentService::class, function ($m) {
+        $m->shouldReceive('source')->andReturn('youtube');
+        $m->shouldReceive('fetchMoments')->once()->andReturn(cannedClips());
+    });
 
     $result = app(ViralMomentEnricherService::class)->enrich($politician);
 
@@ -115,9 +116,10 @@ it('refreshes engagement on re-run instead of duplicating rows', function () {
     $second = cannedClips();
     $second['clips'][0]['view_count'] = 2_500_000;
 
-    $this->mock(YouTubeMomentService::class, fn ($m) =>
-        $m->shouldReceive('fetchMoments')->twice()->andReturn(cannedClips(), $second)
-    );
+    $this->mock(YouTubeMomentService::class, function ($m) use ($second) {
+        $m->shouldReceive('source')->andReturn('youtube');
+        $m->shouldReceive('fetchMoments')->twice()->andReturn(cannedClips(), $second);
+    });
 
     $enricher = app(ViralMomentEnricherService::class);
     $enricher->enrich($politician);
@@ -131,9 +133,10 @@ it('prunes to the configured max per politician, keeping the top-scored', functi
     config(['u9itus.moments.max_per_politician' => 1]);
 
     $politician = seedMomentPolitician();
-    $this->mock(YouTubeMomentService::class, fn ($m) =>
-        $m->shouldReceive('fetchMoments')->once()->andReturn(cannedClips())
-    );
+    $this->mock(YouTubeMomentService::class, function ($m) {
+        $m->shouldReceive('source')->andReturn('youtube');
+        $m->shouldReceive('fetchMoments')->once()->andReturn(cannedClips());
+    });
 
     app(ViralMomentEnricherService::class)->enrich($politician);
 
@@ -144,11 +147,12 @@ it('prunes to the configured max per politician, keeping the top-scored', functi
 it('records a run and does not crash when the fetch returns no clips', function () {
     $politician = seedMomentPolitician();
 
-    $this->mock(YouTubeMomentService::class, fn ($m) =>
+    $this->mock(YouTubeMomentService::class, function ($m) {
+        $m->shouldReceive('source')->andReturn('youtube');
         $m->shouldReceive('fetchMoments')->once()->andReturn([
             'status' => 'empty', 'http_status' => null, 'query' => 'Jane Sample', 'clips' => [],
-        ])
-    );
+        ]);
+    });
 
     $result = app(ViralMomentEnricherService::class)->enrich($politician);
 
@@ -163,9 +167,10 @@ it('does not feature a clip below the min view count', function () {
     config(['u9itus.moments.min_view_count' => 5_000_000]); // higher than both clips
 
     $politician = seedMomentPolitician();
-    $this->mock(YouTubeMomentService::class, fn ($m) =>
-        $m->shouldReceive('fetchMoments')->once()->andReturn(cannedClips())
-    );
+    $this->mock(YouTubeMomentService::class, function ($m) {
+        $m->shouldReceive('source')->andReturn('youtube');
+        $m->shouldReceive('fetchMoments')->once()->andReturn(cannedClips());
+    });
 
     app(ViralMomentEnricherService::class)->enrich($politician);
 
@@ -177,9 +182,10 @@ it('does not feature a clip below the min view count', function () {
 
 it('getDisplayData returns ranked moments with the featured clip first', function () {
     $politician = seedMomentPolitician();
-    $this->mock(YouTubeMomentService::class, fn ($m) =>
-        $m->shouldReceive('fetchMoments')->once()->andReturn(cannedClips())
-    );
+    $this->mock(YouTubeMomentService::class, function ($m) {
+        $m->shouldReceive('source')->andReturn('youtube');
+        $m->shouldReceive('fetchMoments')->once()->andReturn(cannedClips());
+    });
 
     app(ViralMomentEnricherService::class)->enrich($politician);
 

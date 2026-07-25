@@ -48,6 +48,11 @@ function toEmbedUrl(url) {
     const vimeoMatch = safe.match(/vimeo\.com\/(\d+)/);
     if (vimeoMatch?.[1]) return `https://player.vimeo.com/video/${vimeoMatch[1]}`;
 
+    // C-SPAN watch URLs (/video/?<id>, /event/.../<id>) → embeddable standalone player.
+    // The raw page is X-Frame-Options blocked; /video/standalone/?<id> iframes fine.
+    const cspanMatch = safe.match(/c-span\.org\/(?:video\/\?|event\/[^?#]*\/|video\/standalone\/\?)([\w-]+)/);
+    if (cspanMatch?.[1]) return `https://www.c-span.org/video/standalone/?${cspanMatch[1]}`;
+
     return safe;
 }
 

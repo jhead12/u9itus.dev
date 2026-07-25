@@ -3,23 +3,29 @@
 namespace App\Console\Commands;
 
 use App\Models\Politician;
+use App\Services\CspanMomentService;
 use App\Services\ViralMomentEnricherService;
-use App\Services\YouTubeMomentService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 
-class EnrichViralMoments extends Command
+/**
+ * Dedicated C-SPAN viral-moment enrichment — mirrors EnrichViralMoments but
+ * drives the Playwright C-SPAN scraper (CspanMomentService) through the same
+ * ViralMomentEnricherService pipeline. Run separately from the YouTube pass so
+ * a slow browser scrape doesn't block quota-bounded YouTube enrichment.
+ */
+class EnrichCspanMoments extends Command
 {
-    protected $signature = 'politicians:enrich-moments
+    protected $signature = 'politicians:enrich-cspan-moments
         {--limit=200         : Max politicians to process per run}
         {--stale-hours=48    : Re-enrich moments older than N hours}
         {--politician=       : Process a single politician by ID or slug}
         {--force             : Re-enrich even if the last run is fresh}
         {--dry-run           : Report what would be fetched without writing}';
 
-    protected $description = 'Fetch viral / C-SPAN / popular-moment clips (YouTube view counts) and score them for politician profiles + map.';
+    protected $description = 'Fetch C-SPAN video clips (Playwright scrape) and score them for politician profiles + map.';
 
-    public function handle(ViralMomentEnricherService $enricher, YouTubeMomentService $youtube): int
+    public function handle(ViralMomentEnricherService $enricher, CspanMomentService $cspan): int
     {
         $limit      = (int) $this->option('limit');
         $staleHours = (int) $this->option('stale-hours');
@@ -27,8 +33,8 @@ class EnrichViralMoments extends Command
         $dryRun     = (bool) $this->option('dry-run');
         $singleId   = $this->option('politician');
 
-        if (! $youtube->isConfigured()) {
-            $this->error('YOUTUBE_API_KEY is not configured. Add it to .env / secrets and re-run.');
+        if (! $cspan->isConfigured()) {
+            $this->error('C-SPAN moments are disabled (CSPAN_MOMENTS_ENABLED=false), or Node/Playwright is unavailable.');
             return self::FAILURE;
         }
 
@@ -47,12 +53,13 @@ class EnrichViralMoments extends Command
                 $q->where('id', $singleId)->orWhere('slug', $singleId)
             );
         } else {
-            // Prioritise politicians with no moment run yet, then stale runs.
+            // Prioritise politicians with no cspan run yet, then stale runs.
             $query->where(function ($q) use ($staleHours, $force) {
-                $q->whereDoesntHave('viralMomentRuns');
+                $q->whereDoesntHave('viralMomentRuns', fn ($sq) => $sq->where('source', 'cspan'));
                 if (! $force) {
                     $q->orWhereHas('viralMomentRuns', fn ($sq) =>
-                        $sq->where('enriched_at', '<', now()->subHours($staleHours))
+                        $sq->where('source', 'cspan')
+                           ->where('enriched_at', '<', now()->subHours($staleHours))
                            ->orWhereNull('enriched_at')
                     );
                 }
@@ -62,11 +69,11 @@ class EnrichViralMoments extends Command
         $politicians = $query->get();
 
         if ($politicians->isEmpty()) {
-            $this->info('No politicians need viral-moment enrichment.');
+            $this->info('No politicians need C-SPAN moment enrichment.');
             return self::SUCCESS;
         }
 
-        $this->info("Enriching {$politicians->count()} politician moment(s)...");
+        $this->info("Enriching {$politicians->count()} politician C-SPAN moment(s)...");
 
         $enriched = 0;
         $skipped  = 0;
@@ -79,9 +86,9 @@ class EnrichViralMoments extends Command
                 continue;
             }
 
-            // Quota gate: skip politicians with no recent news unless --force.
-            // A quiet politician is unlikely to have a fresh viral clip, and
-            // skipping them keeps a national roster within YouTube's quota.
+            // Keep the news-freshness gate: a quiet politician is unlikely to
+            // have fresh C-SPAN footage, and skipping them keeps the browser
+            // scrape bounded. --force bypasses it.
             if (! $force && ! $enricher->hasRecentNews($politician)) {
                 $skipped++;
                 $this->line("  ⏭ {$politician->full_name} (no recent news)");
@@ -91,13 +98,13 @@ class EnrichViralMoments extends Command
             $this->line("  → {$politician->full_name} (id={$politician->id})");
 
             if ($dryRun) {
-                $this->reportDryRun($youtube, $politician);
+                $this->reportDryRun($cspan, $politician);
                 $enriched++;
                 continue;
             }
 
             try {
-                $result = $enricher->enrich($politician, $youtube);
+                $result = $enricher->enrich($politician, $cspan);
                 if ($result === null) {
                     $failed++;
                     $this->warn("  ✗ {$politician->full_name}: enrich returned null");
@@ -108,7 +115,7 @@ class EnrichViralMoments extends Command
             } catch (\Throwable $e) {
                 $failed++;
                 $this->warn("  ✗ {$politician->full_name}: {$e->getMessage()}");
-                Log::warning('politicians:enrich-moments failed', [
+                Log::warning('politicians:enrich-cspan-moments failed', [
                     'politician_id' => $politician->id,
                     'error'         => $e->getMessage(),
                 ]);
@@ -121,9 +128,8 @@ class EnrichViralMoments extends Command
     }
 
     /**
-     * Freshness gate keyed on the latest viral-moment run's enriched_at.
-     * `--force` or `--stale-hours=0` ⇒ not fresh (always run). No run ⇒ not
-     * fresh (needs first enrichment).
+     * Freshness gate keyed on the latest *cspan* run's enriched_at (not the
+     * YouTube run). `--force` or `--stale-hours=0` ⇒ not fresh (always run).
      */
     private function isFresh(Politician $p, int $staleHours, bool $force = false): bool
     {
@@ -131,7 +137,7 @@ class EnrichViralMoments extends Command
             return false;
         }
 
-        $run = $p->latestViralMomentRun;
+        $run = $p->viralMomentRuns()->where('source', 'cspan')->orderByDesc('enriched_at')->first();
         if (! $run) {
             return false;
         }
@@ -140,14 +146,13 @@ class EnrichViralMoments extends Command
             && $run->enriched_at->gt(now()->subHours($staleHours));
     }
 
-    private function reportDryRun(YouTubeMomentService $youtube, Politician $politician): void
+    private function reportDryRun(CspanMomentService $cspan, Politician $politician): void
     {
         try {
-            $result = $youtube->fetchMoments($politician);
+            $result = $cspan->fetchMoments($politician);
             $this->line("    [dry-run] status={$result['status']}, query=\"{$result['query']}\", clips=" . count($result['clips']));
             foreach (array_slice($result['clips'], 0, 3) as $clip) {
-                $views = $clip['view_count'] ?? 'n/a';
-                $this->line("      • {$clip['title']} — views={$views}");
+                $this->line("      • {$clip['title']} — id={$clip['source_id']}");
             }
         } catch (\Throwable $e) {
             $this->line("    [dry-run] error: {$e->getMessage()}");

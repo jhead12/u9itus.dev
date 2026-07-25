@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Contracts\MomentFetcher;
 use App\Models\Politician;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
@@ -24,7 +25,7 @@ use Illuminate\Support\Facades\Log;
  *
  * Setup: add YOUTUBE_API_KEY to .env / GitHub Actions secrets / Railway env.
  */
-class YouTubeMomentService
+class YouTubeMomentService implements MomentFetcher
 {
     protected ?string $apiKey;
     protected string $baseUrl;
@@ -37,6 +38,11 @@ class YouTubeMomentService
     {
         $this->apiKey = config('services.google.youtube_api_key');
         $this->baseUrl = (string) config('services.google.youtube_api_base_url', 'https://www.googleapis.com/youtube/v3');
+    }
+
+    public function source(): string
+    {
+        return 'youtube';
     }
 
     public function isConfigured(): bool
