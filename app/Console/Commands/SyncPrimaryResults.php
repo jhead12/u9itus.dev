@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Models\CandidateIdentityLink;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -10,8 +11,8 @@ use Illuminate\Support\Facades\Log;
 /**
  * Syncs primary election results into the election_candidate_records payload.
  *
- * For each state-level candidate record where the election_date is in the past
- * and primary_result is not yet set, this command:
+ * For each state or federal candidate record where the election_date is in the
+ * past and primary_result is not yet set, this command:
  *
  *  Tier 1 — Ballotpedia candidate page  (HTML scrape, no key required)
  *  Tier 2 — Wikipedia candidate page    (REST summary, free)
@@ -34,7 +35,7 @@ class SyncPrimaryResults extends Command
         {--dry-run : Report only — no DB writes.}
         {--force   : Re-check records that already have primary_result set.}';
 
-    protected $description = 'Sync primary election results for statewide candidates from Ballotpedia/Wikipedia.';
+    protected $description = 'Sync primary election results for state and federal candidates from Ballotpedia/Wikipedia.';
 
     /** Keywords that signal a candidate advanced */
     private const ADVANCED_SIGNALS = [
@@ -73,11 +74,12 @@ class SyncPrimaryResults extends Command
             $this->line('<fg=yellow>[dry-run] No DB writes will occur.</>');
         }
 
-        // Fetch statewide candidate records that are still relevant to primary sync.
-        // We intentionally do NOT require election_date < today because Ballotpedia
+        // Fetch state and federal candidate records that are still relevant to primary
+        // sync. We intentionally do NOT require election_date < today because Ballotpedia
         // imports often store the GENERAL election date on the row. If we filtered by
         // past election_date, eliminated primary candidates would never be processed.
-        // The district filter remains broad; governance_level=State is the scope guard.
+        // The district filter remains broad; governance_level in (state, federal) is the
+        // scope guard — local/city races aren't covered by the Ballotpedia/Wikipedia tiers.
         // Driver-branching JSON extraction so the SQLite test env doesn't choke on
         // MySQL's JSON_UNQUOTE(JSON_EXTRACT(...)). Both return the unquoted scalar.
         $driver = DB::connection()->getDriverName();
@@ -86,7 +88,7 @@ class SyncPrimaryResults extends Command
             : "JSON_UNQUOTE(JSON_EXTRACT(payload,'{$key}'))";
 
         $query = DB::table('election_candidate_records')
-            ->whereRaw('LOWER(COALESCE(governance_level,\'\')) = ?', ['state'])
+            ->whereRaw('LOWER(COALESCE(governance_level,\'\')) IN (?, ?)', ['state', 'federal'])
             // Ignore seated officeholder rows; they are not on the primary ballot.
             ->whereRaw('COALESCE(' . $extract('$.status') . ',\'\') != ?', ['seated'])
             // Exclude rows already stamped eliminated to avoid re-processing them
@@ -99,74 +101,139 @@ class SyncPrimaryResults extends Command
         $records = $query->get(['id', 'external_candidate_id', 'full_name', 'political_office',
                                 'party_affiliation', 'state', 'election_date', 'source', 'payload']);
 
-        $this->info("Found {$records->count()} statewide candidate record(s) eligible for primary-result sync.");
+        $this->info("Found {$records->count()} state/federal candidate record(s) eligible for primary-result sync.");
 
-        $stats = ['advanced' => 0, 'eliminated' => 0, 'unknown' => 0, 'skipped' => 0];
+        $stats = ['advanced' => 0, 'eliminated' => 0, 'unknown' => 0, 'skipped' => 0, 'politician_updated' => 0];
 
         foreach ($records as $rec) {
-            $payload = json_decode($rec->payload ?? '{}', true) ?: [];
-
-            // Skip records where primary_result is already set, unless --force
-            if (isset($payload['primary_result']) && $payload['primary_result'] !== null && !$force) {
-                $stats['skipped']++;
-                continue;
-            }
-
-            // Skip seated officeholders — they are not candidates on the ballot
-            if (($payload['status'] ?? null) === 'seated') {
-                $stats['skipped']++;
-                continue;
-            }
-
-            if ($rec->election_date === null) {
-                $this->line("\n<fg=yellow>[{$rec->state}]</> {$rec->full_name} — {$rec->political_office} — skipped (no election_date)");
-                Log::warning('SyncPrimaryResults: skipping record with null election_date', ['id' => $rec->id, 'name' => $rec->full_name]);
-                $stats['skipped']++;
-                continue;
-            }
-
-            $this->line("\n<fg=green>[{$rec->state}]</> {$rec->full_name} — {$rec->political_office}");
-
-            $result = $this->resolvePrimaryResult($rec->full_name, $rec->state, $rec->political_office, $rec->election_date);
-
-            if ($result === null) {
-                $this->line("  <fg=yellow>✗ Could not determine primary result</>");
-                $stats['unknown']++;
-                continue;
-            }
-
-            $this->line("  <fg=cyan>✓ primary_result:</> {$result}");
-
-            if (!$dryRun) {
-                $payload['primary_result'] = $result;
-                $payload['primary_date']   = $rec->election_date;
-                if ($result === 'advanced_to_general') {
-                    // Estimate general election date (first Tuesday after first Monday in November)
-                    $year = (int) substr($rec->election_date, 0, 4);
-                    $payload['general_date'] = $this->generalElectionDate($year);
-                } elseif ($result === 'eliminated') {
-                    $payload['elimination_note'] = "Did not advance from {$rec->election_date} primary";
-                }
-
-                DB::table('election_candidate_records')
-                    ->where('id', $rec->id)
-                    ->update([
-                        'payload'    => json_encode($payload),
-                        'updated_at' => now(),
-                    ]);
-            }
-
-            $stats[$result === 'advanced_to_general' ? 'advanced' : 'eliminated']++;
-            usleep(self::DELAY_MS * 1000);
+            $this->processRecord($rec, $force, $dryRun, $stats);
         }
 
         $suffix = $dryRun ? ' (dry-run)' : '';
         $this->info(
             "\nSync complete{$suffix}: {$stats['advanced']} advanced | " .
-            "{$stats['eliminated']} eliminated | {$stats['unknown']} unknown | {$stats['skipped']} skipped"
+            "{$stats['eliminated']} eliminated | {$stats['unknown']} unknown | {$stats['skipped']} skipped | " .
+            "{$stats['politician_updated']} politician(s) updated"
         );
 
         return self::SUCCESS;
+    }
+
+    /**
+     * @param array<string,int> $stats
+     */
+    private function processRecord(object $rec, bool $force, bool $dryRun, array &$stats): void
+    {
+        $payload = json_decode($rec->payload ?? '{}', true) ?: [];
+
+        // Skip records where primary_result is already set, unless --force
+        if (isset($payload['primary_result']) && $payload['primary_result'] !== null && !$force) {
+            $stats['skipped']++;
+            return;
+        }
+
+        // Skip seated officeholders — they are not candidates on the ballot
+        if (($payload['status'] ?? null) === 'seated') {
+            $stats['skipped']++;
+            return;
+        }
+
+        if ($rec->election_date === null) {
+            $this->line("\n<fg=yellow>[{$rec->state}]</> {$rec->full_name} — {$rec->political_office} — skipped (no election_date)");
+            Log::warning('SyncPrimaryResults: skipping record with null election_date', ['id' => $rec->id, 'name' => $rec->full_name]);
+            $stats['skipped']++;
+            return;
+        }
+
+        $this->line("\n<fg=green>[{$rec->state}]</> {$rec->full_name} — {$rec->political_office}");
+
+        $result = $this->resolvePrimaryResult($rec->full_name, $rec->state, $rec->political_office, $rec->election_date);
+
+        if ($result === null) {
+            $this->line("  <fg=yellow>✗ Could not determine primary result</>");
+            $stats['unknown']++;
+            return;
+        }
+
+        $this->line("  <fg=cyan>✓ primary_result:</> {$result}");
+
+        if ($dryRun) {
+            $this->reportDryRunElimination($rec, $result);
+        } else {
+            $this->persistResult($rec, $payload, $result, $stats);
+        }
+
+        $stats[$result === 'advanced_to_general' ? 'advanced' : 'eliminated']++;
+        usleep(self::DELAY_MS * 1000);
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     * @param array<string,int> $stats
+     */
+    private function persistResult(object $rec, array $payload, string $result, array &$stats): void
+    {
+        $payload['primary_result'] = $result;
+        $payload['primary_date']   = $rec->election_date;
+        if ($result === 'advanced_to_general') {
+            // Estimate general election date (first Tuesday after first Monday in November)
+            $year = (int) substr($rec->election_date, 0, 4);
+            $payload['general_date'] = $this->generalElectionDate($year);
+        } elseif ($result === 'eliminated') {
+            $payload['elimination_note'] = "Did not advance from {$rec->election_date} primary";
+        }
+
+        DB::table('election_candidate_records')
+            ->where('id', $rec->id)
+            ->update([
+                'payload'    => json_encode($payload),
+                'updated_at' => now(),
+            ]);
+
+        if ($result === 'eliminated' && $this->markPoliticianEliminated($rec->id)) {
+            $stats['politician_updated']++;
+        }
+    }
+
+    /**
+     * --dry-run: surface whether a linked politician would be updated, without writing.
+     */
+    private function reportDryRunElimination(object $rec, string $result): void
+    {
+        if ($result !== 'eliminated') {
+            return;
+        }
+
+        $link = CandidateIdentityLink::where('election_candidate_record_id', $rec->id)->first();
+        if ($link && $link->politician && !in_array($link->politician->term_status, ['seated', 'retired'], true)) {
+            $this->line("  <fg=gray>[dry-run] would set politician #{$link->politician_id} term_status=eliminated</>");
+        }
+    }
+
+    /**
+     * Propagate a primary-loss result onto the linked Politician record (if any),
+     * so voters see the "eliminated" status immediately rather than waiting for
+     * the post-general reconciliation pass. Never clobbers a resolved status
+     * (seated/retired) — those take precedence over a stale primary read.
+     */
+    private function markPoliticianEliminated(int $electionCandidateRecordId): bool
+    {
+        $link = CandidateIdentityLink::where('election_candidate_record_id', $electionCandidateRecordId)->first();
+        $politician = $link?->politician;
+
+        if (!$politician || in_array($politician->term_status, ['seated', 'retired'], true)) {
+            return false;
+        }
+
+        $politician->update([
+            'term_status'          => 'eliminated',
+            'is_running_candidate' => false,
+            'status_updated_at'    => now(),
+        ]);
+
+        $this->line("  <fg=cyan>✓ politician #{$politician->id} term_status → eliminated</>");
+
+        return true;
     }
 
     /**

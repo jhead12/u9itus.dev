@@ -16,6 +16,7 @@ class RefreshCandidateNews extends Command
         {--limit=50           : Maximum number of candidates to process per run}
         {--politician=        : Refresh a single politician by ID}
         {--state=              : Two-letter state code — limit to one state}
+        {--upcoming-only      : Only target candidates currently running (is_running_candidate), instead of ordering by traffic}
         {--dry-run            : Report which candidates would be refreshed without fetching}';
 
     protected $description = 'Fetch and cache recent news articles for candidates from Google News RSS (and optional NewsAPI/GNews).';
@@ -26,6 +27,7 @@ class RefreshCandidateNews extends Command
         $limit       = (int) $this->option('limit');
         $politicianId = $this->option('politician');
         $state       = $this->option('state') ? strtoupper(trim((string) $this->option('state'))) : null;
+        $upcomingOnly = (bool) $this->option('upcoming-only');
         $dryRun      = (bool) $this->option('dry-run');
 
         $staleThreshold = now()->subHours($staleHours);
@@ -48,7 +50,14 @@ class RefreshCandidateNews extends Command
                 ->where('is_active', true)
                 ->whereNotIn('id', $recentlyFetched)
                 ->when($state, fn ($q) => $q->whereRaw('UPPER(COALESCE(state, \'\')) = ?', [$state]))
-                ->orderByDesc('total_views_received') // prioritise high-traffic profiles
+                ->when(
+                    $upcomingOnly,
+                    // Target candidates on the ballot for the upcoming cycle, regardless
+                    // of traffic — a brand-new low-traffic candidate shouldn't wait
+                    // behind high-traffic incumbents in the default queue.
+                    fn ($q) => $q->where('is_running_candidate', true),
+                    fn ($q) => $q->orderByDesc('total_views_received') // prioritise high-traffic profiles
+                )
                 ->limit($limit)
                 ->get();
         }

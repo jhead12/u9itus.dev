@@ -21,6 +21,7 @@ class EnrichCspanMoments extends Command
         {--stale-hours=48    : Re-enrich moments older than N hours}
         {--politician=       : Process a single politician by ID or slug}
         {--force             : Re-enrich even if the last run is fresh}
+        {--upcoming-only     : Only target candidates currently running (is_running_candidate)}
         {--dry-run           : Report what would be fetched without writing}';
 
     protected $description = 'Fetch C-SPAN video clips (Playwright scrape) and score them for politician profiles + map.';
@@ -32,6 +33,7 @@ class EnrichCspanMoments extends Command
         $force      = (bool) $this->option('force');
         $dryRun     = (bool) $this->option('dry-run');
         $singleId   = $this->option('politician');
+        $upcomingOnly = (bool) $this->option('upcoming-only');
 
         if (! $cspan->isConfigured()) {
             $this->error('C-SPAN moments are disabled (CSPAN_MOMENTS_ENABLED=false), or Node/Playwright is unavailable.');
@@ -46,7 +48,8 @@ class EnrichCspanMoments extends Command
             ->where('page_published', true)
             ->where('is_active', true)
             ->whereNotNull('full_name')
-            ->where('full_name', '!=', '');
+            ->where('full_name', '!=', '')
+            ->when($upcomingOnly, fn ($q) => $q->where('is_running_candidate', true));
 
         if ($singleId) {
             $query->where(fn ($q) =>

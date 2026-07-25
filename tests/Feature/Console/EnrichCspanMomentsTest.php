@@ -87,6 +87,35 @@ it('fails fast when C-SPAN moments are disabled', function () {
     expect(ViralMomentEnrichmentRun::count())->toBe(0);
 });
 
+it('--upcoming-only only targets currently-running candidates', function () {
+    $running = seedCspanCommandPolitician([
+        'full_name' => 'Running Candidate',
+        'slug' => 'running-candidate',
+        'is_running_candidate' => true,
+        'term_status' => 'running',
+    ]);
+    $seated = seedCspanCommandPolitician([
+        'full_name' => 'Seated Incumbent',
+        'slug' => 'seated-incumbent',
+        'is_running_candidate' => false,
+        'term_status' => 'seated',
+    ]);
+
+    $this->mock(CspanMomentService::class, function ($m) {
+        $m->shouldReceive('isConfigured')->andReturn(true);
+        $m->shouldReceive('source')->andReturn('cspan');
+        $m->shouldReceive('fetchMoments')->once()->andReturn([
+            'status' => 'empty', 'http_status' => 200, 'query' => 'q', 'clips' => [],
+        ]);
+    });
+
+    $this->artisan('politicians:enrich-cspan-moments', ['--upcoming-only' => true, '--force' => true])
+        ->assertSuccessful();
+
+    expect($running->viralMomentRuns()->where('source', 'cspan')->exists())->toBeTrue();
+    expect($seated->viralMomentRuns()->where('source', 'cspan')->exists())->toBeFalse();
+});
+
 it('dry-runs without writing any rows', function () {
     $politician = seedCspanCommandPolitician();
 

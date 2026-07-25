@@ -17,6 +17,7 @@ class EnrichPoliticianDonors extends Command
         {--stale-hours=48    : Re-enrich snapshots older than N hours}
         {--politician=       : Process a single politician by ID or slug}
         {--force             : Re-enrich even if snapshot is fresh}
+        {--upcoming-only     : Only target candidates currently running (is_running_candidate)}
         {--dry-run           : Report what would be fetched without writing}';
 
     protected $description = 'Fetch and cache donor/sponsor data from OpenSecrets and FEC for politician profiles.';
@@ -28,6 +29,7 @@ class EnrichPoliticianDonors extends Command
         $force      = (bool) $this->option('force');
         $dryRun     = (bool) $this->option('dry-run');
         $singleId   = $this->option('politician');
+        $upcomingOnly = (bool) $this->option('upcoming-only');
 
         // Per-process FEC throttle/rate-limit state — start the batch clean so
         // a short-circuit tripped in this run reflects only this run's 429s.
@@ -39,7 +41,8 @@ class EnrichPoliticianDonors extends Command
 
         $query = Politician::query()
             ->where('page_published', true)
-            ->where('is_active', true);
+            ->where('is_active', true)
+            ->when($upcomingOnly, fn ($q) => $q->where('is_running_candidate', true));
 
         if ($singleId) {
             $query->where(fn ($q) =>

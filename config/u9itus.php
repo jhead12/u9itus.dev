@@ -409,6 +409,21 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Campaign website discovery
+    |--------------------------------------------------------------------------
+    | Drives App\Services\CampaignWebsiteDiscoveryService + the
+    | politicians:discover-websites command, which finds an official campaign
+    | site for candidates missing politicians.website_url by scraping their
+    | Ballotpedia page (same plain-HTTP approach as SyncPrimaryResults — no
+    | Playwright needed for Ballotpedia). A discovered URL is picked up on the
+    | next politicians:enrich-profiles run.
+    */
+    'website_discovery' => [
+        'cache_hours' => env('WEBSITE_DISCOVERY_CACHE_HOURS', 168),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Issues: Inferred discourse badges
     |--------------------------------------------------------------------------
     | Drives the issue/discourse-badge system that labels politicians with the
