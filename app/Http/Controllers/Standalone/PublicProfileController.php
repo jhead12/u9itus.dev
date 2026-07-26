@@ -486,39 +486,46 @@ class PublicProfileController extends Controller
             'page_published' => true,
         ];
 
-        $existing = Politician::query()
-            ->whereNull('user_id')
-            ->whereRaw('LOWER(full_name) = ?', [strtolower($fullName)])
-            ->whereRaw("LOWER(COALESCE(political_office, '')) = ?", [strtolower($office)])
-            ->whereRaw("UPPER(COALESCE(state, '')) = ?", [$state])
-            ->first();
+        // The politicians table has no unique constraint on (full_name, political_office,
+        // state), so without a lock, concurrent district-lookup requests for the same real
+        // official (e.g. many visitors searching addresses in the same district around the
+        // same time) each pass this "does a profile already exist" check before either has
+        // inserted, producing duplicate rows for the same person. Serialize per-identity so
+        // only one request creates it; the rest update the row it just created.
+        $lockKey = 'district-lookup.persist-politician.'.md5(strtolower($fullName.'|'.$office.'|'.$state));
 
-        $profileId = null;
+        return Cache::lock($lockKey, 10)->block(5, function () use ($fullName, $office, $state, $profileData): ?int {
+            $existing = Politician::query()
+                ->whereNull('user_id')
+                ->whereRaw('LOWER(full_name) = ?', [strtolower($fullName)])
+                ->whereRaw("LOWER(COALESCE(political_office, '')) = ?", [strtolower($office)])
+                ->whereRaw("UPPER(COALESCE(state, '')) = ?", [$state])
+                ->first();
 
-        if ($existing) {
-            if (empty(trim((string) ($profileData['website_url'] ?? '')))) {
-                unset($profileData['website_url']);
+            if ($existing) {
+                if (empty(trim((string) ($profileData['website_url'] ?? '')))) {
+                    unset($profileData['website_url']);
+                }
+
+                if (empty(trim((string) ($profileData['profile_photo_url'] ?? '')))) {
+                    unset($profileData['profile_photo_url']);
+                }
+
+                // Keep richer existing bios; district lookup discovery should not replace them.
+                $incomingBio = trim((string) ($profileData['bio'] ?? ''));
+                $existingBio = trim((string) ($existing->bio ?? ''));
+                if ($existingBio !== '' && str_contains($incomingBio, 'Imported from Google Civic Information API based on district lookup discovery.')) {
+                    unset($profileData['bio']);
+                }
+
+                $existing->fill($profileData);
+                $existing->save();
+
+                return $existing->id;
             }
 
-            if (empty(trim((string) ($profileData['profile_photo_url'] ?? '')))) {
-                unset($profileData['profile_photo_url']);
-            }
-
-            // Keep richer existing bios; district lookup discovery should not replace them.
-            $incomingBio = trim((string) ($profileData['bio'] ?? ''));
-            $existingBio = trim((string) ($existing->bio ?? ''));
-            if ($existingBio !== '' && str_contains($incomingBio, 'Imported from Google Civic Information API based on district lookup discovery.')) {
-                unset($profileData['bio']);
-            }
-
-            $existing->fill($profileData);
-            $existing->save();
-            $profileId = $existing->id;
-        } else {
-            $profileId = Politician::create($profileData)->id;
-        }
-
-        return $profileId;
+            return Politician::create($profileData)->id;
+        });
     }
 
     /**
