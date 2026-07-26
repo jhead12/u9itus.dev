@@ -25,7 +25,7 @@ class MergeDuplicatePoliticians extends Command
                             {--dry-run : Report duplicate groups without changing anything}
                             {--force : Skip the confirmation prompt}';
 
-    protected $description = 'Merge unclaimed Politician rows that are duplicates of the same real official (same name/office/state) into a single canonical row';
+    protected $description = 'Merge unclaimed Politician rows that are duplicates of the same real official (same name/office/state) into a single canonical row. Pass -v to see per-table reassignment detail as it runs.';
 
     /**
      * (table, column) pairs that reference politicians.id, gathered from
@@ -97,13 +97,19 @@ class MergeDuplicatePoliticians extends Command
         }
 
         $mergedRows = 0;
+        $verbose = $this->output->isVerbose();
 
         foreach ($groups as $group) {
-            $canonicalId = (int) $group->first()->id;
+            $canonical = $group->first();
+            $canonicalId = (int) $canonical->id;
 
             foreach ($group->slice(1) as $duplicate) {
-                DB::transaction(function () use ($canonicalId, $duplicate): void {
-                    $this->mergeInto($canonicalId, (int) $duplicate->id);
+                if ($verbose) {
+                    $this->line("<comment>Merging id={$duplicate->id} into id={$canonicalId}</comment> (\"{$canonical->full_name}\")");
+                }
+
+                DB::transaction(function () use ($canonicalId, $duplicate, $verbose): void {
+                    $this->mergeInto($canonicalId, (int) $duplicate->id, $verbose);
                 });
                 $mergedRows++;
             }
@@ -135,10 +141,18 @@ class MergeDuplicatePoliticians extends Command
             ->values();
     }
 
-    protected function mergeInto(int $canonicalId, int $duplicateId): void
+    protected function mergeInto(int $canonicalId, int $duplicateId, bool $verbose = false): void
     {
         foreach ($this->referencingColumns as [$table, $column]) {
-            $this->reassignForeignKey($table, $column, $duplicateId, $canonicalId);
+            $result = $this->reassignForeignKey($table, $column, $duplicateId, $canonicalId);
+
+            if ($verbose && ($result['reassigned'] > 0 || $result['dropped'] > 0)) {
+                $this->line("    {$table}.{$column}: reassigned {$result['reassigned']}, dropped {$result['dropped']} (unique-key collision)");
+            }
+        }
+
+        if ($verbose) {
+            $this->line("    deleting politicians.id={$duplicateId}");
         }
 
         // Anything left pointing at the duplicate that isn't in
@@ -147,12 +161,15 @@ class MergeDuplicatePoliticians extends Command
         Politician::query()->whereKey($duplicateId)->delete();
     }
 
-    protected function reassignForeignKey(string $table, string $column, int $fromId, int $toId): void
+    /**
+     * @return array{reassigned: int, dropped: int}
+     */
+    protected function reassignForeignKey(string $table, string $column, int $fromId, int $toId): array
     {
         try {
-            DB::table($table)->where($column, $fromId)->update([$column => $toId]);
+            $reassigned = DB::table($table)->where($column, $fromId)->update([$column => $toId]);
 
-            return;
+            return ['reassigned' => $reassigned, 'dropped' => 0];
         } catch (QueryException $e) {
             // A compound unique key that includes $column (e.g. one row per
             // politician+topic, politician+service+track, etc.) — the
@@ -162,14 +179,21 @@ class MergeDuplicatePoliticians extends Command
             // still collide, rather than losing the whole batch.
         }
 
-        DB::table($table)->where($column, $fromId)->orderBy('id')->chunkById(100, function ($rows) use ($table, $column, $toId): void {
+        $reassigned = 0;
+        $dropped = 0;
+
+        DB::table($table)->where($column, $fromId)->orderBy('id')->chunkById(100, function ($rows) use ($table, $column, $toId, &$reassigned, &$dropped): void {
             foreach ($rows as $row) {
                 try {
                     DB::table($table)->where('id', $row->id)->update([$column => $toId]);
+                    $reassigned++;
                 } catch (QueryException $e) {
                     DB::table($table)->where('id', $row->id)->delete();
+                    $dropped++;
                 }
             }
         });
+
+        return ['reassigned' => $reassigned, 'dropped' => $dropped];
     }
 }
