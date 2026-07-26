@@ -2,12 +2,17 @@
 
 namespace App\Services;
 
+use App\Jobs\ProcessAccountDeletionStripeCleanupJob;
 use App\Models\AdminSecurityAuditLog;
 use App\Models\Citizen;
+use App\Models\CitizenPaymentMethod;
 use App\Models\DeletedAccount;
 use App\Models\Politician;
+use App\Models\PoliticianPaymentMethod;
 use App\Models\User;
 use App\Models\Voter;
+use App\Services\CampaignBillingService;
+use App\Services\CitizenBillingService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
@@ -16,6 +21,12 @@ use Illuminate\Support\Str;
 
 class UserDeletionService
 {
+    public function __construct(
+        private CampaignBillingService $campaignBilling,
+        private CitizenBillingService $citizenBilling
+    ) {
+    }
+
     /**
      * Archive the user into deleted_accounts then hard-delete all associated rows.
      *
@@ -31,14 +42,70 @@ class UserDeletionService
             throw new \RuntimeException('Admin accounts cannot be deleted through this service.');
         }
 
-        return DB::transaction(function () use ($user, $deletedBy, $reason, $ip) {
+        $voter      = $user->voter;
+        $politician = $user->politician;
+        $citizen    = $user->citizen ?? null;
+        $actingUserId = $deletedBy?->id ?? $user->id;
+
+        // Refund any unused credit balance and snapshot the Stripe objects that
+        // need cleanup BEFORE anything is deleted. The credit ledger and
+        // payment-method rows cascade-delete with the profile row below, and
+        // refunding requires the still-live politician/citizen row to compute
+        // and debit the balance — it cannot be deferred to the cleanup job.
+        $stripeCleanupPlan = [
+            'payment_methods'    => [],
+            'connect_account_id' => null,
+            'refunds'            => [],
+        ];
+
+        if ($politician) {
+            $result = $this->campaignBilling->refundAllUnusedCredits($politician, $actingUserId, $reason);
+            $stripeCleanupPlan['refunds']['politician'] = [
+                'refunded_transaction_ids' => array_map(fn ($tx) => $tx->id, $result['refunded']),
+                'errors'                   => $result['errors'],
+            ];
+            $stripeCleanupPlan['payment_methods'] = array_merge(
+                $stripeCleanupPlan['payment_methods'],
+                PoliticianPaymentMethod::where('politician_id', $politician->id)
+                    ->get(['stripe_customer_id', 'stripe_payment_method_id'])
+                    ->toArray()
+            );
+        }
+
+        if ($citizen) {
+            $result = $this->citizenBilling->refundAllUnusedCredits($citizen, $actingUserId, $reason);
+            $stripeCleanupPlan['refunds']['citizen'] = [
+                'refunded_transaction_ids' => array_map(fn ($tx) => $tx->id, $result['refunded']),
+                'errors'                   => $result['errors'],
+            ];
+            $stripeCleanupPlan['payment_methods'] = array_merge(
+                $stripeCleanupPlan['payment_methods'],
+                CitizenPaymentMethod::where('citizen_id', $citizen->id)
+                    ->get(['stripe_customer_id', 'stripe_payment_method_id'])
+                    ->toArray()
+            );
+        }
+
+        if ($voter && ! empty($voter->stripe_account_id)) {
+            $stripeCleanupPlan['connect_account_id'] = $voter->stripe_account_id;
+        }
+
+        $needsStripeCleanup = ! empty($stripeCleanupPlan['payment_methods'])
+            || $stripeCleanupPlan['connect_account_id'] !== null;
+
+        $record = DB::transaction(function () use (
+            $user,
+            $deletedBy,
+            $reason,
+            $ip,
+            $voter,
+            $politician,
+            $citizen,
+            $stripeCleanupPlan,
+            $needsStripeCleanup
+        ) {
             // Snapshot the user row before anything is touched
             $snapshot = $user->getAttributes();
-
-            // Resolve linked profile IDs
-            $voter     = $user->voter;
-            $politician = $user->politician;
-            $citizen   = $user->citizen ?? null;
 
             // Archive record
             $record = DeletedAccount::create([
@@ -62,6 +129,8 @@ class UserDeletionService
                 'deletion_reason'   => $reason,
                 'deleted_by_ip'     => $ip,
                 'deleted_at'        => now(),
+                'stripe_cleanup_plan'   => $stripeCleanupPlan,
+                'stripe_cleanup_status' => $needsStripeCleanup ? 'pending' : 'not_applicable',
             ]);
 
             // Delete profiles (cascades their child rows via DB constraints)
@@ -97,6 +166,12 @@ class UserDeletionService
 
             return $record;
         });
+
+        if ($record->stripe_cleanup_status === 'pending') {
+            ProcessAccountDeletionStripeCleanupJob::dispatch($record)->afterCommit();
+        }
+
+        return $record;
     }
 
     /**

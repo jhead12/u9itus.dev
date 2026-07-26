@@ -540,4 +540,24 @@ class StripeConnectService
             'transfer' => $transfer,
         ];
     }
+
+    /**
+     * Close a voter's Express Connect account during account deletion cleanup.
+     * Irreversible on Stripe's side. Fails if the account still holds a
+     * balance — that's surfaced to the caller so an admin can settle it
+     * first rather than silently leaving funds stranded.
+     */
+    public function closeAccount(string $stripeAccountId): void
+    {
+        if (! $this->client) {
+            throw new StripeConnectException(self::NOT_CONFIGURED);
+        }
+
+        try {
+            $this->client->accounts->delete($stripeAccountId, []);
+            Log::info('Closed Stripe Connect account', ['stripe_account_id' => $stripeAccountId]);
+        } catch (\Throwable $e) {
+            throw $this->classifyStripeException($e);
+        }
+    }
 }

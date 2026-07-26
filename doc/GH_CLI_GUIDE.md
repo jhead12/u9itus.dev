@@ -218,6 +218,56 @@ command, keeping the `limit` / `stale_hours` / `politician` / `force` /
 `dry_run` inputs. Then `gh workflow run <name>.yml -f dry_run=true` works the
 same as it does for the YouTube moments job.
 
+### Account deletion Stripe cleanup — migration + queue worker (no GA workflow, and never will be)
+
+`UserDeletionService::archiveAndDelete()` (previously reachable only through
+the admin "delete user" web action, at `DELETE /admin/users/{user}`) now
+refunds unused politician/citizen credit balances synchronously, then
+snapshots the Stripe objects that still need cleanup (saved cards, the Stripe
+Customer, a voter's Connect payout account) onto the `deleted_accounts` row
+and dispatches `ProcessAccountDeletionStripeCleanupJob` onto the queue. This
+is a one-time schema change, a queued job, and a console command triggered by
+an admin action — not a recurring pipeline — so unlike the enrichers above,
+there's no `gh workflow run` parity to build here; these commands are it.
+
+```bash
+# One-time: adds stripe_cleanup_plan/status/timestamps/error to deleted_accounts
+php artisan migrate --path=database/migrations/2026_07_25_000001_add_stripe_cleanup_fields_to_deleted_accounts_table.php
+```
+
+New `users:delete` console command gives CLI/scripted access to the same
+pipeline the admin dashboard uses, no browser session required. It requires
+`--admin=` (id or email) since the audit log needs a real acting admin —
+`archiveAndDelete()`'s own `$deletedBy = null` self-delete path has a known
+bug (it logs using the just-deleted user, which trips the audit log's FK),
+so this command always resolves and validates a real, separate admin account
+first, the same way `AdminController::deleteUser()` does:
+
+```bash
+php artisan users:delete someone@example.com --admin=admin@u9itus.com --reason="policy violation"
+php artisan users:delete 42 --admin=1 --force            # skip the confirmation prompt (scripted use)
+```
+
+`QUEUE_CONNECTION=database` in this repo's `.env`/`.env.production`, so the
+cleanup job sits in the `jobs` table until a worker picks it up — deleting a
+user does **not** touch Stripe synchronously beyond the refund step:
+
+```bash
+php artisan queue:work            # process ProcessAccountDeletionStripeCleanupJob (and everything else queued)
+php artisan queue:work --once     # process a single queued job, useful when testing one deletion by hand
+```
+
+If a cleanup run partially fails (e.g. Stripe is down when detaching a card),
+`deleted_accounts.stripe_cleanup_status` is set to `partially_completed` with
+the error in `stripe_cleanup_error` rather than silently retrying — the job
+has `tries = 1` on purpose (money-adjacent jobs in this repo never
+auto-retry, see `ProcessBatchPayoutsJob` for the same pattern). Re-running it
+for one account is a deliberate re-dispatch, not automatic:
+
+```bash
+php artisan tinker --execute="\App\Jobs\ProcessAccountDeletionStripeCleanupJob::dispatch(\App\Models\DeletedAccount::find(<id>));"
+```
+
 ### Group 2 — on-demand incident response
 
 `repair-broken-profile.yml` has no schedule at all — it only runs when

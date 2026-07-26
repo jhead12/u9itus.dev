@@ -308,4 +308,19 @@ class StripePaymentService
 
         Log::info('Detached Stripe PaymentMethod', ['id' => $paymentMethodId]);
     }
+
+    /**
+     * Delete a Stripe Customer object. Called during account deletion cleanup
+     * once all of its payment methods have been detached.
+     */
+    public function deleteCustomer(string $customerId): void
+    {
+        if (! $this->client) {
+            throw new \RuntimeException('Stripe SDK not available. Run `composer require stripe/stripe-php`.');
+        }
+
+        $this->client->customers->delete($customerId, []);
+
+        Log::info('Deleted Stripe Customer', ['id' => $customerId]);
+    }
 }

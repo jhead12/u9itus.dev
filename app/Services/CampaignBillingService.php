@@ -116,7 +116,7 @@ class CampaignBillingService
         }
 
         // Calculate new balance
-        $current = PoliticianCredit::where('politician_id', $politician->id)->orderBy('created_at', 'desc')->value('balance_after') ?: 0.00;
+        $current = PoliticianCredit::where('politician_id', $politician->id)->orderBy('created_at', 'desc')->orderBy('id', 'desc')->value('balance_after') ?: 0.00;
         $newBalance = $current + $amount;
 
         $credit = PoliticianCredit::create([
@@ -287,6 +287,7 @@ class CampaignBillingService
 
         $currentBalanceRaw = PoliticianCredit::where('politician_id', $purchaseTx->politician_id)
             ->orderByDesc('created_at')
+            ->orderByDesc('id')
             ->value('balance_after') ?? '0.00';
         $currentBalanceCents = Money::toCents((string) $currentBalanceRaw);
 
@@ -464,6 +465,50 @@ class CampaignBillingService
         }
 
         return $refundTx;
+    }
+
+    /**
+     * Drain a politician's entire unused-credit balance back to Stripe by
+     * refunding it against their open purchase transactions, oldest first.
+     * Used by account deletion so no balance is left stranded once the
+     * politician row (and its credit ledger) is gone. Must run before that
+     * row is deleted — refundUnusedCredits() needs the live Politician and
+     * PoliticianCredit rows to compute and debit the balance.
+     *
+     * @return array{refunded: CampaignTransaction[], errors: array<int, string>}
+     */
+    public function refundAllUnusedCredits(Politician $politician, int $actingUserId, ?string $reason = null): array
+    {
+        $refunded = [];
+        $errors = [];
+
+        $purchases = CampaignTransaction::query()
+            ->where('politician_id', $politician->id)
+            ->where('transaction_type', 'charge')
+            ->where('status', 'succeeded')
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->get();
+
+        foreach ($purchases as $purchaseTx) {
+            try {
+                $summary = $this->getUnusedRefundSummary($purchaseTx);
+                if ($summary['refundable_credits_now'] <= 0) {
+                    continue;
+                }
+
+                $refunded[] = $this->refundUnusedCredits($purchaseTx, $actingUserId, null, $reason ?? 'Account deletion');
+            } catch (\Throwable $e) {
+                $errors[] = "Transaction {$purchaseTx->id}: {$e->getMessage()}";
+                Log::error('refundAllUnusedCredits: failed to refund purchase transaction', [
+                    'politician_id' => $politician->id,
+                    'transaction_id' => $purchaseTx->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        return ['refunded' => $refunded, 'errors' => $errors];
     }
 
     /**

@@ -112,7 +112,7 @@ class CitizenBillingService
             }
         }
 
-        $current = CitizenCredit::where('citizen_id', $citizen->id)->orderBy('created_at', 'desc')->value('balance_after') ?: 0.00;
+        $current = CitizenCredit::where('citizen_id', $citizen->id)->orderBy('created_at', 'desc')->orderBy('id', 'desc')->value('balance_after') ?: 0.00;
         $newBalance = $current + $amount;
 
         $credit = CitizenCredit::create([
@@ -334,6 +334,7 @@ class CitizenBillingService
 
         $currentBalanceRaw = CitizenCredit::where('citizen_id', $purchaseTx->citizen_id)
             ->orderByDesc('created_at')
+            ->orderByDesc('id')
             ->value('balance_after') ?? '0.00';
         $currentBalanceCents = Money::toCents((string) $currentBalanceRaw);
 
@@ -505,6 +506,50 @@ class CitizenBillingService
         }
 
         return $refundTx;
+    }
+
+    /**
+     * Drain a citizen's entire unused-credit balance back to Stripe by
+     * refunding it against their open purchase transactions, oldest first.
+     * Used by account deletion so no balance is left stranded once the
+     * citizen row (and its credit ledger) is gone. Must run before that row
+     * is deleted — refundUnusedCredits() needs the live Citizen and
+     * CitizenCredit rows to compute and debit the balance.
+     *
+     * @return array{refunded: CitizenTransaction[], errors: array<int, string>}
+     */
+    public function refundAllUnusedCredits(Citizen $citizen, int $actingUserId, ?string $reason = null): array
+    {
+        $refunded = [];
+        $errors = [];
+
+        $purchases = CitizenTransaction::query()
+            ->where('citizen_id', $citizen->id)
+            ->where('transaction_type', 'charge')
+            ->where('status', 'succeeded')
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->get();
+
+        foreach ($purchases as $purchaseTx) {
+            try {
+                $summary = $this->getUnusedRefundSummary($purchaseTx);
+                if ($summary['refundable_credits_now'] <= 0) {
+                    continue;
+                }
+
+                $refunded[] = $this->refundUnusedCredits($purchaseTx, $actingUserId, null, $reason ?? 'Account deletion');
+            } catch (\Throwable $e) {
+                $errors[] = "Transaction {$purchaseTx->id}: {$e->getMessage()}";
+                Log::error('refundAllUnusedCredits: failed to refund purchase transaction', [
+                    'citizen_id' => $citizen->id,
+                    'transaction_id' => $purchaseTx->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        return ['refunded' => $refunded, 'errors' => $errors];
     }
 
     /**

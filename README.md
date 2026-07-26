@@ -323,6 +323,18 @@ php artisan admin:reset-password --email=admin@u9itus.com
 
 Reset password (Web): Admins can also use the standard password reset flow at `/forgot-password` — a "Forgot password?" link is available on the admin login page.
 
+**User Deletion (CLI):**
+
+`/admin/users/{user}` (delete) is also available from the terminal via
+`users:delete` — archives the account, refunds any unused politician/citizen
+credit balance to Stripe, and queues Stripe cleanup (saved cards, Connect
+payout account) the same way the admin dashboard action does:
+
+```bash
+php artisan users:delete someone@example.com --admin=admin@u9itus.com --reason="policy violation"
+php artisan users:delete 42 --admin=1 --force   # skip the confirmation prompt
+```
+
 | Method | URL                                | Purpose                                    |
 | ------ | ---------------------------------- | ------------------------------------------ |
 | `GET`  | `/admin/dashboard`                 | Admin overview                             |
@@ -475,6 +487,18 @@ composer test:release-hardening
 php artisan migrate         # Run migrations
 php artisan migrate:fresh   # Fresh migration
 php artisan migrate:status  # Check migration status
+```
+
+### Queue Worker
+
+`QUEUE_CONNECTION=database` in `.env`, so queued jobs (batch payouts, account
+deletion's Stripe cleanup, queued notifications) sit in the `jobs` table
+until a worker picks them up — nothing dispatched via `ShouldQueue` runs on
+its own:
+
+```bash
+php artisan queue:work        # process the queue continuously
+php artisan queue:work --once # process a single queued job, useful for manual testing
 ```
 
 ### Development Server

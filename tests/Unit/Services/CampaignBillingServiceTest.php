@@ -447,3 +447,113 @@ test('refundUnusedCredits computes gross refund in cents and respects remaining 
     $postSummary = $svc->getUnusedRefundSummary($purchaseTx);
     expect($postSummary['refundable_credits_now'])->toBe(0.00);
 });
+
+// ── refundAllUnusedCredits() ─────────────────────────────────────────────────
+
+test('refundAllUnusedCredits drains the full balance across multiple purchases oldest-first', function () {
+    $stripe = Mockery::mock(StripePaymentService::class);
+    $svc    = new CampaignBillingService($stripe);
+
+    $politician = politicianWithBalance(0.00);
+    $svc->addCredits($politician, 30.00, ['transaction_type' => 'purchase']);
+    $this->travel(1)->seconds();
+    $svc->addCredits($politician, 25.00, ['transaction_type' => 'purchase']);
+
+    $purchaseTx1 = CampaignTransaction::create([
+        'politician_id'            => $politician->id,
+        'transaction_type'         => 'charge',
+        'amount'                   => 30.00,
+        'currency'                 => 'USD',
+        'stripe_payment_intent_id' => 'pi_drain_1',
+        'status'                   => 'succeeded',
+        'metadata'                 => ['credits_amount' => 30.00, 'payment_mode' => 'test'],
+    ]);
+
+    $purchaseTx2 = CampaignTransaction::create([
+        'politician_id'            => $politician->id,
+        'transaction_type'         => 'charge',
+        'amount'                   => 25.00,
+        'currency'                 => 'USD',
+        'stripe_payment_intent_id' => 'pi_drain_2',
+        'status'                   => 'succeeded',
+        'metadata'                 => ['credits_amount' => 25.00, 'payment_mode' => 'test'],
+    ]);
+
+    $stripe->shouldReceive('createRefundForPaymentIntent')
+        ->once()
+        ->with('pi_drain_1', 30.00, Mockery::any())
+        ->andReturn((object) ['id' => 're_drain_1', 'status' => 'succeeded']);
+
+    $stripe->shouldReceive('createRefundForPaymentIntent')
+        ->once()
+        ->with('pi_drain_2', 25.00, Mockery::any())
+        ->andReturn((object) ['id' => 're_drain_2', 'status' => 'succeeded']);
+
+    $result = $svc->refundAllUnusedCredits($politician, 42, 'account deletion test');
+
+    expect($result['errors'])->toBeEmpty()
+        ->and($result['refunded'])->toHaveCount(2);
+
+    $finalBalance = PoliticianCredit::where('politician_id', $politician->id)
+        ->orderByDesc('created_at')
+        ->orderByDesc('id')
+        ->value('balance_after');
+
+    expect((float) $finalBalance)->toBe(0.00)
+        ->and((float) $svc->getUnusedRefundSummary($purchaseTx1)['refundable_credits_now'])->toBe(0.00)
+        ->and((float) $svc->getUnusedRefundSummary($purchaseTx2)['refundable_credits_now'])->toBe(0.00);
+});
+
+test('refundAllUnusedCredits skips purchases with nothing left to refund and continues past a Stripe error', function () {
+    $stripe = Mockery::mock(StripePaymentService::class);
+    $svc    = new CampaignBillingService($stripe);
+
+    $politician = politicianWithBalance(0.00);
+    $svc->addCredits($politician, 10.00, ['transaction_type' => 'purchase']);
+    $this->travel(1)->seconds();
+    $svc->addCredits($politician, 20.00, ['transaction_type' => 'purchase']);
+
+    // Already fully refunded — should be skipped without a Stripe call.
+    $alreadyRefundedTx = CampaignTransaction::create([
+        'politician_id'            => $politician->id,
+        'transaction_type'         => 'charge',
+        'amount'                   => 10.00,
+        'currency'                 => 'USD',
+        'stripe_payment_intent_id' => 'pi_already_refunded',
+        'status'                   => 'succeeded',
+        'metadata'                 => ['credits_amount' => 10.00, 'payment_mode' => 'test'],
+    ]);
+    CampaignTransaction::create([
+        'politician_id'            => $politician->id,
+        'transaction_type'         => 'refund',
+        'amount'                   => 10.00,
+        'currency'                 => 'USD',
+        'stripe_payment_intent_id' => 'pi_already_refunded_r',
+        'status'                   => 'succeeded',
+        'metadata'                 => [
+            'original_transaction_id' => $alreadyRefundedTx->id,
+            'refunded_credits_amount' => 10.00,
+        ],
+    ]);
+
+    $failingTx = CampaignTransaction::create([
+        'politician_id'            => $politician->id,
+        'transaction_type'         => 'charge',
+        'amount'                   => 20.00,
+        'currency'                 => 'USD',
+        'stripe_payment_intent_id' => 'pi_will_fail',
+        'status'                   => 'succeeded',
+        'metadata'                 => ['credits_amount' => 20.00, 'payment_mode' => 'test'],
+    ]);
+
+    $stripe->shouldReceive('createRefundForPaymentIntent')
+        ->once()
+        ->with('pi_will_fail', 20.00, Mockery::any())
+        ->andThrow(new \RuntimeException('Stripe unavailable'));
+
+    $result = $svc->refundAllUnusedCredits($politician, 42, 'account deletion test');
+
+    expect($result['refunded'])->toHaveCount(0)
+        ->and($result['errors'])->toHaveCount(1)
+        ->and($result['errors'][0])->toContain((string) $failingTx->id);
+});

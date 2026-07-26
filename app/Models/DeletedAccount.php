@@ -25,12 +25,20 @@ class DeletedAccount extends Model
         'restored_by_user_id',
         'restored_at',
         'deleted_at',
+        'stripe_cleanup_plan',
+        'stripe_cleanup_status',
+        'stripe_cleanup_started_at',
+        'stripe_cleanup_completed_at',
+        'stripe_cleanup_error',
     ];
 
     protected $casts = [
         'user_snapshot'  => 'array',
         'deleted_at'     => 'datetime',
         'restored_at'    => 'datetime',
+        'stripe_cleanup_plan' => 'array',
+        'stripe_cleanup_started_at' => 'datetime',
+        'stripe_cleanup_completed_at' => 'datetime',
     ];
 
     public function isRestored(): bool
