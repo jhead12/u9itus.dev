@@ -62,6 +62,14 @@ return [
     'min_payout_amount' => env('MIN_PAYOUT_AMOUNT', 5.00),
 
     /**
+     * How many days an archived deleted_accounts record (the user_snapshot
+     * PII captured by UserDeletionService::archiveAndDelete) is kept before
+     * deleted-accounts:purge permanently erases it. After purge, that
+     * account can no longer be restored. Runs daily via the scheduler.
+     */
+    'deleted_account_retention_days' => env('DELETED_ACCOUNT_RETENTION_DAYS', 90),
+
+    /**
      * Batch payout minimum threshold (simplified config key for views/controllers).
      * Falls back to MIN_PAYOUT_AMOUNT so request and processing thresholds stay aligned.
      */

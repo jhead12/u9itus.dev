@@ -335,6 +335,18 @@ php artisan users:delete someone@example.com --admin=admin@u9itus.com --reason="
 php artisan users:delete 42 --admin=1 --force   # skip the confirmation prompt
 ```
 
+Deleted accounts are archived (with a full PII snapshot) rather than
+disappearing immediately, so an admin can restore a mistaken deletion. That
+archive isn't kept forever — `deleted-accounts:purge` runs daily and
+permanently erases archived records past the retention window
+(`DELETED_ACCOUNT_RETENTION_DAYS` in `.env`, default 90 days); restore is no
+longer possible for a record once it's purged:
+
+```bash
+php artisan deleted-accounts:purge --dry-run          # see what would be purged
+php artisan deleted-accounts:purge --days=30 --force  # override the window, skip confirmation
+```
+
 | Method | URL                                | Purpose                                    |
 | ------ | ---------------------------------- | ------------------------------------------ |
 | `GET`  | `/admin/dashboard`                 | Admin overview                             |

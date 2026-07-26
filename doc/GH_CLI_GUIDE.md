@@ -248,6 +248,22 @@ php artisan users:delete someone@example.com --admin=admin@u9itus.com --reason="
 php artisan users:delete 42 --admin=1 --force            # skip the confirmation prompt (scripted use)
 ```
 
+A `deleted_accounts` row is an indefinite archive by default — a new
+`deleted-accounts:purge` command retires ones past a retention window
+(`config('u9itus.deleted_account_retention_days')`, default 90, env
+`DELETED_ACCOUNT_RETENTION_DAYS`) and is scheduled daily at 01:00 UTC in
+`routes/console.php`. Purging is permanent — it erases the PII snapshot, so
+restore is no longer possible for those records afterward. Restored records
+are purged on the same schedule too (no special-casing):
+
+```bash
+php artisan deleted-accounts:purge --dry-run          # report the count, no deletes
+php artisan deleted-accounts:purge --days=30 --force  # override the window, skip confirmation
+```
+
+Like the enrichers above, there's no `.github/workflows/*.yml` behind this one
+either — it's schedule-only, so `gh workflow run` doesn't apply here.
+
 `QUEUE_CONNECTION=database` in this repo's `.env`/`.env.production`, so the
 cleanup job sits in the `jobs` table until a worker picks it up — deleting a
 user does **not** touch Stripe synchronously beyond the refund step:

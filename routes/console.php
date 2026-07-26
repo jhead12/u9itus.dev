@@ -150,3 +150,11 @@ Schedule::command('events:send-reminders')
     ->hourly()
     ->withoutOverlapping();
 
+// Deleted-account retention purge — permanently erases archived
+// deleted_accounts snapshots (the PII UserDeletionService::archiveAndDelete
+// captured) once they're past config('u9itus.deleted_account_retention_days')
+// (default 90 days). After purge, those accounts can no longer be restored.
+Schedule::command('deleted-accounts:purge')
+    ->dailyAt('01:00')
+    ->withoutOverlapping();
+
