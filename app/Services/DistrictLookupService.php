@@ -168,8 +168,9 @@ class DistrictLookupService
             if ($response->successful()) {
                 $match = $response->json('result.addressMatches.0');
                 if (is_array($match) && ! empty($match)) {
+                    $geographies = (array) data_get($match, 'geographies', []);
                     $state = strtoupper((string) data_get($match, 'addressComponents.state', ''));
-                    $districtNumber = $this->extractDistrictNumber((array) data_get($match, 'geographies', []));
+                    $districtNumber = $this->extractDistrictNumber($geographies);
 
                     $resolved = [
                         'input_address' => $normalizedAddress,
@@ -178,6 +179,10 @@ class DistrictLookupService
                         'district_number' => $districtNumber,
                         'district_code' => $this->buildDistrictCode($state, $districtNumber),
                         'district_label' => $this->buildDistrictLabel($state, $districtNumber),
+                        // State legislative chambers, so district-lookup can surface
+                        // state candidates alongside the federal congressional match.
+                        'sldl_district' => $this->extractStateLegislativeDistrict($geographies, 'lower'),
+                        'sldu_district' => $this->extractStateLegislativeDistrict($geographies, 'upper'),
                     ];
                 }
             }
@@ -270,6 +275,70 @@ class DistrictLookupService
         }
 
         return $bestRow;
+    }
+
+    /**
+     * @param array<string, mixed> $geographies
+     */
+    protected function extractStateLegislativeDistrict(array $geographies, string $chamber): ?string
+    {
+        $row = $this->firstStateLegislativeGeoRow($geographies, $chamber);
+
+        if ($row === null) {
+            return null;
+        }
+
+        $fromKeys = $this->extractDistrictFromKeyPrefix($row, $chamber === 'upper' ? 'SLDU' : 'SLDL');
+        if ($fromKeys !== null) {
+            return $fromKeys;
+        }
+
+        return $this->extractDistrictFromNameFields($row);
+    }
+
+    /**
+     * @param array<string, mixed> $geographies
+     * @return array<string, mixed>|null
+     */
+    protected function firstStateLegislativeGeoRow(array $geographies, string $chamber): ?array
+    {
+        foreach ($geographies as $layerName => $rows) {
+            $layerName = (string) $layerName;
+            if (stripos($layerName, 'state legislative') === false || stripos($layerName, $chamber) === false) {
+                continue;
+            }
+
+            if (! is_array($rows) || empty($rows) || ! is_array($rows[0] ?? null)) {
+                continue;
+            }
+
+            /** @var array<string, mixed> */
+            return $rows[0];
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     */
+    protected function extractDistrictFromKeyPrefix(array $row, string $prefix): ?string
+    {
+        $candidateKeys = array_filter(
+            array_keys($row),
+            fn ($key) => preg_match('/^'.preg_quote($prefix, '/').'\d*(FP|ST)?$/i', (string) $key) === 1,
+        );
+
+        foreach ($candidateKeys as $key) {
+            $candidate = trim((string) $row[$key]);
+            if ($candidate === '' || preg_match('/^\d+$/', $candidate) !== 1) {
+                continue;
+            }
+
+            return (string) ((int) $candidate);
+        }
+
+        return null;
     }
 
     /**

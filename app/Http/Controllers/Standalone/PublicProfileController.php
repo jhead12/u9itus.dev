@@ -77,25 +77,50 @@ class PublicProfileController extends Controller
                 } else {
                     $lookupState = strtoupper((string) ($lookupResult['state'] ?? ''));
                     $voterInfo = $this->fetchVoterInfoFromGoogleCivic($address);
-                    $districtHints = $this->extractDistrictHintsFromVoterInfo($voterInfo, $lookupState);
+                    // Census geographies (state legislative layers) are always available;
+                    // Google Civic contest hints only fire when an election is active for
+                    // the address, so merge both rather than relying on Civic alone.
+                    $districtHints = array_values(array_unique(array_merge(
+                        $this->stateLegislativeDistrictHints($lookupResult, $lookupState),
+                        $this->extractDistrictHintsFromVoterInfo($voterInfo, $lookupState),
+                    )));
 
                     $currentOfficials = $this->fetchCurrentOfficialsForLocation($address);
                     if ($currentOfficials->isEmpty()) {
                         $currentOfficials = $this->findCurrentOfficialsForDistrictFromCongress($lookupResult);
                     }
                     if ($currentOfficials->isEmpty()) {
-                        $currentOfficials = $this->findCurrentOfficialsForDistrictFromRecords($lookupResult, $states);
+                        $currentOfficials = $this->findCurrentOfficialsForDistrictFromRecords($lookupResult, $states, $districtHints);
                     }
                     $candidates = $this->findCandidatesForDistrict($lookupResult, $states, $districtHints);
                     $runningCandidates = $this->findRunningCandidatesForDistrict($lookupResult, $states, $districtHints);
                     $candidates = $this->attachFinanceSnapshotsToPublishedCandidates($candidates);
-                    $topContenders = $runningCandidates->take(3)->values();
 
                     // Discover and persist officials not yet in the local profile set.
                     $discoveredOfficials = $this->discoverCandidatesFromGoogleCivic($address, $lookupResult);
                     if ($discoveredOfficials->isNotEmpty()) {
                         $candidates = $this->mergeCandidates($candidates, $discoveredOfficials);
                     }
+
+                    // ── Cross-section dedup ──────────────────────────────────
+                    // The same official can land in both the published-profile table
+                    // (Politician, rendered as $candidates) and the public-records table
+                    // (ElectionCandidateRecord, rendered as $runningCandidates) — e.g. once
+                    // discoverCandidatesFromGoogleCivic() persists them on an earlier visit.
+                    // Prefer the richer $candidates entry and drop the public-records
+                    // duplicate. (Deliberately not deduping against $currentOfficials —
+                    // its local-records fallback intentionally reuses this same
+                    // district-matching query, so an incumbent legitimately also showing
+                    // up as a running candidate there is not a duplicate.)
+                    $alreadyShownNames = array_flip(array_filter(
+                        $candidates->map(fn ($c) => strtolower(trim((string) ($c->full_name ?? ''))))->all()
+                    ));
+
+                    $runningCandidates = $runningCandidates
+                        ->reject(fn ($c) => isset($alreadyShownNames[strtolower(trim((string) ($c['full_name'] ?? '')))]))
+                        ->values();
+
+                    $topContenders = $runningCandidates->take(3)->values();
 
                     // ── Running grid dedup ───────────────────────────────────
                     // Top contenders are rendered in the amber highlight row above the
@@ -272,7 +297,7 @@ class PublicProfileController extends Controller
      * @param  array<string, string>  $states
      * @return Collection<int, array<string, mixed>>
      */
-    protected function findCurrentOfficialsForDistrictFromRecords(array $lookupResult, array $states): Collection
+    protected function findCurrentOfficialsForDistrictFromRecords(array $lookupResult, array $states, array $districtHints = []): Collection
     {
         $state = strtoupper((string) ($lookupResult['state'] ?? ''));
         $districtNumber = trim((string) ($lookupResult['district_number'] ?? ''));
@@ -283,6 +308,12 @@ class PublicProfileController extends Controller
 
         $stateName = $states[$state] ?? null;
         $variants = $this->districtVariants($state, $districtNumber);
+
+        if ($districtHints !== []) {
+            $variants = array_merge($variants, $districtHints);
+        }
+
+        $variants = array_values(array_unique(array_filter($variants, fn ($value) => trim((string) $value) !== '')));
         $recentThreshold = now()->subYears(2)->toDateString();
 
         $records = ElectionCandidateRecord::query()
@@ -1971,9 +2002,10 @@ class PublicProfileController extends Controller
                 ];
             })
             ->unique(function (array $candidate): string {
-                return strtolower(trim((string) ($candidate['full_name'] ?? '')))
-                    .'|'.strtolower(trim((string) ($candidate['political_office'] ?? '')))
-                    .'|'.strtolower(trim((string) ($candidate['district'] ?? '')));
+                // Keyed on name alone (query is already scoped to this state/district) —
+                // text variants of the same office/district ("U.S. Representative" vs
+                // "US House Representative", "CA-31" vs "31") must not defeat dedup.
+                return strtolower(trim((string) ($candidate['full_name'] ?? '')));
             })
             ->sortByDesc('contender_score')
             ->values();
@@ -2013,28 +2045,61 @@ class PublicProfileController extends Controller
             }
 
             $numeric = (int) $id;
-            $padded = str_pad((string) $numeric, 2, '0', STR_PAD_LEFT);
             $statePrefix = $state !== '' ? strtoupper($state).'-' : '';
 
             if ($scope === 'statelower') {
-                $hints[] = 'AD-'.$numeric;
-                $hints[] = 'AD-'.$padded;
-                $hints[] = 'Assembly District '.$numeric;
-                $hints[] = 'State Assembly District '.$numeric;
-                $hints[] = $statePrefix.'AD-'.$numeric;
-                $hints[] = $statePrefix.'AD-'.$padded;
+                $hints = array_merge($hints, $this->buildLegislativeDistrictHints($numeric, 'AD', 'Assembly District', $statePrefix));
 
                 continue;
             }
 
             if ($scope === 'stateupper') {
-                $hints[] = 'SD-'.$numeric;
-                $hints[] = 'SD-'.$padded;
-                $hints[] = 'Senate District '.$numeric;
-                $hints[] = 'State Senate District '.$numeric;
-                $hints[] = $statePrefix.'SD-'.$numeric;
-                $hints[] = $statePrefix.'SD-'.$padded;
+                $hints = array_merge($hints, $this->buildLegislativeDistrictHints($numeric, 'SD', 'Senate District', $statePrefix));
             }
+        }
+
+        return array_values(array_unique($hints));
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    protected function buildLegislativeDistrictHints(int $numeric, string $abbrev, string $label, string $statePrefix): array
+    {
+        $padded = str_pad((string) $numeric, 2, '0', STR_PAD_LEFT);
+
+        return [
+            $abbrev.'-'.$numeric,
+            $abbrev.'-'.$padded,
+            $label.' '.$numeric,
+            'State '.$label.' '.$numeric,
+            $statePrefix.$abbrev.'-'.$numeric,
+            $statePrefix.$abbrev.'-'.$padded,
+        ];
+    }
+
+    /**
+     * Build AD-/SD- district hints straight from the Census Geocoder's state
+     * legislative layers (DistrictLookupService::lookup()'s sldl_district /
+     * sldu_district), independent of the Google Civic voter-info hints above
+     * which only fire when an election is active for the address.
+     *
+     * @param  array<string, mixed>  $lookupResult
+     * @return array<int, string>
+     */
+    protected function stateLegislativeDistrictHints(array $lookupResult, string $state): array
+    {
+        $statePrefix = $state !== '' ? strtoupper($state).'-' : '';
+        $hints = [];
+
+        $lower = trim((string) ($lookupResult['sldl_district'] ?? ''));
+        if ($lower !== '' && preg_match('/^\d+$/', $lower) === 1) {
+            $hints = array_merge($hints, $this->buildLegislativeDistrictHints((int) $lower, 'AD', 'Assembly District', $statePrefix));
+        }
+
+        $upper = trim((string) ($lookupResult['sldu_district'] ?? ''));
+        if ($upper !== '' && preg_match('/^\d+$/', $upper) === 1) {
+            $hints = array_merge($hints, $this->buildLegislativeDistrictHints((int) $upper, 'SD', 'Senate District', $statePrefix));
         }
 
         return array_values(array_unique($hints));
