@@ -105,13 +105,13 @@ class StripeConnectService
             'type' => 'express',
             'country' => 'US',
             'capabilities' => [
-                // Stripe requires card_payments alongside transfers unless the
-                // platform has explicit approval to skip it. Both are requested;
-                // voters only receive payouts (transfers), they won't charge cards.
-                'transfers'    => ['requested' => true],
-                'card_payments' => ['requested' => true],
+                // Voters are payout recipients only (separate transfers, not
+                // direct/destination charges) — card_payments is deliberately
+                // not requested so onboarding skips merchant underwriting
+                // (business_profile, MCC, etc.) and asks only for the
+                // individual identity/bank info needed to receive a payout.
+                'transfers' => ['requested' => true],
             ],
-            'business_profile' => $this->defaultBusinessProfile(),
             'metadata' => [
                 'voter_id' => (string) $voter->id,
                 'voter_uuid' => (string) $voter->uuid,
