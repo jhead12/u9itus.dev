@@ -93,19 +93,26 @@
             </div>
         @endif
 
+        @php
+            // Pre-filled from a signed Early-bank handoff link (see
+            // EarlyBankPrefillService) when the visitor already completed
+            // Stripe Connect onboarding there — saves retyping identity info.
+            $ebNameParts = isset($prefill['name']) ? preg_split('/\s+/', trim($prefill['name']), 2) : [];
+        @endphp
+
         <form method="POST" action="{{ route('register.voter.submit') }}" class="space-y-4">
             @csrf
 
             <div class="grid grid-cols-2 gap-3">
                 <div>
                     <label for="first_name" class="block text-sm font-medium text-slate-300 mb-1.5">First name <span class="text-red-400">*</span></label>
-                    <input id="first_name" type="text" name="first_name" value="{{ old('first_name') }}" required autofocus
+                    <input id="first_name" type="text" name="first_name" value="{{ old('first_name', $ebNameParts[0] ?? '') }}" required autofocus
                         class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition"
                         placeholder="Jane" />
                 </div>
                 <div>
                     <label for="last_name" class="block text-sm font-medium text-slate-300 mb-1.5">Last name <span class="text-red-400">*</span></label>
-                    <input id="last_name" type="text" name="last_name" value="{{ old('last_name') }}" required
+                    <input id="last_name" type="text" name="last_name" value="{{ old('last_name', $ebNameParts[1] ?? '') }}" required
                         class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition"
                         placeholder="Doe" />
                 </div>
@@ -113,7 +120,7 @@
 
             <div>
                 <label for="email" class="block text-sm font-medium text-slate-300 mb-1.5">Email address <span class="text-red-400">*</span></label>
-                <input id="email" type="email" name="email" value="{{ old('email') }}" required
+                <input id="email" type="email" name="email" value="{{ old('email', $prefill['email'] ?? '') }}" required
                     class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition"
                     placeholder="you@example.com" />
             </div>
@@ -147,7 +154,7 @@
 
             <div>
                 <label for="phone" class="block text-sm font-medium text-slate-300 mb-1.5">Phone number</label>
-                <input id="phone" type="tel" name="phone" value="{{ old('phone') }}"
+                <input id="phone" type="tel" name="phone" value="{{ old('phone', $prefill['phone'] ?? '') }}"
                     class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition"
                     placeholder="+1 (555) 000-0000" />
             </div>
@@ -160,13 +167,13 @@
                         class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition">
                         <option value="">Select state...</option>
                         @foreach(config('u9itus.us_states', []) as $abbr => $stateName)
-                            <option value="{{ $abbr }}" {{ old('state') === $abbr ? 'selected' : '' }}>{{ $stateName }}</option>
+                            <option value="{{ $abbr }}" {{ old('state', $prefill['state'] ?? null) === $abbr ? 'selected' : '' }}>{{ $stateName }}</option>
                         @endforeach
                     </select>
                 </div>
                 <div>
                     <label for="zip_code" class="block text-sm font-medium text-slate-300 mb-1.5">ZIP code <span class="text-red-400">*</span></label>
-                    <input id="zip_code" type="text" name="zip_code" value="{{ old('zip_code') }}" maxlength="10" required inputmode="numeric" pattern="\d{5}(-\d{4})?"
+                    <input id="zip_code" type="text" name="zip_code" value="{{ old('zip_code', $prefill['zip'] ?? '') }}" maxlength="10" required inputmode="numeric" pattern="\d{5}(-\d{4})?"
                         class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition"
                         placeholder="78701" />
                 </div>

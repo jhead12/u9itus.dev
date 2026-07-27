@@ -10,6 +10,7 @@ use App\Models\Citizen;
 use App\Models\Politician;
 use App\Models\User;
 use App\Models\Voter;
+use App\Services\EarlyBankPrefillService;
 use App\Services\EarlyBankWebhookService;
 use App\Services\MailingListService;
 use App\Services\PhoneVerificationService;
@@ -43,6 +44,7 @@ class RegistrationController extends Controller
         private readonly MailingListService $mailingListService,
         private readonly PhoneVerificationService $phoneService,
         private readonly UserRoleService $roleService,
+        private readonly EarlyBankPrefillService $earlyBankPrefill,
     ) {}
 
     // -------------------------------------------------------------------------
@@ -311,6 +313,7 @@ class RegistrationController extends Controller
 
         return view('standalone.auth.register-voter', [
             'referralCode' => $this->referralService->resolveIncomingReferralCode($request),
+            'prefill'      => $this->earlyBankPrefill->decode($request),
         ]);
     }
 
