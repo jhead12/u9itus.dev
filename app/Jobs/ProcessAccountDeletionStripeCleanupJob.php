@@ -95,8 +95,7 @@ class ProcessAccountDeletionStripeCleanupJob implements ShouldQueue
             }
         }
 
-        $connectAccountId = $plan['connect_account_id'] ?? null;
-        if ($connectAccountId) {
+        foreach (($plan['connect_account_ids'] ?? []) as $connectAccountId) {
             try {
                 $stripeConnect->closeAccount($connectAccountId);
             } catch (\Throwable $e) {

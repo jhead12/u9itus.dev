@@ -53,9 +53,9 @@ class UserDeletionService
         // refunding requires the still-live politician/citizen row to compute
         // and debit the balance — it cannot be deferred to the cleanup job.
         $stripeCleanupPlan = [
-            'payment_methods'    => [],
-            'connect_account_id' => null,
-            'refunds'            => [],
+            'payment_methods'     => [],
+            'connect_account_ids' => [],
+            'refunds'             => [],
         ];
 
         if ($politician) {
@@ -70,6 +70,12 @@ class UserDeletionService
                     ->get(['stripe_customer_id', 'stripe_payment_method_id'])
                     ->toArray()
             );
+            if (! empty($politician->stripe_customer_id)) {
+                $stripeCleanupPlan['payment_methods'][] = [
+                    'stripe_customer_id'       => $politician->stripe_customer_id,
+                    'stripe_payment_method_id' => null,
+                ];
+            }
         }
 
         if ($citizen) {
@@ -84,14 +90,35 @@ class UserDeletionService
                     ->get(['stripe_customer_id', 'stripe_payment_method_id'])
                     ->toArray()
             );
+            if (! empty($citizen->stripe_customer_id)) {
+                $stripeCleanupPlan['payment_methods'][] = [
+                    'stripe_customer_id'       => $citizen->stripe_customer_id,
+                    'stripe_payment_method_id' => null,
+                ];
+            }
         }
 
-        if ($voter && ! empty($voter->stripe_account_id)) {
-            $stripeCleanupPlan['connect_account_id'] = $voter->stripe_account_id;
+        // The user row itself carries its own Stripe customer/Connect account
+        // (voter payout + subscription flow) independent of the politician/
+        // citizen billing tables above — must be swept too or it leaks.
+        if (! empty($user->stripe_customer_id)) {
+            $stripeCleanupPlan['payment_methods'][] = [
+                'stripe_customer_id'       => $user->stripe_customer_id,
+                'stripe_payment_method_id' => null,
+            ];
         }
+
+        $connectAccountIds = [];
+        if ($voter && ! empty($voter->stripe_account_id)) {
+            $connectAccountIds[] = $voter->stripe_account_id;
+        }
+        if (! empty($user->stripe_connect_account_id)) {
+            $connectAccountIds[] = $user->stripe_connect_account_id;
+        }
+        $stripeCleanupPlan['connect_account_ids'] = array_values(array_unique($connectAccountIds));
 
         $needsStripeCleanup = ! empty($stripeCleanupPlan['payment_methods'])
-            || $stripeCleanupPlan['connect_account_id'] !== null;
+            || ! empty($stripeCleanupPlan['connect_account_ids']);
 
         $record = DB::transaction(function () use (
             $user,

@@ -11,6 +11,7 @@ use App\Services\StripePaymentService;
 use App\Services\UserDeletionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Schema;
 
 uses(RefreshDatabase::class);
 
@@ -62,7 +63,7 @@ test('archiveAndDelete refunds unused politician credits, snapshots payment meth
         ->and($plan['refunds']['politician']['errors'])->toBeEmpty()
         ->and($plan['payment_methods'][0]['stripe_customer_id'])->toBe('cus_del_test')
         ->and($plan['payment_methods'][0]['stripe_payment_method_id'])->toBe('pm_del_test')
-        ->and($plan['connect_account_id'])->toBeNull();
+        ->and($plan['connect_account_ids'])->toBeEmpty();
 
     Queue::assertPushed(ProcessAccountDeletionStripeCleanupJob::class, function ($job) use ($record) {
         return $job->deletedAccount->id === $record->id;
@@ -81,7 +82,36 @@ test('archiveAndDelete snapshots a voter Connect account id for the cleanup job'
 
     expect(Voter::find($voter->id))->toBeNull()
         ->and($record->stripe_cleanup_status)->toBe('pending')
-        ->and($record->stripe_cleanup_plan['connect_account_id'])->toBe('acct_del_test');
+        ->and($record->stripe_cleanup_plan['connect_account_ids'])->toBe(['acct_del_test']);
+
+    Queue::assertPushed(ProcessAccountDeletionStripeCleanupJob::class);
+});
+
+test('archiveAndDelete sweeps Stripe fields stored directly on the users row', function () {
+    // users.stripe_customer_id / stripe_connect_account_id exist in production
+    // but have no migration in this repo (likely owned by a separate service's
+    // migration history against the same shared `users` table) — skip locally
+    // rather than fabricate a schema definition for columns we don't control.
+    if (! Schema::hasColumn('users', 'stripe_customer_id') || ! Schema::hasColumn('users', 'stripe_connect_account_id')) {
+        $this->markTestSkipped('users.stripe_customer_id / stripe_connect_account_id not present in this environment\'s schema.');
+    }
+
+    Queue::fake();
+
+    $admin = User::factory()->create(['user_type' => 'admin']);
+    $user  = User::factory()->create([
+        'user_type'                 => 'voter',
+        'stripe_customer_id'        => 'cus_user_level_test',
+        'stripe_connect_account_id' => 'acct_user_level_test',
+    ]);
+    Voter::factory()->create(['user_id' => $user->id, 'stripe_account_id' => null]);
+
+    $service = app(UserDeletionService::class);
+    $record  = $service->archiveAndDelete($user, $admin, 'admin cleanup', '127.0.0.1');
+
+    expect($record->stripe_cleanup_status)->toBe('pending')
+        ->and($record->stripe_cleanup_plan['payment_methods'][0]['stripe_customer_id'])->toBe('cus_user_level_test')
+        ->and($record->stripe_cleanup_plan['connect_account_ids'])->toBe(['acct_user_level_test']);
 
     Queue::assertPushed(ProcessAccountDeletionStripeCleanupJob::class);
 });
