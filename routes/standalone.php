@@ -20,6 +20,9 @@ use App\Http\Controllers\Standalone\CitizenCampaignVoterController;
 use App\Http\Controllers\Standalone\CitizenController;
 use App\Http\Controllers\Standalone\DashboardController;
 use App\Http\Controllers\Standalone\BoundaryFavoriteController;
+use App\Http\Controllers\Standalone\CauseFavoriteController;
+use App\Http\Controllers\Standalone\BallotMeasureFavoriteController;
+use App\Http\Controllers\Standalone\PoliticianNoteController;
 use App\Http\Controllers\Standalone\FavoriteController;
 use App\Http\Controllers\Standalone\PoliticianController;
 use App\Http\Controllers\Standalone\PostController;
@@ -32,6 +35,9 @@ use App\Http\Controllers\Standalone\VoterController;
 use App\Http\Controllers\Standalone\AdminController;
 use App\Http\Controllers\Standalone\AdminOfficeProfileController;
 use App\Http\Controllers\Standalone\AdminPostController;
+use App\Http\Controllers\Standalone\AdminTopicController;
+use App\Http\Controllers\Standalone\AdminCauseController;
+use App\Http\Controllers\Standalone\AdminBallotMeasureController;
 use App\Http\Controllers\Standalone\PublicProfileController;
 use App\Http\Controllers\Standalone\ProfileClaimController;
 use App\Http\Controllers\Standalone\SitemapController;
@@ -463,6 +469,21 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         Route::post('/boundaries', [BoundaryFavoriteController::class, 'store'])->name('boundaries.store');
         Route::delete('/boundaries/{id}', [BoundaryFavoriteController::class, 'destroy'])->name('boundaries.destroy');
 
+        // ── Favorited causes ──────────────────────────────────────────────────
+        Route::get('/causes', [CauseFavoriteController::class, 'index'])->name('causes.index');
+        Route::post('/causes/{causeId}', [CauseFavoriteController::class, 'store'])->name('causes.store');
+        Route::delete('/causes/{id}', [CauseFavoriteController::class, 'destroy'])->name('causes.destroy');
+
+        // ── Favorited ballot measures ─────────────────────────────────────────
+        Route::get('/ballot-measures', [BallotMeasureFavoriteController::class, 'index'])->name('ballot-measures.index');
+        Route::post('/ballot-measures/{ballotMeasureId}', [BallotMeasureFavoriteController::class, 'store'])->name('ballot-measures.store');
+        Route::delete('/ballot-measures/{id}', [BallotMeasureFavoriteController::class, 'destroy'])->name('ballot-measures.destroy');
+
+        // ── Personal notes on politicians (one running note each) ────────────
+        Route::get('/politicians/{politicianId}/note', [PoliticianNoteController::class, 'show'])->name('politicians.note.show');
+        Route::post('/politicians/{politicianId}/note', [PoliticianNoteController::class, 'store'])->name('politicians.note.store');
+        Route::delete('/politicians/{politicianId}/note', [PoliticianNoteController::class, 'destroy'])->name('politicians.note.destroy');
+
         // ── Citizen profile upgrade (add Citizen role to existing voter account) ──
         Route::get('/add-citizen-profile', [VoterController::class, 'showAddCitizenProfile'])->name('add-citizen-profile');
         Route::post('/add-citizen-profile', [VoterController::class, 'addCitizenProfile'])->name('add-citizen-profile.submit');
@@ -673,6 +694,30 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         Route::post('/posts/{post}/archive', [AdminPostController::class, 'archive'])->name('posts.archive');
         Route::post('/posts/{post}/restore', [AdminPostController::class, 'restore'])->name('posts.restore');
         Route::delete('/posts/{post}', [AdminPostController::class, 'destroy'])->name('posts.destroy');
+
+        // Topics — issue-area taxonomy used to tag campaigns, causes, and badges
+        Route::get('/topics', [AdminTopicController::class, 'index'])->name('topics.index');
+        Route::get('/topics/create', [AdminTopicController::class, 'create'])->name('topics.create');
+        Route::post('/topics', [AdminTopicController::class, 'store'])->name('topics.store');
+        Route::get('/topics/{topic}/edit', [AdminTopicController::class, 'edit'])->name('topics.edit');
+        Route::put('/topics/{topic}', [AdminTopicController::class, 'update'])->name('topics.update');
+        Route::delete('/topics/{topic}', [AdminTopicController::class, 'destroy'])->name('topics.destroy');
+
+        // Causes — specific issues under a Topic that voters can favorite
+        Route::get('/causes', [AdminCauseController::class, 'index'])->name('causes.index');
+        Route::get('/causes/create', [AdminCauseController::class, 'create'])->name('causes.create');
+        Route::post('/causes', [AdminCauseController::class, 'store'])->name('causes.store');
+        Route::get('/causes/{cause}/edit', [AdminCauseController::class, 'edit'])->name('causes.edit');
+        Route::put('/causes/{cause}', [AdminCauseController::class, 'update'])->name('causes.update');
+        Route::delete('/causes/{cause}', [AdminCauseController::class, 'destroy'])->name('causes.destroy');
+
+        // Ballot Measures — complements the Ballotpedia import pipeline
+        Route::get('/ballot-measures', [AdminBallotMeasureController::class, 'index'])->name('ballot-measures.index');
+        Route::get('/ballot-measures/create', [AdminBallotMeasureController::class, 'create'])->name('ballot-measures.create');
+        Route::post('/ballot-measures', [AdminBallotMeasureController::class, 'store'])->name('ballot-measures.store');
+        Route::get('/ballot-measures/{ballotMeasure}/edit', [AdminBallotMeasureController::class, 'edit'])->name('ballot-measures.edit');
+        Route::put('/ballot-measures/{ballotMeasure}', [AdminBallotMeasureController::class, 'update'])->name('ballot-measures.update');
+        Route::delete('/ballot-measures/{ballotMeasure}', [AdminBallotMeasureController::class, 'destroy'])->name('ballot-measures.destroy');
 
         // Admin Profile (Phase 11)
         Route::get('/profile', [AdminController::class, 'profile'])->name('profile');

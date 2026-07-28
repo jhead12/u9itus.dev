@@ -206,6 +206,40 @@ class Voter extends Model
     }
 
     /**
+     * Causes (specific issues under a Topic) this voter has favorited.
+     */
+    public function favoriteCauses(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            Cause::class,
+            'voter_favorite_causes',
+            'voter_id',
+            'cause_id'
+        )->withPivot('favorited_at');
+    }
+
+    /**
+     * Ballot measures this voter has favorited.
+     */
+    public function favoriteBallotMeasures(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            BallotMeasure::class,
+            'voter_favorite_ballot_measures',
+            'voter_id',
+            'ballot_measure_id'
+        )->withPivot('favorited_at');
+    }
+
+    /**
+     * This voter's personal notes on politicians (one running note each).
+     */
+    public function politicianNotes(): HasMany
+    {
+        return $this->hasMany(VoterPoliticianNote::class, 'voter_id');
+    }
+
+    /**
      * Route model binding key.
      */
     public function getRouteKeyName(): string

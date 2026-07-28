@@ -15,6 +15,7 @@ use App\Services\EarlyBankWebhookService;
 use App\Services\MailingListService;
 use App\Services\PhoneVerificationService;
 use App\Services\PlatformSettingsService;
+use App\Services\DistrictLookupService;
 use App\Services\ReferralService;
 use App\Services\RegistrationSecurityService;
 use App\Services\UnclaimedPoliticianProfileService;
@@ -45,6 +46,7 @@ class RegistrationController extends Controller
         private readonly PhoneVerificationService $phoneService,
         private readonly UserRoleService $roleService,
         private readonly EarlyBankPrefillService $earlyBankPrefill,
+        private readonly DistrictLookupService $districtLookup,
     ) {}
 
     // -------------------------------------------------------------------------
@@ -369,6 +371,7 @@ class RegistrationController extends Controller
             'phone'                     => $request->phone,
             'state'                     => $request->state,
             'zip_code'                  => $request->zip_code,
+            'congressional_district'    => $this->resolveDistrict($request->zip_code, $request->state),
             'referred_by_voter_id'      => $referredByVoterId,
             'referred_by_politician_id' => $referredByPoliticianId,
             'wallet_balance'            => 0,
@@ -434,6 +437,33 @@ class RegistrationController extends Controller
     // -------------------------------------------------------------------------
     // Shared Helpers
     // -------------------------------------------------------------------------
+
+    /**
+     * Best-effort congressional district resolution at registration time.
+     * Never blocks registration — DistrictLookupService already swallows its
+     * own provider exceptions and returns null, but this is a safety net for
+     * anything unexpected (e.g. a malformed zip/state combination).
+     */
+    private function resolveDistrict(?string $zipCode, ?string $state): ?string
+    {
+        if (! $zipCode) {
+            return null;
+        }
+
+        try {
+            $result = $this->districtLookup->lookup(trim("{$zipCode}, {$state}"));
+
+            return $result['district_code'] ?? null;
+        } catch (\Throwable $e) {
+            Log::warning('RegistrationController: district lookup failed', [
+                'zip_code' => $zipCode,
+                'state'    => $state,
+                'error'    => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
 
     private function sendPhoneVerification(string $phone, User $user, string $context): void
     {
