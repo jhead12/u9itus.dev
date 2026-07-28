@@ -179,11 +179,31 @@
     </nav>
     @endunless
 
-    {{-- ── Unclaimed Profile Banner ── --}}
+    {{-- ── Unclaimed Profile Banner (minimizable, preference remembered) ── --}}
     @if(is_null($politician->user_id))
-    <div class="sticky top-14 z-30 border-b border-amber-500/30 bg-amber-950/70 backdrop-blur-md"
+    <div x-data="{ minimized: localStorage.getItem('u9itus_unclaimed_banner_minimized') === '1' }"
+         class="sticky top-14 z-30 border-b border-amber-500/30 bg-amber-950/70 backdrop-blur-md"
          role="alert" aria-label="Unclaimed profile notice">
-        <div class="max-w-5xl mx-auto px-4 sm:px-6 py-3 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6">
+
+        {{-- Minimized: slim single-line bar --}}
+        <div x-show="minimized" x-cloak class="max-w-5xl mx-auto px-4 sm:px-6 py-1.5 flex items-center justify-between gap-3">
+            <button type="button"
+                    @click="minimized = false; localStorage.setItem('u9itus_unclaimed_banner_minimized', '0')"
+                    class="flex items-center gap-1.5 text-xs font-semibold text-amber-200 hover:text-amber-100 transition min-w-0">
+                <span class="text-amber-400" aria-hidden="true">⚠</span>
+                <span class="truncate">Unclaimed profile</span>
+                <svg class="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            </button>
+            @unless(session('claim_submitted'))
+            <a href="{{ route('politician.profile.claim.show', $politician->slug) }}"
+               class="flex-shrink-0 text-xs font-bold px-3 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-900 transition whitespace-nowrap">
+                Claim
+            </a>
+            @endunless
+        </div>
+
+        {{-- Full banner --}}
+        <div x-show="!minimized" class="max-w-5xl mx-auto px-4 sm:px-6 py-3 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6">
             <div class="flex items-start gap-3 flex-1 min-w-0">
                 <span class="text-amber-400 text-xl leading-none flex-shrink-0 mt-0.5" aria-hidden="true">⚠</span>
                 <div class="min-w-0">
@@ -203,13 +223,21 @@
                     @enderror
                 </div>
             </div>
-            @unless(session('claim_submitted'))
-            <a href="{{ route('politician.profile.claim.show', $politician->slug) }}"
-               class="flex-shrink-0 inline-flex items-center gap-1.5 text-xs font-bold px-4 py-2 rounded-lg
-                      bg-amber-500 hover:bg-amber-400 text-slate-900 transition whitespace-nowrap">
-                🏛 Claim This Profile
-            </a>
-            @endunless
+            <div class="flex-shrink-0 flex items-center gap-2">
+                @unless(session('claim_submitted'))
+                <a href="{{ route('politician.profile.claim.show', $politician->slug) }}"
+                   class="inline-flex items-center gap-1.5 text-xs font-bold px-4 py-2 rounded-lg
+                          bg-amber-500 hover:bg-amber-400 text-slate-900 transition whitespace-nowrap">
+                    🏛 Claim This Profile
+                </a>
+                @endunless
+                <button type="button"
+                        @click="minimized = true; localStorage.setItem('u9itus_unclaimed_banner_minimized', '1')"
+                        class="p-1.5 rounded-lg text-amber-300/70 hover:text-amber-100 hover:bg-amber-900/40 transition"
+                        aria-label="Minimize this notice">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/></svg>
+                </button>
+            </div>
         </div>
     </div>
     @endif
@@ -1000,6 +1028,54 @@
                 <span class="w-1 h-6 rounded-full inline-block" style="background:var(--p13-accent,#f59e0b)"></span>
                 Videos &amp; Appearances
             </h2>
+
+            {{-- Top This Week: real engagement-ranked clips (PoliticianViralMoment) --}}
+            @if(isset($topWeeklyMoments) && $topWeeklyMoments->isNotEmpty())
+            <div class="mb-6">
+                <div class="flex items-center gap-2 mb-3">
+                    <span class="text-lg" aria-hidden="true">🔥</span>
+                    <h3 class="text-xs font-semibold text-white uppercase tracking-wide">Top This Week</h3>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    @foreach($topWeeklyMoments as $moment)
+                    <div class="bg-slate-800/40 border border-slate-700/40 rounded-xl overflow-hidden">
+                        @if($moment->source === 'youtube')
+                        <div class="aspect-video">
+                            <iframe
+                                src="https://www.youtube-nocookie.com/embed/{{ $moment->source_id }}"
+                                title="{{ e($moment->title) }}"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                allowfullscreen
+                                class="w-full h-full border-0">
+                            </iframe>
+                        </div>
+                        @else
+                        <a href="{{ $moment->url }}" target="_blank" rel="noopener"
+                           class="block relative aspect-video bg-slate-900 group">
+                            @if($moment->thumbnail_url)
+                            <img src="{{ $moment->thumbnail_url }}" alt="{{ e($moment->title) }}" class="w-full h-full object-cover" />
+                            @else
+                            <div class="w-full h-full flex items-center justify-center text-4xl" aria-hidden="true">📺</div>
+                            @endif
+                            <span class="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition">
+                                <span class="text-white text-xs font-semibold">Watch on {{ ucfirst($moment->source) }} ↗</span>
+                            </span>
+                        </a>
+                        @endif
+                        <div class="px-3 py-2">
+                            <p class="text-xs text-slate-300 line-clamp-2">{{ $moment->title }}</p>
+                            <p class="text-[10px] text-slate-500 mt-1 flex items-center gap-2">
+                                <span class="uppercase tracking-wide">{{ $moment->source }}</span>
+                                @if($moment->view_count)
+                                <span>&middot; {{ number_format($moment->view_count) }} views</span>
+                                @endif
+                            </p>
+                        </div>
+                    </div>
+                    @endforeach
+                </div>
+            </div>
+            @endif
 
             {{-- Stored YouTube embeds --}}
             @if(!empty($youtubeVideos))

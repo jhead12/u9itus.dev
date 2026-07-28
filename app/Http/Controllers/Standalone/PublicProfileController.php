@@ -1122,6 +1122,14 @@ class PublicProfileController extends Controller
         // donor-inferred PAC affiliation chips rendered from $transparencyData below.
         $endorsements = $politician->endorsements()->active()->get();
 
+        // Top 3 highest-scoring viral moments (YouTube/C-SPAN/podcast/etc. clips)
+        // published in the last 7 days, for the "Top This Week" video embeds.
+        $topWeeklyMoments = $politician->viralMoments()
+            ->eligible(7)
+            ->topByScore()
+            ->limit(3)
+            ->get();
+
         // Sprint 7 — MeToken subgraph enrichment (read-only, gated).
         // Only fetched when the platform kill-switch is on, the politician is
         // eligible for the Sovereign (MeToken) tier, and an address is set.
@@ -1236,6 +1244,7 @@ class PublicProfileController extends Controller
             'transparencyData',
             'digDeeperData',
             'endorsements',
+            'topWeeklyMoments',
             'meTokenData',
             'termInfo',
             'electionDates',
