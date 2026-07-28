@@ -33,8 +33,9 @@
             </div>
             @endif
 
-            <form method="GET" action="{{ route('politicians.directory') }}" class="flex flex-wrap gap-3">
-                <div class="relative min-w-[180px]">
+            <form method="GET" action="{{ route('politicians.directory') }}#results" x-data="{ filtersOpen: false }" class="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                {{-- ZIP is required, so it always stays visible (a hidden required field blocks submission) --}}
+                <div class="relative sm:min-w-[180px]">
                     <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
@@ -49,78 +50,117 @@
                         class="w-full bg-slate-800 border border-slate-700 text-white placeholder-slate-500 rounded-lg pl-9 pr-4 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition"/>
                 </div>
 
-                <div class="relative flex-1 min-w-[220px]">
-                    <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-                    </svg>
-                    <input type="text" name="q" value="{{ request('q') }}"
-                        placeholder="Search by name or office..."
-                        class="w-full bg-slate-800 border border-slate-700 text-white placeholder-slate-500 rounded-lg pl-9 pr-4 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition"/>
+                {{-- Search + mobile filters toggle --}}
+                <div class="flex gap-2 sm:contents">
+                    <div class="relative flex-1 sm:min-w-[220px]">
+                        <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                        </svg>
+                        <input type="text" name="q" value="{{ request('q') }}"
+                            placeholder="Search by name or office..."
+                            class="w-full bg-slate-800 border border-slate-700 text-white placeholder-slate-500 rounded-lg pl-9 pr-4 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition"/>
+                    </div>
+
+                    <button type="button" @click="filtersOpen = !filtersOpen"
+                        class="sm:hidden flex-shrink-0 inline-flex items-center gap-1.5 bg-slate-800 border border-slate-700 text-slate-300 rounded-lg px-3 py-2 text-sm">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h18M6 8h12M10 12h4"/>
+                        </svg>
+                        Filters
+                        <svg class="w-3.5 h-3.5 transition-transform" :class="filtersOpen ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                        </svg>
+                    </button>
                 </div>
 
-                <div class="relative min-w-[190px]">
-                    <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h8m-8 4h6"/>
-                    </svg>
-                    <input type="text" name="topic" value="{{ request('topic') }}"
-                        placeholder="Topic (e.g. housing)"
-                        class="w-full bg-slate-800 border border-slate-700 text-white placeholder-slate-500 rounded-lg pl-9 pr-4 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition"/>
+                {{-- Remaining filters: collapsible on mobile, always visible sm+ --}}
+                <div class="flex flex-col gap-3 sm:contents" :class="{ 'contents': filtersOpen, 'hidden': !filtersOpen }">
+                    <div class="relative sm:min-w-[190px]">
+                        <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h8m-8 4h6"/>
+                        </svg>
+                        <input type="text" name="topic" value="{{ request('topic') }}"
+                            placeholder="Topic (e.g. housing)"
+                            class="w-full bg-slate-800 border border-slate-700 text-white placeholder-slate-500 rounded-lg pl-9 pr-4 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition"/>
+                    </div>
+
+                    <div class="relative sm:min-w-[180px]">
+                        <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 01.553-.894L9 2m0 18l6-3m-6 3V2m6 15l5.447 2.724A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 2"/>
+                        </svg>
+                        <input type="text" name="district" value="{{ request('district') }}"
+                            placeholder="District"
+                            class="w-full bg-slate-800 border border-slate-700 text-white placeholder-slate-500 rounded-lg pl-9 pr-4 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition"/>
+                    </div>
+
+                    <div class="relative">
+                        <select name="level" class="w-full bg-slate-800 border border-slate-700 text-slate-300 rounded-lg pl-3 pr-8 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 appearance-none cursor-pointer">
+                            <option value="">All Levels</option>
+                            @foreach($governanceLevels as $level)
+                            <option value="{{ $level }}" {{ request('level') === $level ? 'selected' : '' }}>{{ $level }}</option>
+                            @endforeach
+                        </select>
+                        <svg class="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                        </svg>
+                    </div>
+
+                    <div class="relative">
+                        <select name="state" class="w-full bg-slate-800 border border-slate-700 text-slate-300 rounded-lg pl-3 pr-8 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 appearance-none cursor-pointer">
+                            <option value="">All States</option>
+                            @foreach($states as $abbr => $name)
+                            <option value="{{ $abbr }}" {{ request('state') === $abbr ? 'selected' : '' }}>{{ $abbr }} - {{ $name }}</option>
+                            @endforeach
+                        </select>
+                        <svg class="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                        </svg>
+                    </div>
+
+                    <div class="relative">
+                        <select name="party" class="w-full bg-slate-800 border border-slate-700 text-slate-300 rounded-lg pl-3 pr-8 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 appearance-none cursor-pointer">
+                            <option value="">All Parties</option>
+                            @foreach($parties as $party)
+                            <option value="{{ $party }}" {{ request('party') === $party ? 'selected' : '' }}>{{ $party }}</option>
+                            @endforeach
+                        </select>
+                        <svg class="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                        </svg>
+                    </div>
+
+                    <div class="relative">
+                        <select name="sort" class="w-full bg-slate-800 border border-slate-700 text-slate-300 rounded-lg pl-3 pr-8 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 appearance-none cursor-pointer">
+                            <option value="name" {{ request('sort', 'name') === 'name' ? 'selected' : '' }}>Name (A-Z)</option>
+                            <option value="recent" {{ request('sort') === 'recent' ? 'selected' : '' }}>Recently Added</option>
+                            <option value="verified" {{ request('sort') === 'verified' ? 'selected' : '' }}>Verified First</option>
+                        </select>
+                        <svg class="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                        </svg>
+                    </div>
+
+                    <label class="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-slate-300 cursor-pointer">
+                        <input type="checkbox" name="unclaimed" value="1" {{ request()->boolean('unclaimed') ? 'checked' : '' }}
+                            class="h-3.5 w-3.5 rounded border-slate-600 bg-slate-900 text-emerald-500 focus:ring-emerald-500" />
+                        Unclaimed only
+                    </label>
+
+                    <div class="flex items-center gap-3">
+                        <button type="submit" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition">
+                            Filter
+                        </button>
+
+                        @if(request()->hasAny(['zip', 'q', 'topic', 'district', 'level', 'state', 'party', 'sort', 'unclaimed']))
+                        <a href="{{ route('politicians.directory') }}" class="text-slate-400 hover:text-white text-sm flex items-center gap-1 px-3 py-2 transition">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                            Clear
+                        </a>
+                        @endif
+                    </div>
                 </div>
-
-                <div class="relative min-w-[180px]">
-                    <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 01.553-.894L9 2m0 18l6-3m-6 3V2m6 15l5.447 2.724A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 2"/>
-                    </svg>
-                    <input type="text" name="district" value="{{ request('district') }}"
-                        placeholder="District"
-                        class="w-full bg-slate-800 border border-slate-700 text-white placeholder-slate-500 rounded-lg pl-9 pr-4 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition"/>
-                </div>
-
-                <select name="level" class="bg-slate-800 border border-slate-700 text-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 appearance-none cursor-pointer">
-                    <option value="">All Levels</option>
-                    @foreach($governanceLevels as $level)
-                    <option value="{{ $level }}" {{ request('level') === $level ? 'selected' : '' }}>{{ $level }}</option>
-                    @endforeach
-                </select>
-
-                <select name="state" class="bg-slate-800 border border-slate-700 text-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 appearance-none cursor-pointer">
-                    <option value="">All States</option>
-                    @foreach($states as $abbr => $name)
-                    <option value="{{ $abbr }}" {{ request('state') === $abbr ? 'selected' : '' }}>{{ $abbr }} - {{ $name }}</option>
-                    @endforeach
-                </select>
-
-                <select name="party" class="bg-slate-800 border border-slate-700 text-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 appearance-none cursor-pointer">
-                    <option value="">All Parties</option>
-                    @foreach($parties as $party)
-                    <option value="{{ $party }}" {{ request('party') === $party ? 'selected' : '' }}>{{ $party }}</option>
-                    @endforeach
-                </select>
-
-                <select name="sort" class="bg-slate-800 border border-slate-700 text-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 appearance-none cursor-pointer">
-                    <option value="name" {{ request('sort', 'name') === 'name' ? 'selected' : '' }}>Name (A-Z)</option>
-                    <option value="recent" {{ request('sort') === 'recent' ? 'selected' : '' }}>Recently Added</option>
-                    <option value="verified" {{ request('sort') === 'verified' ? 'selected' : '' }}>Verified First</option>
-                </select>
-
-                <label class="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-slate-300 cursor-pointer">
-                    <input type="checkbox" name="unclaimed" value="1" {{ request()->boolean('unclaimed') ? 'checked' : '' }}
-                        class="h-3.5 w-3.5 rounded border-slate-600 bg-slate-900 text-emerald-500 focus:ring-emerald-500" />
-                    Unclaimed only
-                </label>
-
-                <button type="submit" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition">
-                    Filter
-                </button>
-
-                @if(request()->hasAny(['zip', 'q', 'topic', 'district', 'level', 'state', 'party', 'sort', 'unclaimed']))
-                <a href="{{ route('politicians.directory') }}" class="text-slate-400 hover:text-white text-sm flex items-center gap-1 px-3 py-2 transition">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                    </svg>
-                    Clear
-                </a>
-                @endif
             </form>
 
             {{-- ── Topic chip row: one-click browse by issue ─────────────────── --}}
@@ -129,10 +169,11 @@
                     $activeTopic = request('topic');
                     $baseQuery = collect(request()->only(['q', 'district', 'level', 'state', 'party', 'sort', 'unclaimed']))->filter();
                 @endphp
-                <div class="flex flex-wrap items-center gap-1.5 mt-3">
-                    <span class="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mr-0.5">Issues</span>
-                    <a href="{{ route('politicians.directory', $baseQuery->toArray()) }}"
-                       class="inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-semibold border transition {{ empty($activeTopic) ? 'bg-slate-700 border-slate-600 text-white' : 'border-slate-700 text-slate-400 hover:text-white hover:border-slate-600' }}">
+                <div class="flex flex-nowrap sm:flex-wrap items-center gap-1.5 mt-3 overflow-x-auto sm:overflow-visible -mx-4 px-4 sm:mx-0 sm:px-0 pb-1 sm:pb-0">
+                    <span class="flex-shrink-0 text-[10px] font-semibold uppercase tracking-wider text-slate-500 mr-0.5">Issues</span>
+                    <a href="{{ route('politicians.directory', $baseQuery->toArray()) }}#results"
+                       class="flex-shrink-0 inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-semibold border transition {{ empty($activeTopic) ? 'bg-slate-700 border-slate-600 text-white' : 'border-slate-700 text-slate-400 hover:text-white hover:border-slate-600' }}"
+                       @if(empty($activeTopic)) aria-current="true" @endif>
                         All
                     </a>
                     @foreach($topics as $topic)
@@ -141,11 +182,11 @@
                             $isActive = $activeTopic === $topic->slug;
                             $color = $topic->badge_color ?: '#6366f1';
                         @endphp
-                        <a href="{{ route('politicians.directory', $chipQuery) }}"
-                           class="inline-flex items-center gap-x-1 rounded-full px-2.5 py-0.5 text-[10px] font-semibold border transition-all hover:brightness-125 {{ $isActive ? 'ring-2 ring-offset-1 ring-offset-slate-900' : '' }}"
+                        <a href="{{ route('politicians.directory', $chipQuery) }}#results"
+                           class="flex-shrink-0 inline-flex items-center gap-x-1 rounded-full px-2.5 py-0.5 text-[10px] font-semibold border transition-all hover:brightness-125 whitespace-nowrap {{ $isActive ? 'ring-2 ring-offset-1 ring-offset-slate-900' : '' }}"
                            style="color:{{ $color }};border-color:{{ $color }}40;background-color:{{ $color }}1a;--tw-ring-color:{{ $color }};"
                            title="Browse candidates focused on {{ $topic->name }}"
-                           aria-pressed="{{ $isActive ? 'true' : 'false' }}">
+                           @if($isActive) aria-current="true" @endif>
                             @if(!empty($topic->icon))<span aria-hidden="true">{{ $topic->icon }}</span>@endif
                             {{ $topic->name }}
                         </a>
@@ -156,7 +197,7 @@
     </div>
 
     {{-- Results --}}
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+    <div id="results" class="max-w-7xl mx-auto px-4 sm:px-6 py-8 scroll-mt-20">
         <div class="flex items-center justify-between mb-6">
             <p class="text-slate-400 text-sm">
                 {{ $politicians->total() }} {{ Str::plural('politician', $politicians->total()) }} found
