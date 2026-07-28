@@ -142,33 +142,33 @@
         </div>
     </nav>
 
-    <!-- Hero Section -->
-    <section class="relative min-h-screen flex items-center justify-center overflow-hidden">
+    <!-- Hero Section (compact — real candidates load immediately below) -->
+    <section class="relative overflow-hidden">
         <!-- Gradient Background -->
         <div class="absolute inset-0 bg-gradient-to-br from-slate-900 via-slate-800 to-teal-900"></div>
-        
+
         <!-- Animated Gradient Overlay -->
         <div class="absolute inset-0 bg-gradient-to-tr from-emerald-500/10 via-transparent to-teal-500/10"></div>
-        
+
         <!-- Grid Pattern -->
         <div class="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:72px_72px]"></div>
-        
+
         <!-- Content -->
-        <div class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-32 text-center">
-            <div class="space-y-8">
+        <div class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20 text-center">
+            <div class="space-y-6">
                 <div class="animate-fade-in-up opacity-0">
-                    <span class="inline-block px-4 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-full text-emerald-400 text-sm font-medium mb-6">
-                        — DEMOCRACY PAYS ATTENTION TO YOU
+                    <span class="inline-block px-4 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-full text-emerald-400 text-sm font-medium mb-4">
+                        — SEE WHO'S RUNNING NEAR YOU
                     </span>
                 </div>
-                
-                <h1 class="animate-fade-in-up delay-100 opacity-0 text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight">
+
+                <h1 class="animate-fade-in-up delay-100 opacity-0 text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight">
                     Who Wants to Represent<br/>
                     <span class="bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent">You?</span>
                 </h1>
-                
-                <p class="animate-fade-in-up delay-200 opacity-0 text-xl sm:text-2xl text-slate-300 max-w-3xl mx-auto leading-relaxed">
-                    Enter your ZIP to find every candidate running in your district. Watch their full message, verify their record with public data — and earn $0.50 for your complete attention. Candidates pay to speak. You decide if they've earned your vote.
+
+                <p class="animate-fade-in-up delay-200 opacity-0 text-lg sm:text-xl text-slate-300 max-w-3xl mx-auto leading-relaxed">
+                    Real candidates from your district, right below — no ZIP required to look. Watch their message, verify every claim with public data, and get paid for the time you spend understanding it.
                 </p>
 
                 @if ($activeReferralCode)
@@ -182,8 +182,8 @@
                         </div>
                     </div>
                 @endif
-                
-                <div class="animate-fade-in-up delay-300 opacity-0 flex flex-col sm:flex-row items-center justify-center gap-4 pt-8">
+
+                <div class="animate-fade-in-up delay-300 opacity-0 flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
                     <a href="{{ route('district.lookup') }}"
                        class="inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-white bg-gradient-to-r from-emerald-500 to-teal-500 rounded-xl hover:from-emerald-600 hover:to-teal-600 transition shadow-2xl shadow-emerald-500/40 hover:shadow-emerald-500/60 hover:-translate-y-0.5 transform">
                         Find My District
@@ -213,72 +213,14 @@
                         </a>
                     @endguest
                 </div>
-                
-                <!-- Stats — stacks to 1-col on phones, 4-col on sm+ -->
-                <div class="animate-fade-in-up delay-400 opacity-0 grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-8 pt-10 sm:pt-16 max-w-4xl mx-auto">
-                    <div class="flex sm:block items-center gap-4 sm:gap-0 bg-slate-800/40 sm:bg-transparent rounded-xl sm:rounded-none px-4 py-3 sm:p-0">
-                        <div class="text-3xl sm:text-4xl font-bold text-emerald-400 shrink-0">ZIP</div>
-                        <div class="text-sm text-slate-400 sm:mt-1">Find your district fast</div>
-                    </div>
-                    <div class="flex sm:block items-center gap-4 sm:gap-0 bg-slate-800/40 sm:bg-transparent rounded-xl sm:rounded-none px-4 py-3 sm:p-0">
-                        <div class="text-3xl sm:text-4xl font-bold text-teal-400 shrink-0">No Login</div>
-                        <div class="text-sm text-slate-400 sm:mt-1">Browse candidates publicly</div>
-                    </div>
-                    <div class="flex sm:block items-center gap-4 sm:gap-0 bg-slate-800/40 sm:bg-transparent rounded-xl sm:rounded-none px-4 py-3 sm:p-0">
-                        <div class="text-3xl sm:text-4xl font-bold text-blue-400 shrink-0">$0.50</div>
-                        <div class="text-sm text-slate-400 sm:mt-1">Earned per full video viewed</div>
-                    </div>
-                    <div class="flex sm:block items-center gap-4 sm:gap-0 bg-slate-800/40 sm:bg-transparent rounded-xl sm:rounded-none px-4 py-3 sm:p-0">
-                        <div class="text-3xl sm:text-4xl font-bold text-violet-400 shrink-0">4 Sources</div>
-                        <div class="text-sm text-slate-400 sm:mt-1">Public data to verify any claim</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Scroll Indicator -->
-        <div class="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce">
-            <a href="#featured-candidates" class="text-slate-400 hover:text-white transition">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"/>
-                </svg>
-            </a>
-        </div>
-    </section>
-
-    <!-- How It Works — 3-step strip -->
-    <section class="bg-slate-900 border-b border-slate-800/80 py-12">
-        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-8 text-center">
-                <div class="flex flex-col items-center gap-3">
-                    <div class="w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-xl">🔍</div>
-                    <div>
-                        <p class="text-white font-semibold">1. Find Your Ballot</p>
-                        <p class="text-slate-400 text-sm mt-1">Enter your ZIP — see every candidate running in your district in 10 seconds. No account needed.</p>
-                    </div>
-                </div>
-                <div class="flex flex-col items-center gap-3">
-                    <div class="w-12 h-12 rounded-full bg-teal-500/10 border border-teal-500/30 flex items-center justify-center text-xl">📺</div>
-                    <div>
-                        <p class="text-white font-semibold">2. Watch &amp; Verify</p>
-                        <p class="text-slate-400 text-sm mt-1">Watch their full message. Cross-check their claims with FEC filings, donor records, and voting history.</p>
-                    </div>
-                </div>
-                <div class="flex flex-col items-center gap-3">
-                    <div class="w-12 h-12 rounded-full bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-xl">💰</div>
-                    <div>
-                        <p class="text-white font-semibold">3. Get Paid to Engage</p>
-                        <p class="text-slate-400 text-sm mt-1">Candidates pay $1.00 for your verified attention. You keep $0.50. Ask them a question. They answer publicly.</p>
-                    </div>
-                </div>
             </div>
         </div>
     </section>
 
     @isset($featuredCandidates)
     @if($featuredCandidates->isNotEmpty())
-    <!-- Featured Candidates (geo-aware, rotating) -->
-    <section id="featured-candidates" class="relative py-20 bg-gradient-to-b from-slate-900 to-slate-800/60">
+    <!-- Featured Candidates (geo-aware, rotating) — first thing visible after the headline -->
+    <section id="featured-candidates" class="relative py-16 sm:py-20 bg-gradient-to-b from-slate-900 to-slate-800/60">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="text-center mb-12">
                 <span class="text-emerald-400 font-semibold text-sm tracking-wider uppercase">
@@ -291,7 +233,7 @@
                 <h2 class="mt-4 text-3xl sm:text-4xl font-bold">
                     Who's <span class="text-emerald-400">On Your Ballot</span> Right Now
                 </h2>
-                <p class="mt-3 text-slate-400 text-sm">Click any card to open the interactive map and see their district — plus everyone else running nearby.</p>
+                <p class="mt-3 text-slate-400 text-sm">Click any card to see their full profile — record, positions, and how to verify their claims.</p>
             </div>
 
             <div
@@ -319,11 +261,7 @@
                             $state = trim((string) ($candidate->state ?? ''));
                             $jobTitle = $office !== '' ? $office : 'Candidate';
                             $districtLine = trim($district . ($district && $state ? ', ' : '') . $state);
-                            // Deep-link to the map when we have a state; fall back to the public profile.
-                            $mapParams = array_filter(['state' => $state ?: null, 'district' => $district ?: null, 'slug' => $candidate->slug]);
-                            $cardHref = $state
-                                ? route('us.map') . '?' . http_build_query($mapParams)
-                                : route('politician.public.show', $candidate->slug);
+                            $cardHref = route('politician.public.show', $candidate->slug);
                         @endphp
                         <a href="{{ $cardHref }}"
                            :class="active === {{ $index }} ? 'ring-2 ring-emerald-500/60 scale-[1.01]' : 'opacity-90 hover:opacity-100'"
@@ -347,8 +285,8 @@
                                 @endif
                                 @if($state)
                                 <div class="absolute bottom-3 left-3 flex items-center gap-1 bg-slate-900/80 backdrop-blur-sm rounded-full px-2 py-0.5 text-[10px] text-indigo-300 font-medium">
-                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
-                                    View on Map
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                                    {{ $state }}
                                 </div>
                                 @endif
                             </div>
@@ -397,6 +335,35 @@
     </section>
     @endif
     @endisset
+
+    <!-- How It Works — 3-step strip -->
+    <section class="bg-slate-900 border-b border-slate-800/80 py-12">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-8 text-center">
+                <div class="flex flex-col items-center gap-3">
+                    <div class="w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-xl">🔍</div>
+                    <div>
+                        <p class="text-white font-semibold">1. Find Your Ballot</p>
+                        <p class="text-slate-400 text-sm mt-1">Enter your ZIP — see every candidate running in your district in 10 seconds. No account needed.</p>
+                    </div>
+                </div>
+                <div class="flex flex-col items-center gap-3">
+                    <div class="w-12 h-12 rounded-full bg-teal-500/10 border border-teal-500/30 flex items-center justify-center text-xl">📺</div>
+                    <div>
+                        <p class="text-white font-semibold">2. Watch &amp; Verify</p>
+                        <p class="text-slate-400 text-sm mt-1">Watch their full message. Cross-check their claims with FEC filings, donor records, and voting history.</p>
+                    </div>
+                </div>
+                <div class="flex flex-col items-center gap-3">
+                    <div class="w-12 h-12 rounded-full bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-xl">🙋</div>
+                    <div>
+                        <p class="text-white font-semibold">3. Ask &amp; Get Rewarded</p>
+                        <p class="text-slate-400 text-sm mt-1">Ask them a question — they answer publicly. You keep $0.50 for the time you spent understanding your ballot.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
 
     <!-- Interactive Map Section -->
     <section id="explore-map" class="relative py-24 bg-gradient-to-b from-slate-800 to-slate-900 overflow-hidden">
