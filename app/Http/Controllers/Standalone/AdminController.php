@@ -342,7 +342,12 @@ class AdminController extends Controller
                                             ->whereIn('political_campaign_id', $campaignIds)
                                             ->whereHas('voter', fn ($q) => $q->whereNotNull('earlybank_member_id'))
                                             ->sum('platform_revenue'),
-            'total_payouts'           => (clone $completedViewQuery)->sum('voter_payout_amount') ?? 0,
+            // Combines campaign-view payouts with EarlyBank-reported commissions/
+            // bonuses (a separate payout rail EB pays directly) into one "total
+            // paid to voters" figure — see buildAnalyticsStats() for the same pattern.
+            'total_payouts'           => (float) ((clone $completedViewQuery)->sum('voter_payout_amount') ?? 0)
+                                            + (float) EarlyBankEarning::forEventType(EarlyBankEarning::EVENT_PAYOUT_COMMISSION)->sum('payout_amount')
+                                            + (float) EarlyBankEarning::forEventType(EarlyBankEarning::EVENT_PAYOUT_BONUS)->sum('payout_amount'),
             'kyc_pending'       => User::where('kyc_status', 'pending')
                                         ->where('user_type', 'politician')->count(),
             'authentic_user_verifier_legacy' => (clone $legacyVoterBase)->count(),
@@ -2477,6 +2482,14 @@ class AdminController extends Controller
         $totalPoliticalViews = $totalViews;
         $totalAllViews = $totalPoliticalViews + (int) ($citizenTotals->total_views ?? 0);
 
+        // Voter Payouts tile combines both payout rails: campaign-view payouts
+        // (routed through U9itus's own Stripe payouts) and EarlyBank-reported
+        // commissions/bonuses (EB pays these directly, outside U9itus's rails).
+        // Kept out of gross_revenue/margin_percent/avg_payout_per_view below —
+        // those track campaign billing economics, and EB money never flowed
+        // through campaign billing, so folding it in would misstate them.
+        $totalPayoutsAllRails = $totalPayouts + $ebTotalCommissions + $ebTotalBonuses;
+
         return [
             'total_views' => $totalViews,
             'gross_revenue' => $grossDeliveredRevenue,
@@ -2484,7 +2497,7 @@ class AdminController extends Controller
             'citizen_revenue' => $citizenRevenue,
             'eb_attributed_revenue' => $ebAttributedRevenue,
             'net_revenue' => $totalNetRevenue,
-            'total_payouts' => $totalPayouts,
+            'total_payouts' => $totalPayoutsAllRails,
             'total_referrals' => $totalReferrals,
             'total_campaigns' => PoliticalCampaign::whereIn('id', $campaignIds)->count(),
             'active_campaigns' => PoliticalCampaign::where('status', CampaignStatus::Active->value)->whereIn('id', $campaignIds)->count(),
