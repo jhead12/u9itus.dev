@@ -34,7 +34,7 @@ class MapStateCandidatesBadgesTest extends TestCase
             'is_running_candidate' => false,
         ]);
 
-        $politician->addBadge($topic->id, 'self_declared');
+        $politician->addBadge($topic->id, 'self_declared', ['is_public' => true]);
 
         $response = $this->getJson('/api/v1/map/state-candidates?state=CA');
 
@@ -72,7 +72,7 @@ class MapStateCandidatesBadgesTest extends TestCase
                 'voter_selectable' => true,
                 'auto_earned_only' => false,
             ]);
-            $politician->addBadge($topic->id, 'self_declared');
+            $politician->addBadge($topic->id, 'self_declared', ['is_public' => true]);
         }
 
         $privateTopic = PoliticianTopic::create([
@@ -84,8 +84,9 @@ class MapStateCandidatesBadgesTest extends TestCase
             'voter_selectable' => true,
             'auto_earned_only' => false,
         ]);
-        $badge = $politician->addBadge($privateTopic->id, 'self_declared');
-        $badge->update(['is_public' => false]);
+        // Self-declared badges now default to private, which already covers this
+        // case — addBadge() here is intentionally left with no override.
+        $politician->addBadge($privateTopic->id, 'self_declared');
 
         $response = $this->getJson('/api/v1/map/state-candidates?state=TX');
 

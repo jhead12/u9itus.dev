@@ -123,7 +123,8 @@ test('system can grant an earned_views badge', function () {
 
     expect($badge->badge_type)->toBe('earned_views')
         ->and($badge->earned_threshold)->toBe(5)
-        ->and($badge->earned_at)->not->toBeNull();
+        ->and($badge->earned_at)->not->toBeNull()
+        ->and($badge->is_public)->toBeTrue();
 });
 
 test('grantEarnedBadge is idempotent', function () {
@@ -162,7 +163,7 @@ test('publicBadges only returns is_public badges', function () {
     $publicTopic = makeTopic(['name' => 'Public Topic', 'slug' => 'public']);
     $privateTopic= makeTopic(['name' => 'Private Topic', 'slug' => 'private']);
 
-    $voter->addBadge($publicTopic->id);
+    $voter->addBadge($publicTopic->id, 'self_declared', ['is_public' => true]);
     $voter->badges()->create([
         'topic_id'   => $privateTopic->id,
         'badge_type' => 'self_declared',
@@ -172,4 +173,91 @@ test('publicBadges only returns is_public badges', function () {
 
     expect($voter->publicBadges()->count())->toBe(1)
         ->and($voter->publicBadges()->first()->topic_id)->toBe($publicTopic->id);
+});
+
+// ── addBadge default visibility ────────────────────────────────────────────────
+
+test('addBadge defaults new self-declared badges to private', function () {
+    $voter = badgeVoter();
+    $topic = makeTopic();
+
+    $badge = $voter->addBadge($topic->id);
+
+    expect($badge->is_public)->toBeFalse();
+});
+
+test('addBadge respects an explicit is_public override', function () {
+    $voter = badgeVoter();
+    $topic = makeTopic();
+
+    $badge = $voter->addBadge($topic->id, 'self_declared', ['is_public' => true]);
+
+    expect($badge->is_public)->toBeTrue();
+});
+
+// ── setBadgeVisibility ───────────────────────────────────────────────────────
+
+test('voter can flip a self-declared badge to public', function () {
+    $voter = badgeVoter();
+    $topic = makeTopic();
+    $voter->addBadge($topic->id); // private by default
+
+    $result = $voter->setBadgeVisibility($topic->id, true);
+
+    expect($result)->toBeTrue();
+    $this->assertDatabaseHas('profile_badges', [
+        'badgeable_id' => $voter->id,
+        'topic_id'     => $topic->id,
+        'is_public'    => true,
+    ]);
+});
+
+test('voter can flip a self-declared badge back to private', function () {
+    $voter = badgeVoter();
+    $topic = makeTopic();
+    $voter->addBadge($topic->id, 'self_declared', ['is_public' => true]);
+
+    $result = $voter->setBadgeVisibility($topic->id, false);
+
+    expect($result)->toBeTrue();
+    $this->assertDatabaseHas('profile_badges', [
+        'badgeable_id' => $voter->id,
+        'topic_id'     => $topic->id,
+        'is_public'    => false,
+    ]);
+});
+
+test('setBadgeVisibility cannot change an earned badge', function () {
+    $voter = badgeVoter();
+    $topic = makeTopic();
+    $voter->grantEarnedBadge($topic->id, 'earned_views', 5);
+
+    $result = $voter->setBadgeVisibility($topic->id, false);
+
+    expect($result)->toBeFalse();
+    $this->assertDatabaseHas('profile_badges', [
+        'badgeable_id' => $voter->id,
+        'topic_id'     => $topic->id,
+        'badge_type'   => 'earned_views',
+        'is_public'    => true,
+    ]);
+});
+
+test('setBadgeVisibility returns false for a non-existent badge', function () {
+    $voter = badgeVoter();
+    $topic = makeTopic();
+
+    expect($voter->setBadgeVisibility($topic->id, true))->toBeFalse();
+});
+
+test('flipping a self-declared badge private removes it from publicBadges', function () {
+    $voter = badgeVoter();
+    $topic = makeTopic();
+    $voter->addBadge($topic->id, 'self_declared', ['is_public' => true]);
+
+    expect($voter->publicBadges()->count())->toBe(1);
+
+    $voter->setBadgeVisibility($topic->id, false);
+
+    expect($voter->publicBadges()->count())->toBe(0);
 });

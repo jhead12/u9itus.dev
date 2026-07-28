@@ -58,6 +58,34 @@ class BadgeController extends Controller
         return back()->with('success', 'Badge removed from your profile.');
     }
 
+    /**
+     * PUT /voter/badges/{topic}/visibility
+     * Voter toggles the public/private visibility of a self-declared badge.
+     * Earned/inferred badges are always public and cannot be changed here.
+     */
+    public function voterUpdateVisibility(Request $request, int $topicId): RedirectResponse
+    {
+        $validated = $request->validate([
+            'is_public' => ['required', 'boolean'],
+        ]);
+
+        $voter = $request->user()->voter;
+
+        if (! $voter) {
+            abort(403, 'No voter profile found.');
+        }
+
+        $updated = $voter->setBadgeVisibility($topicId, (bool) $validated['is_public']);
+
+        if (! $updated) {
+            return back()->withErrors(['badge' => 'Only self-declared badges can have their visibility changed.']);
+        }
+
+        return back()->with('success', $validated['is_public']
+            ? '🔓 Badge is now public on your profile.'
+            : '🔒 Badge is now private.');
+    }
+
     // ── Politician badge routes ───────────────────────────────────────────
 
     /**

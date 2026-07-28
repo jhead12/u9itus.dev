@@ -7,6 +7,7 @@ use App\Enums\ViewPaymentStatus;
 use App\Exceptions\StripeConnectException;
 use App\Models\AdViewToken;
 use App\Models\PoliticalCampaign;
+use App\Models\PoliticianTopic;
 use App\Models\ReferralVisit;
 use App\Models\CitizenViewSession;
 use App\Models\Voter;
@@ -482,10 +483,21 @@ trait ManagesVoterAuxiliaryActions
     public function profile()
     {
         $voter = $this->resolveVoter()->loadMissing('user');
+
+        $voterBadges = $voter->badges()->with('topic')->get();
+
+        $availableBadgeTopics = PoliticianTopic::active()
+            ->where('voter_selectable', true)
+            ->whereNotIn('id', $voterBadges->pluck('topic_id'))
+            ->orderBy('sort_order')
+            ->get();
+
         return view('standalone.voter.profile', [
             'user'  => Auth::user(),
             'voter' => $voter,
             'needsAuthenticUserVerifierMigration' => $voter->needsAuthenticUserVerifierMigration(),
+            'voterBadges' => $voterBadges,
+            'availableBadgeTopics' => $availableBadgeTopics,
         ]);
     }
 

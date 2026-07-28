@@ -38,7 +38,7 @@ function safeUrl(url) {
     return '';
 }
 
-function toEmbedUrl(url) {
+function toEmbedUrl(url, source) {
     const safe = safeUrl(url);
     if (!safe) return '';
 
@@ -52,6 +52,18 @@ function toEmbedUrl(url) {
     // The raw page is X-Frame-Options blocked; /video/standalone/?<id> iframes fine.
     const cspanMatch = safe.match(/c-span\.org\/(?:video\/\?|event\/[^?#]*\/|video\/standalone\/\?)([\w-]+)/);
     if (cspanMatch?.[1]) return `https://www.c-span.org/video/standalone/?${cspanMatch[1]}`;
+
+    if (source === 'podcast') {
+        // Only a known embeddable player is reliably iframe-safe here. Podcast
+        // Index gives us the episode's own page (or a raw enclosure file) —
+        // neither embeds reliably (most podcast host pages send
+        // X-Frame-Options), so treat anything but a recognized player as
+        // non-embeddable rather than risk a broken iframe; the card is
+        // dropped by the !embed guard in renderMomentCard() below.
+        return /listennotes\.com\/e\/[\w-]+\/embed\/|open\.spotify\.com\/embed\/episode|embed\.podcasts\.apple\.com/.test(safe)
+            ? safe
+            : '';
+    }
 
     return safe;
 }
@@ -298,7 +310,7 @@ function fmtPct(n) {
 /** Lazy-loaded video card — shared markup for each viral-moment clip. */
 function renderMomentCard(moment) {
     const url = safeUrl(moment?.url || '');
-    const embed = url ? toEmbedUrl(url) : '';
+    const embed = url ? toEmbedUrl(url, moment?.source) : '';
     if (!url || !embed) return '';
 
     const title = escapeHtml(moment.title || 'Video');
@@ -795,7 +807,7 @@ function _renderPolBody() {
             const searchQuery = `10 things to do in ${cityName}${stateAbbr ? ', ' + stateAbbr : ''}`;
             const ytUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(searchQuery)}`;
             polBodyEl.innerHTML = `
-                <p class="pol-section-label">Videos</p>
+                <p class="pol-section-label">Media</p>
                 <p class="pol-empty">Viral moments are shown for individual candidates — select a specific representative to view them.</p>
                 <div class="pol-link-row" style="margin-top:12px;">
                     <a href="${ytUrl}" target="_blank" rel="noopener" class="pol-link pol-link-primary">▶ 10 Things to Do in ${escapeHtml(cityName)}</a>
@@ -809,7 +821,7 @@ function _renderPolBody() {
 
         if (isLoadingMoments) {
             polBodyEl.innerHTML = `
-                <p class="pol-section-label">Videos</p>
+                <p class="pol-section-label">Media</p>
                 <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:8px;border:1px solid rgba(99,102,241,0.15);background:rgba(99,102,241,0.06);">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="animation:spin 1s linear infinite;color:#6366f1;">
                         <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-dasharray="31.4" stroke-dashoffset="10" stroke-linecap="round"/>
@@ -821,9 +833,9 @@ function _renderPolBody() {
 
         if (hasMomentsError) {
             polBodyEl.innerHTML = `
-                <p class="pol-section-label">Videos</p>
+                <p class="pol-section-label">Media</p>
                 <div style="padding:10px 12px;border-radius:8px;border:1px solid rgba(239,68,68,0.2);background:rgba(239,68,68,0.06);">
-                    <span style="font-size:11px;color:#f87171;">⚠ Video data unavailable right now.</span>
+                    <span style="font-size:11px;color:#f87171;">⚠ Media data unavailable right now.</span>
                 </div>`;
             return;
         }
@@ -833,7 +845,7 @@ function _renderPolBody() {
                 ? 'This candidate has not claimed a U9itus profile yet, so viral moments are not available.'
                 : 'No viral moments have been found for this candidate yet — check back after the next enrichment run.';
             polBodyEl.innerHTML = `
-                <p class="pol-section-label">Videos</p>
+                <p class="pol-section-label">Media</p>
                 <p class="pol-empty">${escapeHtml(message)}</p>`;
             return;
         }
@@ -842,7 +854,7 @@ function _renderPolBody() {
         const updated = moments.enriched_at ? formatPubDate(moments.enriched_at) : null;
 
         polBodyEl.innerHTML = `
-            <p class="pol-section-label">Videos</p>
+            <p class="pol-section-label">Media</p>
             ${cards}
             ${updated ? `<p style="font-size:10px;color:#475569;margin:4px 0 0;">Data updated ${escapeHtml(updated)}</p>` : ''}`;
 

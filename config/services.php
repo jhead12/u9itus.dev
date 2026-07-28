@@ -119,6 +119,21 @@ return [
         'api_key' => env('VOTESMART_API_KEY'),
     ],
 
+    // Podcast Index (podcastindex.org) — free/open podcast search API used by
+    // App\Services\PodcastMomentFetcher as the default provider. Auth is a
+    // signed request, not a bearer key: Authorization header =
+    // sha1(api_key . api_secret . X-Auth-Date), with X-Auth-Date as a unix ts.
+    'podcastindex' => [
+        'api_key' => env('PODCASTINDEX_API_KEY'),
+        'api_secret' => env('PODCASTINDEX_API_SECRET'),
+    ],
+
+    // ListenNotes — optional paid podcast search API, used alongside Podcast
+    // Index by App\Services\PodcastMomentFetcher when a key is configured.
+    'listennotes' => [
+        'api_key' => env('LISTENNOTES_API_KEY'),
+    ],
+
     'fec' => [
         'api_key' => env('FEC_API_KEY'),
     ],

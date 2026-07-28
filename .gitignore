@@ -24,6 +24,9 @@ database/database.sqlite
 .DS_Store
 */.DS_Store
 
+# Ad-hoc scratch scripts (manual testing, throwaway drivers)
+.claude-scratch-*
+
 # Mobile artifacts (React Native / Android / iOS)
 /mobile/node_modules/
 /mobile/.npm/
