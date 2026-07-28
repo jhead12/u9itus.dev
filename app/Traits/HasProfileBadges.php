@@ -44,9 +44,18 @@ trait HasProfileBadges
      */
     public function addBadge(int $topicId, string $type = 'self_declared', array $extra = []): ProfileBadge
     {
+        $defaults = ['badge_type' => $type, 'earned_at' => now()];
+
+        // Self-declared badges are private by default — the profile owner
+        // must explicitly opt in via setBadgeVisibility(). Callers can still
+        // override by passing 'is_public' in $extra.
+        if ($type === 'self_declared' && ! array_key_exists('is_public', $extra)) {
+            $defaults['is_public'] = false;
+        }
+
         return $this->badges()->firstOrCreate(
             ['topic_id' => $topicId],
-            array_merge(['badge_type' => $type, 'earned_at' => now()], $extra)
+            array_merge($defaults, $extra)
         );
     }
 
@@ -59,6 +68,19 @@ trait HasProfileBadges
             ->where('topic_id', $topicId)
             ->where('badge_type', 'self_declared')
             ->delete();
+    }
+
+    /**
+     * Update the visibility of a self-declared badge. Earned and inferred
+     * badges cannot have their visibility changed here — returns false if
+     * the badge doesn't exist or isn't self-declared.
+     */
+    public function setBadgeVisibility(int $topicId, bool $isPublic): bool
+    {
+        return (bool) $this->badges()
+            ->where('topic_id', $topicId)
+            ->where('badge_type', 'self_declared')
+            ->update(['is_public' => $isPublic]);
     }
 
     /**

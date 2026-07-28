@@ -127,6 +127,79 @@ test('guest cannot add a badge', function () {
         ->assertRedirect(route('login'));
 });
 
+// ── Voter — badge visibility ─────────────────────────────────────────────────
+
+test('newly self-declared voter badge defaults to private', function () {
+    $user  = makeVoterUser();
+    $topic = seedTopic();
+
+    $this->actingAs($user)->post(route('voter.badges.store', $topic->id));
+
+    $this->assertDatabaseHas('profile_badges', [
+        'topic_id'   => $topic->id,
+        'badge_type' => 'self_declared',
+        'is_public'  => false,
+    ]);
+});
+
+test('voter can update a self-declared badge visibility to public', function () {
+    $user  = makeVoterUser();
+    $voter = $user->voter;
+    $topic = seedTopic();
+    $voter->addBadge($topic->id);
+
+    $response = $this->actingAs($user)
+        ->put(route('voter.badges.visibility', $topic->id), ['is_public' => 1]);
+
+    $response->assertRedirect();
+    $this->assertDatabaseHas('profile_badges', [
+        'badgeable_id' => $voter->id,
+        'topic_id'     => $topic->id,
+        'is_public'    => true,
+    ]);
+});
+
+test('voter can update a self-declared badge visibility back to private', function () {
+    $user  = makeVoterUser();
+    $voter = $user->voter;
+    $topic = seedTopic();
+    $voter->addBadge($topic->id, 'self_declared', ['is_public' => true]);
+
+    $response = $this->actingAs($user)
+        ->put(route('voter.badges.visibility', $topic->id), ['is_public' => 0]);
+
+    $response->assertRedirect();
+    $this->assertDatabaseHas('profile_badges', [
+        'badgeable_id' => $voter->id,
+        'topic_id'     => $topic->id,
+        'is_public'    => false,
+    ]);
+});
+
+test('voter cannot update visibility of an earned badge', function () {
+    $user  = makeVoterUser();
+    $voter = $user->voter;
+    $topic = seedTopic();
+    $voter->grantEarnedBadge($topic->id, 'earned_views', 5);
+
+    $response = $this->actingAs($user)
+        ->put(route('voter.badges.visibility', $topic->id), ['is_public' => 0]);
+
+    $response->assertRedirect()->assertSessionHasErrors('badge');
+    $this->assertDatabaseHas('profile_badges', [
+        'badgeable_id' => $voter->id,
+        'topic_id'     => $topic->id,
+        'is_public'    => true,
+    ]);
+});
+
+test('guest cannot update badge visibility', function () {
+    $topic = seedTopic();
+
+    $this->put(route('voter.badges.visibility', $topic->id), ['is_public' => 1])
+        ->assertRedirect(route('login'));
+});
+
 // ── Politician — self-declare badge ──────────────────────────────────────────
 
 test('politician can add a badge to their profile', function () {
@@ -182,4 +255,28 @@ test('public politician profile is accessible and badge exists in DB', function 
     // Public profile page is reachable
     $this->get(route('politician.public.show', $politician->slug))
          ->assertOk();
+});
+
+test('a badge flipped to private no longer renders on the public profile page', function () {
+    $politician = Politician::factory()->create([
+        'slug' => 'a3f9b-governor-jane-doe-ca',
+        'page_published' => true,
+    ]);
+    // A distinctive topic name avoids false matches against unrelated page
+    // content (e.g. FEC/OpenSecrets donor industry-sector labels) that could
+    // coincidentally contain a common word like "Healthcare".
+    $topic = seedTopic('ZzzBadgeVisibilityTopic', 'zzz-badge-visibility-topic');
+    $politician->addBadge($topic->id, 'self_declared', ['is_public' => true]);
+
+    // ?refresh=1 bypasses the controller's 15-min guest page cache
+    // (profile.page.{id}) so each request reflects live badge state.
+    $this->get(route('politician.public.show', ['slug' => $politician->slug, 'refresh' => 1]))
+        ->assertOk()
+        ->assertSee($topic->name);
+
+    $politician->setBadgeVisibility($topic->id, false);
+
+    $this->get(route('politician.public.show', ['slug' => $politician->slug, 'refresh' => 1]))
+        ->assertOk()
+        ->assertDontSee($topic->name);
 });

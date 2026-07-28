@@ -64,6 +64,7 @@
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
                         Explore Map
                     </a>
+                    <a href="#civic-identity" class="text-slate-300 hover:text-white transition text-sm font-medium">Your Badges</a>
                     <a href="#revenue" class="text-slate-300 hover:text-white transition text-sm font-medium">Voter Value</a>
                     <a href="#how-it-works" class="text-slate-300 hover:text-white transition text-sm font-medium">Transparency</a>
                     <a href="{{ route('about') }}" class="text-slate-300 hover:text-white transition text-sm font-medium">About Us</a>
@@ -119,6 +120,8 @@
                     <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
                     Explore Map
                 </a>
+                <a href="#civic-identity" @@click="open=false"
+                   class="block px-3 py-2.5 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800 transition">Your Badges</a>
                 <a href="#revenue" @@click="open=false"
                    class="block px-3 py-2.5 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800 transition">Voter Value</a>
                 <a href="#how-it-works" @@click="open=false"
@@ -534,6 +537,107 @@
         </div>
     </section>
 
+    <!-- Civic Identity Section -->
+    <section id="civic-identity" class="relative py-24 bg-slate-900 overflow-hidden">
+        <div class="absolute inset-0 pointer-events-none">
+            <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[600px] bg-violet-500/6 blur-[140px] rounded-full"></div>
+        </div>
+
+        <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-12">
+                <span class="text-violet-400 font-semibold text-sm tracking-wider uppercase">— Your Civic Identity</span>
+                <h2 class="mt-4 text-4xl sm:text-5xl font-bold text-white">
+                    Show What You Stand For.
+                    <span class="bg-gradient-to-r from-violet-400 to-fuchsia-400 bg-clip-text text-transparent">On Your Terms.</span>
+                </h2>
+                <p class="mt-4 text-xl text-slate-300 max-w-2xl mx-auto">
+                    Declare the issues you care about — Healthcare, Housing, Climate, and more. Every badge is private by default. You decide what the world sees.
+                </p>
+            </div>
+
+            <div class="grid lg:grid-cols-2 gap-12 items-center">
+                {{-- Feature list --}}
+                <div class="space-y-6">
+                    @php
+                        $identityFeatures = [
+                            ['icon' => '🏅', 'title' => 'Self-declared badges', 'desc' => 'Pick the causes you care about and add them to your profile in one click.'],
+                            ['icon' => '🔒', 'title' => 'Private by default', 'desc' => 'New badges start hidden. Flip a switch when — and if — you want one public.'],
+                            ['icon' => '✅', 'title' => 'Earned recognition', 'desc' => 'Watch enough campaigns on a topic and the platform grants you an earned badge automatically.'],
+                            ['icon' => '⭐', 'title' => 'Follow candidates & causes', 'desc' => 'Favorite the politicians and ballot measures that matter to you, and build a profile that reflects it.'],
+                        ];
+                    @endphp
+
+                    @foreach ($identityFeatures as $f)
+                        <div class="flex gap-4">
+                            <div class="flex-shrink-0 w-11 h-11 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-xl">
+                                {{ $f['icon'] }}
+                            </div>
+                            <div>
+                                <h3 class="font-semibold text-white text-lg">{{ $f['title'] }}</h3>
+                                <p class="text-slate-400 text-sm leading-relaxed mt-0.5">{{ $f['desc'] }}</p>
+                            </div>
+                        </div>
+                    @endforeach
+
+                    @guest
+                        <div class="pt-4">
+                            <a href="{{ $activeReferralCode ? route('register', ['ref' => $activeReferralCode]) : route('register') }}"
+                               class="inline-flex items-center justify-center px-7 py-3.5 text-base font-semibold text-white bg-gradient-to-r from-violet-500 to-fuchsia-500 rounded-xl hover:from-violet-600 hover:to-fuchsia-600 transition shadow-xl shadow-violet-500/30 hover:-translate-y-0.5 transform">
+                                Create Free Account
+                                <svg class="ml-2 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/>
+                                </svg>
+                            </a>
+                        </div>
+                    @endguest
+                </div>
+
+                {{-- "My Badges" preview card — mirrors the real profile UI --}}
+                <div class="relative">
+                    <div class="relative rounded-2xl overflow-hidden border border-violet-500/20 shadow-2xl shadow-violet-900/40 bg-slate-950">
+                        <div class="flex items-center justify-between px-4 py-3 bg-slate-900/90 border-b border-slate-800">
+                            <div class="flex items-center gap-2">
+                                <span class="font-bold text-violet-400 text-sm">U9itus</span>
+                                <span class="text-slate-600 text-xs">|</span>
+                                <span class="text-slate-500 text-xs">My Badges</span>
+                            </div>
+                        </div>
+
+                        <div class="p-5 space-y-3">
+                            <div class="flex items-center justify-between gap-3 bg-slate-900/60 border border-slate-700/40 rounded-lg px-4 py-3">
+                                <span class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium text-white bg-violet-600">
+                                    🏥 Healthcare Access
+                                </span>
+                                <div class="flex items-center gap-2 shrink-0">
+                                    <span class="relative inline-flex w-9 h-5 rounded-full bg-emerald-500">
+                                        <span class="absolute top-[2px] right-[2px] bg-white rounded-full h-4 w-4"></span>
+                                    </span>
+                                    <span class="text-[10px] text-slate-500">Public</span>
+                                </div>
+                            </div>
+                            <div class="flex items-center justify-between gap-3 bg-slate-900/60 border border-slate-700/40 rounded-lg px-4 py-3">
+                                <span class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium text-white bg-indigo-600">
+                                    🏠 Affordable Housing
+                                </span>
+                                <div class="flex items-center gap-2 shrink-0">
+                                    <span class="relative inline-flex w-9 h-5 rounded-full bg-slate-700">
+                                        <span class="absolute top-[2px] left-[2px] bg-white rounded-full h-4 w-4"></span>
+                                    </span>
+                                    <span class="text-[10px] text-slate-500">Private</span>
+                                </div>
+                            </div>
+                            <p class="text-[11px] text-slate-600 pt-1">New badges are added as private — toggle one to Public once added.</p>
+                        </div>
+                    </div>
+
+                    <div class="absolute -bottom-4 -right-4 bg-violet-600 text-white text-xs font-semibold px-3 py-1.5 rounded-full shadow-lg shadow-violet-900/50 border border-violet-500">
+                        You control what's visible
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <!-- Revenue Model -->
     <section id="revenue" class="relative py-24 bg-gradient-to-b from-slate-900 to-slate-800">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -691,6 +795,7 @@
                     <h3 class="font-semibold mb-4">Platform</h3>
                     <ul class="space-y-2 text-slate-400 text-sm">
                         <li><a href="#featured-candidates" class="hover:text-white transition">Featured Candidates</a></li>
+                        <li><a href="#civic-identity" class="hover:text-white transition">Your Badges</a></li>
                         <li><a href="#revenue" class="hover:text-white transition">Voter Value</a></li>
                         <li><a href="#how-it-works" class="hover:text-white transition">Transparency Layer</a></li>
                         <li><a href="{{ route('about') }}" class="hover:text-white transition">About Us</a></li>

@@ -453,6 +453,7 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         // ── Badges ───────────────────────────────────────────────────────────
         Route::post('/badges/{topicId}', [BadgeController::class, 'voterStore'])->name('badges.store');
         Route::delete('/badges/{topicId}', [BadgeController::class, 'voterDestroy'])->name('badges.destroy');
+        Route::put('/badges/{topicId}/visibility', [BadgeController::class, 'voterUpdateVisibility'])->name('badges.visibility');
 
         // ── Favorites (follow politicians) ───────────────────────────────────
         Route::get('/favorites', [FavoriteController::class, 'index'])->name('favorites.index');
