@@ -1,0 +1,71 @@
+name: Check Politicians Directory Duplicates
+
+# Crawls the public /politicians browse page in production and screenshots
+# every page, flagging any politician (name + office + location) that
+# renders under more than one profile URL. Guards against a regression of
+# the persistDiscoveredOfficial() race condition that previously let
+# concurrent district-lookup requests create duplicate politicians rows for
+# the same real person (e.g. Cisneros/Takano — see commit b6a29f1c).
+on:
+  schedule:
+    - cron: "30 8 * * *"   # Daily at 08:30 UTC, ahead of the 09:00 map refresh
+  workflow_dispatch:
+    inputs:
+      state:
+        description: "Limit the crawl to one state (e.g. CA). Leave blank to crawl the full directory."
+        default: ""
+        required: false
+      max_pages:
+        description: "Safety cap on pages crawled (24 profiles/page)"
+        default: "25"
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: check-directory-duplicates
+  cancel-in-progress: false
+
+jobs:
+  check-duplicates:
+    name: Screenshot & check for duplicate politicians
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+
+      - name: Install Node dependencies
+        run: npm ci
+        env:
+          NODE_ENV: development
+
+      - name: Install Playwright Chromium
+        run: npx playwright install chromium --with-deps
+
+      - name: Crawl directory and check for duplicates
+        run: |
+          STATE_ARG=""
+          if [ -n "${{ github.event.inputs.state }}" ]; then
+            STATE_ARG="--state=${{ github.event.inputs.state }}"
+          fi
+          node scripts/check-directory-duplicates.js \
+            --base-url="${{ secrets.APP_URL }}" \
+            --max-pages="${{ github.event.inputs.max_pages || '25' }}" \
+            --out-dir=storage/app/qa/politicians-directory \
+            $STATE_ARG
+
+      - name: Upload screenshots + summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: politicians-directory-check
+          path: storage/app/qa/politicians-directory
+          retention-days: 14

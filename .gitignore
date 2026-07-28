@@ -59,3 +59,4 @@ tests/.DS_Store
 app/Console/.DS_Store
 app/Services/.DS_Store
 storage/framework/.DS_Store
+.DS_Store
