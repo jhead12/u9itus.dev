@@ -87,6 +87,17 @@ Schedule::command('politicians:enrich-cspan-moments --stale-hours=48 --limit=200
     ->dailyAt('05:30')
     ->withoutOverlapping();
 
+// Podcast/radio-interview viral-moment enrichment — fans out to Podcast Index
+// (free, default) and ListenNotes (optional paid) through the same pipeline as
+// the YouTube/C-SPAN passes. Neither provider exposes engagement counts, so
+// clips surface by recency, not as the featured map-pin clip. Slotted at 05:45
+// to follow the 05:30 C-SPAN job and finish before the 06:00 marketing-draft
+// and 06:30 issue-badges jobs that consume fresh moment titles. Gated on
+// PODCAST_MOMENTS_ENABLED + at least one provider key configured.
+Schedule::command('politicians:enrich-podcast-moments --stale-hours=48 --limit=200')
+    ->dailyAt('05:45')
+    ->withoutOverlapping();
+
 // Marketing content agent — auto-draft blog Posts from recent news / viral
 // moments for politicians. Drafts are saved as PendingApproval and require a
 // human to publish. Slotted at 06:00 to follow the 05:00 viral-moments enrich

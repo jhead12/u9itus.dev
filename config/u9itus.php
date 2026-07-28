@@ -397,6 +397,7 @@ return [
             'cspan' => 1.00,
             'news' => 0.80,
             'youtube' => 0.60,
+            'podcast' => 0.60,
             'tiktok' => 0.50,
             'instagram' => 0.50,
             'x' => 0.50,
@@ -412,6 +413,17 @@ return [
             'base_url' => env('CSPAN_BASE_URL', 'https://www.c-span.org'),
             'cache_minutes' => env('CSPAN_CACHE_MINUTES', 1440),
             'max_clips' => env('CSPAN_MAX_CLIPS', 10),
+        ],
+
+        // Podcast/radio interviews — App\Services\PodcastMomentFetcher fans out
+        // to Podcast Index (free, default) and ListenNotes (optional paid) when
+        // each provider's key is configured (config/services.php). Neither
+        // provider exposes engagement counts, so clips surface by recency like
+        // C-SPAN rather than by view-driven featuring.
+        'podcast' => [
+            'enabled' => env('PODCAST_MOMENTS_ENABLED', true),
+            'cache_minutes' => env('PODCAST_MOMENTS_CACHE_MINUTES', 1440),
+            'max_clips' => env('PODCAST_MOMENTS_MAX_CLIPS', 10),
         ],
     ],
 
