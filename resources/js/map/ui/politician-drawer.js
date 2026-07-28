@@ -301,7 +301,7 @@ function renderMomentCard(moment) {
     const embed = url ? toEmbedUrl(url) : '';
     if (!url || !embed) return '';
 
-    const title = escapeHtml(moment.title || 'Video');
+    const title = escapeHtml(moment.title || 'Media');
     const source = escapeHtml(moment.source || 'YouTube');
     const views = Number.isFinite(moment.view_count) ? `${moment.view_count.toLocaleString()} views · ` : '';
     const embedSrc = escapeHtml(embed);
@@ -318,10 +318,10 @@ function renderMomentCard(moment) {
             <div class="pol-video-frame" style="position:relative;padding-top:56.25%;background:#020617;overflow:hidden;">
                 <div class="pol-video-placeholder" style="position:absolute;inset:0;cursor:pointer;"
                      onclick="window.__loadPolVideo(this)"
-                     role="button" tabindex="0" aria-label="Load video">
+                     role="button" tabindex="0" aria-label="Load media">
                     <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;">
                         <div style="width:48px;height:48px;border-radius:50%;background:rgba(99,102,241,0.2);border:1px solid rgba(99,102,241,0.5);display:flex;align-items:center;justify-content:center;font-size:20px;">▶</div>
-                        <span style="font-size:11px;color:#94a3b8;">Click to load video</span>
+                        <span style="font-size:11px;color:#94a3b8;">Click to load media</span>
                     </div>
                 </div>
                 <iframe
@@ -795,7 +795,7 @@ function _renderPolBody() {
             const searchQuery = `10 things to do in ${cityName}${stateAbbr ? ', ' + stateAbbr : ''}`;
             const ytUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(searchQuery)}`;
             polBodyEl.innerHTML = `
-                <p class="pol-section-label">Videos</p>
+                <p class="pol-section-label">Media</p>
                 <p class="pol-empty">Viral moments are shown for individual candidates — select a specific representative to view them.</p>
                 <div class="pol-link-row" style="margin-top:12px;">
                     <a href="${ytUrl}" target="_blank" rel="noopener" class="pol-link pol-link-primary">▶ 10 Things to Do in ${escapeHtml(cityName)}</a>
@@ -809,7 +809,7 @@ function _renderPolBody() {
 
         if (isLoadingMoments) {
             polBodyEl.innerHTML = `
-                <p class="pol-section-label">Videos</p>
+                <p class="pol-section-label">Media</p>
                 <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:8px;border:1px solid rgba(99,102,241,0.15);background:rgba(99,102,241,0.06);">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="animation:spin 1s linear infinite;color:#6366f1;">
                         <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-dasharray="31.4" stroke-dashoffset="10" stroke-linecap="round"/>
@@ -821,9 +821,9 @@ function _renderPolBody() {
 
         if (hasMomentsError) {
             polBodyEl.innerHTML = `
-                <p class="pol-section-label">Videos</p>
+                <p class="pol-section-label">Media</p>
                 <div style="padding:10px 12px;border-radius:8px;border:1px solid rgba(239,68,68,0.2);background:rgba(239,68,68,0.06);">
-                    <span style="font-size:11px;color:#f87171;">⚠ Video data unavailable right now.</span>
+                    <span style="font-size:11px;color:#f87171;">⚠ Media data unavailable right now.</span>
                 </div>`;
             return;
         }
@@ -833,7 +833,7 @@ function _renderPolBody() {
                 ? 'This candidate has not claimed a U9itus profile yet, so viral moments are not available.'
                 : 'No viral moments have been found for this candidate yet — check back after the next enrichment run.';
             polBodyEl.innerHTML = `
-                <p class="pol-section-label">Videos</p>
+                <p class="pol-section-label">Media</p>
                 <p class="pol-empty">${escapeHtml(message)}</p>`;
             return;
         }
@@ -842,7 +842,7 @@ function _renderPolBody() {
         const updated = moments.enriched_at ? formatPubDate(moments.enriched_at) : null;
 
         polBodyEl.innerHTML = `
-            <p class="pol-section-label">Videos</p>
+            <p class="pol-section-label">Media</p>
             ${cards}
             ${updated ? `<p style="font-size:10px;color:#475569;margin:4px 0 0;">Data updated ${escapeHtml(updated)}</p>` : ''}`;
 
