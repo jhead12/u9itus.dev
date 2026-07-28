@@ -1,5 +1,5 @@
 # Belonging, Meaning, and Identity — Product & Marketing Direction
-_Prepared: 2026-07-28_
+_Prepared: 2026-07-28 — Refined 2026-07-28 after Phase 1 (self-identity P0) shipped_
 
 ## Why this doc exists
 
@@ -19,15 +19,17 @@ Grounded in the current codebase, not aspiration:
 
 | Pillar | Shipped | Evidence |
 |---|---|---|
-| **Self-identity** | Profile badges (self-declared, earned_views, earned_referral, token_holder, inferred_discourse), one badge per topic per profile, `is_public` flag per badge | [ProfileBadge.php](../app/Models/ProfileBadge.php), [profile_badges migration](../database/migrations/2026_07_01_000002_create_profile_badges_table.php) |
+| **Self-identity** | ✅ **Badge visibility control** — self-declared badges default private, per-badge public/private toggle, full self-declare/remove UI on `/voter/profile` ("My Badges") | [HasProfileBadges.php](../app/Traits/HasProfileBadges.php), [BadgeController.php](../app/Http/Controllers/Standalone/BadgeController.php), `voter.badges.visibility` route |
+| **Self-identity** | ✅ **Landing page reframe** — "Your Civic Identity" section on the welcome page, positioned before the revenue/payout pitch | [welcome.blade.php](../resources/views/welcome.blade.php) |
+| **Self-identity** | Profile badges (self-declared, earned_views, earned_referral, token_holder, inferred_discourse), one badge per topic per profile | [ProfileBadge.php](../app/Models/ProfileBadge.php), [profile_badges migration](../database/migrations/2026_07_01_000002_create_profile_badges_table.php) |
 | **Self-identity** | Favoriting: politicians, boundaries, causes, ballot measures | [voter_favorite_causes](../database/migrations/2026_07_27_000002_create_voter_favorite_causes_table.php), [voter_favorite_ballot_measures](../database/migrations/2026_07_27_000003_create_voter_favorite_ballot_measures_table.php) |
 | **Meaning-making** | One-note-per-politician voter journal (private reflection) | [VoterPoliticianNote.php](../app/Models/VoterPoliticianNote.php), [PoliticianNoteController.php](../app/Http/Controllers/Standalone/PoliticianNoteController.php) |
 | **Meaning-making** | Topic-matched campaign alerts — voter gets emailed when a new campaign matches a Cause they favorited | [NotifyVoterOfMatchingCampaigns.php](../app/Jobs/NotifyVoterOfMatchingCampaigns.php), [CauseCampaignMatchService.php](../app/Services/CauseCampaignMatchService.php) |
 | **Belonging** | None shipped. Neighborhood Groups (backers, group badges, group themes) is fully spec'd in [Creative.md](Creative.md) as Sprint 8.5 but status is "Not started." | — |
 
-**Read on this:** self-identity is the most-built pillar (badges + four favorite types), meaning-making has a genuine start (notes + matched alerts are the seed of a feedback loop, not just a broadcast channel), and belonging is the one pillar that's 100% still on paper. That ordering should drive the roadmap below — ship belonging next, not more badge cosmetics.
+**Read on this:** self-identity is now the *only* pillar with a shipped, user-facing control — not just data-layer support. Meaning-making has a genuine start (notes + matched alerts are the seed of a feedback loop, not just a broadcast channel). Belonging is the one pillar that's 100% still on paper. That gap should drive the roadmap below — ship belonging next, not more identity cosmetics.
 
-One correction to the earlier informal read of this app: `profile_badges.is_public` already exists and defaults `true`. The gap isn't "no visibility control," it's that it's binary (public/private) with no UI to toggle it and no middle tier (e.g., visible to group members only) — worth closing before badges get any more public-facing surface area (see Self-Identity roadmap below).
+**Refined finding from shipping Phase 1:** the original scope estimate ("expose the existing `is_public` flag as a toggle") undersold the work — there was **zero front-end UI calling the badge routes at all**, so "add a toggle" turned into "build the self-declare UI from scratch, then add the toggle." The general lesson for the rest of this roadmap: a data-layer primitive existing (a column, a route, a relation) is not evidence a feature is reachable by a user. Before scoping Belonging or Meaning-making items below as "just a UI change," audit whether any template actually renders/calls the underlying code path — the Neighborhood Groups P0 item is especially at risk of this, since `Creative.md` describes schema and services in detail but no views.
 
 ---
 
@@ -63,10 +65,23 @@ The gap isn't features, it's controls and range. Political identity is high-stak
 
 | Priority | Item | Notes |
 |---|---|---|
-| P0 | **Badge/favorite visibility UI** — expose the existing `profile_badges.is_public` flag as a per-badge toggle, and default new self-declared badges to a safer default (e.g., visible to groups/connections, not public-by-default) | This is mostly a UI + default-value change; the DB column already exists. Closes real exposure risk (employer/family seeing a publicly favorited candidate) before any group/theme feature amplifies badge visibility. |
+| ✅ Done | ~~Badge/favorite visibility UI~~ — self-declared badges default private, per-badge public/private toggle, full self-declare/remove UI shipped on `/voter/profile` | Landed 2026-07-28. Earned/inferred badges intentionally **excluded** from the toggle — see principle below. |
 | P1 | Ship the deferred badge chip UI on `/p/{slug}` (noted as pending in Creative.md — data layer done, rendering not wired in) | Low-effort, already-designed feature sitting half-finished. |
 | P1 | Profile Themes (Sprint 8.6, already spec'd) — preset + custom + group + politician-supporter themes | Ship after Group MVP (belonging P0) so there's a real group theme to wear, not just presets. |
 | P2 | Broaden identity beyond party/candidate affiliation — badges for civic *actions* (first note written, first campaign watched to completion, referred a neighbor) alongside issue-based badges | Reduces the risk that self-identity on this platform narrows to "who I vote for," which is both a privacy risk and a less inclusive identity surface than "how I participate." |
+
+#### Principle established: self-asserted vs. system-computed visibility
+
+Shipping the badge toggle forced a real decision — should *earned* badges (`earned_views`, `earned_referral`) and *inferred* badges (politician discourse detection) get the same private-by-default treatment as self-declared ones? The answer landed on **no**, for a reason that generalizes to every remaining item in this doc:
+
+- **Self-asserted content** (a voter explicitly declares "I champion Healthcare Access") is a personal political stance the user chose to state — it carries real-world exposure risk (employer, family, harassment) and should default private, opt-in to public.
+- **System-computed content** (the platform observed you watched 5 campaigns, or detected a politician's public record) is either evidence of *behavior* rather than a declared stance, or is already-public information. Keeping it always-visible preserves its value as a trust signal — a badge only means something if it can't be selectively hidden when inconvenient.
+
+**Apply this same test before defaulting visibility on any belonging/meaning-making item below:**
+- Outcome tracking ("you favorited 3 candidates, 2 won") — computed from public election results → default visible is fine, same logic as earned badges.
+- Group activity feed ("3 members watched X this week") — aggregate/anonymized system observation → default visible, no individual exposure.
+- The private note → public "why I support this" prompt (P1 below) — this **is** self-asserted, high-exposure content → must stay opt-in, same as badges.
+- "People near you" signal (belonging P0) — this is closer to self-asserted (it reveals *which* causes a specific nearby person favorited) → default to aggregate counts only, treat named/avatar-level exposure as opt-in, not default-on.
 
 ---
 
@@ -86,7 +101,7 @@ Money stays in the copy (it's a real, honest benefit and removing it entirely wo
 
 ### Channel-by-channel changes
 
-- **Channel 1 (Programmatic SEO)** — Currently: *"Add 'Earn $0.50 to watch this candidate's message' CTA on every public profile."* Change the primary CTA to something identity/belonging-flavored ("Follow [Candidate] · See who else in [District] is watching"), with the earn-per-view mechanic as a secondary line. The `/p/{slug}` badge chip UI (P1 above) directly supports this — a profile that shows supporter badges and favorite counts sells belonging before it sells cents-per-view.
+- **Channel 1 (Programmatic SEO + landing page)** — ✅ **Partially live**: the welcome page now leads with a "Your Civic Identity" section (badges, privacy control) placed *before* the revenue pitch, not after. Still pending: the `/p/{slug}` badge chip UI (P1 above) — once shipped, apply the same reordering there — a profile that shows supporter badges and favorite counts sells belonging before it sells cents-per-view. Change the primary CTA on public profiles to something identity/belonging-flavored ("Follow [Candidate] · See who else in [District] is watching"), with the earn-per-view mechanic as a secondary line.
 - **Channel 2 (Early-bank referral loop)** — Keep the commission mechanics (they're real growth infrastructure), but change the share assets: instead of "I made $X this week," templates built around "I got my block talking about the school board race" / group-progress screenshots ("Our coalition hit 60% of its signature goal"). This also is more FTC-safe than dollar-amount testimonials.
 - **Channel 3 (Paid acquisition)** — Current targeting language is *"earn money watching political ads."* Test a parallel creative track around civic identity/community ("Join your neighborhood's voice," "Know where your block stands before election day") against the existing money-led creative, and measure retention (not just CAC) by cohort — the hypothesis from the overjustification research is that identity-recruited users will have materially better 30/60-day retention even if initial CAC is comparable or slightly higher.
 - **Channel 4 (Advertiser supply)** — Largely unaffected; politicians/citizens/groups are paying for reach, not identity, so this channel's money-forward pitch to advertisers is appropriate as-is. Only change: pitch groups (once shipped) as a distribution channel to advertisers — "reach an organized, engaged coalition," not just a zip code.
@@ -97,10 +112,12 @@ Money stays in the copy (it's a real, honest benefit and removing it entirely wo
 
 | KPI | What it tells you |
 |---|---|
-| % of active voters with ≥1 public badge | Self-identity adoption |
+| **Trackable now:** % of active voters with ≥1 self-declared badge | Self-identity adoption — measurable starting today |
+| **Trackable now:** % of self-declared badges flipped public vs. left private | Comfort level with civic-identity exposure — a low public rate isn't a failure, it's the privacy control working as designed; watch the *trend*, not the absolute number |
 | % of active voters in a Neighborhood Group | Belonging adoption (post-Sprint 8.5) |
 | % of active voters with ≥1 note written | Meaning-making adoption |
 | 30-day retention: group members vs. non-members | Direct test of whether belonging drives retention beyond payout alone |
+| 30-day retention: badge-holders vs. non-badge-holders | Same test, available now — don't wait for Groups to start measuring identity's effect on retention |
 | 30-day retention: identity-led acquisition cohort vs. money-led acquisition cohort | Direct test of the overjustification hypothesis — run as an A/B on Channel 3 |
 | Outcome-tracking open/click rate (once shipped) | Whether the meaning-making feedback loop actually gets used |
 
@@ -110,10 +127,10 @@ If group members and badge-holders retain meaningfully better than payout-only u
 
 ## Sequencing summary
 
-1. **Now:** Badge/favorite visibility UI (self-identity P0) — closes a real exposure gap cheaply before anything else amplifies badge visibility.
-2. **Next:** Neighborhood Groups MVP, scoped to membership + public group page (belonging P0) — this is the one pillar with zero shipped surface area and the highest expected retention payoff.
-3. **Then:** "People near you" counts on Causes/Ballot Measures (belonging P0) — near-zero schema cost, reuses existing favorite tables.
+1. ✅ **Shipped (2026-07-28):** Badge/favorite visibility UI (self-identity P0) + welcome page reframe. Took more than the original estimate — the self-declare UI didn't exist at all, not just the toggle — see the audit-before-scoping lesson above.
+2. **Next:** Neighborhood Groups MVP, scoped to membership + public group page (belonging P0) — this is the one pillar with zero shipped surface area and the highest expected retention payoff. **Before scoping the build, explicitly re-run the same audit that caught the badge-UI gap:** confirm which parts of Creative.md §8.5 are schema-only vs. actually reachable through a view/route today (expectation, based on Phase 1: schema and services described, no views — budget for building the full membership UI from zero, not just wiring one).
+3. **Then:** "People near you" counts on Causes/Ballot Measures (belonging P0) — near-zero schema cost, reuses existing favorite tables. Apply the self-asserted-vs-system-computed test above: ship as aggregate counts by default, treat per-person visibility as opt-in.
 4. **In parallel:** Outcome tracking + civic year-in-review (meaning-making P0) — pure read-model work over data already captured, can be built by a different engineer concurrently with the Groups work.
-5. **After Groups ships:** Group badges/themes (Creative.md §8.5–8.6) and marketing's identity-led creative track, so the ads have something real to point to.
+5. **After Groups ships:** Group badges/themes (Creative.md §8.5–8.6) and marketing's identity-led creative track, so the ads have something real to point to. The `/p/{slug}` badge chip UI (self-identity P1) is a smaller, independent item that could also slot in here or earlier — it's not blocked by anything above.
 
-This keeps the existing per-view economics and `MARKETING_FINANCIAL_GOALS.md` funnel intact underneath — nothing here removes the payout. It reorders what gets built next and what gets said first, on the bet (testable via the retention-cohort KPI above) that belonging, meaning, and identity are what keep a voter here in month three, after the novelty of $0.50/view has worn off.
+This keeps the existing per-view economics and `MARKETING_FINANCIAL_GOALS.md` funnel intact underneath — nothing here removes the payout. It reorders what gets built next and what gets said first, on the bet (testable now via the badge-holder retention KPI above, no need to wait for Groups) that belonging, meaning, and identity are what keep a voter here in month three, after the novelty of $0.50/view has worn off.
