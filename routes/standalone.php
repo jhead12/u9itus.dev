@@ -21,6 +21,9 @@ use App\Http\Controllers\Standalone\CitizenController;
 use App\Http\Controllers\Standalone\DashboardController;
 use App\Http\Controllers\Standalone\BoundaryFavoriteController;
 use App\Http\Controllers\Standalone\CauseFavoriteController;
+use App\Http\Controllers\Standalone\PublicGroupController;
+use App\Http\Controllers\Standalone\GroupController;
+use App\Http\Controllers\Standalone\GroupMembershipController;
 use App\Http\Controllers\Standalone\BallotMeasureFavoriteController;
 use App\Http\Controllers\Standalone\PoliticianNoteController;
 use App\Http\Controllers\Standalone\FavoriteController;
@@ -264,7 +267,22 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         }
         return view('standalone.auth.portal-pick', ['user' => $user]);
     })->name('portal-pick');
-    
+
+    /*
+    |--------------------------------------------------------------------------
+    | Neighborhood Groups (voter or citizen — not politician)
+    |--------------------------------------------------------------------------
+    */
+    Route::prefix('groups')->name('groups.')->middleware(['role:voter|citizen'])->group(function () {
+        Route::get('/create', [GroupController::class, 'create'])->name('create');
+        Route::post('/', [GroupController::class, 'store'])->name('store');
+        Route::get('/{group}/edit', [GroupController::class, 'edit'])->name('edit');
+        Route::put('/{group}', [GroupController::class, 'update'])->name('update');
+        Route::delete('/{group}', [GroupController::class, 'destroy'])->name('destroy');
+        Route::post('/{group}/join', [GroupMembershipController::class, 'store'])->name('join');
+        Route::delete('/{group}/leave', [GroupMembershipController::class, 'destroy'])->name('leave');
+    });
+
     /*
     |--------------------------------------------------------------------------
     | Politician Dashboard & Campaign Management
@@ -741,6 +759,10 @@ Route::post('/contact', [DashboardController::class, 'submitContact'])->name('co
 // Phase 13 — Politician Public Profile Pages
 Route::get('/politicians', [PublicProfileController::class, 'index'])->name('politicians.directory');
 Route::get('/district-lookup', [PublicProfileController::class, 'districtLookup'])->name('district.lookup');
+
+// Neighborhood Groups — public directory + group page
+Route::get('/groups', [PublicGroupController::class, 'index'])->name('groups.directory');
+Route::get('/groups/{group}/{scope?}', [PublicGroupController::class, 'show'])->name('groups.public.show');
 
 // Interactive 3D U.S. Regional Map
 Route::get('/map', fn() => view('standalone.public.us-map'))->name('us.map');

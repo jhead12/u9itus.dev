@@ -170,7 +170,12 @@
         @auth
         @php $voter = auth()->user()->voter; @endphp
         @if($voter)
-        <div class="hidden sm:flex items-center gap-2 text-sm">
+        {{-- lg:flex, not sm:flex — this row plus the notification/favorites
+             icons and the user dropdown overflows the header at tablet
+             widths (640-1023px) when both pills are shown; the same
+             balance/pending figures are always visible in the sidebar
+             profile card (below), so hiding them here below lg is lossless. --}}
+        <div class="hidden lg:flex items-center gap-2 text-sm">
             <div class="inline-flex items-center gap-2 bg-emerald-900/30 border border-emerald-500/30 rounded-full px-3 py-1.5">
                 <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -314,6 +319,8 @@
                              'icon' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>'],
                             ['route' => 'voter.map',               'label' => 'Interactive Map',   'pattern' => 'voter.map',
                              'icon' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 01.553-.894L9 2m0 18l6-3m-6 3V2m6 15l5.447 2.724A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 2"/>'],
+                            ['route' => 'groups.directory',        'label' => 'Neighborhood Groups', 'pattern' => 'groups.*',
+                             'icon' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>'],
                         ],
                         'Earnings' => [
                             ['route' => 'voter.earnings',         'label' => 'Earnings',   'pattern' => 'voter.earnings',
