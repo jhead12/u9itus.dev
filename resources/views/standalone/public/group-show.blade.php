@@ -76,9 +76,15 @@
                 </div>
                 @if($isAdmin)
                 <div class="flex flex-wrap items-center gap-2">
+                    @if($isOwner)
                     <span class="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-300">
                         You created this group
                     </span>
+                    @else
+                    <span class="inline-flex items-center gap-1 rounded-full border border-sky-500/30 bg-sky-500/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-sky-300">
+                        Group Admin
+                    </span>
+                    @endif
                     <a href="{{ route('groups.edit', $group) }}"
                        class="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 text-xs font-medium transition">
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -105,13 +111,17 @@
                     <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
                     </svg>
-                    {{ $group->members_count }} {{ Str::plural('member', $group->members_count) }}
+                    @if($isMember)
+                        <a href="{{ route('groups.members.index', $group) }}" class="hover:text-white transition">{{ $group->members_count }} {{ Str::plural('member', $group->members_count) }}</a>
+                    @else
+                        {{ $group->members_count }} {{ Str::plural('member', $group->members_count) }}
+                    @endif
                 </span>
             </div>
 
             {{-- Join / Leave --}}
             @auth
-                @if($isAdmin)
+                @if($isOwner)
                     <span class="text-xs text-slate-500">As the creator, you're always a member of this group.</span>
                 @elseif($isMember)
                     <form method="POST" action="{{ route('groups.leave', $group) }}">
@@ -159,6 +169,54 @@
              to create one, so the section could only ever render an empty
              stub — worse for UX than not showing it at all. Re-add once
              causes can actually be linked to a group. --}}
+
+        {{-- ── Upcoming Events ── --}}
+        @if($upcomingEvents->isNotEmpty() || $isAdmin)
+        <div>
+            <div class="flex items-center justify-between mb-3">
+                <h2 class="text-lg font-bold text-white">Upcoming Events</h2>
+                @if($isAdmin)
+                <a href="{{ route('groups.events.create', $group) }}"
+                   class="text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition">
+                    + Host an Event
+                </a>
+                @endif
+            </div>
+
+            @if($upcomingEvents->isEmpty())
+            <div class="bg-slate-800/40 border border-slate-700/40 rounded-xl p-5 text-sm text-slate-500">
+                No upcoming events yet.
+            </div>
+            @else
+            <div class="space-y-3">
+                @foreach($upcomingEvents as $event)
+                <a href="{{ route('events.show', $event->slug) }}"
+                   class="block bg-slate-800/40 border border-slate-700/40 hover:border-emerald-500/40 rounded-xl p-4 transition">
+                    <div class="flex items-start justify-between gap-3">
+                        <div class="min-w-0">
+                            <p class="text-white font-semibold text-sm truncate">{{ $event->title }}</p>
+                            <p class="text-slate-400 text-xs mt-1">
+                                {{ $event->starts_at->format('M j, Y g:i A') }}
+                                @if($event->is_virtual)
+                                    · Virtual
+                                @elseif($event->venue_name || $event->city)
+                                    · {{ implode(', ', array_filter([$event->venue_name, $event->city])) }}
+                                @endif
+                            </p>
+                        </div>
+                        <span class="flex-shrink-0 text-xs text-slate-500">{{ $event->attendingCount() }} going</span>
+                    </div>
+                </a>
+                @endforeach
+            </div>
+            @if($isAdmin)
+            <a href="{{ route('groups.events.index', $group) }}" class="inline-block mt-3 text-xs text-slate-400 hover:text-white transition">
+                Manage all events →
+            </a>
+            @endif
+            @endif
+        </div>
+        @endif
 
     </div>
 

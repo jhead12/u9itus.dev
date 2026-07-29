@@ -21,9 +21,13 @@ use App\Http\Controllers\Standalone\CitizenController;
 use App\Http\Controllers\Standalone\DashboardController;
 use App\Http\Controllers\Standalone\BoundaryFavoriteController;
 use App\Http\Controllers\Standalone\CauseFavoriteController;
+use App\Http\Controllers\Standalone\CauseBrowseController;
+use App\Http\Controllers\Standalone\BallotMeasureBrowseController;
 use App\Http\Controllers\Standalone\PublicGroupController;
 use App\Http\Controllers\Standalone\GroupController;
 use App\Http\Controllers\Standalone\GroupMembershipController;
+use App\Http\Controllers\Standalone\GroupMemberController;
+use App\Http\Controllers\Standalone\GroupEventController;
 use App\Http\Controllers\Standalone\BallotMeasureFavoriteController;
 use App\Http\Controllers\Standalone\PoliticianNoteController;
 use App\Http\Controllers\Standalone\FavoriteController;
@@ -73,10 +77,6 @@ Route::middleware('guest')->group(function () {
     Route::get('/register/politician', [RegistrationController::class, 'showRegisterPolitician'])->name('register.politician');
     Route::post('/register/politician', [RegistrationController::class, 'registerPolitician'])->name('register.politician.submit');
 
-    // Voter registration
-    Route::get('/register/voter', [RegistrationController::class, 'showRegisterVoter'])->name('register.voter');
-    Route::post('/register/voter', [RegistrationController::class, 'registerVoter'])->name('register.voter.submit');
-
     // Citizen registration
     Route::get('/register/citizen', [RegistrationController::class, 'showRegisterCitizen'])->name('register.citizen');
     Route::post('/register/citizen', [RegistrationController::class, 'registerCitizen'])->name('register.citizen.submit');
@@ -91,6 +91,14 @@ Route::middleware('guest')->group(function () {
     Route::get('/reset-password/{token}', [PasswordResetController::class, 'showResetPassword'])->name('password.reset');
     Route::post('/reset-password', [PasswordResetController::class, 'resetPassword'])->name('password.update');
 });
+
+// Voter registration — deliberately NOT behind the `guest` middleware: a
+// guest-trial voter (see ProvisionGuestVoterSession) is authenticated, and
+// must still be able to reach this form to upgrade their session into a
+// real account. RegistrationController::showRegisterVoter()/registerVoter()
+// handle the "already a real voter" redirect themselves.
+Route::get('/register/voter', [RegistrationController::class, 'showRegisterVoter'])->name('register.voter');
+Route::post('/register/voter', [RegistrationController::class, 'registerVoter'])->name('register.voter.submit');
 
 // Logout (authenticated users only)
 Route::post('/logout', [LoginController::class, 'logout'])->middleware('auth')->name('logout');
@@ -142,8 +150,8 @@ Route::middleware(['auth', 'verified', 'no.cache'])->group(function () {
         Route::get('/first-watch', [VoterOnboardingController::class, 'firstWatch'])->name('first-watch');
         Route::post('/first-watch', [VoterOnboardingController::class, 'completeFirstWatch'])->name('complete-first-watch');
         
-        Route::get('/payout', [VoterOnboardingController::class, 'payoutSetup'])->name('payout');
-        Route::post('/payout', [VoterOnboardingController::class, 'completePayoutSetup'])->name('complete-payout');
+        Route::get('/payout', [VoterOnboardingController::class, 'payoutSetup'])->name('payout')->middleware('block.guest.money');
+        Route::post('/payout', [VoterOnboardingController::class, 'completePayoutSetup'])->name('complete-payout')->middleware('block.guest.money');
         
         Route::get('/referrals', [VoterOnboardingController::class, 'referralSetup'])->name('referrals');
         Route::post('/referrals', [VoterOnboardingController::class, 'completeReferralSetup'])->name('complete-referrals');
@@ -195,7 +203,11 @@ Route::middleware(['auth', 'verified', 'no.cache'])->group(function () {
 |--------------------------------------------------------------------------
 */
 
-Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(function () {
+// `guest.trial` runs first (ahead of `auth`) so an anonymous visit to a
+// /voter/* URL can be silently upgraded into a real-but-flagged voter
+// session before the `auth` middleware would otherwise redirect to login.
+// See ProvisionGuestVoterSession — it's a no-op for every other path here.
+Route::middleware(['guest.trial', 'auth', 'verified', 'check.role', 'no.cache'])->group(function () {
 
     // Id.me identity verification
     Route::prefix('verification/idme')->name('verification.idme.')->group(function () {
@@ -281,6 +293,19 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         Route::delete('/{group}', [GroupController::class, 'destroy'])->name('destroy');
         Route::post('/{group}/join', [GroupMembershipController::class, 'store'])->name('join');
         Route::delete('/{group}/leave', [GroupMembershipController::class, 'destroy'])->name('leave');
+
+        Route::get('/{group}/members', [GroupMemberController::class, 'index'])->name('members.index');
+        Route::patch('/{group}/members/{user}/role', [GroupMemberController::class, 'updateRole'])->name('members.role');
+        Route::delete('/{group}/members/{user}', [GroupMemberController::class, 'destroy'])->name('members.destroy');
+
+        Route::prefix('{group}/events')->name('events.')->group(function () {
+            Route::get('/', [GroupEventController::class, 'index'])->name('index');
+            Route::get('/create', [GroupEventController::class, 'create'])->name('create');
+            Route::post('/', [GroupEventController::class, 'store'])->name('store');
+            Route::get('/{event}/edit', [GroupEventController::class, 'edit'])->name('edit');
+            Route::put('/{event}', [GroupEventController::class, 'update'])->name('update');
+            Route::patch('/{event}/cancel', [GroupEventController::class, 'cancel'])->name('cancel');
+        });
     });
 
     /*
@@ -436,24 +461,27 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         Route::post('/watch/{token}/ask-question', [VoterController::class, 'askQuestion'])->name('watch.ask-question');
         Route::post('/watch/{token}/message-politician', [VoterController::class, 'messagePolitician'])->name('watch.message-politician');
         
-        // Earnings & Payouts
-        Route::get('/earnings', [VoterController::class, 'earnings'])->name('earnings');
-        Route::get('/earnings/history', [VoterController::class, 'earningsHistory'])->name('earnings.history');
-        Route::post('/earnings/request-payout', [VoterController::class, 'requestPayout'])->name('earnings.payout');
-        // POST-only: this mutates state (creates a Stripe account, redirects to
-        // Stripe-hosted onboarding). GET would be triggered by link prefetchers.
-        Route::post('/authentic-user-verifier/start', [VoterController::class, 'startAuthenticUserVerifier'])->name('authentic-user-verifier.start');
-        // POST-only: generates a single-use Stripe login link and immediately
-        // redirects away with it — GET would let prefetchers burn the link.
-        Route::post('/wallet/manage', [VoterController::class, 'openStripeDashboard'])->name('wallet.manage');
+        // Earnings & Payouts — money-related; guest-trial voters are blocked
+        // (BlockGuestFromMonetization) even though they never earn a balance.
+        Route::middleware('block.guest.money')->group(function () {
+            Route::get('/earnings', [VoterController::class, 'earnings'])->name('earnings');
+            Route::get('/earnings/history', [VoterController::class, 'earningsHistory'])->name('earnings.history');
+            Route::post('/earnings/request-payout', [VoterController::class, 'requestPayout'])->name('earnings.payout');
+            // POST-only: this mutates state (creates a Stripe account, redirects to
+            // Stripe-hosted onboarding). GET would be triggered by link prefetchers.
+            Route::post('/authentic-user-verifier/start', [VoterController::class, 'startAuthenticUserVerifier'])->name('authentic-user-verifier.start');
+            // POST-only: generates a single-use Stripe login link and immediately
+            // redirects away with it — GET would let prefetchers burn the link.
+            Route::post('/wallet/manage', [VoterController::class, 'openStripeDashboard'])->name('wallet.manage');
 
-        // Referrals
-        Route::get('/referrals', [VoterController::class, 'referrals'])->name('referrals');
-        Route::get('/referrals/link', [VoterController::class, 'getReferralLink'])->name('referrals.link');
+            // Referrals
+            Route::get('/referrals', [VoterController::class, 'referrals'])->name('referrals');
+            Route::get('/referrals/link', [VoterController::class, 'getReferralLink'])->name('referrals.link');
 
-        // Early-bank SSO — generates a signed token and bounces the voter directly
-        // into their Early-bank dashboard without a separate login.
-        Route::get('/earlybank/sso', [VoterController::class, 'earlyBankSso'])->name('earlybank.sso');
+            // Early-bank SSO — generates a signed token and bounces the voter directly
+            // into their Early-bank dashboard without a separate login.
+            Route::get('/earlybank/sso', [VoterController::class, 'earlyBankSso'])->name('earlybank.sso');
+        });
         
         // Preferences
         Route::get('/preferences', [VoterController::class, 'preferences'])->name('preferences');
@@ -488,13 +516,15 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         Route::post('/boundaries', [BoundaryFavoriteController::class, 'store'])->name('boundaries.store');
         Route::delete('/boundaries/{id}', [BoundaryFavoriteController::class, 'destroy'])->name('boundaries.destroy');
 
-        // ── Favorited causes ──────────────────────────────────────────────────
-        Route::get('/causes', [CauseFavoriteController::class, 'index'])->name('causes.index');
+        // ── Causes (browse + favorite) ────────────────────────────────────────
+        Route::get('/causes', [CauseBrowseController::class, 'index'])->name('causes.index');
+        Route::get('/causes/{cause}', [CauseBrowseController::class, 'show'])->name('causes.show');
         Route::post('/causes/{causeId}', [CauseFavoriteController::class, 'store'])->name('causes.store');
         Route::delete('/causes/{id}', [CauseFavoriteController::class, 'destroy'])->name('causes.destroy');
 
-        // ── Favorited ballot measures ─────────────────────────────────────────
-        Route::get('/ballot-measures', [BallotMeasureFavoriteController::class, 'index'])->name('ballot-measures.index');
+        // ── Ballot measures (browse + favorite) ────────────────────────────────
+        Route::get('/ballot-measures', [BallotMeasureBrowseController::class, 'index'])->name('ballot-measures.index');
+        Route::get('/ballot-measures/{measure}', [BallotMeasureBrowseController::class, 'show'])->name('ballot-measures.show');
         Route::post('/ballot-measures/{ballotMeasureId}', [BallotMeasureFavoriteController::class, 'store'])->name('ballot-measures.store');
         Route::delete('/ballot-measures/{id}', [BallotMeasureFavoriteController::class, 'destroy'])->name('ballot-measures.destroy');
 
@@ -690,6 +720,7 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         Route::post('/platform-settings', [AdminController::class, 'updatePlatformSetting'])->name('platform-settings.update');
         Route::delete('/platform-settings', [AdminController::class, 'deletePlatformSetting'])->name('platform-settings.delete');
         Route::post('/platform-settings/clear-cache', [AdminController::class, 'clearSettingsCache'])->name('platform-settings.clear-cache');
+        Route::post('/platform-settings/guest-trial', [AdminController::class, 'updateGuestTrialMode'])->name('platform-settings.guest-trial');
 
         // Office Profiles — civic education data for the voter popup
         Route::get('/office-profiles', [AdminOfficeProfileController::class, 'index'])->name('office-profiles.index');

@@ -305,7 +305,10 @@ class RegistrationController extends Controller
             return $redirect;
         }
 
-        if (auth()->check()) {
+        // Guest-trial voters (see ProvisionGuestVoterSession) already carry the
+        // voter role, but must still reach this form — registering while a
+        // guest upgrades their existing session in place (see registerVoter()).
+        if (auth()->check() && !auth()->user()->is_guest) {
             $user = auth()->user();
             if ($this->roleService->hasRole($user, 'voter')) {
                 return redirect()->route('voter.dashboard');
@@ -325,7 +328,9 @@ class RegistrationController extends Controller
             return $redirect;
         }
 
-        if (auth()->check()) {
+        $isGuestUpgrade = auth()->check() && auth()->user()->is_guest;
+
+        if (auth()->check() && !$isGuestUpgrade) {
             $user = auth()->user();
             if ($this->roleService->hasRole($user, 'voter')) {
                 return redirect()->route('voter.dashboard');
@@ -348,18 +353,39 @@ class RegistrationController extends Controller
 
         app(RegistrationSecurityService::class)->checkOrFail($request, $request->email);
 
-        $user = User::create([
-            'first_name'      => $request->first_name,
-            'last_name'       => $request->last_name,
-            'email'           => $request->email,
-            'password'        => Hash::make($request->password),
-            'phone'           => $request->phone,
-            'platform'        => 'standalone',
-            'user_type'       => 'voter',
-            'registration_ip' => $request->ip(),
-        ]);
+        if ($isGuestUpgrade) {
+            // Update the same User+Voter rows in place so every favorite/note
+            // the guest already made survives the upgrade to a real account.
+            $user = auth()->user();
+            $user->update([
+                'first_name'        => $request->first_name,
+                'last_name'         => $request->last_name,
+                'email'             => $request->email,
+                // The guest's sentinel address was marked verified at
+                // provisioning time purely so Laravel's `verified`
+                // middleware would let them through with no real inbox —
+                // that doesn't carry over to this newly-set real email.
+                'email_verified_at' => null,
+                'password'          => Hash::make($request->password),
+                'phone'             => $request->phone,
+                'registration_ip'   => $request->ip(),
+                'is_guest'          => false,
+                'guest_expires_at'  => null,
+            ]);
+        } else {
+            $user = User::create([
+                'first_name'      => $request->first_name,
+                'last_name'       => $request->last_name,
+                'email'           => $request->email,
+                'password'        => Hash::make($request->password),
+                'phone'           => $request->phone,
+                'platform'        => 'standalone',
+                'user_type'       => 'voter',
+                'registration_ip' => $request->ip(),
+            ]);
 
-        $user->assignRole('voter');
+            $user->assignRole('voter');
+        }
 
         $refCode = $this->referralService->resolveIncomingReferralCode($request);
         ['referred_by_voter_id' => $referredByVoterId, 'referred_by_politician_id' => $referredByPoliticianId] =
@@ -396,14 +422,18 @@ class RegistrationController extends Controller
             $ebMemberId = null;
         }
 
-        $existingVoter = Voter::where('email', $user->email)->first();
+        // A guest's existing Voter row still carries the sentinel guest email,
+        // so match it by user_id rather than the just-set real email.
+        $voterMatchKey = $isGuestUpgrade ? ['user_id' => $user->id] : ['email' => $user->email];
+
+        $existingVoter = Voter::where($voterMatchKey)->first();
         if ($existingVoter && $existingVoter->earlybank_member_id !== null) {
             unset($voterPayload['earlybank_member_id'], $voterPayload['earlybank_linked_at']);
             $ebMemberId = null;
         }
 
         $voter = Voter::updateOrCreate(
-            ['email' => $user->email],
+            $voterMatchKey,
             array_merge($voterPayload, ['user_id' => $user->id])
         );
 

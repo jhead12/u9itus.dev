@@ -120,6 +120,55 @@
         </div>
     @endif
 
+    {{-- Guest Trial Mode --}}
+    <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-6 mb-8">
+        <div class="flex items-center gap-3 mb-4">
+            <div class="w-10 h-10 bg-indigo-500/20 rounded-lg flex items-center justify-center">
+                <svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                </svg>
+            </div>
+            <div>
+                <h2 class="text-lg font-semibold text-white">Guest Trial Mode</h2>
+                <p class="text-slate-400 text-sm">Let anonymous visitors use the voter workflow — favoriting, notes, the dashboard — with no login or registration.</p>
+            </div>
+        </div>
+
+        <div class="mb-4">
+            @if($guestTrialStatus['active'])
+                <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-500/20 text-emerald-400 text-sm rounded-full">
+                    <span class="w-1.5 h-1.5 bg-emerald-400 rounded-full"></span>
+                    Active until {{ $guestTrialStatus['until']?->format('M j, Y g:ia') }}
+                </span>
+            @else
+                <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-700 text-slate-400 text-sm rounded-full">
+                    <span class="w-1.5 h-1.5 bg-slate-500 rounded-full"></span>
+                    Inactive
+                </span>
+            @endif
+        </div>
+
+        <form action="{{ route('admin.platform-settings.guest-trial') }}" method="POST" class="flex flex-wrap items-end gap-4">
+            @csrf
+            <div>
+                <label for="duration_days" class="block text-slate-400 text-xs mb-1.5">Duration (days)</label>
+                <input type="number" name="duration_days" id="duration_days" min="1" max="90"
+                    value="{{ old('duration_days', $guestTrialStatus['duration_days']) }}"
+                    class="bg-slate-900 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm w-28 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500">
+            </div>
+            @if($guestTrialStatus['active'])
+                <button type="submit" name="enabled" value="0" class="bg-rose-600/20 hover:bg-rose-600/30 border border-rose-500/40 text-rose-300 text-sm font-medium px-4 py-2 rounded-lg transition">
+                    Disable
+                </button>
+            @else
+                <button type="submit" name="enabled" value="1" class="bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold px-4 py-2 rounded-lg transition">
+                    Enable
+                </button>
+            @endif
+        </form>
+        <p class="text-slate-500 text-xs mt-3">Money-related actions (earnings, payouts, wallet, referrals, Early-bank SSO) stay blocked for guest sessions regardless of this setting.</p>
+    </div>
+
     {{-- Settings Form Grid --}}
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {{-- Pricing Settings --}}

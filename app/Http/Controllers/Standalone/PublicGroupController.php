@@ -46,9 +46,12 @@ class PublicGroupController extends Controller
         }
 
         $group->loadCount('members');
-        $isMember = $group->isMember(auth()->user());
-        $isAdmin = auth()->check() && auth()->id() === $group->admin_user_id;
+        $user = auth()->user();
+        $isMember = $group->isMember($user);
+        $isOwner = $group->isOwner($user);
+        $isAdmin = $group->isAdmin($user);
+        $upcomingEvents = $group->events()->published()->orderBy('starts_at')->take(5)->get();
 
-        return view('standalone.public.group-show', compact('group', 'isMember', 'isAdmin'));
+        return view('standalone.public.group-show', compact('group', 'isMember', 'isOwner', 'isAdmin', 'upcomingEvents'));
     }
 }

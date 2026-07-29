@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 /**
  * A specific, nameable issue under a Topic (e.g. "Expand Medicaid in Texas"
@@ -27,5 +28,24 @@ class Cause extends Model
     public function topic(): BelongsTo
     {
         return $this->belongsTo(PoliticianTopic::class, 'topic_id');
+    }
+
+    /**
+     * Voters who have favorited this cause. Inverse of Voter::favoriteCauses().
+     * Used for withCount/withExists on the directory + show pages.
+     */
+    public function favoriteVoters(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            Voter::class,
+            'voter_favorite_causes',
+            'cause_id',
+            'voter_id'
+        )->withPivot('favorited_at');
+    }
+
+    public function scopeActive($query)
+    {
+        return $query->where('status', 'active');
     }
 }

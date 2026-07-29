@@ -14,8 +14,10 @@ use Illuminate\View\View;
  * Authenticated group creation + admin settings. Creation is voter- and
  * citizen-only (see StoreNeighborhoodGroupRequest::authorize() and the
  * routes/standalone.php `role:voter|citizen` middleware) — politicians
- * cannot create groups. Editing/deleting is further restricted to the
- * group's own admin_user_id, mirroring PostController::authorizeOwnership().
+ * cannot create groups. Editing is open to the owner and any promoted
+ * co-admin (NeighborhoodGroup::isAdmin()); deleting is owner-only
+ * (NeighborhoodGroup::isOwner()) so a co-admin can't dissolve the group
+ * out from under its founder.
  */
 class GroupController extends Controller
 {
@@ -45,7 +47,10 @@ class GroupController extends Controller
     {
         $this->authorizeGroupAdmin($group);
 
-        return view('standalone.groups.edit', ['group' => $group]);
+        return view('standalone.groups.edit', [
+            'group' => $group,
+            'isOwner' => $group->isOwner(Auth::user()),
+        ]);
     }
 
     public function update(UpdateNeighborhoodGroupRequest $request, NeighborhoodGroup $group): RedirectResponse
@@ -61,7 +66,7 @@ class GroupController extends Controller
 
     public function destroy(NeighborhoodGroup $group): RedirectResponse
     {
-        $this->authorizeGroupAdmin($group);
+        $this->authorizeGroupOwner($group);
 
         $group->delete();
 
@@ -72,8 +77,11 @@ class GroupController extends Controller
 
     private function authorizeGroupAdmin(NeighborhoodGroup $group): void
     {
-        $user = Auth::user();
-        abort_unless($user, 403);
-        abort_unless((int) $group->admin_user_id === (int) $user->id, 403, 'Only the group creator can manage this group.');
+        abort_unless($group->isAdmin(Auth::user()), 403, 'Only a group admin can manage this group.');
+    }
+
+    private function authorizeGroupOwner(NeighborhoodGroup $group): void
+    {
+        abort_unless($group->isOwner(Auth::user()), 403, 'Only the group creator can delete this group.');
     }
 }

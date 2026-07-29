@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Support\Str;
 
 class NeighborhoodGroup extends Model
@@ -77,15 +78,49 @@ class NeighborhoodGroup extends Model
         return $this->belongsTo(User::class, 'admin_user_id');
     }
 
+    /** Alias for admin() so this model can stand in as a CivicEvent host
+     *  alongside Citizen/Politician, which both expose user(). */
+    public function user(): BelongsTo
+    {
+        return $this->admin();
+    }
+
     public function members(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'group_memberships', 'neighborhood_group_id', 'user_id')
             ->withPivot('role', 'joined_at');
     }
 
+    public function events(): MorphMany
+    {
+        return $this->morphMany(CivicEvent::class, 'host');
+    }
+
     public function isMember(?User $user): bool
     {
         return $user !== null && $this->members()->where('user_id', $user->id)->exists();
+    }
+
+    /** The founding creator — sole authority to delete the group or change
+     *  another member's role. Never removable/demotable via member management. */
+    public function isOwner(?User $user): bool
+    {
+        return $user !== null && (int) $this->admin_user_id === (int) $user->id;
+    }
+
+    /** Owner, or a member promoted to the 'admin' pivot role. Can edit
+     *  settings, manage events, and remove regular members — but not
+     *  delete the group or change anyone's role (owner-only). */
+    public function isAdmin(?User $user): bool
+    {
+        if ($this->isOwner($user)) {
+            return true;
+        }
+
+        return $user !== null && $this->members()
+            ->where('user_id', $user->id)
+            ->wherePivot('role', 'admin')
+            ->exists();
     }
 
     /**

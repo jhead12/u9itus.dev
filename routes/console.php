@@ -158,3 +158,9 @@ Schedule::command('deleted-accounts:purge')
     ->dailyAt('01:00')
     ->withoutOverlapping();
 
+// Guest Trial Mode cleanup — deletes guest-provisioned voter accounts
+// (ProvisionGuestVoterSession) whose trial expired more than 14 days ago.
+Schedule::command('guests:prune-expired')
+    ->dailyAt('04:00')
+    ->withoutOverlapping();
+

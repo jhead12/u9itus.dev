@@ -83,6 +83,7 @@
         </div>
     </form>
 
+    @if($isOwner)
     <div class="mt-10 pt-6 border-t border-slate-800">
         <h2 class="text-sm font-semibold text-rose-300 mb-2">Danger Zone</h2>
         <p class="text-slate-500 text-xs mb-3">
@@ -97,5 +98,10 @@
             </button>
         </form>
     </div>
+    @else
+    <div class="mt-10 pt-6 border-t border-slate-800">
+        <p class="text-xs text-slate-500">Only {{ $group->admin()->value('name') }}, the group's creator, can delete this group.</p>
+    </div>
+    @endif
 </div>
 @endsection
