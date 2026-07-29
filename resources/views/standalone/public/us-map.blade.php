@@ -150,6 +150,10 @@
             <span class="btn-hover-label">Search</span>
             <span class="btn-hover-label" style="font-size:10px;color:#475569;border:1px solid #334155;border-radius:3px;padding:1px 5px;font-family:monospace;">/</span>
         </button>
+        <!-- Layers + Controls: separate hover/click dropdowns on desktop (unchanged).
+             On mobile/tablet, #map-menu-sheet below becomes a single bottom-sheet
+             menu; on desktop it's `display:contents` and has zero layout effect. -->
+        <div id="map-menu-sheet" role="dialog" aria-modal="true" aria-label="Map layers and controls" aria-hidden="true">
         <!-- Layers multi-select panel -->
         <div id="layers-wrap">
             <button class="top-btn" id="btn-layers"
@@ -211,6 +215,7 @@
                 </div>
             </div>
         </div>
+        <hr id="map-menu-sheet-divider">
         <!-- Controls dropdown -->
         <div id="controls-wrap">
             <button class="top-btn" id="btn-controls" aria-haspopup="true" aria-expanded="false" aria-controls="controls-menu" title="Map controls">
@@ -291,28 +296,16 @@
                 @endguest
             </div>
         </div>
-        <!-- Hidden legacy buttons kept for JS compatibility (visible in mobile drawer) -->
+        </div>
+        <!-- Hidden legacy button kept for JS compatibility (national-boundaries.js reads/writes its label) -->
         <button class="top-btn" id="btn-districts" style="display:none">District Boundaries: OFF</button>
-        <button class="top-btn" id="btn-reset" style="display:none">Reset View</button>
-        <!-- Mobile only: hamburger -->
-        <button id="mobile-menu-btn" aria-label="Open menu" aria-expanded="false" aria-controls="mobile-menu">
+        <!-- Mobile only: opens #map-menu-sheet above -->
+        <button id="mobile-menu-btn" aria-label="Open map menu" aria-expanded="false" aria-controls="map-menu-sheet">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
                 <line x1="3" y1="6" x2="21" y2="6"/>
                 <line x1="3" y1="12" x2="21" y2="12"/>
                 <line x1="3" y1="18" x2="21" y2="18"/>
             </svg>
-        </button>
-    </div>
-</div>
-
-<!-- Mobile navigation drawer -->
-<div id="mobile-menu" role="menu" aria-label="Map controls">
-    <div class="mobile-menu-row">
-        <button class="mobile-menu-btn" id="mob-btn-districts">
-            📍 Districts<br><span style="font-size:10px;opacity:.7;">OFF</span>
-        </button>
-        <button class="mobile-menu-btn" id="mob-btn-reset">
-            🏠 Reset View
         </button>
     </div>
 </div>

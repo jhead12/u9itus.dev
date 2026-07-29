@@ -30,8 +30,6 @@ export function updateRotateBtn(_on) { /* rotation disabled */ }
 export function updateDistrictsBtn(on) {
     document.getElementById('cm-btn-districts')?.classList.toggle('active', on);
     syncLayerChip('districts', on);
-    const mobSpan = document.getElementById('mob-btn-districts')?.querySelector('span');
-    if (mobSpan) mobSpan.textContent = on ? 'ON' : 'OFF';
 }
 
 /**
