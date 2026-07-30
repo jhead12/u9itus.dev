@@ -597,6 +597,27 @@ function _renderPolBody() {
             ? `<p class="pol-section-label">About</p><p class="pol-bio">${c.bio}</p>`
             : '';
         const enrichment = extra?.enrichment || null;
+        const bio = enrichment?.candidate || null;
+        const bioFacts = [];
+        if (bio?.birth_date) {
+            const born = (() => { try { return new Date(bio.birth_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }); } catch { return null; } })();
+            if (born) bioFacts.push(['Born', born]);
+        }
+        if (bio?.education) bioFacts.push(['Education', bio.education]);
+        if (bio?.profession) bioFacts.push(['Profession', bio.profession]);
+        // Sourced from Vote Smart, same as the Interest Group Ratings / Issue
+        // Positions / Key Votes on the public profile's Dig Deeper panel —
+        // only present when the politician has show_votesmart_data enabled.
+        const bioFactsHtml = bioFacts.length
+            ? `<div class="pol-bio-facts" style="margin-top:${c.bio ? '10px' : '0'};display:flex;flex-direction:column;gap:4px;">
+                ${bioFacts.map(([label, value]) => `
+                    <div style="display:flex;gap:6px;font-size:12px;line-height:1.5;">
+                        <span style="color:#64748b;font-weight:600;flex-shrink:0;">${escapeHtml(label)}:</span>
+                        <span style="color:#cbd5e1;">${escapeHtml(value)}</span>
+                    </div>
+                `).join('')}
+            </div>`
+            : '';
         const isLoadingEnrichment = !!extra?.enrichmentLoading && !enrichment;
         const hasEnrichmentError = !!extra?.enrichmentError && !enrichment;
         const news = Array.isArray(enrichment?.news) ? enrichment.news.slice(0, 3) : [];
@@ -680,6 +701,7 @@ function _renderPolBody() {
                 </div>
             </div>
             ${bioHtml}
+            ${bioFactsHtml}
             ${videoHtml}
             ${newsHtml}
             ${pressReleaseHtml}
