@@ -490,6 +490,15 @@ kbd {
 .office-body { padding:10px 10px 12px; }
 .office-section.collapsed .office-body { display:none; }
 .office-role-tip { font-size: 11px; color: #475569; line-height: 1.5; margin: 0 0 10px; font-style: italic; }
+
+/* Ballot measure cards — click-to-expand, mirrors .office-section above */
+.bm-card { margin-bottom: 10px; padding: 8px 10px; border-radius: 8px; border: 1px solid rgba(148,163,184,0.2); background: rgba(15,23,42,0.5); }
+.bm-card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; cursor: pointer; }
+.bm-card.bm-no-detail .bm-card-header { cursor: default; }
+.bm-chevron { transition: transform 0.2s; font-style: normal; font-size: 10px; opacity: .7; flex-shrink: 0; margin-top: 2px; }
+.bm-card.collapsed .bm-chevron { transform: rotate(-90deg); }
+.bm-detail { margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(148,163,184,0.15); }
+.bm-card.collapsed .bm-detail { display: none; }
 .candidate-card {
     background: rgba(15,20,45,0.7); border: 1px solid rgba(99,102,241,0.13);
     border-radius: 10px; padding: 10px 12px; margin-bottom: 7px;
@@ -1147,6 +1156,45 @@ body:has(#info-panel.open) #hint { display: none; }
 }
 .post-pin:hover .post-pin-core.promoted + .post-pin-tag {
     border-color: rgba(245,158,11,0.7); color: #fbbf24;
+}
+
+/* ── Local business pins ─────────────────────────────────────────── */
+.business-pin {
+    position: absolute; pointer-events: auto;
+    transform: translate(-50%, -50%);
+    display: none; align-items: center; gap: 5px;
+    cursor: pointer; text-decoration: none;
+    background: transparent; border: none; padding: 0;
+}
+.business-pin.visible { display: flex; }
+.business-pin-ring {
+    width: 20px; height: 20px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(16,185,129,0.16); flex-shrink: 0;
+    font-size: 11px; line-height: 1;
+    box-shadow: 0 0 5px rgba(16,185,129,0.35);
+}
+.business-pin.retail .business-pin-ring { background: rgba(56,189,248,0.16); box-shadow: 0 0 5px rgba(56,189,248,0.35); }
+.business-pin.service .business-pin-ring { background: rgba(168,85,247,0.16); box-shadow: 0 0 5px rgba(168,85,247,0.35); }
+.business-pin.nonprofit .business-pin-ring { background: rgba(244,114,182,0.16); box-shadow: 0 0 5px rgba(244,114,182,0.35); }
+.business-pin.other .business-pin-ring { background: rgba(148,163,184,0.16); box-shadow: 0 0 5px rgba(148,163,184,0.35); }
+.business-pin-tag {
+    padding: 2px 7px; border-radius: 999px; white-space: nowrap;
+    background: rgba(8,12,30,0.93); border: 1px solid rgba(16,185,129,0.38);
+    font-size: 10px; font-weight: 700; color: #6ee7b7; line-height: 1.4;
+    max-width: 160px; overflow: hidden; text-overflow: ellipsis;
+}
+.business-pin:hover .business-pin-tag,
+.business-pin.expanded .business-pin-tag {
+    border-color: rgba(16,185,129,0.7); background: rgba(20,26,58,0.98);
+    white-space: normal; max-width: 220px; overflow: visible; text-overflow: clip;
+}
+.business-pin-address {
+    display: none;
+    font-weight: 500; color: #a7f3d0; font-size: 9px;
+}
+.business-pin.expanded .business-pin-address {
+    display: block; margin-top: 2px;
 }
 
 /* ── Floating district label layer ──────────────────────────────── */

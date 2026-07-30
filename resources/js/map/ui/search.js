@@ -1,16 +1,20 @@
 /**
- * Search palette — state/district/politician search with keyboard navigation.
- * Politician results are fetched live from /api/v1/map/politician-search.
+ * Search palette — state/district/politician/business search with keyboard
+ * navigation. Politician results are fetched live from
+ * /api/v1/map/politician-search; business results from
+ * /api/v1/map/business-search.
  */
 import { stateMeshes } from '../scene/state-meshes.js';
 import { enterRegionMode, enterStateMode } from '../navigation/mode-transitions.js';
 import { STATE_ABBR_MAP, REGIONS, stateToRegion, DISTRICT_COUNTS } from '../config/constants.js';
 import { districtMeshes } from '../scene/district-overlay.js';
-import { activeState } from '../state/map-state.js';
+import { activeState, ACTIVE_LAYERS } from '../state/map-state.js';
 import { trackEvent } from '../api/interaction.js';
-import { flyToMeshesTopDown } from '../scene/camera-animation.js';
+import { flyToMeshesTopDown, flyToPoint } from '../scene/camera-animation.js';
 import { openDistrictPanel } from './panel-district.js';
 import { openPolDrawer } from './politician-drawer.js';
+import { syncLayerChip } from './layers-panel.js';
+import { refreshBusinessPins } from './business-pins.js';
 import * as THREE from 'three';
 
 const searchOverlay = document.getElementById('search-overlay');
@@ -54,6 +58,40 @@ function fetchPoliticians(q) {
             if (token !== polFetchToken) return; // superseded by a newer keystroke
             polResults = Array.isArray(data.results) ? data.results : [];
             polResultsQuery = trimmed;
+            renderSearchResults(searchInput.value);
+        })
+        .catch(() => {});
+}
+
+/* Live business search — debounced fetch against /api/v1/map/business-search */
+let bizResults      = [];
+let bizResultsQuery = '';
+let bizFetchToken    = 0;
+let bizDebounceTimer = null;
+
+const CATEGORY_COLOR = {
+    food: '#10b981',
+    retail: '#38bdf8',
+    service: '#a855f7',
+    nonprofit: '#f472b6',
+    other: '#94a3b8',
+};
+
+function fetchBusinesses(q) {
+    const trimmed = q.trim();
+    if (trimmed.length < 2) {
+        bizResults = [];
+        bizResultsQuery = trimmed;
+        renderSearchResults(searchInput.value);
+        return;
+    }
+    const token = ++bizFetchToken;
+    fetch(`/api/v1/map/business-search?q=${encodeURIComponent(trimmed)}`)
+        .then(res => res.ok ? res.json() : { results: [] })
+        .then(data => {
+            if (token !== bizFetchToken) return; // superseded by a newer keystroke
+            bizResults = Array.isArray(data.results) ? data.results : [];
+            bizResultsQuery = trimmed;
             renderSearchResults(searchInput.value);
         })
         .catch(() => {});
@@ -161,8 +199,9 @@ function renderSearchResults(q) {
         .slice(0, 12);
 
     const politicians = (polResultsQuery === q.trim()) ? polResults : [];
+    const businesses  = (bizResultsQuery === q.trim()) ? bizResults : [];
 
-    if (!scored.length && !politicians.length) {
+    if (!scored.length && !politicians.length && !businesses.length) {
         searchEmpty.style.display = 'block';
         return;
     }
@@ -199,6 +238,22 @@ function renderSearchResults(q) {
             });
         });
     }
+    if (businesses.length) {
+        const gl = document.createElement('div');
+        gl.className = 'sr-group-label'; gl.textContent = 'Local Businesses';
+        searchResults.appendChild(gl);
+        businesses.forEach(biz => {
+            const color = CATEGORY_COLOR[biz.category] || CATEGORY_COLOR.other;
+            appendResult({
+                type:  'business',
+                label: biz.name,
+                sub:   [biz.address, biz.verified ? 'Verified' : null].filter(Boolean).join(' · '),
+                abbr:  biz.state || '',
+                color,
+                data:  biz,
+            });
+        });
+    }
 }
 
 function appendResult(item) {
@@ -210,6 +265,7 @@ function appendResult(item) {
     const icon = item.type === 'state'      ? '🏛'
                : item.type === 'district'   ? '📍'
                : item.type === 'politician' ? '👤'
+               : item.type === 'business'   ? '🏪'
                : '🗺';
 
     el.innerHTML = `
@@ -265,6 +321,24 @@ async function activateResult(item) {
         }, item.color);
         return;
     }
+    if (item.type === 'business') {
+        const biz       = item.data;
+        const stateName = biz.state ? ABBR_TO_STATE[biz.state.toUpperCase()] : null;
+        if (stateName) {
+            const mesh = stateMeshes.find(m => m.userData.name === stateName);
+            if (mesh) await enterStateMode(stateName, mesh.userData.regionName, mesh.userData.region);
+        }
+        if (Number.isFinite(biz.lat) && Number.isFinite(biz.lng)) {
+            flyToPoint(biz.lat, biz.lng);
+        }
+        // Turn the Local Businesses layer on (if it wasn't already) so the
+        // pin the user just searched for is actually visible on arrival.
+        if (!ACTIVE_LAYERS.has('businesses')) {
+            syncLayerChip('businesses', true);
+        }
+        refreshBusinessPins(true);
+        return;
+    }
     if (item.type === 'region') {
         enterRegionMode(item.regionName, item.region);
         return;
@@ -301,6 +375,9 @@ export function openSearch() {
     polResults = [];
     polResultsQuery = '';
     clearTimeout(polDebounceTimer);
+    bizResults = [];
+    bizResultsQuery = '';
+    clearTimeout(bizDebounceTimer);
     renderSearchResults('');
     setTimeout(() => searchInput.focus(), 40);
     trackEvent('search_opened', { state: activeState || null });
@@ -319,6 +396,8 @@ export function initSearch() {
         renderSearchResults(q);
         clearTimeout(polDebounceTimer);
         polDebounceTimer = setTimeout(() => fetchPoliticians(q), 220);
+        clearTimeout(bizDebounceTimer);
+        bizDebounceTimer = setTimeout(() => fetchBusinesses(q), 220);
     });
     searchInput.addEventListener('keydown', e => {
         const items = searchResults.querySelectorAll('.sr-item');

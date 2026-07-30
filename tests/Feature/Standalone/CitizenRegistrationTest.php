@@ -1,14 +1,19 @@
 <?php
 
+use App\Jobs\GeocodeCitizenAddress;
 use App\Models\Citizen;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Queue;
 use Spatie\Permission\Models\Role;
 
 uses(RefreshDatabase::class);
 
 test('citizen registration creates user, assigns role, and creates citizen record', function () {
     Role::firstOrCreate(['name' => 'citizen', 'guard_name' => 'web']);
+    // Geocoding hits the real Census API — fake the queue so registration
+    // tests don't depend on network access, and just assert it was queued.
+    Queue::fake();
 
     $response = $this->post(route('register.citizen.submit'), [
         'first_name' => 'Jamie',
@@ -43,6 +48,8 @@ test('citizen registration creates user, assigns role, and creates citizen recor
     expect($citizen->zip)->toBe('93701');
 
     $this->assertDatabaseCount('citizens', 1);
+
+    Queue::assertPushed(GeocodeCitizenAddress::class, fn ($job) => $job->citizenId === $citizen->id);
 });
 
 test('citizen dashboard route resolves for authenticated citizen', function () {

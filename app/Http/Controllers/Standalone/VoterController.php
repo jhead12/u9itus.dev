@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Standalone;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Standalone\Concerns\ManagesVoterAuxiliaryActions;
 use App\Models\AdViewToken;
+use App\Jobs\GeocodeCitizenAddress;
 use App\Models\Citizen;
 use App\Models\EngagementSurveyResponse;
 use App\Models\PoliticalCampaign;
@@ -898,8 +899,10 @@ class VoterController extends Controller
         // Wrap the profile creation, role assignment, and user_type update in a
         // transaction so a partial failure cannot leave the account in a 403
         // state (Citizen row created but role missing).
-        DB::transaction(function () use ($user, $validated): void {
-            Citizen::create(array_merge($validated, [
+        $citizen = null;
+
+        DB::transaction(function () use ($user, $validated, &$citizen): void {
+            $citizen = Citizen::create(array_merge($validated, [
                 'user_id'   => $user->id,
                 'is_active' => true,
             ]));
@@ -914,6 +917,12 @@ class VoterController extends Controller
                 $user->save();
             }
         });
+
+        // Dispatched after the transaction commits, not inside it — the
+        // `database` queue driver's worker could otherwise pick this up
+        // before the Citizen row is visible (queue.php's `after_commit` is
+        // false for every driver here).
+        GeocodeCitizenAddress::dispatch($citizen->id);
 
         return redirect()->route('portal-pick')
             ->with('success', 'Citizen profile created! You can now switch between your Voter and Citizen portals.');

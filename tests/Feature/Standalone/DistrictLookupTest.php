@@ -622,7 +622,72 @@ test('district lookup voterinfo picks earliest election from otherElections and 
         $response->assertSee('Receipts: $1,250,000');
     });
 
-    test('district lookup shows current politicians for searched location from google civic officials', function () {
+    test('district lookup shows where-to-vote locations from voterinfo, including for a name with markup', function () {
+    config()->set('services.google.civic_api_key', 'test-key');
+
+    Http::fake([
+        'https://geocoding.geo.census.gov/*' => Http::response([
+            'result' => [
+                'addressMatches' => [
+                    [
+                        'matchedAddress' => '22690 CACTUS AVE, MORENO VALLEY, CA, 92553',
+                        'addressComponents' => ['state' => 'CA'],
+                        'geographies' => [
+                            '119th Congressional Districts' => [
+                                ['CD119FP' => '39', 'NAME' => 'Congressional District 39'],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ], 200),
+        'https://www.googleapis.com/civicinfo/v2/voterinfo*' => Http::response([
+            'normalizedInput' => ['state' => 'CA', 'city' => 'Moreno Valley'],
+            'pollingLocations' => [
+                [
+                    'name' => '<script>alert(1)</script> Community Center',
+                    'pollingHours' => '7AM-8PM',
+                    'latitude' => 33.9425,
+                    'longitude' => -117.2297,
+                    'address' => ['line1' => '123 Main St', 'city' => 'Moreno Valley', 'state' => 'CA', 'zip' => '92553'],
+                ],
+            ],
+            'earlyVoteSites' => [
+                [
+                    'name' => 'County Registrar',
+                    'startDate' => '2026-10-24',
+                    'endDate' => '2026-11-03',
+                    'address' => ['line1' => '456 Civic Plz', 'city' => 'Moreno Valley', 'state' => 'CA', 'zip' => '92553'],
+                ],
+            ],
+        ], 200),
+        'https://www.googleapis.com/civicinfo/v2/representatives*' => Http::response([
+            'offices' => [], 'officials' => [], 'divisions' => [],
+        ], 200),
+    ]);
+
+    $response = $this->get(route('district.lookup', [
+        'address' => '22690 Cactus Ave, Moreno Valley, CA 92553',
+    ]));
+
+    $response->assertOk();
+    $response->assertSee('Where to Vote');
+    $response->assertSee('Your Polling Place');
+    $response->assertSee('Community Center');
+    $response->assertSee('123 Main St, Moreno Valley, CA, 92553');
+    $response->assertSee('7AM-8PM');
+    $response->assertSee('Early Voting');
+    $response->assertSee('County Registrar');
+    // The raw tag must never appear unescaped anywhere in the response —
+    // covers both the Blade card ({{ }} auto-escapes) and the JSON payload
+    // feeding the map markers (json_encode escapes "/" to "\/", so a literal
+    // "</script>" sequence can't appear there either).
+    $response->assertDontSee('<script>alert(1)</script>', false);
+    // Confirms the card actually rendered the escaped form, not that it was silently dropped.
+    $response->assertSee('&lt;script&gt;alert(1)&lt;/script&gt;', false);
+});
+
+test('district lookup shows current politicians for searched location from google civic officials', function () {
         Http::fake([
             'https://geocoding.geo.census.gov/*' => Http::response([
                 'result' => [

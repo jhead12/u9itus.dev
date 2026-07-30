@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Enums\PostStatus;
+use App\Models\Citizen;
 use App\Models\CivicEvent;
 use App\Models\Post;
 use Illuminate\Http\JsonResponse;
@@ -12,12 +13,15 @@ use Illuminate\Support\Str;
 /**
  * Public endpoint returning geo-tagged civic content for the 3-D U.S. map.
  *
- * Surfaces published blog posts and upcoming civic events.
+ * Surfaces published blog posts, upcoming civic events, and (opted-in)
+ * citizen business locations.
  */
 class MapContentController
 {
     /** Maximum items returned per viewport query to keep payloads small. */
     private const MAX_ITEMS = 50;
+
+    private const BUSINESS_CATEGORIES = ['food', 'retail', 'service', 'nonprofit', 'other'];
 
     /**
      * GET /api/v1/map/content
@@ -25,6 +29,7 @@ class MapContentController
      * Query params:
      *   south, west, north, east — bounding box (required)
      *   topic                    — optional politician_topics.slug filter
+     *   category                 — optional Citizen::business_category filter
      *   limit                    — optional, capped at 50
      */
     public function __invoke(Request $request): JsonResponse
@@ -35,6 +40,7 @@ class MapContentController
             'north' => ['required', 'numeric', 'between:-90,90', 'gte:south'],
             'east'  => ['required', 'numeric', 'between:-180,180'],
             'topic' => ['nullable', 'string', 'max:64'],
+            'category' => ['nullable', 'string', 'in:'.implode(',', self::BUSINESS_CATEGORIES)],
             'limit' => ['nullable', 'integer', 'min:1', 'max:'.self::MAX_ITEMS],
         ]);
 
@@ -50,6 +56,7 @@ class MapContentController
 
         $limit = min((int) ($data['limit'] ?? self::MAX_ITEMS), self::MAX_ITEMS);
         $topicSlug = ! empty($data['topic']) ? Str::slug($data['topic']) : null;
+        $category = $data['category'] ?? null;
 
         $postQuery = Post::query()
             ->published()
@@ -66,16 +73,24 @@ class MapContentController
             ->orderBy('starts_at')
             ->limit($limit);
 
-        foreach ([$postQuery, $eventQuery] as $query) {
+        $businessQuery = Citizen::query()
+            ->mappable()
+            ->when($category, fn ($q) => $q->where('business_category', $category))
+            ->orderByDesc('verified_at')
+            ->limit($limit);
+
+        foreach ([$postQuery, $eventQuery, $businessQuery] as $query) {
             if ($east > 180) {
-                $query->where(function ($q) use ($west, $east, $south, $north): void {
+                $query->where(function ($q) use ($west, $east): void {
                     $q->whereBetween('longitude', [$west, 180])
                       ->orWhereBetween('longitude', [-180, $east - 360]);
                 })->whereBetween('latitude', [$south, $north]);
             } else {
                 $query->withinBounds($south, $west, $north, $east);
             }
+        }
 
+        foreach ([$postQuery, $eventQuery] as $query) {
             if ($topicSlug) {
                 $query->whereHas('topics', fn ($q) => $q->where('slug', $topicSlug));
             }
@@ -83,6 +98,7 @@ class MapContentController
 
         $posts  = $postQuery->get();
         $events = $eventQuery->get();
+        $businesses = $businessQuery->get();
 
         return response()->json([
             'posts' => $posts->map(fn (Post $post) => [
@@ -113,7 +129,19 @@ class MapContentController
                 'is_virtual'    => $event->is_virtual,
                 'is_full'       => $event->isFull(),
             ]),
-            'total' => $posts->count() + $events->count(),
+            'businesses' => $businesses->map(fn (Citizen $citizen) => [
+                'id'                => $citizen->uuid,
+                'type'              => 'business',
+                'name'              => $citizen->business_name ?: $citizen->full_name,
+                'category'          => $citizen->business_category,
+                'address'           => collect([$citizen->address_line_1, $citizen->city, $citizen->state, $citizen->zip])
+                    ->filter()
+                    ->implode(', '),
+                'lat'               => (float) $citizen->latitude,
+                'lng'               => (float) $citizen->longitude,
+                'verified'          => $citizen->isIdentityVerified(),
+            ]),
+            'total' => $posts->count() + $events->count() + $businesses->count(),
         ]);
     }
 }

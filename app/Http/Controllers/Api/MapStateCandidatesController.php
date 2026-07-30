@@ -494,7 +494,7 @@ class MapStateCandidatesController
             })
             ->orderBy('election_date')
             ->limit(10)
-            ->get(['measure_number', 'title', 'summary', 'yes_meaning', 'no_meaning', 'election_date', 'status', 'source_url'])
+            ->get(['id', 'measure_number', 'title', 'summary', 'yes_meaning', 'no_meaning', 'election_date', 'status', 'source_url'])
             ->map(fn (BallotMeasure $m) => [
                 'measure_number' => $m->measure_number,
                 'title'          => $m->title,
@@ -504,6 +504,7 @@ class MapStateCandidatesController
                 'election_date'  => optional($m->election_date)?->toDateString(),
                 'status'         => $m->status,
                 'source_url'     => $m->source_url,
+                'detail_url'     => route('voter.ballot-measures.show', $m->id),
             ]);
 
         // ── 8. Upcoming election dates for this state ──────────────────────────

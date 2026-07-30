@@ -8,6 +8,7 @@ import { ensureGovernorParties, applyColorMode } from '../api/governor-parties.j
 import { clearCityMarkers, buildCityMarkers, clearGovMarkers, loadCityBoundaries, clearCityLayer, openCityDrawer } from './markers.js';
 import { clearCandidateMarkers, buildCandidateMarkers } from './candidate-markers.js';
 import { refreshPostPins, clearPostPins } from './post-pins.js';
+import { refreshBusinessPins, clearBusinessPins, setBusinessCategoryFilter } from './business-pins.js';
 import { STATE_ABBR_MAP } from '../config/constants.js';
 import { TOP_CITIES } from '../config/city-data.js';
 import { trackEvent } from '../api/interaction.js';
@@ -74,6 +75,13 @@ export function toggleLayer(layerKey) {
             if (isActive) { refreshPostPins(true); }
             else { clearPostPins(); }
             break;
+        case 'businesses': {
+            const categoryWrap = document.getElementById('business-category-wrap');
+            if (categoryWrap) categoryWrap.style.display = isActive ? '' : 'none';
+            if (isActive) { refreshBusinessPins(true); }
+            else { clearBusinessPins(); }
+            break;
+        }
     }
 }
 
@@ -246,6 +254,12 @@ export function initLayersPanel() {
 
     layersPanel.querySelectorAll('.lp-chip').forEach(chip => {
         chip.addEventListener('click', e => { e.stopPropagation(); toggleLayer(chip.dataset.layer); });
+    });
+
+    document.getElementById('business-category-filter')?.addEventListener('change', e => {
+        e.stopPropagation();
+        setBusinessCategoryFilter(e.target.value);
+        trackEvent('map_business_category_filter', { meta: { category: e.target.value || 'all' } });
     });
 
     // Restore persisted layer state

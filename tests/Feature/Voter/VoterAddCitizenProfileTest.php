@@ -4,6 +4,7 @@ use App\Models\Citizen;
 use App\Models\User;
 use App\Models\Voter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Queue;
 
 uses(RefreshDatabase::class);
 
@@ -12,6 +13,9 @@ beforeEach(function () {
         \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'voter',   'guard_name' => 'web']);
         \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'citizen', 'guard_name' => 'web']);
     }
+    // Adding a citizen profile queues GeocodeCitizenAddress, which hits the
+    // real Census API — fake the queue so these tests don't need network access.
+    Queue::fake();
 });
 
 function makeVoterForUpgrade(): User

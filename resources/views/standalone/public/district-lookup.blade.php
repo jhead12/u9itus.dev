@@ -122,6 +122,25 @@
                     : '00';
                 $geoid       = ($stateFips && $mapDistrict !== null) ? $stateFips . $districtNum : null;
                 $congressGovUrl = null;
+
+                // ── Where to vote ────────────────────────────────────────────
+                // Google Civic's voterinfo response already carries lat/lng per
+                // location — normalize the three location types into one list
+                // so the cards below and the map markers can share it.
+                $voteLocationGroups = [
+                    'polling_location' => ['label' => 'Your Polling Place', 'items' => (array) ($voterInfo['polling_locations'] ?? [])],
+                    'early_vote_site'  => ['label' => 'Early Voting',        'items' => (array) ($voterInfo['early_vote_sites'] ?? [])],
+                    'drop_off_location'=> ['label' => 'Ballot Drop-Off',     'items' => (array) ($voterInfo['drop_off_locations'] ?? [])],
+                ];
+                $hasVoteLocations = collect($voteLocationGroups)->flatMap(fn ($g) => $g['items'])->isNotEmpty();
+                $mappableVoteLocations = collect($voteLocationGroups)
+                    ->flatMap(fn ($g, $type) => collect($g['items'])->map(fn ($loc) => array_merge((array) $loc, [
+                        'type' => $type,
+                        'type_label' => $g['label'],
+                    ])))
+                    ->filter(fn ($loc) => is_numeric($loc['latitude'] ?? null) && is_numeric($loc['longitude'] ?? null))
+                    ->values();
+
                 if (!empty($lookupResult['source']) && $mapState && $mapDistrict) {
                     // Try to find the member's congress.gov slug from current officials
                     foreach (($currentOfficials ?? collect()) as $off) {
@@ -245,10 +264,78 @@
                         document.getElementById('district-boundary-map').innerHTML =
                             '<p class="p-4 text-slate-400 text-sm">Could not load district boundary.</p>';
                     });
+
+                // ── Where-to-vote markers ────────────────────────────────────
+                // Names/addresses/hours below come from the Google Civic API, a
+                // third party — escape before building popup HTML so a crafted
+                // location name can't inject markup into the page.
+                const escapeHtml = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({
+                    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+                }[c]));
+                const VOTE_LOCATIONS = {!! $mappableVoteLocations->toJson() !!};
+                const VOTE_MARKER_COLOR = {
+                    polling_location: '#22c55e',
+                    early_vote_site: '#38bdf8',
+                    drop_off_location: '#f59e0b',
+                };
+                for (const loc of VOTE_LOCATIONS) {
+                    const addr = loc.address || {};
+                    const addrLine = [addr.line1, addr.city, addr.state, addr.zip].filter(Boolean).join(', ');
+                    const popupHtml = `<div style="font-size:13px;line-height:1.4">`
+                        + `<strong>${escapeHtml(loc.type_label)}${loc.name ? ': ' + escapeHtml(loc.name) : ''}</strong>`
+                        + (addrLine ? `<br>${escapeHtml(addrLine)}` : '')
+                        + (loc.polling_hours ? `<br>Hours: ${escapeHtml(loc.polling_hours)}` : '')
+                        + `</div>`;
+                    L.circleMarker([loc.latitude, loc.longitude], {
+                        radius: 9,
+                        color: '#0f172a',
+                        weight: 2,
+                        fillColor: VOTE_MARKER_COLOR[loc.type] || '#94a3b8',
+                        fillOpacity: 0.9,
+                    }).addTo(map).bindPopup(popupHtml);
+                }
             }());
             </script>
             @endif
             {{-- ── End district map ──────────────────────────────────────────── --}}
+
+            @if($hasVoteLocations)
+            <section class="mb-8">
+                <h2 class="text-xl font-bold text-white mb-3">Where to Vote</h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    @foreach($voteLocationGroups as $type => $group)
+                        @foreach($group['items'] as $location)
+                            @php $addr = (array) ($location['address'] ?? []); @endphp
+                            <div class="bg-slate-900/60 border border-slate-700/50 rounded-xl p-5">
+                                <p class="text-xs uppercase tracking-wider text-slate-400 mb-2">{{ $group['label'] }}</p>
+                                @if(!empty($location['name']))
+                                    <p class="text-white font-semibold text-sm">{{ $location['name'] }}</p>
+                                @endif
+                                @php
+                                    $addrLine = collect([$addr['line1'] ?? null, $addr['city'] ?? null, $addr['state'] ?? null, $addr['zip'] ?? null])
+                                        ->filter()
+                                        ->implode(', ');
+                                @endphp
+                                @if($addrLine !== '')
+                                    <p class="text-slate-300 text-sm mt-1">{{ $addrLine }}</p>
+                                @endif
+                                @if(!empty($location['polling_hours']))
+                                    <p class="text-slate-400 text-xs mt-2">Hours: {{ $location['polling_hours'] }}</p>
+                                @endif
+                                @if(!empty($location['start_date']) || !empty($location['end_date']))
+                                    <p class="text-slate-400 text-xs mt-1">
+                                        {{ $location['start_date'] ?? '' }}{{ !empty($location['start_date']) && !empty($location['end_date']) ? ' – ' : '' }}{{ $location['end_date'] ?? '' }}
+                                    </p>
+                                @endif
+                            </div>
+                        @endforeach
+                    @endforeach
+                </div>
+                @if($geoid && $mappableVoteLocations->isEmpty())
+                    <p class="text-slate-500 text-xs mt-3">Exact coordinates weren't available for these locations, so they aren't plotted on the map above.</p>
+                @endif
+            </section>
+            @endif
 
             <section>
                 <div class="flex items-center justify-between mb-4">

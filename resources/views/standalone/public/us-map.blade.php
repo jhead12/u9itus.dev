@@ -212,6 +212,24 @@
                         title="Show geo-tagged blog posts and civic events in the visible area">
                         <span class="lp-dot"></span>Civic Content
                     </button>
+                    <button class="lp-chip" data-layer="businesses"
+                        role="menuitemcheckbox" aria-checked="false"
+                        title="Show local businesses that opted in to appear on the map">
+                        <span class="lp-dot"></span>Local Businesses
+                    </button>
+                </div>
+                <div id="business-category-wrap" class="lp-chips" style="display:none;padding-top:2px;">
+                    <select id="business-category-filter"
+                        aria-label="Filter local businesses by category"
+                        style="width:100%;background:rgba(15,23,42,0.7);border:1px solid rgba(100,116,139,0.4);
+                               color:#cbd5e1;font-size:11px;border-radius:8px;padding:6px 8px;">
+                        <option value="">All Categories</option>
+                        <option value="food">Food &amp; Dining</option>
+                        <option value="retail">Retail</option>
+                        <option value="service">Service</option>
+                        <option value="nonprofit">Nonprofit</option>
+                        <option value="other">Other</option>
+                    </select>
                 </div>
             </div>
         </div>

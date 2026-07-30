@@ -579,6 +579,10 @@ Route::middleware(['guest.trial', 'auth', 'verified', 'check.role', 'no.cache'])
         Route::post('/billing/payment-methods', [CitizenController::class, 'storePaymentMethod'])->name('billing.payment-methods.store');
         Route::delete('/billing/payment-methods/{paymentMethod}', [CitizenController::class, 'deletePaymentMethod'])->name('billing.payment-methods.delete');
 
+        // Business location settings — address, category, and the map opt-in.
+        Route::get('/settings', [CitizenController::class, 'settings'])->name('settings');
+        Route::put('/settings', [CitizenController::class, 'updateSettings'])->name('settings.update');
+
         // ── Blog Posts ───────────────────────────────────────────────────────
         Route::prefix('posts')->name('posts.')->group(function () {
             Route::get('/', [PostController::class, 'index'])->name('index');

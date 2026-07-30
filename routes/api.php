@@ -17,6 +17,7 @@
 use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\BillingController;
 use App\Http\Controllers\Api\EarlyBankController;
+use App\Http\Controllers\Api\MapBusinessSearchController;
 use App\Http\Controllers\Api\MapContentController;
 use App\Http\Controllers\Api\MapDistrictConfigController;
 use App\Http\Controllers\Api\MapGeocodeController;
@@ -101,6 +102,11 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         // map's search palette (resources/js/map/ui/search.js).
         Route::get('/map/politician-search', MapPoliticianSearchController::class)
             ->name('map.politician-search');
+
+        // Live business typeahead — powers the "Local Businesses" group in
+        // the map's search palette (resources/js/map/ui/search.js).
+        Route::get('/map/business-search', MapBusinessSearchController::class)
+            ->name('map.business-search');
 
         // Region panel — cities + Census ACS demographics (poverty, education,
         // income) for the states within a region.

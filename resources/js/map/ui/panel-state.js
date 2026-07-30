@@ -9,11 +9,10 @@ import { fmtPop } from '../config/city-data.js';
 import { trackEvent } from '../api/interaction.js';
 import { renderCityCard, wireCityCardClicks, fetchCitiesForState } from './city-demographics-card.js';
 
-export const OFFICE_DEFAULT_OPEN = new Set([
-    'Governor', 'Lieutenant Governor', 'Attorney General',
-    'State Treasurer', 'State Controller', 'Secretary of State',
-    'Other Statewide', 'Mayor',
-]);
+// Every office section now starts collapsed when a panel first opens — no
+// office defaults to expanded. Kept as a Set (rather than deleting the
+// isOpen mechanism) so a future default-open office is a one-line add.
+export const OFFICE_DEFAULT_OPEN = new Set([]);
 let _officeIdx = 0;
 
 function escapeHtml(value) {
@@ -207,13 +206,21 @@ export function renderElectionDatesBanner(electionDates, color) {
     return `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;">${pills.join('')}</div>`;
 }
 
+/**
+ * Ballot measure cards — collapsed by default (title/date/summary, same as
+ * before), click-to-expand reveals yes/no meaning, status, and a source
+ * link, all inline. Never navigates to the dedicated ballot-measure page —
+ * the point is general info without leaving the map. Mirrors the
+ * .office-section collapse pattern above (self-contained inline onclick,
+ * no delegated listener needed).
+ */
 export function renderBallotMeasuresSection(ballotMeasures, color) {
     if (!ballotMeasures?.length) return '';
     let html = `<div style="border-top:1px solid ${color}20;margin:16px 0 14px;display:flex;align-items:center;gap:8px;">
         <span style="color:${color};font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;white-space:nowrap;">🗳️ Ballot Measures</span>
         <div style="flex:1;border-top:1px solid ${color}20;"></div>
     </div>`;
-    for (const m of ballotMeasures) {
+    ballotMeasures.forEach((m, i) => {
         const label = [m.measure_number, m.title].filter(Boolean).join(' — ');
         const dateLine = m.election_date
             ? `<p style="color:#64748b;font-size:10px;margin:2px 0 0;">${escapeHtml(new Date(m.election_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }))}</p>`
@@ -221,12 +228,42 @@ export function renderBallotMeasuresSection(ballotMeasures, color) {
         const summaryLine = m.summary
             ? `<p style="color:#94a3b8;font-size:11px;line-height:1.5;margin:4px 0 0;">${escapeHtml(m.summary)}</p>`
             : '';
-        html += `<div style="margin-bottom:10px;padding:8px 10px;border-radius:8px;border:1px solid rgba(148,163,184,0.2);background:rgba(15,23,42,0.5);">
-            <p style="color:#e2e8f0;font-size:12px;font-weight:600;margin:0;">${escapeHtml(label || 'Ballot Measure')}</p>
-            ${dateLine}
-            ${summaryLine}
+
+        const hasDetail = Boolean(m.yes_meaning || m.no_meaning || m.status || m.source_url || m.detail_url);
+        const statusLine = m.status
+            ? `<p style="color:#64748b;font-size:10px;text-transform:uppercase;letter-spacing:.05em;margin:0 0 6px;">Status: ${escapeHtml(m.status)}</p>`
+            : '';
+        const yesNoHtml = (m.yes_meaning || m.no_meaning) ? `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px;">
+                ${m.yes_meaning ? `<div><p style="color:#34d399;font-size:9px;font-weight:700;text-transform:uppercase;margin:0 0 2px;">A "Yes" Vote</p><p style="color:#94a3b8;font-size:11px;line-height:1.5;margin:0;">${escapeHtml(m.yes_meaning)}</p></div>` : ''}
+                ${m.no_meaning ? `<div><p style="color:#f87171;font-size:9px;font-weight:700;text-transform:uppercase;margin:0 0 2px;">A "No" Vote</p><p style="color:#94a3b8;font-size:11px;line-height:1.5;margin:0;">${escapeHtml(m.no_meaning)}</p></div>` : ''}
+            </div>` : '';
+        const sourceLine = m.source_url
+            ? `<a href="${escapeHtml(m.source_url)}" target="_blank" rel="noopener" style="display:inline-block;margin-top:8px;margin-right:14px;color:${color};font-size:10px;font-weight:600;text-decoration:none;" onclick="event.stopPropagation()">Read full text ↗</a>`
+            : '';
+        const detailLink = m.detail_url
+            ? `<a href="${escapeHtml(m.detail_url)}" target="_blank" rel="noopener" style="display:inline-block;margin-top:8px;color:#e2e8f0;font-size:10px;font-weight:600;text-decoration:none;" onclick="event.stopPropagation()">View full details ↗</a>`
+            : '';
+
+        html += `<div class="bm-card${hasDetail ? '' : ' bm-no-detail'} collapsed" id="bm-${i}">
+            <div class="bm-card-header"
+                 ${hasDetail ? `onclick="this.closest('.bm-card').classList.toggle('collapsed')"
+                 role="button" tabindex="0" aria-expanded="false"
+                 onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}"` : ''}>
+                <div style="flex:1;min-width:0;">
+                    <p style="color:#e2e8f0;font-size:12px;font-weight:600;margin:0;">${escapeHtml(label || 'Ballot Measure')}</p>
+                    ${dateLine}
+                    ${summaryLine}
+                </div>
+                ${hasDetail ? `<span class="bm-chevron">▾</span>` : ''}
+            </div>
+            ${hasDetail ? `<div class="bm-detail">
+                ${statusLine}
+                ${yesNoHtml}
+                ${sourceLine}
+                ${detailLink}
+            </div>` : ''}
         </div>`;
-    }
+    });
     return html;
 }
 

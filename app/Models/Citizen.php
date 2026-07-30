@@ -28,6 +28,10 @@ class Citizen extends Model
         'address_line_1',
         'address_line_2',
         'zip',
+        'latitude',
+        'longitude',
+        'business_category',
+        'show_on_map',
         'bio',
         'profile_photo_url',
         'is_active',
@@ -58,6 +62,9 @@ class Citizen extends Model
             'stripe_verified_at' => 'datetime',
             'verified_at'        => 'datetime',
             'credit_balance'     => 'decimal:2',
+            'latitude'           => 'decimal:8',
+            'longitude'          => 'decimal:8',
+            'show_on_map'        => 'boolean',
             'earlybank_own_linked_at' => 'datetime',
             'earlybank_payouts_enabled' => 'boolean',
             'earlybank_stripe_connect_onboarding_complete' => 'boolean',
@@ -208,5 +215,42 @@ class Citizen extends Model
     public function getRouteKeyName(): string
     {
         return 'uuid';
+    }
+
+    public function scopeGeoTagged($query): void
+    {
+        $query->whereNotNull('latitude')
+            ->whereNotNull('longitude');
+    }
+
+    public function scopeWithinBounds($query, float $south, float $west, float $north, float $east): void
+    {
+        $query->whereBetween('latitude', [$south, $north])
+            ->whereBetween('longitude', [$west, $east]);
+    }
+
+    /**
+     * Visible on the map: opted in, active, and successfully geocoded.
+     */
+    public function scopeMappable($query): void
+    {
+        $query->where('show_on_map', true)
+            ->where('is_active', true)
+            ->whereNotNull('latitude')
+            ->whereNotNull('longitude');
+    }
+
+    /**
+     * The full postal address, for geocoding.
+     */
+    public function fullAddress(): string
+    {
+        return collect([
+            $this->address_line_1,
+            $this->address_line_2,
+            $this->city,
+            $this->state,
+            $this->zip,
+        ])->filter()->implode(', ');
     }
 }

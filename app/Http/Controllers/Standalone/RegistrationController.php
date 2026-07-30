@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Standalone;
 
 use App\Http\Controllers\Controller;
 use App\Http\Middleware\CaptureEarlyBankReferral;
+use App\Jobs\GeocodeCitizenAddress;
 use App\Mail\AdminNewUserNotificationMail;
 use App\Mail\WelcomeMail;
 use App\Models\Citizen;
@@ -270,7 +271,7 @@ class RegistrationController extends Controller
         ['referred_by_voter_id' => $referredByVoterId, 'referred_by_politician_id' => $referredByPoliticianId] =
             $this->referralService->resolveReferrerIds($refCode);
 
-        Citizen::create([
+        $citizen = Citizen::create([
             'user_id'                   => $user->id,
             'full_name'                 => trim($request->first_name . ' ' . $request->last_name),
             'business_name'             => $request->business_name,
@@ -282,6 +283,8 @@ class RegistrationController extends Controller
             'referred_by_voter_id'      => $referredByVoterId,
             'referred_by_politician_id' => $referredByPoliticianId,
         ]);
+
+        GeocodeCitizenAddress::dispatch($citizen->id);
 
         $this->referralService->markReferralConversion($request, $refCode, $user);
         $this->sendPhoneVerification($user->phone, $user, 'citizen');

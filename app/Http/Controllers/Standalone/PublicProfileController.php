@@ -159,6 +159,7 @@ class PublicProfileController extends Controller
             'currentOfficials' => $currentOfficials,
             'states' => $states,
             'error' => $error,
+            'voterInfo' => $voterInfo,
         ]);
     }
 

@@ -105,3 +105,89 @@ it('respects the limit parameter and caps at 50', function (): void {
     $response->assertOk();
     $response->assertJsonCount(2, 'posts');
 });
+
+it('returns opted-in geocoded businesses within a viewport', function (): void {
+    Citizen::factory()->create([
+        'business_name' => 'Maple Bakery',
+        'business_category' => 'food',
+        'show_on_map' => true,
+        'is_active' => true,
+        'latitude' => 34.0522,
+        'longitude' => -118.2437,
+    ]);
+
+    $response = $this->getJson('/api/v1/map/content?south=33&west=-119&north=35&east=-117');
+
+    $response->assertOk();
+    $response->assertJsonCount(1, 'businesses');
+    $response->assertJsonPath('businesses.0.name', 'Maple Bakery');
+    $response->assertJsonPath('businesses.0.category', 'food');
+    $response->assertJsonPath('businesses.0.type', 'business');
+});
+
+it('excludes businesses that have not opted in to the map', function (): void {
+    Citizen::factory()->create([
+        'business_name' => 'Private Shop',
+        'show_on_map' => false,
+        'latitude' => 34.0522,
+        'longitude' => -118.2437,
+    ]);
+
+    $response = $this->getJson('/api/v1/map/content?south=33&west=-119&north=35&east=-117');
+
+    $response->assertOk();
+    $response->assertJsonCount(0, 'businesses');
+});
+
+it('excludes businesses that have not been geocoded yet', function (): void {
+    Citizen::factory()->create([
+        'business_name' => 'Ungeocoded Shop',
+        'show_on_map' => true,
+        'latitude' => null,
+        'longitude' => null,
+    ]);
+
+    $response = $this->getJson('/api/v1/map/content?south=33&west=-119&north=35&east=-117');
+
+    $response->assertOk();
+    $response->assertJsonCount(0, 'businesses');
+});
+
+it('excludes inactive businesses even if opted in and geocoded', function (): void {
+    Citizen::factory()->create([
+        'business_name' => 'Closed Shop',
+        'show_on_map' => true,
+        'is_active' => false,
+        'latitude' => 34.0522,
+        'longitude' => -118.2437,
+    ]);
+
+    $response = $this->getJson('/api/v1/map/content?south=33&west=-119&north=35&east=-117');
+
+    $response->assertOk();
+    $response->assertJsonCount(0, 'businesses');
+});
+
+it('filters businesses by category', function (): void {
+    Citizen::factory()->create([
+        'business_name' => 'Maple Bakery',
+        'business_category' => 'food',
+        'show_on_map' => true,
+        'latitude' => 34.0522,
+        'longitude' => -118.2437,
+    ]);
+
+    Citizen::factory()->create([
+        'business_name' => 'Corner Hardware',
+        'business_category' => 'retail',
+        'show_on_map' => true,
+        'latitude' => 34.0530,
+        'longitude' => -118.2440,
+    ]);
+
+    $response = $this->getJson('/api/v1/map/content?south=33&west=-119&north=35&east=-117&category=food');
+
+    $response->assertOk();
+    $response->assertJsonCount(1, 'businesses');
+    $response->assertJsonPath('businesses.0.name', 'Maple Bakery');
+});
