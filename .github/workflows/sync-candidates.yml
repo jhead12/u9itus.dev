@@ -362,6 +362,59 @@ jobs:
             done
           fi
 
+      # ── U.S. Senate races (widget strategy: same per-state overview page as
+      #    House, filtered to the Senate section) ──────────────────────────
+      # Senate races were previously never scraped at all — only statewide
+      # executive offices and U.S. House were covered, so non-incumbent Senate
+      # candidates (challengers not currently seated in Congress) never made it
+      # into the DB. This mirrors the House step above but with --office=senate.
+      - name: Scrape Ballotpedia U.S. Senate candidates
+        run: |
+          YEAR="${{ github.event.inputs.election_year || '2026' }}"
+          STATES="${{ steps.args.outputs.states }}"
+          # --cache-hours=3 skips the Playwright scrape entirely if this exact
+          # output file was already written within the last 3h.
+          if [ -z "$STATES" ]; then
+            node scripts/scrape-ballotpedia.js \
+              --office=senate \
+              --strategy=widget \
+              --year="$YEAR" \
+              --fetch-websites \
+              --cache-hours=3 \
+              --out=storage/app/imports/ballotpedia-senate-${YEAR}.json
+          else
+            # scrape-ballotpedia.js's arg parser keeps only the LAST repeated
+            # --state flag (multiple --state=X --state=Y collapse to just Y),
+            # so a multi-state run loops here instead of silently only
+            # scraping the last state in the list.
+            for state in $(echo "$STATES" | tr ',' ' '); do
+              node scripts/scrape-ballotpedia.js \
+                --office=senate \
+                --strategy=widget \
+                --year="$YEAR" \
+                --fetch-websites \
+                --state=$state \
+                --cache-hours=3 \
+                --out=storage/app/imports/ballotpedia-senate-${YEAR}-$state.json
+            done
+          fi
+
+      - name: Import U.S. Senate candidates
+        run: |
+          YEAR="${{ github.event.inputs.election_year || '2026' }}"
+          STATES="${{ steps.args.outputs.states }}"
+          if [ -z "$STATES" ]; then
+            php artisan politicians:import-ballotpedia \
+              --file=storage/app/imports/ballotpedia-senate-${YEAR}.json \
+              ${{ steps.args.outputs.dry_arg }}
+          else
+            for state in $(echo "$STATES" | tr ',' ' '); do
+              php artisan politicians:import-ballotpedia \
+                --file=storage/app/imports/ballotpedia-senate-${YEAR}-$state.json \
+                ${{ steps.args.outputs.dry_arg }}
+            done
+          fi
+
       # ── OpenSecrets district finance data ─────────────────────────────────
       # Scrapes each congressional district's OpenSecrets race page to capture
       # per-candidate fundraising totals (raised, spent, cash on hand) and
