@@ -156,7 +156,7 @@
         <!-- Content -->
         <div class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20 text-center">
             <div class="space-y-6">
-                <div class="animate-fade-in-up opacity-0">
+                <div class="animate-fade-in-up opacity-0 mt-4 sm:mt-6">
                     <span class="inline-block px-4 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-full text-emerald-400 text-sm font-medium mb-4">
                         — SEE WHO'S RUNNING NEAR YOU
                     </span>
