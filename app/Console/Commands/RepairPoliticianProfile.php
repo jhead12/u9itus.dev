@@ -26,6 +26,9 @@ use Illuminate\Support\Str;
  *     CandidateIdentityLink exists.
  *  6. Re-publish (page_published = true, is_active = true) if the profile
  *     was already visible before the error.
+ *  7. Null out malformed video_links / page_settings JSON (same check as
+ *     `politicians:fix-broken-profiles`, scoped to this one profile so the
+ *     automated repair workflow actually covers this failure mode).
  *
  * Usage:
  *   php artisan politicians:repair-profile "1c8a2-united-states-representative-jefferson-shreve"
@@ -145,6 +148,16 @@ class RepairPoliticianProfile extends Command
             $repaired = true;
         }
 
+        // ── Step 5: Null out malformed video_links / page_settings JSON ──────
+        $jsonFixes = $this->buildMalformedJsonFixes($politician);
+        if ($jsonFixes !== []) {
+            $this->line('  Clearing malformed JSON columns: ' . implode(', ', array_keys($jsonFixes)));
+            if (! $dryRun) {
+                DB::table('politicians')->where('id', $politician->id)->update($jsonFixes);
+            }
+            $repaired = true;
+        }
+
         if ($repaired) {
             $this->info('Profile repaired successfully.' . ($dryRun ? ' (dry-run — no writes)' : ''));
             Log::info('politicians:repair-profile: repaired profile.', [
@@ -237,6 +250,29 @@ class RepairPoliticianProfile extends Command
 
         if (empty(trim((string) ($politician->uuid ?? '')))) {
             $fixes['uuid'] = (string) \Illuminate\Support\Str::uuid();
+        }
+
+        return $fixes;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function buildMalformedJsonFixes(Politician $politician): array
+    {
+        $fixes = [];
+
+        foreach (['video_links', 'page_settings'] as $column) {
+            $raw = DB::table('politicians')->where('id', $politician->id)->value($column);
+
+            if ($raw === null || $raw === '' || $raw === 'null') {
+                continue;
+            }
+
+            $decoded = json_decode((string) $raw, true);
+            if (json_last_error() !== JSON_ERROR_NONE || ! is_array($decoded)) {
+                $fixes[$column] = null;
+            }
         }
 
         return $fixes;

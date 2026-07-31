@@ -1024,6 +1024,23 @@ class PublicProfileController extends Controller
      */
     public function show(Request $request, string $slug)
     {
+        try {
+            return $this->doShow($request, $slug);
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpExceptionInterface $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            Log::error('Public profile 500', [
+                'slug' => $slug,
+                'error' => $e->getMessage(),
+                'file' => $e->getFile().':'.$e->getLine(),
+                'trace' => collect(explode("\n", $e->getTraceAsString()))->take(10)->implode("\n"),
+            ]);
+            abort(500);
+        }
+    }
+
+    protected function doShow(Request $request, string $slug)
+    {
         $politician = $this->resolvePublicPolitician($slug);
 
         // If still not found, throw 404
