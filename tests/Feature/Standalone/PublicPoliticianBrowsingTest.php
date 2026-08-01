@@ -473,6 +473,58 @@ test('verified public profile shows dig deeper source panels', function () {
     $response->assertSee('Federal Election Commission');
 });
 
+test('public profile renders FEC outside-spending section with no title key without crashing', function () {
+    // Reproduces the "Aaron Bean" production 500: FECService::getDisplayData()
+    // returns 'sections' as an associative array keyed by name (e.g.
+    // 'outside_spending' => ['items' => [...]]) with no 'title' key at all —
+    // unlike VoteSmart/Ballotpedia, which return a list where every entry has
+    // an explicit 'title'. profile.blade.php assumed the list shape and
+    // crashed with "Undefined array key \"title\"" on any FEC section that
+    // has items but no title.
+    $politician = Politician::factory()->create([
+        'full_name' => 'Aaron Bean',
+        'slug' => 'aaron-bean',
+        'page_published' => true,
+        'is_active' => true,
+        'verification_status' => 'verified',
+        'show_ballotpedia_data' => false,
+        'show_opensecrets_data' => false,
+        'show_votesmart_data' => false,
+        'show_fec_data' => true,
+        'political_office' => 'United States Representative',
+    ]);
+
+    app()->instance(FECService::class, new class {
+        public function getDisplayData($politician): array
+        {
+            unset($politician);
+
+            return [
+                'source' => 'Federal Election Commission',
+                'source_url' => 'https://www.fec.gov/data/candidate/H0XX00000/',
+                'sections' => [
+                    'summary' => ['receipts' => '$250,000'],
+                    'outside_spending' => ['items' => [
+                        ['spender' => 'Some PAC', 'amount' => '$10,000', 'support_oppose' => 'Support'],
+                    ]],
+                ],
+            ];
+        }
+
+        public function isFederalCandidate($politician): bool
+        {
+            unset($politician);
+
+            return true;
+        }
+    });
+
+    $response = $this->get(route('politician.public.show', ['slug' => $politician->slug]));
+
+    $response->assertOk();
+    $response->assertSee('Outside Spending');
+});
+
     test('logged in voter sees referral share toolbar on unverified profiles only', function () {
         $user = User::factory()->create([
             'user_type' => 'voter',

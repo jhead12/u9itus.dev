@@ -867,11 +867,11 @@
                         {{-- Data Sections --}}
                         @if(isset($data['sections']) && !empty($data['sections']))
                         <div class="space-y-5">
-                            @foreach($data['sections'] as $section)
+                            @foreach($data['sections'] as $sectionKey => $section)
                                 @if(!empty($section['items']))
                                 <div>
                                     <h4 class="text-sm font-semibold text-slate-300 mb-3 flex items-center justify-between">
-                                        <span>{{ $section['title'] }}</span>
+                                        <span>{{ $section['title'] ?? ucwords(str_replace('_', ' ', is_string($sectionKey) ? $sectionKey : '')) }}</span>
                                         @if(isset($section['show_more_url']))
                                                      <a href="{{ $section['show_more_url'] }}" target="_blank" rel="noopener"
                                            class="text-xs text-blue-400 hover:text-blue-300 transition">
