@@ -1035,7 +1035,11 @@ class PublicProfileController extends Controller
                 'file' => $e->getFile().':'.$e->getLine(),
                 'trace' => collect(explode("\n", $e->getTraceAsString()))->take(10)->implode("\n"),
             ]);
-            abort(500);
+            // Rethrow (not abort(500)) so the global exception reporter in
+            // bootstrap/app.php sees the original non-HTTP throwable and
+            // dispatches the auto-repair workflow. abort(500) would wrap it
+            // in an HttpException, which that reporter explicitly ignores.
+            throw $e;
         }
     }
 
