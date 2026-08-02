@@ -302,7 +302,7 @@ function buildDirectRaceList(indexes) {
 }
 
 /** Delay between page requests to avoid hammering Ballotpedia. */
-const DELAY_MS = 800;
+const DELAY_MS = 1500;
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -381,16 +381,13 @@ async function runIndexStrategy(indexes, newPage, allCandidates) {
 
       if (STATE_FILTER && stateAbbr !== STATE_FILTER) continue;
 
-      const racePage = await newPage();
       let raceData;
       try {
-        raceData = await scrapeRacePage(racePage, raceUrl, chamberConfig.key, WITH_RESULTS);
+        raceData = await scrapeRacePageWithRetry(newPage, raceUrl, chamberConfig.key, WITH_RESULTS);
       } catch (err) {
         console.warn(`  ✗ Skipped ${raceUrl}: ${err.message}`);
-        await racePage.context().close();
         continue;
       }
-      await racePage.context().close();
 
       const { pageTitle, candidates } = raceData;
       const district = chamberConfig.key === 'house'
@@ -526,7 +523,18 @@ async function scrapeRacePage(page, raceUrl, chamber, withResults = false) {
   // / AdSense / lazy-image requests, so 'networkidle' never settles and the
   // navigation hits the full timeout. The DOM (tables, headings, anchors) we
   // evaluate below is fully present after DOMContentLoaded.
-  await page.goto(raceUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+  const response = await page.goto(raceUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+
+  // Ballotpedia's CloudFront/AWS WAF sometimes answers with HTTP 202 and an
+  // empty placeholder body (a JS bot-challenge) instead of the real article —
+  // confirmed manually via curl (x-amzn-waf-action: challenge header) on
+  // 2026-08-02. Without this check that page evaluates to 0 candidates with
+  // NO thrown error, so it silently disappears (no ✗ log line) instead of
+  // being retried. Throw so scrapeRacePageWithRetry's retry loop catches it.
+  if (response && response.status() === 202) {
+    throw new Error(`WAF challenge response (HTTP 202) for ${raceUrl}`);
+  }
+
   await sleep(DELAY_MS);
 
   return page.evaluate((args) => {
@@ -703,6 +711,38 @@ async function scrapeRacePage(page, raceUrl, chamber, withResults = false) {
 
     return { pageTitle, candidates: results };
   }, { raceUrl, ELECTION_YEAR, withResults });
+}
+
+/**
+ * scrapeRacePage() wrapped with retry-on-navigation-destroyed.
+ *
+ * "page.evaluate: Execution context was destroyed, most likely because of a
+ * navigation" happens when Ballotpedia's CloudFront/WAF serves a JS bot-check
+ * page instead of the real article — its script redirects to the real page a
+ * moment later, which invalidates whatever context Playwright had already
+ * grabbed a handle to. Confirmed manually (2026-08-02): re-requesting the
+ * exact same URL a few seconds later succeeds cleanly, so this is a transient
+ * challenge, not a broken URL — retrying (with a fresh page/context, since a
+ * destroyed context can't be reused) recovers the large majority of these.
+ *
+ * @param {Function} newPage - factory returning a fresh Playwright page
+ */
+async function scrapeRacePageWithRetry(newPage, raceUrl, chamber, withResults, maxAttempts = 3) {
+  let lastErr;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const page = await newPage();
+    try {
+      return await scrapeRacePage(page, raceUrl, chamber, withResults);
+    } catch (err) {
+      lastErr = err;
+      const retriable = /Execution context was destroyed|Target closed|Target page.*closed|net::ERR_|WAF challenge/i.test(err.message);
+      if (!retriable || attempt === maxAttempts) throw err;
+      await sleep(4000 * attempt); // 4s, 8s, ... back off further each attempt
+    } finally {
+      await page.context().close();
+    }
+  }
+  throw lastErr;
 }
 
 /**
@@ -1091,21 +1131,43 @@ async function main() {
     const allRaces     = [...directRaces, ...houseRaces];
     console.log(`  [direct] ${allRaces.length} race URLs to visit across all states.\n`);
 
+    // Circuit breaker: a handful of consecutive WAF-challenge failures (even
+    // after scrapeRacePageWithRetry's own short retries) means we've tripped
+    // Ballotpedia's rate-based bot detection for real, not hit a one-off
+    // blip — no amount of 2-6s per-request backoff clears that. Pause the
+    // whole run for a longer cool-down instead of burning through the rest
+    // of the list at a ~0% success rate. Confirmed manually (2026-08-02):
+    // hammering this IP with dozens of requests over an hour got EVERY
+    // subsequent request 202-challenged even with retries — this is the
+    // mitigation for that failure mode.
+    const COOLDOWN_THRESHOLD = 4;
+    const COOLDOWN_MS = 90_000;
+    let consecutiveFailures = 0;
+
     for (const { url: raceUrl, stateAbbr, stateName, chamberConfig, district } of allRaces) {
-      const racePage = await newPage();
       let raceData;
       try {
-        raceData = await scrapeRacePage(racePage, raceUrl, chamberConfig.key, WITH_RESULTS);
+        raceData = await scrapeRacePageWithRetry(newPage, raceUrl, chamberConfig.key, WITH_RESULTS);
+        consecutiveFailures = 0;
       } catch (err) {
         // A 404 means this state simply doesn't have this office (e.g. TX has no Lt. Gov.
-        // in the same pattern) — silently skip rather than warn.
-        if (!err.message.includes('404') && !err.message.includes('net::ERR')) {
+        // in the same pattern) — silently skip rather than warn. (Navigation-destroyed /
+        // WAF-challenge errors already retried inside scrapeRacePageWithRetry before
+        // landing here — reaching this catch means those retries were exhausted too.)
+        const isRetriableType = /Execution context was destroyed|WAF challenge|Target closed|net::ERR_/i.test(err.message);
+        if (!err.message.includes('404')) {
           console.warn(`  ✗ ${stateAbbr} ${district ?? chamberConfig.key}: ${err.message}`);
         }
-        await racePage.context().close();
+        if (isRetriableType) {
+          consecutiveFailures++;
+          if (consecutiveFailures >= COOLDOWN_THRESHOLD) {
+            console.log(`  ⏸ ${consecutiveFailures} consecutive failures — likely rate-limited. Cooling down ${COOLDOWN_MS / 1000}s…`);
+            await sleep(COOLDOWN_MS);
+            consecutiveFailures = 0;
+          }
+        }
         continue;
       }
-      await racePage.context().close();
 
       const { candidates } = raceData;
       if (candidates.length === 0) continue;
