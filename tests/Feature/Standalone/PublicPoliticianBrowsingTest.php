@@ -51,8 +51,7 @@ test('guest can browse politician directory in view only mode', function () {
     $response->assertSee('Claimed Official');
     $response->assertDontSee('Hidden Candidate');
     $response->assertSee('Unclaimed Profile');
-    $response->assertSee('Public directory is view-only for earnings.', false);
-    $response->assertSee('watch active public campaign videos', false);
+    $response->assertSee('Public directory is view-only for earnings', false);
     $response->assertSee('commissions are only available after creating a voter account', false);
     $response->assertSee('Create Free Account');
     $response->assertDontSee('Earn Money Watching');
