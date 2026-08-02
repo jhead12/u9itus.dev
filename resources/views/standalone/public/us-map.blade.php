@@ -448,7 +448,7 @@
        aria-expanded="true" aria-controls="panel-candidates"
        onclick="toggleOfficesSection()"
        onkeydown="if(event.key==='Enter'||event.key===' ')toggleOfficesSection()">
-        <span>Statewide Executive Offices</span>
+        <span>Statewide &amp; Federal Offices</span>
         <i class="panel-label-chevron">&#9660;</i>
     </p>
     <div id="panel-candidates">

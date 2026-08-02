@@ -111,6 +111,7 @@ export const PARTY_LABEL = {
 export const DISTRICT_PARTY_MAP = {};
 
 export const OFFICE_ROLES = {
+    'U.S. Senators':      'Represents the entire state in the U.S. Senate for a 6-year term. Each state elects two, who vote on federal legislation, confirm presidential nominees, and ratify treaties.',
     'Governor':           'Chief executive of the state. Signs or vetoes legislation, commands the National Guard, and oversees all state agencies.',
     'Lieutenant Governor':'Second-in-command; presides over the state senate in many states and assumes the governorship if needed.',
     'Attorney General':   "State's chief law-enforcement officer — represents the state in litigation and leads consumer-protection efforts.",
