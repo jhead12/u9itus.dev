@@ -71,6 +71,38 @@ class RegistrationController extends Controller
         return redirect()->route('register.closed');
     }
 
+    /**
+     * Resolve referred_by_voter_id / referred_by_politician_id from an
+     * Early-bank member UUID by looking up whichever U9itus profile owns that
+     * EB membership. Used as a fallback when resolveReferrerIds() found
+     * nothing from an internal referral_code — the EB-branded share links
+     * only carry a member UUID, not a referral_code.
+     *
+     * Note: Citizens have no referred_by_citizen_id column anywhere in the
+     * schema, so a citizen's own EB membership can never be resolved as a
+     * referrer here — only Voter and Politician are supported referrer types.
+     *
+     * @return array{referred_by_voter_id: int|null, referred_by_politician_id: int|null}
+     */
+    private function resolveEarlyBankReferrer(?string $ebMemberId): array
+    {
+        if ($ebMemberId === null) {
+            return ['referred_by_voter_id' => null, 'referred_by_politician_id' => null];
+        }
+
+        $voter = Voter::where('earlybank_own_member_uuid', $ebMemberId)->first();
+        if ($voter) {
+            return ['referred_by_voter_id' => $voter->id, 'referred_by_politician_id' => null];
+        }
+
+        $politician = Politician::where('earlybank_own_member_uuid', $ebMemberId)->first();
+        if ($politician) {
+            return ['referred_by_voter_id' => null, 'referred_by_politician_id' => $politician->id];
+        }
+
+        return ['referred_by_voter_id' => null, 'referred_by_politician_id' => null];
+    }
+
     // -------------------------------------------------------------------------
     // Role Chooser
     // -------------------------------------------------------------------------
@@ -180,10 +212,8 @@ class RegistrationController extends Controller
         }
 
         if ($referredByVoterId === null && $referredByPoliticianId === null && $ebMemberId !== null) {
-            $ebReferrerVoter = Voter::where('earlybank_own_member_uuid', $ebMemberId)->first();
-            if ($ebReferrerVoter) {
-                $referredByVoterId = $ebReferrerVoter->id;
-            }
+            ['referred_by_voter_id' => $referredByVoterId, 'referred_by_politician_id' => $referredByPoliticianId] =
+                $this->resolveEarlyBankReferrer($ebMemberId);
         }
 
         $politicianPayload = [
@@ -304,10 +334,8 @@ class RegistrationController extends Controller
         }
 
         if ($referredByVoterId === null && $referredByPoliticianId === null && $ebMemberId !== null) {
-            $ebReferrerVoter = Voter::where('earlybank_own_member_uuid', $ebMemberId)->first();
-            if ($ebReferrerVoter) {
-                $referredByVoterId = $ebReferrerVoter->id;
-            }
+            ['referred_by_voter_id' => $referredByVoterId, 'referred_by_politician_id' => $referredByPoliticianId] =
+                $this->resolveEarlyBankReferrer($ebMemberId);
         }
 
         $citizen = Citizen::create([
@@ -478,11 +506,10 @@ class RegistrationController extends Controller
         // UUID so referred_by_voter_id (and therefore the "Referred Voters"
         // list) stays in sync with who actually gets EB commission credit.
         if ($referredByVoterId === null && $referredByPoliticianId === null && $ebMemberId !== null) {
-            $ebReferrerVoter = Voter::where('earlybank_own_member_uuid', $ebMemberId)->first();
-            if ($ebReferrerVoter) {
-                $referredByVoterId = $ebReferrerVoter->id;
-                $voterPayload['referred_by_voter_id'] = $referredByVoterId;
-            }
+            ['referred_by_voter_id' => $referredByVoterId, 'referred_by_politician_id' => $referredByPoliticianId] =
+                $this->resolveEarlyBankReferrer($ebMemberId);
+            $voterPayload['referred_by_voter_id']      = $referredByVoterId;
+            $voterPayload['referred_by_politician_id'] = $referredByPoliticianId;
         }
 
         // A guest's existing Voter row still carries the sentinel guest email,

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreVoterRequest;
 use App\Http\Resources\VoterResource;
 use App\Http\Resources\ViewSessionResource;
+use App\Models\Politician;
 use App\Models\Voter;
 use App\Models\VoterApiToken;
 use App\Models\ViewSession;
@@ -62,12 +63,20 @@ class VoterController extends Controller
 
             // EB share links only carry a member UUID, not a referral_code, so
             // the referral_code lookup above never resolves a referrer for them.
-            // Fall back to the voter who owns this EB member UUID so
-            // referred_by_voter_id stays in sync with who gets EB commission credit.
-            if (empty($validated['referred_by_voter_id'])) {
+            // Fall back to whichever profile owns this EB member UUID so
+            // referred_by_voter_id/referred_by_politician_id stays in sync with
+            // who gets EB commission credit. Citizens have no
+            // referred_by_citizen_id column anywhere, so they can't be
+            // resolved as a referrer here.
+            if (empty($validated['referred_by_voter_id']) && empty($validated['referred_by_politician_id'])) {
                 $ebReferrerVoter = Voter::where('earlybank_own_member_uuid', $earlybankMemberId)->first();
                 if ($ebReferrerVoter) {
                     $validated['referred_by_voter_id'] = $ebReferrerVoter->id;
+                } else {
+                    $ebReferrerPolitician = Politician::where('earlybank_own_member_uuid', $earlybankMemberId)->first();
+                    if ($ebReferrerPolitician) {
+                        $validated['referred_by_politician_id'] = $ebReferrerPolitician->id;
+                    }
                 }
             }
         }

@@ -129,3 +129,27 @@ test('registering as a politician via the EB member UUID link attributes referre
     expect($politician->referred_by_voter_id)->toBe($referrer->id);
     expect($politician->earlybank_member_id)->toBe($ebMemberUuid);
 });
+
+test('registering via a politician-owned EB member UUID attributes referred_by_politician_id, not just voters', function () {
+    Role::firstOrCreate(['name' => 'voter', 'guard_name' => 'web']);
+
+    $ebMemberUuid = (string) Str::uuid();
+    $referrer = Politician::factory()->create(['earlybank_own_member_uuid' => $ebMemberUuid]);
+
+    $this->withCookie(CaptureEarlyBankReferral::COOKIE_NAME, $ebMemberUuid)
+        ->post(route('register.voter.submit'), [
+            'first_name' => 'New',
+            'last_name' => 'Signup',
+            'email' => 'new-eb-politician-referral@example.test',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+            'zip_code' => '30301',
+            'terms' => '1',
+        ])->assertRedirect();
+
+    $newVoter = Voter::where('email', 'new-eb-politician-referral@example.test')->firstOrFail();
+
+    expect($newVoter->referred_by_politician_id)->toBe($referrer->id);
+    expect($newVoter->referred_by_voter_id)->toBeNull();
+    expect($newVoter->earlybank_member_id)->toBe($ebMemberUuid);
+});
