@@ -205,7 +205,7 @@
                                 <div class="w-8 h-8 rounded-full bg-emerald-900/40 flex items-center justify-center text-emerald-400 text-xs font-bold shrink-0">
                                     {{ strtoupper(substr($voter->full_name ?? '?', 0, 1)) }}
                                 </div>
-                                <span class="text-white">{{ $voter->full_name ?? 'Anonymous' }}</span>
+                                <span class="text-white">{{ \App\Support\Name::firstNameLastInitial($voter->full_name) }}</span>
                             </div>
                         </td>
                         <td class="px-5 py-4 text-slate-300">{{ $voter->total_views ?? 0 }}</td>
@@ -240,7 +240,7 @@
                                 <div class="w-8 h-8 rounded-full bg-amber-900/40 flex items-center justify-center text-amber-400 text-xs font-bold shrink-0">
                                     {{ strtoupper(substr($pol->full_name ?? '?', 0, 1)) }}
                                 </div>
-                                <span class="text-white">{{ $pol->full_name ?? 'Anonymous' }}</span>
+                                <span class="text-white">{{ \App\Support\Name::firstNameLastInitial($pol->full_name) }}</span>
                             </div>
                         </td>
                         <td class="px-5 py-4 text-slate-400 text-sm">{{ $pol->political_office ?? '—' }}</td>

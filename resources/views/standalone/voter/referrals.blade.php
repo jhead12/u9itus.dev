@@ -175,7 +175,7 @@
                                 <div class="w-8 h-8 rounded-full bg-emerald-900/40 flex items-center justify-center text-emerald-400 text-xs font-bold shrink-0">
                                     {{ strtoupper(substr($referred->full_name ?? '?', 0, 1)) }}
                                 </div>
-                                <span class="text-white">{{ $referred->full_name ?? 'Anonymous' }}</span>
+                                <span class="text-white">{{ \App\Support\Name::firstNameLastInitial($referred->full_name) }}</span>
                             </div>
                         </td>
                         <td class="px-5 py-4 text-slate-400 text-sm">{{ $referred->created_at?->format('M j, Y') }}</td>
@@ -209,7 +209,7 @@
                                 <div class="w-8 h-8 rounded-full bg-amber-900/40 flex items-center justify-center text-amber-400 text-xs font-bold shrink-0">
                                     {{ strtoupper(substr($politician->full_name ?? '?', 0, 1)) }}
                                 </div>
-                                <span class="text-white">{{ $politician->full_name ?? 'Anonymous' }}</span>
+                                <span class="text-white">{{ \App\Support\Name::firstNameLastInitial($politician->full_name) }}</span>
                             </div>
                         </td>
                         <td class="px-5 py-4 text-slate-400">{{ $politician->political_office ?? '—' }}</td>
