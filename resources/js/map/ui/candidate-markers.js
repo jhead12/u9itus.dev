@@ -106,7 +106,7 @@ export function buildCandidateMarkers(stateName) {
         const safeName = cand.full_name || 'Candidate';
         el.setAttribute('aria-label', `${safeName} — ${cand.office} — ${capitalName}`);
         const partyDot = cand.party ? cand.party.charAt(0).toUpperCase() : 'U';
-        const dotColor = PARTY_HEX[partyDot] || '#64748b';
+        const dotColor = PARTY_HEX[partyDot] || '#a7b4c7';
         const statusClass = cand.status === 'seated' ? 'seated' : 'running';
         el.innerHTML =
             `<span class="cand-dot-ring" style="--cand-color:${dotColor}">` +

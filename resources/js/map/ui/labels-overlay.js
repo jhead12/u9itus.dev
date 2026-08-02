@@ -33,7 +33,7 @@ export function buildDistrictLabels(stateName) {
         const seated = cands.find(c => c.status === 'seated') ?? cands[0] ?? null;
         const name = seated?.full_name ?? '';
         const party = mesh.userData.party || 'U';
-        const dotClr = PARTY_HEX[party] || '#64748b';
+        const dotClr = PARTY_HEX[party] || '#a7b4c7';
 
         const el = document.createElement('button');
         el.className = 'map-label';

@@ -13,6 +13,7 @@ const polDrawerClose = document.getElementById('pol-drawer-close');
 const polHeroEl = document.getElementById('pol-hero');
 const polBodyEl = document.getElementById('pol-body');
 const polTabBtns = polDrawer?.querySelectorAll('.pol-tab') ?? [];
+const toastEl = document.getElementById('map-toast');
 let _polTab = 'overview';
 let _polCtx = null;
 let _overviewReqSeq = 0;
@@ -27,6 +28,59 @@ function escapeHtml(value) {
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
+}
+
+/**
+ * Most openPolDrawer() call sites don't pass extra.districtNumber explicitly
+ * (only the district-panel candidate-card click does) — but the district key
+ * ("FL-13") reliably shows up in one of: c.district (explicit field set by
+ * panel-district.js's candidate build), extra.district (city-view nearest
+ * district), or embedded in the candidate's office string ("U.S.
+ * Representative — FL-13"). Note office text is NOT reliable when it holds a
+ * human label instead ("U.S. Representative — District 13"), which is why
+ * c.district/extra.district are checked first.
+ */
+function deriveDistrictNumber(c, extra, stateAbbr) {
+    if (extra?.districtNumber) return extra.districtNumber;
+    const source = c?.district || extra?.district || c?.office || '';
+    const match = source.match(/([A-Z]{2})-(\d+|AL)\b/);
+    if (!match) return null;
+    if (stateAbbr && match[1] !== stateAbbr) return null;
+    return match[2];
+}
+
+function showToast(message, type = 'info') {
+    if (!toastEl) return;
+    toastEl.textContent = message;
+    toastEl.className = 'map-toast visible ' + type;
+    setTimeout(() => toastEl.classList.remove('visible'), 3500);
+}
+
+async function shareDistrictLink(button) {
+    const url = button.dataset.shareUrl;
+    const label = button.dataset.shareLabel || 'this district';
+    if (!url) return;
+
+    trackEvent('district_share_click', { district_label: label, state: activeState || null });
+
+    const shareData = { title: `${label} on U9itus`, text: `Check out ${label} on U9itus`, url };
+    if (navigator.share) {
+        try {
+            await navigator.share(shareData);
+            return;
+        } catch (error) {
+            if (!error || error.name === 'AbortError') return;
+        }
+    }
+
+    try {
+        if (navigator.clipboard && window.isSecureContext) {
+            await navigator.clipboard.writeText(url);
+            showToast('Share link copied to clipboard', 'info');
+        }
+    } catch (error) {
+        console.error('[map] shareDistrictLink: failed to copy link', error);
+    }
 }
 
 function safeUrl(url) {
@@ -333,7 +387,7 @@ function renderMomentCard(moment) {
                     referrerpolicy="strict-origin-when-cross-origin"
                     allowfullscreen></iframe>
             </div>
-            <div style="padding:8px 10px;font-size:11px;color:#64748b;">${views}Source: ${source}</div>
+            <div style="padding:8px 10px;font-size:11px;color:#a7b4c7;">${views}Source: ${source}</div>
         </div>`;
 }
 
@@ -379,7 +433,7 @@ function renderIndustryBars(industries) {
             <div class="pol-industry-row">
                 <div class="pol-industry-label">
                     <span>${escapeHtml(ind.name)}</span>
-                    <span style="color:#64748b;">${escapeHtml(ind.total_display || '')}</span>
+                    <span style="color:#a7b4c7;">${escapeHtml(ind.total_display || '')}</span>
                 </div>
                 <div class="pol-industry-track">
                     <div class="pol-industry-fill" style="width:${Math.max(0, Math.min(100, ind.pct || 0))}%"></div>
@@ -395,7 +449,7 @@ function renderContributors(contributors) {
             ${contributors.map(c => `
                 <div style="display:flex;justify-content:space-between;gap:8px;padding:6px 10px;border-radius:8px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);">
                     <span style="font-size:11px;color:#cbd5e1;">${escapeHtml(c.name)}</span>
-                    <span style="font-size:11px;color:#64748b;font-weight:600;">${escapeHtml(c.total_display || '')}</span>
+                    <span style="font-size:11px;color:#a7b4c7;font-weight:600;">${escapeHtml(c.total_display || '')}</span>
                 </div>`).join('')}
         </div>`;
 }
@@ -573,7 +627,7 @@ function _renderPolBody() {
                         : `<div style="width:40px;height:40px;border-radius:50%;background:rgba(99,102,241,0.15);display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;">${window.avatarInitials(rep.full_name, '#6366f1', 40)}</div>`}
                     <div>
                         <div style="font-size:13px;font-weight:600;color:#e2e8f0;">${rep.full_name}</div>
-                        <div style="font-size:11px;color:#64748b;margin-top:2px;">${repOffice}</div>
+                        <div style="font-size:11px;color:#a7b4c7;margin-top:2px;">${repOffice}</div>
                         <span class="party-pill ${partyClass(rep.party)}" style="margin-top:5px;display:inline-block;">${PARTY_LABEL[rep.party] || rep.party || '—'}</span>
                     </div>
                 </div>` : ''}`;
@@ -612,7 +666,7 @@ function _renderPolBody() {
             ? `<div class="pol-bio-facts" style="margin-top:${c.bio ? '10px' : '0'};display:flex;flex-direction:column;gap:4px;">
                 ${bioFacts.map(([label, value]) => `
                     <div style="display:flex;gap:6px;font-size:12px;line-height:1.5;">
-                        <span style="color:#64748b;font-weight:600;flex-shrink:0;">${escapeHtml(label)}:</span>
+                        <span style="color:#a7b4c7;font-weight:600;flex-shrink:0;">${escapeHtml(label)}:</span>
                         <span style="color:#cbd5e1;">${escapeHtml(value)}</span>
                     </div>
                 `).join('')}
@@ -655,7 +709,7 @@ function _renderPolBody() {
                             referrerpolicy="strict-origin-when-cross-origin"
                             allowfullscreen></iframe>
                     </div>
-                    <div style="padding:8px 10px;font-size:11px;color:#64748b;">Source: ${videoSource}</div>
+                    <div style="padding:8px 10px;font-size:11px;color:#a7b4c7;">Source: ${videoSource}</div>
                 </div>`;
         }
 
@@ -875,8 +929,8 @@ function _renderPolBody() {
         if (c.ballotpedia_url) links.push(`<a href="${c.ballotpedia_url}" target="_blank" rel="noopener" class="pol-link pol-link-alt">Ballotpedia →</a>`);
 
         const stateAbbr = activeState ? STATE_ABBR_MAP[activeState] : null;
+        const districtNumber = deriveDistrictNumber(c, extra, stateAbbr);
         if (stateAbbr) {
-            const districtNumber = extra?.districtNumber;
             const browseUrl = districtNumber
                 ? `/politicians?state=${encodeURIComponent(stateAbbr)}&district=${encodeURIComponent(districtNumber)}&status=running`
                 : `/politicians?state=${encodeURIComponent(stateAbbr)}&status=running`;
@@ -886,13 +940,31 @@ function _renderPolBody() {
             links.push(`<a href="${browseUrl}" class="pol-link pol-link-alt">${browseLabel}</a>`);
         }
 
+        // District share link mirrors the __mapGoTo deep-link params (deep-link.js)
+        // so recipients land back on this exact district. The viewer's referral
+        // code (window.U9.session, hydrated from the `u9-ref-code` meta tag) is
+        // attached so a signup from the shared link gets attributed to them.
+        const districtLabel = stateAbbr
+            ? (districtNumber ? `${stateAbbr}-${districtNumber}` : stateAbbr)
+            : null;
+        if (districtLabel) {
+            const shareParams = new URLSearchParams();
+            shareParams.set('state', stateAbbr);
+            if (districtNumber) shareParams.set('district', districtNumber);
+            if (c.slug) shareParams.set('slug', c.slug);
+            const refCode = window.U9?.session?.referralCode;
+            if (refCode) shareParams.set('ref', refCode);
+            const shareUrl = `${window.location.origin}/map?${shareParams.toString()}`;
+            links.push(`<button type="button" class="pol-link pol-link-alt pol-share-btn" data-share-url="${escapeHtml(shareUrl)}" data-share-label="${escapeHtml(districtLabel)}">🔗 Share ${escapeHtml(districtLabel)}</button>`);
+        }
+
         polBodyEl.innerHTML = `
             <p class="pol-section-label">Links &amp; Resources</p>
             ${links.length
                 ? `<div class="pol-link-row">${links.join('')}</div>`
                 : `<p class="pol-empty">No contact links available for this candidate yet.</p>`}
             <p class="pol-section-label" style="margin-top:20px;">District Region</p>
-            <p style="font-size:12px;color:#64748b;line-height:1.55;">
+            <p style="font-size:12px;color:#a7b4c7;line-height:1.55;">
                 Population data, demographic breakdowns, and local economic indicators are
                 displayed in the <strong style="color:#94a3b8;">Overview</strong> and <strong style="color:#94a3b8;">Economy</strong> tabs.
                 Cultural and civic data layers are accessible from the <strong style="color:#94a3b8;">Layers</strong> panel on the map.
@@ -923,11 +995,16 @@ export function initPolDrawer() {
     // discarded along with the old content.
     polDrawer.addEventListener('click', e => {
         const link = e.target.closest('a[data-article-url]');
-        if (!link || link.classList.contains('visited')) return;
-        markArticleVisited(link.dataset.articleUrl);
-        link.classList.add('visited');
-        const headline = link.querySelector('.pol-article-headline');
-        if (headline) headline.insertAdjacentHTML('afterbegin', '<span class="pol-article-check">✓</span> ');
+        if (link && !link.classList.contains('visited')) {
+            markArticleVisited(link.dataset.articleUrl);
+            link.classList.add('visited');
+            const headline = link.querySelector('.pol-article-headline');
+            if (headline) headline.insertAdjacentHTML('afterbegin', '<span class="pol-article-check">✓</span> ');
+            return;
+        }
+
+        const shareBtn = e.target.closest('[data-share-url]');
+        if (shareBtn) shareDistrictLink(shareBtn);
     });
 
     polDrawerClose.addEventListener('click', closePolDrawer);

@@ -77,7 +77,7 @@ export function renderCandidate(c, color) {
         catch { return null; }
     })() : null;
     const elBadge = (c.is_running && elDateStr)
-        ? `<span style="color:#64748b;font-size:9px;margin-left:4px;">📅 ${elDateStr}</span>`
+        ? `<span style="color:#a7b4c7;font-size:9px;margin-left:4px;">📅 ${elDateStr}</span>`
         : '';
     const st = c.status === 'seated' ? `<span class="status-seated">● Seated</span>` : c.is_running ? `<span class="status-running">● Running 2026</span>${elBadge}` : '';
     const vf = c.verified ? `<span class="verified-badge">✓ Verified</span>` : '';
@@ -140,7 +140,7 @@ export function renderOfficeGroup(g, roles, color) {
                 <span style="color:#f59e0b;">⏳</span>
                 <span style="color:#94a3b8;">
                   ${c.term_end ? `<strong style="color:#e2e8f0;">Term ends ${c.term_end}</strong>` : ''}
-                  ${c.term_note ? `<span style="color:#64748b;"> &nbsp;·&nbsp; ${c.term_note}</span>` : ''}
+                  ${c.term_note ? `<span style="color:#a7b4c7;"> &nbsp;·&nbsp; ${c.term_note}</span>` : ''}
                 </span>
                </div>`
             : '';
@@ -148,7 +148,7 @@ export function renderOfficeGroup(g, roles, color) {
     }).join('');
 
     const candidatesHtml = running.length
-        ? `<p style="color:#475569;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin:10px 0 6px;">${runningLabel}</p>
+        ? `<p style="color:#94a3b8;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin:10px 0 6px;">${runningLabel}</p>
            ${running.map(c => renderCandidate({ ...c, office: g.office }, color)).join('')}`
         : '';
 
@@ -170,13 +170,13 @@ export function renderOfficeGroup(g, roles, color) {
             <span style="display:flex;align-items:center;gap:6px;flex:1;min-width:0;">
               <span>🏛&nbsp;${g.office}</span>
               ${nextElStr ? `<span style="background:#f59e0b18;border:1px solid #f59e0b44;border-radius:4px;padding:1px 6px;font-size:9px;font-weight:600;color:#f59e0b;white-space:nowrap;">📅 ${nextElStr}</span>` : ''}
-              <span class="name-summary" style="font-weight:400;opacity:.55;font-size:9px;margin-left:4px;text-transform:none;letter-spacing:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:120px;display:${isOpen ? 'none' : 'inline-block'};vertical-align:middle;">${allNames}</span>
+              <span class="name-summary" style="font-weight:400;font-size:9px;margin-left:4px;text-transform:none;letter-spacing:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:120px;display:${isOpen ? 'none' : 'inline-block'};vertical-align:middle;">${allNames}</span>
             </span>
             <span class="chevron">▾</span>
         </div>
         <div class="office-body">
             ${role ? `<p class="office-role-tip">${role}</p>` : ''}
-            ${seated.length ? `<p style="color:#475569;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin:0 0 6px;">Current Officeholder</p>` : ''}
+            ${seated.length ? `<p style="color:#94a3b8;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin:0 0 6px;">Current Officeholder</p>` : ''}
             ${seatedHtml}
             ${candidatesHtml}
         </div>
@@ -223,7 +223,7 @@ export function renderBallotMeasuresSection(ballotMeasures, color) {
     ballotMeasures.forEach((m, i) => {
         const label = [m.measure_number, m.title].filter(Boolean).join(' — ');
         const dateLine = m.election_date
-            ? `<p style="color:#64748b;font-size:10px;margin:2px 0 0;">${escapeHtml(new Date(m.election_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }))}</p>`
+            ? `<p style="color:#a7b4c7;font-size:10px;margin:2px 0 0;">${escapeHtml(new Date(m.election_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }))}</p>`
             : '';
         const summaryLine = m.summary
             ? `<p style="color:#94a3b8;font-size:11px;line-height:1.5;margin:4px 0 0;">${escapeHtml(m.summary)}</p>`
@@ -231,7 +231,7 @@ export function renderBallotMeasuresSection(ballotMeasures, color) {
 
         const hasDetail = Boolean(m.yes_meaning || m.no_meaning || m.status || m.source_url || m.detail_url);
         const statusLine = m.status
-            ? `<p style="color:#64748b;font-size:10px;text-transform:uppercase;letter-spacing:.05em;margin:0 0 6px;">Status: ${escapeHtml(m.status)}</p>`
+            ? `<p style="color:#a7b4c7;font-size:10px;text-transform:uppercase;letter-spacing:.05em;margin:0 0 6px;">Status: ${escapeHtml(m.status)}</p>`
             : '';
         const yesNoHtml = (m.yes_meaning || m.no_meaning) ? `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px;">
                 ${m.yes_meaning ? `<div><p style="color:#34d399;font-size:9px;font-weight:700;text-transform:uppercase;margin:0 0 2px;">A "Yes" Vote</p><p style="color:#94a3b8;font-size:11px;line-height:1.5;margin:0;">${escapeHtml(m.yes_meaning)}</p></div>` : ''}
@@ -346,7 +346,7 @@ export async function openStatePanel(stateName, regionName, region, districtCoun
                         <span style="font-size:14px;">⚠️</span>
                         <div>
                           <span style="color:#a78bfa;font-size:11px;font-weight:600;">DATA UNREACHABLE</span>
-                          <span style="color:#64748b;font-size:11px;"> · Showing preview data. Live records are unavailable right now.</span>
+                          <span style="color:#a7b4c7;font-size:11px;"> · Showing preview data. Live records are unavailable right now.</span>
                         </div>
                       </div>`,
     };
@@ -356,12 +356,12 @@ export async function openStatePanel(stateName, regionName, region, districtCoun
     if (districtCount > 0) {
         const expected = DISTRICT_COUNTS[stateName] || districtCount;
         const popLine = (data?.population)
-            ? `<p style="color:#475569;font-size:11px;margin:4px 0 0;">👥 State population: <strong style="color:#e2e8f0;">${data.population.formatted}</strong> <span style="opacity:.6">(${data.population.census_year} Census)</span></p>`
+            ? `<p style="color:#94a3b8;font-size:11px;margin:4px 0 0;">👥 State population: <strong style="color:#e2e8f0;">${data.population.formatted}</strong> <span style="opacity:.6">(${data.population.census_year} Census)</span></p>`
             : '';
         html += `<div style="background:${color}0f;border:1px solid ${color}33;border-radius:8px;padding:10px 12px;margin-bottom:14px;">
             <p style="color:${color};font-size:12px;font-weight:600;margin:0 0 4px;">🗺 ${districtCount} of ${expected} Congressional Districts loaded</p>
-            <p style="color:#475569;font-size:11px;margin:0 0 4px;">${DISTRICT_CONFIG.congress_label} district boundaries</p>
-            <p style="color:#475569;font-size:11px;margin:0;">Click any district on the map to view its U.S. House candidates</p>
+            <p style="color:#94a3b8;font-size:11px;margin:0 0 4px;">${DISTRICT_CONFIG.congress_label} district boundaries</p>
+            <p style="color:#94a3b8;font-size:11px;margin:0;">Click any district on the map to view its U.S. House candidates</p>
             ${popLine}
         </div>`;
     }
@@ -424,7 +424,11 @@ export function initCandidateCardClick() {
         try {
             const raw = card.dataset.candidate || '';
             const c = JSON.parse(decodeURIComponent(raw));
-            const _dKey = (c.office || '').match(/([A-Z]{2}-(?:\d+|AL))/)?.[1] ?? null;
+            // c.district ("FL-13") is set by panel-district.js's candidate build;
+            // office text alone ("U.S. Representative — District 13") can't be
+            // regex-parsed back into a district code, so that's the fallback only
+            // for candidate shapes that don't carry the explicit field.
+            const _dKey = c.district || ((c.office || '').match(/([A-Z]{2}-(?:\d+|AL))/)?.[1] ?? null);
             openPolDrawer(c, c.color, {
                 population: _dKey ? (stateData?.district_populations?.[_dKey] ?? null) : null,
                 districtNumber: _dKey ? _dKey.split('-')[1] : null

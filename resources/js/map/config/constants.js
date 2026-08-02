@@ -87,12 +87,16 @@ for (const [regionName, region] of Object.entries(REGIONS)) {
 const _GOP  = '#ef4444';   // Republican red
 const _IND  = '#94a3b8';   // Independent grey
 
+// U (Unknown) is lighter than Independent's #94a3b8 — both read as neutral
+// gray, but #64748b previously used here fails WCAG AA (~3.7:1) as text
+// against the map's dark panel backgrounds; #a7b4c7 clears 4.5:1 comfortably
+// while staying visually distinct from I's shade.
 export const PARTY_HEX = {
-    R: '#ef4444', D: '#3b82f6', I: '#94a3b8', L: '#eab308', G: '#22c55e', U: '#64748b',
+    R: '#ef4444', D: '#3b82f6', I: '#94a3b8', L: '#eab308', G: '#22c55e', U: '#a7b4c7',
 };
 
 export const PARTY_INT = {
-    R: 0xef4444, D: 0x3b82f6, I: 0x94a3b8, L: 0xeab308, G: 0x22c55e, U: 0x64748b,
+    R: 0xef4444, D: 0x3b82f6, I: 0x94a3b8, L: 0xeab308, G: 0x22c55e, U: 0xa7b4c7,
 };
 
 export const PARTY_LABEL = {
