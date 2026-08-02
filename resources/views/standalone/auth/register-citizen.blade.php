@@ -15,6 +15,10 @@
     <style>* { font-family: 'Inter', sans-serif; }</style>
 </head>
 <body class="min-h-screen bg-slate-900 flex items-center justify-center px-4 py-10 antialiased">
+@php
+    $citizenRatePerView     = number_format((float) \App\Services\PlatformSettingsService::get('citizen_revenue_per_view', null, 0.60), 2);
+    $ballotIssueRatePerView = number_format((float) \App\Services\PlatformSettingsService::get('ballot_issue_revenue_per_view', null, 1.00), 2);
+@endphp
 
 <div class="w-full max-w-lg">
 
@@ -181,7 +185,7 @@
                 <label for="terms" class="text-sm text-slate-400">
                     I agree to the <a href="{{ route('terms') }}" class="text-amber-400 hover:text-amber-300 underline">Terms of Service</a>
                     and <a href="{{ route('privacy-policy') }}" class="text-amber-400 hover:text-amber-300 underline">Privacy Policy</a>.
-                    I understand that <strong class="text-slate-300">campaigns cost $0.75 per verified view ($1.00 for ballot issues)</strong>, standard ads auto-approve once my identity is verified, and ballot-issue campaigns always require admin review.
+                    I understand that <strong class="text-slate-300">campaigns cost ${{ $citizenRatePerView }} per verified view (${{ $ballotIssueRatePerView }} for ballot issues)</strong>, standard ads auto-approve once my identity is verified, and ballot-issue campaigns always require admin review.
                 </label>
             </div>
 

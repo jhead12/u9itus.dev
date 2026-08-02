@@ -29,7 +29,7 @@
             @include('standalone.voter.partials.earlybank-referral-cta', [
                 'returnToRoute'   => route('voter.onboarding.referrals'),
                 'upsellHeading'   => 'Want to earn referral commissions?',
-                'upsellBody'       => 'Join <strong>Early-bank</strong> for a one-time $20 fee and get a dedicated referral link. Earn a <strong class="text-indigo-300">$10 bonus</strong> each time someone you invite joins, plus <strong class="text-indigo-300">10% recurring</strong> on their U9itus viewing activity — paid weekly via Stripe.',
+                'upsellBody'       => 'Join <strong>Early-bank</strong> for a one-time $20 fee and get a dedicated referral link. Earn <strong class="text-indigo-300">10% recurring</strong> on their U9itus viewing activity — paid weekly via Stripe.',
                 'upsellFootnote'  => '',
                 'enrolledHeading' => "You're already an Early-bank member",
                 'enrolledBody'     => 'Your referral commissions flow through Early-bank. Access your referral dashboard, QR code, and weekly payout status directly below.',

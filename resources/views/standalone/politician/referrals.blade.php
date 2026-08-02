@@ -27,8 +27,7 @@
                 <p class="text-indigo-200 font-semibold text-sm">Earn from your referrals with Early-bank</p>
                 <p class="text-slate-300 text-sm mt-1">
                     Join Early-bank for a one-time $20 fee and get a dedicated referral link.
-                    Earn a <strong class="text-indigo-300">$10 bonus</strong> every time someone you invite joins,
-                    plus <strong class="text-indigo-300">10% recurring</strong> on their U9itus viewing activity.
+                    Earn <strong class="text-indigo-300">10% recurring</strong> on their U9itus viewing activity.
                 </p>
                 <p class="text-slate-500 text-xs mt-1.5">Your existing U9itus referrals are unaffected.</p>
             </div>

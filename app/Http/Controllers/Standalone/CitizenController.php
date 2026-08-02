@@ -197,7 +197,7 @@ class CitizenController extends Controller
         $citizen = Auth::user()->citizen;
         abort_unless($citizen, 403);
 
-        $citizenRate     = (float) PlatformSettingsService::get('citizen_revenue_per_view', null, 0.75);
+        $citizenRate     = (float) PlatformSettingsService::get('citizen_revenue_per_view', null, 0.60);
         $ballotIssueRate = (float) PlatformSettingsService::get('ballot_issue_revenue_per_view', null, 1.00);
 
         return view('standalone.citizen.campaigns.create', [
@@ -235,7 +235,7 @@ class CitizenController extends Controller
         $revenuePerView = (float) PlatformSettingsService::get(
             $tier . '_revenue_per_view',
             null,
-            $tier === 'ballot_issue' ? 1.00 : 0.75
+            $tier === 'ballot_issue' ? 1.00 : 0.60
         );
 
         $data['citizen_id']       = $citizen->id;
@@ -413,7 +413,7 @@ class CitizenController extends Controller
             'Only draft or cancelled campaigns can be edited.'
         );
 
-        $citizenRate     = (float) PlatformSettingsService::get('citizen_revenue_per_view', null, 0.75);
+        $citizenRate     = (float) PlatformSettingsService::get('citizen_revenue_per_view', null, 0.60);
         $ballotIssueRate = (float) PlatformSettingsService::get('ballot_issue_revenue_per_view', null, 1.00);
 
         return view('standalone.citizen.campaigns.edit', [
@@ -456,7 +456,7 @@ class CitizenController extends Controller
         $revenuePerView = (float) PlatformSettingsService::get(
             $tier . '_revenue_per_view',
             null,
-            $tier === 'ballot_issue' ? 1.00 : 0.75
+            $tier === 'ballot_issue' ? 1.00 : 0.60
         );
 
         // Always recompute total_budget from views × rate.

@@ -843,7 +843,7 @@ class VoterController extends Controller
                 ->with('info', 'You already have a Citizen profile on this account.');
         }
 
-        $citizenRate     = (float) PlatformSettingsService::get('citizen_revenue_per_view', null, 0.75);
+        $citizenRate     = (float) PlatformSettingsService::get('citizen_revenue_per_view', null, 0.60);
         $ballotIssueRate = (float) PlatformSettingsService::get('ballot_issue_revenue_per_view', null, 1.00);
 
         return view('standalone.voter.add-citizen-profile', [
