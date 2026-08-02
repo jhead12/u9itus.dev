@@ -59,6 +59,17 @@ class VoterController extends Controller
         if ($earlybankMemberId) {
             $validated['earlybank_member_id'] = $earlybankMemberId;
             $validated['earlybank_linked_at']  = now();
+
+            // EB share links only carry a member UUID, not a referral_code, so
+            // the referral_code lookup above never resolves a referrer for them.
+            // Fall back to the voter who owns this EB member UUID so
+            // referred_by_voter_id stays in sync with who gets EB commission credit.
+            if (empty($validated['referred_by_voter_id'])) {
+                $ebReferrerVoter = Voter::where('earlybank_own_member_uuid', $earlybankMemberId)->first();
+                if ($ebReferrerVoter) {
+                    $validated['referred_by_voter_id'] = $ebReferrerVoter->id;
+                }
+            }
         }
 
         $voter = Voter::create($validated);

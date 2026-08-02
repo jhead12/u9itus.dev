@@ -425,6 +425,20 @@ class RegistrationController extends Controller
             $ebMemberId = null;
         }
 
+        // The EB-branded links on /voter/referrals are the only referral links
+        // shown to voters, but they only carry an EB member UUID — not a
+        // referral_code — so resolveReferrerIds() above never resolves a
+        // referrer from them. Fall back to the voter who owns this EB member
+        // UUID so referred_by_voter_id (and therefore the "Referred Voters"
+        // list) stays in sync with who actually gets EB commission credit.
+        if ($referredByVoterId === null && $referredByPoliticianId === null && $ebMemberId !== null) {
+            $ebReferrerVoter = Voter::where('earlybank_own_member_uuid', $ebMemberId)->first();
+            if ($ebReferrerVoter) {
+                $referredByVoterId = $ebReferrerVoter->id;
+                $voterPayload['referred_by_voter_id'] = $referredByVoterId;
+            }
+        }
+
         // A guest's existing Voter row still carries the sentinel guest email,
         // so match it by user_id rather than the just-set real email.
         $voterMatchKey = $isGuestUpgrade ? ['user_id' => $user->id] : ['email' => $user->email];
