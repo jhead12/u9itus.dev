@@ -36,11 +36,13 @@
     ])
 
     {{-- ── Early-bank Reported Earnings ─────────────────────────── --}}
+    {{-- Bonuses card hidden until the bonus program is fully defined on the
+         Early-bank side — $ebBonusTotal is still computed below in case admin
+         reports or a future re-enable need it. --}}
     @include('standalone.shared.referral-stat-grid', [
-        'gridClass' => 'grid-cols-2',
+        'gridClass' => 'grid-cols-1',
         'cards' => [
             ['label' => 'Early-bank Commissions', 'value' => '$' . number_format($ebCommissionTotal, 2), 'valueClass' => 'text-emerald-400'],
-            ['label' => 'Early-bank Bonuses', 'value' => '$' . number_format($ebBonusTotal, 2), 'valueClass' => 'text-indigo-400'],
         ],
     ])
 
