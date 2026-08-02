@@ -33,7 +33,9 @@
       "Bash(RAILWAY_CALLER=\"skill:use-railway@1.3.6\" RAILWAY_AGENT_SESSION=\"railway-skill-incident-$$\" railway deployment list --project 5cf3bc6e-d919-4964-bd1d-83197b7d0441 --environment ed39c7d7-423a-4187-ba84-bd6536a2d686 --service e978c085-3799-47d8-8eda-8e155372f2d7 --limit 3 --json)",
       "Bash(php -r \"\\\\Illuminate\\\\Support\\\\Facades\\\\Blade::compileString\\(file_get_contents\\('resources/views/standalone/admin/citizen-billing-refunds.blade.php'\\)\\); echo 'blade-ok';\")",
       "Bash(echo \"EXIT:$?\")",
-      "Bash(awk 'NR>=120 && NR<=126' resources/views/standalone/voter/watch-citizen.blade.php)"
+      "Bash(awk 'NR>=120 && NR<=126' resources/views/standalone/voter/watch-citizen.blade.php)",
+      "Bash(curl -s -A \"Mozilla/5.0\" \"https://ballotpedia.org/Arkansas_Senate_election,_2026\" -o /tmp/ar_senate.html -D /tmp/ar_senate_headers.txt)",
+      "Read(//tmp/**)"
     ]
   }
 }

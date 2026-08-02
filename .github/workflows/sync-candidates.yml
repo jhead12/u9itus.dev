@@ -306,15 +306,20 @@ jobs:
             done
           fi
 
-      # ── U.S. House races (widget strategy: one page per state covers every
-      #    district in a single request) ─────────────────────────────────────
+      # ── U.S. House races (direct strategy: one URL per district) ────────────
       # The old --strategy=index relied on Ballotpedia's central House index page
-      # linking to all 435 district race pages. That index is frequently
+      # linking to all 435 district race pages; that index is frequently
       # incomplete/lagging, so districts not yet linked there were silently
-      # skipped — the root cause of missing House candidates. The widget
-      # strategy visits each state's "Elections in {State}, {year}" overview
-      # page and parses its full offices table, so every district is captured
-      # regardless of whether the central index has been updated.
+      # skipped. --strategy=widget (2026-07-30 → 2026-08-02) replaced it with a
+      # per-state "Elections in {State}, {year}" overview page — but that page
+      # doesn't exist on Ballotpedia this cycle (confirmed 404, not a selector
+      # bug), so it silently scraped 0 House candidates every single day for
+      # over a month while the workflow still reported success. --strategy=direct
+      # constructs the real per-district URL directly (verified live 2026-08-02):
+      #   "{State}'s {Nth} Congressional District election, {year}" for
+      #   multi-district states, "United States House of Representatives
+      #   election in {State}, {year}" for the 6 at-large states — see
+      #   buildHouseDirectRaces() in scrape-ballotpedia.js.
       - name: Scrape Ballotpedia U.S. House candidates
         run: |
           YEAR="${{ github.event.inputs.election_year || '2026' }}"
@@ -324,7 +329,7 @@ jobs:
           if [ -z "$STATES" ]; then
             node scripts/scrape-ballotpedia.js \
               --office=house \
-              --strategy=widget \
+              --strategy=direct \
               --year="$YEAR" \
               --fetch-websites \
               --cache-hours=3 \
@@ -337,7 +342,7 @@ jobs:
             for state in $(echo "$STATES" | tr ',' ' '); do
               node scripts/scrape-ballotpedia.js \
                 --office=house \
-                --strategy=widget \
+                --strategy=direct \
                 --year="$YEAR" \
                 --fetch-websites \
                 --state=$state \
@@ -362,12 +367,16 @@ jobs:
             done
           fi
 
-      # ── U.S. Senate races (widget strategy: same per-state overview page as
-      #    House, filtered to the Senate section) ──────────────────────────
-      # Senate races were previously never scraped at all — only statewide
-      # executive offices and U.S. House were covered, so non-incumbent Senate
-      # candidates (challengers not currently seated in Congress) never made it
-      # into the DB. This mirrors the House step above but with --office=senate.
+      # ── U.S. Senate races (direct strategy: one URL per state) ─────────────
+      # Senate races were never scraped at all before 2026-07-30. The
+      # --strategy=widget approach added then (2026-07-30 → 2026-08-02) relied
+      # on the same "Elections in {State}, {year}" overview page as House —
+      # confirmed 404 on Ballotpedia this cycle — so it also silently scraped
+      # 0 Senate candidates every day. The DIRECT_URL_TEMPLATES.senate pattern
+      # in scrape-ballotpedia.js was ALSO wrong ("{State}_Senate_election,_{y}",
+      # also a 404) but had never actually run since this step called
+      # --strategy=widget, not --strategy=direct. Fixed to the real, verified
+      # (2026-08-02) pattern: "United States Senate election in {State}, {year}".
       - name: Scrape Ballotpedia U.S. Senate candidates
         run: |
           YEAR="${{ github.event.inputs.election_year || '2026' }}"
@@ -377,7 +386,7 @@ jobs:
           if [ -z "$STATES" ]; then
             node scripts/scrape-ballotpedia.js \
               --office=senate \
-              --strategy=widget \
+              --strategy=direct \
               --year="$YEAR" \
               --fetch-websites \
               --cache-hours=3 \
@@ -390,7 +399,7 @@ jobs:
             for state in $(echo "$STATES" | tr ',' ' '); do
               node scripts/scrape-ballotpedia.js \
                 --office=senate \
-                --strategy=widget \
+                --strategy=direct \
                 --year="$YEAR" \
                 --fetch-websites \
                 --state=$state \
