@@ -170,6 +170,22 @@ class RegistrationController extends Controller
         ['referred_by_voter_id' => $referredByVoterId, 'referred_by_politician_id' => $referredByPoliticianId] =
             $this->referralService->resolveReferrerIds($refCode);
 
+        // Early-bank referral attribution — see registerVoter() for the fuller
+        // explanation. The EB-branded links only carry a member UUID, not a
+        // referral_code, so resolveReferrerIds() above never resolves a
+        // referrer from them on its own.
+        $ebMemberId = $request->cookie(CaptureEarlyBankReferral::COOKIE_NAME);
+        if (! (is_string($ebMemberId) && Str::isUuid($ebMemberId))) {
+            $ebMemberId = null;
+        }
+
+        if ($referredByVoterId === null && $referredByPoliticianId === null && $ebMemberId !== null) {
+            $ebReferrerVoter = Voter::where('earlybank_own_member_uuid', $ebMemberId)->first();
+            if ($ebReferrerVoter) {
+                $referredByVoterId = $ebReferrerVoter->id;
+            }
+        }
+
         $politicianPayload = [
             'full_name'                 => trim($request->first_name . ' ' . $request->last_name),
             'political_office'          => $request->political_office,
@@ -179,6 +195,8 @@ class RegistrationController extends Controller
             'city'                      => $request->city,
             'referred_by_voter_id'      => $referredByVoterId,
             'referred_by_politician_id' => $referredByPoliticianId,
+            'earlybank_member_id'       => $ebMemberId,
+            'earlybank_linked_at'       => $ebMemberId !== null ? now() : null,
         ];
 
         app(UnclaimedPoliticianProfileService::class)->claimOrCreate($user, $politicianPayload);
@@ -192,7 +210,12 @@ class RegistrationController extends Controller
 
         Auth::login($user);
 
-        return redirect()->route('phone.verify');
+        $destination = redirect()->route('phone.verify');
+        if ($ebMemberId !== null) {
+            $destination->withCookie(Cookie::forget(CaptureEarlyBankReferral::COOKIE_NAME));
+        }
+
+        return $destination;
     }
 
     // -------------------------------------------------------------------------
@@ -271,6 +294,22 @@ class RegistrationController extends Controller
         ['referred_by_voter_id' => $referredByVoterId, 'referred_by_politician_id' => $referredByPoliticianId] =
             $this->referralService->resolveReferrerIds($refCode);
 
+        // Early-bank referral attribution — see registerVoter() for the fuller
+        // explanation. The EB-branded links only carry a member UUID, not a
+        // referral_code, so resolveReferrerIds() above never resolves a
+        // referrer from them on its own.
+        $ebMemberId = $request->cookie(CaptureEarlyBankReferral::COOKIE_NAME);
+        if (! (is_string($ebMemberId) && Str::isUuid($ebMemberId))) {
+            $ebMemberId = null;
+        }
+
+        if ($referredByVoterId === null && $referredByPoliticianId === null && $ebMemberId !== null) {
+            $ebReferrerVoter = Voter::where('earlybank_own_member_uuid', $ebMemberId)->first();
+            if ($ebReferrerVoter) {
+                $referredByVoterId = $ebReferrerVoter->id;
+            }
+        }
+
         $citizen = Citizen::create([
             'user_id'                   => $user->id,
             'full_name'                 => trim($request->first_name . ' ' . $request->last_name),
@@ -282,6 +321,8 @@ class RegistrationController extends Controller
             'zip'                       => $request->zip,
             'referred_by_voter_id'      => $referredByVoterId,
             'referred_by_politician_id' => $referredByPoliticianId,
+            'earlybank_member_id'       => $ebMemberId,
+            'earlybank_linked_at'       => $ebMemberId !== null ? now() : null,
         ]);
 
         GeocodeCitizenAddress::dispatch($citizen->id);
@@ -295,7 +336,12 @@ class RegistrationController extends Controller
 
         Auth::login($user);
 
-        return redirect()->route('phone.verify');
+        $destination = redirect()->route('phone.verify');
+        if ($ebMemberId !== null) {
+            $destination->withCookie(Cookie::forget(CaptureEarlyBankReferral::COOKIE_NAME));
+        }
+
+        return $destination;
     }
 
     // -------------------------------------------------------------------------

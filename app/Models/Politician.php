@@ -93,6 +93,9 @@ class Politician extends Model
         'earlybank_stripe_connect_account_id',
         'earlybank_stripe_connect_onboarding_complete',
         'earlybank_subscription_status',
+        // Early-bank member who referred this politician (set at registration time)
+        'earlybank_member_id',
+        'earlybank_linked_at',
         // Viral-moment featured clip (denormalized for map-pin reads)
         'featured_moment',
         'featured_moment_score',
@@ -130,6 +133,8 @@ class Politician extends Model
             'earlybank_payouts_enabled' => 'boolean',
             'earlybank_stripe_connect_onboarding_complete' => 'boolean',
             'earlybank_subscription_status' => 'string',
+            'earlybank_member_id' => 'string',
+            'earlybank_linked_at' => 'datetime',
             // Viral-moment featured clip (denormalized for map-pin reads)
             'featured_moment' => 'array',
             'featured_moment_score' => 'decimal:4',

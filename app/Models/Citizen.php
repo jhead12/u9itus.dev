@@ -53,6 +53,9 @@ class Citizen extends Model
         'earlybank_stripe_connect_account_id',
         'earlybank_stripe_connect_onboarding_complete',
         'earlybank_subscription_status',
+        // Early-bank member who referred this citizen (set at registration time)
+        'earlybank_member_id',
+        'earlybank_linked_at',
     ];
 
     protected function casts(): array
@@ -69,6 +72,8 @@ class Citizen extends Model
             'earlybank_payouts_enabled' => 'boolean',
             'earlybank_stripe_connect_onboarding_complete' => 'boolean',
             'earlybank_subscription_status' => 'string',
+            'earlybank_member_id' => 'string',
+            'earlybank_linked_at' => 'datetime',
         ];
     }
 
