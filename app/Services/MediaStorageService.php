@@ -221,8 +221,21 @@ class MediaStorageService
         return null; // External URL — do not delete.
     }
 
+    /**
+     * The disk uploaded images are stored on and served from.
+     *
+     * Follows FILESYSTEM_DISK (s3 in production), except for 'local': that
+     * disk's root is storage/app/private and it has no 'visibility' setting,
+     * so Laravel's local-disk serve route demands a signed URL for every
+     * request — but this service hands out plain unsigned URLs, so every
+     * image would 403. The 'public' disk (storage/app/public, visibility
+     * already 'public', reachable via the public/storage symlink) is what
+     * 'local' environments actually want for browser-servable images.
+     */
     private function disk(): string
     {
-        return (string) config('filesystems.default', 'local');
+        $disk = (string) config('filesystems.default', 'local');
+
+        return $disk === 'local' ? 'public' : $disk;
     }
 }

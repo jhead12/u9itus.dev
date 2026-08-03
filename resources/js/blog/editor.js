@@ -18,6 +18,7 @@ function initPostBodyEditor(container) {
         modules: {
             toolbar: {
                 container: [
+                    [{ header: [2, 3, false] }],
                     ['bold', 'italic', 'underline', 'strike'],
                     ['blockquote'],
                     [{ list: 'ordered' }, { list: 'bullet' }],

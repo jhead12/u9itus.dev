@@ -14,6 +14,23 @@
 }
 
 /*
+ * Quill 2.x renders both bullet and ordered lists as <ol><li data-list="...">,
+ * relying on this attribute (not the <ul>/<ol> tag) to decide bullet vs
+ * number. The Typography plugin's .prose already numbers plain <ol><li>
+ * correctly, so only the bullet case needs an override here.
+ */
+.prose li[data-list='bullet'] {
+    list-style: none;
+}
+.prose li[data-list='bullet']::before {
+    content: '•';
+    display: inline-block;
+    width: 1em;
+    margin-left: -1.5em;
+    margin-right: 0.3em;
+}
+
+/*
  * Quill's "snow" theme ships styled for a white editor on a light page. Our
  * dashboard is dark, so override its colors here rather than in Blade —
  * Quill renders its toolbar as a sibling of the target element, not a

@@ -20,7 +20,7 @@ class PostAlignmentAttributeSanitizer implements AttributeSanitizerInterface
 
     public function getSupportedElements(): ?array
     {
-        return ['p', 'li'];
+        return ['p', 'li', 'h2', 'h3'];
     }
 
     public function getSupportedAttributes(): ?array

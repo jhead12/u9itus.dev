@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\PostStatus;
 use App\Support\PostAlignmentAttributeSanitizer;
+use App\Support\PostListAttributeSanitizer;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -147,6 +148,8 @@ class Post extends Model
             ->allowElement('i')
             ->allowElement('u')
             ->allowElement('s')
+            ->allowElement('h2')
+            ->allowElement('h3')
             ->allowElement('ul')
             ->allowElement('ol')
             ->allowElement('li')
@@ -155,8 +158,12 @@ class Post extends Model
             ->allowElement('img', ['src', 'alt'])
             // Quill emits text-alignment as a class on block elements (e.g. ql-align-center);
             // the attribute sanitizer below restricts it to that fixed, enumerable set.
-            ->allowAttribute('class', ['p', 'li'])
+            ->allowAttribute('class', ['p', 'li', 'h2', 'h3'])
             ->withAttributeSanitizer(new PostAlignmentAttributeSanitizer)
+            // Quill renders both bullet and ordered lists as <ol><li data-list="...">,
+            // using this attribute (via CSS) to decide bullet vs number.
+            ->allowAttribute('data-list', ['li'])
+            ->withAttributeSanitizer(new PostListAttributeSanitizer)
             ->allowLinkSchemes(['https', 'http'])
             ->allowMediaSchemes(['https', 'http'])
             ->forceHttpsUrls()

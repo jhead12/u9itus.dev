@@ -121,7 +121,7 @@ it('shows a single published post page with seo meta', function (): void {
 });
 
 it('stores an uploaded featured image and ignores the raw url field', function (): void {
-    Storage::fake('local');
+    Storage::fake('public');
     $user = makeCitizenUser();
 
     $response = $this->actingAs($user)->post(route('citizen.posts.store'), [
@@ -138,7 +138,7 @@ it('stores an uploaded featured image and ignores the raw url field', function (
 });
 
 it('deletes the previous uploaded featured image when replaced on update', function (): void {
-    Storage::fake('local');
+    Storage::fake('public');
     $user = makeCitizenUser();
 
     $create = $this->actingAs($user)->post(route('citizen.posts.store'), [
@@ -151,7 +151,7 @@ it('deletes the previous uploaded featured image when replaced on update', funct
     $originalUrl = $post->featured_image_url;
     $originalPath = ltrim(parse_url($originalUrl, PHP_URL_PATH), '/');
     $originalPath = str_starts_with($originalPath, 'storage/') ? substr($originalPath, strlen('storage/')) : $originalPath;
-    Storage::disk('local')->assertExists($originalPath);
+    Storage::disk('public')->assertExists($originalPath);
 
     $this->actingAs($user)->put(route('citizen.posts.update', $post), [
         'title' => $post->title,
@@ -160,11 +160,11 @@ it('deletes the previous uploaded featured image when replaced on update', funct
 
     $post->refresh();
     expect($post->featured_image_url)->not->toBe($originalUrl);
-    Storage::disk('local')->assertMissing($originalPath);
+    Storage::disk('public')->assertMissing($originalPath);
 });
 
 it('lets an author upload an inline image for the post body editor', function (): void {
-    Storage::fake('local');
+    Storage::fake('public');
     $user = makeCitizenUser();
 
     $response = $this->actingAs($user)->post(route('citizen.posts.images'), [
@@ -177,7 +177,7 @@ it('lets an author upload an inline image for the post body editor', function ()
 });
 
 it('rejects a non-image file from the inline image upload endpoint', function (): void {
-    Storage::fake('local');
+    Storage::fake('public');
     $user = makeCitizenUser();
 
     $response = $this->actingAs($user)->post(route('citizen.posts.images'), [
@@ -188,7 +188,7 @@ it('rejects a non-image file from the inline image upload endpoint', function ()
 });
 
 it('rejects the inline image upload endpoint for guests', function (): void {
-    Storage::fake('local');
+    Storage::fake('public');
 
     $response = $this->post(route('citizen.posts.images'), [
         'image' => UploadedFile::fake()->image('inline.png', 300, 200),
