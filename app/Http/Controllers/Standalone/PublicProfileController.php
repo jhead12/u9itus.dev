@@ -1027,11 +1027,27 @@ class PublicProfileController extends Controller
             'verified' => $politicians
                 ->sortBy(fn (Politician $politician) => [
                     $politician->verified_official ? 0 : 1,
-                    strtolower((string) $politician->full_name),
+                    $this->lastNameSortKey((string) $politician->full_name),
                 ])
                 ->values(),
-            default => $politicians->sortBy(fn (Politician $politician) => strtolower((string) $politician->full_name))->values(),
+            default => $politicians->sortBy(fn (Politician $politician) => $this->lastNameSortKey((string) $politician->full_name))->values(),
         };
+    }
+
+    /**
+     * Full names are stored as a single free-text column ("First [Middle] Last[, Suffix]"),
+     * so alphabetizing by last name means peeling off trailing suffixes (Jr., III, ...)
+     * and using the final remaining word as the sort key.
+     */
+    protected function lastNameSortKey(string $fullName): string
+    {
+        $name = trim($fullName);
+        $name = preg_replace('/,?\s+(Jr\.?|Sr\.?|II|III|IV|V)$/i', '', $name) ?? $name;
+
+        $parts = preg_split('/\s+/', trim($name));
+        $lastName = $parts !== false && $parts !== [] ? end($parts) : $name;
+
+        return Str::lower($lastName ?: $name);
     }
 
     /**

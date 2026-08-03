@@ -131,7 +131,7 @@
 
                     <div class="relative">
                         <select name="sort" class="w-full bg-slate-800 border border-slate-700 text-slate-300 rounded-lg pl-3 pr-8 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 appearance-none cursor-pointer">
-                            <option value="name" {{ request('sort', 'name') === 'name' ? 'selected' : '' }}>Name (A-Z)</option>
+                            <option value="name" {{ request('sort', 'name') === 'name' ? 'selected' : '' }}>Last Name (A-Z)</option>
                             <option value="recent" {{ request('sort') === 'recent' ? 'selected' : '' }}>Recently Added</option>
                             <option value="verified" {{ request('sort') === 'verified' ? 'selected' : '' }}>Verified First</option>
                         </select>
