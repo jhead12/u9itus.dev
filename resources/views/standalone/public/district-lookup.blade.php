@@ -338,10 +338,10 @@
             @endif
 
             <section>
-                <div class="flex items-center justify-between mb-4">
+                <!-- <div class="flex items-center justify-between mb-4">
                     <h2 class="text-xl font-bold text-white">Candidates Running In Your Area</h2>
                     <span class="text-sm text-slate-400">{{ $candidates->count() }} found</span>
-                </div>
+                </div> -->
 
                 @if($candidates->isEmpty())
                     <div class="bg-slate-900/60 border border-slate-700/50 rounded-xl p-6">
