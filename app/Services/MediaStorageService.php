@@ -173,7 +173,20 @@ class MediaStorageService
         $disk = $this->disk();
         $filename = "{$directory}/{$ownerId}-".time().'-'.bin2hex(random_bytes(4)).".{$ext}";
 
-        Storage::disk($disk)->put($filename, $encoded, 'public');
+        // Disks in this app are configured with 'throw' => false, so a failed
+        // write returns false here rather than raising — check it explicitly,
+        // or a transient S3 failure silently produces a URL for a file that
+        // was never actually written.
+        $written = Storage::disk($disk)->put($filename, $encoded, 'public');
+
+        if (! $written) {
+            Log::error('MediaStorageService: disk write failed', [
+                'disk' => $disk,
+                'filename' => $filename,
+            ]);
+
+            return null;
+        }
 
         return Storage::disk($disk)->url($filename);
     }

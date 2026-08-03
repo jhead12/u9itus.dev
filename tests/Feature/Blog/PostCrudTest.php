@@ -4,6 +4,7 @@ use App\Enums\PostStatus;
 use App\Models\Citizen;
 use App\Models\Post;
 use App\Models\User;
+use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -135,6 +136,25 @@ it('stores an uploaded featured image and ignores the raw url field', function (
     $post = Post::query()->where('title', 'Post with a featured image')->firstOrFail();
     expect($post->featured_image_url)->not->toBe('https://example.com/should-be-overridden.jpg');
     expect($post->featured_image_url)->toContain('/storage/');
+});
+
+it('flashes an error and saves without an image when the disk write fails', function (): void {
+    $user = makeCitizenUser();
+
+    $diskMock = Mockery::mock(Filesystem::class);
+    $diskMock->shouldReceive('put')->andReturn(false);
+    Storage::shouldReceive('disk')->with('public')->andReturn($diskMock);
+
+    $response = $this->actingAs($user)->post(route('citizen.posts.store'), [
+        'title' => 'Image upload failure test',
+        'featured_image_file' => UploadedFile::fake()->image('featured.jpg', 200, 200),
+    ]);
+
+    $response->assertRedirect();
+    $response->assertSessionHas('error');
+
+    $post = Post::query()->where('title', 'Image upload failure test')->firstOrFail();
+    expect($post->featured_image_url)->toBeNull();
 });
 
 it('deletes the previous uploaded featured image when replaced on update', function (): void {

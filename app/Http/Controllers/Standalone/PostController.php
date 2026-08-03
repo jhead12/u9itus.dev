@@ -97,6 +97,7 @@ class PostController extends Controller
 
         $data = $request->validated();
         unset($data['featured_image_file']);
+        $imageUploadFailed = false;
 
         if ($request->hasFile('featured_image_file')) {
             $uploadedUrl = $media->storeImage(
@@ -106,6 +107,8 @@ class PostController extends Controller
             );
             if ($uploadedUrl) {
                 $data['featured_image_url'] = $uploadedUrl;
+            } else {
+                $imageUploadFailed = true;
             }
         }
 
@@ -121,9 +124,11 @@ class PostController extends Controller
             $post->topics()->sync($topicIds);
         }
 
-        return redirect()
-            ->route($this->rolePrefix().'.posts.edit', $post)
-            ->with('success', 'Post saved as draft.');
+        $redirect = redirect()->route($this->rolePrefix().'.posts.edit', $post);
+
+        return $imageUploadFailed
+            ? $redirect->with('error', 'Post saved, but the featured image could not be uploaded. Please try again.')
+            : $redirect->with('success', 'Post saved as draft.');
     }
 
     public function show(Post $post)
@@ -156,6 +161,7 @@ class PostController extends Controller
         unset($data['featured_image_file']);
         $topicIds = $request->input('topic_ids', []);
         unset($data['topic_ids']);
+        $imageUploadFailed = false;
 
         if ($request->hasFile('featured_image_file')) {
             $uploadedUrl = $media->storeImage(
@@ -166,15 +172,19 @@ class PostController extends Controller
             if ($uploadedUrl) {
                 $media->deleteByUrl($post->featured_image_url);
                 $data['featured_image_url'] = $uploadedUrl;
+            } else {
+                $imageUploadFailed = true;
             }
         }
 
         $post->update($data);
         $post->topics()->sync($topicIds);
 
-        return redirect()
-            ->route($this->rolePrefix().'.posts.edit', $post)
-            ->with('success', 'Post updated.');
+        $redirect = redirect()->route($this->rolePrefix().'.posts.edit', $post);
+
+        return $imageUploadFailed
+            ? $redirect->with('error', 'Post updated, but the featured image could not be uploaded. Please try again.')
+            : $redirect->with('success', 'Post updated.');
     }
 
     public function destroy(Post $post)
