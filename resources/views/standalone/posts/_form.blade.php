@@ -5,6 +5,7 @@
 
 <form method="POST"
       action="{{ $isEdit ? route($routePrefix . '.update', $post) : route($routePrefix . '.store') }}"
+      enctype="multipart/form-data"
       class="space-y-6">
     @csrf
     @if($isEdit)
@@ -49,17 +50,26 @@
 
         <div>
             <label class="block text-sm font-medium text-slate-300 mb-1.5">Body</label>
-            <textarea name="body" rows="12" maxlength="50000"
-                class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition"
-                placeholder="Write your post here. Limited HTML (p, br, strong, em, links, lists, images) is allowed.">{{ old('body', $post?->body) }}</textarea>
-            <p class="text-xs text-slate-500 mt-1">Allowed tags: paragraphs, bold/italic, lists, links, and images with https URLs.</p>
+            <div id="post-body-editor"
+                 data-post-body-editor
+                 data-input="post-body-input"
+                 data-upload-url="{{ route($routePrefix . '.images') }}"
+                 class="bg-slate-900/60 border border-slate-700 rounded-lg text-white text-sm [&_.ql-toolbar]:border-slate-700 [&_.ql-toolbar]:rounded-t-lg [&_.ql-container]:border-slate-700 [&_.ql-container]:rounded-b-lg [&_.ql-editor]:min-h-[240px] [&_.ql-editor]:text-slate-100"></div>
+            <textarea id="post-body-input" name="body" maxlength="50000" class="hidden">{{ old('body', $post?->body) }}</textarea>
+            <p class="text-xs text-slate-500 mt-1">Allowed formatting: paragraphs, bold/italic/underline/strike, alignment, lists, quotes, links, and images.</p>
         </div>
 
         <div>
-            <label class="block text-sm font-medium text-slate-300 mb-1.5">Featured Image URL</label>
+            <label class="block text-sm font-medium text-slate-300 mb-1.5">Featured Image</label>
+            @if($post?->featured_image_url)
+            <img src="{{ $post->featured_image_url }}" alt="" class="w-full max-h-56 object-cover rounded-lg border border-slate-700 mb-2" />
+            @endif
+            <input type="file" name="featured_image_file" accept="image/jpeg,image/png,image/webp"
+                class="w-full text-sm text-slate-300 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-slate-700 file:text-white file:text-sm hover:file:bg-slate-600" />
+            <p class="text-xs text-slate-500 mt-1.5 mb-1.5">Uploading a file replaces the URL below. JPEG, PNG, or WebP, up to 5&nbsp;MB.</p>
             <input type="url" name="featured_image_url" value="{{ old('featured_image_url', $post?->featured_image_url) }}" maxlength="2048"
                 class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition"
-                placeholder="https://example.com/image.jpg" />
+                placeholder="Or paste an image URL: https://example.com/image.jpg" />
         </div>
     </div>
 
@@ -163,3 +173,7 @@
            class="text-slate-400 hover:text-white text-sm transition">Cancel</a>
     </div>
 </form>
+
+@push('scripts')
+    @vite(['resources/js/blog/editor.js'])
+@endpush

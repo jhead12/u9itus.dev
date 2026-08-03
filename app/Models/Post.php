@@ -3,9 +3,14 @@
 namespace App\Models;
 
 use App\Enums\PostStatus;
+use App\Support\PostAlignmentAttributeSanitizer;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Support\Str;
+use Symfony\Component\HtmlSanitizer\HtmlSanitizer;
+use Symfony\Component\HtmlSanitizer\HtmlSanitizerConfig;
 
 /**
  * A native blog post authored by a Citizen or Politician.
@@ -50,15 +55,15 @@ class Post extends Model
     protected function casts(): array
     {
         return [
-            'status'         => PostStatus::class,
-            'published_at'   => 'datetime',
-            'archived_at'    => 'datetime',
+            'status' => PostStatus::class,
+            'published_at' => 'datetime',
+            'archived_at' => 'datetime',
             'promoted_until' => 'datetime',
             'allow_comments' => 'boolean',
-            'is_promoted'    => 'boolean',
-            'credit_spent'   => 'decimal:2',
-            'latitude'       => 'decimal:8',
-            'longitude'      => 'decimal:8',
+            'is_promoted' => 'boolean',
+            'credit_spent' => 'decimal:2',
+            'latitude' => 'decimal:8',
+            'longitude' => 'decimal:8',
         ];
     }
 
@@ -93,7 +98,7 @@ class Post extends Model
             ->exists();
 
         while ($exists($slug)) {
-            $slug = "{$base}-" . ++$counter;
+            $slug = "{$base}-".++$counter;
         }
 
         return $slug;
@@ -114,51 +119,62 @@ class Post extends Model
             return null;
         }
 
-        $html = preg_replace('/<(script|style|iframe|object|embed)[^>]*>.*?<\/\1>/is', '', $html) ?? '';
-        $html = strip_tags($html, '<p><br><strong><b><em><i><u><ul><ol><li><a><blockquote><img>');
+        $html = trim(static::htmlSanitizer()->sanitize($html));
+        if ($html === '') {
+            return null;
+        }
 
-        $html = preg_replace('/<(\/?)\s*(p|br|strong|b|em|i|u|ul|ol|li|blockquote)\b[^>]*>/i', '<$1$2>', $html) ?? '';
+        // The sanitizer forces rel/loading/etc. on tags it emits, but only fills in
+        // an attribute if the source already had one; give bare <img> a fallback alt.
+        $html = preg_replace('/<img(?![^>]*\balt=)([^>]*)>/i', '<img alt="Post image"$1>', $html) ?? $html;
 
-        $html = preg_replace_callback('/<a\b[^>]*>/i', function (array $match): string {
-            $tag = $match[0];
-            if (! preg_match('/href\s*=\s*("([^"]*)"|\'([^\']*)\'|([^\s>]+))/i', $tag, $hrefMatch)) {
-                return '<a>';
-            }
-            $href = trim((string) ($hrefMatch[2] ?? $hrefMatch[3] ?? $hrefMatch[4] ?? ''));
-            if (! preg_match('/^https?:\/\//i', $href)) {
-                return '<a>';
-            }
-            return '<a href="' . e($href) . '" target="_blank" rel="noopener noreferrer nofollow">';
-        }, $html) ?? '';
-
-        $html = preg_replace_callback('/<img\b[^>]*>/i', function (array $match): string {
-            $tag = $match[0];
-            if (! preg_match('/src\s*=\s*("([^"]*)"|\'([^\']*)\'|([^\s>]+))/i', $tag, $srcMatch)) {
-                return '';
-            }
-            $src = trim((string) ($srcMatch[2] ?? $srcMatch[3] ?? $srcMatch[4] ?? ''));
-            if (! preg_match('/^https?:\/\//i', $src)) {
-                return '';
-            }
-            $alt = '';
-            if (preg_match('/alt\s*=\s*("([^"]*)"|\'([^\']*)\'|([^\s>]+))/i', $tag, $altMatch)) {
-                $alt = trim((string) ($altMatch[2] ?? $altMatch[3] ?? $altMatch[4] ?? ''));
-            }
-            return '<img src="' . e($src) . '" alt="' . e($alt ?: 'Post image') . '" loading="lazy" decoding="async" referrerpolicy="no-referrer">';
-        }, $html) ?? '';
-
-        $html = preg_replace('/\son\w+\s*=\s*("[^"]*"|\'[^\']*\'|[^\s>]+)/i', '', $html) ?? '';
-        $html = trim($html);
-
-        return $html !== '' ? $html : null;
+        return $html;
     }
 
-    public function author(): \Illuminate\Database\Eloquent\Relations\MorphTo
+    /**
+     * Parser-based sanitizer for post bodies: allows a small set of formatting
+     * tags plus https(s) links/images, stripping everything else (scripts,
+     * event handlers, style/CSS injection, disallowed schemes).
+     */
+    private static function htmlSanitizer(): HtmlSanitizer
+    {
+        $config = (new HtmlSanitizerConfig)
+            ->allowElement('p')
+            ->allowElement('br')
+            ->allowElement('strong')
+            ->allowElement('b')
+            ->allowElement('em')
+            ->allowElement('i')
+            ->allowElement('u')
+            ->allowElement('s')
+            ->allowElement('ul')
+            ->allowElement('ol')
+            ->allowElement('li')
+            ->allowElement('blockquote')
+            ->allowElement('a', ['href'])
+            ->allowElement('img', ['src', 'alt'])
+            // Quill emits text-alignment as a class on block elements (e.g. ql-align-center);
+            // the attribute sanitizer below restricts it to that fixed, enumerable set.
+            ->allowAttribute('class', ['p', 'li'])
+            ->withAttributeSanitizer(new PostAlignmentAttributeSanitizer)
+            ->allowLinkSchemes(['https', 'http'])
+            ->allowMediaSchemes(['https', 'http'])
+            ->forceHttpsUrls()
+            ->forceAttribute('a', 'target', '_blank')
+            ->forceAttribute('a', 'rel', 'noopener noreferrer nofollow')
+            ->forceAttribute('img', 'loading', 'lazy')
+            ->forceAttribute('img', 'decoding', 'async')
+            ->forceAttribute('img', 'referrerpolicy', 'no-referrer');
+
+        return new HtmlSanitizer($config);
+    }
+
+    public function author(): MorphTo
     {
         return $this->morphTo();
     }
 
-    public function topics(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    public function topics(): BelongsToMany
     {
         return $this->belongsToMany(
             PoliticianTopic::class,
@@ -180,7 +196,7 @@ class Post extends Model
         $query->where('is_promoted', true)
             ->where(function ($q): void {
                 $q->whereNull('promoted_until')
-                  ->orWhere('promoted_until', '>', now());
+                    ->orWhere('promoted_until', '>', now());
             });
     }
 

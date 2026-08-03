@@ -9,8 +9,12 @@ use App\Http\Requests\StorePostRequest;
 use App\Http\Requests\UpdatePostRequest;
 use App\Models\Citizen;
 use App\Models\Politician;
+use App\Models\PoliticianTopic;
 use App\Models\Post;
+use App\Services\MediaStorageService;
 use App\Services\PostPromotionService;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -55,12 +59,14 @@ class PostController extends Controller
     {
         $author = $this->currentAuthor();
         abort_unless($author, 403, 'Only citizens and politicians can manage blog posts.');
+
         return $author;
     }
 
-    private function postsQuery(): \Illuminate\Database\Eloquent\Builder
+    private function postsQuery(): Builder
     {
         [$authorType, $authorId] = $this->requireAuthor();
+
         return Post::where('author_type', $authorType)
             ->where('author_id', $authorId)
             ->latest();
@@ -78,18 +84,31 @@ class PostController extends Controller
     public function create()
     {
         $this->requireAuthor();
-        $topics = \App\Models\PoliticianTopic::orderBy('sort_order')->orderBy('name')->get();
+        $topics = PoliticianTopic::orderBy('sort_order')->orderBy('name')->get();
 
         return view('standalone.posts.create', [
             'topics' => $topics,
         ]);
     }
 
-    public function store(StorePostRequest $request)
+    public function store(StorePostRequest $request, MediaStorageService $media)
     {
         [$authorType, $authorId] = $this->requireAuthor();
 
         $data = $request->validated();
+        unset($data['featured_image_file']);
+
+        if ($request->hasFile('featured_image_file')) {
+            $uploadedUrl = $media->storeImage(
+                $request->file('featured_image_file'),
+                $this->imageDirectory($authorType, $authorId),
+                $authorId
+            );
+            if ($uploadedUrl) {
+                $data['featured_image_url'] = $uploadedUrl;
+            }
+        }
+
         $data['author_type'] = $authorType;
         $data['author_id'] = $authorId;
         $data['status'] = PostStatus::Draft->value;
@@ -103,7 +122,7 @@ class PostController extends Controller
         }
 
         return redirect()
-            ->route($this->rolePrefix() . '.posts.edit', $post)
+            ->route($this->rolePrefix().'.posts.edit', $post)
             ->with('success', 'Post saved as draft.');
     }
 
@@ -120,7 +139,7 @@ class PostController extends Controller
     {
         $this->authorizeOwnership($post);
 
-        $topics = \App\Models\PoliticianTopic::orderBy('sort_order')->orderBy('name')->get();
+        $topics = PoliticianTopic::orderBy('sort_order')->orderBy('name')->get();
 
         return view('standalone.posts.edit', [
             'post' => $post,
@@ -129,19 +148,32 @@ class PostController extends Controller
         ]);
     }
 
-    public function update(UpdatePostRequest $request, Post $post)
+    public function update(UpdatePostRequest $request, Post $post, MediaStorageService $media)
     {
         $this->authorizeOwnership($post);
 
         $data = $request->validated();
+        unset($data['featured_image_file']);
         $topicIds = $request->input('topic_ids', []);
         unset($data['topic_ids']);
+
+        if ($request->hasFile('featured_image_file')) {
+            $uploadedUrl = $media->storeImage(
+                $request->file('featured_image_file'),
+                $this->imageDirectory($post->author_type, (int) $post->author_id),
+                (int) $post->author_id
+            );
+            if ($uploadedUrl) {
+                $media->deleteByUrl($post->featured_image_url);
+                $data['featured_image_url'] = $uploadedUrl;
+            }
+        }
 
         $post->update($data);
         $post->topics()->sync($topicIds);
 
         return redirect()
-            ->route($this->rolePrefix() . '.posts.edit', $post)
+            ->route($this->rolePrefix().'.posts.edit', $post)
             ->with('success', 'Post updated.');
     }
 
@@ -152,7 +184,7 @@ class PostController extends Controller
         $post->delete();
 
         return redirect()
-            ->route($this->rolePrefix() . '.posts.index')
+            ->route($this->rolePrefix().'.posts.index')
             ->with('success', 'Post deleted.');
     }
 
@@ -198,11 +230,36 @@ class PostController extends Controller
 
         try {
             $service->promote($post, $days);
-        } catch (\LogicException | \InvalidArgumentException $e) {
+        } catch (\LogicException|\InvalidArgumentException $e) {
             return back()->with('error', $e->getMessage());
         }
 
         return back()->with('success', "Post promoted for {$days} day(s).");
+    }
+
+    /**
+     * Upload an image for use inline in the post body editor.
+     */
+    public function uploadImage(Request $request, MediaStorageService $media): JsonResponse
+    {
+        [$authorType, $authorId] = $this->requireAuthor();
+
+        $request->validate([
+            'image' => ['required', 'image', 'mimes:jpeg,jpg,png,webp', 'max:5120'],
+        ]);
+
+        $url = $media->storeImage($request->file('image'), $this->imageDirectory($authorType, $authorId), $authorId);
+
+        abort_unless($url, 422, 'That image could not be processed.');
+
+        return response()->json(['url' => $url]);
+    }
+
+    private function imageDirectory(string $authorType, int $authorId): string
+    {
+        $type = $authorType === Politician::class ? 'politician' : 'citizen';
+
+        return "posts/{$type}/{$authorId}";
     }
 
     private function authorizeOwnership(Post $post): void
@@ -224,6 +281,7 @@ class PostController extends Controller
         if ($user && $user->hasRole('politician')) {
             return 'politician';
         }
+
         return 'citizen';
     }
 }

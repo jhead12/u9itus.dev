@@ -398,6 +398,7 @@ Route::middleware(['guest.trial', 'auth', 'verified', 'check.role', 'no.cache'])
             Route::get('/', [PostController::class, 'index'])->name('index');
             Route::get('/create', [PostController::class, 'create'])->name('create');
             Route::post('/', [PostController::class, 'store'])->name('store');
+            Route::post('/images', [PostController::class, 'uploadImage'])->name('images');
             Route::get('/{post}', [PostController::class, 'show'])->name('show');
             Route::get('/{post}/edit', [PostController::class, 'edit'])->name('edit');
             Route::put('/{post}', [PostController::class, 'update'])->name('update');
@@ -588,6 +589,7 @@ Route::middleware(['guest.trial', 'auth', 'verified', 'check.role', 'no.cache'])
             Route::get('/', [PostController::class, 'index'])->name('index');
             Route::get('/create', [PostController::class, 'create'])->name('create');
             Route::post('/', [PostController::class, 'store'])->name('store');
+            Route::post('/images', [PostController::class, 'uploadImage'])->name('images');
             Route::get('/{post}', [PostController::class, 'show'])->name('show');
             Route::get('/{post}/edit', [PostController::class, 'edit'])->name('edit');
             Route::put('/{post}', [PostController::class, 'update'])->name('update');

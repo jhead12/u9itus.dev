@@ -1,18 +1,20 @@
 <?php
 
+use App\Enums\PostStatus;
 use App\Models\Citizen;
-use App\Models\Politician;
 use App\Models\Post;
 use App\Models\User;
-use App\Enums\PostStatus;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
+use Spatie\Permission\Models\Role;
 
 uses(RefreshDatabase::class);
 
 beforeEach(function (): void {
-    if (class_exists(\Spatie\Permission\Models\Role::class)) {
-        \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'citizen', 'guard_name' => 'web']);
-        \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'politician', 'guard_name' => 'web']);
+    if (class_exists(Role::class)) {
+        Role::firstOrCreate(['name' => 'citizen', 'guard_name' => 'web']);
+        Role::firstOrCreate(['name' => 'politician', 'guard_name' => 'web']);
     }
 });
 
@@ -22,6 +24,7 @@ function makeCitizenUser(): User
     $user->assignRole('citizen');
     Citizen::factory()->create(['user_id' => $user->id]);
     skipOnboarding($user, 'citizen');
+
     return $user->load('citizen');
 }
 
@@ -115,4 +118,81 @@ it('shows a single published post page with seo meta', function (): void {
     $response->assertOk();
     $response->assertSee('Single Post');
     $response->assertSee('og:title');
+});
+
+it('stores an uploaded featured image and ignores the raw url field', function (): void {
+    Storage::fake('local');
+    $user = makeCitizenUser();
+
+    $response = $this->actingAs($user)->post(route('citizen.posts.store'), [
+        'title' => 'Post with a featured image',
+        'featured_image_file' => UploadedFile::fake()->image('featured.jpg', 200, 200),
+        'featured_image_url' => 'https://example.com/should-be-overridden.jpg',
+    ]);
+
+    $response->assertRedirect();
+
+    $post = Post::query()->where('title', 'Post with a featured image')->firstOrFail();
+    expect($post->featured_image_url)->not->toBe('https://example.com/should-be-overridden.jpg');
+    expect($post->featured_image_url)->toContain('/storage/');
+});
+
+it('deletes the previous uploaded featured image when replaced on update', function (): void {
+    Storage::fake('local');
+    $user = makeCitizenUser();
+
+    $create = $this->actingAs($user)->post(route('citizen.posts.store'), [
+        'title' => 'Replaceable image post',
+        'featured_image_file' => UploadedFile::fake()->image('first.jpg', 200, 200),
+    ]);
+    $create->assertRedirect();
+
+    $post = Post::query()->where('title', 'Replaceable image post')->firstOrFail();
+    $originalUrl = $post->featured_image_url;
+    $originalPath = ltrim(parse_url($originalUrl, PHP_URL_PATH), '/');
+    $originalPath = str_starts_with($originalPath, 'storage/') ? substr($originalPath, strlen('storage/')) : $originalPath;
+    Storage::disk('local')->assertExists($originalPath);
+
+    $this->actingAs($user)->put(route('citizen.posts.update', $post), [
+        'title' => $post->title,
+        'featured_image_file' => UploadedFile::fake()->image('second.jpg', 200, 200),
+    ])->assertRedirect();
+
+    $post->refresh();
+    expect($post->featured_image_url)->not->toBe($originalUrl);
+    Storage::disk('local')->assertMissing($originalPath);
+});
+
+it('lets an author upload an inline image for the post body editor', function (): void {
+    Storage::fake('local');
+    $user = makeCitizenUser();
+
+    $response = $this->actingAs($user)->post(route('citizen.posts.images'), [
+        'image' => UploadedFile::fake()->image('inline.png', 300, 200),
+    ]);
+
+    $response->assertOk();
+    $response->assertJsonStructure(['url']);
+    expect($response->json('url'))->toContain('/storage/');
+});
+
+it('rejects a non-image file from the inline image upload endpoint', function (): void {
+    Storage::fake('local');
+    $user = makeCitizenUser();
+
+    $response = $this->actingAs($user)->post(route('citizen.posts.images'), [
+        'image' => UploadedFile::fake()->create('not-an-image.txt', 10, 'text/plain'),
+    ]);
+
+    $response->assertSessionHasErrors('image');
+});
+
+it('rejects the inline image upload endpoint for guests', function (): void {
+    Storage::fake('local');
+
+    $response = $this->post(route('citizen.posts.images'), [
+        'image' => UploadedFile::fake()->image('inline.png', 300, 200),
+    ]);
+
+    $response->assertRedirect(route('login'));
 });

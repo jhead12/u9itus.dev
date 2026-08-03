@@ -1,3 +1,14 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Text alignment produced by the blog post editor (Quill), rendered on public post pages. */
+.prose .ql-align-center {
+    text-align: center;
+}
+.prose .ql-align-right {
+    text-align: right;
+}
+.prose .ql-align-justify {
+    text-align: justify;
+}

@@ -7,7 +7,6 @@ use App\Models\CitizenCredit;
 use App\Models\Politician;
 use App\Models\PoliticianCredit;
 use App\Models\Post;
-use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -43,31 +42,35 @@ class PostPromotionService
             throw new \LogicException('Post has no author.');
         }
 
-        if ($author instanceof Citizen) {
-            $this->deductFromCitizen($author, $totalCost, $post);
-        } elseif ($author instanceof Politician) {
-            $this->deductFromPolitician($author, $totalCost, $post);
-        } else {
+        if (! $author instanceof Citizen && ! $author instanceof Politician) {
             throw new \LogicException('Unsupported author type for promotion.');
         }
 
-        $until = $post->promoted_until && $post->promoted_until->gt(now())
-            ? $post->promoted_until->addDays($days)
-            : now()->addDays($days);
+        DB::transaction(function () use ($author, $totalCost, $post, $days): void {
+            if ($author instanceof Citizen) {
+                $this->deductFromCitizen($author, $totalCost, $post);
+            } else {
+                $this->deductFromPolitician($author, $totalCost, $post);
+            }
 
-        $post->update([
-            'is_promoted'    => true,
-            'promoted_until' => $until,
-            'credit_spent'   => (float) $post->credit_spent + $totalCost,
-        ]);
+            $until = $post->promoted_until && $post->promoted_until->gt(now())
+                ? $post->promoted_until->addDays($days)
+                : now()->addDays($days);
+
+            $post->update([
+                'is_promoted' => true,
+                'promoted_until' => $until,
+                'credit_spent' => (float) $post->credit_spent + $totalCost,
+            ]);
+        });
 
         Log::info('Post promoted', [
-            'post_id'     => $post->id,
+            'post_id' => $post->id,
             'author_type' => $post->author_type,
-            'author_id'   => $post->author_id,
-            'days'        => $days,
-            'cost'        => $totalCost,
-            'until'       => $until,
+            'author_id' => $post->author_id,
+            'days' => $days,
+            'cost' => $totalCost,
+            'until' => $post->promoted_until,
         ]);
     }
 
@@ -85,18 +88,18 @@ class PostPromotionService
 
             if ($balance < $amount) {
                 throw new \LogicException(
-                    'Insufficient credits. You need $' . number_format($amount, 2) .
-                    ' but have $' . number_format($balance, 2) . '.'
+                    'Insufficient credits. You need $'.number_format($amount, 2).
+                    ' but have $'.number_format($balance, 2).'.'
                 );
             }
 
             CitizenCredit::create([
-                'citizen_id'       => $citizen->id,
+                'citizen_id' => $citizen->id,
                 'transaction_type' => 'post_promotion',
-                'amount'           => -$amount,
-                'balance_after'    => $balance - $amount,
-                'description'      => "Promoted blog post #{$post->id}",
-                'metadata'         => [
+                'amount' => -$amount,
+                'balance_after' => $balance - $amount,
+                'description' => "Promoted blog post #{$post->id}",
+                'metadata' => [
                     'post_uuid' => $post->uuid,
                     'post_slug' => $post->slug,
                 ],
@@ -120,18 +123,18 @@ class PostPromotionService
 
             if ($balance < $amount) {
                 throw new \LogicException(
-                    'Insufficient credits. You need $' . number_format($amount, 2) .
-                    ' but have $' . number_format($balance, 2) . '.'
+                    'Insufficient credits. You need $'.number_format($amount, 2).
+                    ' but have $'.number_format($balance, 2).'.'
                 );
             }
 
             PoliticianCredit::create([
-                'politician_id'    => $politician->id,
+                'politician_id' => $politician->id,
                 'transaction_type' => 'post_promotion',
-                'amount'           => -$amount,
-                'balance_after'    => $balance - $amount,
-                'description'      => "Promoted blog post #{$post->id}",
-                'metadata'         => [
+                'amount' => -$amount,
+                'balance_after' => $balance - $amount,
+                'description' => "Promoted blog post #{$post->id}",
+                'metadata' => [
                     'post_uuid' => $post->uuid,
                     'post_slug' => $post->slug,
                 ],
@@ -155,7 +158,7 @@ class PostPromotionService
     public function cancel(Post $post): void
     {
         $post->update([
-            'is_promoted'    => false,
+            'is_promoted' => false,
             'promoted_until' => null,
         ]);
     }

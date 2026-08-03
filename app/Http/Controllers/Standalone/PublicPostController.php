@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Standalone;
 
-use App\Enums\PostStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Citizen;
 use App\Models\Politician;
@@ -55,13 +54,13 @@ class PublicPostController extends Controller
             ->latest('published_at')
             ->paginate(self::PER_PAGE);
 
-        $featured = Post::query()
+        $featured = Cache::remember("blog_featured_topic_{$topic->id}", 300, fn () => Post::query()
             ->with('author')
             ->published()
             ->promoted()
             ->whereHas('topics', fn ($q) => $q->where('politician_topics.id', $topic->id))
             ->inRandomOrder()
-            ->first();
+            ->first());
 
         $topics = Cache::remember('blog_topics', 300, fn () => PoliticianTopic::orderBy('sort_order')->orderBy('name')->get());
 
@@ -103,9 +102,7 @@ class PublicPostController extends Controller
         $post = Post::query()
             ->with(['author', 'topics'])
             ->where('slug', $slug)
-            ->where('status', PostStatus::Published)
-            ->whereNotNull('published_at')
-            ->where('published_at', '<=', now())
+            ->published()
             ->firstOrFail();
 
         $related = Post::query()
