@@ -239,7 +239,10 @@ class EnrichPoliticianDonors extends Command
                     }
                     $outsideSpending = $fec->getOutsideSpending($candidateId, (int) $snapshot['election_cycle']);
                     if ($outsideSpending !== []) {
-                        $snapshot['outside_spending'] = $outsideSpending;
+                        $snapshot['outside_spending'] = $this->carryForwardResolvedCommitteeNames(
+                            $outsideSpending,
+                            $priorSnapshot->outside_spending ?? [],
+                        );
                         $this->line("    FEC: " . count($outsideSpending) . " outside spender(s) from Schedule E");
                     }
                 }
@@ -249,5 +252,44 @@ class EnrichPoliticianDonors extends Command
         }
 
         return $snapshot;
+    }
+
+    /**
+     * FECService::resolveCommitteeNames() seeds committee_name with the raw
+     * committee_id as a fallback whenever the /committees/ lookup fails
+     * (e.g. this run got rate-limited by FEC) — that fallback is otherwise
+     * indistinguishable from a real name and gets persisted for up to
+     * --stale-hours, silently regressing an already-resolved name back to
+     * "C00484642" on the profile. Carry the previously-resolved name forward
+     * per committee_id when this run's resolution didn't succeed.
+     *
+     * @param array<int, array<string, mixed>> $fresh
+     * @param array<int, array<string, mixed>> $prior
+     * @return array<int, array<string, mixed>>
+     */
+    protected function carryForwardResolvedCommitteeNames(array $fresh, array $prior): array
+    {
+        $priorNameById = [];
+        foreach ($prior as $item) {
+            $id = $item['committee_id'] ?? null;
+            $name = $item['committee_name'] ?? null;
+            if ($id && $name && $name !== $id) {
+                $priorNameById[$id] = $name;
+            }
+        }
+
+        if ($priorNameById === []) {
+            return $fresh;
+        }
+
+        return array_map(function ($item) use ($priorNameById) {
+            $id = $item['committee_id'] ?? null;
+            $unresolved = $id && ($item['committee_name'] ?? null) === $id;
+            if ($unresolved && isset($priorNameById[$id])) {
+                $item['committee_name'] = $priorNameById[$id];
+            }
+
+            return $item;
+        }, $fresh);
     }
 }

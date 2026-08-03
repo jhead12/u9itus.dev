@@ -697,7 +697,13 @@ class FECService
 
                 $this->resolveCommitteeNames($ranked);
 
+                // committee_id is kept (not just committee_name) so a caller can
+                // tell a genuinely-resolved name apart from the raw-ID fallback
+                // resolveCommitteeNames() seeds on failure (committee_name ===
+                // committee_id) and carry forward a previously-resolved name
+                // instead of persisting the fallback — see EnrichPoliticianDonors.
                 return array_map(fn($b) => [
+                    'committee_id' => $b['committee_id'],
                     'committee_name' => $b['committee_name'],
                     'total' => $b['total'],
                     'support_oppose' => $b['support_oppose'],

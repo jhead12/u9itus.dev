@@ -1482,7 +1482,13 @@
                         <li class="flex items-center justify-between gap-3">
                             <span class="flex items-center gap-2 min-w-0 flex-1">
                                 <span class="text-xs text-slate-500 tabular-nums w-4 shrink-0">{{ $i + 1 }}.</span>
-                                <span class="text-sm text-slate-200 truncate">{{ $spender['committee_name'] ?? '—' }}</span>
+                                @if(!empty($spender['committee_id']))
+                                    <a href="https://www.fec.gov/data/committee/{{ $spender['committee_id'] }}/" target="_blank" rel="noopener"
+                                       class="text-sm text-slate-200 truncate hover:text-emerald-400 hover:underline"
+                                       title="View this committee's filings on FEC.gov">{{ $spender['committee_name'] ?? $spender['committee_id'] }}</a>
+                                @else
+                                    <span class="text-sm text-slate-200 truncate">{{ $spender['committee_name'] ?? '—' }}</span>
+                                @endif
                                 <span class="shrink-0 text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-full border {{ ($spender['support_oppose'] ?? '') === 'O'
                                     ? 'border-rose-500/40 bg-rose-500/10 text-rose-300'
                                     : 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300' }}">
