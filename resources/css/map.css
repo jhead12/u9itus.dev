@@ -841,12 +841,47 @@ body:has(#info-panel.open) #hint { display: none; }
     color: #a7b4c7; transition: all 0.12s;
     -webkit-tap-highlight-color: transparent;
 }
-.boundary-fav-btn:hover { color: #fbbf24; border-color: rgba(251,191,36,0.5); background: rgba(251,191,36,0.12); }
+/* Deliberately dimmer than .saved below — hover is just a hint that clicking
+   will save, and must not read as "already saved" while the mouse sits on it. */
+.boundary-fav-btn:hover { color: #fcd34d; border-color: rgba(251,191,36,0.3); background: rgba(251,191,36,0.06); }
 .boundary-fav-btn.saved { color: #fbbf24; border-color: rgba(251,191,36,0.55); background: rgba(251,191,36,0.14); }
+.boundary-fav-btn.saved:hover { color: #fbbf24; border-color: rgba(251,191,36,0.75); background: rgba(251,191,36,0.22); }
 /* Star lives inline after the badge in the district panel header */
 #panel-fav-btn { margin-left: 6px; vertical-align: middle; }
 /* Star lives in the city drawer hero info */
 .pol-hero-info .boundary-fav-btn { margin-top: 6px; align-self: flex-start; }
+
+/* Weekly saved-places digest opt-in toast (resources/js/map/ui/digest-optin.js) */
+.digest-optin-toast {
+    position: fixed; right: 16px; bottom: 16px; z-index: 400;
+    width: min(300px, calc(100vw - 32px));
+    background: rgba(10,14,35,0.98);
+    border: 1px solid rgba(99,102,241,0.4);
+    border-radius: 14px;
+    box-shadow: 0 16px 48px rgba(0,0,0,0.6);
+    backdrop-filter: blur(16px);
+    padding: 16px 18px;
+}
+.digest-optin-title { font-size: 13px; font-weight: 700; color: #e2e8f0; margin: 0 0 6px; }
+.digest-optin-body { font-size: 12px; color: #94a3b8; line-height: 1.5; margin: 0 0 12px; }
+.digest-optin-input {
+    width: 100%; box-sizing: border-box; margin-bottom: 10px;
+    background: rgba(15,23,42,0.8); border: 1px solid rgba(99,102,241,0.3);
+    border-radius: 8px; color: #e2e8f0; padding: 8px 10px; font-size: 12px;
+}
+.digest-optin-actions { display: flex; gap: 8px; }
+.digest-optin-btn-primary {
+    flex: 1; background: #6366f1; color: #fff; border: none; border-radius: 8px;
+    padding: 8px 10px; font-size: 12px; font-weight: 700; cursor: pointer;
+}
+.digest-optin-btn-primary:hover { background: #818cf8; }
+.digest-optin-btn-dismiss {
+    background: rgba(99,102,241,0.1); color: #a7b4c7;
+    border: 1px solid rgba(99,102,241,0.2); border-radius: 8px;
+    padding: 8px 10px; font-size: 12px; cursor: pointer;
+}
+.digest-optin-btn-dismiss:hover { color: #94a3b8; }
+.digest-optin-status { font-size: 12px; color: #34d399; margin: 0; }
 
 /* ─── Scrollbar styles ─── */
 /* WebKit (Chrome, Safari, Edge) */

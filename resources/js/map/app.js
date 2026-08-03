@@ -42,6 +42,7 @@ import { initDistrictConfig } from './api/district-config.js';
 import { ensureGovernorParties, applyColorMode } from './api/governor-parties.js';
 import { trackEvent } from './api/interaction.js';
 import { fetchBoundaries } from './api/favorites.js';
+import { initDigestOptInPrompt } from './ui/digest-optin.js';
 
 /* ── UI ── */
 import { initSearch, openSearch, closeSearch } from './ui/search.js';
@@ -103,10 +104,9 @@ initCandidateCardClick();
 initLocationButton();
 bootDeepLink();
 
-/* Hydrate saved boundaries for logged-in voters (guests keep the empty-state hint). */
-if (window.U9?.session?.isVoter?.()) {
-    fetchBoundaries().then(renderFavoriteChips);
-}
+/* Hydrate saved boundaries — voters from the DB, guests from their cookie. */
+fetchBoundaries().then(renderFavoriteChips);
+initDigestOptInPrompt();
 
 /* Wire back button */
 document.getElementById('btn-back').addEventListener('click', handleBack);

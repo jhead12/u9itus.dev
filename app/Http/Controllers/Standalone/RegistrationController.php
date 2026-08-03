@@ -527,6 +527,21 @@ class RegistrationController extends Controller
             array_merge($voterPayload, ['user_id' => $user->id])
         );
 
+        // Absorb a lightweight guest "email me weekly saved-places updates"
+        // opt-in (see GuestDigestOptInController) into the real notification
+        // preference now that this email belongs to an actual account —
+        // matched above by email, since that pending Voter row has no user_id.
+        if ($voter->digest_opt_in_pending && $voter->digest_confirmed_at !== null) {
+            $user->notificationPreference()->firstOrCreate([])->update([
+                'email_boundary_digest' => true,
+            ]);
+            $voter->update([
+                'digest_opt_in_pending' => false,
+                'digest_confirmed_at' => null,
+                'digest_confirmation_sent_at' => null,
+            ]);
+        }
+
         if ($ebMemberId !== null) {
             app(EarlyBankWebhookService::class)->handleVoterRegistered($voter, $ebMemberId);
         }

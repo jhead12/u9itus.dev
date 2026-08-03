@@ -23,6 +23,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->appendToGroup('web', [
             \App\Http\Middleware\CaptureReferralContext::class,
             \App\Http\Middleware\CaptureEarlyBankReferral::class,
+            \App\Http\Middleware\MergeGuestFavoriteBoundaries::class,
             \App\Http\Middleware\InjectAnalyticsTags::class,
         ]);
         

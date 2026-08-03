@@ -19,6 +19,13 @@ Schedule::command('campaigns:apply-schedule')->everyFiveMinutes();
 // Weekly earnings digest to voters who completed views (Mondays at 08:00)
 Schedule::command('notifications:voter-digest')->weeklyOn(1, '08:00');
 
+// Weekly saved-places digest (map favorites) — offset from the digest above
+// to avoid dispatch contention.
+Schedule::command('notifications:boundary-digest')->weeklyOn(1, '08:30');
+
+// Prune unconfirmed guest saved-places digest opt-ins older than 14 days.
+Schedule::command('guests:prune-unconfirmed-digest-signups')->daily();
+
 // Daily low-balance alerts to politicians whose credit balance is running low
 Schedule::command('notifications:low-balance-alerts')->dailyAt('09:00');
 

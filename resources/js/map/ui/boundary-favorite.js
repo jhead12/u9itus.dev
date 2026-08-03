@@ -2,9 +2,10 @@
  * Star toggle button for saving a map boundary (district or top city).
  *
  * Reflects saved state from map-state and POSTs/DELETEs to /voter/boundaries
- * on click. Guests get the existing sign-in nudge instead of a save. After a
- * successful change it dispatches `u9:favorites-changed` so the Layers panel
- * can re-render chips without an import cycle back into layers-panel.js.
+ * (voters) or /map/boundaries (guests, cookie-backed — see favorites.js) on
+ * click. After a successful change it dispatches `u9:favorites-changed` so
+ * the Layers panel can re-render chips without an import cycle back into
+ * layers-panel.js.
  */
 import { saveBoundary, removeBoundary } from '../api/favorites.js';
 import { favoriteBoundaries, favoriteKey, isFavorite } from '../state/map-state.js';
@@ -41,12 +42,6 @@ export function createFavoriteButton(payload) {
 
     btn.addEventListener('click', async (e) => {
         e.stopPropagation();
-        if (!window.U9?.session?.isVoter?.()) {
-            // Guest: surface the existing sign-in nudge popover.
-            document.getElementById('btn-signin-cta')?.click();
-            trackEvent('boundary_save_blocked', { meta: { type: payload.type } });
-            return;
-        }
         const existing = favoriteBoundaries.get(favoriteKey(parts));
         if (existing) {
             const ok = await removeBoundary(existing.id);
@@ -57,6 +52,12 @@ export function createFavoriteButton(payload) {
             }
         } else {
             const rec = await saveBoundary(payload);
+            if (rec?.error === 'limit_reached') {
+                // Guest cookie is full (25 items) — nudge sign-in instead of silently dropping the save.
+                document.getElementById('btn-signin-cta')?.click();
+                trackEvent('boundary_save_blocked', { meta: { type: payload.type, reason: 'limit_reached' } });
+                return;
+            }
             if (rec) {
                 sync();
                 notifyChanged();

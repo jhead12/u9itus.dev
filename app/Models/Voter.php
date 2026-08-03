@@ -66,6 +66,9 @@ class Voter extends Model
         'flagged_for_fraud',
         'is_registered_voter',
         'last_view_at',
+        'digest_opt_in_pending',
+        'digest_confirmed_at',
+        'digest_confirmation_sent_at',
     ];
 
     protected function casts(): array
@@ -88,6 +91,9 @@ class Voter extends Model
             'earlybank_payouts_enabled' => 'boolean',
             'earlybank_stripe_connect_onboarding_complete' => 'boolean',
             'earlybank_subscription_status' => 'string',
+            'digest_opt_in_pending' => 'boolean',
+            'digest_confirmed_at' => 'datetime',
+            'digest_confirmation_sent_at' => 'datetime',
         ];
     }
 

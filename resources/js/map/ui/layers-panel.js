@@ -196,10 +196,7 @@ export function renderFavoriteChips() {
     const count = entries.length;
     if (favCountEl) favCountEl.textContent = count > 0 ? `(${count})` : '';
     if (favEmptyEl) {
-        const isVoter = window.U9?.session?.isVoter?.();
-        favEmptyEl.textContent = isVoter
-            ? 'Save districts and cities you care about to pin them here.'
-            : 'Sign in to save districts and cities you care about.';
+        favEmptyEl.textContent = 'Save districts and cities you care about to pin them here.';
         favEmptyEl.style.display = count > 0 ? 'none' : '';
     }
 }

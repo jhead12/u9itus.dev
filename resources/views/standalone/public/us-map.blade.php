@@ -25,6 +25,10 @@
          When the flag is off the entire block is omitted so the map renders
          identically to the pre-integration version. ────────────────────── --}}
     @if (config('platform.map.voter_features_enabled'))
+        {{-- CSRF token is needed by guests too — cookie-backed guest map
+             favorites (POST/DELETE /map/boundaries) require it just like
+             the authenticated /voter/boundaries endpoints do. --}}
+        <meta name="csrf-token" content="{{ csrf_token() }}">
         @auth
             @php($u9Voter = auth()->user()->voter ?? null)
             @php(
@@ -32,7 +36,6 @@
                     : (auth()->user()->hasRole('politician') ? 'politician'
                         : (auth()->user()->hasRole('voter') ? 'voter' : 'user'))
             )
-            <meta name="csrf-token"   content="{{ csrf_token() }}">
             <meta name="u9-user-role" content="{{ $u9Role }}">
             <meta name="u9-user-uuid" content="{{ $u9Voter?->uuid ?? '' }}">
             <meta name="u9-ref-code"  content="{{ $u9Voter?->referral_code ?? '' }}">
