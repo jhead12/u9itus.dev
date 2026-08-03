@@ -12,3 +12,79 @@
 .prose .ql-align-justify {
     text-align: justify;
 }
+
+/*
+ * Quill's "snow" theme ships styled for a white editor on a light page. Our
+ * dashboard is dark, so override its colors here rather than in Blade —
+ * Quill renders its toolbar as a sibling of the target element, not a
+ * descendant, so scoped descendant selectors on the wrapper never reach it.
+ * !important guards against load-order ties with quill.snow.css itself.
+ */
+.ql-toolbar.ql-snow {
+    background-color: rgba(15, 23, 42, 0.6) !important; /* slate-900/60 */
+    border-color: #334155 !important; /* slate-700 */
+    border-radius: 0.5rem 0.5rem 0 0 !important;
+}
+.ql-container.ql-snow {
+    border-color: #334155 !important;
+}
+.ql-editor {
+    color: #f1f5f9 !important; /* slate-100 */
+}
+.ql-editor.ql-blank::before {
+    color: #64748b !important; /* slate-500 */
+    font-style: normal !important;
+}
+.ql-snow .ql-stroke {
+    stroke: #cbd5e1 !important; /* slate-300 */
+}
+.ql-snow .ql-fill,
+.ql-snow .ql-stroke.ql-fill {
+    fill: #cbd5e1 !important;
+}
+.ql-snow .ql-picker {
+    color: #cbd5e1 !important;
+}
+.ql-snow .ql-picker-options {
+    background-color: #1e293b !important; /* slate-800 */
+    border-color: #334155 !important;
+}
+.ql-snow .ql-picker-item {
+    color: #cbd5e1 !important;
+}
+.ql-snow.ql-toolbar button:hover,
+.ql-snow .ql-toolbar button:hover,
+.ql-snow.ql-toolbar button.ql-active,
+.ql-snow .ql-toolbar button.ql-active,
+.ql-snow.ql-toolbar .ql-picker-label.ql-active,
+.ql-snow .ql-toolbar .ql-picker-label.ql-active,
+.ql-snow.ql-toolbar .ql-picker-item.ql-selected,
+.ql-snow .ql-toolbar .ql-picker-item.ql-selected {
+    color: #f59e0b !important; /* amber-500, matches the app's accent color */
+}
+.ql-snow.ql-toolbar button:hover .ql-stroke,
+.ql-snow .ql-toolbar button:hover .ql-stroke,
+.ql-snow.ql-toolbar button.ql-active .ql-stroke,
+.ql-snow .ql-toolbar button.ql-active .ql-stroke {
+    stroke: #f59e0b !important;
+}
+.ql-snow.ql-toolbar button:hover .ql-fill,
+.ql-snow .ql-toolbar button:hover .ql-fill,
+.ql-snow.ql-toolbar button.ql-active .ql-fill,
+.ql-snow .ql-toolbar button.ql-active .ql-fill {
+    fill: #f59e0b !important;
+}
+.ql-snow .ql-tooltip {
+    background-color: #1e293b !important;
+    border-color: #334155 !important;
+    color: #f1f5f9 !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+}
+.ql-snow .ql-tooltip input[type='text'] {
+    background-color: #0f172a !important;
+    border-color: #334155 !important;
+    color: #f1f5f9 !important;
+}
+.ql-snow .ql-tooltip a {
+    color: #f59e0b !important;
+}

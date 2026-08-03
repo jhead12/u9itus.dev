@@ -54,7 +54,7 @@
                  data-post-body-editor
                  data-input="post-body-input"
                  data-upload-url="{{ route($routePrefix . '.images') }}"
-                 class="bg-slate-900/60 border border-slate-700 rounded-lg text-white text-sm [&_.ql-toolbar]:border-slate-700 [&_.ql-toolbar]:rounded-t-lg [&_.ql-container]:border-slate-700 [&_.ql-container]:rounded-b-lg [&_.ql-editor]:min-h-[240px] [&_.ql-editor]:text-slate-100"></div>
+                 class="border border-slate-700 rounded-b-lg text-sm [&_.ql-editor]:min-h-[240px]"></div>
             <textarea id="post-body-input" name="body" maxlength="50000" class="hidden">{{ old('body', $post?->body) }}</textarea>
             <p class="text-xs text-slate-500 mt-1">Allowed formatting: paragraphs, bold/italic/underline/strike, alignment, lists, quotes, links, and images.</p>
         </div>
