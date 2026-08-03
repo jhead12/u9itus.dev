@@ -180,6 +180,28 @@ class PostController extends Controller
         $post->update($data);
         $post->topics()->sync($topicIds);
 
+        // Autosave hits this same action in the background (either a fetch() with
+        // Accept: application/json, or a beforeunload sendBeacon() call, which
+        // can't set headers — hence the explicit marker field). Either way, give
+        // it a lightweight response instead of a redirect, and skip session flash
+        // messages entirely so a background save can't leave a stale banner for
+        // the user to see on their next real page load.
+        if ($request->wantsJson() || $request->boolean('_background_save')) {
+            // Post::boot() regenerates the slug when the title changes, which
+            // this same request may just have done — every slug-keyed URL on
+            // the page (this update action included) is now stale. Report the
+            // current ones back so the client can patch itself instead of the
+            // next background save 404ing against the old slug.
+            return response()->json([
+                'saved' => ! $imageUploadFailed,
+                'editUrl' => route($this->rolePrefix().'.posts.edit', $post),
+                'updateUrl' => route($this->rolePrefix().'.posts.update', $post),
+                'publishUrl' => route($this->rolePrefix().'.posts.publish', $post),
+                'archiveUrl' => route($this->rolePrefix().'.posts.archive', $post),
+                'publicUrl' => route('blog.show', $post),
+            ]);
+        }
+
         $redirect = redirect()->route($this->rolePrefix().'.posts.edit', $post);
 
         return $imageUploadFailed

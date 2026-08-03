@@ -10,7 +10,8 @@
      of where they sit in the DOM. --}}
 <form id="post-form" method="POST"
       action="{{ $isEdit ? route($routePrefix . '.update', $post) : route($routePrefix . '.store') }}"
-      enctype="multipart/form-data">
+      enctype="multipart/form-data"
+      @if($isEdit) data-autosave="1" @endif>
     @csrf
     @if($isEdit)
         @method('PUT')
@@ -152,6 +153,10 @@
                 @endif
             </div>
 
+            @if($isEdit)
+            <p id="autosave-status" class="text-xs text-slate-500 h-4"></p>
+            @endif
+
             <div class="flex flex-col gap-2 pt-1">
                 <button form="post-form" type="submit"
                         class="w-full bg-amber-500 hover:bg-amber-400 text-slate-900 font-semibold rounded-lg px-4 py-2.5 text-sm transition-colors">
@@ -159,7 +164,7 @@
                 </button>
 
                 @if($isEdit && $post->status->value !== 'published')
-                <form method="POST" action="{{ route($routePrefix . '.publish', $post) }}">
+                <form id="publish-form" method="POST" action="{{ route($routePrefix . '.publish', $post) }}">
                     @csrf
                     <button type="submit"
                             class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-lg px-4 py-2.5 text-sm transition">
@@ -169,7 +174,7 @@
                 @endif
 
                 @if($isEdit && $post->status->value === 'published')
-                <form method="POST" action="{{ route($routePrefix . '.archive', $post) }}">
+                <form id="archive-form" method="POST" action="{{ route($routePrefix . '.archive', $post) }}">
                     @csrf
                     <button type="submit"
                             class="w-full bg-slate-700 hover:bg-slate-600 text-white font-semibold rounded-lg px-4 py-2.5 text-sm transition">
@@ -179,7 +184,7 @@
                 @endif
 
                 @if($isEdit)
-                <a href="{{ route('blog.show', $post) }}" target="_blank"
+                <a id="view-public-link" href="{{ route('blog.show', $post) }}" target="_blank"
                    class="text-center text-amber-400 hover:text-amber-300 text-sm font-medium py-1">
                     View public page →
                 </a>

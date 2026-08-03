@@ -216,3 +216,40 @@ it('rejects the inline image upload endpoint for guests', function (): void {
 
     $response->assertRedirect(route('login'));
 });
+
+it('background-saves without a redirect and reports fresh slug-based urls after a title change', function (): void {
+    $user = makeCitizenUser();
+    $citizen = $user->citizen;
+
+    $post = Post::factory()->create([
+        'author_type' => Citizen::class,
+        'author_id' => $citizen->id,
+        'status' => PostStatus::Draft,
+        'title' => 'Original Title',
+        'slug' => 'original-title',
+    ]);
+
+    // Changing the title regenerates the slug (Post::boot()), which is exactly
+    // what makes every slug-keyed URL on the edit page stale mid-session.
+    $response = $this->actingAs($user)
+        ->post(route('citizen.posts.update', $post), [
+            '_method' => 'PUT',
+            'title' => 'A Brand New Title',
+            '_background_save' => '1',
+        ]);
+
+    $response->assertOk();
+    $response->assertJson(['saved' => true]);
+    $response->assertSessionMissing('success');
+    $response->assertSessionMissing('error');
+
+    $post->refresh();
+    expect($post->title)->toBe('A Brand New Title');
+    expect($post->slug)->not->toBe('original-title');
+
+    $json = $response->json();
+    expect($json['updateUrl'])->toContain($post->slug);
+    expect($json['publishUrl'])->toContain($post->slug);
+    expect($json['publicUrl'])->toContain($post->slug);
+    expect($json['updateUrl'])->not->toContain('original-title');
+});
