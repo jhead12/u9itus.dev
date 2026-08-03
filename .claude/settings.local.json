@@ -36,7 +36,8 @@
       "Bash(awk 'NR>=120 && NR<=126' resources/views/standalone/voter/watch-citizen.blade.php)",
       "Bash(curl -s -A \"Mozilla/5.0\" \"https://ballotpedia.org/Arkansas_Senate_election,_2026\" -o /tmp/ar_senate.html -D /tmp/ar_senate_headers.txt)",
       "Read(//tmp/**)",
-      "Bash(node blog-layout-check.mjs)"
+      "Bash(node blog-layout-check.mjs)",
+      "Bash(NODE_PATH=/Volumes/PRO-BLADE/Github/u9itus.dev/node_modules node /private/tmp/claude-501/-Volumes-PRO-BLADE-Github-u9itus-dev/6f570796-618b-45bf-9c85-aec074ef2ebc/scratchpad/guest-favorite-demo.js)"
     ]
   }
 }

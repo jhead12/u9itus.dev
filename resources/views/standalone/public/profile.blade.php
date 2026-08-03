@@ -1473,6 +1473,8 @@
                     <p class="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-3">
                         Independent Spending
                         <span class="text-slate-500 font-normal normal-case tracking-normal">· outside groups, not the campaign</span>
+                        <span class="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-slate-600 text-slate-500 text-[9px] font-bold normal-case tracking-normal align-middle cursor-help"
+                              title="Committee IDs (e.g. C00495028) are unique identifiers the FEC assigns to political committees — PACs, Super PACs, and party committees — that report spending. Click a committee's name/ID to view its filings on FEC.gov, or use the search icon to look it up on Google.">i</span>
                         @if(!empty($fecData['source_url']))
                             · <a href="{{ $fecData['source_url'] }}" target="_blank" rel="noopener" class="text-emerald-400 hover:underline">FEC.gov ↗</a>
                         @endif
@@ -1491,6 +1493,9 @@
                                     <a href="https://www.fec.gov/data/committee/{{ $spender['committee_id'] }}/" target="_blank" rel="noopener"
                                        class="text-sm text-slate-200 truncate hover:text-emerald-400 hover:underline"
                                        title="View this committee's filings on FEC.gov">{{ $spender['committee_name'] ?? $spender['committee_id'] }}</a>
+                                    <a href="https://www.google.com/search?q={{ urlencode($spender['committee_id']) }}" target="_blank" rel="noopener nofollow"
+                                       class="shrink-0 text-slate-500 hover:text-emerald-400"
+                                       title="Search Google for FEC committee ID {{ $spender['committee_id'] }}">🔎</a>
                                 @else
                                     <span class="text-sm text-slate-200 truncate">{{ $spender['committee_name'] ?? '—' }}</span>
                                 @endif
