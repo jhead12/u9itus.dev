@@ -1140,6 +1140,12 @@ class PublicProfileController extends Controller
         $transparencyData = $this->buildTransparencyData($politician);
         $digDeeperData = $this->buildDigDeeperData($politician, $transparencyData);
 
+        // Birth date, sourced from Vote Smart's candidate bio (same fetch the
+        // Dig Deeper "Interest Group Ratings"/"Key Votes" panels already
+        // trigger, cached 24h) — only present when show_votesmart_data is
+        // enabled (or the profile is unclaimed) and a Vote Smart ID resolves.
+        $birthDate = $transparencyData['votesmart']['candidate']['birth_date'] ?? null;
+
         // News-detected endorsements (e.g. "Governor Endorsed") — distinct from the
         // donor-inferred PAC affiliation chips rendered from $transparencyData below.
         $endorsements = $politician->endorsements()->active()->get();
@@ -1269,6 +1275,7 @@ class PublicProfileController extends Controller
             'topWeeklyMoments',
             'meTokenData',
             'termInfo',
+            'birthDate',
             'electionDates',
             'ogTitle',
             'ogDescription',

@@ -397,6 +397,21 @@
                         </p>
                     @endif
 
+                    @if($birthDate)
+                        @php
+                            try {
+                                $parsedBirthDate = \Carbon\Carbon::parse($birthDate);
+                            } catch (\Throwable $e) {
+                                $parsedBirthDate = null;
+                            }
+                        @endphp
+                        @if($parsedBirthDate)
+                            <p class="text-sm text-slate-400 mb-1">
+                                🎂 Born {{ $parsedBirthDate->format('F j, Y') }} · Age {{ $parsedBirthDate->age }}
+                            </p>
+                        @endif
+                    @endif
+
                     {{-- ── View on Map deep-link ─────────────────────────────────
                          Builds /map?state=CA&district=33&slug=slug-here so the 3D
                          map flies directly to this politician's state, selects their
