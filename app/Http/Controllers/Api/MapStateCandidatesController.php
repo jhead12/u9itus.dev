@@ -157,7 +157,7 @@ class MapStateCandidatesController
             ->get(['id', 'uuid', 'full_name', 'political_office', 'party_affiliation',
                    'profile_photo_url', 'slug', 'is_running_candidate',
                    'term_status', 'verified_official', 'ballotpedia_id',
-                   'website_url', 'bio']);
+                   'website_url', 'bio', 'term_ends_on']);
 
         // Lost statewide candidates on the platform should also suppress matching
         // scraped running rows when payload.primary_result is missing/stale.
@@ -212,7 +212,7 @@ class MapStateCandidatesController
             ->get(['id', 'uuid', 'full_name', 'political_office', 'party_affiliation',
                    'profile_photo_url', 'slug', 'is_running_candidate',
                    'term_status', 'verified_official', 'ballotpedia_id',
-                   'district', 'website_url', 'bio']);
+                   'district', 'website_url', 'bio', 'term_ends_on']);
 
         // ── 2c. Split U.S. Senators out of the federal set ─────────────────────
         // Senators represent the whole state (no congressional district), so
@@ -563,6 +563,11 @@ class MapStateCandidatesController
             'website'         => $pol->website_url,
             'profile_url'     => $pol->slug ? url('/p/' . $pol->slug) : null,
             'bio_excerpt'     => $pol->bio ? Str::limit($pol->bio, 180) : null,
+            // Same field name/semantics as the scraped-ECR branch above
+            // ("Term ends {date}", rendered in panel-state.js) — statewide
+            // offices (Senators, Governor, etc.) have no district/general_date
+            // of their own, so this is their only source of a term-end date.
+            'term_end'        => optional($pol->term_ends_on)?->toDateString(),
             'badges'          => $this->formatBadges($pol),
         ];
     }

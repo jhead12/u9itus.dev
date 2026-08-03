@@ -671,10 +671,20 @@ function _renderPolBody() {
             return;
         }
 
+        // A statewide office (Senator, Governor, ...) has no general_date of its
+        // own and no district — fall back to term_end (when seated) and to the
+        // state's total population, relabeling both stats accordingly rather
+        // than showing a misleading "—" or an inaccurate date under the wrong label.
         const elDate = c.general_date || c.election_date || null;
-        const elStr = elDate ? (() => { try { return new Date(elDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }); } catch { return '—'; } })() : '—';
-        const popVal = pop ? pop.formatted : '—';
-        const popSub = pop ? `(${pop.census_year} Census)` : '';
+        const usingTermEnd = !elDate && !!c.term_end;
+        const elDisplayDate = elDate || (usingTermEnd ? c.term_end : null);
+        const elStr = elDisplayDate ? (() => { try { return new Date(elDisplayDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }); } catch { return '—'; } })() : '—';
+        const elLabel = usingTermEnd ? 'Term Ends' : 'Next Election';
+        const effectivePop = pop || stateData?.population || null;
+        const usingStatePop = !pop && !!stateData?.population;
+        const popVal = effectivePop ? effectivePop.formatted : '—';
+        const popSub = effectivePop ? `(${effectivePop.census_year} Census)` : '';
+        const popLabel = usingStatePop ? 'State Population' : 'District Population';
         const bioHtml = c.bio
             ? `<p class="pol-section-label">About</p><p class="pol-bio">${c.bio}</p>`
             : '';
@@ -767,7 +777,7 @@ function _renderPolBody() {
             <div class="pol-stat-grid">
                 <div class="pol-stat">
                     <span class="pol-stat-val">${popVal}</span>
-                    <span class="pol-stat-lbl">District Population ${popSub}</span>
+                    <span class="pol-stat-lbl">${popLabel} ${popSub}</span>
                 </div>
                 <div class="pol-stat">
                     <span class="pol-stat-val" style="color:${PARTY_HEX[c.party] || ac}">${PARTY_LABEL[c.party] || c.party || '—'}</span>
@@ -779,7 +789,7 @@ function _renderPolBody() {
                 </div>
                 <div class="pol-stat">
                     <span class="pol-stat-val">${elStr}</span>
-                    <span class="pol-stat-lbl">Next Election</span>
+                    <span class="pol-stat-lbl">${elLabel}</span>
                 </div>
             </div>
             ${bioHtml}
