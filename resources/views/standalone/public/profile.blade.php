@@ -1163,6 +1163,11 @@
             if (!empty($transparencyData['ballotpedia']['source_url'] ?? null)) {
                 $researchLinks[] = ['label' => 'Ballotpedia Profile', 'url' => $transparencyData['ballotpedia']['source_url']];
             }
+            if (!empty($politician->wikipedia_url)) {
+                $researchLinks[] = ['label' => 'Wikipedia Article', 'url' => $politician->wikipedia_url];
+            } elseif (!empty($politician->full_name)) {
+                $researchLinks[] = ['label' => 'Wikipedia Search', 'url' => 'https://en.wikipedia.org/w/index.php?search=' . rawurlencode($politician->full_name)];
+            }
             if (!empty($politician->full_name)) {
                 $researchLinks[] = ['label' => 'C-SPAN Video Search', 'url' => 'https://www.c-span.org/search/?searchtype=Videos&query=' . rawurlencode($politician->full_name)];
             }

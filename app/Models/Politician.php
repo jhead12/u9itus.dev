@@ -40,6 +40,7 @@ class Politician extends Model
         'state',
         'city',
         'website_url',
+        'wikipedia_url',
         'bio',
         'profile_photo_url',
         'profile_photo_status',

@@ -338,10 +338,10 @@
             @endif
 
             <section>
-                <!-- <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center justify-between mb-4">
                     <h2 class="text-xl font-bold text-white">Candidates Running In Your Area</h2>
                     <span class="text-sm text-slate-400">{{ $candidates->count() }} found</span>
-                </div> -->
+                </div>
 
                 @if($candidates->isEmpty())
                     <div class="bg-slate-900/60 border border-slate-700/50 rounded-xl p-6">
@@ -450,7 +450,11 @@
                                         };
                                     @endphp
                                     <div class="bg-slate-900/60 border {{ $borderClass }} rounded-xl p-5 transition">
-                                        <p class="text-white font-semibold">{{ $official['full_name'] }}</p>
+                                        @if(!empty($official['profile_slug']))
+                                            <a href="{{ route('politician.public.show', $official['profile_slug']) }}" class="text-white font-semibold hover:text-emerald-300 transition">{{ $official['full_name'] }}</a>
+                                        @else
+                                            <p class="text-white font-semibold">{{ $official['full_name'] }}</p>
+                                        @endif
                                         <p class="text-slate-400 text-sm mt-1">{{ $official['political_office'] ?: 'Public Official' }}</p>
 
                                         <div class="mt-3 space-y-1 text-xs text-slate-400">
@@ -480,6 +484,11 @@
                                             @if(!empty($official['website']))
                                                 <a href="{{ $official['website'] }}" target="_blank" rel="noopener" class="inline-block text-emerald-400 hover:text-emerald-300">
                                                     Official website →
+                                                </a>
+                                            @endif
+                                            @if(!empty($official['profile_slug']))
+                                                <a href="{{ route('politician.public.show', $official['profile_slug']) }}" class="inline-block text-emerald-400 hover:text-emerald-300 font-medium">
+                                                    View full profile →
                                                 </a>
                                             @endif
                                         </div>

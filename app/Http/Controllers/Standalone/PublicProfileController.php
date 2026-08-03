@@ -24,6 +24,7 @@ use App\Services\OpenSecretsService;
 use App\Services\PlatformSettingsService;
 use App\Services\VoteSmartService;
 use App\Services\Web3\MeTokenSubgraphService;
+use App\Services\WikipediaLookupService;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
@@ -218,6 +219,7 @@ class PublicProfileController extends Controller
                     'website' => $this->sanitizePublicWebsiteUrl($official['website'] ?? null) ?? '',
                     'source' => trim((string) ($official['source'] ?? 'google_civic')),
                     'discovery_links' => $this->buildDiscoveryLinks($fullName, $office, $state),
+                    'profile_slug' => $this->findPublishedPoliticianSlug($fullName, $state),
                 ];
             })
             ->filter(function (array $official): bool {
@@ -280,6 +282,7 @@ class PublicProfileController extends Controller
                     'website' => $this->sanitizePublicWebsiteUrl($official['website'] ?? null) ?? '',
                     'source' => trim((string) ($official['source'] ?? 'congress_gov')),
                     'discovery_links' => $this->buildDiscoveryLinks($fullName, $office, $state),
+                    'profile_slug' => $this->findPublishedPoliticianSlug($fullName, $state),
                 ];
             })
             ->filter(function (array $official): bool {
@@ -345,14 +348,20 @@ class PublicProfileController extends Controller
 
         return $records
             ->map(function (ElectionCandidateRecord $record): array {
+                $fullName = trim((string) $record->full_name);
+                $office = trim((string) ($record->political_office ?? ''));
+                $state = strtoupper(trim((string) ($record->state ?? '')));
+
                 return [
-                    'full_name' => trim((string) $record->full_name),
-                    'political_office' => trim((string) ($record->political_office ?? '')),
+                    'full_name' => $fullName,
+                    'political_office' => $office,
                     'party_affiliation' => trim((string) ($record->party_affiliation ?? '')),
-                    'state' => strtoupper(trim((string) ($record->state ?? ''))),
+                    'state' => $state,
                     'district_code' => trim((string) ($record->district ?? '')),
                     'website' => '',
                     'source' => (string) ($record->source ?? 'local_record'),
+                    'discovery_links' => $this->buildDiscoveryLinks($fullName, $office, $state),
+                    'profile_slug' => $this->findPublishedPoliticianSlug($fullName, $state),
                 ];
             })
             ->filter(function (array $official): bool {
@@ -525,6 +534,12 @@ class PublicProfileController extends Controller
                 return $existing->id;
             }
 
+            // Best-effort Wikipedia resolution — only for brand-new profiles, so this
+            // extra external call happens once per discovered official rather than on
+            // every repeat district-lookup search that re-touches the same person.
+            $profileData['wikipedia_url'] = app(WikipediaLookupService::class)
+                ->resolveUrl($fullName, $state, $office);
+
             return Politician::create($profileData)->id;
         });
     }
@@ -549,6 +564,29 @@ class PublicProfileController extends Controller
             'youtube' => 'https://www.youtube.com/results?search_query='.rawurlencode($query),
             'cspan' => 'https://www.c-span.org/search/?searchtype=Videos&ssearch='.rawurlencode($query),
         ];
+    }
+
+    /**
+     * Match a fetched official (Google Civic / Congress.gov / local record) back to a
+     * published Politician profile so the district-lookup page can link its card to
+     * the profile page instead of only showing external source links.
+     */
+    protected function findPublishedPoliticianSlug(string $fullName, string $state): ?string
+    {
+        $fullName = trim($fullName);
+        $state = strtoupper(trim($state));
+
+        if ($fullName === '' || $state === '') {
+            return null;
+        }
+
+        return Politician::query()
+            ->where('page_published', true)
+            ->where('is_active', true)
+            ->whereRaw('LOWER(full_name) = ?', [strtolower($fullName)])
+            ->whereRaw('UPPER(COALESCE(state, \'\')) = ?', [$state])
+            ->orderByDesc('verified_official')
+            ->value('slug');
     }
 
     protected function mergeCandidates(Collection $existingCandidates, Collection $discoveredCandidates): Collection
