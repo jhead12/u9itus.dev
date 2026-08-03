@@ -868,7 +868,10 @@
                         @if(isset($data['sections']) && !empty($data['sections']))
                         <div class="space-y-5">
                             @foreach($data['sections'] as $sectionKey => $section)
-                                @if(!empty($section['items']))
+                                {{-- outside_spending gets its own formatted "Independent Spending" block
+                                     below (currency + Support/Oppose badges) — rendering it here too would
+                                     dump the raw FEC fields (unformatted totals, bare 'S'/'O' codes). --}}
+                                @if($sectionKey !== 'outside_spending' && !empty($section['items']))
                                 <div>
                                     <h4 class="text-sm font-semibold text-slate-300 mb-3 flex items-center justify-between">
                                         <span>{{ $section['title'] ?? ucwords(str_replace('_', ' ', is_string($sectionKey) ? $sectionKey : '')) }}</span>

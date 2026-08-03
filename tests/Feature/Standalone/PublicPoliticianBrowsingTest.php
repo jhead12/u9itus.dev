@@ -504,7 +504,7 @@ test('public profile renders FEC outside-spending section with no title key with
                 'sections' => [
                     'summary' => ['receipts' => '$250,000'],
                     'outside_spending' => ['items' => [
-                        ['spender' => 'Some PAC', 'amount' => '$10,000', 'support_oppose' => 'Support'],
+                        ['committee_name' => 'Some PAC', 'total' => 10000.0, 'support_oppose' => 'S'],
                     ]],
                 ],
             ];
@@ -521,7 +521,14 @@ test('public profile renders FEC outside-spending section with no title key with
     $response = $this->get(route('politician.public.show', ['slug' => $politician->slug]));
 
     $response->assertOk();
-    $response->assertSee('Outside Spending');
+    // outside_spending is excluded from the generic "Public Records & Transparency"
+    // loop (it would otherwise dump raw fields like the bare 'S'/'O' FEC indicator
+    // and an unformatted total) and rendered only by the dedicated, formatted
+    // "Independent Spending" block further down the page.
+    $response->assertDontSee('Outside Spending');
+    $response->assertSee('Independent Spending');
+    $response->assertSee('Some PAC');
+    $response->assertSee('Support');
 });
 
     test('logged in voter sees referral share toolbar on unverified profiles only', function () {
