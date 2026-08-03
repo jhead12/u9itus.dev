@@ -53,9 +53,10 @@
                      data-post-body-editor
                      data-input="post-body-input"
                      data-upload-url="{{ route($routePrefix . '.images') }}"
+                     data-embed-url="{{ route($routePrefix . '.embeds') }}"
                      class="border border-slate-700 rounded-b-lg text-sm [&_.ql-editor]:min-h-[420px]"></div>
                 <textarea form="post-form" id="post-body-input" name="body" maxlength="50000" class="hidden">{{ old('body', $post?->body) }}</textarea>
-                <p class="text-xs text-slate-500 mt-1">Allowed formatting: headings, bold/italic/underline/strike, alignment, lists, quotes, links, and images.</p>
+                <p class="text-xs text-slate-500 mt-1">Allowed formatting: headings, bold/italic/underline/strike, alignment, lists, quotes, links, images, and embeds (YouTube, Instagram, SoundCloud, X, TikTok).</p>
             </div>
 
             <div>

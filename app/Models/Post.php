@@ -4,6 +4,8 @@ namespace App\Models;
 
 use App\Enums\PostStatus;
 use App\Support\PostAlignmentAttributeSanitizer;
+use App\Support\PostEmbedBlockquoteAttributeSanitizer;
+use App\Support\PostEmbedIframeAttributeSanitizer;
 use App\Support\PostListAttributeSanitizer;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -129,6 +131,12 @@ class Post extends Model
         // an attribute if the source already had one; give bare <img> a fallback alt.
         $html = preg_replace('/<img(?![^>]*\balt=)([^>]*)>/i', '<img alt="Post image"$1>', $html) ?? $html;
 
+        // An iframe whose src failed PostEmbedIframeAttributeSanitizer (e.g. a
+        // disallowed domain) still passes through as an element — the attribute
+        // gets stripped, not the tag — leaving an empty, pointless <iframe></iframe>.
+        // Drop it entirely rather than ship dead markup.
+        $html = preg_replace('/<iframe(?![^>]*\bsrc=)[^>]*><\/iframe>/i', '', $html) ?? $html;
+
         return $html;
     }
 
@@ -156,10 +164,16 @@ class Post extends Model
             ->allowElement('blockquote')
             ->allowElement('a', ['href'])
             ->allowElement('img', ['src', 'alt'])
+            // Embeds (see PostEmbedService): the iframe src and blockquote class are
+            // both server-generated from a fixed template, never raw user HTML, but
+            // are re-validated here regardless as a second, independent check.
+            ->allowElement('iframe', ['src', 'width', 'height', 'frameborder', 'allow', 'allowfullscreen'])
             // Quill emits text-alignment as a class on block elements (e.g. ql-align-center);
             // the attribute sanitizer below restricts it to that fixed, enumerable set.
-            ->allowAttribute('class', ['p', 'li', 'h2', 'h3'])
+            ->allowAttribute('class', ['p', 'li', 'h2', 'h3', 'blockquote'])
             ->withAttributeSanitizer(new PostAlignmentAttributeSanitizer)
+            ->withAttributeSanitizer(new PostEmbedBlockquoteAttributeSanitizer)
+            ->withAttributeSanitizer(new PostEmbedIframeAttributeSanitizer)
             // Quill renders both bullet and ordered lists as <ol><li data-list="...">,
             // using this attribute (via CSS) to decide bullet vs number.
             ->allowAttribute('data-list', ['li'])

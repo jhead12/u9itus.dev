@@ -3,6 +3,17 @@ import 'quill/dist/quill.snow.css';
 
 const AUTOSAVE_INTERVAL_MS = 20000;
 
+// Custom toolbar icon for the embed button — matches Quill's own SVG style
+// (ql-stroke class) so the dark-theme color overrides in app.css apply to it
+// automatically, same as every built-in icon.
+const icons = Quill.import('ui/icons');
+icons.embed =
+    '<svg viewBox="0 0 18 18">' +
+    '<polyline class="ql-stroke" points="5 7 3 9 5 11"></polyline>' +
+    '<polyline class="ql-stroke" points="13 7 15 9 13 11"></polyline>' +
+    '<line class="ql-stroke" x1="10" x2="8" y1="5" y2="13"></line>' +
+    '</svg>';
+
 /**
  * Wires a Quill editor to a hidden <textarea> for standard form submission.
  * The server independently re-sanitizes whatever HTML this produces
@@ -12,6 +23,7 @@ const AUTOSAVE_INTERVAL_MS = 20000;
 function initPostBodyEditor(container) {
     const hiddenInput = document.getElementById(container.dataset.input);
     const uploadUrl = container.dataset.uploadUrl;
+    const embedUrl = container.dataset.embedUrl;
     // The layout splits fields across a form-attribute pattern (see
     // _form.blade.php) rather than literal DOM nesting, so the editor isn't
     // actually inside <form id="post-form"> — look it up by id instead.
@@ -28,11 +40,12 @@ function initPostBodyEditor(container) {
                     ['blockquote'],
                     [{ list: 'ordered' }, { list: 'bullet' }],
                     [{ align: [] }],
-                    ['link', 'image'],
+                    ['link', 'image', 'embed'],
                     ['clean'],
                 ],
                 handlers: {
                     image: () => selectAndUploadImage(quill, uploadUrl),
+                    embed: () => promptAndInsertEmbed(quill, embedUrl),
                 },
             },
         },
@@ -111,6 +124,62 @@ function selectAndUploadImage(quill, uploadUrl) {
     };
 
     input.click();
+}
+
+/**
+ * Prompts for a YouTube / Instagram / SoundCloud / X / TikTok URL, resolves
+ * it to safe embed HTML server-side (PostEmbedService — the client never
+ * builds or trusts embed markup itself), and inserts the result.
+ */
+async function promptAndInsertEmbed(quill, embedUrl) {
+    if (!embedUrl) {
+        return;
+    }
+
+    const url = window.prompt('Paste a YouTube, Instagram, SoundCloud, X, or TikTok link:');
+    if (!url || !url.trim()) {
+        return;
+    }
+
+    const range = quill.getSelection(true);
+    const placeholderText = 'Loading embed…';
+    quill.insertText(range.index, placeholderText, 'italic', true);
+
+    let placeholderRemoved = false;
+    const removePlaceholder = () => {
+        if (!placeholderRemoved) {
+            placeholderRemoved = true;
+            quill.deleteText(range.index, placeholderText.length);
+        }
+    };
+
+    try {
+        const response = await fetch(embedUrl, {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content ?? '',
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({ url: url.trim() }),
+        });
+
+        const payload = await response.json().catch(() => null);
+
+        if (!response.ok || !payload?.html) {
+            throw new Error(payload?.message ?? '');
+        }
+
+        removePlaceholder();
+        quill.clipboard.dangerouslyPasteHTML(range.index, payload.html, 'user');
+    } catch (err) {
+        removePlaceholder();
+        console.error('Post embed failed', err);
+        window.alert(
+            err.message || "Sorry, that link couldn't be embedded. Please check the URL and try again."
+        );
+    }
 }
 
 /**

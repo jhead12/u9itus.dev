@@ -207,6 +207,35 @@ it('rejects a non-image file from the inline image upload endpoint', function ()
     $response->assertSessionHasErrors('image');
 });
 
+it('lets an author embed a YouTube link in the post body editor', function (): void {
+    $user = makeCitizenUser();
+
+    $response = $this->actingAs($user)->post(route('citizen.posts.embeds'), [
+        'url' => 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+    ]);
+
+    $response->assertOk();
+    expect($response->json('html'))->toContain('src="https://www.youtube.com/embed/dQw4w9WgXcQ"');
+});
+
+it('rejects an unsupported url on the embeds endpoint', function (): void {
+    $user = makeCitizenUser();
+
+    $response = $this->actingAs($user)->post(route('citizen.posts.embeds'), [
+        'url' => 'https://example.com/not-a-supported-platform',
+    ]);
+
+    $response->assertStatus(422);
+});
+
+it('rejects the embeds endpoint for guests', function (): void {
+    $response = $this->post(route('citizen.posts.embeds'), [
+        'url' => 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+    ]);
+
+    $response->assertRedirect(route('login'));
+});
+
 it('rejects the inline image upload endpoint for guests', function (): void {
     Storage::fake('public');
 

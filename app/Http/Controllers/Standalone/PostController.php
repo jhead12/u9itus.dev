@@ -12,6 +12,7 @@ use App\Models\Politician;
 use App\Models\PoliticianTopic;
 use App\Models\Post;
 use App\Services\MediaStorageService;
+use App\Services\PostEmbedService;
 use App\Services\PostPromotionService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -285,6 +286,25 @@ class PostController extends Controller
         abort_unless($url, 422, 'That image could not be processed.');
 
         return response()->json(['url' => $url]);
+    }
+
+    /**
+     * Resolve a pasted YouTube / Instagram / SoundCloud / X / TikTok URL into
+     * embeddable HTML for use inline in the post body editor.
+     */
+    public function createEmbed(Request $request, PostEmbedService $embeds): JsonResponse
+    {
+        $this->requireAuthor();
+
+        $request->validate([
+            'url' => ['required', 'url', 'max:2048'],
+        ]);
+
+        $html = $embeds->resolve($request->string('url')->toString());
+
+        abort_unless($html, 422, 'That URL isn\'t a supported YouTube, Instagram, SoundCloud, X, or TikTok link.');
+
+        return response()->json(['html' => $html]);
     }
 
     private function imageDirectory(string $authorType, int $authorId): string

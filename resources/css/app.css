@@ -31,6 +31,52 @@
 }
 
 /*
+ * Rich embeds (YouTube, Instagram, SoundCloud, X, TikTok) inserted via the
+ * editor's Embed button / PostEmbedService. Applied both in the editor
+ * itself (.ql-editor) and on rendered post pages (.prose) so authors see
+ * roughly what readers will.
+ *
+ * The blockquote.twitter-tweet / .tiktok-embed rules below are currently
+ * inert in practice: Quill's Delta model only preserves attributes tied to
+ * a registered format (like the ql-align-* classes), so a plain "class" on
+ * a pasted <blockquote> gets silently dropped when the editor round-trips
+ * the HTML, even though the sanitizer allows it through. X/TikTok embeds
+ * fall back to plain .prose/.ql-editor blockquote styling as a result —
+ * which reads fine as "quoted content," just not the flatter card look
+ * these rules intended. Kept here (harmless if unreached) for a body
+ * created some other way (direct API, import) where the class does
+ * survive, and as the starting point if this ever gets a real Quill Blot
+ * for embeds instead of dangerouslyPasteHTML.
+ */
+.prose iframe,
+.ql-editor iframe {
+    max-width: 100%;
+}
+.prose iframe[src*='youtube.com'],
+.ql-editor iframe[src*='youtube.com'] {
+    aspect-ratio: 16 / 9;
+    width: 100%;
+    height: auto;
+}
+.prose blockquote.twitter-tweet,
+.prose blockquote.tiktok-embed,
+.ql-editor blockquote.twitter-tweet,
+.ql-editor blockquote.tiktok-embed {
+    border-left: none;
+    font-style: normal;
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 0.5rem;
+    quotes: none;
+}
+.prose blockquote.twitter-tweet::before,
+.prose blockquote.twitter-tweet::after,
+.prose blockquote.tiktok-embed::before,
+.prose blockquote.tiktok-embed::after {
+    content: none;
+}
+
+/*
  * Quill's "snow" theme ships styled for a white editor on a light page. Our
  * dashboard is dark, so override its colors here rather than in Blade —
  * Quill renders its toolbar as a sibling of the target element, not a
