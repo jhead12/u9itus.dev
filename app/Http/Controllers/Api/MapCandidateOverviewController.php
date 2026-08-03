@@ -76,7 +76,10 @@ class MapCandidateOverviewController
 
             $activeVideo = $this->resolveActiveVideo($politician, $scraped, $pool->sortByDesc('published_at')->map($mapItem)->all());
 
-            $bio = $politician ? $this->resolveBio($politician, $voteSmart) : null;
+            $voteSmartData = $politician
+                ? $this->resolveVoteSmartData($politician, $voteSmart)
+                : ['bio' => null, 'key_votes' => []];
+            $bio = $voteSmartData['bio'];
 
             return [
                 'candidate' => [
@@ -94,6 +97,7 @@ class MapCandidateOverviewController
                 'press_releases' => $pressReleaseItems->all(),
                 'events' => $eventItems->all(),
                 'active_video' => $activeVideo,
+                'key_votes' => $voteSmartData['key_votes'],
             ];
         });
 
@@ -126,32 +130,38 @@ class MapCandidateOverviewController
     }
 
     /**
-     * Birth date / education / profession from Vote Smart's candidate bio —
-     * fetchPoliticianRatings() already pulls this on every call (bundled
-     * with ratings/positions/votes and cached together) but historically
-     * only the ratings/positions/votes made it into any UI; the bio fields
-     * were fetched and discarded. Reuses that method as-is (same caching,
-     * same show_votesmart_data consent gate — see fetchTransparencyData())
-     * rather than duplicating the candidate-ID lookup.
+     * Bio fields (birth date / education / profession) and key votes, both
+     * from Vote Smart. fetchPoliticianRatings() already pulls this on every
+     * call (bundled with ratings/positions/votes and cached together) but
+     * historically only the ratings/positions made it into any UI on this
+     * endpoint; the bio fields and key votes were fetched and discarded.
+     * Reuses that method as-is (same caching, same show_votesmart_data
+     * consent gate) rather than duplicating the candidate-ID lookup.
      *
-     * @return array<string, mixed>|null
+     * @return array{bio: array<string, mixed>|null, key_votes: array<int, array<string, mixed>>}
      */
-    private function resolveBio(Politician $politician, VoteSmartService $voteSmart): ?array
+    private function resolveVoteSmartData(Politician $politician, VoteSmartService $voteSmart): array
     {
         try {
             $data = $voteSmart->fetchPoliticianRatings($politician);
         } catch (\Throwable $e) {
-            Log::warning('MapCandidateOverviewController: Vote Smart bio fetch failed', [
+            Log::warning('MapCandidateOverviewController: Vote Smart fetch failed', [
                 'politician_id' => $politician->id,
                 'error' => $e->getMessage(),
             ]);
 
-            return null;
+            return ['bio' => null, 'key_votes' => []];
         }
 
         $candidate = $data['candidate'] ?? null;
+        $votes = is_array($data['key_votes'] ?? null) ? $data['key_votes'] : [];
 
-        return is_array($candidate) ? $candidate : null;
+        usort($votes, fn ($a, $b) => strcmp((string) ($b['date'] ?? ''), (string) ($a['date'] ?? '')));
+
+        return [
+            'bio' => is_array($candidate) ? $candidate : null,
+            'key_votes' => array_slice(array_values($votes), 0, 5),
+        ];
     }
 
     /**

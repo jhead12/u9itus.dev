@@ -454,6 +454,34 @@ function renderContributors(contributors) {
         </div>`;
 }
 
+function formatVoteDate(dateStr) {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    return isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+/** Recent legislative votes, sourced from Vote Smart (same provider as the Overview tab's bio facts). */
+function renderKeyVotes(votes) {
+    if (!votes?.length) return '';
+    return `
+        <p class="pol-section-label" style="margin-top:16px;">Recent Votes</p>
+        <div style="display:grid;gap:8px;">
+            ${votes.map(v => {
+                const voteLabel = String(v.vote || 'N/A').toUpperCase();
+                const voteColor = voteLabel.startsWith('Y') ? '#22c55e' : voteLabel.startsWith('N') ? '#ef4444' : '#94a3b8';
+                const dateStr = formatVoteDate(v.date);
+                return `<div style="padding:8px 10px;border-radius:8px;border:1px solid rgba(148,163,184,0.15);background:rgba(15,23,42,0.4);">
+                    <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline;">
+                        <span style="font-size:12px;font-weight:600;color:#e2e8f0;">${escapeHtml(v.bill || 'Bill')}</span>
+                        <span style="font-size:11px;font-weight:700;color:${voteColor};">${escapeHtml(v.vote || 'N/A')}</span>
+                    </div>
+                    ${v.title ? `<div style="font-size:11px;color:#a7b4c7;margin-top:2px;">${escapeHtml(v.title)}</div>` : ''}
+                    ${dateStr ? `<div style="font-size:10px;color:#64748b;margin-top:2px;">${escapeHtml(dateStr)}</div>` : ''}
+                </div>`;
+            }).join('')}
+        </div>`;
+}
+
 function renderFecSummary(fec) {
     if (!fec || !(fec.receipts || fec.disbursements || fec.cash_on_hand || fec.debt)) return '';
     return `
@@ -756,6 +784,7 @@ function _renderPolBody() {
             </div>
             ${bioHtml}
             ${bioFactsHtml}
+            ${renderKeyVotes(enrichment?.key_votes)}
             ${videoHtml}
             ${newsHtml}
             ${pressReleaseHtml}

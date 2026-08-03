@@ -274,6 +274,7 @@ class CandidateNewsService
             ->where('verification_status', 'verified')
             ->whereNotNull('politician_id')
             ->when($politicianId, fn ($q, $id) => $q->where('politician_id', $id))
+            ->with('politician:id,full_name')
             ->orderByDesc('published_at')
             ->limit($limit);
 
@@ -286,6 +287,7 @@ class CandidateNewsService
                 snippet: (string) ($article->snippet ?? ''),
                 articleId: $article->id,
                 sourceUrl: (string) ($article->source_url ?? ''),
+                politicianFullName: $article->politician?->full_name,
             );
         }
 
@@ -465,6 +467,7 @@ class CandidateNewsService
                     snippet: (string) ($article['snippet'] ?? ''),
                     articleId: $saved->id,
                     sourceUrl: (string) ($article['source_url'] ?? ''),
+                    politicianFullName: $politician?->full_name,
                 );
             }
         }
@@ -477,7 +480,7 @@ class CandidateNewsService
      * and grows the detected_article_ids evidence trail instead of creating
      * duplicate rows.
      */
-    protected function detectEndorsements(int $politicianId, string $headline, string $snippet, int $articleId, string $sourceUrl): void
+    protected function detectEndorsements(int $politicianId, string $headline, string $snippet, int $articleId, string $sourceUrl, ?string $politicianFullName = null): void
     {
         $matches = $this->endorsementClassifier->classify($headline, $snippet);
         if (empty($matches)) {
@@ -485,6 +488,18 @@ class CandidateNewsService
         }
 
         foreach ($matches as $match) {
+            // The classifier only checks proximity of an office title to an
+            // endorsement verb, not who's the subject vs. the object — a
+            // sitting official's own coverage routinely reads "U.S.
+            // Representative Jane Doe ... endorses/backs ...", which the
+            // classifier captures as Jane Doe being the endorser via
+            // captureEndorserName(). Since that's her own name, this isn't a
+            // real endorsement of her — skip it rather than attaching a
+            // self-referential badge to her own profile.
+            if ($this->isSelfReference($match['endorser_name'] ?? null, $politicianFullName)) {
+                continue;
+            }
+
             $existing = PoliticianEndorsement::query()
                 ->where('politician_id', $politicianId)
                 ->where('group_key', $match['group'])
@@ -508,6 +523,30 @@ class CandidateNewsService
                 ],
             );
         }
+    }
+
+    /**
+     * True when the captured "endorser" name is actually just the politician's
+     * own name (every word in it appears in their full name), i.e. the
+     * classifier matched the politician's own title+name rather than a real
+     * third-party endorser.
+     */
+    protected function isSelfReference(?string $endorserName, ?string $politicianFullName): bool
+    {
+        if (!$endorserName || !$politicianFullName) {
+            return false;
+        }
+
+        $tokenize = fn (string $s) => array_values(array_filter(explode(' ', preg_replace('/[^a-z\s]/', '', strtolower($s)))));
+
+        $endorserTokens = $tokenize($endorserName);
+        $politicianTokens = $tokenize($politicianFullName);
+
+        if (empty($endorserTokens) || empty($politicianTokens)) {
+            return false;
+        }
+
+        return empty(array_diff($endorserTokens, $politicianTokens));
     }
 
     /**

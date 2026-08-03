@@ -421,12 +421,29 @@ class FECService
         $results = $body['results'] ?? [];
         $totals = $results[0] ?? [];
 
+        // cash_on_hand_end_period / debts_owed_by_committee only finalize once
+        // the full election cycle's reporting period has closed, so an
+        // actively-raising, mid-cycle candidate gets 0/null here even though
+        // receipts/disbursements (running totals) are populated. OpenFEC's
+        // last_* variants reflect the balance as of the candidate's most
+        // recent individual filing regardless of cycle closeout, so fall back
+        // to those rather than showing a misleading $0.
+        $cashOnHand = $totals['cash_on_hand_end_period'] ?? null;
+        if ($cashOnHand === null || (float) $cashOnHand === 0.0) {
+            $cashOnHand = $totals['last_cash_on_hand_end_period'] ?? $cashOnHand ?? 0;
+        }
+
+        $debt = $totals['debts_owed_by_committee'] ?? null;
+        if ($debt === null || (float) $debt === 0.0) {
+            $debt = $totals['last_debts_owed_by_committee'] ?? $debt ?? 0;
+        }
+
         return [
             'cycle' => $totals['cycle'] ?? $cycle,
             'receipts' => $this->formatCurrency($totals['receipts'] ?? 0),
             'disbursements' => $this->formatCurrency($totals['disbursements'] ?? 0),
-            'cash_on_hand' => $this->formatCurrency($totals['cash_on_hand_end_period'] ?? 0),
-            'debt' => $this->formatCurrency($totals['debts_owed_by_committee'] ?? 0),
+            'cash_on_hand' => $this->formatCurrency($cashOnHand),
+            'debt' => $this->formatCurrency($debt),
             'coverage_end_date' => $totals['coverage_end_date'] ?? null,
         ];
     }
