@@ -35,7 +35,8 @@
       "Bash(echo \"EXIT:$?\")",
       "Bash(awk 'NR>=120 && NR<=126' resources/views/standalone/voter/watch-citizen.blade.php)",
       "Bash(curl -s -A \"Mozilla/5.0\" \"https://ballotpedia.org/Arkansas_Senate_election,_2026\" -o /tmp/ar_senate.html -D /tmp/ar_senate_headers.txt)",
-      "Read(//tmp/**)"
+      "Read(//tmp/**)",
+      "Bash(node blog-layout-check.mjs)"
     ]
   }
 }
