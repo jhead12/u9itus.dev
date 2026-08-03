@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Committee;
 use App\Models\Politician;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Cache;
@@ -778,47 +779,112 @@ class FECService
             return;
         }
 
+        // Serve from the local registry first — a committee spending on one
+        // race is very often also spending on others, so a name resolved for
+        // any prior candidate/run can be reused here without another live
+        // FEC lookup. Defensive: never let a registry problem block the live
+        // fallback below.
+        $known = [];
         try {
-            // The /committees/ endpoint only filters with *repeated plain*
-            // committee_id= params. Laravel's Http::get would render an array
-            // value as committee_id[]=… which this endpoint silently ignores,
-            // so build the query string by hand (request() appends api_key).
-            // Cap the lookup to the top 20.
-            $queryString = 'per_page=100';
-            foreach (array_slice($ids, 0, 20) as $id) {
-                $queryString .= '&committee_id=' . urlencode($id);
-            }
-
-            $body = $this->request(
-                'resolve_committee_names',
-                "{$this->baseUrl}/committees/",
-                [],
-                ['committee_ids' => implode(',', array_slice($ids, 0, 20))],
-                $queryString,
-            );
-
-            if ($body === null) {
-                return;
-            }
-
-            $nameById = [];
-            foreach ($body['results'] ?? [] as $committee) {
-                if (!empty($committee['committee_id']) && !empty($committee['name'])) {
-                    $nameById[$committee['committee_id']] = $committee['name'];
-                }
-            }
-
-            foreach ($ranked as &$bucket) {
-                $id = $bucket['committee_id'] ?? '';
-                if ($id !== '' && isset($nameById[$id])) {
-                    $bucket['committee_name'] = $nameById[$id];
-                }
-            }
-            unset($bucket);
+            $known = Committee::query()
+                ->whereIn('fec_committee_id', $ids)
+                ->whereNotNull('name')
+                ->pluck('name', 'fec_committee_id')
+                ->all();
         } catch (\Throwable $e) {
-            $this->logProviderException('resolve_committee_names', $e, [
+            $this->logProviderException('resolve_committee_names_registry_read', $e, [
                 'committee_ids' => implode(',', array_slice($ids, 0, 20)),
             ]);
+        }
+
+        foreach ($ranked as &$bucket) {
+            $id = $bucket['committee_id'] ?? '';
+            if ($id !== '' && isset($known[$id])) {
+                $bucket['committee_name'] = $known[$id];
+            }
+        }
+        unset($bucket);
+
+        $nameById = [];
+        $unresolvedIds = array_values(array_diff($ids, array_keys($known)));
+
+        if ($unresolvedIds !== []) {
+            try {
+                // The /committees/ endpoint only filters with *repeated plain*
+                // committee_id= params. Laravel's Http::get would render an array
+                // value as committee_id[]=… which this endpoint silently ignores,
+                // so build the query string by hand (request() appends api_key).
+                // Cap the lookup to the top 20.
+                $queryString = 'per_page=100';
+                foreach (array_slice($unresolvedIds, 0, 20) as $id) {
+                    $queryString .= '&committee_id=' . urlencode($id);
+                }
+
+                $body = $this->request(
+                    'resolve_committee_names',
+                    "{$this->baseUrl}/committees/",
+                    [],
+                    ['committee_ids' => implode(',', array_slice($unresolvedIds, 0, 20))],
+                    $queryString,
+                );
+
+                if ($body !== null) {
+                    foreach ($body['results'] ?? [] as $committee) {
+                        if (!empty($committee['committee_id']) && !empty($committee['name'])) {
+                            $nameById[$committee['committee_id']] = $committee['name'];
+                        }
+                    }
+
+                    foreach ($ranked as &$bucket) {
+                        $id = $bucket['committee_id'] ?? '';
+                        if ($id !== '' && isset($nameById[$id])) {
+                            $bucket['committee_name'] = $nameById[$id];
+                        }
+                    }
+                    unset($bucket);
+                }
+            } catch (\Throwable $e) {
+                $this->logProviderException('resolve_committee_names', $e, [
+                    'committee_ids' => implode(',', array_slice($unresolvedIds, 0, 20)),
+                ]);
+            }
+        }
+
+        $this->registerSeenCommittees($ids, $nameById);
+    }
+
+    /**
+     * Upsert every committee ID touched by this resolution pass into the
+     * local registry — name + name_resolved_at when newly resolved this
+     * call, first/last_seen_at always — so a committee's name only ever
+     * needs resolving once across all candidates/runs. Defensive: a
+     * registry-write failure must never affect the spending data returned
+     * to the caller, so failures are logged and swallowed.
+     *
+     * @param array<int, string> $ids
+     * @param array<string, string> $nameById
+     */
+    private function registerSeenCommittees(array $ids, array $nameById): void
+    {
+        $now = now();
+
+        foreach ($ids as $id) {
+            try {
+                $committee = Committee::query()->firstOrNew(['fec_committee_id' => $id]);
+                if (!$committee->exists) {
+                    $committee->first_seen_at = $now;
+                }
+                $committee->last_seen_at = $now;
+                if (isset($nameById[$id])) {
+                    $committee->name = $nameById[$id];
+                    $committee->name_resolved_at = $now;
+                }
+                $committee->save();
+            } catch (\Throwable $e) {
+                $this->logProviderException('resolve_committee_names_registry_write', $e, [
+                    'committee_id' => $id,
+                ]);
+            }
         }
     }
 

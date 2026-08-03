@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * A PAC, advocacy group, or other organization that can be linked to a
@@ -49,6 +50,12 @@ class Organization extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /** FEC committees hand-linked to this org (see Committee::organization()). */
+    public function committees(): HasMany
+    {
+        return $this->hasMany(Committee::class);
     }
 
     public function scopeActive(Builder $query): Builder
