@@ -74,12 +74,6 @@
                     @endif
                 </div>
 
-                @include('standalone.shared.referral-share-actions', [
-                    'shareLink' => $post->canonical_url ?? route('blog.show', $post),
-                    'shareSubject' => $post->title,
-                    'shareMessage' => $post->excerpt ?? $post->subtitle ?? $post->title,
-                ])
-
                 <div class="mt-8 prose prose-invert prose-lg max-w-none">
                     {!! $post->body !!}
                 </div>
