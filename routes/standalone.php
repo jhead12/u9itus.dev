@@ -20,6 +20,8 @@ use App\Http\Controllers\Standalone\CitizenCampaignVoterController;
 use App\Http\Controllers\Standalone\CitizenController;
 use App\Http\Controllers\Standalone\DashboardController;
 use App\Http\Controllers\Standalone\BoundaryFavoriteController;
+use App\Http\Controllers\Standalone\GuestBoundaryFavoriteController;
+use App\Http\Controllers\Standalone\GuestDigestOptInController;
 use App\Http\Controllers\Standalone\CauseFavoriteController;
 use App\Http\Controllers\Standalone\CauseBrowseController;
 use App\Http\Controllers\Standalone\BallotMeasureBrowseController;
@@ -805,6 +807,20 @@ Route::get('/groups/{group}/{scope?}', [PublicGroupController::class, 'show'])->
 
 // Interactive 3D U.S. Regional Map
 Route::get('/map', fn() => view('standalone.public.us-map'))->name('us.map');
+
+// Guest (unauthenticated) map favorites — cookie-backed counterpart to the
+// role:voter-gated /voter/boundaries routes above. See GuestBoundaryCookie
+// and GuestBoundaryFavoriteController for the storage contract.
+Route::prefix('map/boundaries')->name('map.boundaries.')->middleware('throttle:60,1')->group(function () {
+    Route::get('/', [GuestBoundaryFavoriteController::class, 'index'])->name('index');
+    Route::post('/', [GuestBoundaryFavoriteController::class, 'store'])->name('store');
+    Route::delete('/{key}', [GuestBoundaryFavoriteController::class, 'destroy'])->name('destroy');
+});
+
+Route::post('/map/boundaries-digest-optin', [GuestDigestOptInController::class, 'store'])
+    ->middleware('throttle:5,1')->name('map.boundaries.digest-optin');
+Route::get('/map/boundaries-digest/confirm/{voter}/{hash}', [GuestDigestOptInController::class, 'confirm'])
+    ->middleware(['signed', 'throttle:20,1'])->name('map.boundaries.digest.confirm');
 
 // Public Blog
 Route::get('/blog', [PublicPostController::class, 'index'])->name('blog.index');

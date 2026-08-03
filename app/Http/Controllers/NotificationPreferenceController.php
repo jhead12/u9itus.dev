@@ -29,6 +29,7 @@ class NotificationPreferenceController extends Controller
             'email_low_balance' => 'boolean',
             'email_fraud_alert' => 'boolean',
             'email_system_announcements' => 'boolean',
+            'email_boundary_digest' => 'boolean',
             'inapp_campaign_status' => 'boolean',
             'inapp_payout_processed' => 'boolean',
             'inapp_low_balance' => 'boolean',
@@ -55,6 +56,12 @@ class NotificationPreferenceController extends Controller
                     $validated[$key] = false;
                 }
             }
+        }
+
+        // email_boundary_digest is email-only (no inapp/push/sms equivalent
+        // exists yet), so it isn't covered by the channel loop above.
+        if (!isset($validated['email_boundary_digest'])) {
+            $validated['email_boundary_digest'] = false;
         }
 
         $preferences = $request->user()->notificationPreference

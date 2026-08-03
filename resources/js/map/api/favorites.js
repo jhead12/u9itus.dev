@@ -1,10 +1,12 @@
 /**
- * Saved-boundaries API — fetch / save / remove a voter's pinned map
- * boundaries (congressional districts + top cities).
+ * Saved-boundaries API — fetch / save / remove a pinned map boundary
+ * (congressional district or top city), for both voters and guests.
  *
- * All calls no-op for non-voters (the /voter/boundaries routes are
- * role:voter-gated server-side). Reuses the csrf-token meta emitted by
- * us-map.blade.php when MAP_VOTER_FEATURES_ENABLED is on.
+ * Voters hit the role:voter-gated /voter/boundaries routes; guests hit the
+ * cookie-backed /map/boundaries routes (GuestBoundaryFavoriteController) —
+ * same JSON shape either way, so callers don't need to care which. Reuses
+ * the csrf-token meta emitted by us-map.blade.php when
+ * MAP_VOTER_FEATURES_ENABLED is on (now rendered for guests too).
  */
 import { addFavorite, removeFavoriteById, setFavorites } from '../state/map-state.js';
 
@@ -15,7 +17,8 @@ const jsonHeaders = () => ({
     'X-CSRF-TOKEN': csrf(),
 });
 
-const canCall = () => !!window.U9?.session?.isVoter?.();
+const boundariesEndpoint = () => (window.U9?.session?.isVoter?.() ? '/voter/boundaries' : '/map/boundaries');
+const canCall = () => !!csrf();
 
 /** Normalize a server record (snake_case) to the in-memory shape (camelCase). */
 function normalize(b) {
@@ -38,7 +41,7 @@ function normalize(b) {
 export async function fetchBoundaries() {
     if (!canCall()) return [];
     try {
-        const res = await fetch('/voter/boundaries', { headers: jsonHeaders() });
+        const res = await fetch(boundariesEndpoint(), { headers: jsonHeaders() });
         if (!res.ok) return [];
         const data = await res.json();
         const list = (data.boundaries || []).map(normalize);
@@ -52,19 +55,19 @@ export async function fetchBoundaries() {
 /**
  * Save a boundary. `payload` uses the server's snake_case field names
  * ({ type, state_abbr, district_number?, city_name?, label, lat?, lng? }).
- * Returns the normalized record on success, else null.
+ * Returns the normalized record on success, `{ error }` on a known failure
+ * (e.g. the guest 25-item cookie cap), or null on any other failure.
  */
 export async function saveBoundary(payload) {
     if (!canCall()) return null;
     try {
-        const res = await fetch('/voter/boundaries', {
+        const res = await fetch(boundariesEndpoint(), {
             method: 'POST',
             headers: jsonHeaders(),
             body: JSON.stringify(payload),
         });
-        if (!res.ok) return null;
-        const data = await res.json();
-        if (!data.ok) return null;
+        const data = await res.json().catch(() => null);
+        if (!res.ok || !data?.ok) return data?.error ? { error: data.error } : null;
         const rec = normalize({
             id:              data.id,
             type:            payload.type,
@@ -86,7 +89,7 @@ export async function saveBoundary(payload) {
 export async function removeBoundary(id) {
     if (!canCall() || !id) return false;
     try {
-        const res = await fetch(`/voter/boundaries/${id}`, {
+        const res = await fetch(`${boundariesEndpoint()}/${id}`, {
             method: 'DELETE',
             headers: jsonHeaders(),
         });
@@ -95,5 +98,25 @@ export async function removeBoundary(id) {
         return true;
     } catch {
         return false;
+    }
+}
+
+/**
+ * Opt into the weekly saved-places digest. Voters just flip their existing
+ * notification preference (no email needed). Guests must supply an email —
+ * a confirmation link is sent, no digest content goes out until it's clicked.
+ * Returns the parsed response body ({ ok, status }) or null on failure.
+ */
+export async function optInToDigest(email) {
+    try {
+        const res = await fetch('/map/boundaries-digest-optin', {
+            method: 'POST',
+            headers: jsonHeaders(),
+            body: JSON.stringify(email ? { email } : {}),
+        });
+        const data = await res.json().catch(() => null);
+        return res.ok && data?.ok ? data : null;
+    } catch {
+        return null;
     }
 }

@@ -23,6 +23,7 @@ class NotificationPreference extends Model
         'email_low_balance',
         'email_fraud_alert',
         'email_system_announcements',
+        'email_boundary_digest',
         // In-app preferences
         'inapp_campaign_status',
         'inapp_payout_processed',
@@ -55,6 +56,7 @@ class NotificationPreference extends Model
         'email_low_balance' => 'boolean',
         'email_fraud_alert' => 'boolean',
         'email_system_announcements' => 'boolean',
+        'email_boundary_digest' => 'boolean',
         'inapp_campaign_status' => 'boolean',
         'inapp_payout_processed' => 'boolean',
         'inapp_low_balance' => 'boolean',
