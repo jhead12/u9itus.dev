@@ -46,7 +46,7 @@ jobs:
 
       # ── Composer ────────────────────────────────────────────────────────────
       - name: Cache Composer packages
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: vendor
           key: ${{ runner.os }}-composer-${{ hashFiles('composer.lock') }}
