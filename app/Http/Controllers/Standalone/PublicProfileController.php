@@ -103,6 +103,12 @@ class PublicProfileController extends Controller
                         $candidates = $this->mergeCandidates($candidates, $discoveredOfficials);
                     }
 
+                    // Same real official can exist as multiple imported Politician rows
+                    // (different import passes, inconsistent office-title casing, etc.) —
+                    // collapse using the same identity logic the directory page already
+                    // relies on for this exact scenario.
+                    $candidates = $this->collapseDirectoryDuplicates($candidates);
+
                     // ── Cross-section dedup ──────────────────────────────────
                     // The same official can land in both the published-profile table
                     // (Politician, rendered as $candidates) and the public-records table
