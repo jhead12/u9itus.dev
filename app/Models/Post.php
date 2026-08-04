@@ -137,7 +137,17 @@ class Post extends Model
         // Drop it entirely rather than ship dead markup.
         $html = preg_replace('/<iframe(?![^>]*\bsrc=)[^>]*><\/iframe>/i', '', $html) ?? $html;
 
-        return $html;
+        // Content pasted from other platforms (Wix in particular) uses empty
+        // paragraphs as manual visual spacers. The sanitizer above only strips
+        // disallowed tags/attributes, not empty ones, so these survive and each
+        // one adds a full .prose paragraph margin on render — the "extra gap
+        // between paragraphs" bug. Strip any <p> whose only content is
+        // whitespace (the /u modifier makes \s Unicode-aware, so this also
+        // catches the literal U+00A0 the sanitizer decodes &nbsp; into)
+        // and/or <br>.
+        $html = preg_replace('/<p(?:\s[^>]*)?>(?:\s|<br\s*\/?>)*<\/p>/iu', '', $html) ?? $html;
+
+        return trim($html) ?: null;
     }
 
     /**

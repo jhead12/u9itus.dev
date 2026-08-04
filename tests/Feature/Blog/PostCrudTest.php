@@ -282,3 +282,19 @@ it('background-saves without a redirect and reports fresh slug-based urls after 
     expect($json['publicUrl'])->toContain($post->slug);
     expect($json['updateUrl'])->not->toContain('original-title');
 });
+
+it('strips empty spacer paragraphs pasted from page builders like Wix', function (): void {
+    $post = Post::factory()->create([
+        'body' => '<p>First paragraph.</p><p><br></p><p>&nbsp;</p><p class="ql-align-center"> </p><p>Second paragraph.</p>',
+    ]);
+
+    expect($post->body)->toBe('<p>First paragraph.</p><p>Second paragraph.</p>');
+});
+
+it('returns a null body when a post is only empty spacer paragraphs', function (): void {
+    $post = Post::factory()->create([
+        'body' => '<p><br></p><p>&nbsp;</p>',
+    ]);
+
+    expect($post->body)->toBeNull();
+});

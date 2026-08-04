@@ -14,6 +14,8 @@ icons.embed =
     '<line class="ql-stroke" x1="10" x2="8" y1="5" y2="13"></line>' +
     '</svg>';
 
+const Delta = Quill.import('delta');
+
 /**
  * Wires a Quill editor to a hidden <textarea> for standard form submission.
  * The server independently re-sanitizes whatever HTML this produces
@@ -55,6 +57,8 @@ function initPostBodyEditor(container) {
         quill.clipboard.dangerouslyPasteHTML(hiddenInput.value);
     }
 
+    registerPasteCleanupMatchers(quill);
+
     quill.on('text-change', () => {
         hiddenInput.value = quill.root.innerHTML;
         // Programmatic .value assignment doesn't fire a native 'input' event,
@@ -69,6 +73,51 @@ function initPostBodyEditor(container) {
     if (form) {
         initAutosave(form);
     }
+}
+
+/**
+ * Cleans up pasted content at the point Quill itself converts clipboard HTML
+ * to a Delta (quill.clipboard.addMatcher — not a raw 'paste' DOM listener,
+ * which would run alongside Quill's own built-in paste handler on the same
+ * element and double-insert). External sources (Wix in particular) paste
+ * deeply-nested markup full of inline colors/fonts and empty paragraphs used
+ * as manual visual spacers. The server independently strips all of that on
+ * save (see Post::sanitizeBody()) regardless of what these matchers do — this
+ * exists so the composer shows authors what will actually be saved, instead
+ * of a misleading preview that reverts on the next save.
+ */
+function registerPasteCleanupMatchers(quill) {
+    // Quill's default build recognizes color/background/font/size as paste
+    // formats even though this editor's toolbar never exposes them, so
+    // pasted colors/fonts otherwise render (and look "applied") in the
+    // composer right up until the server strips them on save.
+    quill.clipboard.addMatcher(Node.ELEMENT_NODE, (_node, delta) => {
+        delta.ops.forEach((op) => {
+            if (op.attributes) {
+                delete op.attributes.color;
+                delete op.attributes.background;
+                delete op.attributes.font;
+                delete op.attributes.size;
+            }
+        });
+        return delta;
+    });
+
+    // Wix (and similar page builders) use empty paragraphs/divs as manual
+    // visual spacers. Drop any block whose content is blank once resolved
+    // to a Delta — matches Post::sanitizeBody()'s server-side stripping.
+    const dropIfBlank = (_node, delta) => (isBlankDelta(delta) ? new Delta() : delta);
+    quill.clipboard.addMatcher('p', dropIfBlank);
+    quill.clipboard.addMatcher('div', dropIfBlank);
+}
+
+function isBlankDelta(delta) {
+    return delta.ops.every((op) => {
+        if (typeof op.insert !== 'string') {
+            return false; // an embed (image, embed block, etc.) — not blank
+        }
+        return op.insert.trim() === '';
+    });
 }
 
 function selectAndUploadImage(quill, uploadUrl) {

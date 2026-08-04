@@ -66,3 +66,9 @@ storage/framework/.DS_Store
 
 /doc/vault
 /doc/wiki
+
+# Playwright E2E artifacts
+/test-results
+/playwright-report
+/blob-report
+/playwright/.cache

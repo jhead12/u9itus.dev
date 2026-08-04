@@ -6,7 +6,8 @@
         "build": "vite build",
         "dev": "vite",
         "dev:all": "concurrently \"php artisan serve\" \"npm run dev\" \"php artisan reverb:start\"",
-        "dev:web": "concurrently \"php artisan serve\" \"npm run dev\""
+        "dev:web": "concurrently \"php artisan serve\" \"npm run dev\"",
+        "test:e2e": "playwright test"
     },
     "devDependencies": {
         "@playwright/test": "^1.45.0",
