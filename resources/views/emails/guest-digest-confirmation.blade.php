@@ -53,6 +53,15 @@
 
       <hr class="divider" />
 
+      <p style="font-weight:600;color:#e2e8f0;margin:0 0 12px;">A quick look at U9itus</p>
+      <ul style="margin:0 0 16px;padding-left:20px;color:#94a3b8;font-size:15px;line-height:1.65;">
+        <li>Track any district or city — officeholders, election news, and endorsements in one place</li>
+        <li>Watch video messages from politicians running near you, and earn money for every view</li>
+        <li>Save the places you care about on the map to get digests like this one whenever things change</li>
+      </ul>
+
+      <hr class="divider" />
+
       <p style="font-size:13px;color:#64748b;">
         This link expires in 3 days. Questions? Reply to this email or visit
         <a href="{{ config('app.url') }}" style="color:#7dd3fc;">{{ config('app.url') }}</a>.

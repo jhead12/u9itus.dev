@@ -12,6 +12,11 @@ Confirm here (expires in 3 days):
 If you didn't request this, you can safely ignore this email — no updates
 will be sent unless you confirm.
 
+A quick look at U9itus:
+- Track any district or city — officeholders, election news, and endorsements in one place
+- Watch video messages from politicians running near you, and earn money for every view
+- Save the places you care about on the map to get digests like this one whenever things change
+
 ---
 Questions? Visit {{ config('app.url') }} or reply to this email.
 
