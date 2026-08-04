@@ -7,6 +7,7 @@ use App\Models\Citizen;
 use App\Models\Politician;
 use App\Models\PoliticianTopic;
 use App\Models\Post;
+use App\Services\DistrictLookupService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 
@@ -117,10 +118,38 @@ class PublicPostController extends Controller
             ->take(3)
             ->get();
 
+        $district = $this->resolvePostDistrict($post);
+
         return view('standalone.public.blog.show', [
             'post' => $post,
             'relatedPosts' => $related,
+            'district' => $district,
         ]);
+    }
+
+    /**
+     * Resolve the congressional district for a post's location, preferring
+     * its stored coordinates (cheaper, no re-geocoding) and falling back to
+     * the raw imported address.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function resolvePostDistrict(Post $post): ?array
+    {
+        if (! $post->location_name) {
+            return null;
+        }
+
+        $lookup = app(DistrictLookupService::class);
+
+        if ($post->latitude !== null && $post->longitude !== null) {
+            $district = $lookup->lookupByCoordinates((float) $post->latitude, (float) $post->longitude);
+            if ($district !== null) {
+                return $district;
+            }
+        }
+
+        return $lookup->lookup($post->location_name);
     }
 
     public function feed()
