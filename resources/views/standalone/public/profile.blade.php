@@ -1486,20 +1486,33 @@
                     @endphp
                     <ol class="space-y-2">
                         @foreach($shownSpending as $i => $spender)
+                        @php
+                            // Snapshots written before committee_id became its own field only
+                            // stored committee_name, which itself held the raw FEC ID whenever
+                            // resolveCommitteeNames() couldn't find a real committee name for it.
+                            // Recover the ID from committee_name in that case so old snapshots
+                            // still render a working link instead of dead plain text.
+                            $committeeId = $spender['committee_id'] ?? null;
+                            $committeeName = $spender['committee_name'] ?? null;
+                            if (empty($committeeId) && $committeeName && preg_match('/^[A-Z]\d{8}$/', $committeeName)) {
+                                $committeeId = $committeeName;
+                                $committeeName = null;
+                            }
+                        @endphp
                         <li class="flex items-center justify-between gap-3">
                             <span class="flex items-center gap-2 min-w-0 flex-1">
                                 <span class="text-xs text-slate-400 tabular-nums w-4 shrink-0">{{ $i + 1 }}.</span>
-                                @if(!empty($spender['committee_id']))
-                                    @if(!empty($spender['committee_name']))
-                                        <a href="https://www.fec.gov/data/committee/{{ $spender['committee_id'] }}/" target="_blank" rel="noopener"
+                                @if(!empty($committeeId))
+                                    @if(!empty($committeeName))
+                                        <a href="https://www.fec.gov/data/committee/{{ $committeeId }}/" target="_blank" rel="noopener"
                                            class="text-sm text-slate-200 truncate underline decoration-slate-600 decoration-1 underline-offset-2 hover:text-emerald-400 hover:decoration-emerald-400"
-                                           title="View this committee's filings on FEC.gov">{{ $spender['committee_name'] }}</a>
+                                           title="View this committee's filings on FEC.gov">{{ $committeeName }}</a>
                                     @endif
-                                    <a href="https://www.google.com/search?q={{ urlencode($spender['committee_id']) }}" target="_blank" rel="noopener nofollow"
-                                       class="shrink-0 text-sm {{ empty($spender['committee_name']) ? 'text-slate-200' : 'text-slate-400 text-xs' }} font-mono truncate underline decoration-slate-600 decoration-1 underline-offset-2 hover:text-emerald-400 hover:decoration-emerald-400"
-                                       title="Search Google for FEC committee ID {{ $spender['committee_id'] }}">{{ $spender['committee_id'] }}</a>
+                                    <a href="https://www.google.com/search?q={{ urlencode($committeeId) }}" target="_blank" rel="noopener nofollow"
+                                       class="shrink-0 text-sm {{ empty($committeeName) ? 'text-slate-200' : 'text-slate-400 text-xs' }} font-mono truncate underline decoration-slate-600 decoration-1 underline-offset-2 hover:text-emerald-400 hover:decoration-emerald-400"
+                                       title="Search Google for FEC committee ID {{ $committeeId }}">{{ $committeeId }}</a>
                                 @else
-                                    <span class="text-sm text-slate-200 truncate">{{ $spender['committee_name'] ?? '—' }}</span>
+                                    <span class="text-sm text-slate-200 truncate">{{ $committeeName ?? '—' }}</span>
                                 @endif
                                 <span class="shrink-0 text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-full border {{ ($spender['support_oppose'] ?? '') === 'O'
                                     ? 'border-rose-500/40 bg-rose-500/10 text-rose-300'
