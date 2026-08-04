@@ -120,9 +120,6 @@ jobs:
           key: ${{ runner.os }}-composer-${{ hashFiles('composer.lock') }}
           restore-keys: ${{ runner.os }}-composer-
 
-      - name: Install Composer dependencies
-        run: composer install --prefer-dist --no-interaction --no-progress --no-dev
-
       # ── Laravel env ─────────────────────────────────────────────────────────
       # Required secrets: APP_KEY, DB_HOST, DB_PORT, DB_DATABASE, DB_USERNAME, DB_PASSWORD
       # Optional secrets: STRIPE_SECRET, STRIPE_WEBHOOK_SECRET, ANTHROPIC_API_KEY
@@ -145,6 +142,7 @@ jobs:
           SESSION_DRIVER=database
           QUEUE_CONNECTION=sync
           LOG_CHANNEL=stderr
+          BROADCAST_CONNECTION=log
 
           STRIPE_SECRET=${{ secrets.STRIPE_SECRET }}
           STRIPE_KEY=${{ secrets.STRIPE_KEY }}
@@ -152,6 +150,9 @@ jobs:
 
           ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}
           EOF
+
+      - name: Install Composer dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress --no-dev
 
       # ── Migrations ───────────────────────────────────────────────────────────
       - name: Run pending migrations

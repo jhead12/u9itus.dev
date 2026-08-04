@@ -52,9 +52,6 @@ jobs:
           key: ${{ runner.os }}-composer-${{ hashFiles('composer.lock') }}
           restore-keys: ${{ runner.os }}-composer-
 
-      - name: Install Composer dependencies
-        run: composer install --prefer-dist --no-interaction --no-progress --no-dev
-
       # ── Laravel env ─────────────────────────────────────────────────────────
       # All secrets are set in GitHub → Settings → Secrets → Actions.
       # Required: APP_KEY, DB_HOST, DB_PORT, DB_DATABASE, DB_USERNAME, DB_PASSWORD
@@ -81,7 +78,11 @@ jobs:
           SESSION_DRIVER=database
           QUEUE_CONNECTION=sync
           LOG_CHANNEL=stderr
+          BROADCAST_CONNECTION=log
           EOF
+
+      - name: Install Composer dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress --no-dev
 
       - name: Run pending migrations
         run: php artisan migrate --force --no-interaction

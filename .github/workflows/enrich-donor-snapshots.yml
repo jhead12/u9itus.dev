@@ -53,23 +53,6 @@ jobs:
           key: ${{ runner.os }}-composer-${{ hashFiles('composer.lock') }}
           restore-keys: ${{ runner.os }}-composer-
 
-      - name: Install Composer dependencies
-        run: composer install --prefer-dist --no-interaction --no-progress --no-dev
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "24"
-          cache: "npm"
-
-      - name: Install Node dependencies
-        run: npm ci
-        env:
-          NODE_ENV: development
-
-      - name: Install Playwright Chromium
-        run: npx playwright install chromium --with-deps
-
       - name: Write .env
         run: |
           cat > .env <<EOF
@@ -91,7 +74,25 @@ jobs:
           SESSION_DRIVER=database
           QUEUE_CONNECTION=sync
           LOG_CHANNEL=stderr
+          BROADCAST_CONNECTION=log
           EOF
+
+      - name: Install Composer dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress --no-dev
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+
+      - name: Install Node dependencies
+        run: npm ci
+        env:
+          NODE_ENV: development
+
+      - name: Install Playwright Chromium
+        run: npx playwright install chromium --with-deps
 
       - name: Run pending migrations
         run: php artisan migrate --force --no-interaction
