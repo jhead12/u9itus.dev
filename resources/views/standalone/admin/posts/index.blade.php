@@ -142,6 +142,9 @@
                         </td>
                         <td class="px-5 py-3">
                             <div class="flex flex-wrap gap-1.5">
+                                @if($post->status === \App\Enums\PostStatus::Published)
+                                <a href="{{ route('blog.show', $post->slug) }}" target="_blank" rel="noopener" class="text-xs px-2 py-1 rounded bg-sky-500/10 text-sky-400 hover:bg-sky-500/20 transition">View</a>
+                                @endif
                                 @if(in_array($post->status, [\App\Enums\PostStatus::Draft, \App\Enums\PostStatus::PendingApproval, \App\Enums\PostStatus::Archived], true))
                                 <form method="POST" action="{{ route('admin.posts.approve', $post) }}" class="inline">
                                     @csrf
