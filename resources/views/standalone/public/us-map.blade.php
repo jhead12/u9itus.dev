@@ -68,7 +68,7 @@
                 <tr><td><kbd>L</kbd></td><td>Find my district</td></tr>
                 <tr><td><kbd>O</kbd></td><td>Toggle offices section</td></tr>
                 <tr><td><kbd>Esc</kbd></td><td>Close panel / popup</td></tr>
-                <tr><td><kbd>?</kbd></td><td>Show / hide this help</td></tr>
+                <tr><td><kbd>S</kbd></td><td>Show / hide this help</td></tr>
                 <tr><td colspan="2" style="padding-top:10px;padding-bottom:2px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#475569;">Mouse</td></tr>
                 <tr><td>Drag</td><td>Pan map</td></tr>
                 <tr><td>Scroll wheel</td><td>Zoom in / out</td></tr>
@@ -92,7 +92,7 @@
 <div id="map-canvas-region"
      tabindex="0"
      role="application"
-     aria-label="Interactive U.S. map. Use arrow keys to tilt, + and - to zoom, Enter to search for a state, ? for keyboard help."
+     aria-label="Interactive U.S. map. Use arrow keys to tilt, + and - to zoom, Enter to search for a state, S for keyboard help."
      aria-description="Use arrow keys to tilt, + and - to zoom, Enter to open search."></div>
 <div id="kb-focus-ring" aria-hidden="true"></div>
 
@@ -412,9 +412,27 @@
 </div>
 
 <div id="breadcrumb-bar">
-    <div id="breadcrumb"><span class="bc-item bc-active">Overview</span></div>
-    <button id="kb-hint-badge" aria-label="Show keyboard shortcuts" title="Keyboard shortcuts (press ?)">
-        <kbd>?</kbd> Shortcuts
+    <div style="display:flex; align-items:center; gap:8px;">
+        <div id="breadcrumb"><span class="bc-item bc-active">Overview</span></div>
+        {{-- Tap-to-toggle so mobile users (no hover) can read this too — the
+             native title/aria-label stay as a hover fallback for desktop. --}}
+        <span style="position:relative; display:inline-flex;">
+            <button type="button" id="map-help-badge"
+                  aria-haspopup="true" aria-expanded="false" aria-controls="map-help-popover"
+                  aria-label="How to use this map"
+                  title="This map is clickable. Click any state to zoom in, then click a district to open its political profile. Drag to rotate, scroll/pinch to zoom, or use Search to jump to a location. Press S for keyboard shortcuts."
+                  onclick="event.stopPropagation(); (function(){
+                      var pop = document.getElementById('map-help-popover');
+                      var open = pop.classList.toggle('open');
+                      this.setAttribute('aria-expanded', open ? 'true' : 'false');
+                  }).call(this)">i</button>
+            <div id="map-help-popover" role="tooltip">
+                This map is clickable. Click any state to zoom in, then click a district to open its political profile. Drag to rotate, scroll/pinch to zoom, or use Search to jump to a location. Press S for keyboard shortcuts.
+            </div>
+        </span>
+    </div>
+    <button id="kb-hint-badge" aria-label="Show keyboard shortcuts" title="Keyboard shortcuts (press S)">
+        <kbd>S</kbd> Shortcuts
     </button>
 </div>
 
@@ -467,6 +485,50 @@
 <div id="hint" style="position:fixed;bottom:28px;right:24px;z-index:50;color:#334155;font-size:11px;text-align:right;pointer-events:none;">
     Scroll / pinch to zoom &nbsp;·&nbsp; ↑↓ tilt &nbsp;·&nbsp; drag to pan &nbsp;·&nbsp; Click a state
 </div>
+
+{{-- Dismissible "how to use" card — sits above the bottom-right hint text.
+     Hidden after first dismissal via localStorage so returning visitors
+     aren't nagged. --}}
+<div id="map-usage-card" role="note" aria-label="How to use this map">
+    <button id="map-usage-close" aria-label="Dismiss these instructions"
+            onclick="(function(){
+                document.getElementById('map-usage-card').style.display='none';
+                try{ localStorage.setItem('u9_map_usage_hint_dismissed','1'); }catch(e){}
+            })()">✕</button>
+    <h3>How to Explore</h3>
+    <ul>
+        <li>🖱 Click any state, then a district, to open its political profile.</li>
+        <li>🔍 Press <kbd>/</kbd> or tap the search icon to find a politician or district by name.</li>
+    </ul>
+</div>
+<script>
+    try {
+        if (localStorage.getItem('u9_map_usage_hint_dismissed')) {
+            document.getElementById('map-usage-card').style.display = 'none';
+        }
+    } catch (e) {}
+
+    // Close the "how to use this map" popover on outside tap/click or Escape —
+    // it's opened via the #map-help-badge onclick handler above.
+    document.addEventListener('click', function () {
+        var pop = document.getElementById('map-help-popover');
+        var badge = document.getElementById('map-help-badge');
+        if (pop && pop.classList.contains('open')) {
+            pop.classList.remove('open');
+            badge && badge.setAttribute('aria-expanded', 'false');
+        }
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.key !== 'Escape') return;
+        var pop = document.getElementById('map-help-popover');
+        var badge = document.getElementById('map-help-badge');
+        if (pop && pop.classList.contains('open')) {
+            pop.classList.remove('open');
+            badge && badge.setAttribute('aria-expanded', 'false');
+            badge && badge.focus();
+        }
+    });
+</script>
 
 {{-- ── Earn modal — true viewport-centered overlay, rendered at root level ── --}}
 @if(config('platform.map.voter_features_enabled') && auth()->guest())

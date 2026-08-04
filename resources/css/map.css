@@ -46,6 +46,10 @@ canvas { display: block; }
     background: #0f172a; border: 1px solid rgba(99,102,241,0.3);
     border-radius: 16px; padding: 28px 32px; max-width: 480px; width: 90%;
     color: #e2e8f0;
+    /* Content (17 rows + buttons) can exceed short viewports — cap the
+       box and let it scroll internally instead of overflowing the screen. */
+    max-height: min(600px, 85vh);
+    overflow-y: auto;
 }
 #kb-help-box h2 { margin: 0 0 18px; font-size: 16px; color: #818cf8; display: flex; align-items: center; gap: 8px; }
 .kb-table { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -99,6 +103,48 @@ kbd {
 #top-bar a { color: #818cf8; font-weight: 700; font-size: 18px; text-decoration: none; }
 #top-bar .sep { color: #334155; font-size: 14px; margin: 0 14px; }
 #top-bar .title { color: #94a3b8; font-size: 14px; }
+
+/* "How to use the map" info badge — sits next to the title. Native
+   title-attribute tooltip on hover for desktop (matches the (i) badge idiom
+   used on the profile page), plus a tap-to-toggle popover (below) so
+   touch/mobile users — who get no hover — can read it too. Leads with
+   "map is clickable" per product ask so first-time visitors know to click
+   a state. */
+#map-help-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 13px; height: 13px; margin-left: 6px;
+    /* Flex align-items:center centers the *line box*, not the glyph's
+       optical center — bold text's line box has more room below the
+       baseline than above, which reads as the badge sitting too high
+       next to "Overview". Nudge down to correct for it. */
+    transform: translateY(1.5px);
+    border-radius: 50%; padding: 0; margin-top: 0; margin-bottom: 0;
+    background: rgba(99,102,241,0.14);
+    border: 1px solid rgba(99,102,241,0.45);
+    color: #a5b4fc; font-size: 8px; font-weight: 700; font-family: inherit; line-height: 1;
+    cursor: pointer; flex-shrink: 0;
+    transition: background .15s, border-color .15s, color .15s;
+}
+#map-help-badge:hover,
+#map-help-badge:focus-visible,
+#map-help-badge[aria-expanded="true"] {
+    background: rgba(99,102,241,0.28);
+    border-color: rgba(99,102,241,0.7);
+    color: #e0e7ff;
+    outline: none;
+}
+#map-help-popover {
+    display: none;
+    position: absolute; top: 24px; left: 0; z-index: 110;
+    width: max-content; max-width: 280px;
+    background: rgba(10, 14, 35, 0.96);
+    border: 1px solid rgba(99, 102, 241, 0.35);
+    border-radius: 10px; padding: 10px 14px;
+    backdrop-filter: blur(10px);
+    color: #cbd5e1; font-size: 12px; line-height: 1.5;
+    box-shadow: 0 12px 30px rgba(0,0,0,0.4);
+}
+#map-help-popover.open { display: block; }
 .top-btn {
     display: inline-flex; align-items: center; gap: 5px;
     background: rgba(99,102,241,0.12);
@@ -616,6 +662,41 @@ kbd {
    and visually overlaps/obscures the panel's last item. */
 body:has(#info-panel.open) #hint { display: none; }
 
+/* Bottom-right "how to use" card — dismissible, sits above the plain-text
+   #hint. Hidden while #info-panel is open (same corner, would overlap),
+   same treatment #hint already gets. */
+#map-usage-card {
+    position: fixed; bottom: 66px; right: 24px; z-index: 51;
+    max-width: 260px;
+    background: rgba(10, 14, 35, 0.92);
+    border: 1px solid rgba(99, 102, 241, 0.25);
+    border-radius: 14px; padding: 14px 16px;
+    backdrop-filter: blur(12px);
+}
+#map-usage-card h3 {
+    color: #a7b4c7; font-size: 10px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 8px;
+}
+#map-usage-card ul { list-style: none; margin: 0; padding: 0; }
+#map-usage-card li {
+    color: #cbd5e1; font-size: 12px; line-height: 1.5;
+}
+#map-usage-card li + li { margin-top: 8px; }
+#map-usage-card kbd {
+    font-size: 10px; padding: 0 5px;
+    background: rgba(99,102,241,0.25); border: 1px solid rgba(99,102,241,0.45);
+    border-radius: 3px; color: #e0e7ff; font-weight: 700;
+}
+#map-usage-close {
+    position: absolute; top: 8px; right: 8px;
+    background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.2);
+    color: #94a3b8; font-size: 11px; cursor: pointer;
+    border-radius: 6px; padding: 2px 6px; line-height: 1.4;
+    transition: color 0.12s, background 0.12s;
+}
+#map-usage-close:hover { color: #e0e7ff; background: rgba(99,102,241,0.16); }
+body:has(#info-panel.open) #map-usage-card { display: none; }
+
 /* Map toast */
 .map-toast {
     position: fixed; bottom: 28px; left: 50%;
@@ -639,9 +720,12 @@ body:has(#info-panel.open) #hint { display: none; }
 }
 .map-toast.error { border-color: rgba(239, 68, 68, 0.5); color: #fecaca; }
 
-/* Breadcrumb */
+/* Breadcrumb
+   z-index raised above #legend (50) and the other bottom panels — it hosts
+   #map-help-popover, whose own z-index:110 only wins within this bar's own
+   stacking context, so the bar itself must outrank them here too. */
 #breadcrumb-bar {
-    position: fixed; top: 54px; left: 0; right: 0; z-index: 45;
+    position: fixed; top: 54px; left: 0; right: 0; z-index: 90;
     background: rgba(6,9,26,0.8); backdrop-filter: blur(10px);
     border-bottom: 1px solid rgba(99,102,241,0.1);
     padding: 0 16px 0 24px; height: 32px;
@@ -1032,6 +1116,7 @@ body:has(#info-panel.open) #hint { display: none; }
 
     /* Hide redundant hint; simplify progress toaster */
     #hint { display: none; }
+    #map-usage-card { max-width: 200px; right: 12px; bottom: 12px; padding: 10px 12px; }
     #dist-progress { bottom: auto; top: 82px; right: 10px; left: auto; transform: none; font-size: 11px; padding: 8px 14px; }
 
     /* Search overlay adjustments */
@@ -1047,6 +1132,7 @@ body:has(#info-panel.open) #hint { display: none; }
     .popup-stats { flex-direction: column; gap: 6px; }
     .popup-stat { padding: 6px 10px; }
     #legend { top: 76px; }
+    #kb-help-box { padding: 20px 18px; max-height: 90vh; }
 }
 
 /* Raw <button> elements used as marker roots — strip UA button chrome

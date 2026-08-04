@@ -80,11 +80,11 @@ export const TOUR_STEPS = [
     },
     {
         target: '#kb-hint-badge', pos: 'top',
-        title: '<kbd>?</kbd>  Keyboard Help',
-        body: `Press <kbd>?</kbd> or click this badge to see the full shortcut reference. You can relaunch this tour from there too.`,
+        title: '<kbd>S</kbd>  Keyboard Help',
+        body: `Press <kbd>S</kbd> or click this badge to see the full shortcut reference. You can relaunch this tour from there too.`,
         isLast: true,
         media: _mediaFor('keyboard-help',
-            `Every action on the map has a keyboard shortcut. Press the question mark key, or click the Keyboard shortcuts badge in the bottom left, to open the full reference. From that same dialog you can replay this guided tour any time. That is everything — welcome to U9itus, and happy exploring.`
+            `Every action on the map has a keyboard shortcut. Press the S key, or click the Keyboard shortcuts badge in the bottom left, to open the full reference. From that same dialog you can replay this guided tour any time. That is everything — welcome to U9itus, and happy exploring.`
         ),
     },
 ];
