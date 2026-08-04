@@ -20,7 +20,9 @@ use App\Http\Controllers\Api\EarlyBankController;
 use App\Http\Controllers\Api\MapBusinessSearchController;
 use App\Http\Controllers\Api\MapContentController;
 use App\Http\Controllers\Api\MapDistrictConfigController;
+use App\Http\Controllers\Api\MapDistrictNewsController;
 use App\Http\Controllers\Api\MapGeocodeController;
+use App\Http\Controllers\Api\MapPollingLocationsController;
 use App\Http\Controllers\Api\MapInteractionController;
 use App\Http\Controllers\Api\MapCandidateEconomyController;
 use App\Http\Controllers\Api\MapCandidateMomentsController;
@@ -137,6 +139,16 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         // Reverse geocode lat/lng → congressional district for the 3D map.
         Route::get('/map/geocode', MapGeocodeController::class)
             ->name('map.geocode');
+
+        // Local election/civic-administration news (polling places, ballot
+        // measures, redistricting) scoped to a clicked district's localities.
+        Route::get('/map/district-news', MapDistrictNewsController::class)
+            ->name('map.district-news');
+
+        // Polling place / early-vote / drop-off lookup for an address, for
+        // the district panel's "Find Your Polling Place" widget.
+        Route::get('/map/polling-locations', MapPollingLocationsController::class)
+            ->name('map.polling-locations');
 
         // Geo-tagged civic content (blog posts, later events) for the 3D map.
         Route::get('/map/content', MapContentController::class)

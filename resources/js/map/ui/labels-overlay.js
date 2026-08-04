@@ -6,7 +6,6 @@ import { STATE_ABBR_MAP, PARTY_HEX, PARTY_LABEL } from '../config/constants.js';
 import { districtMeshes } from '../scene/district-overlay.js';
 import { stateData } from '../state/map-state.js';
 import { camera, renderer } from '../scene/setup.js';
-import { openPolDrawer } from './politician-drawer.js';
 import { openDistrictPanel } from './panel-district.js';
 
 export const mapLabelsLayer = document.getElementById('map-labels-layer');
@@ -44,20 +43,15 @@ export function buildDistrictLabels(stateName) {
             `<span class="ml-dist">${apiKey}</span>`;
 
         el.addEventListener('click', () => {
-            // Bare district-number pills (no on-record officeholder to open a
-            // profile for) used to no-op here — clicking them did nothing.
-            // Fall back to the same district panel the underlying map shape
-            // opens, so every pill is clickable.
-            if (!seated) {
-                openDistrictPanel(mesh.userData.districtNum, mesh.userData.districtLabel, mesh.userData.stateName, mesh.userData.regionHex, mesh.userData.party);
-                return;
-            }
-            const pop = stateData?.district_populations?.[apiKey] ?? null;
-            openPolDrawer(
-                { ...seated, office: `U.S. Representative — ${apiKey}` },
-                dotClr,
-                { population: pop }
-            );
+            // Always open the district panel — same as clicking the underlying
+            // map shape. It's where cities, ballot measures, local election
+            // news, and the polling-place lookup all live; none of that exists
+            // on the politician drawer. The seated officeholder (when there is
+            // one) is rendered right at the top of that panel as its own
+            // candidate-card, one click away from the same drawer this used to
+            // open directly — so nothing here becomes harder to reach, it's
+            // just no longer the only thing reachable.
+            openDistrictPanel(mesh.userData.districtNum, mesh.userData.districtLabel, mesh.userData.stateName, mesh.userData.regionHex, mesh.userData.party);
         });
 
         mapLabelsLayer.appendChild(el);

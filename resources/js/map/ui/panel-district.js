@@ -5,8 +5,8 @@ import { STATE_ABBR_MAP, PARTY_HEX, PARTY_LABEL, OFFICE_ROLES } from '../config/
 import { stateData, statePanelRequestId, mapMode, activeRegion, activeState } from '../state/map-state.js';
 import { districtMeshes } from '../scene/district-overlay.js';
 import { openInfoPanel } from './info-panel.js';
-import { renderCandidate, renderOfficeGroup, partyClass, detectElectionPhase, noDataNotice, renderBallotMeasuresSection, renderCityOfficialsSection, renderElectionDatesBanner } from './panel-state.js';
-import { openPolDrawer } from './politician-drawer.js';
+import { renderCandidate, renderOfficeGroup, partyClass, detectElectionPhase, noDataNotice, renderBallotMeasuresSection, renderCityOfficialsSection, renderElectionDatesBanner, renderPollingLocationsWidget, renderPollingLocationsResults } from './panel-state.js';
+import { openPolDrawer, renderItemListSection } from './politician-drawer.js';
 import { createFavoriteButton } from './boundary-favorite.js';
 import { renderCityCard, fetchCitiesForState, wireCityCardClicks } from './city-demographics-card.js';
 import { fetchStatePlaces } from '../api/tigerweb-places.js';
@@ -75,6 +75,67 @@ async function fetchDistrictCitiesSection(regionName, stateAbbr, stateName, dist
         ${bodyHtml}
         ${officialsHtml}
     </div>`;
+}
+
+/**
+ * Renders the "Local Election & Civic News" section: polling-place changes,
+ * ballot measures, redistricting, and similar election-administration
+ * stories scoped to the cities inside this district. Reuses the same card
+ * markup as the politician drawer's news list. Returns '' (no section) when
+ * the backend has nothing verified yet, same as fetchDistrictCitiesSection.
+ */
+async function fetchDistrictNewsSection(houseKey, districtLabel, stateName, color) {
+    const params = new URLSearchParams({ district_code: houseKey, district_label: districtLabel, state_name: stateName });
+
+    let news = [];
+    try {
+        const res = await fetch(`/api/v1/map/district-news?${params.toString()}`);
+        if (res.ok) {
+            const data = await res.json();
+            news = Array.isArray(data.news) ? data.news : [];
+        }
+    } catch (err) {
+        console.warn('[map] district-news fetch failed:', err);
+    }
+
+    if (!news.length) return '';
+
+    return `<div id="dist-news">
+        ${renderItemListSection('📰 Local Election & Civic News', news)}
+    </div>`;
+}
+
+/**
+ * Wires the "Find Your Polling Place" widget's submit handler. Only fires on
+ * user input (an address) — unlike the news/cities sections there's no
+ * server round-trip on panel open. Guarded by statePanelRequestId so a
+ * response for a since-closed/replaced panel can't render into the wrong one.
+ */
+function wirePollingLocationsWidget(candEl, color) {
+    const form = candEl.querySelector('#poll-loc-form');
+    const input = candEl.querySelector('#poll-loc-input');
+    const results = candEl.querySelector('#poll-loc-results');
+    if (!form || !input || !results) return;
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const address = input.value.trim();
+        if (!address) return;
+
+        const reqId = statePanelRequestId;
+        results.innerHTML = `<div class="panel-spinner"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="animation:spin 1s linear infinite;color:${color};"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-dasharray="31.4" stroke-dashoffset="10" stroke-linecap="round"/></svg>&nbsp;Looking up…</div>`;
+
+        let data = {};
+        try {
+            const res = await fetch(`/api/v1/map/polling-locations?address=${encodeURIComponent(address)}`);
+            data = res.ok ? await res.json() : {};
+        } catch (err) {
+            console.warn('[map] polling-locations fetch failed:', err);
+        }
+
+        if (reqId !== statePanelRequestId || !candEl.isConnected) return;
+        results.innerHTML = renderPollingLocationsResults(data, address, color);
+    });
 }
 
 export async function openDistrictPanel(districtNum, districtLabel, stateName, regionHex, party = 'U') {
@@ -185,7 +246,11 @@ export async function openDistrictPanel(districtNum, districtLabel, stateName, r
         ${houseHtml}
     </div>
 
+    ${renderPollingLocationsWidget(color)}
+
     ${renderBallotMeasuresSection(stateData?.ballot_measures ?? [], color)}
+
+    <div id="dist-news"></div>
 
     <div id="dist-cities-econ"></div>
 
@@ -197,6 +262,22 @@ export async function openDistrictPanel(districtNum, districtLabel, stateName, r
 
     // Star toggle: save this district as a boundary (voter) / sign-in nudge (guest).
     mountDistrictFav(stateName, _stateAbbr, districtNum, districtLabel);
+
+    // Polling-place lookup only fires on user input (an address), so it just
+    // needs its submit handler wired — no fetch on panel open.
+    wirePollingLocationsWidget(candEl, color);
+
+    // Local election/civic-administration news for this district's cities —
+    // fetched async so it doesn't block the rest of the panel.
+    if (_stateAbbr) {
+        const reqId = statePanelRequestId;
+        fetchDistrictNewsSection(houseKey, districtLabel, stateName, color).then(sectionHtml => {
+            if (reqId !== statePanelRequestId) return;
+            const placeholder = document.getElementById('dist-news');
+            if (!placeholder || !sectionHtml) return;
+            placeholder.outerHTML = sectionHtml;
+        });
+    }
 
     // Cities within this district + their local officials — fetched async
     // (region-demographics) so it doesn't block the rest of the panel.

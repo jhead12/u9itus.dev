@@ -152,7 +152,7 @@ function isArticleVisited(url) {
 }
 
 /** Renders a "Recent News"-style card list — shared by news, press releases, and events. */
-function renderItemListSection(label, items) {
+export function renderItemListSection(label, items) {
     if (!items?.length) return '';
     return `
         <p class="pol-section-label" style="margin-top:16px;">${escapeHtml(label)}</p>

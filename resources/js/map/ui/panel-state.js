@@ -268,6 +268,75 @@ export function renderBallotMeasuresSection(ballotMeasures, color) {
 }
 
 /**
+ * Renders the "Find Your Polling Place" widget: an address input + button,
+ * plus (after a lookup) either result cards or a fallback link. The caller
+ * wires the actual submit handler — this only builds the static shell and
+ * the swappable `#poll-loc-results` body, since the widget has no server
+ * round-trip until the voter submits an address.
+ */
+export function renderPollingLocationsWidget(color) {
+    return `<div style="border-top:1px solid ${color}20;margin:16px 0 14px;display:flex;align-items:center;gap:8px;">
+        <span style="color:${color};font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;white-space:nowrap;">🗳️ Find Your Polling Place</span>
+        <div style="flex:1;border-top:1px solid ${color}20;"></div>
+    </div>
+    <form id="poll-loc-form" style="display:flex;gap:6px;margin-bottom:8px;">
+        <input id="poll-loc-input" type="text" placeholder="Enter your street address" autocomplete="street-address"
+               style="flex:1;min-width:0;background:#1e293b;border:1px solid #334155;border-radius:6px;padding:8px 10px;color:#e2e8f0;font-size:12px;" />
+        <button type="submit" style="background:${color};border:none;border-radius:6px;padding:8px 14px;color:#0b0e14;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">Find</button>
+    </form>
+    <div id="poll-loc-results"></div>`;
+}
+
+/**
+ * @param {{name:?string, address:Object, polling_hours:?string}[]} locations
+ */
+function renderPollingLocationCards(locations, heading, color) {
+    if (!locations?.length) return '';
+    const addrLine = a => [a?.line1, a?.line2, a?.city, a?.state, a?.zip].filter(Boolean).map(escapeHtml).join(', ');
+    const cards = locations.map(loc => `<div style="background:#1e293b;border:1px solid #334155;border-radius:8px;padding:10px 12px;margin-bottom:6px;">
+        <p style="color:#e2e8f0;font-size:12px;font-weight:600;margin:0;">${escapeHtml(loc.name || heading)}</p>
+        <p style="color:#94a3b8;font-size:11px;margin:2px 0 0;">${addrLine(loc.address)}</p>
+        ${loc.polling_hours ? `<p style="color:#a7b4c7;font-size:10px;margin:4px 0 0;">🕒 ${escapeHtml(loc.polling_hours)}</p>` : ''}
+    </div>`).join('');
+    return `<p style="color:${color};font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin:10px 0 6px;">${heading}</p>${cards}`;
+}
+
+/** Nonpartisan polling-place lookup with broader coverage than Google Civic's
+ * election-window-gated data — the fallback when our own lookup comes back empty. */
+const EXTERNAL_POLLING_LOCATOR_URL = 'https://www.vote.org/polling-place-locator/';
+
+/**
+ * Renders the result body for the polling-location widget: real location
+ * cards when Google Civic returned any (in which case "See full details" still
+ * points at the site's own /district-lookup page, since that page has the same
+ * data plus contest/election context we already fetched). When there's
+ * nothing to show, points out to vote.org's locator instead — Google Civic's
+ * polling-place coverage is inconsistent outside an active-election window,
+ * so sending someone to our own page in that case would just show them the
+ * same empty result.
+ *
+ * @param {{polling_locations:Array, early_vote_sites:Array, drop_off_locations:Array}} data
+ */
+export function renderPollingLocationsResults(data, address, color) {
+    const total = (data.polling_locations?.length || 0) + (data.early_vote_sites?.length || 0) + (data.drop_off_locations?.length || 0);
+
+    if (!total) {
+        return `<div style="display:flex;align-items:center;gap:8px;background:#1e293b;border:1px solid #334155;border-radius:8px;padding:10px 12px;">
+            <span style="font-size:16px;">📭</span>
+            <span style="color:#94a3b8;font-size:11px;">No polling-place data for that address right now — coverage picks up closer to Election Day.
+                <a href="${EXTERNAL_POLLING_LOCATOR_URL}" target="_blank" rel="noopener noreferrer" style="color:${color};font-weight:600;text-decoration:underline;">Try vote.org's locator →</a>
+            </span>
+        </div>`;
+    }
+
+    const fallbackUrl = `/district-lookup?address=${encodeURIComponent(address)}`;
+    return `${renderPollingLocationCards(data.polling_locations, 'Polling Place', color)}
+        ${renderPollingLocationCards(data.early_vote_sites, 'Early Voting', color)}
+        ${renderPollingLocationCards(data.drop_off_locations, 'Ballot Drop-off', color)}
+        <a href="${escapeHtml(fallbackUrl)}" target="_blank" rel="noopener" style="display:inline-block;margin-top:4px;color:${color};font-size:10px;font-weight:600;text-decoration:underline;">See full details →</a>`;
+}
+
+/**
  * @param {Object} cityOfficials keyed by city name -> array of officials
  * @param {Set<string>|null} filterCities restrict to these city names, or null for all
  */
