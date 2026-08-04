@@ -306,7 +306,7 @@
                                type="text"
                                readonly
                                value="{{ $referralProfileShareUrl }}"
-                               class="w-full bg-slate-800/80 border border-slate-700 text-slate-200 text-sm rounded-lg px-3 py-2.5 focus:outline-none" />
+                               class="w-full bg-slate-800/80 border border-slate-700 text-slate-200 text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" />
                         <a href="{{ $referralPoliticianSignupUrl }}"
                            class="inline-flex items-center gap-2 px-3 py-2.5 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-200 hover:text-amber-100 transition text-xs font-medium whitespace-nowrap">
                             Politician Signup
@@ -451,7 +451,7 @@
                          by that topic's structured slug (?topic=…). --}}
                     @if(isset($issueContextTags) && $issueContextTags->isNotEmpty())
                         <div class="flex flex-wrap items-center gap-1.5 mb-2" data-issue-tags>
-                            <span class="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mr-0.5">Issues</span>
+                            <span class="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mr-0.5">Issues</span>
                             @foreach($issueContextTags as $tag)
                                 <a href="{{ route('politicians.directory', ['topic' => $tag['slug']]) }}"
                                    class="inline-flex items-center gap-x-1 rounded-full px-2.5 py-0.5 text-[10px] font-semibold border transition-all hover:brightness-125 focus:outline-none focus:ring-2 focus:ring-offset-1"
@@ -585,7 +585,7 @@
                     <span class="w-1 h-6 rounded-full inline-block" style="background:var(--p13-accent,#f59e0b)"></span>
                     <span aria-hidden="true">🎵</span>
                     {{ $politician->full_name }}'s Favorite Songs
-                    <span class="text-xs font-medium text-slate-500 ml-1">({{ $songPicks->count() }})</span>
+                    <span class="text-xs font-medium text-slate-400 ml-1">({{ $songPicks->count() }})</span>
                 </h2>
                 <svg class="w-5 h-5 text-slate-400 transition-transform"
                      :class="open ? 'rotate-180' : ''"
@@ -702,7 +702,7 @@
                         <h3 class="text-lg font-semibold text-white">Running Campaigns</h3>
                         <p class="text-xs text-slate-400 mt-1">Current campaign messages, live issues, and recent public-facing updates.</p>
                     </div>
-                    <span class="text-xs text-slate-500">{{ $runningCampaigns->count() }} live now</span>
+                    <span class="text-xs text-slate-400">{{ $runningCampaigns->count() }} live now</span>
                 </div>
                 <div class="grid sm:grid-cols-2 gap-6">
                     @foreach($runningCampaigns as $campaign)
@@ -719,7 +719,7 @@
                         <h3 class="text-lg font-semibold text-white">Past Campaigns</h3>
                         <p class="text-xs text-slate-400 mt-1">Archived videos and previous campaign updates so voters can review the record over time.</p>
                     </div>
-                    <span class="text-xs text-slate-500">{{ $pastCampaigns->count() }} in archive</span>
+                    <span class="text-xs text-slate-400">{{ $pastCampaigns->count() }} in archive</span>
                 </div>
                 <div class="grid sm:grid-cols-2 gap-6">
                     @foreach($pastCampaigns as $campaign)
@@ -761,13 +761,13 @@
                 @foreach($publicBoardQuestions as $entry)
                     <article class="bg-slate-800/40 border border-slate-700/40 rounded-xl p-5">
                         <div class="flex items-center justify-between gap-3 mb-2">
-                            <p class="text-xs text-slate-500">Campaign: {{ $entry->campaign->title ?? 'Campaign' }}</p>
-                            <p class="text-xs text-slate-500">Published {{ optional($entry->published_at ?? $entry->updated_at)->format('M j, Y') }}</p>
+                            <p class="text-xs text-slate-400">Campaign: {{ $entry->campaign->title ?? 'Campaign' }}</p>
+                            <p class="text-xs text-slate-400">Published {{ optional($entry->published_at ?? $entry->updated_at)->format('M j, Y') }}</p>
                         </div>
 
                         <div class="rounded-lg border border-slate-700/50 bg-slate-900/40 px-4 py-3 mb-3">
-                            <p class="text-[11px] uppercase tracking-wide text-slate-500 mb-1">Voter Question</p>
-                            <p class="text-xs text-slate-500 mb-2">{{ $entry->public_alias ?: 'Verified Voter' }}</p>
+                            <p class="text-[11px] uppercase tracking-wide text-slate-400 mb-1">Voter Question</p>
+                            <p class="text-xs text-slate-400 mb-2">{{ $entry->public_alias ?: 'Verified Voter' }}</p>
                             <p class="text-sm text-slate-200 leading-relaxed whitespace-pre-line">{{ $entry->body }}</p>
 
                             @if($entry->hasReference())
@@ -821,7 +821,7 @@
                     @if($post->excerpt)
                     <p class="text-sm text-slate-400 line-clamp-2">{{ $post->excerpt }}</p>
                     @endif
-                    <p class="mt-3 text-xs text-slate-500">{{ $post->published_at->format('M j, Y') }}</p>
+                    <p class="mt-3 text-xs text-slate-400">{{ $post->published_at->format('M j, Y') }}</p>
                 </article>
                 @endforeach
             </div>
@@ -905,7 +905,7 @@
                                                     @foreach($item as $key => $value)
                                                         @if($value && $key !== 'id' && $key !== 'pdf_url' && $key !== 'fec_url')
                                                         <div>
-                                                            <span class="text-slate-500">{{ ucwords(str_replace('_', ' ', $key)) }}:</span>
+                                                            <span class="text-slate-400">{{ ucwords(str_replace('_', ' ', $key)) }}:</span>
                                                             <span class="text-slate-300 ml-1">{{ $value }}</span>
                                                         </div>
                                                         @endif
@@ -1082,7 +1082,7 @@
                         @endif
                         <div class="px-3 py-2">
                             <p class="text-xs text-slate-300 line-clamp-2">{{ $moment->title }}</p>
-                            <p class="text-[10px] text-slate-500 mt-1 flex items-center gap-2">
+                            <p class="text-[10px] text-slate-400 mt-1 flex items-center gap-2">
                                 <span class="uppercase tracking-wide">{{ $moment->source }}</span>
                                 @if($moment->view_count)
                                 <span>&middot; {{ number_format($moment->view_count) }} views</span>
@@ -1247,7 +1247,7 @@
                     <p class="text-base font-semibold text-white group-hover:text-emerald-300 line-clamp-2 leading-snug transition">
                         {{ $newsHero->headline }}
                     </p>
-                    <p class="mt-1.5 text-xs text-slate-500 flex items-center gap-2">
+                    <p class="mt-1.5 text-xs text-slate-400 flex items-center gap-2">
                         @if($newsHero->source_name)
                             <span class="font-medium text-slate-400">{{ $newsHero->source_name }}</span>
                             <span>·</span>
@@ -1281,7 +1281,7 @@
                         <p class="text-xs font-medium text-slate-200 group-hover:text-white line-clamp-2 leading-snug transition">
                             {{ $article->headline }}
                         </p>
-                        <p class="mt-1 text-xs text-slate-500 truncate">
+                        <p class="mt-1 text-xs text-slate-400 truncate">
                             {{ $article->source_name ? $article->source_name . ' · ' : '' }}{{ $article->published_at?->diffForHumans() }}
                         </p>
                     </div>
@@ -1297,7 +1297,7 @@
                    class="inline-flex items-center gap-2 text-sm font-semibold px-5 py-2.5 rounded-xl border transition
                           border-slate-700 text-slate-300 hover:border-slate-500 hover:text-white bg-slate-800/50 hover:bg-slate-800">
                     Explore the full archive
-                    <span class="text-xs text-slate-500">{{ number_format($newsTotal) }} articles</span>
+                    <span class="text-xs text-slate-400">{{ number_format($newsTotal) }} articles</span>
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/>
                     </svg>
@@ -1403,25 +1403,25 @@
                     <dl class="flex flex-wrap gap-6">
                         @if($fmtMoney($fecSummary['receipts'] ?? null))
                         <div>
-                            <dt class="text-xs text-slate-500">Total Raised</dt>
+                            <dt class="text-xs text-slate-400">Total Raised</dt>
                             <dd class="text-lg font-bold text-white">{{ $fmtMoney($fecSummary['receipts']) }}</dd>
                         </div>
                         @endif
                         @if($fmtMoney($fecSummary['disbursements'] ?? null))
                         <div>
-                            <dt class="text-xs text-slate-500">Total Spent</dt>
+                            <dt class="text-xs text-slate-400">Total Spent</dt>
                             <dd class="text-lg font-bold text-white">{{ $fmtMoney($fecSummary['disbursements']) }}</dd>
                         </div>
                         @endif
                         @if($fmtMoney($fecSummary['cash_on_hand'] ?? null))
                         <div>
-                            <dt class="text-xs text-slate-500">Cash on Hand</dt>
+                            <dt class="text-xs text-slate-400">Cash on Hand</dt>
                             <dd class="text-lg font-bold text-emerald-400">{{ $fmtMoney($fecSummary['cash_on_hand']) }}</dd>
                         </div>
                         @endif
                         @if($fmtMoney($fecSummary['debt'] ?? null))
                         <div>
-                            <dt class="text-xs text-slate-500">Debt Owed</dt>
+                            <dt class="text-xs text-slate-400">Debt Owed</dt>
                             <dd class="text-lg font-bold text-rose-400">{{ $fmtMoney($fecSummary['debt']) }}</dd>
                         </div>
                         @endif
@@ -1441,25 +1441,25 @@
                     <dl class="flex flex-wrap gap-6">
                         @if($fmtMoney($openSecretsSummary['total_raised'] ?? null))
                         <div>
-                            <dt class="text-xs text-slate-500">Total Raised</dt>
+                            <dt class="text-xs text-slate-400">Total Raised</dt>
                             <dd class="text-lg font-bold text-white">{{ $fmtMoney($openSecretsSummary['total_raised']) }}</dd>
                         </div>
                         @endif
                         @if($fmtMoney($openSecretsSummary['total_spent'] ?? null))
                         <div>
-                            <dt class="text-xs text-slate-500">Total Spent</dt>
+                            <dt class="text-xs text-slate-400">Total Spent</dt>
                             <dd class="text-lg font-bold text-white">{{ $fmtMoney($openSecretsSummary['total_spent']) }}</dd>
                         </div>
                         @endif
                         @if($fmtMoney($openSecretsSummary['cash_on_hand'] ?? null))
                         <div>
-                            <dt class="text-xs text-slate-500">Cash on Hand</dt>
+                            <dt class="text-xs text-slate-400">Cash on Hand</dt>
                             <dd class="text-lg font-bold text-emerald-400">{{ $fmtMoney($openSecretsSummary['cash_on_hand']) }}</dd>
                         </div>
                         @endif
                         @if($fmtMoney($openSecretsSummary['debt'] ?? null))
                         <div>
-                            <dt class="text-xs text-slate-500">Debt Owed</dt>
+                            <dt class="text-xs text-slate-400">Debt Owed</dt>
                             <dd class="text-lg font-bold text-rose-400">{{ $fmtMoney($openSecretsSummary['debt']) }}</dd>
                         </div>
                         @endif
@@ -1472,9 +1472,9 @@
                 <div class="sm:col-span-2 bg-slate-800/40 border border-slate-700/40 rounded-xl p-5">
                     <p class="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-3">
                         Independent Spending
-                        <span class="text-slate-500 font-normal normal-case tracking-normal">· outside groups, not the campaign</span>
-                        <span class="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-slate-600 text-slate-500 text-[9px] font-bold normal-case tracking-normal align-middle cursor-help"
-                              title="Committee IDs (e.g. C00495028) are unique identifiers the FEC assigns to political committees — PACs, Super PACs, and party committees — that report spending. Click a committee's name/ID to view its filings on FEC.gov, or use the search icon to look it up on Google.">i</span>
+                        <span class="text-slate-400 font-normal normal-case tracking-normal">· outside groups, not the campaign</span>
+                        <span class="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-slate-600 text-slate-400 text-[9px] font-bold normal-case tracking-normal align-middle cursor-help"
+                              title="Committee IDs (e.g. C00495028) are unique identifiers the FEC assigns to political committees — PACs, Super PACs, and party committees — that report spending. Click a committee's name to view its filings on FEC.gov, or click the ID to search Google for more about the PAC.">i</span>
                         @if(!empty($fecData['source_url']))
                             · <a href="{{ $fecData['source_url'] }}" target="_blank" rel="noopener" class="text-emerald-400 hover:underline">FEC.gov ↗</a>
                         @endif
@@ -1488,14 +1488,16 @@
                         @foreach($shownSpending as $i => $spender)
                         <li class="flex items-center justify-between gap-3">
                             <span class="flex items-center gap-2 min-w-0 flex-1">
-                                <span class="text-xs text-slate-500 tabular-nums w-4 shrink-0">{{ $i + 1 }}.</span>
+                                <span class="text-xs text-slate-400 tabular-nums w-4 shrink-0">{{ $i + 1 }}.</span>
                                 @if(!empty($spender['committee_id']))
-                                    <a href="https://www.fec.gov/data/committee/{{ $spender['committee_id'] }}/" target="_blank" rel="noopener"
-                                       class="text-sm text-slate-200 truncate hover:text-emerald-400 hover:underline"
-                                       title="View this committee's filings on FEC.gov">{{ $spender['committee_name'] ?? $spender['committee_id'] }}</a>
+                                    @if(!empty($spender['committee_name']))
+                                        <a href="https://www.fec.gov/data/committee/{{ $spender['committee_id'] }}/" target="_blank" rel="noopener"
+                                           class="text-sm text-slate-200 truncate underline decoration-slate-600 decoration-1 underline-offset-2 hover:text-emerald-400 hover:decoration-emerald-400"
+                                           title="View this committee's filings on FEC.gov">{{ $spender['committee_name'] }}</a>
+                                    @endif
                                     <a href="https://www.google.com/search?q={{ urlencode($spender['committee_id']) }}" target="_blank" rel="noopener nofollow"
-                                       class="shrink-0 text-slate-500 hover:text-emerald-400"
-                                       title="Search Google for FEC committee ID {{ $spender['committee_id'] }}">🔎</a>
+                                       class="shrink-0 text-sm {{ empty($spender['committee_name']) ? 'text-slate-200' : 'text-slate-400 text-xs' }} font-mono truncate underline decoration-slate-600 decoration-1 underline-offset-2 hover:text-emerald-400 hover:decoration-emerald-400"
+                                       title="Search Google for FEC committee ID {{ $spender['committee_id'] }}">{{ $spender['committee_id'] }}</a>
                                 @else
                                     <span class="text-sm text-slate-200 truncate">{{ $spender['committee_name'] ?? '—' }}</span>
                                 @endif
@@ -1512,9 +1514,9 @@
                         @endforeach
                     </ol>
                     @if($hiddenSpending > 0)
-                    <p class="mt-3 text-xs text-slate-500">+ {{ $hiddenSpending }} more spender(s) — see FEC.gov for the full list.</p>
+                    <p class="mt-3 text-xs text-slate-400">+ {{ $hiddenSpending }} more spender(s) — see FEC.gov for the full list.</p>
                     @endif
-                    <p class="mt-3 text-xs text-slate-500">
+                    <p class="mt-3 text-xs text-slate-400">
                         Figures are sums of itemized independent-expenditure filings reported to the FEC for the {{ $electionCycle ?? '' }} cycle; a spender's full total may be higher than shown.
                     </p>
                 </div>
@@ -1587,7 +1589,7 @@
 
     {{-- ── Footer ── --}}
     @unless($embed ?? false)
-    <footer class="border-t border-slate-800 py-8 text-center text-sm text-slate-500">
+    <footer class="border-t border-slate-800 py-8 text-center text-sm text-slate-400">
         <p>
             <a href="{{ url('/') }}" class="font-bold text-slate-300 hover:text-white transition">
                 <span class="text-white">U9</span><span class="text-emerald-400">itus</span>
