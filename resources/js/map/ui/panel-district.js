@@ -5,7 +5,7 @@ import { STATE_ABBR_MAP, PARTY_HEX, PARTY_LABEL, OFFICE_ROLES } from '../config/
 import { stateData, statePanelRequestId, mapMode, activeRegion, activeState } from '../state/map-state.js';
 import { districtMeshes } from '../scene/district-overlay.js';
 import { openInfoPanel } from './info-panel.js';
-import { renderCandidate, renderOfficeGroup, partyClass, detectElectionPhase, noDataNotice, renderBallotMeasuresSection, renderCityOfficialsSection, renderElectionDatesBanner, renderPollingLocationsWidget, renderPollingLocationsResults } from './panel-state.js';
+import { renderCandidate, renderOfficeGroup, partyClass, detectElectionPhase, noDataNotice, renderBallotMeasuresSection, renderCityOfficialsSection, renderElectionDatesBanner, renderPollingLocationsLink } from './panel-state.js';
 import { openPolDrawer, renderItemListSection } from './politician-drawer.js';
 import { createFavoriteButton } from './boundary-favorite.js';
 import { renderCityCard, fetchCitiesForState, wireCityCardClicks } from './city-demographics-card.js';
@@ -103,39 +103,6 @@ async function fetchDistrictNewsSection(houseKey, districtLabel, stateName, colo
     return `<div id="dist-news">
         ${renderItemListSection('📰 Local Election & Civic News', news)}
     </div>`;
-}
-
-/**
- * Wires the "Find Your Polling Place" widget's submit handler. Only fires on
- * user input (an address) — unlike the news/cities sections there's no
- * server round-trip on panel open. Guarded by statePanelRequestId so a
- * response for a since-closed/replaced panel can't render into the wrong one.
- */
-function wirePollingLocationsWidget(candEl, color) {
-    const form = candEl.querySelector('#poll-loc-form');
-    const input = candEl.querySelector('#poll-loc-input');
-    const results = candEl.querySelector('#poll-loc-results');
-    if (!form || !input || !results) return;
-
-    form.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const address = input.value.trim();
-        if (!address) return;
-
-        const reqId = statePanelRequestId;
-        results.innerHTML = `<div class="panel-spinner"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="animation:spin 1s linear infinite;color:${color};"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-dasharray="31.4" stroke-dashoffset="10" stroke-linecap="round"/></svg>&nbsp;Looking up…</div>`;
-
-        let data = {};
-        try {
-            const res = await fetch(`/api/v1/map/polling-locations?address=${encodeURIComponent(address)}`);
-            data = res.ok ? await res.json() : {};
-        } catch (err) {
-            console.warn('[map] polling-locations fetch failed:', err);
-        }
-
-        if (reqId !== statePanelRequestId || !candEl.isConnected) return;
-        results.innerHTML = renderPollingLocationsResults(data, address, color);
-    });
 }
 
 export async function openDistrictPanel(districtNum, districtLabel, stateName, regionHex, party = 'U') {
@@ -246,7 +213,7 @@ export async function openDistrictPanel(districtNum, districtLabel, stateName, r
         ${houseHtml}
     </div>
 
-    ${renderPollingLocationsWidget(color)}
+    ${renderPollingLocationsLink(color)}
 
     ${renderBallotMeasuresSection(stateData?.ballot_measures ?? [], color)}
 
@@ -262,10 +229,6 @@ export async function openDistrictPanel(districtNum, districtLabel, stateName, r
 
     // Star toggle: save this district as a boundary (voter) / sign-in nudge (guest).
     mountDistrictFav(stateName, _stateAbbr, districtNum, districtLabel);
-
-    // Polling-place lookup only fires on user input (an address), so it just
-    // needs its submit handler wired — no fetch on panel open.
-    wirePollingLocationsWidget(candEl, color);
 
     // Local election/civic-administration news for this district's cities —
     // fetched async so it doesn't block the rest of the panel.
