@@ -1396,6 +1396,10 @@
                 <div class="sm:col-span-2 bg-slate-800/40 border border-slate-700/40 rounded-xl p-5">
                     <p class="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-3">
                         FEC Filing Summary
+                        <span class="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-slate-600 text-slate-400 text-[9px] font-bold normal-case tracking-normal align-middle cursor-help"
+                              tabindex="0"
+                              aria-label="Total Raised is all money the campaign has brought in this cycle (contributions, loans, transfers). Total Spent is money the campaign has paid out. Cash on Hand is what's left to spend right now — Total Raised minus Total Spent minus any refunds. Debt Owed is outstanding loans or unpaid bills the campaign still owes, separate from cash on hand."
+                              title="Total Raised is all money the campaign has brought in this cycle (contributions, loans, transfers). Total Spent is money the campaign has paid out. Cash on Hand is what's left to spend right now — Total Raised minus Total Spent minus any refunds. Debt Owed is outstanding loans or unpaid bills the campaign still owes, separate from cash on hand.">i</span>
                         @if(!empty($fecData['source_url']))
                             · <a href="{{ $fecData['source_url'] }}" target="_blank" rel="noopener" class="text-emerald-400 hover:underline">View on FEC.gov ↗</a>
                         @endif
@@ -1434,6 +1438,10 @@
                 <div class="sm:col-span-2 bg-slate-800/40 border border-slate-700/40 rounded-xl p-5">
                     <p class="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-3">
                         OpenSecrets Summary
+                        <span class="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-slate-600 text-slate-400 text-[9px] font-bold normal-case tracking-normal align-middle cursor-help"
+                              tabindex="0"
+                              aria-label="Total Raised is all money the campaign has brought in this cycle (contributions, loans, transfers). Total Spent is money the campaign has paid out. Cash on Hand is what's left to spend right now — Total Raised minus Total Spent minus any refunds. Debt Owed is outstanding loans or unpaid bills the campaign still owes, separate from cash on hand."
+                              title="Total Raised is all money the campaign has brought in this cycle (contributions, loans, transfers). Total Spent is money the campaign has paid out. Cash on Hand is what's left to spend right now — Total Raised minus Total Spent minus any refunds. Debt Owed is outstanding loans or unpaid bills the campaign still owes, separate from cash on hand.">i</span>
                         @if(!empty($donorData['source_url']))
                             · <a href="{{ $donorData['source_url'] }}" target="_blank" rel="noopener" class="text-emerald-400 hover:underline">View on OpenSecrets ↗</a>
                         @endif
@@ -1474,7 +1482,9 @@
                         Independent Spending
                         <span class="text-slate-400 font-normal normal-case tracking-normal">· outside groups, not the campaign</span>
                         <span class="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-slate-600 text-slate-400 text-[9px] font-bold normal-case tracking-normal align-middle cursor-help"
-                              title="Committee IDs (e.g. C00495028) are unique identifiers the FEC assigns to political committees — PACs, Super PACs, and party committees — that report spending. Click a committee's name to view its filings on FEC.gov, or click the ID to search Google for more about the PAC.">i</span>
+                              tabindex="0"
+                              aria-label="These are outside groups — PACs, Super PACs, party committees — spending their own money on ads and mailers about this race; it is not the candidate's own campaign spending, and the candidate has no say in it. Support means the group is spending to help this candidate win; Oppose means the group is spending to help defeat them. Committee IDs (e.g. C00495028) are unique identifiers the FEC assigns to each committee. Click a committee's name to view its filings on FEC.gov, or click the ID to search Google for more about the PAC."
+                              title="These are outside groups — PACs, Super PACs, party committees — spending their own money on ads and mailers about this race; it is not the candidate's own campaign spending, and the candidate has no say in it. Support means the group is spending to help this candidate win; Oppose means the group is spending to help defeat them. Committee IDs (e.g. C00495028) are unique identifiers the FEC assigns to each committee. Click a committee's name to view its filings on FEC.gov, or click the ID to search Google for more about the PAC.">i</span>
                         @if(!empty($fecData['source_url']))
                             · <a href="{{ $fecData['source_url'] }}" target="_blank" rel="noopener" class="text-emerald-400 hover:underline">FEC.gov ↗</a>
                         @endif
