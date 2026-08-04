@@ -27,8 +27,9 @@
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-5">
         <div>
             <label for="icon" class="block text-sm font-medium text-slate-300 mb-1.5">Icon</label>
-            <input type="text" id="icon" name="icon" value="{{ old('icon', $topic->icon) }}" placeholder="icon key"
+            <input type="text" id="icon" name="icon" value="{{ old('icon', $topic->icon) }}" placeholder="🏥"
                 class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2.5 text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50">
+            <p class="text-xs text-slate-500 mt-1.5">A single emoji shown next to the topic name. Open your system emoji picker (<kbd class="px-1 py-0.5 bg-slate-700 rounded text-[10px]">Cmd+Ctrl+Space</kbd> on Mac, <kbd class="px-1 py-0.5 bg-slate-700 rounded text-[10px]">Win+.</kbd> on Windows) and paste one in, e.g. 🏥 for Healthcare.</p>
         </div>
         <div>
             <label for="sort_order" class="block text-sm font-medium text-slate-300 mb-1.5">Sort Order</label>
@@ -44,8 +45,9 @@
 
     <div>
         <label for="badge_icon_url" class="block text-sm font-medium text-slate-300 mb-1.5">Badge Icon URL</label>
-        <input type="text" id="badge_icon_url" name="badge_icon_url" value="{{ old('badge_icon_url', $topic->badge_icon_url) }}"
+        <input type="text" id="badge_icon_url" name="badge_icon_url" value="{{ old('badge_icon_url', $topic->badge_icon_url) }}" placeholder="https://.../healthcare-badge.png"
             class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2.5 text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50">
+        <p class="text-xs text-slate-500 mt-1.5">Optional. A direct link to a small square image (PNG/SVG, transparent background works best) shown on voter badges when they earn this topic. If left blank, the emoji from the Icon field is used instead. Host the image somewhere public (e.g. your CDN or S3 bucket) and paste the URL here.</p>
     </div>
 
     <div class="space-y-3">
