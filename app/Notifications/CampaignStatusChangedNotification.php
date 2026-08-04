@@ -59,7 +59,7 @@ class CampaignStatusChangedNotification extends Notification implements ShouldQu
             'message' => "Your campaign \"{$this->campaign->title}\" has been {$this->getStatusLabel()}.",
             'action_url' => route('politician.campaigns.show', $this->campaign->id),
             'icon' => $this->getIcon(),
-            'type' => 'campaign_status',
+            'type' => 'campaign_' . $this->status,
         ];
     }
 

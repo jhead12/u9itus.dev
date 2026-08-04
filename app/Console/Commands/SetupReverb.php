@@ -78,7 +78,7 @@ class SetupReverb extends Command
         $block = <<<ENV
 
 # --- Reverb WebSocket Server (Phase 11) ---
-BROADCAST_DRIVER=reverb
+BROADCAST_CONNECTION=reverb
 REVERB_APP_ID={$appId}
 REVERB_APP_KEY={$appKey}
 REVERB_APP_SECRET={$appSecret}

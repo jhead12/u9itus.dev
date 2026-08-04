@@ -822,7 +822,7 @@
                             type: this.mapType(data?.type),
                             read: !!row?.read_at,
                             time: this.formatTime(row?.created_at),
-                            url: data?.url ?? null,
+                            url: data?.action_url ?? null,
                             actionLabel: data?.action_label ?? null,
                             local: false,
                         };

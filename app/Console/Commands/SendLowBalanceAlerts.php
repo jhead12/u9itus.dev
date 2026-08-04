@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Mail\LowBalanceAlertMail;
 use App\Models\Politician;
 use App\Models\User;
+use App\Notifications\LowBalanceNotification;
 use App\Services\PlatformSettingsService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
@@ -72,6 +73,8 @@ class SendLowBalanceAlerts extends Command
                     remainingViews: $remainingViews,
                     campaignTitle:  '', // generic alert; specific campaign alerts fire from the ViewSession lifecycle
                 ));
+
+                $user->notify(new LowBalanceNotification($balance, $threshold));
 
                 $sent++;
             } catch (\Exception $e) {
