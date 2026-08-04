@@ -163,29 +163,33 @@
                 </div>
             </form>
 
-            {{-- ── Topic chip row: one-click browse by issue ─────────────────── --}}
+            {{-- ── Topic chip row: multi-select browse by issue ─────────────────
+                 Each chip toggles its slug in the comma-separated ?topic= list,
+                 preserving the other active filters. A politician matching ANY
+                 selected topic is shown (OR). --}}
             @if(isset($topics) && $topics->isNotEmpty())
                 @php
-                    $activeTopic = request('topic');
+                    $activeTopics = collect(explode(',', (string) request('topic', '')))->map(fn ($t) => trim($t))->filter()->values();
                     $baseQuery = collect(request()->only(['q', 'district', 'level', 'state', 'party', 'sort', 'unclaimed']))->filter();
                 @endphp
-                <div class="flex flex-nowrap sm:flex-wrap items-center gap-1.5 mt-3 overflow-x-auto sm:overflow-visible -mx-4 px-4 sm:mx-0 sm:px-0 pb-1 sm:pb-0">
+                <div class="flex flex-nowrap items-center gap-1.5 mt-3 overflow-x-auto -mx-4 px-4 pb-2" role="group" aria-label="Filter by issue">
                     <span class="flex-shrink-0 text-[10px] font-semibold uppercase tracking-wider text-slate-500 mr-0.5">Issues</span>
                     <a href="{{ route('politicians.directory', $baseQuery->toArray()) }}#results"
-                       class="flex-shrink-0 inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-semibold border transition {{ empty($activeTopic) ? 'bg-slate-700 border-slate-600 text-white' : 'border-slate-700 text-slate-400 hover:text-white hover:border-slate-600' }}"
-                       @if(empty($activeTopic)) aria-current="true" @endif>
+                       class="flex-shrink-0 inline-flex items-center justify-center min-h-6 rounded-full px-2.5 py-1 text-[10px] font-semibold border transition {{ $activeTopics->isEmpty() ? 'bg-slate-700 border-slate-600 text-white' : 'border-slate-700 text-slate-400 hover:text-white hover:border-slate-600' }}"
+                       @if($activeTopics->isEmpty()) aria-current="true" @endif>
                         All
                     </a>
                     @foreach($topics as $topic)
                         @php
-                            $chipQuery = $baseQuery->put('topic', $topic->slug)->toArray();
-                            $isActive = $activeTopic === $topic->slug;
+                            $isActive = $activeTopics->contains($topic->slug);
+                            $newTopics = $isActive ? $activeTopics->reject(fn ($t) => $t === $topic->slug) : $activeTopics->concat([$topic->slug]);
+                            $chipQuery = $newTopics->isEmpty() ? $baseQuery->toArray() : $baseQuery->put('topic', $newTopics->implode(','))->toArray();
                             $color = $topic->badge_color ?: '#6366f1';
                         @endphp
                         <a href="{{ route('politicians.directory', $chipQuery) }}#results"
-                           class="flex-shrink-0 inline-flex items-center gap-x-1 rounded-full px-2.5 py-0.5 text-[10px] font-semibold border transition-all hover:brightness-125 whitespace-nowrap {{ $isActive ? 'ring-2 ring-offset-1 ring-offset-slate-900' : '' }}"
+                           class="flex-shrink-0 inline-flex items-center justify-center gap-x-1 min-h-6 rounded-full px-2.5 py-1 text-[10px] font-semibold border transition-all hover:brightness-125 whitespace-nowrap {{ $isActive ? 'ring-2 ring-offset-1 ring-offset-slate-900' : '' }}"
                            style="color:{{ $color }};border-color:{{ $color }}40;background-color:{{ $color }}1a;--tw-ring-color:{{ $color }};"
-                           title="Browse candidates focused on {{ $topic->name }}"
+                           title="{{ $isActive ? 'Remove' : 'Add' }} the {{ $topic->name }} filter"
                            @if($isActive) aria-current="true" @endif>
                             @if(!empty($topic->icon))<span aria-hidden="true">{{ $topic->icon }}</span>@endif
                             {{ $topic->name }}

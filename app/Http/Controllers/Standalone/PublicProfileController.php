@@ -746,36 +746,45 @@ class PublicProfileController extends Controller
             }
         }
 
-        // Topic filter: when ?topic= matches a politician_topics slug, match the
-        // structured badge relationship (so a politician badged "climate-action"
-        // is returned even when "climate" isn't literally in their bio). Keep
-        // the free-text bio/campaign/initiative LIKE matches as a fallback so
-        // ad-hoc topic queries that aren't a catalog slug still work.
-        if ($topic = trim((string) $request->input('topic', ''))) {
-            $topicRow = PoliticianTopic::where('slug', $topic)->where('is_active', true)->first();
+        // Topic filter: ?topic= accepts a comma-separated list of politician_topics
+        // slugs, OR'd together (a politician matching any selected topic is shown).
+        // Each slug also matches the structured badge relationship (so a politician
+        // badged "climate-action" is returned even when "climate" isn't literally
+        // in their bio), with free-text bio/campaign/initiative LIKE matches kept
+        // as a fallback so ad-hoc topic queries that aren't a catalog slug still work.
+        $topicSlugs = collect(explode(',', (string) $request->input('topic', '')))
+            ->map(fn ($slug) => trim($slug))
+            ->filter()
+            ->unique()
+            ->values();
 
-            $query->where(function ($q) use ($topic, $topicRow) {
-                $q->where('bio', 'like', '%'.$topic.'%')
-                    ->orWhereHas('campaigns', function ($cq) use ($topic) {
-                        $cq->where('approval_status', 'approved')
-                            ->where(function ($sq) use ($topic) {
-                                $sq->where('title', 'like', '%'.$topic.'%')
-                                    ->orWhere('message_summary', 'like', '%'.$topic.'%');
-                            });
-                    })
-                    ->orWhereHas('initiatives', function ($iq) use ($topic) {
-                        $iq->where('is_published', true)
-                            ->where(function ($sq) use ($topic) {
-                                $sq->where('title', 'like', '%'.$topic.'%')
-                                    ->orWhere('description', 'like', '%'.$topic.'%');
-                            });
-                    });
+        if ($topicSlugs->isNotEmpty()) {
+            $topicRows = PoliticianTopic::whereIn('slug', $topicSlugs)->where('is_active', true)->get()->keyBy('slug');
 
-                // Structured badge match (self-declared + inferred discourse).
-                if ($topicRow) {
-                    $q->orWhereHas('publicBadges', function ($bq) use ($topicRow) {
-                        $bq->where('topic_id', $topicRow->id);
-                    });
+            $query->where(function ($q) use ($topicSlugs, $topicRows) {
+                foreach ($topicSlugs as $topic) {
+                    $q->orWhere('bio', 'like', '%'.$topic.'%')
+                        ->orWhereHas('campaigns', function ($cq) use ($topic) {
+                            $cq->where('approval_status', 'approved')
+                                ->where(function ($sq) use ($topic) {
+                                    $sq->where('title', 'like', '%'.$topic.'%')
+                                        ->orWhere('message_summary', 'like', '%'.$topic.'%');
+                                });
+                        })
+                        ->orWhereHas('initiatives', function ($iq) use ($topic) {
+                            $iq->where('is_published', true)
+                                ->where(function ($sq) use ($topic) {
+                                    $sq->where('title', 'like', '%'.$topic.'%')
+                                        ->orWhere('description', 'like', '%'.$topic.'%');
+                                });
+                        });
+
+                    // Structured badge match (self-declared + inferred discourse).
+                    if ($topicRow = $topicRows->get($topic)) {
+                        $q->orWhereHas('publicBadges', function ($bq) use ($topicRow) {
+                            $bq->where('topic_id', $topicRow->id);
+                        });
+                    }
                 }
             });
         }
