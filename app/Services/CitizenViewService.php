@@ -8,6 +8,7 @@ use App\Enums\ViewSessionStatus;
 use App\Models\CitizenCampaign;
 use App\Models\CitizenViewSession;
 use App\Models\Voter;
+use App\Services\Marketing\ZipCentroidService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -26,6 +27,7 @@ class CitizenViewService
     public function __construct(
         protected FraudPreventionService $fraudService,
         protected CitizenBillingService $billingService,
+        protected ZipCentroidService $zipCentroid,
     ) {
     }
 
@@ -145,7 +147,7 @@ class CitizenViewService
     {
         $voterZip = $voter->zip_code;
 
-        return CitizenCampaign::query()
+        $candidates = CitizenCampaign::query()
             ->where('status', CampaignStatus::Active)
             ->where('approval_status', \App\Enums\ApprovalStatus::Approved)
             ->where(function ($q): void {
@@ -158,17 +160,58 @@ class CitizenViewService
             })
             ->whereColumn('views_completed', '<', 'total_views_requested')
             ->whereColumn('amount_spent', '<', 'total_budget')
-            // Geo-targeting: campaigns with no target_zip are shown to all voters.
-            // Campaigns with a target_zip are only shown to voters whose zip_code
-            // matches OR whose zip is null (zip unknown → include for reach).
-            ->where(function ($q) use ($voterZip): void {
-                $q->whereNull('target_zip');
-                if ($voterZip) {
-                    $q->orWhere('target_zip', $voterZip);
-                }
-            })
             ->orderByDesc('revenue_per_view')
             ->get();
+
+        return $candidates->filter(function (CitizenCampaign $campaign) use ($voterZip): bool {
+            return $this->isWithinGeoTarget($campaign, $voterZip);
+        })->values();
+    }
+
+    /**
+     * Geo-targeting for a citizen campaign against a voter's zip.
+     *
+     * - No target_zip → open to all voters.
+     * - target_zip with no radius (or radius 0) → exact match, or null-zip
+     *   voters included for reach (matches AudienceService's exact-zip mode).
+     * - target_zip with a radius → haversine distance between zip centroids
+     *   via ZipCentroidService, mirroring AudienceService::applyCitizenTargeting
+     *   so the radius a citizen configures is actually honored here too
+     *   (previously target_zip_radius was stored but never applied in this
+     *   voter-facing path — see AudienceService's doc comment).
+     */
+    private function isWithinGeoTarget(CitizenCampaign $campaign, ?string $voterZip): bool
+    {
+        $targetZip = trim((string) ($campaign->target_zip ?? ''));
+        if ($targetZip === '') {
+            return true;
+        }
+
+        $radius = (int) ($campaign->target_zip_radius ?? 0);
+
+        if ($radius <= 0) {
+            return $voterZip === null || $voterZip === $targetZip;
+        }
+
+        if ($voterZip === null) {
+            return false;
+        }
+
+        if ($voterZip === $targetZip) {
+            return true;
+        }
+
+        $center = $this->zipCentroid->centroid($targetZip);
+        if ($center === null) {
+            return $voterZip === $targetZip;
+        }
+
+        $voterCentroid = $this->zipCentroid->centroid($voterZip);
+        if ($voterCentroid === null) {
+            return false;
+        }
+
+        return $this->zipCentroid->distanceMiles($center, $voterCentroid) <= $radius;
     }
 
     /**
