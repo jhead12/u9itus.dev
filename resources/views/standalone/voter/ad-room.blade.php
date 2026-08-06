@@ -232,6 +232,19 @@
             Clear filters →
         </a>
         @endif
+
+        @if($citizenCampaigns->isNotEmpty())
+        <p class="text-slate-400 text-sm mt-5">
+            Good news — there are local &amp; community campaigns below you can watch right now.
+        </p>
+        <a href="#local-ads" class="inline-block mt-2 text-amber-400 hover:text-amber-300 text-sm font-medium transition">
+            Jump to local campaigns ↓
+        </a>
+        @endif
+
+        <p class="text-slate-500 text-xs mt-4">
+            In the meantime, <a href="{{ route('voter.map') }}" class="text-emerald-400 hover:text-emerald-300 underline">explore the interactive map</a> to see who represents you.
+        </p>
     </div>
     @else
     <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
@@ -513,7 +526,7 @@
 
     {{-- ── Community & Local Ads (Citizen Campaigns) ─────────── --}}
     @if($citizenCampaigns->isNotEmpty())
-    <div class="pt-6 border-t border-slate-700/60">
+    <div id="local-ads" class="pt-6 border-t border-slate-700/60 scroll-mt-24">
         <div class="flex items-center gap-3 mb-5">
             <div class="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center">
                 <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
