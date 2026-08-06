@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Mail\GuestDigestConfirmationMail;
 use App\Models\Voter;
 use App\Services\GuestBoundaryMergeService;
+use App\Services\MailingListService;
 use App\Support\GuestBoundaryCookie;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -24,6 +25,7 @@ class GuestDigestOptInController extends Controller
 {
     public function __construct(
         private readonly GuestBoundaryMergeService $mergeService,
+        private readonly MailingListService $mailingListService,
     ) {
     }
 
@@ -35,6 +37,12 @@ class GuestDigestOptInController extends Controller
             $existingVoter->user->notificationPreference()->firstOrCreate([])->update([
                 'email_boundary_digest' => true,
             ]);
+
+            $this->mailingListService->subscribe(
+                $existingVoter->email,
+                'map_favorites_digest',
+                config('services.mailgun.map_favorites_list')
+            );
 
             return response()->json(['ok' => true, 'status' => 'confirmed']);
         }
@@ -83,6 +91,12 @@ class GuestDigestOptInController extends Controller
 
         if ($voter->digest_confirmed_at === null) {
             $voter->update(['digest_confirmed_at' => now()]);
+
+            $this->mailingListService->subscribe(
+                $voter->email,
+                'map_favorites_digest',
+                config('services.mailgun.map_favorites_list')
+            );
         }
 
         return view('standalone.public.digest-confirmed');

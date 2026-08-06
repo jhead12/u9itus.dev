@@ -15,6 +15,11 @@ use Illuminate\Validation\Rule;
  */
 class GuestBoundaryMergeService
 {
+    public function __construct(
+        private readonly MailingListService $mailingListService,
+    ) {
+    }
+
     /**
      * Merge raw cookie items (as read by GuestBoundaryCookie::readItems())
      * into a voter's saved boundaries. Invalid items are silently skipped —
@@ -58,13 +63,24 @@ class GuestBoundaryMergeService
             ]);
         }
 
-        if ($pending->digest_opt_in_pending && $pending->digest_confirmed_at !== null) {
+        // Logging into (or registering) a real account is stronger proof of
+        // email ownership than the double opt-in confirm link, so carry the
+        // intent over even if $pending->digest_confirmed_at is still null —
+        // otherwise a guest who opts in and then logs in before clicking the
+        // confirm email loses the signup with no trace and no notice.
+        if ($pending->digest_opt_in_pending) {
             $user = $real->user;
 
             if ($user) {
                 $user->notificationPreference()->firstOrCreate([])->update([
                     'email_boundary_digest' => true,
                 ]);
+
+                $this->mailingListService->subscribe(
+                    $real->email,
+                    'map_favorites_digest',
+                    config('services.mailgun.map_favorites_list')
+                );
             }
         }
 

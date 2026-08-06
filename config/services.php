@@ -20,6 +20,9 @@ return [
         'endpoint'     => env('MAILGUN_ENDPOINT', 'api.mailgun.net'),
         'scheme'       => 'https',
         'mailing_list' => env('MAILGUN_MAILING_LIST_ADDRESS'), // e.g. waitlist@mg.yourdomain.com
+
+        // Map-favorites weekly digest opt-ins — see GuestDigestOptInController.
+        'map_favorites_list' => env('MAILGUN_MAP_FAVORITES_LIST_ADDRESS'), // e.g. mapfavorites@mg.yourdomain.com
     ],
 
     'postmark' => [

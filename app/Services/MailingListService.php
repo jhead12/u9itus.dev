@@ -14,12 +14,14 @@ use Illuminate\Support\Facades\Log;
 class MailingListService
 {
     /**
-     * Add an email address to the configured Mailgun mailing list via the
-     * Members API. Silently returns on any failure.
+     * Add an email address to a Mailgun mailing list via the Members API.
+     * Silently returns on any failure. Defaults to the general waitlist list;
+     * pass $listAddress to target a different list (e.g. the map-favorites
+     * digest list).
      */
-    public function subscribe(string $email, string $source = 'register_closed'): void
+    public function subscribe(string $email, string $source = 'register_closed', ?string $listAddress = null): void
     {
-        $listAddress = config('services.mailgun.mailing_list');
+        $listAddress = $listAddress ?? config('services.mailgun.mailing_list');
         $apiKey      = config('services.mailgun.secret');
         $endpoint    = config('services.mailgun.endpoint', 'api.mailgun.net');
 

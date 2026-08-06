@@ -99,3 +99,24 @@ test('pending guest digest-optin voter rows are reparented onto the real voter o
         'email_boundary_digest' => true,
     ]);
 });
+
+test('an unconfirmed pending digest opt-in still carries over on login instead of being silently dropped', function () {
+    $pending = Voter::factory()->create([
+        'user_id' => null,
+        'email' => 'unconfirmed-guest@example.com',
+        'digest_opt_in_pending' => true,
+        'digest_confirmed_at' => null,
+    ]);
+
+    $user = mergeTestVoterUser();
+
+    $this->actingAs($user)
+        ->withCookie(GuestBoundaryCookie::VOTER_COOKIE, $pending->uuid)
+        ->getJson(route('voter.boundaries.index'));
+
+    $this->assertDatabaseMissing('voters', ['id' => $pending->id]);
+    $this->assertDatabaseHas('notification_preferences', [
+        'user_id' => $user->id,
+        'email_boundary_digest' => true,
+    ]);
+});
