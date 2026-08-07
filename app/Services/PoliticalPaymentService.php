@@ -762,7 +762,7 @@ class PoliticalPaymentService
     /**
      * Per-view profit calculation helper.
      *
-     * Revenue:   $0.60 (politician pays)
+     * Revenue:   $1.00 (politician pays)
      * Payout:    $0.50 (voter receives)
      * Referral:  $0.050 (10% of payout, if referred)
      * Processing: ~$0.02

@@ -72,7 +72,7 @@ Mitigation: Get an election-law opinion letter before scaling. Consider reframin
 Voters won't show up for empty inventory; politicians won't pay $0.60/view to a small audience. Classic chicken-and-egg.
 
 Mitigation: Lead with the free transparency product (district lookup + candidate profiles). Build the voter audience on civic utility, then layer paid views on top.
-3. Politician willingness to pay $0.60/CPV
+3. Politician willingness to pay $1.00/CPV
 That's a ~$600 CPM. Premium YouTube political CPMs are $20–$50. You're 10–30× more expensive on the headline number — justified only if you can prove 100% completion + verified human + targeted district is worth it. Need a case study.
 
 Mitigation: Offer down-ballot races (school board, city council, state legislature) where YouTube/Meta targeting is useless and your district-precision is genuinely differentiated. That's where price tolerance is highest.

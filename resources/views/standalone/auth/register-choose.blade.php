@@ -18,7 +18,7 @@
 @php
     $voterPayoutPerView = number_format((float) \App\Services\PlatformSettingsService::get('viewer_payout_per_view', null, 0.50), 2);
     $politicianRatePerView = number_format((float) \App\Services\PlatformSettingsService::get('revenue_per_view', null, 1.00), 2);
-    $citizenRatePerView = number_format((float) \App\Services\PlatformSettingsService::get('citizen_revenue_per_view', null, 0.60), 2);
+    $citizenRatePerView = number_format((float) \App\Services\PlatformSettingsService::get('citizen_revenue_per_view', null, 1.00), 2);
 @endphp
 <div class="w-full max-w-4xl">
 
