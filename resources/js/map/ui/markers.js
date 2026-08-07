@@ -5,8 +5,7 @@ import * as THREE from 'three';
 import { TOP_CITIES, STATE_CAPITALS, fmtPop } from '../config/city-data.js';
 import { STATE_ABBR_MAP, STATE_FIPS, PARTY_HEX, PARTY_LABEL } from '../config/constants.js';
 import { project } from '../scene/projection.js';
-import { mapGroup } from '../scene/setup.js';
-import { renderer, camera } from '../scene/setup.js';
+import { mapGroup, renderer, camera, leftInset } from '../scene/setup.js';
 import { mapLabelsLayer, districtLabels } from './labels-overlay.js';
 import { stateData, activeState, showSmallCities, ACTIVE_LAYERS } from '../state/map-state.js';
 import { openPolDrawer } from './politician-drawer.js';
@@ -201,6 +200,6 @@ export function updateCityDots() {
         const behind = _lblVec.z > 1;
         const outside = sx < -40 || sx > W + 40 || sy < 20 || sy > H + 40;
         if (behind || outside) { dot.el.style.display = 'none'; }
-        else { dot.el.style.display = 'flex'; dot.el.style.left = sx + 'px'; dot.el.style.top = sy + 'px'; }
+        else { dot.el.style.display = 'flex'; dot.el.style.left = (sx + leftInset()) + 'px'; dot.el.style.top = sy + 'px'; }
     }
 }

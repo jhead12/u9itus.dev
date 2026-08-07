@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { STATE_ABBR_MAP, PARTY_HEX, PARTY_LABEL } from '../config/constants.js';
 import { districtMeshes } from '../scene/district-overlay.js';
 import { stateData } from '../state/map-state.js';
-import { camera, renderer } from '../scene/setup.js';
+import { camera, renderer, leftInset } from '../scene/setup.js';
 import { openDistrictPanel } from './panel-district.js';
 import { rectsOverlap } from '../scene/overlay-collision.js';
 
@@ -127,7 +127,10 @@ export function updateDistrictLabels(occupiedRects = []) {
         }
         placed.push(rect);
         lbl.el.style.display = 'flex';
-        lbl.el.style.left = sx + 'px';
+        // sx/sy and the collision rects above are canvas-local; #map-labels-layer
+        // is viewport-fixed, so only the final DOM write needs the canvas's
+        // horizontal offset (leftInset()) added back in.
+        lbl.el.style.left = (sx + leftInset()) + 'px';
         lbl.el.style.top = sy + 'px';
     }
     // Returned so render-loop.js can chain candidate-marker collision

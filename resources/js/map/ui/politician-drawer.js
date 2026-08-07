@@ -8,6 +8,7 @@ import { partyClass, renderElectionDatesBanner, topicChipsHtml } from './panel-s
 import { trackEvent } from '../api/interaction.js';
 import { createFavoriteButton } from './boundary-favorite.js';
 import { createFollowButton } from './politician-follow-button.js';
+import { resizeRenderer } from '../scene/setup.js';
 
 const polDrawer = document.getElementById('pol-drawer');
 const polDrawerClose = document.getElementById('pol-drawer-close');
@@ -607,6 +608,7 @@ export function openPolDrawer(cand, accentColor, extra = {}) {
 
         _renderPolBody();
         requestAnimationFrame(() => polDrawer.classList.add('open'));
+        resizeRenderer();
         // Focus after the slide-in transition so the drawer is visually ready.
         setTimeout(() => {
             try { polDrawerClose?.focus({ preventScroll: true }); } catch {}
@@ -617,6 +619,7 @@ export function openPolDrawer(cand, accentColor, extra = {}) {
         // the console for further diagnosis.
         console.error('[map] openPolDrawer encountered an error but is keeping the drawer open:', err);
         try { polDrawer.removeAttribute('hidden'); polDrawer.classList.add('open'); } catch {}
+        resizeRenderer();
     }
 }
 
@@ -624,6 +627,7 @@ export function closePolDrawer() {
     _overviewReqSeq++;
     if (!polDrawer) return;
     polDrawer.classList.remove('open');
+    resizeRenderer();
     setTimeout(() => { if (polDrawer && !polDrawer.classList.contains('open')) polDrawer.setAttribute('hidden', ''); }, 340);
     _polCtx = null;
 }

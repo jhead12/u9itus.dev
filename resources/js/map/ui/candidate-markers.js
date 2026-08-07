@@ -9,8 +9,7 @@ import * as THREE from 'three';
 import { STATE_CAPITALS } from '../config/city-data.js';
 import { STATE_ABBR_MAP, PARTY_HEX } from '../config/constants.js';
 import { project } from '../scene/projection.js';
-import { mapGroup } from '../scene/setup.js';
-import { renderer, camera } from '../scene/setup.js';
+import { mapGroup, renderer, camera, leftInset } from '../scene/setup.js';
 import { mapLabelsLayer } from './labels-overlay.js';
 import { stateData, activeState } from '../state/map-state.js';
 import { openPolDrawer } from './politician-drawer.js';
@@ -180,7 +179,7 @@ export function updateCandidateMarkers(occupiedRects = []) {
         if (collides) { dot.el.style.display = 'none'; continue; }
         placed.push(rect);
         dot.el.style.display = 'flex';
-        dot.el.style.left = sx + 'px';
+        dot.el.style.left = (sx + leftInset()) + 'px';
         dot.el.style.top = sy + 'px';
     }
 }

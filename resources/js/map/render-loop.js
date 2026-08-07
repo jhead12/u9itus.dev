@@ -1,13 +1,12 @@
 /**
  * Render loop — animates the scene and updates HTML overlay positions each frame.
  */
-import { renderer, scene, camera, controls } from './scene/setup.js';
+import { renderer, scene, camera, controls, leftInset, mapGroup } from './scene/setup.js';
 import { updateDistrictLabels } from './ui/labels-overlay.js';
 import { citySprites, govSprites } from './ui/markers.js';
 import { updateCandidateMarkers } from './ui/candidate-markers.js';
 import { updatePostPins } from './ui/post-pins.js';
 import { updateBusinessPins } from './ui/business-pins.js';
-import { mapGroup } from './scene/setup.js';
 import { rectsOverlap } from './scene/overlay-collision.js';
 import * as THREE from 'three';
 
@@ -63,7 +62,7 @@ function updateCityDots() {
         const collides = placed.some(p => rectsOverlap(rect, p));
         if (collides) { dot.el.style.display = 'none'; continue; }
         placed.push(rect);
-        dot.el.style.display = 'flex'; dot.el.style.left = sx + 'px'; dot.el.style.top = sy + 'px';
+        dot.el.style.display = 'flex'; dot.el.style.left = (sx + leftInset()) + 'px'; dot.el.style.top = sy + 'px';
     }
     return placed;
 }

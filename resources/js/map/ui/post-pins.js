@@ -4,7 +4,7 @@
  */
 import * as THREE from 'three';
 import { project } from '../scene/projection.js';
-import { mapGroup, renderer, camera, controls } from '../scene/setup.js';
+import { mapGroup, renderer, camera, controls, leftInset } from '../scene/setup.js';
 import { mapLabelsLayer } from './labels-overlay.js';
 import { trackEvent } from '../api/interaction.js';
 import { fetchMapContent, getViewportBounds } from '../api/content.js';
@@ -135,7 +135,7 @@ export function updatePostPins() {
             pin.el.style.display = 'none';
         } else {
             pin.el.style.display = 'flex';
-            pin.el.style.left = sx + 'px';
+            pin.el.style.left = (sx + leftInset()) + 'px';
             pin.el.style.top = sy + 'px';
         }
     }
