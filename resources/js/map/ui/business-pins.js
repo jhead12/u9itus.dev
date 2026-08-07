@@ -6,21 +6,20 @@
  */
 import * as THREE from 'three';
 import { project } from '../scene/projection.js';
-import { mapGroup, renderer, camera, controls, leftInset } from '../scene/setup.js';
+import { mapGroup, camera, controls } from '../scene/setup.js';
 import { mapLabelsLayer } from './labels-overlay.js';
 import { trackEvent } from '../api/interaction.js';
-import { fetchMapContent, getViewportBounds } from '../api/content.js';
+import { fetchMapContent } from '../api/content.js';
+import { createViewportFetcher } from '../api/viewport-fetch.js';
+import { addOverlayItem, removeOverlayItems, updateOverlayPositions } from './point-overlay-factory.js';
 import { activeState } from '../state/map-state.js';
 import { STATE_ABBR_MAP } from '../config/constants.js';
+import { escapeHtml } from '../utils/html.js';
 
 export let businessPins = [];
 
 /** Active category filter, e.g. "food". Null shows every category. */
 export let businessCategoryFilter = null;
-
-let currentRequestId = 0;
-let pendingFetch = null;
-let lastBoundsKey = '';
 
 const PIN_CLASS = 'business-pin';
 
@@ -32,9 +31,19 @@ const CATEGORY_ICON = {
     other: '📍',
 };
 
+const businessFetcher = createViewportFetcher({
+    camera, mapGroup, controls,
+    fetchItems: (bounds) => fetchMapContent({ ...bounds, category: businessCategoryFilter, limit: 50 }),
+    onItems: (data) => renderBusinessPins(data.businesses ?? []),
+    onEmpty: () => clearBusinessPins(),
+    extraKeyParts: () => [businessCategoryFilter || ''],
+    hasItems: () => businessPins.length > 0,
+    logTag: 'business-pins',
+});
+
 export function setBusinessCategoryFilter(category) {
     businessCategoryFilter = category || null;
-    lastBoundsKey = ''; // force a refetch with the new filter
+    businessFetcher.forceRefetch();
     refreshBusinessPins(true);
 }
 
@@ -43,37 +52,7 @@ export function setBusinessCategoryFilter(category) {
  * @param {boolean} force - fetch even if bounds haven't changed
  */
 export async function refreshBusinessPins(force = false) {
-    const bounds = getViewportBounds(camera, mapGroup);
-    if (!bounds) {
-        clearBusinessPins();
-        return;
-    }
-
-    const boundsKey = [
-        bounds.south.toFixed(2),
-        bounds.west.toFixed(2),
-        bounds.north.toFixed(2),
-        bounds.east.toFixed(2),
-        businessCategoryFilter || '',
-    ].join(',');
-    if (!force && boundsKey === lastBoundsKey) return;
-    lastBoundsKey = boundsKey;
-
-    currentRequestId++;
-    const requestId = currentRequestId;
-
-    try {
-        pendingFetch = fetchMapContent({ ...bounds, category: businessCategoryFilter, limit: 50 });
-        const data = await pendingFetch;
-        if (requestId !== currentRequestId) return; // stale
-        renderBusinessPins(data.businesses ?? []);
-    } catch (e) {
-        if (requestId === currentRequestId) {
-            console.warn('[business-pins] fetch failed:', e.message);
-        }
-    } finally {
-        pendingFetch = null;
-    }
+    return businessFetcher.refresh(force);
 }
 
 /**
@@ -115,9 +94,7 @@ export function renderBusinessPins(items) {
             el.classList.toggle('expanded');
         });
 
-        mapLabelsLayer.appendChild(el);
-        requestAnimationFrame(() => el.classList.add('visible'));
-        businessPins.push({ el, worldPos, item, pinPos: worldPos });
+        addOverlayItem(businessPins, mapLabelsLayer, el, worldPos, item);
     }
 }
 
@@ -125,48 +102,14 @@ export function renderBusinessPins(items) {
  * Remove all business pins from the DOM and clear state.
  */
 export function clearBusinessPins() {
-    for (const pin of businessPins) pin.el.remove();
+    removeOverlayItems(businessPins);
     businessPins = [];
 }
 
 /**
- * Update pin screen positions each animation frame.
+ * Update pin screen positions each animation frame. No collision avoidance —
+ * business pins don't steer clear of (or block) any other layer.
  */
 export function updateBusinessPins() {
-    if (!businessPins.length) return;
-    const W = renderer.domElement.clientWidth;
-    const H = renderer.domElement.clientHeight;
-    const _lblVec = new THREE.Vector3();
-    for (const pin of businessPins) {
-        _lblVec.copy(pin.worldPos);
-        _lblVec.applyMatrix4(mapGroup.matrixWorld);
-        _lblVec.project(camera);
-        const sx = (_lblVec.x * 0.5 + 0.5) * W;
-        const sy = (-_lblVec.y * 0.5 + 0.5) * H;
-        const behind = _lblVec.z > 1;
-        const outside = sx < -60 || sx > W + 60 || sy < 20 || sy > H + 60;
-        if (behind || outside) {
-            pin.el.style.display = 'none';
-        } else {
-            pin.el.style.display = 'flex';
-            pin.el.style.left = (sx + leftInset()) + 'px';
-            pin.el.style.top = sy + 'px';
-        }
-    }
+    updateOverlayPositions(businessPins, { collision: 'none' });
 }
-
-function escapeHtml(str) {
-    return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
-}
-
-/* Debounced refetch when the map is panned/zoomed and business pins are active. */
-let refreshTimer = null;
-controls.addEventListener('change', () => {
-    if (businessPins.length === 0) return;
-    clearTimeout(refreshTimer);
-    refreshTimer = setTimeout(() => refreshBusinessPins(), 300);
-});
