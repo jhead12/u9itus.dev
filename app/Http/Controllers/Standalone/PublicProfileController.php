@@ -1123,6 +1123,13 @@ class PublicProfileController extends Controller
 
         $isGuestBrowsing = ! auth()->check();
 
+        // Only computed for authenticated voters — guests always see false,
+        // which is safe to bake into the guest page cache below since it's
+        // identical for every guest.
+        $isFavorited = ! $isGuestBrowsing && auth()->user()->voter
+            ? (bool) auth()->user()->voter->favoritePoliticians()->where('politician_id', $politician->id)->exists()
+            : false;
+
         // ── Full-page response cache for unauthenticated visitors ─────────────
         // Bots and anonymous users get a cached HTML response (15 min TTL).
         // This prevents live API calls (Ballotpedia, FEC, VoteSmart) from
@@ -1333,6 +1340,7 @@ class PublicProfileController extends Controller
         $view = view('standalone.public.profile', compact(
             'politician',
             'page',
+            'isFavorited',
             'runningCampaigns',
             'pastCampaigns',
             'publicBoardQuestions',

@@ -445,6 +445,34 @@
                         </a>
                     @endif
 
+                    {{-- ── Follow this candidate ──────────────────────────────────
+                         Reuses the same favorite-toggle partial as Causes/Ballot
+                         Measures. Guests get a CTA to sign in instead of a button —
+                         there's no guest-cookie path for politician follows (unlike
+                         map boundary favorites). --}}
+                    <div class="mb-2">
+                        @auth
+                            @if(auth()->user()->voter)
+                                @include('standalone.voter.partials.favorite-toggle', [
+                                    'isFavorited' => $isFavorited,
+                                    'storeRoute' => route('voter.favorites.store', $politician->id),
+                                    'destroyRoute' => route('voter.favorites.destroy', $politician->id),
+                                    'followLabel' => 'Follow',
+                                    'followingLabel' => 'Following',
+                                ])
+                            @endif
+                        @else
+                            <a href="{{ route('register.voter') }}"
+                               class="inline-flex items-center gap-1.5 text-xs font-semibold
+                                      text-emerald-300 hover:text-emerald-200
+                                      border border-emerald-500/30 hover:border-emerald-400/60
+                                      bg-emerald-500/10 hover:bg-emerald-500/20
+                                      rounded-full px-3 py-1 transition">
+                                Sign in to follow this candidate
+                            </a>
+                        @endauth
+                    </div>
+
                     {{-- ── Issue-context badge chips ──────────────────────────────
                          Derived from publicBadges topics (self-declared + inferred
                          discourse badges). Each chip links to the directory filtered
@@ -1745,5 +1773,6 @@
         <x-guest-signup-nudge />
     @endguest
 
+    @stack('scripts')
 </body>
 </html>

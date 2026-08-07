@@ -42,6 +42,7 @@ import { initDistrictConfig } from './api/district-config.js';
 import { ensureGovernorParties, applyColorMode } from './api/governor-parties.js';
 import { trackEvent } from './api/interaction.js';
 import { fetchBoundaries } from './api/favorites.js';
+import { fetchFollowedPoliticianIds } from './api/politician-follow.js';
 import { initDigestOptInPrompt } from './ui/digest-optin.js';
 
 /* ── UI ── */
@@ -106,6 +107,8 @@ bootDeepLink();
 
 /* Hydrate saved boundaries — voters from the DB, guests from their cookie. */
 fetchBoundaries().then(renderFavoriteChips);
+/* Hydrate followed politicians (voters only — no guest path for this feature). */
+if (window.U9?.session?.isVoter?.()) fetchFollowedPoliticianIds();
 initDigestOptInPrompt();
 
 /* Wire back button */

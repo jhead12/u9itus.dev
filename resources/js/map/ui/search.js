@@ -306,6 +306,7 @@ async function activateResult(item) {
             if (mesh) await enterStateMode(stateName, mesh.userData.regionName, mesh.userData.region);
         }
         openPolDrawer({
+            id:              pol.id,
             full_name:       pol.full_name,
             office:          pol.office,
             party:           pol.party,

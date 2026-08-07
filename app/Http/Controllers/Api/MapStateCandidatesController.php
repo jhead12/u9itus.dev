@@ -424,6 +424,7 @@ class MapStateCandidatesController
                 continue;
             }
             $houseCandidates[$distKey][] = [
+                'id'              => $pol->id,
                 'source'          => 'platform',
                 'scrape_source'   => null,
                 'external_candidate_id' => null,
@@ -451,6 +452,7 @@ class MapStateCandidatesController
         foreach ($cityOfficials as $pol) {
             $cityKey = $pol->city ?? 'Unknown City';
             $cityOfficialsGrouped[$cityKey][] = [
+                'id'              => $pol->id,
                 'source'          => 'platform',
                 'scrape_source'   => null,
                 'external_candidate_id' => null,
@@ -538,6 +540,7 @@ class MapStateCandidatesController
     private function formatPlatformCandidate(Politician $pol): array
     {
         return [
+            'id'              => $pol->id,
             'source'          => 'platform',
             'scrape_source'   => null,
             'external_candidate_id' => null,

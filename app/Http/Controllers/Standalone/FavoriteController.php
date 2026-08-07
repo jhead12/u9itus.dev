@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Standalone;
 
 use App\Http\Controllers\Controller;
 use App\Models\Politician;
-use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 /**
@@ -64,10 +64,27 @@ class FavoriteController extends Controller
     }
 
     /**
+     * GET /voter/favorites/ids
+     * Full set of followed politician IDs (no pagination) — used to hydrate
+     * client-side toggle state on the map, mirroring BoundaryFavoriteController's
+     * unlimited index().
+     */
+    public function ids(Request $request): JsonResponse
+    {
+        $voter = $request->user()->voter;
+
+        if (! $voter) {
+            return response()->json(['ids' => []]);
+        }
+
+        return response()->json(['ids' => $voter->favoritePoliticians()->pluck('politicians.id')]);
+    }
+
+    /**
      * POST /voter/favorites/{politician}
      * Add a politician to the voter's favorites.
      */
-    public function store(Request $request, int $politicianId): RedirectResponse
+    public function store(Request $request, int $politicianId)
     {
         $voter = $request->user()->voter;
 
@@ -80,6 +97,13 @@ class FavoriteController extends Controller
         // sync-style: attach only if not already present
         if (! $voter->favoritePoliticians()->where('politician_id', $politician->id)->exists()) {
             $voter->favoritePoliticians()->attach($politician->id, ['favorited_at' => now()]);
+        }
+
+        // The favorite-toggle partial (shared with Causes/Ballot Measures) always
+        // submits via fetch with Accept: application/json and expects {ok: true} —
+        // mirror CauseFavoriteController::store() here rather than a redirect.
+        if ($request->expectsJson()) {
+            return response()->json(['ok' => true]);
         }
 
         return back()->with('success', "You are now following {$politician->full_name}.");

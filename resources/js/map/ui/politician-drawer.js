@@ -7,6 +7,7 @@ import { fmtPop } from '../config/city-data.js';
 import { partyClass, renderElectionDatesBanner, topicChipsHtml } from './panel-state.js';
 import { trackEvent } from '../api/interaction.js';
 import { createFavoriteButton } from './boundary-favorite.js';
+import { createFollowButton } from './politician-follow-button.js';
 
 const polDrawer = document.getElementById('pol-drawer');
 const polDrawerClose = document.getElementById('pol-drawer-close');
@@ -587,6 +588,15 @@ export function openPolDrawer(cand, accentColor, extra = {}) {
                     </div>
                     ${topicChipsHtml(c.badges) ? `<div class="pol-topic-chips">${topicChipsHtml(c.badges)}</div>` : ''}
                 </div>`;
+
+            // Follow-this-candidate star (voter) / sign-in nudge (guest) —
+            // companion to the save-this-city star in the city-view branch above.
+            document.getElementById('pol-drawer-follow-btn')?.remove();
+            if (c.id) {
+                const followBtn = createFollowButton(c.id);
+                followBtn.id = 'pol-drawer-follow-btn';
+                polHeroEl.querySelector('.pol-hero-info')?.appendChild(followBtn);
+            }
         }
 
         _renderPolBody();

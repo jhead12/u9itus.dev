@@ -79,3 +79,29 @@ export function removeFavoriteById(id) {
 export function isFavorite(parts) {
     return favoriteBoundaries.has(favoriteKey(parts));
 }
+
+/**
+ * Followed politicians (candidate-follow, distinct from favoriteBoundaries
+ * above) for the logged-in voter. Hydrated at boot from /voter/favorites/ids
+ * when U9.session.isVoter(). Keyed by plain numeric politician id — no
+ * composite key needed since a politician has a single stable id, unlike a
+ * boundary.
+ */
+export const followedPoliticians = new Set();
+
+export function setFollowed(ids) {
+    followedPoliticians.clear();
+    for (const id of ids) followedPoliticians.add(id);
+}
+
+export function addFollowed(id) {
+    followedPoliticians.add(id);
+}
+
+export function removeFollowed(id) {
+    followedPoliticians.delete(id);
+}
+
+export function isFollowingPolitician(id) {
+    return followedPoliticians.has(id);
+}

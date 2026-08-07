@@ -32,13 +32,14 @@ class MapPoliticianSearchController
             ->orderBy('full_name')
             ->limit(8)
             ->get([
-                'full_name', 'political_office', 'party_affiliation',
+                'id', 'full_name', 'political_office', 'party_affiliation',
                 'profile_photo_url', 'slug', 'state', 'city', 'district',
                 'governance_level', 'term_status', 'is_running_candidate',
                 'verified_official', 'ballotpedia_id', 'website_url', 'bio',
             ]);
 
         $results = $politicians->map(fn (Politician $pol) => [
+            'id'               => $pol->id,
             'full_name'        => $pol->full_name,
             'office'           => $pol->political_office,
             'party'            => $pol->party_affiliation,

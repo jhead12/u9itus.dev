@@ -508,6 +508,7 @@ Route::middleware(['guest.trial', 'auth', 'verified', 'check.role', 'no.cache'])
         // ── Favorites (follow politicians) ───────────────────────────────────
         Route::get('/favorites', [FavoriteController::class, 'index'])->name('favorites.index');
         Route::get('/favorites/panel', [FavoriteController::class, 'panel'])->name('favorites.panel');
+        Route::get('/favorites/ids', [FavoriteController::class, 'ids'])->name('favorites.ids');
         Route::post('/favorites/{politicianId}', [FavoriteController::class, 'store'])->name('favorites.store');
         Route::delete('/favorites/{politicianId}', [FavoriteController::class, 'destroy'])->name('favorites.destroy');
 
