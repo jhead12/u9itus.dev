@@ -9,12 +9,14 @@ use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\URL;
 
 /**
- * Weekly digest of new candidate activity (news, endorsements) for the
- * districts/cities a voter has favorited on the map — see
+ * Digest of new candidate activity (news, endorsements, popular YouTube
+ * clips) for the districts/cities a voter has favorited on the map — see
  * App\Services\BoundaryDigestMatchService and
- * App\Console\Commands\SendWeeklyBoundaryDigest.
+ * App\Console\Commands\SendBoundaryDigest. Sent on a content-driven cadence,
+ * not a fixed calendar day — see SendBoundaryDigest for the eligibility rule.
  *
  * Admin-configurable via the `boundary_digest` email template — subject
  * override + is_active kill switch only (no body_override support: the
@@ -31,6 +33,7 @@ class BoundaryDigestMail extends Mailable
         public readonly Voter $voter,
         public readonly array $sections,
         public readonly string $periodLabel,
+        public readonly int $remainingCount = 0,
     ) {
     }
 
@@ -43,7 +46,7 @@ class BoundaryDigestMail extends Mailable
 
     public function envelope(): Envelope
     {
-        $defaultSubject = 'Your weekly saved-places update';
+        $defaultSubject = 'Your saved-places update';
         $template = EmailTemplate::forKey(self::TEMPLATE_KEY);
 
         return new Envelope(
@@ -53,9 +56,20 @@ class BoundaryDigestMail extends Mailable
 
     public function content(): Content
     {
+        // Guest (user_id-null) recipients have no account/settings page to
+        // manage this from, so they get a one-click unsubscribe link instead
+        // — see GuestDigestOptInController::unsubscribe().
+        $unsubscribeUrl = $this->voter->user_id === null
+            ? URL::signedRoute('map.boundaries.digest.unsubscribe', [
+                'voter' => $this->voter->uuid,
+                'hash' => sha1((string) $this->voter->email),
+            ])
+            : null;
+
         return new Content(
             view: 'emails.boundary-digest',
             text: 'emails.boundary-digest-text',
+            with: ['unsubscribeUrl' => $unsubscribeUrl, 'remainingCount' => $this->remainingCount],
         );
     }
 }

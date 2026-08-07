@@ -37,7 +37,7 @@
 
       <p>
         Hi{{ $voter->full_name && $voter->full_name !== 'Guest Subscriber' ? ' ' . $voter->full_name : '' }}, you
-        (or someone using this email address) asked for weekly updates about the districts and
+        (or someone using this email address) asked for updates about the districts and
         cities you've saved on the U9itus map — new candidate news, endorsements, and other
         activity for those places.
       </p>

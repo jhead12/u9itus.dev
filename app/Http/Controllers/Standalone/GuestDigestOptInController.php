@@ -102,6 +102,36 @@ class GuestDigestOptInController extends Controller
         return view('standalone.public.digest-confirmed');
     }
 
+    /**
+     * One-click unsubscribe link included in every weekly digest sent to a
+     * guest (user_id-null) voter — see BoundaryDigestMail/GuestDigestOptInController::store.
+     * Idempotent: clicking it again after already unsubscribing just re-shows
+     * the same confirmation page instead of erroring.
+     */
+    public function unsubscribe(Request $request, Voter $voter, string $hash)
+    {
+        if (
+            $voter->user_id !== null
+            || ! hash_equals(sha1((string) $voter->email), $hash)
+        ) {
+            abort(403, 'Invalid unsubscribe link.');
+        }
+
+        if ($voter->digest_opt_in_pending) {
+            $voter->update([
+                'digest_opt_in_pending' => false,
+                'digest_confirmed_at' => null,
+            ]);
+
+            $this->mailingListService->unsubscribe(
+                $voter->email,
+                config('services.mailgun.map_favorites_list')
+            );
+        }
+
+        return view('standalone.public.digest-unsubscribed');
+    }
+
     private function resolveOrCreatePendingVoter(Request $request, string $email): Voter
     {
         $uuid = GuestBoundaryCookie::readVoterUuid($request);

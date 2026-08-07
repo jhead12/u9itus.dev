@@ -69,6 +69,7 @@ class Voter extends Model
         'digest_opt_in_pending',
         'digest_confirmed_at',
         'digest_confirmation_sent_at',
+        'last_digest_sent_at',
     ];
 
     protected function casts(): array
@@ -94,6 +95,7 @@ class Voter extends Model
             'digest_opt_in_pending' => 'boolean',
             'digest_confirmed_at' => 'datetime',
             'digest_confirmation_sent_at' => 'datetime',
+            'last_digest_sent_at' => 'datetime',
         ];
     }
 

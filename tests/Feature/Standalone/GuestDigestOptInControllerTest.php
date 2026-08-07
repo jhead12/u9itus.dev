@@ -149,3 +149,61 @@ test('expired confirm link is rejected', function () {
 
     $this->get($url)->assertStatus(403);
 });
+
+// ── Unsubscribe ───────────────────────────────────────────────────────────────
+
+test('unsubscribe link turns off a confirmed guest opt-in', function () {
+    $voter = Voter::factory()->create([
+        'user_id' => null,
+        'email' => 'unsub-me@example.com',
+        'digest_opt_in_pending' => true,
+        'digest_confirmed_at' => now(),
+    ]);
+
+    $url = URL::signedRoute('map.boundaries.digest.unsubscribe', [
+        'voter' => $voter->uuid,
+        'hash' => sha1($voter->email),
+    ]);
+
+    $this->get($url)->assertOk();
+
+    $voter->refresh();
+    expect($voter->digest_opt_in_pending)->toBeFalse();
+    expect($voter->digest_confirmed_at)->toBeNull();
+});
+
+test('unsubscribe link is idempotent when clicked twice', function () {
+    $voter = Voter::factory()->create([
+        'user_id' => null,
+        'email' => 'unsub-twice@example.com',
+        'digest_opt_in_pending' => true,
+        'digest_confirmed_at' => now(),
+    ]);
+
+    $url = URL::signedRoute('map.boundaries.digest.unsubscribe', [
+        'voter' => $voter->uuid,
+        'hash' => sha1($voter->email),
+    ]);
+
+    $this->get($url)->assertOk();
+    $this->get($url)->assertOk();
+
+    expect($voter->fresh()->digest_opt_in_pending)->toBeFalse();
+});
+
+test('unsubscribe link with a tampered hash is rejected', function () {
+    $voter = Voter::factory()->create([
+        'user_id' => null,
+        'email' => 'unsub-tampered@example.com',
+        'digest_opt_in_pending' => true,
+        'digest_confirmed_at' => now(),
+    ]);
+
+    $url = URL::signedRoute('map.boundaries.digest.unsubscribe', [
+        'voter' => $voter->uuid,
+        'hash' => sha1('someone-else@example.com'),
+    ]);
+
+    $this->get($url)->assertStatus(403);
+    expect($voter->fresh()->digest_opt_in_pending)->toBeTrue();
+});

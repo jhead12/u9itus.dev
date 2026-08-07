@@ -54,4 +54,42 @@ class MailingListService
             ]);
         }
     }
+
+    /**
+     * Mark a member as unsubscribed on a Mailgun mailing list (keeps the
+     * member record — set 'subscribed' => 'no' — rather than deleting them,
+     * matching Mailgun's own recommended unsubscribe handling). Silently
+     * returns on any failure.
+     */
+    public function unsubscribe(string $email, ?string $listAddress = null): void
+    {
+        $listAddress = $listAddress ?? config('services.mailgun.mailing_list');
+        $apiKey      = config('services.mailgun.secret');
+        $endpoint    = config('services.mailgun.endpoint', 'api.mailgun.net');
+
+        if (! $listAddress || ! $apiKey) {
+            return; // Not configured — skip silently
+        }
+
+        try {
+            $response = Http::withBasicAuth('api', $apiKey)
+                ->asForm()
+                ->put("https://{$endpoint}/v3/lists/{$listAddress}/members/" . urlencode($email), [
+                    'subscribed' => 'no',
+                ]);
+
+            if (! $response->successful()) {
+                Log::warning('MailingList: Mailgun unsubscribe error', [
+                    'email'  => $email,
+                    'status' => $response->status(),
+                    'body'   => $response->body(),
+                ]);
+            }
+        } catch (\Throwable $e) {
+            Log::warning('MailingList: Mailgun unsubscribe exception', [
+                'email' => $email,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
 }

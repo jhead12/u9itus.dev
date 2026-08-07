@@ -36,7 +36,7 @@
                         <x-preference-checkbox name="email_low_balance" label="Low Balance Alerts" :checked="$preferences->email_low_balance" />
                         <x-preference-checkbox name="email_fraud_alert" label="Fraud Alerts" :checked="$preferences->email_fraud_alert" />
                         <x-preference-checkbox name="email_system_announcements" label="System Announcements" :checked="$preferences->email_system_announcements" />
-                        <x-preference-checkbox name="email_boundary_digest" label="Weekly Saved Places Digest" :checked="$preferences->email_boundary_digest" />
+                        <x-preference-checkbox name="email_boundary_digest" label="Saved Places Digest" :checked="$preferences->email_boundary_digest" />
                     </div>
                 </div>
 

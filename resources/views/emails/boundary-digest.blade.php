@@ -19,9 +19,18 @@
   .candidate { border-top: 1px solid #334155; padding: 14px 0; }
   .candidate:first-of-type { border-top: none; }
   .candidate-name { font-size: 15px; font-weight: 600; color: #ffffff; margin: 0 0 6px; }
-  .item { font-size: 13px; color: #94a3b8; margin: 0 0 4px; }
+  .item { font-size: 13px; color: #94a3b8; margin: 0 0 10px; line-height: 1.5; }
   .item a { color: #7dd3fc; text-decoration: none; }
-  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 700; background-color: rgba(52,211,153,0.15); color: #34d399; margin-right: 6px; }
+  .item-meta { font-size: 11px; color: #64748b; margin-top: 2px; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 700; margin-right: 6px; }
+  .badge-endorsement { background-color: rgba(52,211,153,0.15); color: #34d399; }
+  .badge-news { background-color: rgba(125,211,252,0.15); color: #7dd3fc; }
+  .badge-video { background-color: rgba(248,113,113,0.15); color: #f87171; }
+  .video-table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+  .video-thumb { width: 96px; padding-right: 12px; vertical-align: top; }
+  .video-thumb img { width: 96px; height: 72px; object-fit: cover; border-radius: 8px; display: block; background-color: #0f172a; }
+  .video-thumb-fallback { width: 96px; height: 72px; border-radius: 8px; background-color: #0f172a; text-align: center; line-height: 72px; font-size: 22px; }
+  .video-text { vertical-align: top; }
   .btn-wrap { text-align: center; margin: 28px 0; }
   .btn { display: inline-block; padding: 14px 32px; background-color: #10b981; color: #ffffff; font-size: 15px; font-weight: 600; text-decoration: none; border-radius: 10px; }
   .divider { border: none; border-top: 1px solid #334155; margin: 28px 0; }
@@ -51,17 +60,51 @@
             <p class="candidate-name">{{ $row['politician']->full_name }}</p>
 
             @foreach ($row['endorsements'] as $endorsement)
-              <p class="item"><span class="badge">Endorsement</span>{{ $endorsement->label }}</p>
+              <p class="item"><span class="badge badge-endorsement">Endorsement</span>{{ $endorsement->label }}</p>
+            @endforeach
+
+            @foreach ($row['videos'] as $video)
+              <table class="video-table" role="presentation" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td class="video-thumb">
+                    @if($video->thumbnail_url)
+                      <a href="{{ $video->url }}"><img src="{{ $video->thumbnail_url }}" alt="{{ $video->title }}" /></a>
+                    @else
+                      <a href="{{ $video->url }}" style="text-decoration:none;"><div class="video-thumb-fallback">▶️</div></a>
+                    @endif
+                  </td>
+                  <td class="video-text">
+                    <p class="item" style="margin:0;">
+                      <span class="badge badge-video">Video</span>
+                      <a href="{{ $video->url }}">{{ $video->title }}</a>
+                    </p>
+                    @if($video->view_count)
+                      <p class="item-meta">{{ number_format($video->view_count) }} views on YouTube</p>
+                    @endif
+                  </td>
+                </tr>
+              </table>
             @endforeach
 
             @foreach ($row['news'] as $article)
               <p class="item">
+                <span class="badge badge-news">News</span>
                 <a href="{{ $article->source_url }}">{{ $article->headline }}</a>
+                @if($article->published_at)
+                  <span class="item-meta" style="display:block;">{{ $article->published_at->format('M j') }}</span>
+                @endif
               </p>
             @endforeach
           </div>
         @endforeach
       @endforeach
+
+      @if($remainingCount > 0)
+        <p style="font-size:13px;color:#64748b;margin-top:20px;">
+          +{{ $remainingCount }} more of your saved {{ Str::plural('place', $remainingCount) }} had updates too —
+          <a href="{{ url('/map') }}" style="color:#7dd3fc;">view them on the map</a>.
+        </p>
+      @endif
 
       <div class="btn-wrap">
         <a href="{{ url('/map') }}" class="btn">View the Map →</a>
@@ -70,8 +113,12 @@
       <hr class="divider" />
 
       <p style="font-size:13px;color:#64748b;">
-        You're receiving this because you opted into weekly saved-places updates.
-        Manage this anytime from your notification settings.
+        You're receiving this because you opted into saved-places updates.
+        @if($unsubscribeUrl)
+          <a href="{{ $unsubscribeUrl }}" style="color:#7dd3fc;">Unsubscribe</a> anytime.
+        @else
+          Manage this anytime from your notification settings.
+        @endif
       </p>
     </div>
 

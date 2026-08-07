@@ -821,6 +821,8 @@ Route::post('/map/boundaries-digest-optin', [GuestDigestOptInController::class, 
     ->middleware('throttle:5,1')->name('map.boundaries.digest-optin');
 Route::get('/map/boundaries-digest/confirm/{voter}/{hash}', [GuestDigestOptInController::class, 'confirm'])
     ->middleware(['signed', 'throttle:20,1'])->name('map.boundaries.digest.confirm');
+Route::get('/map/boundaries-digest/unsubscribe/{voter}/{hash}', [GuestDigestOptInController::class, 'unsubscribe'])
+    ->middleware(['signed', 'throttle:20,1'])->name('map.boundaries.digest.unsubscribe');
 
 // Public Blog
 Route::get('/blog', [PublicPostController::class, 'index'])->name('blog.index');
