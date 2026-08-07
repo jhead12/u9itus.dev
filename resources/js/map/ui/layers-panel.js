@@ -2,6 +2,7 @@
  * Layers panel — multi-select data overlay controls.
  */
 import { ACTIVE_LAYERS, showSmallCities, colorMode, stateData, activeState, setColorMode, setShowSmallCities, favoriteBoundaries } from '../state/map-state.js';
+import { registerLayer, getLayer, syncLayerChip } from '../state/layer-directory.js';
 import { districtMeshes } from '../scene/district-overlay.js';
 import { toggleNationalBoundaries, _syncNatDistVisibility } from '../scene/national-boundaries.js';
 import { ensureGovernorParties, applyColorMode } from '../api/governor-parties.js';
@@ -16,6 +17,61 @@ import { flyToPoint } from '../scene/camera-animation.js';
 import { project } from '../scene/projection.js';
 import { removeBoundary } from '../api/favorites.js';
 import * as THREE from 'three';
+
+// Re-exported so ui/controls-menu.js and ui/search.js's existing
+// `import { syncLayerChip } from './layers-panel.js'` keep working unchanged
+// — the implementation itself now lives in state/layer-directory.js so
+// scene/national-boundaries.js can use the real thing instead of its own
+// private duplicate (kept there before specifically to dodge a circular
+// import with this file).
+export { syncLayerChip };
+
+registerLayer('districts', () => toggleNationalBoundaries(), true);
+
+registerLayer('party', (isActive) => {
+    setColorMode(isActive ? 'party' : 'region');
+    document.getElementById('cm-btn-party-colors')?.classList.toggle('active', isActive);
+    if (isActive) {
+        ensureGovernorParties().then(() => applyColorMode());
+    } else {
+        applyColorMode();
+    }
+}, true);
+
+registerLayer('population', (isActive) => {
+    if (isActive) {
+        applyPopulationDensity();
+    } else {
+        for (const d of districtMeshes) d.material.color.setHex(d.userData.originalColor);
+    }
+});
+
+registerLayer('cities', (isActive) => {
+    if (isActive && activeState) loadCityBoundaries(activeState);
+    else clearCityLayer();
+});
+
+registerLayer('topcities', (isActive) => {
+    if (isActive && activeState) { buildCityMarkers(activeState); buildGovMarkers(activeState); }
+    else { clearCityMarkers(); clearGovMarkers(); }
+});
+
+registerLayer('candidates', (isActive) => {
+    if (isActive && activeState) buildCandidateMarkers(activeState);
+    else clearCandidateMarkers();
+});
+
+registerLayer('content', (isActive) => {
+    if (isActive) { refreshPostPins(true); }
+    else { clearPostPins(); }
+});
+
+registerLayer('businesses', (isActive) => {
+    const categoryWrap = document.getElementById('business-category-wrap');
+    if (categoryWrap) categoryWrap.style.display = isActive ? '' : 'none';
+    if (isActive) { refreshBusinessPins(true); }
+    else { clearBusinessPins(); }
+});
 
 const layersWrap  = document.getElementById('layers-wrap');
 const layersPanel = document.getElementById('layers-panel');
@@ -39,64 +95,7 @@ export function toggleLayer(layerKey) {
         state: activeState || null,
         meta:  { layer: layerKey, active: isActive },
     });
-    switch (layerKey) {
-        case 'districts':
-            toggleNationalBoundaries();
-            break;
-        case 'party':
-            setColorMode(isActive ? 'party' : 'region');
-            document.getElementById('cm-btn-party-colors')?.classList.toggle('active', isActive);
-            if (isActive) {
-                ensureGovernorParties().then(() => applyColorMode());
-            } else {
-                applyColorMode();
-            }
-            break;
-        case 'population':
-            if (isActive) {
-                applyPopulationDensity();
-            } else {
-                for (const d of districtMeshes) d.material.color.setHex(d.userData.originalColor);
-            }
-            break;
-        case 'cities':
-            if (isActive && activeState) loadCityBoundaries(activeState);
-            else clearCityLayer();
-            break;
-        case 'topcities':
-            if (isActive && activeState) { buildCityMarkers(activeState); buildGovMarkers(activeState); }
-            else { clearCityMarkers(); clearGovMarkers(); }
-            break;
-        case 'candidates':
-            if (isActive && activeState) buildCandidateMarkers(activeState);
-            else clearCandidateMarkers();
-            break;
-        case 'content':
-            if (isActive) { refreshPostPins(true); }
-            else { clearPostPins(); }
-            break;
-        case 'businesses': {
-            const categoryWrap = document.getElementById('business-category-wrap');
-            if (categoryWrap) categoryWrap.style.display = isActive ? '' : 'none';
-            if (isActive) { refreshBusinessPins(true); }
-            else { clearBusinessPins(); }
-            break;
-        }
-    }
-}
-
-/**
- * Sync a layer chip's visual state and the ACTIVE_LAYERS set.
- */
-export function syncLayerChip(layerKey, isActive) {
-    const chip = document.querySelector(`[data-layer="${layerKey}"]`);
-    if (chip) {
-        chip.classList.toggle('active', isActive);
-        chip.setAttribute('aria-checked', String(isActive));
-    }
-    if (isActive) ACTIVE_LAYERS.add(layerKey);
-    else ACTIVE_LAYERS.delete(layerKey);
-    try { localStorage.setItem('u9map_layers', JSON.stringify([...ACTIVE_LAYERS])); } catch (_) {}
+    getLayer(layerKey)?.onToggle(isActive);
 }
 
 /**

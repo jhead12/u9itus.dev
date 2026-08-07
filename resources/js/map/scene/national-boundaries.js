@@ -5,7 +5,8 @@ import * as THREE from 'three';
 import { mapGroup } from './setup.js';
 import { project } from './projection.js';
 import { REGIONS, STATE_FIPS, FIPS_TO_ABBR, PARTY_INT, DISTRICT_PARTY_MAP } from '../config/constants.js';
-import { DISTRICT_CONFIG, mapMode, activeRegion, ACTIVE_LAYERS } from '../state/map-state.js';
+import { DISTRICT_CONFIG, mapMode, activeRegion } from '../state/map-state.js';
+import { syncLayerChip } from '../state/layer-directory.js';
 import { getTigerwebUrl } from '../api/district-config.js';
 import { idbGet, idbSet } from '../utils/idb-cache.js';
 
@@ -189,16 +190,4 @@ export function toggleNationalBoundaries() {
 function updateDistrictsBtn(on) {
     document.getElementById('cm-btn-districts')?.classList.toggle('active', on);
     syncLayerChip('districts', on);
-}
-
-// Local syncLayerChip (duplicated from layers-panel to avoid circular dependency)
-function syncLayerChip(layerKey, isActive) {
-    const chip = document.querySelector(`[data-layer="${layerKey}"]`);
-    if (chip) {
-        chip.classList.toggle('active', isActive);
-        chip.setAttribute('aria-checked', String(isActive));
-    }
-    if (isActive) ACTIVE_LAYERS.add(layerKey);
-    else ACTIVE_LAYERS.delete(layerKey);
-    try { localStorage.setItem('u9map_layers', JSON.stringify([...ACTIVE_LAYERS])); } catch (_) {}
 }
