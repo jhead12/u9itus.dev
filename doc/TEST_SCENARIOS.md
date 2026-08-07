@@ -373,7 +373,7 @@ GET /api/health
 
 ### **Test Scenario 11.2: Insufficient Politician Credits**
 
-- **Given:** Campaign with $0.50 remaining (< $0.60 per view)
+- **Given:** Campaign with $0.50 remaining (< $1.00 per view)
 - **When:** System tries to assign ad
 - **Then:** Campaign paused, politician notified
 

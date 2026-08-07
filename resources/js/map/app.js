@@ -27,7 +27,8 @@ import { TOP_CITIES, STATE_CAPITALS, fmtPop } from './config/city-data.js';
 import { TOUR_STEPS, TOUR_KEY } from './config/tour-steps.js';
 
 /* ── State ── */
-import { mapMode, activeRegion, activeState, selectedState, statePanelRequestId, stateData, colorMode, ACTIVE_LAYERS, showSmallCities, DISTRICT_CONFIG, govPartyByAbbr, districtCache, cityBoundaryCache, setColorMode } from './state/map-state.js';
+import { mapMode, activeRegion, activeState, selectedState, statePanelRequestId, stateData, colorMode, showSmallCities, DISTRICT_CONFIG, govPartyByAbbr, districtCache, cityBoundaryCache } from './state/map-state.js';
+import { restoreBootLayers } from './state/layer-directory.js';
 import './state/session.js';
 
 /* ── Scene ── */
@@ -39,7 +40,6 @@ import { toggleNationalBoundaries, nationalDistVisible, _syncNatDistVisibility, 
 
 /* ── API ── */
 import { initDistrictConfig } from './api/district-config.js';
-import { ensureGovernorParties, applyColorMode } from './api/governor-parties.js';
 import { trackEvent } from './api/interaction.js';
 import { fetchBoundaries } from './api/favorites.js';
 import { fetchFollowedPoliticianIds } from './api/politician-follow.js';
@@ -54,7 +54,7 @@ import { initPopup, closePopup } from './ui/popup.js';
 import { initPolDrawer, openPolDrawer, closePolDrawer } from './ui/politician-drawer.js';
 import { initControlsMenu, updateDistrictsBtn } from './ui/controls-menu.js';
 import { initLayersPanel, toggleLayer, applyPopulationDensity, renderFavoriteChips } from './ui/layers-panel.js';
-import { buildCityMarkers, clearCityMarkers, buildGovMarkers, clearGovMarkers, updateCityDots, loadCityBoundaries, clearCityLayer, citySprites, govSprites } from './ui/markers.js';
+import { buildCityMarkers, clearCityMarkers, buildGovMarkers, clearGovMarkers, loadCityBoundaries, clearCityLayer, citySprites, govSprites } from './ui/markers.js';
 import { buildDistrictLabels, clearDistrictLabels, updateDistrictLabels, districtLabels, mapLabelsLayer } from './ui/labels-overlay.js';
 import { initBreadcrumb, updateBreadcrumb } from './ui/breadcrumb.js';
 import { initTour, startTutorial } from './ui/tour.js';
@@ -75,12 +75,7 @@ import { animate } from './render-loop.js';
 ════════════════════════════════════════════════════════ */
 loadMapData().then(() => {
     buildLegend();
-    if (ACTIVE_LAYERS.has('districts')) toggleNationalBoundaries();
-    if (ACTIVE_LAYERS.has('party')) {
-        setColorMode('party');
-        document.getElementById('cm-btn-party-colors')?.classList.add('active');
-        ensureGovernorParties().then(() => applyColorMode());
-    }
+    restoreBootLayers();
     initDistrictConfig();
 }).catch(err => {
     console.error('Map load failed:', err);

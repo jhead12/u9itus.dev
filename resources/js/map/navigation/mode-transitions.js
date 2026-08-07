@@ -16,17 +16,14 @@ import { clearDistricts, buildDistrictOverlay, resetDistrictSelection, districtM
 import { openStatePanel, partyClass, initOfficesToggle } from '../ui/panel-state.js';
 import { openDistrictPanel } from '../ui/panel-district.js';
 import { showRegionLegend, showPartyLegend } from '../ui/legend.js';
-import { clearDistrictLabels, buildDistrictLabels } from '../ui/labels-overlay.js';
-import { clearCityMarkers, buildCityMarkers, buildGovMarkers, clearGovMarkers, loadCityBoundaries } from '../ui/markers.js';
-import { clearCandidateMarkers, buildCandidateMarkers } from '../ui/candidate-markers.js';
+import { loadCityBoundaries } from '../ui/markers.js';
+import { buildActiveOverlays, clearAllOverlays } from '../scene/overlay-stack.js';
 import { closePolDrawer } from '../ui/politician-drawer.js';
 import { closePopup } from '../ui/popup.js';
 import { initDistrictConfig } from '../api/district-config.js';
-import { ensureGovernorParties, applyColorMode } from '../api/governor-parties.js';
 import { applyPopulationDensity } from '../ui/layers-panel.js';
 import { trackEvent } from '../api/interaction.js';
 import { updateBreadcrumb } from '../ui/breadcrumb.js';
-import { updateDistrictLabels, updateCityDots } from '../render-loop.js';
 import { openInfoPanel } from '../ui/info-panel.js';
 import { openRegionPanel } from '../ui/panel-region.js';
 
@@ -56,7 +53,7 @@ export function enterOverviewMode() {
     nextRequestId();
     setStateData(null);
     setMapMode('overview'); setActiveRegion(null); setActiveState(null); setSelectedState(null);
-    clearDim(); clearDistricts(); clearDistrictLabels(); clearCityMarkers(); clearGovMarkers(); clearCandidateMarkers(); closePolDrawer();
+    clearDim(); clearDistricts(); clearAllOverlays(); closePolDrawer();
     document.getElementById('info-panel').classList.remove('open');
     resizeRenderer();
     document.getElementById('btn-back').style.display = 'none';
@@ -77,7 +74,7 @@ export function enterRegionMode(regionName, region) {
     nextRequestId();
     setStateData(null);
     setMapMode('region'); setActiveRegion(regionName); setActiveState(null); setSelectedState(null);
-    clearDistricts(); clearDistrictLabels(); clearCityMarkers(); clearGovMarkers(); clearCandidateMarkers(); closePolDrawer();
+    clearDistricts(); clearAllOverlays(); closePolDrawer();
     openRegionPanel(regionName, region);
     resizeRenderer();
     document.getElementById('btn-back').style.display = '';
@@ -227,9 +224,7 @@ export async function enterStateMode(stateName, regionName, region) {
     const breakdown = {};
     for (const m of districtMeshes) { const p = m.userData.party || 'U'; breakdown[p] = (breakdown[p] || 0) + 1; }
     showPartyLegend(breakdown);
-    buildDistrictLabels(stateName);
-    if (ACTIVE_LAYERS.has('topcities')) { buildCityMarkers(stateName); buildGovMarkers(stateName); }
-    if (ACTIVE_LAYERS.has('candidates')) { buildCandidateMarkers(stateName); }
+    buildActiveOverlays(stateName);
     updateBreadcrumb();
 }
 

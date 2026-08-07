@@ -33,7 +33,7 @@ return [
     |--------------------------------------------------------------------------
     |
     | Revenue from politician per view:          $1.00
-    | Revenue from citizen per view:              $0.60
+    | Revenue from citizen per view:              $1.00
     | Revenue from citizen ballot-issue per view: $1.00
     | Direct viewer/voter payout:                $0.50
     | Referral commission (10 % of $0.50):       $0.050

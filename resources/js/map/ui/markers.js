@@ -5,15 +5,46 @@ import * as THREE from 'three';
 import { TOP_CITIES, STATE_CAPITALS, fmtPop } from '../config/city-data.js';
 import { STATE_ABBR_MAP, STATE_FIPS, PARTY_HEX, PARTY_LABEL } from '../config/constants.js';
 import { project } from '../scene/projection.js';
-import { mapGroup, renderer, camera, leftInset } from '../scene/setup.js';
+import { mapGroup } from '../scene/setup.js';
 import { mapLabelsLayer, districtLabels } from './labels-overlay.js';
 import { stateData, activeState, showSmallCities, ACTIVE_LAYERS } from '../state/map-state.js';
 import { openPolDrawer } from './politician-drawer.js';
 import { trackEvent } from '../api/interaction.js';
+import { addOverlayItem, removeOverlayItems, updateOverlayPositions } from './point-overlay-factory.js';
 
 export let citySprites = [];
 export let govSprites = [];
 let cityGroup = null;
+
+// Approximate on-screen footprint of a city/gov marker pill, for collision
+// purposes only — same "close enough" approach labels-overlay.js already
+// uses for district labels rather than measuring real layout every frame.
+// Anchored at the LEFT edge (matches .city-marker/.gov-marker's
+// translate(0,-50%) — see map.css), not the center, so the dot itself sits
+// at the true geo point.
+const MARKER_W = 90;
+const MARKER_H = 22;
+const MARKER_GAP = 6;
+
+/**
+ * @returns {Array<{left,right,top,bottom}>} screen-space rects of every
+ * currently-visible city/capital marker, so updateDistrictLabels() (and, by
+ * extension, updateCandidateMarkers()) can avoid placing anything on top of
+ * one — see scene/overlay-stack.js's per-frame priority ordering.
+ */
+export function updateCityDots() {
+    const isGov = (entry) => govSprites.includes(entry);
+    return updateOverlayPositions([...citySprites, ...govSprites], {
+        anchor: 'left',
+        boxSize: { w: MARKER_W + MARKER_GAP, h: MARKER_H + MARKER_GAP },
+        margin: { x: 40, top: 20, bottom: 40 },
+        // Capital/gov markers win over regular city markers when they'd
+        // overlap (the capital is the single most state-representative
+        // point); among city markers, TOP_CITIES' own population-descending
+        // order (preserved by this stable sort) decides who wins.
+        sortItems: (visible) => [...visible].sort((a, b) => (isGov(b.entry) ? 1 : 0) - (isGov(a.entry) ? 1 : 0)),
+    });
+}
 
 const TIGERWEB_PLACES_URL =
     'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/28/query';
@@ -42,14 +73,12 @@ export function buildCityMarkers(stateName) {
             e.stopPropagation();
             openCityDrawer(name, popK, activeState, worldPos, lat, lng);
         });
-        mapLabelsLayer.appendChild(el);
-        requestAnimationFrame(() => el.classList.add('visible'));
-        citySprites.push({ el, worldPos, name, popK, pinPos: worldPos });
+        addOverlayItem(citySprites, mapLabelsLayer, el, worldPos, { name, popK });
     }
 }
 
 export function clearCityMarkers() {
-    for (const c of citySprites) c.el.remove();
+    removeOverlayItems(citySprites);
     citySprites = [];
 }
 
@@ -79,8 +108,11 @@ export function openCityDrawer(name, popK, stateName, pinPos, lat = null, lng = 
 
 function nearestDistricts(worldPos, n = 3) {
     if (!districtLabels.length) return [];
+    // District-label entries are { el, worldPos, item: { mesh, key, hasName } }
+    // (point-overlay-factory.js's shape) — flatten .item.key back to .key so
+    // callers (openCityDrawer's nearby[0]?.key) don't need to know that.
     return [...districtLabels]
-        .map(lbl => ({ ...lbl, dist: worldPos.distanceTo(lbl.worldPos) }))
+        .map(lbl => ({ ...lbl, ...lbl.item, dist: worldPos.distanceTo(lbl.worldPos) }))
         .sort((a, b) => a.dist - b.dist)
         .slice(0, n);
 }
@@ -119,13 +151,11 @@ export function buildGovMarkers(stateName) {
             { population: null, cityName: city, isCapital: true }
         );
     });
-    mapLabelsLayer.appendChild(el);
-    requestAnimationFrame(() => el.classList.add('visible'));
-    govSprites.push({ el, worldPos, city, stateName, pinPos: worldPos });
+    addOverlayItem(govSprites, mapLabelsLayer, el, worldPos, { city, stateName });
 }
 
 export function clearGovMarkers() {
-    for (const g of govSprites) g.el.remove();
+    removeOverlayItems(govSprites);
     govSprites = [];
 }
 
@@ -184,22 +214,4 @@ export async function loadCityBoundaries(stateName) {
     cityBoundaryCache[fips] = grp;
     cityGroup = grp;
     mapGroup.add(cityGroup);
-}
-
-export function updateCityDots() {
-    if (!citySprites.length && !govSprites.length) return;
-    const W = renderer.domElement.clientWidth;
-    const H = renderer.domElement.clientHeight;
-    const _lblVec = new THREE.Vector3();
-    for (const dot of [...citySprites, ...govSprites]) {
-        _lblVec.copy(dot.worldPos);
-        _lblVec.applyMatrix4(mapGroup.matrixWorld);
-        _lblVec.project(camera);
-        const sx = (_lblVec.x * 0.5 + 0.5) * W;
-        const sy = (-_lblVec.y * 0.5 + 0.5) * H;
-        const behind = _lblVec.z > 1;
-        const outside = sx < -40 || sx > W + 40 || sy < 20 || sy > H + 40;
-        if (behind || outside) { dot.el.style.display = 'none'; }
-        else { dot.el.style.display = 'flex'; dot.el.style.left = (sx + leftInset()) + 'px'; dot.el.style.top = sy + 'px'; }
-    }
 }

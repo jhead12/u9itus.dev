@@ -9,12 +9,11 @@ import * as THREE from 'three';
 import { STATE_CAPITALS } from '../config/city-data.js';
 import { STATE_ABBR_MAP, PARTY_HEX } from '../config/constants.js';
 import { project } from '../scene/projection.js';
-import { mapGroup, renderer, camera, leftInset } from '../scene/setup.js';
 import { mapLabelsLayer } from './labels-overlay.js';
 import { stateData, activeState } from '../state/map-state.js';
 import { openPolDrawer } from './politician-drawer.js';
 import { trackEvent } from '../api/interaction.js';
-import { rectsOverlap } from '../scene/overlay-collision.js';
+import { addOverlayItem, removeOverlayItems, updateOverlayPositions } from './point-overlay-factory.js';
 
 export let candidateSprites = [];
 
@@ -125,9 +124,7 @@ export function buildCandidateMarkers(stateName) {
             );
         });
 
-        mapLabelsLayer.appendChild(el);
-        candidateSprites.push({ el, worldPos, name: safeName, office: cand.office });
-        requestAnimationFrame(() => el.classList.add('visible'));
+        addOverlayItem(candidateSprites, mapLabelsLayer, el, worldPos, { name: safeName, office: cand.office });
     });
 }
 
@@ -135,7 +132,7 @@ export function buildCandidateMarkers(stateName) {
  * Remove all candidate markers from the DOM and clear the sprite array.
  */
 export function clearCandidateMarkers() {
-    for (const s of candidateSprites) s.el.remove();
+    removeOverlayItems(candidateSprites);
     candidateSprites = [];
 }
 
@@ -144,7 +141,8 @@ export function clearCandidateMarkers() {
  * suppress any that would visually overlap — either each other or an
  * already-placed city/capital/district marker (occupiedRects, from
  * render-loop.js). candidateSprites is already in sortCandidates() priority
- * order (seated > running, verified first), so earlier entries win ties.
+ * order (seated > running, verified first), so earlier entries win ties —
+ * updateOverlayPositions() doesn't re-sort, it walks items in array order.
  * A hidden candidate is still reachable via the "Statewide Executive
  * Offices" side-panel list, same fallback district labels rely on.
  *
@@ -153,33 +151,9 @@ export function clearCandidateMarkers() {
 const CAND_HALF = 13; // half-width/height of a dot's collision box, incl. gap
 
 export function updateCandidateMarkers(occupiedRects = []) {
-    if (!candidateSprites.length) return;
-    const W = renderer.domElement.clientWidth;
-    const H = renderer.domElement.clientHeight;
-    const _vec = new THREE.Vector3();
-
-    const candidates = [];
-    for (const dot of candidateSprites) {
-        _vec.copy(dot.worldPos);
-        _vec.applyMatrix4(mapGroup.matrixWorld);
-        _vec.project(camera);
-        const sx = (_vec.x * 0.5 + 0.5) * W;
-        const sy = (-_vec.y * 0.5 + 0.5) * H;
-        const behind = _vec.z > 1;
-        const outside = sx < -80 || sx > W + 80 || sy < 30 || sy > H + 80;
-        if (behind || outside) { dot.el.style.display = 'none'; continue; }
-        candidates.push({ dot, sx, sy });
-    }
-
-    // .candidate-marker is center-anchored (translate(-50%,-50%) — map.css).
-    const placed = [...occupiedRects];
-    for (const { dot, sx, sy } of candidates) {
-        const rect = { left: sx - CAND_HALF, right: sx + CAND_HALF, top: sy - CAND_HALF, bottom: sy + CAND_HALF };
-        const collides = placed.some(p => rectsOverlap(rect, p));
-        if (collides) { dot.el.style.display = 'none'; continue; }
-        placed.push(rect);
-        dot.el.style.display = 'flex';
-        dot.el.style.left = (sx + leftInset()) + 'px';
-        dot.el.style.top = sy + 'px';
-    }
+    return updateOverlayPositions(candidateSprites, {
+        anchor: 'center', // .candidate-marker is center-anchored (translate(-50%,-50%) — map.css)
+        boxSize: { w: CAND_HALF * 2, h: CAND_HALF * 2 },
+        margin: { x: 80, top: 30, bottom: 80 },
+    }, occupiedRects);
 }

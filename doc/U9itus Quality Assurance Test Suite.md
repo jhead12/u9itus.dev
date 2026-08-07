@@ -16,7 +16,7 @@ _Goal: To verify that global platform changes correctly influence individual use
 
 _Goal: To ensure that existing campaigns maintain historical integrity (Option A Behavior) while new ones adopt current rules._
 
-- **Question 1:** Select an "Active" campaign created last week. Does it still deduct the historical rate (e.g., $0.60) from the politician's balance, or has it incorrectly jumped to the new global rate?
+- **Question 1:** Select an "Active" campaign created last week. Does it still deduct the historical rate (e.g., $1.00) from the politician's balance, or has it incorrectly jumped to the new global rate?
 - **Question 2:** Create a brand-new campaign today. Does the "Post-fee amount" shown during the Stripe top-up phase align with the current transparency logic?
 - **Question 3:** View the analytics for an old campaign. Is the platform margin still calculated based on the original $0.35/view logic, or is it broken by the new code?
 

@@ -52,7 +52,7 @@
       </p>
 
       @if(($user->user_type ?? '') === 'politician')
-        <p>You can now create your first campaign, set your governance level, and reach verified voters in your district. Every view costs <strong class="highlight">$0.60</strong> and campaigns require approval before going live.</p>
+        <p>You can now create your first campaign, set your governance level, and reach verified voters in your district. Every view costs <strong class="highlight">$1.00</strong> and campaigns require approval before going live.</p>
       @elseif(($user->user_type ?? '') === 'voter')
         <p>Start watching approved political ads in your area and <strong class="highlight">earn real money</strong> for every verified view. Your identity is protected and payouts are processed securely.</p>
       @endif
