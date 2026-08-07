@@ -79,8 +79,11 @@ export function openCityDrawer(name, popK, stateName, pinPos, lat = null, lng = 
 
 function nearestDistricts(worldPos, n = 3) {
     if (!districtLabels.length) return [];
+    // District-label entries are { el, worldPos, item: { mesh, key, hasName } }
+    // (point-overlay-factory.js's shape) — flatten .item.key back to .key so
+    // callers (openCityDrawer's nearby[0]?.key) don't need to know that.
     return [...districtLabels]
-        .map(lbl => ({ ...lbl, dist: worldPos.distanceTo(lbl.worldPos) }))
+        .map(lbl => ({ ...lbl, ...lbl.item, dist: worldPos.distanceTo(lbl.worldPos) }))
         .sort((a, b) => a.dist - b.dist)
         .slice(0, n);
 }

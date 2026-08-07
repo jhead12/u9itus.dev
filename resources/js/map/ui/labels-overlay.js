@@ -1,17 +1,14 @@
 /**
  * Floating district candidate labels — HTML overlays projected via camera each frame.
  */
-import * as THREE from 'three';
 import { STATE_ABBR_MAP, PARTY_HEX, PARTY_LABEL } from '../config/constants.js';
 import { districtMeshes } from '../scene/district-overlay.js';
 import { stateData } from '../state/map-state.js';
-import { camera, renderer, leftInset } from '../scene/setup.js';
 import { openDistrictPanel } from './panel-district.js';
-import { rectsOverlap } from '../scene/overlay-collision.js';
+import { addOverlayItem, removeOverlayItems, updateOverlayPositions } from './point-overlay-factory.js';
 
 export const mapLabelsLayer = document.getElementById('map-labels-layer');
 export let districtLabels = [];
-const _lblVec = new THREE.Vector3();
 
 export function buildDistrictLabels(stateName) {
     clearDistrictLabels();
@@ -55,14 +52,12 @@ export function buildDistrictLabels(stateName) {
             openDistrictPanel(mesh.userData.districtNum, mesh.userData.districtLabel, mesh.userData.stateName, mesh.userData.regionHex, mesh.userData.party);
         });
 
-        mapLabelsLayer.appendChild(el);
-        districtLabels.push({ el, worldPos, mesh, key: apiKey, hasName: !!name });
-        requestAnimationFrame(() => el.classList.add('visible'));
+        addOverlayItem(districtLabels, mapLabelsLayer, el, worldPos, { mesh, key: apiKey, hasName: !!name });
     }
 }
 
 export function clearDistrictLabels() {
-    for (const lbl of districtLabels) lbl.el.remove();
+    removeOverlayItems(districtLabels);
     districtLabels = [];
 }
 
@@ -73,7 +68,13 @@ const LABEL_W = 92;
 const LABEL_H = 24;
 const MIN_GAP_DESKTOP = 8;
 const MIN_GAP_MOBILE = 14;
-const _visible = [];
+
+// Named labels (an actual candidate/representative) win screen space over
+// bare district-number placeholders when they'd overlap. Array#sort is
+// stable, so ties keep their original (district mesh) order.
+function sortByHasName(visible) {
+    return [...visible].sort((a, b) => (b.entry.item.hasName ? 1 : 0) - (a.entry.item.hasName ? 1 : 0));
+}
 
 /**
  * @param {Array<{left,right,top,bottom}>} occupiedRects screen-space rects
@@ -83,57 +84,18 @@ const _visible = [];
  * city's own dot look detached from its name pill in dense areas.
  */
 export function updateDistrictLabels(occupiedRects = []) {
-    if (!districtLabels.length) return;
-    const W = renderer.domElement.clientWidth;
-    const H = renderer.domElement.clientHeight;
-    const gap = W < 500 ? MIN_GAP_MOBILE : MIN_GAP_DESKTOP;
-    const minDx = LABEL_W + gap;
-    const minDy = LABEL_H + gap;
-
-    _visible.length = 0;
-    for (const lbl of districtLabels) {
-        _lblVec.copy(lbl.worldPos);
-        _lblVec.applyMatrix4(lbl.mesh.matrixWorld);
-        _lblVec.project(camera);
-        const sx = (_lblVec.x * 0.5 + 0.5) * W;
-        const sy = (-_lblVec.y * 0.5 + 0.5) * H;
-        const behind = _lblVec.z > 1;
-        const outside = sx < -60 || sx > W + 60 || sy < 40 || sy > H + 60;
-        if (behind || outside) {
-            lbl.el.style.display = 'none';
-        } else {
-            _visible.push({ lbl, sx, sy });
-        }
-    }
-
-    // Named labels (an actual candidate/representative) win screen space over
-    // bare district-number placeholders when they'd overlap. Array#sort is
-    // stable, so ties keep their original (district mesh) order.
-    _visible.sort((a, b) => (b.lbl.hasName ? 1 : 0) - (a.lbl.hasName ? 1 : 0));
-
-    // Greedy collision suppression: dense areas (e.g. LA, the Bay Area) used
-    // to pile every district's label on top of each other since projection
-    // alone doesn't account for on-screen crowding. Hide anything that would
-    // overlap an already-placed, higher-priority label instead of stacking it.
-    const placed = [...occupiedRects];
-    for (const { lbl, sx, sy } of _visible) {
-        // .map-label is center-anchored (translate(-50%,-50%) — map.css),
-        // unlike .city-marker/.gov-marker's left-edge anchor above.
-        const rect = { left: sx - minDx / 2, right: sx + minDx / 2, top: sy - minDy / 2, bottom: sy + minDy / 2 };
-        const collides = placed.some(p => rectsOverlap(rect, p));
-        if (collides) {
-            lbl.el.style.display = 'none';
-            continue;
-        }
-        placed.push(rect);
-        lbl.el.style.display = 'flex';
-        // sx/sy and the collision rects above are canvas-local; #map-labels-layer
-        // is viewport-fixed, so only the final DOM write needs the canvas's
-        // horizontal offset (leftInset()) added back in.
-        lbl.el.style.left = (sx + leftInset()) + 'px';
-        lbl.el.style.top = sy + 'px';
-    }
-    // Returned so render-loop.js can chain candidate-marker collision
+    return updateOverlayPositions(districtLabels, {
+        // Each label projects via its own district mesh's transform, not the
+        // shared mapGroup — mesh.matrixWorld differs per district.
+        getTransformNode: (item) => item.mesh,
+        anchor: 'center', // .map-label is center-anchored (translate(-50%,-50%) — map.css)
+        boxSize: (canvasWidth) => {
+            const gap = canvasWidth < 500 ? MIN_GAP_MOBILE : MIN_GAP_DESKTOP;
+            return { w: LABEL_W + gap, h: LABEL_H + gap };
+        },
+        margin: { x: 60, top: 40, bottom: 60 },
+        sortItems: sortByHasName,
+    }, occupiedRects);
+    // Return value chains into render-loop.js's candidate-marker collision
     // avoidance off the combined city+district occupied set.
-    return placed;
 }
