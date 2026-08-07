@@ -11,7 +11,7 @@ export let activeState = null;
 export let selectedState = null;
 export let statePanelRequestId = 0;
 export let stateData = null;
-export let colorMode = 'region';     // 'region' | 'party'
+export let colorMode = 'region';     // 'region' | 'party' | 'poverty'
 export let showSmallCities = false;
 
 /** hoveredMesh lives in navigation/mode-transitions.js (local variable exported from there). */
@@ -30,8 +30,11 @@ export function setShowSmallCities(v){ showSmallCities = v; }
 /** Active data overlay layers (persisted in localStorage) */
 export const ACTIVE_LAYERS = new Set();
 
-/** Governor party by state abbreviation — populated by ensureGovernorParties() */
+/** Governor party by state abbreviation — populated by ensureStateOverlays() */
 export let govPartyByAbbr = {};
+
+/** Poverty rate (%) by state abbreviation — populated by ensureStateOverlays() */
+export let povertyRateByAbbr = {};
 
 /** District config — populated by initDistrictConfig().
  *  Fallback values mirror the 119th Congress (safe until the first daily sync). */

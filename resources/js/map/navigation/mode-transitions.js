@@ -21,7 +21,6 @@ import { buildActiveOverlays, clearAllOverlays } from '../scene/overlay-stack.js
 import { closePolDrawer } from '../ui/politician-drawer.js';
 import { closePopup } from '../ui/popup.js';
 import { initDistrictConfig } from '../api/district-config.js';
-import { ensureGovernorParties, applyColorMode } from '../api/governor-parties.js';
 import { applyPopulationDensity } from '../ui/layers-panel.js';
 import { trackEvent } from '../api/interaction.js';
 import { updateBreadcrumb } from '../ui/breadcrumb.js';

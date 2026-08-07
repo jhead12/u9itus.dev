@@ -2,7 +2,7 @@
  * Controls dropdown menu — view reset, district toggle, party colors, zoom, keyboard help.
  */
 import { toggleNationalBoundaries } from '../scene/national-boundaries.js';
-import { ensureGovernorParties, applyColorMode } from '../api/governor-parties.js';
+import { setOverviewColorMode } from '../api/governor-parties.js';
 import { colorMode, ACTIVE_LAYERS, showSmallCities, setShowSmallCities } from '../state/map-state.js';
 import { stepZoom } from './keyboard.js';
 import { findMyDistrict } from './location-button.js';
@@ -73,14 +73,7 @@ export function initControlsMenu() {
     });
 
     document.getElementById('cm-btn-party-colors')?.addEventListener('click', () => {
-        const newMode = colorMode === 'party' ? 'region' : 'party';
-        document.getElementById('cm-btn-party-colors').classList.toggle('active', newMode === 'party');
-        syncLayerChip('party', newMode === 'party');
-        if (newMode === 'party') {
-            ensureGovernorParties().then(() => applyColorMode());
-        } else {
-            applyColorMode();
-        }
+        setOverviewColorMode(colorMode === 'party' ? 'region' : 'party');
     });
 
     document.getElementById('cm-btn-small-cities')?.addEventListener('click', () => {

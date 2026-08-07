@@ -29,6 +29,7 @@ use App\Http\Controllers\Api\MapCandidateOverviewController;
 use App\Http\Controllers\Api\MapCityCensusController;
 use App\Http\Controllers\Api\MapRegionDemographicsController;
 use App\Http\Controllers\Api\MapStateCandidatesController;
+use App\Http\Controllers\Api\MapStateOverlaysController;
 use App\Http\Controllers\Api\MapPoliticianSearchController;
 use App\Http\Controllers\Api\OfficeProfileController;
 use App\Http\Controllers\Api\PayPalWebhookController;
@@ -98,6 +99,12 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
     Route::middleware('throttle:120,1')->group(function () {
         Route::get('/map/state-candidates', MapStateCandidatesController::class)
             ->name('map.state-candidates');
+
+        // All-50-states-at-once summary for overview-zoom choropleth layers
+        // (Party Control, Poverty Rate) — see MapStateOverlaysController's
+        // docblock for why this is separate from state-candidates above.
+        Route::get('/map/state-overlays', MapStateOverlaysController::class)
+            ->name('map.state-overlays');
 
         // Live politician typeahead — powers the "Politicians" group in the
         // map's search palette (resources/js/map/ui/search.js).
