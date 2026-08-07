@@ -546,7 +546,9 @@ export function openPolDrawer(cand, accentColor, extra = {}) {
             polHeroEl.innerHTML = `
                 <div class="pol-avatar-ph" style="font-size:26px;background:rgba(245,158,11,0.1);border:2px solid rgba(245,158,11,0.25);">🏙</div>
                 <div class="pol-hero-info">
-                    <h2 class="pol-name" id="pol-drawer-name">${c.full_name}</h2>
+                    <div class="pol-name-row">
+                        <h2 class="pol-name" id="pol-drawer-name">${c.full_name}</h2>
+                    </div>
                     <p class="pol-title">${c.office || '—'}</p>
                     <div class="pol-badges">
                         <span style="background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.3);color:#f59e0b;padding:2px 10px;border-radius:999px;font-size:11px;font-weight:700;">${fmtPop(extra.cityPop)} residents</span>
@@ -555,7 +557,8 @@ export function openPolDrawer(cand, accentColor, extra = {}) {
                     </div>
                 </div>`;
 
-            // Save-this-city star (voter) / sign-in nudge (guest).
+            // Save-this-city star (voter) / sign-in nudge (guest) — sits next
+            // to the name via .pol-name-row rather than on its own line.
             const stateAbbr = activeState ? STATE_ABBR_MAP[activeState] : null;
             if (stateAbbr && extra.cityName) {
                 document.getElementById('pol-drawer-fav-btn')?.remove();
@@ -568,7 +571,7 @@ export function openPolDrawer(cand, accentColor, extra = {}) {
                     lng: extra.lng ?? null,
                 });
                 favBtn.id = 'pol-drawer-fav-btn';
-                polHeroEl.querySelector('.pol-hero-info')?.appendChild(favBtn);
+                polHeroEl.querySelector('.pol-name-row')?.appendChild(favBtn);
             }
         } else {
             const ph = c.photo;
@@ -578,7 +581,9 @@ export function openPolDrawer(cand, accentColor, extra = {}) {
             polHeroEl.innerHTML = `
                 ${avH}
                 <div class="pol-hero-info">
-                    <h2 class="pol-name" id="pol-drawer-name">${c.full_name}</h2>
+                    <div class="pol-name-row">
+                        <h2 class="pol-name" id="pol-drawer-name">${c.full_name}</h2>
+                    </div>
                     <p class="pol-title">${c.office || '—'}</p>
                     <div class="pol-badges">
                         <span class="party-pill ${partyClass(c.party)}">${PARTY_LABEL[c.party] || c.party || '—'}</span>
@@ -590,12 +595,13 @@ export function openPolDrawer(cand, accentColor, extra = {}) {
                 </div>`;
 
             // Follow-this-candidate star (voter) / sign-in nudge (guest) —
-            // companion to the save-this-city star in the city-view branch above.
+            // companion to the save-this-city star in the city-view branch
+            // above; sits next to the name via .pol-name-row.
             document.getElementById('pol-drawer-follow-btn')?.remove();
             if (c.id) {
                 const followBtn = createFollowButton(c.id);
                 followBtn.id = 'pol-drawer-follow-btn';
-                polHeroEl.querySelector('.pol-hero-info')?.appendChild(followBtn);
+                polHeroEl.querySelector('.pol-name-row')?.appendChild(followBtn);
             }
         }
 

@@ -5,7 +5,7 @@ import { ACTIVE_LAYERS, showSmallCities, colorMode, stateData, activeState, setC
 import { districtMeshes } from '../scene/district-overlay.js';
 import { toggleNationalBoundaries, _syncNatDistVisibility } from '../scene/national-boundaries.js';
 import { ensureGovernorParties, applyColorMode } from '../api/governor-parties.js';
-import { clearCityMarkers, buildCityMarkers, clearGovMarkers, loadCityBoundaries, clearCityLayer, openCityDrawer } from './markers.js';
+import { clearCityMarkers, buildCityMarkers, buildGovMarkers, clearGovMarkers, loadCityBoundaries, clearCityLayer, openCityDrawer } from './markers.js';
 import { clearCandidateMarkers, buildCandidateMarkers } from './candidate-markers.js';
 import { refreshPostPins, clearPostPins } from './post-pins.js';
 import { refreshBusinessPins, clearBusinessPins, setBusinessCategoryFilter } from './business-pins.js';
@@ -64,7 +64,7 @@ export function toggleLayer(layerKey) {
             else clearCityLayer();
             break;
         case 'topcities':
-            if (isActive && activeState) { buildCityMarkers(activeState); buildGovMarkers(); }
+            if (isActive && activeState) { buildCityMarkers(activeState); buildGovMarkers(activeState); }
             else { clearCityMarkers(); clearGovMarkers(); }
             break;
         case 'candidates':

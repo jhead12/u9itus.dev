@@ -17,7 +17,7 @@ import { openStatePanel, partyClass, initOfficesToggle } from '../ui/panel-state
 import { openDistrictPanel } from '../ui/panel-district.js';
 import { showRegionLegend, showPartyLegend } from '../ui/legend.js';
 import { clearDistrictLabels, buildDistrictLabels } from '../ui/labels-overlay.js';
-import { clearCityMarkers, buildCityMarkers, clearGovMarkers, loadCityBoundaries } from '../ui/markers.js';
+import { clearCityMarkers, buildCityMarkers, buildGovMarkers, clearGovMarkers, loadCityBoundaries } from '../ui/markers.js';
 import { clearCandidateMarkers, buildCandidateMarkers } from '../ui/candidate-markers.js';
 import { closePolDrawer } from '../ui/politician-drawer.js';
 import { closePopup } from '../ui/popup.js';

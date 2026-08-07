@@ -7,6 +7,7 @@ import { districtMeshes } from '../scene/district-overlay.js';
 import { stateData } from '../state/map-state.js';
 import { camera, renderer } from '../scene/setup.js';
 import { openDistrictPanel } from './panel-district.js';
+import { rectsOverlap } from '../scene/overlay-collision.js';
 
 export const mapLabelsLayer = document.getElementById('map-labels-layer');
 export let districtLabels = [];
@@ -74,7 +75,14 @@ const MIN_GAP_DESKTOP = 8;
 const MIN_GAP_MOBILE = 14;
 const _visible = [];
 
-export function updateDistrictLabels() {
+/**
+ * @param {Array<{left,right,top,bottom}>} occupiedRects screen-space rects
+ * already taken by city/capital markers this frame (from render-loop.js's
+ * updateCityDots()) — seeded into the collision list below so a district
+ * label never renders on top of a city marker, which used to make the
+ * city's own dot look detached from its name pill in dense areas.
+ */
+export function updateDistrictLabels(occupiedRects = []) {
     if (!districtLabels.length) return;
     const W = renderer.domElement.clientWidth;
     const H = renderer.domElement.clientHeight;
@@ -107,16 +115,22 @@ export function updateDistrictLabels() {
     // to pile every district's label on top of each other since projection
     // alone doesn't account for on-screen crowding. Hide anything that would
     // overlap an already-placed, higher-priority label instead of stacking it.
-    const placed = [];
+    const placed = [...occupiedRects];
     for (const { lbl, sx, sy } of _visible) {
-        const collides = placed.some(p => Math.abs(p.sx - sx) < minDx && Math.abs(p.sy - sy) < minDy);
+        // .map-label is center-anchored (translate(-50%,-50%) — map.css),
+        // unlike .city-marker/.gov-marker's left-edge anchor above.
+        const rect = { left: sx - minDx / 2, right: sx + minDx / 2, top: sy - minDy / 2, bottom: sy + minDy / 2 };
+        const collides = placed.some(p => rectsOverlap(rect, p));
         if (collides) {
             lbl.el.style.display = 'none';
             continue;
         }
-        placed.push({ sx, sy });
+        placed.push(rect);
         lbl.el.style.display = 'flex';
         lbl.el.style.left = sx + 'px';
         lbl.el.style.top = sy + 'px';
     }
+    // Returned so render-loop.js can chain candidate-marker collision
+    // avoidance off the combined city+district occupied set.
+    return placed;
 }

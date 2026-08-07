@@ -37,8 +37,7 @@ export function buildCityMarkers(stateName) {
         el.className = 'city-marker';
         el.setAttribute('aria-label', `${name} — ${fmtPop(popK)} residents`);
         el.innerHTML =
-            `<span class="city-dot-ring" style="width:16px;height:16px">` +
-            `<span class="city-dot-core" style="width:8px;height:8px"></span></span>` +
+            `<span class="city-dot-core"></span>` +
             `<span class="city-name-tag">${name}</span>`;
         el.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -103,8 +102,7 @@ export function buildGovMarkers(stateName) {
     el.className = 'gov-marker';
     el.setAttribute('aria-label', `${city} — State Capital`);
     el.innerHTML =
-        `<span class="gov-dot-ring" style="width:18px;height:18px">` +
-        `<span class="gov-dot-core" style="width:10px;height:10px"></span></span>` +
+        `<span class="gov-dot-core"></span>` +
         `<span class="gov-name-tag">★ ${city}</span>`;
     el.addEventListener('click', (e) => {
         e.stopPropagation();

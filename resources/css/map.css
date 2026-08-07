@@ -168,7 +168,7 @@ kbd {
     border-color: rgba(99,102,241,0.7);
     color: #c7d2fe;
 }
-/* ── Auth-aware "$" earn button (guest only) — icon-only pill ── */
+/* ── Auth-aware "Earn" button (guest only) ── */
 #btn-signin-cta {
     background: rgba(99,102,241,0.18);
     border-color: rgba(99,102,241,0.50);
@@ -934,6 +934,18 @@ body:has(#info-panel.open) #map-usage-card { display: none; }
 #panel-fav-btn { margin-left: 6px; vertical-align: middle; }
 /* Star lives in the city drawer hero info */
 .pol-hero-info .boundary-fav-btn { margin-top: 6px; align-self: flex-start; }
+/* Name + follow/save star sit on one line, right next to the h2 (overrides
+   the block-below placement above for hero rows that opt into this).
+   margin-right:32px on the ROW (not just the name) keeps the star itself
+   clear of #pol-drawer-close, which is absolutely positioned top:12px;
+   right:14px — the same clearance .pol-name used to reserve alone. */
+.pol-name-row { display: flex; align-items: center; gap: 8px; margin: 0 32px 3px 0; }
+/* flex:0 1 auto (not flex:1) — .pol-name should only ever SHRINK to make
+   room for a long name's ellipsis, never GROW to fill the row, or a short
+   name (e.g. "Broken Arrow") leaves the star stranded far to the right on
+   a wide drawer instead of sitting right next to the text. */
+.pol-name-row .pol-name { flex: 0 1 auto; min-width: 0; max-width: 100%; margin: 0; }
+.pol-name-row .boundary-fav-btn { margin-top: 0; flex-shrink: 0; align-self: center; }
 
 /* Weekly saved-places digest opt-in toast (resources/js/map/ui/digest-optin.js) */
 .digest-optin-toast {
@@ -1144,61 +1156,61 @@ body:has(#info-panel.open) #map-usage-card { display: none; }
     font: inherit; color: inherit; appearance: none;
 }
 
-/* ── Top-cities census markers ───────────────────────────────────── */
+/* ── Top-cities census markers ───────────────────────────────────────────
+   One pill (dot folded inside, matching .map-label's district-label
+   pattern) rather than two separate chips — and anchored by its LEFT edge
+   (translate(0,-50%), not translate(-50%,-50%)) so the dot sits right at
+   the city's true projected lat/lng point regardless of how wide the name
+   is, instead of the whole pill's centroid drifting off that point. */
 .city-marker {
     position: absolute; pointer-events: auto;
-    transform: translate(-50%, -50%);
+    transform: translate(0, -50%);
     display: none; align-items: center; gap: 5px;
+    padding: 2px 8px 2px 6px; border-radius: 999px; white-space: nowrap;
+    background: rgba(8,12,30,0.93); border: 1px solid rgba(251,191,36,0.38);
     cursor: pointer;
 }
 .city-marker.visible { display: flex; }
-.city-dot-ring {
-    border-radius: 50%; display: flex; align-items: center; justify-content: center;
-    background: rgba(251,191,36,0.14); flex-shrink: 0;
-}
 .city-dot-core {
-    border-radius: 50%; background: #fbbf24;
-    box-shadow: 0 0 5px #fbbf24, 0 0 12px rgba(251,191,36,0.45);
+    width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+    background: #fbbf24; box-shadow: 0 0 4px #fbbf24;
 }
-.city-name-tag {
-    padding: 2px 7px; border-radius: 999px; white-space: nowrap;
-    background: rgba(8,12,30,0.93); border: 1px solid rgba(251,191,36,0.38);
-    font-size: 10px; font-weight: 700; color: #fbbf24; line-height: 1.4;
-}
+.city-name-tag { font-size: 10px; font-weight: 700; color: #fbbf24; line-height: 1.4; }
 .city-pop-tag { font-size: 9px; color: #a7b4c7; white-space: nowrap; }
-.city-marker:hover .city-name-tag {
+.city-marker:hover {
     border-color: rgba(251,191,36,0.7); background: rgba(20,26,58,0.98);
 }
 
-/* ── Government / Capitol markers ───────────────────────────────── */
+/* ── Government / Capitol markers ── same one-pill, left-anchored pattern. */
 .gov-marker {
     position: absolute; pointer-events: auto;
-    transform: translate(-50%, -50%);
+    transform: translate(0, -50%);
     display: none; align-items: center; gap: 5px;
+    padding: 2px 8px 2px 6px; border-radius: 999px; white-space: nowrap;
+    background: rgba(8,12,30,0.93); border: 1px solid rgba(6,182,212,0.45);
     cursor: pointer;
 }
 .gov-marker.visible { display: flex; }
-.gov-dot-ring {
-    border-radius: 50%; display: flex; align-items: center; justify-content: center;
-    background: rgba(6,182,212,0.14); flex-shrink: 0;
-}
 .gov-dot-core {
-    border-radius: 50%; background: #06b6d4;
-    box-shadow: 0 0 6px #06b6d4, 0 0 14px rgba(6,182,212,0.5);
+    width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+    background: #06b6d4; box-shadow: 0 0 4px #06b6d4;
 }
-.gov-name-tag {
-    padding: 2px 7px; border-radius: 999px; white-space: nowrap;
-    background: rgba(8,12,30,0.93); border: 1px solid rgba(6,182,212,0.45);
-    font-size: 10px; font-weight: 700; color: #06b6d4; line-height: 1.4;
-}
+.gov-name-tag { font-size: 10px; font-weight: 700; color: #06b6d4; line-height: 1.4; }
 .gov-cap-tag { font-size: 9px; color: #a7b4c7; white-space: nowrap; letter-spacing:.03em; }
-.gov-marker:hover .gov-name-tag { border-color: rgba(6,182,212,0.8); background: rgba(20,26,58,0.98); }
+.gov-marker:hover { border-color: rgba(6,182,212,0.8); background: rgba(20,26,58,0.98); }
 
-/* ── Statewide candidate markers at capitals ────────────────────── */
+/* ── Statewide candidate markers at capitals ──────────────────────────────
+   Dot-only — a state can have 15-20+ statewide candidates (2 Senators, Gov,
+   Lt Gov, AG, Treasurer, Controller, Sec of State, ...) all sharing the
+   capital coordinate; always-on name pills for all of them stacked and
+   overlapped illegibly. Name/office now shows via the native `title`
+   tooltip (set in candidate-markers.js) — same hover idiom already used
+   elsewhere on this map — and screen-space collision suppression
+   (updateCandidateMarkers) keeps the dots themselves from overlapping. */
 .candidate-marker {
     position: absolute; pointer-events: auto;
     transform: translate(-50%, -50%);
-    display: none; align-items: center; gap: 5px;
+    display: none; align-items: center;
     cursor: pointer;
 }
 .candidate-marker.visible { display: flex; }
@@ -1219,19 +1231,7 @@ body:has(#info-panel.open) #map-usage-card { display: none; }
     border: 2px solid var(--cand-color, #64748b);
     width: 8px; height: 8px;
 }
-.cand-name-tag {
-    display: flex; flex-direction: column;
-    padding: 3px 8px; border-radius: 8px; white-space: nowrap;
-    background: rgba(8,12,30,0.93); border: 1px solid var(--cand-color, #64748b);
-    line-height: 1.2; text-align: left;
-}
-.cand-office {
-    font-size: 9px; font-weight: 700; color: var(--cand-color, #a7b4c7); letter-spacing: 0.03em;
-}
-.cand-name {
-    font-size: 11px; font-weight: 600; color: #e2e8f0;
-}
-.candidate-marker:hover .cand-name-tag {
+.candidate-marker:hover .cand-dot-ring {
     background: rgba(20,26,58,0.98);
     box-shadow: 0 0 12px color-mix(in srgb, var(--cand-color, #64748b) 35%, transparent);
 }
