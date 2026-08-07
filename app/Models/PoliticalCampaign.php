@@ -16,7 +16,7 @@ use Illuminate\Support\Str;
  * pays to distribute to voters.
  *
  * Revenue model per view:
- *   Politician pays          $0.60
+ *   Politician pays          $1.00
  *   Voter receives           $0.50
  *   Referral commission      $0.050  (10% of voter payout, if referred)
  *   Platform keeps           $0.45  (before ops / payment fees)

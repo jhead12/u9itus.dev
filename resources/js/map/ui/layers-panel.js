@@ -1,11 +1,11 @@
 /**
  * Layers panel — multi-select data overlay controls.
  */
-import { ACTIVE_LAYERS, showSmallCities, colorMode, stateData, activeState, setColorMode, setShowSmallCities, favoriteBoundaries } from '../state/map-state.js';
+import { ACTIVE_LAYERS, showSmallCities, stateData, activeState, setShowSmallCities, favoriteBoundaries } from '../state/map-state.js';
 import { registerLayer, getLayer, syncLayerChip } from '../state/layer-directory.js';
 import { districtMeshes } from '../scene/district-overlay.js';
 import { toggleNationalBoundaries, _syncNatDistVisibility } from '../scene/national-boundaries.js';
-import { ensureGovernorParties, applyColorMode } from '../api/governor-parties.js';
+import { setOverviewColorMode } from '../api/governor-parties.js';
 import { clearCityMarkers, buildCityMarkers, buildGovMarkers, clearGovMarkers, loadCityBoundaries, clearCityLayer, openCityDrawer } from './markers.js';
 import { clearCandidateMarkers, buildCandidateMarkers } from './candidate-markers.js';
 import { refreshPostPins, clearPostPins } from './post-pins.js';
@@ -29,13 +29,11 @@ export { syncLayerChip };
 registerLayer('districts', () => toggleNationalBoundaries(), true);
 
 registerLayer('party', (isActive) => {
-    setColorMode(isActive ? 'party' : 'region');
-    document.getElementById('cm-btn-party-colors')?.classList.toggle('active', isActive);
-    if (isActive) {
-        ensureGovernorParties().then(() => applyColorMode());
-    } else {
-        applyColorMode();
-    }
+    setOverviewColorMode(isActive ? 'party' : 'region');
+}, true);
+
+registerLayer('poverty', (isActive) => {
+    setOverviewColorMode(isActive ? 'poverty' : 'region');
 }, true);
 
 registerLayer('population', (isActive) => {

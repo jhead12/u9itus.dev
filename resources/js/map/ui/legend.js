@@ -56,6 +56,27 @@ export function showPartyLegend(breakdown = {}) {
     }
 }
 
+/**
+ * Show a continuous low->high color-scale legend, for any layer that shades
+ * by a numeric value rather than a discrete category (Poverty Rate today;
+ * Population Density could adopt this too instead of shipping with none).
+ * @param {Object} opts
+ * @param {string} opts.title
+ * @param {string} opts.lowHex
+ * @param {string} opts.highHex
+ * @param {string} opts.minLabel
+ * @param {string} opts.maxLabel
+ */
+export function showGradientLegend({ title, lowHex, highHex, minLabel, maxLabel }) {
+    document.getElementById('legend').querySelector('h3').textContent = title;
+    const el = document.getElementById('legend-items');
+    el.innerHTML = `
+        <div style="height:10px;border-radius:5px;margin-bottom:6px;background:linear-gradient(to right, ${lowHex}, ${highHex});"></div>
+        <div style="display:flex;justify-content:space-between;color:#94a3b8;font-size:11px;">
+            <span>${minLabel}</span><span>${maxLabel}</span>
+        </div>`;
+}
+
 /** Alias — called on map load */
 export function buildLegend() { showRegionLegend(); }
 

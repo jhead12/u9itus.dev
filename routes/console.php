@@ -138,6 +138,13 @@ Schedule::command('geo:sync-census-demographics')
     ->weeklyOn(0, '07:00')
     ->withoutOverlapping();
 
+// State-level poverty rate — powers the map's "Poverty Rate" choropleth
+// layer (all 50 states + DC in one ACS call, unlike the city-level sync
+// above). Same weekly cadence — ACS estimates update yearly.
+Schedule::command('geo:sync-state-poverty-rate')
+    ->weeklyOn(0, '07:15')
+    ->withoutOverlapping();
+
 // Weekly politician lifecycle reconciliation — marks seated/retired/lost/running.
 // Runs every Sunday at 04:00 UTC, after the candidate sync (02:00 UTC).
 // After a general election, trigger manually with --election-date=YYYY-MM-DD.

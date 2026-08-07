@@ -199,6 +199,11 @@
                         title="Color states by the party of the current governor">
                         <span class="lp-dot"></span>Party Control
                     </button>
+                    <button class="lp-chip" data-layer="poverty"
+                        role="menuitemcheckbox" aria-checked="false"
+                        title="Color states by poverty rate (Census ACS 5-year estimate)">
+                        <span class="lp-dot"></span>Poverty Rate
+                    </button>
                     <button class="lp-chip" data-layer="population"
                         role="menuitemcheckbox" aria-checked="false"
                         title="Shade congressional districts by resident population — darker = more people">
