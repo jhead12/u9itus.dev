@@ -16,6 +16,7 @@ use App\Services\CampaignBillingService;
 use App\Services\CitizenBillingService;
 use App\Services\CitizenViewService;
 use App\Services\FraudPreventionService;
+use App\Services\Marketing\ZipCentroidService;
 use App\Services\PoliticalViewService;
 use App\Services\StripePaymentService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -53,7 +54,7 @@ function payCitizenViewService(): CitizenViewService
     $billing = new CitizenBillingService($stripe);
     $fraud   = app(FraudPreventionService::class);
 
-    return new CitizenViewService($fraud, $billing);
+    return new CitizenViewService($fraud, $billing, new ZipCentroidService());
 }
 
 function payReadyRequest(array $serverVars = []): Request
