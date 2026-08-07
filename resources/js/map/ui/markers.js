@@ -5,11 +5,12 @@ import * as THREE from 'three';
 import { TOP_CITIES, STATE_CAPITALS, fmtPop } from '../config/city-data.js';
 import { STATE_ABBR_MAP, STATE_FIPS, PARTY_HEX, PARTY_LABEL } from '../config/constants.js';
 import { project } from '../scene/projection.js';
-import { mapGroup, renderer, camera, leftInset } from '../scene/setup.js';
+import { mapGroup } from '../scene/setup.js';
 import { mapLabelsLayer, districtLabels } from './labels-overlay.js';
 import { stateData, activeState, showSmallCities, ACTIVE_LAYERS } from '../state/map-state.js';
 import { openPolDrawer } from './politician-drawer.js';
 import { trackEvent } from '../api/interaction.js';
+import { addOverlayItem, removeOverlayItems } from './point-overlay-factory.js';
 
 export let citySprites = [];
 export let govSprites = [];
@@ -42,14 +43,12 @@ export function buildCityMarkers(stateName) {
             e.stopPropagation();
             openCityDrawer(name, popK, activeState, worldPos, lat, lng);
         });
-        mapLabelsLayer.appendChild(el);
-        requestAnimationFrame(() => el.classList.add('visible'));
-        citySprites.push({ el, worldPos, name, popK, pinPos: worldPos });
+        addOverlayItem(citySprites, mapLabelsLayer, el, worldPos, { name, popK });
     }
 }
 
 export function clearCityMarkers() {
-    for (const c of citySprites) c.el.remove();
+    removeOverlayItems(citySprites);
     citySprites = [];
 }
 
@@ -122,13 +121,11 @@ export function buildGovMarkers(stateName) {
             { population: null, cityName: city, isCapital: true }
         );
     });
-    mapLabelsLayer.appendChild(el);
-    requestAnimationFrame(() => el.classList.add('visible'));
-    govSprites.push({ el, worldPos, city, stateName, pinPos: worldPos });
+    addOverlayItem(govSprites, mapLabelsLayer, el, worldPos, { city, stateName });
 }
 
 export function clearGovMarkers() {
-    for (const g of govSprites) g.el.remove();
+    removeOverlayItems(govSprites);
     govSprites = [];
 }
 
@@ -187,22 +184,4 @@ export async function loadCityBoundaries(stateName) {
     cityBoundaryCache[fips] = grp;
     cityGroup = grp;
     mapGroup.add(cityGroup);
-}
-
-export function updateCityDots() {
-    if (!citySprites.length && !govSprites.length) return;
-    const W = renderer.domElement.clientWidth;
-    const H = renderer.domElement.clientHeight;
-    const _lblVec = new THREE.Vector3();
-    for (const dot of [...citySprites, ...govSprites]) {
-        _lblVec.copy(dot.worldPos);
-        _lblVec.applyMatrix4(mapGroup.matrixWorld);
-        _lblVec.project(camera);
-        const sx = (_lblVec.x * 0.5 + 0.5) * W;
-        const sy = (-_lblVec.y * 0.5 + 0.5) * H;
-        const behind = _lblVec.z > 1;
-        const outside = sx < -40 || sx > W + 40 || sy < 20 || sy > H + 40;
-        if (behind || outside) { dot.el.style.display = 'none'; }
-        else { dot.el.style.display = 'flex'; dot.el.style.left = (sx + leftInset()) + 'px'; dot.el.style.top = sy + 'px'; }
-    }
 }

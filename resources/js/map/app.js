@@ -54,7 +54,7 @@ import { initPopup, closePopup } from './ui/popup.js';
 import { initPolDrawer, openPolDrawer, closePolDrawer } from './ui/politician-drawer.js';
 import { initControlsMenu, updateDistrictsBtn } from './ui/controls-menu.js';
 import { initLayersPanel, toggleLayer, applyPopulationDensity, renderFavoriteChips } from './ui/layers-panel.js';
-import { buildCityMarkers, clearCityMarkers, buildGovMarkers, clearGovMarkers, updateCityDots, loadCityBoundaries, clearCityLayer, citySprites, govSprites } from './ui/markers.js';
+import { buildCityMarkers, clearCityMarkers, buildGovMarkers, clearGovMarkers, loadCityBoundaries, clearCityLayer, citySprites, govSprites } from './ui/markers.js';
 import { buildDistrictLabels, clearDistrictLabels, updateDistrictLabels, districtLabels, mapLabelsLayer } from './ui/labels-overlay.js';
 import { initBreadcrumb, updateBreadcrumb } from './ui/breadcrumb.js';
 import { initTour, startTutorial } from './ui/tour.js';
