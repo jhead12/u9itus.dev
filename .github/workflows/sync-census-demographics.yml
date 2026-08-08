@@ -44,49 +44,17 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up PHP
-        uses: shivammathur/setup-php@v2
+      - name: Set up app
+        uses: ./.github/actions/setup-app
         with:
-          php-version: "8.4"
-          extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, pdo_mysql
-          coverage: none
-
-      - name: Cache Composer packages
-        uses: actions/cache@v4
-        with:
-          path: vendor
-          key: ${{ runner.os }}-composer-${{ hashFiles('composer.lock') }}
-          restore-keys: ${{ runner.os }}-composer-
-
-      - name: Write .env
-        run: |
-          cat > .env <<EOF
-          APP_ENV=production
-          APP_KEY=${{ secrets.APP_KEY }}
-          APP_DEBUG=false
-          APP_URL=${{ secrets.APP_URL }}
-
-          DB_CONNECTION=mysql
-          DB_HOST=${{ secrets.DB_HOST }}
-          DB_PORT=${{ secrets.DB_PORT }}
-          DB_DATABASE=${{ secrets.DB_DATABASE }}
-          DB_USERNAME=${{ secrets.DB_USERNAME }}
-          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
-
-          CENSUS_DATA_API=${{ secrets.CENSUS_DATA_API }}
-
-          CACHE_DRIVER=database
-          SESSION_DRIVER=database
-          QUEUE_CONNECTION=sync
-          LOG_CHANNEL=stderr
-          BROADCAST_CONNECTION=log
-          EOF
-
-      - name: Install Composer dependencies
-        run: composer install --prefer-dist --no-interaction --no-progress --no-dev
-
-      - name: Run pending migrations
-        run: php artisan migrate --force --no-interaction
+          app_key: ${{ secrets.APP_KEY }}
+          app_url: ${{ secrets.APP_URL }}
+          db_host: ${{ secrets.DB_HOST }}
+          db_port: ${{ secrets.DB_PORT }}
+          db_database: ${{ secrets.DB_DATABASE }}
+          db_username: ${{ secrets.DB_USERNAME }}
+          db_password: ${{ secrets.DB_PASSWORD }}
+          census_data_api: ${{ secrets.CENSUS_DATA_API }}
 
       - name: Sync city demographics (ACS)
         run: |
