@@ -578,6 +578,38 @@ jobs:
             done
           fi
 
+      # ── RSS candidate discovery (Senate/Governor) ─────────────────────────
+      # Surfaces new candidate signals (announcements, primary wins) from
+      # Google News RSS that the direct-URL Ballotpedia scrapes above can miss
+      # — e.g. a candidate who just won a primary and doesn't have a
+      # Ballotpedia race page yet. Never trusts a name directly: every lead
+      # goes through the verify step below before it can become a candidate
+      # record. Runs before "Sync primary results" so anything promoted this
+      # run gets included in the same day's primary-result sync/reconcile.
+      - name: Discover candidate leads (RSS)
+        run: |
+          STATES="${{ steps.args.outputs.states }}"
+          DRY="${{ steps.args.outputs.dry_arg }}"
+          if [ -z "$STATES" ]; then
+            php artisan candidates:discover-leads $DRY
+          else
+            for state in $(echo "$STATES" | tr ',' ' '); do
+              php artisan candidates:discover-leads --state=$state $DRY
+            done
+          fi
+
+      # ── Verify & promote candidate leads ──────────────────────────────────
+      # Tiered verification (Ballotpedia -> Wikipedia -> Claude fallback) of
+      # pending leads from the discovery step above. Leads confirmed at
+      # >=0.85 confidence auto-promote into election_candidate_records;
+      # everything else keeps its full verifier/confidence/reason trail for
+      # a future manual review pass rather than being discarded.
+      - name: Verify & promote candidate leads
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          php artisan candidates:verify-leads --limit=2000 ${{ steps.args.outputs.dry_arg }}
+
       # ── Sync primary election results ────────────────────────────────────
       # For each statewide candidate whose election_date is in the past,
       # scrapes Ballotpedia/Wikipedia to determine if they advanced to the
