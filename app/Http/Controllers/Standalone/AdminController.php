@@ -479,6 +479,8 @@ class AdminController extends Controller
             'started_at'      => $newStatus === CampaignStatus::Active->value ? now() : null,
         ]);
 
+        app(ReverbBroadcastService::class)->campaignApproved($campaign);
+
         return back()->with('success', 'Citizen campaign "' . $campaign->title . '" has been approved.');
     }
 
@@ -491,14 +493,18 @@ class AdminController extends Controller
             'reason' => ['nullable', 'string', 'max:500'],
         ]);
 
+        $rejectionReason = $request->input('reason', 'Does not meet content guidelines.');
+
         $campaign->update([
             'approval_status'  => ApprovalStatus::Rejected->value,
             'status'           => CampaignStatus::Draft->value,
-            'rejection_reason' => $request->input('reason', 'Does not meet content guidelines.'),
+            'rejection_reason' => $rejectionReason,
         ]);
 
         // Note: CampaignAuditLog.campaign_id FK targets political_campaigns only.
         // Citizen campaign audit logging deferred to Phase F (polymorphic audit table).
+
+        app(ReverbBroadcastService::class)->campaignRejected($campaign, $rejectionReason);
 
         return back()->with('success', 'Citizen campaign "' . $campaign->title . '" has been rejected.');
     }
@@ -623,6 +629,8 @@ class AdminController extends Controller
 
         $campaign->update(['status' => CampaignStatus::Paused->value]);
 
+        app(ReverbBroadcastService::class)->campaignStopped($campaign, 'Paused by admin.');
+
         return back()->with('success', 'Citizen campaign "' . $campaign->title . '" has been paused.');
     }
 
@@ -630,11 +638,15 @@ class AdminController extends Controller
     {
         $request->validate(['reason' => ['nullable', 'string', 'max:500']]);
 
+        $stopReason = $request->input('reason') ?: 'Stopped by admin.';
+
         $campaign->update([
             'status'           => CampaignStatus::Cancelled->value,
-            'rejection_reason' => $request->input('reason') ?: 'Stopped by admin.',
+            'rejection_reason' => $stopReason,
             'completed_at'     => now(),
         ]);
+
+        app(ReverbBroadcastService::class)->campaignStopped($campaign, $stopReason);
 
         return back()->with('success', 'Citizen campaign "' . $campaign->title . '" has been stopped.');
     }
@@ -655,6 +667,8 @@ class AdminController extends Controller
             'rejection_reason' => null,
             'completed_at'     => null,
         ]);
+
+        app(ReverbBroadcastService::class)->campaignReactivated($campaign);
 
         return back()->with('success', 'Citizen campaign "' . $campaign->title . '" has been reactivated.');
     }

@@ -2,7 +2,7 @@
 
 namespace App\Events;
 
-use App\Models\PoliticalCampaign;
+use App\Contracts\BroadcastableCampaign;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PrivateChannel;
@@ -13,22 +13,24 @@ use Illuminate\Queue\SerializesModels;
 /**
  * CampaignStopped
  *
- * Broadcast to the politician's private channel when an admin force-pauses
- * a live campaign (e.g. broken video, policy violation). Carries the
- * admin-supplied reason so it surfaces immediately in the politician's UI.
+ * Broadcast to a campaign owner's private channel when an admin
+ * pauses/force-stops a running campaign (e.g. broken video, policy
+ * violation). Works for any campaign type implementing
+ * BroadcastableCampaign (political, citizen, ...). Carries the
+ * admin-supplied reason so it surfaces immediately in the owner's UI.
  */
 class CampaignStopped implements ShouldBroadcastNow
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
     public function __construct(
-        public readonly PoliticalCampaign $campaign,
+        public readonly BroadcastableCampaign $campaign,
         public readonly string $reason,
     ) {}
 
     public function broadcastOn(): Channel
     {
-        return new PrivateChannel('politician.' . $this->campaign->politician->user_id);
+        return new PrivateChannel($this->campaign->broadcastChannelName());
     }
 
     public function broadcastWith(): array

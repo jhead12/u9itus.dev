@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Broadcast;
 |
 |   private-politician.{userId}     — Politician notifications (approved, rejected, stopped)
 |   private-voter.{userId}          — Voter notifications (new ad token, payout, session complete)
+|   private-citizen.{userId}        — Citizen notifications (campaign approved, rejected, stopped)
 |   private-admin.monitor           — Admin fraud/analytics stream (admin role only)
 |   presence-campaign.live.{uuid}   — Live campaign viewer presence (Phase 12 WebRTC signaling)
 |
@@ -37,6 +38,16 @@ Broadcast::channel('politician.{userId}', function (User $user, int $userId): bo
 */
 Broadcast::channel('voter.{userId}', function (User $user, int $userId): bool {
     return (int) $user->id === $userId && $user->hasRole('voter');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Citizen Private Channel
+| Carries: campaign.approved · campaign.rejected · campaign.stopped · campaign.reactivated
+|--------------------------------------------------------------------------
+*/
+Broadcast::channel('citizen.{userId}', function (User $user, int $userId): bool {
+    return (int) $user->id === $userId && $user->hasRole('citizen');
 });
 
 /*

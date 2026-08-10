@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Contracts\BroadcastableCampaign;
 use App\Enums\ApprovalStatus;
 use App\Enums\CampaignStatus;
 use App\Enums\CampaignType;
@@ -30,7 +31,7 @@ use Illuminate\Support\Str;
  * always route through the admin approval queue, and require
  * pac_registration_id regardless of the citizen's verification status.
  */
-class CitizenCampaign extends Model
+class CitizenCampaign extends Model implements BroadcastableCampaign
 {
     use HasFactory;
 
@@ -157,6 +158,11 @@ class CitizenCampaign extends Model
     public function citizen(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(Citizen::class);
+    }
+
+    public function broadcastChannelName(): string
+    {
+        return 'citizen.' . $this->citizen->user_id;
     }
 
     /**

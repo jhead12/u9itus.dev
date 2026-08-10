@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Contracts\BroadcastableCampaign;
 use App\Enums\ApprovalStatus;
 use App\Enums\CampaignStatus;
 use App\Enums\CampaignType;
@@ -21,7 +22,7 @@ use Illuminate\Support\Str;
  *   Referral commission      $0.050  (10% of voter payout, if referred)
  *   Platform keeps           $0.45  (before ops / payment fees)
  */
-class PoliticalCampaign extends Model
+class PoliticalCampaign extends Model implements BroadcastableCampaign
 {
     use HasFactory;
 
@@ -201,6 +202,11 @@ class PoliticalCampaign extends Model
     public function politician(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(Politician::class);
+    }
+
+    public function broadcastChannelName(): string
+    {
+        return 'politician.' . $this->politician->user_id;
     }
 
     public function topics(): \Illuminate\Database\Eloquent\Relations\BelongsToMany

@@ -2,7 +2,7 @@
 
 namespace App\Events;
 
-use App\Models\PoliticalCampaign;
+use App\Contracts\BroadcastableCampaign;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PrivateChannel;
@@ -13,17 +13,19 @@ use Illuminate\Queue\SerializesModels;
 /**
  * CampaignApproved
  *
- * Broadcast to the politician's private channel when an admin approves
- * one of their campaigns. The frontend Echo listener on
- * `private-politician.{userId}` triggers a toast notification and
- * updates the campaign status badge in real time.
+ * Broadcast to a campaign owner's private channel when an admin approves
+ * one of their campaigns. Works for any campaign type implementing
+ * BroadcastableCampaign (political, citizen, ...) — the owner's channel
+ * name is resolved polymorphically via $campaign->broadcastChannelName().
+ * The frontend Echo listener on that channel triggers a toast notification
+ * and updates the campaign status badge in real time.
  */
 class CampaignApproved implements ShouldBroadcastNow
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
     public function __construct(
-        public readonly PoliticalCampaign $campaign,
+        public readonly BroadcastableCampaign $campaign,
     ) {}
 
     /**
@@ -31,7 +33,7 @@ class CampaignApproved implements ShouldBroadcastNow
      */
     public function broadcastOn(): Channel
     {
-        return new PrivateChannel('politician.' . $this->campaign->politician->user_id);
+        return new PrivateChannel($this->campaign->broadcastChannelName());
     }
 
     /**

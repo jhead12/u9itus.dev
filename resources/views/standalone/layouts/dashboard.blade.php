@@ -1056,6 +1056,43 @@
                     push('🏦 Batch payout of $' + (e.amount ?? '?') + ' processed.', 'success');
                 });
         }
+
+        if (role === 'citizen') {
+            window.Echo.private('citizen.' + userId)
+                .listen('.campaign.approved', e => {
+                    const title = e.title ?? 'Campaign';
+                    const msg = e.status === 'scheduled'
+                        ? `✅ Campaign "${title}" approved and scheduled!`
+                        : `✅ Campaign "${title}" approved and is now live!`;
+                    push(msg, 'success');
+                    if (window.location.pathname.includes('/citizen/campaigns')) {
+                        setTimeout(() => window.location.reload(), 2000);
+                    }
+                })
+                .listen('.campaign.rejected', e => {
+                    const title = e.title ?? 'Campaign';
+                    const reason = e.reason ? ` Reason: ${e.reason}` : '';
+                    push(`❌ Campaign "${title}" was rejected.${reason}`, 'error');
+                    if (window.location.pathname.includes('/citizen/campaigns')) {
+                        setTimeout(() => window.location.reload(), 2000);
+                    }
+                })
+                .listen('.campaign.stopped', e => {
+                    const title = e.title ?? 'Campaign';
+                    const reason = e.reason ? ` Reason: ${e.reason}` : '';
+                    push(`⏸️ Campaign "${title}" has been paused by admin.${reason}`, 'warning');
+                    if (window.location.pathname.includes('/citizen/campaigns')) {
+                        setTimeout(() => window.location.reload(), 2000);
+                    }
+                })
+                .listen('.campaign.reactivated', e => {
+                    const title = e.title ?? 'Campaign';
+                    push(`▶️ Campaign "${title}" has been reactivated!`, 'success');
+                    if (window.location.pathname.includes('/citizen/campaigns')) {
+                        setTimeout(() => window.location.reload(), 2000);
+                    }
+                });
+        }
     });
 }());
 </script>

@@ -2,7 +2,7 @@
 
 namespace App\Events;
 
-use App\Models\PoliticalCampaign;
+use App\Contracts\BroadcastableCampaign;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PrivateChannel;
@@ -13,21 +13,22 @@ use Illuminate\Queue\SerializesModels;
 /**
  * CampaignReactivated
  *
- * Broadcast to the politician's private channel when an admin reactivates
- * a previously stopped/paused campaign. Provides immediate UI feedback
- * without requiring a page refresh.
+ * Broadcast to a campaign owner's private channel when an admin
+ * reactivates a previously stopped/paused campaign. Works for any
+ * campaign type implementing BroadcastableCampaign (political, citizen,
+ * ...). Provides immediate UI feedback without requiring a page refresh.
  */
 class CampaignReactivated implements ShouldBroadcastNow
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
     public function __construct(
-        public readonly PoliticalCampaign $campaign,
+        public readonly BroadcastableCampaign $campaign,
     ) {}
 
     public function broadcastOn(): Channel
     {
-        return new PrivateChannel('politician.' . $this->campaign->politician->user_id);
+        return new PrivateChannel($this->campaign->broadcastChannelName());
     }
 
     public function broadcastWith(): array

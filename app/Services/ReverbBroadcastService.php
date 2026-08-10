@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Contracts\BroadcastableCampaign;
 use App\Events\AdTokenDelivered;
 use App\Events\CampaignApproved;
 use App\Events\CampaignLiveStarted;
@@ -28,8 +29,15 @@ use Illuminate\Support\Facades\Log;
  * Channel map:
  *   private-politician.{userId}     — campaign lifecycle notifications
  *   private-voter.{userId}          — ad tokens, session payouts, batch payouts
+ *   private-citizen.{userId}        — campaign lifecycle notifications (citizen campaigns)
  *   private-admin.monitor           — fraud flags, session throughput
  *   presence-campaign.live.{uuid}   — Phase 12 WebRTC signaling + viewer count
+ *
+ * The campaign lifecycle methods below accept any BroadcastableCampaign
+ * (PoliticalCampaign, CitizenCampaign, ...) — the owning user's channel is
+ * resolved polymorphically via $campaign->broadcastChannelName(), so a new
+ * campaign type gets real-time notifications for free by implementing that
+ * one method.
  *
  * Usage (inject or resolve from container):
  *   $broadcast->campaignApproved($campaign);
@@ -39,37 +47,37 @@ use Illuminate\Support\Facades\Log;
 class ReverbBroadcastService
 {
     // -----------------------------------------------------------------------
-    // Politician channels
+    // Campaign lifecycle (political, citizen, or any future campaign type)
     // -----------------------------------------------------------------------
 
     /**
-     * Notify a politician that their campaign has been approved.
+     * Notify a campaign owner that their campaign has been approved.
      */
-    public function campaignApproved(PoliticalCampaign $campaign): void
+    public function campaignApproved(BroadcastableCampaign $campaign): void
     {
         $this->dispatch(fn () => broadcast(new CampaignApproved($campaign)), 'campaign.approved', $campaign->id);
     }
 
     /**
-     * Notify a politician that their campaign has been rejected with a reason.
+     * Notify a campaign owner that their campaign has been rejected with a reason.
      */
-    public function campaignRejected(PoliticalCampaign $campaign, string $reason): void
+    public function campaignRejected(BroadcastableCampaign $campaign, string $reason): void
     {
         $this->dispatch(fn () => broadcast(new CampaignRejected($campaign, $reason)), 'campaign.rejected', $campaign->id);
     }
 
     /**
-     * Notify a politician that their campaign has been force-stopped by an admin.
+     * Notify a campaign owner that their campaign has been paused/force-stopped by an admin.
      */
-    public function campaignStopped(PoliticalCampaign $campaign, string $reason): void
+    public function campaignStopped(BroadcastableCampaign $campaign, string $reason): void
     {
         $this->dispatch(fn () => broadcast(new CampaignStopped($campaign, $reason)), 'campaign.stopped', $campaign->id);
     }
 
     /**
-     * Notify a politician that their stopped campaign has been reactivated.
+     * Notify a campaign owner that their stopped campaign has been reactivated.
      */
-    public function campaignReactivated(PoliticalCampaign $campaign): void
+    public function campaignReactivated(BroadcastableCampaign $campaign): void
     {
         $this->dispatch(fn () => broadcast(new CampaignReactivated($campaign)), 'campaign.reactivated', $campaign->id);
     }

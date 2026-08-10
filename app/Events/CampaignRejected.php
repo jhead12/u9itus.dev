@@ -2,7 +2,7 @@
 
 namespace App\Events;
 
-use App\Models\PoliticalCampaign;
+use App\Contracts\BroadcastableCampaign;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PrivateChannel;
@@ -13,22 +13,24 @@ use Illuminate\Queue\SerializesModels;
 /**
  * CampaignRejected
  *
- * Broadcast to the politician's private channel when an admin rejects
- * one of their campaigns. Includes the rejection reason so the frontend
- * can display it in a notification without a page refresh.
+ * Broadcast to a campaign owner's private channel when an admin rejects
+ * one of their campaigns. Works for any campaign type implementing
+ * BroadcastableCampaign (political, citizen, ...). Includes the rejection
+ * reason so the frontend can display it in a notification without a page
+ * refresh.
  */
 class CampaignRejected implements ShouldBroadcastNow
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
     public function __construct(
-        public readonly PoliticalCampaign $campaign,
+        public readonly BroadcastableCampaign $campaign,
         public readonly string $reason,
     ) {}
 
     public function broadcastOn(): Channel
     {
-        return new PrivateChannel('politician.' . $this->campaign->politician->user_id);
+        return new PrivateChannel($this->campaign->broadcastChannelName());
     }
 
     public function broadcastWith(): array
