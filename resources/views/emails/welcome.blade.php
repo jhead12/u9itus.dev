@@ -57,6 +57,19 @@
         <p>Start watching approved political ads in your area and <strong class="highlight">earn real money</strong> for every verified view. Your identity is protected and payouts are processed securely.</p>
       @endif
 
+      @if(isset($cityNews) && $cityNews->isNotEmpty())
+        <hr class="divider" />
+        <p style="font-size:12px; color:#64748b; text-transform:uppercase; letter-spacing:1px; margin-bottom:14px;">What's happening locally</p>
+        @foreach($cityNews as $article)
+          <p style="margin-bottom:14px;">
+            <a href="{{ $article->source_url }}" style="color:#e2e8f0; text-decoration:none; font-size:14px; font-weight:600;">{{ $article->headline }}</a>
+            @if($article->source_name)
+              <br /><span style="font-size:12px; color:#64748b;">{{ $article->source_name }}</span>
+            @endif
+          </p>
+        @endforeach
+      @endif
+
       <div class="btn-wrap">
         <a href="{{ url('/dashboard') }}" class="btn">Go to your dashboard →</a>
       </div>

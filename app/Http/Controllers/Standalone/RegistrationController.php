@@ -11,6 +11,7 @@ use App\Models\Citizen;
 use App\Models\Politician;
 use App\Models\User;
 use App\Models\Voter;
+use App\Models\VoterFavoriteBoundary;
 use App\Services\EarlyBankPrefillService;
 use App\Services\EarlyBankWebhookService;
 use App\Services\MailingListService;
@@ -527,6 +528,15 @@ class RegistrationController extends Controller
             array_merge($voterPayload, ['user_id' => $user->id])
         );
 
+        // New voters are opted into the weekly saved-places digest by
+        // default, and their home district is auto-favorited so the digest
+        // has something to send from day one instead of requiring them to
+        // discover map favoriting first.
+        $user->notificationPreference()->firstOrCreate([])->update([
+            'email_boundary_digest' => true,
+        ]);
+        $this->favoriteHomeDistrict($voter);
+
         // Absorb a lightweight guest "email me weekly saved-places updates"
         // opt-in (see GuestDigestOptInController) into the real notification
         // preference now that this email belongs to an actual account —
@@ -598,6 +608,37 @@ class RegistrationController extends Controller
 
             return null;
         }
+    }
+
+    /**
+     * Auto-saves a new voter's home district as a favorited boundary — see
+     * registerVoter() — so SendBoundaryDigest has content to send them from
+     * day one. Best-effort: silently skipped if the district couldn't be
+     * resolved at registration time (resolveDistrict() already returns null
+     * on any lookup failure).
+     */
+    private function favoriteHomeDistrict(Voter $voter): void
+    {
+        if (! $voter->congressional_district
+            || ! preg_match('/^([A-Z]{2})-(\d{1,2}|AL)$/i', $voter->congressional_district, $m)) {
+            return;
+        }
+
+        $stateAbbr = strtoupper($m[1]);
+        $districtNumber = strtoupper($m[2]) === 'AL' ? 'AL' : (string) (int) $m[2];
+        $stateName = config("u9itus.us_states.{$stateAbbr}", $stateAbbr);
+        $districtLabel = $districtNumber === 'AL' ? 'At-Large' : "District {$districtNumber}";
+
+        VoterFavoriteBoundary::firstOrCreate([
+            'voter_id'        => $voter->id,
+            'boundary_type'   => VoterFavoriteBoundary::TYPE_DISTRICT,
+            'state_abbr'      => $stateAbbr,
+            'district_number' => $districtNumber,
+            'city_name'       => null,
+        ], [
+            'label'        => "{$stateName} {$districtLabel}",
+            'favorited_at' => now(),
+        ]);
     }
 
     private function sendPhoneVerification(string $phone, User $user, string $context): void

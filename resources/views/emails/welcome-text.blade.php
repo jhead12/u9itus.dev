@@ -10,6 +10,14 @@ Start watching approved political ads in your area and earn real money for every
 Your identity is protected and payouts are processed securely.
 @endif
 
+@if(isset($cityNews) && $cityNews->isNotEmpty())
+WHAT'S HAPPENING LOCALLY
+@foreach($cityNews as $article)
+- {{ $article->headline }}{{ $article->source_name ? ' ('.$article->source_name.')' : '' }}
+  {{ $article->source_url }}
+@endforeach
+
+@endif
 Go to your dashboard: {{ url('/dashboard') }}
 
 ---
