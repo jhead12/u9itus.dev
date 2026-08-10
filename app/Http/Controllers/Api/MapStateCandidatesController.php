@@ -10,6 +10,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 /**
@@ -123,9 +124,33 @@ class MapStateCandidatesController
             return response()->json(['error' => 'Provide a valid two-letter state code.'], 422);
         }
 
-        $data = Cache::remember("map_state_candidates_{$state}", 3600, function () use ($state) {
-            return $this->buildStateData($state);
-        });
+        try {
+            $data = Cache::remember("map_state_candidates_{$state}", 3600, function () use ($state) {
+                return $this->buildStateData($state);
+            });
+        } catch (\Throwable $e) {
+            Log::error('MapStateCandidatesController: failed to build state data', [
+                'state' => $state,
+                'error' => $e->getMessage(),
+            ]);
+
+            $regionInfo = self::STATE_REGIONS[$state] ?? ['region' => 'Unknown', 'color' => '#64748b'];
+
+            return response()->json([
+                'state' => $state,
+                'region' => $regionInfo['region'],
+                'region_color' => $regionInfo['color'],
+                'total' => 0,
+                'offices' => [],
+                'house_candidates' => [],
+                'city_officials' => [],
+                'ballot_measures' => [],
+                'election_dates' => [],
+                'office_roles' => $this->officeRoles(),
+                'population' => null,
+                'district_populations' => [],
+            ]);
+        }
 
         return response()->json($data);
     }
@@ -238,6 +263,10 @@ class MapStateCandidatesController
             ->whereNotNull('city')   // must have a city name set
             ->orderBy('city')
             ->orderBy('full_name')
+            // Bounded like ballotMeasures below — a state with dense local
+            // government (many city/county seats imported) could otherwise
+            // return an unbounded row set for one request.
+            ->limit(500)
             ->with(['publicBadges.topic'])
             ->get(['id', 'uuid', 'full_name', 'political_office', 'party_affiliation',
                    'profile_photo_url', 'slug', 'is_running_candidate',

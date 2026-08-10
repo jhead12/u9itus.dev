@@ -8,6 +8,7 @@ use App\Services\FECService;
 use App\Services\OpenSecretsService;
 use App\Services\PacAffiliationClassifier;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 class EnrichPoliticianDonors extends Command
@@ -31,6 +32,45 @@ class EnrichPoliticianDonors extends Command
         $singleId   = $this->option('politician');
         $upcomingOnly = (bool) $this->option('upcoming-only');
 
+        // This job is triggered both by Railway's internal scheduler
+        // (routes/console.php) and a separate GitHub Actions cron
+        // (.github/workflows/enrich-donor-snapshots.yml), both firing at
+        // 03:00 UTC against the same production database.
+        // Schedule::command()->withoutOverlapping() only guards Laravel's own
+        // scheduler dispatch — it does nothing for an unrelated process
+        // invoking this artisan command directly, so both could run at once
+        // and race writing the same PoliticianDonorSnapshot rows. Cache::lock
+        // lives in the shared database cache store, so it coordinates across
+        // both trigger paths instead of just within one process.
+        $lock = Cache::lock('politicians:enrich-donors', 3600);
+        if (! $lock->get()) {
+            $this->warn('Another politicians:enrich-donors run is already in progress — exiting.');
+            Log::info('politicians:enrich-donors: skipped, lock already held by a concurrent run');
+
+            return self::SUCCESS;
+        }
+
+        try {
+            return $this->runEnrichment(
+                $limit, $staleHours, $force, $dryRun, $singleId, $upcomingOnly,
+                $openSecrets, $fec, $pacClassifier
+            );
+        } finally {
+            $lock->release();
+        }
+    }
+
+    protected function runEnrichment(
+        int $limit,
+        int $staleHours,
+        bool $force,
+        bool $dryRun,
+        ?string $singleId,
+        bool $upcomingOnly,
+        OpenSecretsService $openSecrets,
+        FECService $fec,
+        PacAffiliationClassifier $pacClassifier,
+    ): int {
         // Per-process FEC throttle/rate-limit state — start the batch clean so
         // a short-circuit tripped in this run reflects only this run's 429s.
         FECService::resetTelemetry();
