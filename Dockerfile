@@ -57,6 +57,18 @@ WORKDIR /var/www/html
 # Cache-bust argument — increment to force fresh composer install layer
 ARG CACHE_BUST=2
 
+# Vite bakes import.meta.env.VITE_* values into the built JS at build time,
+# not at container runtime — so these must be declared as build ARGs.
+# Railway auto-populates any ARG whose name matches a service Variable.
+ARG VITE_REVERB_APP_KEY
+ARG VITE_REVERB_HOST
+ARG VITE_REVERB_PORT
+ARG VITE_REVERB_SCHEME
+ENV VITE_REVERB_APP_KEY=$VITE_REVERB_APP_KEY \
+    VITE_REVERB_HOST=$VITE_REVERB_HOST \
+    VITE_REVERB_PORT=$VITE_REVERB_PORT \
+    VITE_REVERB_SCHEME=$VITE_REVERB_SCHEME
+
 # Copy composer files first for better layer caching
 COPY composer.json composer.lock ./
 
