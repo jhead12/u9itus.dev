@@ -496,6 +496,54 @@ function renderFecSummary(fec) {
         </div>`;
 }
 
+function formatCurrency(amount) {
+    const n = Number(amount);
+    if (!isFinite(n) || n === 0) return null;
+    return '$' + Math.round(n).toLocaleString('en-US');
+}
+
+/** Outside-group (Schedule E) support/oppose spending — distinct from the campaign's own fundraising in renderFecSummary. */
+function renderIndependentSpending(spending) {
+    const items = spending?.items || [];
+    if (!items.length) return '';
+    const hidden = spending.hidden_count || 0;
+
+    return `
+        <p class="pol-section-label" style="margin-top:16px;">Independent Spending <span style="color:#64748b;font-weight:400;">· outside groups, not the campaign</span></p>
+        <div style="display:grid;gap:6px;">
+            ${items.map(s => {
+                const isOppose = s.support_oppose === 'O';
+                const badgeColor = isOppose ? '#fb7185' : '#34d399';
+                const badgeBg = isOppose ? 'rgba(251,113,133,0.1)' : 'rgba(52,211,153,0.1)';
+                const badgeBorder = isOppose ? 'rgba(251,113,133,0.4)' : 'rgba(52,211,153,0.4)';
+                const label = isOppose ? 'Oppose' : 'Support';
+                const amount = formatCurrency(s.total);
+
+                let nameHtml;
+                if (s.committee_id) {
+                    const idUrl = `https://www.google.com/search?q=${encodeURIComponent(s.committee_id)}`;
+                    const nameLink = s.committee_name
+                        ? `<a href="https://www.fec.gov/data/committee/${escapeHtml(s.committee_id)}/" target="_blank" rel="noopener" style="color:#e2e8f0;text-decoration:underline;text-decoration-color:rgba(148,163,184,0.4);">${escapeHtml(s.committee_name)}</a> `
+                        : '';
+                    const idColor = s.committee_name ? '#94a3b8' : '#e2e8f0';
+                    nameHtml = `${nameLink}<a href="${escapeHtml(idUrl)}" target="_blank" rel="noopener nofollow" style="color:${idColor};font-family:monospace;font-size:10px;text-decoration:underline;text-decoration-color:rgba(148,163,184,0.4);">${escapeHtml(s.committee_id)}</a>`;
+                } else {
+                    nameHtml = `<span style="color:#e2e8f0;">${escapeHtml(s.committee_name || '—')}</span>`;
+                }
+
+                return `
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 10px;border-radius:8px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);">
+                    <span style="display:flex;align-items:center;gap:6px;min-width:0;font-size:11px;">
+                        ${nameHtml}
+                        <span style="flex-shrink:0;font-size:9px;font-weight:700;text-transform:uppercase;padding:1px 6px;border-radius:999px;border:1px solid ${badgeBorder};background:${badgeBg};color:${badgeColor};">${label}</span>
+                    </span>
+                    ${amount ? `<span style="flex-shrink:0;font-size:11px;font-weight:600;color:#fff;">${amount}</span>` : ''}
+                </div>`;
+            }).join('')}
+        </div>
+        ${hidden > 0 ? `<p style="font-size:10px;color:#64748b;margin:6px 0 0;">+ ${hidden} more spender(s) — see FEC.gov for the full list.</p>` : ''}`;
+}
+
 function renderEconomySources(sources, enrichedAt) {
     const links = [];
     const os = safeUrl(sources?.opensecrets_url || '');
@@ -921,6 +969,7 @@ function _renderPolBody() {
             ${renderIndustryBars(economy.top_industries)}
             ${renderContributors(economy.top_contributors)}
             ${renderFecSummary(economy.fec_summary)}
+            ${renderIndependentSpending(economy.outside_spending)}
             ${renderEconomySources(economy.sources, economy.enriched_at)}`;
 
     } else if (_polTab === 'moments') {

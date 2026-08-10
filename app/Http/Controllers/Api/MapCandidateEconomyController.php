@@ -16,6 +16,9 @@ class MapCandidateEconomyController
     /** Max top contributors surfaced in the drawer's narrow layout. */
     private const MAX_CONTRIBUTORS = 5;
 
+    /** Max independent-spending rows surfaced in the drawer's narrow layout. */
+    private const MAX_OUTSIDE_SPENDING = 8;
+
     public function __invoke(Request $request, PoliticianResolver $resolver): JsonResponse
     {
         $slug = trim((string) $request->query('slug', ''));
@@ -79,6 +82,7 @@ class MapCandidateEconomyController
                 'top_industries' => $this->industriesWithPct($snapshot->top_industries ?? []),
                 'top_contributors' => $this->formatContributors($snapshot->top_contributors ?? []),
                 'fec_summary' => $snapshot->fec_summary,
+                'outside_spending' => $this->formatOutsideSpending($snapshot->outside_spending ?? []),
                 'pac_affiliations' => Organization::badgesForPacAffiliations($snapshot->pac_affiliations ?? []),
                 'endorsements' => $endorsements,
                 'sources' => [
@@ -154,5 +158,43 @@ class MapCandidateEconomyController
         }
 
         return $rows;
+    }
+
+    /**
+     * @param  array<int, array{committee_id?: string, committee_name?: string, total?: mixed, support_oppose?: string}>  $items
+     * @return array{items: array<int, array{committee_id: ?string, committee_name: ?string, total: float, support_oppose: string}>, hidden_count: int}
+     */
+    private function formatOutsideSpending(array $items): array
+    {
+        if (empty($items)) {
+            return ['items' => [], 'hidden_count' => 0];
+        }
+
+        $shown = array_slice($items, 0, self::MAX_OUTSIDE_SPENDING);
+        $hidden = max(0, count($items) - count($shown));
+
+        $rows = [];
+        foreach ($shown as $row) {
+            $committeeId = $row['committee_id'] ?? null;
+            $committeeName = $row['committee_name'] ?? null;
+
+            // Snapshots written before committee_id became its own field only
+            // stored committee_name, which itself held the raw FEC ID whenever
+            // resolveCommitteeNames() couldn't find a real name. Recover the ID
+            // from committee_name in that case so old snapshots still link out.
+            if (empty($committeeId) && $committeeName && preg_match('/^[A-Z]\d{8}$/', $committeeName)) {
+                $committeeId = $committeeName;
+                $committeeName = null;
+            }
+
+            $rows[] = [
+                'committee_id' => $committeeId ?: null,
+                'committee_name' => $committeeName ?: null,
+                'total' => (float) ($row['total'] ?? 0),
+                'support_oppose' => ($row['support_oppose'] ?? 'S') === 'O' ? 'O' : 'S',
+            ];
+        }
+
+        return ['items' => $rows, 'hidden_count' => $hidden];
     }
 }
