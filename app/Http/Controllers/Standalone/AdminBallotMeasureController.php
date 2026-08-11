@@ -50,6 +50,28 @@ class AdminBallotMeasureController extends Controller
         $validated = array_merge($this->validated($request), ['source' => 'manual']);
 
         try {
+            // Same identity key ImportBallotMeasures dedupes on (state + title +
+            // election date — whereDate() since election_date is stored as a
+            // datetime). Without this, a double form-submit silently created two
+            // identical rows (e.g. CA "Prop 5 — Bond for Schools" showing twice
+            // on the public map) since the table had no unique constraint.
+            $existing = BallotMeasure::query()
+                ->where('state', $validated['state'])
+                ->where('title', $validated['title'])
+                ->when(
+                    $validated['election_date'] !== null,
+                    fn ($q) => $q->whereDate('election_date', $validated['election_date']),
+                    fn ($q) => $q->whereNull('election_date'),
+                )
+                ->first();
+
+            if ($existing) {
+                $existing->update($validated);
+
+                return redirect()->route('admin.ballot-measures.index')
+                    ->with('success', "A matching measure already existed for {$validated['state']} — updated it instead of creating a duplicate.");
+            }
+
             BallotMeasure::create($validated);
         } catch (\Throwable $e) {
             Log::error('AdminBallotMeasureController: failed to create ballot measure', ['error' => $e->getMessage()]);
