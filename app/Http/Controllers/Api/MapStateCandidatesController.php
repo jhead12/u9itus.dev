@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Models\BallotMeasure;
+use App\Models\Citizen;
 use App\Models\ElectionCandidateRecord;
 use App\Models\Politician;
 use App\Models\StateElectionDate;
@@ -535,6 +536,15 @@ class MapStateCandidatesController
         // the map, public profile, and voter dashboard alike.
         $electionDates = StateElectionDate::upcomingForState($state);
 
+        // ── 9. Mapped local businesses in this state ────────────────────────────
+        // Reuses the same Citizen rows that power the map's business pins/search
+        // (Citizen::mappable()) — a count, not a new data source.
+        $businessCount = Citizen::query()
+            ->mappable()
+            ->where('state', $state)
+            ->whereNotNull('business_name')
+            ->count();
+
         return [
             'state'              => $state,
             'region'             => $regionInfo['region'],
@@ -551,6 +561,7 @@ class MapStateCandidatesController
                 'census_year' => $statePopRow->census_year,
                 'formatted'   => number_format($statePopRow->total_population),
             ] : null,
+            'business_count'     => $businessCount,
             'district_populations' => $districtPops->map(fn($r) => [
                 'district'    => $r->label,
                 'total'       => $r->total_population,

@@ -3,6 +3,7 @@
  * Imports all modules, initializes the scene, and wires up event handlers.
  */
 import '../../css/map.css';
+import '../../css/specular-button.css';
 
 /* ── Avatar initials helper (global, used by onerror attrs in HTML) ── */
 window.avatarInitials = function (name, color, size) {
@@ -62,6 +63,7 @@ import { initKeyboard, toggleKbHelp, stepZoom } from './ui/keyboard.js';
 import { initInfoPanel, openInfoPanel } from './ui/info-panel.js';
 import { initMobileMenu } from './ui/mobile-menu.js';
 import { initLocationButton } from './ui/location-button.js';
+import { mountSpecularButton } from '../components/specular-button.js';
 
 /* ── Navigation ── */
 import { enterOverviewMode, enterRegionMode, enterStateMode, handleBack, initHoverClick, hoveredMesh } from './navigation/mode-transitions.js';
@@ -98,6 +100,23 @@ initKeyboard();
 initOfficesToggle();
 initCandidateCardClick();
 initLocationButton();
+
+const earnCta = document.getElementById('btn-signin-cta');
+if (earnCta) {
+    mountSpecularButton(earnCta, {
+        radius: 6,
+        lineColor: '#34d399',
+        baseColor: '#065f46',
+        intensity: 1.3,
+        shineSize: 12,
+        shineFade: 35,
+        thickness: 1.2,
+        speed: 0.3,
+        followMouse: true,
+        proximity: 200,
+        autoAnimate: false,
+    });
+}
 bootDeepLink();
 
 /* Hydrate saved boundaries — voters from the DB, guests from their cookie. */

@@ -68,6 +68,12 @@ export function enterOverviewMode() {
     flyTo(new THREE.Vector3(0, 5.4, 10.2), new THREE.Vector3(0, 0, 0));
     updateBreadcrumb();
     _syncNatDistVisibility();
+    const overviewBallotEl = document.getElementById('panel-ballot-measures');
+    if (overviewBallotEl) overviewBallotEl.innerHTML = '';
+    const overviewStatsEl = document.getElementById('panel-stats');
+    if (overviewStatsEl) overviewStatsEl.innerHTML = '';
+    const overviewTopicsEl = document.getElementById('panel-topics');
+    if (overviewTopicsEl) overviewTopicsEl.innerHTML = '';
 }
 
 export function enterRegionMode(regionName, region) {
@@ -75,6 +81,12 @@ export function enterRegionMode(regionName, region) {
     setStateData(null);
     setMapMode('region'); setActiveRegion(regionName); setActiveState(null); setSelectedState(null);
     clearDistricts(); clearAllOverlays(); closePolDrawer();
+    const regionBallotEl = document.getElementById('panel-ballot-measures');
+    if (regionBallotEl) regionBallotEl.innerHTML = '';
+    const regionStatsEl = document.getElementById('panel-stats');
+    if (regionStatsEl) regionStatsEl.innerHTML = '';
+    const regionTopicsEl = document.getElementById('panel-topics');
+    if (regionTopicsEl) regionTopicsEl.innerHTML = '';
     openRegionPanel(regionName, region);
     resizeRenderer();
     document.getElementById('btn-back').style.display = '';
@@ -137,6 +149,12 @@ export async function enterStateMode(stateName, regionName, region) {
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="animation:spin 1s linear infinite;color:${region?.hex || '#6366f1'};">
             <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-dasharray="31.4" stroke-dashoffset="10" stroke-linecap="round"/>
         </svg>&nbsp;Loading districts…</div>`;
+    const stateBallotEl = document.getElementById('panel-ballot-measures');
+    if (stateBallotEl) stateBallotEl.innerHTML = '';
+    const stateStatsEl = document.getElementById('panel-stats');
+    if (stateStatsEl) stateStatsEl.innerHTML = '';
+    const stateTopicsEl = document.getElementById('panel-topics');
+    if (stateTopicsEl) stateTopicsEl.innerHTML = '';
     openInfoPanel();
 
     document.getElementById('panel-state').textContent = stateName;

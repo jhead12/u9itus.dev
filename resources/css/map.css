@@ -163,6 +163,22 @@ kbd {
 .top-btn:hover .btn-hover-label {
     max-width: 80px; opacity: 1;
 }
+/* Earn CTA — emerald accent (money) instead of indigo (map utilities),
+   so it reads as a distinct "this one pays you" action at a glance. */
+#btn-signin-cta.top-btn {
+    background: rgba(16,185,129,0.14);
+    border-color: rgba(52,211,153,0.4);
+    color: #34d399;
+    font-weight: 600;
+}
+#btn-signin-cta.top-btn:hover { background: rgba(16,185,129,0.26); }
+#btn-signin-cta.top-btn.active {
+    background: rgba(16,185,129,0.32);
+    border-color: rgba(52,211,153,0.75);
+    color: #6ee7b7;
+}
+.earn-label-short { display: none; }
+
 .top-btn.active {
     background: rgba(99,102,241,0.35);
     border-color: rgba(99,102,241,0.7);
@@ -1024,6 +1040,9 @@ body:has(#pol-drawer.open) #map-usage-card { display: none; }
     #mobile-menu-btn { display: flex; }
     #btn-search { padding: 6px 10px; gap: 4px; font-size: 12px; }
     #btn-back { padding: 5px 10px; font-size: 12px; }
+    #btn-signin-cta { padding: 5px 10px; font-size: 12px; }
+    .earn-label-full { display: none; }
+    .earn-label-short { display: inline; }
     #top-bar a { font-size: 16px; }
 
     /* Tap targets meet 44×44 minimum (WCAG 2.5.5 / Apple HIG) — the visible

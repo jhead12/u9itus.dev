@@ -216,10 +216,7 @@ export function renderElectionDatesBanner(electionDates, color) {
  */
 export function renderBallotMeasuresSection(ballotMeasures, color) {
     if (!ballotMeasures?.length) return '';
-    let html = `<div style="border-top:1px solid ${color}20;margin:16px 0 14px;display:flex;align-items:center;gap:8px;">
-        <span style="color:${color};font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;white-space:nowrap;">🗳️ Ballot Measures</span>
-        <div style="flex:1;border-top:1px solid ${color}20;"></div>
-    </div>`;
+    let cardsHtml = '';
     ballotMeasures.forEach((m, i) => {
         const label = [m.measure_number, m.title].filter(Boolean).join(' — ');
         const dateLine = m.election_date
@@ -244,7 +241,7 @@ export function renderBallotMeasuresSection(ballotMeasures, color) {
             ? `<a href="${escapeHtml(m.detail_url)}" target="_blank" rel="noopener" style="display:inline-block;margin-top:8px;color:#e2e8f0;font-size:10px;font-weight:600;text-decoration:none;" onclick="event.stopPropagation()">View full details ↗</a>`
             : '';
 
-        html += `<div class="bm-card${hasDetail ? '' : ' bm-no-detail'} collapsed" id="bm-${i}">
+        cardsHtml += `<div class="bm-card${hasDetail ? '' : ' bm-no-detail'} collapsed" id="bm-${i}">
             <div class="bm-card-header"
                  ${hasDetail ? `onclick="this.closest('.bm-card').classList.toggle('collapsed')"
                  role="button" tabindex="0" aria-expanded="false"
@@ -264,7 +261,88 @@ export function renderBallotMeasuresSection(ballotMeasures, color) {
             </div>` : ''}
         </div>`;
     });
-    return html;
+
+    // Wraps in the same .office-section/.office-title/.office-body markup
+    // renderOfficeGroup() uses, so the whole "Ballot Measures" block gets
+    // one click-to-collapse toggle (chevron + all) for free, and looks
+    // consistent with every other collapsible section in this panel.
+    return `<div class="office-section">
+        <div class="office-title"
+             style="background:${color}18;border-left:3px solid ${color};color:${color};"
+             onclick="this.closest('.office-section').classList.toggle('collapsed')"
+             role="button" aria-expanded="true" tabindex="0"
+             onkeydown="if(event.key==='Enter'||event.key===' ')this.click()">
+            <span>🗳️&nbsp;Ballot Measures</span>
+            <span class="chevron">▾</span>
+        </div>
+        <div class="office-body">${cardsHtml}</div>
+    </div>`;
+}
+
+/**
+ * Compact "State Stats" summary — population and mapped-business counts,
+ * both already returned by the state-candidates payload (no new data
+ * sources fetched here). Always visible, not collapsible — it's two
+ * numbers, unlike the office/topic/ballot-measure sections below it.
+ */
+export function renderStateStatsSection(data, color) {
+    const pop = data?.population?.formatted ?? null;
+    const businessCount = data?.business_count ?? null;
+    if (!pop && !businessCount) return '';
+
+    const stat = (icon, value, label) => `<div style="flex:1;min-width:0;text-align:center;">
+        <div style="color:${color};font-size:15px;font-weight:700;">${icon} ${value}</div>
+        <div style="color:#94a3b8;font-size:9px;text-transform:uppercase;letter-spacing:.05em;margin-top:2px;">${label}</div>
+    </div>`;
+
+    return `<div style="display:flex;gap:8px;background:${color}0f;border:1px solid ${color}33;border-radius:8px;padding:10px 8px;margin-bottom:12px;">
+        ${pop ? stat('👥', pop, 'Population') : ''}
+        ${businessCount !== null ? stat('🏪', businessCount.toLocaleString('en-US'), 'Local Businesses') : ''}
+    </div>`;
+}
+
+/**
+ * Groups candidates across every office (statewide + House) by the issue
+ * topic chips already attached to each candidate (see topicChipsHtml) —
+ * self-declared or inferred from news/viral-moment/Vote Smart signals. A
+ * candidate tagged with multiple topics appears under each one. Renders
+ * nothing when no candidate in the state carries any topic badge, so this
+ * section doesn't show up as a permanently-empty box on sparse states.
+ */
+export function renderCandidatesByTopicSection(offices, color) {
+    const byTopic = new Map();
+    for (const g of (offices || [])) {
+        for (const c of (g.candidates || [])) {
+            for (const b of (c.badges || [])) {
+                if (!b?.name) continue;
+                if (!byTopic.has(b.name)) byTopic.set(b.name, { badge: b, candidates: [] });
+                byTopic.get(b.name).candidates.push({ ...c, office: g.office });
+            }
+        }
+    }
+    if (!byTopic.size) return '';
+
+    const topics = [...byTopic.values()].sort((a, b) => b.candidates.length - a.candidates.length);
+    const body = topics.map(({ badge, candidates }) => {
+        const topicColor = badge.color || color;
+        const icon = badge.icon ? `${escapeHtml(badge.icon)}&nbsp;` : '';
+        return `<div style="margin-bottom:12px;">
+            <p style="color:${topicColor};font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin:0 0 6px;">${icon}${escapeHtml(badge.name)}</p>
+            ${candidates.map(c => renderCandidate(c, color)).join('')}
+        </div>`;
+    }).join('');
+
+    return `<div class="office-section collapsed">
+        <div class="office-title"
+             style="background:${color}18;border-left:3px solid ${color};color:${color};"
+             onclick="this.closest('.office-section').classList.toggle('collapsed')"
+             role="button" aria-expanded="false" tabindex="0"
+             onkeydown="if(event.key==='Enter'||event.key===' ')this.click()">
+            <span>🏷️&nbsp;Candidates by Topic</span>
+            <span class="chevron">▾</span>
+        </div>
+        <div class="office-body">${body}</div>
+    </div>`;
 }
 
 /** Nonpartisan polling-place lookup — linked out directly rather than looked
@@ -388,8 +466,6 @@ export async function openStatePanel(stateName, regionName, region, districtCoun
 
     html += `<div id="state-cities-econ"></div>`;
 
-    html += renderBallotMeasuresSection(data?.ballot_measures ?? [], color);
-
     html += offices.length
         ? offices.map(g => renderOfficeGroup(g, OFFICE_ROLES, color)).join('')
         : noDataNotice('Statewide candidate records for this state are not yet available. Check back after the next weekly sync.');
@@ -397,6 +473,19 @@ export async function openStatePanel(stateName, regionName, region, districtCoun
     html += renderCityOfficialsSection(data?.city_officials, color);
 
     candEl.innerHTML = html;
+
+    // Stats, topics, and ballot measures all live outside #panel-candidates
+    // so they stay visible whether "Statewide Executive Offices" is
+    // collapsed or expanded, and survive drilling into a district (see
+    // panel-district.js, which only ever repaints #panel-candidates).
+    const statsEl = document.getElementById('panel-stats');
+    if (statsEl) statsEl.innerHTML = renderStateStatsSection(data, color);
+
+    const topicsEl = document.getElementById('panel-topics');
+    if (topicsEl) topicsEl.innerHTML = renderCandidatesByTopicSection(offices, color);
+
+    const ballotEl = document.getElementById('panel-ballot-measures');
+    if (ballotEl) ballotEl.innerHTML = renderBallotMeasuresSection(data?.ballot_measures ?? [], color);
 
     const stateAbbr = STATE_ABBR_MAP[stateName];
     if (stateAbbr && regionName) {

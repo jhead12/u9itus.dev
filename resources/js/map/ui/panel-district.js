@@ -5,7 +5,7 @@ import { STATE_ABBR_MAP, PARTY_HEX, PARTY_LABEL, OFFICE_ROLES } from '../config/
 import { stateData, statePanelRequestId, mapMode, activeRegion, activeState } from '../state/map-state.js';
 import { districtMeshes } from '../scene/district-overlay.js';
 import { openInfoPanel } from './info-panel.js';
-import { renderCandidate, renderOfficeGroup, partyClass, detectElectionPhase, noDataNotice, renderBallotMeasuresSection, renderCityOfficialsSection, renderElectionDatesBanner, renderPollingLocationsLink } from './panel-state.js';
+import { renderCandidate, renderOfficeGroup, partyClass, detectElectionPhase, noDataNotice, renderCityOfficialsSection, renderElectionDatesBanner, renderPollingLocationsLink } from './panel-state.js';
 import { openPolDrawer, renderItemListSection } from './politician-drawer.js';
 import { createFavoriteButton } from './boundary-favorite.js';
 import { renderCityCard, fetchCitiesForState, wireCityCardClicks } from './city-demographics-card.js';
@@ -214,8 +214,6 @@ export async function openDistrictPanel(districtNum, districtLabel, stateName, r
     </div>
 
     ${renderPollingLocationsLink(color)}
-
-    ${renderBallotMeasuresSection(stateData?.ballot_measures ?? [], color)}
 
     <div id="dist-news"></div>
 
