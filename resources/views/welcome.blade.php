@@ -174,7 +174,7 @@
                     </div>
                 @endif
 
-                <div class="animate-fade-in-up delay-300 opacity-0 flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
+                <div class="animate-fade-in-up delay-300 opacity-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 items-stretch justify-center gap-4 pt-4">
                     <a href="{{ route('district.lookup') }}"
                        class="inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-white bg-gradient-to-r from-emerald-500 to-teal-500 rounded-xl hover:from-emerald-600 hover:to-teal-600 transition shadow-2xl shadow-emerald-500/40 hover:shadow-emerald-500/60 hover:-translate-y-0.5 transform">
                         Find My District
