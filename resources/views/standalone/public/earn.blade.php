@@ -3,12 +3,12 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Earn Money Watching Political Campaigns — U9itus</title>
+    <title>Earn Money Watching Videos — U9itus</title>
     @include('standalone.partials.seo-head')
-    <meta name="description" content="Get paid $0.50 every time you watch a political campaign video on U9itus. Free to join. No experience needed.">
+    <meta name="description" content="Get paid $0.50 every time you watch a video on U9itus — from politicians, local businesses, and your community. Free to join. No experience needed.">
     <link rel="canonical" href="{{ url('/earn') }}">
-    <meta property="og:title"       content="Earn Money Watching Political Campaigns — U9itus">
-    <meta property="og:description" content="Get paid $0.50 every time you watch a political campaign video. Free to join.">
+    <meta property="og:title"       content="Earn Money Watching Videos — U9itus">
+    <meta property="og:description" content="Get paid $0.50 every time you watch a video — from politicians, local businesses, and your community. Free to join.">
     <meta property="og:url"         content="{{ url('/earn') }}">
     <meta property="og:type"        content="website">
 
@@ -142,8 +142,8 @@
         </h1>
 
         <p style="font-size:18px;color:#94a3b8;line-height:1.65;margin:0 0 36px;max-width:560px;margin-left:auto;margin-right:auto;">
-            U9itus pays you every time you watch a political campaign video.
-            No surveys, no points — real money deposited to your account.
+            U9itus pays you every time you watch a video — from politicians, local
+            businesses, and your community. No surveys, no points — real money deposited to your account.
         </p>
 
         <div style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-bottom:16px;">
@@ -178,9 +178,9 @@
         {{-- Step 2 --}}
         <div class="step-card">
             <div class="step-num">2</div>
-            <h3 style="font-size:18px;font-weight:700;color:#e2e8f0;margin:0 0 10px;">Watch campaign videos on the map</h3>
+            <h3 style="font-size:18px;font-weight:700;color:#e2e8f0;margin:0 0 10px;">Watch videos on the map</h3>
             <p style="font-size:14px;color:#94a3b8;line-height:1.7;margin:0;">
-                Click any state on the U9itus interactive map, browse available campaign videos from politicians in that area, and press play. Watch to the end to earn.
+                Click any state on the U9itus interactive map, browse available videos from politicians, local businesses, and community members in that area, and press play. Watch to the end to earn.
             </p>
         </div>
 
@@ -256,7 +256,7 @@
     </details>
     <details>
         <summary>What kinds of videos are on the map? <span></span></summary>
-        <p>Campaign videos, position statements, and live Q&amp;A sessions uploaded by politicians who have registered on U9itus. All content is reviewed before going live. You can browse without an account to see what's available in your state.</p>
+        <p>Campaign videos, position statements, and live Q&amp;A sessions from politicians, plus community notices, local business promos, and ballot-issue messages from other citizens. All content is reviewed before going live. You can browse without an account to see what's available in your state.</p>
     </details>
     <details>
         <summary>Is my personal information safe? <span></span></summary>

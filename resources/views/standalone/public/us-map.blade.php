@@ -535,6 +535,14 @@
 
 {{-- ── Earn modal — true viewport-centered overlay, rendered at root level ── --}}
 @if(config('platform.map.voter_features_enabled') && auth()->guest())
+@php
+    // Forward whatever Early-bank referral this guest arrived with (fresh
+    // ?ref= on this request, or the 30-day cookie CaptureEarlyBankReferral
+    // already set) so the attribution survives the hop to early-bank.com.
+    $ebRef         = request()->query('ref') ?: request()->cookie(\App\Http\Middleware\CaptureEarlyBankReferral::COOKIE_NAME);
+    $earlybankBase = rtrim(config('services.earlybank.public_url', 'https://www.early-bank.com'), '/');
+    $earlybankHref = $earlybankBase . (($ebRef && \Illuminate\Support\Str::isUuid($ebRef)) ? '/?ref=' . urlencode($ebRef) : '/');
+@endphp
 <div id="earn-popover" role="dialog" aria-modal="true" aria-label="How to earn on U9itus"
      onclick="if(event.target===this){(function(){var p=document.getElementById('earn-popover'),b=document.getElementById('btn-signin-cta');p.classList.remove('open');b&&b.classList.remove('active');b&&b.setAttribute('aria-expanded','false');})()}">
     <div class="ep-card">
@@ -547,9 +555,14 @@
             Get paid to stay informed
         </p>
         <p class="ep-body">
-            Watch political campaign videos from any state on this map and earn
-            <strong>up to $0.50 per video</strong> — deposited directly to your account.
+            Watch videos from politicians, local businesses, and other citizens on this map
+            and earn <strong>up to $0.50 per video</strong> — deposited directly to your account.
             Free to join, no experience needed.
+        </p>
+        <p class="ep-fine">
+            Open to any U.S. citizen, 18+. Refer friends through our
+            <a href="{{ $earlybankHref }}" target="_blank" rel="noopener">Early-bank</a>
+            program to earn bonus commission on every view they log.
         </p>
         <div class="ep-actions">
             <a class="ep-btn-primary" href="{{ $u9LoginUrl ?? url('/earn') }}" target="_blank" rel="noopener">
