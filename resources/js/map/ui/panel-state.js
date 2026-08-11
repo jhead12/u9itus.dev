@@ -101,9 +101,26 @@ export function renderCandidate(c, color) {
         </div></div>`;
 }
 
+/**
+ * Looks up an office's civic-education blurb. Tries an exact match first
+ * (the common case — statewide/House offices always match their role-map
+ * key exactly), then falls back to a substring match so seat-specific local
+ * labels like "Superior Court Judge, Seat 2" still pick up the generic
+ * "Superior Court Judge" blurb from CITY_OFFICE_ROLES.
+ */
+function lookupOfficeRole(office, roles) {
+    if (!roles || !office) return '';
+    if (roles[office]) return roles[office];
+    const lower = office.toLowerCase();
+    for (const [key, desc] of Object.entries(roles)) {
+        if (lower.includes(key.toLowerCase())) return desc;
+    }
+    return '';
+}
+
 export function renderOfficeGroup(g, roles, color) {
     color = color || '#6366f1';
-    const role = roles?.[g.office] ?? '';
+    const role = lookupOfficeRole(g.office, roles);
     const isOpen = OFFICE_DEFAULT_OPEN.has(g.office);
     const sectionId = `off-body-${_officeIdx++}`;
     const phase = g.election_phase || detectElectionPhase(g.candidates);
@@ -366,38 +383,28 @@ export function renderPollingLocationsLink(color) {
 }
 
 /**
- * @param {Object} cityOfficials keyed by city name -> array of officials
+ * @param {Object} cityOfficials keyed by city name -> array of {office, candidates}
+ *        groups (one group per distinct office/seat in that city — e.g. "Mayor",
+ *        "Superior Court Judge, Seat 2" — so multiple people running for the same
+ *        seat group together instead of listing as unrelated flat cards).
  * @param {Set<string>|null} filterCities restrict to these city names, or null for all
  */
 export function renderCityOfficialsSection(cityOfficials, color, filterCities = null, label = '🏙 City Officials') {
     const cityEntries = Object.entries(cityOfficials ?? {})
-        .filter(([city]) => !filterCities || filterCities.has(city));
+        .filter(([city]) => !filterCities || filterCities.has(city))
+        .filter(([, offices]) => offices?.length);
     if (!cityEntries.length) return '';
 
     let html = `<div style="border-top:1px solid ${color}20;margin:16px 0 14px;display:flex;align-items:center;gap:8px;">
         <span style="color:${color};font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;white-space:nowrap;">${label}</span>
         <div style="flex:1;border-top:1px solid ${color}20;"></div>
     </div>`;
-    for (const [city, officials] of cityEntries) {
+    for (const [city, offices] of cityEntries) {
         html += `<div style="margin-bottom:14px;">
             <p style="color:#94a3b8;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin:0 0 6px;"
-               title="City of ${city}">${city}</p>`;
-        for (const o of officials) {
-            const officeTitle = o.political_office || 'Mayor';
-            const roleDesc = CITY_OFFICE_ROLES[officeTitle] || null;
-            const elDateCity = o.election_date || null;
-            if (roleDesc) {
-                html += `<p class="office-role-tip" style="margin-bottom:6px;">${roleDesc}</p>`;
-            }
-            html += renderCandidate({
-                full_name: o.full_name, party: o.party, status: o.status || 'seated',
-                is_running: false, verified: o.verified || false, photo: o.photo || null,
-                slug: o.slug || null, profile_url: o.profile_url || null,
-                ballotpedia_url: o.ballotpedia_url || null, website: o.website || null,
-                bio: o.bio_excerpt || null, office: officeTitle, general_date: elDateCity,
-            }, color);
-        }
-        html += '</div>';
+               title="City of ${city}">${city}</p>
+            ${offices.map(g => renderOfficeGroup(g, CITY_OFFICE_ROLES, color)).join('')}
+        </div>`;
     }
     return html;
 }

@@ -252,14 +252,15 @@ class MapStateCandidatesController
         );
 
         // ── 2d. City / local officials (mayors etc.) for this state ───────────
-        // Only show seated, unclaimed officeholders to prevent test/dev
-        // politician accounts (claimed profiles with user_id set) from
-        // appearing as public city officials on the map.
+        // Seated officeholders AND declared/running candidates for city, county,
+        // and judicial (e.g. Superior Court Judge) seats — mirrors the House
+        // candidates query above (term_status != 'lost', seated or null both
+        // included) rather than only ever showing incumbents.
         $cityOfficials = Politician::query()
             ->whereRaw('UPPER(COALESCE(state, \'\')) = ?', [$state])
             ->where('is_active', true)
             ->whereIn('governance_level', ['City', 'County', 'Local'])
-            ->where('term_status', 'seated')
+            ->where(fn($q) => $q->where('term_status', '!=', 'lost')->orWhereNull('term_status'))
             ->whereNull('user_id')   // exclude claimed/personal accounts
             ->whereNotNull('city')   // must have a city name set
             ->orderBy('city')
@@ -272,7 +273,7 @@ class MapStateCandidatesController
             ->get(['id', 'uuid', 'full_name', 'political_office', 'party_affiliation',
                    'profile_photo_url', 'slug', 'is_running_candidate',
                    'term_status', 'verified_official', 'ballotpedia_id',
-                   'city', 'governance_level', 'website_url', 'bio']);
+                   'city', 'governance_level', 'website_url', 'bio', 'term_ends_on']);
 
         // ── 3. Bucket both into canonical office groups ────────────────────────
         $grouped = [];
@@ -477,11 +478,23 @@ class MapStateCandidatesController
             ];
         }
 
-        // ── 6. City officials grouped by city name ─────────────────────────────
+        // ── 6. City officials grouped by city name, then by exact office/seat ──
+        // Nested { city: { officeKey: {office, candidates: [...]} } } so multiple
+        // people running for the *same* seat (e.g. two "Superior Court Judge,
+        // Seat 2" candidates) group together instead of listing as unrelated
+        // flat cards — same {office, candidates} shape renderOfficeGroup() (JS)
+        // already knows how to render with seated/running splitting.
         $cityOfficialsGrouped = [];
         foreach ($cityOfficials as $pol) {
             $cityKey = $pol->city ?? 'Unknown City';
-            $cityOfficialsGrouped[$cityKey][] = [
+            $officeKey = $pol->political_office ?: 'Other Local Office';
+
+            $cityOfficialsGrouped[$cityKey][$officeKey] ??= [
+                'office'     => $officeKey,
+                'candidates' => [],
+            ];
+
+            $cityOfficialsGrouped[$cityKey][$officeKey]['candidates'][] = [
                 'id'              => $pol->id,
                 'source'          => 'platform',
                 'scrape_source'   => null,
@@ -494,7 +507,10 @@ class MapStateCandidatesController
                     ? (str_starts_with($pol->profile_photo_url, 'http') ? $pol->profile_photo_url : url($pol->profile_photo_url))
                     : null,
                 'slug'            => $pol->slug,
-                'status'          => $pol->term_status,
+                'status'          => ($pol->term_status === 'active' && ! $pol->is_running_candidate)
+                    ? 'seated'
+                    : $pol->term_status,
+                'is_running'      => $pol->term_status !== 'seated',
                 'verified'        => (bool) $pol->verified_official,
                 'ballotpedia_url' => $pol->ballotpedia_id
                     ? 'https://ballotpedia.org/' . $pol->ballotpedia_id
@@ -502,8 +518,15 @@ class MapStateCandidatesController
                 'website'         => $pol->website_url,
                 'profile_url'     => $pol->slug ? url('/p/' . $pol->slug) : null,
                 'bio_excerpt'     => $pol->bio ? Str::limit($pol->bio, 180) : null,
+                'term_end'        => optional($pol->term_ends_on)?->toDateString(),
                 'badges'          => $this->formatBadges($pol),
             ];
+        }
+        // Flatten each city's office-keyed map into a plain list of office groups.
+        // (Named $cityOfficeGroups, not $offices, to avoid shadowing the
+        // unrelated statewide-$offices Collection used later in this method.)
+        foreach ($cityOfficialsGrouped as $cityKey => $cityOfficeGroups) {
+            $cityOfficialsGrouped[$cityKey] = array_values($cityOfficeGroups);
         }
 
         // ── 7. Upcoming ballot measures for this state ─────────────────────────

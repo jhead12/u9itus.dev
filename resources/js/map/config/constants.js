@@ -131,4 +131,5 @@ export const CITY_OFFICE_ROLES = {
     'County Executive':         'Chief executive of the county government, similar to a governor at the county level.',
     'County Sheriff':           'Elected law-enforcement officer responsible for county-wide policing and jail operations.',
     'School Board Member':      'Elected official governing the local public school district — sets policy, hires superintendent, approves budget.',
+    'Superior Court Judge':     'Elected judge presiding over civil and criminal cases in the county trial court. Runs county-wide (often for a specific numbered seat), not by congressional district.',
 };

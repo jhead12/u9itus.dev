@@ -416,13 +416,18 @@
                          Builds /map?state=CA&district=33&slug=slug-here so the 3D
                          map flies directly to this politician's state, selects their
                          congressional district (when applicable), and auto-opens
-                         their candidate card in the panel. --}}
+                         their candidate card in the panel. The `district` column
+                         only means "congressional district number" for federal
+                         (House) politicians — for state/county/local politicians it
+                         holds unrelated values like a judicial "Seat 2", which is
+                         NOT a congressional district and must not be sent as one. --}}
                     @if($politician->state)
                         @php
                             $mapParams = array_filter([
                                 'state'    => $politician->state,
                                 // Extract numeric district from formats like "CA-33", "33", "District 33"
-                                'district' => $politician->district
+                                // — only valid for federal (House) politicians, see note above.
+                                'district' => (strtolower((string) $politician->governance_level) === 'federal' && $politician->district)
                                     ? preg_replace('/[^0-9]/', '', $politician->district) ?: null
                                     : null,
                                 'slug'     => $politician->slug,
