@@ -15,6 +15,7 @@ import { openDistrictPanel } from './panel-district.js';
 import { openPolDrawer } from './politician-drawer.js';
 import { syncLayerChip } from './layers-panel.js';
 import { refreshBusinessPins } from './business-pins.js';
+import { TOP_CITIES, fmtPop } from '../config/city-data.js';
 import * as THREE from 'three';
 
 const searchOverlay = document.getElementById('search-overlay');
@@ -160,6 +161,27 @@ for (const [stateName, count] of Object.entries(DISTRICT_COUNTS)) {
     }
 }
 
+for (const [stateName, abbr] of Object.entries(STATE_ABBR_MAP)) {
+    const regionName = stateToRegion[stateName];
+    const region      = REGIONS[regionName];
+    for (const [cityName, lat, lng, popThousands] of (TOP_CITIES[abbr] || [])) {
+        SEARCH_INDEX.push({
+            type:       'city',
+            label:      cityName,
+            sub:        `${abbr} · ${fmtPop(popThousands)} pop.`,
+            abbr,
+            stateName,
+            cityName,
+            lat,
+            lng,
+            regionName,
+            region,
+            color:      region?.hex || '#6366f1',
+            keywords:   [cityName.toLowerCase(), stateName.toLowerCase(), abbr.toLowerCase()],
+        });
+    }
+}
+
 function scoreMatch(item, q) {
     const terms = q.toLowerCase().trim().split(/\s+/);
     let score = 0;
@@ -208,6 +230,7 @@ function renderSearchResults(q) {
     searchEmpty.style.display = 'none';
 
     const states    = scored.filter(x => x.item.type === 'state');
+    const cities    = scored.filter(x => x.item.type === 'city');
     const districts = scored.filter(x => x.item.type === 'district');
 
     if (states.length) {
@@ -215,6 +238,12 @@ function renderSearchResults(q) {
         gl.className = 'sr-group-label'; gl.textContent = 'States';
         searchResults.appendChild(gl);
         states.forEach(x => appendResult(x.item));
+    }
+    if (cities.length) {
+        const gl = document.createElement('div');
+        gl.className = 'sr-group-label'; gl.textContent = 'Cities';
+        searchResults.appendChild(gl);
+        cities.forEach(x => appendResult(x.item));
     }
     if (districts.length) {
         const gl = document.createElement('div');
@@ -263,6 +292,7 @@ function appendResult(item) {
     el.dataset.idx = searchResults.querySelectorAll('.sr-item').length;
 
     const icon = item.type === 'state'      ? '🏛'
+               : item.type === 'city'       ? '🏙'
                : item.type === 'district'   ? '📍'
                : item.type === 'politician' ? '👤'
                : item.type === 'business'   ? '🏪'
@@ -342,6 +372,14 @@ async function activateResult(item) {
     }
     if (item.type === 'region') {
         enterRegionMode(item.regionName, item.region);
+        return;
+    }
+    if (item.type === 'city') {
+        const mesh = stateMeshes.find(m => m.userData.name === item.stateName);
+        if (mesh) await enterStateMode(item.stateName, mesh.userData.regionName, mesh.userData.region);
+        if (Number.isFinite(item.lat) && Number.isFinite(item.lng)) {
+            flyToPoint(item.lat, item.lng);
+        }
         return;
     }
     const mesh = stateMeshes.find(m => m.userData.name === item.stateName);
