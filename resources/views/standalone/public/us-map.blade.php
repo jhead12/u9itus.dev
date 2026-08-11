@@ -535,14 +535,12 @@
 
 {{-- ── Earn modal — true viewport-centered overlay, rendered at root level ── --}}
 @if(config('platform.map.voter_features_enabled') && auth()->guest())
-@php
-    // Forward whatever Early-bank referral this guest arrived with (fresh
-    // ?ref= on this request, or the 30-day cookie CaptureEarlyBankReferral
-    // already set) so the attribution survives the hop to early-bank.com.
-    $ebRef         = request()->query('ref') ?: request()->cookie(\App\Http\Middleware\CaptureEarlyBankReferral::COOKIE_NAME);
-    $earlybankBase = rtrim(config('services.earlybank.public_url', 'https://www.early-bank.com'), '/');
-    $earlybankHref = $earlybankBase . (($ebRef && \Illuminate\Support\Str::isUuid($ebRef)) ? '/?ref=' . urlencode($ebRef) : '/');
-@endphp
+{{-- Forward whatever Early-bank referral this guest arrived with (fresh
+     ?ref= on this request, or the 30-day cookie CaptureEarlyBankReferral
+     already set) so the attribution survives the hop to early-bank.com. --}}
+@php($ebRef = request()->query('ref') ?: request()->cookie(\App\Http\Middleware\CaptureEarlyBankReferral::COOKIE_NAME))
+@php($earlybankBase = rtrim(config('services.earlybank.public_url', 'https://www.early-bank.com'), '/'))
+@php($earlybankHref = $earlybankBase . (($ebRef && \Illuminate\Support\Str::isUuid($ebRef)) ? '/?ref=' . urlencode($ebRef) : '/'))
 <div id="earn-popover" role="dialog" aria-modal="true" aria-label="How to earn on U9itus"
      onclick="if(event.target===this){(function(){var p=document.getElementById('earn-popover'),b=document.getElementById('btn-signin-cta');p.classList.remove('open');b&&b.classList.remove('active');b&&b.setAttribute('aria-expanded','false');})()}">
     <div class="ep-card">
