@@ -537,12 +537,12 @@
             </div>
 
             <div class="flex items-center justify-center gap-6">
-                <a href="https://www.facebook.com/cakeee123" target="_blank" rel="noopener noreferrer"
+                <a href="" target="_blank" rel="noopener noreferrer"
                    class="flex items-center space-x-2 text-slate-400 hover:text-blue-400 transition text-sm">
                     <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
                     <span>Facebook</span>
                 </a>
-                <a href="https://www.youtube.com/" target="_blank" rel="noopener noreferrer"
+                <a href="https://www.youtube.com/@U9itus" target="_blank" rel="noopener noreferrer"
                    class="flex items-center space-x-2 text-slate-400 hover:text-red-400 transition text-sm">
                     <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M23.495 6.205a3.007 3.007 0 0 0-2.088-2.088c-1.87-.501-9.396-.501-9.396-.501s-7.507-.01-9.396.501A3.007 3.007 0 0 0 .527 6.205a31.247 31.247 0 0 0-.522 5.805 31.247 31.247 0 0 0 .522 5.783 3.007 3.007 0 0 0 2.088 2.088c1.868.502 9.396.502 9.396.502s7.506 0 9.396-.502a3.007 3.007 0 0 0 2.088-2.088 31.247 31.247 0 0 0 .5-5.783 31.247 31.247 0 0 0-.5-5.805zM9.609 15.601V8.408l6.264 3.602z"/></svg>
                     <span>YouTube</span>
