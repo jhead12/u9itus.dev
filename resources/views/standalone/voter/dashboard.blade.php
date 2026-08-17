@@ -41,6 +41,19 @@
         </div>
     </div>
 
+    @if(auth()->user()->is_guest)
+        <div class="bg-indigo-500/10 border border-indigo-500/30 rounded-xl px-5 py-4 flex flex-wrap items-center justify-between gap-3">
+            <p class="text-indigo-200 text-sm">
+                <span class="font-semibold">You're browsing as a guest.</span>
+                Create a free account to keep your favorites and notes, and start earning.
+            </p>
+            <a href="{{ route('register.voter') }}"
+               class="shrink-0 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold px-4 py-2 rounded-lg transition">
+                Create Free Account
+            </a>
+        </div>
+    @endif
+
     @include('standalone.voter.partials.authentic-user-verifier-banner')
 
     {{-- Upcoming election dates for the voter's registered state --}}

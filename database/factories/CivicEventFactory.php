@@ -30,7 +30,7 @@ class CivicEventFactory extends Factory
             'address' => $this->faker->optional()->streetAddress(),
             'city' => $this->faker->city(),
             'state' => $this->faker->stateAbbr(),
-            'zip' => $this->faker->optional()->zipCode(),
+            'zip' => $this->faker->optional()->postcode(),
             'latitude' => $this->faker->latitude(),
             'longitude' => $this->faker->longitude(),
             'starts_at' => $start,

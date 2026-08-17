@@ -11,7 +11,20 @@ import { unproject } from '../scene/projection.js';
  * @property {number} north
  * @property {number} east
  * @property {string} [topic]
+ * @property {string} [category] - Citizen business_category filter (e.g. "food")
  * @property {number} [limit=50]
+ */
+
+/**
+ * @typedef {Object} MapBusiness
+ * @property {string} id
+ * @property {'business'} type
+ * @property {string} name
+ * @property {string|null} category
+ * @property {string} address
+ * @property {number} lat
+ * @property {number} lng
+ * @property {boolean} verified
  */
 
 /**
@@ -30,9 +43,10 @@ import { unproject } from '../scene/projection.js';
  */
 
 /**
- * Fetch published geo-tagged blog posts within a bounding box.
+ * Fetch published geo-tagged blog posts, events, and opted-in businesses
+ * within a bounding box.
  * @param {MapContentOptions} bounds
- * @returns {Promise<{posts: MapPost[], total: number}>}
+ * @returns {Promise<{posts: MapPost[], businesses: MapBusiness[], total: number}>}
  */
 export async function fetchMapContent(bounds) {
     const params = new URLSearchParams({
@@ -42,6 +56,7 @@ export async function fetchMapContent(bounds) {
         east: String(bounds.east),
     });
     if (bounds.topic) params.set('topic', bounds.topic);
+    if (bounds.category) params.set('category', bounds.category);
     if (bounds.limit) params.set('limit', String(bounds.limit));
 
     const res = await fetch(`/api/v1/map/content?${params}`, {

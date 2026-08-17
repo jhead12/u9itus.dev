@@ -17,8 +17,10 @@
 use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\BillingController;
 use App\Http\Controllers\Api\EarlyBankController;
+use App\Http\Controllers\Api\MapBusinessSearchController;
 use App\Http\Controllers\Api\MapContentController;
 use App\Http\Controllers\Api\MapDistrictConfigController;
+use App\Http\Controllers\Api\MapDistrictNewsController;
 use App\Http\Controllers\Api\MapGeocodeController;
 use App\Http\Controllers\Api\MapInteractionController;
 use App\Http\Controllers\Api\MapCandidateEconomyController;
@@ -27,6 +29,7 @@ use App\Http\Controllers\Api\MapCandidateOverviewController;
 use App\Http\Controllers\Api\MapCityCensusController;
 use App\Http\Controllers\Api\MapRegionDemographicsController;
 use App\Http\Controllers\Api\MapStateCandidatesController;
+use App\Http\Controllers\Api\MapStateOverlaysController;
 use App\Http\Controllers\Api\MapPoliticianSearchController;
 use App\Http\Controllers\Api\OfficeProfileController;
 use App\Http\Controllers\Api\PayPalWebhookController;
@@ -97,10 +100,21 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         Route::get('/map/state-candidates', MapStateCandidatesController::class)
             ->name('map.state-candidates');
 
+        // All-50-states-at-once summary for overview-zoom choropleth layers
+        // (Party Control, Poverty Rate) — see MapStateOverlaysController's
+        // docblock for why this is separate from state-candidates above.
+        Route::get('/map/state-overlays', MapStateOverlaysController::class)
+            ->name('map.state-overlays');
+
         // Live politician typeahead — powers the "Politicians" group in the
         // map's search palette (resources/js/map/ui/search.js).
         Route::get('/map/politician-search', MapPoliticianSearchController::class)
             ->name('map.politician-search');
+
+        // Live business typeahead — powers the "Local Businesses" group in
+        // the map's search palette (resources/js/map/ui/search.js).
+        Route::get('/map/business-search', MapBusinessSearchController::class)
+            ->name('map.business-search');
 
         // Region panel — cities + Census ACS demographics (poverty, education,
         // income) for the states within a region.
@@ -131,6 +145,11 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         // Reverse geocode lat/lng → congressional district for the 3D map.
         Route::get('/map/geocode', MapGeocodeController::class)
             ->name('map.geocode');
+
+        // Local election/civic-administration news (polling places, ballot
+        // measures, redistricting) scoped to a clicked district's localities.
+        Route::get('/map/district-news', MapDistrictNewsController::class)
+            ->name('map.district-news');
 
         // Geo-tagged civic content (blog posts, later events) for the 3D map.
         Route::get('/map/content', MapContentController::class)

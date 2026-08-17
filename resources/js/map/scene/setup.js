@@ -7,17 +7,27 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 const container = document.getElementById('map-container');
 
 /**
- * Effective canvas width: on desktop (>768px) subtract the panel width
- * when the panel is open so the map renders centered in the visible area,
- * not behind the side panel.
+ * Effective canvas width: on desktop (>768px) subtract the width of whichever
+ * side panel(s) are open so the map renders centered in the visible area
+ * between them, not underneath either one.
+ *
+ * #info-panel docks left, #pol-drawer docks right — both can be open at
+ * once (e.g. a district's info panel plus a politician's profile), so the
+ * canvas may need to shrink and shift from either or both sides at a time.
  */
-const PANEL_WIDTH = 324; // panel width (300px) + right margin (12px) + border
-export function W() {
+const INFO_PANEL_WIDTH = 324; // panel width (300px) + margin (12px) + border
+const POL_DRAWER_WIDTH = 344; // drawer width (320px) + margin (12px) + border
+
+export function leftInset() {
     const panel = document.getElementById('info-panel');
-    if (window.innerWidth > 768 && panel && panel.classList.contains('open')) {
-        return Math.max(container.clientWidth - PANEL_WIDTH, 200);
-    }
-    return container.clientWidth;
+    return (window.innerWidth > 768 && panel?.classList.contains('open')) ? INFO_PANEL_WIDTH : 0;
+}
+function rightInset() {
+    const drawer = document.getElementById('pol-drawer');
+    return (window.innerWidth > 768 && drawer?.classList.contains('open')) ? POL_DRAWER_WIDTH : 0;
+}
+export function W() {
+    return Math.max(container.clientWidth - leftInset() - rightInset(), 200);
 }
 export function H() { return container.clientHeight; }
 
@@ -91,9 +101,12 @@ export function resizeRenderer() {
     camera.aspect = W() / H();
     camera.updateProjectionMatrix();
     renderer.setSize(W(), H(), false); // false = don't update canvas CSS size
-    // Offset the canvas so it fills only the map area (not under the panel)
+    // Fit the canvas into just the map area (not under either side panel):
+    // shrink to W()/H() and shift right by however much #info-panel eats
+    // into the left edge.
     renderer.domElement.style.width = W() + 'px';
     renderer.domElement.style.height = H() + 'px';
+    renderer.domElement.style.marginLeft = leftInset() + 'px';
 }
 
 resizeRenderer();

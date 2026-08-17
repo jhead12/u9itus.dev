@@ -20,6 +20,18 @@ use App\Http\Controllers\Standalone\CitizenCampaignVoterController;
 use App\Http\Controllers\Standalone\CitizenController;
 use App\Http\Controllers\Standalone\DashboardController;
 use App\Http\Controllers\Standalone\BoundaryFavoriteController;
+use App\Http\Controllers\Standalone\GuestBoundaryFavoriteController;
+use App\Http\Controllers\Standalone\GuestDigestOptInController;
+use App\Http\Controllers\Standalone\CauseFavoriteController;
+use App\Http\Controllers\Standalone\CauseBrowseController;
+use App\Http\Controllers\Standalone\BallotMeasureBrowseController;
+use App\Http\Controllers\Standalone\PublicGroupController;
+use App\Http\Controllers\Standalone\GroupController;
+use App\Http\Controllers\Standalone\GroupMembershipController;
+use App\Http\Controllers\Standalone\GroupMemberController;
+use App\Http\Controllers\Standalone\GroupEventController;
+use App\Http\Controllers\Standalone\BallotMeasureFavoriteController;
+use App\Http\Controllers\Standalone\PoliticianNoteController;
 use App\Http\Controllers\Standalone\FavoriteController;
 use App\Http\Controllers\Standalone\PoliticianController;
 use App\Http\Controllers\Standalone\PostController;
@@ -32,6 +44,9 @@ use App\Http\Controllers\Standalone\VoterController;
 use App\Http\Controllers\Standalone\AdminController;
 use App\Http\Controllers\Standalone\AdminOfficeProfileController;
 use App\Http\Controllers\Standalone\AdminPostController;
+use App\Http\Controllers\Standalone\AdminTopicController;
+use App\Http\Controllers\Standalone\AdminCauseController;
+use App\Http\Controllers\Standalone\AdminBallotMeasureController;
 use App\Http\Controllers\Standalone\PublicProfileController;
 use App\Http\Controllers\Standalone\ProfileClaimController;
 use App\Http\Controllers\Standalone\SitemapController;
@@ -64,10 +79,6 @@ Route::middleware('guest')->group(function () {
     Route::get('/register/politician', [RegistrationController::class, 'showRegisterPolitician'])->name('register.politician');
     Route::post('/register/politician', [RegistrationController::class, 'registerPolitician'])->name('register.politician.submit');
 
-    // Voter registration
-    Route::get('/register/voter', [RegistrationController::class, 'showRegisterVoter'])->name('register.voter');
-    Route::post('/register/voter', [RegistrationController::class, 'registerVoter'])->name('register.voter.submit');
-
     // Citizen registration
     Route::get('/register/citizen', [RegistrationController::class, 'showRegisterCitizen'])->name('register.citizen');
     Route::post('/register/citizen', [RegistrationController::class, 'registerCitizen'])->name('register.citizen.submit');
@@ -82,6 +93,14 @@ Route::middleware('guest')->group(function () {
     Route::get('/reset-password/{token}', [PasswordResetController::class, 'showResetPassword'])->name('password.reset');
     Route::post('/reset-password', [PasswordResetController::class, 'resetPassword'])->name('password.update');
 });
+
+// Voter registration — deliberately NOT behind the `guest` middleware: a
+// guest-trial voter (see ProvisionGuestVoterSession) is authenticated, and
+// must still be able to reach this form to upgrade their session into a
+// real account. RegistrationController::showRegisterVoter()/registerVoter()
+// handle the "already a real voter" redirect themselves.
+Route::get('/register/voter', [RegistrationController::class, 'showRegisterVoter'])->name('register.voter');
+Route::post('/register/voter', [RegistrationController::class, 'registerVoter'])->name('register.voter.submit');
 
 // Logout (authenticated users only)
 Route::post('/logout', [LoginController::class, 'logout'])->middleware('auth')->name('logout');
@@ -133,8 +152,8 @@ Route::middleware(['auth', 'verified', 'no.cache'])->group(function () {
         Route::get('/first-watch', [VoterOnboardingController::class, 'firstWatch'])->name('first-watch');
         Route::post('/first-watch', [VoterOnboardingController::class, 'completeFirstWatch'])->name('complete-first-watch');
         
-        Route::get('/payout', [VoterOnboardingController::class, 'payoutSetup'])->name('payout');
-        Route::post('/payout', [VoterOnboardingController::class, 'completePayoutSetup'])->name('complete-payout');
+        Route::get('/payout', [VoterOnboardingController::class, 'payoutSetup'])->name('payout')->middleware('block.guest.money');
+        Route::post('/payout', [VoterOnboardingController::class, 'completePayoutSetup'])->name('complete-payout')->middleware('block.guest.money');
         
         Route::get('/referrals', [VoterOnboardingController::class, 'referralSetup'])->name('referrals');
         Route::post('/referrals', [VoterOnboardingController::class, 'completeReferralSetup'])->name('complete-referrals');
@@ -186,7 +205,11 @@ Route::middleware(['auth', 'verified', 'no.cache'])->group(function () {
 |--------------------------------------------------------------------------
 */
 
-Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(function () {
+// `guest.trial` runs first (ahead of `auth`) so an anonymous visit to a
+// /voter/* URL can be silently upgraded into a real-but-flagged voter
+// session before the `auth` middleware would otherwise redirect to login.
+// See ProvisionGuestVoterSession — it's a no-op for every other path here.
+Route::middleware(['guest.trial', 'auth', 'verified', 'check.role', 'no.cache'])->group(function () {
 
     // Id.me identity verification
     Route::prefix('verification/idme')->name('verification.idme.')->group(function () {
@@ -258,7 +281,35 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         }
         return view('standalone.auth.portal-pick', ['user' => $user]);
     })->name('portal-pick');
-    
+
+    /*
+    |--------------------------------------------------------------------------
+    | Neighborhood Groups (voter or citizen — not politician)
+    |--------------------------------------------------------------------------
+    */
+    Route::prefix('groups')->name('groups.')->middleware(['role:voter|citizen'])->group(function () {
+        Route::get('/create', [GroupController::class, 'create'])->name('create');
+        Route::post('/', [GroupController::class, 'store'])->name('store');
+        Route::get('/{group}/edit', [GroupController::class, 'edit'])->name('edit');
+        Route::put('/{group}', [GroupController::class, 'update'])->name('update');
+        Route::delete('/{group}', [GroupController::class, 'destroy'])->name('destroy');
+        Route::post('/{group}/join', [GroupMembershipController::class, 'store'])->name('join');
+        Route::delete('/{group}/leave', [GroupMembershipController::class, 'destroy'])->name('leave');
+
+        Route::get('/{group}/members', [GroupMemberController::class, 'index'])->name('members.index');
+        Route::patch('/{group}/members/{user}/role', [GroupMemberController::class, 'updateRole'])->name('members.role');
+        Route::delete('/{group}/members/{user}', [GroupMemberController::class, 'destroy'])->name('members.destroy');
+
+        Route::prefix('{group}/events')->name('events.')->group(function () {
+            Route::get('/', [GroupEventController::class, 'index'])->name('index');
+            Route::get('/create', [GroupEventController::class, 'create'])->name('create');
+            Route::post('/', [GroupEventController::class, 'store'])->name('store');
+            Route::get('/{event}/edit', [GroupEventController::class, 'edit'])->name('edit');
+            Route::put('/{event}', [GroupEventController::class, 'update'])->name('update');
+            Route::patch('/{event}/cancel', [GroupEventController::class, 'cancel'])->name('cancel');
+        });
+    });
+
     /*
     |--------------------------------------------------------------------------
     | Politician Dashboard & Campaign Management
@@ -349,6 +400,8 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
             Route::get('/', [PostController::class, 'index'])->name('index');
             Route::get('/create', [PostController::class, 'create'])->name('create');
             Route::post('/', [PostController::class, 'store'])->name('store');
+            Route::post('/images', [PostController::class, 'uploadImage'])->name('images');
+            Route::post('/embeds', [PostController::class, 'createEmbed'])->name('embeds');
             Route::get('/{post}', [PostController::class, 'show'])->name('show');
             Route::get('/{post}/edit', [PostController::class, 'edit'])->name('edit');
             Route::put('/{post}', [PostController::class, 'update'])->name('update');
@@ -412,24 +465,27 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         Route::post('/watch/{token}/ask-question', [VoterController::class, 'askQuestion'])->name('watch.ask-question');
         Route::post('/watch/{token}/message-politician', [VoterController::class, 'messagePolitician'])->name('watch.message-politician');
         
-        // Earnings & Payouts
-        Route::get('/earnings', [VoterController::class, 'earnings'])->name('earnings');
-        Route::get('/earnings/history', [VoterController::class, 'earningsHistory'])->name('earnings.history');
-        Route::post('/earnings/request-payout', [VoterController::class, 'requestPayout'])->name('earnings.payout');
-        // POST-only: this mutates state (creates a Stripe account, redirects to
-        // Stripe-hosted onboarding). GET would be triggered by link prefetchers.
-        Route::post('/authentic-user-verifier/start', [VoterController::class, 'startAuthenticUserVerifier'])->name('authentic-user-verifier.start');
-        // POST-only: generates a single-use Stripe login link and immediately
-        // redirects away with it — GET would let prefetchers burn the link.
-        Route::post('/wallet/manage', [VoterController::class, 'openStripeDashboard'])->name('wallet.manage');
+        // Earnings & Payouts — money-related; guest-trial voters are blocked
+        // (BlockGuestFromMonetization) even though they never earn a balance.
+        Route::middleware('block.guest.money')->group(function () {
+            Route::get('/earnings', [VoterController::class, 'earnings'])->name('earnings');
+            Route::get('/earnings/history', [VoterController::class, 'earningsHistory'])->name('earnings.history');
+            Route::post('/earnings/request-payout', [VoterController::class, 'requestPayout'])->name('earnings.payout');
+            // POST-only: this mutates state (creates a Stripe account, redirects to
+            // Stripe-hosted onboarding). GET would be triggered by link prefetchers.
+            Route::post('/authentic-user-verifier/start', [VoterController::class, 'startAuthenticUserVerifier'])->name('authentic-user-verifier.start');
+            // POST-only: generates a single-use Stripe login link and immediately
+            // redirects away with it — GET would let prefetchers burn the link.
+            Route::post('/wallet/manage', [VoterController::class, 'openStripeDashboard'])->name('wallet.manage');
 
-        // Referrals
-        Route::get('/referrals', [VoterController::class, 'referrals'])->name('referrals');
-        Route::get('/referrals/link', [VoterController::class, 'getReferralLink'])->name('referrals.link');
+            // Referrals
+            Route::get('/referrals', [VoterController::class, 'referrals'])->name('referrals');
+            Route::get('/referrals/link', [VoterController::class, 'getReferralLink'])->name('referrals.link');
 
-        // Early-bank SSO — generates a signed token and bounces the voter directly
-        // into their Early-bank dashboard without a separate login.
-        Route::get('/earlybank/sso', [VoterController::class, 'earlyBankSso'])->name('earlybank.sso');
+            // Early-bank SSO — generates a signed token and bounces the voter directly
+            // into their Early-bank dashboard without a separate login.
+            Route::get('/earlybank/sso', [VoterController::class, 'earlyBankSso'])->name('earlybank.sso');
+        });
         
         // Preferences
         Route::get('/preferences', [VoterController::class, 'preferences'])->name('preferences');
@@ -447,10 +503,12 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         // ── Badges ───────────────────────────────────────────────────────────
         Route::post('/badges/{topicId}', [BadgeController::class, 'voterStore'])->name('badges.store');
         Route::delete('/badges/{topicId}', [BadgeController::class, 'voterDestroy'])->name('badges.destroy');
+        Route::put('/badges/{topicId}/visibility', [BadgeController::class, 'voterUpdateVisibility'])->name('badges.visibility');
 
         // ── Favorites (follow politicians) ───────────────────────────────────
         Route::get('/favorites', [FavoriteController::class, 'index'])->name('favorites.index');
         Route::get('/favorites/panel', [FavoriteController::class, 'panel'])->name('favorites.panel');
+        Route::get('/favorites/ids', [FavoriteController::class, 'ids'])->name('favorites.ids');
         Route::post('/favorites/{politicianId}', [FavoriteController::class, 'store'])->name('favorites.store');
         Route::delete('/favorites/{politicianId}', [FavoriteController::class, 'destroy'])->name('favorites.destroy');
 
@@ -462,6 +520,23 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         Route::get('/boundaries', [BoundaryFavoriteController::class, 'index'])->name('boundaries.index');
         Route::post('/boundaries', [BoundaryFavoriteController::class, 'store'])->name('boundaries.store');
         Route::delete('/boundaries/{id}', [BoundaryFavoriteController::class, 'destroy'])->name('boundaries.destroy');
+
+        // ── Causes (browse + favorite) ────────────────────────────────────────
+        Route::get('/causes', [CauseBrowseController::class, 'index'])->name('causes.index');
+        Route::get('/causes/{cause}', [CauseBrowseController::class, 'show'])->name('causes.show');
+        Route::post('/causes/{causeId}', [CauseFavoriteController::class, 'store'])->name('causes.store');
+        Route::delete('/causes/{id}', [CauseFavoriteController::class, 'destroy'])->name('causes.destroy');
+
+        // ── Ballot measures (browse + favorite) ────────────────────────────────
+        Route::get('/ballot-measures', [BallotMeasureBrowseController::class, 'index'])->name('ballot-measures.index');
+        Route::get('/ballot-measures/{measure}', [BallotMeasureBrowseController::class, 'show'])->name('ballot-measures.show');
+        Route::post('/ballot-measures/{ballotMeasureId}', [BallotMeasureFavoriteController::class, 'store'])->name('ballot-measures.store');
+        Route::delete('/ballot-measures/{id}', [BallotMeasureFavoriteController::class, 'destroy'])->name('ballot-measures.destroy');
+
+        // ── Personal notes on politicians (one running note each) ────────────
+        Route::get('/politicians/{politicianId}/note', [PoliticianNoteController::class, 'show'])->name('politicians.note.show');
+        Route::post('/politicians/{politicianId}/note', [PoliticianNoteController::class, 'store'])->name('politicians.note.store');
+        Route::delete('/politicians/{politicianId}/note', [PoliticianNoteController::class, 'destroy'])->name('politicians.note.destroy');
 
         // ── Citizen profile upgrade (add Citizen role to existing voter account) ──
         Route::get('/add-citizen-profile', [VoterController::class, 'showAddCitizenProfile'])->name('add-citizen-profile');
@@ -509,11 +584,17 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         Route::post('/billing/payment-methods', [CitizenController::class, 'storePaymentMethod'])->name('billing.payment-methods.store');
         Route::delete('/billing/payment-methods/{paymentMethod}', [CitizenController::class, 'deletePaymentMethod'])->name('billing.payment-methods.delete');
 
+        // Business location settings — address, category, and the map opt-in.
+        Route::get('/settings', [CitizenController::class, 'settings'])->name('settings');
+        Route::put('/settings', [CitizenController::class, 'updateSettings'])->name('settings.update');
+
         // ── Blog Posts ───────────────────────────────────────────────────────
         Route::prefix('posts')->name('posts.')->group(function () {
             Route::get('/', [PostController::class, 'index'])->name('index');
             Route::get('/create', [PostController::class, 'create'])->name('create');
             Route::post('/', [PostController::class, 'store'])->name('store');
+            Route::post('/images', [PostController::class, 'uploadImage'])->name('images');
+            Route::post('/embeds', [PostController::class, 'createEmbed'])->name('embeds');
             Route::get('/{post}', [PostController::class, 'show'])->name('show');
             Route::get('/{post}/edit', [PostController::class, 'edit'])->name('edit');
             Route::put('/{post}', [PostController::class, 'update'])->name('update');
@@ -650,6 +731,7 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         Route::post('/platform-settings', [AdminController::class, 'updatePlatformSetting'])->name('platform-settings.update');
         Route::delete('/platform-settings', [AdminController::class, 'deletePlatformSetting'])->name('platform-settings.delete');
         Route::post('/platform-settings/clear-cache', [AdminController::class, 'clearSettingsCache'])->name('platform-settings.clear-cache');
+        Route::post('/platform-settings/guest-trial', [AdminController::class, 'updateGuestTrialMode'])->name('platform-settings.guest-trial');
 
         // Office Profiles — civic education data for the voter popup
         Route::get('/office-profiles', [AdminOfficeProfileController::class, 'index'])->name('office-profiles.index');
@@ -674,6 +756,30 @@ Route::middleware(['auth', 'verified', 'check.role', 'no.cache'])->group(functio
         Route::post('/posts/{post}/restore', [AdminPostController::class, 'restore'])->name('posts.restore');
         Route::delete('/posts/{post}', [AdminPostController::class, 'destroy'])->name('posts.destroy');
 
+        // Topics — issue-area taxonomy used to tag campaigns, causes, and badges
+        Route::get('/topics', [AdminTopicController::class, 'index'])->name('topics.index');
+        Route::get('/topics/create', [AdminTopicController::class, 'create'])->name('topics.create');
+        Route::post('/topics', [AdminTopicController::class, 'store'])->name('topics.store');
+        Route::get('/topics/{topic}/edit', [AdminTopicController::class, 'edit'])->name('topics.edit');
+        Route::put('/topics/{topic}', [AdminTopicController::class, 'update'])->name('topics.update');
+        Route::delete('/topics/{topic}', [AdminTopicController::class, 'destroy'])->name('topics.destroy');
+
+        // Causes — specific issues under a Topic that voters can favorite
+        Route::get('/causes', [AdminCauseController::class, 'index'])->name('causes.index');
+        Route::get('/causes/create', [AdminCauseController::class, 'create'])->name('causes.create');
+        Route::post('/causes', [AdminCauseController::class, 'store'])->name('causes.store');
+        Route::get('/causes/{cause}/edit', [AdminCauseController::class, 'edit'])->name('causes.edit');
+        Route::put('/causes/{cause}', [AdminCauseController::class, 'update'])->name('causes.update');
+        Route::delete('/causes/{cause}', [AdminCauseController::class, 'destroy'])->name('causes.destroy');
+
+        // Ballot Measures — complements the Ballotpedia import pipeline
+        Route::get('/ballot-measures', [AdminBallotMeasureController::class, 'index'])->name('ballot-measures.index');
+        Route::get('/ballot-measures/create', [AdminBallotMeasureController::class, 'create'])->name('ballot-measures.create');
+        Route::post('/ballot-measures', [AdminBallotMeasureController::class, 'store'])->name('ballot-measures.store');
+        Route::get('/ballot-measures/{ballotMeasure}/edit', [AdminBallotMeasureController::class, 'edit'])->name('ballot-measures.edit');
+        Route::put('/ballot-measures/{ballotMeasure}', [AdminBallotMeasureController::class, 'update'])->name('ballot-measures.update');
+        Route::delete('/ballot-measures/{ballotMeasure}', [AdminBallotMeasureController::class, 'destroy'])->name('ballot-measures.destroy');
+
         // Admin Profile (Phase 11)
         Route::get('/profile', [AdminController::class, 'profile'])->name('profile');
         Route::put('/profile', [AdminController::class, 'updateProfile'])->name('profile.update');
@@ -696,8 +802,28 @@ Route::post('/contact', [DashboardController::class, 'submitContact'])->name('co
 Route::get('/politicians', [PublicProfileController::class, 'index'])->name('politicians.directory');
 Route::get('/district-lookup', [PublicProfileController::class, 'districtLookup'])->name('district.lookup');
 
+// Neighborhood Groups — public directory + group page
+Route::get('/groups', [PublicGroupController::class, 'index'])->name('groups.directory');
+Route::get('/groups/{group}/{scope?}', [PublicGroupController::class, 'show'])->name('groups.public.show');
+
 // Interactive 3D U.S. Regional Map
 Route::get('/map', fn() => view('standalone.public.us-map'))->name('us.map');
+
+// Guest (unauthenticated) map favorites — cookie-backed counterpart to the
+// role:voter-gated /voter/boundaries routes above. See GuestBoundaryCookie
+// and GuestBoundaryFavoriteController for the storage contract.
+Route::prefix('map/boundaries')->name('map.boundaries.')->middleware('throttle:60,1')->group(function () {
+    Route::get('/', [GuestBoundaryFavoriteController::class, 'index'])->name('index');
+    Route::post('/', [GuestBoundaryFavoriteController::class, 'store'])->name('store');
+    Route::delete('/{key}', [GuestBoundaryFavoriteController::class, 'destroy'])->name('destroy');
+});
+
+Route::post('/map/boundaries-digest-optin', [GuestDigestOptInController::class, 'store'])
+    ->middleware('throttle:5,1')->name('map.boundaries.digest-optin');
+Route::get('/map/boundaries-digest/confirm/{voter}/{hash}', [GuestDigestOptInController::class, 'confirm'])
+    ->middleware(['signed', 'throttle:20,1'])->name('map.boundaries.digest.confirm');
+Route::get('/map/boundaries-digest/unsubscribe/{voter}/{hash}', [GuestDigestOptInController::class, 'unsubscribe'])
+    ->middleware(['signed', 'throttle:20,1'])->name('map.boundaries.digest.unsubscribe');
 
 // Public Blog
 Route::get('/blog', [PublicPostController::class, 'index'])->name('blog.index');

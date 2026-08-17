@@ -11,7 +11,7 @@ export let activeState = null;
 export let selectedState = null;
 export let statePanelRequestId = 0;
 export let stateData = null;
-export let colorMode = 'region';     // 'region' | 'party'
+export let colorMode = 'region';     // 'region' | 'party' | 'poverty'
 export let showSmallCities = false;
 
 /** hoveredMesh lives in navigation/mode-transitions.js (local variable exported from there). */
@@ -30,8 +30,11 @@ export function setShowSmallCities(v){ showSmallCities = v; }
 /** Active data overlay layers (persisted in localStorage) */
 export const ACTIVE_LAYERS = new Set();
 
-/** Governor party by state abbreviation — populated by ensureGovernorParties() */
+/** Governor party by state abbreviation — populated by ensureStateOverlays() */
 export let govPartyByAbbr = {};
+
+/** Poverty rate (%) by state abbreviation — populated by ensureStateOverlays() */
+export let povertyRateByAbbr = {};
 
 /** District config — populated by initDistrictConfig().
  *  Fallback values mirror the 119th Congress (safe until the first daily sync). */
@@ -78,4 +81,30 @@ export function removeFavoriteById(id) {
 
 export function isFavorite(parts) {
     return favoriteBoundaries.has(favoriteKey(parts));
+}
+
+/**
+ * Followed politicians (candidate-follow, distinct from favoriteBoundaries
+ * above) for the logged-in voter. Hydrated at boot from /voter/favorites/ids
+ * when U9.session.isVoter(). Keyed by plain numeric politician id — no
+ * composite key needed since a politician has a single stable id, unlike a
+ * boundary.
+ */
+export const followedPoliticians = new Set();
+
+export function setFollowed(ids) {
+    followedPoliticians.clear();
+    for (const id of ids) followedPoliticians.add(id);
+}
+
+export function addFollowed(id) {
+    followedPoliticians.add(id);
+}
+
+export function removeFollowed(id) {
+    followedPoliticians.delete(id);
+}
+
+export function isFollowingPolitician(id) {
+    return followedPoliticians.has(id);
 }

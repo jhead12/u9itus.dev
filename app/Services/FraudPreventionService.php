@@ -6,10 +6,13 @@ use App\Enums\ViewPaymentStatus;
 use App\Enums\ViewSessionStatus;
 use App\Events\FraudFlagRaised;
 use App\Models\FraudSignal;
+use App\Models\User;
 use App\Models\ViewSession;
 use App\Models\Voter;
+use App\Notifications\FraudAlertNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Notification;
 
 /**
  * Fraud detection & prevention for view sessions — Phase 8.
@@ -161,6 +164,10 @@ class FraudPreventionService
                 $this->flagVoter($voter, $flags);
                 $primaryReason = implode(', ', $flags);
                 event(new FraudFlagRaised($voter, $score, $primaryReason));
+                Notification::send(
+                    User::role('admin')->get(),
+                    new FraudAlertNotification($voter, $primaryReason, $score)
+                );
             }
         }
 

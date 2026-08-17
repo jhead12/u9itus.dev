@@ -14,6 +14,13 @@
  *   rss_url     — feed URL; use {QUERY} placeholder for search term
  *   type        — 'rss' | 'api' (api sources handled in CandidateNewsService)
  *   icon        — emoji or short text shown on the filter button
+ *
+ * 'civic_keywords' is used by DistrictNewsService (not candidate coverage) —
+ * the broader keyword list it checks a fetched article's text against when
+ * deciding whether a story about a locality is actually about election
+ * administration (polling places, ballot measures, redistricting, etc.)
+ * rather than local news generally. A shorter subset of these terms is also
+ * used to build the initial RSS search query.
  */
 
 return [
@@ -59,6 +66,16 @@ return [
             'icon'    => '⚖️',
             'type'    => 'rss',
             'rss_url' => 'https://news.google.com/rss/search?q={QUERY}+site:thehill.com&hl=en-US&gl=US&ceid=US:en',
+        ],
+        [
+            'id'      => 'votebeat',
+            'label'   => 'Votebeat',
+            'icon'    => '🗳️',
+            'type'    => 'rss',
+            // Nonprofit newsroom covering election administration nationwide
+            // (polling places, ballot access, voting machines, election law) —
+            // votebeat.org, part of the Chalkbeat/States Newsroom network.
+            'rss_url' => 'https://news.google.com/rss/search?q={QUERY}+site:votebeat.org&hl=en-US&gl=US&ceid=US:en',
         ],
     ],
 
@@ -228,5 +245,19 @@ return [
         'WY' => [
             ['id' => 'wyofile',      'label' => 'WyoFile',            'icon' => '🔎', 'type' => 'rss', 'rss_url' => 'https://news.google.com/rss/search?q={QUERY}+site:wyofile.com&hl=en-US&gl=US&ceid=US:en'],
         ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Civic Keywords (district news relevance gate)
+    |--------------------------------------------------------------------------
+    */
+    'civic_keywords' => [
+        'polling place', 'polling site', 'poll worker', 'ballot measure',
+        'ballot initiative', 'redistricting', 'voter registration', 'voter roll',
+        'election day', 'early voting', 'mail ballot', 'absentee ballot',
+        'election security', 'voting machine', 'election official',
+        'county elections', 'election commission', 'referendum',
+        'special election', 'runoff election',
     ],
 ];

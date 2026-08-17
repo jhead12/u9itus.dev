@@ -5,8 +5,8 @@ import { STATE_ABBR_MAP, PARTY_HEX, PARTY_LABEL, OFFICE_ROLES } from '../config/
 import { stateData, statePanelRequestId, mapMode, activeRegion, activeState } from '../state/map-state.js';
 import { districtMeshes } from '../scene/district-overlay.js';
 import { openInfoPanel } from './info-panel.js';
-import { renderCandidate, renderOfficeGroup, partyClass, detectElectionPhase, noDataNotice, renderBallotMeasuresSection, renderCityOfficialsSection, renderElectionDatesBanner } from './panel-state.js';
-import { openPolDrawer } from './politician-drawer.js';
+import { renderCandidate, renderOfficeGroup, partyClass, detectElectionPhase, noDataNotice, renderCityOfficialsSection, renderElectionDatesBanner, renderPollingLocationsLink } from './panel-state.js';
+import { openPolDrawer, renderItemListSection } from './politician-drawer.js';
 import { createFavoriteButton } from './boundary-favorite.js';
 import { renderCityCard, fetchCitiesForState, wireCityCardClicks } from './city-demographics-card.js';
 import { fetchStatePlaces } from '../api/tigerweb-places.js';
@@ -41,7 +41,7 @@ function renderBoundaryCitiesList(cities, color) {
     if (!cities.length) return '';
     const items = cities.map(c => `<span style="font-size:11px;padding:3px 10px;border-radius:999px;background:${color}18;border:1px solid ${color}44;color:${color};white-space:nowrap;">${c.name}</span>`).join('');
     return `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:4px;">${items}</div>
-        <p style="font-size:10px;color:#475569;margin:6px 0 0;">Source: U.S. Census Bureau TIGERweb boundaries.</p>`;
+        <p style="font-size:10px;color:#94a3b8;margin:6px 0 0;">Source: U.S. Census Bureau TIGERweb boundaries.</p>`;
 }
 
 /**
@@ -74,6 +74,34 @@ async function fetchDistrictCitiesSection(regionName, stateAbbr, stateName, dist
         </div>
         ${bodyHtml}
         ${officialsHtml}
+    </div>`;
+}
+
+/**
+ * Renders the "Local Election & Civic News" section: polling-place changes,
+ * ballot measures, redistricting, and similar election-administration
+ * stories scoped to the cities inside this district. Reuses the same card
+ * markup as the politician drawer's news list. Returns '' (no section) when
+ * the backend has nothing verified yet, same as fetchDistrictCitiesSection.
+ */
+async function fetchDistrictNewsSection(houseKey, districtLabel, stateName, color) {
+    const params = new URLSearchParams({ district_code: houseKey, district_label: districtLabel, state_name: stateName });
+
+    let news = [];
+    try {
+        const res = await fetch(`/api/v1/map/district-news?${params.toString()}`);
+        if (res.ok) {
+            const data = await res.json();
+            news = Array.isArray(data.news) ? data.news : [];
+        }
+    } catch (err) {
+        console.warn('[map] district-news fetch failed:', err);
+    }
+
+    if (!news.length) return '';
+
+    return `<div id="dist-news">
+        ${renderItemListSection('📰 Local Election & Civic News', news)}
     </div>`;
 }
 
@@ -112,6 +140,10 @@ export async function openDistrictPanel(districtNum, districtLabel, stateName, r
                 primary_result: c.primary_result || null,
                 general_date: c.general_date || null,
                 office: `U.S. Representative — ${districtLabel}`,
+                // Machine-readable district key ("FL-13") alongside the human
+                // label above — office text alone can't be regex-parsed back
+                // into a district code (districtLabel there is e.g. "District 13").
+                district: houseKey,
             };
         });
     } else {
@@ -139,17 +171,17 @@ export async function openDistrictPanel(districtNum, districtLabel, stateName, r
             const genDate = advancedChalls.find(c => c.general_date)?.general_date;
             const challLabel = 'General Election Candidates'
                 + (genDate ? ` · ${new Date(genDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}` : '');
-            challSection = `<p style="color:#475569;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin:12px 0 6px;">${challLabel}</p>
+            challSection = `<p style="color:#94a3b8;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin:12px 0 6px;">${challLabel}</p>
                 ${advancedChalls.map(c => renderCandidate(c, color)).join('')}`;
         }
     } else {
-        challSection = `<p style="color:#475569;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin:12px 0 6px;">2026 Primary Challengers</p>
+        challSection = `<p style="color:#94a3b8;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin:12px 0 6px;">2026 Primary Challengers</p>
             ${challenger ? renderCandidate(challenger, color) : ''}
             ${third ? renderCandidate(third, color) : ''}`;
     }
 
     const houseHtml = seated
-        ? `<p style="color:#475569;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin:8px 0 6px;">Current Officeholder</p>
+        ? `<p style="color:#94a3b8;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin:8px 0 6px;">Current Officeholder</p>
         ${renderCandidate(seated, color)}
         ${challSection}`
         : noDataNotice('No records for this district yet. Data is synced weekly from congress-legislators and Ballotpedia.');
@@ -161,16 +193,16 @@ export async function openDistrictPanel(districtNum, districtLabel, stateName, r
     const _distBanner = (_distApiStatus === 'unreachable')
         ? `<div style="display:flex;align-items:center;gap:8px;background:#1e1a2e;border:1px solid #7c3aed55;border-radius:8px;padding:8px 12px;margin-bottom:12px;">
              <span style="font-size:14px;">⚠️</span>
-             <div><span style="color:#a78bfa;font-size:11px;font-weight:600;">DATA UNREACHABLE</span><span style="color:#64748b;font-size:11px;"> · Live records unavailable right now.</span></div>
+             <div><span style="color:#a78bfa;font-size:11px;font-weight:600;">DATA UNREACHABLE</span><span style="color:#a7b4c7;font-size:11px;"> · Live records unavailable right now.</span></div>
            </div>`
         : '';
 
     candEl.innerHTML = `${renderElectionDatesBanner(stateData?.election_dates, color)}
     ${_distBanner}
 
-    <div style="background:${color}0a;border:1px solid ${color}22;border-radius:8px;padding:8px 10px;margin-bottom:12px;font-size:11px;color:#475569;">
+    <div style="background:${color}0a;border:1px solid ${color}22;border-radius:8px;padding:8px 10px;margin-bottom:12px;font-size:11px;color:#94a3b8;">
         <span style="color:${color};font-weight:600;">119th Congress</span> &nbsp;·&nbsp; 2025–2027
-        &nbsp;·&nbsp; <a href="https://www.house.gov" target="_blank" rel="noopener" style="color:${color};text-decoration:none;">house.gov →</a>
+        &nbsp;·&nbsp; <a href="https://www.house.gov" target="_blank" rel="noopener" style="color:${color};text-decoration:underline;">house.gov →</a>
         ${popBadge}
     </div>
     <div class="office-section">
@@ -181,7 +213,9 @@ export async function openDistrictPanel(districtNum, districtLabel, stateName, r
         ${houseHtml}
     </div>
 
-    ${renderBallotMeasuresSection(stateData?.ballot_measures ?? [], color)}
+    ${renderPollingLocationsLink(color)}
+
+    <div id="dist-news"></div>
 
     <div id="dist-cities-econ"></div>
 
@@ -193,6 +227,18 @@ export async function openDistrictPanel(districtNum, districtLabel, stateName, r
 
     // Star toggle: save this district as a boundary (voter) / sign-in nudge (guest).
     mountDistrictFav(stateName, _stateAbbr, districtNum, districtLabel);
+
+    // Local election/civic-administration news for this district's cities —
+    // fetched async so it doesn't block the rest of the panel.
+    if (_stateAbbr) {
+        const reqId = statePanelRequestId;
+        fetchDistrictNewsSection(houseKey, districtLabel, stateName, color).then(sectionHtml => {
+            if (reqId !== statePanelRequestId) return;
+            const placeholder = document.getElementById('dist-news');
+            if (!placeholder || !sectionHtml) return;
+            placeholder.outerHTML = sectionHtml;
+        });
+    }
 
     // Cities within this district + their local officials — fetched async
     // (region-demographics) so it doesn't block the rest of the panel.

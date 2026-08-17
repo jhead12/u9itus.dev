@@ -87,12 +87,16 @@ for (const [regionName, region] of Object.entries(REGIONS)) {
 const _GOP  = '#ef4444';   // Republican red
 const _IND  = '#94a3b8';   // Independent grey
 
+// U (Unknown) is lighter than Independent's #94a3b8 — both read as neutral
+// gray, but #64748b previously used here fails WCAG AA (~3.7:1) as text
+// against the map's dark panel backgrounds; #a7b4c7 clears 4.5:1 comfortably
+// while staying visually distinct from I's shade.
 export const PARTY_HEX = {
-    R: '#ef4444', D: '#3b82f6', I: '#94a3b8', L: '#eab308', G: '#22c55e', U: '#64748b',
+    R: '#ef4444', D: '#3b82f6', I: '#94a3b8', L: '#eab308', G: '#22c55e', U: '#a7b4c7',
 };
 
 export const PARTY_INT = {
-    R: 0xef4444, D: 0x3b82f6, I: 0x94a3b8, L: 0xeab308, G: 0x22c55e, U: 0x64748b,
+    R: 0xef4444, D: 0x3b82f6, I: 0x94a3b8, L: 0xeab308, G: 0x22c55e, U: 0xa7b4c7,
 };
 
 export const PARTY_LABEL = {
@@ -107,6 +111,7 @@ export const PARTY_LABEL = {
 export const DISTRICT_PARTY_MAP = {};
 
 export const OFFICE_ROLES = {
+    'U.S. Senators':      'Represents the entire state in the U.S. Senate for a 6-year term. Each state elects two, who vote on federal legislation, confirm presidential nominees, and ratify treaties.',
     'Governor':           'Chief executive of the state. Signs or vetoes legislation, commands the National Guard, and oversees all state agencies.',
     'Lieutenant Governor':'Second-in-command; presides over the state senate in many states and assumes the governorship if needed.',
     'Attorney General':   "State's chief law-enforcement officer — represents the state in litigation and leads consumer-protection efforts.",
@@ -126,4 +131,5 @@ export const CITY_OFFICE_ROLES = {
     'County Executive':         'Chief executive of the county government, similar to a governor at the county level.',
     'County Sheriff':           'Elected law-enforcement officer responsible for county-wide policing and jail operations.',
     'School Board Member':      'Elected official governing the local public school district — sets policy, hires superintendent, approves budget.',
+    'Superior Court Judge':     'Elected judge presiding over civil and criminal cases in the county trial court. Runs county-wide (often for a specific numbered seat), not by congressional district.',
 };

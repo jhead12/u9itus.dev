@@ -4,17 +4,20 @@ namespace App\Http\Controllers\Standalone;
 
 use App\Http\Controllers\Controller;
 use App\Http\Middleware\CaptureEarlyBankReferral;
+use App\Jobs\GeocodeCitizenAddress;
 use App\Mail\AdminNewUserNotificationMail;
 use App\Mail\WelcomeMail;
 use App\Models\Citizen;
 use App\Models\Politician;
 use App\Models\User;
 use App\Models\Voter;
+use App\Models\VoterFavoriteBoundary;
 use App\Services\EarlyBankPrefillService;
 use App\Services\EarlyBankWebhookService;
 use App\Services\MailingListService;
 use App\Services\PhoneVerificationService;
 use App\Services\PlatformSettingsService;
+use App\Services\DistrictLookupService;
 use App\Services\ReferralService;
 use App\Services\RegistrationSecurityService;
 use App\Services\UnclaimedPoliticianProfileService;
@@ -45,6 +48,7 @@ class RegistrationController extends Controller
         private readonly PhoneVerificationService $phoneService,
         private readonly UserRoleService $roleService,
         private readonly EarlyBankPrefillService $earlyBankPrefill,
+        private readonly DistrictLookupService $districtLookup,
     ) {}
 
     // -------------------------------------------------------------------------
@@ -66,6 +70,38 @@ class RegistrationController extends Controller
         }
 
         return redirect()->route('register.closed');
+    }
+
+    /**
+     * Resolve referred_by_voter_id / referred_by_politician_id from an
+     * Early-bank member UUID by looking up whichever U9itus profile owns that
+     * EB membership. Used as a fallback when resolveReferrerIds() found
+     * nothing from an internal referral_code — the EB-branded share links
+     * only carry a member UUID, not a referral_code.
+     *
+     * Note: Citizens have no referred_by_citizen_id column anywhere in the
+     * schema, so a citizen's own EB membership can never be resolved as a
+     * referrer here — only Voter and Politician are supported referrer types.
+     *
+     * @return array{referred_by_voter_id: int|null, referred_by_politician_id: int|null}
+     */
+    private function resolveEarlyBankReferrer(?string $ebMemberId): array
+    {
+        if ($ebMemberId === null) {
+            return ['referred_by_voter_id' => null, 'referred_by_politician_id' => null];
+        }
+
+        $voter = Voter::where('earlybank_own_member_uuid', $ebMemberId)->first();
+        if ($voter) {
+            return ['referred_by_voter_id' => $voter->id, 'referred_by_politician_id' => null];
+        }
+
+        $politician = Politician::where('earlybank_own_member_uuid', $ebMemberId)->first();
+        if ($politician) {
+            return ['referred_by_voter_id' => null, 'referred_by_politician_id' => $politician->id];
+        }
+
+        return ['referred_by_voter_id' => null, 'referred_by_politician_id' => null];
     }
 
     // -------------------------------------------------------------------------
@@ -167,6 +203,20 @@ class RegistrationController extends Controller
         ['referred_by_voter_id' => $referredByVoterId, 'referred_by_politician_id' => $referredByPoliticianId] =
             $this->referralService->resolveReferrerIds($refCode);
 
+        // Early-bank referral attribution — see registerVoter() for the fuller
+        // explanation. The EB-branded links only carry a member UUID, not a
+        // referral_code, so resolveReferrerIds() above never resolves a
+        // referrer from them on its own.
+        $ebMemberId = $request->cookie(CaptureEarlyBankReferral::COOKIE_NAME);
+        if (! (is_string($ebMemberId) && Str::isUuid($ebMemberId))) {
+            $ebMemberId = null;
+        }
+
+        if ($referredByVoterId === null && $referredByPoliticianId === null && $ebMemberId !== null) {
+            ['referred_by_voter_id' => $referredByVoterId, 'referred_by_politician_id' => $referredByPoliticianId] =
+                $this->resolveEarlyBankReferrer($ebMemberId);
+        }
+
         $politicianPayload = [
             'full_name'                 => trim($request->first_name . ' ' . $request->last_name),
             'political_office'          => $request->political_office,
@@ -176,6 +226,8 @@ class RegistrationController extends Controller
             'city'                      => $request->city,
             'referred_by_voter_id'      => $referredByVoterId,
             'referred_by_politician_id' => $referredByPoliticianId,
+            'earlybank_member_id'       => $ebMemberId,
+            'earlybank_linked_at'       => $ebMemberId !== null ? now() : null,
         ];
 
         app(UnclaimedPoliticianProfileService::class)->claimOrCreate($user, $politicianPayload);
@@ -189,7 +241,12 @@ class RegistrationController extends Controller
 
         Auth::login($user);
 
-        return redirect()->route('phone.verify');
+        $destination = redirect()->route('phone.verify');
+        if ($ebMemberId !== null) {
+            $destination->withCookie(Cookie::forget(CaptureEarlyBankReferral::COOKIE_NAME));
+        }
+
+        return $destination;
     }
 
     // -------------------------------------------------------------------------
@@ -268,7 +325,21 @@ class RegistrationController extends Controller
         ['referred_by_voter_id' => $referredByVoterId, 'referred_by_politician_id' => $referredByPoliticianId] =
             $this->referralService->resolveReferrerIds($refCode);
 
-        Citizen::create([
+        // Early-bank referral attribution — see registerVoter() for the fuller
+        // explanation. The EB-branded links only carry a member UUID, not a
+        // referral_code, so resolveReferrerIds() above never resolves a
+        // referrer from them on its own.
+        $ebMemberId = $request->cookie(CaptureEarlyBankReferral::COOKIE_NAME);
+        if (! (is_string($ebMemberId) && Str::isUuid($ebMemberId))) {
+            $ebMemberId = null;
+        }
+
+        if ($referredByVoterId === null && $referredByPoliticianId === null && $ebMemberId !== null) {
+            ['referred_by_voter_id' => $referredByVoterId, 'referred_by_politician_id' => $referredByPoliticianId] =
+                $this->resolveEarlyBankReferrer($ebMemberId);
+        }
+
+        $citizen = Citizen::create([
             'user_id'                   => $user->id,
             'full_name'                 => trim($request->first_name . ' ' . $request->last_name),
             'business_name'             => $request->business_name,
@@ -279,7 +350,11 @@ class RegistrationController extends Controller
             'zip'                       => $request->zip,
             'referred_by_voter_id'      => $referredByVoterId,
             'referred_by_politician_id' => $referredByPoliticianId,
+            'earlybank_member_id'       => $ebMemberId,
+            'earlybank_linked_at'       => $ebMemberId !== null ? now() : null,
         ]);
+
+        GeocodeCitizenAddress::dispatch($citizen->id);
 
         $this->referralService->markReferralConversion($request, $refCode, $user);
         $this->sendPhoneVerification($user->phone, $user, 'citizen');
@@ -290,7 +365,12 @@ class RegistrationController extends Controller
 
         Auth::login($user);
 
-        return redirect()->route('phone.verify');
+        $destination = redirect()->route('phone.verify');
+        if ($ebMemberId !== null) {
+            $destination->withCookie(Cookie::forget(CaptureEarlyBankReferral::COOKIE_NAME));
+        }
+
+        return $destination;
     }
 
     // -------------------------------------------------------------------------
@@ -303,7 +383,10 @@ class RegistrationController extends Controller
             return $redirect;
         }
 
-        if (auth()->check()) {
+        // Guest-trial voters (see ProvisionGuestVoterSession) already carry the
+        // voter role, but must still reach this form — registering while a
+        // guest upgrades their existing session in place (see registerVoter()).
+        if (auth()->check() && !auth()->user()->is_guest) {
             $user = auth()->user();
             if ($this->roleService->hasRole($user, 'voter')) {
                 return redirect()->route('voter.dashboard');
@@ -323,7 +406,9 @@ class RegistrationController extends Controller
             return $redirect;
         }
 
-        if (auth()->check()) {
+        $isGuestUpgrade = auth()->check() && auth()->user()->is_guest;
+
+        if (auth()->check() && !$isGuestUpgrade) {
             $user = auth()->user();
             if ($this->roleService->hasRole($user, 'voter')) {
                 return redirect()->route('voter.dashboard');
@@ -346,18 +431,39 @@ class RegistrationController extends Controller
 
         app(RegistrationSecurityService::class)->checkOrFail($request, $request->email);
 
-        $user = User::create([
-            'first_name'      => $request->first_name,
-            'last_name'       => $request->last_name,
-            'email'           => $request->email,
-            'password'        => Hash::make($request->password),
-            'phone'           => $request->phone,
-            'platform'        => 'standalone',
-            'user_type'       => 'voter',
-            'registration_ip' => $request->ip(),
-        ]);
+        if ($isGuestUpgrade) {
+            // Update the same User+Voter rows in place so every favorite/note
+            // the guest already made survives the upgrade to a real account.
+            $user = auth()->user();
+            $user->update([
+                'first_name'        => $request->first_name,
+                'last_name'         => $request->last_name,
+                'email'             => $request->email,
+                // The guest's sentinel address was marked verified at
+                // provisioning time purely so Laravel's `verified`
+                // middleware would let them through with no real inbox —
+                // that doesn't carry over to this newly-set real email.
+                'email_verified_at' => null,
+                'password'          => Hash::make($request->password),
+                'phone'             => $request->phone,
+                'registration_ip'   => $request->ip(),
+                'is_guest'          => false,
+                'guest_expires_at'  => null,
+            ]);
+        } else {
+            $user = User::create([
+                'first_name'      => $request->first_name,
+                'last_name'       => $request->last_name,
+                'email'           => $request->email,
+                'password'        => Hash::make($request->password),
+                'phone'           => $request->phone,
+                'platform'        => 'standalone',
+                'user_type'       => 'voter',
+                'registration_ip' => $request->ip(),
+            ]);
 
-        $user->assignRole('voter');
+            $user->assignRole('voter');
+        }
 
         $refCode = $this->referralService->resolveIncomingReferralCode($request);
         ['referred_by_voter_id' => $referredByVoterId, 'referred_by_politician_id' => $referredByPoliticianId] =
@@ -369,6 +475,7 @@ class RegistrationController extends Controller
             'phone'                     => $request->phone,
             'state'                     => $request->state,
             'zip_code'                  => $request->zip_code,
+            'congressional_district'    => $this->resolveDistrict($request->zip_code, $request->state),
             'referred_by_voter_id'      => $referredByVoterId,
             'referred_by_politician_id' => $referredByPoliticianId,
             'wallet_balance'            => 0,
@@ -393,16 +500,57 @@ class RegistrationController extends Controller
             $ebMemberId = null;
         }
 
-        $existingVoter = Voter::where('email', $user->email)->first();
+        // The EB-branded links on /voter/referrals are the only referral links
+        // shown to voters, but they only carry an EB member UUID — not a
+        // referral_code — so resolveReferrerIds() above never resolves a
+        // referrer from them. Fall back to the voter who owns this EB member
+        // UUID so referred_by_voter_id (and therefore the "Referred Voters"
+        // list) stays in sync with who actually gets EB commission credit.
+        if ($referredByVoterId === null && $referredByPoliticianId === null && $ebMemberId !== null) {
+            ['referred_by_voter_id' => $referredByVoterId, 'referred_by_politician_id' => $referredByPoliticianId] =
+                $this->resolveEarlyBankReferrer($ebMemberId);
+            $voterPayload['referred_by_voter_id']      = $referredByVoterId;
+            $voterPayload['referred_by_politician_id'] = $referredByPoliticianId;
+        }
+
+        // A guest's existing Voter row still carries the sentinel guest email,
+        // so match it by user_id rather than the just-set real email.
+        $voterMatchKey = $isGuestUpgrade ? ['user_id' => $user->id] : ['email' => $user->email];
+
+        $existingVoter = Voter::where($voterMatchKey)->first();
         if ($existingVoter && $existingVoter->earlybank_member_id !== null) {
             unset($voterPayload['earlybank_member_id'], $voterPayload['earlybank_linked_at']);
             $ebMemberId = null;
         }
 
         $voter = Voter::updateOrCreate(
-            ['email' => $user->email],
+            $voterMatchKey,
             array_merge($voterPayload, ['user_id' => $user->id])
         );
+
+        // New voters are opted into the weekly saved-places digest by
+        // default, and their home district is auto-favorited so the digest
+        // has something to send from day one instead of requiring them to
+        // discover map favoriting first.
+        $user->notificationPreference()->firstOrCreate([])->update([
+            'email_boundary_digest' => true,
+        ]);
+        $this->favoriteHomeDistrict($voter);
+
+        // Absorb a lightweight guest "email me weekly saved-places updates"
+        // opt-in (see GuestDigestOptInController) into the real notification
+        // preference now that this email belongs to an actual account —
+        // matched above by email, since that pending Voter row has no user_id.
+        if ($voter->digest_opt_in_pending && $voter->digest_confirmed_at !== null) {
+            $user->notificationPreference()->firstOrCreate([])->update([
+                'email_boundary_digest' => true,
+            ]);
+            $voter->update([
+                'digest_opt_in_pending' => false,
+                'digest_confirmed_at' => null,
+                'digest_confirmation_sent_at' => null,
+            ]);
+        }
 
         if ($ebMemberId !== null) {
             app(EarlyBankWebhookService::class)->handleVoterRegistered($voter, $ebMemberId);
@@ -434,6 +582,64 @@ class RegistrationController extends Controller
     // -------------------------------------------------------------------------
     // Shared Helpers
     // -------------------------------------------------------------------------
+
+    /**
+     * Best-effort congressional district resolution at registration time.
+     * Never blocks registration — DistrictLookupService already swallows its
+     * own provider exceptions and returns null, but this is a safety net for
+     * anything unexpected (e.g. a malformed zip/state combination).
+     */
+    private function resolveDistrict(?string $zipCode, ?string $state): ?string
+    {
+        if (! $zipCode) {
+            return null;
+        }
+
+        try {
+            $result = $this->districtLookup->lookup(trim("{$zipCode}, {$state}"));
+
+            return $result['district_code'] ?? null;
+        } catch (\Throwable $e) {
+            Log::warning('RegistrationController: district lookup failed', [
+                'zip_code' => $zipCode,
+                'state'    => $state,
+                'error'    => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
+    /**
+     * Auto-saves a new voter's home district as a favorited boundary — see
+     * registerVoter() — so SendBoundaryDigest has content to send them from
+     * day one. Best-effort: silently skipped if the district couldn't be
+     * resolved at registration time (resolveDistrict() already returns null
+     * on any lookup failure).
+     */
+    private function favoriteHomeDistrict(Voter $voter): void
+    {
+        if (! $voter->congressional_district
+            || ! preg_match('/^([A-Z]{2})-(\d{1,2}|AL)$/i', $voter->congressional_district, $m)) {
+            return;
+        }
+
+        $stateAbbr = strtoupper($m[1]);
+        $districtNumber = strtoupper($m[2]) === 'AL' ? 'AL' : (string) (int) $m[2];
+        $stateName = config("u9itus.us_states.{$stateAbbr}", $stateAbbr);
+        $districtLabel = $districtNumber === 'AL' ? 'At-Large' : "District {$districtNumber}";
+
+        VoterFavoriteBoundary::firstOrCreate([
+            'voter_id'        => $voter->id,
+            'boundary_type'   => VoterFavoriteBoundary::TYPE_DISTRICT,
+            'state_abbr'      => $stateAbbr,
+            'district_number' => $districtNumber,
+            'city_name'       => null,
+        ], [
+            'label'        => "{$stateName} {$districtLabel}",
+            'favorited_at' => now(),
+        ]);
+    }
 
     private function sendPhoneVerification(string $phone, User $user, string $context): void
     {

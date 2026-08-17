@@ -77,8 +77,16 @@
                 <h3 class="text-sm font-semibold text-slate-200 uppercase mb-3">Hosted by</h3>
                 @php
                     $host = $event->host;
-                    $hostName = $host instanceof \App\Models\Politician ? ($host->public_name ?? $host->user->name ?? 'Politician') : ($host?->organization_name ?? $host?->user->name ?? 'Citizen');
-                    $hostUrl = $host instanceof \App\Models\Politician ? route('politician.public.show', $host->slug ?? $host->id) : null;
+                    $hostName = match(true) {
+                        $host instanceof \App\Models\Politician => $host->public_name ?? $host->user->name ?? 'Politician',
+                        $host instanceof \App\Models\NeighborhoodGroup => $host->name,
+                        default => $host?->organization_name ?? $host?->user->name ?? 'Citizen',
+                    };
+                    $hostUrl = match(true) {
+                        $host instanceof \App\Models\Politician => route('politician.public.show', $host->slug ?? $host->id),
+                        $host instanceof \App\Models\NeighborhoodGroup => route('groups.public.show', $host->scope ? ['group' => $host, 'scope' => $host->scopeUrlSegment()] : $host),
+                        default => null,
+                    };
                 @endphp
                 <p class="text-white font-medium">
                     @if($hostUrl)

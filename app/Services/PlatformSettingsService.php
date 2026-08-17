@@ -281,6 +281,8 @@ class PlatformSettingsService
         $map = [
             // Pricing
             'revenue_per_view' => 'u9itus.revenue_per_view',
+            'citizen_revenue_per_view' => 'u9itus.citizen_revenue_per_view',
+            'ballot_issue_revenue_per_view' => 'u9itus.ballot_issue_revenue_per_view',
             'viewer_payout_per_view' => 'u9itus.viewer_payout_per_view',
             'referral_commission_percent' => 'u9itus.referral_commission_percent',
             'procurement_commission_percent' => 'u9itus.procurement_commission_percent',

@@ -172,6 +172,13 @@ class DistrictLookupService
                     $state = strtoupper((string) data_get($match, 'addressComponents.state', ''));
                     $districtNumber = $this->extractDistrictNumber($geographies);
 
+                    // The same addressMatches row already carries a matched
+                    // {x, y} coordinate pair — Census returns it as part of
+                    // every successful geocode, so pulling it out here costs
+                    // no extra request. x = longitude, y = latitude.
+                    $lng = data_get($match, 'coordinates.x');
+                    $lat = data_get($match, 'coordinates.y');
+
                     $resolved = [
                         'input_address' => $normalizedAddress,
                         'matched_address' => (string) ($match['matchedAddress'] ?? $normalizedAddress),
@@ -179,6 +186,8 @@ class DistrictLookupService
                         'district_number' => $districtNumber,
                         'district_code' => $this->buildDistrictCode($state, $districtNumber),
                         'district_label' => $this->buildDistrictLabel($state, $districtNumber),
+                        'latitude' => is_numeric($lat) ? (float) $lat : null,
+                        'longitude' => is_numeric($lng) ? (float) $lng : null,
                         // State legislative chambers, so district-lookup can surface
                         // state candidates alongside the federal congressional match.
                         'sldl_district' => $this->extractStateLegislativeDistrict($geographies, 'lower'),

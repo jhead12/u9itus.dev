@@ -18,7 +18,7 @@
     $earlybankUrl = rtrim(config('services.earlybank.public_url', 'https://www.early-bank.com'), '/');
     $returnToRoute    = $returnToRoute    ?? route('voter.referrals');
     $upsellHeading    = $upsellHeading    ?? 'Earn more with Early-bank';
-    $upsellBody       = $upsellBody       ?? 'Join Early-bank for a one-time $20 fee and get a dedicated referral link. Earn a <strong class="text-indigo-300">$10 bonus</strong> every time someone you invite joins Early-bank, plus <strong class="text-indigo-300">10% recurring</strong> on all of their U9itus viewing activity — paid weekly via Stripe.';
+    $upsellBody       = $upsellBody       ?? 'Join Early-bank for a one-time $20 fee and get a dedicated referral link. Earn <strong class="text-indigo-300">10% recurring</strong> on all of their U9itus viewing activity — paid weekly via Stripe.';
     $upsellFootnote   = $upsellFootnote   ?? 'Your existing U9itus referrals are unaffected.';
     $enrolledHeading  = $enrolledHeading ?? "You're an Early-bank member";
     $enrolledBody     = $enrolledBody     ?? 'Your referral commissions and voter-view earnings flow through Early-bank. Access your full dashboard, QR code, referral link, and weekly payout status below.';

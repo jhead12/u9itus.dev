@@ -24,6 +24,7 @@ use App\Services\OpenSecretsService;
 use App\Services\PlatformSettingsService;
 use App\Services\VoteSmartService;
 use App\Services\Web3\MeTokenSubgraphService;
+use App\Services\WikipediaLookupService;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
@@ -102,6 +103,12 @@ class PublicProfileController extends Controller
                         $candidates = $this->mergeCandidates($candidates, $discoveredOfficials);
                     }
 
+                    // Same real official can exist as multiple imported Politician rows
+                    // (different import passes, inconsistent office-title casing, etc.) —
+                    // collapse using the same identity logic the directory page already
+                    // relies on for this exact scenario.
+                    $candidates = $this->collapseDirectoryDuplicates($candidates);
+
                     // ── Cross-section dedup ──────────────────────────────────
                     // The same official can land in both the published-profile table
                     // (Politician, rendered as $candidates) and the public-records table
@@ -159,6 +166,7 @@ class PublicProfileController extends Controller
             'currentOfficials' => $currentOfficials,
             'states' => $states,
             'error' => $error,
+            'voterInfo' => $voterInfo,
         ]);
     }
 
@@ -217,6 +225,7 @@ class PublicProfileController extends Controller
                     'website' => $this->sanitizePublicWebsiteUrl($official['website'] ?? null) ?? '',
                     'source' => trim((string) ($official['source'] ?? 'google_civic')),
                     'discovery_links' => $this->buildDiscoveryLinks($fullName, $office, $state),
+                    'profile_slug' => $this->findPublishedPoliticianSlug($fullName, $state),
                 ];
             })
             ->filter(function (array $official): bool {
@@ -279,6 +288,7 @@ class PublicProfileController extends Controller
                     'website' => $this->sanitizePublicWebsiteUrl($official['website'] ?? null) ?? '',
                     'source' => trim((string) ($official['source'] ?? 'congress_gov')),
                     'discovery_links' => $this->buildDiscoveryLinks($fullName, $office, $state),
+                    'profile_slug' => $this->findPublishedPoliticianSlug($fullName, $state),
                 ];
             })
             ->filter(function (array $official): bool {
@@ -344,14 +354,20 @@ class PublicProfileController extends Controller
 
         return $records
             ->map(function (ElectionCandidateRecord $record): array {
+                $fullName = trim((string) $record->full_name);
+                $office = trim((string) ($record->political_office ?? ''));
+                $state = strtoupper(trim((string) ($record->state ?? '')));
+
                 return [
-                    'full_name' => trim((string) $record->full_name),
-                    'political_office' => trim((string) ($record->political_office ?? '')),
+                    'full_name' => $fullName,
+                    'political_office' => $office,
                     'party_affiliation' => trim((string) ($record->party_affiliation ?? '')),
-                    'state' => strtoupper(trim((string) ($record->state ?? ''))),
+                    'state' => $state,
                     'district_code' => trim((string) ($record->district ?? '')),
                     'website' => '',
                     'source' => (string) ($record->source ?? 'local_record'),
+                    'discovery_links' => $this->buildDiscoveryLinks($fullName, $office, $state),
+                    'profile_slug' => $this->findPublishedPoliticianSlug($fullName, $state),
                 ];
             })
             ->filter(function (array $official): bool {
@@ -524,6 +540,12 @@ class PublicProfileController extends Controller
                 return $existing->id;
             }
 
+            // Best-effort Wikipedia resolution — only for brand-new profiles, so this
+            // extra external call happens once per discovered official rather than on
+            // every repeat district-lookup search that re-touches the same person.
+            $profileData['wikipedia_url'] = app(WikipediaLookupService::class)
+                ->resolveUrl($fullName, $state, $office);
+
             return Politician::create($profileData)->id;
         });
     }
@@ -548,6 +570,29 @@ class PublicProfileController extends Controller
             'youtube' => 'https://www.youtube.com/results?search_query='.rawurlencode($query),
             'cspan' => 'https://www.c-span.org/search/?searchtype=Videos&ssearch='.rawurlencode($query),
         ];
+    }
+
+    /**
+     * Match a fetched official (Google Civic / Congress.gov / local record) back to a
+     * published Politician profile so the district-lookup page can link its card to
+     * the profile page instead of only showing external source links.
+     */
+    protected function findPublishedPoliticianSlug(string $fullName, string $state): ?string
+    {
+        $fullName = trim($fullName);
+        $state = strtoupper(trim($state));
+
+        if ($fullName === '' || $state === '') {
+            return null;
+        }
+
+        return Politician::query()
+            ->where('page_published', true)
+            ->where('is_active', true)
+            ->whereRaw('LOWER(full_name) = ?', [strtolower($fullName)])
+            ->whereRaw('UPPER(COALESCE(state, \'\')) = ?', [$state])
+            ->orderByDesc('verified_official')
+            ->value('slug');
     }
 
     protected function mergeCandidates(Collection $existingCandidates, Collection $discoveredCandidates): Collection
@@ -701,36 +746,45 @@ class PublicProfileController extends Controller
             }
         }
 
-        // Topic filter: when ?topic= matches a politician_topics slug, match the
-        // structured badge relationship (so a politician badged "climate-action"
-        // is returned even when "climate" isn't literally in their bio). Keep
-        // the free-text bio/campaign/initiative LIKE matches as a fallback so
-        // ad-hoc topic queries that aren't a catalog slug still work.
-        if ($topic = trim((string) $request->input('topic', ''))) {
-            $topicRow = PoliticianTopic::where('slug', $topic)->where('is_active', true)->first();
+        // Topic filter: ?topic= accepts a comma-separated list of politician_topics
+        // slugs, OR'd together (a politician matching any selected topic is shown).
+        // Each slug also matches the structured badge relationship (so a politician
+        // badged "climate-action" is returned even when "climate" isn't literally
+        // in their bio), with free-text bio/campaign/initiative LIKE matches kept
+        // as a fallback so ad-hoc topic queries that aren't a catalog slug still work.
+        $topicSlugs = collect(explode(',', (string) $request->input('topic', '')))
+            ->map(fn ($slug) => trim($slug))
+            ->filter()
+            ->unique()
+            ->values();
 
-            $query->where(function ($q) use ($topic, $topicRow) {
-                $q->where('bio', 'like', '%'.$topic.'%')
-                    ->orWhereHas('campaigns', function ($cq) use ($topic) {
-                        $cq->where('approval_status', 'approved')
-                            ->where(function ($sq) use ($topic) {
-                                $sq->where('title', 'like', '%'.$topic.'%')
-                                    ->orWhere('message_summary', 'like', '%'.$topic.'%');
-                            });
-                    })
-                    ->orWhereHas('initiatives', function ($iq) use ($topic) {
-                        $iq->where('is_published', true)
-                            ->where(function ($sq) use ($topic) {
-                                $sq->where('title', 'like', '%'.$topic.'%')
-                                    ->orWhere('description', 'like', '%'.$topic.'%');
-                            });
-                    });
+        if ($topicSlugs->isNotEmpty()) {
+            $topicRows = PoliticianTopic::whereIn('slug', $topicSlugs)->where('is_active', true)->get()->keyBy('slug');
 
-                // Structured badge match (self-declared + inferred discourse).
-                if ($topicRow) {
-                    $q->orWhereHas('publicBadges', function ($bq) use ($topicRow) {
-                        $bq->where('topic_id', $topicRow->id);
-                    });
+            $query->where(function ($q) use ($topicSlugs, $topicRows) {
+                foreach ($topicSlugs as $topic) {
+                    $q->orWhere('bio', 'like', '%'.$topic.'%')
+                        ->orWhereHas('campaigns', function ($cq) use ($topic) {
+                            $cq->where('approval_status', 'approved')
+                                ->where(function ($sq) use ($topic) {
+                                    $sq->where('title', 'like', '%'.$topic.'%')
+                                        ->orWhere('message_summary', 'like', '%'.$topic.'%');
+                                });
+                        })
+                        ->orWhereHas('initiatives', function ($iq) use ($topic) {
+                            $iq->where('is_published', true)
+                                ->where(function ($sq) use ($topic) {
+                                    $sq->where('title', 'like', '%'.$topic.'%')
+                                        ->orWhere('description', 'like', '%'.$topic.'%');
+                                });
+                        });
+
+                    // Structured badge match (self-declared + inferred discourse).
+                    if ($topicRow = $topicRows->get($topic)) {
+                        $q->orWhereHas('publicBadges', function ($bq) use ($topicRow) {
+                            $bq->where('topic_id', $topicRow->id);
+                        });
+                    }
                 }
             });
         }
@@ -988,11 +1042,27 @@ class PublicProfileController extends Controller
             'verified' => $politicians
                 ->sortBy(fn (Politician $politician) => [
                     $politician->verified_official ? 0 : 1,
-                    strtolower((string) $politician->full_name),
+                    $this->lastNameSortKey((string) $politician->full_name),
                 ])
                 ->values(),
-            default => $politicians->sortBy(fn (Politician $politician) => strtolower((string) $politician->full_name))->values(),
+            default => $politicians->sortBy(fn (Politician $politician) => $this->lastNameSortKey((string) $politician->full_name))->values(),
         };
+    }
+
+    /**
+     * Full names are stored as a single free-text column ("First [Middle] Last[, Suffix]"),
+     * so alphabetizing by last name means peeling off trailing suffixes (Jr., III, ...)
+     * and using the final remaining word as the sort key.
+     */
+    protected function lastNameSortKey(string $fullName): string
+    {
+        $name = trim($fullName);
+        $name = preg_replace('/,?\s+(Jr\.?|Sr\.?|II|III|IV|V)$/i', '', $name) ?? $name;
+
+        $parts = preg_split('/\s+/', trim($name));
+        $lastName = $parts !== false && $parts !== [] ? end($parts) : $name;
+
+        return Str::lower($lastName ?: $name);
     }
 
     /**
@@ -1023,6 +1093,27 @@ class PublicProfileController extends Controller
      */
     public function show(Request $request, string $slug)
     {
+        try {
+            return $this->doShow($request, $slug);
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpExceptionInterface $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            Log::error('Public profile 500', [
+                'slug' => $slug,
+                'error' => $e->getMessage(),
+                'file' => $e->getFile().':'.$e->getLine(),
+                'trace' => collect(explode("\n", $e->getTraceAsString()))->take(10)->implode("\n"),
+            ]);
+            // Rethrow (not abort(500)) so the global exception reporter in
+            // bootstrap/app.php sees the original non-HTTP throwable and
+            // dispatches the auto-repair workflow. abort(500) would wrap it
+            // in an HttpException, which that reporter explicitly ignores.
+            throw $e;
+        }
+    }
+
+    protected function doShow(Request $request, string $slug)
+    {
         $politician = $this->resolvePublicPolitician($slug);
 
         // If still not found, throw 404
@@ -1031,6 +1122,13 @@ class PublicProfileController extends Controller
         }
 
         $isGuestBrowsing = ! auth()->check();
+
+        // Only computed for authenticated voters — guests always see false,
+        // which is safe to bake into the guest page cache below since it's
+        // identical for every guest.
+        $isFavorited = ! $isGuestBrowsing && auth()->user()->voter
+            ? (bool) auth()->user()->voter->favoritePoliticians()->where('politician_id', $politician->id)->exists()
+            : false;
 
         // ── Full-page response cache for unauthenticated visitors ─────────────
         // Bots and anonymous users get a cached HTML response (15 min TTL).
@@ -1118,9 +1216,23 @@ class PublicProfileController extends Controller
         $transparencyData = $this->buildTransparencyData($politician);
         $digDeeperData = $this->buildDigDeeperData($politician, $transparencyData);
 
+        // Birth date, sourced from Vote Smart's candidate bio (same fetch the
+        // Dig Deeper "Interest Group Ratings"/"Key Votes" panels already
+        // trigger, cached 24h) — only present when show_votesmart_data is
+        // enabled (or the profile is unclaimed) and a Vote Smart ID resolves.
+        $birthDate = $transparencyData['votesmart']['candidate']['birth_date'] ?? null;
+
         // News-detected endorsements (e.g. "Governor Endorsed") — distinct from the
         // donor-inferred PAC affiliation chips rendered from $transparencyData below.
         $endorsements = $politician->endorsements()->active()->get();
+
+        // Top 3 highest-scoring viral moments (YouTube/C-SPAN/podcast/etc. clips)
+        // published in the last 7 days, for the "Top This Week" video embeds.
+        $topWeeklyMoments = $politician->viralMoments()
+            ->eligible(7)
+            ->topByScore()
+            ->limit(3)
+            ->get();
 
         // Sprint 7 — MeToken subgraph enrichment (read-only, gated).
         // Only fetched when the platform kill-switch is on, the politician is
@@ -1228,6 +1340,7 @@ class PublicProfileController extends Controller
         $view = view('standalone.public.profile', compact(
             'politician',
             'page',
+            'isFavorited',
             'runningCampaigns',
             'pastCampaigns',
             'publicBoardQuestions',
@@ -1236,8 +1349,10 @@ class PublicProfileController extends Controller
             'transparencyData',
             'digDeeperData',
             'endorsements',
+            'topWeeklyMoments',
             'meTokenData',
             'termInfo',
+            'birthDate',
             'electionDates',
             'ogTitle',
             'ogDescription',

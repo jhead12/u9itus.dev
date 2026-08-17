@@ -40,6 +40,7 @@ class Politician extends Model
         'state',
         'city',
         'website_url',
+        'wikipedia_url',
         'bio',
         'profile_photo_url',
         'profile_photo_status',
@@ -93,6 +94,9 @@ class Politician extends Model
         'earlybank_stripe_connect_account_id',
         'earlybank_stripe_connect_onboarding_complete',
         'earlybank_subscription_status',
+        // Early-bank member who referred this politician (set at registration time)
+        'earlybank_member_id',
+        'earlybank_linked_at',
         // Viral-moment featured clip (denormalized for map-pin reads)
         'featured_moment',
         'featured_moment_score',
@@ -122,12 +126,16 @@ class Politician extends Model
             'show_opensecrets_data' => 'boolean',
             'show_votesmart_data' => 'boolean',
             'show_fec_data' => 'boolean',
-            'video_links' => 'array',
+            // video_links is intentionally NOT cast to 'array' here.
+            // Some imported records contain non-JSON values that cause JsonException
+            // on access. Use the getVideoLinksAttribute accessor instead.
             'claim_requested_at' => 'datetime',
             'earlybank_own_linked_at' => 'datetime',
             'earlybank_payouts_enabled' => 'boolean',
             'earlybank_stripe_connect_onboarding_complete' => 'boolean',
             'earlybank_subscription_status' => 'string',
+            'earlybank_member_id' => 'string',
+            'earlybank_linked_at' => 'datetime',
             // Viral-moment featured clip (denormalized for map-pin reads)
             'featured_moment' => 'array',
             'featured_moment_score' => 'decimal:4',
@@ -395,6 +403,33 @@ class Politician extends Model
     public function donorSnapshot(): HasOne
     {
         return $this->hasOne(PoliticianDonorSnapshot::class);
+    }
+
+    /**
+     * Safe accessor for video_links — returns [] instead of throwing on bad JSON.
+     */
+    public function getVideoLinksAttribute(): array
+    {
+        $raw = $this->getRawOriginal('video_links');
+        if ($raw === null || $raw === '' || $raw === 'null') {
+            return [];
+        }
+        try {
+            $decoded = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
+
+            return is_array($decoded) ? $decoded : [];
+        } catch (\JsonException) {
+            return [];
+        }
+    }
+
+    /**
+     * Setter for video_links — since the column isn't cast to 'array' (see
+     * getVideoLinksAttribute), Eloquent won't auto-encode arrays on save.
+     */
+    public function setVideoLinksAttribute(mixed $value): void
+    {
+        $this->attributes['video_links'] = $value === null ? null : json_encode($value);
     }
 
     /**

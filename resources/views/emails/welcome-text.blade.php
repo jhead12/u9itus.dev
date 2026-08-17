@@ -4,12 +4,20 @@ Your {{ ucfirst($user->user_type ?? 'member') }} account has been created on U9i
 
 @if(($user->user_type ?? '') === 'politician')
 You can now create your first campaign, set your governance level, and reach verified voters in your district.
-Campaigns cost $0.60 per verified view and require approval before going live.
+Campaigns cost $1.00 per verified view and require approval before going live.
 @elseif(($user->user_type ?? '') === 'voter')
 Start watching approved political ads in your area and earn real money for every verified view.
 Your identity is protected and payouts are processed securely.
 @endif
 
+@if(isset($cityNews) && $cityNews->isNotEmpty())
+WHAT'S HAPPENING LOCALLY
+@foreach($cityNews as $article)
+- {{ $article->headline }}{{ $article->source_name ? ' ('.$article->source_name.')' : '' }}
+  {{ $article->source_url }}
+@endforeach
+
+@endif
 Go to your dashboard: {{ url('/dashboard') }}
 
 ---

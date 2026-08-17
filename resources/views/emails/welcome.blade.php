@@ -52,9 +52,22 @@
       </p>
 
       @if(($user->user_type ?? '') === 'politician')
-        <p>You can now create your first campaign, set your governance level, and reach verified voters in your district. Every view costs <strong class="highlight">$0.60</strong> and campaigns require approval before going live.</p>
+        <p>You can now create your first campaign, set your governance level, and reach verified voters in your district. Every view costs <strong class="highlight">$1.00</strong> and campaigns require approval before going live.</p>
       @elseif(($user->user_type ?? '') === 'voter')
         <p>Start watching approved political ads in your area and <strong class="highlight">earn real money</strong> for every verified view. Your identity is protected and payouts are processed securely.</p>
+      @endif
+
+      @if(isset($cityNews) && $cityNews->isNotEmpty())
+        <hr class="divider" />
+        <p style="font-size:12px; color:#64748b; text-transform:uppercase; letter-spacing:1px; margin-bottom:14px;">What's happening locally</p>
+        @foreach($cityNews as $article)
+          <p style="margin-bottom:14px;">
+            <a href="{{ $article->source_url }}" style="color:#e2e8f0; text-decoration:none; font-size:14px; font-weight:600;">{{ $article->headline }}</a>
+            @if($article->source_name)
+              <br /><span style="font-size:12px; color:#64748b;">{{ $article->source_name }}</span>
+            @endif
+          </p>
+        @endforeach
       @endif
 
       <div class="btn-wrap">

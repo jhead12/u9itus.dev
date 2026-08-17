@@ -78,7 +78,7 @@ Updated amount used in:
 
 | Key                              | Default | Usage                                  |
 | -------------------------------- | ------- | -------------------------------------- |
-| `revenue_per_view`               | $0.60   | Charged to politicians                 |
+| `revenue_per_view`               | $1.00  | Charged to politicians                 |
 | `viewer_payout_per_view`         | $0.25   | Paid to voters                         |
 | `referral_commission_percent`    | 10%     | Of voter payout (recurring)            |
 | `procurement_commission_percent` | 10%     | Of politician's first purchase         |
@@ -109,7 +109,7 @@ Politician.first.campaigns.create!(
 
 - Login as politician
 - Create a campaign
-- Check that revenue per view shows **$0.60** (didn't change, you updated payout)
+- Check that revenue per view shows **$1.00** (didn't change, you updated payout)
 
 ### 4. Check Notification Event
 

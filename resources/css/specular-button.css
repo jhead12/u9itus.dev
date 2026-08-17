@@ -1,0 +1,29 @@
+/* Specular rim-light effect — see resources/js/components/specular-button.js.
+   Layers on top of .top-btn's existing padding/font-size/colors rather than
+   replacing them, so the mounted button keeps the top bar's sizing. */
+.specular-button {
+    position: relative;
+    overflow: visible;
+}
+
+/* Canvas extends past the button so the rim glow can bleed outside the edge */
+.specular-button__fx {
+    position: absolute;
+    inset: -20px;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.specular-button__fx canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.specular-button__label {
+    position: relative;
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}

@@ -107,7 +107,11 @@ test('web voter registration without earlybank cookie does not set earlybank_mem
     $voter = Voter::where('email', 'no-cookie@example.com')->first();
     expect($voter?->earlybank_member_id)->toBeNull();
 
-    Http::assertNothingSent();
+    // No EarlyBank webhook should fire without a referral cookie. Registration
+    // does make an unrelated district-lookup HTTP call (RegistrationController
+    // → DistrictLookupService), so this asserts the webhook specifically
+    // rather than a blanket "no HTTP calls at all".
+    Http::assertNotSent(fn ($request) => str_contains($request->url(), 'early-bank'));
     Mail::assertNothingQueued();
 });
 
@@ -142,8 +146,9 @@ test('web voter registration does not overwrite existing earlybank attribution o
     // Original attribution must be preserved.
     expect($voter->earlybank_member_id)->toBe($originalMemberId);
 
-    // Webhook must NOT fire with new member ID.
-    Http::assertNothingSent();
+    // Webhook must NOT fire with new member ID (registration's unrelated
+    // district-lookup HTTP call is expected and ignored here).
+    Http::assertNotSent(fn ($request) => str_contains($request->url(), 'early-bank'));
 });
 
 // ---------------------------------------------------------------------------

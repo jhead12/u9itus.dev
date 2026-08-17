@@ -25,6 +25,10 @@
          When the flag is off the entire block is omitted so the map renders
          identically to the pre-integration version. ────────────────────── --}}
     @if (config('platform.map.voter_features_enabled'))
+        {{-- CSRF token is needed by guests too — cookie-backed guest map
+             favorites (POST/DELETE /map/boundaries) require it just like
+             the authenticated /voter/boundaries endpoints do. --}}
+        <meta name="csrf-token" content="{{ csrf_token() }}">
         @auth
             @php($u9Voter = auth()->user()->voter ?? null)
             @php(
@@ -32,7 +36,6 @@
                     : (auth()->user()->hasRole('politician') ? 'politician'
                         : (auth()->user()->hasRole('voter') ? 'voter' : 'user'))
             )
-            <meta name="csrf-token"   content="{{ csrf_token() }}">
             <meta name="u9-user-role" content="{{ $u9Role }}">
             <meta name="u9-user-uuid" content="{{ $u9Voter?->uuid ?? '' }}">
             <meta name="u9-ref-code"  content="{{ $u9Voter?->referral_code ?? '' }}">
@@ -65,7 +68,7 @@
                 <tr><td><kbd>L</kbd></td><td>Find my district</td></tr>
                 <tr><td><kbd>O</kbd></td><td>Toggle offices section</td></tr>
                 <tr><td><kbd>Esc</kbd></td><td>Close panel / popup</td></tr>
-                <tr><td><kbd>?</kbd></td><td>Show / hide this help</td></tr>
+                <tr><td><kbd>S</kbd></td><td>Show / hide this help</td></tr>
                 <tr><td colspan="2" style="padding-top:10px;padding-bottom:2px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#475569;">Mouse</td></tr>
                 <tr><td>Drag</td><td>Pan map</td></tr>
                 <tr><td>Scroll wheel</td><td>Zoom in / out</td></tr>
@@ -89,7 +92,7 @@
 <div id="map-canvas-region"
      tabindex="0"
      role="application"
-     aria-label="Interactive U.S. map. Use arrow keys to tilt, + and - to zoom, Enter to search for a state, ? for keyboard help."
+     aria-label="Interactive U.S. map. Use arrow keys to tilt, + and - to zoom, Enter to search for a state, S for keyboard help."
      aria-description="Use arrow keys to tilt, + and - to zoom, Enter to open search."></div>
 <div id="kb-focus-ring" aria-hidden="true"></div>
 
@@ -121,14 +124,9 @@
             )
             <button id="btn-signin-cta" class="top-btn"
                aria-haspopup="dialog" aria-expanded="false" aria-controls="earn-popover"
-               title="Learn how to earn on U9itus">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-                     stroke="currentColor" stroke-width="2.5"
-                     stroke-linecap="round" stroke-linejoin="round"
-                     aria-hidden="true">
-                    <line x1="12" y1="1" x2="12" y2="23"/>
-                    <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
-                </svg>
+               title="Get paid to watch campaign videos — up to $0.50 each">
+                <span class="earn-label-full">Earn $0.50/video</span>
+                <span class="earn-label-short">Earn</span>
             </button>
         @endif
 
@@ -150,6 +148,10 @@
             <span class="btn-hover-label">Search</span>
             <span class="btn-hover-label" style="font-size:10px;color:#475569;border:1px solid #334155;border-radius:3px;padding:1px 5px;font-family:monospace;">/</span>
         </button>
+        <!-- Layers + Controls: separate hover/click dropdowns on desktop (unchanged).
+             On mobile/tablet, #map-menu-sheet below becomes a single bottom-sheet
+             menu; on desktop it's `display:contents` and has zero layout effect. -->
+        <div id="map-menu-sheet" role="dialog" aria-modal="true" aria-label="Map layers and controls" aria-hidden="true">
         <!-- Layers multi-select panel -->
         <div id="layers-wrap">
             <button class="top-btn" id="btn-layers"
@@ -198,6 +200,11 @@
                         title="Color states by the party of the current governor">
                         <span class="lp-dot"></span>Party Control
                     </button>
+                    <button class="lp-chip" data-layer="poverty"
+                        role="menuitemcheckbox" aria-checked="false"
+                        title="Color states by poverty rate (Census ACS 5-year estimate)">
+                        <span class="lp-dot"></span>Poverty Rate
+                    </button>
                     <button class="lp-chip" data-layer="population"
                         role="menuitemcheckbox" aria-checked="false"
                         title="Shade congressional districts by resident population — darker = more people">
@@ -208,9 +215,28 @@
                         title="Show geo-tagged blog posts and civic events in the visible area">
                         <span class="lp-dot"></span>Civic Content
                     </button>
+                    <button class="lp-chip" data-layer="businesses"
+                        role="menuitemcheckbox" aria-checked="false"
+                        title="Show local businesses that opted in to appear on the map">
+                        <span class="lp-dot"></span>Local Businesses
+                    </button>
+                </div>
+                <div id="business-category-wrap" class="lp-chips" style="display:none;padding-top:2px;">
+                    <select id="business-category-filter"
+                        aria-label="Filter local businesses by category"
+                        style="width:100%;background:rgba(15,23,42,0.7);border:1px solid rgba(100,116,139,0.4);
+                               color:#cbd5e1;font-size:11px;border-radius:8px;padding:6px 8px;">
+                        <option value="">All Categories</option>
+                        <option value="food">Food &amp; Dining</option>
+                        <option value="retail">Retail</option>
+                        <option value="service">Service</option>
+                        <option value="nonprofit">Nonprofit</option>
+                        <option value="other">Other</option>
+                    </select>
                 </div>
             </div>
         </div>
+        <hr id="map-menu-sheet-divider">
         <!-- Controls dropdown -->
         <div id="controls-wrap">
             <button class="top-btn" id="btn-controls" aria-haspopup="true" aria-expanded="false" aria-controls="controls-menu" title="Map controls">
@@ -291,28 +317,16 @@
                 @endguest
             </div>
         </div>
-        <!-- Hidden legacy buttons kept for JS compatibility (visible in mobile drawer) -->
+        </div>
+        <!-- Hidden legacy button kept for JS compatibility (national-boundaries.js reads/writes its label) -->
         <button class="top-btn" id="btn-districts" style="display:none">District Boundaries: OFF</button>
-        <button class="top-btn" id="btn-reset" style="display:none">Reset View</button>
-        <!-- Mobile only: hamburger -->
-        <button id="mobile-menu-btn" aria-label="Open menu" aria-expanded="false" aria-controls="mobile-menu">
+        <!-- Mobile only: opens #map-menu-sheet above -->
+        <button id="mobile-menu-btn" aria-label="Open map menu" aria-expanded="false" aria-controls="map-menu-sheet">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
                 <line x1="3" y1="6" x2="21" y2="6"/>
                 <line x1="3" y1="12" x2="21" y2="12"/>
                 <line x1="3" y1="18" x2="21" y2="18"/>
             </svg>
-        </button>
-    </div>
-</div>
-
-<!-- Mobile navigation drawer -->
-<div id="mobile-menu" role="menu" aria-label="Map controls">
-    <div class="mobile-menu-row">
-        <button class="mobile-menu-btn" id="mob-btn-districts">
-            📍 Districts<br><span style="font-size:10px;opacity:.7;">OFF</span>
-        </button>
-        <button class="mobile-menu-btn" id="mob-btn-reset">
-            🏠 Reset View
         </button>
     </div>
 </div>
@@ -384,7 +398,7 @@
     <nav class="pol-tabs" role="tablist" aria-label="Politician information tabs">
         <button class="pol-tab active" role="tab" data-tab="overview" aria-selected="true"  id="pol-tab-overview">Overview</button>
         <button class="pol-tab"        role="tab" data-tab="economy"  aria-selected="false" id="pol-tab-economy">Economy</button>
-        <button class="pol-tab"        role="tab" data-tab="moments"  aria-selected="false" id="pol-tab-moments">Videos</button>
+        <button class="pol-tab"        role="tab" data-tab="moments"  aria-selected="false" id="pol-tab-moments">Media</button>
         <button class="pol-tab"        role="tab" data-tab="contact"  aria-selected="false" id="pol-tab-contact">Contact</button>
     </nav>
     <div class="pol-body" id="pol-body" role="tabpanel" aria-labelledby="pol-tab-overview"><!-- filled by JS --></div>
@@ -398,9 +412,27 @@
 </div>
 
 <div id="breadcrumb-bar">
-    <div id="breadcrumb"><span class="bc-item bc-active">Overview</span></div>
-    <button id="kb-hint-badge" aria-label="Show keyboard shortcuts" title="Keyboard shortcuts (press ?)">
-        <kbd>?</kbd> Shortcuts
+    <div style="display:flex; align-items:center; gap:8px;">
+        <div id="breadcrumb"><span class="bc-item bc-active">Overview</span></div>
+        {{-- Tap-to-toggle so mobile users (no hover) can read this too — the
+             native title/aria-label stay as a hover fallback for desktop. --}}
+        <span style="position:relative; display:inline-flex;">
+            <button type="button" id="map-help-badge"
+                  aria-haspopup="true" aria-expanded="false" aria-controls="map-help-popover"
+                  aria-label="How to use this map"
+                  title="This map is clickable. Click any state to zoom in, then click a district to open its political profile. Drag to rotate, scroll/pinch to zoom, or use Search to jump to a location. Press S for keyboard shortcuts."
+                  onclick="event.stopPropagation(); (function(){
+                      var pop = document.getElementById('map-help-popover');
+                      var open = pop.classList.toggle('open');
+                      this.setAttribute('aria-expanded', open ? 'true' : 'false');
+                  }).call(this)">i</button>
+            <div id="map-help-popover" role="tooltip">
+                This map is clickable. Click any state to zoom in, then click a district to open its political profile. Drag to rotate, scroll/pinch to zoom, or use Search to jump to a location. Press S for keyboard shortcuts.
+            </div>
+        </span>
+    </div>
+    <button id="kb-hint-badge" aria-label="Show keyboard shortcuts" title="Keyboard shortcuts (press S)">
+        <kbd>S</kbd> Shortcuts
     </button>
 </div>
 
@@ -433,11 +465,12 @@
     </div>
     <div id="panel-states" style="margin-bottom:6px;"></div>
     <hr class="panel-divider" style="margin:8px 0 10px;">
+    <div id="panel-stats"></div>
     <p class="panel-label panel-label-toggle" id="offices-toggle" role="button" tabindex="0"
        aria-expanded="true" aria-controls="panel-candidates"
        onclick="toggleOfficesSection()"
        onkeydown="if(event.key==='Enter'||event.key===' ')toggleOfficesSection()">
-        <span>Statewide Executive Offices</span>
+        <span>Statewide &amp; Federal Offices</span>
         <i class="panel-label-chevron">&#9660;</i>
     </p>
     <div id="panel-candidates">
@@ -448,14 +481,66 @@
             Loading candidates…
         </div>
     </div>
+    <div id="panel-topics"></div>
+    <div id="panel-ballot-measures"></div>
 </div>
 
 <div id="hint" style="position:fixed;bottom:28px;right:24px;z-index:50;color:#334155;font-size:11px;text-align:right;pointer-events:none;">
     Scroll / pinch to zoom &nbsp;·&nbsp; ↑↓ tilt &nbsp;·&nbsp; drag to pan &nbsp;·&nbsp; Click a state
 </div>
 
+{{-- Dismissible "how to use" card — sits above the bottom-right hint text.
+     Hidden after first dismissal via localStorage so returning visitors
+     aren't nagged. --}}
+<div id="map-usage-card" role="note" aria-label="How to use this map">
+    <button id="map-usage-close" aria-label="Dismiss these instructions"
+            onclick="(function(){
+                document.getElementById('map-usage-card').style.display='none';
+                try{ localStorage.setItem('u9_map_usage_hint_dismissed','1'); }catch(e){}
+            })()">✕</button>
+    <h3>How to Explore</h3>
+    <ul>
+        <li>🖱 Click any state, then a district, to open its political profile.</li>
+        <li>🔍 Press <kbd>/</kbd> or tap the search icon to find a politician or district by name.</li>
+    </ul>
+</div>
+<script>
+    try {
+        if (localStorage.getItem('u9_map_usage_hint_dismissed')) {
+            document.getElementById('map-usage-card').style.display = 'none';
+        }
+    } catch (e) {}
+
+    // Close the "how to use this map" popover on outside tap/click or Escape —
+    // it's opened via the #map-help-badge onclick handler above.
+    document.addEventListener('click', function () {
+        var pop = document.getElementById('map-help-popover');
+        var badge = document.getElementById('map-help-badge');
+        if (pop && pop.classList.contains('open')) {
+            pop.classList.remove('open');
+            badge && badge.setAttribute('aria-expanded', 'false');
+        }
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.key !== 'Escape') return;
+        var pop = document.getElementById('map-help-popover');
+        var badge = document.getElementById('map-help-badge');
+        if (pop && pop.classList.contains('open')) {
+            pop.classList.remove('open');
+            badge && badge.setAttribute('aria-expanded', 'false');
+            badge && badge.focus();
+        }
+    });
+</script>
+
 {{-- ── Earn modal — true viewport-centered overlay, rendered at root level ── --}}
 @if(config('platform.map.voter_features_enabled') && auth()->guest())
+{{-- Forward whatever Early-bank referral this guest arrived with (fresh
+     ?ref= on this request, or the 30-day cookie CaptureEarlyBankReferral
+     already set) so the attribution survives the hop to early-bank.com. --}}
+@php($ebRef = request()->query('ref') ?: request()->cookie(\App\Http\Middleware\CaptureEarlyBankReferral::COOKIE_NAME))
+@php($earlybankBase = rtrim(config('services.earlybank.public_url', 'https://www.early-bank.com'), '/'))
+@php($earlybankHref = $earlybankBase . (($ebRef && \Illuminate\Support\Str::isUuid($ebRef)) ? '/?ref=' . urlencode($ebRef) : '/'))
 <div id="earn-popover" role="dialog" aria-modal="true" aria-label="How to earn on U9itus"
      onclick="if(event.target===this){(function(){var p=document.getElementById('earn-popover'),b=document.getElementById('btn-signin-cta');p.classList.remove('open');b&&b.classList.remove('active');b&&b.setAttribute('aria-expanded','false');})()}">
     <div class="ep-card">
@@ -468,9 +553,14 @@
             Get paid to stay informed
         </p>
         <p class="ep-body">
-            Watch political campaign videos from any state on this map and earn
-            <strong>up to $0.50 per video</strong> — deposited directly to your account.
+            Watch videos from politicians, local businesses, and other citizens on this map
+            and earn <strong>up to $0.50 per video</strong> — deposited directly to your account.
             Free to join, no experience needed.
+        </p>
+        <p class="ep-fine">
+            Open to any U.S. citizen, 18+. Refer friends through our
+            <a href="{{ $earlybankHref }}" target="_blank" rel="noopener">Early-bank</a>
+            program to earn bonus commission on every view they log.
         </p>
         <div class="ep-actions">
             <a class="ep-btn-primary" href="{{ $u9LoginUrl ?? url('/earn') }}" target="_blank" rel="noopener">

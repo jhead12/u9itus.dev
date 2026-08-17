@@ -202,6 +202,87 @@
         </div>
     </form>
 
+    {{-- My Badges --}}
+    <div class="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-6 space-y-5">
+        <div>
+            <h2 class="text-base font-semibold text-white">My Badges</h2>
+            <p class="text-slate-500 text-xs mt-0.5">
+                Self-declared badges are private by default — flip one to public to show it on your profile. Earned and system-detected badges are always public.
+            </p>
+        </div>
+
+        @if($voterBadges->isNotEmpty())
+        <div class="space-y-2">
+            @foreach($voterBadges as $badge)
+            <div class="flex items-center justify-between gap-3 bg-slate-900/40 border border-slate-700/40 rounded-lg px-4 py-3">
+                <div class="flex items-center gap-2 min-w-0">
+                    <span class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium text-white shrink-0"
+                          style="background-color: {{ $badge->topic->badge_color ?? '#6366f1' }}">
+                        {{ $badge->topic->icon ?? '' }} {{ $badge->topic->name }}
+                    </span>
+                    @unless($badge->badge_type === 'self_declared')
+                    <span class="text-[10px] uppercase tracking-wide text-slate-500">
+                        {{ str_replace('_', ' ', $badge->badge_type) }} · always public
+                    </span>
+                    @endunless
+                </div>
+
+                @if($badge->badge_type === 'self_declared')
+                <div class="flex items-center gap-4 shrink-0">
+                    {{-- Visibility toggle — plain form, auto-submits on change --}}
+                    <form method="POST" action="{{ route('voter.badges.visibility', $badge->topic_id) }}" class="flex items-center gap-1.5">
+                        @csrf
+                        @method('PUT')
+                        <input type="hidden" name="is_public" value="0">
+                        <label class="relative inline-flex items-center cursor-pointer"
+                               title="{{ $badge->is_public ? 'Public — click to make private' : 'Private — click to make public' }}">
+                            <input type="checkbox" name="is_public" value="1" class="sr-only peer"
+                                {{ $badge->is_public ? 'checked' : '' }} onchange="this.form.submit()">
+                            <div class="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer
+                                        peer-checked:after:translate-x-full peer-checked:after:border-white
+                                        after:content-[''] after:absolute after:top-[2px] after:left-[2px]
+                                        after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all
+                                        peer-checked:bg-emerald-500"></div>
+                        </label>
+                        <span class="text-[10px] text-slate-500">{{ $badge->is_public ? 'Public' : 'Private' }}</span>
+                    </form>
+
+                    {{-- Remove — reuses existing badges.destroy route --}}
+                    <form method="POST" action="{{ route('voter.badges.destroy', $badge->topic_id) }}"
+                          onsubmit="return confirm('Remove this badge from your profile?')">
+                        @csrf
+                        @method('DELETE')
+                        <button type="submit" class="text-xs text-red-400 hover:text-red-300 transition">Remove</button>
+                    </form>
+                </div>
+                @endif
+            </div>
+            @endforeach
+        </div>
+        @else
+        <p class="text-sm text-slate-500">You haven't added any badges yet.</p>
+        @endif
+
+        {{-- Add a badge --}}
+        @if($availableBadgeTopics->isNotEmpty())
+        <div class="pt-4 border-t border-slate-700/40">
+            <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Add a Badge</h3>
+            <div class="flex flex-wrap gap-2">
+                @foreach($availableBadgeTopics as $topic)
+                <form method="POST" action="{{ route('voter.badges.store', $topic->id) }}">
+                    @csrf
+                    <button type="submit"
+                            class="inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium border border-slate-600 text-slate-300 hover:border-slate-400 hover:text-white transition">
+                        {{ $topic->icon ?? '' }} {{ $topic->name }}
+                    </button>
+                </form>
+                @endforeach
+            </div>
+            <p class="text-[11px] text-slate-600 mt-2">New badges are added as private — toggle one to Public above once added.</p>
+        </div>
+        @endif
+    </div>
+
     @include('standalone.voter.partials.authentic-user-verifier-banner')
 
     {{-- Identity Verification --}}

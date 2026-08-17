@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Models\BallotMeasure;
+use App\Models\Citizen;
 use App\Models\ElectionCandidateRecord;
 use App\Models\Politician;
 use App\Models\StateElectionDate;
@@ -10,6 +11,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 /**
@@ -123,9 +125,33 @@ class MapStateCandidatesController
             return response()->json(['error' => 'Provide a valid two-letter state code.'], 422);
         }
 
-        $data = Cache::remember("map_state_candidates_{$state}", 3600, function () use ($state) {
-            return $this->buildStateData($state);
-        });
+        try {
+            $data = Cache::remember("map_state_candidates_{$state}", 3600, function () use ($state) {
+                return $this->buildStateData($state);
+            });
+        } catch (\Throwable $e) {
+            Log::error('MapStateCandidatesController: failed to build state data', [
+                'state' => $state,
+                'error' => $e->getMessage(),
+            ]);
+
+            $regionInfo = self::STATE_REGIONS[$state] ?? ['region' => 'Unknown', 'color' => '#64748b'];
+
+            return response()->json([
+                'state' => $state,
+                'region' => $regionInfo['region'],
+                'region_color' => $regionInfo['color'],
+                'total' => 0,
+                'offices' => [],
+                'house_candidates' => [],
+                'city_officials' => [],
+                'ballot_measures' => [],
+                'election_dates' => [],
+                'office_roles' => $this->officeRoles(),
+                'population' => null,
+                'district_populations' => [],
+            ]);
+        }
 
         return response()->json($data);
     }
@@ -157,7 +183,7 @@ class MapStateCandidatesController
             ->get(['id', 'uuid', 'full_name', 'political_office', 'party_affiliation',
                    'profile_photo_url', 'slug', 'is_running_candidate',
                    'term_status', 'verified_official', 'ballotpedia_id',
-                   'website_url', 'bio']);
+                   'website_url', 'bio', 'term_ends_on']);
 
         // Lost statewide candidates on the platform should also suppress matching
         // scraped running rows when payload.primary_result is missing/stale.
@@ -202,7 +228,7 @@ class MapStateCandidatesController
         // Merge explicit ECR eliminations with platform-lost candidates.
         $excludedRunningKeys = $eliminatedRunningKeys + $lostPlatformKeys;
 
-        // ── 2b. Federal (House) politicians for this state ────────────────────
+        // ── 2b. Federal (House + Senate) politicians for this state ───────────
         $housePoliticians = Politician::query()
             ->whereRaw('UPPER(COALESCE(state, \'\')) = ?', [$state])
             ->where('is_active', true)
@@ -212,29 +238,46 @@ class MapStateCandidatesController
             ->get(['id', 'uuid', 'full_name', 'political_office', 'party_affiliation',
                    'profile_photo_url', 'slug', 'is_running_candidate',
                    'term_status', 'verified_official', 'ballotpedia_id',
-                   'district', 'website_url', 'bio']);
+                   'district', 'website_url', 'bio', 'term_ends_on']);
 
-        // ── 2c. City / local officials (mayors etc.) for this state ───────────
-        // Only show seated, unclaimed officeholders to prevent test/dev
-        // politician accounts (claimed profiles with user_id set) from
-        // appearing as public city officials on the map.
+        // ── 2c. Split U.S. Senators out of the federal set ─────────────────────
+        // Senators represent the whole state (no congressional district), so
+        // they don't fit the district-keyed house_candidates bucket below —
+        // whatever's left in $housePoliticians after this is House members.
+        $senatorPoliticians = $housePoliticians->filter(
+            fn (Politician $pol) => str_contains(strtolower((string) $pol->political_office), 'senator')
+        );
+        $housePoliticians = $housePoliticians->reject(
+            fn (Politician $pol) => str_contains(strtolower((string) $pol->political_office), 'senator')
+        );
+
+        // ── 2d. City / local officials (mayors etc.) for this state ───────────
+        // Seated officeholders AND declared/running candidates for city, county,
+        // and judicial (e.g. Superior Court Judge) seats — mirrors the House
+        // candidates query above (term_status != 'lost', seated or null both
+        // included) rather than only ever showing incumbents.
         $cityOfficials = Politician::query()
             ->whereRaw('UPPER(COALESCE(state, \'\')) = ?', [$state])
             ->where('is_active', true)
             ->whereIn('governance_level', ['City', 'County', 'Local'])
-            ->where('term_status', 'seated')
+            ->where(fn($q) => $q->where('term_status', '!=', 'lost')->orWhereNull('term_status'))
             ->whereNull('user_id')   // exclude claimed/personal accounts
             ->whereNotNull('city')   // must have a city name set
             ->orderBy('city')
             ->orderBy('full_name')
+            // Bounded like ballotMeasures below — a state with dense local
+            // government (many city/county seats imported) could otherwise
+            // return an unbounded row set for one request.
+            ->limit(500)
             ->with(['publicBadges.topic'])
             ->get(['id', 'uuid', 'full_name', 'political_office', 'party_affiliation',
                    'profile_photo_url', 'slug', 'is_running_candidate',
                    'term_status', 'verified_official', 'ballotpedia_id',
-                   'city', 'governance_level', 'website_url', 'bio']);
+                   'city', 'governance_level', 'website_url', 'bio', 'term_ends_on']);
 
         // ── 3. Bucket both into canonical office groups ────────────────────────
         $grouped = [];
+        $grouped['U.S. Senators'] = ['office' => 'U.S. Senators', 'candidates' => []];
         foreach (self::STATEWIDE_OFFICES as $office) {
             $grouped[$office] = ['office' => $office, 'candidates' => []];
         }
@@ -245,6 +288,11 @@ class MapStateCandidatesController
         // different office label, or as both a Senate ECR and a House Politician).
         $seenGlobal = [];
 
+        foreach ($senatorPoliticians as $pol) {
+            $grouped['U.S. Senators']['candidates'][] = $this->formatPlatformCandidate($pol);
+            $seenGlobal[strtolower($pol->full_name)] = true;
+        }
+
         foreach ($platformPoliticians as $pol) {
             $canonical = $this->canonicalise($pol->political_office);
 
@@ -254,34 +302,7 @@ class MapStateCandidatesController
             }
 
             $seenGlobal[strtolower($pol->full_name)] = true;
-            $grouped[$canonical]['candidates'][] = [
-                'source'          => 'platform',
-                'scrape_source'   => null,
-                'external_candidate_id' => null,
-                'uuid'            => $pol->uuid,
-                'full_name'       => $pol->full_name,
-                'party'           => $pol->party_affiliation,
-                'photo'           => $pol->profile_photo_url
-                    ? (str_starts_with($pol->profile_photo_url, 'http') ? $pol->profile_photo_url : url($pol->profile_photo_url))
-                    : null,
-                'slug'            => $pol->slug,
-                // Normalize legacy 'active' records written by enrich-statewide
-                // before the seated/active distinction was clarified. A non-running
-                // incumbent should always render as "Current Officeholder" in the map.
-                'status'          => ($pol->term_status === 'active' && ! $pol->is_running_candidate)
-                    ? 'seated'
-                    : $pol->term_status,
-                'is_running'      => (bool) $pol->is_running_candidate,
-                'verified'        => (bool) $pol->verified_official,
-                'ballotpedia_id'  => $pol->ballotpedia_id,
-                'ballotpedia_url' => $pol->ballotpedia_id
-                    ? 'https://ballotpedia.org/' . $pol->ballotpedia_id
-                    : null,
-                'website'         => $pol->website_url,
-                'profile_url'     => $pol->slug ? url('/p/' . $pol->slug) : null,
-                'bio_excerpt'     => $pol->bio ? Str::limit($pol->bio, 180) : null,
-                'badges'          => $this->formatBadges($pol),
-            ];
+            $grouped[$canonical]['candidates'][] = $this->formatPlatformCandidate($pol);
         }
 
         foreach ($scrapedRecords as $rec) {
@@ -434,6 +455,7 @@ class MapStateCandidatesController
                 continue;
             }
             $houseCandidates[$distKey][] = [
+                'id'              => $pol->id,
                 'source'          => 'platform',
                 'scrape_source'   => null,
                 'external_candidate_id' => null,
@@ -456,11 +478,24 @@ class MapStateCandidatesController
             ];
         }
 
-        // ── 6. City officials grouped by city name ─────────────────────────────
+        // ── 6. City officials grouped by city name, then by exact office/seat ──
+        // Nested { city: { officeKey: {office, candidates: [...]} } } so multiple
+        // people running for the *same* seat (e.g. two "Superior Court Judge,
+        // Seat 2" candidates) group together instead of listing as unrelated
+        // flat cards — same {office, candidates} shape renderOfficeGroup() (JS)
+        // already knows how to render with seated/running splitting.
         $cityOfficialsGrouped = [];
         foreach ($cityOfficials as $pol) {
             $cityKey = $pol->city ?? 'Unknown City';
-            $cityOfficialsGrouped[$cityKey][] = [
+            $officeKey = $pol->political_office ?: 'Other Local Office';
+
+            $cityOfficialsGrouped[$cityKey][$officeKey] ??= [
+                'office'     => $officeKey,
+                'candidates' => [],
+            ];
+
+            $cityOfficialsGrouped[$cityKey][$officeKey]['candidates'][] = [
+                'id'              => $pol->id,
                 'source'          => 'platform',
                 'scrape_source'   => null,
                 'external_candidate_id' => null,
@@ -472,7 +507,10 @@ class MapStateCandidatesController
                     ? (str_starts_with($pol->profile_photo_url, 'http') ? $pol->profile_photo_url : url($pol->profile_photo_url))
                     : null,
                 'slug'            => $pol->slug,
-                'status'          => $pol->term_status,
+                'status'          => ($pol->term_status === 'active' && ! $pol->is_running_candidate)
+                    ? 'seated'
+                    : $pol->term_status,
+                'is_running'      => $pol->term_status !== 'seated',
                 'verified'        => (bool) $pol->verified_official,
                 'ballotpedia_url' => $pol->ballotpedia_id
                     ? 'https://ballotpedia.org/' . $pol->ballotpedia_id
@@ -480,8 +518,15 @@ class MapStateCandidatesController
                 'website'         => $pol->website_url,
                 'profile_url'     => $pol->slug ? url('/p/' . $pol->slug) : null,
                 'bio_excerpt'     => $pol->bio ? Str::limit($pol->bio, 180) : null,
+                'term_end'        => optional($pol->term_ends_on)?->toDateString(),
                 'badges'          => $this->formatBadges($pol),
             ];
+        }
+        // Flatten each city's office-keyed map into a plain list of office groups.
+        // (Named $cityOfficeGroups, not $offices, to avoid shadowing the
+        // unrelated statewide-$offices Collection used later in this method.)
+        foreach ($cityOfficialsGrouped as $cityKey => $cityOfficeGroups) {
+            $cityOfficialsGrouped[$cityKey] = array_values($cityOfficeGroups);
         }
 
         // ── 7. Upcoming ballot measures for this state ─────────────────────────
@@ -494,7 +539,7 @@ class MapStateCandidatesController
             })
             ->orderBy('election_date')
             ->limit(10)
-            ->get(['measure_number', 'title', 'summary', 'yes_meaning', 'no_meaning', 'election_date', 'status', 'source_url'])
+            ->get(['id', 'measure_number', 'title', 'summary', 'yes_meaning', 'no_meaning', 'election_date', 'status', 'source_url'])
             ->map(fn (BallotMeasure $m) => [
                 'measure_number' => $m->measure_number,
                 'title'          => $m->title,
@@ -504,6 +549,7 @@ class MapStateCandidatesController
                 'election_date'  => optional($m->election_date)?->toDateString(),
                 'status'         => $m->status,
                 'source_url'     => $m->source_url,
+                'detail_url'     => route('voter.ballot-measures.show', $m->id),
             ]);
 
         // ── 8. Upcoming election dates for this state ──────────────────────────
@@ -512,6 +558,15 @@ class MapStateCandidatesController
         // StateElectionDate::upcomingForState() for the shared query used by
         // the map, public profile, and voter dashboard alike.
         $electionDates = StateElectionDate::upcomingForState($state);
+
+        // ── 9. Mapped local businesses in this state ────────────────────────────
+        // Reuses the same Citizen rows that power the map's business pins/search
+        // (Citizen::mappable()) — a count, not a new data source.
+        $businessCount = Citizen::query()
+            ->mappable()
+            ->where('state', $state)
+            ->whereNotNull('business_name')
+            ->count();
 
         return [
             'state'              => $state,
@@ -529,12 +584,57 @@ class MapStateCandidatesController
                 'census_year' => $statePopRow->census_year,
                 'formatted'   => number_format($statePopRow->total_population),
             ] : null,
+            'business_count'     => $businessCount,
             'district_populations' => $districtPops->map(fn($r) => [
                 'district'    => $r->label,
                 'total'       => $r->total_population,
                 'census_year' => $r->census_year,
                 'formatted'   => number_format($r->total_population),
             ])->values()->all(),
+        ];
+    }
+
+    /**
+     * Format a seated/platform Politician into the candidate-card shape
+     * shared by the statewide-office and Senator buckets.
+     *
+     * @return array<string, mixed>
+     */
+    private function formatPlatformCandidate(Politician $pol): array
+    {
+        return [
+            'id'              => $pol->id,
+            'source'          => 'platform',
+            'scrape_source'   => null,
+            'external_candidate_id' => null,
+            'uuid'            => $pol->uuid,
+            'full_name'       => $pol->full_name,
+            'party'           => $pol->party_affiliation,
+            'photo'           => $pol->profile_photo_url
+                ? (str_starts_with($pol->profile_photo_url, 'http') ? $pol->profile_photo_url : url($pol->profile_photo_url))
+                : null,
+            'slug'            => $pol->slug,
+            // Normalize legacy 'active' records written by enrich-statewide
+            // before the seated/active distinction was clarified. A non-running
+            // incumbent should always render as "Current Officeholder" in the map.
+            'status'          => ($pol->term_status === 'active' && ! $pol->is_running_candidate)
+                ? 'seated'
+                : $pol->term_status,
+            'is_running'      => (bool) $pol->is_running_candidate,
+            'verified'        => (bool) $pol->verified_official,
+            'ballotpedia_id'  => $pol->ballotpedia_id,
+            'ballotpedia_url' => $pol->ballotpedia_id
+                ? 'https://ballotpedia.org/' . $pol->ballotpedia_id
+                : null,
+            'website'         => $pol->website_url,
+            'profile_url'     => $pol->slug ? url('/p/' . $pol->slug) : null,
+            'bio_excerpt'     => $pol->bio ? Str::limit($pol->bio, 180) : null,
+            // Same field name/semantics as the scraped-ECR branch above
+            // ("Term ends {date}", rendered in panel-state.js) — statewide
+            // offices (Senators, Governor, etc.) have no district/general_date
+            // of their own, so this is their only source of a term-end date.
+            'term_end'        => optional($pol->term_ends_on)?->toDateString(),
+            'badges'          => $this->formatBadges($pol),
         ];
     }
 
@@ -584,6 +684,10 @@ class MapStateCandidatesController
     private function officeRoles(): array
     {
         return [
+            'U.S. Senators' =>
+                'U.S. Senators represent the entire state in the U.S. Senate, serving 6-year ' .
+                'terms. Each state elects two, who vote on federal legislation, confirm ' .
+                'presidential nominees, and ratify treaties.',
             'Governor' =>
                 'The Governor is the chief executive of the state. They sign or veto legislation, ' .
                 'command the state National Guard, and oversee all executive state agencies.',

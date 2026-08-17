@@ -194,9 +194,85 @@ const DIRECT_URL_TEMPLATES = {
   treasurer:       (s, y) => `https://ballotpedia.org/${s}_State_Treasurer_election,_${y}`,
   controller:      (s, y) => `https://ballotpedia.org/${s}_State_Controller_election,_${y}`,
   secretary_state: (s, y) => `https://ballotpedia.org/${s}_Secretary_of_State_election,_${y}`,
-  senate:          (s, y) => `https://ballotpedia.org/${s}_Senate_election,_${y}`,
-  // House is multi-district per state — index strategy is required for House.
+  // Verified against the live site 2026-08-02 — NOT "{State}_Senate_election,_{y}"
+  // (that pattern 404s). The real Ballotpedia title mirrors the House pattern below.
+  senate:          (s, y) => `https://ballotpedia.org/United_States_Senate_election_in_${s},_${y}`,
+  // House has no single per-state URL (it's one race per district) — see
+  // buildHouseDirectRaces() below, which builds one URL per district instead.
 };
+
+/**
+ * U.S. House seats per state (119th Congress apportionment). Mirrors
+ * DISTRICT_COUNTS in resources/js/map/config/constants.js — kept as a
+ * separate local copy since this script has no build step wiring it to the
+ * frontend bundle. States with count===1 are at-large (single statewide
+ * House seat) and use a different Ballotpedia URL pattern than multi-district
+ * states — see buildHouseDirectRaces().
+ */
+const HOUSE_DISTRICT_COUNTS = {
+  Alabama: 7, Alaska: 1, Arizona: 9, Arkansas: 4, California: 52,
+  Colorado: 8, Connecticut: 5, Delaware: 1, Florida: 28, Georgia: 14,
+  Hawaii: 2, Idaho: 2, Illinois: 17, Indiana: 9, Iowa: 4, Kansas: 4,
+  Kentucky: 6, Louisiana: 6, Maine: 2, Maryland: 8, Massachusetts: 9,
+  Michigan: 13, Minnesota: 8, Mississippi: 4, Missouri: 8, Montana: 2,
+  Nebraska: 3, Nevada: 4, 'New Hampshire': 2, 'New Jersey': 12, 'New Mexico': 3,
+  'New York': 26, 'North Carolina': 14, 'North Dakota': 1, Ohio: 15, Oklahoma: 5,
+  Oregon: 6, Pennsylvania: 17, 'Rhode Island': 2, 'South Carolina': 7,
+  'South Dakota': 1, Tennessee: 9, Texas: 38, Utah: 4, Vermont: 1,
+  Virginia: 11, Washington: 10, 'West Virginia': 2, Wisconsin: 8, Wyoming: 1,
+};
+
+/** "1" → "1st", "2" → "2nd", "3" → "3rd", "11"/"12"/"13" → "...th". */
+function ordinal(n) {
+  const j = n % 10, k = n % 100;
+  if (j === 1 && k !== 11) return `${n}st`;
+  if (j === 2 && k !== 12) return `${n}nd`;
+  if (j === 3 && k !== 13) return `${n}rd`;
+  return `${n}th`;
+}
+
+/**
+ * Build one race URL per U.S. House seat — every congressional district for
+ * multi-district states, or one statewide race for at-large states. Ballotpedia
+ * has no single per-state House overview page (that was the broken assumption
+ * behind --strategy=widget's "Elections_in_{State},_{year}" page, which 404s),
+ * so House needs its own per-district builder instead of DIRECT_URL_TEMPLATES.
+ *
+ * Verified against the live site 2026-08-02:
+ *   multi-district: "California's 33rd Congressional District election, 2026"
+ *   at-large:       "United States House of Representatives election in Alaska, 2026"
+ *
+ * Uses a literal apostrophe, not %27 — see the "Do NOT encode apostrophes"
+ * note in scrapeRaceLinks() below; the same server-redirect issue applies here.
+ */
+function buildHouseDirectRaces(houseConfig) {
+  const races = [];
+  for (const [stateName, stateAbbr] of Object.entries(STATE_ABBR)) {
+    if (stateName === 'District of Columbia') continue; // non-voting delegate, not a House race
+    if (STATE_FILTER && stateAbbr !== STATE_FILTER) continue;
+    const totalDistricts = HOUSE_DISTRICT_COUNTS[stateName];
+    if (!totalDistricts) continue;
+    const slug = stateName.replace(/ /g, '_');
+
+    if (totalDistricts === 1) {
+      races.push({
+        url: `https://ballotpedia.org/United_States_House_of_Representatives_election_in_${slug},_${ELECTION_YEAR}`,
+        stateAbbr, stateName, chamberConfig: houseConfig,
+        district: `${stateAbbr}-AL`,
+      });
+      continue;
+    }
+
+    for (let d = 1; d <= totalDistricts; d++) {
+      races.push({
+        url: `https://ballotpedia.org/${slug}'s_${ordinal(d)}_Congressional_District_election,_${ELECTION_YEAR}`,
+        stateAbbr, stateName, chamberConfig: houseConfig,
+        district: `${stateAbbr}-${String(d).padStart(2, '0')}`,
+      });
+    }
+  }
+  return races;
+}
 
 /**
  * Build the list of { url, stateAbbr, key } race descriptors for direct mode.
@@ -226,7 +302,7 @@ function buildDirectRaceList(indexes) {
 }
 
 /** Delay between page requests to avoid hammering Ballotpedia. */
-const DELAY_MS = 800;
+const DELAY_MS = 1500;
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -305,16 +381,13 @@ async function runIndexStrategy(indexes, newPage, allCandidates) {
 
       if (STATE_FILTER && stateAbbr !== STATE_FILTER) continue;
 
-      const racePage = await newPage();
       let raceData;
       try {
-        raceData = await scrapeRacePage(racePage, raceUrl, chamberConfig.key, WITH_RESULTS);
+        raceData = await scrapeRacePageWithRetry(newPage, raceUrl, chamberConfig.key, WITH_RESULTS);
       } catch (err) {
         console.warn(`  ✗ Skipped ${raceUrl}: ${err.message}`);
-        await racePage.context().close();
         continue;
       }
-      await racePage.context().close();
 
       const { pageTitle, candidates } = raceData;
       const district = chamberConfig.key === 'house'
@@ -450,7 +523,18 @@ async function scrapeRacePage(page, raceUrl, chamber, withResults = false) {
   // / AdSense / lazy-image requests, so 'networkidle' never settles and the
   // navigation hits the full timeout. The DOM (tables, headings, anchors) we
   // evaluate below is fully present after DOMContentLoaded.
-  await page.goto(raceUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+  const response = await page.goto(raceUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+
+  // Ballotpedia's CloudFront/AWS WAF sometimes answers with HTTP 202 and an
+  // empty placeholder body (a JS bot-challenge) instead of the real article —
+  // confirmed manually via curl (x-amzn-waf-action: challenge header) on
+  // 2026-08-02. Without this check that page evaluates to 0 candidates with
+  // NO thrown error, so it silently disappears (no ✗ log line) instead of
+  // being retried. Throw so scrapeRacePageWithRetry's retry loop catches it.
+  if (response && response.status() === 202) {
+    throw new Error(`WAF challenge response (HTTP 202) for ${raceUrl}`);
+  }
+
   await sleep(DELAY_MS);
 
   return page.evaluate((args) => {
@@ -627,6 +711,38 @@ async function scrapeRacePage(page, raceUrl, chamber, withResults = false) {
 
     return { pageTitle, candidates: results };
   }, { raceUrl, ELECTION_YEAR, withResults });
+}
+
+/**
+ * scrapeRacePage() wrapped with retry-on-navigation-destroyed.
+ *
+ * "page.evaluate: Execution context was destroyed, most likely because of a
+ * navigation" happens when Ballotpedia's CloudFront/WAF serves a JS bot-check
+ * page instead of the real article — its script redirects to the real page a
+ * moment later, which invalidates whatever context Playwright had already
+ * grabbed a handle to. Confirmed manually (2026-08-02): re-requesting the
+ * exact same URL a few seconds later succeeds cleanly, so this is a transient
+ * challenge, not a broken URL — retrying (with a fresh page/context, since a
+ * destroyed context can't be reused) recovers the large majority of these.
+ *
+ * @param {Function} newPage - factory returning a fresh Playwright page
+ */
+async function scrapeRacePageWithRetry(newPage, raceUrl, chamber, withResults, maxAttempts = 3) {
+  let lastErr;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const page = await newPage();
+    try {
+      return await scrapeRacePage(page, raceUrl, chamber, withResults);
+    } catch (err) {
+      lastErr = err;
+      const retriable = /Execution context was destroyed|Target closed|Target page.*closed|net::ERR_|WAF challenge/i.test(err.message);
+      if (!retriable || attempt === maxAttempts) throw err;
+      await sleep(4000 * attempt); // 4s, 8s, ... back off further each attempt
+    } finally {
+      await page.context().close();
+    }
+  }
+  throw lastErr;
 }
 
 /**
@@ -996,37 +1112,62 @@ async function main() {
   const allCandidates = [];
 
   // ─────────────────────────────────────────────────────────────────────────
-  // DIRECT strategy: construct per-state URLs from the known BP pattern.
-  // Works for all statewide offices. Falls back to index for House (multi-
-  // district) and for any office without a direct URL template.
+  // DIRECT strategy: construct per-state (or per-district, for House) URLs
+  // from the known BP pattern. Falls back to index only for an office with
+  // neither a DIRECT_URL_TEMPLATES entry nor House's dedicated builder.
   // ─────────────────────────────────────────────────────────────────────────
   if (STRATEGY === 'direct') {
-    // Partition: offices with a direct template vs those that need index mode
-    const directIndexes  = indexes.filter(e => e.group !== 'federal' || e.key !== 'house');
-    const fallbackIndexes = indexes.filter(e => !DIRECT_URL_TEMPLATES[e.key]);
+    const houseIndex     = indexes.find(e => e.key === 'house');
+    const otherIndexes    = indexes.filter(e => e.key !== 'house');
+    const fallbackIndexes = otherIndexes.filter(e => !DIRECT_URL_TEMPLATES[e.key]);
+    const templateIndexes = otherIndexes.filter(e => DIRECT_URL_TEMPLATES[e.key]);
 
     if (fallbackIndexes.length > 0) {
       console.log(`  [direct] Offices without a direct template (will use index): ${fallbackIndexes.map(e => e.key).join(', ')}`);
     }
 
-    const directRaces = buildDirectRaceList(directIndexes);
-    console.log(`  [direct] ${directRaces.length} race URLs to visit across all states.\n`);
+    const directRaces = buildDirectRaceList(templateIndexes);
+    const houseRaces  = houseIndex ? buildHouseDirectRaces(houseIndex) : [];
+    const allRaces     = [...directRaces, ...houseRaces];
+    console.log(`  [direct] ${allRaces.length} race URLs to visit across all states.\n`);
 
-    for (const { url: raceUrl, stateAbbr, stateName, chamberConfig } of directRaces) {
-      const racePage = await newPage();
+    // Circuit breaker: a handful of consecutive WAF-challenge failures (even
+    // after scrapeRacePageWithRetry's own short retries) means we've tripped
+    // Ballotpedia's rate-based bot detection for real, not hit a one-off
+    // blip — no amount of 2-6s per-request backoff clears that. Pause the
+    // whole run for a longer cool-down instead of burning through the rest
+    // of the list at a ~0% success rate. Confirmed manually (2026-08-02):
+    // hammering this IP with dozens of requests over an hour got EVERY
+    // subsequent request 202-challenged even with retries — this is the
+    // mitigation for that failure mode.
+    const COOLDOWN_THRESHOLD = 4;
+    const COOLDOWN_MS = 90_000;
+    let consecutiveFailures = 0;
+
+    for (const { url: raceUrl, stateAbbr, stateName, chamberConfig, district } of allRaces) {
       let raceData;
       try {
-        raceData = await scrapeRacePage(racePage, raceUrl, chamberConfig.key, WITH_RESULTS);
+        raceData = await scrapeRacePageWithRetry(newPage, raceUrl, chamberConfig.key, WITH_RESULTS);
+        consecutiveFailures = 0;
       } catch (err) {
         // A 404 means this state simply doesn't have this office (e.g. TX has no Lt. Gov.
-        // in the same pattern) — silently skip rather than warn.
-        if (!err.message.includes('404') && !err.message.includes('net::ERR')) {
-          console.warn(`  ✗ ${stateAbbr} ${chamberConfig.key}: ${err.message}`);
+        // in the same pattern) — silently skip rather than warn. (Navigation-destroyed /
+        // WAF-challenge errors already retried inside scrapeRacePageWithRetry before
+        // landing here — reaching this catch means those retries were exhausted too.)
+        const isRetriableType = /Execution context was destroyed|WAF challenge|Target closed|net::ERR_/i.test(err.message);
+        if (!err.message.includes('404')) {
+          console.warn(`  ✗ ${stateAbbr} ${district ?? chamberConfig.key}: ${err.message}`);
         }
-        await racePage.context().close();
+        if (isRetriableType) {
+          consecutiveFailures++;
+          if (consecutiveFailures >= COOLDOWN_THRESHOLD) {
+            console.log(`  ⏸ ${consecutiveFailures} consecutive failures — likely rate-limited. Cooling down ${COOLDOWN_MS / 1000}s…`);
+            await sleep(COOLDOWN_MS);
+            consecutiveFailures = 0;
+          }
+        }
         continue;
       }
-      await racePage.context().close();
 
       const { candidates } = raceData;
       if (candidates.length === 0) continue;
@@ -1051,7 +1192,7 @@ async function main() {
           political_office: chamberConfig.office,
           governance_level: chamberConfig.governance_level,
           state: stateAbbr,
-          district: null,
+          district: district ?? null,
           party_affiliation: normaliseParty(c.party),
           election_date: `${ELECTION_YEAR}-11-03`,
           is_running_candidate: c.result_status == null,
@@ -1064,7 +1205,7 @@ async function main() {
         });
       }
 
-      console.log(`  ✓ ${stateAbbr} ${chamberConfig.key} — ${candidates.length} candidate(s)`);
+      console.log(`  ✓ ${stateAbbr} ${district ?? chamberConfig.key} — ${candidates.length} candidate(s)`);
       await sleep(DELAY_MS);
     }
 

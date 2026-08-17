@@ -41,11 +41,11 @@
                 <span class="text-white">U9</span><span class="text-emerald-400">itus</span>
             </a>
             <div class="flex items-center gap-3">
-                <a href="{{ route('district.lookup') }}" class="text-sm text-slate-300 hover:text-white transition">Find My District</a>
+                <a href="{{ route('district.lookup') }}" class="hidden sm:inline-block text-sm text-slate-300 hover:text-white transition">Find My District</a>
                 @auth
                     <a href="{{ route('dashboard') }}" class="text-sm text-slate-300 hover:text-white transition">Dashboard</a>
                 @else
-                    <a href="{{ route('register.voter') }}" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-4 py-2 rounded-lg transition">
+                    <a href="{{ route('register.voter') }}" class="bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold px-4 py-2 rounded-lg transition">
                         Create Free Account
                     </a>
                     <a href="{{ route('login') }}" class="text-sm text-slate-300 hover:text-white transition">Sign In</a>
@@ -56,27 +56,26 @@
 
     {{-- ── Header Section ── --}}
     <div class="bg-gradient-to-br from-emerald-900/20 via-slate-900/50 to-slate-950 border-b border-slate-800">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 py-12 sm:py-16">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-5">
             <div class="max-w-3xl">
-                <h1 class="text-3xl sm:text-4xl font-bold text-white mb-3 flex items-center gap-3">
-                    <span class="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center flex-shrink-0">
-                        <svg class="w-5.5 h-5.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <h1 class="text-lg sm:text-xl font-bold text-white mb-1 flex items-center gap-2">
+                    <span class="w-6 h-6 rounded-lg bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center flex-shrink-0">
+                        <svg class="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
                         </svg>
                     </span>
                     Browse Politicians & Officials
                 </h1>
-                <p class="text-slate-400 text-base leading-relaxed">
-                    Research verified politicians and local governance officials on U9itus.
-                    View their profiles, campaign messages, and transparency data in a public, view-only directory.
+                <p class="hidden sm:block text-slate-400 text-xs leading-relaxed">
+                    Research verified politicians and local governance officials on U9itus — profiles, campaign messages, and transparency data in a public, view-only directory.
                 </p>
                 @if($isGuestBrowsing)
-                <div class="mt-5 inline-flex max-w-2xl items-start gap-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
-                    <svg class="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div class="mt-2 inline-flex max-w-2xl items-start gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-xs text-emerald-100">
+                    <svg class="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-emerald-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                     </svg>
                     <p>
-                        Public directory is view-only for earnings. Guests can browse profiles and watch active public campaign videos, but commissions are only available after creating a voter account.
+                        Public directory is view-only for earnings — commissions are only available after creating a voter account.
                     </p>
                 </div>
                 @endif
@@ -86,122 +85,212 @@
 
     {{-- ── Filter Bar ── --}}
     <div class="border-b border-slate-800 sticky top-14 z-30 bg-slate-900/90 backdrop-blur-md">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 py-4">
-            <form method="GET" action="{{ route('politicians.directory') }}" class="flex flex-wrap gap-3">
-                {{-- Search --}}
-                <div class="relative flex-1 min-w-[220px]">
-                    <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-                    </svg>
-                    <input type="text" name="q" value="{{ request('q') }}"
-                        placeholder="Search by name or office..."
-                        class="w-full bg-slate-800 border border-slate-700 text-white placeholder-slate-500 rounded-lg pl-9 pr-4 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition"/>
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 py-2.5">
+            <form method="GET" action="{{ route('politicians.directory') }}#results" x-data="{ filtersOpen: false }" class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+                {{-- Search + mobile filters toggle --}}
+                <div class="flex gap-2">
+                    <div class="relative flex-1 min-w-0 sm:min-w-[220px]">
+                        <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                        </svg>
+                        <input type="text" name="q" value="{{ request('q') }}"
+                            placeholder="Search by name or office..."
+                            aria-label="Search by name or office"
+                            class="w-full bg-slate-800 border border-slate-700 text-white placeholder-slate-500 rounded-lg pl-9 pr-4 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition"/>
+                    </div>
+
+                    <button type="button" @click="filtersOpen = !filtersOpen"
+                        class="sm:hidden flex-shrink-0 inline-flex items-center gap-1.5 bg-slate-800 border border-slate-700 text-slate-300 rounded-lg px-3 py-1.5 text-sm">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h18M6 8h12M10 12h4"/>
+                        </svg>
+                        Filters
+                        <svg class="w-3.5 h-3.5 transition-transform" :class="filtersOpen ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                        </svg>
+                    </button>
                 </div>
 
-                {{-- Topic Filter --}}
-                <div class="relative min-w-[190px]">
-                    <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h8m-8 4h6"/>
-                    </svg>
-                    <input type="text" name="topic" value="{{ request('topic') }}"
-                        placeholder="Topic (e.g. housing)"
-                        class="w-full bg-slate-800 border border-slate-700 text-white placeholder-slate-500 rounded-lg pl-9 pr-4 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition"/>
+                {{-- Remaining filters: collapsible 2-col grid on mobile (halves the
+                     stacked height vs. one filter per row), always visible in a
+                     single row sm+. Only toggles `hidden` — NOT `contents` — when
+                     closed/open, since an unconditional `contents` class would
+                     beat the base `grid` utility in the compiled CSS cascade and
+                     silently collapse the 2-col layout back to one column. --}}
+                <div class="grid grid-cols-2 gap-2 sm:contents" :class="{ 'hidden': !filtersOpen }">
+                    {{-- Topic Filter --}}
+                    <div class="relative sm:min-w-[190px]">
+                        <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h8m-8 4h6"/>
+                        </svg>
+                        <input type="text" name="topic" value="{{ request('topic') }}"
+                            placeholder="Topic (e.g. housing)"
+                            aria-label="Filter by topic"
+                            class="w-full bg-slate-800 border border-slate-700 text-white placeholder-slate-500 rounded-lg pl-9 pr-4 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition"/>
+                    </div>
+
+                    {{-- District Filter --}}
+                    <div class="relative sm:min-w-[180px]">
+                        <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 01.553-.894L9 2m0 18l6-3m-6 3V2m6 15l5.447 2.724A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 2"/>
+                        </svg>
+                        <input type="text" name="district" value="{{ request('district') }}"
+                            placeholder="District"
+                            aria-label="Filter by district"
+                            class="w-full bg-slate-800 border border-slate-700 text-white placeholder-slate-500 rounded-lg pl-9 pr-4 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition"/>
+                    </div>
+
+                    {{-- Governance Level --}}
+                    <div class="relative">
+                        <select name="level" aria-label="Filter by governance level"
+                            class="w-full bg-slate-800 border border-slate-700 text-slate-300 rounded-lg pl-3 pr-8 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 appearance-none cursor-pointer">
+                            <option value="">All Levels</option>
+                            @foreach($governanceLevels as $level)
+                            <option value="{{ $level }}" {{ request('level') === $level ? 'selected' : '' }}>{{ $level }}</option>
+                            @endforeach
+                        </select>
+                        <svg class="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                        </svg>
+                    </div>
+
+                    {{-- State Filter --}}
+                    <div class="relative">
+                        <select name="state" aria-label="Filter by state"
+                            class="w-full bg-slate-800 border border-slate-700 text-slate-300 rounded-lg pl-3 pr-8 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 appearance-none cursor-pointer">
+                            <option value="">All States</option>
+                            @foreach($states as $abbr => $name)
+                            <option value="{{ $abbr }}" {{ request('state') === $abbr ? 'selected' : '' }}>{{ $abbr }} - {{ $name }}</option>
+                            @endforeach
+                        </select>
+                        <svg class="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                        </svg>
+                    </div>
+
+                    {{-- Party Filter --}}
+                    <div class="relative">
+                        <select name="party" aria-label="Filter by party"
+                            class="w-full bg-slate-800 border border-slate-700 text-slate-300 rounded-lg pl-3 pr-8 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 appearance-none cursor-pointer">
+                            <option value="">All Parties</option>
+                            @foreach($parties as $party)
+                            <option value="{{ $party }}" {{ request('party') === $party ? 'selected' : '' }}>{{ $party }}</option>
+                            @endforeach
+                        </select>
+                        <svg class="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                        </svg>
+                    </div>
+
+                    {{-- Sort --}}
+                    <div class="relative">
+                        <select name="sort" aria-label="Sort results"
+                            class="w-full bg-slate-800 border border-slate-700 text-slate-300 rounded-lg pl-3 pr-8 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 appearance-none cursor-pointer">
+                            <option value="name" {{ request('sort', 'name') === 'name' ? 'selected' : '' }}>Last Name (A-Z)</option>
+                            <option value="recent" {{ request('sort') === 'recent' ? 'selected' : '' }}>Recently Added</option>
+                            <option value="verified" {{ request('sort') === 'verified' ? 'selected' : '' }}>Verified First</option>
+                        </select>
+                        <svg class="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                        </svg>
+                    </div>
+
+                    {{-- Unclaimed only --}}
+                    <label class="col-span-2 sm:col-auto inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs text-slate-300 cursor-pointer">
+                        <input type="checkbox" name="unclaimed" value="1" {{ request()->boolean('unclaimed') ? 'checked' : '' }}
+                            class="h-3.5 w-3.5 rounded border-slate-600 bg-slate-900 text-emerald-500 focus:ring-emerald-500" />
+                        Unclaimed only
+                    </label>
+
+                    {{-- Action Buttons --}}
+                    <div class="col-span-2 sm:col-auto flex items-center gap-3">
+                        <button type="submit"
+                            class="bg-emerald-700 hover:bg-emerald-800 text-white px-4 py-1.5 rounded-lg text-sm font-medium transition">
+                            Filter
+                        </button>
+
+                        @if(request()->hasAny(['q', 'topic', 'district', 'level', 'state', 'party', 'sort', 'unclaimed']))
+                        <a href="{{ route('politicians.directory') }}"
+                           class="text-slate-400 hover:text-white text-sm flex items-center gap-1 px-3 py-1.5 transition">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                            Clear
+                        </a>
+                        @endif
+                    </div>
                 </div>
-
-                {{-- District Filter --}}
-                <div class="relative min-w-[180px]">
-                    <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 01.553-.894L9 2m0 18l6-3m-6 3V2m6 15l5.447 2.724A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 2"/>
-                    </svg>
-                    <input type="text" name="district" value="{{ request('district') }}"
-                        placeholder="District"
-                        class="w-full bg-slate-800 border border-slate-700 text-white placeholder-slate-500 rounded-lg pl-9 pr-4 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition"/>
-                </div>
-
-                {{-- Governance Level --}}
-                <select name="level"
-                    class="bg-slate-800 border border-slate-700 text-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 appearance-none cursor-pointer">
-                    <option value="">All Levels</option>
-                    @foreach($governanceLevels as $level)
-                    <option value="{{ $level }}" {{ request('level') === $level ? 'selected' : '' }}>{{ $level }}</option>
-                    @endforeach
-                </select>
-
-                {{-- State Filter --}}
-                <select name="state"
-                    class="bg-slate-800 border border-slate-700 text-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 appearance-none cursor-pointer">
-                    <option value="">All States</option>
-                    @foreach($states as $abbr => $name)
-                    <option value="{{ $abbr }}" {{ request('state') === $abbr ? 'selected' : '' }}>{{ $abbr }} - {{ $name }}</option>
-                    @endforeach
-                </select>
-
-                {{-- Party Filter --}}
-                <select name="party"
-                    class="bg-slate-800 border border-slate-700 text-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 appearance-none cursor-pointer">
-                    <option value="">All Parties</option>
-                    @foreach($parties as $party)
-                    <option value="{{ $party }}" {{ request('party') === $party ? 'selected' : '' }}>{{ $party }}</option>
-                    @endforeach
-                </select>
-
-                {{-- Sort --}}
-                <select name="sort"
-                    class="bg-slate-800 border border-slate-700 text-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 appearance-none cursor-pointer">
-                    <option value="name" {{ request('sort', 'name') === 'name' ? 'selected' : '' }}>Name (A-Z)</option>
-                    <option value="recent" {{ request('sort') === 'recent' ? 'selected' : '' }}>Recently Added</option>
-                    <option value="verified" {{ request('sort') === 'verified' ? 'selected' : '' }}>Verified First</option>
-                </select>
-
-                {{-- Unclaimed only --}}
-                <label class="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-slate-300 cursor-pointer">
-                    <input type="checkbox" name="unclaimed" value="1" {{ request()->boolean('unclaimed') ? 'checked' : '' }}
-                        class="h-3.5 w-3.5 rounded border-slate-600 bg-slate-900 text-emerald-500 focus:ring-emerald-500" />
-                    Unclaimed only
-                </label>
-
-                {{-- Action Buttons --}}
-                <button type="submit"
-                    class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition">
-                    Filter
-                </button>
-
-                                                                @if(request()->hasAny(['q', 'topic', 'district', 'level', 'state', 'party', 'sort', 'unclaimed']))
-                     <a href="{{ route('politicians.directory') }}"
-                   class="text-slate-400 hover:text-white text-sm flex items-center gap-1 px-3 py-2 transition">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                    </svg>
-                    Clear
-                </a>
-                @endif
             </form>
 
-            {{-- ── Topic chip row: one-click browse by issue ───────────────────
-                 Each chip links to the directory with ?topic=<slug>, preserving
-                 the other active filters. Highlights the active topic. --}}
+            {{-- ── Topic chip row: multi-select browse by issue ─────────────────
+                 Each chip toggles its slug in the comma-separated ?topic= list,
+                 preserving the other active filters. A politician matching ANY
+                 selected topic is shown (OR). --}}
             @if(isset($topics) && $topics->isNotEmpty())
                 @php
-                    $activeTopic = request('topic');
+                    $activeTopics = collect(explode(',', (string) request('topic', '')))->map(fn ($t) => trim($t))->filter()->values();
                     $baseQuery = collect(request()->only(['q', 'district', 'level', 'state', 'party', 'sort', 'unclaimed']))->filter();
+
+                    // Topic badge_color is admin-configured and arbitrary, so raw
+                    // colored text on a translucent tint can't guarantee WCAG AA
+                    // (e.g. the #6366f1 default measured 3.65:1 — fails 4.5:1).
+                    // Render chips on a fixed solid surface instead and lighten
+                    // the accent color toward white, step by step, until it
+                    // clears 4.5:1 against that known background — guarantees
+                    // compliance for any admin-chosen hue while keeping the
+                    // topic's own color visible in the text/border.
+                    $chipSurface = '#1e293b';
+                    $relLuminance = function (string $hex): float {
+                        $hex = ltrim($hex, '#');
+                        if (strlen($hex) === 3) $hex = $hex[0].$hex[0].$hex[1].$hex[1].$hex[2].$hex[2];
+                        [$r, $g, $b] = [hexdec(substr($hex, 0, 2)) / 255, hexdec(substr($hex, 2, 2)) / 255, hexdec(substr($hex, 4, 2)) / 255];
+                        $lin = fn ($c) => $c <= 0.03928 ? $c / 12.92 : (($c + 0.055) / 1.055) ** 2.4;
+                        return 0.2126 * $lin($r) + 0.7152 * $lin($g) + 0.0722 * $lin($b);
+                    };
+                    $contrastRatio = function (string $a, string $b) use ($relLuminance): float {
+                        [$l1, $l2] = [$relLuminance($a), $relLuminance($b)];
+                        if ($l1 < $l2) [$l1, $l2] = [$l2, $l1];
+                        return ($l1 + 0.05) / ($l2 + 0.05);
+                    };
+                    $mixToward = function (string $hex, string $toward, float $amount): string {
+                        $hex = ltrim($hex, '#');
+                        $toward = ltrim($toward, '#');
+                        $out = '';
+                        for ($i = 0; $i < 6; $i += 2) {
+                            $a = hexdec(substr($hex, $i, 2));
+                            $b = hexdec(substr($toward, $i, 2));
+                            $out .= str_pad(dechex((int) round($a + ($b - $a) * $amount)), 2, '0', STR_PAD_LEFT);
+                        }
+                        return '#' . $out;
+                    };
+                    $readableAccent = function (string $hex) use ($chipSurface, $contrastRatio, $mixToward): string {
+                        $c = $hex;
+                        for ($i = 0; $i < 12 && $contrastRatio($c, $chipSurface) < 4.5; $i++) {
+                            $c = $mixToward($c, '#ffffff', 0.12);
+                        }
+                        return $c;
+                    };
                 @endphp
-                <div class="flex flex-wrap items-center gap-1.5 mt-3">
-                    <span class="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mr-0.5">Issues</span>
-                    <a href="{{ route('politicians.directory', $baseQuery->toArray()) }}"
-                       class="inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-semibold border transition {{ empty($activeTopic) ? 'bg-slate-700 border-slate-600 text-white' : 'border-slate-700 text-slate-400 hover:text-white hover:border-slate-600' }}">
+                <div class="flex flex-nowrap items-center gap-1.5 mt-2 overflow-x-auto -mx-4 px-4 pb-2" role="group" aria-label="Filter by issue">
+                    <span class="flex-shrink-0 text-[10px] font-semibold uppercase tracking-wider text-slate-400 mr-0.5">Issues</span>
+                    <a href="{{ route('politicians.directory', $baseQuery->toArray()) }}#results"
+                       class="flex-shrink-0 inline-flex items-center justify-center min-h-6 rounded-full px-2.5 py-1 text-[10px] font-semibold border transition {{ $activeTopics->isEmpty() ? 'bg-slate-700 border-slate-600 text-white' : 'border-slate-700 text-slate-400 hover:text-white hover:border-slate-600' }}"
+                       @if($activeTopics->isEmpty()) aria-current="true" @endif>
                         All
                     </a>
                     @foreach($topics as $topic)
                         @php
-                            $chipQuery = $baseQuery->put('topic', $topic->slug)->toArray();
-                            $isActive = $activeTopic === $topic->slug;
+                            $isActive = $activeTopics->contains($topic->slug);
+                            $newTopics = $isActive ? $activeTopics->reject(fn ($t) => $t === $topic->slug) : $activeTopics->concat([$topic->slug]);
+                            $chipQuery = $newTopics->isEmpty() ? $baseQuery->toArray() : $baseQuery->put('topic', $newTopics->implode(','))->toArray();
                             $color = $topic->badge_color ?: '#6366f1';
+                            $textColor = $readableAccent($color);
                         @endphp
-                        <a href="{{ route('politicians.directory', $chipQuery) }}"
-                           class="inline-flex items-center gap-x-1 rounded-full px-2.5 py-0.5 text-[10px] font-semibold border transition-all hover:brightness-125 {{ $isActive ? 'ring-2 ring-offset-1 ring-offset-slate-900' : '' }}"
-                           style="color:{{ $color }};border-color:{{ $color }}40;background-color:{{ $color }}1a;--tw-ring-color:{{ $color }};"
-                           title="Browse candidates focused on {{ $topic->name }}"
-                           aria-pressed="{{ $isActive ? 'true' : 'false' }}">
+                        <a href="{{ route('politicians.directory', $chipQuery) }}#results"
+                           class="flex-shrink-0 inline-flex items-center justify-center gap-x-1 min-h-6 rounded-full px-2.5 py-1 text-[10px] font-semibold border transition-all hover:brightness-125 whitespace-nowrap {{ $isActive ? 'ring-2 ring-offset-1 ring-offset-slate-900' : '' }}"
+                           style="color:{{ $textColor }};border-color:{{ $color }}55;background-color:{{ $chipSurface }};--tw-ring-color:{{ $color }};"
+                           title="{{ $isActive ? 'Remove' : 'Add' }} the {{ $topic->name }} filter"
+                           @if($isActive) aria-current="true" @endif>
                             @if(!empty($topic->icon))<span aria-hidden="true">{{ $topic->icon }}</span>@endif
                             {{ $topic->name }}
                         </a>
@@ -212,8 +301,8 @@
     </div>
 
     {{-- ── Results Section ── --}}
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-8">
-        
+    <div id="results" class="max-w-7xl mx-auto px-4 sm:px-6 py-6 scroll-mt-[170px] sm:scroll-mt-[110px]">
+
         {{-- Result count --}}
         <div class="flex items-center justify-between mb-6">
             <p class="text-slate-400 text-sm">
@@ -230,7 +319,7 @@
                 </svg>
             </div>
             <h3 class="text-white font-semibold mb-1">No politicians found</h3>
-            <p class="text-slate-500 text-sm max-w-xs mx-auto">
+            <p class="text-slate-400 text-sm max-w-xs mx-auto">
                 @if(request()->hasAny(['q', 'topic', 'district', 'level', 'state', 'party', 'unclaimed']))
                     No politicians match your current filters. Try adjusting your search criteria.
                 @else
@@ -338,7 +427,7 @@
                             <svg class="w-3 h-3 text-slate-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
                             </svg>
-                            <span class="text-slate-500 truncate">{{ $politician->governance_level }}</span>
+                            <span class="text-slate-400 truncate">{{ $politician->governance_level }}</span>
                         </div>
                         @endif
 
@@ -348,7 +437,7 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
                             </svg>
-                            <span class="text-slate-500 truncate">
+                            <span class="text-slate-400 truncate">
                                 {{ implode(', ', array_filter([$politician->city, $politician->state])) }}
                             </span>
                         </div>
@@ -368,7 +457,7 @@
                             <svg class="w-3 h-3 text-slate-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"/>
                             </svg>
-                            <span class="text-slate-500 truncate">{{ $politician->party_affiliation }}</span>
+                            <span class="text-slate-400 truncate">{{ $politician->party_affiliation }}</span>
                         </div>
                         @endif
                     </div>
@@ -377,14 +466,14 @@
                     @php $latestArticle = $latestNewsMap[$politician->id] ?? null; @endphp
                     @if($latestArticle)
                     <div class="mt-3 pt-3 border-t border-slate-700/50">
-                        <p class="text-[10px] uppercase tracking-wide text-slate-500 font-semibold mb-1">Latest News</p>
+                        <p class="text-[10px] uppercase tracking-wide text-slate-400 font-semibold mb-1">Latest News</p>
                         <a href="{{ $latestArticle->source_url }}" target="_blank" rel="noopener noreferrer"
                            class="text-xs text-slate-400 hover:text-white line-clamp-2 leading-snug transition"
                            onclick="event.stopPropagation()">
                             {{ $latestArticle->headline }}
                         </a>
                         @if($latestArticle->published_at)
-                        <p class="text-[10px] text-slate-600 mt-0.5">{{ $latestArticle->published_at->diffForHumans() }}</p>
+                        <p class="text-[10px] text-slate-400 mt-0.5">{{ $latestArticle->published_at->diffForHumans() }}</p>
                         @endif
                     </div>
                     @endif
@@ -399,7 +488,7 @@
                             </svg>
                         </span>
                         @else
-                        <span class="text-slate-500 text-xs font-medium flex items-center gap-1">
+                        <span class="text-slate-400 text-xs font-medium flex items-center gap-1">
                             Profile unavailable
                         </span>
                         @endif
@@ -425,7 +514,7 @@
     {{-- ── Footer ── --}}
     <footer class="border-t border-slate-800 mt-16">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 py-8">
-            <div class="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-slate-500">
+            <div class="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-slate-400">
                 <p>&copy; {{ date('Y') }} {{ config('app.name', 'U9itus') }}. All rights reserved.</p>
                 <div class="flex items-center gap-4">
                     <a href="{{ url('/') }}" class="hover:text-white transition">Home</a>

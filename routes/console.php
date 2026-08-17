@@ -19,6 +19,16 @@ Schedule::command('campaigns:apply-schedule')->everyFiveMinutes();
 // Weekly earnings digest to voters who completed views (Mondays at 08:00)
 Schedule::command('notifications:voter-digest')->weeklyOn(1, '08:00');
 
+// Saved-places digest (map favorites) — runs daily but each voter is only
+// actually emailed on their own content-driven cadence (floor: 7 days since
+// their last send; burst: 2+ days plus enough new content — e.g. an election
+// approaching for a saved district). See SendBoundaryDigest for the rule.
+// Offset from the digest above to avoid dispatch contention.
+Schedule::command('notifications:boundary-digest')->dailyAt('08:30');
+
+// Prune unconfirmed guest saved-places digest opt-ins older than 14 days.
+Schedule::command('guests:prune-unconfirmed-digest-signups')->daily();
+
 // Daily low-balance alerts to politicians whose credit balance is running low
 Schedule::command('notifications:low-balance-alerts')->dailyAt('09:00');
 
@@ -128,6 +138,13 @@ Schedule::command('geo:sync-census-demographics')
     ->weeklyOn(0, '07:00')
     ->withoutOverlapping();
 
+// State-level poverty rate — powers the map's "Poverty Rate" choropleth
+// layer (all 50 states + DC in one ACS call, unlike the city-level sync
+// above). Same weekly cadence — ACS estimates update yearly.
+Schedule::command('geo:sync-state-poverty-rate')
+    ->weeklyOn(0, '07:15')
+    ->withoutOverlapping();
+
 // Weekly politician lifecycle reconciliation — marks seated/retired/lost/running.
 // Runs every Sunday at 04:00 UTC, after the candidate sync (02:00 UTC).
 // After a general election, trigger manually with --election-date=YYYY-MM-DD.
@@ -156,5 +173,11 @@ Schedule::command('events:send-reminders')
 // (default 90 days). After purge, those accounts can no longer be restored.
 Schedule::command('deleted-accounts:purge')
     ->dailyAt('01:00')
+    ->withoutOverlapping();
+
+// Guest Trial Mode cleanup — deletes guest-provisioned voter accounts
+// (ProvisionGuestVoterSession) whose trial expired more than 14 days ago.
+Schedule::command('guests:prune-expired')
+    ->dailyAt('04:00')
     ->withoutOverlapping();
 

@@ -36,10 +36,10 @@ class MediaStorageService
     /**
      * Store an image from an UploadedFile.
      *
-     * @param  UploadedFile  $source    Uploaded file instance
-     * @param  string        $directory Storage sub-directory, e.g. 'hero-banners'
-     * @param  int           $ownerId   Used to namespace the filename (politician/voter id)
-     * @return string|null   Public URL, or null on failure
+     * @param  UploadedFile  $source  Uploaded file instance
+     * @param  string  $directory  Storage sub-directory, e.g. 'hero-banners'
+     * @param  int  $ownerId  Used to namespace the filename (politician/voter id)
+     * @return string|null Public URL, or null on failure
      */
     public function storeImage(UploadedFile $source, string $directory, int $ownerId): ?string
     {
@@ -48,9 +48,10 @@ class MediaStorageService
         } catch (\Throwable $e) {
             Log::error('MediaStorageService: image store failed', [
                 'directory' => $directory,
-                'owner_id'  => $ownerId,
-                'error'     => $e->getMessage(),
+                'owner_id' => $ownerId,
+                'error' => $e->getMessage(),
             ]);
+
             return null;
         }
     }
@@ -67,7 +68,7 @@ class MediaStorageService
             return;
         }
 
-        $disk    = $this->disk();
+        $disk = $this->disk();
         $storage = Storage::disk($disk);
 
         // Derive the storage path from the URL.
@@ -86,8 +87,8 @@ class MediaStorageService
             }
         } catch (\Throwable $e) {
             Log::warning('MediaStorageService: delete failed', [
-                'url'   => $url,
-                'path'  => $path,
+                'url' => $url,
+                'path' => $path,
                 'error' => $e->getMessage(),
             ]);
         }
@@ -99,9 +100,10 @@ class MediaStorageService
     {
         if ($file->getSize() > self::MAX_BYTES) {
             Log::warning('MediaStorageService: uploaded file exceeds 5 MB', [
-                'size'      => $file->getSize(),
+                'size' => $file->getSize(),
                 'directory' => $directory,
             ]);
+
             return null;
         }
 
@@ -120,14 +122,15 @@ class MediaStorageService
     private function encodeAndStore(string $bytes, string $directory, int $ownerId): ?string
     {
         // ── 1. Validate real mime type ────────────────────────────────────
-        $finfo    = new \finfo(FILEINFO_MIME_TYPE);
+        $finfo = new \finfo(FILEINFO_MIME_TYPE);
         $realMime = $finfo->buffer($bytes);
 
         if (! in_array($realMime, self::ALLOWED_MIMES, true)) {
             Log::warning('MediaStorageService: rejected disallowed mime type', [
-                'mime'      => $realMime,
+                'mime' => $realMime,
                 'directory' => $directory,
             ]);
+
             return null;
         }
 
@@ -135,9 +138,10 @@ class MediaStorageService
         $image = @imagecreatefromstring($bytes);
         if ($image === false) {
             Log::warning('MediaStorageService: GD could not decode image', [
-                'mime'      => $realMime,
+                'mime' => $realMime,
                 'directory' => $directory,
             ]);
+
             return null;
         }
 
@@ -161,14 +165,28 @@ class MediaStorageService
             Log::warning('MediaStorageService: GD re-encode produced empty output', [
                 'directory' => $directory,
             ]);
+
             return null;
         }
 
         // ── 3. Write to disk ──────────────────────────────────────────────
-        $disk     = $this->disk();
-        $filename = "{$directory}/{$ownerId}-" . time() . "-" . bin2hex(random_bytes(4)) . ".{$ext}";
+        $disk = $this->disk();
+        $filename = "{$directory}/{$ownerId}-".time().'-'.bin2hex(random_bytes(4)).".{$ext}";
 
-        Storage::disk($disk)->put($filename, $encoded, 'public');
+        // Disks in this app are configured with 'throw' => false, so a failed
+        // write returns false here rather than raising — check it explicitly,
+        // or a transient S3 failure silently produces a URL for a file that
+        // was never actually written.
+        $written = Storage::disk($disk)->put($filename, $encoded, 'public');
+
+        if (! $written) {
+            Log::error('MediaStorageService: disk write failed', [
+                'disk' => $disk,
+                'filename' => $filename,
+            ]);
+
+            return null;
+        }
 
         return Storage::disk($disk)->url($filename);
     }
@@ -182,7 +200,7 @@ class MediaStorageService
         if ($disk === 's3') {
             // S3 URL base: configured via AWS_URL or derived from bucket+region
             $s3Base = rtrim((string) config('filesystems.disks.s3.url', ''), '/');
-            if ($s3Base && str_starts_with($url, $s3Base . '/')) {
+            if ($s3Base && str_starts_with($url, $s3Base.'/')) {
                 return substr($url, strlen($s3Base) + 1);
             }
             // Fallback: try the bucket endpoint pattern
@@ -200,20 +218,37 @@ class MediaStorageService
                     }
                 }
             }
+
             return null;
         }
 
-        // Local disk: URL looks like https://app.test/storage/path
-        $storageBase = rtrim(url('storage'), '/') . '/';
-        if (str_starts_with($url, $storageBase)) {
-            return substr($url, strlen($storageBase));
+        // Local disk: the URL may be absolute (https://app.test/storage/path) or,
+        // when the 'local' disk's serve=>true route generates it, root-relative
+        // (/storage/path) — compare on the path component so both match.
+        $storagePathPrefix = rtrim((string) parse_url(url('storage'), PHP_URL_PATH), '/').'/';
+        $urlPath = (string) (parse_url($url, PHP_URL_PATH) ?: '');
+        if ($urlPath !== '' && str_starts_with($urlPath, $storagePathPrefix)) {
+            return substr($urlPath, strlen($storagePathPrefix));
         }
 
         return null; // External URL — do not delete.
     }
 
+    /**
+     * The disk uploaded images are stored on and served from.
+     *
+     * Follows FILESYSTEM_DISK (s3 in production), except for 'local': that
+     * disk's root is storage/app/private and it has no 'visibility' setting,
+     * so Laravel's local-disk serve route demands a signed URL for every
+     * request — but this service hands out plain unsigned URLs, so every
+     * image would 403. The 'public' disk (storage/app/public, visibility
+     * already 'public', reachable via the public/storage symlink) is what
+     * 'local' environments actually want for browser-servable images.
+     */
     private function disk(): string
     {
-        return (string) config('filesystems.default', 'local');
+        $disk = (string) config('filesystems.default', 'local');
+
+        return $disk === 'local' ? 'public' : $disk;
     }
 }

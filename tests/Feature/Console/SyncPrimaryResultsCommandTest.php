@@ -88,13 +88,17 @@ test('an eliminated result propagates to the linked politician term_status', fun
         'term_status' => 'running',
     ]);
 
-    CandidateIdentityLink::create([
-        'politician_id' => $politician->id,
-        'election_candidate_record_id' => $record->id,
-        'match_score' => 0.95,
-        'link_source' => 'system',
-        'linked_at' => now(),
-    ]);
+    CandidateIdentityLink::firstOrCreate(
+        [
+            'politician_id' => $politician->id,
+            'election_candidate_record_id' => $record->id,
+        ],
+        [
+            'match_score' => 0.95,
+            'link_source' => 'system',
+            'linked_at' => now(),
+        ]
+    );
 
     Artisan::call('politicians:sync-primary-results', ['--state' => 'CA']);
 
@@ -123,13 +127,17 @@ test('--dry-run does not write to the linked politician', function () {
         'term_status' => 'running',
     ]);
 
-    CandidateIdentityLink::create([
-        'politician_id' => $politician->id,
-        'election_candidate_record_id' => $record->id,
-        'match_score' => 0.95,
-        'link_source' => 'system',
-        'linked_at' => now(),
-    ]);
+    CandidateIdentityLink::firstOrCreate(
+        [
+            'politician_id' => $politician->id,
+            'election_candidate_record_id' => $record->id,
+        ],
+        [
+            'match_score' => 0.95,
+            'link_source' => 'system',
+            'linked_at' => now(),
+        ]
+    );
 
     Artisan::call('politicians:sync-primary-results', ['--state' => 'CA', '--dry-run' => true]);
 

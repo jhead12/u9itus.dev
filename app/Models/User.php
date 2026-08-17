@@ -51,6 +51,8 @@ class User extends Authenticatable
         'email_verified_at',
         'suspended_at',
         'suspension_reason',
+        'is_guest',
+        'guest_expires_at',
     ];
 
     /**
@@ -88,6 +90,8 @@ class User extends Authenticatable
             'two_factor_recovery_codes' => 'encrypted:array',
             'password'           => 'hashed',
             'is_verified'        => 'boolean',
+            'is_guest'           => 'boolean',
+            'guest_expires_at'   => 'datetime',
         ];
     }
 

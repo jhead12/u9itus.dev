@@ -7,13 +7,15 @@ use App\Models\PoliticalCampaign;
 use App\Models\Politician;
 use App\Services\CandidateNewsService;
 use App\Services\PoliticianResolver;
+use App\Services\VoteSmartService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 class MapCandidateOverviewController
 {
-    public function __invoke(Request $request, CandidateNewsService $newsService, PoliticianResolver $resolver): JsonResponse
+    public function __invoke(Request $request, CandidateNewsService $newsService, PoliticianResolver $resolver, VoteSmartService $voteSmart): JsonResponse
     {
         $slug = trim((string) $request->query('slug', ''));
         $fullName = trim((string) $request->query('full_name', ''));
@@ -37,7 +39,7 @@ class MapCandidateOverviewController
         // Cache for 15 minutes — short enough to pick up newly published news,
         // long enough to absorb a burst of drawer-opens on the same candidate.
         $data = Cache::remember($cacheKey, 900, function () use (
-            $slug, $fullName, $state, $office, $scrapeSource, $externalCandidateId, $newsService, $resolver
+            $slug, $fullName, $state, $office, $scrapeSource, $externalCandidateId, $newsService, $resolver, $voteSmart
         ) {
             $politician = $resolver->resolve($slug, $fullName, $state, $office);
             $scraped = $this->resolveScrapedRecord($fullName, $state, $office, $scrapeSource, $externalCandidateId);
@@ -74,6 +76,11 @@ class MapCandidateOverviewController
 
             $activeVideo = $this->resolveActiveVideo($politician, $scraped, $pool->sortByDesc('published_at')->map($mapItem)->all());
 
+            $voteSmartData = $politician
+                ? $this->resolveVoteSmartData($politician, $voteSmart)
+                : ['bio' => null, 'key_votes' => []];
+            $bio = $voteSmartData['bio'];
+
             return [
                 'candidate' => [
                     'full_name' => $fullName !== '' ? $fullName : ($politician?->full_name ?? null),
@@ -82,11 +89,15 @@ class MapCandidateOverviewController
                     'slug' => $slug !== '' ? $slug : ($politician?->slug ?? null),
                     'is_platform' => (bool) $politician,
                     'has_scraped_record' => (bool) $scraped,
+                    'birth_date' => $bio['birth_date'] ?? null,
+                    'education' => $bio['education'] ?? null,
+                    'profession' => $bio['profession'] ?? null,
                 ],
                 'news' => $newsItems->all(),
                 'press_releases' => $pressReleaseItems->all(),
                 'events' => $eventItems->all(),
                 'active_video' => $activeVideo,
+                'key_votes' => $voteSmartData['key_votes'],
             ];
         });
 
@@ -116,6 +127,41 @@ class MapCandidateOverviewController
             ->orderByDesc('last_seen_at')
             ->orderByDesc('id')
             ->first();
+    }
+
+    /**
+     * Bio fields (birth date / education / profession) and key votes, both
+     * from Vote Smart. fetchPoliticianRatings() already pulls this on every
+     * call (bundled with ratings/positions/votes and cached together) but
+     * historically only the ratings/positions made it into any UI on this
+     * endpoint; the bio fields and key votes were fetched and discarded.
+     * Reuses that method as-is (same caching, same show_votesmart_data
+     * consent gate) rather than duplicating the candidate-ID lookup.
+     *
+     * @return array{bio: array<string, mixed>|null, key_votes: array<int, array<string, mixed>>}
+     */
+    private function resolveVoteSmartData(Politician $politician, VoteSmartService $voteSmart): array
+    {
+        try {
+            $data = $voteSmart->fetchPoliticianRatings($politician);
+        } catch (\Throwable $e) {
+            Log::warning('MapCandidateOverviewController: Vote Smart fetch failed', [
+                'politician_id' => $politician->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return ['bio' => null, 'key_votes' => []];
+        }
+
+        $candidate = $data['candidate'] ?? null;
+        $votes = is_array($data['key_votes'] ?? null) ? $data['key_votes'] : [];
+
+        usort($votes, fn ($a, $b) => strcmp((string) ($b['date'] ?? ''), (string) ($a['date'] ?? '')));
+
+        return [
+            'bio' => is_array($candidate) ? $candidate : null,
+            'key_votes' => array_slice(array_values($votes), 0, 5),
+        ];
     }
 
     /**

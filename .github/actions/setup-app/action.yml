@@ -1,0 +1,112 @@
+name: 'Set up app'
+description: 'PHP 8.4, Composer install, write .env, run pending migrations — the setup block shared by every production-data-sync workflow.'
+
+inputs:
+  app_key:
+    required: true
+  app_url:
+    required: true
+  db_host:
+    required: true
+  db_port:
+    required: true
+  db_database:
+    required: true
+  db_username:
+    required: true
+  db_password:
+    required: true
+  anthropic_api_key:
+    required: false
+    default: ''
+  stripe_secret:
+    required: false
+    default: ''
+  stripe_key:
+    required: false
+    default: ''
+  stripe_webhook_secret:
+    required: false
+    default: ''
+  fec_api_key:
+    required: false
+    default: ''
+  newsapi_key:
+    required: false
+    default: ''
+  gnews_api_key:
+    required: false
+    default: ''
+  census_data_api:
+    required: false
+    default: ''
+  votesmart_api_key:
+    required: false
+    default: ''
+  youtube_api_key:
+    required: false
+    default: ''
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: "8.4"
+        extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, pdo_mysql
+        coverage: none
+
+    - name: Cache Composer packages
+      uses: actions/cache@v4
+      with:
+        path: vendor
+        key: ${{ runner.os }}-composer-${{ hashFiles('composer.lock') }}
+        restore-keys: ${{ runner.os }}-composer-
+
+    # Optional secrets that no caller passes simply render blank here, which
+    # is functionally identical to the line being absent — env('X') in
+    # Laravel returns null/empty either way.
+    - name: Write .env
+      shell: bash
+      run: |
+        cat > .env <<EOF
+        APP_ENV=production
+        APP_KEY=${{ inputs.app_key }}
+        APP_DEBUG=false
+        APP_URL=${{ inputs.app_url }}
+
+        DB_CONNECTION=mysql
+        DB_HOST=${{ inputs.db_host }}
+        DB_PORT=${{ inputs.db_port }}
+        DB_DATABASE=${{ inputs.db_database }}
+        DB_USERNAME=${{ inputs.db_username }}
+        DB_PASSWORD=${{ inputs.db_password }}
+
+        ANTHROPIC_API_KEY=${{ inputs.anthropic_api_key }}
+
+        STRIPE_SECRET=${{ inputs.stripe_secret }}
+        STRIPE_KEY=${{ inputs.stripe_key }}
+        STRIPE_WEBHOOK_SECRET=${{ inputs.stripe_webhook_secret }}
+
+        FEC_API_KEY=${{ inputs.fec_api_key }}
+        NEWSAPI_KEY=${{ inputs.newsapi_key }}
+        GNEWS_API_KEY=${{ inputs.gnews_api_key }}
+        CENSUS_DATA_API=${{ inputs.census_data_api }}
+        VOTESMART_API_KEY=${{ inputs.votesmart_api_key }}
+        YOUTUBE_API_KEY=${{ inputs.youtube_api_key }}
+
+        CACHE_DRIVER=database
+        SESSION_DRIVER=database
+        QUEUE_CONNECTION=sync
+        LOG_CHANNEL=stderr
+        BROADCAST_CONNECTION=log
+        EOF
+
+    - name: Install Composer dependencies
+      shell: bash
+      run: composer install --prefer-dist --no-interaction --no-progress --no-dev
+
+    - name: Run pending migrations
+      shell: bash
+      run: php artisan migrate --force --no-interaction

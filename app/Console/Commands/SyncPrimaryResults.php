@@ -37,7 +37,13 @@ class SyncPrimaryResults extends Command
 
     protected $description = 'Sync primary election results for state and federal candidates from Ballotpedia/Wikipedia.';
 
-    /** Keywords that signal a candidate advanced */
+    /**
+     * Keywords that signal a candidate advanced. Includes both Ballotpedia
+     * race-page phrasing ("won the primary") and Wikipedia bio-style phrasing
+     * ("is the Democratic nominee") — a bio summary describes someone as
+     * already being the nominee rather than narrating the primary-night
+     * result, but that's equally strong evidence they advanced.
+     */
     private const ADVANCED_SIGNALS = [
         'advanced to the general',
         'won the primary',
@@ -47,6 +53,12 @@ class SyncPrimaryResults extends Command
         'qualified for the general',
         'top-two primary',
         'advance',
+        'is the democratic nominee',
+        'is the republican nominee',
+        'democratic nominee in the',
+        'republican nominee in the',
+        'is running for',
+        'is a candidate for',
     ];
 
     /** Keywords that signal a candidate was eliminated */
@@ -284,10 +296,14 @@ class SyncPrimaryResults extends Command
     private function checkUrl(string $url, string $name, ?string $electionDate): ?string
     {
         try {
+            // Ballotpedia sits behind an AWS WAF that challenges (HTTP 202,
+            // empty body) non-browser-looking User-Agents — a bare tool UA
+            // (e.g. "u9itus-sync/1.0") gets blocked outright, so a standard
+            // browser UA string is required to get real HTML back.
             $resp = Http::timeout(15)
-                ->withHeaders(['User-Agent' => 'u9itus-sync/1.0 (primary-results)'])
+                ->withHeaders(['User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'])
                 ->get($url);
-            if (!$resp->ok()) {
+            if (!$resp->successful()) {
                 return null;
             }
             // Strip HTML tags, lowercase

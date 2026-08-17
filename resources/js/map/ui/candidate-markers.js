@@ -9,12 +9,11 @@ import * as THREE from 'three';
 import { STATE_CAPITALS } from '../config/city-data.js';
 import { STATE_ABBR_MAP, PARTY_HEX } from '../config/constants.js';
 import { project } from '../scene/projection.js';
-import { mapGroup } from '../scene/setup.js';
-import { renderer, camera } from '../scene/setup.js';
 import { mapLabelsLayer } from './labels-overlay.js';
 import { stateData, activeState } from '../state/map-state.js';
 import { openPolDrawer } from './politician-drawer.js';
 import { trackEvent } from '../api/interaction.js';
+import { addOverlayItem, removeOverlayItems, updateOverlayPositions } from './point-overlay-factory.js';
 
 export let candidateSprites = [];
 
@@ -33,22 +32,6 @@ function markerLabelForOffice(office) {
     if (lower.includes('controller') || lower.includes('comptroller')) return 'Controller';
     if (lower.includes('secretary of state')) return 'Sec. of State';
     return office.replace(/^State\s+/i, '').slice(0, 18);
-}
-
-/**
- * Determine the dominant party among a list of candidates.
- */
-function dominantParty(candidates) {
-    const counts = {};
-    for (const c of candidates) {
-        const p = c.party?.charAt(0)?.toUpperCase() || 'U';
-        counts[p] = (counts[p] || 0) + 1;
-    }
-    let best = 'U', bestCount = 0;
-    for (const [p, n] of Object.entries(counts)) {
-        if (n > bestCount) { best = p; bestCount = n; }
-    }
-    return best;
 }
 
 /**
@@ -89,32 +72,39 @@ export function buildCandidateMarkers(stateName) {
     if (!allCandidates.length) return;
 
     const sorted = sortCandidates(allCandidates);
-    const party = dominantParty(sorted);
-    const accent = PARTY_HEX[party] || '#6366f1';
 
-    // Spread markers in a small vertical fan so multiple candidates don't overlap.
+    // Small 2D grid around the capital point (world-space), roughly square,
+    // so candidates start visually separated on-screen before the
+    // screen-space collision pass in updateCandidateMarkers() runs as a
+    // safety net for extreme zoom-outs. A single-axis fan (the old
+    // approach) couldn't keep 15-20+ statewide candidates apart with a
+    // world-space spread small enough to still read as "at the capital".
     const count = sorted.length;
-    const spread = Math.min(0.18, 0.04 * count);
-    const startY = count > 1 ? spread * 0.5 : 0;
+    const cols = Math.ceil(Math.sqrt(count));
+    const rows = Math.ceil(count / cols);
+    const cellSize = 0.045;
 
     sorted.forEach((cand, i) => {
-        const offset = count > 1 ? startY - (i * (spread / (count - 1))) : 0;
-        const worldPos = new THREE.Vector3(xy[0], xy[1] + offset, 0.42 + i * 0.01);
+        const col = i % cols;
+        const row = Math.floor(i / cols);
+        const ox = count > 1 ? (col - (cols - 1) / 2) * cellSize : 0;
+        const oy = count > 1 ? ((rows - 1) / 2 - row) * cellSize : 0;
+        const worldPos = new THREE.Vector3(xy[0] + ox, xy[1] + oy, 0.42 + i * 0.001);
 
         const el = document.createElement('button');
         el.className = 'candidate-marker';
         const safeName = cand.full_name || 'Candidate';
+        // Native title tooltip — same hover idiom used for the boundary
+        // favorite star and the map's (i) info badge — instead of an
+        // always-on name pill that can't fit 15-20+ candidates legibly.
+        el.title = `${safeName} — ${cand.officeLabel}`;
         el.setAttribute('aria-label', `${safeName} — ${cand.office} — ${capitalName}`);
         const partyDot = cand.party ? cand.party.charAt(0).toUpperCase() : 'U';
-        const dotColor = PARTY_HEX[partyDot] || '#64748b';
+        const dotColor = PARTY_HEX[partyDot] || '#a7b4c7';
         const statusClass = cand.status === 'seated' ? 'seated' : 'running';
         el.innerHTML =
             `<span class="cand-dot-ring" style="--cand-color:${dotColor}">` +
-            `<span class="cand-dot-core ${statusClass}"></span></span>` +
-            `<span class="cand-name-tag" style="--cand-color:${dotColor}">` +
-            `<span class="cand-office">${cand.officeLabel}</span>` +
-            `<span class="cand-name">${safeName}</span>` +
-            `</span>`;
+            `<span class="cand-dot-core ${statusClass}"></span></span>`;
 
         el.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -134,9 +124,7 @@ export function buildCandidateMarkers(stateName) {
             );
         });
 
-        mapLabelsLayer.appendChild(el);
-        candidateSprites.push({ el, worldPos, name: safeName, office: cand.office });
-        requestAnimationFrame(() => el.classList.add('visible'));
+        addOverlayItem(candidateSprites, mapLabelsLayer, el, worldPos, { name: safeName, office: cand.office });
     });
 }
 
@@ -144,32 +132,28 @@ export function buildCandidateMarkers(stateName) {
  * Remove all candidate markers from the DOM and clear the sprite array.
  */
 export function clearCandidateMarkers() {
-    for (const s of candidateSprites) s.el.remove();
+    removeOverlayItems(candidateSprites);
     candidateSprites = [];
 }
 
 /**
- * Project all candidate markers to screen coordinates each frame.
+ * Project all candidate markers to screen coordinates each frame, then
+ * suppress any that would visually overlap — either each other or an
+ * already-placed city/capital/district marker (occupiedRects, from
+ * render-loop.js). candidateSprites is already in sortCandidates() priority
+ * order (seated > running, verified first), so earlier entries win ties —
+ * updateOverlayPositions() doesn't re-sort, it walks items in array order.
+ * A hidden candidate is still reachable via the "Statewide Executive
+ * Offices" side-panel list, same fallback district labels rely on.
+ *
+ * @param {Array<{left,right,top,bottom}>} occupiedRects
  */
-export function updateCandidateMarkers() {
-    if (!candidateSprites.length) return;
-    const W = renderer.domElement.clientWidth;
-    const H = renderer.domElement.clientHeight;
-    const _vec = new THREE.Vector3();
-    for (const dot of candidateSprites) {
-        _vec.copy(dot.worldPos);
-        _vec.applyMatrix4(mapGroup.matrixWorld);
-        _vec.project(camera);
-        const sx = (_vec.x * 0.5 + 0.5) * W;
-        const sy = (-_vec.y * 0.5 + 0.5) * H;
-        const behind = _vec.z > 1;
-        const outside = sx < -80 || sx > W + 80 || sy < 30 || sy > H + 80;
-        if (behind || outside) {
-            dot.el.style.display = 'none';
-        } else {
-            dot.el.style.display = 'flex';
-            dot.el.style.left = sx + 'px';
-            dot.el.style.top = sy + 'px';
-        }
-    }
+const CAND_HALF = 13; // half-width/height of a dot's collision box, incl. gap
+
+export function updateCandidateMarkers(occupiedRects = []) {
+    return updateOverlayPositions(candidateSprites, {
+        anchor: 'center', // .candidate-marker is center-anchored (translate(-50%,-50%) — map.css)
+        boxSize: { w: CAND_HALF * 2, h: CAND_HALF * 2 },
+        margin: { x: 80, top: 30, bottom: 80 },
+    }, occupiedRects);
 }

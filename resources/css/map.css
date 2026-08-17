@@ -46,6 +46,10 @@ canvas { display: block; }
     background: #0f172a; border: 1px solid rgba(99,102,241,0.3);
     border-radius: 16px; padding: 28px 32px; max-width: 480px; width: 90%;
     color: #e2e8f0;
+    /* Content (17 rows + buttons) can exceed short viewports — cap the
+       box and let it scroll internally instead of overflowing the screen. */
+    max-height: min(600px, 85vh);
+    overflow-y: auto;
 }
 #kb-help-box h2 { margin: 0 0 18px; font-size: 16px; color: #818cf8; display: flex; align-items: center; gap: 8px; }
 .kb-table { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -99,6 +103,48 @@ kbd {
 #top-bar a { color: #818cf8; font-weight: 700; font-size: 18px; text-decoration: none; }
 #top-bar .sep { color: #334155; font-size: 14px; margin: 0 14px; }
 #top-bar .title { color: #94a3b8; font-size: 14px; }
+
+/* "How to use the map" info badge — sits next to the title. Native
+   title-attribute tooltip on hover for desktop (matches the (i) badge idiom
+   used on the profile page), plus a tap-to-toggle popover (below) so
+   touch/mobile users — who get no hover — can read it too. Leads with
+   "map is clickable" per product ask so first-time visitors know to click
+   a state. */
+#map-help-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 13px; height: 13px; margin-left: 6px;
+    /* Flex align-items:center centers the *line box*, not the glyph's
+       optical center — bold text's line box has more room below the
+       baseline than above, which reads as the badge sitting too high
+       next to "Overview". Nudge down to correct for it. */
+    transform: translateY(1.5px);
+    border-radius: 50%; padding: 0; margin-top: 0; margin-bottom: 0;
+    background: rgba(99,102,241,0.14);
+    border: 1px solid rgba(99,102,241,0.45);
+    color: #a5b4fc; font-size: 8px; font-weight: 700; font-family: inherit; line-height: 1;
+    cursor: pointer; flex-shrink: 0;
+    transition: background .15s, border-color .15s, color .15s;
+}
+#map-help-badge:hover,
+#map-help-badge:focus-visible,
+#map-help-badge[aria-expanded="true"] {
+    background: rgba(99,102,241,0.28);
+    border-color: rgba(99,102,241,0.7);
+    color: #e0e7ff;
+    outline: none;
+}
+#map-help-popover {
+    display: none;
+    position: absolute; top: 24px; left: 0; z-index: 110;
+    width: max-content; max-width: 280px;
+    background: rgba(10, 14, 35, 0.96);
+    border: 1px solid rgba(99, 102, 241, 0.35);
+    border-radius: 10px; padding: 10px 14px;
+    backdrop-filter: blur(10px);
+    color: #cbd5e1; font-size: 12px; line-height: 1.5;
+    box-shadow: 0 12px 30px rgba(0,0,0,0.4);
+}
+#map-help-popover.open { display: block; }
 .top-btn {
     display: inline-flex; align-items: center; gap: 5px;
     background: rgba(99,102,241,0.12);
@@ -117,12 +163,28 @@ kbd {
 .top-btn:hover .btn-hover-label {
     max-width: 80px; opacity: 1;
 }
+/* Earn CTA — emerald accent (money) instead of indigo (map utilities),
+   so it reads as a distinct "this one pays you" action at a glance. */
+#btn-signin-cta.top-btn {
+    background: rgba(16,185,129,0.14);
+    border-color: rgba(52,211,153,0.4);
+    color: #34d399;
+    font-weight: 600;
+}
+#btn-signin-cta.top-btn:hover { background: rgba(16,185,129,0.26); }
+#btn-signin-cta.top-btn.active {
+    background: rgba(16,185,129,0.32);
+    border-color: rgba(52,211,153,0.75);
+    color: #6ee7b7;
+}
+.earn-label-short { display: none; }
+
 .top-btn.active {
     background: rgba(99,102,241,0.35);
     border-color: rgba(99,102,241,0.7);
     color: #c7d2fe;
 }
-/* ── Auth-aware "$" earn button (guest only) — icon-only pill ── */
+/* ── Auth-aware "Earn" button (guest only) ── */
 #btn-signin-cta {
     background: rgba(99,102,241,0.18);
     border-color: rgba(99,102,241,0.50);
@@ -164,6 +226,11 @@ kbd {
     font-size: 12px; color: #94a3b8; line-height: 1.65; margin: 0 0 14px;
 }
 #earn-popover .ep-body strong { color: #34d399; }
+#earn-popover .ep-fine {
+    font-size: 11px; color: #64748b; line-height: 1.55; margin: 0 0 14px;
+}
+#earn-popover .ep-fine a { color: #818cf8; text-decoration: underline; text-underline-offset: 2px; }
+#earn-popover .ep-fine a:hover { color: #a5b4fc; }
 #earn-popover .ep-actions {
     display: flex; gap: 8px; align-items: center;
 }
@@ -177,7 +244,7 @@ kbd {
 }
 #earn-popover .ep-btn-primary:hover { background: #818cf8; }
 #earn-popover .ep-btn-close {
-    background: rgba(99,102,241,0.1); color: #64748b;
+    background: rgba(99,102,241,0.1); color: #a7b4c7;
     border: 1px solid rgba(99,102,241,0.2); border-radius: 8px;
     padding: 8px 10px; font-size: 12px; cursor: pointer;
     transition: color .15s;
@@ -205,7 +272,7 @@ kbd {
     padding: 16px 18px;
     border-bottom: 1px solid rgba(99,102,241,0.15);
 }
-#search-input-wrap svg { flex-shrink: 0; color: #475569; }
+#search-input-wrap svg { flex-shrink: 0; color: #94a3b8; }
 #search-input {
     flex: 1; background: none; border: none; outline: none;
     font-size: 16px; color: #f1f5f9; caret-color: #6366f1;
@@ -241,7 +308,7 @@ kbd {
 }
 .sr-main { flex: 1; min-width: 0; }
 .sr-name { font-size: 13px; font-weight: 600; color: #e2e8f0; }
-.sr-sub  { font-size: 11px; color: #475569; margin-top: 1px; }
+.sr-sub  { font-size: 11px; color: #94a3b8; margin-top: 1px; }
 .sr-badge {
     font-size: 10px; font-weight: 600; padding: 2px 8px;
     border-radius: 999px; flex-shrink: 0;
@@ -264,7 +331,7 @@ kbd {
 }
 #search-footer kbd {
     border: 1px solid #1e293b; border-radius: 3px;
-    padding: 1px 4px; font-family: monospace; font-size: 10px; color: #475569;
+    padding: 1px 4px; font-family: monospace; font-size: 10px; color: #94a3b8;
 }
 /* Search trigger button */
 /* btn-search uses .top-btn base styles; only override the gap */
@@ -314,7 +381,7 @@ kbd {
     backdrop-filter: blur(12px);
     min-width: 180px;
 }
-#legend h3 { color: #64748b; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 12px; }
+#legend h3 { color: #a7b4c7; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 12px; }
 .legend-row {
     display: flex; align-items: center; margin-bottom: 9px;
     cursor: pointer; border-radius: 6px; padding: 3px 0;
@@ -322,17 +389,17 @@ kbd {
 .legend-row:last-child { margin-bottom: 0; }
 .legend-swatch { width: 13px; height: 13px; border-radius: 3px; margin-right: 10px; flex-shrink: 0; }
 .legend-name { color: #cbd5e1; font-size: 13px; }
-.legend-count { color: #475569; font-size: 11px; margin-left: 6px; }
+.legend-count { color: #94a3b8; font-size: 11px; margin-left: 6px; }
 
 #info-panel {
-    position: fixed; top: 86px; right: 12px; bottom: 12px;
+    position: fixed; top: 86px; left: 12px; bottom: 12px;
     width: 300px; z-index: 50;
     background: rgba(8, 12, 28, 0.95);
     border: 1px solid rgba(99, 102, 241, 0.2);
     border-radius: 14px;
     backdrop-filter: blur(20px);
     box-shadow: 0 24px 64px rgba(0,0,0,0.6);
-    transform: translateX(calc(100% + 20px));
+    transform: translateX(calc(-100% - 20px));
     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     display: flex; flex-direction: column;
     padding: 16px 18px 22px;
@@ -346,12 +413,12 @@ kbd {
 }
 #panel-close {
     background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.2);
-    color: #475569; font-size: 14px; cursor: pointer;
+    color: #94a3b8; font-size: 14px; cursor: pointer;
     border-radius: 6px; padding: 3px 8px; line-height: 1;
     transition: color 0.12s, background 0.12s;
 }
 #panel-close:hover { color: #94a3b8; background: rgba(99,102,241,0.16); }
-.panel-label { color: #475569; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 10px; }
+.panel-label { color: #94a3b8; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 10px; }
 .panel-label-toggle { display:flex; align-items:center; justify-content:space-between; cursor:pointer; user-select:none; padding:2px 0; }
 .panel-label-toggle:hover { color:#94a3b8; }
 .panel-label-chevron { transition: transform 0.2s ease; font-style:normal; font-size:12px; }
@@ -430,7 +497,7 @@ kbd {
 .t-media-wrap video { aspect-ratio: 16 / 9; background: #020617; }
 .t-media-wrap audio { padding: 8px 10px; background: #0b1224; }
 .t-media-fallback {
-    padding: 14px 16px; font-size: 11px; color: #64748b; line-height: 1.5;
+    padding: 14px 16px; font-size: 11px; color: #a7b4c7; line-height: 1.5;
     border-top: 1px dashed rgba(99,102,241,0.18);
 }
 .t-media-fallback strong { color: #94a3b8; }
@@ -451,8 +518,8 @@ kbd {
 .t-dot { width:6px; height:6px; border-radius:50%; background:#334155; transition:all .2s; flex-shrink:0; }
 .t-dot.active { background:#6366f1; width:16px; border-radius:3px; }
 .t-btns { display:flex; gap:8px; align-items:center; }
-.t-btn-skip  { font-size:11px; color:#475569; background:none; border:none; cursor:pointer; padding:0; text-decoration:underline; }
-.t-btn-skip:hover  { color:#64748b; }
+.t-btn-skip  { font-size:11px; color: #94a3b8; background:none; border:none; cursor:pointer; padding:0; text-decoration:underline; }
+.t-btn-skip:hover  { color: #a7b4c7; }
 .t-btn-back  { background:#1e293b; color:#94a3b8; border:1px solid #334155; border-radius:8px; padding:7px 12px; font-size:12px; cursor:pointer; }
 .t-btn-back:hover  { background:#263248; }
 .t-btn-next  { background:#6366f1; color:#fff; border:none; border-radius:8px; padding:7px 16px; font-size:12px; font-weight:600; cursor:pointer; }
@@ -462,7 +529,7 @@ kbd {
 .state-chip {
     display: inline-block; padding: 3px 9px; border-radius: 999px;
     font-size: 11px; margin: 3px 3px 3px 0;
-    border: 1px solid rgba(99,102,241,0.2); color: #64748b;
+    border: 1px solid rgba(99,102,241,0.2); color: #a7b4c7;
     cursor: pointer; transition: color 0.15s, border-color 0.15s, background 0.15s;
 }
 .state-chip:not(.active):hover {
@@ -489,7 +556,16 @@ kbd {
 .office-section.collapsed .chevron { transform: rotate(-90deg); }
 .office-body { padding:10px 10px 12px; }
 .office-section.collapsed .office-body { display:none; }
-.office-role-tip { font-size: 11px; color: #475569; line-height: 1.5; margin: 0 0 10px; font-style: italic; }
+.office-role-tip { font-size: 11px; color: #94a3b8; line-height: 1.5; margin: 0 0 10px; font-style: italic; }
+
+/* Ballot measure cards — click-to-expand, mirrors .office-section above */
+.bm-card { margin-bottom: 10px; padding: 8px 10px; border-radius: 8px; border: 1px solid rgba(148,163,184,0.2); background: rgba(15,23,42,0.5); }
+.bm-card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; cursor: pointer; }
+.bm-card.bm-no-detail .bm-card-header { cursor: default; }
+.bm-chevron { transition: transform 0.2s; font-style: normal; font-size: 10px; opacity: .7; flex-shrink: 0; margin-top: 2px; }
+.bm-card.collapsed .bm-chevron { transform: rotate(-90deg); }
+.bm-detail { margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(148,163,184,0.15); }
+.bm-card.collapsed .bm-detail { display: none; }
 .candidate-card {
     background: rgba(15,20,45,0.7); border: 1px solid rgba(99,102,241,0.13);
     border-radius: 10px; padding: 10px 12px; margin-bottom: 7px;
@@ -531,7 +607,7 @@ kbd {
 #cand-popup.visible { display: block; }
 #cand-popup-close {
     position: absolute; top: 12px; right: 14px;
-    background: none; border: none; color: #475569;
+    background: none; border: none; color: #94a3b8;
     font-size: 18px; cursor: pointer; line-height: 1; padding: 2px;
     transition: color 0.12s;
 }
@@ -549,7 +625,7 @@ kbd {
 }
 .popup-avatar-ph svg { display: block; }
 .popup-name { font-size: 16px; font-weight: 700; color: #f1f5f9; line-height: 1.2; margin-bottom: 4px; }
-.popup-office { font-size: 11px; color: #64748b; }
+.popup-office { font-size: 11px; color: #a7b4c7; }
 .popup-divider { border: none; border-top: 1px solid rgba(99,102,241,0.12); margin: 10px 0; }
 .popup-bio { font-size: 12px; color: #94a3b8; line-height: 1.55; margin: 0 0 10px; }
 .popup-stats { display: flex; gap: 10px; margin-bottom: 12px; }
@@ -559,8 +635,8 @@ kbd {
     border-radius: 8px; padding: 7px 10px; text-align: center;
 }
 .popup-stat-val { font-size: 13px; font-weight: 700; color: #e2e8f0; display: block; }
-.popup-stat-lbl { font-size: 9px; color: #475569; text-transform: uppercase; letter-spacing: .07em; }
-.popup-stance { font-size: 11px; color: #64748b; margin: 0 0 12px; line-height: 1.5; }
+.popup-stat-lbl { font-size: 9px; color: #94a3b8; text-transform: uppercase; letter-spacing: .07em; }
+.popup-stance { font-size: 11px; color: #a7b4c7; margin: 0 0 12px; line-height: 1.5; }
 .popup-stance strong { color: #94a3b8; }
 .popup-actions { display: flex; gap: 8px; }
 .popup-btn {
@@ -579,7 +655,7 @@ kbd {
     border: 1px solid rgba(99,102,241,0.3);
     color: #818cf8;
 }
-.candidate-meta { font-size: 11px; color: #64748b; display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+.candidate-meta { font-size: 11px; color: #a7b4c7; display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
 .party-pill { padding: 2px 7px; border-radius: 999px; font-size: 10px; font-weight: 600; }
 .candidate-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
 .pol-topic-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
@@ -602,10 +678,45 @@ kbd {
     position: fixed; bottom: 28px; right: 24px; z-index: 50;
     color: #334155; font-size: 11px; text-align: right; pointer-events: none;
 }
-/* #info-panel occupies the same bottom-right area (top:86px to bottom:12px) —
+/* #pol-drawer occupies the same bottom-right area (top:86px to bottom:12px) —
    once it's open with real content, the corner hint text is both redundant
    and visually overlaps/obscures the panel's last item. */
-body:has(#info-panel.open) #hint { display: none; }
+body:has(#pol-drawer.open) #hint { display: none; }
+
+/* Bottom-right "how to use" card — dismissible, sits above the plain-text
+   #hint. Hidden while #pol-drawer is open (same corner, would overlap),
+   same treatment #hint already gets. */
+#map-usage-card {
+    position: fixed; bottom: 66px; right: 24px; z-index: 51;
+    max-width: 260px;
+    background: rgba(10, 14, 35, 0.92);
+    border: 1px solid rgba(99, 102, 241, 0.25);
+    border-radius: 14px; padding: 14px 16px;
+    backdrop-filter: blur(12px);
+}
+#map-usage-card h3 {
+    color: #a7b4c7; font-size: 10px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 8px;
+}
+#map-usage-card ul { list-style: none; margin: 0; padding: 0; }
+#map-usage-card li {
+    color: #cbd5e1; font-size: 12px; line-height: 1.5;
+}
+#map-usage-card li + li { margin-top: 8px; }
+#map-usage-card kbd {
+    font-size: 10px; padding: 0 5px;
+    background: rgba(99,102,241,0.25); border: 1px solid rgba(99,102,241,0.45);
+    border-radius: 3px; color: #e0e7ff; font-weight: 700;
+}
+#map-usage-close {
+    position: absolute; top: 8px; right: 8px;
+    background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.2);
+    color: #94a3b8; font-size: 11px; cursor: pointer;
+    border-radius: 6px; padding: 2px 6px; line-height: 1.4;
+    transition: color 0.12s, background 0.12s;
+}
+#map-usage-close:hover { color: #e0e7ff; background: rgba(99,102,241,0.16); }
+body:has(#pol-drawer.open) #map-usage-card { display: none; }
 
 /* Map toast */
 .map-toast {
@@ -630,15 +741,18 @@ body:has(#info-panel.open) #hint { display: none; }
 }
 .map-toast.error { border-color: rgba(239, 68, 68, 0.5); color: #fecaca; }
 
-/* Breadcrumb */
+/* Breadcrumb
+   z-index raised above #legend (50) and the other bottom panels — it hosts
+   #map-help-popover, whose own z-index:110 only wins within this bar's own
+   stacking context, so the bar itself must outrank them here too. */
 #breadcrumb-bar {
-    position: fixed; top: 54px; left: 0; right: 0; z-index: 45;
+    position: fixed; top: 54px; left: 0; right: 0; z-index: 90;
     background: rgba(6,9,26,0.8); backdrop-filter: blur(10px);
     border-bottom: 1px solid rgba(99,102,241,0.1);
     padding: 0 16px 0 24px; height: 32px;
     display: flex; align-items: center; justify-content: space-between;
 }
-.bc-item { color: #475569; font-size: 12px; }
+.bc-item { color: #94a3b8; font-size: 12px; }
 .bc-link { color: #6366f1; cursor: pointer; text-decoration: none; }
 .bc-link:hover { color: #818cf8; }
 .bc-active { color: #e2e8f0; font-weight: 600; }
@@ -684,34 +798,13 @@ body:has(#info-panel.open) #hint { display: none; }
 #mobile-menu-btn:hover { background: rgba(99,102,241,0.22); }
 #mobile-menu-btn svg { pointer-events: none; }
 
-/* ── Mobile dropdown menu ── */
-#mobile-menu {
-    display: none;
-    position: fixed; top: 48px; right: 0; left: 0; z-index: 195;
-    background: rgba(5,8,22,0.97);
-    border-bottom: 1px solid rgba(99,102,241,0.2);
-    backdrop-filter: blur(20px);
-    padding: 12px 14px 16px;
-    flex-direction: column; gap: 8px;
-}
-#mobile-menu.open { display: flex; }
-.mobile-menu-row { display: flex; gap: 8px; }
-.mobile-menu-btn {
-    flex: 1;
-    background: rgba(99,102,241,0.09);
-    border: 1px solid rgba(99,102,241,0.22);
-    color: #818cf8; padding: 10px 8px;
-    border-radius: 8px; font-size: 12px; font-weight: 500;
-    cursor: pointer; text-align: center;
-    transition: background 0.15s;
-    line-height: 1.3;
-}
-.mobile-menu-btn:active { background: rgba(99,102,241,0.22); }
-.mobile-menu-btn.active {
-    background: rgba(99,102,241,0.28);
-    border-color: rgba(99,102,241,0.55);
-    color: #c7d2fe;
-}
+/* ── Map menu sheet ──────────────────────────────────────────────
+   Wraps #layers-wrap + #controls-wrap. On desktop this is `contents` —
+   a transparent wrapper with zero layout effect, so both dropdowns render
+   exactly as before. At ≤768px (see media query below) it becomes the
+   single mobile/tablet bottom sheet. ──────────────────────────────── */
+#map-menu-sheet { display: contents; }
+#map-menu-sheet-divider { display: none; }
 
 /* ── Panel drag handle (mobile only) ── */
 .panel-drag-handle {
@@ -743,7 +836,7 @@ body:has(#info-panel.open) #hint { display: none; }
 .cm-section {
     padding: 4px 14px 2px;
     font-size: 9px; font-weight: 700; letter-spacing: .1em;
-    text-transform: uppercase; color: #64748b;
+    text-transform: uppercase; color: #a7b4c7;
 }
 .cm-item {
     display: flex; align-items: center; justify-content: space-between;
@@ -768,7 +861,7 @@ body:has(#info-panel.open) #hint { display: none; }
 .cm-item.active .cm-toggle { background: rgba(99,102,241,0.5); border-color: #6366f1; }
 .cm-item.active .cm-toggle::after { transform: translateX(14px); background: #818cf8; }
 .cm-divider { border: none; border-top: 1px solid rgba(99,102,241,0.1); margin: 6px 0; }
-.cm-kbd { font-size: 10px; color: #64748b; font-family: monospace;
+.cm-kbd { font-size: 10px; color: #a7b4c7; font-family: monospace;
           border: 1px solid #334155; border-radius: 3px; padding: 1px 5px; }
 
 /* ── Layers multi-select panel ─────────────────────────────────── */
@@ -796,7 +889,7 @@ body:has(#info-panel.open) #hint { display: none; }
     padding: 6px 12px; border-radius: 999px;
     background: rgba(99,102,241,0.06);
     border: 1px solid rgba(99,102,241,0.18);
-    color: #64748b; font-size: 12px; font-weight: 500;
+    color: #a7b4c7; font-size: 12px; font-weight: 500;
     cursor: pointer; transition: all 0.14s;
     white-space: nowrap; user-select: none;
     -webkit-tap-highlight-color: transparent;
@@ -815,16 +908,18 @@ body:has(#info-panel.open) #hint { display: none; }
 }
 .lp-chip.active .lp-dot { background: #818cf8; box-shadow: 0 0 4px #818cf8; }
 @media (max-width: 768px) {
-    #layers-panel { min-width: 220px; right: -10px; }
+    /* #layers-panel is a section of #map-menu-sheet at this width (see the
+       responsive block below), not an anchored dropdown, so no positioning
+       override is needed here — just bigger tap targets for the chips. */
     .lp-chip { padding: 8px 13px; font-size: 13px; }
 }
 
 /* ─── Saved Boundaries (Layers → Boundaries) ─── */
 .lp-saved-section .lp-saved-count {
-    font-size: 9px; font-weight: 600; color: #475569; margin-left: 2px;
+    font-size: 9px; font-weight: 600; color: #94a3b8; margin-left: 2px;
 }
 .lp-saved-empty {
-    margin: 2px 0 8px; font-size: 11px; color: #475569; line-height: 1.4;
+    margin: 2px 0 8px; font-size: 11px; color: #94a3b8; line-height: 1.4;
 }
 .lp-chip-saved {
     padding-right: 8px; /* room for the × before tighter chip padding */
@@ -837,7 +932,7 @@ body:has(#info-panel.open) #hint { display: none; }
 .lp-saved-remove {
     flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center;
     width: 15px; height: 15px; border-radius: 50%;
-    font-size: 13px; line-height: 1; color: #64748b;
+    font-size: 13px; line-height: 1; color: #a7b4c7;
     background: rgba(15,23,42,0.4); transition: all 0.12s;
     margin-left: 2px;
 }
@@ -848,15 +943,62 @@ body:has(#info-panel.open) #hint { display: none; }
     flex-shrink: 0; cursor: pointer; line-height: 1;
     font-size: 16px; padding: 2px 4px; border-radius: 6px;
     background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.2);
-    color: #64748b; transition: all 0.12s;
+    color: #a7b4c7; transition: all 0.12s;
     -webkit-tap-highlight-color: transparent;
 }
-.boundary-fav-btn:hover { color: #fbbf24; border-color: rgba(251,191,36,0.5); background: rgba(251,191,36,0.12); }
+/* Deliberately dimmer than .saved below — hover is just a hint that clicking
+   will save, and must not read as "already saved" while the mouse sits on it. */
+.boundary-fav-btn:hover { color: #fcd34d; border-color: rgba(251,191,36,0.3); background: rgba(251,191,36,0.06); }
 .boundary-fav-btn.saved { color: #fbbf24; border-color: rgba(251,191,36,0.55); background: rgba(251,191,36,0.14); }
+.boundary-fav-btn.saved:hover { color: #fbbf24; border-color: rgba(251,191,36,0.75); background: rgba(251,191,36,0.22); }
 /* Star lives inline after the badge in the district panel header */
 #panel-fav-btn { margin-left: 6px; vertical-align: middle; }
 /* Star lives in the city drawer hero info */
 .pol-hero-info .boundary-fav-btn { margin-top: 6px; align-self: flex-start; }
+/* Name + follow/save star sit on one line, right next to the h2 (overrides
+   the block-below placement above for hero rows that opt into this).
+   margin-right:32px on the ROW (not just the name) keeps the star itself
+   clear of #pol-drawer-close, which is absolutely positioned top:12px;
+   right:14px — the same clearance .pol-name used to reserve alone. */
+.pol-name-row { display: flex; align-items: center; gap: 8px; margin: 0 32px 3px 0; }
+/* flex:0 1 auto (not flex:1) — .pol-name should only ever SHRINK to make
+   room for a long name's ellipsis, never GROW to fill the row, or a short
+   name (e.g. "Broken Arrow") leaves the star stranded far to the right on
+   a wide drawer instead of sitting right next to the text. */
+.pol-name-row .pol-name { flex: 0 1 auto; min-width: 0; max-width: 100%; margin: 0; }
+.pol-name-row .boundary-fav-btn { margin-top: 0; flex-shrink: 0; align-self: center; }
+
+/* Weekly saved-places digest opt-in toast (resources/js/map/ui/digest-optin.js) */
+.digest-optin-toast {
+    position: fixed; right: 16px; bottom: 16px; z-index: 400;
+    width: min(300px, calc(100vw - 32px));
+    background: rgba(10,14,35,0.98);
+    border: 1px solid rgba(99,102,241,0.4);
+    border-radius: 14px;
+    box-shadow: 0 16px 48px rgba(0,0,0,0.6);
+    backdrop-filter: blur(16px);
+    padding: 16px 18px;
+}
+.digest-optin-title { font-size: 13px; font-weight: 700; color: #e2e8f0; margin: 0 0 6px; }
+.digest-optin-body { font-size: 12px; color: #94a3b8; line-height: 1.5; margin: 0 0 12px; }
+.digest-optin-input {
+    width: 100%; box-sizing: border-box; margin-bottom: 10px;
+    background: rgba(15,23,42,0.8); border: 1px solid rgba(99,102,241,0.3);
+    border-radius: 8px; color: #e2e8f0; padding: 8px 10px; font-size: 12px;
+}
+.digest-optin-actions { display: flex; gap: 8px; }
+.digest-optin-btn-primary {
+    flex: 1; background: #6366f1; color: #fff; border: none; border-radius: 8px;
+    padding: 8px 10px; font-size: 12px; font-weight: 700; cursor: pointer;
+}
+.digest-optin-btn-primary:hover { background: #818cf8; }
+.digest-optin-btn-dismiss {
+    background: rgba(99,102,241,0.1); color: #a7b4c7;
+    border: 1px solid rgba(99,102,241,0.2); border-radius: 8px;
+    padding: 8px 10px; font-size: 12px; cursor: pointer;
+}
+.digest-optin-btn-dismiss:hover { color: #94a3b8; }
+.digest-optin-status { font-size: 12px; color: #34d399; margin: 0; }
 
 /* ─── Scrollbar styles ─── */
 /* WebKit (Chrome, Safari, Edge) */
@@ -888,25 +1030,69 @@ body:has(#info-panel.open) #hint { display: none; }
    RESPONSIVE — TABLET & MOBILE (≤ 768 px)
 ══════════════════════════════════════════ */
 @media (max-width: 768px) {
-    /* Top bar */
-    #top-bar { padding: 0 10px; height: 48px; }
+    /* Top bar — collapse Find District / Layers / Controls into the single
+       #map-menu-sheet below the hamburger; Back and Search stay visible.
+       backdrop-filter is dropped here because it establishes a containing
+       block for `position: fixed` descendants (Chromium) — with it on,
+       #map-menu-sheet's `bottom: 0` resolves against #top-bar's own 48px
+       box instead of the viewport. Background is already 88% opaque, so
+       losing the blur-through is not noticeable. */
+    #top-bar { padding: 0 10px; height: 48px; backdrop-filter: none; }
     #top-bar .sep,
     #top-bar .title { display: none; }
-    #btn-districts, #btn-reset, #btn-rotate { display: none; }
+    #btn-districts, #btn-rotate { display: none; }
+    #btn-find-district, #btn-layers, #btn-controls { display: none; }
     #mobile-menu-btn { display: flex; }
     #btn-search { padding: 6px 10px; gap: 4px; font-size: 12px; }
     #btn-back { padding: 5px 10px; font-size: 12px; }
+    #btn-signin-cta { padding: 5px 10px; font-size: 12px; }
+    .earn-label-full { display: none; }
+    .earn-label-short { display: inline; }
     #top-bar a { font-size: 16px; }
 
     /* Tap targets meet 44×44 minimum (WCAG 2.5.5 / Apple HIG) — the visible
-       top-bar buttons (find-district, search, layers, controls) were 26-30px
-       tall, well under that bar. */
+       top-bar buttons (search) were 26-30px tall, well under that bar. */
     .top-btn { min-height: 44px; padding-top: 0; padding-bottom: 0; }
     #mobile-menu-btn { min-width: 44px; min-height: 44px; }
 
     /* Breadcrumb */
     #breadcrumb-bar { top: 48px; padding: 0 10px; height: 28px; }
     .bc-item, .bc-link, .bc-active { font-size: 11px; }
+
+    /* ── #map-menu-sheet: Layers + Controls become one bottom sheet ──
+       #layers-wrap/#controls-wrap stack instead of sitting in the desktop
+       flex row; #layers-panel/#controls-menu are forced visible (their own
+       .open-class toggle is irrelevant here — nothing clicks their hidden
+       trigger buttons on mobile) and stripped of their own dropdown chrome
+       so the two read as sections of one card. */
+    #map-menu-sheet {
+        display: block;
+        position: fixed; left: 0; right: 0; bottom: 0; z-index: 220;
+        background: rgba(8, 12, 28, 0.97);
+        border-top: 1px solid rgba(99,102,241,0.25);
+        border-radius: 18px 18px 0 0;
+        backdrop-filter: blur(20px);
+        box-shadow: 0 -16px 48px rgba(0,0,0,0.55);
+        max-height: 80vh;
+        overflow-y: auto;
+        padding: 10px 4px max(16px, env(safe-area-inset-bottom));
+        transform: translateY(100%);
+        transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
+    }
+    #map-menu-sheet.open { transform: translateY(0); }
+    #layers-wrap, #controls-wrap { display: block; position: static; }
+    #layers-panel, #controls-menu {
+        display: block !important;
+        position: static !important;
+        width: 100%; min-width: 0;
+        border: none; box-shadow: none; backdrop-filter: none;
+        border-radius: 0; background: transparent;
+    }
+    #map-menu-sheet-divider {
+        display: block;
+        border: none; border-top: 1px solid rgba(99,102,241,0.15);
+        margin: 10px 14px;
+    }
 
     /* Info panel → bottom sheet
        Default (open class): peek at 40vh so the map stays visible.
@@ -966,6 +1152,7 @@ body:has(#info-panel.open) #hint { display: none; }
 
     /* Hide redundant hint; simplify progress toaster */
     #hint { display: none; }
+    #map-usage-card { max-width: 200px; right: 12px; bottom: 12px; padding: 10px 12px; }
     #dist-progress { bottom: auto; top: 82px; right: 10px; left: auto; transform: none; font-size: 11px; padding: 8px 14px; }
 
     /* Search overlay adjustments */
@@ -981,6 +1168,7 @@ body:has(#info-panel.open) #hint { display: none; }
     .popup-stats { flex-direction: column; gap: 6px; }
     .popup-stat { padding: 6px 10px; }
     #legend { top: 76px; }
+    #kb-help-box { padding: 20px 18px; max-height: 90vh; }
 }
 
 /* Raw <button> elements used as marker roots — strip UA button chrome
@@ -992,61 +1180,61 @@ body:has(#info-panel.open) #hint { display: none; }
     font: inherit; color: inherit; appearance: none;
 }
 
-/* ── Top-cities census markers ───────────────────────────────────── */
+/* ── Top-cities census markers ───────────────────────────────────────────
+   One pill (dot folded inside, matching .map-label's district-label
+   pattern) rather than two separate chips — and anchored by its LEFT edge
+   (translate(0,-50%), not translate(-50%,-50%)) so the dot sits right at
+   the city's true projected lat/lng point regardless of how wide the name
+   is, instead of the whole pill's centroid drifting off that point. */
 .city-marker {
     position: absolute; pointer-events: auto;
-    transform: translate(-50%, -50%);
+    transform: translate(0, -50%);
     display: none; align-items: center; gap: 5px;
+    padding: 2px 8px 2px 6px; border-radius: 999px; white-space: nowrap;
+    background: rgba(8,12,30,0.93); border: 1px solid rgba(251,191,36,0.38);
     cursor: pointer;
 }
 .city-marker.visible { display: flex; }
-.city-dot-ring {
-    border-radius: 50%; display: flex; align-items: center; justify-content: center;
-    background: rgba(251,191,36,0.14); flex-shrink: 0;
-}
 .city-dot-core {
-    border-radius: 50%; background: #fbbf24;
-    box-shadow: 0 0 5px #fbbf24, 0 0 12px rgba(251,191,36,0.45);
+    width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+    background: #fbbf24; box-shadow: 0 0 4px #fbbf24;
 }
-.city-name-tag {
-    padding: 2px 7px; border-radius: 999px; white-space: nowrap;
-    background: rgba(8,12,30,0.93); border: 1px solid rgba(251,191,36,0.38);
-    font-size: 10px; font-weight: 700; color: #fbbf24; line-height: 1.4;
-}
-.city-pop-tag { font-size: 9px; color: #64748b; white-space: nowrap; }
-.city-marker:hover .city-name-tag {
+.city-name-tag { font-size: 10px; font-weight: 700; color: #fbbf24; line-height: 1.4; }
+.city-pop-tag { font-size: 9px; color: #a7b4c7; white-space: nowrap; }
+.city-marker:hover {
     border-color: rgba(251,191,36,0.7); background: rgba(20,26,58,0.98);
 }
 
-/* ── Government / Capitol markers ───────────────────────────────── */
+/* ── Government / Capitol markers ── same one-pill, left-anchored pattern. */
 .gov-marker {
     position: absolute; pointer-events: auto;
-    transform: translate(-50%, -50%);
+    transform: translate(0, -50%);
     display: none; align-items: center; gap: 5px;
+    padding: 2px 8px 2px 6px; border-radius: 999px; white-space: nowrap;
+    background: rgba(8,12,30,0.93); border: 1px solid rgba(6,182,212,0.45);
     cursor: pointer;
 }
 .gov-marker.visible { display: flex; }
-.gov-dot-ring {
-    border-radius: 50%; display: flex; align-items: center; justify-content: center;
-    background: rgba(6,182,212,0.14); flex-shrink: 0;
-}
 .gov-dot-core {
-    border-radius: 50%; background: #06b6d4;
-    box-shadow: 0 0 6px #06b6d4, 0 0 14px rgba(6,182,212,0.5);
+    width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+    background: #06b6d4; box-shadow: 0 0 4px #06b6d4;
 }
-.gov-name-tag {
-    padding: 2px 7px; border-radius: 999px; white-space: nowrap;
-    background: rgba(8,12,30,0.93); border: 1px solid rgba(6,182,212,0.45);
-    font-size: 10px; font-weight: 700; color: #06b6d4; line-height: 1.4;
-}
-.gov-cap-tag { font-size: 9px; color: #64748b; white-space: nowrap; letter-spacing:.03em; }
-.gov-marker:hover .gov-name-tag { border-color: rgba(6,182,212,0.8); background: rgba(20,26,58,0.98); }
+.gov-name-tag { font-size: 10px; font-weight: 700; color: #06b6d4; line-height: 1.4; }
+.gov-cap-tag { font-size: 9px; color: #a7b4c7; white-space: nowrap; letter-spacing:.03em; }
+.gov-marker:hover { border-color: rgba(6,182,212,0.8); background: rgba(20,26,58,0.98); }
 
-/* ── Statewide candidate markers at capitals ────────────────────── */
+/* ── Statewide candidate markers at capitals ──────────────────────────────
+   Dot-only — a state can have 15-20+ statewide candidates (2 Senators, Gov,
+   Lt Gov, AG, Treasurer, Controller, Sec of State, ...) all sharing the
+   capital coordinate; always-on name pills for all of them stacked and
+   overlapped illegibly. Name/office now shows via the native `title`
+   tooltip (set in candidate-markers.js) — same hover idiom already used
+   elsewhere on this map — and screen-space collision suppression
+   (updateCandidateMarkers) keeps the dots themselves from overlapping. */
 .candidate-marker {
     position: absolute; pointer-events: auto;
     transform: translate(-50%, -50%);
-    display: none; align-items: center; gap: 5px;
+    display: none; align-items: center;
     cursor: pointer;
 }
 .candidate-marker.visible { display: flex; }
@@ -1067,19 +1255,7 @@ body:has(#info-panel.open) #hint { display: none; }
     border: 2px solid var(--cand-color, #64748b);
     width: 8px; height: 8px;
 }
-.cand-name-tag {
-    display: flex; flex-direction: column;
-    padding: 3px 8px; border-radius: 8px; white-space: nowrap;
-    background: rgba(8,12,30,0.93); border: 1px solid var(--cand-color, #64748b);
-    line-height: 1.2; text-align: left;
-}
-.cand-office {
-    font-size: 9px; font-weight: 700; color: var(--cand-color, #64748b); letter-spacing: 0.03em;
-}
-.cand-name {
-    font-size: 11px; font-weight: 600; color: #e2e8f0;
-}
-.candidate-marker:hover .cand-name-tag {
+.candidate-marker:hover .cand-dot-ring {
     background: rgba(20,26,58,0.98);
     box-shadow: 0 0 12px color-mix(in srgb, var(--cand-color, #64748b) 35%, transparent);
 }
@@ -1127,6 +1303,45 @@ body:has(#info-panel.open) #hint { display: none; }
     border-color: rgba(245,158,11,0.7); color: #fbbf24;
 }
 
+/* ── Local business pins ─────────────────────────────────────────── */
+.business-pin {
+    position: absolute; pointer-events: auto;
+    transform: translate(-50%, -50%);
+    display: none; align-items: center; gap: 5px;
+    cursor: pointer; text-decoration: none;
+    background: transparent; border: none; padding: 0;
+}
+.business-pin.visible { display: flex; }
+.business-pin-ring {
+    width: 20px; height: 20px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(16,185,129,0.16); flex-shrink: 0;
+    font-size: 11px; line-height: 1;
+    box-shadow: 0 0 5px rgba(16,185,129,0.35);
+}
+.business-pin.retail .business-pin-ring { background: rgba(56,189,248,0.16); box-shadow: 0 0 5px rgba(56,189,248,0.35); }
+.business-pin.service .business-pin-ring { background: rgba(168,85,247,0.16); box-shadow: 0 0 5px rgba(168,85,247,0.35); }
+.business-pin.nonprofit .business-pin-ring { background: rgba(244,114,182,0.16); box-shadow: 0 0 5px rgba(244,114,182,0.35); }
+.business-pin.other .business-pin-ring { background: rgba(148,163,184,0.16); box-shadow: 0 0 5px rgba(148,163,184,0.35); }
+.business-pin-tag {
+    padding: 2px 7px; border-radius: 999px; white-space: nowrap;
+    background: rgba(8,12,30,0.93); border: 1px solid rgba(16,185,129,0.38);
+    font-size: 10px; font-weight: 700; color: #6ee7b7; line-height: 1.4;
+    max-width: 160px; overflow: hidden; text-overflow: ellipsis;
+}
+.business-pin:hover .business-pin-tag,
+.business-pin.expanded .business-pin-tag {
+    border-color: rgba(16,185,129,0.7); background: rgba(20,26,58,0.98);
+    white-space: normal; max-width: 220px; overflow: visible; text-overflow: clip;
+}
+.business-pin-address {
+    display: none;
+    font-weight: 500; color: #a7f3d0; font-size: 9px;
+}
+.business-pin.expanded .business-pin-address {
+    display: block; margin-top: 2px;
+}
+
 /* ── Floating district label layer ──────────────────────────────── */
 #map-labels-layer {
     position: fixed; inset: 0; pointer-events: none; z-index: 20;
@@ -1148,11 +1363,11 @@ body:has(#info-panel.open) #hint { display: none; }
     width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
 }
 .ml-name { color: #e2e8f0; font-weight: 600; max-width: 90px; overflow: hidden; text-overflow: ellipsis; }
-.ml-dist { color: #475569; font-size: 9px; }
+.ml-dist { color: #94a3b8; font-size: 9px; }
 
 /* ── Politician profile drawer ───────────────────────────────────── */
 #pol-drawer {
-    position: fixed; top: 86px; left: 12px; bottom: 12px;
+    position: fixed; top: 86px; right: 12px; bottom: 12px;
     width: 320px; z-index: 150;
     background: rgba(8, 12, 30, 0.97);
     border: 1px solid rgba(99,102,241,0.25);
@@ -1160,7 +1375,7 @@ body:has(#info-panel.open) #hint { display: none; }
     backdrop-filter: blur(22px);
     box-shadow: 0 24px 64px rgba(0,0,0,0.65), 0 0 0 1px rgba(99,102,241,0.08) inset;
     display: flex; flex-direction: column;
-    transform: translateX(calc(-100% - 20px));
+    transform: translateX(calc(100% + 20px));
     transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1);
     overflow: hidden;
 }
@@ -1170,7 +1385,7 @@ body:has(#info-panel.open) #hint { display: none; }
 #pol-drawer-close {
     position: absolute; top: 12px; right: 14px;
     background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.2);
-    color: #475569; font-size: 16px; cursor: pointer;
+    color: #94a3b8; font-size: 16px; cursor: pointer;
     border-radius: 6px; padding: 3px 8px; line-height: 1;
     transition: color 0.12s, background 0.12s; z-index: 2;
 }
@@ -1199,7 +1414,7 @@ body:has(#info-panel.open) #hint { display: none; }
     margin: 0 32px 3px 0; line-height: 1.25;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.pol-title { font-size: 11px; color: #64748b; margin: 0 0 7px; }
+.pol-title { font-size: 11px; color: #a7b4c7; margin: 0 0 7px; }
 .pol-badges { display: flex; flex-wrap: wrap; gap: 5px; }
 
 .pol-badge-logo {
@@ -1221,7 +1436,7 @@ body:has(#info-panel.open) #hint { display: none; }
 }
 .pol-tab {
     padding: 9px 14px; font-size: 12px; font-weight: 500;
-    color: #475569; background: none; border: none;
+    color: #94a3b8; background: none; border: none;
     border-bottom: 2px solid transparent; margin-bottom: -1px;
     cursor: pointer; transition: color 0.12s, border-color 0.12s;
 }
@@ -1269,7 +1484,7 @@ body:has(#info-panel.open) #hint { display: none; }
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .pol-stat-lbl {
-    font-size: 9px; color: #475569;
+    font-size: 9px; color: #94a3b8;
     text-transform: uppercase; letter-spacing: .06em; line-height: 1.3;
 }
 
@@ -1304,6 +1519,10 @@ body:has(#info-panel.open) #hint { display: none; }
     background: rgba(99,102,241,0.1);
     border: 1px solid rgba(99,102,241,0.28);
     color: #818cf8;
+}
+.pol-share-btn {
+    width: 100%; font: inherit; cursor: pointer;
+    border: 1px solid rgba(99,102,241,0.28);
 }
 
 /* Mobile: drawer becomes bottom sheet */

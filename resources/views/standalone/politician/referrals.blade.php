@@ -27,8 +27,7 @@
                 <p class="text-indigo-200 font-semibold text-sm">Earn from your referrals with Early-bank</p>
                 <p class="text-slate-300 text-sm mt-1">
                     Join Early-bank for a one-time $20 fee and get a dedicated referral link.
-                    Earn a <strong class="text-indigo-300">$10 bonus</strong> every time someone you invite joins,
-                    plus <strong class="text-indigo-300">10% recurring</strong> on their U9itus viewing activity.
+                    Earn <strong class="text-indigo-300">10% recurring</strong> on their U9itus viewing activity.
                 </p>
                 <p class="text-slate-500 text-xs mt-1.5">Your existing U9itus referrals are unaffected.</p>
             </div>
@@ -90,11 +89,13 @@
     ])
 
     {{-- ── Early-bank Reported Earnings ─────────────────────────── --}}
+    {{-- Bonuses card hidden until the bonus program is fully defined on the
+         Early-bank side — $ebBonusTotal is still computed below in case admin
+         reports or a future re-enable need it. --}}
     @include('standalone.shared.referral-stat-grid', [
-        'gridClass' => 'grid-cols-2',
+        'gridClass' => 'grid-cols-1',
         'cards' => [
             ['label' => 'Early-bank Commissions', 'value' => '$' . number_format($ebCommissionTotal, 2), 'valueClass' => 'text-emerald-400'],
-            ['label' => 'Early-bank Bonuses', 'value' => '$' . number_format($ebBonusTotal, 2), 'valueClass' => 'text-indigo-400'],
         ],
     ])
 
@@ -204,7 +205,7 @@
                                 <div class="w-8 h-8 rounded-full bg-emerald-900/40 flex items-center justify-center text-emerald-400 text-xs font-bold shrink-0">
                                     {{ strtoupper(substr($voter->full_name ?? '?', 0, 1)) }}
                                 </div>
-                                <span class="text-white">{{ $voter->full_name ?? 'Anonymous' }}</span>
+                                <span class="text-white">{{ \App\Support\Name::firstNameLastInitial($voter->full_name) }}</span>
                             </div>
                         </td>
                         <td class="px-5 py-4 text-slate-300">{{ $voter->total_views ?? 0 }}</td>
@@ -239,7 +240,7 @@
                                 <div class="w-8 h-8 rounded-full bg-amber-900/40 flex items-center justify-center text-amber-400 text-xs font-bold shrink-0">
                                     {{ strtoupper(substr($pol->full_name ?? '?', 0, 1)) }}
                                 </div>
-                                <span class="text-white">{{ $pol->full_name ?? 'Anonymous' }}</span>
+                                <span class="text-white">{{ \App\Support\Name::firstNameLastInitial($pol->full_name) }}</span>
                             </div>
                         </td>
                         <td class="px-5 py-4 text-slate-400 text-sm">{{ $pol->political_office ?? '—' }}</td>

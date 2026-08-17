@@ -344,6 +344,9 @@
             }
 
             // Mount Stripe PaymentElement
+            if (typeof Stripe === 'undefined') {
+                throw new Error('Payment setup could not load. If you have an ad blocker or privacy extension enabled, please allow js.stripe.com and refresh the page.');
+            }
             stripe   = Stripe(data.publishable_key);
             elements = stripe.elements({
                 clientSecret: data.client_secret,
@@ -458,6 +461,9 @@
             const data = await res.json();
             if (!res.ok || data.error) throw new Error(data.error ?? 'Server error');
 
+            if (typeof Stripe === 'undefined') {
+                throw new Error('Payment setup could not load. If you have an ad blocker or privacy extension enabled, please allow js.stripe.com and refresh the page.');
+            }
             const setupStripe = Stripe(data.publishable_key);
             setupElements = setupStripe.elements({
                 clientSecret: data.client_secret,
@@ -588,6 +594,9 @@
             document.getElementById('pay-fee-pct').textContent  = parseFloat(data.stripe_fee_percent).toFixed(1);
             document.getElementById('pay-display').textContent  = '$' + parseFloat(data.amount).toFixed(2);
 
+            if (typeof Stripe === 'undefined') {
+                throw new Error('Payment setup could not load. If you have an ad blocker or privacy extension enabled, please allow js.stripe.com and refresh the page.');
+            }
             stripe = Stripe(data.publishable_key);
 
             const btn = document.getElementById('btn-pay');

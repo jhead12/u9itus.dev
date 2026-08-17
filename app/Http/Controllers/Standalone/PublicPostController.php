@@ -2,12 +2,12 @@
 
 namespace App\Http\Controllers\Standalone;
 
-use App\Enums\PostStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Citizen;
 use App\Models\Politician;
 use App\Models\PoliticianTopic;
 use App\Models\Post;
+use App\Services\DistrictLookupService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 
@@ -55,13 +55,13 @@ class PublicPostController extends Controller
             ->latest('published_at')
             ->paginate(self::PER_PAGE);
 
-        $featured = Post::query()
+        $featured = Cache::remember("blog_featured_topic_{$topic->id}", 300, fn () => Post::query()
             ->with('author')
             ->published()
             ->promoted()
             ->whereHas('topics', fn ($q) => $q->where('politician_topics.id', $topic->id))
             ->inRandomOrder()
-            ->first();
+            ->first());
 
         $topics = Cache::remember('blog_topics', 300, fn () => PoliticianTopic::orderBy('sort_order')->orderBy('name')->get());
 
@@ -103,9 +103,7 @@ class PublicPostController extends Controller
         $post = Post::query()
             ->with(['author', 'topics'])
             ->where('slug', $slug)
-            ->where('status', PostStatus::Published)
-            ->whereNotNull('published_at')
-            ->where('published_at', '<=', now())
+            ->published()
             ->firstOrFail();
 
         $related = Post::query()
@@ -120,10 +118,38 @@ class PublicPostController extends Controller
             ->take(3)
             ->get();
 
+        $district = $this->resolvePostDistrict($post);
+
         return view('standalone.public.blog.show', [
             'post' => $post,
             'relatedPosts' => $related,
+            'district' => $district,
         ]);
+    }
+
+    /**
+     * Resolve the congressional district for a post's location, preferring
+     * its stored coordinates (cheaper, no re-geocoding) and falling back to
+     * the raw imported address.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function resolvePostDistrict(Post $post): ?array
+    {
+        if (! $post->location_name) {
+            return null;
+        }
+
+        $lookup = app(DistrictLookupService::class);
+
+        if ($post->latitude !== null && $post->longitude !== null) {
+            $district = $lookup->lookupByCoordinates((float) $post->latitude, (float) $post->longitude);
+            if ($district !== null) {
+                return $district;
+            }
+        }
+
+        return $lookup->lookup($post->location_name);
     }
 
     public function feed()

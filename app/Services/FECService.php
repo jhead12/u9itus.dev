@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Committee;
 use App\Models\Politician;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Cache;
@@ -421,12 +422,29 @@ class FECService
         $results = $body['results'] ?? [];
         $totals = $results[0] ?? [];
 
+        // cash_on_hand_end_period / debts_owed_by_committee only finalize once
+        // the full election cycle's reporting period has closed, so an
+        // actively-raising, mid-cycle candidate gets 0/null here even though
+        // receipts/disbursements (running totals) are populated. OpenFEC's
+        // last_* variants reflect the balance as of the candidate's most
+        // recent individual filing regardless of cycle closeout, so fall back
+        // to those rather than showing a misleading $0.
+        $cashOnHand = $totals['cash_on_hand_end_period'] ?? null;
+        if ($cashOnHand === null || (float) $cashOnHand === 0.0) {
+            $cashOnHand = $totals['last_cash_on_hand_end_period'] ?? $cashOnHand ?? 0;
+        }
+
+        $debt = $totals['debts_owed_by_committee'] ?? null;
+        if ($debt === null || (float) $debt === 0.0) {
+            $debt = $totals['last_debts_owed_by_committee'] ?? $debt ?? 0;
+        }
+
         return [
             'cycle' => $totals['cycle'] ?? $cycle,
             'receipts' => $this->formatCurrency($totals['receipts'] ?? 0),
             'disbursements' => $this->formatCurrency($totals['disbursements'] ?? 0),
-            'cash_on_hand' => $this->formatCurrency($totals['cash_on_hand_end_period'] ?? 0),
-            'debt' => $this->formatCurrency($totals['debts_owed_by_committee'] ?? 0),
+            'cash_on_hand' => $this->formatCurrency($cashOnHand),
+            'debt' => $this->formatCurrency($debt),
             'coverage_end_date' => $totals['coverage_end_date'] ?? null,
         ];
     }
@@ -680,7 +698,13 @@ class FECService
 
                 $this->resolveCommitteeNames($ranked);
 
+                // committee_id is kept (not just committee_name) so a caller can
+                // tell a genuinely-resolved name apart from the raw-ID fallback
+                // resolveCommitteeNames() seeds on failure (committee_name ===
+                // committee_id) and carry forward a previously-resolved name
+                // instead of persisting the fallback — see EnrichPoliticianDonors.
                 return array_map(fn($b) => [
+                    'committee_id' => $b['committee_id'],
                     'committee_name' => $b['committee_name'],
                     'total' => $b['total'],
                     'support_oppose' => $b['support_oppose'],
@@ -755,47 +779,112 @@ class FECService
             return;
         }
 
+        // Serve from the local registry first — a committee spending on one
+        // race is very often also spending on others, so a name resolved for
+        // any prior candidate/run can be reused here without another live
+        // FEC lookup. Defensive: never let a registry problem block the live
+        // fallback below.
+        $known = [];
         try {
-            // The /committees/ endpoint only filters with *repeated plain*
-            // committee_id= params. Laravel's Http::get would render an array
-            // value as committee_id[]=… which this endpoint silently ignores,
-            // so build the query string by hand (request() appends api_key).
-            // Cap the lookup to the top 20.
-            $queryString = 'per_page=100';
-            foreach (array_slice($ids, 0, 20) as $id) {
-                $queryString .= '&committee_id=' . urlencode($id);
-            }
-
-            $body = $this->request(
-                'resolve_committee_names',
-                "{$this->baseUrl}/committees/",
-                [],
-                ['committee_ids' => implode(',', array_slice($ids, 0, 20))],
-                $queryString,
-            );
-
-            if ($body === null) {
-                return;
-            }
-
-            $nameById = [];
-            foreach ($body['results'] ?? [] as $committee) {
-                if (!empty($committee['committee_id']) && !empty($committee['name'])) {
-                    $nameById[$committee['committee_id']] = $committee['name'];
-                }
-            }
-
-            foreach ($ranked as &$bucket) {
-                $id = $bucket['committee_id'] ?? '';
-                if ($id !== '' && isset($nameById[$id])) {
-                    $bucket['committee_name'] = $nameById[$id];
-                }
-            }
-            unset($bucket);
+            $known = Committee::query()
+                ->whereIn('fec_committee_id', $ids)
+                ->whereNotNull('name')
+                ->pluck('name', 'fec_committee_id')
+                ->all();
         } catch (\Throwable $e) {
-            $this->logProviderException('resolve_committee_names', $e, [
+            $this->logProviderException('resolve_committee_names_registry_read', $e, [
                 'committee_ids' => implode(',', array_slice($ids, 0, 20)),
             ]);
+        }
+
+        foreach ($ranked as &$bucket) {
+            $id = $bucket['committee_id'] ?? '';
+            if ($id !== '' && isset($known[$id])) {
+                $bucket['committee_name'] = $known[$id];
+            }
+        }
+        unset($bucket);
+
+        $nameById = [];
+        $unresolvedIds = array_values(array_diff($ids, array_keys($known)));
+
+        if ($unresolvedIds !== []) {
+            try {
+                // The /committees/ endpoint only filters with *repeated plain*
+                // committee_id= params. Laravel's Http::get would render an array
+                // value as committee_id[]=… which this endpoint silently ignores,
+                // so build the query string by hand (request() appends api_key).
+                // Cap the lookup to the top 20.
+                $queryString = 'per_page=100';
+                foreach (array_slice($unresolvedIds, 0, 20) as $id) {
+                    $queryString .= '&committee_id=' . urlencode($id);
+                }
+
+                $body = $this->request(
+                    'resolve_committee_names',
+                    "{$this->baseUrl}/committees/",
+                    [],
+                    ['committee_ids' => implode(',', array_slice($unresolvedIds, 0, 20))],
+                    $queryString,
+                );
+
+                if ($body !== null) {
+                    foreach ($body['results'] ?? [] as $committee) {
+                        if (!empty($committee['committee_id']) && !empty($committee['name'])) {
+                            $nameById[$committee['committee_id']] = $committee['name'];
+                        }
+                    }
+
+                    foreach ($ranked as &$bucket) {
+                        $id = $bucket['committee_id'] ?? '';
+                        if ($id !== '' && isset($nameById[$id])) {
+                            $bucket['committee_name'] = $nameById[$id];
+                        }
+                    }
+                    unset($bucket);
+                }
+            } catch (\Throwable $e) {
+                $this->logProviderException('resolve_committee_names', $e, [
+                    'committee_ids' => implode(',', array_slice($unresolvedIds, 0, 20)),
+                ]);
+            }
+        }
+
+        $this->registerSeenCommittees($ids, $nameById);
+    }
+
+    /**
+     * Upsert every committee ID touched by this resolution pass into the
+     * local registry — name + name_resolved_at when newly resolved this
+     * call, first/last_seen_at always — so a committee's name only ever
+     * needs resolving once across all candidates/runs. Defensive: a
+     * registry-write failure must never affect the spending data returned
+     * to the caller, so failures are logged and swallowed.
+     *
+     * @param array<int, string> $ids
+     * @param array<string, string> $nameById
+     */
+    private function registerSeenCommittees(array $ids, array $nameById): void
+    {
+        $now = now();
+
+        foreach ($ids as $id) {
+            try {
+                $committee = Committee::query()->firstOrNew(['fec_committee_id' => $id]);
+                if (!$committee->exists) {
+                    $committee->first_seen_at = $now;
+                }
+                $committee->last_seen_at = $now;
+                if (isset($nameById[$id])) {
+                    $committee->name = $nameById[$id];
+                    $committee->name_resolved_at = $now;
+                }
+                $committee->save();
+            } catch (\Throwable $e) {
+                $this->logProviderException('resolve_committee_names_registry_write', $e, [
+                    'committee_id' => $id,
+                ]);
+            }
         }
     }
 

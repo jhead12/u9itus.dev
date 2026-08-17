@@ -68,7 +68,25 @@
                     <span class="font-medium text-white">{{ $post->author?->full_name ?? $post->author?->name ?? 'U9itus' }}</span>
                     <span>·</span>
                     <time datetime="{{ $post->published_at->toIso8601String() }}">{{ $post->published_at->format('F j, Y') }}</time>
-                    @if($post->location_name)
+                    @if($district && $district['district_code'])
+                    <span>·</span>
+                    @php
+                        $districtMapUrl = route('us.map') . '?' . http_build_query(array_filter([
+                            'state'    => $district['state'] ?? null,
+                            'district' => (($district['district_number'] ?? null) !== null && strtoupper((string) $district['district_number']) !== 'AL')
+                                            ? (int) $district['district_number'] : null,
+                        ]));
+                    @endphp
+                    <a href="{{ $districtMapUrl }}"
+                       title="{{ $district['district_label'] ?? $district['district_code'] }}"
+                       class="inline-flex items-center gap-1 text-slate-400 hover:text-indigo-300 transition">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                             stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <polygon points="3 11 22 2 13 21 11 13 3 11"/>
+                        </svg>
+                        {{ $district['district_code'] }}
+                    </a>
+                    @elseif($post->location_name)
                     <span>·</span>
                     <span>{{ $post->location_name }}</span>
                     @endif
@@ -77,6 +95,12 @@
                 <div class="mt-8 prose prose-invert prose-lg max-w-none">
                     {!! $post->body !!}
                 </div>
+
+                @include('standalone.shared.referral-share-actions', [
+                    'shareLink' => $post->canonical_url ?? route('blog.show', $post),
+                    'shareSubject' => $post->title,
+                    'shareMessage' => $post->excerpt ?? $post->subtitle ?? $post->title,
+                ])
             </div>
         </article>
 

@@ -104,58 +104,30 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # ── PHP ─────────────────────────────────────────────────────────────────
-      - name: Set up PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: "8.4"
-          extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, pdo_mysql
-          coverage: none
-
-      # ── Composer ────────────────────────────────────────────────────────────
-      - name: Cache Composer packages
-        uses: actions/cache@v4
-        with:
-          path: vendor
-          key: ${{ runner.os }}-composer-${{ hashFiles('composer.lock') }}
-          restore-keys: ${{ runner.os }}-composer-
-
-      - name: Install Composer dependencies
-        run: composer install --prefer-dist --no-interaction --no-progress --no-dev
-
-      # ── Laravel env ─────────────────────────────────────────────────────────
+      # ── App setup (PHP, Composer, .env, migrate) ─────────────────────────────
       # Required secrets: APP_KEY, DB_HOST, DB_PORT, DB_DATABASE, DB_USERNAME, DB_PASSWORD
-      # Optional secrets: STRIPE_SECRET, STRIPE_WEBHOOK_SECRET, ANTHROPIC_API_KEY
-      - name: Write .env
-        run: |
-          cat > .env <<EOF
-          APP_ENV=production
-          APP_KEY=${{ secrets.APP_KEY }}
-          APP_DEBUG=false
-          APP_URL=${{ secrets.APP_URL }}
+      # Optional secrets: STRIPE_SECRET, STRIPE_KEY, STRIPE_WEBHOOK_SECRET, ANTHROPIC_API_KEY
+      - name: Set up app
+        uses: ./.github/actions/setup-app
+        with:
+          app_key: ${{ secrets.APP_KEY }}
+          app_url: ${{ secrets.APP_URL }}
+          db_host: ${{ secrets.DB_HOST }}
+          db_port: ${{ secrets.DB_PORT }}
+          db_database: ${{ secrets.DB_DATABASE }}
+          db_username: ${{ secrets.DB_USERNAME }}
+          db_password: ${{ secrets.DB_PASSWORD }}
+          stripe_secret: ${{ secrets.STRIPE_SECRET }}
+          stripe_key: ${{ secrets.STRIPE_KEY }}
+          stripe_webhook_secret: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
 
-          DB_CONNECTION=mysql
-          DB_HOST=${{ secrets.DB_HOST }}
-          DB_PORT=${{ secrets.DB_PORT }}
-          DB_DATABASE=${{ secrets.DB_DATABASE }}
-          DB_USERNAME=${{ secrets.DB_USERNAME }}
-          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+      # ── Node + Playwright (Ballotpedia scrapes below need a real browser) ────
+      - name: Set up Node + Playwright
+        uses: ./.github/actions/setup-node-playwright
 
-          CACHE_DRIVER=database
-          SESSION_DRIVER=database
-          QUEUE_CONNECTION=sync
-          LOG_CHANNEL=stderr
-
-          STRIPE_SECRET=${{ secrets.STRIPE_SECRET }}
-          STRIPE_KEY=${{ secrets.STRIPE_KEY }}
-          STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET }}
-
-          ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}
-          EOF
-
-      # ── Migrations ───────────────────────────────────────────────────────────
-      - name: Run pending migrations
-        run: php artisan migrate --force --no-interaction
+      - name: Verify Playwright installation
+        run: node -e "import('playwright').then(m => console.log('playwright OK:', Object.keys(m)))"
 
       # ── Build state filter args ──────────────────────────────────────────────
       - name: Build import arguments
@@ -218,24 +190,6 @@ jobs:
         run: |
           php artisan politicians:import-unclaimed-ca \
             ${{ steps.args.outputs.dry_arg }}
-
-      # ── Scrape & import 2026 primary candidates from Ballotpedia ─────────────
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "24"
-          cache: "npm"
-
-      - name: Install Node dependencies
-        run: npm ci
-        env:
-          NODE_ENV: development
-
-      - name: Install Playwright Chromium
-        run: npx playwright install chromium --with-deps
-
-      - name: Verify Playwright installation
-        run: node -e "import('playwright').then(m => console.log('playwright OK:', Object.keys(m)))"
 
       # ── Statewide offices (direct strategy: constructs per-state URLs) ──────
       # Uses --strategy=direct so every state's race page is visited directly:
@@ -306,15 +260,20 @@ jobs:
             done
           fi
 
-      # ── U.S. House races (widget strategy: one page per state covers every
-      #    district in a single request) ─────────────────────────────────────
+      # ── U.S. House races (direct strategy: one URL per district) ────────────
       # The old --strategy=index relied on Ballotpedia's central House index page
-      # linking to all 435 district race pages. That index is frequently
+      # linking to all 435 district race pages; that index is frequently
       # incomplete/lagging, so districts not yet linked there were silently
-      # skipped — the root cause of missing House candidates. The widget
-      # strategy visits each state's "Elections in {State}, {year}" overview
-      # page and parses its full offices table, so every district is captured
-      # regardless of whether the central index has been updated.
+      # skipped. --strategy=widget (2026-07-30 → 2026-08-02) replaced it with a
+      # per-state "Elections in {State}, {year}" overview page — but that page
+      # doesn't exist on Ballotpedia this cycle (confirmed 404, not a selector
+      # bug), so it silently scraped 0 House candidates every single day for
+      # over a month while the workflow still reported success. --strategy=direct
+      # constructs the real per-district URL directly (verified live 2026-08-02):
+      #   "{State}'s {Nth} Congressional District election, {year}" for
+      #   multi-district states, "United States House of Representatives
+      #   election in {State}, {year}" for the 6 at-large states — see
+      #   buildHouseDirectRaces() in scrape-ballotpedia.js.
       - name: Scrape Ballotpedia U.S. House candidates
         run: |
           YEAR="${{ github.event.inputs.election_year || '2026' }}"
@@ -324,7 +283,7 @@ jobs:
           if [ -z "$STATES" ]; then
             node scripts/scrape-ballotpedia.js \
               --office=house \
-              --strategy=widget \
+              --strategy=direct \
               --year="$YEAR" \
               --fetch-websites \
               --cache-hours=3 \
@@ -337,7 +296,7 @@ jobs:
             for state in $(echo "$STATES" | tr ',' ' '); do
               node scripts/scrape-ballotpedia.js \
                 --office=house \
-                --strategy=widget \
+                --strategy=direct \
                 --year="$YEAR" \
                 --fetch-websites \
                 --state=$state \
@@ -358,6 +317,63 @@ jobs:
             for state in $(echo "$STATES" | tr ',' ' '); do
               php artisan politicians:import-ballotpedia \
                 --file=storage/app/imports/ballotpedia-house-${YEAR}-$state.json \
+                ${{ steps.args.outputs.dry_arg }}
+            done
+          fi
+
+      # ── U.S. Senate races (direct strategy: one URL per state) ─────────────
+      # Senate races were never scraped at all before 2026-07-30. The
+      # --strategy=widget approach added then (2026-07-30 → 2026-08-02) relied
+      # on the same "Elections in {State}, {year}" overview page as House —
+      # confirmed 404 on Ballotpedia this cycle — so it also silently scraped
+      # 0 Senate candidates every day. The DIRECT_URL_TEMPLATES.senate pattern
+      # in scrape-ballotpedia.js was ALSO wrong ("{State}_Senate_election,_{y}",
+      # also a 404) but had never actually run since this step called
+      # --strategy=widget, not --strategy=direct. Fixed to the real, verified
+      # (2026-08-02) pattern: "United States Senate election in {State}, {year}".
+      - name: Scrape Ballotpedia U.S. Senate candidates
+        run: |
+          YEAR="${{ github.event.inputs.election_year || '2026' }}"
+          STATES="${{ steps.args.outputs.states }}"
+          # --cache-hours=3 skips the Playwright scrape entirely if this exact
+          # output file was already written within the last 3h.
+          if [ -z "$STATES" ]; then
+            node scripts/scrape-ballotpedia.js \
+              --office=senate \
+              --strategy=direct \
+              --year="$YEAR" \
+              --fetch-websites \
+              --cache-hours=3 \
+              --out=storage/app/imports/ballotpedia-senate-${YEAR}.json
+          else
+            # scrape-ballotpedia.js's arg parser keeps only the LAST repeated
+            # --state flag (multiple --state=X --state=Y collapse to just Y),
+            # so a multi-state run loops here instead of silently only
+            # scraping the last state in the list.
+            for state in $(echo "$STATES" | tr ',' ' '); do
+              node scripts/scrape-ballotpedia.js \
+                --office=senate \
+                --strategy=direct \
+                --year="$YEAR" \
+                --fetch-websites \
+                --state=$state \
+                --cache-hours=3 \
+                --out=storage/app/imports/ballotpedia-senate-${YEAR}-$state.json
+            done
+          fi
+
+      - name: Import U.S. Senate candidates
+        run: |
+          YEAR="${{ github.event.inputs.election_year || '2026' }}"
+          STATES="${{ steps.args.outputs.states }}"
+          if [ -z "$STATES" ]; then
+            php artisan politicians:import-ballotpedia \
+              --file=storage/app/imports/ballotpedia-senate-${YEAR}.json \
+              ${{ steps.args.outputs.dry_arg }}
+          else
+            for state in $(echo "$STATES" | tr ',' ' '); do
+              php artisan politicians:import-ballotpedia \
+                --file=storage/app/imports/ballotpedia-senate-${YEAR}-$state.json \
                 ${{ steps.args.outputs.dry_arg }}
             done
           fi
@@ -514,6 +530,38 @@ jobs:
                 ${{ steps.args.outputs.dry_arg }}
             done
           fi
+
+      # ── RSS candidate discovery (Senate/Governor) ─────────────────────────
+      # Surfaces new candidate signals (announcements, primary wins) from
+      # Google News RSS that the direct-URL Ballotpedia scrapes above can miss
+      # — e.g. a candidate who just won a primary and doesn't have a
+      # Ballotpedia race page yet. Never trusts a name directly: every lead
+      # goes through the verify step below before it can become a candidate
+      # record. Runs before "Sync primary results" so anything promoted this
+      # run gets included in the same day's primary-result sync/reconcile.
+      - name: Discover candidate leads (RSS)
+        run: |
+          STATES="${{ steps.args.outputs.states }}"
+          DRY="${{ steps.args.outputs.dry_arg }}"
+          if [ -z "$STATES" ]; then
+            php artisan candidates:discover-leads $DRY
+          else
+            for state in $(echo "$STATES" | tr ',' ' '); do
+              php artisan candidates:discover-leads --state=$state $DRY
+            done
+          fi
+
+      # ── Verify & promote candidate leads ──────────────────────────────────
+      # Tiered verification (Ballotpedia -> Wikipedia -> Claude fallback) of
+      # pending leads from the discovery step above. Leads confirmed at
+      # >=0.85 confidence auto-promote into election_candidate_records;
+      # everything else keeps its full verifier/confidence/reason trail for
+      # a future manual review pass rather than being discarded.
+      - name: Verify & promote candidate leads
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          php artisan candidates:verify-leads --limit=2000 ${{ steps.args.outputs.dry_arg }}
 
       # ── Sync primary election results ────────────────────────────────────
       # For each statewide candidate whose election_date is in the past,

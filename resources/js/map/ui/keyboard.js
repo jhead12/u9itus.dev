@@ -80,7 +80,7 @@ export function initKeyboard() {
             document.getElementById('btn-search').click();
             return;
         }
-        if (e.key === '?') { toggleKbHelp(true); return; }
+        if (e.key === 's' || e.key === 'S') { toggleKbHelp(true); return; }
         const ZOOM_STEP = 1.15;
         if (!controls) return;
         switch (e.key) {
@@ -100,7 +100,7 @@ export function initKeyboard() {
         if (e.target.matches('input, textarea, [contenteditable]')) return;
         const TILT_STEP = 0.08;
         switch (e.key) {
-            case '?': toggleKbHelp(); break;
+            case 's': case 'S': toggleKbHelp(); break;
             case 'r': case 'R': enterOverviewMode(); break;
             case 'o': case 'O': window.toggleOfficesSection?.(); break;
             case 'l': case 'L':

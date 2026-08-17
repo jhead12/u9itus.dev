@@ -44,7 +44,7 @@ export function renderCityCard(city, state, color) {
             ${hasDistrict ? `title="View ${escapeHtml(city.district_code)}"` : ''}>
         <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;">
             <span style="font-size:13px;font-weight:700;color:#e2e8f0;">${escapeHtml(city.city)}${hasDistrict ? ` <span style="opacity:.5;font-weight:400;">→ ${escapeHtml(city.district_code)}</span>` : ''}</span>
-            <span style="font-size:10px;color:#64748b;white-space:nowrap;">${city.population ? Number(city.population).toLocaleString('en-US') : '—'} people</span>
+            <span style="font-size:10px;color:#a7b4c7;white-space:nowrap;">${city.population ? Number(city.population).toLocaleString('en-US') : '—'} people</span>
         </div>
         <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
             <span style="font-size:10px;padding:3px 8px;border-radius:999px;background:${color}18;border:1px solid ${color}44;color:${color};">Poverty ${fmtPct(city.poverty_rate)}</span>

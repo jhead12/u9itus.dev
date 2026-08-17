@@ -464,6 +464,7 @@ class VoteSmartService
         return [
             'source' => 'Vote Smart',
             'source_url' => "https://justfacts.votesmart.org/candidate/{$politician->votesmart_id}",
+            'candidate' => $data['candidate'] ?? null,
             'sections' => [
                 [
                     'title' => 'Interest Group Ratings',

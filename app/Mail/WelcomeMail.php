@@ -3,6 +3,7 @@
 namespace App\Mail;
 
 use App\Models\User;
+use App\Services\DistrictNewsLookupService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
@@ -38,6 +39,9 @@ class WelcomeMail extends Mailable
         return new Content(
             view: 'emails.welcome',
             text: 'emails.welcome-text',
+            with: [
+                'cityNews' => app(DistrictNewsLookupService::class)->forUser($this->user),
+            ],
         );
     }
 }

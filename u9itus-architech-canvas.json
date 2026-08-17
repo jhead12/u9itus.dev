@@ -1,6 +1,6 @@
 {
     "name": "U9itus - Political Loyalty Ads Platform",
-    "description": "Complete system architecture showing $0.60/view revenue model with 25-50% profit margins. Deployed at https://u9itus-production.up.railway.app",
+    "description": "Complete system architecture showing $1.00/view revenue model with 25-50% profit margins. Deployed at https://u9itus-production.up.railway.app",
     "components": [
         {
             "id": "user-politician",
@@ -230,7 +230,7 @@
                 "description": "Handles all payment operations via Stripe",
                 "technology": "Laravel + Stripe API",
                 "responsibilities": [
-                    "Charge politicians $0.60 per view",
+                    "Charge politicians $1.00 per view",
                     "Payout voters $0.25 per completed view",
                     "Process referral commissions (10% = $0.025)",
                     "Batch payout processing",
@@ -375,7 +375,7 @@
                 "description": "Processes all payments and payouts (External Service)",
                 "api": "https://api.stripe.com",
                 "operations": [
-                    "Charge politicians $0.60 per view",
+                    "Charge politicians $1.00 per view",
                     "Payout voters $0.25 per view",
                     "Payout referrers $0.025 per referral"
                 ],

@@ -10,6 +10,7 @@ use App\Http\Controllers\Concerns\ResolvesPlayableCampaignMedia;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CreateCitizenCampaignRequest;
 use App\Http\Requests\UpdateCitizenCampaignRequest;
+use App\Jobs\GeocodeCitizenAddress;
 use App\Models\Citizen;
 use App\Models\CitizenCampaign;
 use App\Models\CitizenPaymentMethod;
@@ -21,6 +22,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use Throwable;
 
 /**
@@ -120,6 +122,57 @@ class CitizenController extends Controller
         ]);
     }
 
+    /** Business location settings: address, category, and the map opt-in. */
+    public function settings()
+    {
+        return view('standalone.citizen.settings', [
+            'citizen' => Auth::user()->citizen,
+        ]);
+    }
+
+    public function updateSettings(Request $request)
+    {
+        $citizen = Auth::user()->citizen;
+        abort_unless($citizen, 404);
+
+        $validated = $request->validate([
+            'business_name'     => ['nullable', 'string', 'max:255'],
+            'business_category' => ['nullable', 'string', Rule::in(['food', 'retail', 'service', 'nonprofit', 'other'])],
+            'address_line_1'    => ['required', 'string', 'max:255'],
+            'address_line_2'    => ['nullable', 'string', 'max:255'],
+            'city'               => ['required', 'string', 'max:100'],
+            'state'              => ['required', 'string', 'size:2'],
+            'zip'                => ['required', 'string', 'max:10', 'regex:/^\d{5}(-\d{4})?$/'],
+            'show_on_map'        => ['nullable', 'boolean'],
+        ]);
+
+        $addressChanged = $citizen->address_line_1 !== $validated['address_line_1']
+            || $citizen->address_line_2 !== ($validated['address_line_2'] ?? null)
+            || $citizen->city !== $validated['city']
+            || $citizen->state !== $validated['state']
+            || $citizen->zip !== $validated['zip'];
+
+        $citizen->update([
+            'business_name'     => $validated['business_name'] ?? null,
+            'business_category' => $validated['business_category'] ?? null,
+            'address_line_1'    => $validated['address_line_1'],
+            'address_line_2'    => $validated['address_line_2'] ?? null,
+            'city'              => $validated['city'],
+            'state'             => $validated['state'],
+            'zip'               => $validated['zip'],
+            'show_on_map'       => $request->boolean('show_on_map'),
+        ]);
+
+        // Re-geocode whenever the address actually changed — the old
+        // coordinates would otherwise silently point at a stale address.
+        if ($addressChanged) {
+            $citizen->update(['latitude' => null, 'longitude' => null]);
+            GeocodeCitizenAddress::dispatch($citizen->id);
+        }
+
+        return back()->with('success', 'Business settings updated.');
+    }
+
     // ── Campaign CRUD ──────────────────────────────────────────────────────
 
     /** List the citizen's campaigns. */
@@ -144,7 +197,7 @@ class CitizenController extends Controller
         $citizen = Auth::user()->citizen;
         abort_unless($citizen, 403);
 
-        $citizenRate     = (float) PlatformSettingsService::get('citizen_revenue_per_view', null, 0.75);
+        $citizenRate     = (float) PlatformSettingsService::get('citizen_revenue_per_view', null, 0.60);
         $ballotIssueRate = (float) PlatformSettingsService::get('ballot_issue_revenue_per_view', null, 1.00);
 
         return view('standalone.citizen.campaigns.create', [
@@ -182,7 +235,7 @@ class CitizenController extends Controller
         $revenuePerView = (float) PlatformSettingsService::get(
             $tier . '_revenue_per_view',
             null,
-            $tier === 'ballot_issue' ? 1.00 : 0.75
+            $tier === 'ballot_issue' ? 1.00 : 0.60
         );
 
         $data['citizen_id']       = $citizen->id;
@@ -360,7 +413,7 @@ class CitizenController extends Controller
             'Only draft or cancelled campaigns can be edited.'
         );
 
-        $citizenRate     = (float) PlatformSettingsService::get('citizen_revenue_per_view', null, 0.75);
+        $citizenRate     = (float) PlatformSettingsService::get('citizen_revenue_per_view', null, 0.60);
         $ballotIssueRate = (float) PlatformSettingsService::get('ballot_issue_revenue_per_view', null, 1.00);
 
         return view('standalone.citizen.campaigns.edit', [
@@ -403,7 +456,7 @@ class CitizenController extends Controller
         $revenuePerView = (float) PlatformSettingsService::get(
             $tier . '_revenue_per_view',
             null,
-            $tier === 'ballot_issue' ? 1.00 : 0.75
+            $tier === 'ballot_issue' ? 1.00 : 0.60
         );
 
         // Always recompute total_budget from views × rate.

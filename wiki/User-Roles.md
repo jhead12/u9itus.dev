@@ -32,7 +32,7 @@ U9itus has three distinct user roles, each with their own registration flow, das
 1. Politician adds credits via Stripe PaymentIntent
 2. Stripe fee is grossed-up (politician is charged `amount / 0.975`)
 3. Platform nets the full credit amount
-4. Credits are deducted **$0.60** for each completed voter view
+4. Credits are deducted **$1.00** for each completed voter view
 
 ---
 

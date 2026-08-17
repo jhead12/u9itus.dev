@@ -3,6 +3,7 @@
  * Imports all modules, initializes the scene, and wires up event handlers.
  */
 import '../../css/map.css';
+import '../../css/specular-button.css';
 
 /* ── Avatar initials helper (global, used by onerror attrs in HTML) ── */
 window.avatarInitials = function (name, color, size) {
@@ -27,7 +28,8 @@ import { TOP_CITIES, STATE_CAPITALS, fmtPop } from './config/city-data.js';
 import { TOUR_STEPS, TOUR_KEY } from './config/tour-steps.js';
 
 /* ── State ── */
-import { mapMode, activeRegion, activeState, selectedState, statePanelRequestId, stateData, colorMode, ACTIVE_LAYERS, showSmallCities, DISTRICT_CONFIG, govPartyByAbbr, districtCache, cityBoundaryCache, setColorMode } from './state/map-state.js';
+import { mapMode, activeRegion, activeState, selectedState, statePanelRequestId, stateData, colorMode, showSmallCities, DISTRICT_CONFIG, govPartyByAbbr, districtCache, cityBoundaryCache } from './state/map-state.js';
+import { restoreBootLayers } from './state/layer-directory.js';
 import './state/session.js';
 
 /* ── Scene ── */
@@ -39,9 +41,10 @@ import { toggleNationalBoundaries, nationalDistVisible, _syncNatDistVisibility, 
 
 /* ── API ── */
 import { initDistrictConfig } from './api/district-config.js';
-import { ensureGovernorParties, applyColorMode } from './api/governor-parties.js';
 import { trackEvent } from './api/interaction.js';
 import { fetchBoundaries } from './api/favorites.js';
+import { fetchFollowedPoliticianIds } from './api/politician-follow.js';
+import { initDigestOptInPrompt } from './ui/digest-optin.js';
 
 /* ── UI ── */
 import { initSearch, openSearch, closeSearch } from './ui/search.js';
@@ -52,7 +55,7 @@ import { initPopup, closePopup } from './ui/popup.js';
 import { initPolDrawer, openPolDrawer, closePolDrawer } from './ui/politician-drawer.js';
 import { initControlsMenu, updateDistrictsBtn } from './ui/controls-menu.js';
 import { initLayersPanel, toggleLayer, applyPopulationDensity, renderFavoriteChips } from './ui/layers-panel.js';
-import { buildCityMarkers, clearCityMarkers, buildGovMarkers, clearGovMarkers, updateCityDots, loadCityBoundaries, clearCityLayer, citySprites, govSprites } from './ui/markers.js';
+import { buildCityMarkers, clearCityMarkers, buildGovMarkers, clearGovMarkers, loadCityBoundaries, clearCityLayer, citySprites, govSprites } from './ui/markers.js';
 import { buildDistrictLabels, clearDistrictLabels, updateDistrictLabels, districtLabels, mapLabelsLayer } from './ui/labels-overlay.js';
 import { initBreadcrumb, updateBreadcrumb } from './ui/breadcrumb.js';
 import { initTour, startTutorial } from './ui/tour.js';
@@ -60,6 +63,7 @@ import { initKeyboard, toggleKbHelp, stepZoom } from './ui/keyboard.js';
 import { initInfoPanel, openInfoPanel } from './ui/info-panel.js';
 import { initMobileMenu } from './ui/mobile-menu.js';
 import { initLocationButton } from './ui/location-button.js';
+import { mountSpecularButton } from '../components/specular-button.js';
 
 /* ── Navigation ── */
 import { enterOverviewMode, enterRegionMode, enterStateMode, handleBack, initHoverClick, hoveredMesh } from './navigation/mode-transitions.js';
@@ -73,12 +77,7 @@ import { animate } from './render-loop.js';
 ════════════════════════════════════════════════════════ */
 loadMapData().then(() => {
     buildLegend();
-    if (ACTIVE_LAYERS.has('districts')) toggleNationalBoundaries();
-    if (ACTIVE_LAYERS.has('party')) {
-        setColorMode('party');
-        document.getElementById('cm-btn-party-colors')?.classList.add('active');
-        ensureGovernorParties().then(() => applyColorMode());
-    }
+    restoreBootLayers();
     initDistrictConfig();
 }).catch(err => {
     console.error('Map load failed:', err);
@@ -101,12 +100,30 @@ initKeyboard();
 initOfficesToggle();
 initCandidateCardClick();
 initLocationButton();
+
+const earnCta = document.getElementById('btn-signin-cta');
+if (earnCta) {
+    mountSpecularButton(earnCta, {
+        radius: 6,
+        lineColor: '#34d399',
+        baseColor: '#065f46',
+        intensity: 1.3,
+        shineSize: 12,
+        shineFade: 35,
+        thickness: 1.2,
+        speed: 0.3,
+        followMouse: true,
+        proximity: 200,
+        autoAnimate: false,
+    });
+}
 bootDeepLink();
 
-/* Hydrate saved boundaries for logged-in voters (guests keep the empty-state hint). */
-if (window.U9?.session?.isVoter?.()) {
-    fetchBoundaries().then(renderFavoriteChips);
-}
+/* Hydrate saved boundaries — voters from the DB, guests from their cookie. */
+fetchBoundaries().then(renderFavoriteChips);
+/* Hydrate followed politicians (voters only — no guest path for this feature). */
+if (window.U9?.session?.isVoter?.()) fetchFollowedPoliticianIds();
+initDigestOptInPrompt();
 
 /* Wire back button */
 document.getElementById('btn-back').addEventListener('click', handleBack);

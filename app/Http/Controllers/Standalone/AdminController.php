@@ -342,7 +342,12 @@ class AdminController extends Controller
                                             ->whereIn('political_campaign_id', $campaignIds)
                                             ->whereHas('voter', fn ($q) => $q->whereNotNull('earlybank_member_id'))
                                             ->sum('platform_revenue'),
-            'total_payouts'           => (clone $completedViewQuery)->sum('voter_payout_amount') ?? 0,
+            // Combines campaign-view payouts with EarlyBank-reported commissions/
+            // bonuses (a separate payout rail EB pays directly) into one "total
+            // paid to voters" figure — see buildAnalyticsStats() for the same pattern.
+            'total_payouts'           => (float) ((clone $completedViewQuery)->sum('voter_payout_amount') ?? 0)
+                                            + (float) EarlyBankEarning::forEventType(EarlyBankEarning::EVENT_PAYOUT_COMMISSION)->sum('payout_amount')
+                                            + (float) EarlyBankEarning::forEventType(EarlyBankEarning::EVENT_PAYOUT_BONUS)->sum('payout_amount'),
             'kyc_pending'       => User::where('kyc_status', 'pending')
                                         ->where('user_type', 'politician')->count(),
             'authentic_user_verifier_legacy' => (clone $legacyVoterBase)->count(),
@@ -474,6 +479,8 @@ class AdminController extends Controller
             'started_at'      => $newStatus === CampaignStatus::Active->value ? now() : null,
         ]);
 
+        app(ReverbBroadcastService::class)->campaignApproved($campaign);
+
         return back()->with('success', 'Citizen campaign "' . $campaign->title . '" has been approved.');
     }
 
@@ -486,14 +493,18 @@ class AdminController extends Controller
             'reason' => ['nullable', 'string', 'max:500'],
         ]);
 
+        $rejectionReason = $request->input('reason', 'Does not meet content guidelines.');
+
         $campaign->update([
             'approval_status'  => ApprovalStatus::Rejected->value,
             'status'           => CampaignStatus::Draft->value,
-            'rejection_reason' => $request->input('reason', 'Does not meet content guidelines.'),
+            'rejection_reason' => $rejectionReason,
         ]);
 
         // Note: CampaignAuditLog.campaign_id FK targets political_campaigns only.
         // Citizen campaign audit logging deferred to Phase F (polymorphic audit table).
+
+        app(ReverbBroadcastService::class)->campaignRejected($campaign, $rejectionReason);
 
         return back()->with('success', 'Citizen campaign "' . $campaign->title . '" has been rejected.');
     }
@@ -618,6 +629,8 @@ class AdminController extends Controller
 
         $campaign->update(['status' => CampaignStatus::Paused->value]);
 
+        app(ReverbBroadcastService::class)->campaignStopped($campaign, 'Paused by admin.');
+
         return back()->with('success', 'Citizen campaign "' . $campaign->title . '" has been paused.');
     }
 
@@ -625,11 +638,15 @@ class AdminController extends Controller
     {
         $request->validate(['reason' => ['nullable', 'string', 'max:500']]);
 
+        $stopReason = $request->input('reason') ?: 'Stopped by admin.';
+
         $campaign->update([
             'status'           => CampaignStatus::Cancelled->value,
-            'rejection_reason' => $request->input('reason') ?: 'Stopped by admin.',
+            'rejection_reason' => $stopReason,
             'completed_at'     => now(),
         ]);
+
+        app(ReverbBroadcastService::class)->campaignStopped($campaign, $stopReason);
 
         return back()->with('success', 'Citizen campaign "' . $campaign->title . '" has been stopped.');
     }
@@ -650,6 +667,8 @@ class AdminController extends Controller
             'rejection_reason' => null,
             'completed_at'     => null,
         ]);
+
+        app(ReverbBroadcastService::class)->campaignReactivated($campaign);
 
         return back()->with('success', 'Citizen campaign "' . $campaign->title . '" has been reactivated.');
     }
@@ -2477,6 +2496,14 @@ class AdminController extends Controller
         $totalPoliticalViews = $totalViews;
         $totalAllViews = $totalPoliticalViews + (int) ($citizenTotals->total_views ?? 0);
 
+        // Voter Payouts tile combines both payout rails: campaign-view payouts
+        // (routed through U9itus's own Stripe payouts) and EarlyBank-reported
+        // commissions/bonuses (EB pays these directly, outside U9itus's rails).
+        // Kept out of gross_revenue/margin_percent/avg_payout_per_view below —
+        // those track campaign billing economics, and EB money never flowed
+        // through campaign billing, so folding it in would misstate them.
+        $totalPayoutsAllRails = $totalPayouts + $ebTotalCommissions + $ebTotalBonuses;
+
         return [
             'total_views' => $totalViews,
             'gross_revenue' => $grossDeliveredRevenue,
@@ -2484,7 +2511,7 @@ class AdminController extends Controller
             'citizen_revenue' => $citizenRevenue,
             'eb_attributed_revenue' => $ebAttributedRevenue,
             'net_revenue' => $totalNetRevenue,
-            'total_payouts' => $totalPayouts,
+            'total_payouts' => $totalPayoutsAllRails,
             'total_referrals' => $totalReferrals,
             'total_campaigns' => PoliticalCampaign::whereIn('id', $campaignIds)->count(),
             'active_campaigns' => PoliticalCampaign::where('status', CampaignStatus::Active->value)->whereIn('id', $campaignIds)->count(),
@@ -4308,10 +4335,24 @@ HTML;
             ->orderBy('effective_until')
             ->get();
 
+        // Guest Trial Mode — surfaced as a dedicated panel rather than a raw
+        // key/value row (see updateGuestTrialMode()).
+        $guestTrialSetting = \App\Models\PlatformSetting::where('key', 'guest_trial_mode_enabled')
+            ->whereNull('user_tier')
+            ->orderByDesc('created_at')
+            ->first();
+
+        $guestTrialStatus = [
+            'active' => $guestTrialSetting?->isEffective() ?? false,
+            'until' => $guestTrialSetting?->effective_until,
+            'duration_days' => (int) $service->get('guest_trial_duration_days', null, 30),
+        ];
+
         return view('standalone.admin.platform-settings', compact(
             'settingsByCategory',
             'currentValues',
-            'activePromotions'
+            'activePromotions',
+            'guestTrialStatus'
         ));
     }
 
@@ -4354,6 +4395,50 @@ HTML;
         ]);
 
         return back()->with('success', 'Platform setting updated successfully.');
+    }
+
+    /**
+     * Enable or disable Guest Trial Mode — an admin-controlled, time-boxed
+     * window during which anonymous visitors are silently provisioned into
+     * a flagged voter session (see ProvisionGuestVoterSession). Wraps
+     * PlatformSettingsService rather than reusing the generic setting form,
+     * since this needs a duration input instead of raw effective_from/until.
+     */
+    public function updateGuestTrialMode(Request $request)
+    {
+        $validated = $request->validate([
+            'enabled' => 'required|boolean',
+            'duration_days' => 'required|integer|min:1|max:90',
+        ]);
+
+        // The `integer` validation rule only checks the value looks like an
+        // integer — it doesn't cast it, so $validated['duration_days'] is
+        // still the raw request string here. Carbon::addDays() requires an
+        // actual int|float, so cast explicitly.
+        $durationDays = (int) $validated['duration_days'];
+
+        \App\Services\PlatformSettingsService::set('guest_trial_duration_days', $durationDays, [
+            'category' => 'general',
+            'description' => 'Days a silently-provisioned guest voter session stays valid.',
+        ]);
+
+        \App\Services\PlatformSettingsService::set('guest_trial_mode_enabled', $validated['enabled'] ? '1' : '0', [
+            'category' => 'general',
+            'description' => 'Lets anonymous visitors use the voter workflow without registering.',
+            'is_active' => $validated['enabled'],
+            'effective_from' => $validated['enabled'] ? now() : null,
+            'effective_until' => $validated['enabled'] ? now()->addDays($durationDays) : null,
+        ]);
+
+        Log::info('Admin updated Guest Trial Mode', [
+            'admin_id' => auth()->id(),
+            'enabled' => $validated['enabled'],
+            'duration_days' => $validated['duration_days'],
+        ]);
+
+        return back()->with('success', $validated['enabled']
+            ? "Guest Trial Mode enabled for {$validated['duration_days']} days."
+            : 'Guest Trial Mode disabled.');
     }
 
     /**

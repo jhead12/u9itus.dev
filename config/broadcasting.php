@@ -8,10 +8,10 @@ return [
     |--------------------------------------------------------------------------
     |
     | Set to 'reverb' in all environments. Override to 'log' in CI/testing
-    | by setting BROADCAST_DRIVER=log in .env.testing.
+    | by setting BROADCAST_CONNECTION=log in .env.testing.
     |
     */
-    'default' => env('BROADCAST_DRIVER', 'reverb'),
+    'default' => env('BROADCAST_CONNECTION', 'reverb'),
 
     /*
     |--------------------------------------------------------------------------

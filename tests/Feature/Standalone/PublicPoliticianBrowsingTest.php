@@ -51,8 +51,7 @@ test('guest can browse politician directory in view only mode', function () {
     $response->assertSee('Claimed Official');
     $response->assertDontSee('Hidden Candidate');
     $response->assertSee('Unclaimed Profile');
-    $response->assertSee('Public directory is view-only for earnings.', false);
-    $response->assertSee('watch active public campaign videos', false);
+    $response->assertSee('Public directory is view-only for earnings', false);
     $response->assertSee('commissions are only available after creating a voter account', false);
     $response->assertSee('Create Free Account');
     $response->assertDontSee('Earn Money Watching');
@@ -471,6 +470,65 @@ test('verified public profile shows dig deeper source panels', function () {
     $response->assertSee('OpenSecrets');
     $response->assertSee('Vote Smart');
     $response->assertSee('Federal Election Commission');
+});
+
+test('public profile renders FEC outside-spending section with no title key without crashing', function () {
+    // Reproduces the "Aaron Bean" production 500: FECService::getDisplayData()
+    // returns 'sections' as an associative array keyed by name (e.g.
+    // 'outside_spending' => ['items' => [...]]) with no 'title' key at all —
+    // unlike VoteSmart/Ballotpedia, which return a list where every entry has
+    // an explicit 'title'. profile.blade.php assumed the list shape and
+    // crashed with "Undefined array key \"title\"" on any FEC section that
+    // has items but no title.
+    $politician = Politician::factory()->create([
+        'full_name' => 'Aaron Bean',
+        'slug' => 'aaron-bean',
+        'page_published' => true,
+        'is_active' => true,
+        'verification_status' => 'verified',
+        'show_ballotpedia_data' => false,
+        'show_opensecrets_data' => false,
+        'show_votesmart_data' => false,
+        'show_fec_data' => true,
+        'political_office' => 'United States Representative',
+    ]);
+
+    app()->instance(FECService::class, new class {
+        public function getDisplayData($politician): array
+        {
+            unset($politician);
+
+            return [
+                'source' => 'Federal Election Commission',
+                'source_url' => 'https://www.fec.gov/data/candidate/H0XX00000/',
+                'sections' => [
+                    'summary' => ['receipts' => '$250,000'],
+                    'outside_spending' => ['items' => [
+                        ['committee_name' => 'Some PAC', 'total' => 10000.0, 'support_oppose' => 'S'],
+                    ]],
+                ],
+            ];
+        }
+
+        public function isFederalCandidate($politician): bool
+        {
+            unset($politician);
+
+            return true;
+        }
+    });
+
+    $response = $this->get(route('politician.public.show', ['slug' => $politician->slug]));
+
+    $response->assertOk();
+    // outside_spending is excluded from the generic "Public Records & Transparency"
+    // loop (it would otherwise dump raw fields like the bare 'S'/'O' FEC indicator
+    // and an unformatted total) and rendered only by the dedicated, formatted
+    // "Independent Spending" block further down the page.
+    $response->assertDontSee('Outside Spending');
+    $response->assertSee('Independent Spending');
+    $response->assertSee('Some PAC');
+    $response->assertSee('Support');
 });
 
     test('logged in voter sees referral share toolbar on unverified profiles only', function () {

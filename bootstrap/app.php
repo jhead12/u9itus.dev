@@ -16,6 +16,9 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
+    ->withBroadcasting(
+        __DIR__.'/../routes/channels.php',
+    )
     ->withMiddleware(function (Middleware $middleware): void {
         // Trust Railway proxies for proper HTTPS URL generation
         $middleware->trustProxies(at: '*');
@@ -23,6 +26,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->appendToGroup('web', [
             \App\Http\Middleware\CaptureReferralContext::class,
             \App\Http\Middleware\CaptureEarlyBankReferral::class,
+            \App\Http\Middleware\MergeGuestFavoriteBoundaries::class,
             \App\Http\Middleware\InjectAnalyticsTags::class,
         ]);
         
@@ -49,7 +53,26 @@ return Application::configure(basePath: dirname(__DIR__))
             // SEC-4: stateless voter API bearer-token auth + ownership checks.
             'voter-token' => \App\Http\Middleware\AuthenticateVoterToken::class,
             'voter.owns' => \App\Http\Middleware\EnsureVoterTokenMatches::class,
+            // Guest Trial Mode: silently provisions an anonymous visitor into
+            // a flagged voter session; blocks that session from money routes.
+            'guest.trial' => \App\Http\Middleware\ProvisionGuestVoterSession::class,
+            'block.guest.money' => \App\Http\Middleware\BlockGuestFromMonetization::class,
         ]);
+
+        // Laravel's SortedMiddleware always runs framework middleware present
+        // in its priority list (Authenticate/`auth` among them) before any
+        // unlisted middleware, regardless of declared order in the route
+        // group — so `guest.trial` needs an explicit priority slot ahead of
+        // `auth`, or its provisioning would never run before `auth` redirects
+        // an anonymous visitor to /login.
+        $middleware->prependToPriorityList(
+            // Laravel's default priority list carries the *contract*
+            // (`AuthenticatesRequests`), not the concrete `Authenticate`
+            // class the `auth` alias resolves to — targeting the concrete
+            // class here silently no-ops (falls through to append-at-end).
+            before: \Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests::class,
+            prepend: \App\Http\Middleware\ProvisionGuestVoterSession::class,
+        );
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $safeLogoutRedirect = function (Request $request) {

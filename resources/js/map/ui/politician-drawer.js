@@ -7,12 +7,15 @@ import { fmtPop } from '../config/city-data.js';
 import { partyClass, renderElectionDatesBanner, topicChipsHtml } from './panel-state.js';
 import { trackEvent } from '../api/interaction.js';
 import { createFavoriteButton } from './boundary-favorite.js';
+import { createFollowButton } from './politician-follow-button.js';
+import { resizeRenderer } from '../scene/setup.js';
 
 const polDrawer = document.getElementById('pol-drawer');
 const polDrawerClose = document.getElementById('pol-drawer-close');
 const polHeroEl = document.getElementById('pol-hero');
 const polBodyEl = document.getElementById('pol-body');
 const polTabBtns = polDrawer?.querySelectorAll('.pol-tab') ?? [];
+const toastEl = document.getElementById('map-toast');
 let _polTab = 'overview';
 let _polCtx = null;
 let _overviewReqSeq = 0;
@@ -27,6 +30,59 @@ function escapeHtml(value) {
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
+}
+
+/**
+ * Most openPolDrawer() call sites don't pass extra.districtNumber explicitly
+ * (only the district-panel candidate-card click does) — but the district key
+ * ("FL-13") reliably shows up in one of: c.district (explicit field set by
+ * panel-district.js's candidate build), extra.district (city-view nearest
+ * district), or embedded in the candidate's office string ("U.S.
+ * Representative — FL-13"). Note office text is NOT reliable when it holds a
+ * human label instead ("U.S. Representative — District 13"), which is why
+ * c.district/extra.district are checked first.
+ */
+function deriveDistrictNumber(c, extra, stateAbbr) {
+    if (extra?.districtNumber) return extra.districtNumber;
+    const source = c?.district || extra?.district || c?.office || '';
+    const match = source.match(/([A-Z]{2})-(\d+|AL)\b/);
+    if (!match) return null;
+    if (stateAbbr && match[1] !== stateAbbr) return null;
+    return match[2];
+}
+
+function showToast(message, type = 'info') {
+    if (!toastEl) return;
+    toastEl.textContent = message;
+    toastEl.className = 'map-toast visible ' + type;
+    setTimeout(() => toastEl.classList.remove('visible'), 3500);
+}
+
+async function shareDistrictLink(button) {
+    const url = button.dataset.shareUrl;
+    const label = button.dataset.shareLabel || 'this district';
+    if (!url) return;
+
+    trackEvent('district_share_click', { district_label: label, state: activeState || null });
+
+    const shareData = { title: `${label} on U9itus`, text: `Check out ${label} on U9itus`, url };
+    if (navigator.share) {
+        try {
+            await navigator.share(shareData);
+            return;
+        } catch (error) {
+            if (!error || error.name === 'AbortError') return;
+        }
+    }
+
+    try {
+        if (navigator.clipboard && window.isSecureContext) {
+            await navigator.clipboard.writeText(url);
+            showToast('Share link copied to clipboard', 'info');
+        }
+    } catch (error) {
+        console.error('[map] shareDistrictLink: failed to copy link', error);
+    }
 }
 
 function safeUrl(url) {
@@ -98,7 +154,7 @@ function isArticleVisited(url) {
 }
 
 /** Renders a "Recent News"-style card list — shared by news, press releases, and events. */
-function renderItemListSection(label, items) {
+export function renderItemListSection(label, items) {
     if (!items?.length) return '';
     return `
         <p class="pol-section-label" style="margin-top:16px;">${escapeHtml(label)}</p>
@@ -301,7 +357,7 @@ function renderMomentCard(moment) {
     const embed = url ? toEmbedUrl(url) : '';
     if (!url || !embed) return '';
 
-    const title = escapeHtml(moment.title || 'Video');
+    const title = escapeHtml(moment.title || 'Media');
     const source = escapeHtml(moment.source || 'YouTube');
     const views = Number.isFinite(moment.view_count) ? `${moment.view_count.toLocaleString()} views · ` : '';
     const embedSrc = escapeHtml(embed);
@@ -318,10 +374,10 @@ function renderMomentCard(moment) {
             <div class="pol-video-frame" style="position:relative;padding-top:56.25%;background:#020617;overflow:hidden;">
                 <div class="pol-video-placeholder" style="position:absolute;inset:0;cursor:pointer;"
                      onclick="window.__loadPolVideo(this)"
-                     role="button" tabindex="0" aria-label="Load video">
+                     role="button" tabindex="0" aria-label="Load media">
                     <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;">
                         <div style="width:48px;height:48px;border-radius:50%;background:rgba(99,102,241,0.2);border:1px solid rgba(99,102,241,0.5);display:flex;align-items:center;justify-content:center;font-size:20px;">▶</div>
-                        <span style="font-size:11px;color:#94a3b8;">Click to load video</span>
+                        <span style="font-size:11px;color:#94a3b8;">Click to load media</span>
                     </div>
                 </div>
                 <iframe
@@ -333,7 +389,7 @@ function renderMomentCard(moment) {
                     referrerpolicy="strict-origin-when-cross-origin"
                     allowfullscreen></iframe>
             </div>
-            <div style="padding:8px 10px;font-size:11px;color:#64748b;">${views}Source: ${source}</div>
+            <div style="padding:8px 10px;font-size:11px;color:#a7b4c7;">${views}Source: ${source}</div>
         </div>`;
 }
 
@@ -379,7 +435,7 @@ function renderIndustryBars(industries) {
             <div class="pol-industry-row">
                 <div class="pol-industry-label">
                     <span>${escapeHtml(ind.name)}</span>
-                    <span style="color:#64748b;">${escapeHtml(ind.total_display || '')}</span>
+                    <span style="color:#a7b4c7;">${escapeHtml(ind.total_display || '')}</span>
                 </div>
                 <div class="pol-industry-track">
                     <div class="pol-industry-fill" style="width:${Math.max(0, Math.min(100, ind.pct || 0))}%"></div>
@@ -395,8 +451,36 @@ function renderContributors(contributors) {
             ${contributors.map(c => `
                 <div style="display:flex;justify-content:space-between;gap:8px;padding:6px 10px;border-radius:8px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);">
                     <span style="font-size:11px;color:#cbd5e1;">${escapeHtml(c.name)}</span>
-                    <span style="font-size:11px;color:#64748b;font-weight:600;">${escapeHtml(c.total_display || '')}</span>
+                    <span style="font-size:11px;color:#a7b4c7;font-weight:600;">${escapeHtml(c.total_display || '')}</span>
                 </div>`).join('')}
+        </div>`;
+}
+
+function formatVoteDate(dateStr) {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    return isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+/** Recent legislative votes, sourced from Vote Smart (same provider as the Overview tab's bio facts). */
+function renderKeyVotes(votes) {
+    if (!votes?.length) return '';
+    return `
+        <p class="pol-section-label" style="margin-top:16px;">Recent Votes</p>
+        <div style="display:grid;gap:8px;">
+            ${votes.map(v => {
+                const voteLabel = String(v.vote || 'N/A').toUpperCase();
+                const voteColor = voteLabel.startsWith('Y') ? '#22c55e' : voteLabel.startsWith('N') ? '#ef4444' : '#94a3b8';
+                const dateStr = formatVoteDate(v.date);
+                return `<div style="padding:8px 10px;border-radius:8px;border:1px solid rgba(148,163,184,0.15);background:rgba(15,23,42,0.4);">
+                    <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline;">
+                        <span style="font-size:12px;font-weight:600;color:#e2e8f0;">${escapeHtml(v.bill || 'Bill')}</span>
+                        <span style="font-size:11px;font-weight:700;color:${voteColor};">${escapeHtml(v.vote || 'N/A')}</span>
+                    </div>
+                    ${v.title ? `<div style="font-size:11px;color:#a7b4c7;margin-top:2px;">${escapeHtml(v.title)}</div>` : ''}
+                    ${dateStr ? `<div style="font-size:10px;color:#64748b;margin-top:2px;">${escapeHtml(dateStr)}</div>` : ''}
+                </div>`;
+            }).join('')}
         </div>`;
 }
 
@@ -410,6 +494,54 @@ function renderFecSummary(fec) {
             <div class="pol-stat"><span class="pol-stat-val">${escapeHtml(fec.cash_on_hand || '—')}</span><span class="pol-stat-lbl">Cash on Hand</span></div>
             <div class="pol-stat"><span class="pol-stat-val">${escapeHtml(fec.debt || '—')}</span><span class="pol-stat-lbl">Debt</span></div>
         </div>`;
+}
+
+function formatCurrency(amount) {
+    const n = Number(amount);
+    if (!isFinite(n) || n === 0) return null;
+    return '$' + Math.round(n).toLocaleString('en-US');
+}
+
+/** Outside-group (Schedule E) support/oppose spending — distinct from the campaign's own fundraising in renderFecSummary. */
+function renderIndependentSpending(spending) {
+    const items = spending?.items || [];
+    if (!items.length) return '';
+    const hidden = spending.hidden_count || 0;
+
+    return `
+        <p class="pol-section-label" style="margin-top:16px;">Independent Spending <span style="color:#64748b;font-weight:400;">· outside groups, not the campaign</span></p>
+        <div style="display:grid;gap:6px;">
+            ${items.map(s => {
+                const isOppose = s.support_oppose === 'O';
+                const badgeColor = isOppose ? '#fb7185' : '#34d399';
+                const badgeBg = isOppose ? 'rgba(251,113,133,0.1)' : 'rgba(52,211,153,0.1)';
+                const badgeBorder = isOppose ? 'rgba(251,113,133,0.4)' : 'rgba(52,211,153,0.4)';
+                const label = isOppose ? 'Oppose' : 'Support';
+                const amount = formatCurrency(s.total);
+
+                let nameHtml;
+                if (s.committee_id) {
+                    const idUrl = `https://www.google.com/search?q=${encodeURIComponent(s.committee_id)}`;
+                    const nameLink = s.committee_name
+                        ? `<a href="https://www.fec.gov/data/committee/${escapeHtml(s.committee_id)}/" target="_blank" rel="noopener" style="color:#e2e8f0;text-decoration:underline;text-decoration-color:rgba(148,163,184,0.4);">${escapeHtml(s.committee_name)}</a> `
+                        : '';
+                    const idColor = s.committee_name ? '#94a3b8' : '#e2e8f0';
+                    nameHtml = `${nameLink}<a href="${escapeHtml(idUrl)}" target="_blank" rel="noopener nofollow" style="color:${idColor};font-family:monospace;font-size:10px;text-decoration:underline;text-decoration-color:rgba(148,163,184,0.4);">${escapeHtml(s.committee_id)}</a>`;
+                } else {
+                    nameHtml = `<span style="color:#e2e8f0;">${escapeHtml(s.committee_name || '—')}</span>`;
+                }
+
+                return `
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 10px;border-radius:8px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);">
+                    <span style="display:flex;align-items:center;gap:6px;min-width:0;font-size:11px;">
+                        ${nameHtml}
+                        <span style="flex-shrink:0;font-size:9px;font-weight:700;text-transform:uppercase;padding:1px 6px;border-radius:999px;border:1px solid ${badgeBorder};background:${badgeBg};color:${badgeColor};">${label}</span>
+                    </span>
+                    ${amount ? `<span style="flex-shrink:0;font-size:11px;font-weight:600;color:#fff;">${amount}</span>` : ''}
+                </div>`;
+            }).join('')}
+        </div>
+        ${hidden > 0 ? `<p style="font-size:10px;color:#64748b;margin:6px 0 0;">+ ${hidden} more spender(s) — see FEC.gov for the full list.</p>` : ''}`;
 }
 
 function renderEconomySources(sources, enrichedAt) {
@@ -463,7 +595,9 @@ export function openPolDrawer(cand, accentColor, extra = {}) {
             polHeroEl.innerHTML = `
                 <div class="pol-avatar-ph" style="font-size:26px;background:rgba(245,158,11,0.1);border:2px solid rgba(245,158,11,0.25);">🏙</div>
                 <div class="pol-hero-info">
-                    <h2 class="pol-name" id="pol-drawer-name">${c.full_name}</h2>
+                    <div class="pol-name-row">
+                        <h2 class="pol-name" id="pol-drawer-name">${c.full_name}</h2>
+                    </div>
                     <p class="pol-title">${c.office || '—'}</p>
                     <div class="pol-badges">
                         <span style="background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.3);color:#f59e0b;padding:2px 10px;border-radius:999px;font-size:11px;font-weight:700;">${fmtPop(extra.cityPop)} residents</span>
@@ -472,7 +606,8 @@ export function openPolDrawer(cand, accentColor, extra = {}) {
                     </div>
                 </div>`;
 
-            // Save-this-city star (voter) / sign-in nudge (guest).
+            // Save-this-city star (voter) / sign-in nudge (guest) — sits next
+            // to the name via .pol-name-row rather than on its own line.
             const stateAbbr = activeState ? STATE_ABBR_MAP[activeState] : null;
             if (stateAbbr && extra.cityName) {
                 document.getElementById('pol-drawer-fav-btn')?.remove();
@@ -485,7 +620,7 @@ export function openPolDrawer(cand, accentColor, extra = {}) {
                     lng: extra.lng ?? null,
                 });
                 favBtn.id = 'pol-drawer-fav-btn';
-                polHeroEl.querySelector('.pol-hero-info')?.appendChild(favBtn);
+                polHeroEl.querySelector('.pol-name-row')?.appendChild(favBtn);
             }
         } else {
             const ph = c.photo;
@@ -495,7 +630,9 @@ export function openPolDrawer(cand, accentColor, extra = {}) {
             polHeroEl.innerHTML = `
                 ${avH}
                 <div class="pol-hero-info">
-                    <h2 class="pol-name" id="pol-drawer-name">${c.full_name}</h2>
+                    <div class="pol-name-row">
+                        <h2 class="pol-name" id="pol-drawer-name">${c.full_name}</h2>
+                    </div>
                     <p class="pol-title">${c.office || '—'}</p>
                     <div class="pol-badges">
                         <span class="party-pill ${partyClass(c.party)}">${PARTY_LABEL[c.party] || c.party || '—'}</span>
@@ -505,10 +642,21 @@ export function openPolDrawer(cand, accentColor, extra = {}) {
                     </div>
                     ${topicChipsHtml(c.badges) ? `<div class="pol-topic-chips">${topicChipsHtml(c.badges)}</div>` : ''}
                 </div>`;
+
+            // Follow-this-candidate star (voter) / sign-in nudge (guest) —
+            // companion to the save-this-city star in the city-view branch
+            // above; sits next to the name via .pol-name-row.
+            document.getElementById('pol-drawer-follow-btn')?.remove();
+            if (c.id) {
+                const followBtn = createFollowButton(c.id);
+                followBtn.id = 'pol-drawer-follow-btn';
+                polHeroEl.querySelector('.pol-name-row')?.appendChild(followBtn);
+            }
         }
 
         _renderPolBody();
         requestAnimationFrame(() => polDrawer.classList.add('open'));
+        resizeRenderer();
         // Focus after the slide-in transition so the drawer is visually ready.
         setTimeout(() => {
             try { polDrawerClose?.focus({ preventScroll: true }); } catch {}
@@ -519,6 +667,7 @@ export function openPolDrawer(cand, accentColor, extra = {}) {
         // the console for further diagnosis.
         console.error('[map] openPolDrawer encountered an error but is keeping the drawer open:', err);
         try { polDrawer.removeAttribute('hidden'); polDrawer.classList.add('open'); } catch {}
+        resizeRenderer();
     }
 }
 
@@ -526,6 +675,7 @@ export function closePolDrawer() {
     _overviewReqSeq++;
     if (!polDrawer) return;
     polDrawer.classList.remove('open');
+    resizeRenderer();
     setTimeout(() => { if (polDrawer && !polDrawer.classList.contains('open')) polDrawer.setAttribute('hidden', ''); }, 340);
     _polCtx = null;
 }
@@ -573,7 +723,7 @@ function _renderPolBody() {
                         : `<div style="width:40px;height:40px;border-radius:50%;background:rgba(99,102,241,0.15);display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;">${window.avatarInitials(rep.full_name, '#6366f1', 40)}</div>`}
                     <div>
                         <div style="font-size:13px;font-weight:600;color:#e2e8f0;">${rep.full_name}</div>
-                        <div style="font-size:11px;color:#64748b;margin-top:2px;">${repOffice}</div>
+                        <div style="font-size:11px;color:#a7b4c7;margin-top:2px;">${repOffice}</div>
                         <span class="party-pill ${partyClass(rep.party)}" style="margin-top:5px;display:inline-block;">${PARTY_LABEL[rep.party] || rep.party || '—'}</span>
                     </div>
                 </div>` : ''}`;
@@ -589,14 +739,45 @@ function _renderPolBody() {
             return;
         }
 
+        // A statewide office (Senator, Governor, ...) has no general_date of its
+        // own and no district — fall back to term_end (when seated) and to the
+        // state's total population, relabeling both stats accordingly rather
+        // than showing a misleading "—" or an inaccurate date under the wrong label.
         const elDate = c.general_date || c.election_date || null;
-        const elStr = elDate ? (() => { try { return new Date(elDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }); } catch { return '—'; } })() : '—';
-        const popVal = pop ? pop.formatted : '—';
-        const popSub = pop ? `(${pop.census_year} Census)` : '';
+        const usingTermEnd = !elDate && !!c.term_end;
+        const elDisplayDate = elDate || (usingTermEnd ? c.term_end : null);
+        const elStr = elDisplayDate ? (() => { try { return new Date(elDisplayDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }); } catch { return '—'; } })() : '—';
+        const elLabel = usingTermEnd ? 'Term Ends' : 'Next Election';
+        const effectivePop = pop || stateData?.population || null;
+        const usingStatePop = !pop && !!stateData?.population;
+        const popVal = effectivePop ? effectivePop.formatted : '—';
+        const popSub = effectivePop ? `(${effectivePop.census_year} Census)` : '';
+        const popLabel = usingStatePop ? 'State Population' : 'District Population';
         const bioHtml = c.bio
             ? `<p class="pol-section-label">About</p><p class="pol-bio">${c.bio}</p>`
             : '';
         const enrichment = extra?.enrichment || null;
+        const bio = enrichment?.candidate || null;
+        const bioFacts = [];
+        if (bio?.birth_date) {
+            const born = (() => { try { return new Date(bio.birth_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }); } catch { return null; } })();
+            if (born) bioFacts.push(['Born', born]);
+        }
+        if (bio?.education) bioFacts.push(['Education', bio.education]);
+        if (bio?.profession) bioFacts.push(['Profession', bio.profession]);
+        // Sourced from Vote Smart, same as the Interest Group Ratings / Issue
+        // Positions / Key Votes on the public profile's Dig Deeper panel —
+        // only present when the politician has show_votesmart_data enabled.
+        const bioFactsHtml = bioFacts.length
+            ? `<div class="pol-bio-facts" style="margin-top:${c.bio ? '10px' : '0'};display:flex;flex-direction:column;gap:4px;">
+                ${bioFacts.map(([label, value]) => `
+                    <div style="display:flex;gap:6px;font-size:12px;line-height:1.5;">
+                        <span style="color:#a7b4c7;font-weight:600;flex-shrink:0;">${escapeHtml(label)}:</span>
+                        <span style="color:#cbd5e1;">${escapeHtml(value)}</span>
+                    </div>
+                `).join('')}
+            </div>`
+            : '';
         const isLoadingEnrichment = !!extra?.enrichmentLoading && !enrichment;
         const hasEnrichmentError = !!extra?.enrichmentError && !enrichment;
         const news = Array.isArray(enrichment?.news) ? enrichment.news.slice(0, 3) : [];
@@ -634,7 +815,7 @@ function _renderPolBody() {
                             referrerpolicy="strict-origin-when-cross-origin"
                             allowfullscreen></iframe>
                     </div>
-                    <div style="padding:8px 10px;font-size:11px;color:#64748b;">Source: ${videoSource}</div>
+                    <div style="padding:8px 10px;font-size:11px;color:#a7b4c7;">Source: ${videoSource}</div>
                 </div>`;
         }
 
@@ -664,7 +845,7 @@ function _renderPolBody() {
             <div class="pol-stat-grid">
                 <div class="pol-stat">
                     <span class="pol-stat-val">${popVal}</span>
-                    <span class="pol-stat-lbl">District Population ${popSub}</span>
+                    <span class="pol-stat-lbl">${popLabel} ${popSub}</span>
                 </div>
                 <div class="pol-stat">
                     <span class="pol-stat-val" style="color:${PARTY_HEX[c.party] || ac}">${PARTY_LABEL[c.party] || c.party || '—'}</span>
@@ -676,10 +857,12 @@ function _renderPolBody() {
                 </div>
                 <div class="pol-stat">
                     <span class="pol-stat-val">${elStr}</span>
-                    <span class="pol-stat-lbl">Next Election</span>
+                    <span class="pol-stat-lbl">${elLabel}</span>
                 </div>
             </div>
             ${bioHtml}
+            ${bioFactsHtml}
+            ${renderKeyVotes(enrichment?.key_votes)}
             ${videoHtml}
             ${newsHtml}
             ${pressReleaseHtml}
@@ -786,6 +969,7 @@ function _renderPolBody() {
             ${renderIndustryBars(economy.top_industries)}
             ${renderContributors(economy.top_contributors)}
             ${renderFecSummary(economy.fec_summary)}
+            ${renderIndependentSpending(economy.outside_spending)}
             ${renderEconomySources(economy.sources, economy.enriched_at)}`;
 
     } else if (_polTab === 'moments') {
@@ -795,7 +979,7 @@ function _renderPolBody() {
             const searchQuery = `10 things to do in ${cityName}${stateAbbr ? ', ' + stateAbbr : ''}`;
             const ytUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(searchQuery)}`;
             polBodyEl.innerHTML = `
-                <p class="pol-section-label">Videos</p>
+                <p class="pol-section-label">Media</p>
                 <p class="pol-empty">Viral moments are shown for individual candidates — select a specific representative to view them.</p>
                 <div class="pol-link-row" style="margin-top:12px;">
                     <a href="${ytUrl}" target="_blank" rel="noopener" class="pol-link pol-link-primary">▶ 10 Things to Do in ${escapeHtml(cityName)}</a>
@@ -809,7 +993,7 @@ function _renderPolBody() {
 
         if (isLoadingMoments) {
             polBodyEl.innerHTML = `
-                <p class="pol-section-label">Videos</p>
+                <p class="pol-section-label">Media</p>
                 <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:8px;border:1px solid rgba(99,102,241,0.15);background:rgba(99,102,241,0.06);">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="animation:spin 1s linear infinite;color:#6366f1;">
                         <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-dasharray="31.4" stroke-dashoffset="10" stroke-linecap="round"/>
@@ -821,9 +1005,9 @@ function _renderPolBody() {
 
         if (hasMomentsError) {
             polBodyEl.innerHTML = `
-                <p class="pol-section-label">Videos</p>
+                <p class="pol-section-label">Media</p>
                 <div style="padding:10px 12px;border-radius:8px;border:1px solid rgba(239,68,68,0.2);background:rgba(239,68,68,0.06);">
-                    <span style="font-size:11px;color:#f87171;">⚠ Video data unavailable right now.</span>
+                    <span style="font-size:11px;color:#f87171;">⚠ Media data unavailable right now.</span>
                 </div>`;
             return;
         }
@@ -833,7 +1017,7 @@ function _renderPolBody() {
                 ? 'This candidate has not claimed a U9itus profile yet, so viral moments are not available.'
                 : 'No viral moments have been found for this candidate yet — check back after the next enrichment run.';
             polBodyEl.innerHTML = `
-                <p class="pol-section-label">Videos</p>
+                <p class="pol-section-label">Media</p>
                 <p class="pol-empty">${escapeHtml(message)}</p>`;
             return;
         }
@@ -842,7 +1026,7 @@ function _renderPolBody() {
         const updated = moments.enriched_at ? formatPubDate(moments.enriched_at) : null;
 
         polBodyEl.innerHTML = `
-            <p class="pol-section-label">Videos</p>
+            <p class="pol-section-label">Media</p>
             ${cards}
             ${updated ? `<p style="font-size:10px;color:#475569;margin:4px 0 0;">Data updated ${escapeHtml(updated)}</p>` : ''}`;
 
@@ -853,8 +1037,8 @@ function _renderPolBody() {
         if (c.ballotpedia_url) links.push(`<a href="${c.ballotpedia_url}" target="_blank" rel="noopener" class="pol-link pol-link-alt">Ballotpedia →</a>`);
 
         const stateAbbr = activeState ? STATE_ABBR_MAP[activeState] : null;
+        const districtNumber = deriveDistrictNumber(c, extra, stateAbbr);
         if (stateAbbr) {
-            const districtNumber = extra?.districtNumber;
             const browseUrl = districtNumber
                 ? `/politicians?state=${encodeURIComponent(stateAbbr)}&district=${encodeURIComponent(districtNumber)}&status=running`
                 : `/politicians?state=${encodeURIComponent(stateAbbr)}&status=running`;
@@ -864,13 +1048,31 @@ function _renderPolBody() {
             links.push(`<a href="${browseUrl}" class="pol-link pol-link-alt">${browseLabel}</a>`);
         }
 
+        // District share link mirrors the __mapGoTo deep-link params (deep-link.js)
+        // so recipients land back on this exact district. The viewer's referral
+        // code (window.U9.session, hydrated from the `u9-ref-code` meta tag) is
+        // attached so a signup from the shared link gets attributed to them.
+        const districtLabel = stateAbbr
+            ? (districtNumber ? `${stateAbbr}-${districtNumber}` : stateAbbr)
+            : null;
+        if (districtLabel) {
+            const shareParams = new URLSearchParams();
+            shareParams.set('state', stateAbbr);
+            if (districtNumber) shareParams.set('district', districtNumber);
+            if (c.slug) shareParams.set('slug', c.slug);
+            const refCode = window.U9?.session?.referralCode;
+            if (refCode) shareParams.set('ref', refCode);
+            const shareUrl = `${window.location.origin}/map?${shareParams.toString()}`;
+            links.push(`<button type="button" class="pol-link pol-link-alt pol-share-btn" data-share-url="${escapeHtml(shareUrl)}" data-share-label="${escapeHtml(districtLabel)}">🔗 Share ${escapeHtml(districtLabel)}</button>`);
+        }
+
         polBodyEl.innerHTML = `
             <p class="pol-section-label">Links &amp; Resources</p>
             ${links.length
                 ? `<div class="pol-link-row">${links.join('')}</div>`
                 : `<p class="pol-empty">No contact links available for this candidate yet.</p>`}
             <p class="pol-section-label" style="margin-top:20px;">District Region</p>
-            <p style="font-size:12px;color:#64748b;line-height:1.55;">
+            <p style="font-size:12px;color:#a7b4c7;line-height:1.55;">
                 Population data, demographic breakdowns, and local economic indicators are
                 displayed in the <strong style="color:#94a3b8;">Overview</strong> and <strong style="color:#94a3b8;">Economy</strong> tabs.
                 Cultural and civic data layers are accessible from the <strong style="color:#94a3b8;">Layers</strong> panel on the map.
@@ -901,11 +1103,16 @@ export function initPolDrawer() {
     // discarded along with the old content.
     polDrawer.addEventListener('click', e => {
         const link = e.target.closest('a[data-article-url]');
-        if (!link || link.classList.contains('visited')) return;
-        markArticleVisited(link.dataset.articleUrl);
-        link.classList.add('visited');
-        const headline = link.querySelector('.pol-article-headline');
-        if (headline) headline.insertAdjacentHTML('afterbegin', '<span class="pol-article-check">✓</span> ');
+        if (link && !link.classList.contains('visited')) {
+            markArticleVisited(link.dataset.articleUrl);
+            link.classList.add('visited');
+            const headline = link.querySelector('.pol-article-headline');
+            if (headline) headline.insertAdjacentHTML('afterbegin', '<span class="pol-article-check">✓</span> ');
+            return;
+        }
+
+        const shareBtn = e.target.closest('[data-share-url]');
+        if (shareBtn) shareDistrictLink(shareBtn);
     });
 
     polDrawerClose.addEventListener('click', closePolDrawer);

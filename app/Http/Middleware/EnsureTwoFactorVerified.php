@@ -26,6 +26,12 @@ class EnsureTwoFactorVerified
             return $next($request);
         }
 
+        // Guest-trial voters (see ProvisionGuestVoterSession) must never be
+        // routed into 2FA setup, regardless of per-tier enforcement settings.
+        if ($user->is_guest) {
+            return $next($request);
+        }
+
         // Allow the 2FA routes themselves to pass through (avoid redirect loop).
         if ($request->routeIs('2fa.*')) {
             return $next($request);

@@ -3,11 +3,19 @@ use App\Enums\CivicEventStatus;
 use App\Enums\CivicEventType;
 @endphp
 
-{{-- expects $prefix (citizen or politician), $event (optional), and $topics iterable --}}
+{{-- expects $prefix (citizen, politician, or groups), $event (optional),
+     $topics iterable, and — only for prefixes whose routes need it, e.g.
+     groups.events.* which are scoped under /groups/{group}/events —
+     $routeParams (an array merged into every route() call here, e.g.
+     ['group' => $group]). Citizen/politician routes need no route
+     parameters of their own, so they simply don't pass $routeParams. --}}
 @php
 $isEdit = isset($event);
 $heading = $isEdit ? 'Edit Event' : 'Create Event';
-$action = $isEdit ? route($prefix . '.events.update', $event) : route($prefix . '.events.store');
+$routeParams = $routeParams ?? [];
+$action = $isEdit
+    ? route($prefix . '.events.update', [...$routeParams, 'event' => $event])
+    : route($prefix . '.events.store', $routeParams);
 @endphp
 
 <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
@@ -177,7 +185,7 @@ $action = $isEdit ? route($prefix . '.events.update', $event) : route($prefix . 
         </div>
 
         <div class="flex items-center justify-between pt-4">
-            <a href="{{ route($prefix . '.events.index') }}" class="text-sm text-slate-400 hover:text-white">Cancel</a>
+            <a href="{{ route($prefix . '.events.index', $routeParams) }}" class="text-sm text-slate-400 hover:text-white">Cancel</a>
             <button type="submit" class="px-6 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-semibold">{{ $isEdit ? 'Update Event' : 'Create Event' }}</button>
         </div>
     </form>

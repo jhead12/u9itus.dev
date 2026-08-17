@@ -6,6 +6,7 @@ use App\Models\CityDemographic;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Public endpoint powering the map's region panel — cities within a region
@@ -30,6 +31,14 @@ class MapRegionDemographicsController
     private const CITIES_PER_STATE = 8;
 
     /**
+     * Rows pulled per state before dedup — generous headroom over
+     * CITIES_PER_STATE so multiple census_year rows per city still leave
+     * enough unique cities after dedup, without loading a state's entire
+     * demographic history into memory (see buildRegionData()).
+     */
+    private const ROWS_PER_STATE = 60;
+
+    /**
      * GET /api/v1/map/region-demographics?region=Northeast
      */
     public function __invoke(Request $request): JsonResponse
@@ -41,9 +50,21 @@ class MapRegionDemographicsController
             return response()->json(['error' => 'Unknown region.'], 422);
         }
 
-        $data = Cache::remember("map_region_demographics_{$region}", 21_600, function () use ($region, $states) {
-            return $this->buildRegionData($region, $states);
-        });
+        try {
+            $data = Cache::remember("map_region_demographics_{$region}", 21_600, function () use ($region, $states) {
+                return $this->buildRegionData($region, $states);
+            });
+        } catch (\Throwable $e) {
+            Log::error('MapRegionDemographicsController: failed to build region data', [
+                'region' => $region,
+                'error'  => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'region' => $region,
+                'states' => array_map(fn (string $state) => ['state' => $state, 'cities' => []], $states),
+            ]);
+        }
 
         return response()->json($data);
     }
@@ -54,39 +75,46 @@ class MapRegionDemographicsController
      */
     private function buildRegionData(string $region, array $states): array
     {
-        $cities = CityDemographic::query()
-            ->whereIn('state', $states)
-            ->orderByDesc('census_year')
-            ->orderByDesc('population')
-            ->get();
-
-        $byState = [];
-        foreach ($cities as $city) {
-            // Data is upserted per (state, city_name, census_year) — keep only
-            // the most recent census_year per city (rows already sorted for it).
-            $seenKey = $city->state . '|' . $city->city_name;
-            if (isset($byState[$city->state]['_seen'][$seenKey])) {
-                continue;
-            }
-            $byState[$city->state]['_seen'][$seenKey] = true;
-            $byState[$city->state]['cities'][] = [
-                'city' => $city->city_name,
-                'district_number' => $city->district_number,
-                'district_code' => $city->district_code,
-                'population' => $city->population,
-                'poverty_rate' => $city->poverty_rate !== null ? (float) $city->poverty_rate : null,
-                'pct_bachelors_or_higher' => $city->pct_bachelors_or_higher !== null ? (float) $city->pct_bachelors_or_higher : null,
-                'median_household_income' => $city->median_household_income,
-            ];
-        }
-
+        // Bounded per-state instead of one whereIn(...)->get() across the
+        // whole region — a region can span a dozen states, and pulling every
+        // census_year row for every city in all of them into memory at once
+        // just to keep the top 8 per state is unnecessary memory pressure.
         $result = [];
         foreach ($states as $state) {
-            $stateCities = $byState[$state]['cities'] ?? [];
-            $result[] = [
-                'state' => $state,
-                'cities' => array_slice($stateCities, 0, self::CITIES_PER_STATE),
-            ];
+            $rows = CityDemographic::query()
+                ->where('state', $state)
+                ->orderByDesc('census_year')
+                ->orderByDesc('population')
+                ->limit(self::ROWS_PER_STATE)
+                ->get();
+
+            $seen = [];
+            $cities = [];
+            foreach ($rows as $city) {
+                // Data is upserted per (state, city_name, census_year) — keep
+                // only the most recent census_year per city (rows already
+                // sorted for it).
+                if (isset($seen[$city->city_name])) {
+                    continue;
+                }
+                $seen[$city->city_name] = true;
+
+                $cities[] = [
+                    'city' => $city->city_name,
+                    'district_number' => $city->district_number,
+                    'district_code' => $city->district_code,
+                    'population' => $city->population,
+                    'poverty_rate' => $city->poverty_rate !== null ? (float) $city->poverty_rate : null,
+                    'pct_bachelors_or_higher' => $city->pct_bachelors_or_higher !== null ? (float) $city->pct_bachelors_or_higher : null,
+                    'median_household_income' => $city->median_household_income,
+                ];
+
+                if (count($cities) >= self::CITIES_PER_STATE) {
+                    break;
+                }
+            }
+
+            $result[] = ['state' => $state, 'cities' => $cities];
         }
 
         return [

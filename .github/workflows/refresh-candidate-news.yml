@@ -36,54 +36,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # ── PHP ─────────────────────────────────────────────────────────────────
-      - name: Set up PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: "8.4"
-          extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, pdo_mysql
-          coverage: none
-
-      # ── Composer ────────────────────────────────────────────────────────────
-      - name: Cache Composer packages
-        uses: actions/cache@v4
-        with:
-          path: vendor
-          key: ${{ runner.os }}-composer-${{ hashFiles('composer.lock') }}
-          restore-keys: ${{ runner.os }}-composer-
-
-      - name: Install Composer dependencies
-        run: composer install --prefer-dist --no-interaction --no-progress --no-dev
-
-      # ── Laravel env ─────────────────────────────────────────────────────────
-      # All secrets are set in GitHub → Settings → Secrets → Actions.
-      # Required: APP_KEY, DB_HOST, DB_PORT, DB_DATABASE, DB_USERNAME, DB_PASSWORD
-      # Optional: NEWSAPI_KEY, GNEWS_API_KEY
-      - name: Write .env
-        run: |
-          cat > .env <<EOF
-          APP_ENV=production
-          APP_KEY=${{ secrets.APP_KEY }}
-          APP_DEBUG=false
-          APP_URL=${{ secrets.APP_URL }}
-
-          DB_CONNECTION=mysql
-          DB_HOST=${{ secrets.DB_HOST }}
-          DB_PORT=${{ secrets.DB_PORT }}
-          DB_DATABASE=${{ secrets.DB_DATABASE }}
-          DB_USERNAME=${{ secrets.DB_USERNAME }}
-          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
-
-          NEWSAPI_KEY=${{ secrets.NEWSAPI_KEY }}
-          GNEWS_API_KEY=${{ secrets.GNEWS_API_KEY }}
-
-          CACHE_DRIVER=database
-          SESSION_DRIVER=database
-          QUEUE_CONNECTION=sync
-          LOG_CHANNEL=stderr
-          EOF
-
-      # ── Run migrations (only new ones; safe to run on every job) ─────────────
+      # ── Debug: confirm the expected commit/migration checked out ─────────────
       - name: Debug migration source
         run: |
           echo "Workflow SHA: $GITHUB_SHA"
@@ -92,8 +45,21 @@ jobs:
           grep -n "hasColumn('politicians', 'profile_photo_status')\|profile_photo_status" \
             database/migrations/2026_07_06_120001_add_photo_validation_and_news_verification_fields.php || true
 
-      - name: Run pending migrations
-        run: php artisan migrate --force --no-interaction
+      # ── App setup (PHP, Composer, .env, migrate) ─────────────────────────────
+      # Required secrets: APP_KEY, DB_HOST, DB_PORT, DB_DATABASE, DB_USERNAME, DB_PASSWORD
+      # Optional secrets: NEWSAPI_KEY, GNEWS_API_KEY
+      - name: Set up app
+        uses: ./.github/actions/setup-app
+        with:
+          app_key: ${{ secrets.APP_KEY }}
+          app_url: ${{ secrets.APP_URL }}
+          db_host: ${{ secrets.DB_HOST }}
+          db_port: ${{ secrets.DB_PORT }}
+          db_database: ${{ secrets.DB_DATABASE }}
+          db_username: ${{ secrets.DB_USERNAME }}
+          db_password: ${{ secrets.DB_PASSWORD }}
+          newsapi_key: ${{ secrets.NEWSAPI_KEY }}
+          gnews_api_key: ${{ secrets.GNEWS_API_KEY }}
 
       # ── Refresh news ─────────────────────────────────────────────────────────
       - name: Refresh candidate news

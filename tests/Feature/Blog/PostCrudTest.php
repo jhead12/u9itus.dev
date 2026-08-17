@@ -1,18 +1,21 @@
 <?php
 
+use App\Enums\PostStatus;
 use App\Models\Citizen;
-use App\Models\Politician;
 use App\Models\Post;
 use App\Models\User;
-use App\Enums\PostStatus;
+use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
+use Spatie\Permission\Models\Role;
 
 uses(RefreshDatabase::class);
 
 beforeEach(function (): void {
-    if (class_exists(\Spatie\Permission\Models\Role::class)) {
-        \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'citizen', 'guard_name' => 'web']);
-        \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'politician', 'guard_name' => 'web']);
+    if (class_exists(Role::class)) {
+        Role::firstOrCreate(['name' => 'citizen', 'guard_name' => 'web']);
+        Role::firstOrCreate(['name' => 'politician', 'guard_name' => 'web']);
     }
 });
 
@@ -22,6 +25,7 @@ function makeCitizenUser(): User
     $user->assignRole('citizen');
     Citizen::factory()->create(['user_id' => $user->id]);
     skipOnboarding($user, 'citizen');
+
     return $user->load('citizen');
 }
 
@@ -115,4 +119,182 @@ it('shows a single published post page with seo meta', function (): void {
     $response->assertOk();
     $response->assertSee('Single Post');
     $response->assertSee('og:title');
+});
+
+it('stores an uploaded featured image and ignores the raw url field', function (): void {
+    Storage::fake('public');
+    $user = makeCitizenUser();
+
+    $response = $this->actingAs($user)->post(route('citizen.posts.store'), [
+        'title' => 'Post with a featured image',
+        'featured_image_file' => UploadedFile::fake()->image('featured.jpg', 200, 200),
+        'featured_image_url' => 'https://example.com/should-be-overridden.jpg',
+    ]);
+
+    $response->assertRedirect();
+
+    $post = Post::query()->where('title', 'Post with a featured image')->firstOrFail();
+    expect($post->featured_image_url)->not->toBe('https://example.com/should-be-overridden.jpg');
+    expect($post->featured_image_url)->toContain('/storage/');
+});
+
+it('flashes an error and saves without an image when the disk write fails', function (): void {
+    $user = makeCitizenUser();
+
+    $diskMock = Mockery::mock(Filesystem::class);
+    $diskMock->shouldReceive('put')->andReturn(false);
+    Storage::shouldReceive('disk')->with('public')->andReturn($diskMock);
+
+    $response = $this->actingAs($user)->post(route('citizen.posts.store'), [
+        'title' => 'Image upload failure test',
+        'featured_image_file' => UploadedFile::fake()->image('featured.jpg', 200, 200),
+    ]);
+
+    $response->assertRedirect();
+    $response->assertSessionHas('error');
+
+    $post = Post::query()->where('title', 'Image upload failure test')->firstOrFail();
+    expect($post->featured_image_url)->toBeNull();
+});
+
+it('deletes the previous uploaded featured image when replaced on update', function (): void {
+    Storage::fake('public');
+    $user = makeCitizenUser();
+
+    $create = $this->actingAs($user)->post(route('citizen.posts.store'), [
+        'title' => 'Replaceable image post',
+        'featured_image_file' => UploadedFile::fake()->image('first.jpg', 200, 200),
+    ]);
+    $create->assertRedirect();
+
+    $post = Post::query()->where('title', 'Replaceable image post')->firstOrFail();
+    $originalUrl = $post->featured_image_url;
+    $originalPath = ltrim(parse_url($originalUrl, PHP_URL_PATH), '/');
+    $originalPath = str_starts_with($originalPath, 'storage/') ? substr($originalPath, strlen('storage/')) : $originalPath;
+    Storage::disk('public')->assertExists($originalPath);
+
+    $this->actingAs($user)->put(route('citizen.posts.update', $post), [
+        'title' => $post->title,
+        'featured_image_file' => UploadedFile::fake()->image('second.jpg', 200, 200),
+    ])->assertRedirect();
+
+    $post->refresh();
+    expect($post->featured_image_url)->not->toBe($originalUrl);
+    Storage::disk('public')->assertMissing($originalPath);
+});
+
+it('lets an author upload an inline image for the post body editor', function (): void {
+    Storage::fake('public');
+    $user = makeCitizenUser();
+
+    $response = $this->actingAs($user)->post(route('citizen.posts.images'), [
+        'image' => UploadedFile::fake()->image('inline.png', 300, 200),
+    ]);
+
+    $response->assertOk();
+    $response->assertJsonStructure(['url']);
+    expect($response->json('url'))->toContain('/storage/');
+});
+
+it('rejects a non-image file from the inline image upload endpoint', function (): void {
+    Storage::fake('public');
+    $user = makeCitizenUser();
+
+    $response = $this->actingAs($user)->post(route('citizen.posts.images'), [
+        'image' => UploadedFile::fake()->create('not-an-image.txt', 10, 'text/plain'),
+    ]);
+
+    $response->assertSessionHasErrors('image');
+});
+
+it('lets an author embed a YouTube link in the post body editor', function (): void {
+    $user = makeCitizenUser();
+
+    $response = $this->actingAs($user)->post(route('citizen.posts.embeds'), [
+        'url' => 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+    ]);
+
+    $response->assertOk();
+    expect($response->json('html'))->toContain('src="https://www.youtube.com/embed/dQw4w9WgXcQ"');
+});
+
+it('rejects an unsupported url on the embeds endpoint', function (): void {
+    $user = makeCitizenUser();
+
+    $response = $this->actingAs($user)->post(route('citizen.posts.embeds'), [
+        'url' => 'https://example.com/not-a-supported-platform',
+    ]);
+
+    $response->assertStatus(422);
+});
+
+it('rejects the embeds endpoint for guests', function (): void {
+    $response = $this->post(route('citizen.posts.embeds'), [
+        'url' => 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+    ]);
+
+    $response->assertRedirect(route('login'));
+});
+
+it('rejects the inline image upload endpoint for guests', function (): void {
+    Storage::fake('public');
+
+    $response = $this->post(route('citizen.posts.images'), [
+        'image' => UploadedFile::fake()->image('inline.png', 300, 200),
+    ]);
+
+    $response->assertRedirect(route('login'));
+});
+
+it('background-saves without a redirect and reports fresh slug-based urls after a title change', function (): void {
+    $user = makeCitizenUser();
+    $citizen = $user->citizen;
+
+    $post = Post::factory()->create([
+        'author_type' => Citizen::class,
+        'author_id' => $citizen->id,
+        'status' => PostStatus::Draft,
+        'title' => 'Original Title',
+        'slug' => 'original-title',
+    ]);
+
+    // Changing the title regenerates the slug (Post::boot()), which is exactly
+    // what makes every slug-keyed URL on the edit page stale mid-session.
+    $response = $this->actingAs($user)
+        ->post(route('citizen.posts.update', $post), [
+            '_method' => 'PUT',
+            'title' => 'A Brand New Title',
+            '_background_save' => '1',
+        ]);
+
+    $response->assertOk();
+    $response->assertJson(['saved' => true]);
+    $response->assertSessionMissing('success');
+    $response->assertSessionMissing('error');
+
+    $post->refresh();
+    expect($post->title)->toBe('A Brand New Title');
+    expect($post->slug)->not->toBe('original-title');
+
+    $json = $response->json();
+    expect($json['updateUrl'])->toContain($post->slug);
+    expect($json['publishUrl'])->toContain($post->slug);
+    expect($json['publicUrl'])->toContain($post->slug);
+    expect($json['updateUrl'])->not->toContain('original-title');
+});
+
+it('strips empty spacer paragraphs pasted from page builders like Wix', function (): void {
+    $post = Post::factory()->create([
+        'body' => '<p>First paragraph.</p><p><br></p><p>&nbsp;</p><p class="ql-align-center"> </p><p>Second paragraph.</p>',
+    ]);
+
+    expect($post->body)->toBe('<p>First paragraph.</p><p>Second paragraph.</p>');
+});
+
+it('returns a null body when a post is only empty spacer paragraphs', function (): void {
+    $post = Post::factory()->create([
+        'body' => '<p><br></p><p>&nbsp;</p>',
+    ]);
+
+    expect($post->body)->toBeNull();
 });

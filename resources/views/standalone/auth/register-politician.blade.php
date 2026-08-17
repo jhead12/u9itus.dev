@@ -15,6 +15,9 @@
     <style>* { font-family: 'Inter', sans-serif; }</style>
 </head>
 <body class="min-h-screen bg-slate-900 flex items-center justify-center px-4 py-10 antialiased">
+@php
+    $politicianRatePerView = number_format((float) \App\Services\PlatformSettingsService::get('revenue_per_view', null, 1.00), 2);
+@endphp
 
 <div class="w-full max-w-lg">
 
@@ -186,7 +189,7 @@
                 <label for="terms" class="text-sm text-slate-400">
                     I agree to the <a href="{{ route('terms') }}" class="text-emerald-400 hover:text-emerald-300 underline">Terms of Service</a>
                     and <a href="{{ route('privacy-policy') }}" class="text-emerald-400 hover:text-emerald-300 underline">Privacy Policy</a>.
-                    I understand that <strong class="text-slate-300">campaigns cost $0.60 per verified view</strong> and require approval before going live.
+                    I understand that <strong class="text-slate-300">campaigns cost ${{ $politicianRatePerView }} per verified view</strong> and require approval before going live.
                 </label>
             </div>
 

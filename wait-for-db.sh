@@ -286,8 +286,15 @@ case "$PROCESS_ROLE" in
       echo "ENABLE_REVERB=false — forcing BROADCAST_DRIVER=log for web role"
     fi
 
+    # php artisan serve defaults to a single worker, so one slow request (external
+    # API call, upload processing, etc.) blocks every other request, including "/",
+    # until it clears or the client gives up. Default to 4 workers; override via the
+    # PHP_CLI_SERVER_WORKERS Railway env var if the instance has more/fewer CPUs.
+    export PHP_CLI_SERVER_WORKERS="${PHP_CLI_SERVER_WORKERS:-4}"
+
     echo "Starting Laravel web server..."
     echo "PORT: $PORT"
+    echo "PHP_CLI_SERVER_WORKERS: $PHP_CLI_SERVER_WORKERS"
     echo "Command: php artisan serve --host=0.0.0.0 --port=$PORT --no-reload"
     exec php artisan serve --host=0.0.0.0 --port=$PORT --no-reload 2>&1
     ;;

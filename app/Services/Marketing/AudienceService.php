@@ -190,7 +190,7 @@ class AudienceService
      *
      * @return string[]
      */
-    protected function districtCodeVariants(string $raw): array
+    public static function districtCodeVariants(string $raw): array
     {
         $raw = trim($raw);
         if ($raw === '') {

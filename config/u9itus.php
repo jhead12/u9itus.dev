@@ -33,6 +33,8 @@ return [
     |--------------------------------------------------------------------------
     |
     | Revenue from politician per view:          $1.00
+    | Revenue from citizen per view:              $1.00
+    | Revenue from citizen ballot-issue per view: $1.00
     | Direct viewer/voter payout:                $0.50
     | Referral commission (10 % of $0.50):       $0.050
     | Politician-procurement commission (10 %):  $0.06 (one-time, amortised)
@@ -42,6 +44,8 @@ return [
     |
     */
     'revenue_per_view' => env('REVENUE_PER_VIEW', 1.00),
+    'citizen_revenue_per_view' => env('CITIZEN_REVENUE_PER_VIEW', 0.60),
+    'ballot_issue_revenue_per_view' => env('BALLOT_ISSUE_REVENUE_PER_VIEW', 1.00),
     'viewer_payout_per_view' => env('VIEWER_PAYOUT_PER_VIEW', 0.50),
     'referral_commission_percent' => env('REFERRAL_COMMISSION_PERCENT', 10),
     'procurement_commission_percent' => env('PROCUREMENT_COMMISSION_PERCENT', 10),

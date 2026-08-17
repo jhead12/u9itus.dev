@@ -24,7 +24,7 @@ export function updateBreadcrumb() {
             <span class="bc-sep">›</span>
             <span class="bc-item bc-active">${activeState}</span>
             <span class="bc-sep">›</span>
-            <span class="bc-item" style="color:#64748b">Districts (119th)</span>`;
+            <span class="bc-item" style="color:#a7b4c7">Districts (119th)</span>`;
     }
 }
 

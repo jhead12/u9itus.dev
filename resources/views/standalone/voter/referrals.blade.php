@@ -36,27 +36,31 @@
     ])
 
     {{-- ── Early-bank Reported Earnings ─────────────────────────── --}}
+    {{-- Bonuses card hidden until the bonus program is fully defined on the
+         Early-bank side — $ebBonusTotal is still computed below in case admin
+         reports or a future re-enable need it. --}}
     @include('standalone.shared.referral-stat-grid', [
-        'gridClass' => 'grid-cols-2',
+        'gridClass' => 'grid-cols-1',
         'cards' => [
             ['label' => 'Early-bank Commissions', 'value' => '$' . number_format($ebCommissionTotal, 2), 'valueClass' => 'text-emerald-400'],
-            ['label' => 'Early-bank Bonuses', 'value' => '$' . number_format($ebBonusTotal, 2), 'valueClass' => 'text-indigo-400'],
         ],
     ])
 
     {{-- ── Share Links ──────────────────────────────────────────── --}}
     @php
         // Early-bank member links — only built when this voter holds an EB membership.
-        // EB invite:        early-bank.com/?ref=<uuid>  → recruits new EB members ($10 bonus)
+        // EB invite:        early-bank.com/?ref=<uuid>  → recruits new EB members
         // U9itus earn link: u9itus.com/earn?ref=<uuid>  → CaptureEarlyBankReferral middleware
         //                   stores the UUID cookie so new registrants are attributed to this member.
+        // NOTE: the flat join bonus amount is not yet finalized on the Early-bank
+        // side — don't quote a dollar figure in this page's copy until it is.
         $ebMemberUuid  = $voter->earlybank_own_member_uuid ?? null;
         $ebBaseUrl     = rtrim((string) config('services.earlybank.public_url', 'https://www.early-bank.com'), '/');
         $ebInviteUrl   = $ebMemberUuid ? ($ebBaseUrl . '/?ref=' . $ebMemberUuid)  : null;
         $ebEarnUrl     = $ebMemberUuid ? (url('/earn') . '?ref=' . $ebMemberUuid) : null;
         $ebInviteQrSrc = $ebInviteUrl ? 'https://api.qrserver.com/v1/create-qr-code/?size=120x120&color=059669&bgcolor=FFFFFF&data=' . rawurlencode($ebInviteUrl) . '&qzone=1' : null;
         $ebEarnQrSrc   = $ebEarnUrl   ? 'https://api.qrserver.com/v1/create-qr-code/?size=120x120&color=6366f1&bgcolor=FFFFFF&data=' . rawurlencode($ebEarnUrl)   . '&qzone=1' : null;
-        $ebInviteShareSubject = 'Join Early-bank and earn $10 per referral';
+        $ebInviteShareSubject = 'Join Early-bank and earn referral commissions';
         $ebInviteShareMessage = 'Join Early-bank to earn referral commissions — you\'ll also be automatically enrolled in U9itus.';
         $ebInviteShareBody    = $ebInviteShareMessage . "\n\n" . ($ebInviteUrl ?? '');
         $ebEarnShareSubject   = 'Join U9itus and start earning with my referral link';
@@ -70,7 +74,7 @@
         <div class="flex items-center justify-between gap-4 flex-wrap">
             <div>
                 <h2 class="text-lg font-semibold text-emerald-200">Your Early-bank Referral Links</h2>
-                <p class="text-slate-400 text-sm mt-0.5">Tied to your Early-bank membership — share these to earn the $10 join bonus and 10% recurring commissions.</p>
+                <p class="text-slate-400 text-sm mt-0.5">Tied to your Early-bank membership — share these to earn 10% recurring commissions.</p>
             </div>
             <a href="{{ route('voter.earlybank.sso') }}"
                class="shrink-0 text-xs text-emerald-400 hover:text-emerald-300 flex items-center gap-1.5 transition">
@@ -85,7 +89,7 @@
         <div class="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-6 items-start">
             <div class="space-y-2">
                 <p class="text-sm font-medium text-emerald-400">Your Early-bank Invite Link</p>
-                <p class="text-slate-400 text-xs">Share with anyone who wants to join Early-bank and start earning referral commissions themselves. You earn <strong class="text-emerald-300">$10</strong> when they pay their $20 activation fee — they are also automatically enrolled into U9itus.</p>
+                <p class="text-slate-400 text-xs">Share with anyone who wants to join Early-bank and start earning referral commissions themselves. When they pay their $20 activation fee, they're automatically enrolled into U9itus too.</p>
                 <div class="flex gap-2">
                     <input id="eb-invite-link" type="text" readonly value="{{ $ebInviteUrl }}"
                         class="flex-1 bg-slate-900 border border-emerald-700/40 rounded-lg px-4 py-2.5 text-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
@@ -171,7 +175,7 @@
                                 <div class="w-8 h-8 rounded-full bg-emerald-900/40 flex items-center justify-center text-emerald-400 text-xs font-bold shrink-0">
                                     {{ strtoupper(substr($referred->full_name ?? '?', 0, 1)) }}
                                 </div>
-                                <span class="text-white">{{ $referred->full_name ?? 'Anonymous' }}</span>
+                                <span class="text-white">{{ \App\Support\Name::firstNameLastInitial($referred->full_name) }}</span>
                             </div>
                         </td>
                         <td class="px-5 py-4 text-slate-400 text-sm">{{ $referred->created_at?->format('M j, Y') }}</td>
@@ -205,7 +209,7 @@
                                 <div class="w-8 h-8 rounded-full bg-amber-900/40 flex items-center justify-center text-amber-400 text-xs font-bold shrink-0">
                                     {{ strtoupper(substr($politician->full_name ?? '?', 0, 1)) }}
                                 </div>
-                                <span class="text-white">{{ $politician->full_name ?? 'Anonymous' }}</span>
+                                <span class="text-white">{{ \App\Support\Name::firstNameLastInitial($politician->full_name) }}</span>
                             </div>
                         </td>
                         <td class="px-5 py-4 text-slate-400">{{ $politician->political_office ?? '—' }}</td>

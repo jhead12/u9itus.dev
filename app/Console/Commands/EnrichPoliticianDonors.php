@@ -8,6 +8,7 @@ use App\Services\FECService;
 use App\Services\OpenSecretsService;
 use App\Services\PacAffiliationClassifier;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 class EnrichPoliticianDonors extends Command
@@ -31,6 +32,45 @@ class EnrichPoliticianDonors extends Command
         $singleId   = $this->option('politician');
         $upcomingOnly = (bool) $this->option('upcoming-only');
 
+        // This job is triggered both by Railway's internal scheduler
+        // (routes/console.php) and a separate GitHub Actions cron
+        // (.github/workflows/enrich-donor-snapshots.yml), both firing at
+        // 03:00 UTC against the same production database.
+        // Schedule::command()->withoutOverlapping() only guards Laravel's own
+        // scheduler dispatch — it does nothing for an unrelated process
+        // invoking this artisan command directly, so both could run at once
+        // and race writing the same PoliticianDonorSnapshot rows. Cache::lock
+        // lives in the shared database cache store, so it coordinates across
+        // both trigger paths instead of just within one process.
+        $lock = Cache::lock('politicians:enrich-donors', 3600);
+        if (! $lock->get()) {
+            $this->warn('Another politicians:enrich-donors run is already in progress — exiting.');
+            Log::info('politicians:enrich-donors: skipped, lock already held by a concurrent run');
+
+            return self::SUCCESS;
+        }
+
+        try {
+            return $this->runEnrichment(
+                $limit, $staleHours, $force, $dryRun, $singleId, $upcomingOnly,
+                $openSecrets, $fec, $pacClassifier
+            );
+        } finally {
+            $lock->release();
+        }
+    }
+
+    protected function runEnrichment(
+        int $limit,
+        int $staleHours,
+        bool $force,
+        bool $dryRun,
+        ?string $singleId,
+        bool $upcomingOnly,
+        OpenSecretsService $openSecrets,
+        FECService $fec,
+        PacAffiliationClassifier $pacClassifier,
+    ): int {
         // Per-process FEC throttle/rate-limit state — start the batch clean so
         // a short-circuit tripped in this run reflects only this run's 429s.
         FECService::resetTelemetry();
@@ -239,7 +279,10 @@ class EnrichPoliticianDonors extends Command
                     }
                     $outsideSpending = $fec->getOutsideSpending($candidateId, (int) $snapshot['election_cycle']);
                     if ($outsideSpending !== []) {
-                        $snapshot['outside_spending'] = $outsideSpending;
+                        $snapshot['outside_spending'] = $this->carryForwardResolvedCommitteeNames(
+                            $outsideSpending,
+                            $priorSnapshot->outside_spending ?? [],
+                        );
                         $this->line("    FEC: " . count($outsideSpending) . " outside spender(s) from Schedule E");
                     }
                 }
@@ -249,5 +292,44 @@ class EnrichPoliticianDonors extends Command
         }
 
         return $snapshot;
+    }
+
+    /**
+     * FECService::resolveCommitteeNames() seeds committee_name with the raw
+     * committee_id as a fallback whenever the /committees/ lookup fails
+     * (e.g. this run got rate-limited by FEC) — that fallback is otherwise
+     * indistinguishable from a real name and gets persisted for up to
+     * --stale-hours, silently regressing an already-resolved name back to
+     * "C00484642" on the profile. Carry the previously-resolved name forward
+     * per committee_id when this run's resolution didn't succeed.
+     *
+     * @param array<int, array<string, mixed>> $fresh
+     * @param array<int, array<string, mixed>> $prior
+     * @return array<int, array<string, mixed>>
+     */
+    protected function carryForwardResolvedCommitteeNames(array $fresh, array $prior): array
+    {
+        $priorNameById = [];
+        foreach ($prior as $item) {
+            $id = $item['committee_id'] ?? null;
+            $name = $item['committee_name'] ?? null;
+            if ($id && $name && $name !== $id) {
+                $priorNameById[$id] = $name;
+            }
+        }
+
+        if ($priorNameById === []) {
+            return $fresh;
+        }
+
+        return array_map(function ($item) use ($priorNameById) {
+            $id = $item['committee_id'] ?? null;
+            $unresolved = $id && ($item['committee_name'] ?? null) === $id;
+            if ($unresolved && isset($priorNameById[$id])) {
+                $item['committee_name'] = $priorNameById[$id];
+            }
+
+            return $item;
+        }, $fresh);
     }
 }

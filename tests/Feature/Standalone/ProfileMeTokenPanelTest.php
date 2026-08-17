@@ -2,6 +2,7 @@
 
 use App\Models\Politician;
 use App\Models\User;
+use App\Services\BallotpediaService;
 use App\Services\PlatformSettingsService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -18,6 +19,19 @@ uses(RefreshDatabase::class);
  *   - politician has wallet_address or metoken_address set
  *   - subgraph returns data
  */
+
+// This file's politicians are unclaimed, so the profile page's "Dig Deeper"
+// section always attempts a live Ballotpedia scrape too (BallotpediaService
+// now fetches the candidate's real Ballotpedia article instead of an unused
+// API — see "Rebuild Ballotpedia Dig Deeper card as a scrape" decision note).
+// That's unrelated to what this file tests and would add unaccounted-for
+// HTTP calls to the assertSentCount()/assertNothingSent() assertions below,
+// so it's stubbed out here to keep this file scoped to MeToken behavior.
+beforeEach(function () {
+    $ballotpedia = Mockery::mock(BallotpediaService::class);
+    $ballotpedia->shouldReceive('getDisplayData')->andReturn(null);
+    app()->instance(BallotpediaService::class, $ballotpedia);
+});
 
 function governorPolitician(array $overrides = []): Politician
 {

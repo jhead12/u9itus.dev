@@ -142,7 +142,7 @@ STRIPE_WEBHOOK_SECRET=whsec_...
     - Campaign type (video message, live feed)
     - Governance level (Federal, State, County, City, School Board)
     - Target audience (states, cities, districts)
-    - Budget allocation ($0.60 per view minimum)
+    - Budget allocation ($1.00 per view minimum)
     - Start/end dates
     - Video upload
 - [ ] Implement campaign edit functionality
@@ -323,7 +323,7 @@ Before submitting campaigns, politicians should:
 **Tasks:**
 
 - [ ] Create campaign budget calculation:
-    - $0.60 per view
+    - $1.00 per view
     - Minimum budget: $6.00 (10 views)
     - Maximum budget: Configurable
 - [ ] Implement Stripe payment intent creation
@@ -544,7 +544,7 @@ GET /api/campaigns/{campaign}/analytics/export
     - Credit refunds
     - Credit adjustments (admin)
 - [ ] Implement pre-purchase credit bundles:
-    - 100 views = $60 ($0.60 each)
+    - 100 views = $60 ($1.00 each)
     - 500 views = $275 ($0.55 each, 8% discount)
     - 1000 views = $500 ($0.50 each, 17% discount)
 - [ ] Add auto-reload when credits fall below threshold
@@ -584,7 +584,7 @@ CREATE INDEX idx_politician_credits_created ON politician_credits(created_at);
 1. Politician purchases credits via Stripe
 2. Credits added to balance
 3. Campaign created and activated
-4. Each view deducts $0.60 from balance
+4. Each view deducts $1.00 from balance
 5. Real-time balance updates
 6. Low balance notification at 20% remaining
 7. Auto-reload if enabled
@@ -635,12 +635,12 @@ CREATE INDEX idx_politician_credits_created ON politician_credits(created_at);
 │ Tax ID: XX-XXXXXXX                         │
 ├─────────────────────────────────────────────┤
 │ Description          Qty    Rate    Amount  │
-│ Campaign: "Vote Yes" 100    $0.60   $60.00  │
+│ Campaign: "Vote Yes" 100    $1.00   $100  │
 │                                             │
-│                             Subtotal $60.00 │
+│                             Subtotal $100.00 │
 │                             Tax (0%) $0.00  │
 │                             ───────────────  │
-│                             TOTAL    $60.00 │
+│                             TOTAL    $100.00 │
 └─────────────────────────────────────────────┘
 ```
 
