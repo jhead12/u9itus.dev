@@ -63,6 +63,13 @@
             <p class="text-xs text-slate-500 mt-1">voters flagged</p>
         </div>
         <div class="stat-card">
+            <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Flagged Registrations</p>
+            <a href="{{ route('admin.users.index', ['flagged_for_fraud' => 1]) }}" class="block">
+                <p class="text-3xl font-bold {{ $stats['flagged_registrations'] > 0 ? 'text-red-400' : 'text-white' }}">{{ number_format($stats['flagged_registrations']) }}</p>
+            </a>
+            <p class="text-xs text-slate-500 mt-1">accounts flagged at signup</p>
+        </div>
+        <div class="stat-card">
             <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Suspended</p>
             <p class="text-3xl font-bold {{ $stats['suspended_users'] > 0 ? 'text-orange-400' : 'text-white' }}">{{ number_format($stats['suspended_users']) }}</p>
             <p class="text-xs text-slate-500 mt-1">suspended accounts</p>
@@ -102,6 +109,11 @@
                         <p class="text-sm font-medium text-white truncate">{{ $u->name }}</p>
                         <p class="text-xs text-slate-500 truncate">{{ $u->email }}</p>
                     </div>
+                    @if($u->flagged_for_fraud)
+                    <span class="text-xs px-2 py-0.5 rounded-full bg-red-500/10 text-red-400" title="Fraud score: {{ $u->fraud_score }}">
+                        ⚠ flagged
+                    </span>
+                    @endif
                     <span class="text-xs px-2 py-0.5 rounded-full {{ $u->user_type === 'politician' ? 'bg-blue-500/10 text-blue-400' : ($u->user_type === 'admin' ? 'bg-red-500/10 text-red-400' : 'bg-emerald-500/10 text-emerald-400') }}">
                         {{ $u->user_type }}
                     </span>

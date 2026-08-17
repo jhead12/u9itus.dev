@@ -139,6 +139,54 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Registration Security
+    |--------------------------------------------------------------------------
+    |
+    | Pre-registration abuse checks — see App\Services\RegistrationSecurityService
+    | (IP/phone/KYC checks) and App\Services\RegistrationContentGuard (name/email
+    | content heuristics: gibberish names, disposable domains, dot-farmed Gmail
+    | aliases, honeypot). Distinct from the 'fraud' block above, which covers
+    | post-registration view/ad fraud.
+    |
+    */
+    'security' => [
+        // Max allowed registrations from a single IP per day before it's blocked.
+        'max_registrations_per_ip_per_day' => env('MAX_REGISTRATIONS_PER_IP_PER_DAY', 10),
+
+        // Content-fraud score (0-100+) at/above which registration is rejected outright.
+        'content_fraud_hard_block_threshold' => env('CONTENT_FRAUD_HARD_BLOCK_THRESHOLD', 80),
+
+        // Content-fraud score at/above which registration is allowed but the
+        // resulting user is created with flagged_for_fraud = true for admin review.
+        'content_fraud_flag_threshold' => env('CONTENT_FRAUD_FLAG_THRESHOLD', 40),
+
+        // Disposable/throwaway email domains — hard-blocked at registration.
+        // Expand as new services appear; not exhaustive.
+        'disposable_email_domains' => [
+            'mailinator.com',
+            'guerrillamail.com',
+            'guerrillamail.info',
+            '10minutemail.com',
+            '10minutemail.net',
+            'yopmail.com',
+            'tempmail.com',
+            'temp-mail.org',
+            'throwawaymail.com',
+            'getnada.com',
+            'sharklasers.com',
+            'dispostable.com',
+            'maildrop.cc',
+            'fakeinbox.com',
+            'mintemail.com',
+            'trashmail.com',
+            'mailnesia.com',
+            'moakt.com',
+            'discard.email',
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Batch Payout Settings
     |--------------------------------------------------------------------------
     |

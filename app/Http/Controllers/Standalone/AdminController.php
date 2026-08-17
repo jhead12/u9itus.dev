@@ -387,6 +387,7 @@ class AdminController extends Controller
             'pending_candidate_matches' => CandidateMatchReview::where('status', CandidateMatchReview::STATUS_PENDING)->count(),
             'suspended_users'   => User::whereNotNull('suspended_at')->count(),
             'flagged_fraud'     => Voter::where('flagged_for_fraud', true)->count(),
+            'flagged_registrations' => User::where('flagged_for_fraud', true)->count(),
             // Early-bank enrollment
             'eb_enrolled'       => Voter::whereNotNull('earlybank_own_member_uuid')->count(),
             'eb_attributed'     => Voter::whereNotNull('earlybank_member_id')->count(),
@@ -1109,6 +1110,10 @@ class AdminController extends Controller
                 $query->whereNull('suspended_at')
                     ->whereNull('email_verified_at');
             });
+        }
+
+        if ($request->query('flagged_for_fraud') === '1') {
+            $usersQuery->where('flagged_for_fraud', true);
         }
 
         if (in_array($authenticUserVerifier, $allowedAuthenticUserVerifierStatuses, true)) {

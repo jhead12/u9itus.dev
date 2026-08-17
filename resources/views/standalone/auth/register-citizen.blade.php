@@ -60,6 +60,9 @@
 
         <form method="POST" action="{{ route('register.citizen.submit') }}" class="space-y-4">
             @csrf
+            {{-- Honeypot: hidden from humans, bots that auto-fill every field will trip it --}}
+            <input type="text" name="hp_website" tabindex="-1" autocomplete="off" aria-hidden="true"
+                   style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden;" value="">
 
             {{-- Capture referral code from ?ref= query param --}}
             <input type="hidden" name="referral_code" value="{{ old('referral_code', $referralCode ?? request()->query('ref')) }}">

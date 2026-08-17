@@ -77,11 +77,11 @@ Route::middleware('guest')->group(function () {
 
     // Politician registration
     Route::get('/register/politician', [RegistrationController::class, 'showRegisterPolitician'])->name('register.politician');
-    Route::post('/register/politician', [RegistrationController::class, 'registerPolitician'])->name('register.politician.submit');
+    Route::post('/register/politician', [RegistrationController::class, 'registerPolitician'])->name('register.politician.submit')->middleware('throttle:register');
 
     // Citizen registration
     Route::get('/register/citizen', [RegistrationController::class, 'showRegisterCitizen'])->name('register.citizen');
-    Route::post('/register/citizen', [RegistrationController::class, 'registerCitizen'])->name('register.citizen.submit');
+    Route::post('/register/citizen', [RegistrationController::class, 'registerCitizen'])->name('register.citizen.submit')->middleware('throttle:register');
 
     // Registration closed — mailing list capture (always accessible regardless of registration_open flag)
     Route::get('/register/closed', [RegistrationController::class, 'showRegisterClosed'])->name('register.closed');
@@ -100,7 +100,7 @@ Route::middleware('guest')->group(function () {
 // real account. RegistrationController::showRegisterVoter()/registerVoter()
 // handle the "already a real voter" redirect themselves.
 Route::get('/register/voter', [RegistrationController::class, 'showRegisterVoter'])->name('register.voter');
-Route::post('/register/voter', [RegistrationController::class, 'registerVoter'])->name('register.voter.submit');
+Route::post('/register/voter', [RegistrationController::class, 'registerVoter'])->name('register.voter.submit')->middleware('throttle:register');
 
 // Logout (authenticated users only)
 Route::post('/logout', [LoginController::class, 'logout'])->middleware('auth')->name('logout');

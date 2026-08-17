@@ -102,6 +102,9 @@
 
         <form method="POST" action="{{ route('register.voter.submit') }}" class="space-y-4">
             @csrf
+            {{-- Honeypot: hidden from humans, bots that auto-fill every field will trip it --}}
+            <input type="text" name="hp_website" tabindex="-1" autocomplete="off" aria-hidden="true"
+                   style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden;" value="">
 
             <div class="grid grid-cols-2 gap-3">
                 <div>

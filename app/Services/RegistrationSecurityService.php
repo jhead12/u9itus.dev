@@ -21,14 +21,20 @@ use Illuminate\Http\Request;
  */
 class RegistrationSecurityService
 {
+    public function __construct(
+        private readonly RegistrationContentGuard $contentGuard,
+    ) {}
+
     /**
      * Evaluate registration security — throws exception if blocked.
      *
      * @param  Request  $request
      * @param  string|null  $email
+     * @param  string|null  $honeypot  Value of the hidden honeypot field (should always be empty for humans).
+     * @return array{flagged: bool, fraud_score: int, fraud_reasons: array<string>}
      * @throws \Illuminate\Validation\ValidationException
      */
-    public function checkOrFail(Request $request, ?string $email = null): void
+    public function checkOrFail(Request $request, ?string $email = null, ?string $honeypot = null): array
     {
         $ip = $request->ip() ?? '127.0.0.1';
         $email = $email ?? $request->input('email', '');
@@ -78,8 +84,40 @@ class RegistrationSecurityService
             ]);
         }
 
-        // ── 5. Passed all checks — log as allowed ────────────────────────────
-        $this->logAttempt($ip, $email, $userAgent, 'allowed', 'registration_allowed');
+        // ── 5. Content heuristics: gibberish name / disposable or dot-farmed email ──
+        $content = $this->contentGuard->evaluate(
+            (string) $request->input('first_name', ''),
+            (string) $request->input('last_name', ''),
+            $email,
+            $honeypot
+        );
+
+        $hardBlockThreshold = config('u9itus.security.content_fraud_hard_block_threshold', 80);
+        $flagThreshold = config('u9itus.security.content_fraud_flag_threshold', 40);
+
+        if ($content['hard_block'] || $content['score'] >= $hardBlockThreshold) {
+            $this->logAttempt($ip, $email, $userAgent, 'blocked', 'content_fraud_high', [
+                'score' => $content['score'],
+                'reasons' => $content['reasons'],
+            ]);
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'email' => 'We were unable to verify this registration. Please use a real name and email address.',
+            ]);
+        }
+
+        $flagged = $content['score'] >= $flagThreshold;
+
+        // ── 6. Passed all checks — log as allowed ────────────────────────────
+        $this->logAttempt($ip, $email, $userAgent, 'allowed', $flagged ? 'registration_flagged' : 'registration_allowed', [
+            'score' => $content['score'],
+            'reasons' => $content['reasons'],
+        ]);
+
+        return [
+            'flagged' => $flagged,
+            'fraud_score' => $content['score'],
+            'fraud_reasons' => $content['reasons'],
+        ];
     }
 
     /**

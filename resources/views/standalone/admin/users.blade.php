@@ -70,11 +70,19 @@
                 <option value="completed" {{ request('authentic_user_verifier') === 'completed' ? 'selected' : '' }}>Completed</option>
             </select>
         </div>
+        <div>
+            <label for="user-flagged-filter" class="sr-only">Filter by fraud flag</label>
+            <select id="user-flagged-filter" name="flagged_for_fraud"
+                class="w-full lg:w-auto bg-slate-900/60 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-300 focus:outline-none focus:border-emerald-500/50 transition">
+                <option value="">All Registrations</option>
+                <option value="1" {{ request('flagged_for_fraud') === '1' ? 'selected' : '' }}>Flagged Only</option>
+            </select>
+        </div>
         <button type="submit"
             class="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-white text-sm font-semibold transition shrink-0">
             Apply
         </button>
-        @if(request('search') || request('role') || request('kyc') || request('account_status') || request('authentic_user_verifier'))
+        @if(request('search') || request('role') || request('kyc') || request('account_status') || request('authentic_user_verifier') || request('flagged_for_fraud'))
         <a href="{{ route('admin.users.index') }}"
             class="px-3 py-2 rounded-lg bg-slate-700/50 hover:bg-slate-700 text-slate-400 text-sm transition shrink-0 text-center">
             Clear
@@ -147,7 +155,14 @@
                                      alt="{{ $u->name }}"
                                      class="w-8 h-8 rounded-full object-cover shrink-0">
                                 <div>
-                                    <p class="font-medium text-white">{{ $u->name }}</p>
+                                    <p class="font-medium text-white flex items-center gap-1.5">
+                                        {{ $u->name }}
+                                        @if($u->flagged_for_fraud)
+                                        <span class="text-xs px-1.5 py-0.5 rounded-full bg-red-500/10 text-red-400" title="Fraud score: {{ $u->fraud_score }} ({{ implode(', ', $u->fraud_reasons ?? []) }})">
+                                            ⚠ flagged
+                                        </span>
+                                        @endif
+                                    </p>
                                     <p class="text-xs text-slate-500">{{ $u->email }}</p>
                                 </div>
                             </div>
@@ -190,7 +205,7 @@
                     <tr>
                         <td colspan="7" class="px-5 py-8 text-center text-sm text-slate-500">
                             No users found.
-                            @if(request('search') || request('role') || request('kyc') || request('account_status') || request('authentic_user_verifier'))
+                            @if(request('search') || request('role') || request('kyc') || request('account_status') || request('authentic_user_verifier') || request('flagged_for_fraud'))
                                 Try clearing or adjusting your filters.
                             @endif
                         </td>

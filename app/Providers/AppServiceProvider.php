@@ -52,6 +52,13 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perHour(3)->by('2fa-recovery-sms|' . $userId . '|' . $request->ip());
         });
 
+        // Registration: caps signup attempts per IP so a bot can't hammer
+        // /register/* faster than RegistrationSecurityService's daily count
+        // even bothers to reject it. Content/IP checks still run underneath.
+        RateLimiter::for('register', function ($request): Limit {
+            return Limit::perMinutes(15, 5)->by($request->ip());
+        });
+
         // Request latency logging for slow web endpoints.
         if (app()->runningInConsole()) {
             return;

@@ -53,6 +53,10 @@ class User extends Authenticatable
         'suspension_reason',
         'is_guest',
         'guest_expires_at',
+        'registration_ip',
+        'flagged_for_fraud',
+        'fraud_score',
+        'fraud_reasons',
     ];
 
     /**
@@ -92,6 +96,8 @@ class User extends Authenticatable
             'is_verified'        => 'boolean',
             'is_guest'           => 'boolean',
             'guest_expires_at'   => 'datetime',
+            'flagged_for_fraud'  => 'boolean',
+            'fraud_reasons'      => 'array',
         ];
     }
 

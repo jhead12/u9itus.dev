@@ -182,7 +182,7 @@ class RegistrationController extends Controller
             'terms'            => ['accepted'],
         ]);
 
-        app(RegistrationSecurityService::class)->checkOrFail($request, $request->email);
+        $security = app(RegistrationSecurityService::class)->checkOrFail($request, $request->email, $request->input('hp_website'));
 
         $user = User::create([
             'first_name'      => $request->first_name,
@@ -195,6 +195,9 @@ class RegistrationController extends Controller
             'platform'        => 'standalone',
             'user_type'       => 'politician',
             'registration_ip' => $request->ip(),
+            'flagged_for_fraud' => $security['flagged'],
+            'fraud_score'       => $security['fraud_score'],
+            'fraud_reasons'     => $security['fraud_reasons'],
         ]);
 
         $user->assignRole('politician');
@@ -304,7 +307,7 @@ class RegistrationController extends Controller
             'terms'          => ['accepted'],
         ]);
 
-        app(RegistrationSecurityService::class)->checkOrFail($request, $request->email);
+        $security = app(RegistrationSecurityService::class)->checkOrFail($request, $request->email, $request->input('hp_website'));
 
         $user = User::create([
             'first_name'      => $request->first_name,
@@ -317,6 +320,9 @@ class RegistrationController extends Controller
             'platform'        => 'standalone',
             'user_type'       => 'citizen',
             'registration_ip' => $request->ip(),
+            'flagged_for_fraud' => $security['flagged'],
+            'fraud_score'       => $security['fraud_score'],
+            'fraud_reasons'     => $security['fraud_reasons'],
         ]);
 
         $user->assignRole('citizen');
@@ -429,7 +435,7 @@ class RegistrationController extends Controller
             'terms'               => ['accepted'],
         ]);
 
-        app(RegistrationSecurityService::class)->checkOrFail($request, $request->email);
+        $security = app(RegistrationSecurityService::class)->checkOrFail($request, $request->email, $request->input('hp_website'));
 
         if ($isGuestUpgrade) {
             // Update the same User+Voter rows in place so every favorite/note
@@ -449,6 +455,9 @@ class RegistrationController extends Controller
                 'registration_ip'   => $request->ip(),
                 'is_guest'          => false,
                 'guest_expires_at'  => null,
+                'flagged_for_fraud' => $security['flagged'],
+                'fraud_score'       => $security['fraud_score'],
+                'fraud_reasons'     => $security['fraud_reasons'],
             ]);
         } else {
             $user = User::create([
@@ -460,6 +469,9 @@ class RegistrationController extends Controller
                 'platform'        => 'standalone',
                 'user_type'       => 'voter',
                 'registration_ip' => $request->ip(),
+                'flagged_for_fraud' => $security['flagged'],
+                'fraud_score'       => $security['fraud_score'],
+                'fraud_reasons'     => $security['fraud_reasons'],
             ]);
 
             $user->assignRole('voter');
