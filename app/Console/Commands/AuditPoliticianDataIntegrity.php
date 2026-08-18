@@ -27,13 +27,14 @@ class AuditPoliticianDataIntegrity extends Command
             ->when($state, fn ($q) => $q->whereRaw('UPPER(COALESCE(state, "")) = ?', [$state]))
             ->orderBy('id')
             ->limit($limit)
-            ->get(['id', 'full_name', 'party_affiliation', 'state', 'term_status', 'is_active', 'page_published', 'political_office', 'governance_level']);
+            ->get(['id', 'full_name', 'party_affiliation', 'state', 'term_status', 'is_active', 'page_published', 'political_office', 'governance_level', 'is_running_candidate']);
 
         $clean = 0;
         $fixed = 0;
         $deactivated = 0;
         $flagged = 0;
         $governanceLevelFixed = 0;
+        $runningSyncFixed = 0;
 
         foreach ($rows as $pol) {
             // An officeholder whose political_office unambiguously implies a
@@ -63,6 +64,41 @@ class AuditPoliticianDataIntegrity extends Command
                     $pol->governance_level = $expectedGovernanceLevel;
                     $pol->saveQuietly();
                     $governanceLevelFixed++;
+                } else {
+                    $flagged++;
+                }
+            }
+
+            // term_status and is_running_candidate are two independent
+            // columns meant to track the same fact. They drift apart when
+            // only one gets updated — e.g. the term_status fallback above
+            // (historically) set term_status='running' without also setting
+            // this boolean. The directory search's status=running filter
+            // checks is_running_candidate, so a desynced row (like Cisneros/
+            // CA-39) shows as "running" on district-lookup but silently
+            // vanishes from directory search. 'active' is intentionally left
+            // alone — its relationship to is_running_candidate isn't
+            // well-defined elsewhere in the app.
+            $expectedRunning = match (strtolower((string) $pol->term_status)) {
+                'running' => true,
+                'seated', 'lost', 'retired', 'former', 'eliminated' => false,
+                default => null,
+            };
+            if ($expectedRunning !== null && (bool) $pol->is_running_candidate !== $expectedRunning) {
+                $this->line(sprintf(
+                    '  <fg=yellow>#%d</> %s (%s) — is_running_candidate=%s should be %s for term_status \'%s\'',
+                    $pol->id,
+                    mb_strimwidth((string) $pol->full_name, 0, 60, '…'),
+                    $pol->state ?: '??',
+                    $pol->is_running_candidate ? 'true' : 'false',
+                    $expectedRunning ? 'true' : 'false',
+                    $pol->term_status
+                ));
+
+                if ($fix) {
+                    $pol->is_running_candidate = $expectedRunning;
+                    $pol->saveQuietly();
+                    $runningSyncFixed++;
                 } else {
                     $flagged++;
                 }
@@ -120,6 +156,10 @@ class AuditPoliticianDataIntegrity extends Command
                 // (neutral, hides from seated/lost filters) instead of null.
                 if (PoliticianDataRules::termStatusViolation($pol->term_status) !== null) {
                     $pol->term_status = 'running';
+                    // is_running_candidate must move with term_status, or the
+                    // directory's status=running filter (which historically
+                    // checked only this boolean) silently hides the row.
+                    $pol->is_running_candidate = true;
                 }
 
                 $pol->saveQuietly();
@@ -131,11 +171,12 @@ class AuditPoliticianDataIntegrity extends Command
 
         $this->newLine();
         $this->info(sprintf(
-            'Audit complete: %d scanned, %d clean, %d fixed, %d governance_level fixed, %d deactivated, %d flagged (run with --fix/--deactivate to apply).',
+            'Audit complete: %d scanned, %d clean, %d fixed, %d governance_level fixed, %d running-status synced, %d deactivated, %d flagged (run with --fix/--deactivate to apply).',
             $rows->count(),
             $clean,
             $fixed,
             $governanceLevelFixed,
+            $runningSyncFixed,
             $deactivated,
             $flagged
         ));

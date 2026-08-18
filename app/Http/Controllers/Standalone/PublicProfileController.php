@@ -807,7 +807,19 @@ class PublicProfileController extends Controller
         // Status filter: currently running for office vs already seated
         if ($status = $request->input('status')) {
             if ($status === 'running') {
-                $query->where('is_running_candidate', true);
+                // is_running_candidate and term_status='running' are two
+                // independent columns meant to track the same thing, but they
+                // can drift out of sync (e.g. AuditPoliticianDataIntegrity's
+                // term_status fallback historically set one without the
+                // other — see politicians:audit-data-integrity). Checking
+                // only the boolean silently hid challengers like Cisneros/
+                // CA-39 from the directory even though they showed as
+                // "running" everywhere else. Check both so a row is treated
+                // as running if either signal says so.
+                $query->where(function ($q) {
+                    $q->where('is_running_candidate', true)
+                        ->orWhere('term_status', 'running');
+                });
             } elseif ($status === 'seated') {
                 $query->where('term_status', 'seated');
             }

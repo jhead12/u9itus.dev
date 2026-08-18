@@ -7,6 +7,7 @@ use App\Models\Citizen;
 use App\Models\ElectionCandidateRecord;
 use App\Models\Politician;
 use App\Models\StateElectionDate;
+use App\Support\OfficeCanonicalizer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -89,30 +90,7 @@ class MapStateCandidatesController
     /**
      * Offices we surface on the map panel, in display order.
      */
-    private const STATEWIDE_OFFICES = [
-        'Governor',
-        'Lieutenant Governor',
-        'Attorney General',
-        'State Treasurer',
-        'State Controller',
-        'Secretary of State',
-    ];
-
-    /**
-     * Fuzzy aliases so we match however the data was imported.
-     * Keyed by canonical label => array of partial strings to match.
-     */
-    private const OFFICE_ALIASES = [
-        // IMPORTANT: more-specific aliases MUST come before broader ones.
-        // 'Lieutenant Governor' contains the word 'governor', so it must be
-        // checked before 'Governor' or it will fall into the wrong bucket.
-        'Lieutenant Governor'  => ['lieutenant governor', 'lt. governor', 'lt governor', 'lt gov'],
-        'Governor'             => ['governor'],
-        'Attorney General'     => ['attorney general'],
-        'State Treasurer'      => ['treasurer'],
-        'State Controller'     => ['controller', 'comptroller'],
-        'Secretary of State'   => ['secretary of state'],
-    ];
+    private const STATEWIDE_OFFICES = OfficeCanonicalizer::STATEWIDE_OFFICES;
 
     /**
      * GET /api/v1/map/state-candidates?state=CA
@@ -729,18 +707,7 @@ class MapStateCandidatesController
      */
     private function canonicalise(?string $office): string
     {
-        if ($office === null || $office === '') {
-            return 'Other Statewide';
-        }
-        $lower = strtolower($office);
-        foreach (self::OFFICE_ALIASES as $canonical => $needles) {
-            foreach ($needles as $needle) {
-                if (str_contains($lower, $needle)) {
-                    return $canonical;
-                }
-            }
-        }
-        return 'Other Statewide';
+        return OfficeCanonicalizer::canonicaliseStatewide($office) ?? 'Other Statewide';
     }
 
     /**
