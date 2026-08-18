@@ -11,8 +11,8 @@ import { saveBoundary, removeBoundary } from '../api/favorites.js';
 import { favoriteBoundaries, favoriteKey, isFavorite } from '../state/map-state.js';
 import { trackEvent } from '../api/interaction.js';
 
-function notifyChanged() {
-    window.dispatchEvent(new CustomEvent('u9:favorites-changed'));
+function notifyChanged(anchor) {
+    window.dispatchEvent(new CustomEvent('u9:favorites-changed', { detail: { anchor } }));
 }
 
 /**
@@ -47,7 +47,7 @@ export function createFavoriteButton(payload) {
             const ok = await removeBoundary(existing.id);
             if (ok) {
                 sync();
-                notifyChanged();
+                notifyChanged(btn);
                 trackEvent('boundary_unsave', { meta: { type: payload.type } });
             }
         } else {
@@ -60,7 +60,7 @@ export function createFavoriteButton(payload) {
             }
             if (rec) {
                 sync();
-                notifyChanged();
+                notifyChanged(btn);
                 trackEvent('boundary_save', { meta: { type: payload.type, state: payload.state_abbr } });
             }
         }

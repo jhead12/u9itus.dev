@@ -93,7 +93,36 @@ function showStatus(toast, form, message) {
     setTimeout(() => toast.remove(), 4000);
 }
 
-export function maybeShowDigestOptIn() {
+/**
+ * Position the toast just below the favorite button that triggered it,
+ * right-aligned to it, clamped to stay on-screen. Falls back to the
+ * fixed bottom-right corner if the button is gone (panel closed/re-rendered
+ * between the save and this prompt showing) or wasn't provided.
+ */
+function positionToast(toast, anchor) {
+    if (!anchor || !anchor.isConnected) {
+        toast.classList.add('digest-optin-toast--fallback');
+        return;
+    }
+
+    const margin = 12;
+    const anchorRect = anchor.getBoundingClientRect();
+    const toastRect = toast.getBoundingClientRect();
+
+    let top = anchorRect.bottom + margin;
+    if (top + toastRect.height + margin > window.innerHeight) {
+        top = anchorRect.top - toastRect.height - margin;
+    }
+    top = Math.max(margin, top);
+
+    let left = anchorRect.right - toastRect.width;
+    left = Math.min(Math.max(left, margin), window.innerWidth - toastRect.width - margin);
+
+    toast.style.top = `${top}px`;
+    toast.style.left = `${left}px`;
+}
+
+export function maybeShowDigestOptIn(anchor) {
     if (alreadyShown()) return;
     markShown();
 
@@ -119,9 +148,14 @@ export function maybeShowDigestOptIn() {
     );
 
     document.body.appendChild(toast);
+    positionToast(toast, anchor);
 }
 
 /** Wire the one-time prompt to fire after the first favorite save. */
 export function initDigestOptInPrompt() {
-    window.addEventListener('u9:favorites-changed', maybeShowDigestOptIn, { once: true });
+    window.addEventListener(
+        'u9:favorites-changed',
+        (e) => maybeShowDigestOptIn(e.detail?.anchor),
+        { once: true }
+    );
 }
