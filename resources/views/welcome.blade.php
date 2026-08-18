@@ -204,6 +204,24 @@
                         </a>
                     @endguest
                 </div>
+
+                @guest
+                    @if (config('platform.map.voter_features_enabled') && config('platform.map.sign_in_cta'))
+                        @php
+                            $u9LoginUrl = url('https://www.early-bank.com') . '?' . http_build_query(array_filter([
+                                'ref'  => request()->query('ref') ?? $activeReferralCode,
+                                'from' => 'home',
+                            ]));
+                        @endphp
+                        <div class="animate-fade-in-up delay-300 opacity-0 flex justify-center pt-4">
+                            <a href="{{ $u9LoginUrl }}"
+                               title="Get paid to watch campaign videos — up to $0.50 each"
+                               class="inline-flex items-center px-4 py-2 rounded-full text-sm font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-400/40 hover:bg-emerald-500/20 transition">
+                                Earn $$$ to share
+                            </a>
+                        </div>
+                    @endif
+                @endguest
             </div>
         </div>
     </section>

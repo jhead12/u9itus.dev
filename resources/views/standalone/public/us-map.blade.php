@@ -117,7 +117,7 @@
         {{-- ── Sign-in CTA (guest only, behind the map.sign_in_cta flag) ── --}}
         @if (config('platform.map.voter_features_enabled') && config('platform.map.sign_in_cta') && auth()->guest())
             @php(
-                $u9LoginUrl = url('/earn') . '?' . http_build_query(array_filter([
+                $u9LoginUrl = url('https://www.early-bank.com') . '?' . http_build_query(array_filter([
                     'ref'  => request()->query('ref'),
                     'from' => 'map',
                 ]))
@@ -125,7 +125,7 @@
             <button id="btn-signin-cta" class="top-btn"
                aria-haspopup="dialog" aria-expanded="false" aria-controls="earn-popover"
                title="Get paid to watch campaign videos — up to $0.50 each">
-                <span class="earn-label-full">Earn $0.50/video</span>
+                <span class="earn-label-full">Earn $$$ to share</span>
                 <span class="earn-label-short">Earn</span>
             </button>
         @endif
