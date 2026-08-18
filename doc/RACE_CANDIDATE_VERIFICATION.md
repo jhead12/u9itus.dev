@@ -35,6 +35,31 @@ alarm.
 
 ## Part 1: Governor count verification
 
+### Seeding status (as of 2026-08-18)
+
+31 of 36 states are seeded (both local and production), sourced from
+Ballotpedia via two research passes — general-election nominee counts for
+states whose primary already resolved, pre-primary filed-candidate counts
+for states whose primary hadn't happened yet. 5 states are deliberately
+**not** seeded — their available numbers were judged too likely to be
+wrong or stale to trust:
+
+- **AK, FL, WY** — primaries were held the same day this was seeded
+  (2026-08-18); the only available number was the pre-primary filed-candidate
+  field, about to go stale as soon as results are certified.
+- **HI, TN** — no reliable count found across two research passes; sources
+  were contradictory or incomplete on the full candidate field.
+
+Running the audit immediately after seeding surfaced a real, sizeable gap:
+30 of 31 seeded states show 0 or near-0 tracked candidates with
+`is_running_candidate = true` (CA is the one exception, off by +1 — an
+over-count worth its own investigation, since a re-sync can't fix that
+direction). This is the intended failure mode working as designed, not a
+bug in the seeding.
+
+Follow-up, whenever convenient: recheck AK/FL/WY once their primary results
+are certified, and take another pass at HI/TN's full candidate field.
+
 ### Schema
 
 `governor_race_candidate_counts` (migration
