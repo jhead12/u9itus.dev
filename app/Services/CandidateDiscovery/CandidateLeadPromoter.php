@@ -4,6 +4,7 @@ namespace App\Services\CandidateDiscovery;
 
 use App\Models\CandidateLead;
 use App\Models\ElectionCandidateRecord;
+use App\Support\CandidateNameCanonicalizer;
 
 /**
  * Builds an election_candidate_records row from a verified CandidateLead —
@@ -25,7 +26,7 @@ class CandidateLeadPromoter
                 'external_candidate_id' => $lead->source_hash,
             ],
             [
-                'full_name' => $lead->full_name,
+                'full_name' => CandidateNameCanonicalizer::canonicalize($lead->full_name),
                 'political_office' => $payload['political_office'] ?? $lead->office_hint,
                 'governance_level' => $payload['governance_level'] ?? null,
                 'state' => $lead->state,
