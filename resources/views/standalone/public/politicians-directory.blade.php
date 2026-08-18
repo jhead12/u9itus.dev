@@ -23,7 +23,7 @@
 
     {{-- Vite assets --}}
     @if(file_exists(public_path('build/manifest.json')) || file_exists(public_path('hot')))
-        @vite(['resources/css/app.css', 'resources/js/app.js'])
+        @vite(['resources/css/app.css', 'resources/js/app.js', 'resources/js/earn-cta/app.js'])
     @else
         <script src="https://cdn.tailwindcss.com"></script>
     @endif
@@ -45,6 +45,19 @@
                 @auth
                     <a href="{{ route('dashboard') }}" class="text-sm text-slate-300 hover:text-white transition">Dashboard</a>
                 @else
+                    @if (config('platform.map.voter_features_enabled') && config('platform.map.sign_in_cta'))
+                        @php
+                            $u9LoginUrl = url('https://www.early-bank.com') . '?' . http_build_query(array_filter([
+                                'ref'  => request()->query('ref'),
+                                'from' => 'politicians',
+                            ]));
+                        @endphp
+                        <a id="btn-earn-cta" href="{{ $u9LoginUrl }}"
+                           title="Get paid to watch campaign videos — up to $0.50 each"
+                           class="hidden sm:inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-400/40 hover:bg-emerald-500/20 transition">
+                            Earn $$$ to share
+                        </a>
+                    @endif
                     <a href="{{ route('register.voter') }}" class="bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold px-4 py-2 rounded-lg transition">
                         Create Free Account
                     </a>

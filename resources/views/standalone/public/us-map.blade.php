@@ -563,7 +563,7 @@
             program to earn bonus commission on every view they log.
         </p>
         <div class="ep-actions">
-            <a class="ep-btn-primary" href="{{ $u9LoginUrl ?? url('/earn') }}" target="_blank" rel="noopener">
+            <a class="ep-btn-primary" href="{{ $earlybankHref }}" target="_blank" rel="noopener">
                 Learn More
             </a>
             <button class="ep-btn-close"
