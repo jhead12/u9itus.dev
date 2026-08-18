@@ -11,7 +11,7 @@ class DiscoverCandidateLeads extends Command
     protected $signature = 'candidates:discover-leads
         {--source=* : Discovery source keys to run. Omit to run all registered sources.}
         {--state=   : Restrict to one two-letter state code.}
-        {--office=  : Restrict to one office slug (senate|governor).}
+        {--office=  : Restrict to one office slug (senate|governor|house).}
         {--dry-run  : Report only — no DB writes.}';
 
     protected $description = 'Discover new candidate leads from configured discovery sources (RSS, etc.) into candidate_leads.';
