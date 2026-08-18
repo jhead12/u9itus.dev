@@ -3,6 +3,15 @@ name: Sync Candidates
 # Runs daily at 02:00 UTC and can be triggered manually from the Actions tab.
 # The weekly politicians:reconcile-status schedule (Sun 04:00 UTC) runs after
 # this daily sync on Sundays.
+#
+# 2026-08-18: split from a single ~6h sequential job into parallel phase jobs.
+# The old single-job design meant one slow/stuck step (a single Ballotpedia
+# scrape regularly took 2-3h; one run hung 5h+ on a Playwright apt-get
+# install) silently starved every step after it — including the imports that
+# would have picked up new challengers — with the whole run reporting nothing
+# until the shared 6h job timeout killed it. Each phase below now gets its
+# own runner and its own 6h budget, and the final job only waits on the
+# phases whose data it actually needs.
 on:
   schedule:
     - cron: "0 2 * * *"   # Every day at 02:00 UTC
@@ -95,41 +104,19 @@ permissions:
   contents: read
 
 jobs:
-  sync-federal-candidates:
-    name: Sync federal candidates from congress-legislators
+  # ── Shared argument parsing ────────────────────────────────────────────────
+  # No app/DB setup needed here — just resolves the workflow_dispatch inputs
+  # into flags every downstream job consumes via needs.build-args.outputs.*.
+  build-args:
+    name: Build shared import arguments
     runs-on: ubuntu-latest
-
+    outputs:
+      state_args: ${{ steps.args.outputs.state_args }}
+      states: ${{ steps.args.outputs.states }}
+      run_ca: ${{ steps.args.outputs.run_ca }}
+      former_arg: ${{ steps.args.outputs.former_arg }}
+      dry_arg: ${{ steps.args.outputs.dry_arg }}
     steps:
-      # ── Checkout ────────────────────────────────────────────────────────────
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      # ── App setup (PHP, Composer, .env, migrate) ─────────────────────────────
-      # Required secrets: APP_KEY, DB_HOST, DB_PORT, DB_DATABASE, DB_USERNAME, DB_PASSWORD
-      # Optional secrets: STRIPE_SECRET, STRIPE_KEY, STRIPE_WEBHOOK_SECRET, ANTHROPIC_API_KEY
-      - name: Set up app
-        uses: ./.github/actions/setup-app
-        with:
-          app_key: ${{ secrets.APP_KEY }}
-          app_url: ${{ secrets.APP_URL }}
-          db_host: ${{ secrets.DB_HOST }}
-          db_port: ${{ secrets.DB_PORT }}
-          db_database: ${{ secrets.DB_DATABASE }}
-          db_username: ${{ secrets.DB_USERNAME }}
-          db_password: ${{ secrets.DB_PASSWORD }}
-          stripe_secret: ${{ secrets.STRIPE_SECRET }}
-          stripe_key: ${{ secrets.STRIPE_KEY }}
-          stripe_webhook_secret: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-
-      # ── Node + Playwright (Ballotpedia scrapes below need a real browser) ────
-      - name: Set up Node + Playwright
-        uses: ./.github/actions/setup-node-playwright
-
-      - name: Verify Playwright installation
-        run: node -e "import('playwright').then(m => console.log('playwright OK:', Object.keys(m)))"
-
-      # ── Build state filter args ──────────────────────────────────────────────
       - name: Build import arguments
         id: args
         run: |
@@ -175,34 +162,87 @@ jobs:
           echo "former_arg=$FORMER_ARG" >> $GITHUB_OUTPUT
           echo "dry_arg=$DRY_ARG" >> $GITHUB_OUTPUT
 
-      # ── Sync current federal legislators ─────────────────────────────────────
+  # ── Federal legislators (congress-legislators — no scraping, fast) ────────
+  sync-federal-legislators:
+    name: Sync federal legislators from congress-legislators
+    needs: build-args
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up app
+        uses: ./.github/actions/setup-app
+        with:
+          app_key: ${{ secrets.APP_KEY }}
+          app_url: ${{ secrets.APP_URL }}
+          db_host: ${{ secrets.DB_HOST }}
+          db_port: ${{ secrets.DB_PORT }}
+          db_database: ${{ secrets.DB_DATABASE }}
+          db_username: ${{ secrets.DB_USERNAME }}
+          db_password: ${{ secrets.DB_PASSWORD }}
+          stripe_secret: ${{ secrets.STRIPE_SECRET }}
+          stripe_key: ${{ secrets.STRIPE_KEY }}
+          stripe_webhook_secret: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+
       - name: Sync current federal legislators
         run: |
           php artisan politicians:import-unclaimed-us \
             --fetcher=current \
-            ${{ steps.args.outputs.state_args }} \
-            ${{ steps.args.outputs.former_arg }} \
-            ${{ steps.args.outputs.dry_arg }}
+            ${{ needs.build-args.outputs.state_args }} \
+            ${{ needs.build-args.outputs.former_arg }} \
+            ${{ needs.build-args.outputs.dry_arg }}
 
-      # ── Sync California-specific federal profiles ─────────────────────────────
       - name: Sync California federal profiles (dedicated command)
-        if: ${{ steps.args.outputs.run_ca == 'true' }}
+        if: ${{ needs.build-args.outputs.run_ca == 'true' }}
         run: |
           php artisan politicians:import-unclaimed-ca \
-            ${{ steps.args.outputs.dry_arg }}
+            ${{ needs.build-args.outputs.dry_arg }}
 
-      # ── Statewide offices (direct strategy: constructs per-state URLs) ──────
-      # Uses --strategy=direct so every state's race page is visited directly:
-      #   https://ballotpedia.org/{StateName}_gubernatorial_election,_{year}
-      #   https://ballotpedia.org/{StateName}_attorney_general_election,_{year}
-      #   https://ballotpedia.org/{StateName}_lieutenant_gubernatorial_election,_{year}
-      #   ... etc.
-      # This is more reliable than the index approach — guaranteed to attempt
-      # all 50 states regardless of whether Ballotpedia's index page lists them.
+  # ── Statewide offices (direct strategy: constructs per-state URLs) ────────
+  # Uses --strategy=direct so every state's race page is visited directly:
+  #   https://ballotpedia.org/{StateName}_gubernatorial_election,_{year}
+  #   https://ballotpedia.org/{StateName}_attorney_general_election,_{year}
+  #   https://ballotpedia.org/{StateName}_lieutenant_gubernatorial_election,_{year}
+  #   ... etc.
+  # This is more reliable than the index approach — guaranteed to attempt
+  # all 50 states regardless of whether Ballotpedia's index page lists them.
+  # Observed to take ~3h on a full (all-states) run — now isolated in its own
+  # job/6h budget so it can't crowd out House, Senate, or the reconcile pass.
+  scrape-statewide:
+    name: Scrape & import statewide candidates
+    needs: build-args
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up app
+        uses: ./.github/actions/setup-app
+        with:
+          app_key: ${{ secrets.APP_KEY }}
+          app_url: ${{ secrets.APP_URL }}
+          db_host: ${{ secrets.DB_HOST }}
+          db_port: ${{ secrets.DB_PORT }}
+          db_database: ${{ secrets.DB_DATABASE }}
+          db_username: ${{ secrets.DB_USERNAME }}
+          db_password: ${{ secrets.DB_PASSWORD }}
+          stripe_secret: ${{ secrets.STRIPE_SECRET }}
+          stripe_key: ${{ secrets.STRIPE_KEY }}
+          stripe_webhook_secret: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+
+      - name: Set up Node + Playwright
+        uses: ./.github/actions/setup-node-playwright
+
+      - name: Verify Playwright installation
+        run: node -e "import('playwright').then(m => console.log('playwright OK:', Object.keys(m)))"
+
       - name: Scrape Ballotpedia statewide candidates (all 50 states, direct)
         run: |
           YEAR="${{ github.event.inputs.election_year || '2026' }}"
-          STATES="${{ steps.args.outputs.states }}"
+          STATES="${{ needs.build-args.outputs.states }}"
           # --fetch-websites visits each candidate's Ballotpedia profile page to
           # extract their campaign website URL and a short bio excerpt.
           # This adds ~1 extra HTTP request per candidate but is the only way to
@@ -241,7 +281,7 @@ jobs:
       - name: Import statewide candidates
         run: |
           YEAR="${{ github.event.inputs.election_year || '2026' }}"
-          STATES="${{ steps.args.outputs.states }}"
+          STATES="${{ needs.build-args.outputs.states }}"
           # --election-year ensures cross-office ECR rows get the correct election_date.
           # The importer now detects seated politicians running for a different office
           # (e.g. Lt. Governor running for Governor) and writes to ECR only — it never
@@ -250,34 +290,67 @@ jobs:
             php artisan politicians:import-ballotpedia \
               --file=storage/app/imports/ballotpedia-statewide-${YEAR}.json \
               --election-year=${YEAR} \
-              ${{ steps.args.outputs.dry_arg }}
+              ${{ needs.build-args.outputs.dry_arg }}
           else
             for state in $(echo "$STATES" | tr ',' ' '); do
               php artisan politicians:import-ballotpedia \
                 --file=storage/app/imports/ballotpedia-statewide-${YEAR}-$state.json \
                 --election-year=${YEAR} \
-                ${{ steps.args.outputs.dry_arg }}
+                ${{ needs.build-args.outputs.dry_arg }}
             done
           fi
 
-      # ── U.S. House races (direct strategy: one URL per district) ────────────
-      # The old --strategy=index relied on Ballotpedia's central House index page
-      # linking to all 435 district race pages; that index is frequently
-      # incomplete/lagging, so districts not yet linked there were silently
-      # skipped. --strategy=widget (2026-07-30 → 2026-08-02) replaced it with a
-      # per-state "Elections in {State}, {year}" overview page — but that page
-      # doesn't exist on Ballotpedia this cycle (confirmed 404, not a selector
-      # bug), so it silently scraped 0 House candidates every single day for
-      # over a month while the workflow still reported success. --strategy=direct
-      # constructs the real per-district URL directly (verified live 2026-08-02):
-      #   "{State}'s {Nth} Congressional District election, {year}" for
-      #   multi-district states, "United States House of Representatives
-      #   election in {State}, {year}" for the 6 at-large states — see
-      #   buildHouseDirectRaces() in scrape-ballotpedia.js.
+  # ── U.S. House races (direct strategy: one URL per district) ────────────
+  # The old --strategy=index relied on Ballotpedia's central House index page
+  # linking to all 435 district race pages; that index is frequently
+  # incomplete/lagging, so districts not yet linked there were silently
+  # skipped. --strategy=widget (2026-07-30 → 2026-08-02) replaced it with a
+  # per-state "Elections in {State}, {year}" overview page — but that page
+  # doesn't exist on Ballotpedia this cycle (confirmed 404, not a selector
+  # bug), so it silently scraped 0 House candidates every single day for
+  # over a month while the workflow still reported success. --strategy=direct
+  # constructs the real per-district URL directly (verified live 2026-08-02):
+  #   "{State}'s {Nth} Congressional District election, {year}" for
+  #   multi-district states, "United States House of Representatives
+  #   election in {State}, {year}" for the 6 at-large states — see
+  #   buildHouseDirectRaces() in scrape-ballotpedia.js.
+  # Previously this ran AFTER the ~3h statewide scrape in the same job, so on
+  # slow days it never got its full budget (a run 2026-08-14 was cancelled
+  # 2h46m into this step by the shared 6h timeout, meaning House imports never
+  # ran that day at all). Isolated into its own job so that can't recur.
+  scrape-house:
+    name: Scrape & import U.S. House candidates
+    needs: build-args
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up app
+        uses: ./.github/actions/setup-app
+        with:
+          app_key: ${{ secrets.APP_KEY }}
+          app_url: ${{ secrets.APP_URL }}
+          db_host: ${{ secrets.DB_HOST }}
+          db_port: ${{ secrets.DB_PORT }}
+          db_database: ${{ secrets.DB_DATABASE }}
+          db_username: ${{ secrets.DB_USERNAME }}
+          db_password: ${{ secrets.DB_PASSWORD }}
+          stripe_secret: ${{ secrets.STRIPE_SECRET }}
+          stripe_key: ${{ secrets.STRIPE_KEY }}
+          stripe_webhook_secret: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+
+      - name: Set up Node + Playwright
+        uses: ./.github/actions/setup-node-playwright
+
+      - name: Verify Playwright installation
+        run: node -e "import('playwright').then(m => console.log('playwright OK:', Object.keys(m)))"
+
       - name: Scrape Ballotpedia U.S. House candidates
         run: |
           YEAR="${{ github.event.inputs.election_year || '2026' }}"
-          STATES="${{ steps.args.outputs.states }}"
+          STATES="${{ needs.build-args.outputs.states }}"
           # --cache-hours=3 skips the Playwright scrape entirely if this exact
           # output file was already written within the last 3h.
           if [ -z "$STATES" ]; then
@@ -308,33 +381,62 @@ jobs:
       - name: Import U.S. House candidates
         run: |
           YEAR="${{ github.event.inputs.election_year || '2026' }}"
-          STATES="${{ steps.args.outputs.states }}"
+          STATES="${{ needs.build-args.outputs.states }}"
           if [ -z "$STATES" ]; then
             php artisan politicians:import-ballotpedia \
               --file=storage/app/imports/ballotpedia-house-${YEAR}.json \
-              ${{ steps.args.outputs.dry_arg }}
+              ${{ needs.build-args.outputs.dry_arg }}
           else
             for state in $(echo "$STATES" | tr ',' ' '); do
               php artisan politicians:import-ballotpedia \
                 --file=storage/app/imports/ballotpedia-house-${YEAR}-$state.json \
-                ${{ steps.args.outputs.dry_arg }}
+                ${{ needs.build-args.outputs.dry_arg }}
             done
           fi
 
-      # ── U.S. Senate races (direct strategy: one URL per state) ─────────────
-      # Senate races were never scraped at all before 2026-07-30. The
-      # --strategy=widget approach added then (2026-07-30 → 2026-08-02) relied
-      # on the same "Elections in {State}, {year}" overview page as House —
-      # confirmed 404 on Ballotpedia this cycle — so it also silently scraped
-      # 0 Senate candidates every day. The DIRECT_URL_TEMPLATES.senate pattern
-      # in scrape-ballotpedia.js was ALSO wrong ("{State}_Senate_election,_{y}",
-      # also a 404) but had never actually run since this step called
-      # --strategy=widget, not --strategy=direct. Fixed to the real, verified
-      # (2026-08-02) pattern: "United States Senate election in {State}, {year}".
+  # ── U.S. Senate races (direct strategy: one URL per state) ─────────────
+  # Senate races were never scraped at all before 2026-07-30. The
+  # --strategy=widget approach added then (2026-07-30 → 2026-08-02) relied
+  # on the same "Elections in {State}, {year}" overview page as House —
+  # confirmed 404 on Ballotpedia this cycle — so it also silently scraped
+  # 0 Senate candidates every day. The DIRECT_URL_TEMPLATES.senate pattern
+  # in scrape-ballotpedia.js was ALSO wrong ("{State}_Senate_election,_{y}",
+  # also a 404) but had never actually run since this step called
+  # --strategy=widget, not --strategy=direct. Fixed to the real, verified
+  # (2026-08-02) pattern: "United States Senate election in {State}, {year}".
+  scrape-senate:
+    name: Scrape & import U.S. Senate candidates
+    needs: build-args
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up app
+        uses: ./.github/actions/setup-app
+        with:
+          app_key: ${{ secrets.APP_KEY }}
+          app_url: ${{ secrets.APP_URL }}
+          db_host: ${{ secrets.DB_HOST }}
+          db_port: ${{ secrets.DB_PORT }}
+          db_database: ${{ secrets.DB_DATABASE }}
+          db_username: ${{ secrets.DB_USERNAME }}
+          db_password: ${{ secrets.DB_PASSWORD }}
+          stripe_secret: ${{ secrets.STRIPE_SECRET }}
+          stripe_key: ${{ secrets.STRIPE_KEY }}
+          stripe_webhook_secret: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+
+      - name: Set up Node + Playwright
+        uses: ./.github/actions/setup-node-playwright
+
+      - name: Verify Playwright installation
+        run: node -e "import('playwright').then(m => console.log('playwright OK:', Object.keys(m)))"
+
       - name: Scrape Ballotpedia U.S. Senate candidates
         run: |
           YEAR="${{ github.event.inputs.election_year || '2026' }}"
-          STATES="${{ steps.args.outputs.states }}"
+          STATES="${{ needs.build-args.outputs.states }}"
           # --cache-hours=3 skips the Playwright scrape entirely if this exact
           # output file was already written within the last 3h.
           if [ -z "$STATES" ]; then
@@ -365,18 +467,54 @@ jobs:
       - name: Import U.S. Senate candidates
         run: |
           YEAR="${{ github.event.inputs.election_year || '2026' }}"
-          STATES="${{ steps.args.outputs.states }}"
+          STATES="${{ needs.build-args.outputs.states }}"
           if [ -z "$STATES" ]; then
             php artisan politicians:import-ballotpedia \
               --file=storage/app/imports/ballotpedia-senate-${YEAR}.json \
-              ${{ steps.args.outputs.dry_arg }}
+              ${{ needs.build-args.outputs.dry_arg }}
           else
             for state in $(echo "$STATES" | tr ',' ' '); do
               php artisan politicians:import-ballotpedia \
                 --file=storage/app/imports/ballotpedia-senate-${YEAR}-$state.json \
-                ${{ steps.args.outputs.dry_arg }}
+                ${{ needs.build-args.outputs.dry_arg }}
             done
           fi
+
+  # ── Enrichment, verification, and reconciliation ───────────────────────
+  # Everything here operates on the merged result of the three scrape/import
+  # phases above (cross-office conflict detection, status reconciliation,
+  # data-integrity audits, etc.), so it waits on all of them before starting.
+  # Runs in its own job/6h budget rather than tacked onto whichever scrape
+  # phase happened to finish last.
+  enrich-and-reconcile:
+    name: Enrich, verify, and reconcile candidate data
+    needs: [build-args, sync-federal-legislators, scrape-statewide, scrape-house, scrape-senate]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up app
+        uses: ./.github/actions/setup-app
+        with:
+          app_key: ${{ secrets.APP_KEY }}
+          app_url: ${{ secrets.APP_URL }}
+          db_host: ${{ secrets.DB_HOST }}
+          db_port: ${{ secrets.DB_PORT }}
+          db_database: ${{ secrets.DB_DATABASE }}
+          db_username: ${{ secrets.DB_USERNAME }}
+          db_password: ${{ secrets.DB_PASSWORD }}
+          stripe_secret: ${{ secrets.STRIPE_SECRET }}
+          stripe_key: ${{ secrets.STRIPE_KEY }}
+          stripe_webhook_secret: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+
+      # Needed below by the election-results and voter-guide scrape steps.
+      - name: Set up Node + Playwright
+        uses: ./.github/actions/setup-node-playwright
+
+      - name: Verify Playwright installation
+        run: node -e "import('playwright').then(m => console.log('playwright OK:', Object.keys(m)))"
 
       # ── OpenSecrets district finance data ─────────────────────────────────
       # Scrapes each congressional district's OpenSecrets race page to capture
@@ -389,7 +527,7 @@ jobs:
           # --states option. A bare "IL," (trailing comma) was being passed as a
           # positional argument by the shell, causing:
           #   RuntimeException: No arguments expected for "opensecrets:scrape-districts"
-          STATES=$(echo "${{ steps.args.outputs.states }}" | sed 's/,*$//')
+          STATES=$(echo "${{ needs.build-args.outputs.states }}" | sed 's/,*$//')
           STATE_ARG=""
           if [ -n "$STATES" ]; then
             STATE_ARG="--states=${STATES}"
@@ -397,7 +535,7 @@ jobs:
           php artisan opensecrets:scrape-districts \
             --year="$YEAR" \
             ${STATE_ARG} \
-            ${{ steps.args.outputs.dry_arg }}
+            ${{ needs.build-args.outputs.dry_arg }}
 
       # ── Sync Census Bureau population data ───────────────────────────────
       # Upserts state + congressional-district populations from the
@@ -410,7 +548,7 @@ jobs:
           php artisan geo:sync-census-population \
             --year=2020 \
             --level=all \
-            ${{ steps.args.outputs.dry_arg }}
+            ${{ needs.build-args.outputs.dry_arg }}
 
       # ── AI-enriched statewide officeholder data ──────────────────────────
       # Three-tier pipeline: Ballotpedia → Wikipedia → Claude (if key set).
@@ -422,8 +560,8 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
-          STATES="${{ steps.args.outputs.states }}"
-          DRY="${{ steps.args.outputs.dry_arg }}"
+          STATES="${{ needs.build-args.outputs.states }}"
+          DRY="${{ needs.build-args.outputs.dry_arg }}"
           if [ -n "$STATES" ]; then
             for state in $(echo "$STATES" | tr ',' ' '); do
               echo "=== Enriching statewide offices for $state ==="
@@ -451,8 +589,8 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
-          STATES="${{ steps.args.outputs.states }}"
-          DRY="${{ steps.args.outputs.dry_arg }}"
+          STATES="${{ needs.build-args.outputs.states }}"
+          DRY="${{ needs.build-args.outputs.dry_arg }}"
           if [ -n "$STATES" ]; then
             for state in $(echo "$STATES" | tr ',' ' '); do
               echo "=== Enriching mayor for $state ==="
@@ -481,7 +619,7 @@ jobs:
       # budget instead of multiplying it by the number of states.
       - name: Backfill profile photos from Wikipedia
         run: |
-          STATES="${{ steps.args.outputs.states }}"
+          STATES="${{ needs.build-args.outputs.states }}"
           if ! php artisan list --raw | grep -qE '^politicians:backfill-photos([[:space:]]|$)'; then
             echo "WARNING: politicians:backfill-photos is unavailable for this run SHA; skipping photo backfill step."
             exit 0
@@ -489,13 +627,13 @@ jobs:
           if [ -z "$STATES" ]; then
             php artisan politicians:backfill-photos \
               --limit=1000 \
-              ${{ steps.args.outputs.dry_arg }}
+              ${{ needs.build-args.outputs.dry_arg }}
           else
             for state in $(echo "$STATES" | tr ',' ' '); do
               php artisan politicians:backfill-photos \
                 --limit=200 \
                 --state=$state \
-                ${{ steps.args.outputs.dry_arg }}
+                ${{ needs.build-args.outputs.dry_arg }}
             done
           fi
 
@@ -507,7 +645,7 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
-          STATES="${{ steps.args.outputs.states }}"
+          STATES="${{ needs.build-args.outputs.states }}"
           # --require-ai omitted: quota exhaustion opens the circuit breaker
           # automatically and finishes remaining photos with URL heuristics.
           # --limit=150 keeps daily AI usage conservative (~150 images/day).
@@ -519,7 +657,7 @@ jobs:
               --quarantine-only \
               --min-confidence=0.70 \
               --limit=150 \
-              ${{ steps.args.outputs.dry_arg }}
+              ${{ needs.build-args.outputs.dry_arg }}
           else
             for state in $(echo "$STATES" | tr ',' ' '); do
               php artisan politicians:validate-profile-photos \
@@ -527,7 +665,7 @@ jobs:
                 --min-confidence=0.70 \
                 --limit=30 \
                 --state=$state \
-                ${{ steps.args.outputs.dry_arg }}
+                ${{ needs.build-args.outputs.dry_arg }}
             done
           fi
 
@@ -541,8 +679,8 @@ jobs:
       # run gets included in the same day's primary-result sync/reconcile.
       - name: Discover candidate leads (RSS)
         run: |
-          STATES="${{ steps.args.outputs.states }}"
-          DRY="${{ steps.args.outputs.dry_arg }}"
+          STATES="${{ needs.build-args.outputs.states }}"
+          DRY="${{ needs.build-args.outputs.dry_arg }}"
           if [ -z "$STATES" ]; then
             php artisan candidates:discover-leads $DRY
           else
@@ -561,7 +699,7 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
-          php artisan candidates:verify-leads --limit=2000 ${{ steps.args.outputs.dry_arg }}
+          php artisan candidates:verify-leads --limit=2000 ${{ needs.build-args.outputs.dry_arg }}
 
       # ── Sync primary election results ────────────────────────────────────
       # For each statewide candidate whose election_date is in the past,
@@ -573,8 +711,8 @@ jobs:
       # are picked up on every weekly run.
       - name: Sync primary results
         run: |
-          STATES="${{ steps.args.outputs.states }}"
-          DRY="${{ steps.args.outputs.dry_arg }}"
+          STATES="${{ needs.build-args.outputs.states }}"
+          DRY="${{ needs.build-args.outputs.dry_arg }}"
           if [ -n "$STATES" ]; then
             for state in $(echo "$STATES" | tr ',' ' '); do
               echo "=== Syncing primary results for $state ==="
@@ -593,7 +731,7 @@ jobs:
       - name: Reconcile politician status
         run: |
           php artisan politicians:reconcile-status \
-            ${{ steps.args.outputs.dry_arg }}
+            ${{ needs.build-args.outputs.dry_arg }}
 
       # ── Normalize stale district formats ──────────────────────────────────
       # Converts any lingering "FULLSTATENAME-NN" district values (e.g.
@@ -604,7 +742,7 @@ jobs:
       - name: Normalize district format
         run: |
           php artisan politicians:normalize-district-format \
-            ${{ steps.args.outputs.dry_arg }}
+            ${{ needs.build-args.outputs.dry_arg }}
 
       # ── Clean cross-office ECR conflicts ──────────────────────────────────
       # Stamps primary_result=eliminated on ECR rows where the matched
@@ -614,15 +752,15 @@ jobs:
         run: |
           php artisan politicians:clean-cross-office-ecrs \
             --scope=state \
-            ${{ steps.args.outputs.state_args }} \
-            ${{ steps.args.outputs.dry_arg }}
+            ${{ needs.build-args.outputs.state_args }} \
+            ${{ needs.build-args.outputs.dry_arg }}
 
       - name: Clean cross-office ECR conflicts (federal/house)
         run: |
           php artisan politicians:clean-cross-office-ecrs \
             --scope=all \
-            ${{ steps.args.outputs.state_args }} \
-            ${{ steps.args.outputs.dry_arg }}
+            ${{ needs.build-args.outputs.state_args }} \
+            ${{ needs.build-args.outputs.dry_arg }}
 
       # ── Cross-office conflict audit ───────────────────────────────────────
       # Detects politicians whose term_status=seated but who also appear as a
@@ -669,7 +807,7 @@ jobs:
         if: ${{ github.event.inputs.include_results != 'false' }}
         run: |
           YEAR="${{ github.event.inputs.election_year || '2026' }}"
-          STATES="${{ steps.args.outputs.states }}"
+          STATES="${{ needs.build-args.outputs.states }}"
           # --strategy=direct constructs per-state race URLs directly:
           #   https://ballotpedia.org/{StateName}_gubernatorial_election,_{YEAR}
           # etc. — covers all 50 states without depending on the index page.
@@ -702,7 +840,7 @@ jobs:
         if: ${{ github.event.inputs.include_results != 'false' }}
         run: |
           YEAR="${{ github.event.inputs.election_year || '2026' }}"
-          STATES="${{ steps.args.outputs.states }}"
+          STATES="${{ needs.build-args.outputs.states }}"
           # --create-missing is always on for results imports: winners like
           # Xavier Becerra / Steve Hilton may not be in election_candidate_records
           # yet (they weren't scraped as candidates before the primary), so we
@@ -711,13 +849,13 @@ jobs:
             php artisan politicians:import-election-results \
               --file=storage/app/imports/ballotpedia-results-${YEAR}.json \
               --create-missing \
-              ${{ steps.args.outputs.dry_arg }}
+              ${{ needs.build-args.outputs.dry_arg }}
           else
             for state in $(echo "$STATES" | tr ',' ' '); do
               php artisan politicians:import-election-results \
                 --file=storage/app/imports/ballotpedia-results-${YEAR}-$state.json \
                 --create-missing \
-                ${{ steps.args.outputs.dry_arg }}
+                ${{ needs.build-args.outputs.dry_arg }}
             done
           fi
 
@@ -725,7 +863,7 @@ jobs:
         if: ${{ github.event.inputs.include_results != 'false' }}
         run: |
           YEAR="${{ github.event.inputs.election_year || '2026' }}"
-          STATES="${{ steps.args.outputs.states }}"
+          STATES="${{ needs.build-args.outputs.states }}"
           STATE_ARG=""
           if [ -n "$STATES" ]; then
             STATE_ARG="--states=$STATES"
@@ -756,7 +894,7 @@ jobs:
             --file=storage/app/imports/state-voter-guides-${YEAR}.json \
             --skip-fresh-days=7 \
             $CREATE_ARG \
-            ${{ steps.args.outputs.dry_arg }}
+            ${{ needs.build-args.outputs.dry_arg }}
 
       # ── Reconcile missing profiles from election candidate records ───────
       # Creates unclaimed profiles for election_candidate_records that still
@@ -766,7 +904,7 @@ jobs:
       - name: Reconcile missing unclaimed candidate profiles
         run: |
           YEAR="${{ github.event.inputs.election_year || '2026' }}"
-          STATES="${{ steps.args.outputs.states }}"
+          STATES="${{ needs.build-args.outputs.states }}"
           STATE_ARGS=""
           if [ -n "$STATES" ]; then
             for state in $(echo "$STATES" | tr ',' ' '); do
@@ -778,7 +916,7 @@ jobs:
             --election-year="$YEAR" \
             --limit=1000 \
             $STATE_ARGS \
-            ${{ steps.args.outputs.dry_arg }}
+            ${{ needs.build-args.outputs.dry_arg }}
 
       # ── Data-integrity audit ──────────────────────────────────────────────
       # Scans politician rows against PoliticianDataRules: bad names, unknown
@@ -789,13 +927,13 @@ jobs:
       # Exits 0 always — this is a warning step, not a blocker.
       - name: Audit & fix politician data integrity
         run: |
-          STATES="${{ steps.args.outputs.states }}"
+          STATES="${{ needs.build-args.outputs.states }}"
           if [ -z "$STATES" ]; then
             php artisan politicians:audit-data-integrity \
               --fix \
               --deactivate \
               --limit=5000 \
-              ${{ steps.args.outputs.dry_arg }} || true
+              ${{ needs.build-args.outputs.dry_arg }} || true
           else
             for state in $(echo "$STATES" | tr ',' ' '); do
               php artisan politicians:audit-data-integrity \
@@ -803,6 +941,6 @@ jobs:
                 --deactivate \
                 --limit=5000 \
                 --state=$state \
-                ${{ steps.args.outputs.dry_arg }} || true
+                ${{ needs.build-args.outputs.dry_arg }} || true
             done
           fi

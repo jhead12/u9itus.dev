@@ -16,6 +16,20 @@ runs:
       env:
         NODE_ENV: development
 
+    # 2026-08-18: apt-get (invoked by --with-deps) hung indefinitely fetching
+    # noble-security/noble-updates package indexes on a bad Azure mirror — no
+    # error, no output, no built-in timeout, so it silently ate the whole 6h
+    # job budget (see run 32091677838). `timeout` bounds each attempt so a
+    # repeat hang fails fast and retries instead of blocking everything else.
     - name: Install Playwright Chromium
       shell: bash
-      run: npx playwright install chromium --with-deps
+      run: |
+        for attempt in 1 2; do
+          if timeout 300 npx playwright install chromium --with-deps; then
+            exit 0
+          fi
+          echo "Playwright install attempt $attempt timed out or failed; retrying..."
+          sleep 10
+        done
+        echo "Playwright install failed after 2 attempts" >&2
+        exit 1
