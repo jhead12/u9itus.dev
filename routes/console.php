@@ -162,6 +162,15 @@ Schedule::command('map:sync-hot-states')
     ->everyThreeHours()
     ->withoutOverlapping();
 
+// Cross-checks our declared gubernatorial candidate counts against the
+// hand-maintained Ballotpedia reference (governor_race_candidate_counts,
+// seeded via election:set-race-count). Under-counted states get a targeted
+// re-sync via the same GitHub dispatch path map:sync-hot-states uses, ahead
+// of the next scheduled full sync (02:00 UTC). Runs after that sync.
+Schedule::command('politicians:audit-race-counts --dispatch')
+    ->dailyAt('05:00')
+    ->withoutOverlapping();
+
 // Phase 20 — Event reminder emails (24-hour and 1-hour before start).
 Schedule::command('events:send-reminders')
     ->hourly()

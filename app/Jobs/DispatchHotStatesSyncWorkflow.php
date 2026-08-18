@@ -19,7 +19,9 @@ use Illuminate\Support\Facades\Log;
  *
  * Fired by the map:sync-hot-states command, which already applies the
  * click-volume threshold and per-state dispatch cooldown — this job just
- * makes the GitHub API calls. Uses its own fine-grained PAT
+ * makes the GitHub API calls. Also fired by politicians:audit-race-counts
+ * for states under-counted against the Ballotpedia reference. Uses its own
+ * fine-grained PAT
  * (services.github.hotstate_token / GITHUB_HOTSTATE_TOKEN) with
  * repo → Actions → Write scope, kept separate from the profile-repair
  * dispatcher's token so the two blast radii can't cross.
