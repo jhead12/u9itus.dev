@@ -376,6 +376,11 @@
                                 Unclaimed Profile
                             </span>
                         @endif
+                        @if(in_array($politician->term_status ?? 'unknown', ['retired', 'lost']))
+                            <span class="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-700/40 text-slate-400 border border-slate-600/40">
+                                {{ $politician->term_status === 'lost' ? 'Former Candidate — Lost Election' : 'Former Member' }}
+                            </span>
+                        @endif
                     </div>
 
                     <p class="text-base font-medium p13-accent mb-1">

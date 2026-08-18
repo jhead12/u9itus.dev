@@ -4,10 +4,28 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Cache;
 
 class ElectionCandidateRecord extends Model
 {
     use HasFactory;
+
+    protected static function booted(): void
+    {
+        // Scraped candidates feed the map's per-state cache (see
+        // Politician::forgetMapCacheFor() for the same reasoning) — bust it
+        // whenever a record is written or removed so newly-discovered or
+        // newly-eliminated challengers show up without waiting on the TTL.
+        $bust = function (self $record): void {
+            $state = strtoupper(trim((string) $record->state));
+            if ($state !== '') {
+                Cache::forget("map_state_candidates_{$state}");
+            }
+        };
+
+        static::saved($bust);
+        static::deleted($bust);
+    }
 
     protected $fillable = [
         'source',

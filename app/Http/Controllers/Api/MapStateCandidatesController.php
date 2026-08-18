@@ -449,11 +449,13 @@ class MapStateCandidatesController
 
         // ── 5. House candidates keyed by district label (e.g. "CA-33") ──────
         $houseCandidates = [];
+        $seenHouseNames = [];
         foreach ($housePoliticians as $pol) {
             $distKey = $pol->district ?? null;
             if (! $distKey) {
                 continue;
             }
+            $seenHouseNames[strtolower(trim((string) $pol->full_name))] = true;
             $houseCandidates[$distKey][] = [
                 'id'              => $pol->id,
                 'source'          => 'platform',
@@ -475,6 +477,71 @@ class MapStateCandidatesController
                 'profile_url'     => $pol->slug ? url('/p/' . $pol->slug) : null,
                 'bio_excerpt'     => $pol->bio ? Str::limit($pol->bio, 180) : null,
                 'badges'          => $this->formatBadges($pol),
+            ];
+        }
+
+        // ── 5b. Merge scraped House challengers not yet promoted to a platform
+        // Politician row — mirrors the statewide ECR merge above (§2), keyed
+        // by district instead of office. Without this, a challenger only
+        // appears once ReconcileMissingCandidateProfiles promotes them.
+        $scrapedHouseRecords = ElectionCandidateRecord::query()
+            ->whereRaw('UPPER(COALESCE(state, \'\')) = ?', [$state])
+            ->whereRaw('LOWER(COALESCE(governance_level, \'\')) = ?', ['federal'])
+            ->whereNotNull('district')
+            ->whereRaw('LOWER(COALESCE(political_office, \'\')) NOT LIKE ?', ['%senat%'])
+            ->get(['id', 'full_name', 'political_office', 'party_affiliation',
+                   'district', 'election_date', 'source', 'external_candidate_id', 'payload']);
+
+        foreach ($scrapedHouseRecords as $rec) {
+            $nameLower = strtolower(trim((string) $rec->full_name));
+            $distKey = $rec->district;
+
+            $payload = is_array($rec->payload) ? $rec->payload : [];
+            $primaryResult = strtolower(trim((string) ($payload['primary_result'] ?? '')));
+            $resultStatus = strtolower(trim((string) ($payload['result_status'] ?? '')));
+            $payloadStatus = strtolower(trim((string) ($payload['status'] ?? '')));
+
+            // Exclude anyone already showing as a platform House member/candidate,
+            // and anyone with an explicit "lost/eliminated" signal.
+            if (
+                isset($seenHouseNames[$nameLower])
+                || $primaryResult === 'eliminated'
+                || in_array($resultStatus, ['lost', 'eliminated', 'defeated'], true)
+                || in_array($payloadStatus, ['lost', 'eliminated', 'defeated'], true)
+            ) {
+                continue;
+            }
+
+            // Same primary-date gate as the statewide merge: once the primary
+            // has passed, only show candidates who explicitly advanced.
+            $recStatus = $payload['status'] ?? null;
+            $electionDate = $rec->election_date ? trim((string) $rec->election_date) : null;
+            if ($recStatus !== 'seated' && $electionDate && $electionDate < now()->toDateString()) {
+                if ($primaryResult !== 'advanced_to_general') {
+                    continue;
+                }
+            }
+
+            $seenHouseNames[$nameLower] = true;
+            $recStatus = $payload['status'] ?? 'running';
+            $houseCandidates[$distKey][] = [
+                'source'          => 'scraped',
+                'scrape_source'   => $rec->source,
+                'external_candidate_id' => $rec->external_candidate_id,
+                'full_name'       => $rec->full_name,
+                'party'           => $rec->party_affiliation,
+                'photo'           => $payload['photo'] ?? null,
+                'slug'            => null,
+                'status'          => $recStatus,
+                'is_running'      => $recStatus !== 'seated',
+                'verified'        => $recStatus === 'seated',
+                'ballotpedia_url' => ($rec->source === 'ballotpedia' && $rec->external_candidate_id)
+                    ? 'https://ballotpedia.org/' . $rec->external_candidate_id
+                    : null,
+                'website'         => $payload['website'] ?? null,
+                'profile_url'     => null,
+                'bio_excerpt'     => null,
+                'badges'          => [],
             ];
         }
 

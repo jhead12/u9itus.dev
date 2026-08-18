@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
@@ -226,6 +227,31 @@ class Politician extends Model
                 MatchPoliticianToElectionData::dispatch($politician->id);
             }
         });
+
+        // The public map's per-state payload (MapStateCandidatesController)
+        // is cached for an hour under map_state_candidates_{state}. Without
+        // busting it here, any create/update/delete — including the daily
+        // reconciliation commands that promote or correct candidate rows —
+        // can leave a state's map silently stale for up to an hour.
+        static::saved(function (Politician $politician): void {
+            self::forgetMapCacheFor($politician->state);
+            if ($politician->wasChanged('state')) {
+                self::forgetMapCacheFor($politician->getOriginal('state'));
+            }
+        });
+
+        static::deleted(function (Politician $politician): void {
+            self::forgetMapCacheFor($politician->state);
+        });
+    }
+
+    private static function forgetMapCacheFor(?string $state): void
+    {
+        $state = strtoupper(trim((string) $state));
+        if ($state === '') {
+            return;
+        }
+        Cache::forget("map_state_candidates_{$state}");
     }
 
     /**

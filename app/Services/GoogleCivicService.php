@@ -302,7 +302,16 @@ class GoogleCivicService
                 $parsed[] = [
                     'full_name'        => $this->buildFullName($official),
                     'political_office' => $name,
-                    'governance_level' => $this->mapGovernanceLevel($level),
+                    // If Google Civic didn't return a usable 'levels' value,
+                    // mapGovernanceLevel() falls back to 'Local' — right for
+                    // a mayor, but silently wrong for a Governor (same class
+                    // of bug found corrupting U.S. Representatives via
+                    // CongressGovService, which never set governance_level at
+                    // all). Use the office title to catch that case rather
+                    // than trusting an absent level by coincidence.
+                    'governance_level' => $level !== null && $level !== ''
+                        ? $this->mapGovernanceLevel($level)
+                        : ($this->inferGovernanceLevelFromOfficeName($name) ?? $this->mapGovernanceLevel($level)),
                     'roles'            => is_array($roles) ? $roles : [],
                     'state'            => $division['state'],
                     'district_number'  => $division['district_number'],
@@ -347,6 +356,27 @@ class GoogleCivicService
             'locality', 'local', 'regional', 'special' => 'City',
             default              => 'Local',
         };
+    }
+
+    /**
+     * Narrow, unambiguous office-title override used only when Google Civic
+     * gave us no 'levels' value to go on. Deliberately limited to titles that
+     * can't mean anything else — unlike "Senator"/"Representative", which are
+     * ambiguous between federal and state, "Governor" and "Mayor" are not.
+     */
+    protected function inferGovernanceLevelFromOfficeName(string $office): ?string
+    {
+        $office = strtolower($office);
+
+        if (str_contains($office, 'governor')) {
+            return 'State';
+        }
+
+        if (str_contains($office, 'mayor')) {
+            return 'City';
+        }
+
+        return null;
     }
 
     /**

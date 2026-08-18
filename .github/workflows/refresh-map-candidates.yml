@@ -241,6 +241,20 @@ jobs:
             $STATE_ARG \
             ${{ steps.args.outputs.dry_arg }} || true
 
+      # ── Merge duplicate politician rows ────────────────────────────────────
+      # Runs last, after every import/reconcile step above, since those are
+      # the steps most likely to (re-)create duplicate unclaimed rows for the
+      # same real official (see MergeDuplicatePoliticians docblock — this has
+      # happened repeatedly, e.g. Espaillat/NY-13, Schiff, Newsom). No --state
+      # filter: the command has none, and duplicates aren't state-scoped.
+      - name: Merge duplicate politician rows
+        run: |
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            php artisan politicians:merge-duplicates --dry-run
+          else
+            php artisan politicians:merge-duplicates --force
+          fi
+
       - name: Cross-office conflict audit
         run: |
           php artisan tinker --execute="

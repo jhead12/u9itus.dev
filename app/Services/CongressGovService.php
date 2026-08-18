@@ -170,6 +170,13 @@ class CongressGovService
         return [
             'full_name' => $name,
             'political_office' => $politicalOffice,
+            // Every member this service returns comes from Congress.gov, so it is
+            // by definition a federal officeholder. Without this key,
+            // persistDiscoveredOfficial() falls back to 'Local' and silently
+            // downgrades an existing federal Politician row on every district
+            // lookup that re-matches them (found corrupting 45+ sitting U.S.
+            // Representatives in production, e.g. Espaillat/NY-13, Nadler/NY-12).
+            'governance_level' => 'Federal',
             'party_affiliation' => (string) ($member['partyName'] ?? $member['party'] ?? ''),
             // Congress.gov's member.state field is the full state name (e.g.
             // "California"), not a USPS abbreviation — use the already-verified

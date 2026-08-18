@@ -27,14 +27,47 @@ class AuditPoliticianDataIntegrity extends Command
             ->when($state, fn ($q) => $q->whereRaw('UPPER(COALESCE(state, "")) = ?', [$state]))
             ->orderBy('id')
             ->limit($limit)
-            ->get(['id', 'full_name', 'party_affiliation', 'state', 'term_status', 'is_active', 'page_published']);
+            ->get(['id', 'full_name', 'party_affiliation', 'state', 'term_status', 'is_active', 'page_published', 'political_office', 'governance_level']);
 
         $clean = 0;
         $fixed = 0;
         $deactivated = 0;
         $flagged = 0;
+        $governanceLevelFixed = 0;
 
         foreach ($rows as $pol) {
+            // An officeholder whose political_office unambiguously implies a
+            // governance_level that doesn't match what's stored is a data bug,
+            // not a display preference — the map's buckets (
+            // MapStateCandidatesController) filter strictly by governance_level
+            // (federal/state/city+county+local), so a mismatch here makes an
+            // otherwise-correct officeholder invisible. Found corrupting 45+
+            // U.S. Representatives/Senators in production via
+            // CongressGovService::parseMember() not setting governance_level at
+            // all (fixed separately, see also GoogleCivicService's Governor/
+            // Mayor fallback hardening) — this repairs rows that bug (or ones
+            // like it) already wrote, for any office title on the list below.
+            $expectedGovernanceLevel = self::expectedGovernanceLevelFor((string) $pol->political_office);
+            if ($expectedGovernanceLevel !== null && strcasecmp((string) $pol->governance_level, $expectedGovernanceLevel) !== 0) {
+                $this->line(sprintf(
+                    '  <fg=yellow>#%d</> %s (%s) — governance_level \'%s\' should be \'%s\' for office \'%s\'',
+                    $pol->id,
+                    mb_strimwidth((string) $pol->full_name, 0, 60, '…'),
+                    $pol->state ?: '??',
+                    $pol->governance_level ?: 'null',
+                    $expectedGovernanceLevel,
+                    $pol->political_office
+                ));
+
+                if ($fix) {
+                    $pol->governance_level = $expectedGovernanceLevel;
+                    $pol->saveQuietly();
+                    $governanceLevelFixed++;
+                } else {
+                    $flagged++;
+                }
+            }
+
             $violations = PoliticianDataRules::violations([
                 'full_name' => $pol->full_name,
                 'party_affiliation' => $pol->party_affiliation,
@@ -98,15 +131,43 @@ class AuditPoliticianDataIntegrity extends Command
 
         $this->newLine();
         $this->info(sprintf(
-            'Audit complete: %d scanned, %d clean, %d fixed, %d deactivated, %d flagged (run with --fix/--deactivate to apply).',
+            'Audit complete: %d scanned, %d clean, %d fixed, %d governance_level fixed, %d deactivated, %d flagged (run with --fix/--deactivate to apply).',
             $rows->count(),
             $clean,
             $fixed,
+            $governanceLevelFixed,
             $deactivated,
             $flagged
         ));
 
         // Non-zero exit when unresolved violations remain — usable as CI gate.
         return $flagged > 0 ? self::FAILURE : self::SUCCESS;
+    }
+
+    /**
+     * Office titles unambiguous enough to assert a governance_level from —
+     * unlike "Senator"/"Representative" alone (federal vs. state legislator),
+     * these titles only ever mean one level.
+     */
+    private const OFFICE_GOVERNANCE_LEVELS = [
+        'united states representative' => 'Federal',
+        'u.s. representative' => 'Federal',
+        'united states senator' => 'Federal',
+        'u.s. senator' => 'Federal',
+        'governor' => 'State', // also matches "Lieutenant Governor" — still State
+        'mayor' => 'City',
+    ];
+
+    private static function expectedGovernanceLevelFor(string $politicalOffice): ?string
+    {
+        $office = strtolower(trim($politicalOffice));
+
+        foreach (self::OFFICE_GOVERNANCE_LEVELS as $needle => $level) {
+            if (str_contains($office, $needle)) {
+                return $level;
+            }
+        }
+
+        return null;
     }
 }
