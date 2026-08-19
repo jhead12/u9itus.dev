@@ -152,6 +152,17 @@ Schedule::command('politicians:reconcile-status')
     ->weeklyOn(0, '04:00')
     ->withoutOverlapping();
 
+// Post-election results sync — checks state_election_dates for any stage
+// (primary, general, runoff, special) whose election_date fell within the
+// last 3 days and dispatches a targeted GitHub Actions re-sync
+// (sync-candidates.yml + refresh-map-candidates.yml) for just those states,
+// via the same DispatchHotStatesSyncWorkflow path map:sync-hot-states uses.
+// Runs every 6h so a Tuesday-night primary's winners show up same-day
+// instead of waiting on the next blind daily sync-candidates cron.
+Schedule::command('politicians:sync-post-election')
+    ->everySixHours()
+    ->withoutOverlapping();
+
 // Traffic-responsive state sync — checks 3-D map click volume over a
 // trailing window and, for whichever states are trending right now (e.g.
 // a surge of clicks on NY versus CA), triggers refresh-map-candidates.yml,
