@@ -30,11 +30,27 @@ runs:
     # 32227148829 and 32298255008). `--kill-after` forces a real SIGKILL on
     # a lingering process tree, and the cleanup step before each retry clears
     # any lock/process that still slipped through.
+    #
+    # 2026-08-19 (later same day): with the lock issue gone, run 32301350416
+    # showed the *actual* bottleneck — the runner's default apt mirror,
+    # azure.archive.ubuntu.com, hangs for ~2+ minutes on every single attempt
+    # (repeated "Ign" lines) before apt falls back to archive.ubuntu.com,
+    # eating most of the 300s budget before the real install even starts.
+    # Pointing apt straight at archive.ubuntu.com skips that negotiation
+    # entirely; the timeout is also raised since 300s wasn't consistently
+    # enough even without the mirror delay.
+    - name: Prefer archive.ubuntu.com over the slow default apt mirror
+      shell: bash
+      run: |
+        if [ -f /etc/apt/apt-mirrors.txt ]; then
+          echo "http://archive.ubuntu.com/ubuntu" | sudo tee /etc/apt/apt-mirrors.txt
+        fi
+
     - name: Install Playwright Chromium
       shell: bash
       run: |
         for attempt in 1 2 3; do
-          if timeout --kill-after=15 300 npx playwright install chromium --with-deps; then
+          if timeout --kill-after=15 420 npx playwright install chromium --with-deps; then
             exit 0
           fi
           echo "Playwright install attempt $attempt timed out or failed; cleaning up before retry..."
