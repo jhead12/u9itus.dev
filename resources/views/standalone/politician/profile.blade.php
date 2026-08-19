@@ -92,6 +92,31 @@
             </div>
         </div>
 
+        {{-- Social Links --}}
+        @php
+            $socialLinks = old('social_links', $politician?->social_links ?? []);
+            $socialPlatforms = [
+                'substack' => ['label' => 'Substack', 'placeholder' => 'https://yourname.substack.com'],
+                'x' => ['label' => 'X (Twitter)', 'placeholder' => 'https://x.com/yourhandle'],
+                'facebook' => ['label' => 'Facebook', 'placeholder' => 'https://facebook.com/yourpage'],
+                'instagram' => ['label' => 'Instagram', 'placeholder' => 'https://instagram.com/yourhandle'],
+            ];
+        @endphp
+        <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6 space-y-4">
+            <div>
+                <h2 class="text-sm font-semibold text-slate-200 mb-1">Social Links</h2>
+                <p class="text-xs text-slate-500">Link your Substack and other social profiles. These appear on your public page.</p>
+            </div>
+            @foreach($socialPlatforms as $key => $meta)
+                <div>
+                    <label class="block text-sm font-medium text-slate-300 mb-1.5">{{ $meta['label'] }}</label>
+                    <input type="url" name="social_links[{{ $key }}]" value="{{ $socialLinks[$key] ?? '' }}"
+                        class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition"
+                        placeholder="{{ $meta['placeholder'] }}" />
+                </div>
+            @endforeach
+        </div>
+
         {{-- Videos & Appearances --}}
         <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6"
              x-data="{

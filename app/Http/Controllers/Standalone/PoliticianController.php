@@ -1689,6 +1689,11 @@ class PoliticianController extends Controller
             'video_links'            => 'nullable|array|max:20',
             'video_links.*.url'      => 'required|url|max:500',
             'video_links.*.title'    => 'nullable|string|max:200',
+            'social_links'            => 'nullable|array',
+            'social_links.substack'   => 'nullable|url|max:255',
+            'social_links.x'          => 'nullable|url|max:255',
+            'social_links.facebook'   => 'nullable|url|max:255',
+            'social_links.instagram'  => 'nullable|url|max:255',
             // Sprint 7 — Web3 read-only fields. Only accepted when the
             // politician is eligible for the Sovereign (MeToken) tier;
             // otherwise stripped below to prevent drive-by writes.
@@ -1716,6 +1721,11 @@ class PoliticianController extends Controller
             $validated['video_links'] = array_values(
                 array_filter($validated['video_links'], fn($v) => !empty($v['url']))
             );
+        }
+
+        // Drop any platform entries left blank (safety for the fixed-field UI)
+        if (isset($validated['social_links'])) {
+            $validated['social_links'] = array_filter($validated['social_links'], fn($url) => !empty($url));
         }
 
         $politician->update($validated);

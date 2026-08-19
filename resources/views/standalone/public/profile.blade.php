@@ -1224,8 +1224,18 @@
             }
         @endphp
 
+        @php
+            $socialLinks = $politician->social_links ?? [];
+            $socialPlatformMeta = [
+                'substack' => ['label' => 'Substack', 'icon' => '📝'],
+                'x' => ['label' => 'X (Twitter)', 'icon' => '𝕏'],
+                'facebook' => ['label' => 'Facebook', 'icon' => '📘'],
+                'instagram' => ['label' => 'Instagram', 'icon' => '📸'],
+            ];
+        @endphp
+
         {{-- Contact / Connect Section --}}
-        @if($page->show_contact && ($publicWebsiteUrl || $politician->city))
+        @if($page->show_contact && ($publicWebsiteUrl || $politician->city || !empty($socialLinks)))
         <section>
             <h2 class="text-xl font-bold text-white mb-4 flex items-center gap-2">
                 <span class="w-1 h-6 rounded-full inline-block" style="background:var(--p13-accent,#f59e0b)"></span>
@@ -1243,6 +1253,14 @@
                         🌐 Website unavailable
                     </span>
                 @endif
+                @foreach($socialPlatformMeta as $key => $meta)
+                    @if(!empty($socialLinks[$key]))
+                        <a href="{{ $socialLinks[$key] }}" target="_blank" rel="noopener"
+                           class="inline-flex items-center gap-2 text-sm font-medium text-slate-300 hover:text-white transition">
+                            {{ $meta['icon'] }} {{ $meta['label'] }} ↗
+                        </a>
+                    @endif
+                @endforeach
                 @if($politician->district)
                     <span class="text-sm text-slate-400">🗳️ District: {{ $politician->district }}</span>
                 @endif

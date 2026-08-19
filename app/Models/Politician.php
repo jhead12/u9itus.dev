@@ -77,6 +77,7 @@ class Politician extends Model
         'votesmart_id',
         'fec_candidate_id',
         'video_links',
+        'social_links',
         'is_running_candidate',
         'term_status',
         'term_ends_on',
@@ -127,9 +128,9 @@ class Politician extends Model
             'show_opensecrets_data' => 'boolean',
             'show_votesmart_data' => 'boolean',
             'show_fec_data' => 'boolean',
-            // video_links is intentionally NOT cast to 'array' here.
+            // video_links and social_links are intentionally NOT cast to 'array' here.
             // Some imported records contain non-JSON values that cause JsonException
-            // on access. Use the getVideoLinksAttribute accessor instead.
+            // on access. Use the getVideoLinksAttribute/getSocialLinksAttribute accessors instead.
             'claim_requested_at' => 'datetime',
             'earlybank_own_linked_at' => 'datetime',
             'earlybank_payouts_enabled' => 'boolean',
@@ -456,6 +457,34 @@ class Politician extends Model
     public function setVideoLinksAttribute(mixed $value): void
     {
         $this->attributes['video_links'] = $value === null ? null : json_encode($value);
+    }
+
+    /**
+     * Safe accessor for social_links — returns [] instead of throwing on bad JSON.
+     * Shape: { platform => url }, e.g. { "substack": "https://...", "x": "https://..." }.
+     */
+    public function getSocialLinksAttribute(): array
+    {
+        $raw = $this->getRawOriginal('social_links');
+        if ($raw === null || $raw === '' || $raw === 'null') {
+            return [];
+        }
+        try {
+            $decoded = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
+
+            return is_array($decoded) ? $decoded : [];
+        } catch (\JsonException) {
+            return [];
+        }
+    }
+
+    /**
+     * Setter for social_links — mirrors setVideoLinksAttribute (column isn't
+     * cast to 'array', so Eloquent won't auto-encode on save).
+     */
+    public function setSocialLinksAttribute(mixed $value): void
+    {
+        $this->attributes['social_links'] = $value === null ? null : json_encode($value);
     }
 
     /**
