@@ -163,6 +163,16 @@ Schedule::command('politicians:sync-post-election')
     ->everySixHours()
     ->withoutOverlapping();
 
+// RSS/AI substitute for the Ballotpedia-scrape-based results pipeline while
+// Ballotpedia's WAF blocks GitHub Actions runners (see
+// politicians:import-election-results). Reuses candidate_news_articles
+// (already populated by candidates:refresh-news) and asks Claude to confirm
+// win-signal headlines before writing anything — runs on Laravel's own
+// scheduler, unaffected by the GitHub Actions/Ballotpedia outage.
+Schedule::command('politicians:detect-election-wins')
+    ->everySixHours()
+    ->withoutOverlapping();
+
 // Traffic-responsive state sync — checks 3-D map click volume over a
 // trailing window and, for whichever states are trending right now (e.g.
 // a surge of clicks on NY versus CA), triggers refresh-map-candidates.yml,
