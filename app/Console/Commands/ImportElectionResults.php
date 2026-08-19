@@ -17,7 +17,7 @@ use Illuminate\Support\Str;
  *   full_name, state, result_status ('won'|'lost'|'incumbent'|null)
  *
  * What this command does:
- *  - 'won'       → term_status='seated', is_running_candidate=false, is_active=true
+ *  - 'won'       → term_status='seated', is_running_candidate=false, is_active=true, won_at=now()
  *  - 'lost'      → term_status='lost',   is_running_candidate=false
  *  - 'incumbent' → term_status='seated'  (already in office, no change to running flag)
  *  - null        → is_running_candidate=true, term_status='running'  (still in race)
@@ -190,6 +190,7 @@ class ImportElectionResults extends Command
                                 ? 'seated'
                                 : ($resultStatus === 'lost' ? 'lost' : 'running'),
                             'status_updated_at'    => now(),
+                            'won_at'                => $resultStatus === 'won' ? now() : null,
                             'page_published'       => true,
                             'verified_official'    => false,
                             'slug'                 => $slug,
@@ -228,6 +229,7 @@ class ImportElectionResults extends Command
                 'is_running_candidate' => false,
                 'is_active'            => true,
                 'status_updated_at'    => now(),
+                'won_at'               => now(),
             ],
             'lost' => [
                 'term_status'          => 'lost',

@@ -1272,6 +1272,14 @@ class PublicProfileController extends Controller
             }
         }
 
+        // "Recently Won" badge: shown for 30 days after ImportElectionResults
+        // records a win. won_at is only stamped on the 'won' transition (never
+        // on routine incumbent re-syncs), so unlike status_updated_at it won't
+        // falsely re-trigger the window on every sync.
+        $recentlyWon = $politician->term_status === 'seated'
+            && $politician->won_at
+            && $politician->won_at->diffInDays(now()) <= 30;
+
         // Real primary/general election dates + candidate filing deadlines
         // for this politician's state, synced from Vote Smart
         // (php artisan elections:sync-dates). Cached per-state since the
@@ -1364,6 +1372,7 @@ class PublicProfileController extends Controller
             'topWeeklyMoments',
             'meTokenData',
             'termInfo',
+            'recentlyWon',
             'birthDate',
             'electionDates',
             'ogTitle',

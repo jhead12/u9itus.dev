@@ -82,6 +82,7 @@ class Politician extends Model
         'term_status',
         'term_ends_on',
         'status_updated_at',
+        'won_at',
         // Profile claim flow
         'claim_email',
         'claim_token',
@@ -119,6 +120,7 @@ class Politician extends Model
             'is_running_candidate' => 'boolean',
             'term_ends_on' => 'date',
             'status_updated_at' => 'datetime',
+            'won_at' => 'datetime',
             // Phase 13
             'page_settings' => 'array',
             'page_published' => 'boolean',
