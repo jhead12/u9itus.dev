@@ -13,6 +13,7 @@ class StateElectionDate extends Model
         'election_date',
         'filing_deadline',
         'votesmart_election_id',
+        'civic_election_id',
         'source',
     ];
 

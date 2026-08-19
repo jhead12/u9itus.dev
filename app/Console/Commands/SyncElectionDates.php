@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\StateElectionDate;
+use App\Services\GoogleCivicService;
 use App\Services\VoteSmartService;
 use Illuminate\Console\Command;
 
@@ -15,19 +16,28 @@ use Illuminate\Console\Command;
  * ~51 rows that only change a handful of times per cycle — so a small
  * monthly sync is sufficient, no scraping required.
  *
+ * Vote Smart is the primary source (it also carries filing deadlines,
+ * which Google Civic doesn't expose). If it's unconfigured or a state
+ * comes back with no data, Google Civic's nationwide elections feed
+ * (GoogleCivicService::listUpcomingElections()) fills the gap — it won't
+ * overwrite a row Vote Smart already populated this run, so filing
+ * deadlines are never clobbered by the less-detailed fallback.
+ *
  * Usage:
  *   php artisan elections:sync-dates
  *   php artisan elections:sync-dates --year=2026 --state=CA
  *   php artisan elections:sync-dates --dry-run
+ *   php artisan elections:sync-dates --skip-votesmart   (Civic-only, e.g. while VOTESMART_API_KEY is down)
  */
 class SyncElectionDates extends Command
 {
     protected $signature = 'elections:sync-dates
         {--year=2026 : Election year to sync}
         {--state=    : Single state to sync (two-letter code). Leave blank for all states + DC}
+        {--skip-votesmart : Skip Vote Smart entirely and sync from Google Civic only}
         {--dry-run   : Report what would be synced without writing to the database}';
 
-    protected $description = 'Sync real election dates and filing deadlines from Vote Smart.';
+    protected $description = 'Sync real election dates and filing deadlines from Vote Smart, with Google Civic as a fallback/supplement.';
 
     // USPS abbreviations for all 50 states + DC.
     private const STATES = [
@@ -39,57 +49,102 @@ class SyncElectionDates extends Command
         'DC',
     ];
 
-    public function handle(VoteSmartService $voteSmart): int
+    public function handle(VoteSmartService $voteSmart, GoogleCivicService $googleCivic): int
     {
         $year = (int) $this->option('year');
         $stateOption = $this->option('state');
         $dryRun = (bool) $this->option('dry-run');
-
-        if (!$voteSmart->isConfigured()) {
-            $this->error('VOTESMART_API_KEY is not configured.');
-            return self::FAILURE;
-        }
+        $skipVotesmart = (bool) $this->option('skip-votesmart');
 
         $states = $stateOption ? [strtoupper($stateOption)] : self::STATES;
+        $useVotesmart = !$skipVotesmart && $voteSmart->isConfigured();
+
+        if ($skipVotesmart) {
+            $this->line('Skipping Vote Smart (--skip-votesmart) — syncing from Google Civic only.');
+        } elseif (!$voteSmart->isConfigured()) {
+            $this->warn('VOTESMART_API_KEY is not configured — falling back to Google Civic only.');
+        }
 
         $this->info("Election-date sync — year={$year} states=" . count($states) . ($dryRun ? ' [DRY RUN]' : ''));
 
         $upserted = 0;
         $skipped = 0;
+        /** @var array<string, true> $touched Keys of "STATE|stage_name" written by Vote Smart this run */
+        $touched = [];
 
-        foreach ($states as $state) {
-            $stages = $voteSmart->getElectionDates($state, $year);
+        if ($useVotesmart) {
+            foreach ($states as $state) {
+                $stages = $voteSmart->getElectionDates($state, $year);
 
-            if ($stages === []) {
-                $this->line("  {$state}: no data returned");
-                $skipped++;
-                continue;
+                if ($stages === []) {
+                    $this->line("  {$state}: no data returned from Vote Smart");
+                    $skipped++;
+                    continue;
+                }
+
+                foreach ($stages as $stage) {
+                    $this->line("  {$state} — {$stage['stage_name']} [votesmart]: election={$stage['election_date']} filing_deadline={$stage['filing_deadline']}");
+
+                    if (!$dryRun) {
+                        StateElectionDate::updateOrCreate(
+                            [
+                                'state' => $state,
+                                'election_year' => $year,
+                                'stage_name' => $stage['stage_name'],
+                            ],
+                            [
+                                'election_date' => $stage['election_date'],
+                                'filing_deadline' => $stage['filing_deadline'],
+                                'votesmart_election_id' => $stage['votesmart_election_id'],
+                                'source' => 'votesmart',
+                            ]
+                        );
+                    }
+                    $touched[$state . '|' . strtolower($stage['stage_name'])] = true;
+                    $upserted++;
+                }
             }
+        }
 
-            foreach ($stages as $stage) {
-                $this->line("  {$state} — {$stage['stage_name']}: election={$stage['election_date']} filing_deadline={$stage['filing_deadline']}");
+        if ($googleCivic->isConfigured()) {
+            $civicStages = $googleCivic->listUpcomingElections();
+            $statesFilter = $stateOption ? [strtoupper($stateOption)] : null;
+
+            foreach ($civicStages as $stage) {
+                if ($statesFilter !== null && !in_array($stage['state'], $statesFilter, true)) {
+                    continue;
+                }
+
+                $touchedKey = $stage['state'] . '|' . strtolower($stage['stage_name']);
+                if (isset($touched[$touchedKey])) {
+                    continue; // Vote Smart already provided fresher data (with filing deadline) this run
+                }
+
+                $this->line("  {$stage['state']} — {$stage['stage_name']} [civic]: election={$stage['election_date']}");
 
                 if (!$dryRun) {
                     StateElectionDate::updateOrCreate(
                         [
-                            'state' => $state,
+                            'state' => $stage['state'],
                             'election_year' => $year,
                             'stage_name' => $stage['stage_name'],
                         ],
                         [
                             'election_date' => $stage['election_date'],
-                            'filing_deadline' => $stage['filing_deadline'],
-                            'votesmart_election_id' => $stage['votesmart_election_id'],
-                            'source' => 'votesmart',
+                            'civic_election_id' => $stage['civic_election_id'],
+                            'source' => 'google_civic',
                         ]
                     );
                 }
                 $upserted++;
             }
+        } elseif (!$useVotesmart) {
+            $this->error('Neither Vote Smart nor Google Civic (GOOGLE_CIVIC_API_KEY) is configured — nothing to sync.');
+            return self::FAILURE;
         }
 
         $suffix = $dryRun ? ' (dry-run — no DB writes)' : '';
-        $this->info("Done. {$upserted} stage(s) upserted, {$skipped} state(s) with no data{$suffix}.");
+        $this->info("Done. {$upserted} stage(s) upserted, {$skipped} state(s) with no Vote Smart data{$suffix}.");
 
         return self::SUCCESS;
     }

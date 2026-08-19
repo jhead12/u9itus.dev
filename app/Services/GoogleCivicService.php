@@ -269,6 +269,80 @@ class GoogleCivicService
     }
 
     /**
+     * Fetch the nationwide list of elections Google Civic (the Voting
+     * Information Project feed) currently knows about, normalized into the
+     * same per-state shape VoteSmartService::getElectionDates() returns —
+     * a fallback source for state_election_dates when Vote Smart is
+     * unavailable (unconfigured or erroring).
+     *
+     * Unlike getElectionsByAddress(), this hits the /elections endpoint
+     * with no address: Civic's electionQuery ignores that param, so a
+     * single call already covers every state, not just one voter's ballot.
+     * State is parsed out of each election's ocdDivisionId (e.g.
+     * "ocd-division/country:us/state:wy" → "WY"); non-state entries (the
+     * nationwide "VIP Test Election" seed, etc.) are skipped. Civic has no
+     * filing-deadline data, so that field is always null here.
+     *
+     * @return array<int, array{state: string, stage_name: string, election_date: ?string, civic_election_id: string}>
+     */
+    public function listUpcomingElections(): array
+    {
+        if (!$this->isConfigured()) {
+            return [];
+        }
+
+        return Cache::remember('google_civic.elections.nationwide', $this->cacheDuration, function () {
+            try {
+                $response = Http::timeout(10)->get("{$this->baseUrl}/elections", [
+                    'key' => $this->apiKey,
+                ]);
+
+                if (!$response->successful()) {
+                    Log::warning('GoogleCivicService: elections query failed', [
+                        'status' => $response->status(),
+                    ]);
+                    return [];
+                }
+
+                $normalized = [];
+
+                foreach ($response->json('elections', []) as $election) {
+                    $ocdId = (string) ($election['ocdDivisionId'] ?? '');
+                    if (!preg_match('#country:us/state:([a-z]{2})(?:$|/)#i', $ocdId, $m)) {
+                        continue;
+                    }
+
+                    $normalized[] = [
+                        'state' => strtoupper($m[1]),
+                        'stage_name' => $this->inferStageName((string) ($election['name'] ?? 'Election')),
+                        'election_date' => $election['electionDay'] ?? null,
+                        'civic_election_id' => (string) ($election['id'] ?? ''),
+                    ];
+                }
+
+                return $normalized;
+            } catch (\Exception $e) {
+                Log::error('GoogleCivicService: Failed to fetch elections', ['error' => $e->getMessage()]);
+                return [];
+            }
+        });
+    }
+
+    /** Infer a Primary/General/Runoff/Special stage_name from a Civic election name. */
+    private function inferStageName(string $name): string
+    {
+        $lower = strtolower($name);
+
+        return match (true) {
+            str_contains($lower, 'general') => 'General',
+            str_contains($lower, 'runoff') => 'Runoff',
+            str_contains($lower, 'special') => 'Special',
+            str_contains($lower, 'primary') => 'Primary',
+            default => 'Election',
+        };
+    }
+
+    /**
     * Parse officials response into candidate-like records
     *
      * @param array $data API response from Google Civic

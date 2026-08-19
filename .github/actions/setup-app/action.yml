@@ -43,6 +43,9 @@ inputs:
   votesmart_api_key:
     required: false
     default: ''
+  google_civic_api_key:
+    required: false
+    default: ''
   youtube_api_key:
     required: false
     default: ''
@@ -94,6 +97,7 @@ runs:
         GNEWS_API_KEY=${{ inputs.gnews_api_key }}
         CENSUS_DATA_API=${{ inputs.census_data_api }}
         VOTESMART_API_KEY=${{ inputs.votesmart_api_key }}
+        GOOGLE_CIVIC_API_KEY=${{ inputs.google_civic_api_key }}
         YOUTUBE_API_KEY=${{ inputs.youtube_api_key }}
 
         CACHE_DRIVER=database

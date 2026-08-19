@@ -45,6 +45,7 @@ jobs:
           db_username: ${{ secrets.DB_USERNAME }}
           db_password: ${{ secrets.DB_PASSWORD }}
           votesmart_api_key: ${{ secrets.VOTESMART_API_KEY }}
+          google_civic_api_key: ${{ secrets.GOOGLE_CIVIC_API_KEY }}
 
       - name: Sync election dates
         run: |
