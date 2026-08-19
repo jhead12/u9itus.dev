@@ -21,15 +21,27 @@ runs:
     # error, no output, no built-in timeout, so it silently ate the whole 6h
     # job budget (see run 32091677838). `timeout` bounds each attempt so a
     # repeat hang fails fast and retries instead of blocking everything else.
+    #
+    # 2026-08-19: that fix introduced a second failure mode — `timeout 300`
+    # kills the `npx` wrapper, but the `apt-get` child process it shells out
+    # to for --with-deps doesn't reliably die with it, so it can still hold
+    # /var/lib/apt/lists/lock when the very next retry starts 10s later,
+    # instantly failing with "Could not get lock" (seen twice: runs
+    # 32227148829 and 32298255008). `--kill-after` forces a real SIGKILL on
+    # a lingering process tree, and the cleanup step before each retry clears
+    # any lock/process that still slipped through.
     - name: Install Playwright Chromium
       shell: bash
       run: |
-        for attempt in 1 2; do
-          if timeout 300 npx playwright install chromium --with-deps; then
+        for attempt in 1 2 3; do
+          if timeout --kill-after=15 300 npx playwright install chromium --with-deps; then
             exit 0
           fi
-          echo "Playwright install attempt $attempt timed out or failed; retrying..."
-          sleep 10
+          echo "Playwright install attempt $attempt timed out or failed; cleaning up before retry..."
+          sudo pkill -9 -f apt-get || true
+          sudo pkill -9 -f dpkg || true
+          sudo rm -f /var/lib/apt/lists/lock /var/lib/dpkg/lock /var/lib/dpkg/lock-frontend || true
+          sleep 20
         done
-        echo "Playwright install failed after 2 attempts" >&2
+        echo "Playwright install failed after 3 attempts" >&2
         exit 1
