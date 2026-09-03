@@ -11,6 +11,7 @@ How to submit **u9itus** to the WebMCP Challenge (<https://webmcp.devpost.com/>)
 | Live demo URL — `https://www.u9itus.com/webmcp` | ✅ deployed, 200 |
 | Live API — `https://www.u9itus.com/api/v1/mcp/*` | ✅ serving real data |
 | OSS license | ✅ added — [LICENSE](../LICENSE) (MIT, matches `composer.json`) |
+| `robots.txt` agent access | ✅ fixed locally — see §3.5 (needs deploy) |
 | **Public repo** | ❌ **blocker** — `github.com/jhead12/u9itus.dev` is private. See §3. |
 | Demo video (< 3 min) | ⬜ not recorded — see §5 |
 | Devpost project entry | ⬜ not started — see §6 |
@@ -103,6 +104,28 @@ first do a pass for secrets (`git log -p | grep -i -E 'key|secret|token|password
 — note `.env*` files are already git-ignored, but check commit history.
 
 ---
+
+## 3.5. robots.txt — agents were being blocked (fixed, needs deploy)
+
+`public/robots.txt` had `User-agent: ChatGPT-User` → `Disallow: /` plus
+`Disallow: /api` for all bots. ChatGPT (and any robots-respecting agent) refused
+to fetch `/webmcp` at all — "Failed to fetch restricted URL". A judge testing in
+ChatGPT browsing mode would hit the same wall.
+
+Fixed in [public/robots.txt](../public/robots.txt): interactive agents
+(`ChatGPT-User`, `OAI-SearchBot`, `Claude-Web`, `anthropic-ai`, `PerplexityBot`)
+now get `Allow: /webmcp` + `Allow: /api/v1/mcp/` before their `Disallow: /`;
+training crawlers (`GPTBot`, `CCBot`, `Bytespider`, …) stay fully blocked.
+
+**Must be deployed before submitting.** After deploy:
+
+```bash
+curl -s https://www.u9itus.com/robots.txt | grep -A2 "ChatGPT-User"
+```
+
+Note: [routes/standalone.php:857](../routes/standalone.php#L857) also defines a
+`/robots.txt` route, but the static `public/robots.txt` is served first and wins.
+The route is dead code for this path — ignore it or delete it later.
 
 ## 4. License — done
 
