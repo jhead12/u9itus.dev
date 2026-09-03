@@ -27,6 +27,13 @@
     <style>
         * { font-family: 'Inter', sans-serif; }
     </style>
+
+    {{-- WebMCP page context — consumed by resources/js/webmcp/index.js --}}
+    <script>
+        window.__U9ITUS_MCP__ = Object.assign({
+            pageType: @json(request()->segment(1) ?: 'home'),
+        }, window.__U9ITUS_MCP__ || {});
+    </script>
 </head>
 <body class="bg-slate-950 min-h-screen antialiased">
 

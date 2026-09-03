@@ -71,6 +71,33 @@ Route::post('/paypal/webhooks', [PayPalWebhookController::class, 'handle'])
 */
 Route::prefix('v1')->name('api.v1.')->group(function () {
 
+    /*
+    |----------------------------------------------------------------------
+    | WebMCP tool backend (public, rate-limited)
+    |----------------------------------------------------------------------
+    | Consumed by the browser-side WebMCP tools in resources/js/webmcp/.
+    | An AI agent browsing u9itus.dev calls these from a tool `execute()`.
+    | Read endpoints are unauthenticated civic data; the lead-submit
+    | endpoint only queues `pending` rows for human verification.
+    | See doc/WEBMCP.md.
+    */
+    Route::prefix('/mcp')->name('mcp.')->group(function () {
+        // Read endpoints — generous shared limit.
+        Route::middleware('throttle:60,1')->group(function () {
+            Route::get('/candidates', [\App\Http\Controllers\Api\WebMcpController::class, 'candidates'])->name('candidates');
+            Route::get('/candidates/compare', [\App\Http\Controllers\Api\WebMcpController::class, 'compare'])->name('candidates.compare');
+            Route::get('/candidates/{politician:uuid}', [\App\Http\Controllers\Api\WebMcpController::class, 'candidate'])->name('candidates.show');
+            Route::get('/ballot-measures', [\App\Http\Controllers\Api\WebMcpController::class, 'ballotMeasures'])->name('ballot-measures');
+            Route::get('/elections', [\App\Http\Controllers\Api\WebMcpController::class, 'elections'])->name('elections');
+        });
+
+        // Write endpoint — its own tighter limit (single throttle only; do not
+        // nest, or the counters stack and the effective limit collapses).
+        Route::post('/candidate-leads', [\App\Http\Controllers\Api\WebMcpController::class, 'submitLead'])
+            ->middleware('throttle:10,1')
+            ->name('candidate-leads.store');
+    });
+
     // Dashboard notification endpoints use the web session cookie.
     // Keep them outside stateless API auth middleware to avoid 401s
     // when called from first-party dashboard pages on Railway.

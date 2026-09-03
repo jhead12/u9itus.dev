@@ -83,6 +83,21 @@
         .p13-accent { color: var(--p13-accent, #f59e0b); }
         .p13-border-accent { border-color: var(--p13-accent, #f59e0b); }
     </style>
+
+    {{-- WebMCP page context — consumed by resources/js/webmcp/index.js --}}
+    <script>
+        window.__U9ITUS_MCP__ = {
+            pageType: 'candidate_profile',
+            state: @json($politician->state),
+            candidate: {
+                uuid: @json($politician->uuid),
+                full_name: @json($politician->full_name),
+                office: @json($politician->political_office),
+                party: @json($politician->party_affiliation),
+                profile_url: @json(url('/p/' . $politician->slug)),
+            },
+        };
+    </script>
 </head>
 <body class="bg-style-{{ $page->background_style }} min-h-screen antialiased layout-{{ $page->layout_preset }}">
 

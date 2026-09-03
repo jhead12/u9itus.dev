@@ -46,3 +46,9 @@ Alpine.start();
 queueMicrotask(() => {
     initializeCalendarPickers();
 });
+
+// WebMCP civic-agent tools — lazily loaded so a page with no AI agent
+// attached pays nothing. Every failure path inside is a no-op.
+import("./webmcp/index.js")
+    .then((m) => m.registerCivicTools())
+    .catch(() => {});

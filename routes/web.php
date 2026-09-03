@@ -145,6 +145,10 @@ Route::get('/privacy-policy', function () {
     return view('privacy-policy');
 })->name('privacy-policy');
 
+// WebMCP demo / tool catalogue — a live console for the civic-agent tools
+// exposed via resources/js/webmcp/index.js. See doc/WEBMCP.md.
+Route::view('/webmcp', 'webmcp')->name('webmcp');
+
 Route::get('/debug-info', function () {
     return response()->json([
         'status' => 'ok',
