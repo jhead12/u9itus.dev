@@ -213,13 +213,13 @@
                                 'from' => 'home',
                             ]));
                         @endphp
-                        <div class="animate-fade-in-up delay-300 opacity-0 flex justify-center pt-4">
+                        <!-- <div class="animate-fade-in-up delay-300 opacity-0 flex justify-center pt-4">
                             <a id="btn-earn-cta" href="{{ $u9LoginUrl }}"
                                title="Get paid to watch campaign videos — up to $0.50 each"
                                class="inline-flex items-center px-4 py-2 rounded-full text-sm font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-400/40 hover:bg-emerald-500/20 transition">
                                 Earn $$$ to share
                             </a>
-                        </div>
+                        </div> -->
                     @endif
                 @endguest
             </div>
