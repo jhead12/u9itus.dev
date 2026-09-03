@@ -82,29 +82,6 @@ class SeedCivicJurisdictions extends Command
         'WI' => 'Wisconsin', 'WY' => 'Wyoming', 'DC' => 'District of Columbia',
     ];
 
-    /**
-     * Curated statewide elections landing pages. Only states we're confident of
-     * are listed; the rest are left null for civic:resolve-official-urls /
-     * civic:verify-sources to fill and check against the NASS "Can I Vote"
-     * directory (https://www.usvotefoundation.org / https://www.nass.org).
-     * Treat every entry here as a seed hint, not verified truth.
-     */
-    private const STATE_ELECTION_SITES = [
-        'AZ' => 'https://azsos.gov/elections',
-        'CA' => 'https://www.sos.ca.gov/elections',
-        'CO' => 'https://www.sos.state.co.us/pubs/elections/main.html',
-        'FL' => 'https://dos.fl.gov/elections/',
-        'GA' => 'https://sos.ga.gov/elections-division-georgia-secretary-states-office',
-        'MI' => 'https://www.michigan.gov/sos/elections',
-        'NC' => 'https://www.ncsbe.gov/',
-        'NY' => 'https://www.elections.ny.gov/',
-        'OH' => 'https://www.ohiosos.gov/elections/',
-        'PA' => 'https://www.vote.pa.gov/',
-        'TX' => 'https://www.sos.state.tx.us/elections/',
-        'VA' => 'https://www.elections.virginia.gov/',
-        'WA' => 'https://www.sos.wa.gov/elections',
-    ];
-
     public function handle(): int
     {
         $source = strtolower((string) $this->option('source'));
@@ -179,7 +156,7 @@ class SeedCivicJurisdictions extends Command
                 'jurisdiction_name' => $name,
                 'source_of_record' => 'nass',
             ], fillable: [
-                'elections_home_url' => self::STATE_ELECTION_SITES[$usps] ?? null,
+                'elections_home_url' => config("civic.state_election_sites.{$usps}"),
             ]);
 
             $this->line("  {$usps}  {$name}  [{$result}]");

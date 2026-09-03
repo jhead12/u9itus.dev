@@ -11,7 +11,8 @@ vendor page listing local measures.
 
 - **Table**: `election_data_sources` (migration `2026_09_03_000001_create_election_data_sources_table.php`)
 - **Model**: `App\Models\ElectionDataSource`
-- **Seed command**: `php artisan civic:seed-jurisdictions` (`App\Console\Commands\SeedCivicJurisdictions`)
+- **Config**: `config/civic.php` — curated state URLs, state capitals, vendor host map
+- **Commands**: `civic:seed-jurisdictions` (`SeedCivicJurisdictions`), `civic:resolve-official-urls` (`ResolveOfficialElectionUrls`)
 - **Measure content stays in**: `ballot_measures` (`App\Models\BallotMeasure`) — this registry only holds *where to look*.
 
 ## Why a registry instead of crawling
@@ -74,9 +75,9 @@ streams it and keeps only the top-level `.../county:<x>` rows.
 | **OpenCivicData master CSV** (`country-us.csv`) | ~3,100 `county` rows with OCD IDs + `county_fips` (from `census_geoid`) | `civic:seed-jurisdictions --source=counties` (streamed over HTTP, or `--file`) |
 | **EAC EAVS jurisdiction list** | authority names, `county_fips`, New England townships | `--source=eac --file=…` — [eac.gov EAVS](https://www.eac.gov/research-and-data/election-administration-voting-survey) / [data.gov](https://catalog.data.gov/dataset/eac-data) — **stub, not implemented** |
 | **Census places / gazetteer** | `municipal` rows + `place_fips` | `--source=municipalities` — pair with a curated allow-list — **stub, not implemented** |
-| **NASS "Can I Vote" directory** | the 51 state elections sites, authoritative | used by `civic:resolve-official-urls` / `civic:verify-sources` to fill + check `STATE_ELECTION_SITES` — **stub** |
-| **Google Civic `voterInfoQuery`** | per-address `electionAdministrationBody` URLs **and** `Referendum` contests with `referendumTitle` / `referendumText` / `referendumUrl` | `civic:resolve-official-urls`, `civic:pull-measures` — **stubs**. Only the *Representatives* endpoint was retired (Apr 2025); `voterInfoQuery` is still live. Key already wired as `GOOGLE_CIVIC_API_KEY` (`App\Services\GoogleCivicService`). |
-| **Voting Information Project feeds** | the state-published XML behind Google Civic — official URLs + measures | `civic:pull-measures` — **stub**. Fallback for when the Civic API degrades. |
+| **NASS "Can I Vote" directory** | the 51 state elections sites, authoritative | curated into `config('civic.state_election_sites')` (13 states so far); used by `civic:resolve-official-urls` as the state-row fallback and by `civic:verify-sources` to check — hand-extend it |
+| **Google Civic `voterInfoQuery`** | per-address `electionAdministrationBody` URLs **and** `Referendum` contests with `referendumTitle` / `referendumText` / `referendumUrl` | **`civic:resolve-official-urls` (done)** for URLs; `civic:pull-measures` (TODO) for measures. Only the *Representatives* endpoint was retired (Apr 2025); `voterInfoQuery` is still live via `GoogleCivicService::voterInfoQuery()`. Key: `GOOGLE_CIVIC_API_KEY`. |
+| **Voting Information Project feeds** | the state-published XML behind Google Civic — official URLs + measures | `civic:pull-measures` — **TODO**. Fallback for when the Civic API degrades. |
 | **Ballotpedia** | fullest single scrape target for measure text / analysis; API (paid) | key wired as `BALLOTPEDIA_API_KEY`; see [LOCAL_CANDIDATES_INTEGRATION.md](LOCAL_CANDIDATES_INTEGRATION.md) |
 
 ## Pipeline
@@ -85,10 +86,13 @@ streams it and keeps only the top-level `.../county:<x>` rows.
 1. civic:seed-jurisdictions   ← implemented (states + counties; municipal/eac stubbed)
       creates rows + OCD keys + level/state/name
 
-2. civic:resolve-official-urls   ← TODO
+2. civic:resolve-official-urls   ← implemented
       per row: Google Civic voterInfoQuery on a representative address
-      (county-seat centroid) → electionAdministrationBody URLs;
-      infer `vendor` from the resolved hostname; NASS list for state rows
+      (state → "<capital>, <ST>"; county → "<jurisdiction_name>, <ST>")
+      → authority_name + electionAdministrationBody URLs (statewide for
+      state rows, local_jurisdiction for county rows); infer `vendor` from
+      the resolved hostname; state rows with no Civic URL fall back to
+      config('civic.state_election_sites'). Stamps source_of_record=google_civic.
 
 3. civic:pull-measures   ← TODO
       where Civic / VIP already return Referendum contests, ingest straight
@@ -100,7 +104,7 @@ streams it and keeps only the top-level `.../county:<x>` rows.
       re-classify vendor, stamp last_verified_at
 ```
 
-Only step 1 exists today. Steps 2–4 are named here so the column set and the
+Steps 1–2 exist today. Steps 3–4 are named here so the column set and the
 `source_of_record` / `scrape_status` enums already anticipate them.
 
 ## `civic:seed-jurisdictions`
@@ -132,15 +136,48 @@ php artisan civic:seed-jurisdictions --refresh --dry-run
 Options: `--source` (`all` \| `states` \| `counties` \| `municipalities` \|
 `eac`), `--state`, `--file`, `--refresh`, `--dry-run`.
 
-> The URLs in `STATE_ELECTION_SITES` are **seed hints**, not verified truth —
-> `civic:verify-sources` is what confirms them.
+> The URLs in `config('civic.state_election_sites')` are **seed hints**, not
+> verified truth — `civic:verify-sources` is what confirms them.
+
+## `civic:resolve-official-urls`
+
+Reads `election_data_sources` rows and fills `authority_name`, the URLs, and
+`vendor` from Google Civic's `voterInfoQuery`. Needs `GOOGLE_CIVIC_API_KEY`.
+
+`voterInfoQuery` returns data only when the Voting Information Project has a
+feed for that address + election — in practice the weeks around an election.
+Between elections it returns nothing and the command reports **No data** for
+those rows (state rows still get their `config('civic.state_election_sites')`
+URL via the fallback path). Run it repeatedly as an election approaches.
+
+```bash
+# Everything due for a refresh (state + county)
+php artisan civic:resolve-official-urls
+
+# One state's counties, pacing the API
+php artisan civic:resolve-official-urls --state=CA --level=county --sleep=400
+
+# Force a specific Civic election id (see it via the run header / tinker
+# GoogleCivicService::listUpcomingElections)
+php artisan civic:resolve-official-urls --election-id=9468 --limit=100
+
+# Only rows still missing URLs; preview
+php artisan civic:resolve-official-urls --only-missing --refresh --dry-run
+```
+
+Options: `--state`, `--level` (`all`\|`state`\|`county`), `--election-id`,
+`--stale-days=45` (skip rows verified more recently; `0` = ignore), `--limit=500`,
+`--only-missing`, `--sleep=250` (ms between API calls), `--refresh`, `--dry-run`.
+
+Idempotent. Without `--refresh` it only fills blank columns; `source_of_record`
+is upgraded to `google_civic` only from `manual` / `census` / `nass` / empty.
 
 ### First run
 
 ```bash
-php artisan migrate            # creates election_data_sources
-php artisan civic:seed-jurisdictions --dry-run
-php artisan civic:seed-jurisdictions
+php artisan migrate                       # creates election_data_sources
+php artisan civic:seed-jurisdictions      # ~3,100 rows: 51 states + counties
+php artisan civic:resolve-official-urls   # fill authority + URLs where Civic has a feed
 ```
 
 ## Vendor-family scrapers
@@ -151,18 +188,20 @@ Many a county's "official site" is actually a vendor subdomain
 scraper works for one county it works for all of them. The registry's job is to
 tell the scraper which adapter to run for a given `ocd_id`.
 
-## Scheduling (once steps 2–4 land)
+## Scheduling
 
-Add to `routes/console.php`, mirroring the existing `imports:*` cadence:
+Add to `routes/console.php`, mirroring the existing `imports:*` cadence. Steps
+1–2 can be scheduled now; 3–4 once they land.
 
 ```php
 // Monthly — jurisdiction set barely changes
 Schedule::command('civic:seed-jurisdictions')->monthlyOn(1, '02:00')->withoutOverlapping();
-// After a seed — refresh official URLs
-Schedule::command('civic:resolve-official-urls --stale-days=45')->weeklyOn(1, '02:30')->withoutOverlapping();
-// Weekly health check
+// Weekly — refresh official URLs; runs more usefully as an election nears
+Schedule::command('civic:resolve-official-urls --stale-days=45 --sleep=400')
+    ->weeklyOn(1, '02:30')->withoutOverlapping()->runInBackground();
+// Weekly health check (TODO)
 Schedule::command('civic:verify-sources')->weeklyOn(1, '03:00')->withoutOverlapping();
-// Around elections — pull measures more often
+// Around elections — pull measures more often (TODO)
 Schedule::command('civic:pull-measures')->dailyAt('02:15')->withoutOverlapping();
 ```
 
@@ -177,9 +216,12 @@ Schedule::command('civic:pull-measures')->dailyAt('02:15')->withoutOverlapping()
 
 ## Open items
 
+- [x] `civic:seed-jurisdictions` — states + counties (with `county_fips`).
+- [x] `civic:resolve-official-urls` + `GoogleCivicService::voterInfoQuery()`.
 - [ ] Implement `seedMunicipalities()` — Census places + curated allow-list.
 - [ ] Implement `seedFromEac()` — EAVS jurisdiction export → `authority_name`, `county_fips`, townships.
-- [ ] Build `civic:resolve-official-urls` on `GoogleCivicService` (needs a `voterInfoQuery` method — only `getElectionsByAddress` exists today).
-- [ ] Build `civic:pull-measures` and the first `platform_template` adapter (`voteinfo.net`).
+- [ ] Build `civic:pull-measures` and the first `platform_template` adapter (`voteinfo_net`).
 - [ ] Build `civic:verify-sources` + wire an `/admin/imports`-style health panel.
-- [ ] Decide the "representative address" per county for `voterInfoQuery` (county-seat centroid vs. a known valid residential address).
+- [ ] Extend `config('civic.state_election_sites')` past the initial 13 states (NASS "Can I Vote" directory).
+- [ ] Revisit the county "representative address" — `"<county>, <ST>"` geocodes fine for Civic, but a county-seat street address may resolve the `local_jurisdiction` body more reliably in split jurisdictions.
+- [ ] `voterInfoQuery` auto-picks the first Civic election id per state; when a state has concurrent elections (primary + special), pass `--election-id` explicitly.

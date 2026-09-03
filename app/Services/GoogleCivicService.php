@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -23,8 +24,12 @@ use Illuminate\Support\Facades\Log;
 class GoogleCivicService
 {
     protected string $baseUrl = 'https://civicinfo.googleapis.com/civicinfo/v2';
+
     protected ?string $apiKey;
+
     protected int $cacheDuration = 604800; // 7 days (not often changed)
+
+    protected int $voterInfoCacheDuration = 86400; // 1 day — VIP data shifts as an election nears
 
     public function __construct()
     {
@@ -36,25 +41,26 @@ class GoogleCivicService
      */
     public function isConfigured(): bool
     {
-        return !empty($this->apiKey);
+        return ! empty($this->apiKey);
     }
 
     /**
-    * Get elected officials for a given address
-    *
+     * Get elected officials for a given address
+     *
      * Returns federal, state, and local representatives for an address.
-    *
-     * @param string $address Full address (e.g., "123 Main St, Austin, TX 78701")
+     *
+     * @param  string  $address  Full address (e.g., "123 Main St, Austin, TX 78701")
      * @return array|null Array of officials or null on error
      */
     public function getOfficialsByAddress(string $address): ?array
     {
-        if (!$this->isConfigured()) {
+        if (! $this->isConfigured()) {
             Log::warning('GoogleCivicService: API key not configured');
+
             return null;
         }
 
-        $cacheKey = 'google_civic.officials.' . md5(strtolower($address));
+        $cacheKey = 'google_civic.officials.'.md5(strtolower($address));
 
         return Cache::remember($cacheKey, $this->cacheDuration, function () use ($address) {
             $parsedOfficials = null;
@@ -62,7 +68,7 @@ class GoogleCivicService
             try {
                 $response = $this->requestRepresentatives($address, 'officials_lookup');
 
-                if ($response !== null && !$response->successful()) {
+                if ($response !== null && ! $response->successful()) {
                     Log::warning('GoogleCivicService: API request failed', [
                         'status' => $response->status(),
                         'address' => $address,
@@ -101,7 +107,7 @@ class GoogleCivicService
             return null;
         }
 
-        $cacheKey = 'google_civic.district.' . md5(strtolower($address));
+        $cacheKey = 'google_civic.district.'.md5(strtolower($address));
 
         return Cache::remember($cacheKey, $this->cacheDuration, function () use ($address) {
             $resolved = null;
@@ -161,7 +167,7 @@ class GoogleCivicService
         });
     }
 
-    protected function requestDivisionsByAddress(string $address, string $context): ?\Illuminate\Http\Client\Response
+    protected function requestDivisionsByAddress(string $address, string $context): ?Response
     {
         try {
             return Http::timeout(10)
@@ -180,7 +186,7 @@ class GoogleCivicService
         }
     }
 
-    protected function requestRepresentatives(string $address, string $context): ?\Illuminate\Http\Client\Response
+    protected function requestRepresentatives(string $address, string $context): ?Response
     {
         $urls = [
             'https://www.googleapis.com/civicinfo/v2',
@@ -231,18 +237,18 @@ class GoogleCivicService
     }
 
     /**
-    * Get election information for an address
-    *
-     * @param string $address Full address
+     * Get election information for an address
+     *
+     * @param  string  $address  Full address
      * @return array|null Election data or null on error
      */
     public function getElectionsByAddress(string $address): ?array
     {
-        if (!$this->isConfigured()) {
+        if (! $this->isConfigured()) {
             return null;
         }
 
-        $cacheKey = 'google_civic.elections.' . md5(strtolower($address));
+        $cacheKey = 'google_civic.elections.'.md5(strtolower($address));
 
         return Cache::remember($cacheKey, $this->cacheDuration, function () use ($address) {
             try {
@@ -252,7 +258,7 @@ class GoogleCivicService
                         'key' => $this->apiKey,
                     ]);
 
-                if (!$response->successful()) {
+                if (! $response->successful()) {
                     return null;
                 }
 
@@ -263,9 +269,152 @@ class GoogleCivicService
                     'address' => $address,
                     'error' => $e->getMessage(),
                 ]);
+
                 return null;
             }
         });
+    }
+
+    /**
+     * Google Civic voterInfoQuery — per-address voter information for one
+     * election: the official election-administration bodies (statewide plus
+     * the local jurisdiction that actually runs the ballot) with their URLs,
+     * and any ballot measures on that ballot (Referendum contests).
+     *
+     * Only the /representatives endpoint was retired (April 2025); /voterinfo,
+     * backed by the Voting Information Project feed, is still live. It returns
+     * data only when VIP has a feed covering that address for that election —
+     * in practice the weeks around an election — otherwise the API responds
+     * 400 with "Election unknown" / "No election data", which we treat as
+     * "nothing available yet" and return null (not an error).
+     *
+     * @param  string  $address  A geocodable address; "City, ST" is enough.
+     * @param  string|null  $electionId  Civic election id; omit to let Civic
+     *                                   pick the next election for the address.
+     * @return array{
+     *   election: array{id: string, name: string, day: ?string, ocd_id: ?string}|null,
+     *   admin_bodies: list<array<string, mixed>>,
+     *   referendums: list<array<string, mixed>>,
+     * }|null
+     */
+    public function voterInfoQuery(string $address, ?string $electionId = null): ?array
+    {
+        if (! $this->isConfigured()) {
+            return null;
+        }
+
+        $cacheKey = 'google_civic.voterinfo.'.md5(strtolower($address).'|'.($electionId ?? ''));
+
+        return Cache::remember($cacheKey, $this->voterInfoCacheDuration, function () use ($address, $electionId) {
+            try {
+                $response = Http::timeout(15)->get("{$this->baseUrl}/voterinfo", array_filter([
+                    'address' => $address,
+                    'electionId' => $electionId,
+                    'key' => $this->apiKey,
+                ], fn ($v) => $v !== null && $v !== ''));
+
+                if ($response->status() === 400) {
+                    // "Election unknown" / no VIP feed for this address+election.
+                    return null;
+                }
+
+                if (! $response->successful()) {
+                    Log::warning('GoogleCivicService: voterInfoQuery failed', [
+                        'status' => $response->status(),
+                        'address' => $address,
+                        'election_id' => $electionId,
+                        'body_excerpt' => mb_substr($response->body(), 0, 300),
+                    ]);
+
+                    return null;
+                }
+
+                $data = $response->json();
+
+                $election = null;
+                if (! empty($data['election'])) {
+                    $election = [
+                        'id' => (string) ($data['election']['id'] ?? ''),
+                        'name' => (string) ($data['election']['name'] ?? ''),
+                        'day' => $data['election']['electionDay'] ?? null,
+                        'ocd_id' => $data['election']['ocdDivisionId'] ?? null,
+                    ];
+                }
+
+                $referendums = [];
+                foreach ($data['contests'] ?? [] as $contest) {
+                    if (($contest['type'] ?? '') !== 'Referendum') {
+                        continue;
+                    }
+                    $referendums[] = [
+                        'title' => $contest['referendumTitle'] ?? null,
+                        'subtitle' => $contest['referendumSubtitle'] ?? null,
+                        'text' => $contest['referendumText'] ?? null,
+                        'url' => $contest['referendumUrl'] ?? null,
+                        'ballot_responses' => $contest['referendumBallotResponses'] ?? [],
+                        'pro_statement' => $contest['referendumProStatement'] ?? null,
+                        'con_statement' => $contest['referendumConStatement'] ?? null,
+                        'passage_threshold' => $contest['referendumPassageThreshold'] ?? null,
+                        'district_name' => $contest['district']['name'] ?? null,
+                        'district_scope' => $contest['district']['scope'] ?? null,
+                    ];
+                }
+
+                return [
+                    'election' => $election,
+                    'admin_bodies' => $this->flattenAdministrationBodies($data['state'] ?? []),
+                    'referendums' => $referendums,
+                ];
+            } catch (\Throwable $e) {
+                Log::error('GoogleCivicService: voterInfoQuery threw', [
+                    'address' => $address,
+                    'election_id' => $electionId,
+                    'error' => $e->getMessage(),
+                ]);
+
+                return null;
+            }
+        });
+    }
+
+    /**
+     * Walk the state → local_jurisdiction chain Civic returns under `state`
+     * and pull each level's electionAdministrationBody into a flat list,
+     * tagged with the scope it came from.
+     *
+     * @param  array<int, array<string, mixed>>  $states
+     * @return list<array<string, mixed>>
+     */
+    protected function flattenAdministrationBodies(array $states): array
+    {
+        $bodies = [];
+
+        foreach ($states as $node) {
+            $scope = 'state';
+            while (is_array($node)) {
+                $body = $node['electionAdministrationBody'] ?? null;
+                if (is_array($body)) {
+                    $bodies[] = [
+                        'scope' => $scope,
+                        'jurisdiction_name' => $node['name'] ?? null,
+                        'ocd_id' => $node['id'] ?? null,
+                        'name' => $body['name'] ?? null,
+                        'election_info_url' => $body['electionInfoUrl'] ?? null,
+                        'ballot_info_url' => $body['ballotInfoUrl'] ?? null,
+                        'registration_url' => $body['electionRegistrationUrl'] ?? null,
+                        'registration_confirmation_url' => $body['electionRegistrationConfirmationUrl'] ?? null,
+                        'absentee_voting_info_url' => $body['absenteeVotingInfoUrl'] ?? null,
+                        'voting_location_finder_url' => $body['votingLocationFinderUrl'] ?? null,
+                        'ballot_tracking_url' => $body['ballotTrackingUrl'] ?? null,
+                    ];
+                }
+
+                $node = $node['local_jurisdiction'] ?? null;
+                $scope = 'local';
+            }
+        }
+
+        return $bodies;
     }
 
     /**
@@ -287,7 +436,7 @@ class GoogleCivicService
      */
     public function listUpcomingElections(): array
     {
-        if (!$this->isConfigured()) {
+        if (! $this->isConfigured()) {
             return [];
         }
 
@@ -297,10 +446,11 @@ class GoogleCivicService
                     'key' => $this->apiKey,
                 ]);
 
-                if (!$response->successful()) {
+                if (! $response->successful()) {
                     Log::warning('GoogleCivicService: elections query failed', [
                         'status' => $response->status(),
                     ]);
+
                     return [];
                 }
 
@@ -308,7 +458,7 @@ class GoogleCivicService
 
                 foreach ($response->json('elections', []) as $election) {
                     $ocdId = (string) ($election['ocdDivisionId'] ?? '');
-                    if (!preg_match('#country:us/state:([a-z]{2})(?:$|/)#i', $ocdId, $m)) {
+                    if (! preg_match('#country:us/state:([a-z]{2})(?:$|/)#i', $ocdId, $m)) {
                         continue;
                     }
 
@@ -323,6 +473,7 @@ class GoogleCivicService
                 return $normalized;
             } catch (\Exception $e) {
                 Log::error('GoogleCivicService: Failed to fetch elections', ['error' => $e->getMessage()]);
+
                 return [];
             }
         });
@@ -343,9 +494,9 @@ class GoogleCivicService
     }
 
     /**
-    * Parse officials response into candidate-like records
-    *
-     * @param array $data API response from Google Civic
+     * Parse officials response into candidate-like records
+     *
+     * @param  array  $data  API response from Google Civic
      * @return array Parsed officials as candidate records
      */
     protected function parseOfficials(array $data): array
@@ -368,13 +519,13 @@ class GoogleCivicService
             $division = $this->parseDivision($divisionId);
 
             foreach ($office['officialIndices'] ?? [] as $idx) {
-                if (!isset($officials[$idx])) {
+                if (! isset($officials[$idx])) {
                     continue;
                 }
 
                 $official = $officials[$idx];
                 $parsed[] = [
-                    'full_name'        => $this->buildFullName($official),
+                    'full_name' => $this->buildFullName($official),
                     'political_office' => $name,
                     // If Google Civic didn't return a usable 'levels' value,
                     // mapGovernanceLevel() falls back to 'Local' — right for
@@ -386,18 +537,18 @@ class GoogleCivicService
                     'governance_level' => $level !== null && $level !== ''
                         ? $this->mapGovernanceLevel($level)
                         : ($this->inferGovernanceLevelFromOfficeName($name) ?? $this->mapGovernanceLevel($level)),
-                    'roles'            => is_array($roles) ? $roles : [],
-                    'state'            => $division['state'],
-                    'district_number'  => $division['district_number'],
-                    'district_code'    => $division['district_code'],
-                    'party_affiliation'=> $official['party'] ?? null,
-                    'phone'            => $official['phones'][0] ?? null,
-                    'email'            => $official['emails'][0] ?? null,
-                    'website'          => $official['urls'][0] ?? null,
-                    'photo_url'        => $official['photoUrl'] ?? null,
-                    'address'          => $this->formatAddress($official['address'][0] ?? []),
-                    'source'           => 'google_civic',
-                    'external_id'      => 'google_civic_' . md5($name . ($official['name'] ?? '')),
+                    'roles' => is_array($roles) ? $roles : [],
+                    'state' => $division['state'],
+                    'district_number' => $division['district_number'],
+                    'district_code' => $division['district_code'],
+                    'party_affiliation' => $official['party'] ?? null,
+                    'phone' => $official['phones'][0] ?? null,
+                    'email' => $official['emails'][0] ?? null,
+                    'website' => $official['urls'][0] ?? null,
+                    'photo_url' => $official['photoUrl'] ?? null,
+                    'address' => $this->formatAddress($official['address'][0] ?? []),
+                    'source' => 'google_civic',
+                    'external_id' => 'google_civic_'.md5($name.($official['name'] ?? '')),
                 ];
             }
         }
@@ -423,12 +574,12 @@ class GoogleCivicService
     protected function mapGovernanceLevel(?string $level): string
     {
         return match (strtolower((string) $level)) {
-            'federal'            => 'Federal',
+            'federal' => 'Federal',
             'state',
-            'administrativearea1'=> 'State',
-            'administrativearea2'=> 'County',
+            'administrativearea1' => 'State',
+            'administrativearea2' => 'County',
             'locality', 'local', 'regional', 'special' => 'City',
-            default              => 'Local',
+            default => 'Local',
         };
     }
 
@@ -474,7 +625,7 @@ class GoogleCivicService
      */
     protected function extractState(?string $divisionId): ?string
     {
-        if (!$divisionId) {
+        if (! $divisionId) {
             return null;
         }
 
@@ -515,7 +666,7 @@ class GoogleCivicService
     }
 
     /**
-     * @param array<int, array<string, mixed>> $offices
+     * @param  array<int, array<string, mixed>>  $offices
      * @return array{state: string, district_number: string|null}|null
      */
     protected function extractDistrictFromOffices(array $offices): ?array
@@ -542,7 +693,7 @@ class GoogleCivicService
     }
 
     /**
-     * @param array<int, string> $divisionKeys
+     * @param  array<int, string>  $divisionKeys
      * @return array{state: string, district_number: string|null}|null
      */
     protected function extractDistrictFromDivisionKeys(array $divisionKeys): ?array
@@ -568,7 +719,7 @@ class GoogleCivicService
         }
 
         if ($districtNumber === 'AL') {
-            return $state . '-AL';
+            return $state.'-AL';
         }
 
         return sprintf('%s-%02d', $state, (int) $districtNumber);
@@ -582,7 +733,7 @@ class GoogleCivicService
         }
 
         if ($districtNumber === 'AL') {
-            return $state . ' At-Large Congressional District';
+            return $state.' At-Large Congressional District';
         }
 
         $num = (int) $districtNumber;
@@ -594,14 +745,14 @@ class GoogleCivicService
     {
         $mod100 = $number % 100;
         if ($mod100 >= 11 && $mod100 <= 13) {
-            return $number . 'th';
+            return $number.'th';
         }
 
         return match ($number % 10) {
-            1 => $number . 'st',
-            2 => $number . 'nd',
-            3 => $number . 'rd',
-            default => $number . 'th',
+            1 => $number.'st',
+            2 => $number.'nd',
+            3 => $number.'rd',
+            default => $number.'th',
         };
     }
 
@@ -619,6 +770,6 @@ class GoogleCivicService
             $addr['zip'] ?? '',
         ]);
 
-        return !empty($parts) ? implode(', ', $parts) : null;
+        return ! empty($parts) ? implode(', ', $parts) : null;
     }
 }
