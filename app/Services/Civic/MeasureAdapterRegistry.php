@@ -4,6 +4,7 @@ namespace App\Services\Civic;
 
 use App\Models\ElectionDataSource;
 use App\Services\Civic\Adapters\GenericHtmlMeasureAdapter;
+use App\Services\Civic\Adapters\WikipediaBallotMeasuresAdapter;
 
 /**
  * Resolves the right BallotMeasureAdapter for a registry row.
@@ -23,7 +24,7 @@ class MeasureAdapterRegistry
      */
     public function __construct(?iterable $adapters = null)
     {
-        foreach ($adapters ?? [new GenericHtmlMeasureAdapter] as $adapter) {
+        foreach ($adapters ?? [new GenericHtmlMeasureAdapter, new WikipediaBallotMeasuresAdapter] as $adapter) {
             $this->adapters[$adapter->key()] = $adapter;
         }
     }

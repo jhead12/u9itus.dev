@@ -27,14 +27,25 @@ class BallotMeasureWriter
      */
     public function upsert(array $attrs, bool $refresh = false, bool $dryRun = false): string
     {
+        $number = $attrs['measure_number'] ?? null;
+
         $existing = BallotMeasure::query()
             ->where('state', $attrs['state'])
-            ->where('title', $attrs['title'])
             ->when(
                 ($attrs['election_date'] ?? null) !== null,
                 fn ($q) => $q->whereDate('election_date', $attrs['election_date']),
                 fn ($q) => $q->whereNull('election_date'),
             )
+            // Match on the exact title, or — within the same state + election —
+            // on the measure number, so a fuller title from a second source
+            // (e.g. Wikipedia vs. a hand CSV) enriches the row instead of
+            // duplicating it.
+            ->where(function ($q) use ($attrs, $number) {
+                $q->where('title', $attrs['title']);
+                if ($number !== null && $number !== '') {
+                    $q->orWhere('measure_number', $number);
+                }
+            })
             ->first();
 
         if ($existing === null) {
@@ -82,8 +93,11 @@ class BallotMeasureWriter
 
     /**
      * Normalize a scraped/parsed measure into ballot_measures column values.
+     * yes_meaning / no_meaning / status are passed through when the source
+     * supplies them (Wikipedia's "result of a Yes vote" column, a status of
+     * approved/defeated); otherwise they fall back to null / 'upcoming'.
      *
-     * @param  array{title: string, measure_number?: ?string, summary?: ?string, source_url?: ?string}  $measure
+     * @param  array{title: string, measure_number?: ?string, summary?: ?string, yes_meaning?: ?string, no_meaning?: ?string, status?: ?string, source_url?: ?string}  $measure
      * @return array<string, mixed>|null null when there's no usable title
      */
     public static function normalize(array $measure, string $state, ?string $county, ?string $electionDate, string $source, ?string $fallbackUrl = null): ?array
@@ -93,16 +107,20 @@ class BallotMeasureWriter
             return null;
         }
 
+        $clean = fn ($v, int $len) => ($s = trim((string) ($v ?? ''))) !== '' ? Str::limit($s, $len) : null;
+
         return [
             'state' => $state,
             'county' => $county ? Str::limit($county, 100, '') : null,
             'measure_number' => $measure['measure_number'] ?? self::parseMeasureNumber($title),
             'title' => Str::limit($title, 255, ''),
-            'summary' => ($s = trim((string) ($measure['summary'] ?? ''))) !== '' ? Str::limit($s, 1000) : null,
-            'yes_meaning' => null,
-            'no_meaning' => null,
+            'summary' => $clean($measure['summary'] ?? null, 1000),
+            'yes_meaning' => $clean($measure['yes_meaning'] ?? null, 1000),
+            'no_meaning' => $clean($measure['no_meaning'] ?? null, 1000),
             'election_date' => $electionDate,
-            'status' => 'upcoming',
+            'status' => in_array($measure['status'] ?? null, ['upcoming', 'passed', 'failed'], true)
+                ? $measure['status']
+                : 'upcoming',
             'source' => $source,
             'source_url' => $measure['source_url'] ?? $fallbackUrl,
         ];

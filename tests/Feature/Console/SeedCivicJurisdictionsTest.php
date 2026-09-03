@@ -5,18 +5,19 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
 
-it('seeds all 51 state rows offline with curated URLs where configured', function () {
+it('seeds all 51 state rows offline with curated URLs and the wikipedia adapter', function () {
     $this->artisan('civic:seed-jurisdictions', ['--source' => 'states'])->assertExitCode(0);
 
-    expect(ElectionDataSource::where('level', 'state')->count())->toBe(51);
+    $states = ElectionDataSource::where('level', 'state')->get();
+    expect($states)->toHaveCount(51)
+        ->and($states->whereNull('elections_home_url'))->toHaveCount(0)
+        ->and($states->where('platform_template', '!=', 'wikipedia'))->toHaveCount(0);
 
     $ca = ElectionDataSource::firstWhere('ocd_id', 'ocd-division/country:us/state:ca');
     expect($ca->jurisdiction_name)->toBe('California')
         ->and($ca->source_of_record)->toBe('nass')
-        ->and($ca->elections_home_url)->toBe(config('civic.state_election_sites.CA'));
-
-    // A state with no curated URL is still seeded, just without one.
-    expect(ElectionDataSource::firstWhere('state', 'NE')->elections_home_url)->toBeNull();
+        ->and($ca->elections_home_url)->toBe(config('civic.state_election_sites.CA'))
+        ->and($ca->platform_template)->toBe('wikipedia');
 });
 
 it('is idempotent — a second run writes nothing', function () {

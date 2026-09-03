@@ -59,10 +59,19 @@ class ScrapeCivicBallotMeasures extends Command
         $dryRun = (bool) $this->option('dry-run');
 
         $rows = ElectionDataSource::query()
-            ->where(fn ($q) => $q->whereNotNull('ballot_measures_url')->orWhereNotNull('sample_ballot_url'))
-            ->where(fn ($q) => $q->whereNotNull('platform_template')->orWhereNotNull('vendor'))
-            ->where(fn ($q) => $q->whereNull('robots_ok')->orWhere('robots_ok', true))
-            ->whereNotIn('scrape_status', ['dead', 'blocked'])
+            ->where(function ($q) {
+                // Rows whose OWN page we fetch: need a live, allowed URL and a
+                // vendor to pick an adapter.
+                $q->where(fn ($q) => $q
+                    ->whereNotNull('vendor')
+                    ->where(fn ($q) => $q->whereNotNull('ballot_measures_url')->orWhereNotNull('sample_ballot_url'))
+                    ->where(fn ($q) => $q->whereNull('robots_ok')->orWhere('robots_ok', true))
+                    ->whereNotIn('scrape_status', ['dead', 'blocked']))
+                    // Rows with a self-sufficient adapter named directly
+                    // (e.g. platform_template = 'wikipedia', which fetches its
+                    // own source and ignores the row's URL / health).
+                    ->orWhereNotNull('platform_template');
+            })
             ->when($stateFilter, fn ($q) => $q->where('state', $stateFilter))
             ->when($vendorFilter, fn ($q) => $q->where('vendor', $vendorFilter))
             ->orderBy('state')

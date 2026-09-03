@@ -157,6 +157,9 @@ class SeedCivicJurisdictions extends Command
                 'source_of_record' => 'nass',
             ], fillable: [
                 'elections_home_url' => config("civic.state_election_sites.{$usps}"),
+                // Statewide measures are pulled from the Wikipedia article by
+                // civic:scrape-measures when there's no VIP feed yet.
+                'platform_template' => 'wikipedia',
             ]);
 
             $this->line("  {$usps}  {$name}  [{$result}]");

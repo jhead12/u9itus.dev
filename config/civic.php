@@ -23,28 +23,76 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Curated statewide elections landing pages
-    |--------------------------------------------------------------------------
-    | Seed hints for election_data_sources.elections_home_url on `state` rows.
-    | Only states we're confident of are listed; the rest are resolved by
-    | civic:resolve-official-urls and confirmed by civic:verify-sources.
-    | Source of truth: NASS "Can I Vote" directory — https://www.nass.org/can-i-vote
-    | Treat every entry as a hint, not verified truth.
+    | Statewide elections landing pages (Secretary of State / State Board of
+    | Elections). Seed hints for election_data_sources.elections_home_url on
+    | `state` rows — civic:verify-sources HEAD-checks each and --rewrite-redirects
+    | fixes any that moved. A `blocked` result is usually a bot wall, not a dead
+    | page. NASS "Can I Vote" directory is the reference: https://www.nass.org/can-i-vote
     */
     'state_election_sites' => [
+        'AL' => 'https://www.sos.alabama.gov/alabama-votes',
+        'AK' => 'https://www.elections.alaska.gov/',
         'AZ' => 'https://azsos.gov/elections',
+        'AR' => 'https://www.sos.arkansas.gov/elections',
         'CA' => 'https://www.sos.ca.gov/elections',
         'CO' => 'https://www.sos.state.co.us/pubs/elections/main.html',
+        'CT' => 'https://portal.ct.gov/sots/elections',
+        'DE' => 'https://elections.delaware.gov/',
+        'DC' => 'https://dcboe.org/',
         'FL' => 'https://dos.fl.gov/elections/',
         'GA' => 'https://sos.ga.gov/elections-division-georgia-secretary-states-office',
+        'HI' => 'https://elections.hawaii.gov/',
+        'ID' => 'https://voteidaho.gov/',
+        'IL' => 'https://www.elections.il.gov/',
+        'IN' => 'https://www.in.gov/sos/elections/',
+        'IA' => 'https://sos.iowa.gov/',
+        'KS' => 'https://sos.ks.gov/elections/elections.html',
+        'KY' => 'https://www.sos.ky.gov/elections/',
+        'LA' => 'https://www.sos.la.gov/',
+        'ME' => 'https://www.maine.gov/sos/elections-voting',
+        'MD' => 'https://elections.maryland.gov/',
+        'MA' => 'https://www.sec.state.ma.us/divisions/elections/elections-and-voting.htm',
         'MI' => 'https://www.michigan.gov/sos/elections',
-        'NC' => 'https://www.ncsbe.gov/',
+        'MN' => 'https://www.sos.state.mn.us/elections-voting/',
+        'MS' => 'https://www.sos.ms.gov/elections-voting',
+        'MO' => 'https://www.sos.mo.gov/elections',
+        'MT' => 'https://sosmt.gov/elections/',
+        'NE' => 'https://sos.nebraska.gov/elections',
+        'NV' => 'https://www.nvsos.gov/sos/elections',
+        'NH' => 'https://www.sos.nh.gov/elections',
+        'NJ' => 'https://www.nj.gov/state/elections/',
+        'NM' => 'https://www.sos.nm.gov/voting-and-elections/',
         'NY' => 'https://www.elections.ny.gov/',
+        'NC' => 'https://www.ncsbe.gov/',
+        'ND' => 'https://www.sos.nd.gov/elections',
         'OH' => 'https://www.ohiosos.gov/elections/',
-        'PA' => 'https://www.vote.pa.gov/',
+        'OK' => 'https://oklahoma.gov/elections.html',
+        'OR' => 'https://sos.oregon.gov/elections/pages/default.aspx',
+        'PA' => 'https://www.pa.gov/agencies/vote',
+        'RI' => 'https://elections.ri.gov/',
+        'SC' => 'https://scvotes.gov/',
+        'SD' => 'https://sdsos.gov/elections-voting/',
+        'TN' => 'https://sos.tn.gov/elections',
         'TX' => 'https://www.sos.state.tx.us/elections/',
+        'UT' => 'https://vote.utah.gov/',
+        'VT' => 'https://sos.vermont.gov/elections/',
         'VA' => 'https://www.elections.virginia.gov/',
         'WA' => 'https://www.sos.wa.gov/elections',
+        'WV' => 'https://sos.wv.gov/elections/',
+        'WI' => 'https://elections.wi.gov/',
+        'WY' => 'https://sos.wyo.gov/Elections/',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Wikipedia ballot-measure adapter (WikipediaBallotMeasuresAdapter)
+    |--------------------------------------------------------------------------
+    | Parses the per-state tables in "<year> United States ballot measures".
+    | One page covers every state; the "Description" column fills yes_meaning.
+    */
+    'wikipedia' => [
+        'year' => (int) env('CIVIC_WIKIPEDIA_YEAR', 2026),
+        'article' => env('CIVIC_WIKIPEDIA_ARTICLE'), // null => "<year> United States ballot measures"
     ],
 
     /*

@@ -14,7 +14,7 @@ vendor page listing local measures.
 - **Config**: `config/civic.php` — verifier UA/timeout, curated state URLs, state capitals, vendor host map, HTML-adapter map
 - **Commands** (all `civic:*`): `seed-jurisdictions`, `resolve-official-urls`, `pull-measures`, `scrape-measures`, `verify-sources`
 - **Shared**: `App\Support\CivicVendorClassifier` (URL host → vendor slug), `App\Support\BallotMeasureWriter` (one dedup/provenance rule for every ingest path), `GoogleCivicService::voterInfoQuery()`
-- **Adapters**: `App\Services\Civic\BallotMeasureAdapter` + `MeasureAdapterRegistry`; `Adapters\GenericHtmlMeasureAdapter` is the default
+- **Adapters**: `App\Services\Civic\BallotMeasureAdapter` + `MeasureAdapterRegistry`; `Adapters\GenericHtmlMeasureAdapter` (per-vendor county pages) and `Adapters\WikipediaBallotMeasuresAdapter` (statewide, all states, one article — fills `yes_meaning`)
 - **Measure content stays in**: `ballot_measures` (`App\Models\BallotMeasure`) — this registry only holds *where to look*.
 
 ## Why a registry instead of crawling
@@ -77,7 +77,8 @@ streams it and keeps only the top-level `.../county:<x>` rows.
 | **OpenCivicData master CSV** (`country-us.csv`) | ~3,100 `county` rows with OCD IDs + `county_fips` (from `census_geoid`) | `civic:seed-jurisdictions --source=counties` (streamed over HTTP, or `--file`) |
 | **EAC EAVS jurisdiction list** | authority names, `county_fips`, New England townships | `--source=eac --file=…` — [eac.gov EAVS](https://www.eac.gov/research-and-data/election-administration-voting-survey) / [data.gov](https://catalog.data.gov/dataset/eac-data) — **stub, not implemented** |
 | **Census places / gazetteer** | `municipal` rows + `place_fips` | `--source=municipalities` — pair with a curated allow-list — **stub, not implemented** |
-| **NASS "Can I Vote" directory** | the 51 state elections sites, authoritative | curated into `config('civic.state_election_sites')` (13 states so far); used by `civic:resolve-official-urls` as the state-row fallback and by `civic:verify-sources` to check — hand-extend it |
+| **NASS "Can I Vote" directory** | the 51 state elections sites, authoritative | curated into `config('civic.state_election_sites')` (**all 51**); state-row fallback for `civic:resolve-official-urls`, checked by `civic:verify-sources` (~10 bot-wall a scraper but load fine in a browser) |
+| **Wikipedia — "<year> United States ballot measures"** | every state's certified statewide measures + a "result of a Yes vote" blurb, CC-BY-SA | `WikipediaBallotMeasuresAdapter` via `civic:scrape-measures` (state rows have `platform_template = 'wikipedia'`) |
 | **Google Civic `voterInfoQuery`** | per-address `electionAdministrationBody` URLs **and** `Referendum` contests with `referendumTitle` / `referendumText` / `referendumUrl` | **`civic:resolve-official-urls` (done)** for URLs; `civic:pull-measures` (TODO) for measures. Only the *Representatives* endpoint was retired (Apr 2025); `voterInfoQuery` is still live via `GoogleCivicService::voterInfoQuery()`. Key: `GOOGLE_CIVIC_API_KEY`. |
 | **Voting Information Project feeds** | the state-published XML behind Google Civic — official URLs + measures | `civic:pull-measures` — **TODO**. Fallback for when the Civic API degrades. |
 | **Ballotpedia** | fullest single scrape target for measure text / analysis; API (paid) | key wired as `BALLOTPEDIA_API_KEY`; see [LOCAL_CANDIDATES_INTEGRATION.md](LOCAL_CANDIDATES_INTEGRATION.md) |
@@ -104,10 +105,15 @@ streams it and keeps only the top-level `.../county:<x>` rows.
 
 3b. civic:scrape-measures   ← implemented (HTML-adapter path)
       for rows with a vendor / platform_template but no VIP feed: resolve a
-      BallotMeasureAdapter (default: GenericHtmlMeasureAdapter) and parse the
-      jurisdiction's own page. Same BallotMeasureWriter, so it can't clobber
-      a Ballotpedia/human measure. Skips rows verify marked dead/blocked or
-      robots-disallowed.
+      BallotMeasureAdapter and parse.
+        - state rows → platform_template='wikipedia' → WikipediaBallotMeasuresAdapter
+          reads the per-state tables in "<year> United States ballot measures"
+          (all states, one article; its Description column fills yes_meaning).
+        - county rows w/ a vendor → GenericHtmlMeasureAdapter (heuristic).
+      Same BallotMeasureWriter, so it can't clobber a Ballotpedia/human
+      measure; skips rows verify marked dead/blocked or robots-disallowed
+      (except self-sufficient adapters like wikipedia, which fetch their own
+      source).
 
 4. civic:verify-sources   ← implemented
       HEAD/GET each URL following redirects → scrape_status
@@ -233,15 +239,22 @@ feed. Per row: `MeasureAdapterRegistry::for($row)` resolves an adapter
 else none → skipped), which fetches and parses the row's `ballot_measures_url`
 (or `sample_ballot_url`).
 
-`GenericHtmlMeasureAdapter` is deliberately conservative: it only accepts short
-heading-like nodes that *start* with a measure label + designator ("Measure A",
-"Proposition 64", "Question 3"), pulls the following block(s) as the summary,
-caps results at 60 (more ⇒ it matched navigation ⇒ returns nothing), and reads
-the election date from the page title or a URL slug like `november-3-2026`.
-Results go through `BallotMeasureWriter` with `source = html_scrape`.
+**`WikipediaBallotMeasuresAdapter`** (`platform_template = 'wikipedia'`, set on
+every state row by `civic:seed-jurisdictions`) fetches the "<year> United States
+ballot measures" article once per run and returns just the target state's table
+rows: `Measure` → title + number, `Description (Result of a "yes" vote)` →
+`summary` **and `yes_meaning`**, `Date`/`Status` mapped. Covers all ~40 states
+with statewide measures from one page; year via `config('civic.wikipedia.year')`.
+
+**`GenericHtmlMeasureAdapter`** (county rows with a vendor) is deliberately
+conservative: only short heading-like nodes that *start* with a measure label +
+designator ("Measure A", "Proposition 64"), following block(s) as the summary,
+caps at 60, reads the date from the page title or a URL slug. `source = html_scrape`.
 
 Row selection excludes `scrape_status` `dead` / `blocked` and `robots_ok = false`
-— run `civic:verify-sources` first.
+for rows we fetch by their own URL; a `platform_template` row (e.g. wikipedia)
+is always included since its adapter fetches its own source. Run
+`civic:verify-sources` first for the URL-fetch adapters.
 
 ```bash
 php artisan civic:scrape-measures
@@ -337,11 +350,14 @@ Ballotpedia needs a paid key. So months before an election:
   By default it seeds the legally-fixed federal General date (Tue after 1st Mon
   of Nov, even years) for every state nothing else covered, `source = statutory`;
   `--no-statutory` turns that off.
-- **`ballot_measures`** — until the VIP feed fills in, load a curated CSV via
-  `php artisan ballot-measures:import <file>` (dedups on the same
-  state + title + date key). `database/seeders/ca-2026-ballot-measures.csv`
-  is the SoS-certified CA statewide list (`source = ca_sos`).
-  `civic:pull-measures` takes over automatically once VIP has the election.
+- **`ballot_measures`** (statewide) — run `civic:scrape-measures` (scheduled
+  weekly). The Wikipedia adapter pulls every state's certified statewide
+  measures with plain-language `yes_meaning` from one CC-BY-SA article, months
+  before the VIP feed has anything. `civic:pull-measures` (VIP) and any curated
+  CSV (`ballot-measures:import`, e.g. `database/seeders/ca-2026-ballot-measures.csv`,
+  `source = ca_sos`) reconcile with it — `BallotMeasureWriter` dedups on
+  state + election-day + (title **or** measure number), so a fuller title from
+  one source enriches the other instead of duplicating.
 
 The WebMCP tools (`u9itus_list_ballot_measures`, `u9itus_upcoming_elections`)
 read these tables directly, so a fresh deploy shows nothing until the commands
@@ -363,11 +379,13 @@ above have run **on that environment**.
 - [x] `civic:pull-measures` — Civic/VIP `Referendum` → `ballot_measures`.
 - [x] `civic:verify-sources` — URL health, redirects, robots.txt, vendor re-classify.
 - [x] `civic:scrape-measures` + `GenericHtmlMeasureAdapter` — HTML path for rows with no VIP feed.
+- [x] `WikipediaBallotMeasuresAdapter` — all-states statewide measures + `yes_meaning`, one article.
+- [x] `config('civic.state_election_sites')` — all 51 states (verify: 37 ok / 4 redirect / 10 bot-walled, 0 dead).
 - [ ] Implement `seedMunicipalities()` — Census places + curated allow-list.
 - [ ] Implement `seedFromEac()` — EAVS jurisdiction export → `authority_name`, `county_fips`, townships.
 - [ ] Tune `GenericHtmlMeasureAdapter` against real vendor fixtures; add a bespoke adapter where the heuristic misses.
-- [ ] `civic:enrich-measures` — derive `yes_meaning` / `no_meaning` (LLM or Ballotpedia) for `source = google_civic` rows.
+- [ ] `civic:enrich-measures` — derive `no_meaning` (LLM) for rows that only have `yes_meaning`.
 - [ ] Wire an `/admin/imports`-style panel over `scrape_status` / `last_verified_at` counts.
-- [ ] Extend `config('civic.state_election_sites')` past the initial 13 states (NASS "Can I Vote" directory).
+- [ ] Per-state SoS **candidate-list** URLs (Wikipedia + FEC + Open States cover most of the data; SoS filing lists are the gap for challengers).
 - [ ] Revisit the county "representative address" — `"<county>, <ST>"` geocodes fine for Civic, but a county-seat street address may resolve the `local_jurisdiction` body more reliably in split jurisdictions.
 - [ ] `voterInfoQuery` auto-picks the first Civic election id per state; when a state has concurrent elections (primary + special), pass `--election-id` explicitly.
