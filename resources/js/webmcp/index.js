@@ -56,7 +56,11 @@ function textResult(payload) {
 async function apiGet(path, params = {}) {
   const url = new URL(API_BASE + path, window.location.origin);
   Object.entries(params).forEach(([k, v]) => {
-    if (v !== undefined && v !== null && v !== "") url.searchParams.set(k, v);
+    if (v === undefined || v === null || v === "") return;
+    // Booleans must go on the wire as 1/0 — Laravel's `boolean` rule rejects "true"/"false".
+    let value = v;
+    if (typeof v === "boolean") value = v ? "1" : "0";
+    url.searchParams.set(k, value);
   });
   const res = await fetch(url, { headers: { Accept: "application/json" } });
   const body = await res.json().catch(() => ({}));
@@ -105,7 +109,7 @@ function toolDefinitions() {
     {
       name: `${TOOL_PREFIX}find_candidates`,
       description:
-        "Search u9itus published candidate and elected-official profiles by name and/or filters. Use for questions like 'who is running for X in Y' or to resolve a name mentioned in an article to a u9itus profile (each result has a uuid for u9itus_get_candidate).",
+        "Search u9itus published candidate and elected-official profiles by name and/or filters. Use for questions like 'who is running for X in Y' or to resolve a name mentioned in an article to a u9itus profile (each result has a uuid for u9itus_get_candidate). The response includes `total` (all matches), `count` (this page), and `next_offset` — to get every match, keep calling with `offset: next_offset` until it is null.",
       inputSchema: {
         type: "object",
         properties: {
@@ -117,7 +121,8 @@ function toolDefinitions() {
           },
           party: { type: "string", description: "Party affiliation, partial match." },
           running: { type: "boolean", description: "true = only active candidates; false = only seated officials." },
-          limit: { type: "integer", minimum: 1, maximum: 20 },
+          limit: { type: "integer", minimum: 1, maximum: 20, description: "Results per page (default 10, max 20)." },
+          offset: { type: "integer", minimum: 0, description: "Skip this many matches — pass the previous response's next_offset to page." },
         },
         additionalProperties: false,
       },

@@ -41,6 +41,14 @@ class WebMcpController extends Controller
      */
     public function candidates(Request $request): JsonResponse
     {
+        // Query-string booleans arrive as "true"/"false"/"1"/"0" — Laravel's
+        // `boolean` rule rejects the strings "true"/"false", so normalise first.
+        if ($request->has('running')) {
+            $request->merge([
+                'running' => filter_var($request->input('running'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE),
+            ]);
+        }
+
         $data = $request->validate([
             'q' => ['nullable', 'string', 'max:120'],
             'state' => ['nullable', 'string', 'size:2'],
@@ -48,33 +56,48 @@ class WebMcpController extends Controller
             'party' => ['nullable', 'string', 'max:64'],
             'running' => ['nullable', 'boolean'],
             'limit' => ['nullable', 'integer', 'min:1', 'max:'.self::MAX_LIMIT],
+            'offset' => ['nullable', 'integer', 'min:0'],
         ]);
 
         $limit = (int) ($data['limit'] ?? 10);
+        $offset = (int) ($data['offset'] ?? 0);
         $q = trim($data['q'] ?? '');
 
-        $results = Politician::query()
+        $base = Politician::query()
             ->where('page_published', true)
             ->where('is_active', true)
             ->whereNotNull('slug')
-            ->when($q !== '', fn ($query) => $query
-                ->where('full_name', 'like', '%'.$q.'%')
-                ->orderByRaw('CASE WHEN LOWER(full_name) LIKE ? THEN 0 ELSE 1 END', [mb_strtolower($q).'%']))
+            ->when($q !== '', fn ($query) => $query->where('full_name', 'like', '%'.$q.'%'))
             ->when(! empty($data['state']), fn ($query) => $query->where('state', strtoupper($data['state'])))
             ->when(! empty($data['governance_level']), fn ($query) => $query->where('governance_level', $data['governance_level']))
             ->when(! empty($data['party']), fn ($query) => $query->where('party_affiliation', 'like', '%'.$data['party'].'%'))
             ->when(array_key_exists('running', $data) && $data['running'] !== null,
-                fn ($query) => $query->where('is_running_candidate', (bool) $data['running']))
+                fn ($query) => $query->where('is_running_candidate', (bool) $data['running']));
+
+        $total = (clone $base)->count();
+
+        $results = $base
+            ->when($q !== '', fn ($query) => $query
+                ->orderByRaw('CASE WHEN LOWER(full_name) LIKE ? THEN 0 ELSE 1 END', [mb_strtolower($q).'%']))
             ->orderByDesc('verified_official')
             ->orderBy('full_name')
+            ->offset($offset)
             ->limit($limit)
             ->get()
             ->map(fn (Politician $p) => $this->candidateSummary($p))
             ->values();
 
+        $returned = $results->count();
+        $nextOffset = ($offset + $returned) < $total ? $offset + $returned : null;
+
         return response()->json([
             'query' => $data,
-            'count' => $results->count(),
+            'count' => $returned,
+            'total' => $total,
+            'limit' => $limit,
+            'offset' => $offset,
+            'has_more' => $nextOffset !== null,
+            'next_offset' => $nextOffset,
             'results' => $results,
         ]);
     }
