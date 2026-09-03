@@ -22,8 +22,15 @@ yarn-error.log
 /.idea
 /.vscode
 database/database.sqlite
+/database.sqlite
 .DS_Store
 */.DS_Store
+
+# Wix CLI local debug/crash logs (contain local absolute paths)
+/.wix/
+
+# Local DB export fixtures used for manual/dev testing only
+/storage/testing-dumps/
 
 # Ad-hoc scratch scripts (manual testing, throwaway drivers)
 .claude-scratch-*

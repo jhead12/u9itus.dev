@@ -6,6 +6,10 @@
 **Deployment:** Railway.app with Metal Build  
 **Production URL:** https://u9itus-production.up.railway.app
 
+## WebMCP Civic Agent
+
+U9itus registers a catalogue of civic-research tools via [WebMCP](https://github.com/webmachinelearning/webmcp) — find candidates, pull a full dossier (transparency IDs, verified news, donor snapshot, upcoming elections), compare two candidates, list ballot measures, and submit a candidate lead, all callable directly by an agent in a WebMCP-enabled browser without scraping the page. Built for the [WebMCP Challenge](https://webmcp.devpost.com/) — see **[doc/WEBMCP.md](doc/WEBMCP.md)** for the why, architecture, and full tool catalogue, and `/webmcp` on the live site for a demo console.
+
 ## Overview
 
 U9itus is a **standalone political advertising platform** that connects **politicians and local governance officials** directly with **potential voters** through paid video messages and live feeds. Politicians pay $1.00 per view; voters earn $0.50 for watching the full message. The platform includes **secure token-based ad delivery**, referral commissions, advanced fraud prevention, and automated batch payouts.
