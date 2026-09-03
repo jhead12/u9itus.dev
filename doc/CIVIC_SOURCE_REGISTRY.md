@@ -94,18 +94,22 @@ streams it and keeps only the top-level `.../county:<x>` rows.
       the resolved hostname; state rows with no Civic URL fall back to
       config('civic.state_election_sites'). Stamps source_of_record=google_civic.
 
-3. civic:pull-measures   ← TODO
-      where Civic / VIP already return Referendum contests, ingest straight
-      into ballot_measures; HTML-scrape only jurisdictions with no feed,
-      dispatched through the `platform_template` adapter
+3. civic:pull-measures   ← implemented (Civic path)
+      per row: voterInfoQuery → `Referendum` contests mapped into
+      ballot_measures (dedup on state + title + election day, matching
+      ImportBallotMeasures). Stamps last_scraped_at, and scrape_status='ok'
+      when measures were found. HTML-scraping jurisdictions with no VIP feed,
+      via a `platform_template` adapter, is still TODO — this command reports
+      how many rows had a feed vs. measures so you can see the gap.
 
 4. civic:verify-sources   ← TODO (weekly)
       HEAD-check every URL, honour robots.txt, flag dead/redirected,
       re-classify vendor, stamp last_verified_at
 ```
 
-Steps 1–2 exist today. Steps 3–4 are named here so the column set and the
-`source_of_record` / `scrape_status` enums already anticipate them.
+Steps 1–3 exist today (Civic/VIP path). Step 4 and the HTML-adapter half of
+step 3 are named here so the column set and the `source_of_record` /
+`scrape_status` enums already anticipate them.
 
 ## `civic:seed-jurisdictions`
 
@@ -178,7 +182,39 @@ is upgraded to `google_civic` only from `manual` / `census` / `nass` / empty.
 php artisan migrate                       # creates election_data_sources
 php artisan civic:seed-jurisdictions      # ~3,100 rows: 51 states + counties
 php artisan civic:resolve-official-urls   # fill authority + URLs where Civic has a feed
+php artisan civic:pull-measures           # ingest Referendum contests into ballot_measures
 ```
+
+## `civic:pull-measures`
+
+Reads `election_data_sources` rows, calls `voterInfoQuery`, and maps each
+`Referendum` contest into `ballot_measures`:
+
+| Civic field | `ballot_measures` column |
+|---|---|
+| `referendumTitle` | `title` (required) + `measure_number` parsed from it |
+| `referendumSubtitle` / `referendumText` | `summary` |
+| `district.name` (or the county row) | `county` |
+| `election.electionDay` | `election_date` |
+| `referendumUrl` (or the row's ballot URL) | `source_url` |
+| — | `source = google_civic`, `status = upcoming` |
+
+Dedup identity is `state + title + election_date` (calendar day), the same key
+`ImportBallotMeasures` and the admin form use. Without `--refresh` an existing
+measure only gets blank columns filled; `source` is never overwritten, so a
+Ballotpedia- or human-authored measure keeps its provenance even when this pass
+matches it. `yes_meaning` / `no_meaning` are left null — Civic gives the ballot
+question, not a plain-language "what a Yes vote does"; that's a later enrichment.
+
+```bash
+php artisan civic:pull-measures
+php artisan civic:pull-measures --state=CA --level=county --sleep=400
+php artisan civic:pull-measures --election-id=9468 --refresh --dry-run
+```
+
+Options: `--state`, `--level`, `--election-id`, `--limit=500`, `--sleep=250`,
+`--refresh`, `--dry-run`. The run summary reports `M/N rows with a feed had
+measures` so you can see how many jurisdictions still need an HTML adapter.
 
 ## Vendor-family scrapers
 
@@ -191,7 +227,7 @@ tell the scraper which adapter to run for a given `ocd_id`.
 ## Scheduling
 
 Add to `routes/console.php`, mirroring the existing `imports:*` cadence. Steps
-1–2 can be scheduled now; 3–4 once they land.
+1–3 can be scheduled now; step 4 once it lands.
 
 ```php
 // Monthly — jurisdiction set barely changes
@@ -199,10 +235,11 @@ Schedule::command('civic:seed-jurisdictions')->monthlyOn(1, '02:00')->withoutOve
 // Weekly — refresh official URLs; runs more usefully as an election nears
 Schedule::command('civic:resolve-official-urls --stale-days=45 --sleep=400')
     ->weeklyOn(1, '02:30')->withoutOverlapping()->runInBackground();
+// Daily around elections — pull measures from the VIP feed
+Schedule::command('civic:pull-measures --sleep=400')
+    ->dailyAt('02:15')->withoutOverlapping()->runInBackground();
 // Weekly health check (TODO)
 Schedule::command('civic:verify-sources')->weeklyOn(1, '03:00')->withoutOverlapping();
-// Around elections — pull measures more often (TODO)
-Schedule::command('civic:pull-measures')->dailyAt('02:15')->withoutOverlapping();
 ```
 
 ## Legal / etiquette
@@ -218,9 +255,11 @@ Schedule::command('civic:pull-measures')->dailyAt('02:15')->withoutOverlapping()
 
 - [x] `civic:seed-jurisdictions` — states + counties (with `county_fips`).
 - [x] `civic:resolve-official-urls` + `GoogleCivicService::voterInfoQuery()`.
+- [x] `civic:pull-measures` — Civic/VIP `Referendum` → `ballot_measures`.
 - [ ] Implement `seedMunicipalities()` — Census places + curated allow-list.
 - [ ] Implement `seedFromEac()` — EAVS jurisdiction export → `authority_name`, `county_fips`, townships.
-- [ ] Build `civic:pull-measures` and the first `platform_template` adapter (`voteinfo_net`).
+- [ ] First `platform_template` HTML adapter (`voteinfo_net`) for jurisdictions with no VIP feed, dispatched from `civic:pull-measures`.
+- [ ] `civic:enrich-measures` — derive `yes_meaning` / `no_meaning` (LLM or Ballotpedia) for `source = google_civic` rows.
 - [ ] Build `civic:verify-sources` + wire an `/admin/imports`-style health panel.
 - [ ] Extend `config('civic.state_election_sites')` past the initial 13 states (NASS "Can I Vote" directory).
 - [ ] Revisit the county "representative address" — `"<county>, <ST>"` geocodes fine for Civic, but a county-seat street address may resolve the `local_jurisdiction` body more reliably in split jurisdictions.
