@@ -326,6 +326,27 @@ Schedule::command('civic:scrape-measures --sleep=600')
     ->weeklyOn(1, '03:45')->withoutOverlapping()->runInBackground();
 ```
 
+## Data availability (why a state can be empty)
+
+The automated feeds are **dry outside the election window**. Google Civic's VIP
+feed only carries a general election — its dates *and* its `Referendum`
+contests — from roughly 30 days out. Vote Smart's API was retired in 2024.
+Ballotpedia needs a paid key. So months before an election:
+
+- **`state_election_dates`** — run `elections:sync-dates` (scheduled weekly).
+  By default it seeds the legally-fixed federal General date (Tue after 1st Mon
+  of Nov, even years) for every state nothing else covered, `source = statutory`;
+  `--no-statutory` turns that off.
+- **`ballot_measures`** — until the VIP feed fills in, load a curated CSV via
+  `php artisan ballot-measures:import <file>` (dedups on the same
+  state + title + date key). `database/seeders/ca-2026-ballot-measures.csv`
+  is the SoS-certified CA statewide list (`source = ca_sos`).
+  `civic:pull-measures` takes over automatically once VIP has the election.
+
+The WebMCP tools (`u9itus_list_ballot_measures`, `u9itus_upcoming_elections`)
+read these tables directly, so a fresh deploy shows nothing until the commands
+above have run **on that environment**.
+
 ## Legal / etiquette
 
 - Prefer structured feeds (VIP, Google Civic, state SoS open data, Ballotpedia

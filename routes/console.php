@@ -152,6 +152,15 @@ Schedule::command('politicians:reconcile-status')
     ->weeklyOn(0, '04:00')
     ->withoutOverlapping();
 
+// Weekly election-calendar sync (state_election_dates). Vote Smart's API is
+// retired and Civic's VIP feed is empty until ~30 days out, so the command's
+// default statutory backfill (Tue after 1st Mon of Nov, even years) is what
+// gives every state a year-round "next election" date. --year defaults to the
+// current year. Powers the map's state panel + the WebMCP elections tool.
+Schedule::command('elections:sync-dates')
+    ->weeklyOn(1, '02:45')
+    ->withoutOverlapping();
+
 // Post-election results sync — checks state_election_dates for any stage
 // (primary, general, runoff, special) whose election_date fell within the
 // last 3 days and dispatches a targeted GitHub Actions re-sync

@@ -23,18 +23,30 @@ use Illuminate\Console\Command;
  * overwrite a row Vote Smart already populated this run, so filing
  * deadlines are never clobbered by the less-detailed fallback.
  *
+ * Vote Smart's public API was retired in 2024, so in practice this now runs
+ * Civic-only. Civic's VIP feed doesn't carry a general election until ~30 days
+ * out, so --include-statutory seeds the legally-fixed federal General date
+ * (Tuesday after the first Monday of November, even years) for any state no
+ * live source covered — enough for "when is my next election" year-round.
+ *
+ * The statutory-date backfill is ON by default (pass --no-statutory to skip):
+ * with Vote Smart gone and the VIP feed empty until ~30 days out, it's the only
+ * year-round source for "when is my next election".
+ *
  * Usage:
  *   php artisan elections:sync-dates
  *   php artisan elections:sync-dates --year=2026 --state=CA
+ *   php artisan elections:sync-dates --no-statutory   (live sources only)
  *   php artisan elections:sync-dates --dry-run
  *   php artisan elections:sync-dates --skip-votesmart   (Civic-only, e.g. while VOTESMART_API_KEY is down)
  */
 class SyncElectionDates extends Command
 {
     protected $signature = 'elections:sync-dates
-        {--year=2026 : Election year to sync}
+        {--year=     : Election year to sync (default: current year)}
         {--state=    : Single state to sync (two-letter code). Leave blank for all states + DC}
         {--skip-votesmart : Skip Vote Smart entirely and sync from Google Civic only}
+        {--no-statutory : Do not seed the statutory federal General election date (Tue after 1st Mon of Nov, even years)}
         {--dry-run   : Report what would be synced without writing to the database}';
 
     protected $description = 'Sync real election dates and filing deadlines from Vote Smart, with Google Civic as a fallback/supplement.';
@@ -51,21 +63,21 @@ class SyncElectionDates extends Command
 
     public function handle(VoteSmartService $voteSmart, GoogleCivicService $googleCivic): int
     {
-        $year = (int) $this->option('year');
+        $year = (int) ($this->option('year') ?: date('Y'));
         $stateOption = $this->option('state');
         $dryRun = (bool) $this->option('dry-run');
         $skipVotesmart = (bool) $this->option('skip-votesmart');
 
         $states = $stateOption ? [strtoupper($stateOption)] : self::STATES;
-        $useVotesmart = !$skipVotesmart && $voteSmart->isConfigured();
+        $useVotesmart = ! $skipVotesmart && $voteSmart->isConfigured();
 
         if ($skipVotesmart) {
             $this->line('Skipping Vote Smart (--skip-votesmart) — syncing from Google Civic only.');
-        } elseif (!$voteSmart->isConfigured()) {
+        } elseif (! $voteSmart->isConfigured()) {
             $this->warn('VOTESMART_API_KEY is not configured — falling back to Google Civic only.');
         }
 
-        $this->info("Election-date sync — year={$year} states=" . count($states) . ($dryRun ? ' [DRY RUN]' : ''));
+        $this->info("Election-date sync — year={$year} states=".count($states).($dryRun ? ' [DRY RUN]' : ''));
 
         $upserted = 0;
         $skipped = 0;
@@ -79,13 +91,14 @@ class SyncElectionDates extends Command
                 if ($stages === []) {
                     $this->line("  {$state}: no data returned from Vote Smart");
                     $skipped++;
+
                     continue;
                 }
 
                 foreach ($stages as $stage) {
                     $this->line("  {$state} — {$stage['stage_name']} [votesmart]: election={$stage['election_date']} filing_deadline={$stage['filing_deadline']}");
 
-                    if (!$dryRun) {
+                    if (! $dryRun) {
                         StateElectionDate::updateOrCreate(
                             [
                                 'state' => $state,
@@ -100,7 +113,7 @@ class SyncElectionDates extends Command
                             ]
                         );
                     }
-                    $touched[$state . '|' . strtolower($stage['stage_name'])] = true;
+                    $touched[$state.'|'.strtolower($stage['stage_name'])] = true;
                     $upserted++;
                 }
             }
@@ -111,18 +124,18 @@ class SyncElectionDates extends Command
             $statesFilter = $stateOption ? [strtoupper($stateOption)] : null;
 
             foreach ($civicStages as $stage) {
-                if ($statesFilter !== null && !in_array($stage['state'], $statesFilter, true)) {
+                if ($statesFilter !== null && ! in_array($stage['state'], $statesFilter, true)) {
                     continue;
                 }
 
-                $touchedKey = $stage['state'] . '|' . strtolower($stage['stage_name']);
+                $touchedKey = $stage['state'].'|'.strtolower($stage['stage_name']);
                 if (isset($touched[$touchedKey])) {
                     continue; // Vote Smart already provided fresher data (with filing deadline) this run
                 }
 
                 $this->line("  {$stage['state']} — {$stage['stage_name']} [civic]: election={$stage['election_date']}");
 
-                if (!$dryRun) {
+                if (! $dryRun) {
                     StateElectionDate::updateOrCreate(
                         [
                             'state' => $stage['state'],
@@ -138,14 +151,55 @@ class SyncElectionDates extends Command
                 }
                 $upserted++;
             }
-        } elseif (!$useVotesmart) {
+        } elseif (! $useVotesmart) {
             $this->error('Neither Vote Smart nor Google Civic (GOOGLE_CIVIC_API_KEY) is configured — nothing to sync.');
+
             return self::FAILURE;
+        }
+
+        // Statutory floor: the federal General election is fixed in law as the
+        // Tuesday after the first Monday of November in even years. Live feeds
+        // (VIP especially) don't carry it until ~30 days out, so this fills the
+        // gap for every state that nothing else covered this run — without
+        // clobbering a richer votesmart/civic row.
+        if (! $this->option('no-statutory') && ($statutory = $this->statutoryGeneralDate($year)) !== null) {
+            foreach ($states as $state) {
+                if (StateElectionDate::query()
+                    ->where(['state' => $state, 'election_year' => $year, 'stage_name' => 'General'])
+                    ->exists()) {
+                    continue;
+                }
+
+                $this->line("  {$state} — General [statutory]: election={$statutory}");
+
+                if (! $dryRun) {
+                    StateElectionDate::create([
+                        'state' => $state,
+                        'election_year' => $year,
+                        'stage_name' => 'General',
+                        'election_date' => $statutory,
+                        'source' => 'statutory',
+                    ]);
+                }
+                $upserted++;
+            }
         }
 
         $suffix = $dryRun ? ' (dry-run — no DB writes)' : '';
         $this->info("Done. {$upserted} stage(s) upserted, {$skipped} state(s) with no Vote Smart data{$suffix}.");
 
         return self::SUCCESS;
+    }
+
+    /** Tuesday after the first Monday of November, or null for odd years. */
+    private function statutoryGeneralDate(int $year): ?string
+    {
+        if ($year % 2 !== 0) {
+            return null;
+        }
+
+        $firstMonday = new \DateTimeImmutable("first monday of november {$year}");
+
+        return $firstMonday->modify('+1 day')->format('Y-m-d');
     }
 }
