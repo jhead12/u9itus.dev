@@ -11,6 +11,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Source verifier (civic:verify-sources)
+    |--------------------------------------------------------------------------
+    | HTTP identity + defaults used when health-checking the URLs in
+    | election_data_sources and reading each host's robots.txt.
+    */
+    'verifier' => [
+        'user_agent' => env('CIVIC_VERIFIER_UA', 'U9itus-civic-registry/1.0 (+https://u9itus.dev/about)'),
+        'timeout' => (int) env('CIVIC_VERIFIER_TIMEOUT', 12),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Curated statewide elections landing pages
     |--------------------------------------------------------------------------
     | Seed hints for election_data_sources.elections_home_url on `state` rows.

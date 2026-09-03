@@ -11,8 +11,9 @@ vendor page listing local measures.
 
 - **Table**: `election_data_sources` (migration `2026_09_03_000001_create_election_data_sources_table.php`)
 - **Model**: `App\Models\ElectionDataSource`
-- **Config**: `config/civic.php` — curated state URLs, state capitals, vendor host map
-- **Commands**: `civic:seed-jurisdictions` (`SeedCivicJurisdictions`), `civic:resolve-official-urls` (`ResolveOfficialElectionUrls`)
+- **Config**: `config/civic.php` — verifier UA/timeout, curated state URLs, state capitals, vendor host map
+- **Commands** (all `civic:*`): `seed-jurisdictions`, `resolve-official-urls`, `pull-measures`, `verify-sources`
+- **Shared**: `App\Support\CivicVendorClassifier` (URL host → vendor slug), `GoogleCivicService::voterInfoQuery()`
 - **Measure content stays in**: `ballot_measures` (`App\Models\BallotMeasure`) — this registry only holds *where to look*.
 
 ## Why a registry instead of crawling
@@ -102,14 +103,16 @@ streams it and keeps only the top-level `.../county:<x>` rows.
       via a `platform_template` adapter, is still TODO — this command reports
       how many rows had a feed vs. measures so you can see the gap.
 
-4. civic:verify-sources   ← TODO (weekly)
-      HEAD-check every URL, honour robots.txt, flag dead/redirected,
-      re-classify vendor, stamp last_verified_at
+4. civic:verify-sources   ← implemented
+      HEAD/GET each URL following redirects → scrape_status
+      (ok | redirected | blocked | dead); read robots.txt → robots_ok;
+      re-classify vendor from the final host; stamp last_verified_at;
+      --rewrite-redirects persists a resolved URL back into its column.
 ```
 
-Steps 1–3 exist today (Civic/VIP path). Step 4 and the HTML-adapter half of
-step 3 are named here so the column set and the `source_of_record` /
-`scrape_status` enums already anticipate them.
+Steps 1–4 exist today via the Civic/VIP path. The remaining gap is the
+HTML-adapter half of step 3 — a `platform_template` scraper for jurisdictions
+with no VIP feed.
 
 ## `civic:seed-jurisdictions`
 
@@ -216,6 +219,44 @@ Options: `--state`, `--level`, `--election-id`, `--limit=500`, `--sleep=250`,
 `--refresh`, `--dry-run`. The run summary reports `M/N rows with a feed had
 measures` so you can see how many jurisdictions still need an HTML adapter.
 
+## `civic:verify-sources`
+
+Health-checks the URL columns on each row and writes back `scrape_status`,
+`robots_ok`, `last_verified_at`, and a re-classified `vendor`. No API key —
+just outbound HTTP under `config('civic.verifier.user_agent')`.
+
+Per row it checks every non-null URL (HEAD, GET fallback on 405/501), following
+up to 5 redirects. The **primary URL** (`ballot_measures_url` →
+`sample_ballot_url` → `elections_home_url` → `results_url`, first non-null) sets
+the row's `scrape_status`:
+
+| Result | `scrape_status` |
+|---|---|
+| 2xx, no redirect (trailing-slash / scheme change ignored) | `ok` |
+| 2xx after landing on a genuinely different URL | `redirected` |
+| 401 / 403 / 429 / any 5xx / timeout / TLS error | `blocked` |
+| 404 / 410 / DNS failure | `dead` |
+
+`robots_ok` is set from the primary URL's host `robots.txt` (host-cached per
+run; missing/unreadable robots.txt ⇒ allowed). `vendor` is re-derived from the
+final post-redirect hosts via `CivicVendorClassifier` and updated if it changed.
+
+A `blocked` result is frequently a bot wall (Akamai/Incapsula 403 on any
+non-browser UA), not a dead page — several Secretary-of-State sites do this. It
+means "an automated scrape will fail here", so treat those rows as needing a
+hand-picked alternate URL or a per-host fetch strategy.
+
+```bash
+php artisan civic:verify-sources
+php artisan civic:verify-sources --state=CA --level=county
+php artisan civic:verify-sources --stale-days=7 --rewrite-redirects
+php artisan civic:verify-sources --dry-run
+```
+
+Options: `--state`, `--level`, `--stale-days=7` (`0` = all), `--limit=1000`,
+`--sleep=200`, `--timeout=` (default `config('civic.verifier.timeout')`),
+`--rewrite-redirects` (persist a redirect target into its column), `--dry-run`.
+
 ## Vendor-family scrapers
 
 Many a county's "official site" is actually a vendor subdomain
@@ -226,8 +267,7 @@ tell the scraper which adapter to run for a given `ocd_id`.
 
 ## Scheduling
 
-Add to `routes/console.php`, mirroring the existing `imports:*` cadence. Steps
-1–3 can be scheduled now; step 4 once it lands.
+Add to `routes/console.php`, mirroring the existing `imports:*` cadence.
 
 ```php
 // Monthly — jurisdiction set barely changes
@@ -238,8 +278,9 @@ Schedule::command('civic:resolve-official-urls --stale-days=45 --sleep=400')
 // Daily around elections — pull measures from the VIP feed
 Schedule::command('civic:pull-measures --sleep=400')
     ->dailyAt('02:15')->withoutOverlapping()->runInBackground();
-// Weekly health check (TODO)
-Schedule::command('civic:verify-sources')->weeklyOn(1, '03:00')->withoutOverlapping();
+// Weekly URL health check
+Schedule::command('civic:verify-sources --stale-days=7 --sleep=300')
+    ->weeklyOn(1, '03:00')->withoutOverlapping()->runInBackground();
 ```
 
 ## Legal / etiquette
@@ -256,11 +297,12 @@ Schedule::command('civic:verify-sources')->weeklyOn(1, '03:00')->withoutOverlapp
 - [x] `civic:seed-jurisdictions` — states + counties (with `county_fips`).
 - [x] `civic:resolve-official-urls` + `GoogleCivicService::voterInfoQuery()`.
 - [x] `civic:pull-measures` — Civic/VIP `Referendum` → `ballot_measures`.
+- [x] `civic:verify-sources` — URL health, redirects, robots.txt, vendor re-classify.
 - [ ] Implement `seedMunicipalities()` — Census places + curated allow-list.
 - [ ] Implement `seedFromEac()` — EAVS jurisdiction export → `authority_name`, `county_fips`, townships.
 - [ ] First `platform_template` HTML adapter (`voteinfo_net`) for jurisdictions with no VIP feed, dispatched from `civic:pull-measures`.
 - [ ] `civic:enrich-measures` — derive `yes_meaning` / `no_meaning` (LLM or Ballotpedia) for `source = google_civic` rows.
-- [ ] Build `civic:verify-sources` + wire an `/admin/imports`-style health panel.
+- [ ] Wire an `/admin/imports`-style panel over `scrape_status` / `last_verified_at` counts.
 - [ ] Extend `config('civic.state_election_sites')` past the initial 13 states (NASS "Can I Vote" directory).
 - [ ] Revisit the county "representative address" — `"<county>, <ST>"` geocodes fine for Civic, but a county-seat street address may resolve the `local_jurisdiction` body more reliably in split jurisdictions.
 - [ ] `voterInfoQuery` auto-picks the first Civic election id per state; when a state has concurrent elections (primary + special), pass `--election-id` explicitly.

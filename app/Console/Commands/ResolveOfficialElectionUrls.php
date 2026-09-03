@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\ElectionDataSource;
 use App\Services\GoogleCivicService;
+use App\Support\CivicVendorClassifier;
 use Illuminate\Console\Command;
 
 /**
@@ -226,7 +227,7 @@ class ResolveOfficialElectionUrls extends Command
             'sample_ballot_url' => $body['ballot_info_url'] ?? null,
             'ballot_measures_url' => $referendum['url'] ?? ($body['ballot_info_url'] ?? null),
             // vendor — inferred from whichever official URL resolves to a known host
-            'vendor' => $this->inferVendor(
+            'vendor' => CivicVendorClassifier::fromUrls(
                 $body['election_info_url'] ?? null,
                 $body['ballot_info_url'] ?? null,
                 $referendum['url'] ?? null,
@@ -298,27 +299,5 @@ class ResolveOfficialElectionUrls extends Command
 
         // County with no local body in the feed → fall back to the state body.
         return $bodies[0] ?? [];
-    }
-
-    private function inferVendor(?string ...$urls): ?string
-    {
-        $hosts = (array) config('civic.vendor_hosts', []);
-
-        foreach ($urls as $url) {
-            if (! $url) {
-                continue;
-            }
-            $host = strtolower((string) parse_url($url, PHP_URL_HOST));
-            if ($host === '') {
-                continue;
-            }
-            foreach ($hosts as $needle => $slug) {
-                if (str_contains($host, (string) $needle)) {
-                    return $slug; // may be null for deliberately-ignored gov hosts
-                }
-            }
-        }
-
-        return null;
     }
 }
