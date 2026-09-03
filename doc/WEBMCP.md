@@ -52,7 +52,8 @@ Politician / CandidateNewsArticle / BallotMeasure / StateElectionDate / Candidat
 | `u9itus_find_candidates` | `GET /api/v1/mcp/candidates` | `q, state, governance_level, party, running, limit`. Returns summaries with `uuid`. |
 | `u9itus_get_candidate` | `GET /api/v1/mcp/candidates/{uuid}` | Full dossier: office, party, transparency IDs, links, recent verified news, donor snapshot, upcoming elections. |
 | `u9itus_compare_candidates` | `GET /api/v1/mcp/candidates/compare?uuids=a,b` | 2–4 dossiers in one call. |
-| `u9itus_list_ballot_measures` | `GET /api/v1/mcp/ballot-measures` | `state, q, status, limit`. Plain-language yes/no meanings. |
+| `u9itus_list_ballot_measures` | `GET /api/v1/mcp/ballot-measures` | `state, q, status, limit`. Plain-language yes/no meanings. When a state has none, the response adds a `backfill` block (`status`: `queued` \| `in_progress` \| `unavailable` + `message`) and an on-demand single-state pipeline run is debounce-dispatched (`App\Jobs\BackfillStateElectionData`, one per state per 30 min). |
+| `u9itus_watch_ballot_measures` | `POST /api/v1/mcp/ballot-measures/watch` | `state, email` required. One-time email when that state's measures are published; also nudges the backfill. Rate-limited `10/min`. |
 | `u9itus_upcoming_elections` | `GET /api/v1/mcp/elections?state=XX` | Stages + filing deadlines. |
 | `u9itus_submit_candidate_lead` | `POST /api/v1/mcp/candidate-leads` | `full_name, source_url` required. Queues `pending` — **never publishes**. Deduped on `source_url`. Rate-limited `5/min`. |
 

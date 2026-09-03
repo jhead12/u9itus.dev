@@ -103,6 +103,13 @@
                 <input name="state" placeholder="state (e.g. TX)" maxlength="2" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm">
                 <button class="w-full bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold rounded-lg px-3 py-2 transition">Run</button>
             </form>
+
+            <form data-endpoint="/api/v1/mcp/ballot-measures/watch" data-method="post" class="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
+                <div class="font-semibold text-white text-sm">watch_ballot_measures</div>
+                <input name="state" placeholder="state (e.g. TX)" maxlength="2" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm">
+                <input name="email" type="email" placeholder="notify email" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm">
+                <button class="w-full bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold rounded-lg px-3 py-2 transition">Run</button>
+            </form>
         </div>
 
         <div class="mt-5">
@@ -145,19 +152,27 @@
             form.addEventListener('submit', async function (e) {
                 e.preventDefault();
                 var tmpl = form.getAttribute('data-endpoint');
+                var method = (form.getAttribute('data-method') || 'get').toUpperCase();
                 var fd = new FormData(form);
-                var url;
+                var url, opts = { headers: { Accept: 'application/json' } };
                 if (tmpl.indexOf(':uuid') !== -1) {
                     var uuid = (fd.get('uuid') || '').trim();
                     if (!uuid) { out.textContent = 'Enter a uuid.'; return; }
                     url = new URL(tmpl.replace(':uuid', encodeURIComponent(uuid)), window.location.origin);
+                } else if (method === 'POST') {
+                    url = new URL(tmpl, window.location.origin);
+                    var payload = {};
+                    fd.forEach(function (v, k) { if (v) payload[k] = v; });
+                    opts.method = 'POST';
+                    opts.headers['Content-Type'] = 'application/json';
+                    opts.body = JSON.stringify(payload);
                 } else {
                     url = new URL(tmpl, window.location.origin);
                     fd.forEach(function (v, k) { if (v) url.searchParams.set(k, v); });
                 }
                 out.textContent = 'Loading…';
                 try {
-                    var res = await fetch(url, { headers: { Accept: 'application/json' } });
+                    var res = await fetch(url, opts);
                     var body = await res.json();
                     out.textContent = JSON.stringify(body, null, 2);
                 } catch (err) {

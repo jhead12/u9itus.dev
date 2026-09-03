@@ -91,11 +91,14 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::get('/elections', [\App\Http\Controllers\Api\WebMcpController::class, 'elections'])->name('elections');
         });
 
-        // Write endpoint — its own tighter limit (single throttle only; do not
-        // nest, or the counters stack and the effective limit collapses).
+        // Write endpoints — their own tighter limit (single throttle only; do
+        // not nest, or the counters stack and the effective limit collapses).
         Route::post('/candidate-leads', [\App\Http\Controllers\Api\WebMcpController::class, 'submitLead'])
             ->middleware('throttle:10,1')
             ->name('candidate-leads.store');
+        Route::post('/ballot-measures/watch', [\App\Http\Controllers\Api\WebMcpController::class, 'watchBallotMeasures'])
+            ->middleware('throttle:10,1')
+            ->name('ballot-measures.watch');
     });
 
     // Dashboard notification endpoints use the web session cookie.

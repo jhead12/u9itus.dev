@@ -3,14 +3,17 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\BackfillStateElectionData;
 use App\Models\BallotMeasure;
 use App\Models\CandidateLead;
 use App\Models\CandidateNewsArticle;
+use App\Models\ElectionDataBackfill;
 use App\Models\Politician;
 use App\Models\StateElectionDate;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 
 /**
@@ -39,12 +42,12 @@ class WebMcpController extends Controller
     public function candidates(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'q'                => ['nullable', 'string', 'max:120'],
-            'state'            => ['nullable', 'string', 'size:2'],
+            'q' => ['nullable', 'string', 'max:120'],
+            'state' => ['nullable', 'string', 'size:2'],
             'governance_level' => ['nullable', 'string', 'max:32'],
-            'party'            => ['nullable', 'string', 'max:64'],
-            'running'          => ['nullable', 'boolean'],
-            'limit'            => ['nullable', 'integer', 'min:1', 'max:' . self::MAX_LIMIT],
+            'party' => ['nullable', 'string', 'max:64'],
+            'running' => ['nullable', 'boolean'],
+            'limit' => ['nullable', 'integer', 'min:1', 'max:'.self::MAX_LIMIT],
         ]);
 
         $limit = (int) ($data['limit'] ?? 10);
@@ -55,11 +58,11 @@ class WebMcpController extends Controller
             ->where('is_active', true)
             ->whereNotNull('slug')
             ->when($q !== '', fn ($query) => $query
-                ->where('full_name', 'like', '%' . $q . '%')
-                ->orderByRaw('CASE WHEN LOWER(full_name) LIKE ? THEN 0 ELSE 1 END', [mb_strtolower($q) . '%']))
+                ->where('full_name', 'like', '%'.$q.'%')
+                ->orderByRaw('CASE WHEN LOWER(full_name) LIKE ? THEN 0 ELSE 1 END', [mb_strtolower($q).'%']))
             ->when(! empty($data['state']), fn ($query) => $query->where('state', strtoupper($data['state'])))
             ->when(! empty($data['governance_level']), fn ($query) => $query->where('governance_level', $data['governance_level']))
-            ->when(! empty($data['party']), fn ($query) => $query->where('party_affiliation', 'like', '%' . $data['party'] . '%'))
+            ->when(! empty($data['party']), fn ($query) => $query->where('party_affiliation', 'like', '%'.$data['party'].'%'))
             ->when(array_key_exists('running', $data) && $data['running'] !== null,
                 fn ($query) => $query->where('is_running_candidate', (bool) $data['running']))
             ->orderByDesc('verified_official')
@@ -70,8 +73,8 @@ class WebMcpController extends Controller
             ->values();
 
         return response()->json([
-            'query'   => $data,
-            'count'   => $results->count(),
+            'query' => $data,
+            'count' => $results->count(),
             'results' => $results,
         ]);
     }
@@ -117,7 +120,7 @@ class WebMcpController extends Controller
 
         return response()->json([
             'requested' => $uuids,
-            'count'     => $candidates->count(),
+            'count' => $candidates->count(),
             'candidates' => $candidates,
         ]);
     }
@@ -130,42 +133,129 @@ class WebMcpController extends Controller
     public function ballotMeasures(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'state'  => ['nullable', 'string', 'size:2'],
-            'q'      => ['nullable', 'string', 'max:120'],
+            'state' => ['nullable', 'string', 'size:2'],
+            'q' => ['nullable', 'string', 'max:120'],
             'status' => ['nullable', 'string', 'in:upcoming,passed,failed'],
-            'limit'  => ['nullable', 'integer', 'min:1', 'max:' . self::MAX_LIMIT],
+            'limit' => ['nullable', 'integer', 'min:1', 'max:'.self::MAX_LIMIT],
         ]);
 
         $measures = BallotMeasure::query()
             ->when(! empty($data['state']), fn ($q) => $q->where('state', strtoupper($data['state'])))
             ->when(! empty($data['status']), fn ($q) => $q->where('status', $data['status']))
             ->when(! empty($data['q']), fn ($q) => $q->where(function ($q) use ($data) {
-                $q->where('title', 'like', '%' . $data['q'] . '%')
-                    ->orWhere('measure_number', 'like', '%' . $data['q'] . '%');
+                $q->where('title', 'like', '%'.$data['q'].'%')
+                    ->orWhere('measure_number', 'like', '%'.$data['q'].'%');
             }))
             ->orderBy('election_date')
             ->limit((int) ($data['limit'] ?? self::MAX_LIMIT))
             ->get()
             ->map(fn (BallotMeasure $m) => [
-                'state'         => $m->state,
-                'county'        => $m->county,
+                'state' => $m->state,
+                'county' => $m->county,
                 'measure_number' => $m->measure_number,
-                'title'         => $m->title,
-                'summary'       => $m->summary,
-                'yes_meaning'   => $m->yes_meaning,
-                'no_meaning'    => $m->no_meaning,
+                'title' => $m->title,
+                'summary' => $m->summary,
+                'yes_meaning' => $m->yes_meaning,
+                'no_meaning' => $m->no_meaning,
                 'election_date' => optional($m->election_date)?->toDateString(),
-                'status'        => $m->status,
-                'source'        => $m->source,
-                'source_url'    => $m->source_url,
+                'status' => $m->status,
+                'source' => $m->source,
+                'source_url' => $m->source_url,
             ])
             ->values();
 
-        return response()->json([
-            'query'   => $data,
-            'count'   => $measures->count(),
+        $payload = [
+            'query' => $data,
+            'count' => $measures->count(),
             'results' => $measures,
+        ];
+
+        // Nothing on file for a specific state — kick the on-demand backfill and
+        // tell the caller to check back.
+        if ($measures->isEmpty() && ! empty($data['state'])) {
+            $payload['backfill'] = $this->backfillStatusFor(strtoupper($data['state']));
+        }
+
+        return response()->json($payload);
+    }
+
+    /**
+     * POST /api/v1/mcp/ballot-measures/watch
+     *
+     * Register an email to be notified once a state's ballot measures are
+     * available. Also nudges the backfill if it isn't already running.
+     */
+    public function watchBallotMeasures(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'state' => ['required', 'string', 'size:2'],
+            'email' => ['required', 'email', 'max:255'],
         ]);
+
+        $state = strtoupper($data['state']);
+
+        if (BallotMeasure::where('state', $state)->exists()) {
+            return response()->json([
+                'status' => 'already_available',
+                'message' => "Ballot measures for {$state} are available now.",
+            ]);
+        }
+
+        $row = ElectionDataBackfill::firstOrNew(['state' => $state]);
+        $row->status ??= ElectionDataBackfill::STATUS_QUEUED;
+        $row->addWatcher($data['email']);
+        $row->save();
+
+        if ($row->isReattemptable() && Cache::add("civic:backfill:{$state}", true, now()->addMinutes(30))) {
+            BackfillStateElectionData::dispatch($state);
+        }
+
+        return response()->json([
+            'status' => 'watching',
+            'message' => "We'll email you once {$state} ballot measures are published.",
+        ], 202);
+    }
+
+    /**
+     * Debounced dispatch of the single-state backfill + a caller-facing status.
+     *
+     * @return array{status: string, message: string}
+     */
+    private function backfillStatusFor(string $state): array
+    {
+        $row = ElectionDataBackfill::firstWhere('state', $state);
+
+        if ($row && $row->status === ElectionDataBackfill::STATUS_RUNNING) {
+            return [
+                'status' => 'in_progress',
+                'message' => "We're gathering {$state} election data now — check back in a few minutes.",
+            ];
+        }
+
+        if ($row && $row->status === ElectionDataBackfill::STATUS_UNAVAILABLE && ! $row->isReattemptable()) {
+            return [
+                'status' => 'unavailable',
+                'message' => "Ballot measures for {$state} aren't published by our sources yet — they usually appear about a month before the election. Ask to be notified when they're available.",
+            ];
+        }
+
+        if (Cache::add("civic:backfill:{$state}", true, now()->addMinutes(30))) {
+            ElectionDataBackfill::updateOrCreate(
+                ['state' => $state],
+                ['status' => ElectionDataBackfill::STATUS_QUEUED],
+            );
+            BackfillStateElectionData::dispatch($state);
+
+            return [
+                'status' => 'queued',
+                'message' => "No measures on file for {$state} yet — we're checking official sources now. Check back in a few minutes.",
+            ];
+        }
+
+        return [
+            'status' => 'in_progress',
+            'message' => "Already checking {$state} — check back shortly.",
+        ];
     }
 
     /**
@@ -181,7 +271,7 @@ class WebMcpController extends Controller
         abort_if(strlen($state) !== 2, 422, 'Provide a 2-letter ?state= code.');
 
         return response()->json([
-            'state'     => $state,
+            'state' => $state,
             'elections' => StateElectionDate::upcomingForState($state),
         ]);
     }
@@ -197,11 +287,11 @@ class WebMcpController extends Controller
     public function submitLead(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'full_name'   => ['required', 'string', 'min:2', 'max:255'],
-            'state'       => ['nullable', 'string', 'size:2'],
+            'full_name' => ['required', 'string', 'min:2', 'max:255'],
+            'state' => ['nullable', 'string', 'size:2'],
             'office_hint' => ['nullable', 'string', 'max:128'],
-            'source_url'  => ['required', 'url', 'max:2048'],
-            'context'     => ['nullable', 'string', 'max:2000'],
+            'source_url' => ['required', 'url', 'max:2048'],
+            'context' => ['nullable', 'string', 'max:2000'],
         ]);
 
         $sourceHash = hash('sha256', strtolower(trim($data['source_url'])));
@@ -213,8 +303,8 @@ class WebMcpController extends Controller
 
         if ($existing) {
             return response()->json([
-                'status'  => 'duplicate',
-                'id'      => $existing->id,
+                'status' => 'duplicate',
+                'id' => $existing->id,
                 'lead_status' => $existing->status,
                 'message' => 'This source was already submitted.',
             ], 200);
@@ -222,26 +312,26 @@ class WebMcpController extends Controller
 
         try {
             $lead = CandidateLead::create([
-                'source_key'        => 'webmcp',
-                'full_name'         => trim($data['full_name']),
-                'state'             => ! empty($data['state']) ? strtoupper($data['state']) : null,
-                'office_hint'       => $data['office_hint'] ?? null,
-                'source_url'        => $data['source_url'],
+                'source_key' => 'webmcp',
+                'full_name' => trim($data['full_name']),
+                'state' => ! empty($data['state']) ? strtoupper($data['state']) : null,
+                'office_hint' => $data['office_hint'] ?? null,
+                'source_url' => $data['source_url'],
                 'discovery_context' => $data['context'] ?? null,
-                'discovered_at'     => now(),
-                'status'            => CandidateLead::STATUS_PENDING,
+                'discovered_at' => now(),
+                'status' => CandidateLead::STATUS_PENDING,
             ]);
         } catch (QueryException $e) {
             // Unique (source_key, source_hash) race — treat as duplicate.
             return response()->json([
-                'status'  => 'duplicate',
+                'status' => 'duplicate',
                 'message' => 'This source was already submitted.',
             ], 200);
         }
 
         return response()->json([
-            'status'  => 'received',
-            'id'      => $lead->id,
+            'status' => 'received',
+            'id' => $lead->id,
             'lead_status' => $lead->status,
             'message' => 'Lead queued for human verification. Nothing is published automatically.',
         ], 201);
@@ -254,20 +344,20 @@ class WebMcpController extends Controller
     private function candidateSummary(Politician $p): array
     {
         return [
-            'uuid'             => $p->uuid,
-            'full_name'        => $p->full_name,
-            'office'           => $p->political_office,
-            'party'            => $p->party_affiliation,
-            'state'            => $p->state,
-            'city'             => $p->city,
-            'district'         => $p->district,
+            'uuid' => $p->uuid,
+            'full_name' => $p->full_name,
+            'office' => $p->political_office,
+            'party' => $p->party_affiliation,
+            'state' => $p->state,
+            'city' => $p->city,
+            'district' => $p->district,
             'governance_level' => $p->governance_level,
-            'is_running'       => (bool) $p->is_running_candidate,
-            'term_status'      => $p->term_status,
+            'is_running' => (bool) $p->is_running_candidate,
+            'term_status' => $p->term_status,
             'verified_official' => (bool) $p->verified_official,
-            'photo'            => $this->absoluteUrl($p->profile_photo_url),
-            'profile_url'      => $p->slug ? url('/p/' . $p->slug) : null,
-            'bio_excerpt'      => $p->bio ? Str::limit($p->bio, 200) : null,
+            'photo' => $this->absoluteUrl($p->profile_photo_url),
+            'profile_url' => $p->slug ? url('/p/'.$p->slug) : null,
+            'bio_excerpt' => $p->bio ? Str::limit($p->bio, 200) : null,
         ];
     }
 
@@ -280,12 +370,12 @@ class WebMcpController extends Controller
             ->limit(5)
             ->get()
             ->map(fn (CandidateNewsArticle $a) => [
-                'headline'     => $a->headline,
-                'source_name'  => $a->source_name,
-                'source_url'   => $a->source_url,
-                'snippet'      => $a->snippet,
+                'headline' => $a->headline,
+                'source_name' => $a->source_name,
+                'source_url' => $a->source_url,
+                'snippet' => $a->snippet,
                 'published_at' => optional($a->published_at)?->toIso8601String(),
-                'topic'        => $a->topic_key,
+                'topic' => $a->topic_key,
             ])
             ->values();
 
@@ -295,22 +385,22 @@ class WebMcpController extends Controller
         }
 
         return array_merge($this->candidateSummary($p), [
-            'bio'              => $p->bio,
-            'website_url'      => $p->website_url,
-            'wikipedia_url'    => $p->wikipedia_url,
-            'ballotpedia_url'  => $p->ballotpedia_id ? 'https://ballotpedia.org/' . $p->ballotpedia_id : null,
+            'bio' => $p->bio,
+            'website_url' => $p->website_url,
+            'wikipedia_url' => $p->wikipedia_url,
+            'ballotpedia_url' => $p->ballotpedia_id ? 'https://ballotpedia.org/'.$p->ballotpedia_id : null,
             'transparency_ids' => array_filter([
                 'fec_candidate_id' => $p->fec_candidate_id,
-                'opensecrets_id'   => $p->opensecrets_id,
-                'votesmart_id'     => $p->votesmart_id,
-                'ballotpedia_id'   => $p->ballotpedia_id,
+                'opensecrets_id' => $p->opensecrets_id,
+                'votesmart_id' => $p->votesmart_id,
+                'ballotpedia_id' => $p->ballotpedia_id,
             ]),
-            'social_links'     => $p->social_links,
-            'video_links'      => $p->video_links,
-            'office_profile'   => $p->officeProfile?->toVoterPayload(),
+            'social_links' => $p->social_links,
+            'video_links' => $p->video_links,
+            'office_profile' => $p->officeProfile?->toVoterPayload(),
             'upcoming_elections' => $p->state ? StateElectionDate::upcomingForState($p->state) : [],
-            'recent_news'      => $news,
-            'donor_snapshot'   => $donor,
+            'recent_news' => $news,
+            'donor_snapshot' => $donor,
         ]);
     }
 

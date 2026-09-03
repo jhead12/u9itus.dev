@@ -12,6 +12,7 @@
  *   u9itus_get_candidate         — full civic dossier for one candidate
  *   u9itus_compare_candidates    — side-by-side dossiers for 2–4 candidates
  *   u9itus_list_ballot_measures  — state / county ballot measures
+ *   u9itus_watch_ballot_measures — email me when a state's measures are published
  *   u9itus_upcoming_elections    — election stages + filing deadlines by state
  *   u9itus_submit_candidate_lead — queue a spotted candidate for human review
  *   u9itus_current_page          — what u9itus page the user is looking at
@@ -143,7 +144,7 @@ function toolDefinitions() {
     {
       name: `${TOOL_PREFIX}list_ballot_measures`,
       description:
-        "List US ballot measures (always state/county scoped) with plain-language yes/no meanings. Filter by state, free-text, and status (upcoming|passed|failed).",
+        "List US ballot measures (always state/county scoped) with plain-language yes/no meanings. Filter by state, free-text, and status (upcoming|passed|failed). If a state has none yet, the response includes a `backfill` block (status queued|in_progress|unavailable) — relay its message and offer u9itus_watch_ballot_measures.",
       inputSchema: {
         type: "object",
         properties: {
@@ -155,6 +156,21 @@ function toolDefinitions() {
         additionalProperties: false,
       },
       execute: async (args = {}) => apiGet("/ballot-measures", args),
+    },
+    {
+      name: `${TOOL_PREFIX}watch_ballot_measures`,
+      description:
+        "When u9itus_list_ballot_measures reports no measures for a state, register an email to be notified once that state's measures are published. Confirm the email with the user first.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          state: { type: "string", description: "Two-letter US state code." },
+          email: { type: "string", description: "Where to send the one-time notification." },
+        },
+        required: ["state", "email"],
+        additionalProperties: false,
+      },
+      execute: async (args = {}) => apiPost("/ballot-measures/watch", args),
     },
     {
       name: `${TOOL_PREFIX}upcoming_elections`,
