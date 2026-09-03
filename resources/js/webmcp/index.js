@@ -4,9 +4,9 @@
  * https://github.com/webmachinelearning/webmcp
  *
  * Registers a small catalogue of civic tools with whatever WebMCP
- * implementation the browser exposes (native `navigator.modelContext`,
- * a polyfill, or an extension). An AI agent browsing u9itus.dev can then
- * call these directly instead of scraping the DOM:
+ * implementation the browser exposes (Chrome's native `document.modelContext`,
+ * a polyfill, or an extension such as Rook). An AI agent browsing u9itus.dev
+ * can then call these directly instead of scraping the DOM:
  *
  *   u9itus_find_candidates       — search published candidates / officials
  *   u9itus_get_candidate         — full civic dossier for one candidate
@@ -22,10 +22,24 @@
  *
  * Loaded lazily from resources/js/app.js; every failure path is a no-op so
  * this can never break a page that has no agent attached.
+ *
+ * Registration notes
+ * ------------------
+ * The W3C draft surface is `document.modelContext` and `registerTool()` is
+ * **async** — it returns a promise that can reject (permissions policy, a
+ * schema the UA won't accept, an extension that hasn't finished attaching).
+ * We therefore await every call, only report "ready" once tools are actually
+ * present, re-assert on `toolchange`, and keep sweeping for a few minutes
+ * because an extension's agent session often starts well after page load.
  */
 
 const API_BASE = "/api/v1/mcp";
 const TOOL_PREFIX = "u9itus_";
+
+/** Keep re-checking for an agent surface this long after load (ms). */
+const RETRY_WINDOW_MS = 180000;
+/** Poll cadence while sweeping for a surface (ms). */
+const RETRY_INTERVAL_MS = 750;
 
 /** MCP tool-result envelope. */
 function textResult(payload) {
@@ -205,52 +219,89 @@ function toolDefinitions() {
   ];
 }
 
+/* ----------------------------------------------------------------------
+ | Registration
+ * -------------------------------------------------------------------- */
+
+/** Every WebMCP-ish surface currently on the page, most-canonical first. */
+function surfaces() {
+  const out = [];
+  if (typeof document !== "undefined" && document.modelContext) out.push(["document", document.modelContext]);
+  if (typeof navigator !== "undefined" && navigator.modelContext) out.push(["navigator", navigator.modelContext]);
+  if (typeof window !== "undefined" && window.modelContext) out.push(["window", window.modelContext]);
+  return out;
+}
+
+/** How many u9itus tools a surface currently reports, if it supports discovery. */
+async function visibleToolCount(ctx) {
+  if (typeof ctx.getTools !== "function") return null;
+  try {
+    const all = await ctx.getTools();
+    return (Array.isArray(all) ? all : []).filter((t) => t && typeof t.name === "string" && t.name.startsWith(TOOL_PREFIX)).length;
+  } catch (e) {
+    return null;
+  }
+}
+
 /**
- * Register with whatever WebMCP surface exists. Returns true if a
- * registration path was found.
+ * Register the catalogue on one surface. Returns a summary object on success
+ * (at least one tool registered), or null. Handles the three shapes seen in
+ * the wild: imperative `registerTool` (spec), declarative `provideContext`,
+ * and a plain `tools` array.
  */
-function tryRegister(tools) {
-  const ctx =
-    (typeof navigator !== "undefined" && navigator.modelContext) ||
-    (typeof window !== "undefined" && window.modelContext) ||
-    (typeof document !== "undefined" && document.modelContext) ||
-    null;
-
-  if (!ctx) return false;
-
-  // Shape A — imperative per-tool registration (current spec draft).
+async function registerOn(label, ctx, tools) {
+  // Shape A — imperative per-tool registration (W3C draft). ASYNC — await it.
   if (typeof ctx.registerTool === "function") {
-    tools.forEach((tool) => {
+    let registered = 0;
+    for (const tool of tools) {
       try {
-        ctx.registerTool(tool);
+        await ctx.registerTool(tool);
+        registered += 1;
       } catch (e) {
-        /* one bad tool shouldn't abort the rest */
+        console.warn(`[u9itus webmcp] ${label}.registerTool(${tool.name}) rejected:`, e);
       }
-    });
-    return true;
+    }
+    if (registered === 0) return null;
+
+    // Nudge agents that attached their listener after we registered.
+    try {
+      ctx.dispatchEvent?.(new Event("toolchange"));
+    } catch (e) {
+      /* not all surfaces are EventTargets */
+    }
+
+    const visible = await visibleToolCount(ctx);
+    return { shape: "registerTool", registered, visible: visible ?? registered };
   }
 
-  // Shape B — declarative bulk registration (earlier polyfills).
+  // Shape B — declarative bulk registration (replaces the whole set).
   if (typeof ctx.provideContext === "function") {
     try {
-      ctx.provideContext({ tools });
-      return true;
+      await ctx.provideContext({ tools });
+      const visible = await visibleToolCount(ctx);
+      return { shape: "provideContext", registered: tools.length, visible: visible ?? tools.length };
     } catch (e) {
-      return false;
+      console.warn(`[u9itus webmcp] ${label}.provideContext rejected:`, e);
+      return null;
     }
   }
 
   // Shape C — a plain tools array.
   if (Array.isArray(ctx.tools)) {
-    ctx.tools.push(...tools);
-    return true;
+    const have = new Set(ctx.tools.map((t) => t && t.name));
+    tools.forEach((t) => {
+      if (!have.has(t.name)) ctx.tools.push(t);
+    });
+    return { shape: "tools[]", registered: tools.length, visible: ctx.tools.length };
   }
 
-  return false;
+  return null;
 }
 
 export function registerCivicTools() {
-  if (window.__U9ITUS_MCP_REGISTERED__ || window.__U9ITUS_MCP_DISABLED__) return;
+  if (typeof window === "undefined") return;
+  if (window.__U9ITUS_MCP_DISABLED__ || window.__U9ITUS_MCP_INIT__) return;
+  window.__U9ITUS_MCP_INIT__ = true;
 
   let tools;
   try {
@@ -259,32 +310,66 @@ export function registerCivicTools() {
     return;
   }
 
-  const attempt = () => {
-    try {
-      if (tryRegister(tools)) {
-        window.__U9ITUS_MCP_REGISTERED__ = true;
-        window.dispatchEvent(new CustomEvent("u9itus:webmcp-ready", { detail: { count: tools.length } }));
-        return true;
-      }
-    } catch (e) {
-      /* swallow — never break the host page */
-    }
-    return false;
+  const boundSurfaces = new WeakSet();
+  let announced = false;
+
+  const announce = (detail) => {
+    window.__U9ITUS_MCP_REGISTERED__ = true;
+    window.__U9ITUS_MCP_STATE__ = { ...detail, tools: tools.map((t) => t.name) };
+    window.dispatchEvent(
+      new CustomEvent("u9itus:webmcp-ready", { detail: window.__U9ITUS_MCP_STATE__ }),
+    );
+    announced = true;
   };
 
-  if (attempt()) return;
+  const watchForClears = (label, ctx) => {
+    try {
+      ctx.addEventListener?.("toolchange", async () => {
+        const visible = await visibleToolCount(ctx);
+        if (visible !== null && visible < tools.length) {
+          await registerOn(label, ctx, tools);
+        }
+      });
+    } catch (e) {
+      /* surface isn't an EventTarget — nothing to watch */
+    }
+  };
 
-  // The API may be injected late by an extension / polyfill. Retry for ~10s,
-  // and also react to the common readiness signals.
-  let tries = 0;
+  const sweep = async () => {
+    for (const [label, ctx] of surfaces()) {
+      if (boundSurfaces.has(ctx)) continue;
+      const result = await registerOn(label, ctx, tools);
+      if (result) {
+        boundSurfaces.add(ctx);
+        watchForClears(label, ctx);
+        announce({ surface: label, ...result });
+      }
+    }
+    return announced;
+  };
+
+  sweep();
+
+  const startedAt = Date.now();
   const timer = setInterval(() => {
-    tries += 1;
-    if (attempt() || tries >= 20) clearInterval(timer);
-  }, 500);
+    if (Date.now() - startedAt > RETRY_WINDOW_MS) {
+      clearInterval(timer);
+      return;
+    }
+    sweep();
+  }, RETRY_INTERVAL_MS);
 
-  ["modelcontextready", "modelcontext-ready", "DOMContentLoaded"].forEach((evt) =>
-    window.addEventListener(evt, attempt, { once: true }),
+  // An extension / polyfill can inject its surface late, or only once the
+  // user opens its agent panel. Re-sweep on the usual signals.
+  const kick = () => {
+    sweep();
+  };
+  ["modelcontextready", "modelcontext-ready", "DOMContentLoaded", "focus", "pointerdown", "keydown"].forEach((evt) =>
+    window.addEventListener(evt, kick, { passive: true }),
   );
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) sweep();
+  });
 }
 
 export default registerCivicTools;
