@@ -66,6 +66,7 @@
                     <tr><td class="px-4 py-3 font-mono text-emerald-300">u9itus_get_candidate</td><td class="px-4 py-3 text-slate-300">Full civic dossier: office, party, transparency IDs, verified news, donors, elections.</td></tr>
                     <tr><td class="px-4 py-3 font-mono text-emerald-300">u9itus_compare_candidates</td><td class="px-4 py-3 text-slate-300">Side-by-side dossiers for 2–4 candidates.</td></tr>
                     <tr><td class="px-4 py-3 font-mono text-emerald-300">u9itus_list_ballot_measures</td><td class="px-4 py-3 text-slate-300">State / county ballot measures with plain-language yes/no meanings.</td></tr>
+                    <tr><td class="px-4 py-3 font-mono text-emerald-300">u9itus_watch_ballot_measures</td><td class="px-4 py-3 text-slate-300">Register an email to be notified when a state's ballot measures are published.</td></tr>
                     <tr><td class="px-4 py-3 font-mono text-emerald-300">u9itus_upcoming_elections</td><td class="px-4 py-3 text-slate-300">Election stages and filing deadlines for a state.</td></tr>
                     <tr><td class="px-4 py-3 font-mono text-emerald-300">u9itus_submit_candidate_lead</td><td class="px-4 py-3 text-slate-300">Queues a spotted candidate for human verification. Never publishes.</td></tr>
                 </tbody>
