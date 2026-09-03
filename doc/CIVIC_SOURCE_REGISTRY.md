@@ -11,9 +11,10 @@ vendor page listing local measures.
 
 - **Table**: `election_data_sources` (migration `2026_09_03_000001_create_election_data_sources_table.php`)
 - **Model**: `App\Models\ElectionDataSource`
-- **Config**: `config/civic.php` — verifier UA/timeout, curated state URLs, state capitals, vendor host map
-- **Commands** (all `civic:*`): `seed-jurisdictions`, `resolve-official-urls`, `pull-measures`, `verify-sources`
-- **Shared**: `App\Support\CivicVendorClassifier` (URL host → vendor slug), `GoogleCivicService::voterInfoQuery()`
+- **Config**: `config/civic.php` — verifier UA/timeout, curated state URLs, state capitals, vendor host map, HTML-adapter map
+- **Commands** (all `civic:*`): `seed-jurisdictions`, `resolve-official-urls`, `pull-measures`, `scrape-measures`, `verify-sources`
+- **Shared**: `App\Support\CivicVendorClassifier` (URL host → vendor slug), `App\Support\BallotMeasureWriter` (one dedup/provenance rule for every ingest path), `GoogleCivicService::voterInfoQuery()`
+- **Adapters**: `App\Services\Civic\BallotMeasureAdapter` + `MeasureAdapterRegistry`; `Adapters\GenericHtmlMeasureAdapter` is the default
 - **Measure content stays in**: `ballot_measures` (`App\Models\BallotMeasure`) — this registry only holds *where to look*.
 
 ## Why a registry instead of crawling
@@ -95,13 +96,18 @@ streams it and keeps only the top-level `.../county:<x>` rows.
       the resolved hostname; state rows with no Civic URL fall back to
       config('civic.state_election_sites'). Stamps source_of_record=google_civic.
 
-3. civic:pull-measures   ← implemented (Civic path)
-      per row: voterInfoQuery → `Referendum` contests mapped into
-      ballot_measures (dedup on state + title + election day, matching
-      ImportBallotMeasures). Stamps last_scraped_at, and scrape_status='ok'
-      when measures were found. HTML-scraping jurisdictions with no VIP feed,
-      via a `platform_template` adapter, is still TODO — this command reports
-      how many rows had a feed vs. measures so you can see the gap.
+3a. civic:pull-measures   ← implemented (VIP feed path)
+      per row: voterInfoQuery → `Referendum` contests → ballot_measures
+      (via BallotMeasureWriter: dedup on state + title + election day,
+      `source` never overwritten). Stamps last_scraped_at, scrape_status='ok'
+      when measures were found.
+
+3b. civic:scrape-measures   ← implemented (HTML-adapter path)
+      for rows with a vendor / platform_template but no VIP feed: resolve a
+      BallotMeasureAdapter (default: GenericHtmlMeasureAdapter) and parse the
+      jurisdiction's own page. Same BallotMeasureWriter, so it can't clobber
+      a Ballotpedia/human measure. Skips rows verify marked dead/blocked or
+      robots-disallowed.
 
 4. civic:verify-sources   ← implemented
       HEAD/GET each URL following redirects → scrape_status
@@ -110,9 +116,9 @@ streams it and keeps only the top-level `.../county:<x>` rows.
       --rewrite-redirects persists a resolved URL back into its column.
 ```
 
-Steps 1–4 exist today via the Civic/VIP path. The remaining gap is the
-HTML-adapter half of step 3 — a `platform_template` scraper for jurisdictions
-with no VIP feed.
+All four steps exist today, on both the Civic/VIP feed path and the HTML-adapter
+path. `GenericHtmlMeasureAdapter` is a heuristic parser; a vendor that needs
+bespoke selectors gets its own adapter class registered under a new key.
 
 ## `civic:seed-jurisdictions`
 
@@ -219,6 +225,35 @@ Options: `--state`, `--level`, `--election-id`, `--limit=500`, `--sleep=250`,
 `--refresh`, `--dry-run`. The run summary reports `M/N rows with a feed had
 measures` so you can see how many jurisdictions still need an HTML adapter.
 
+## `civic:scrape-measures`
+
+The HTML-adapter path for rows with a `vendor` / `platform_template` but no VIP
+feed. Per row: `MeasureAdapterRegistry::for($row)` resolves an adapter
+(`platform_template` first, else `config('civic.measure_adapters')[vendor]`,
+else none → skipped), which fetches and parses the row's `ballot_measures_url`
+(or `sample_ballot_url`).
+
+`GenericHtmlMeasureAdapter` is deliberately conservative: it only accepts short
+heading-like nodes that *start* with a measure label + designator ("Measure A",
+"Proposition 64", "Question 3"), pulls the following block(s) as the summary,
+caps results at 60 (more ⇒ it matched navigation ⇒ returns nothing), and reads
+the election date from the page title or a URL slug like `november-3-2026`.
+Results go through `BallotMeasureWriter` with `source = html_scrape`.
+
+Row selection excludes `scrape_status` `dead` / `blocked` and `robots_ok = false`
+— run `civic:verify-sources` first.
+
+```bash
+php artisan civic:scrape-measures
+php artisan civic:scrape-measures --vendor=voteinfo_net --state=CA
+php artisan civic:scrape-measures --only-empty --election-date=2026-11-03
+php artisan civic:scrape-measures --refresh --dry-run
+```
+
+Options: `--state`, `--vendor`, `--election-date` (fallback when the page has no
+parseable date), `--only-empty` (skip states that already have upcoming
+measures), `--limit=300`, `--sleep=500`, `--refresh`, `--dry-run`.
+
 ## `civic:verify-sources`
 
 Health-checks the URL columns on each row and writes back `scrape_status`,
@@ -260,10 +295,15 @@ Options: `--state`, `--level`, `--stale-days=7` (`0` = all), `--limit=1000`,
 ## Vendor-family scrapers
 
 Many a county's "official site" is actually a vendor subdomain
-(`voteinfo.net`, Granicus, BallotTrax/DFM, Democracy Live, Simply Voting). Write
-**one adapter per `platform_template`**, not per county — once a `voteinfo.net`
-scraper works for one county it works for all of them. The registry's job is to
-tell the scraper which adapter to run for a given `ocd_id`.
+(`voteinfo.net`, Granicus, BallotTrax/DFM, Democracy Live, Simply Voting).
+`civic:verify-sources` tags the row's `vendor` from its URL host; one
+`BallotMeasureAdapter` per vendor family then covers every county on it.
+
+To add a bespoke adapter: implement `App\Services\Civic\BallotMeasureAdapter`
+(`key()` + `fetchMeasures()`), register it in `MeasureAdapterRegistry`'s adapter
+list, and point the vendor at its key in `config('civic.measure_adapters')`. A
+row can also name an adapter key directly in `election_data_sources.platform_template`,
+which wins over the vendor map.
 
 ## Scheduling
 
@@ -278,9 +318,12 @@ Schedule::command('civic:resolve-official-urls --stale-days=45 --sleep=400')
 // Daily around elections — pull measures from the VIP feed
 Schedule::command('civic:pull-measures --sleep=400')
     ->dailyAt('02:15')->withoutOverlapping()->runInBackground();
-// Weekly URL health check
+// Weekly URL health check — before the scrape so it skips known-dead rows
 Schedule::command('civic:verify-sources --stale-days=7 --sleep=300')
     ->weeklyOn(1, '03:00')->withoutOverlapping()->runInBackground();
+// Weekly HTML scrape for jurisdictions with no VIP feed
+Schedule::command('civic:scrape-measures --sleep=600')
+    ->weeklyOn(1, '03:45')->withoutOverlapping()->runInBackground();
 ```
 
 ## Legal / etiquette
@@ -298,9 +341,10 @@ Schedule::command('civic:verify-sources --stale-days=7 --sleep=300')
 - [x] `civic:resolve-official-urls` + `GoogleCivicService::voterInfoQuery()`.
 - [x] `civic:pull-measures` — Civic/VIP `Referendum` → `ballot_measures`.
 - [x] `civic:verify-sources` — URL health, redirects, robots.txt, vendor re-classify.
+- [x] `civic:scrape-measures` + `GenericHtmlMeasureAdapter` — HTML path for rows with no VIP feed.
 - [ ] Implement `seedMunicipalities()` — Census places + curated allow-list.
 - [ ] Implement `seedFromEac()` — EAVS jurisdiction export → `authority_name`, `county_fips`, townships.
-- [ ] First `platform_template` HTML adapter (`voteinfo_net`) for jurisdictions with no VIP feed, dispatched from `civic:pull-measures`.
+- [ ] Tune `GenericHtmlMeasureAdapter` against real vendor fixtures; add a bespoke adapter where the heuristic misses.
 - [ ] `civic:enrich-measures` — derive `yes_meaning` / `no_meaning` (LLM or Ballotpedia) for `source = google_civic` rows.
 - [ ] Wire an `/admin/imports`-style panel over `scrape_status` / `last_verified_at` counts.
 - [ ] Extend `config('civic.state_election_sites')` past the initial 13 states (NASS "Can I Vote" directory).

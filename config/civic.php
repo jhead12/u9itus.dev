@@ -92,4 +92,22 @@ return [
         'enr.clarityelections' => 'clarity',
         'sos.gov' => null,                      // generic gov — leave vendor null
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | HTML measure adapters (civic:scrape-measures)
+    |--------------------------------------------------------------------------
+    | vendor slug => BallotMeasureAdapter key. Used for rows that have a vendor
+    | but no VIP feed. These sample-ballot pages all render measure text
+    | server-side, so the heuristic `generic_html` adapter handles them; add a
+    | dedicated adapter key here once a vendor needs bespoke parsing.
+    | Rows with an explicit election_data_sources.platform_template bypass this.
+    */
+    'measure_adapters' => [
+        'voteinfo_net' => 'generic_html',
+        'enhanced_voting' => 'generic_html',
+        'democracy_live' => 'generic_html',
+        'election_reporting' => 'generic_html',
+        'clarity' => 'generic_html',
+    ],
 ];

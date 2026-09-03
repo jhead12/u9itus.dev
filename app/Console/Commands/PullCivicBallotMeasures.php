@@ -2,11 +2,10 @@
 
 namespace App\Console\Commands;
 
-use App\Models\BallotMeasure;
 use App\Models\ElectionDataSource;
 use App\Services\GoogleCivicService;
+use App\Support\BallotMeasureWriter;
 use Illuminate\Console\Command;
-use Illuminate\Support\Str;
 
 /**
  * Step 3 of the civic source pipeline (see doc/CIVIC_SOURCE_REGISTRY.md).
@@ -46,6 +45,11 @@ class PullCivicBallotMeasures extends Command
     private bool $refresh = false;
 
     private bool $dryRun = false;
+
+    public function __construct(private readonly BallotMeasureWriter $writer)
+    {
+        parent::__construct();
+    }
 
     public function handle(GoogleCivicService $civic): int
     {
@@ -111,13 +115,26 @@ class PullCivicBallotMeasures extends Command
             $referendums = $info['referendums'] ?? [];
             $electionDay = $info['election']['day'] ?? null;
 
+            $county = $row->level === 'county' ? $row->jurisdiction_name : null;
+
             foreach ($referendums as $referendum) {
-                $attrs = $this->mapReferendum($row, $referendum, $electionDay);
+                $attrs = BallotMeasureWriter::normalize(
+                    [
+                        'title' => (string) ($referendum['title'] ?? ''),
+                        'summary' => ($referendum['subtitle'] ?? null) ?: ($referendum['text'] ?? null),
+                        'source_url' => $referendum['url'] ?? null,
+                    ],
+                    state: $row->state,
+                    county: $referendum['district_name'] ?? $county,
+                    electionDate: $electionDay,
+                    source: 'google_civic',
+                    fallbackUrl: $row->ballot_measures_url ?? $row->sample_ballot_url,
+                );
                 if ($attrs === null) {
                     continue;
                 }
 
-                $result = $this->upsertMeasure($attrs);
+                $result = $this->writer->upsert($attrs, $this->refresh, $this->dryRun);
                 match ($result) {
                     'created' => $created++,
                     'updated' => $updated++,
@@ -165,104 +182,6 @@ class PullCivicBallotMeasures extends Command
         }
 
         return $row->jurisdiction_name ? "{$row->jurisdiction_name}, {$row->state}" : null;
-    }
-
-    /**
-     * Map one Civic Referendum contest onto ballot_measures columns.
-     *
-     * @param  array<string, mixed>  $r  a voterInfoQuery() referendum entry
-     * @return array<string, mixed>|null null when there's no usable title
-     */
-    private function mapReferendum(ElectionDataSource $row, array $r, ?string $electionDay): ?array
-    {
-        $title = trim((string) ($r['title'] ?? ''));
-        if ($title === '') {
-            return null;
-        }
-
-        $text = trim((string) ($r['text'] ?? ''));
-        $subtitle = trim((string) ($r['subtitle'] ?? ''));
-
-        // "County" comes from the contest district when Civic scopes it, else
-        // the registry row for a county-level source.
-        $county = $r['district_name'] ?? ($row->level === 'county' ? $row->jurisdiction_name : null);
-
-        return [
-            'state' => $row->state,
-            'county' => $county ? Str::limit((string) $county, 100, '') : null,
-            'measure_number' => $this->extractMeasureNumber($title),
-            'title' => Str::limit($title, 255, ''),
-            'summary' => $subtitle !== '' ? $subtitle : ($text !== '' ? Str::limit($text, 1000) : null),
-            // Civic gives the ballot question text, not a plain-language "what a
-            // Yes/No vote does" — left for a later enrichment pass.
-            'yes_meaning' => null,
-            'no_meaning' => null,
-            'election_date' => $electionDay,
-            'status' => 'upcoming',
-            'source' => 'google_civic',
-            'source_url' => $r['url'] ?? $row->ballot_measures_url ?? $row->sample_ballot_url,
-        ];
-    }
-
-    /** "Proposition 1: …" / "Measure A —" / "Question 3" → "1" / "A" / "3" */
-    private function extractMeasureNumber(string $title): ?string
-    {
-        if (preg_match('/\b(?:prop(?:osition)?|measure|question|amendment|issue|referendum)\s+([A-Z0-9]{1,4})\b/i', $title, $m)) {
-            return strtoupper($m[1]);
-        }
-
-        return null;
-    }
-
-    /**
-     * @param  array<string, mixed>  $attrs
-     * @return 'created'|'updated'|'unchanged'
-     */
-    private function upsertMeasure(array $attrs): string
-    {
-        $existing = BallotMeasure::query()
-            ->where('state', $attrs['state'])
-            ->where('title', $attrs['title'])
-            ->when(
-                $attrs['election_date'] !== null,
-                fn ($q) => $q->whereDate('election_date', $attrs['election_date']),
-                fn ($q) => $q->whereNull('election_date'),
-            )
-            ->first();
-
-        if ($existing === null) {
-            if (! $this->dryRun) {
-                BallotMeasure::create($attrs);
-            }
-
-            return 'created';
-        }
-
-        $changes = [];
-        foreach ($attrs as $key => $value) {
-            if ($value === null || $value === '') {
-                continue;
-            }
-            $current = $existing->{$key};
-            $isBlank = $current === null || $current === '';
-            if (($isBlank || $this->refresh) && $current != $value) {
-                $changes[$key] = $value;
-            }
-        }
-
-        // Never let this pass clobber a human/Ballotpedia-authored measure's
-        // provenance just because we matched it.
-        unset($changes['source']);
-
-        if ($changes === []) {
-            return 'unchanged';
-        }
-
-        if (! $this->dryRun) {
-            $existing->update($changes);
-        }
-
-        return 'updated';
     }
 
     private function stampRegistryRow(ElectionDataSource $row, bool $hadMeasures): void
