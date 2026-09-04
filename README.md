@@ -8,7 +8,7 @@
 
 ## WebMCP Civic Agent
 
-U9itus registers a catalogue of civic-research tools via [WebMCP](https://github.com/webmachinelearning/webmcp) — find candidates, pull a full dossier (transparency IDs, verified news, donor snapshot, upcoming elections), compare two candidates, list ballot measures, and submit a candidate lead, all callable directly by an agent in a WebMCP-enabled browser without scraping the page. Built for the [WebMCP Challenge](https://webmcp.devpost.com/) — see **[doc/WEBMCP.md](doc/WEBMCP.md)** for the why, architecture, and full tool catalogue, and `/webmcp` on the live site for a demo console.
+U9itus: Candidate Purview function is a catalogue of civic-research tools via [WebMCP](https://github.com/webmachinelearning/webmcp) — find candidates, pull a full dossier (transparency IDs, verified news, donor snapshot, upcoming elections), compare two candidates, list ballot measures, and submit a candidate lead, all callable directly by an agent in a WebMCP-enabled browser without scraping the page.
 
 ## Overview
 
@@ -27,7 +27,7 @@ Unlike traditional ad platforms where users can click repeatedly, U9itus uses **
 | Component                                          | Amount                          |
 | -------------------------------------------------- | ------------------------------- |
 | Politician pays per view                           | **$1.00**                       |
-| Voter earns per view                               | **$0.50~**                       |
+| Voter earns per view                               | **$0.50~**                      |
 | Voter-referral commission (10% of voter payout)    | $0.025 per view _(recurring)_   |
 | Politician-procurement commission (10% of 1st buy) | ~$0.06+ _(one-time)_            |
 | Payment processing (Stripe 2.5% gross-up)          | 2.5% of credit top-up amount    |
