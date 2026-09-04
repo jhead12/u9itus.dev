@@ -14,6 +14,7 @@
  *   u9itus_list_ballot_measures  — state / county ballot measures
  *   u9itus_watch_ballot_measures — email me when a state's measures are published
  *   u9itus_upcoming_elections    — election stages + filing deadlines by state
+ *   u9itus_latest_candidate_news — most recent verified candidate news, newest first
  *   u9itus_submit_candidate_lead — queue a spotted candidate for human review
  *   u9itus_current_page          — what u9itus page the user is looking at
  *
@@ -207,6 +208,22 @@ function toolDefinitions() {
         additionalProperties: false,
       },
       execute: async ({ state }) => apiGet("/elections", { state }),
+    },
+    {
+      name: `${TOOL_PREFIX}latest_candidate_news`,
+      description:
+        "Most recent verified news about candidates / officials across every published profile, newest first. Use this for 'what's the latest candidate news' or 'which candidate is in the news' — it answers in one call instead of opening dossiers one by one. Every item links to the original story (`source_url`) and identifies the candidate, including their `profile_url`. Filter by state, topic, or headline text.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          state: { type: "string", description: "Two-letter US state code." },
+          q: { type: "string", description: "Free-text match on the headline." },
+          topic: { type: "string", description: "Restrict to a single topic key, e.g. 'economy'." },
+          limit: { type: "integer", minimum: 1, maximum: 20 },
+        },
+        additionalProperties: false,
+      },
+      execute: async (args = {}) => apiGet("/candidate-news", args),
     },
     {
       name: `${TOOL_PREFIX}submit_candidate_lead`,

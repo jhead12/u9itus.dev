@@ -89,6 +89,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::get('/candidates/{politician:uuid}', [\App\Http\Controllers\Api\WebMcpController::class, 'candidate'])->name('candidates.show');
             Route::get('/ballot-measures', [\App\Http\Controllers\Api\WebMcpController::class, 'ballotMeasures'])->name('ballot-measures');
             Route::get('/elections', [\App\Http\Controllers\Api\WebMcpController::class, 'elections'])->name('elections');
+            Route::get('/candidate-news', [\App\Http\Controllers\Api\WebMcpController::class, 'candidateNews'])->name('candidate-news');
         });
 
         // Write endpoints — their own tighter limit (single throttle only; do

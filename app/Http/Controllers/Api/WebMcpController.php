@@ -349,6 +349,75 @@ class WebMcpController extends Controller
     }
 
     /**
+     * GET /api/v1/mcp/candidate-news
+     *
+     * The most recent *verified* news about candidates / officials across every
+     * published profile, newest first. Answers "what's the latest candidate
+     * news" / "who is in the news" in a single call, so an agent never has to
+     * open dossiers one by one. Only articles tied to a live, published profile
+     * are returned — placeholder / malformed profiles are filtered out.
+     *
+     * Params: state, q (headline match), topic, limit.
+     */
+    public function candidateNews(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'state' => ['nullable', 'string', 'size:2'],
+            'q' => ['nullable', 'string', 'max:120'],
+            'topic' => ['nullable', 'string', 'max:60'],
+            'limit' => ['nullable', 'integer', 'min:1', 'max:'.self::MAX_LIMIT],
+        ]);
+
+        $limit = (int) ($data['limit'] ?? 10);
+        $q = trim($data['q'] ?? '');
+        $state = ! empty($data['state']) ? strtoupper($data['state']) : null;
+
+        $articles = CandidateNewsArticle::query()
+            ->where('verification_status', 'verified')
+            ->whereNotNull('published_at')
+            ->whereHas('politician', function ($p) use ($state) {
+                $p->where('page_published', true)
+                    ->where('is_active', true)
+                    ->whereNotNull('slug')
+                    ->when($state, fn ($query) => $query->where('state', $state));
+            })
+            ->when($q !== '', fn ($query) => $query->where('headline', 'like', '%'.$q.'%'))
+            ->when(! empty($data['topic']), fn ($query) => $query->where('topic_key', $data['topic']))
+            ->with('politician:id,uuid,full_name,political_office,party_affiliation,state,slug')
+            ->orderByDesc('published_at')
+            ->limit($limit)
+            ->get()
+            ->map(function (CandidateNewsArticle $a) {
+                $p = $a->politician;
+
+                return [
+                    'headline' => $a->headline,
+                    'source_name' => $a->source_name,
+                    'source_url' => $a->source_url,
+                    'snippet' => $a->snippet,
+                    'image_url' => $a->image_url,
+                    'published_at' => optional($a->published_at)?->toIso8601String(),
+                    'topic' => $a->topic_key,
+                    'candidate' => $p ? [
+                        'uuid' => $p->uuid,
+                        'full_name' => $p->full_name,
+                        'office' => $p->political_office,
+                        'party' => $p->party_affiliation,
+                        'state' => $p->state,
+                        'profile_url' => $p->slug ? url('/p/'.$p->slug) : null,
+                    ] : null,
+                ];
+            })
+            ->values();
+
+        return response()->json([
+            'query' => $data,
+            'count' => $articles->count(),
+            'results' => $articles,
+        ]);
+    }
+
+    /**
      * POST /api/v1/mcp/candidate-leads
      *
      * Submit a candidate an agent has spotted (e.g. in a news article the
