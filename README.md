@@ -1,5 +1,7 @@
 # U9itus – Political Loyalty Ads (Standalone)
 
+> **WebMCP Challenge entry.** u9itus exposes a catalogue of civic-research tools to in-browser AI agents via [WebMCP](https://github.com/webmachinelearning/webmcp) — no DOM scraping. **Live demo: <https://www.u9itus.com/webmcp>** · Code: [`resources/js/webmcp/index.js`](resources/js/webmcp/index.js) + [`app/Http/Controllers/Api/WebMcpController.php`](app/Http/Controllers/Api/WebMcpController.php) · [Submission guide](doc/WEBMCP_SUBMISSION.md) · [Architecture](doc/WEBMCP.md)
+
 **Version:** 3.0.0  
 **Framework:** Laravel 12 (Standalone Architecture)  
 **Database:** MySQL (Railway Production)  
@@ -8,7 +10,17 @@
 
 ## WebMCP Civic Agent
 
-U9itus: Candidate Purview function is a catalogue of civic-research tools via [WebMCP](https://github.com/webmachinelearning/webmcp) — find candidates, pull a full dossier (transparency IDs, verified news, donor snapshot, upcoming elections), compare two candidates, list ballot measures, and submit a candidate lead, all callable directly by an agent in a WebMCP-enabled browser without scraping the page.
+u9itus registers **nine civic-research tools** on the browser's [WebMCP](https://github.com/webmachinelearning/webmcp) surface (`document.modelContext`), so an AI agent can call them directly instead of scraping the page:
+
+- **find candidates / officials** — with a `funded_by` filter that keeps only candidates whose FEC/OpenSecrets donor snapshot shows money from a named PAC, advocacy group, industry, or contributor, and cites the matching contributions
+- **full dossier** — office, party, transparency IDs, verified news (each linked), donor snapshot with raw FEC committee IDs resolved to registry names, upcoming elections
+- **compare** 2–4 candidates side by side
+- **ballot measures** — plain-language yes/no meanings plus a `read_more` link to the full legal text / fiscal analysis
+- **latest candidate news** across every published profile, newest first
+- **upcoming elections** — stages and filing deadlines by state
+- **watch ballot measures** / **submit candidate lead** (human-reviewed, never auto-published)
+
+Live demo + connection badge: **<https://www.u9itus.com/webmcp>** · Endpoints: [`routes/api.php`](routes/api.php) (`/api/v1/mcp/*`) · Full write-up: [doc/WEBMCP_SUBMISSION.md](doc/WEBMCP_SUBMISSION.md) · Architecture: [doc/WEBMCP.md](doc/WEBMCP.md)
 
 ## Overview
 
