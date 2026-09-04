@@ -81,7 +81,9 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
     | endpoint only queues `pending` rows for human verification.
     | See doc/WEBMCP.md.
     */
-    Route::prefix('/mcp')->name('mcp.')->group(function () {
+    Route::prefix('/mcp')->name('mcp.')
+        ->middleware(\App\Http\Middleware\ForceJsonRequest::class)
+        ->group(function () {
         // Read endpoints — generous shared limit.
         Route::middleware('throttle:60,1')->group(function () {
             Route::get('/candidates', [\App\Http\Controllers\Api\WebMcpController::class, 'candidates'])->name('candidates');

@@ -73,6 +73,13 @@ return Application::configure(basePath: dirname(__DIR__))
             before: \Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests::class,
             prepend: \App\Http\Middleware\ProvisionGuestVoterSession::class,
         );
+
+        // Pin ForceJsonRequest (WebMCP group) ahead of route-model binding so a
+        // missing {politician:uuid} renders a JSON 404, not an HTML page.
+        $middleware->prependToPriorityList(
+            before: \Illuminate\Routing\Middleware\SubstituteBindings::class,
+            prepend: \App\Http\Middleware\ForceJsonRequest::class,
+        );
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $safeLogoutRedirect = function (Request $request) {
