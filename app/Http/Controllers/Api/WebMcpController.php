@@ -7,6 +7,7 @@ use App\Jobs\BackfillStateElectionData;
 use App\Models\BallotMeasure;
 use App\Models\CandidateLead;
 use App\Models\CandidateNewsArticle;
+use App\Models\Committee;
 use App\Models\ElectionDataBackfill;
 use App\Models\Politician;
 use App\Models\StateElectionDate;
@@ -37,7 +38,8 @@ class WebMcpController extends Controller
      * GET /api/v1/mcp/candidates
      *
      * Typeahead-style search over published candidate/official profiles.
-     * Query params: q, state, governance_level, party, running (bool), limit.
+     * Query params: q, state, governance_level, party, running (bool),
+     * funded_by (donor/PAC/industry text), limit, offset.
      */
     public function candidates(Request $request): JsonResponse
     {
@@ -55,6 +57,7 @@ class WebMcpController extends Controller
             'governance_level' => ['nullable', 'string', 'max:32'],
             'party' => ['nullable', 'string', 'max:64'],
             'running' => ['nullable', 'boolean'],
+            'funded_by' => ['nullable', 'string', 'max:120'],
             'limit' => ['nullable', 'integer', 'min:1', 'max:'.self::MAX_LIMIT],
             'offset' => ['nullable', 'integer', 'min:0'],
         ]);
@@ -62,6 +65,7 @@ class WebMcpController extends Controller
         $limit = (int) ($data['limit'] ?? 10);
         $offset = (int) ($data['offset'] ?? 0);
         $q = trim($data['q'] ?? '');
+        $fundingNeedles = $this->fundingNeedles(trim($data['funded_by'] ?? ''));
 
         $base = Politician::query()
             ->where('page_published', true)
@@ -72,11 +76,22 @@ class WebMcpController extends Controller
             ->when(! empty($data['governance_level']), fn ($query) => $query->where('governance_level', $data['governance_level']))
             ->when(! empty($data['party']), fn ($query) => $query->where('party_affiliation', 'like', '%'.$data['party'].'%'))
             ->when(array_key_exists('running', $data) && $data['running'] !== null,
-                fn ($query) => $query->where('is_running_candidate', (bool) $data['running']));
+                fn ($query) => $query->where('is_running_candidate', (bool) $data['running']))
+            ->when($fundingNeedles !== [], fn ($query) => $query
+                ->whereHas('donorSnapshot', fn ($ds) => $ds->where(function ($w) use ($fundingNeedles) {
+                    foreach ($fundingNeedles as $needle) {
+                        $like = '%'.$needle.'%';
+                        $w->orWhereRaw('lower(top_contributors) like ?', [$like])
+                            ->orWhereRaw('lower(top_industries) like ?', [$like])
+                            ->orWhereRaw('lower(outside_spending) like ?', [$like])
+                            ->orWhereRaw('lower(pac_affiliations) like ?', [$like]);
+                    }
+                })));
 
         $total = (clone $base)->count();
 
         $results = $base
+            ->when($fundingNeedles !== [], fn ($query) => $query->with('donorSnapshot'))
             ->when($q !== '', fn ($query) => $query
                 ->orderByRaw('CASE WHEN LOWER(full_name) LIKE ? THEN 0 ELSE 1 END', [mb_strtolower($q).'%']))
             ->orderByDesc('verified_official')
@@ -84,7 +99,14 @@ class WebMcpController extends Controller
             ->offset($offset)
             ->limit($limit)
             ->get()
-            ->map(fn (Politician $p) => $this->candidateSummary($p))
+            ->map(function (Politician $p) use ($fundingNeedles) {
+                $summary = $this->candidateSummary($p);
+                if ($fundingNeedles !== []) {
+                    $summary['funding_match'] = $this->fundingMatch($p, $fundingNeedles);
+                }
+
+                return $summary;
+            })
             ->values();
 
         $returned = $results->count();
@@ -384,6 +406,156 @@ class WebMcpController extends Controller
         ];
     }
 
+    /**
+     * Expand a free-text `funded_by` term into the lower-case substrings to
+     * match against a donor snapshot's JSON columns. A term that names a known
+     * advocacy group in config/pac_affiliations.php also pulls in that group's
+     * contributor-name patterns (e.g. "AIPAC" → norpac, pro-israel america …)
+     * and the group key itself, so the filter catches money routed through any
+     * aligned PAC, not just an exact name.
+     *
+     * @return list<string>
+     */
+    private function fundingNeedles(string $term): array
+    {
+        $term = mb_strtolower(trim($term));
+        if ($term === '') {
+            return [];
+        }
+
+        $needles = [$term];
+
+        foreach ((array) config('pac_affiliations.groups', []) as $key => $group) {
+            $key = mb_strtolower((string) $key);
+            $label = mb_strtolower((string) ($group['label'] ?? ''));
+
+            if (str_contains($key, $term) || str_contains($label, $term) || str_contains($term, $key)) {
+                $needles[] = $key;
+                foreach ((array) ($group['patterns'] ?? []) as $pattern) {
+                    $needles[] = mb_strtolower((string) $pattern);
+                }
+            }
+        }
+
+        return array_values(array_unique(array_filter($needles, fn ($n) => $n !== '')));
+    }
+
+    /**
+     * The concrete donor-snapshot rows a `funded_by` filter matched on, so an
+     * agent can cite named contributors / PACs and dollar amounts rather than
+     * just asserting the link. Relies on `donorSnapshot` being eager-loaded.
+     *
+     * @param  list<string>  $needles
+     * @return array<int, array<string, mixed>>
+     */
+    private function fundingMatch(Politician $p, array $needles): array
+    {
+        $snap = $p->donorSnapshot;
+        if (! $snap) {
+            return [];
+        }
+
+        $hit = function (mixed $value) use ($needles): bool {
+            if (! is_string($value) || $value === '') {
+                return false;
+            }
+            $haystack = mb_strtolower($value);
+            foreach ($needles as $needle) {
+                if (str_contains($haystack, $needle)) {
+                    return true;
+                }
+            }
+
+            return false;
+        };
+
+        $amount = fn ($row) => isset($row['total']) && is_numeric($row['total']) ? (float) $row['total'] : null;
+        $out = [];
+
+        foreach ((array) $snap->pac_affiliations as $row) {
+            if ($hit($row['label'] ?? null) || $hit($row['matched_name'] ?? null) || $hit($row['group'] ?? null)) {
+                $out[] = [
+                    'kind' => 'pac_affiliation',
+                    'name' => $row['matched_name'] ?? ($row['label'] ?? 'PAC'),
+                    'group' => $row['label'] ?? ($row['group'] ?? null),
+                    'amount' => $amount($row),
+                ];
+            }
+        }
+
+        foreach ((array) $snap->outside_spending as $row) {
+            if ($hit($row['committee_name'] ?? null)) {
+                $out[] = [
+                    'kind' => 'outside_spending',
+                    'name' => $row['committee_name'] ?? 'Committee',
+                    'support_oppose' => $row['support_oppose'] ?? null,
+                    'amount' => $amount($row),
+                ];
+            }
+        }
+
+        foreach ((array) $snap->top_contributors as $row) {
+            if ($hit($row['name'] ?? null)) {
+                $out[] = [
+                    'kind' => 'contributor',
+                    'name' => $row['name'] ?? 'Contributor',
+                    'amount' => $amount($row),
+                ];
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * Swap raw FEC committee IDs for human names in an outside-spending list
+     * using the local `committees` registry (App\Services\FECService seeds it
+     * as a side effect of nightly enrichment, so a name resolved once for any
+     * candidate is reused everywhere). Read-time only — no external calls. Each
+     * row keeps a `committee` sub-object with the id, whether the name is a
+     * real resolution, and any hand-curated organisation link.
+     *
+     * @param  array<int, array<string, mixed>>  $spending
+     * @return array<int, array<string, mixed>>
+     */
+    private function hydrateCommitteeNames(array $spending): array
+    {
+        $ids = collect($spending)
+            ->pluck('committee_id')
+            ->filter(fn ($id) => is_string($id) && $id !== '')
+            ->unique()
+            ->values();
+
+        $registry = $ids->isEmpty()
+            ? collect()
+            : Committee::query()
+                ->whereIn('fec_committee_id', $ids)
+                ->with('organization:id,name')
+                ->get()
+                ->keyBy('fec_committee_id');
+
+        return collect($spending)->map(function ($row) use ($registry) {
+            $id = is_string($row['committee_id'] ?? null) ? $row['committee_id'] : null;
+            $stored = $row['committee_name'] ?? null;
+            $storedIsRawId = ! is_string($stored)
+                || $stored === ''
+                || $stored === $id
+                || preg_match('/^C\d{8}$/', $stored) === 1;
+
+            $committee = $id ? $registry->get($id) : null;
+            $resolvedName = $storedIsRawId ? $committee?->name : $stored;
+
+            $row['committee_name'] = $resolvedName ?? $stored ?? $id ?? 'Unknown spender';
+            $row['committee'] = [
+                'fec_committee_id' => $id,
+                'name_resolved' => $resolvedName !== null,
+                'organization' => $committee?->organization?->name,
+            ];
+
+            return $row;
+        })->all();
+    }
+
     private function candidateDossier(Politician $p): array
     {
         $news = CandidateNewsArticle::query()
@@ -405,6 +577,10 @@ class WebMcpController extends Controller
         $donor = $p->donorSnapshot?->toArray();
         if (is_array($donor)) {
             $donor = collect($donor)->except(['id', 'politician_id', 'created_at', 'updated_at'])->all();
+
+            if (! empty($donor['outside_spending']) && is_array($donor['outside_spending'])) {
+                $donor['outside_spending'] = $this->hydrateCommitteeNames($donor['outside_spending']);
+            }
         }
 
         return array_merge($this->candidateSummary($p), [

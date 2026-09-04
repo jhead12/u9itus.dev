@@ -109,7 +109,7 @@ function toolDefinitions() {
     {
       name: `${TOOL_PREFIX}find_candidates`,
       description:
-        "Search u9itus published candidate and elected-official profiles by name and/or filters. Use for questions like 'who is running for X in Y' or to resolve a name mentioned in an article to a u9itus profile (each result has a uuid for u9itus_get_candidate). The response includes `total` (all matches), `count` (this page), and `next_offset` — to get every match, keep calling with `offset: next_offset` until it is null.",
+        "Search u9itus published candidate and elected-official profiles by name and/or filters. Use for questions like 'who is running for X in Y', 'Texas candidates funded by AIPAC', or to resolve a name mentioned in an article to a u9itus profile (each result has a uuid for u9itus_get_candidate). The response includes `total` (all matches), `count` (this page), and `next_offset` — to get every match, keep calling with `offset: next_offset` until it is null. When `funded_by` is set, each result also carries a `funding_match` array citing the specific contributors / PACs and dollar amounts.",
       inputSchema: {
         type: "object",
         properties: {
@@ -121,6 +121,11 @@ function toolDefinitions() {
           },
           party: { type: "string", description: "Party affiliation, partial match." },
           running: { type: "boolean", description: "true = only active candidates; false = only seated officials." },
+          funded_by: {
+            type: "string",
+            description:
+              "Keep only candidates whose FEC / OpenSecrets donor snapshot shows money from this source — a PAC, committee, advocacy group (e.g. 'AIPAC'), industry, or contributor name. Naming a known advocacy group also matches its aligned PACs. Matched results include a `funding_match` array with the named sources and amounts.",
+          },
           limit: { type: "integer", minimum: 1, maximum: 20, description: "Results per page (default 10, max 20)." },
           offset: { type: "integer", minimum: 0, description: "Skip this many matches — pass the previous response's next_offset to page." },
         },
