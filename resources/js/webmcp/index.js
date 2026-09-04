@@ -168,7 +168,7 @@ function toolDefinitions() {
     {
       name: `${TOOL_PREFIX}list_ballot_measures`,
       description:
-        "List US ballot measures (always state/county scoped) with plain-language yes/no meanings. Filter by state, free-text, and status (upcoming|passed|failed). If a state has none yet, the response includes a `backfill` block (status queued|in_progress|unavailable) — relay its message and offer u9itus_watch_ballot_measures.",
+        "List US ballot measures (always state/county scoped) with plain-language yes/no meanings. Filter by state, free-text, and status (upcoming|passed|failed). Each result carries a `read_more` link ({label, url}) to the full legal text and fiscal analysis — cite it when the user asks about detail the summary omits (eligibility thresholds, dollar amounts, funding source, repayment terms). If a state has none yet, the response includes a `backfill` block (status queued|in_progress|unavailable) — relay its message and offer u9itus_watch_ballot_measures.",
       inputSchema: {
         type: "object",
         properties: {

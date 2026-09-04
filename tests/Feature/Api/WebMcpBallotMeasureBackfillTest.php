@@ -56,6 +56,29 @@ it('omits the backfill block entirely when the state has measures', function () 
         ->assertJsonMissingPath('backfill');
 });
 
+it('hands the agent a labelled read_more link when a measure has a source url', function () {
+    BallotMeasure::create([
+        'state' => 'CA',
+        'title' => 'Proposition 37',
+        'status' => 'upcoming',
+        'source' => 'ballotpedia',
+        'source_url' => 'https://ballotpedia.org/California_Proposition_37',
+    ]);
+
+    $this->getJson('/api/v1/mcp/ballot-measures?state=ca')
+        ->assertOk()
+        ->assertJsonPath('results.0.read_more.url', 'https://ballotpedia.org/California_Proposition_37')
+        ->assertJsonPath('results.0.read_more.label', 'Full text & fiscal analysis on Ballotpedia');
+});
+
+it('leaves read_more null when a measure has no source url', function () {
+    BallotMeasure::create(['state' => 'CA', 'title' => 'Proposition 1', 'status' => 'upcoming']);
+
+    $this->getJson('/api/v1/mcp/ballot-measures?state=ca')
+        ->assertOk()
+        ->assertJsonPath('results.0.read_more', null);
+});
+
 it('watch endpoint registers an email and nudges the backfill', function () {
     $this->postJson('/api/v1/mcp/ballot-measures/watch', ['state' => 'tx', 'email' => 'me@example.com'])
         ->assertStatus(202)

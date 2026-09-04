@@ -206,6 +206,7 @@ class WebMcpController extends Controller
                 'status' => $m->status,
                 'source' => $m->source,
                 'source_url' => $m->source_url,
+                'read_more' => $this->ballotMeasureReadMore($m),
             ])
             ->values();
 
@@ -222,6 +223,32 @@ class WebMcpController extends Controller
         }
 
         return response()->json($payload);
+    }
+
+    /**
+     * The canonical "go read the actual measure" link for a ballot-measure row.
+     *
+     * `summary` / `yes_meaning` / `no_meaning` are deliberately plain-language;
+     * operational detail (eligibility thresholds, dollar amounts, funding
+     * source, repayment terms) lives at the source. Hand the agent a labelled
+     * link it can cite verbatim, or null when we have nothing on file.
+     */
+    private function ballotMeasureReadMore(BallotMeasure $m): ?array
+    {
+        if (! $m->source_url) {
+            return null;
+        }
+
+        $labels = [
+            'ballotpedia' => 'Full text & fiscal analysis on Ballotpedia',
+            'wikipedia' => 'Background on Wikipedia',
+            'manual' => 'Official measure text',
+        ];
+
+        return [
+            'label' => $labels[strtolower((string) $m->source)] ?? 'Full measure text & analysis',
+            'url' => $m->source_url,
+        ];
     }
 
     /**
