@@ -427,7 +427,6 @@
         var modal = document.getElementById('guide-modal');
         var card = document.getElementById('guide-card');
         var openBtn = document.getElementById('guide-open');
-        var SEEN_KEY = 'u9itus_webmcp_guide_seen';
 
         if (!modal || !openBtn) { return; }
 
@@ -440,7 +439,6 @@
             modal.classList.add('hidden');
             modal.classList.remove('flex');
             document.body.style.overflow = '';
-            try { localStorage.setItem(SEEN_KEY, '1'); } catch (e) { /* storage blocked */ }
         }
 
         openBtn.addEventListener('click', open);
@@ -454,11 +452,6 @@
         document.addEventListener('keydown', function (e) {
             if (e.key === 'Escape' && !modal.classList.contains('hidden')) { close(); }
         });
-
-        // Show once automatically so first-time visitors see how to connect.
-        var seen = false;
-        try { seen = localStorage.getItem(SEEN_KEY) === '1'; } catch (e) { seen = false; }
-        if (!seen) { setTimeout(open, 600); }
     })();
 </script>
 </body>
