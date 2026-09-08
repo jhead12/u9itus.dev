@@ -48,6 +48,13 @@
             tools so an AI agent (ChatGPT's browser, or Chrome with WebMCP enabled) can do civic research
             directly against u9itus data — no DOM scraping. The same JSON endpoints power the live console below.
         </p>
+        <button id="guide-open"
+                class="mt-5 inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold rounded-lg px-4 py-2 transition">
+            <svg viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4" aria-hidden="true">
+                <path d="M10 2a1 1 0 0 1 1 1v1.06a6 6 0 0 1 4.88 4.88H17a1 1 0 1 1 0 2h-1.12a6 6 0 0 1-4.88 4.88V17a1 1 0 1 1-2 0v-1.3a6 6 0 0 1-4.88-4.88H3a1 1 0 1 1 0-2h1.06A6 6 0 0 1 9 4.06V3a1 1 0 0 1 1-1Zm0 5a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z"/>
+            </svg>
+            Set up your browser
+        </button>
     </header>
 
     <section class="mb-12">
@@ -148,6 +155,110 @@
     <footer class="text-xs text-slate-600 border-t border-slate-800 pt-6">
         WebMCP tool source: <code>resources/js/webmcp/index.js</code> · backend: <code>App\Http\Controllers\Api\WebMcpController</code> · docs: <code>doc/WEBMCP.md</code>
     </footer>
+</div>
+
+{{-- ───────────────────────── Browser setup guide (modal) ───────────────────────── --}}
+<div id="guide-modal"
+     class="fixed inset-0 z-50 hidden items-start justify-center overflow-y-auto bg-black/70 backdrop-blur-sm px-4 py-8 sm:py-12"
+     role="dialog" aria-modal="true" aria-labelledby="guide-title">
+    <div id="guide-card"
+         class="w-full max-w-2xl rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl">
+        <div class="flex items-start justify-between gap-4 border-b border-slate-800 px-6 py-4">
+            <div>
+                <h2 id="guide-title" class="text-lg font-bold text-white">Set up your browser for the AI tools</h2>
+                <p class="mt-1 text-xs text-slate-400">
+                    WebMCP lets an AI agent in your browser call u9itus civic tools directly. Pick whichever route matches your browser.
+                </p>
+            </div>
+            <button id="guide-close"
+                    class="shrink-0 rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white transition"
+                    aria-label="Close">
+                <svg viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5" aria-hidden="true">
+                    <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z"/>
+                </svg>
+            </button>
+        </div>
+
+        <div class="max-h-[70vh] space-y-6 overflow-y-auto px-6 py-5 text-sm leading-relaxed text-slate-300">
+
+            <div>
+                <div class="flex items-center gap-2">
+                    <span class="rounded-md bg-emerald-500/15 px-2 py-0.5 text-xs font-bold text-emerald-300 border border-emerald-500/40">Option A</span>
+                    <h3 class="font-semibold text-white">Chrome's built-in AI agent (Chrome 149+)</h3>
+                </div>
+                <ol class="mt-3 list-decimal space-y-1.5 pl-5 marker:text-slate-500">
+                    <li>Update Chrome to version 149 or newer — check at <code class="text-emerald-300">chrome://settings/help</code>, then relaunch.</li>
+                    <li>Open <code class="text-emerald-300">chrome://flags</code> in a new tab, search for <span class="text-white">model context</span> (or <span class="text-white">WebMCP</span>), and set the <span class="text-white">Web Model Context API</span> flag to <span class="text-white">Enabled</span>.</li>
+                    <li>Click <span class="text-white">Relaunch</span>.</li>
+                    <li>Open Chrome's AI assistant panel and start an agent session, then switch back to this tab.</li>
+                </ol>
+                <p class="mt-2 text-xs text-slate-500">Flag names move around between Chrome versions — if you don't see an exact match, enable the closest "Model Context" / "WebMCP" entry.</p>
+            </div>
+
+            <div>
+                <div class="flex items-center gap-2">
+                    <span class="rounded-md bg-emerald-500/15 px-2 py-0.5 text-xs font-bold text-emerald-300 border border-emerald-500/40">Option B</span>
+                    <h3 class="font-semibold text-white">A WebMCP browser extension (any Chromium browser)</h3>
+                </div>
+                <ol class="mt-3 list-decimal space-y-1.5 pl-5 marker:text-slate-500">
+                    <li>Install a WebMCP-capable extension from the Chrome Web Store — for example <span class="text-white">Rook</span>.</li>
+                    <li>Pin the extension, open its side panel, and connect your AI model or sign in.</li>
+                    <li>Reload this page. When the extension attaches its agent surface, the tools register automatically.</li>
+                </ol>
+            </div>
+
+            <div>
+                <div class="flex items-center gap-2">
+                    <span class="rounded-md bg-emerald-500/15 px-2 py-0.5 text-xs font-bold text-emerald-300 border border-emerald-500/40">Option C</span>
+                    <h3 class="font-semibold text-white">An agentic browser</h3>
+                </div>
+                <p class="mt-3">
+                    Browsers with a built-in browsing agent (ChatGPT's browser / Atlas and similar) discover these tools automatically when the agent
+                    visits the page — no setup. Just ask it to <em>"use u9itus to …"</em>.
+                </p>
+            </div>
+
+            <div class="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+                <h3 class="font-semibold text-white">No agent right now?</h3>
+                <p class="mt-1 text-slate-400">
+                    Close this and use <span class="text-white">Simulate an agent</span> lower down the page — it installs a minimal in-page
+                    <code class="text-emerald-300">document.modelContext</code> and lets you call the real registered tools yourself.
+                </p>
+            </div>
+
+            <div>
+                <h3 class="font-semibold text-white">How to tell it worked</h3>
+                <p class="mt-1">
+                    The badge next to the page title flips from <span class="text-slate-400">"agent API: checking…"</span> to a green
+                    <span class="font-semibold text-emerald-300">agent API: connected</span> — with the surface it bound to and the number of tools your agent can see.
+                </p>
+            </div>
+
+            <div>
+                <h3 class="font-semibold text-white">Then just ask</h3>
+                <ul class="mt-2 list-disc space-y-1.5 pl-5 marker:text-slate-600">
+                    <li><em>"use u9itus to find who's running for US Senate in Ohio"</em></li>
+                    <li><em>"pull the u9itus dossier for that candidate and compare with their opponent"</em></li>
+                    <li><em>"list the California ballot measures and explain what a yes vote means"</em></li>
+                </ul>
+            </div>
+
+            <div>
+                <h3 class="font-semibold text-white">Privacy</h3>
+                <p class="mt-1 text-slate-400">
+                    The read tools call u9itus's public civic JSON endpoints (rate-limited). The two write tools — submitting a candidate lead and
+                    watching a state's ballot measures — queue for human review and never publish; a well-behaved agent will confirm with you first.
+                </p>
+            </div>
+        </div>
+
+        <div class="flex justify-end gap-3 border-t border-slate-800 px-6 py-4">
+            <a href="https://github.com/webmachinelearning/webmcp" target="_blank" rel="noopener"
+               class="rounded-lg px-4 py-2 text-sm font-semibold text-slate-300 hover:text-white transition">About WebMCP ↗</a>
+            <button id="guide-done"
+                    class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500 transition">Got it</button>
+        </div>
+    </div>
 </div>
 
 <script>
@@ -307,6 +418,47 @@
                 }
             });
         }
+    })();
+</script>
+
+<script>
+    /* ---- Browser setup guide modal ---- */
+    (function () {
+        var modal = document.getElementById('guide-modal');
+        var card = document.getElementById('guide-card');
+        var openBtn = document.getElementById('guide-open');
+        var SEEN_KEY = 'u9itus_webmcp_guide_seen';
+
+        if (!modal || !openBtn) { return; }
+
+        function open() {
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            document.body.style.overflow = 'hidden';
+        }
+        function close() {
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            document.body.style.overflow = '';
+            try { localStorage.setItem(SEEN_KEY, '1'); } catch (e) { /* storage blocked */ }
+        }
+
+        openBtn.addEventListener('click', open);
+        ['guide-close', 'guide-done'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) { el.addEventListener('click', close); }
+        });
+        modal.addEventListener('click', function (e) {
+            if (!card.contains(e.target)) { close(); }
+        });
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && !modal.classList.contains('hidden')) { close(); }
+        });
+
+        // Show once automatically so first-time visitors see how to connect.
+        var seen = false;
+        try { seen = localStorage.getItem(SEEN_KEY) === '1'; } catch (e) { seen = false; }
+        if (!seen) { setTimeout(open, 600); }
     })();
 </script>
 </body>
