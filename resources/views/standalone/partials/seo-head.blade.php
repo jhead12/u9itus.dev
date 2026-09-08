@@ -1,6 +1,6 @@
 {{--
     Shared SEO / favicon head partial.
-    Include at the end of every <head> block, after <title>.
+    Include once after <title>; pages must not also emit their own SEO tags.
 
     Optional variables (set before @include):
       $seoTitle       — page-specific title (default: app name)
@@ -8,8 +8,9 @@
       $seoCanonical   — canonical URL
       $ogType         — og:type (default: website)
       $ogImage        — absolute URL to social share image
-      $ogUrl          — og:url (defaults to current URL)
-      $twitterCard    — twitter:card type (default: summary)
+      $ogUrl          — legacy canonical URL input; og:url always matches canonical
+      $twitterCard    — twitter:card type (default: summary_large_image)
+      $seoRobots      — index policy (default: route-aware index/noindex)
 --}}
 
 {{-- ── Favicons ─────────────────────────────────────────────────────────── --}}
@@ -22,27 +23,26 @@
 
 {{-- ── SEO meta ─────────────────────────────────────────────────────────── --}}
 @php
-    $seoTitle       = $seoTitle       ?? config('app.name', 'U9itus');
-    $seoDescription = $seoDescription ?? 'U9itus — civic transparency and political advertising platform. Research politicians, watch campaign ads, and earn rewards.';
-    $seoCanonical   = $seoCanonical   ?? url()->current();
+    $seoTitle       = $seoTitle       ?? $ogTitle ?? config('app.name', 'U9itus');
+    $seoDescription = trim(strip_tags($seoDescription ?? $ogDescription ?? '')) ?: 'U9itus — civic transparency and political advertising platform. Research politicians, watch campaign ads, and earn rewards.';
+    $seoCanonical   = \App\Support\Seo::canonical($seoCanonical ?? $ogUrl ?? null);
+    $seoRobots      = $seoRobots ?? \App\Support\Seo::robots();
     $ogType         = $ogType         ?? 'website';
-    $ogUrl          = $ogUrl          ?? $seoCanonical;
-    $ogImage        = $ogImage        ?? asset('media/og-image.png');
+    $ogImage        = ($ogImage ?? null) ?: asset('images/og-default.png');
     $twitterCard    = $twitterCard    ?? 'summary_large_image';
 @endphp
 
 <meta name="description" content="{{ $seoDescription }}">
 <link rel="canonical" href="{{ $seoCanonical }}">
+<meta name="robots" content="{{ $seoRobots }}">
 
 {{-- ── Open Graph ───────────────────────────────────────────────────────── --}}
 <meta property="og:site_name"   content="{{ config('app.name', 'U9itus') }}">
 <meta property="og:type"        content="{{ $ogType }}">
-<meta property="og:url"         content="{{ $ogUrl }}">
+<meta property="og:url"         content="{{ $seoCanonical }}">
 <meta property="og:title"       content="{{ $seoTitle }}">
 <meta property="og:description" content="{{ $seoDescription }}">
 <meta property="og:image"       content="{{ $ogImage }}">
-<meta property="og:image:width"  content="1200">
-<meta property="og:image:height" content="630">
 
 {{-- ── Twitter / X Card ─────────────────────────────────────────────────── --}}
 <meta name="twitter:card"        content="{{ $twitterCard }}">

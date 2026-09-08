@@ -6,16 +6,7 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
     <title>Neighborhood Groups — {{ config('app.name', 'U9itus') }}</title>
-    @include('standalone.partials.seo-head')
-    <meta name="description" content="Find and join neighborhood groups on U9itus — local coalitions organizing around causes, ballot measures, and civic issues near you.">
-    <link rel="canonical" href="{{ url('/groups') }}">
-    <meta property="og:type"        content="website">
-    <meta property="og:url"         content="{{ url('/groups') }}">
-    <meta property="og:title"       content="Neighborhood Groups — {{ config('app.name', 'U9itus') }}">
-    <meta property="og:description" content="Find and join neighborhood groups organizing around local causes and civic issues.">
-    <meta name="twitter:card"       content="summary">
-    <meta name="twitter:title"      content="Neighborhood Groups — {{ config('app.name', 'U9itus') }}">
-    <meta name="twitter:description" content="Find and join neighborhood groups on U9itus.">
+    @include('standalone.partials.seo-head', ['seoTitle' => 'Neighborhood Groups — U9itus', 'seoDescription' => 'Find and join neighborhood groups on U9itus — local coalitions organizing around causes, ballot measures, and civic issues near you.', 'seoCanonical' => url('/groups')])
 
     {{-- Fonts --}}
     <link rel="preconnect" href="https://fonts.bunny.net">

@@ -12,15 +12,7 @@
     @endphp
 
     <title>{{ $group->name }} — {{ config('app.name', 'U9itus') }}</title>
-    @include('standalone.partials.seo-head')
-    <meta name="description" content="{{ Str::limit($group->description ?? ($group->name.' is a neighborhood group on U9itus.'), 160) }}">
-    <link rel="canonical" href="{{ $groupCanonicalUrl }}">
-    <meta property="og:type"        content="website">
-    <meta property="og:url"         content="{{ $groupCanonicalUrl }}">
-    <meta property="og:title"       content="{{ $group->name }} — {{ config('app.name', 'U9itus') }}">
-    <meta property="og:description" content="{{ Str::limit($group->description ?? '', 160) }}">
-    <meta name="twitter:card"       content="summary">
-    <meta name="twitter:title"      content="{{ $group->name }} — {{ config('app.name', 'U9itus') }}">
+    @include('standalone.partials.seo-head', ['seoTitle' => $group->name . ' — ' . config('app.name', 'U9itus'), 'seoDescription' => Str::limit($group->description ?? ($group->name.' is a neighborhood group on U9itus.'), 160), 'seoCanonical' => $groupCanonicalUrl])
 
     {{-- Fonts --}}
     <link rel="preconnect" href="https://fonts.bunny.net">

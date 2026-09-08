@@ -6,16 +6,7 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
     <title>Browse Politicians & Officials — {{ config('app.name', 'U9itus') }}</title>
-    @include('standalone.partials.seo-head')
-    <meta name="description" content="Research and learn about verified politicians and local governance officials on U9itus. View campaign profiles, transparency data, donor records, and political stances.">
-    <link rel="canonical" href="{{ url('/politicians') }}">
-    <meta property="og:type"        content="website">
-    <meta property="og:url"         content="{{ url('/politicians') }}">
-    <meta property="og:title"       content="Browse Politicians & Officials — {{ config('app.name', 'U9itus') }}">
-    <meta property="og:description" content="Research verified politicians and local governance officials. View campaign profiles, transparency data, donor records, and political stances.">
-    <meta name="twitter:card"       content="summary">
-    <meta name="twitter:title"      content="Browse Politicians & Officials — {{ config('app.name', 'U9itus') }}">
-    <meta name="twitter:description" content="Research verified politicians and governance officials on U9itus.">
+    @include('standalone.partials.seo-head', ['seoTitle' => 'Browse Politicians & Officials — U9itus', 'seoDescription' => 'Research and learn about verified politicians and local governance officials on U9itus. View campaign profiles, transparency data, donor records, and political stances.', 'seoCanonical' => url('/politicians')])
 
     {{-- Fonts --}}
     <link rel="preconnect" href="https://fonts.bunny.net">

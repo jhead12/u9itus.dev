@@ -1149,7 +1149,7 @@ class PublicProfileController extends Controller
         // Authenticated users always get a fresh render so personalised state
         // (favourites, claim status, etc.) is always current.
         if ($isGuestBrowsing && ! $request->has('refresh')) {
-            $pageCacheKey = "profile.page.{$politician->id}";
+            $pageCacheKey = "profile.page.seo-v2.{$politician->id}";
             $cached = Cache::get($pageCacheKey);
             if ($cached !== null) {
                 return response($cached, 200)->header('Content-Type', 'text/html');
@@ -1425,7 +1425,7 @@ class PublicProfileController extends Controller
         if ($isGuestBrowsing && ! $request->has('refresh')) {
             $html = $view->render();
             Cache::put(
-                "profile.page.{$politician->id}",
+                "profile.page.seo-v2.{$politician->id}",
                 $html,
                 now()->addMinutes(15)
             );
@@ -1487,8 +1487,7 @@ class PublicProfileController extends Controller
     protected function resolvePublicPolitician(string $slug): ?Politician
     {
         $politician = Politician::where('slug', $slug)
-            ->where('page_published', true)
-            ->where('is_active', true)
+            ->publiclyVisible()
             ->first();
 
         if ($politician || ! auth()->check()) {

@@ -6,48 +6,18 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
     <title>{{ $ogTitle }} — {{ config('app.name', 'U9itus') }}</title>
-    @include('standalone.partials.seo-head')
-
-    {{-- Open Graph / Social Sharing --}}
-    <meta property="og:type"        content="profile">
-    <meta property="og:url"         content="{{ $ogUrl }}">
-    <meta property="og:title"       content="{{ $ogTitle }}">
-    <meta property="og:description" content="{{ $ogDescription }}">
-    @if($ogImage)
-    <meta property="og:image"       content="{{ $ogImage }}">
-    @endif
-    <meta name="twitter:card"        content="summary_large_image">
-    <meta name="twitter:title"       content="{{ $ogTitle }}">
-    <meta name="twitter:description" content="{{ $ogDescription }}">
-    @if($ogImage)
-    <meta name="twitter:image"       content="{{ $ogImage }}">
-    @endif
-    <meta name="description" content="{{ $ogDescription }}">
-
-    {{-- Canonical URL --}}
-    <link rel="canonical" href="{{ $ogUrl }}">
+    @include('standalone.partials.seo-head', ['seoDescription' => $ogDescription, 'seoCanonical' => $ogUrl, 'ogType' => 'profile', 'seoRobots' => $politician->page_published ? 'index, follow' : 'noindex, follow'])
 
     {{-- Schema.org structured data — helps Google understand the page is about a politician --}}
-    <script type="application/ld+json">
-    {
-        "@@context": "https://schema.org",
-        "@@type": "Person",
-        "name": "{{ addslashes($politician->full_name) }}",
-        "url": "{{ $ogUrl }}",
-        "description": "{{ addslashes($ogDescription) }}",
-        "jobTitle": "{{ addslashes($politician->political_office ?? '') }}",
-        "worksFor": {
-            "@@type": "GovernmentOrganization",
-            "name": "{{ addslashes(($politician->state ?? '') . ($politician->city ? ', ' . $politician->city : '')) }}"
-        }
-        @if($ogImage)
-        ,"image": "{{ $ogImage }}"
-        @endif
-        @if($politician->website_url)
-        ,"sameAs": ["{{ $politician->website_url }}"]
-        @endif
-    }
-    </script>
+    @include('standalone.partials.structured-data', ['schema' => array_filter([
+        '@context' => 'https://schema.org',
+        '@type' => 'Person',
+        'name' => $politician->full_name,
+        'url' => $ogUrl,
+        'description' => strip_tags($ogDescription),
+        'image' => $ogImage,
+        'sameAs' => $politician->website_url ? [$politician->website_url] : null,
+    ])])
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=inter:300,400,500,600,700,800&display=swap" rel="stylesheet" />
 

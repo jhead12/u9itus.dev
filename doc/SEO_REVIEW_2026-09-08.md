@@ -1,6 +1,18 @@
 # SEO review — September 8, 2026
 
-This is a source-code review of the current working tree, including existing local changes. No application code was changed. Production HTML, redirects, indexing, traffic, and Core Web Vitals could not be verified: browser fetches failed and the shell could not resolve the public hostname. That does not establish a production outage. Recommendations below distinguish confirmed code behavior from opportunities requiring measurement.
+This started as a source-code review of the working tree, including existing local changes. The subsequent authorized implementation is summarized below. Production HTML, redirects, indexing, traffic, and Core Web Vitals could not be verified: browser fetches failed and the shell could not resolve the public hostname. That does not establish a production outage. Recommendations below distinguish original code findings from opportunities requiring measurement.
+
+## Implemented after review
+
+- Consolidated public-page metadata through the shared partial, wired layout sections into it, added the homepage canonical, and replaced the missing share-image fallback with the existing asset. Removed fixed dimensions for arbitrary social images.
+- Added route-aware pagination canonicals. Content filters retain their query parameters and use `noindex, follow`; tracking parameters are omitted. Address lookup results and profile claim/preview pages have an explicit noindex policy.
+- Encoded politician and blog structured data from PHP arrays with safe JSON serialization. Blog author type, image, and modification time now reflect the content; politician schema no longer assumes government employment.
+- Shared active/published politician eligibility between public resolution and the sitemap. Added enriched PACs, scoped group URLs, published events, and Earn. Excluded empty topic archives and posts that declare a different canonical. Static URLs no longer claim a new modification time on every cache refresh.
+- Stopped automatic politician slug regeneration when descriptive fields change. This prevents future broken links; it does not reconstruct historical slugs already lost before this change.
+- Made the application robots route serve the same file as the web server, preserving the existing crawler preferences. Versioned sitemap and guest profile caches so old HTML/XML will not mask the update.
+- Added 25 SEO regression cases. Those and 74 related blog/event/profile/group tests passed; Blade compilation and whitespace checks also passed. Local PHP commands required `-d opcache.enable_cli=0 -d opcache.file_cache=` because the configured CLI opcache directory was inaccessible.
+
+Remaining work: deploy and inspect the live canonical host/redirects and Search Console, measure performance, build curated geographic pages, and consider additional eligible schema and sitemap partitioning as inventory grows. About/How It Works/Pricing/Contact were not added to the sitemap because the public route declarations reference missing standalone views. AI crawler access preferences were preserved.
 
 ## Existing patterns worth preserving
 

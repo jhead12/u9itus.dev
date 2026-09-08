@@ -864,12 +864,7 @@ Route::get('/p/{slug}/news', [PublicProfileController::class, 'news'])->name('po
 // SEO — Sitemap & robots.txt
 Route::get('/sitemap.xml', [SitemapController::class, 'index'])->name('sitemap');
 Route::get('/robots.txt', function () {
-    $base = rtrim(config('app.url', 'https://u9itus.com'), '/');
-    return response(
-        "User-agent: *\nDisallow: /admin\nDisallow: /dashboard\nDisallow: /api\n\nSitemap: {$base}/sitemap.xml\n",
-        200,
-        ['Content-Type' => 'text/plain']
-    );
+    return response(file_get_contents(public_path('robots.txt')), 200, ['Content-Type' => 'text/plain']);
 })->name('robots');
 
 // Profile claim flow (no auth required — claimant verifies via emailed token)

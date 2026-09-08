@@ -6,14 +6,7 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
     <title>{{ $ogTitle }} — {{ config('app.name', 'U9itus') }}</title>
-    @include('standalone.partials.seo-head')
-    <meta name="description" content="{{ $ogDescription }}">
-    <link rel="canonical" href="{{ $ogUrl }}">
-    <meta property="og:type"  content="website">
-    <meta property="og:url"   content="{{ $ogUrl }}">
-    <meta property="og:title" content="{{ $ogTitle }} — {{ config('app.name', 'U9itus') }}">
-    <meta property="og:description" content="{{ $ogDescription }}">
-    <meta name="twitter:card" content="summary">
+    @include('standalone.partials.seo-head', ['seoDescription' => $ogDescription, 'seoCanonical' => $ogUrl])
 
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=inter:300,400,500,600,700,800&display=swap" rel="stylesheet" />

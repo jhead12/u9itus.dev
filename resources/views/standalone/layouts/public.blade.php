@@ -6,11 +6,13 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
     <title>@yield('title') — {{ config('app.name', 'U9itus') }}</title>
-    @include('standalone.partials.seo-head')
-    <meta name="description" content="@yield('meta_description', 'U9itus — civic engagement, political transparency, and community-driven media.')">
-    @if(trim($__env->yieldContent('canonical')) !== '')
-        <link rel="canonical" href="@yield('canonical')">
-    @endif
+    @include('standalone.partials.seo-head', [
+        'seoTitle' => trim($__env->yieldContent('title')) . ' — ' . config('app.name', 'U9itus'),
+        'seoDescription' => trim($__env->yieldContent('meta_description')),
+        'seoCanonical' => trim($__env->yieldContent('canonical')) ?: null,
+        'ogType' => trim($__env->yieldContent('og_type')) ?: 'website',
+        'ogImage' => trim($__env->yieldContent('og_image')) ?: null,
+    ])
     @stack('meta')
 
     {{-- Fonts --}}

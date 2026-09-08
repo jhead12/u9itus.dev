@@ -5,16 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="google-site-verification" content="gqW0SoY5hfBu8rcPBi_HMR-nCbSNdtoFj-XREjjEcmQ">
     <title>U9itus — See Who's Running in Your District.</title>
-    <meta name="description" content="U9itus is the Virtual Town Hall where candidates pay $1.00 to earn your full attention — and you keep $0.50. Find who's running in your district, verify their record with public data, and get paid to engage with democracy.">
-    <meta property="og:type" content="website">
-    <meta property="og:url" content="{{ config('app.url') }}">
-    <meta property="og:title" content="U9itus — See Who's Running in Your District">
-    <meta property="og:description" content="Find every candidate in your district. Watch their message. Verify their record with FEC, OpenSecrets, Ballotpedia &amp; Vote Smart. Get paid $0.50 for your full attention.">
-    <meta property="og:image" content="{{ asset('images/og-default.png') }}">
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="U9itus — The Virtual Town Hall">
-    <meta name="twitter:description" content="Candidates pay to earn your attention. You keep $0.50 per full view. Verify every claim with public data.">
-    <meta name="twitter:image" content="{{ asset('images/og-default.png') }}">
+    @include('standalone.partials.seo-head', [
+        'seoTitle' => "U9itus — See Who's Running in Your District",
+        'seoDescription' => "U9itus is the Virtual Town Hall where candidates pay $1.00 to earn your full attention — and you keep $0.50. Find who's running in your district, verify their record with public data, and get paid to engage with democracy.",
+        'seoCanonical' => url('/'),
+    ])
+
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=inter:300,400,500,600,700,800&display=swap" rel="stylesheet" />
     

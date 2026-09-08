@@ -1,41 +1,28 @@
 @extends('standalone.layouts.public')
 
 @section('title', $post->meta_title ?? $post->title)
-@section('meta_description', $post->meta_description ?? $post->excerpt)
+@section('meta_description', Str::limit(strip_tags($post->meta_description ?? $post->excerpt ?? $post->body ?? ''), 160))
 @section('canonical', $post->canonical_url ?? route('blog.show', $post))
 
+@section('og_type', 'article')
+@section('og_image', $post->featured_image_url ?? '')
+
 @push('meta')
-    <meta property="og:type" content="article">
-    <meta property="og:url" content="{{ $post->canonical_url ?? route('blog.show', $post) }}">
-    <meta property="og:title" content="{{ $post->meta_title ?? $post->title }}">
-    <meta property="og:description" content="{{ Str::limit($post->meta_description ?? $post->excerpt ?? strip_tags($post->body ?? ''), 160) }}">
-    @if($post->featured_image_url)
-    <meta property="og:image" content="{{ $post->featured_image_url }}">
-    @endif
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="{{ $post->meta_title ?? $post->title }}">
-    <meta name="twitter:description" content="{{ Str::limit($post->meta_description ?? $post->excerpt ?? strip_tags($post->body ?? ''), 160) }}">
-    @if($post->featured_image_url)
-    <meta name="twitter:image" content="{{ $post->featured_image_url }}">
-    @endif
-    <script type="application/ld+json">
-    {
-        "@@context": "https://schema.org",
-        "@@type": "BlogPosting",
-        "headline": "{{ $post->title }}",
-        "description": "{{ Str::limit($post->meta_description ?? $post->excerpt ?? strip_tags($post->body ?? ''), 200) }}",
-        "url": "{{ $post->canonical_url ?? route('blog.show', $post) }}",
-        "datePublished": "{{ $post->published_at->toIso8601String() }}",
-        "author": {
-            "@@type": "Organization",
-            "name": "{{ $post->author?->full_name ?? $post->author?->name ?? 'U9itus' }}"
-        },
-        "publisher": {
-            "@@type": "Organization",
-            "name": "{{ config('app.name', 'U9itus') }}"
-        }
-    }
-    </script>
+    @include('standalone.partials.structured-data', ['schema' => array_filter([
+        '@context' => 'https://schema.org',
+        '@type' => 'BlogPosting',
+        'headline' => $post->title,
+        'description' => Str::limit(strip_tags($post->meta_description ?? $post->excerpt ?? $post->body ?? ''), 200),
+        'url' => $post->canonical_url ?: route('blog.show', $post),
+        'datePublished' => $post->published_at->toIso8601String(),
+        'dateModified' => $post->updated_at?->toIso8601String(),
+        'image' => $post->featured_image_url,
+        'author' => [
+            '@type' => $post->author ? 'Person' : 'Organization',
+            'name' => $post->author?->full_name ?? $post->author?->name ?? 'U9itus',
+        ],
+        'publisher' => ['@type' => 'Organization', 'name' => config('app.name', 'U9itus')],
+    ])])
 @endpush
 
 @section('content')

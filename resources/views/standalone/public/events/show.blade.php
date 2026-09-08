@@ -4,21 +4,7 @@
 @section('meta_description', Str::limit(strip_tags($event->description), 160))
 @section('canonical', route('events.show', $event->slug))
 
-@push('meta')
-    <meta property="og:title" content="{{ $event->title }}">
-    <meta property="og:description" content="{{ Str::limit(strip_tags($event->description), 160) }}">
-    <meta property="og:type" content="article">
-    <meta property="og:url" content="{{ route('events.show', $event->slug) }}">
-    @if($event->image_url)
-        <meta property="og:image" content="{{ $event->image_url }}">
-    @endif
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="{{ $event->title }}">
-    <meta name="twitter:description" content="{{ Str::limit(strip_tags($event->description), 160) }}">
-    @if($event->image_url)
-        <meta name="twitter:image" content="{{ $event->image_url }}">
-    @endif
-@endpush
+@section('og_image', $event->image_url ?? '')
 
 @section('content')
 <section class="max-w-5xl mx-auto px-4 sm:px-6 py-10">

@@ -4,13 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Earn Money Watching Videos — U9itus</title>
-    @include('standalone.partials.seo-head')
-    <meta name="description" content="Get paid $0.50 every time you watch a video on U9itus — from politicians, local businesses, and your community. Free to join. No experience needed.">
-    <link rel="canonical" href="{{ url('/earn') }}">
-    <meta property="og:title"       content="Earn Money Watching Videos — U9itus">
-    <meta property="og:description" content="Get paid $0.50 every time you watch a video — from politicians, local businesses, and your community. Free to join.">
-    <meta property="og:url"         content="{{ url('/earn') }}">
-    <meta property="og:type"        content="website">
+    @include('standalone.partials.seo-head', ['seoTitle' => 'Earn Money Watching Videos — U9itus', 'seoDescription' => 'Get paid $0.50 every time you watch a video on U9itus — from politicians, local businesses, and your community. Free to join. No experience needed.', 'seoCanonical' => url('/earn')])
 
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=inter:300,400,500,600,700,800&display=swap" rel="stylesheet"/>

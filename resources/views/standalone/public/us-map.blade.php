@@ -4,16 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>U.S. Regional Map – {{ config('app.name', 'U9itus') }}</title>
-    @include('standalone.partials.seo-head')
-    <meta name="description" content="Explore an interactive 3D map of all 50 U.S. states and 435 congressional districts. Discover politicians, candidates, and civic officials for your area.">
-    <link rel="canonical" href="{{ url('/map') }}">
-    <meta property="og:type"        content="website">
-    <meta property="og:url"         content="{{ url('/map') }}">
-    <meta property="og:title"       content="U.S. Regional Map – {{ config('app.name', 'U9itus') }}">
-    <meta property="og:description" content="Explore an interactive 3D map of all 50 U.S. states and 435 congressional districts. Discover politicians, candidates, and civic officials for your area.">
-    <meta name="twitter:card"       content="summary">
-    <meta name="twitter:title"      content="U.S. Regional Map – {{ config('app.name', 'U9itus') }}">
-    <meta name="twitter:description" content="Explore an interactive 3D map of all 50 U.S. states and 435 congressional districts.">
+    @include('standalone.partials.seo-head', ['seoTitle' => 'U.S. Regional Map – U9itus', 'seoDescription' => 'Explore an interactive 3D map of all 50 U.S. states and 435 congressional districts. Discover politicians, candidates, and civic officials for your area.', 'seoCanonical' => url('/map')])
 
     {{-- ── Auth-aware map context ──────────────────────────────────────────
          Lightweight meta tags read once at boot by window.U9.session.

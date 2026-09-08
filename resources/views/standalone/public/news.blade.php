@@ -4,17 +4,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ $ogTitle }}</title>
-    @include('standalone.partials.seo-head')
+    @include('standalone.partials.seo-head', ['seoTitle' => $ogTitle, 'seoDescription' => $ogDescription, 'seoCanonical' => $ogUrl])
 
-    <meta property="og:type"        content="website">
-    <meta property="og:url"         content="{{ $ogUrl }}">
-    <meta property="og:title"       content="{{ $ogTitle }}">
-    <meta property="og:description" content="{{ $ogDescription }}">
-    <meta name="twitter:card"        content="summary">
-    <meta name="twitter:title"       content="{{ $ogTitle }}">
-    <meta name="twitter:description" content="{{ $ogDescription }}">
-    <meta name="description"         content="{{ $ogDescription }}">
-    <link rel="canonical"            href="{{ $ogUrl }}">
     <meta name="csrf-token"          content="{{ csrf_token() }}">
 
     <link rel="preconnect" href="https://fonts.bunny.net">

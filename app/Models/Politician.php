@@ -206,12 +206,8 @@ class Politician extends Model
             }
         });
 
-        static::updating(function (Politician $politician): void {
-            // Regenerate slug if profile fields that feed it have changed
-            if ($politician->isDirty(['full_name', 'political_office', 'city']) && ! $politician->isDirty('slug')) {
-                $politician->slug = static::generateSlug($politician);
-            }
-        });
+        // Keep published/shared URLs stable when names, offices, or cities change.
+        // A slug is generated on creation; descriptive fields are not URL identity.
 
         static::created(function (Politician $politician): void {
             MatchPoliticianToElectionData::dispatch($politician->id);
@@ -563,8 +559,13 @@ class Politician extends Model
     }
 
     /**
-     * Route model binding key.
+     * Records accessible to anonymous visitors.
      */
+    public function scopePubliclyVisible($query)
+    {
+        return $query->where('page_published', true)->where('is_active', true);
+    }
+
     public function getRouteKeyName(): string
     {
         return 'uuid';
