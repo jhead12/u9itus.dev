@@ -197,7 +197,7 @@
                     <li>Update Chrome to version 149 or newer — check at <code class="text-emerald-300">chrome://settings/help</code>, then relaunch. Same steps on Windows, macOS and Linux.</li>
                     <li>Open <code class="text-emerald-300">chrome://flags</code> in a new tab and search for <span class="text-white">webmcp</span>.</li>
                     <li>Set <code class="text-emerald-300">#webmcp-for-testing</code> (labelled <span class="text-white">"WebMCP for testing"</span>) to <span class="text-white">Enabled</span>, then click <span class="text-white">Relaunch</span>.</li>
-                    <li>Attach a WebMCP-capable agent runtime that binds to <code class="text-emerald-300">document.modelContext</code> (for most people this is the Rook extension — see Option B).</li>
+                    <li>Attach a WebMCP-capable agent runtime that binds to <code class="text-emerald-300">document.modelContext</code> (for most people this is the <a href="https://chromewebstore.google.com/detail/rook/opojeelojlkcinlhkbahpcekdolfjmhi" target="_blank" rel="noopener" class="text-emerald-400 underline">Rook extension</a> — see Option B).</li>
                     <li>Reload this page and keep the agent open on this tab.</li>
                 </ol>
                 <p class="mt-2 text-xs text-slate-500">Flag names move around between Chrome versions — if <code>#webmcp-for-testing</code> isn't there, enable the closest <span class="text-slate-400">"WebMCP"</span> / <span class="text-slate-400">"Model Context"</span> entry.</p>
@@ -209,7 +209,7 @@
                     <h3 class="font-semibold text-white">The Rook extension (any Chromium browser)</h3>
                 </div>
                 <ol class="mt-3 list-decimal space-y-1.5 pl-5 marker:text-slate-500">
-                    <li>Install <span class="text-white">Rook</span> from the Chrome Web Store (search "Rook WebMCP") and add it to your browser.</li>
+                    <li>Install <a href="https://chromewebstore.google.com/detail/rook/opojeelojlkcinlhkbahpcekdolfjmhi" target="_blank" rel="noopener" class="text-emerald-400 underline">Rook from the Chrome Web Store</a> and add it to your browser.</li>
                     <li>Click the <span class="text-white">Rook</span> icon in the toolbar (pin it from the puzzle-piece menu if it's hidden) to open its side panel.</li>
                     <li>In the Rook panel, sign in or connect your AI model / API key.</li>
                     <li>Reload this page. Once Rook attaches its agent surface, the tools register automatically.</li>
