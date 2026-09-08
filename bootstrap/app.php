@@ -23,11 +23,20 @@ return Application::configure(basePath: dirname(__DIR__))
         // Trust Railway proxies for proper HTTPS URL generation
         $middleware->trustProxies(at: '*');
 
+        // The cookie-consent notice is dismissed client-side with a plain
+        // (unencrypted) cookie written from JS, so the server can read it back
+        // to suppress the banner on the next request. It holds only a consent
+        // flag — no sensitive data — so exempting it from encryption is safe.
+        $middleware->encryptCookies(except: [
+            \App\Http\Middleware\InjectCookieConsent::COOKIE_NAME,
+        ]);
+
         $middleware->appendToGroup('web', [
             \App\Http\Middleware\CaptureReferralContext::class,
             \App\Http\Middleware\CaptureEarlyBankReferral::class,
             \App\Http\Middleware\MergeGuestFavoriteBoundaries::class,
             \App\Http\Middleware\InjectAnalyticsTags::class,
+            \App\Http\Middleware\InjectCookieConsent::class,
         ]);
         
         $middleware->alias([

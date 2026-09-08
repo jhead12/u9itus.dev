@@ -99,6 +99,8 @@
         <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 overflow-x-auto">
             <nav class="flex items-center space-x-6 text-xs whitespace-nowrap">
                 <a href="#data-collection" class="text-slate-400 hover:text-emerald-400 transition">Data Collection</a>
+                <a href="#no-sale" class="text-slate-400 hover:text-emerald-400 transition">No Sale or Sharing of Data</a>
+                <a href="#cookies" class="text-slate-400 hover:text-emerald-400 transition">Cookies</a>
                 <a href="#privacy-practices" class="text-slate-400 hover:text-emerald-400 transition">Privacy Practices</a>
                 <a href="#policy-updates" class="text-slate-400 hover:text-emerald-400 transition">Policy Updates</a>
                 <a href="#third-party" class="text-slate-400 hover:text-emerald-400 transition">Third Party Services</a>
@@ -147,10 +149,54 @@
                     </div>
                 </div>
 
+                <!-- No Sale or Sharing of Data -->
+                <div id="no-sale" class="pp-section">
+                    <h2 class="pp-h2">
+                        <span class="text-emerald-400">§2.</span> We Do Not Sell or Share Your Data
+                    </h2>
+                    <div class="space-y-4 bg-slate-800/30 border border-slate-700/50 rounded-lg p-6">
+                        <p class="pp-body">
+                            <strong class="text-white">We do not sell your personal information, and we do not share it with third parties for their own advertising or marketing.</strong>
+                            We have never done so, and we do not exchange your personal information for money or other valuable consideration.
+                        </p>
+                        <p class="pp-body">
+                            We use the information you provide only to operate and improve the platform &mdash; for example, to keep you signed in, deliver the features you request, secure your account, prevent fraud, and communicate with you about the service.
+                        </p>
+                        <p class="pp-body">
+                            We disclose personal information to third parties only in the limited circumstances described in this Policy: to service providers who process it on our behalf and under contract (such as payment, identity-verification, and analytics providers described in &sect;5), when you direct us to, or when required by law or valid legal process.
+                        </p>
+                        <p class="pp-body">
+                            Because we do not sell or share personal information as those terms are defined under laws such as the California Consumer Privacy Act (CCPA/CPRA), there is no need to opt out of a sale or sharing &mdash; but you may still contact us with any privacy request.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Cookies -->
+                <div id="cookies" class="pp-section">
+                    <h2 class="pp-h2">
+                        <span class="text-emerald-400">§3.</span> Cookies and Similar Technologies
+                    </h2>
+                    <div class="space-y-4 bg-slate-800/30 border border-slate-700/50 rounded-lg p-6">
+                        <p class="pp-body">
+                            A cookie is a small text file stored on your device by your browser. We use cookies and similar technologies (such as local storage) for the following purposes:
+                        </p>
+                        <ul class="list-disc list-inside space-y-2 pl-4 text-slate-300 text-sm">
+                            <li><strong class="text-white">Essential cookies</strong> &mdash; required for the site to function: signing you in, keeping your session active, remembering security and referral context, and protecting against cross-site request forgery. The site will not work correctly without these.</li>
+                            <li><strong class="text-white">Preference cookies</strong> &mdash; remember choices you make, such as dismissing this notice or saved map/boundary favorites for guests.</li>
+                            <li><strong class="text-white">Analytics cookies</strong> &mdash; set by Google Analytics / Google Tag Manager to help us understand, in aggregate, how visitors use the site (see &sect;5). We do not upload names, email addresses, or other directly identifying information to these tools.</li>
+                        </ul>
+                        <p class="pp-body">
+                            When you first visit the site we show a cookie notice. You can dismiss it by choosing &ldquo;Got it&rdquo; or &ldquo;Decline non-essential.&rdquo; You can also block or delete cookies at any time through your browser settings, and you may install the
+                            <a href="https://tools.google.com/dlpage/gaoptout" target="_blank" rel="noopener noreferrer" class="text-emerald-400 hover:text-emerald-300 underline">Google Analytics Opt-out Browser Add-on</a>
+                            to opt out of analytics. Blocking essential cookies may prevent you from signing in or using parts of the platform.
+                        </p>
+                    </div>
+                </div>
+
                 <!-- Policy Updates -->
                 <div id="policy-updates" class="pp-section">
                     <h2 class="pp-h2">
-                        <span class="text-emerald-400">§2.</span> Policy Updates and Revisions
+                        <span class="text-emerald-400">§4.</span> Policy Updates and Revisions
                     </h2>
                     <div class="space-y-4 bg-slate-800/30 border border-slate-700/50 rounded-lg p-6">
                         <p class="pp-body">
@@ -173,7 +219,7 @@
                 <!-- Third Party Services -->
                 <div id="third-party" class="pp-section">
                     <h2 class="pp-h2">
-                        <span class="text-emerald-400">§3.</span> Third Party Services and Fraud Prevention
+                        <span class="text-emerald-400">§5.</span> Third Party Services and Fraud Prevention
                     </h2>
                     <div class="space-y-4 bg-slate-800/30 border border-slate-700/50 rounded-lg p-6">
                         <p class="pp-body">
@@ -219,7 +265,7 @@
                 <!-- Privacy Practices -->
                 <div id="privacy-practices" class="pp-section">
                     <h2 class="pp-h2">
-                        <span class="text-emerald-400">§4.</span> Our Commitment to Your Privacy
+                        <span class="text-emerald-400">§6.</span> Our Commitment to Your Privacy
                     </h2>
                     <div class="space-y-4 bg-slate-800/30 border border-slate-700/50 rounded-lg p-6">
                         <p class="pp-body">
