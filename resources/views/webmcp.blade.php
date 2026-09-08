@@ -190,9 +190,16 @@
                     <li>Update Chrome to version 149 or newer — check at <code class="text-emerald-300">chrome://settings/help</code>, then relaunch.</li>
                     <li>Open <code class="text-emerald-300">chrome://flags</code> in a new tab, search for <span class="text-white">model context</span> (or <span class="text-white">WebMCP</span>), and set the <span class="text-white">Web Model Context API</span> flag to <span class="text-white">Enabled</span>.</li>
                     <li>Click <span class="text-white">Relaunch</span>.</li>
-                    <li>Open Chrome's AI assistant panel and start an agent session, then switch back to this tab.</li>
+                    <li>
+                        Open Chrome's AI assistant (Gemini in Chrome):
+                        <ul class="mt-1.5 list-disc space-y-1 pl-5 marker:text-slate-600">
+                            <li>Click the <span class="text-white">Gemini spark icon</span> in the top-right of the Chrome toolbar, or press <kbd class="rounded border border-slate-600 bg-slate-800 px-1 text-xs">Ctrl/⌘</kbd> + <kbd class="rounded border border-slate-600 bg-slate-800 px-1 text-xs">O</kbd>.</li>
+                            <li>Don't see the icon? Open <code class="text-emerald-300">chrome://settings/ai</code>, turn on the assistant / AI features, then relaunch. You'll need to be signed into Chrome with a supported account and region.</li>
+                        </ul>
+                    </li>
+                    <li>In the assistant panel, start an agent session and keep it open on this tab.</li>
                 </ol>
-                <p class="mt-2 text-xs text-slate-500">Flag names move around between Chrome versions — if you don't see an exact match, enable the closest "Model Context" / "WebMCP" entry.</p>
+                <p class="mt-2 text-xs text-slate-500">Flag and menu names move around between Chrome versions — if you don't see an exact match, enable the closest "Model Context" / "WebMCP" flag and the closest "AI assistant" / "Gemini" setting.</p>
             </div>
 
             <div>
