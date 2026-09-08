@@ -211,3 +211,79 @@ it('serves repeated outside-spending calls from cache without new HTTP requests'
     // Only the first invocation hits schedule_e; the second is served from cache.
     Http::assertSentCount(1);
 });
+it('maps committee detail and flags a Super PAC from committee_type O', function () {
+    config(['services.fec.api_key' => 'DEMO_KEY']);
+
+    Http::fake([
+        'api.open.fec.gov/v1/committee/C00571703/*' => Http::response([
+            'results' => [[
+                'name' => 'SLF PAC',
+                'committee_type' => 'O',
+                'committee_type_full' => 'Super PAC (Independent Expenditure-Only)',
+                'designation' => 'U',
+                'designation_full' => 'Unauthorized',
+                'party_full' => null,
+                'treasurer_name' => 'Smith, Jane',
+                'street_1' => '1 Main St',
+                'city' => 'Washington',
+                'state' => 'DC',
+                'zip' => '20001',
+            ]],
+        ], 200),
+    ]);
+
+    $detail = fecServiceNoSleep()->getCommitteeDetail('C00571703');
+
+    expect($detail['name'])->toBe('SLF PAC')
+        ->and($detail['is_super_pac'])->toBeTrue()
+        ->and($detail['treasurer_name'])->toBe('Smith, Jane')
+        ->and($detail['city'])->toBe('Washington');
+});
+
+it('maps committee cycle totals including independent expenditures', function () {
+    config(['services.fec.api_key' => 'DEMO_KEY']);
+
+    Http::fake([
+        'api.open.fec.gov/v1/committee/C00571703/totals/*' => Http::response([
+            'results' => [[
+                'cycle' => 2026,
+                'receipts' => 1000000.5,
+                'disbursements' => 900000,
+                'last_cash_on_hand_end_period' => 100000,
+                'independent_expenditures' => 750000,
+                'coverage_end_date' => '2026-06-30T00:00:00',
+            ]],
+        ], 200),
+    ]);
+
+    $totals = fecServiceNoSleep()->getCommitteeTotals('C00571703', 2026);
+
+    expect($totals['cycle'])->toBe(2026)
+        ->and($totals['independent_expenditures'])->toBe(750000)
+        ->and($totals['coverage_end_date'])->toBe('2026-06-30');
+});
+
+it('pages committee independent expenditures and drops spam / memo rows', function () {
+    config(['services.fec.api_key' => 'DEMO_KEY']);
+
+    Http::fake([
+        'api.open.fec.gov/v1/schedules/schedule_e/*' => Http::response([
+            'results' => [
+                ['candidate_id' => 'S001', 'candidate_name' => 'DOE, JANE', 'candidate_office' => 'S',
+                 'support_oppose_indicator' => 'O', 'expenditure_amount' => 25000, 'expenditure_date' => '2026-09-01',
+                 'expenditure_description' => 'MEDIA'],
+                ['candidate_id' => 'S001', 'candidate_name' => 'DOE, JANE', 'support_oppose_indicator' => 'O',
+                 'expenditure_amount' => 9_900_000_000, 'expenditure_date' => '2026-09-02'], // spam cap
+                ['candidate_id' => 'S001', 'candidate_name' => 'DOE, JANE', 'support_oppose_indicator' => 'O',
+                 'expenditure_amount' => 5000, 'memoed_subtotal' => true, 'expenditure_date' => '2026-09-03'], // memo
+            ],
+            'pagination' => [],
+        ], 200),
+    ]);
+
+    $items = fecServiceNoSleep()->getCommitteeIndependentExpenditures('C00571703', 2026);
+
+    expect($items)->toHaveCount(1)
+        ->and($items[0]['amount'])->toBe(25000.0)
+        ->and($items[0]['support_oppose'])->toBe('O');
+});

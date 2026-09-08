@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Models\Committee;
 use App\Models\Organization;
 use App\Models\Politician;
 use App\Models\PoliticianDonorSnapshot;
@@ -194,6 +195,27 @@ class MapCandidateEconomyController
                 'support_oppose' => ($row['support_oppose'] ?? 'S') === 'O' ? 'O' : 'S',
             ];
         }
+
+        // Attach the internal PAC directory path for committees that have an
+        // enriched profile — the drawer links there instead of a Google search.
+        $ids = array_values(array_filter(array_column($rows, 'committee_id')));
+        $slugs = [];
+        if ($ids !== []) {
+            try {
+                $slugs = Committee::query()
+                    ->whereIn('fec_committee_id', $ids)
+                    ->listable()
+                    ->get(['fec_committee_id', 'name'])
+                    ->mapWithKeys(fn ($c) => [$c->fec_committee_id => '/pacs/' . $c->publicSlug()])
+                    ->all();
+            } catch (\Throwable) {
+                $slugs = [];
+            }
+        }
+        foreach ($rows as &$r) {
+            $r['pac_path'] = $r['committee_id'] ? ($slugs[$r['committee_id']] ?? null) : null;
+        }
+        unset($r);
 
         return ['items' => $rows, 'hidden_count' => $hidden];
     }

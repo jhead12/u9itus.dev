@@ -520,7 +520,13 @@ function renderIndependentSpending(spending) {
                 const amount = formatCurrency(s.total);
 
                 let nameHtml;
-                if (s.committee_id) {
+                if (s.pac_path) {
+                    // Committee has an enriched profile — link to the internal
+                    // PAC directory page, with a small FEC.gov secondary link.
+                    const label = s.committee_name || s.committee_id;
+                    nameHtml = `<a href="${escapeHtml(s.pac_path)}" style="color:#e2e8f0;text-decoration:underline;text-decoration-color:rgba(148,163,184,0.4);">${escapeHtml(label)}</a> `
+                        + `<a href="https://www.fec.gov/data/committee/${escapeHtml(s.committee_id)}/" target="_blank" rel="noopener" style="color:#94a3b8;font-family:monospace;font-size:10px;text-decoration:underline;text-decoration-color:rgba(148,163,184,0.4);">FEC&nbsp;↗</a>`;
+                } else if (s.committee_id) {
                     const idUrl = `https://www.google.com/search?q=${encodeURIComponent(s.committee_id)}`;
                     const nameLink = s.committee_name
                         ? `<a href="https://www.fec.gov/data/committee/${escapeHtml(s.committee_id)}/" target="_blank" rel="noopener" style="color:#e2e8f0;text-decoration:underline;text-decoration-color:rgba(148,163,184,0.4);">${escapeHtml(s.committee_name)}</a> `

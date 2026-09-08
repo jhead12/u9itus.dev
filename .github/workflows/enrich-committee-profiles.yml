@@ -1,0 +1,79 @@
+name: Enrich Committee Profiles
+
+# Runs nightly at 03:30 UTC (between donor-enrich at 03:00 and profile-enrich
+# at 04:00 so the three FEC consumers don't share the rate-limit window) and
+# can be triggered manually.
+on:
+  schedule:
+    - cron: "30 3 * * *"
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: "Max committees to enrich per run"
+        default: "150"
+        required: false
+      stale_hours:
+        description: "Re-enrich profiles older than N hours"
+        default: "168"
+        required: false
+      committee:
+        description: "Single FEC committee ID (leave blank for batch)"
+        default: ""
+        required: false
+      cycle:
+        description: "FEC 2-year cycle (leave blank for current even year)"
+        default: ""
+        required: false
+      force:
+        description: "Force re-enrich even if the profile is fresh"
+        type: boolean
+        default: false
+      dry_run:
+        description: "Dry-run (report only, no DB writes)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  enrich-committees:
+    name: Fetch committee/PAC profiles
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up app
+        uses: ./.github/actions/setup-app
+        with:
+          app_key: ${{ secrets.APP_KEY }}
+          app_url: ${{ secrets.APP_URL }}
+          db_host: ${{ secrets.DB_HOST }}
+          db_port: ${{ secrets.DB_PORT }}
+          db_database: ${{ secrets.DB_DATABASE }}
+          db_username: ${{ secrets.DB_USERNAME }}
+          db_password: ${{ secrets.DB_PASSWORD }}
+          fec_api_key: ${{ secrets.FEC_API_KEY }}
+
+      - name: Enrich committee profiles
+        run: |
+          LIMIT="${{ github.event.inputs.limit || '150' }}"
+          STALE="${{ github.event.inputs.stale_hours || '168' }}"
+          CMTE="${{ github.event.inputs.committee || '' }}"
+          CYCLE="${{ github.event.inputs.cycle || '' }}"
+          FORCE=${{ github.event.inputs.force == 'true' && '--force' || '' }}
+          DRY=${{ github.event.inputs.dry_run == 'true' && '--dry-run' || '' }}
+          CMTE_ARG=""
+          CYCLE_ARG=""
+          if [ -n "$CMTE" ]; then CMTE_ARG="--committee=$CMTE"; fi
+          if [ -n "$CYCLE" ]; then CYCLE_ARG="--cycle=$CYCLE"; fi
+
+          php artisan committees:enrich-profiles \
+            --limit="${LIMIT}" \
+            --stale-hours="${STALE}" \
+            ${CMTE_ARG} \
+            ${CYCLE_ARG} \
+            ${FORCE} \
+            ${DRY}

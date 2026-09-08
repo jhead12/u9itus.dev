@@ -1357,9 +1357,42 @@ class PublicProfileController extends Controller
             ->take(8)
             ->values();
 
+        // Map any FEC committee IDs shown in the "Independent Spending" list to
+        // internal PAC directory pages, when an enriched committee_profiles row
+        // exists — so the profile links to /pacs/{id} instead of a Google
+        // search. IDs without a profile fall back to the FEC/Google links.
+        $pacDirectorySlugs = [];
+        try {
+            $outsideItems = $transparencyData['fec']['sections']['outside_spending']['items'] ?? [];
+            $committeeIds = collect($outsideItems)
+                ->map(fn ($i) => $i['committee_id'] ?? null)
+                ->filter(fn ($id) => is_string($id) && preg_match('/^[A-Z]\d{8}$/', $id))
+                ->unique()
+                ->values();
+
+            if ($committeeIds->isNotEmpty()) {
+                $pacDirectorySlugs = Cache::remember(
+                    'pac_dir_slugs:' . md5($committeeIds->join(',')),
+                    900,
+                    fn () => \App\Models\Committee::query()
+                        ->whereIn('fec_committee_id', $committeeIds->all())
+                        ->listable()
+                        ->get(['fec_committee_id', 'name'])
+                        ->mapWithKeys(fn ($c) => [$c->fec_committee_id => $c->publicSlug()])
+                        ->all()
+                );
+            }
+        } catch (\Throwable $e) {
+            Log::info('PAC directory slug map unavailable for profile', [
+                'politician_id' => $politician->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
         $view = view('standalone.public.profile', compact(
             'politician',
             'page',
+            'pacDirectorySlugs',
             'isFavorited',
             'runningCampaigns',
             'pastCampaigns',

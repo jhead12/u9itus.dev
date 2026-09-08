@@ -1597,11 +1597,21 @@
                                 $committeeId = $committeeName;
                                 $committeeName = null;
                             }
+                            // Internal PAC directory page, when this committee has an
+                            // enriched profile (else fall back to FEC.gov / Google).
+                            $pacSlug = $committeeId ? ((isset($pacDirectorySlugs) ? $pacDirectorySlugs : [])[$committeeId] ?? null) : null;
                         @endphp
                         <li class="flex items-center justify-between gap-3">
                             <span class="flex items-center gap-2 min-w-0 flex-1">
                                 <span class="text-xs text-slate-400 tabular-nums w-4 shrink-0">{{ $i + 1 }}.</span>
-                                @if(!empty($committeeId))
+                                @if($pacSlug)
+                                    <a href="{{ route('pacs.show', $pacSlug) }}"
+                                       class="text-sm text-slate-200 truncate underline decoration-slate-600 decoration-1 underline-offset-2 hover:text-emerald-400 hover:decoration-emerald-400"
+                                       title="View this committee on U9itus">{{ $committeeName ?: $committeeId }}</a>
+                                    <a href="https://www.fec.gov/data/committee/{{ $committeeId }}/" target="_blank" rel="noopener"
+                                       class="shrink-0 text-xs text-slate-500 font-mono truncate hover:text-emerald-400"
+                                       title="View this committee's filings on FEC.gov">FEC ↗</a>
+                                @elseif(!empty($committeeId))
                                     @if(!empty($committeeName))
                                         <a href="https://www.fec.gov/data/committee/{{ $committeeId }}/" target="_blank" rel="noopener"
                                            class="text-sm text-slate-200 truncate underline decoration-slate-600 decoration-1 underline-offset-2 hover:text-emerald-400 hover:decoration-emerald-400"

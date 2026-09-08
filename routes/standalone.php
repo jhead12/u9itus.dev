@@ -48,6 +48,7 @@ use App\Http\Controllers\Standalone\AdminTopicController;
 use App\Http\Controllers\Standalone\AdminCauseController;
 use App\Http\Controllers\Standalone\AdminBallotMeasureController;
 use App\Http\Controllers\Standalone\PublicProfileController;
+use App\Http\Controllers\Standalone\CommitteeController;
 use App\Http\Controllers\Standalone\ProfileClaimController;
 use App\Http\Controllers\Standalone\SitemapController;
 use App\Http\Controllers\Standalone\VoterOnboardingController;
@@ -801,6 +802,14 @@ Route::post('/contact', [DashboardController::class, 'submitContact'])->name('co
 // Phase 13 — Politician Public Profile Pages
 Route::get('/politicians', [PublicProfileController::class, 'index'])->name('politicians.directory');
 Route::get('/district-lookup', [PublicProfileController::class, 'districtLookup'])->name('district.lookup');
+
+// PAC / Committee Directory — public, read-only. Backed by committee_profiles
+// (built nightly by committees:enrich-profiles); replaces the "committee ID →
+// Google search" dead-ends on politician profiles.
+Route::get('/pacs', [CommitteeController::class, 'index'])->name('pacs.directory');
+Route::get('/pacs/{committee}', [CommitteeController::class, 'show'])
+    ->where('committee', '[A-Za-z0-9\-]+')
+    ->name('pacs.show');
 
 // Neighborhood Groups — public directory + group page
 Route::get('/groups', [PublicGroupController::class, 'index'])->name('groups.directory');

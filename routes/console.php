@@ -70,6 +70,15 @@ Schedule::command('politicians:enrich-donors --stale-hours=48 --limit=200')
     ->dailyAt('03:00')
     ->withoutOverlapping();
 
+// PAC / committee directory enrichment — FEC detail, cycle totals and
+// independent-expenditure data for /pacs pages. Slotted at 03:30, between the
+// donor-enrich (03:00) and profile-enrich (04:00) jobs, so the three FEC
+// consumers don't contend for the 1000-req/hour ceiling at once. The GitHub
+// Actions workflow (enrich-committee-profiles.yml) also fires this.
+Schedule::command('committees:enrich-profiles --stale-hours=168 --limit=150')
+    ->dailyAt('03:30')
+    ->withoutOverlapping();
+
 // Public-directory profile enrichment — fetch each politician's official /
 // campaign website for contact methods, office addresses (residential
 // rejected), social/newsletter links, and donation page URLs (link-out only).

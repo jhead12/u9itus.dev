@@ -760,6 +760,215 @@ class FECService
     }
 
     /**
+     * Committee identity/registration detail from /committee/{id}/ — name,
+     * type, designation, party, treasurer, mailing address, filed website.
+     * The read side of the PAC directory (committees:enrich-profiles), cached
+     * 24h like every other committee lookup here.
+     *
+     * @param string $committeeId
+     * @return array<string, mixed>|null
+     */
+    public function getCommitteeDetail(string $committeeId): ?array
+    {
+        if (!$this->isConfigured() || $committeeId === '') {
+            return null;
+        }
+
+        return Cache::remember("fec.committee.{$committeeId}.detail", $this->cacheDuration, function () use ($committeeId) {
+            try {
+                $body = $this->request('get_committee_detail', "{$this->baseUrl}/committee/{$committeeId}/", [], [
+                    'committee_id' => $committeeId,
+                ]);
+
+                $info = $body['results'][0] ?? null;
+                if (!is_array($info)) {
+                    return null;
+                }
+
+                $type = $info['committee_type'] ?? null;
+                // FEC committee_type "O" = Super PAC (independent-expenditure-only);
+                // designation "D" or organization_type flags a "Carey"/hybrid PAC.
+                $isSuperPac = $type === 'O';
+                $isHybrid = ($info['designation'] ?? null) === 'D'
+                    || stripos((string) ($info['committee_type_full'] ?? ''), 'hybrid') !== false;
+
+                return [
+                    'name' => $info['name'] ?? null,
+                    'committee_type' => $type,
+                    'committee_type_full' => $info['committee_type_full'] ?? null,
+                    'designation' => $info['designation'] ?? null,
+                    'designation_full' => $info['designation_full'] ?? null,
+                    'organization_type_full' => $info['organization_type_full'] ?? null,
+                    'party' => $info['party_full'] ?? $info['party'] ?? null,
+                    'is_super_pac' => $isSuperPac || $isHybrid,
+                    'is_hybrid' => $isHybrid,
+                    'treasurer_name' => $info['treasurer_name'] ?? null,
+                    'street' => $info['street_1'] ?? null,
+                    'city' => $info['city'] ?? null,
+                    'state' => $info['state'] ?? null,
+                    'zip' => $info['zip'] ?? null,
+                    'website' => $info['website'] ?? null,
+                ];
+            } catch (\Throwable $e) {
+                $this->logProviderException('get_committee_detail', $e, [
+                    'committee_id' => $committeeId,
+                ]);
+                return null;
+            }
+        });
+    }
+
+    /**
+     * A committee's own cycle totals from /committee/{id}/totals/ — receipts,
+     * disbursements, cash on hand, debts and (for IE-making committees)
+     * independent-expenditure total. Cached 24h.
+     *
+     * @param string $committeeId
+     * @param int $cycle  2-year FEC cycle (e.g. 2026)
+     * @return array<string, mixed>|null
+     */
+    public function getCommitteeTotals(string $committeeId, int $cycle): ?array
+    {
+        if (!$this->isConfigured() || $committeeId === '') {
+            return null;
+        }
+
+        return Cache::remember("fec.committee.{$committeeId}.totals.{$cycle}", $this->cacheDuration, function () use ($committeeId, $cycle) {
+            try {
+                $body = $this->request('get_committee_totals', "{$this->baseUrl}/committee/{$committeeId}/totals/", [
+                    'cycle' => $cycle,
+                    'sort' => '-cycle',
+                ], [
+                    'committee_id' => $committeeId,
+                    'cycle' => $cycle,
+                ]);
+
+                $totals = $body['results'][0] ?? null;
+                if (!is_array($totals)) {
+                    return null;
+                }
+
+                $cashOnHand = $totals['last_cash_on_hand_end_period']
+                    ?? $totals['cash_on_hand_end_period'] ?? null;
+                $debt = $totals['last_debts_owed_by_committee']
+                    ?? $totals['debts_owed_by_committee'] ?? null;
+
+                return [
+                    'cycle' => (int) ($totals['cycle'] ?? $cycle),
+                    'receipts' => $totals['receipts'] ?? null,
+                    'disbursements' => $totals['disbursements'] ?? null,
+                    'cash_on_hand' => $cashOnHand,
+                    'debts_owed' => $debt,
+                    'independent_expenditures' => $totals['independent_expenditures'] ?? null,
+                    'coverage_end_date' => isset($totals['coverage_end_date'])
+                        ? substr((string) $totals['coverage_end_date'], 0, 10)
+                        : null,
+                ];
+            } catch (\Throwable $e) {
+                $this->logProviderException('get_committee_totals', $e, [
+                    'committee_id' => $committeeId,
+                    'cycle' => $cycle,
+                ]);
+                return null;
+            }
+        });
+    }
+
+    /**
+     * A committee's own independent expenditures (FEC Schedule E, filtered by
+     * committee_id) — the "who is this committee spending for/against" signal
+     * that powers a PAC page's race list. Returns individual line items, newest
+     * first, capped at ~200 across up to 5 pages; the caller rolls them up by
+     * candidate. Same spam guards as getOutsideSpending() (drop memoed
+     * subtotals and > $500M joke filings). Cached 24h.
+     *
+     * @param string $committeeId
+     * @param int $cycle
+     * @return array<int, array{candidate_id: ?string, candidate_name: ?string, office: ?string, state: ?string, district: ?string, support_oppose: 'S'|'O', amount: float, date: ?string, purpose: ?string}>
+     */
+    public function getCommitteeIndependentExpenditures(string $committeeId, int $cycle): array
+    {
+        if (!$this->isConfigured() || $committeeId === '') {
+            return [];
+        }
+
+        return Cache::remember("fec.committee.{$committeeId}.ind_exp.{$cycle}", $this->cacheDuration, function () use ($committeeId, $cycle) {
+            $maxPages = 5;
+            $perPage = 100;
+            $items = [];
+            $lastIndex = null;
+            $lastDate = null;
+
+            try {
+                for ($page = 1; $page <= $maxPages; $page++) {
+                    $params = [
+                        'committee_id' => $committeeId,
+                        'two_year_transaction_period' => $cycle,
+                        'sort' => '-expenditure_date',
+                        'per_page' => $perPage,
+                    ];
+                    if ($lastIndex !== null) {
+                        $params['last_index'] = $lastIndex;
+                        $params['last_expenditure_date'] = $lastDate;
+                    }
+
+                    $body = $this->request('get_committee_ind_exp', "{$this->baseUrl}/schedules/schedule_e/", $params, [
+                        'committee_id' => $committeeId,
+                        'cycle' => $cycle,
+                        'page' => $page,
+                    ], null);
+
+                    if ($body === null) {
+                        break;
+                    }
+
+                    $results = $body['results'] ?? [];
+                    foreach ($results as $row) {
+                        if (!empty($row['memoed_subtotal'])) {
+                            continue;
+                        }
+                        $amount = (float) ($row['expenditure_amount'] ?? 0);
+                        if ($amount <= 0 || $amount > 500_000_000.0) {
+                            continue;
+                        }
+
+                        $items[] = [
+                            'candidate_id' => $row['candidate_id'] ?? null,
+                            'candidate_name' => $row['candidate_name'] ?? null,
+                            'office' => $row['candidate_office_full'] ?? ($row['candidate_office'] ?? null),
+                            'state' => $row['candidate_office_state'] ?? null,
+                            'district' => $row['candidate_office_district'] ?? null,
+                            'support_oppose' => ($row['support_oppose_indicator'] ?? 'S') === 'O' ? 'O' : 'S',
+                            'amount' => $amount,
+                            'date' => isset($row['expenditure_date'])
+                                ? substr((string) $row['expenditure_date'], 0, 10)
+                                : null,
+                            'purpose' => $row['expenditure_description'] ?? null,
+                        ];
+                    }
+
+                    $cursor = $body['pagination']['last_indexes'] ?? null;
+                    if (count($results) < $perPage || empty($cursor)) {
+                        break;
+                    }
+                    $lastIndex = $cursor['last_index'] ?? null;
+                    $lastDate = $cursor['last_expenditure_date'] ?? null;
+                    if ($lastIndex === null) {
+                        break;
+                    }
+                }
+            } catch (\Throwable $e) {
+                $this->logProviderException('get_committee_ind_exp', $e, [
+                    'committee_id' => $committeeId,
+                    'cycle' => $cycle,
+                ]);
+            }
+
+            return array_slice($items, 0, 200);
+        });
+    }
+
+    /**
      * Resolve human-readable committee names for the top outside spenders
      * in-place, via one batch /committees/ call. Falls back to the existing
      * committee_id label when a name can't be resolved or the batch call
