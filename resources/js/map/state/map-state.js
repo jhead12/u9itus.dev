@@ -40,7 +40,7 @@ export let povertyRateByAbbr = {};
  *  Fallback values mirror the 119th Congress (safe until the first daily sync). */
 export const DISTRICT_CONFIG = {
     congress_number: 119,
-    tigerweb_layer: 0,
+    tigerweb_layer: 4,   // TIGERweb Legislative/MapServer: layer 4 = 119th CDs (layer 0 is now the 120th)
     cd_field: 'CD119',
     congress_label: '119th Congress (2025–2027)',
     party_map: null,   // null = use the static DISTRICT_PARTY_MAP fallback

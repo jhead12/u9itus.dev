@@ -22,9 +22,11 @@ return new class extends Migration
             $table->smallInteger('congress_number')->default(119);
 
             // TIGERweb Legislative MapServer layer index.
-            // Layer 0 is always the current/latest Congress on Census TIGERweb.
-            // Update when Census publishes a dedicated historical layer.
-            $table->smallInteger('tigerweb_layer')->default(0);
+            // Layer 0 is the current/latest Congress; older Congresses shift to
+            // higher indices as new ones are published (119th = layer 4 as of 2026).
+            // geo:sync-district-config overwrites this; the default just needs to
+            // point at a live 119th-Congress layer for a fresh install.
+            $table->smallInteger('tigerweb_layer')->default(4);
 
             // The GeoJSON feature-property field returned by TIGERweb for this Congress.
             // e.g. 'CD119' for the 119th, 'CD120' for the 120th.

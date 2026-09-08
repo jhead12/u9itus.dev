@@ -41,15 +41,19 @@ class SyncDistrictConfig extends Command
 
     /**
      * TIGERweb Legislative MapServer layer index per Congress.
-     * Layer 0 is always the current/latest Congress on Census TIGERweb.
-     * When TIGERweb adds dedicated historical layers for past Congresses,
-     * update the older entries here (e.g. 119 => 1 once the 120th is live).
+     * Layer 0 is always the current/latest Congress on Census TIGERweb; older
+     * Congresses shift to higher layer indices as each new one is published.
+     * As of 2026 the Legislative/MapServer layout is:
+     *   0 → 120th CDs, 4 & 8 → 119th CDs, 12 → 116th CDs.
+     * Re-check `.../TIGERweb/Legislative/MapServer?f=json` and bump these when
+     * the Census rolls the service forward for a new Congress.
      *
      * @var array<int, int>
      */
     private const TIGERWEB_LAYERS = [
+        116 => 12,
         118 => 0,
-        119 => 0,
+        119 => 4,
         120 => 0,
         121 => 0,
     ];

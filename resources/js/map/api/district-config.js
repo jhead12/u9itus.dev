@@ -29,17 +29,18 @@ function _writeDistrictConfigCache(data) {
 /**
  * Build the TIGERweb query URL dynamically so we always target the right layer.
  * Congressional districts live under the `Legislative` service; the layer index
- * comes from DISTRICT_CONFIG.tigerweb_layer (default 0 for the 119th Congress).
+ * comes from DISTRICT_CONFIG.tigerweb_layer (default 4 for the 119th Congress —
+ * the Census moved the 119th to layer 4 when it published the 120th at layer 0).
  */
 export function getTigerwebUrl() {
-    const layer = DISTRICT_CONFIG.tigerweb_layer ?? 0;
+    const layer = DISTRICT_CONFIG.tigerweb_layer ?? 4;
     return `https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Legislative/MapServer/${layer}/query`;
 }
 
 function _applyConfig(cfg) {
     if (!cfg || !cfg.cd_field) return;
     DISTRICT_CONFIG.congress_number = cfg.congress_number ?? 119;
-    DISTRICT_CONFIG.tigerweb_layer  = cfg.tigerweb_layer  ?? 0;
+    DISTRICT_CONFIG.tigerweb_layer  = cfg.tigerweb_layer  ?? 4;
     DISTRICT_CONFIG.cd_field        = cfg.cd_field        ?? 'CD119';
     DISTRICT_CONFIG.congress_label  = cfg.congress_label  ?? '119th Congress (2025–2027)';
     if (cfg.party_map && typeof cfg.party_map === 'object' && Object.keys(cfg.party_map).length > 0) {

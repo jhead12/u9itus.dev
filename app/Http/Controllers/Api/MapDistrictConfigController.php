@@ -26,7 +26,7 @@ class MapDistrictConfigController
      */
     private const FALLBACK = [
         'congress_number' => 119,
-        'tigerweb_layer'  => 0,
+        'tigerweb_layer'  => 4,
         'cd_field'        => 'CD119',
         'congress_label'  => '119th Congress (2025–2027)',
         'party_map'       => [],
