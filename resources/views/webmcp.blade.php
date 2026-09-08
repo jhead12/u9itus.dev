@@ -184,33 +184,35 @@
             <div>
                 <div class="flex items-center gap-2">
                     <span class="rounded-md bg-emerald-500/15 px-2 py-0.5 text-xs font-bold text-emerald-300 border border-emerald-500/40">Option A</span>
-                    <h3 class="font-semibold text-white">Chrome's built-in AI agent (Chrome 149+)</h3>
+                    <h3 class="font-semibold text-white">Chrome with the WebMCP testing flag (developer preview)</h3>
                 </div>
+
+                <div class="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200/90">
+                    Heads up: the normal <span class="font-semibold">Gemini in Chrome</span> side panel is currently
+                    <span class="font-semibold">read-only</span> — it can see this page's tools but cannot call them yet.
+                    Executing WebMCP tools needs either this flag plus a WebMCP-capable agent, or the Rook extension in Option B.
+                </div>
+
                 <ol class="mt-3 list-decimal space-y-1.5 pl-5 marker:text-slate-500">
-                    <li>Update Chrome to version 149 or newer — check at <code class="text-emerald-300">chrome://settings/help</code>, then relaunch.</li>
-                    <li>Open <code class="text-emerald-300">chrome://flags</code> in a new tab, search for <span class="text-white">model context</span> (or <span class="text-white">WebMCP</span>), and set the <span class="text-white">Web Model Context API</span> flag to <span class="text-white">Enabled</span>.</li>
-                    <li>Click <span class="text-white">Relaunch</span>.</li>
-                    <li>
-                        Open Chrome's AI assistant (Gemini in Chrome):
-                        <ul class="mt-1.5 list-disc space-y-1 pl-5 marker:text-slate-600">
-                            <li>Click the <span class="text-white">Gemini spark icon</span> in the top-right of the Chrome toolbar, or press <kbd class="rounded border border-slate-600 bg-slate-800 px-1 text-xs">Ctrl/⌘</kbd> + <kbd class="rounded border border-slate-600 bg-slate-800 px-1 text-xs">O</kbd>.</li>
-                            <li>Don't see the icon? Open <code class="text-emerald-300">chrome://settings/ai</code>, turn on the assistant / AI features, then relaunch. You'll need to be signed into Chrome with a supported account and region.</li>
-                        </ul>
-                    </li>
-                    <li>In the assistant panel, start an agent session and keep it open on this tab.</li>
+                    <li>Update Chrome to version 149 or newer — check at <code class="text-emerald-300">chrome://settings/help</code>, then relaunch. Same steps on Windows, macOS and Linux.</li>
+                    <li>Open <code class="text-emerald-300">chrome://flags</code> in a new tab and search for <span class="text-white">webmcp</span>.</li>
+                    <li>Set <code class="text-emerald-300">#webmcp-for-testing</code> (labelled <span class="text-white">"WebMCP for testing"</span>) to <span class="text-white">Enabled</span>, then click <span class="text-white">Relaunch</span>.</li>
+                    <li>Attach a WebMCP-capable agent runtime that binds to <code class="text-emerald-300">document.modelContext</code> (for most people this is the Rook extension — see Option B).</li>
+                    <li>Reload this page and keep the agent open on this tab.</li>
                 </ol>
-                <p class="mt-2 text-xs text-slate-500">Flag and menu names move around between Chrome versions — if you don't see an exact match, enable the closest "Model Context" / "WebMCP" flag and the closest "AI assistant" / "Gemini" setting.</p>
+                <p class="mt-2 text-xs text-slate-500">Flag names move around between Chrome versions — if <code>#webmcp-for-testing</code> isn't there, enable the closest <span class="text-slate-400">"WebMCP"</span> / <span class="text-slate-400">"Model Context"</span> entry.</p>
             </div>
 
             <div>
                 <div class="flex items-center gap-2">
                     <span class="rounded-md bg-emerald-500/15 px-2 py-0.5 text-xs font-bold text-emerald-300 border border-emerald-500/40">Option B</span>
-                    <h3 class="font-semibold text-white">A WebMCP browser extension (any Chromium browser)</h3>
+                    <h3 class="font-semibold text-white">The Rook extension (any Chromium browser)</h3>
                 </div>
                 <ol class="mt-3 list-decimal space-y-1.5 pl-5 marker:text-slate-500">
-                    <li>Install a WebMCP-capable extension from the Chrome Web Store — for example <span class="text-white">Rook</span>.</li>
-                    <li>Pin the extension, open its side panel, and connect your AI model or sign in.</li>
-                    <li>Reload this page. When the extension attaches its agent surface, the tools register automatically.</li>
+                    <li>Install <span class="text-white">Rook</span> from the Chrome Web Store (search "Rook WebMCP") and add it to your browser.</li>
+                    <li>Click the <span class="text-white">Rook</span> icon in the toolbar (pin it from the puzzle-piece menu if it's hidden) to open its side panel.</li>
+                    <li>In the Rook panel, sign in or connect your AI model / API key.</li>
+                    <li>Reload this page. Once Rook attaches its agent surface, the tools register automatically.</li>
                 </ol>
             </div>
 
