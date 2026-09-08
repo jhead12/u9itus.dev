@@ -76,7 +76,7 @@ class CommitteeProfile extends Model
     public function kindLabel(): string
     {
         if ($this->is_super_pac) {
-            return $this->is_hybrid ? 'Hybrid PAC (Super PAC)' : 'Super PAC';
+            return $this->is_hybrid ? 'Hybrid PAC' : 'Super PAC';
         }
 
         return $this->committee_type_full

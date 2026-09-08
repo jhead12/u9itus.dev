@@ -59,7 +59,12 @@ class InjectAnalyticsTags
             ) ?? $content;
         }
 
+        // setContent() replaces $response->original with the raw HTML string,
+        // dropping the underlying View. Restore it so assertViewIs() and other
+        // consumers of the original response value keep working.
+        $original = $response->original;
         $response->setContent($content);
+        $response->original = $original;
 
         return $response;
     }

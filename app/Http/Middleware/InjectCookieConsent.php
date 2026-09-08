@@ -49,7 +49,13 @@ class InjectCookieConsent
         $pos = strripos($content, '</body>');
         $content = substr($content, 0, $pos) . $snippet . substr($content, $pos);
 
+        // setContent() overwrites $response->original with the raw HTML string,
+        // discarding the underlying View/renderable. Restore it afterwards so
+        // framework internals — and test assertions like assertViewIs() /
+        // assertViewHas() — that inspect the original response value keep working.
+        $original = $response->original;
         $response->setContent($content);
+        $response->original = $original;
 
         return $response;
     }

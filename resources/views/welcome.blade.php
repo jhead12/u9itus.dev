@@ -345,6 +345,72 @@
     @endif
     @endisset
 
+    <!-- Follow the Money — PAC / committee directory teaser -->
+    @isset($followTheMoneyPacs)
+    @if($followTheMoneyPacs->isNotEmpty())
+    <section id="follow-the-money" class="relative py-16 sm:py-20 bg-slate-900 border-t border-slate-800/80">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-12">
+                <span class="text-amber-400 font-semibold text-sm tracking-wider uppercase">— Follow the Money</span>
+                <h2 class="mt-4 text-3xl sm:text-4xl font-bold">
+                    Who's <span class="text-amber-400">Spending to Sway</span> Your Vote
+                </h2>
+                <p class="mt-3 text-slate-400 text-sm max-w-2xl mx-auto">
+                    Super PACs and outside groups spend millions on ads about races they can't legally
+                    coordinate on. Each committee links to the candidates it backs — and opposes.
+                </p>
+            </div>
+
+            <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                @foreach($followTheMoneyPacs as $pac)
+                    @php
+                        $p = $pac->profile;
+                        $ie = $p && is_numeric($p->independent_expenditures) ? (float) $p->independent_expenditures : null;
+                        $disb = $p && is_numeric($p->total_disbursements) ? (float) $p->total_disbursements : null;
+                        $spendValue = $ie ?? $disb;
+                        $spendLabel = $ie !== null ? 'Independent expenditures' : 'Total spent';
+                        $raceCount = $p ? count($p->spending_by_race ?? []) : 0;
+                    @endphp
+                    <a href="{{ route('pacs.show', $pac->publicSlug()) }}"
+                       class="group block bg-slate-800/70 border border-slate-700 hover:border-amber-500/50 rounded-2xl p-5 transition">
+                        <div class="flex items-start justify-between gap-2">
+                            <h3 class="text-white font-semibold text-base group-hover:text-amber-400 transition line-clamp-2">
+                                {{ $pac->name ?: $pac->fec_committee_id }}
+                            </h3>
+                            @if($p && $p->is_super_pac)
+                                <span class="shrink-0 text-[9px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30">Super PAC</span>
+                            @endif
+                        </div>
+                        <p class="text-slate-400 text-xs mt-1">
+                            {{ $p?->kindLabel() ?? 'Committee' }}@if($p?->party) · {{ $p->party }}@endif
+                        </p>
+
+                        {{-- Phase 2 will slot a "recent news" headline line here. --}}
+                        <div class="mt-4 pt-4 border-t border-slate-700/60">
+                            <p class="text-[11px] uppercase tracking-wide text-slate-500 mb-1">{{ $spendLabel }}</p>
+                            <p class="text-white font-bold text-lg tabular-nums">
+                                {{ $spendValue !== null ? '$' . number_format($spendValue) : '—' }}
+                            </p>
+                            @if($raceCount > 0)
+                                <p class="text-slate-500 text-[11px] mt-1">across {{ $raceCount }} race{{ $raceCount === 1 ? '' : 's' }}</p>
+                            @endif
+                        </div>
+                    </a>
+                @endforeach
+            </div>
+
+            <div class="text-center mt-10">
+                <a href="{{ route('pacs.directory') }}"
+                   class="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg border border-amber-500/40 bg-amber-500/10 text-amber-200 hover:bg-amber-500/20 hover:text-white transition text-sm font-semibold">
+                    Browse the PAC &amp; committee directory
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+                </a>
+            </div>
+        </div>
+    </section>
+    @endif
+    @endisset
+
     <!-- How It Works — 3-step strip -->
     <section class="bg-slate-900 border-b border-slate-800/80 py-12">
         <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -771,6 +837,7 @@
                     <h3 class="font-semibold mb-4">Platform</h3>
                     <ul class="space-y-2 text-slate-400 text-sm">
                         <li><a href="#featured-candidates" class="hover:text-white transition">Featured Candidates</a></li>
+                        <li><a href="#follow-the-money" class="hover:text-white transition">Follow the Money</a></li>
                         <li><a href="#civic-identity" class="hover:text-white transition">Your Badges</a></li>
                         <li><a href="#revenue" class="hover:text-white transition">Voter Value</a></li>
                         <li><a href="#how-it-works" class="hover:text-white transition">Transparency Layer</a></li>

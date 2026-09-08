@@ -126,9 +126,34 @@ Route::get('/', function () {
         $featuredCandidates = collect();
     }
 
+    // "Follow the Money" strip — the biggest-spending committees from the PAC
+    // directory (committee_profiles, built nightly). Ordered by independent
+    // expenditures. Phase 2 will re-order/annotate these by recent news.
+    $followTheMoneyPacs = collect();
+    try {
+        if (\Illuminate\Support\Facades\Schema::hasTable('committee_profiles')) {
+            $followTheMoneyPacs = \Illuminate\Support\Facades\Cache::remember(
+                'home:follow_the_money_pacs',
+                now()->addMinutes(30),
+                fn () => \App\Models\Committee::query()
+                    ->select('committees.*')
+                    ->join('committee_profiles', 'committee_profiles.committee_id', '=', 'committees.id')
+                    ->whereNotNull('committee_profiles.enriched_at')
+                    ->with('profile')
+                    ->orderByRaw('COALESCE(committee_profiles.independent_expenditures, committee_profiles.total_disbursements, 0) DESC')
+                    ->limit(4)
+                    ->get()
+            );
+        }
+    } catch (\Throwable $e) {
+        \Illuminate\Support\Facades\Log::warning('Follow-the-money PACs load failed', ['error' => $e->getMessage()]);
+        $followTheMoneyPacs = collect();
+    }
+
     return view('welcome', [
         'referralCode'       => $referralCode,
         'featuredCandidates' => $featuredCandidates,
+        'followTheMoneyPacs' => $followTheMoneyPacs,
         'visitorState'       => $visitorState,
     ]);
 });
