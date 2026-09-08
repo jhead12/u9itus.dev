@@ -61,15 +61,22 @@ class ReconcileMissingCandidateProfiles extends Command
 
             if ($match) {
                 $existingUpdates = $this->buildExistingPoliticianUpdates($match, $record);
-                if ($existingUpdates !== []) {
-                    if (! $dryRun) {
-                        $match->update($existingUpdates);
-                    }
-                    $updated++;
-                }
 
                 if (! $dryRun) {
-                    $this->upsertIdentityLink($match, $record, 0.97);
+                    try {
+                        if ($existingUpdates !== []) {
+                            $match->update($existingUpdates);
+                        }
+                        $this->upsertIdentityLink($match, $record, 0.97);
+                    } catch (\Throwable $e) {
+                        $this->warn('Record #' . $record->id . ' (' . $record->full_name . ', ' . strtoupper((string) $record->state) . '): update/link failed — ' . $e->getMessage());
+                        $skipped++;
+                        continue;
+                    }
+                }
+
+                if ($existingUpdates !== []) {
+                    $updated++;
                 }
 
                 $this->line('[LINK] ' . $record->full_name . ' (' . strtoupper((string) $record->state) . ') => #' . $match->id);
@@ -80,8 +87,14 @@ class ReconcileMissingCandidateProfiles extends Command
             $payload = $this->buildPoliticianPayload($record);
 
             if (! $dryRun) {
-                $createdPolitician = Politician::create($payload);
-                $this->upsertIdentityLink($createdPolitician, $record, 1.0);
+                try {
+                    $createdPolitician = Politician::create($payload);
+                    $this->upsertIdentityLink($createdPolitician, $record, 1.0);
+                } catch (\Throwable $e) {
+                    $this->warn('Record #' . $record->id . ' (' . $record->full_name . ', ' . strtoupper((string) $record->state) . '): create failed — ' . $e->getMessage());
+                    $skipped++;
+                    continue;
+                }
                 $this->line('[CREATE] ' . $record->full_name . ' (' . strtoupper((string) $record->state) . ') => #' . $createdPolitician->id);
             } else {
                 $this->line('[CREATE] ' . $record->full_name . ' (' . strtoupper((string) $record->state) . ')');
