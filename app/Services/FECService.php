@@ -786,11 +786,15 @@ class FECService
                 }
 
                 $type = $info['committee_type'] ?? null;
-                // FEC committee_type "O" = Super PAC (independent-expenditure-only);
-                // designation "D" or organization_type flags a "Carey"/hybrid PAC.
-                $isSuperPac = $type === 'O';
-                $isHybrid = ($info['designation'] ?? null) === 'D'
+                // FEC committee_type codes:
+                //   O       = Super PAC (independent-expenditure-only)
+                //   V / W   = Hybrid PAC ("Carey" committee, with a non-contribution
+                //             account) — nonqualified / qualified
+                // Both spend unlimited independent expenditures, so both count as
+                // "super PAC" for our purposes; V/W are additionally flagged hybrid.
+                $isHybrid = in_array($type, ['V', 'W'], true)
                     || stripos((string) ($info['committee_type_full'] ?? ''), 'hybrid') !== false;
+                $isSuperPac = $type === 'O' || $isHybrid;
 
                 return [
                     'name' => $info['name'] ?? null,
@@ -800,7 +804,7 @@ class FECService
                     'designation_full' => $info['designation_full'] ?? null,
                     'organization_type_full' => $info['organization_type_full'] ?? null,
                     'party' => $info['party_full'] ?? $info['party'] ?? null,
-                    'is_super_pac' => $isSuperPac || $isHybrid,
+                    'is_super_pac' => $isSuperPac,
                     'is_hybrid' => $isHybrid,
                     'treasurer_name' => $info['treasurer_name'] ?? null,
                     'street' => $info['street_1'] ?? null,

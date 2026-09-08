@@ -72,7 +72,7 @@ class CommitteeProfile extends Model
             || $this->enriched_at->lt(now()->subHours($hours));
     }
 
-    /** A short human label for the committee's kind, for badges. */
+    /** A short human label for the committee's kind. */
     public function kindLabel(): string
     {
         if ($this->is_super_pac) {
@@ -81,5 +81,44 @@ class CommitteeProfile extends Model
 
         return $this->committee_type_full
             ?: ($this->organization_type_full ?: 'Committee');
+    }
+
+    /**
+     * The pill/badge shown next to the name. Only committees that make
+     * unlimited independent expenditures get one; regular PACs and party
+     * committees rely on the kindLabel sub-line instead.
+     */
+    public function badgeLabel(): ?string
+    {
+        if (! $this->is_super_pac) {
+            return null;
+        }
+
+        return $this->is_hybrid ? 'Hybrid PAC' : 'Super PAC';
+    }
+
+    /**
+     * A secondary descriptor line that does NOT repeat the badge — party lean
+     * and designation where meaningful, falling back to the kind. Returns null
+     * when there's nothing worth showing beyond the badge.
+     */
+    public function subLabel(): ?string
+    {
+        $parts = [];
+
+        // For a badged (super/hybrid) committee the badge already says the kind,
+        // so lead with party/designation instead; for everything else, the kind
+        // is the useful bit.
+        if (! $this->badgeLabel()) {
+            $parts[] = $this->kindLabel();
+        }
+
+        if ($this->party) {
+            $parts[] = $this->party;
+        } elseif ($this->designation_full && strtolower($this->designation_full) !== 'unauthorized') {
+            $parts[] = $this->designation_full;
+        }
+
+        return $parts ? implode(' · ', $parts) : null;
     }
 }

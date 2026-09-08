@@ -373,13 +373,13 @@
                             <h3 class="text-white font-semibold text-base group-hover:text-amber-400 transition line-clamp-2">
                                 {{ $pac->name ?: $pac->fec_committee_id }}
                             </h3>
-                            @if($p && $p->is_super_pac)
-                                <span class="shrink-0 text-[9px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30">Super PAC</span>
+                            @if($p?->badgeLabel())
+                                <span class="shrink-0 text-[9px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30">{{ $p->badgeLabel() }}</span>
                             @endif
                         </div>
-                        <p class="text-slate-400 text-xs mt-1">
-                            {{ $p?->kindLabel() ?? 'Committee' }}@if($p?->party) · {{ $p->party }}@endif
-                        </p>
+                        @if($p?->subLabel())
+                            <p class="text-slate-400 text-xs mt-1">{{ $p->subLabel() }}</p>
+                        @endif
 
                         {{-- Phase 2 will slot a "recent news" headline line here. --}}
                         <div class="mt-4 pt-4 border-t border-slate-700/60">

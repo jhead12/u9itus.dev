@@ -56,13 +56,12 @@
             <div class="min-w-0 flex-1">
                 <div class="flex flex-wrap items-center gap-2">
                     <h1 class="text-xl sm:text-2xl font-extrabold text-white">{{ $name }}</h1>
-                    @if($profile->is_super_pac)
-                        <span class="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30">Super PAC</span>
+                    @if($profile->badgeLabel())
+                        <span class="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30">{{ $profile->badgeLabel() }}</span>
                     @endif
                 </div>
                 <p class="mt-1 text-sm text-slate-400">
-                    {{ $profile->kindLabel() }}
-                    @if($profile->designation_full) · {{ $profile->designation_full }} @endif
+                    {{ $profile->committee_type_full ?: $profile->kindLabel() }}
                     @if($profile->party) · {{ $profile->party }} @endif
                 </p>
                 <dl class="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2 text-xs">

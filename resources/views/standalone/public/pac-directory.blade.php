@@ -108,14 +108,19 @@
                         <div class="flex items-start justify-between gap-3">
                             <div class="min-w-0">
                                 <p class="font-semibold text-white truncate">{{ $c->name ?: $c->fec_committee_id }}</p>
-                                <p class="mt-0.5 text-xs text-slate-400">
-                                    {{ $p->kindLabel() }}
-                                    @if($p->party) · {{ $p->party }} @endif
-                                    @if($p->state) · {{ $p->state }} @endif
-                                </p>
+                                @php
+                                    $subline = collect([
+                                        $p->badgeLabel() ? null : $p->kindLabel(),
+                                        $p->party,
+                                        $p->state,
+                                    ])->filter()->join(' · ');
+                                @endphp
+                                @if($subline !== '')
+                                    <p class="mt-0.5 text-xs text-slate-400">{{ $subline }}</p>
+                                @endif
                             </div>
-                            @if($p->is_super_pac)
-                                <span class="shrink-0 text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30">Super PAC</span>
+                            @if($p->badgeLabel())
+                                <span class="shrink-0 text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30">{{ $p->badgeLabel() }}</span>
                             @endif
                         </div>
                         <div class="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs">
