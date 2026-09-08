@@ -27,7 +27,11 @@ let isOpen = false;
 function setSiblingsHidden(hidden) {
     for (const id of HIDDEN_WHILE_OPEN) {
         const el = document.getElementById(id);
-        if (el) el.hidden = hidden;
+        if (!el) continue;
+        el.hidden = hidden;
+        // #offices-toggle is a .panel-label-toggle (display:flex), which beats
+        // the [hidden] UA style — force it explicitly so it actually hides.
+        el.style.display = hidden ? 'none' : '';
     }
 }
 

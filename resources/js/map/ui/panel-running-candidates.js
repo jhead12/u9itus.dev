@@ -208,7 +208,7 @@ export function renderRunningCandidatesSection(data, color) {
         // Async — render a shell now, fill it when the fetch resolves.
         queueMicrotask(() => loadNewsView(color));
         return sectionShell(
-            'Running Candidates <span style="opacity:.7;font-weight:400;">· in the news</span>',
+            'Running Candidates',
             `<div class="rc-list"><div class="panel-spinner" style="padding:12px 0;">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="animation:spin 1s linear infinite;color:${color};"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-dasharray="31.4" stroke-dashoffset="10" stroke-linecap="round"/></svg>
                 &nbsp;Loading candidates in the news…</div></div>`,
@@ -262,7 +262,13 @@ async function loadNewsView(color) {
     }
     if (!section.isConnected || viewMode !== 'news') return;
 
-    const cands = (payload?.candidates || []).map(c => ({ ...c, _tier: c._tier || 'Statewide', _scope: c.state || '', _state: c.state || null, _district: c.district || null }));
+    const cands = (payload?.candidates || []).map(c => ({
+        ...c,
+        _tier: c._tier || 'Statewide',
+        _scope: '',                       // already grouped by state below
+        _state: c.state || null,
+        _district: c.district || null,
+    }));
 
     if (!cands.length) {
         // Replace the whole body below the toggle with an empty state.
@@ -343,7 +349,12 @@ function highlightDistrictMesh(dm) {
 function syncMapToCandidate(stateAbbr, district) {
     if (!stateAbbr) return;
     const curAbbr = STATE_ABBR_MAP[activeState] || null;
-    const distNum = district ? String(district).split('-').pop() : null;
+
+    // Only a congressional code ("CA-12", "12", "AK-AL", "AL") maps to a
+    // district mesh. Local seats ("Seat 2", "Division 4") don't — treat those
+    // as no-district so we just fly to the state.
+    const tail = district ? String(district).split('-').pop().trim() : '';
+    const distNum = /^(\d{1,2}|AL)$/i.test(tail) ? tail.toUpperCase() : null;
 
     // Same state + a district → select it directly (no full state reload).
     if (curAbbr === stateAbbr && distNum) {
