@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\BillingController;
 use App\Http\Controllers\Api\EarlyBankController;
 use App\Http\Controllers\Api\MapBusinessSearchController;
+use App\Http\Controllers\Api\MapCandidatesInNewsController;
 use App\Http\Controllers\Api\MapContentController;
 use App\Http\Controllers\Api\MapDistrictConfigController;
 use App\Http\Controllers\Api\MapDistrictNewsController;
@@ -28,6 +29,7 @@ use App\Http\Controllers\Api\MapCandidateMomentsController;
 use App\Http\Controllers\Api\MapCandidateOverviewController;
 use App\Http\Controllers\Api\MapCityCensusController;
 use App\Http\Controllers\Api\MapRegionDemographicsController;
+use App\Http\Controllers\Api\MapStateBusinessesController;
 use App\Http\Controllers\Api\MapStateCandidatesController;
 use App\Http\Controllers\Api\MapStateOverlaysController;
 use App\Http\Controllers\Api\MapPoliticianSearchController;
@@ -132,6 +134,16 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
     Route::middleware('throttle:120,1')->group(function () {
         Route::get('/map/state-candidates', MapStateCandidatesController::class)
             ->name('map.state-candidates');
+
+        // Running candidates nationwide with a news article in the last 24h —
+        // powers the "In the news" toggle on the Running Candidates panel.
+        Route::get('/map/candidates-in-news', MapCandidatesInNewsController::class)
+            ->name('map.candidates-in-news');
+
+        // Map-visible local businesses for one state — powers the businesses
+        // panel opened from the state's "Local Businesses" stat card.
+        Route::get('/map/state-businesses', MapStateBusinessesController::class)
+            ->name('map.state-businesses');
 
         // All-50-states-at-once summary for overview-zoom choropleth layers
         // (Party Control, Poverty Rate) — see MapStateOverlaysController's

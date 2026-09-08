@@ -240,6 +240,9 @@ class MapStateCandidatesController
             ->whereIn('governance_level', ['City', 'County', 'Local'])
             ->where(fn($q) => $q->where('term_status', '!=', 'lost')->orWhereNull('term_status'))
             ->whereNull('user_id')   // exclude claimed/personal accounts
+            // "Citizen" is a personal-account role, not an elected office — keep
+            // those rows off the map's candidate lists entirely.
+            ->whereRaw('LOWER(TRIM(COALESCE(political_office, \'\'))) <> ?', ['citizen'])
             ->whereNotNull('city')   // must have a city name set
             ->orderBy('city')
             ->orderBy('full_name')

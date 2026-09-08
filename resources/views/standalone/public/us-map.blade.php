@@ -466,6 +466,7 @@
     <div id="panel-states" style="margin-bottom:6px;"></div>
     <hr class="panel-divider" style="margin:8px 0 10px;">
     <div id="panel-stats"></div>
+    <div id="panel-running-candidates"></div>
     <p class="panel-label panel-label-toggle" id="offices-toggle" role="button" tabindex="0"
        aria-expanded="true" aria-controls="panel-candidates"
        onclick="toggleOfficesSection()"
@@ -483,6 +484,7 @@
     </div>
     <div id="panel-topics"></div>
     <div id="panel-ballot-measures"></div>
+    <div id="panel-businesses" hidden></div>
 </div>
 
 <div id="hint" style="position:fixed;bottom:28px;right:24px;z-index:50;color:#334155;font-size:11px;text-align:right;pointer-events:none;">

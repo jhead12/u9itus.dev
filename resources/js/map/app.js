@@ -50,6 +50,8 @@ import { initDigestOptInPrompt } from './ui/digest-optin.js';
 import { initSearch, openSearch, closeSearch } from './ui/search.js';
 import { buildLegend, showRegionLegend, showPartyLegend } from './ui/legend.js';
 import { openStatePanel, partyClass, detectElectionPhase, renderCandidate, renderOfficeGroup, noDataNotice, initOfficesToggle, initCandidateCardClick } from './ui/panel-state.js';
+import { initRunningCandidatesFilters } from './ui/panel-running-candidates.js';
+import { initBusinessesPanel } from './ui/panel-businesses.js';
 import { openDistrictPanel } from './ui/panel-district.js';
 import { initPopup, closePopup } from './ui/popup.js';
 import { initPolDrawer, openPolDrawer, closePolDrawer } from './ui/politician-drawer.js';
@@ -99,6 +101,8 @@ initTour();
 initKeyboard();
 initOfficesToggle();
 initCandidateCardClick();
+initRunningCandidatesFilters();
+initBusinessesPanel();
 initLocationButton();
 
 const earnCta = document.getElementById('btn-signin-cta');

@@ -8,6 +8,8 @@ import { openPolDrawer } from './politician-drawer.js';
 import { fmtPop } from '../config/city-data.js';
 import { trackEvent } from '../api/interaction.js';
 import { renderCityCard, wireCityCardClicks, fetchCitiesForState } from './city-demographics-card.js';
+import { renderRunningCandidatesSection } from './panel-running-candidates.js';
+import { closeBusinessesPanel } from './panel-businesses.js';
 
 // Every office section now starts collapsed when a panel first opens — no
 // office defaults to expanded. Kept as a Set (rather than deleting the
@@ -305,6 +307,7 @@ export function renderBallotMeasuresSection(ballotMeasures, color) {
 export function renderStateStatsSection(data, color) {
     const pop = data?.population?.formatted ?? null;
     const businessCount = data?.business_count ?? null;
+    const stateAbbr = data?.state ?? null;
     if (!pop && !businessCount) return '';
 
     const stat = (icon, value, label) => `<div style="flex:1;min-width:0;text-align:center;">
@@ -312,9 +315,22 @@ export function renderStateStatsSection(data, color) {
         <div style="color:#94a3b8;font-size:9px;text-transform:uppercase;letter-spacing:.05em;margin-top:2px;">${label}</div>
     </div>`;
 
+    // The businesses count is a button when we have a state to look up and at
+    // least one business — clicking it opens the Local Businesses panel
+    // (panel-businesses.js, wired via #info-panel delegation).
+    const bizValue = businessCount !== null ? businessCount.toLocaleString('en-US') : null;
+    const bizStat = (bizValue !== null && stateAbbr && businessCount > 0)
+        ? `<button type="button" class="stat-btn" data-open-businesses="${stateAbbr}" data-biz-color="${color}"
+             title="View local businesses in this state"
+             style="flex:1;min-width:0;text-align:center;background:none;border:0;cursor:pointer;padding:0;font:inherit;">
+            <div style="color:${color};font-size:15px;font-weight:700;">🏪 ${bizValue} <span style="font-size:11px;opacity:.7;">›</span></div>
+            <div style="color:#94a3b8;font-size:9px;text-transform:uppercase;letter-spacing:.05em;margin-top:2px;">Local Businesses</div>
+        </button>`
+        : (bizValue !== null ? stat('🏪', bizValue, 'Local Businesses') : '');
+
     return `<div style="display:flex;gap:8px;background:${color}0f;border:1px solid ${color}33;border-radius:8px;padding:10px 8px;margin-bottom:12px;">
         ${pop ? stat('👥', pop, 'Population') : ''}
-        ${businessCount !== null ? stat('🏪', businessCount.toLocaleString('en-US'), 'Local Businesses') : ''}
+        ${bizStat}
     </div>`;
 }
 
@@ -435,6 +451,9 @@ export async function openStatePanel(stateName, regionName, region, districtCoun
     const color = region?.hex || '#6366f1';
     const candEl = document.getElementById('panel-candidates');
 
+    // Leaving any prior state's Local Businesses view before we repaint.
+    closeBusinessesPanel();
+
     await new Promise(r => setTimeout(r, 380));
 
     _officeIdx = 0;
@@ -487,6 +506,13 @@ export async function openStatePanel(stateName, regionName, region, districtCoun
     // panel-district.js, which only ever repaints #panel-candidates).
     const statsEl = document.getElementById('panel-stats');
     if (statsEl) statsEl.innerHTML = renderStateStatsSection(data, color);
+
+    // "Running Candidates" rollup — every running candidate in the state
+    // (federal + statewide + local) in one filterable list. Lives outside
+    // #panel-candidates so it stays put when drilling into a district,
+    // same as the stats / topics / ballot-measure sections.
+    const runningEl = document.getElementById('panel-running-candidates');
+    if (runningEl) runningEl.innerHTML = renderRunningCandidatesSection(data, color);
 
     const topicsEl = document.getElementById('panel-topics');
     if (topicsEl) topicsEl.innerHTML = renderCandidatesByTopicSection(offices, color);
