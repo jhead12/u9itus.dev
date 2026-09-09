@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Models\BallotMeasure;
+use App\Models\CandidateIdentityLink;
 use App\Models\Citizen;
 use App\Models\ElectionCandidateRecord;
 use App\Models\Politician;
@@ -178,9 +179,36 @@ class MapStateCandidatesController
             });
 
         // ── 2. Scraped ElectionCandidateRecords (not yet on platform) ─────────
+        // Two guards keep news-headline noise off the public panel:
+        //  - Stale cycles: a row whose election_date is before the start of
+        //    the current year is a past race (2018/2021/2022 governor rows
+        //    left behind by the RSS discovery source) — drop it.
+        //  - Unverified discovery: a `candidate_discovery` row is an
+        //    unconfirmed headline extraction until ReconcileMissingCandidate-
+        //    Profiles matches it to a real Politician (a candidate_identity_
+        //    links row). Until then, only show it if it carries an explicit
+        //    primary_result — i.e. it survived politicians:sync-primary-results.
+        $cycleStart = now()->startOfYear()->toDateString();
+        $linkedEcrIds = CandidateIdentityLink::query()
+            ->distinct()->pluck('election_candidate_record_id')->all();
+
+        // Driver-branching JSON extraction — SQLite (test env) lacks MySQL's
+        // JSON_UNQUOTE(JSON_EXTRACT(...)); both forms return the unquoted
+        // scalar (mirrors CleanCrossOfficeEcrs).
+        $primaryResultExpr = DB::connection()->getDriverName() === 'sqlite'
+            ? "json_extract(payload, '$.primary_result')"
+            : "JSON_UNQUOTE(JSON_EXTRACT(payload, '$.primary_result'))";
+
+        $discoveryVisible = fn ($q) => $q
+            ->where('source', '!=', ElectionCandidateRecord::DISCOVERY_SOURCE)
+            ->orWhereIn('id', $linkedEcrIds)
+            ->orWhereRaw("COALESCE({$primaryResultExpr}, '') <> ''");
+
         $scrapedRecords = ElectionCandidateRecord::query()
             ->whereRaw('UPPER(COALESCE(state, \'\')) = ?', [$state])
             ->whereRaw('LOWER(COALESCE(governance_level, \'\')) = ?', ['state'])
+            ->where(fn ($q) => $q->whereNull('election_date')->orWhere('election_date', '>=', $cycleStart))
+            ->where($discoveryVisible)
             ->get(['id', 'full_name', 'political_office', 'party_affiliation',
                    'election_date', 'source', 'external_candidate_id', 'payload']);
 
@@ -470,6 +498,8 @@ class MapStateCandidatesController
             ->whereRaw('LOWER(COALESCE(governance_level, \'\')) = ?', ['federal'])
             ->whereNotNull('district')
             ->whereRaw('LOWER(COALESCE(political_office, \'\')) NOT LIKE ?', ['%senat%'])
+            ->where(fn ($q) => $q->whereNull('election_date')->orWhere('election_date', '>=', $cycleStart))
+            ->where($discoveryVisible)
             ->get(['id', 'full_name', 'political_office', 'party_affiliation',
                    'district', 'election_date', 'source', 'external_candidate_id', 'payload']);
 

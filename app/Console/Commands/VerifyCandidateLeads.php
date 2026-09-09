@@ -30,6 +30,7 @@ class VerifyCandidateLeads extends Command
 
         if (! $skipAi && $apiKey === '' && $requireAi) {
             $this->error('ANTHROPIC_API_KEY is missing and --require-ai was set.');
+
             return self::FAILURE;
         }
 
@@ -68,6 +69,7 @@ class VerifyCandidateLeads extends Command
             if ($result === null) {
                 $stats['unresolved']++;
                 $this->line("  <fg=yellow>?</> {$lead->full_name} ({$lead->state}) — no tier could confirm yet, left pending");
+
                 continue;
             }
 
@@ -86,7 +88,7 @@ class VerifyCandidateLeads extends Command
     /**
      * @param array{status:string, confidence:float, reason:string,
      *   verified_payload:array<string,mixed>, verifier_key:string} $result
-     * @param array<string,int> $stats
+     * @param  array<string,int>  $stats
      */
     private function applyResult(CandidateLead $lead, array $result, bool $dryRun, CandidateLeadPromoter $promoter, array &$stats): void
     {
@@ -100,6 +102,7 @@ class VerifyCandidateLeads extends Command
 
         if ($dryRun) {
             $stats[$isRejected ? 'rejected' : ($willPromote ? 'promoted' : 'verified')]++;
+
             return;
         }
 
@@ -113,8 +116,13 @@ class VerifyCandidateLeads extends Command
         ]);
 
         if ($willPromote) {
-            $promoter->promote($lead->fresh());
-            $stats['promoted']++;
+            $record = $promoter->promote($lead->fresh());
+            if ($record !== null) {
+                $stats['promoted']++;
+            } else {
+                $this->line("  <fg=red>✗</> {$lead->full_name} — blocked by name-quality guard, marked rejected");
+                $stats['rejected']++;
+            }
         } elseif ($isRejected) {
             $stats['rejected']++;
         } else {

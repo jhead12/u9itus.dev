@@ -33,10 +33,10 @@ class PoliticianDataRules
 
     /** Valid 2-letter state/territory codes. */
     public const ALLOWED_STATES = [
-        'AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA',
-        'KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ',
-        'NM','NY','NC','ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT','VT',
-        'VA','WA','WV','WI','WY','DC','PR','GU','VI','AS','MP',
+        'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA', 'HI', 'ID', 'IL', 'IN', 'IA',
+        'KS', 'KY', 'LA', 'ME', 'MD', 'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ',
+        'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC', 'SD', 'TN', 'TX', 'UT', 'VT',
+        'VA', 'WA', 'WV', 'WI', 'WY', 'DC', 'PR', 'GU', 'VI', 'AS', 'MP',
     ];
 
     /**
@@ -55,6 +55,32 @@ class PoliticianDataRules
         '/\bTBD\b/i',
         '/\bunknown\b/i',
         '/^\s*(democrat(ic)?|republican|independent|libertarian|green)\s*$/i',
+    ];
+
+    /**
+     * RSS / news-headline extraction artifacts. The candidate-discovery
+     * pipeline (RssCandidateDiscoverySource → CandidateLeadPromoter) pulls
+     * "names" out of Google-News headlines; without these checks, fragments
+     * like "Former L.A. Mayor Antonio", "Eric Swalwell Won More",
+     * "Job Creator", "Nevada Joe Lombardo" and "California Governor's Race"
+     * get written as election_candidate_records.full_name and rendered on
+     * the public map. A real name starts with a given name and ends on a
+     * surname — not an adjective, party, title, geography, or headline verb.
+     * Case-insensitive.
+     */
+    private const HEADLINE_NAME_REJECT_PATTERNS = [
+        // Leading qualifier / title / geography / headline lead-in word.
+        '/^\s*(the|former|ex|current|incumbent|new|next|another|embattled|fiery|firebrand|outspoken|controversial|progressive|conservative|moderate|billionaire|bilionaire|millionaire|millennial|boomer|independent|democrat(ic)?|republican|libertarian|green|maga|gop|trump[\s-]?backed|reality|video|watch|listen|breaking|exclusive|opinion|editorial|poll|meet|why|how|when|where|what|who|after|before|amid|apostle|pastor|bishop|chief|consumer|onerepublic|indian|asian|african|latino|latina|hispanic|jewish|muslim|christian|evangelical|california|nevada|tennessee|texas|arizona|florida|riverside|orange county|east bay|tri[\s-]valley|bay area|silicon valley|san jos[e\x{00E9}]|los angeles|northern|southern|sheriff|deputy|officer|detective|governor|lieutenant governor|senator|sen\.|representative|rep\.|congressman|congresswoman|delegate|speaker|mayor|treasurer|controller|comptroller|supervisor|assemblymember|assemblyman|assemblywoman|councilmember|councilman|councilwoman|alderman|selectman|trustee|clerk|auditor|coroner|constable|commissioner)\b/iu',
+        // Trailing dangling preposition / pronoun / headline verb.
+        '/\b(is|are|was|were|has|have|had|he|she|they|him|them|his|her|their|to|for|of|in|on|by|as|and|or|but|more|less|most|out|off|up|won|wins|lost|loses|edges|edged|leads|trails|run|runs|running|ran|advances|advanced|exits|exited|enters|entered|joins|joined|drops|dropped|launches|launched|announces|announced|eyes|weighs|mulls|backs|backed|slams|blasts|says|said|outraises|outraised|other|another)\s*$/i',
+        // Process / horse-race noun that never appears inside a person's name.
+        '/\b(campaign|candidacy|frontrunner|front[\s-]runner|primary|runoff|ballot|race|contest|showdown|matchup|fundraising|debate)\b/i',
+        // Trailing occupation / media-role noun left dangling by a truncated
+        // headline ("Job Creator", "Former Fox News Contributor"). Kept
+        // deliberately narrow — words here must never plausibly be a surname.
+        '/\b(creator|advocate|activist|strategist|commentator|contributor|columnist|pundit|correspondent|anchorman|spokesperson|spokesman|spokeswoman)\s*$/i',
+        // Headline action verb anywhere in the string.
+        '/\b(exits?|exited|suspends?|concedes?|endorses?|slams?|blasts?|rips|touts?|unveils?|clashes|spars|drops out|bows out|weighs in)\b/i',
     ];
 
     /**
@@ -79,13 +105,50 @@ class PoliticianDataRules
 
         foreach (self::NAME_REJECT_PATTERNS as $pattern) {
             if (preg_match($pattern, $name)) {
-                return 'name matches artifact pattern: ' . $pattern;
+                return 'name matches artifact pattern: '.$pattern;
             }
         }
 
         // Must contain at least one letter (rejects "---", "123", etc.)
         if (! preg_match('/\p{L}/u', $name)) {
             return 'name contains no letters';
+        }
+
+        return null;
+    }
+
+    /**
+     * Stricter check for names produced by the candidate-discovery pipeline
+     * (RSS news-headline extraction). Runs every {@see nameViolation()} rule
+     * plus the headline-fragment heuristics — a real name starts with a given
+     * name and ends on a surname, not an adjective, party, title, geography,
+     * or headline verb. Used by the ElectionCandidateRecord write-guard,
+     * CandidateLeadPromoter, and politicians:prune-junk-ecrs — NOT by the
+     * Politician model hook, whose rows come from curated feeds.
+     */
+    public static function headlineFragmentViolation(?string $name): ?string
+    {
+        if (($v = self::nameViolation($name)) !== null) {
+            return $v;
+        }
+
+        $name = trim((string) $name);
+
+        foreach (self::HEADLINE_NAME_REJECT_PATTERNS as $pattern) {
+            if (preg_match($pattern, $name)) {
+                return 'name matches headline-fragment pattern: '.$pattern;
+            }
+        }
+
+        // All-caps multi-word strings are headlines, not names
+        // ("ADA BRICEÑO LAUNCHES CAMPAIGN").
+        $letters = preg_replace('/[^\p{L}]/u', '', $name) ?? '';
+        if (
+            mb_strlen($letters) >= 4
+            && str_word_count($name) >= 2
+            && mb_strtoupper($letters, 'UTF-8') === $letters
+        ) {
+            return 'name is all-caps (likely a headline)';
         }
 
         return null;
@@ -104,13 +167,12 @@ class PoliticianDataRules
         }
 
         return match (true) {
-            str_contains($p, 'democrat') || $p === 'd'   => 'Democratic',
+            str_contains($p, 'democrat') || $p === 'd' => 'Democratic',
             str_contains($p, 'republican') || $p === 'r' => 'Republican',
             str_contains($p, 'independent') || $p === 'i' => 'Independent',
             str_contains($p, 'libertarian') || $p === 'l' => 'Libertarian',
-            str_contains($p, 'green') || $p === 'g'      => 'Green',
-            str_contains($p, 'no party') || str_contains($p, 'nonpartisan') || str_contains($p, 'non-partisan')
-                => 'No Party Preference',
+            str_contains($p, 'green') || $p === 'g' => 'Green',
+            str_contains($p, 'no party') || str_contains($p, 'nonpartisan') || str_contains($p, 'non-partisan') => 'No Party Preference',
             in_array(ucwords($p), self::ALLOWED_PARTIES, true) => ucwords($p),
             default => null, // unmappable — never store raw garbage
         };
@@ -170,6 +232,18 @@ class PoliticianDataRules
         'PUERTO RICO' => 'PR', 'GUAM' => 'GU', 'VIRGIN ISLANDS' => 'VI',
         'AMERICAN SAMOA' => 'AS', 'NORTHERN MARIANA ISLANDS' => 'MP',
     ];
+
+    /**
+     * Full US state / territory names mapped to their USPS code.
+     * Exposed for callers that need to detect a state name embedded in
+     * free text (e.g. "Texas Attorney General" on a row stamped state=CA).
+     *
+     * @return array<string, string>
+     */
+    public static function stateNameToCode(): array
+    {
+        return self::STATE_NAME_TO_CODE;
+    }
 
     /**
      * Normalize state input to a valid 2-letter code when possible.

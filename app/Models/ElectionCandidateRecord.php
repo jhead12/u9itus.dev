@@ -2,16 +2,51 @@
 
 namespace App\Models;
 
+use App\Support\PoliticianDataRules;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 class ElectionCandidateRecord extends Model
 {
     use HasFactory;
 
+    /**
+     * Automated discovery pipeline (RssCandidateDiscoverySource → CandidateLead
+     * → CandidateLeadPromoter). Rows from this source are unverified news-
+     * headline extractions until matched to a real Politician — the map
+     * controller and prune command treat them accordingly.
+     */
+    public const DISCOVERY_SOURCE = 'candidate_discovery';
+
     protected static function booted(): void
     {
+        // Reject news-headline artifacts ("Former L.A. Mayor Antonio",
+        // "Eric Swalwell Won More", "Job Creator") from the discovery
+        // pipeline at write time so a regression there can't repopulate the
+        // map. Scoped to candidate_discovery — curated feeds/imports and
+        // admin corrections are left alone. Returning false aborts the save
+        // quietly; the promoter also pre-checks and marks the lead rejected.
+        static::saving(function (self $record): bool {
+            if ((string) $record->source !== self::DISCOVERY_SOURCE) {
+                return true;
+            }
+
+            $violation = PoliticianDataRules::headlineFragmentViolation($record->full_name);
+            if ($violation !== null) {
+                Log::info('ElectionCandidateRecord: rejected discovery name-quality violation', [
+                    'full_name' => $record->full_name,
+                    'reason' => $violation,
+                ]);
+
+                return false;
+            }
+
+            return true;
+        });
+
         // Scraped candidates feed the map's per-state cache (see
         // Politician::forgetMapCacheFor() for the same reasoning) — bust it
         // whenever a record is written or removed so newly-discovered or
@@ -52,12 +87,12 @@ class ElectionCandidateRecord extends Model
         ];
     }
 
-    public function identityLinks(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function identityLinks(): HasMany
     {
         return $this->hasMany(CandidateIdentityLink::class);
     }
 
-    public function matchReviews(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function matchReviews(): HasMany
     {
         return $this->hasMany(CandidateMatchReview::class);
     }

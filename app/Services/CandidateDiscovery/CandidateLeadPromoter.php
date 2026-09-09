@@ -5,6 +5,8 @@ namespace App\Services\CandidateDiscovery;
 use App\Models\CandidateLead;
 use App\Models\ElectionCandidateRecord;
 use App\Support\CandidateNameCanonicalizer;
+use App\Support\PoliticianDataRules;
+use Illuminate\Support\Str;
 
 /**
  * Builds an election_candidate_records row from a verified CandidateLead —
@@ -16,18 +18,44 @@ class CandidateLeadPromoter
 {
     public const SOURCE = 'candidate_discovery';
 
-    public function promote(CandidateLead $lead): ElectionCandidateRecord
+    public function promote(CandidateLead $lead): ?ElectionCandidateRecord
     {
         $payload = $lead->verified_payload ?? [];
 
-        $record = ElectionCandidateRecord::updateOrCreate(
-            [
-                'source' => self::SOURCE,
-                'external_candidate_id' => $lead->source_hash,
-            ],
-            [
-                'full_name' => CandidateNameCanonicalizer::canonicalize($lead->full_name),
-                'political_office' => $payload['political_office'] ?? $lead->office_hint,
+        // The RSS discovery source extracts names from news headlines; a
+        // verifier tier can confirm "someone by roughly this name is running"
+        // without noticing the name itself is a fragment ("Former L.A. Mayor
+        // Antonio", "Job Creator"). Block those here so they never reach the
+        // map — mark the lead rejected rather than promoted so the run stats
+        // and the review queue stay honest.
+        $canonicalName = CandidateNameCanonicalizer::canonicalize($lead->full_name);
+        $nameViolation = PoliticianDataRules::headlineFragmentViolation($canonicalName);
+        if ($nameViolation !== null) {
+            $lead->update([
+                'status' => CandidateLead::STATUS_REJECTED,
+                'reason' => trim((string) $lead->reason.' | name-quality: '.$nameViolation, ' |'),
+                'resolved_at' => now(),
+            ]);
+
+            return null;
+        }
+
+        $office = $payload['political_office'] ?? $lead->office_hint;
+
+        // Key the ECR by candidate identity (state + office + normalized
+        // name), NOT by $lead->source_hash (the news-article URL hash).
+        // Every headline about the same person used to mint its own row —
+        // that is why "Steve Hilton" accumulated ~20 duplicate ECRs. Now the
+        // 2nd..Nth article for a candidate updates the one row instead.
+        $record = ElectionCandidateRecord::firstOrNew([
+            'source' => self::SOURCE,
+            'external_candidate_id' => $this->identityKey($lead->state, $office, $canonicalName),
+        ]);
+
+        if (! $record->exists) {
+            $record->fill([
+                'full_name' => $canonicalName,
+                'political_office' => $office,
                 'governance_level' => $payload['governance_level'] ?? null,
                 'state' => $lead->state,
                 'county' => null,
@@ -35,13 +63,23 @@ class CandidateLeadPromoter
                 'district' => null,
                 'party_affiliation' => $payload['party_affiliation'] ?? null,
                 'election_date' => $this->resolveElectionDate($payload),
-                'payload' => array_merge($payload, [
-                    'discovered_via' => $lead->source_key,
-                    'discovery_source_url' => $lead->source_url,
-                ]),
-                'last_seen_at' => now(),
+            ]);
+        }
+
+        // Always refresh verification payload + provenance + freshness, but
+        // leave name/office/state/date alone on an existing row so a manual
+        // or reconcile correction is not clobbered by a later re-discovery.
+        $record->payload = array_merge(
+            is_array($record->payload) ? $record->payload : [],
+            $payload,
+            [
+                'discovered_via' => $lead->source_key,
+                'discovery_source_url' => $lead->source_url,
+                'discovery_source_hash' => $lead->source_hash,
             ],
         );
+        $record->last_seen_at = now();
+        $record->save();
 
         $lead->update([
             'status' => CandidateLead::STATUS_PROMOTED,
@@ -50,6 +88,17 @@ class CandidateLeadPromoter
         ]);
 
         return $record;
+    }
+
+    /**
+     * Stable per-person key: "disc:{state}:{office-slug}:{name-slug}".
+     */
+    private function identityKey(?string $state, ?string $office, string $name): string
+    {
+        return 'disc:'
+            .strtolower(trim((string) $state)).':'
+            .(Str::slug((string) $office) ?: 'office').':'
+            .(Str::slug($name) ?: 'name');
     }
 
     /**
@@ -64,7 +113,7 @@ class CandidateLeadPromoter
      * "first Tuesday after first Monday in November" formula
      * SyncPrimaryResults::generalElectionDate() already uses.
      *
-     * @param array<string, mixed> $payload
+     * @param  array<string, mixed>  $payload
      */
     private function resolveElectionDate(array $payload): ?string
     {
