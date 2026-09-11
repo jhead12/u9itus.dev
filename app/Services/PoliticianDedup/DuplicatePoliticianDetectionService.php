@@ -3,6 +3,7 @@
 namespace App\Services\PoliticianDedup;
 
 use App\Models\Politician;
+use App\Support\PoliticianDataRules;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Collection;
@@ -115,6 +116,18 @@ class DuplicatePoliticianDetectionService
      */
     public function scoreSurvivor(Politician $preferred, Politician $candidate): Politician
     {
+        // A row whose full_name is itself an artifact (e.g. "Party" left
+        // over from a "Democratic Party" placeholder row, or a title-only
+        // fragment) must never be preferred over a row with a real name,
+        // regardless of how it scores on every other axis below — otherwise
+        // approving the merge review keeps the junk name and deletes the
+        // good one.
+        $preferredNameValid = PoliticianDataRules::nameViolation($preferred->full_name) === null;
+        $candidateNameValid = PoliticianDataRules::nameViolation($candidate->full_name) === null;
+        if ($candidateNameValid !== $preferredNameValid) {
+            return $candidateNameValid ? $candidate : $preferred;
+        }
+
         $senateKeywords = ['senator', 'senate'];
         $prefIsSenate = $this->officeContains($preferred, $senateKeywords);
         $candIsSenate = $this->officeContains($candidate, $senateKeywords);

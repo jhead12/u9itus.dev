@@ -19,7 +19,8 @@ use Illuminate\Support\Facades\Log;
  *
  * Steps, in order:
  *   1. politicians:repair-names            — strip junk leading qualifiers, auto-apply
- *   2. politicians:audit-data-integrity     — normalize party/state/term_status, auto-apply
+ *   2. politicians:audit-data-integrity     — normalize party/state/term_status, deactivate
+ *                                              unfixable artifact names, auto-apply
  *   3. politicians:reconcile-status(+       — deactivate stale unclaimed rows, auto-apply
  *      -state-local)
  *   4. politicians:dedupe (both scopes)     — NEVER auto-applies; enqueues for review
@@ -59,7 +60,7 @@ class PoliticiansCleanupWorkflow extends Command
         // that's routine backlog, not a pipeline failure, so its exit code
         // is logged but doesn't count toward this command's own exit code.
         $this->section('2/5 · Auditing data integrity');
-        $auditExitCode = $this->call('politicians:audit-data-integrity', $dryRun ? [] : ['--fix' => true]);
+        $auditExitCode = $this->call('politicians:audit-data-integrity', $dryRun ? [] : ['--fix' => true, '--deactivate' => true]);
 
         if (in_array($scope, ['all', 'federal'], true)) {
             $this->section('3/5 · Reconciling federal lifecycle status');

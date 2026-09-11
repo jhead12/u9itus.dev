@@ -65,7 +65,7 @@ class PoliticianDataRules
      * time from the front and re-validates what's left) — kept as one public
      * constant so the two vocabularies can't drift apart.
      */
-    public const LEADING_QUALIFIER_PATTERN = '/^\s*(the|former|ex|current|incumbent|new|next|another|embattled|fiery|firebrand|outspoken|controversial|progressive|conservative|moderate|billionaire|bilionaire|millionaire|millennial|boomer|independent|democrat(ic)?|republican|libertarian|green|maga|gop|trump[\s-]?backed|reality|video|watch|listen|breaking|exclusive|opinion|editorial|poll|meet|why|how|when|where|what|who|after|before|amid|apostle|pastor|bishop|chief|consumer|onerepublic|indian|asian|african|latino|latina|hispanic|jewish|muslim|christian|evangelical|california|nevada|tennessee|texas|arizona|florida|riverside|orange county|east bay|tri[\s-]valley|bay area|silicon valley|san jos[e\x{00E9}]|los angeles|northern|southern|sheriff|deputy|officer|detective|governor|gov\.|lieutenant governor|lieutenant|lt\.|senator|sen\.|representative|rep\.|congressman|congresswoman|delegate|speaker|mayor|treasurer|controller|comptroller|supervisor|assemblymember|assemblyman|assemblywoman|councilmember|councilman|councilwoman|alderman|selectman|trustee|clerk|auditor|coroner|constable|commissioner)(?![a-zA-Z0-9_])/iu';
+    public const LEADING_QUALIFIER_PATTERN = '/^\s*(the|former|ex|current|incumbent|new|next|another|embattled|fiery|firebrand|outspoken|controversial|progressive|conservative|moderate|billionaire|bilionaire|millionaire|millennial|boomer|independent|democrat(ic)?|republican|libertarian|green|maga|gop|trump[\s-]?backed|reality|video|watch|listen|breaking|exclusive|opinion|editorial|poll|meet|why|how|when|where|what|who|after|before|amid|apostle|pastor|bishop|chief|consumer|onerepublic|indian|asian|african|latino|latina|hispanic|jewish|muslim|evangelical|california|nevada|tennessee|texas|arizona|florida|riverside|orange county|east bay|tri[\s-]valley|bay area|silicon valley|san jos[e\x{00E9}]|los angeles|northern|southern|sheriff|deputy|officer|detective|governor|gov\.|lieutenant governor|lieutenant|lt\.|senator|sen\.|representative|rep\.|congressman|congresswoman|delegate|speaker|mayor|treasurer|controller|comptroller|supervisor|assemblymember|assemblyman|assemblywoman|councilmember|councilman|councilwoman|alderman|selectman|trustee|clerk|auditor|coroner|constable|commissioner)(?![a-zA-Z0-9_])/iu';
 
     /**
      * RSS / news-headline extraction artifacts. The candidate-discovery
@@ -110,6 +110,23 @@ class PoliticianDataRules
 
         if (str_word_count($name) > 6) {
             return 'name has too many words (likely a sentence)';
+        }
+
+        // A real name has a given name and a surname. Rejecting single-word
+        // remainders is also what stops PoliticianNameRepairer from ever
+        // leaving behind a bare leftover like "Party" (from "Democratic
+        // Party") or "Ahmed" (from "Christian Ahmed") after stripping a
+        // leading qualifier.
+        if (str_word_count($name) < 2) {
+            return 'name has fewer than 2 words';
+        }
+
+        // A name can never start with a dangling preposition/conjunction —
+        // this only happens when a leading-qualifier strip removes a title
+        // but leaves a fragment like "of Maury County, Tennessee" (from
+        // "Mayor of Maury County, Tennessee") behind.
+        if (preg_match('/^\s*(of|for|in|by|with|and|or|at|to|from)\s+/i', $name)) {
+            return 'name starts with a dangling preposition/conjunction';
         }
 
         foreach (self::NAME_REJECT_PATTERNS as $pattern) {

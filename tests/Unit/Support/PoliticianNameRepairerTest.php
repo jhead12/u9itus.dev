@@ -19,7 +19,6 @@ it('strips a leading qualifier and keeps the real name', function (string $junk,
     ['New Gavin Newsom', 'Gavin Newsom'],
     ['Independent Michael Shellenberger', 'Michael Shellenberger'],
     ['Lt. Gov. Eleni Kounalakis', 'Eleni Kounalakis'],
-    ['Current Lieutenant Eleni', 'Eleni'],
     ['Former Xavier Becerra', 'Xavier Becerra'],
 ]);
 
@@ -34,15 +33,34 @@ it('leaves a name with no leading qualifier untouched', function (string $name) 
     'Eleni Kounalakis',
     'Xavier Becerra',
     'Steve Hilton',
+    // "Christian" is a common given name, not just the leading-qualifier
+    // adjective ("Christian conservative candidate...") it was added to
+    // catch — it must never be stripped off a real name (regression: was
+    // mangling "Christian Hurd"/"Christian Ahmed"/etc. into a bare surname).
+    'Christian Hurd',
+    'Christian Ahmed',
 ]);
 
-it('flags as unrepairable when nothing sensible is left after stripping', function () {
-    $result = PoliticianNameRepairer::repair('Former California');
+it('flags as unrepairable when nothing sensible is left after stripping', function (string $junk) {
+    $result = PoliticianNameRepairer::repair($junk);
 
     expect($result['changed'])->toBeFalse()
         ->and($result['unrepairable'])->toBeTrue()
-        ->and($result['name'])->toBe('Former California');
-});
+        ->and($result['name'])->toBe($junk);
+})->with([
+    'Former California',
+    // A single leftover word is never a full name — regression coverage for
+    // "Current Lieutenant Eleni" over-stripping to just "Eleni", and for
+    // "Democratic Party"/"Republican Party" (garbage placeholder rows)
+    // collapsing to the bare word "Party" instead of being left alone /
+    // flagged for review.
+    'Current Lieutenant Eleni',
+    'Democratic Party',
+    'Republican Party',
+    // A leading-qualifier strip can leave a dangling preposition behind —
+    // "Mayor of Evanston" must not become the fragment "of Evanston".
+    'Mayor of Evanston',
+]);
 
 it('handles null/empty input without stripping anything', function () {
     expect(PoliticianNameRepairer::repair(null))
