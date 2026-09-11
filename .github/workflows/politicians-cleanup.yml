@@ -1,0 +1,64 @@
+name: Politicians Data-Quality Cleanup
+
+# Runs the consolidated politicians:cleanup-workflow pipeline: repairs junk
+# full_name rows (leftover leading-qualifier fragments like "Former
+# California Xavier Becerra"), audits/normalizes party/state/term_status,
+# reconciles federal + state/local lifecycle status (retired/lost/
+# deactivated), and prunes junk election_candidate_records. Duplicate-merge
+# candidates are only ever queued to politician_cleanup_reviews for admin
+# approval — never auto-merged.
+#
+# Kept as its own workflow, separate from sync-candidates.yml, since that
+# pipeline already runs a long chain of scrape/import/enrich jobs — this one
+# runs later in the day so it acts on freshly-synced data.
+on:
+  schedule:
+    - cron: "0 7 * * *"   # 07:00 UTC daily, after sync-candidates.yml (02:00 UTC)
+  workflow_dispatch:
+    inputs:
+      scope:
+        description: "Scope: all, federal, or state-local"
+        type: choice
+        options: [all, federal, state-local]
+        default: all
+      dry_run:
+        description: "Dry-run — report only, no DB writes"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: politicians-cleanup
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    name: Run politicians:cleanup-workflow
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up app
+        uses: ./.github/actions/setup-app
+        with:
+          app_key: ${{ secrets.APP_KEY }}
+          app_url: ${{ secrets.APP_URL }}
+          db_host: ${{ secrets.DB_HOST }}
+          db_port: ${{ secrets.DB_PORT }}
+          db_database: ${{ secrets.DB_DATABASE }}
+          db_username: ${{ secrets.DB_USERNAME }}
+          db_password: ${{ secrets.DB_PASSWORD }}
+
+      - name: Run cleanup workflow
+        run: |
+          SCOPE="${{ github.event.inputs.scope || 'all' }}"
+          DRY_ARG=""
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            DRY_ARG="--dry-run"
+          fi
+
+          php artisan politicians:cleanup-workflow --scope="$SCOPE" $DRY_ARG

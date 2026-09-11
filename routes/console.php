@@ -106,17 +106,10 @@ Schedule::command('politicians:enrich-cspan-moments --stale-hours=48 --limit=200
     ->dailyAt('05:30')
     ->withoutOverlapping();
 
-// Data-quality cleanup workflow — repairs junk full_name rows (leftover
-// leading-qualifier fragments like "Former California Xavier Becerra"),
-// audits/normalizes party/state/term_status, reconciles federal + state/
-// local lifecycle status (retired/lost/deactivated), and prunes junk ECR
-// rows. Duplicate-merge candidates are only ever queued to
-// politician_cleanup_reviews for admin approval — never auto-merged. Slotted
-// at 05:45, after the day's sync/enrichment jobs (02:00-05:30) so it acts on
-// freshly-synced data, and before the 06:00 marketing draft job.
-Schedule::command('politicians:cleanup-workflow')
-    ->dailyAt('05:45')
-    ->withoutOverlapping();
+// Data-quality cleanup workflow (name repair, integrity audit, lifecycle
+// reconciliation, dedup review queue, ECR pruning) runs as its own scheduled
+// GitHub Actions workflow — see .github/workflows/politicians-cleanup.yml —
+// not here, so it doesn't run twice a day across two different schedulers.
 
 // Marketing content agent — auto-draft blog Posts from recent news / viral
 // moments for politicians. Drafts are saved as PendingApproval and require a
