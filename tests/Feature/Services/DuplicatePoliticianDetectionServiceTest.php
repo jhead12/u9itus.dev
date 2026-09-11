@@ -77,3 +77,31 @@ it('groups a name with a trailing fragment as a duplicate of the shorter clean n
     expect($ids)->toBe(collect([$clean->id, $leaked->id])->sort()->values()->all())
         ->and($ids)->not->toContain($unrelated->id);
 });
+
+/**
+ * Regression: the first production run of the fix above correctly grouped
+ * "Eric Swalwell" with "Eric Swalwell Officially" — but then kept the
+ * mangled "Officially" variant as the merge survivor, because both names
+ * pass the lenient nameViolation() check and the scorer fell through to
+ * unrelated tiebreaks (recency/id). scoreSurvivor() must prefer whichever
+ * name also passes the stricter headlineFragmentViolation() check.
+ */
+it('prefers the headline-clean name as survivor even when both names are individually valid', function () {
+    $service = new DuplicatePoliticianDetectionService;
+
+    $clean = Politician::factory()->create([
+        'full_name' => 'Eric Swalwell',
+        'political_office' => 'Governor',
+        'state' => 'CA',
+    ]);
+    // Created later / higher id, which would otherwise win the tiebreak.
+    $mangled = Politician::factory()->create([
+        'full_name' => 'Eric Swalwell Officially',
+        'political_office' => 'Governor',
+        'state' => 'CA',
+    ]);
+
+    expect($mangled->id)->toBeGreaterThan($clean->id);
+    expect($service->scoreSurvivor($clean, $mangled)->id)->toBe($clean->id)
+        ->and($service->scoreSurvivor($mangled, $clean)->id)->toBe($clean->id);
+});

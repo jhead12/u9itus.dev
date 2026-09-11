@@ -180,6 +180,18 @@ class DuplicatePoliticianDetectionService
             return $candidateNameValid ? $candidate : $preferred;
         }
 
+        // Both names are technically valid on their own, but one may still
+        // be a headline-fragment-mangled variant of the other (that's
+        // exactly what clusterByName() groups together — "Eric Swalwell"
+        // vs "Eric Swalwell Officially"). Prefer whichever one also passes
+        // the stricter discovery-pipeline check, so the clean name survives
+        // instead of losing on an unrelated tiebreak like recency/id.
+        $preferredHeadlineClean = PoliticianDataRules::headlineFragmentViolation($preferred->full_name) === null;
+        $candidateHeadlineClean = PoliticianDataRules::headlineFragmentViolation($candidate->full_name) === null;
+        if ($candidateHeadlineClean !== $preferredHeadlineClean) {
+            return $candidateHeadlineClean ? $candidate : $preferred;
+        }
+
         $senateKeywords = ['senator', 'senate'];
         $prefIsSenate = $this->officeContains($preferred, $senateKeywords);
         $candIsSenate = $this->officeContains($candidate, $senateKeywords);
