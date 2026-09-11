@@ -94,7 +94,7 @@ function safeUrl(url) {
     return '';
 }
 
-function toEmbedUrl(url) {
+function toEmbedUrl(url, source) {
     const safe = safeUrl(url);
     if (!safe) return '';
 
@@ -108,6 +108,18 @@ function toEmbedUrl(url) {
     // The raw page is X-Frame-Options blocked; /video/standalone/?<id> iframes fine.
     const cspanMatch = safe.match(/c-span\.org\/(?:video\/\?|event\/[^?#]*\/|video\/standalone\/\?)([\w-]+)/);
     if (cspanMatch?.[1]) return `https://www.c-span.org/video/standalone/?${cspanMatch[1]}`;
+
+    if (source === 'podcast') {
+        // Only a known embeddable player is reliably iframe-safe here. Podcast
+        // Index gives us the episode's own page (or a raw enclosure file) —
+        // neither embeds reliably (most podcast host pages send
+        // X-Frame-Options), so treat anything but a recognized player as
+        // non-embeddable rather than risk a broken iframe; the card is
+        // dropped by the !embed guard in renderMomentCard() below.
+        return /listennotes\.com\/e\/[\w-]+\/embed\/|open\.spotify\.com\/embed\/episode|embed\.podcasts\.apple\.com/.test(safe)
+            ? safe
+            : '';
+    }
 
     return safe;
 }
@@ -354,7 +366,7 @@ function fmtPct(n) {
 /** Lazy-loaded video card — shared markup for each viral-moment clip. */
 function renderMomentCard(moment) {
     const url = safeUrl(moment?.url || '');
-    const embed = url ? toEmbedUrl(url) : '';
+    const embed = url ? toEmbedUrl(url, moment?.source) : '';
     if (!url || !embed) return '';
 
     const title = escapeHtml(moment.title || 'Media');

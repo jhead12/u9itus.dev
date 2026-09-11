@@ -196,7 +196,7 @@ New user segment: pays to distribute content at smaller scale, without FEC/elect
 |---|---|---|
 | Standard | $0.75/view | YouTube/S3, PayPal payouts, no wallet |
 | Verified+ Local | $0.80/view | Livepeer hosting + Story Protocol IP registration |
-| Neighborhood Token (opt-in, communal) | $0.85/view + $10 one-time | MeToken issued to a `neighborhood_group`, not an individual — multiple Citizens co-mint under one shared token |
+| Neighborhood Token/QR Code (Referral integrations) (opt-in, communal) | $0.85/view + $10 one-time | MeToken issued to a `neighborhood_group`, not an individual — multiple Citizens co-mint under one shared token |
 
 **Ballot issue Citizens (special case):** require `pac_registration_id`, route through admin approval queue like politician campaigns, same $1.00/view pricing, eligible for the on-chain transparency layer.
 
@@ -256,7 +256,7 @@ neighborhood_groups
   -- Theme
   primary_color varchar(7)
   secondary_color varchar(7)
-  accent_color varchar(7)
+  accent_col  or varchar(7)
   badge_bg_color varchar(7)
   banner_photo_url text (nullable)
   allow_member_theme_override boolean default true
