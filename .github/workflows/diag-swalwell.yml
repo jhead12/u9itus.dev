@@ -1,0 +1,56 @@
+name: One-off - Diagnose Swalwell duplicates
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diag:
+    name: Diagnose
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up app
+        uses: ./.github/actions/setup-app
+        with:
+          app_key: ${{ secrets.APP_KEY }}
+          app_url: ${{ secrets.APP_URL }}
+          db_host: ${{ secrets.DB_HOST }}
+          db_port: ${{ secrets.DB_PORT }}
+          db_database: ${{ secrets.DB_DATABASE }}
+          db_username: ${{ secrets.DB_USERNAME }}
+          db_password: ${{ secrets.DB_PASSWORD }}
+
+      - name: Query politician rows
+        run: |
+          php artisan tinker --no-interaction <<'TINKER'
+          echo "=== Politician rows matching Swalwell/Hilton/Bradford ===\n";
+          $rows = \App\Models\Politician::where('full_name', 'like', '%Swalwell%')
+              ->orWhere('full_name', 'like', '%Hilton%')
+              ->orWhere('full_name', 'like', '%Bradford%')
+              ->get(['id','full_name','political_office','governance_level','state','term_status','is_running_candidate','is_active','user_id','verified_official','updated_at']);
+          foreach ($rows as $r) {
+              echo $r->id." | ".$r->full_name." | ".$r->political_office." | ".$r->governance_level." | term_status=".$r->term_status." | running=".($r->is_running_candidate?'1':'0')." | active=".($r->is_active?'1':'0')." | claimed=".($r->user_id?'1':'0')." | verified=".($r->verified_official?'1':'0')." | updated=".$r->updated_at."\n";
+          }
+          echo "\n=== Pending cleanup reviews mentioning these ids ===\n";
+          $ids = $rows->pluck('id');
+          $reviews = \App\Models\PoliticianCleanupReview::whereIn('politician_id', $ids)->orWhereIn('duplicate_politician_id', $ids)->get(['id','review_type','politician_id','duplicate_politician_id','status','reason','created_at']);
+          foreach ($reviews as $rv) {
+              echo $rv->id." | ".$rv->review_type." | politician_id=".$rv->politician_id." | dup=".$rv->duplicate_politician_id." | status=".$rv->status." | ".$rv->reason." | ".$rv->created_at."\n";
+          }
+          echo "\n=== CandidateIdentityLink + ECR payload for Swalwell politician ids ===\n";
+          $links = \App\Models\CandidateIdentityLink::whereIn('politician_id', $ids)->get(['id','politician_id','election_candidate_record_id']);
+          foreach ($links as $l) {
+              $ecr = \App\Models\ElectionCandidateRecord::find($l->election_candidate_record_id);
+              echo "politician_id=".$l->politician_id." -> ecr_id=".$l->election_candidate_record_id." | full_name=".($ecr->full_name ?? 'N/A')." | election_date=".($ecr->election_date ?? 'N/A')." | payload=".json_encode($ecr->payload ?? [])."\n";
+          }
+          echo "\n=== ECR rows matching Swalwell (may be unlinked) ===\n";
+          $ecrs = \App\Models\ElectionCandidateRecord::where('full_name', 'like', '%Swalwell%')->get(['id','full_name','political_office','election_date','payload']);
+          foreach ($ecrs as $e) {
+              echo $e->id." | ".$e->full_name." | ".$e->political_office." | ".$e->election_date." | ".json_encode($e->payload)."\n";
+          }
+          TINKER
