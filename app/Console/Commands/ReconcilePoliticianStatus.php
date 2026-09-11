@@ -2,8 +2,8 @@
 
 namespace App\Console\Commands;
 
-use App\Models\ElectionCandidateRecord;
 use App\Models\Politician;
+use App\Support\PoliticianStatusReconciler;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Http;
@@ -59,8 +59,12 @@ class ReconcilePoliticianStatus extends Command
      */
     private array $currentMemberData = [];
 
+    private PoliticianStatusReconciler $reconciler;
+
     public function handle(): int
     {
+        $this->reconciler = new PoliticianStatusReconciler(fn (string $text) => $this->line($text));
+
         $dryRun       = (bool) $this->option('dry-run');
         $currentUrl   = (string) $this->option('current-url');
         $historicalUrl = (string) $this->option('historical-url');
@@ -239,11 +243,11 @@ class ReconcilePoliticianStatus extends Command
                     'is_running_candidate' => false,
                     'status_updated_at'    => now(),
                 ]);
-                $this->expireEcrRows($politician, $dryRun);
+                $this->reconciler->expireEcrRows($politician, $dryRun);
             }
             // Fall through to deactivation check below
             $politician->refresh();
-            return $this->maybeDeactivate($politician, $dryRun) ? 'deactivated' : 'lost';
+            return $this->reconciler->maybeDeactivate($politician, $dryRun) ? 'deactivated' : 'lost';
         }
 
         // ── 3. Was previously seated but no longer in current feed → retired ─
@@ -259,80 +263,14 @@ class ReconcilePoliticianStatus extends Command
                         'term_status'       => 'retired',
                         'status_updated_at' => now(),
                     ]);
-                    $this->expireEcrRows($politician, $dryRun);
+                    $this->reconciler->expireEcrRows($politician, $dryRun);
                 }
                 $politician->refresh();
-                return $this->maybeDeactivate($politician, $dryRun) ? 'deactivated' : 'retired';
+                return $this->reconciler->maybeDeactivate($politician, $dryRun) ? 'deactivated' : 'retired';
             }
         }
 
         return 'skipped';
-    }
-
-    /**
-     * Stamp matching ElectionCandidateRecord rows as eliminated so they are
-     * excluded from the district-lookup "Running Candidates" section.
-     * Matches by lower-cased full_name + upper-cased state.
-     */
-    private function expireEcrRows(Politician $politician, bool $dryRun): void
-    {
-        $name  = strtolower(trim((string) $politician->full_name));
-        $state = strtoupper(trim((string) ($politician->state ?? '')));
-
-        if ($name === '' || $state === '') {
-            return;
-        }
-
-        $rows = ElectionCandidateRecord::query()
-            ->whereRaw('LOWER(full_name) = ?', [$name])
-            ->whereRaw('UPPER(state) = ?', [$state])
-            ->whereRaw("COALESCE(payload->>'$.primary_result', '') != 'eliminated'")
-            ->get();
-
-        if ($rows->isEmpty()) {
-            return;
-        }
-
-        $this->line("  └─ [ECR EXPIRED] {$politician->full_name} — marking {$rows->count()} ECR row(s) as eliminated");
-
-        if ($dryRun) {
-            return;
-        }
-
-        foreach ($rows as $record) {
-            $payload = is_array($record->payload) ? $record->payload : [];
-            $payload['primary_result'] = 'eliminated';
-            $record->update(['payload' => $payload]);
-        }
-    }
-
-    /**
-     * Deactivate a profile only if unclaimed and has no active campaigns.
-     * Never deactivates claimed (user_id set) profiles.
-     */
-    private function maybeDeactivate(Politician $politician, bool $dryRun): bool
-    {
-        if ($politician->user_id !== null) {
-            return false;
-        }
-
-        $hasActiveCampaigns = $politician->campaigns()
-            ->where('status', 'active')
-            ->exists();
-
-        if ($hasActiveCampaigns) {
-            return false;
-        }
-
-        $this->line("  └─ [DEACTIVATED] {$politician->full_name} — no active campaigns, unclaimed");
-        if (!$dryRun) {
-            $politician->update([
-                'is_active'    => false,
-                'page_published' => false,
-            ]);
-        }
-
-        return true;
     }
 
     private function fetchJson(string $url): ?array

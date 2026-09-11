@@ -18,6 +18,8 @@ use App\Mail\AccountUnsuspendedMail;
 use App\Models\CandidateMatchReview;
 use App\Models\DistrictLookupSearch;
 use App\Models\EngagementSurveyResponse;
+use App\Models\PoliticianCleanupReview;
+use App\Services\PoliticianDedup\DuplicatePoliticianDetectionService;
 use App\Services\ReverbBroadcastService;
 use App\Services\PoliticianElectionMatcher;
 use App\Services\TwoFactorService;
@@ -1569,6 +1571,151 @@ class AdminController extends Controller
         MatchPoliticianToElectionData::dispatch($politician->id);
 
         return back()->with('success', 'Re-match job queued for ' . $politician->full_name . '.');
+    }
+
+    /**
+     * Show pending politicians:cleanup-workflow findings that are too risky
+     * to auto-apply (merges, unrepairable names) — see PoliticianCleanupReview.
+     */
+    public function dataQualityReviews(Request $request)
+    {
+        $statusFilter = $request->query('status', 'pending');
+        $allowedStatuses = [
+            PoliticianCleanupReview::STATUS_PENDING,
+            PoliticianCleanupReview::STATUS_APPROVED,
+            PoliticianCleanupReview::STATUS_REJECTED,
+        ];
+
+        $query = PoliticianCleanupReview::with(['politician', 'duplicatePolitician'])->latest();
+
+        if (in_array($statusFilter, $allowedStatuses, true)) {
+            $query->where('status', $statusFilter);
+        }
+
+        if ($search = trim((string) $request->query('q', ''))) {
+            $query->where(function ($q) use ($search) {
+                $q->whereHas('politician', function ($pq) use ($search) {
+                    $pq->where('full_name', 'like', "%{$search}%")
+                        ->orWhere('political_office', 'like', "%{$search}%");
+                })->orWhereHas('duplicatePolitician', function ($dq) use ($search) {
+                    $dq->where('full_name', 'like', "%{$search}%")
+                        ->orWhere('political_office', 'like', "%{$search}%");
+                });
+            });
+        }
+
+        $reviews = $query->paginate(30)->withQueryString();
+
+        $stats = [
+            'pending' => PoliticianCleanupReview::where('status', PoliticianCleanupReview::STATUS_PENDING)->count(),
+            'approved' => PoliticianCleanupReview::where('status', PoliticianCleanupReview::STATUS_APPROVED)->count(),
+            'rejected' => PoliticianCleanupReview::where('status', PoliticianCleanupReview::STATUS_REJECTED)->count(),
+        ];
+
+        return view('standalone.admin.data-quality-reviews', compact('reviews', 'stats', 'statusFilter'));
+    }
+
+    /**
+     * Bulk approve or reject pending data-quality cleanup reviews.
+     */
+    public function bulkDataQualityAction(Request $request, DuplicatePoliticianDetectionService $dedupService)
+    {
+        $validated = $request->validate([
+            'action' => ['required', 'in:approve,reject'],
+            'review_ids' => ['required', 'array', 'min:1'],
+            'review_ids.*' => ['integer', 'exists:politician_cleanup_reviews,id'],
+        ]);
+
+        $action = (string) $validated['action'];
+        $reviewIds = collect($validated['review_ids'])
+            ->map(static fn ($id) => (int) $id)
+            ->unique()
+            ->values();
+
+        $reviews = PoliticianCleanupReview::whereIn('id', $reviewIds)
+            ->where('status', PoliticianCleanupReview::STATUS_PENDING)
+            ->get();
+
+        if ($reviews->isEmpty()) {
+            return back()->withErrors(['error' => 'No pending reviews were selected.']);
+        }
+
+        $updated = 0;
+        $admin = auth()->user();
+        $label = $action === 'approve' ? 'Bulk approved by admin' : 'Bulk rejected by admin';
+
+        foreach ($reviews as $review) {
+            if ($action === 'approve') {
+                $this->applyDataQualityReview($review, $dedupService, $admin, $label);
+            } else {
+                $this->markDataQualityReview($review, PoliticianCleanupReview::STATUS_REJECTED, $admin, $label);
+            }
+            $updated++;
+        }
+
+        $noun = $updated === 1 ? 'review' : 'reviews';
+
+        return back()->with('success', "Bulk {$action}d {$updated} data-quality {$noun}.");
+    }
+
+    /**
+     * Approve a pending cleanup review — applies the proposed change (merges
+     * a duplicate, deactivates a stale row) via DuplicatePoliticianDetectionService.
+     */
+    public function approveDataQualityReview(PoliticianCleanupReview $review, DuplicatePoliticianDetectionService $dedupService)
+    {
+        if ($review->status !== PoliticianCleanupReview::STATUS_PENDING) {
+            return back()->withErrors(['error' => 'This review has already been resolved.']);
+        }
+
+        $this->applyDataQualityReview($review, $dedupService, auth()->user(), 'Approved by admin');
+
+        return back()->with('success', 'Data-quality review approved and applied.');
+    }
+
+    /**
+     * Reject a pending cleanup review — no change is applied.
+     */
+    public function rejectDataQualityReview(Request $request, PoliticianCleanupReview $review)
+    {
+        if ($review->status !== PoliticianCleanupReview::STATUS_PENDING) {
+            return back()->withErrors(['error' => 'This review has already been resolved.']);
+        }
+
+        $request->validate([
+            'reason' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $this->markDataQualityReview($review, PoliticianCleanupReview::STATUS_REJECTED, auth()->user(), $request->input('reason', 'Rejected by admin'));
+
+        return back()->with('success', 'Data-quality review rejected.');
+    }
+
+    private function applyDataQualityReview(PoliticianCleanupReview $review, DuplicatePoliticianDetectionService $dedupService, $admin, ?string $reason): void
+    {
+        if ($review->review_type === PoliticianCleanupReview::TYPE_MERGE && $review->duplicate_politician_id !== null) {
+            $dedupService->mergeInto((int) $review->politician_id, (int) $review->duplicate_politician_id);
+        } elseif ($review->review_type === PoliticianCleanupReview::TYPE_DEACTIVATE) {
+            Politician::whereKey($review->politician_id)->update([
+                'is_active' => false,
+                'page_published' => false,
+            ]);
+        }
+        // TYPE_NAME_REJECT has no automatic action — approving it just
+        // records that an admin reviewed and accepted leaving the name as-is
+        // (or they've already hand-edited it separately).
+
+        $this->markDataQualityReview($review, PoliticianCleanupReview::STATUS_APPROVED, $admin, $reason);
+    }
+
+    private function markDataQualityReview(PoliticianCleanupReview $review, string $status, $admin, ?string $reason): void
+    {
+        $review->update([
+            'status' => $status,
+            'reason' => $reason,
+            'reviewed_by_user_id' => $admin?->id,
+            'reviewed_at' => now(),
+        ]);
     }
 
     /**

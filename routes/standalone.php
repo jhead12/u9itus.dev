@@ -669,7 +669,13 @@ Route::middleware(['guest.trial', 'auth', 'verified', 'check.role', 'no.cache'])
         Route::post('/candidate-matches/retry/{politician}', [AdminController::class, 'retryCandidateMatch'])->name('candidate-matches.retry');
         Route::post('/candidate-matches/{review}/approve', [AdminController::class, 'approveCandidateMatch'])->name('candidate-matches.approve');
         Route::post('/candidate-matches/{review}/reject', [AdminController::class, 'rejectCandidateMatch'])->name('candidate-matches.reject');
-        
+
+        // Data-Quality Cleanup Review (politicians:cleanup-workflow findings)
+        Route::get('/data-quality', [AdminController::class, 'dataQualityReviews'])->name('data-quality.index');
+        Route::post('/data-quality/bulk-action', [AdminController::class, 'bulkDataQualityAction'])->name('data-quality.bulk-action');
+        Route::post('/data-quality/{review}/approve', [AdminController::class, 'approveDataQualityReview'])->name('data-quality.approve');
+        Route::post('/data-quality/{review}/reject', [AdminController::class, 'rejectDataQualityReview'])->name('data-quality.reject');
+
         // Fraud Detection
         Route::get('/fraud', [AdminController::class, 'fraud'])->name('fraud.index');
         Route::get('/fraud/flagged-views', [AdminController::class, 'flaggedViews'])->name('fraud.views');

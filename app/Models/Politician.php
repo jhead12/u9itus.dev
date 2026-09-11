@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Jobs\MatchPoliticianToElectionData;
 use App\Support\PoliticianDataRules;
+use App\Support\PoliticianNameRepairer;
 use App\Traits\HasProfileBadges;
 use App\Traits\HasProfileEnrichments;
 use App\Traits\HasViralMoments;
@@ -170,6 +171,20 @@ class Politician extends Model
 
             // Reject artifact names outright — these must never persist.
             if ($politician->isDirty('full_name')) {
+                // Strip a leading qualifier/title/geography word ("Former
+                // California Xavier Becerra" → "Xavier Becerra") before
+                // checking for violations, so a name mangled that way is
+                // repaired in place instead of being rejected outright.
+                $repair = PoliticianNameRepairer::repair($politician->full_name);
+                if ($repair['changed']) {
+                    Log::info('Politician full_name auto-repaired', [
+                        'id' => $politician->id,
+                        'before' => $politician->full_name,
+                        'after' => $repair['name'],
+                    ]);
+                    $politician->full_name = $repair['name'];
+                }
+
                 $violation = PoliticianDataRules::nameViolation($politician->full_name);
                 if ($violation !== null) {
                     Log::warning('Politician save blocked by data rules', [

@@ -49,7 +49,7 @@ test('omitting --state queues candidates from every state', function () {
 });
 
 test('--upcoming-only limits the queue to running candidates, ignoring traffic order', function () {
-    $running = seedNewsPolitician('CA', 'New Candidate');
+    $running = seedNewsPolitician('CA', 'Riley Ashford');
     $running->update(['is_running_candidate' => true, 'total_views_received' => 0]);
 
     $incumbent = seedNewsPolitician('CA', 'High Traffic Incumbent');
@@ -58,6 +58,6 @@ test('--upcoming-only limits the queue to running candidates, ignoring traffic o
     Artisan::call('candidates:refresh-news', ['--dry-run' => true, '--limit' => 10, '--upcoming-only' => true]);
 
     $output = Artisan::output();
-    expect($output)->toContain('New Candidate');
+    expect($output)->toContain('Riley Ashford');
     expect($output)->not->toContain('High Traffic Incumbent');
 });

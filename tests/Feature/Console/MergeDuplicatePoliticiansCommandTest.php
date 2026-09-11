@@ -19,17 +19,19 @@ function makeDuplicatePolitician(array $overrides = []): Politician
     ], $overrides));
 }
 
-test('merges duplicate unclaimed rows for the same official into the oldest one', function () {
-    $canonical = makeDuplicatePolitician();
-    $duplicateOne = makeDuplicatePolitician();
-    $duplicateTwo = makeDuplicatePolitician();
+test('merges duplicate unclaimed rows for the same official down to a single survivor', function () {
+    $one = makeDuplicatePolitician();
+    $two = makeDuplicatePolitician();
+    $three = makeDuplicatePolitician();
 
     $this->artisan('politicians:merge-duplicates', ['--force' => true])
         ->assertExitCode(0);
 
-    expect(Politician::find($canonical->id))->not->toBeNull()
-        ->and(Politician::find($duplicateOne->id))->toBeNull()
-        ->and(Politician::find($duplicateTwo->id))->toBeNull();
+    $survivorCount = collect([$one->id, $two->id, $three->id])
+        ->filter(fn ($id) => Politician::find($id) !== null)
+        ->count();
+
+    expect($survivorCount)->toBe(1);
 });
 
 test('--dry-run reports duplicates without changing anything', function () {
@@ -58,8 +60,11 @@ test('never touches claimed profiles, even if name/office/state match', function
 });
 
 test('reassigns simple foreign keys from the duplicate to the canonical row', function () {
-    $canonical = makeDuplicatePolitician();
-    $duplicate = makeDuplicatePolitician();
+    // Force a deterministic survivor via verified_official (checked before
+    // campaign count in DuplicatePoliticianDetectionService::scoreSurvivor)
+    // so the campaign attached below doesn't itself decide who wins.
+    $canonical = makeDuplicatePolitician(['verified_official' => true]);
+    $duplicate = makeDuplicatePolitician(['verified_official' => false]);
 
     $campaign = PoliticalCampaign::factory()->create(['politician_id' => $duplicate->id]);
 
@@ -70,8 +75,8 @@ test('reassigns simple foreign keys from the duplicate to the canonical row', fu
 });
 
 test('drops the duplicate side of a row that would violate a compound unique key on merge', function () {
-    $canonical = makeDuplicatePolitician();
-    $duplicate = makeDuplicatePolitician();
+    $canonical = makeDuplicatePolitician(['verified_official' => true]);
+    $duplicate = makeDuplicatePolitician(['verified_official' => false]);
     $voter = Voter::factory()->create();
 
     // Same voter already favorited the canonical row...

@@ -58,6 +58,16 @@ class PoliticianDataRules
     ];
 
     /**
+     * Leading qualifier / title / geography / headline lead-in word, anchored
+     * to the start of the string. Shared by {@see headlineFragmentViolation()}
+     * (rejects a name starting with one of these outright) and
+     * {@see \App\Support\PoliticianNameRepairer} (strips one of these at a
+     * time from the front and re-validates what's left) — kept as one public
+     * constant so the two vocabularies can't drift apart.
+     */
+    public const LEADING_QUALIFIER_PATTERN = '/^\s*(the|former|ex|current|incumbent|new|next|another|embattled|fiery|firebrand|outspoken|controversial|progressive|conservative|moderate|billionaire|bilionaire|millionaire|millennial|boomer|independent|democrat(ic)?|republican|libertarian|green|maga|gop|trump[\s-]?backed|reality|video|watch|listen|breaking|exclusive|opinion|editorial|poll|meet|why|how|when|where|what|who|after|before|amid|apostle|pastor|bishop|chief|consumer|onerepublic|indian|asian|african|latino|latina|hispanic|jewish|muslim|christian|evangelical|california|nevada|tennessee|texas|arizona|florida|riverside|orange county|east bay|tri[\s-]valley|bay area|silicon valley|san jos[e\x{00E9}]|los angeles|northern|southern|sheriff|deputy|officer|detective|governor|gov\.|lieutenant governor|lieutenant|lt\.|senator|sen\.|representative|rep\.|congressman|congresswoman|delegate|speaker|mayor|treasurer|controller|comptroller|supervisor|assemblymember|assemblyman|assemblywoman|councilmember|councilman|councilwoman|alderman|selectman|trustee|clerk|auditor|coroner|constable|commissioner)(?![a-zA-Z0-9_])/iu';
+
+    /**
      * RSS / news-headline extraction artifacts. The candidate-discovery
      * pipeline (RssCandidateDiscoverySource → CandidateLeadPromoter) pulls
      * "names" out of Google-News headlines; without these checks, fragments
@@ -69,8 +79,7 @@ class PoliticianDataRules
      * Case-insensitive.
      */
     private const HEADLINE_NAME_REJECT_PATTERNS = [
-        // Leading qualifier / title / geography / headline lead-in word.
-        '/^\s*(the|former|ex|current|incumbent|new|next|another|embattled|fiery|firebrand|outspoken|controversial|progressive|conservative|moderate|billionaire|bilionaire|millionaire|millennial|boomer|independent|democrat(ic)?|republican|libertarian|green|maga|gop|trump[\s-]?backed|reality|video|watch|listen|breaking|exclusive|opinion|editorial|poll|meet|why|how|when|where|what|who|after|before|amid|apostle|pastor|bishop|chief|consumer|onerepublic|indian|asian|african|latino|latina|hispanic|jewish|muslim|christian|evangelical|california|nevada|tennessee|texas|arizona|florida|riverside|orange county|east bay|tri[\s-]valley|bay area|silicon valley|san jos[e\x{00E9}]|los angeles|northern|southern|sheriff|deputy|officer|detective|governor|lieutenant governor|senator|sen\.|representative|rep\.|congressman|congresswoman|delegate|speaker|mayor|treasurer|controller|comptroller|supervisor|assemblymember|assemblyman|assemblywoman|councilmember|councilman|councilwoman|alderman|selectman|trustee|clerk|auditor|coroner|constable|commissioner)\b/iu',
+        self::LEADING_QUALIFIER_PATTERN,
         // Trailing dangling preposition / pronoun / headline verb.
         '/\b(is|are|was|were|has|have|had|he|she|they|him|them|his|her|their|to|for|of|in|on|by|as|and|or|but|more|less|most|out|off|up|won|wins|lost|loses|edges|edged|leads|trails|run|runs|running|ran|advances|advanced|exits|exited|enters|entered|joins|joined|drops|dropped|launches|launched|announces|announced|eyes|weighs|mulls|backs|backed|slams|blasts|says|said|outraises|outraised|other|another)\s*$/i',
         // Process / horse-race noun that never appears inside a person's name.
