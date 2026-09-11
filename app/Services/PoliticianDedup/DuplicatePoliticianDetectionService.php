@@ -82,30 +82,82 @@ class DuplicatePoliticianDetectionService
         ['profile_badges', 'badgeable_type', 'badgeable_id'],
     ];
 
-    public function identityKey(Politician $politician, string $strategy): string
-    {
-        $name = strtolower(trim((string) $politician->full_name));
-        $state = strtoupper(trim((string) $politician->state));
-
-        if ($strategy === self::STRATEGY_NAME_STATE) {
-            return 'name:'.$name.'|'.$state;
-        }
-
-        $office = strtolower(trim((string) $politician->political_office));
-
-        return $name.'|'.$office.'|'.$state;
-    }
-
     /**
      * @return Collection<int, Collection<int, Politician>> groups with more than one member
      */
     public function findGroups(Builder $query, string $strategy): Collection
     {
-        return $query
-            ->get(['id', 'full_name', 'political_office', 'state', 'user_id', 'governance_level', 'verified_official', 'slug', 'updated_at'])
-            ->groupBy(fn (Politician $p) => $this->identityKey($p, $strategy))
-            ->filter(fn ($group, string $key) => $group->count() > 1 && trim($key, '|') !== '')
-            ->values();
+        $rows = $query->get(['id', 'full_name', 'political_office', 'state', 'user_id', 'governance_level', 'verified_official', 'slug', 'updated_at']);
+
+        $bucketKey = fn (Politician $p) => $strategy === self::STRATEGY_NAME_STATE
+            ? strtoupper(trim((string) $p->state))
+            : strtolower(trim((string) $p->political_office)).'|'.strtoupper(trim((string) $p->state));
+
+        $groups = collect();
+
+        foreach ($rows->groupBy($bucketKey) as $bucketKeyValue => $bucket) {
+            if (trim((string) $bucketKeyValue, '|') === '') {
+                continue;
+            }
+
+            foreach ($this->clusterByName($bucket) as $cluster) {
+                if ($cluster->count() > 1) {
+                    $groups->push($cluster->values());
+                }
+            }
+        }
+
+        return $groups->values();
+    }
+
+    /**
+     * Groups politicians whose full_name is identical, or where one name is
+     * the other with an extra word-boundary-anchored trailing fragment
+     * leaked from a headline ("Eric Swalwell" / "Eric Swalwell Officially",
+     * "Steve Hilton" / "Steve Hilton Dinner") — the RSS discovery pipeline's
+     * NAME_STOPWORDS list can't catch every trailing artifact, so exact
+     * full_name matching alone misses these as duplicates entirely.
+     *
+     * @param  Collection<int, Politician>  $rows  rows already narrowed to one office+state (or state) bucket
+     * @return Collection<int, Collection<int, Politician>>
+     */
+    private function clusterByName(Collection $rows): Collection
+    {
+        $clusters = collect();
+
+        foreach ($rows->sortBy(fn (Politician $p) => mb_strlen(trim((string) $p->full_name))) as $politician) {
+            $name = strtolower(trim((string) $politician->full_name));
+            if ($name === '') {
+                continue;
+            }
+
+            $cluster = $clusters->first(fn (array $c) => $this->namesLikelySamePerson($c['canonical'], $name));
+
+            if ($cluster !== null) {
+                $cluster['rows']->push($politician);
+
+                continue;
+            }
+
+            $clusters->push(['canonical' => $name, 'rows' => collect([$politician])]);
+        }
+
+        return $clusters->map(fn (array $c) => $c['rows']);
+    }
+
+    /**
+     * $shorter is already lowercase/trimmed and no longer than $candidate.
+     * They're the same person when identical, or when $candidate is
+     * $shorter plus a trailing word-boundary-anchored fragment — not merely
+     * a shared prefix ("eric swalwell" must not match "eric swalwellson").
+     */
+    private function namesLikelySamePerson(string $shorter, string $candidate): bool
+    {
+        if ($shorter === $candidate) {
+            return true;
+        }
+
+        return str_starts_with($candidate, $shorter.' ');
     }
 
     /**

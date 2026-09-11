@@ -81,7 +81,7 @@ class PoliticianDataRules
     private const HEADLINE_NAME_REJECT_PATTERNS = [
         self::LEADING_QUALIFIER_PATTERN,
         // Trailing dangling preposition / pronoun / headline verb.
-        '/\b(is|are|was|were|has|have|had|he|she|they|him|them|his|her|their|to|for|of|in|on|by|as|and|or|but|more|less|most|out|off|up|won|wins|lost|loses|edges|edged|leads|trails|run|runs|running|ran|advances|advanced|exits|exited|enters|entered|joins|joined|drops|dropped|launches|launched|announces|announced|eyes|weighs|mulls|backs|backed|slams|blasts|says|said|outraises|outraised|other|another)\s*$/i',
+        '/\b(is|are|was|were|has|have|had|he|she|they|him|them|his|her|their|to|for|of|in|on|by|as|and|or|but|more|less|most|out|off|up|won|wins|lost|loses|edges|edged|leads|trails|run|runs|running|ran|advances|advanced|exits|exited|enters|entered|joins|joined|drops|dropped|launches|launched|announces|announced|officially|eyes|weighs|mulls|backs|backed|slams|blasts|says|said|outraises|outraised|other|another|dinner|chances|comeback|bid)\s*$/i',
         // Process / horse-race noun that never appears inside a person's name.
         '/\b(campaign|candidacy|frontrunner|front[\s-]runner|primary|runoff|ballot|race|contest|showdown|matchup|fundraising|debate)\b/i',
         // Trailing occupation / media-role noun left dangling by a truncated

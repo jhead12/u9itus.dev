@@ -64,6 +64,13 @@ dataset('headline fragments', [
     'California Attorney General',
     'Caitlyn Jenner Run',
     'Former Fox News Contributor',
+    // Trailing headline-fragment leaks that produced real duplicate rows on
+    // the public map ("Eric Swalwell" already exists as a clean name, but
+    // the RSS pipeline also promoted these mangled variants of the same
+    // person as if they were different candidates).
+    'Eric Swalwell Officially',
+    'Steve Hilton Dinner',
+    'Steve Hilton Chances',
 ]);
 
 it('accepts a real first-last name', function (string $name) {
