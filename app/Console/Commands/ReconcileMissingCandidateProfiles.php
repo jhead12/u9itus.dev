@@ -160,6 +160,13 @@ class ReconcileMissingCandidateProfiles extends Command
             return false;
         }
 
+        // FEC filers include people eliminated in a primary, and the FEC has no
+        // result data — so a bare FEC record must not become a public profile.
+        // Only one a results source has marked as advancing does.
+        if ((string) $record->source === 'fec' && $primary !== 'advanced_to_general') {
+            return false;
+        }
+
         // Unverified news-discovery rows must not become public profiles when
         // the "name" is headline text or the person is a sitting official of
         // another state. Rows an importer or editor vouches for are untouched.

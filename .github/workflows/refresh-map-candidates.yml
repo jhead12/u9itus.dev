@@ -58,6 +58,7 @@ jobs:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           stripe_secret: ${{ secrets.STRIPE_SECRET }}
           stripe_webhook_secret: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          fec_api_key: ${{ secrets.FEC_API_KEY }}
 
       - name: Set up Node + Playwright
         uses: ./.github/actions/setup-node-playwright
@@ -130,6 +131,25 @@ jobs:
         run: |
           php artisan politicians:reconcile-status \
             ${{ steps.args.outputs.dry_arg }}
+
+      # FEC's House/Senate filer list (api.data.gov key — no scraping, no WAF).
+      # Records each matching profile's FEC candidate id, which
+      # politicians:dedupe-by-fec (daily cleanup) uses to prove duplicates.
+      # An enhancement, so an FEC outage must not block the results sync below.
+      - name: Import FEC candidates and link FEC ids
+        continue-on-error: true
+        env:
+          ELECTION_YEAR: ${{ github.event.inputs.election_year || '2026' }}
+          STATES: ${{ github.event.inputs.states }}
+          DRY_ARG: ${{ steps.args.outputs.dry_arg }}
+        run: |
+          if [ -z "$STATES" ]; then
+            php artisan politicians:import-fec-candidates --year="$ELECTION_YEAR" $DRY_ARG
+          else
+            for state in $(echo "$STATES" | tr ',' ' '); do
+              php artisan politicians:import-fec-candidates --year="$ELECTION_YEAR" --state="$state" $DRY_ARG
+            done
+          fi
 
       - name: Scrape and import Ballotpedia election results for every requested state
         if: ${{ github.event.inputs.include_results != 'false' }}

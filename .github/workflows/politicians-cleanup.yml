@@ -5,8 +5,9 @@ name: Politicians Data-Quality Cleanup
 # California Xavier Becerra"), audits/normalizes party/state/term_status,
 # reconciles federal + state/local lifecycle status (retired/lost/
 # deactivated), and prunes junk election_candidate_records. Duplicate-merge
-# candidates are only ever queued to politician_cleanup_reviews for admin
-# approval — never auto-merged.
+# candidates are queued to politician_cleanup_reviews for admin approval; the
+# one exception is rows sharing an FEC candidate id, which are merged
+# automatically only when the FEC API confirms both names (needs FEC_API_KEY).
 #
 # Kept as its own workflow, separate from sync-candidates.yml, since that
 # pipeline already runs a long chain of scrape/import/enrich jobs — this one
@@ -53,6 +54,7 @@ jobs:
           db_database: ${{ secrets.DB_DATABASE }}
           db_username: ${{ secrets.DB_USERNAME }}
           db_password: ${{ secrets.DB_PASSWORD }}
+          fec_api_key: ${{ secrets.FEC_API_KEY }}
 
       - name: Run cleanup workflow
         run: |

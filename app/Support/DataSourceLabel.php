@@ -18,6 +18,7 @@ final class DataSourceLabel
         'manual' => 'U9itus editors',
         'admin' => 'U9itus editors',
         'ballotpedia' => 'Ballotpedia',
+        'fec' => 'FEC filings',
         'state_feed' => 'State election data',
         'county_feed' => 'County election data',
         'local_feed' => 'Local election data',

@@ -28,6 +28,10 @@ use Illuminate\Support\Facades\Log;
  *      (already conservative: never touches identity-linked rows)
  *   6. politicians:flag-suspect-profiles    — cross-state impostors / headline names; NEVER
  *                                              auto-applies, enqueues deactivate reviews
+ *   7. politicians:dedupe-by-fec            — rows sharing an FEC candidate id. The one merge
+ *                                              step that auto-applies, and only when the FEC's
+ *                                              own record confirms both names (see its docblock);
+ *                                              everything else is queued for review
  *
  * Usage:
  *   php artisan politicians:cleanup-workflow                 # live run, all scopes
@@ -54,27 +58,27 @@ class PoliticiansCleanupWorkflow extends Command
 
         $results = [];
 
-        $this->section('1/6 · Repairing junk names');
+        $this->section('1/7 · Repairing junk names');
         $results['repair-names'] = $this->call('politicians:repair-names', $dryRun ? [] : ['--apply' => true, '--enqueue-review' => true]);
 
         // politicians:audit-data-integrity intentionally exits non-zero
         // whenever unresolved violations remain (it doubles as a CI gate) —
         // that's routine backlog, not a pipeline failure, so its exit code
         // is logged but doesn't count toward this command's own exit code.
-        $this->section('2/6 · Auditing data integrity');
+        $this->section('2/7 · Auditing data integrity');
         $auditExitCode = $this->call('politicians:audit-data-integrity', $dryRun ? [] : ['--fix' => true, '--deactivate' => true]);
 
         if (in_array($scope, ['all', 'federal'], true)) {
-            $this->section('3/6 · Reconciling federal lifecycle status');
+            $this->section('3/7 · Reconciling federal lifecycle status');
             $results['reconcile-status'] = $this->call('politicians:reconcile-status', $dryRun ? ['--dry-run' => true] : []);
         }
 
         if (in_array($scope, ['all', 'state-local'], true)) {
-            $this->section('3/6 · Reconciling state/local lifecycle status');
+            $this->section('3/7 · Reconciling state/local lifecycle status');
             $results['reconcile-status-state-local'] = $this->call('politicians:reconcile-status-state-local', $dryRun ? ['--dry-run' => true] : []);
         }
 
-        $this->section('4/6 · Detecting duplicates (queued for review, never auto-applied)');
+        $this->section('4/7 · Detecting duplicates (queued for review, never auto-applied)');
         if (in_array($scope, ['all', 'federal'], true)) {
             $results['dedupe-federal'] = $this->call('politicians:dedupe', $dryRun
                 ? ['--scope' => 'federal']
@@ -86,11 +90,14 @@ class PoliticiansCleanupWorkflow extends Command
                 : ['--scope' => 'unclaimed-all', '--enqueue-review' => true]);
         }
 
-        $this->section('5/6 · Pruning junk election candidate records');
+        $this->section('5/7 · Pruning junk election candidate records');
         $results['prune-junk-ecrs'] = $this->call('politicians:prune-junk-ecrs', $dryRun ? [] : ['--apply' => true]);
 
-        $this->section('6/6 · Flagging impostor and headline-text profiles (queued for review, never auto-applied)');
+        $this->section('6/7 · Flagging impostor and headline-text profiles (queued for review, never auto-applied)');
         $results['flag-suspect-profiles'] = $this->call('politicians:flag-suspect-profiles', $dryRun ? [] : ['--apply' => true]);
+
+        $this->section('7/7 · Merging duplicates confirmed by their FEC candidate id (unconfirmed ones queued for review)');
+        $results['dedupe-by-fec'] = $this->call('politicians:dedupe-by-fec', $dryRun ? [] : ['--apply' => true]);
 
         $failed = array_filter($results, fn (int $code) => $code !== self::SUCCESS);
 

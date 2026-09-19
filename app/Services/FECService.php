@@ -354,7 +354,8 @@ class FECService
     protected function findCandidateId(string $name, string $state): ?string
     {
         $params = [
-            'q' => $name,
+            // FEC indexes "JEFFRIES, HAKEEM": a middle initial in the query finds nothing.
+            'q' => \App\Support\NameSearch::withoutMiddleInitials($name),
             'sort' => '-election_years',
         ];
 
@@ -370,6 +371,81 @@ class FECService
 
         // Return the most recent candidate ID
         return $results[0]['candidate_id'] ?? null;
+    }
+
+    /**
+     * Every FEC candidate row for one election year, office (H|S|P) and state,
+     * following pagination. This is FEC's authoritative "who filed" list.
+     *
+     * Returns null if any page fails: a half-listed state would look like
+     * candidates who withdrew, so callers get all of it or nothing.
+     *
+     * @param  bool  $statutoryOnly  keep only candidate_status=C (has crossed FEC's
+     *                               $5,000 threshold) — the rest are one-person filings
+     * @return array<int, array<string, mixed>>|null
+     */
+    public function listCandidates(int $electionYear, string $office, string $state, bool $statutoryOnly = true): ?array
+    {
+        if (! $this->isConfigured()) {
+            return null;
+        }
+
+        $rows = [];
+
+        for ($page = 1; $page <= 20; $page++) {
+            $params = [
+                'election_year' => $electionYear,
+                'office' => strtoupper($office),
+                'state' => strtoupper($state),
+                'per_page' => 100,
+                'page' => $page,
+                'sort' => 'name',
+            ];
+            if ($statutoryOnly) {
+                $params['candidate_status'] = 'C';
+            }
+
+            $body = $this->request('list_candidates', "{$this->baseUrl}/candidates/", $params, [
+                'state' => $state,
+                'office' => $office,
+                'page' => $page,
+            ]);
+
+            if ($body === null) {
+                return null;
+            }
+
+            $rows = array_merge($rows, $body['results'] ?? []);
+
+            if ($page >= (int) ($body['pagination']['pages'] ?? 1)) {
+                break;
+            }
+        }
+
+        return $rows;
+    }
+
+    /**
+     * FEC's own record for one candidate id (name, state, office, district…), or
+     * null when unknown/unreachable. Used to verify that an id stored on a
+     * Politician really belongs to that person — ids saved by findCandidateId()
+     * were the first name-search hit, not a confirmed match.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function fetchCandidateRecord(string $candidateId): ?array
+    {
+        if (! $this->isConfigured() || $candidateId === '') {
+            return null;
+        }
+
+        return Cache::remember("fec.candidate.{$candidateId}.record", $this->cacheDuration, function () use ($candidateId) {
+            $body = $this->request('candidate_record', "{$this->baseUrl}/candidate/{$candidateId}/", [], [
+                'candidate_id' => $candidateId,
+            ]);
+
+            return $body['results'][0] ?? null;
+        });
     }
 
     /**

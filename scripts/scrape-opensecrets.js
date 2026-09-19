@@ -139,6 +139,22 @@ function nameSlug(name) {
 }
 
 /**
+ * "Hakeem S. Jeffries" → "Hakeem Jeffries": OpenSecrets' search doesn't match a
+ * middle initial. Only single letters between a real first and last name are
+ * dropped ("J. D. Vance" is left alone). Mirrors App\Support\NameSearch.
+ */
+function withoutMiddleInitials(name) {
+  const tokens = String(name).trim().split(/\s+/).filter(Boolean);
+  const isInitial = t => /^\p{L}\.?$/u.test(t);
+  if (tokens.filter(t => !isInitial(t)).length < 2) return String(name).trim();
+
+  const first = tokens.findIndex(t => !isInitial(t));
+  let last = tokens.length - 1;
+  while (last > 0 && isInitial(tokens[last])) last--;
+  return tokens.filter((t, i) => !(i > first && i < last && isInitial(t))).join(' ');
+}
+
+/**
  * Detect a Cloudflare (or similar) bot-check interstitial by page title.
  * These pages return HTTP 200 with no real content, so they'd otherwise be
  * treated as a successful-but-empty scrape rather than a blocked one.
@@ -220,7 +236,7 @@ async function waitForSearchResults(page, blockedBudgetMs = 30_000, cseBudgetMs 
  * Returns { mpid, profileUrl, name, guessed } or null (blocked by bot-check).
  */
 async function searchCandidate(page, name, state, mpid = null) {
-  const query = encodeURIComponent(name + (state ? ' ' + state : ''));
+  const query = encodeURIComponent(withoutMiddleInitials(name) + (state ? ' ' + state : ''));
   const searchUrl = `https://www.opensecrets.org/search?q=${query}&type=politicians`;
 
   console.error(`  [search] ${name} ${state ?? ''} → ${searchUrl}`);
