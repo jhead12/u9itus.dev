@@ -21,6 +21,14 @@ namespace App\Support;
 class PoliticianNameRepairer
 {
     /**
+     * "Oklahoma Gov. Kevin Stitt", "Pa. Rep. Patty Kim", "New York Gov. Kathy Hochul": a state
+     * (name or abbreviation, up to two words) glued to an abbreviated title. The place isn't in
+     * LEADING_QUALIFIER_PATTERN's fixed list, so it needs its own rule; the required period on
+     * the title keeps this from touching ordinary names.
+     */
+    private const PLACE_TITLE_PREFIX = '/^(?:[A-Z][A-Za-z]*\.?(?:\s+[A-Z][A-Za-z]*\.?)?)\s+(?:Lt\.\s+Gov|Gov|Sen|Rep|Del)\.\s+(?=\S)/u';
+
+    /**
      * @return array{name: string, changed: bool, unrepairable: bool}
      *   `changed` is true only when a qualifier was stripped AND the
      *   remainder is a valid name. `unrepairable` is true when a qualifier
@@ -36,6 +44,9 @@ class PoliticianNameRepairer
 
         while ($current !== '') {
             $next = trim((string) preg_replace(PoliticianDataRules::LEADING_QUALIFIER_PATTERN, '', $current));
+            if ($next === $current) {
+                $next = trim((string) preg_replace(self::PLACE_TITLE_PREFIX, '', $current));
+            }
 
             if ($next === $current) {
                 break;

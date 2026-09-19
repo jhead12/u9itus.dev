@@ -3,6 +3,7 @@
 namespace App\Services\PoliticianDedup;
 
 use App\Models\Politician;
+use App\Models\PoliticianCleanupReview;
 use App\Support\PoliticianDataRules;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\QueryException;
@@ -279,6 +280,11 @@ class DuplicatePoliticianDetectionService
     public function mergeInto(int $survivorId, int $loserId, bool $verbose = false, ?callable $onDetail = null): void
     {
         foreach (self::POLITICIAN_ID_COLUMNS as [$table, $column]) {
+            // Reviews are retired, not retargeted — see retireReviewsFor().
+            if ($table === 'politician_cleanup_reviews') {
+                continue;
+            }
+
             $result = $this->reassignForeignKey($table, $column, $loserId, $survivorId);
 
             if ($verbose && $onDetail !== null && ($result['reassigned'] > 0 || $result['dropped'] > 0)) {
@@ -286,7 +292,44 @@ class DuplicatePoliticianDetectionService
             }
         }
 
+        $this->retireReviewsFor($survivorId, $loserId);
+
         Politician::query()->whereKey($loserId)->delete();
+    }
+
+    /**
+     * What to do with cleanup reviews that mention a profile being merged away.
+     *
+     * They used to be re-pointed at the survivor like every other row, which turned a pending
+     * "deactivate #loser" into "deactivate #survivor" (the real profile) and a reversed pair
+     * into a self-merge. A pending review about a profile that no longer exists is obsolete:
+     * reject it, and keep the row (both its FKs cascade on delete) so the history survives.
+     */
+    private function retireReviewsFor(int $survivorId, int $loserId): void
+    {
+        PoliticianCleanupReview::query()
+            ->where(fn ($q) => $q->where('politician_id', $loserId)->orWhere('duplicate_politician_id', $loserId))
+            ->get()
+            ->each(function (PoliticianCleanupReview $review) use ($survivorId, $loserId): void {
+                $fields = [];
+
+                if ($review->status === PoliticianCleanupReview::STATUS_PENDING) {
+                    $fields = [
+                        'status' => PoliticianCleanupReview::STATUS_REJECTED,
+                        'reason' => "Obsolete: profile #{$loserId} was merged into #{$survivorId}",
+                        'reviewed_at' => now(),
+                    ];
+                }
+
+                if ((int) $review->politician_id === $loserId) {
+                    $fields['politician_id'] = $survivorId;
+                }
+                if ((int) $review->duplicate_politician_id === $loserId || (int) $review->duplicate_politician_id === (int) ($fields['politician_id'] ?? $review->politician_id)) {
+                    $fields['duplicate_politician_id'] = null;
+                }
+
+                $review->update($fields);
+            });
     }
 
     /**

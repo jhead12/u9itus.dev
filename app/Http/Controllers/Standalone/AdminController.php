@@ -1623,7 +1623,10 @@ class AdminController extends Controller
         $validated = $request->validate([
             'action' => ['required', 'in:approve,reject'],
             'review_ids' => ['required', 'array', 'min:1'],
-            'review_ids.*' => ['integer', 'exists:politician_cleanup_reviews,id'],
+            // No `exists` rule: a review can vanish between rendering this page and submitting it
+            // (another admin, the daily workflow, or an earlier merge that removed a profile). A
+            // stale checkbox is skipped below, not a reason to reject the whole batch.
+            'review_ids.*' => ['integer'],
         ]);
 
         $action = (string) $validated['action'];
@@ -1637,7 +1640,7 @@ class AdminController extends Controller
             ->get();
 
         if ($reviews->isEmpty()) {
-            return back()->withErrors(['error' => 'No pending reviews were selected.']);
+            return back()->withErrors(['error' => 'None of the selected reviews are still pending — they were already resolved or removed since this page loaded. Refresh to see the current list.']);
         }
 
         $updated = 0;
@@ -1645,17 +1648,26 @@ class AdminController extends Controller
         $label = $action === 'approve' ? 'Bulk approved by admin' : 'Bulk rejected by admin';
 
         foreach ($reviews as $review) {
-            if ($action === 'approve') {
-                $this->applyDataQualityReview($review, $dedupService, $admin, $label);
-            } else {
-                $this->markDataQualityReview($review, PoliticianCleanupReview::STATUS_REJECTED, $admin, $label);
+            // An earlier merge in this same batch can make a later review obsolete (it may
+            // reference the profile that was just merged away), so re-read before acting.
+            $current = PoliticianCleanupReview::find($review->id);
+            if ($current === null || $current->status !== PoliticianCleanupReview::STATUS_PENDING) {
+                continue;
             }
-            $updated++;
+
+            if ($action === 'approve') {
+                $updated += $this->applyDataQualityReview($current, $dedupService, $admin, $label) ? 1 : 0;
+            } else {
+                $this->markDataQualityReview($current, PoliticianCleanupReview::STATUS_REJECTED, $admin, $label);
+                $updated++;
+            }
         }
 
+        $skipped = $reviewIds->count() - $updated;
         $noun = $updated === 1 ? 'review' : 'reviews';
+        $note = $skipped > 0 ? " {$skipped} skipped — already resolved, removed, or made obsolete by another change." : '';
 
-        return back()->with('success', "Bulk {$action}d {$updated} data-quality {$noun}.");
+        return back()->with('success', "Bulk {$action}d {$updated} data-quality {$noun}.{$note}");
     }
 
     /**
@@ -1668,7 +1680,9 @@ class AdminController extends Controller
             return back()->withErrors(['error' => 'This review has already been resolved.']);
         }
 
-        $this->applyDataQualityReview($review, $dedupService, auth()->user(), 'Approved by admin');
+        if (! $this->applyDataQualityReview($review, $dedupService, auth()->user(), 'Approved by admin')) {
+            return back()->withErrors(['error' => 'That review is obsolete — one of the profiles in it no longer exists (already merged or removed), so nothing was changed.']);
+        }
 
         return back()->with('success', 'Data-quality review approved and applied.');
     }
@@ -1691,10 +1705,31 @@ class AdminController extends Controller
         return back()->with('success', 'Data-quality review rejected.');
     }
 
-    private function applyDataQualityReview(PoliticianCleanupReview $review, DuplicatePoliticianDetectionService $dedupService, $admin, ?string $reason): void
+    /**
+     * @return bool false when the review was obsolete (a profile in it is gone) and nothing was applied
+     */
+    private function applyDataQualityReview(PoliticianCleanupReview $review, DuplicatePoliticianDetectionService $dedupService, $admin, ?string $reason): bool
     {
         if ($review->review_type === PoliticianCleanupReview::TYPE_MERGE && $review->duplicate_politician_id !== null) {
-            $dedupService->mergeInto((int) $review->politician_id, (int) $review->duplicate_politician_id);
+            $survivorId = (int) $review->politician_id;
+            $duplicateId = (int) $review->duplicate_politician_id;
+            $duplicate = Politician::find($duplicateId);
+
+            // Merging into a profile that is already gone would reassign rows to a missing id.
+            if ($duplicate === null || $survivorId === $duplicateId || ! Politician::whereKey($survivorId)->exists()) {
+                $this->markDataQualityReview($review, PoliticianCleanupReview::STATUS_REJECTED, $admin, 'Obsolete: a profile in this pair no longer exists');
+
+                return false;
+            }
+
+            // The review row is deleted by the DB when the duplicate is (its FK cascades), which
+            // used to erase every approved merge from this page's history. Detach the duplicate
+            // first, keeping who it was in the payload.
+            $payload = $review->payload ?? [];
+            $payload['duplicate'] ??= ['id' => $duplicate->id, 'full_name' => $duplicate->full_name, 'political_office' => $duplicate->political_office, 'state' => $duplicate->state];
+            $review->update(['duplicate_politician_id' => null, 'payload' => $payload]);
+
+            $dedupService->mergeInto($survivorId, $duplicateId);
         } elseif ($review->review_type === PoliticianCleanupReview::TYPE_DEACTIVATE) {
             Politician::whereKey($review->politician_id)->update([
                 'is_active' => false,
@@ -1706,6 +1741,8 @@ class AdminController extends Controller
         // (or they've already hand-edited it separately).
 
         $this->markDataQualityReview($review, PoliticianCleanupReview::STATUS_APPROVED, $admin, $reason);
+
+        return true;
     }
 
     private function markDataQualityReview(PoliticianCleanupReview $review, string $status, $admin, ?string $reason): void

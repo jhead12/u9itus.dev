@@ -8,6 +8,7 @@ use App\Models\ElectionCandidateRecord;
 use App\Services\CandidateDiscovery\CandidateCorroboration;
 use App\Support\CrossStateImpostors;
 use App\Support\MapCandidateHygiene;
+use App\Support\PoliticianNameRepairer;
 use App\Support\PoliticianDataRules;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -67,6 +68,9 @@ class FlagSuspectProfiles extends Command
         }
 
         $this->summary(count($found), $auto, $queued, $apply);
+        if ($apply) {
+            $this->retireResolved(array_map(fn (array $f) => $f[0]->id, $found), $state);
+        }
 
         return self::SUCCESS;
     }
@@ -110,6 +114,12 @@ class FlagSuspectProfiles extends Command
      */
     private function classify(Politician $pol, array $holders, array $surnames): ?array
     {
+        // A real person behind a mangled name ("Oklahoma Gov. Kevin Stitt") gets renamed by
+        // politicians:repair-names, not unpublished.
+        if (PoliticianNameRepairer::repair($pol->full_name)['changed']) {
+            return null;
+        }
+
         $elsewhere = CrossStateImpostors::holderElsewhere($pol->full_name, $pol->political_office, $pol->state, $holders);
         if ($elsewhere !== null) {
             return ["Sitting {$pol->political_office} of {$elsewhere['state']} ({$elsewhere['name']} #{$elsewhere['id']}) — not a candidate in {$pol->state}", ['kept_politician_id' => $elsewhere['id'], 'kept_state' => $elsewhere['state']], true];
@@ -128,6 +138,39 @@ class FlagSuspectProfiles extends Command
         }
 
         return ['Name is headline text, not a person: '.$problem, [], false];
+    }
+
+    /**
+     * Reviews this command queued earlier that no longer describe a problem — the name was
+     * repaired, the profile got claimed or verified, or it was already deactivated — must not
+     * stay pending: approving one would unpublish a profile that is now fine.
+     *
+     * @param  array<int, int>  $stillSuspect  politician ids the current scan flagged
+     */
+    private function retireResolved(array $stillSuspect, ?string $state): void
+    {
+        $retired = 0;
+
+        PoliticianCleanupReview::query()
+            ->where('review_type', PoliticianCleanupReview::TYPE_DEACTIVATE)
+            ->where('status', PoliticianCleanupReview::STATUS_PENDING)
+            ->with('politician:id,state')
+            ->get()
+            ->filter(fn (PoliticianCleanupReview $r) => ($r->payload['source'] ?? null) === 'flag-suspect-profiles')
+            ->filter(fn (PoliticianCleanupReview $r) => $state === null || strtoupper((string) $r->politician?->state) === $state)
+            ->reject(fn (PoliticianCleanupReview $r) => in_array($r->politician_id, $stillSuspect, true))
+            ->each(function (PoliticianCleanupReview $review) use (&$retired): void {
+                $review->update([
+                    'status' => PoliticianCleanupReview::STATUS_REJECTED,
+                    'reason' => 'No longer suspect: the name was repaired or the profile is now vouched for or inactive',
+                    'reviewed_at' => now(),
+                ]);
+                $retired++;
+            });
+
+        if ($retired > 0) {
+            $this->info("Retired {$retired} earlier review(s) that no longer apply.");
+        }
     }
 
     /**

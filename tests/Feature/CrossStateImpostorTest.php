@@ -261,3 +261,37 @@ it('recognises headline words as junk names but leaves real names alone', functi
     'Jamie Raskin' => ['Jamie Raskin', false],
     'JD initials' => ['J. D. Vance', false],
 ]);
+
+it('repairs a state-and-title prefix on a real official\'s name', function (string $raw, string $expected) {
+    expect(\App\Support\PoliticianNameRepairer::repair($raw)['name'])->toBe($expected);
+})->with([
+    ['Oklahoma Gov. Kevin Stitt', 'Kevin Stitt'],
+    ['Pa. Rep. Patty Kim', 'Patty Kim'],
+    ['New York Gov. Kathy Hochul', 'Kathy Hochul'],
+    ['Al Green', 'Al Green'],
+    ['Jamie Raskin', 'Jamie Raskin'],
+]);
+
+it('does not queue a profile for deactivation when its name can simply be repaired', function () {
+    $stitt = unclaimedAbbott('OK', ['full_name' => 'Oklahoma Gov. Kevin Stitt', 'slug' => 'stitt-junk']);
+
+    $this->artisan('politicians:flag-suspect-profiles', ['--apply' => true])->assertExitCode(0);
+
+    expect(PoliticianCleanupReview::where('politician_id', $stitt->id)->exists())->toBeFalse()
+        ->and($stitt->refresh()->is_active)->toBeTrue();
+});
+
+it('retires an earlier pending review once the name has been repaired, so approving it cannot unpublish a real profile', function () {
+    $stitt = unclaimedAbbott('OK', ['full_name' => 'Kevin Stitt', 'slug' => 'stitt-clean']);
+    $stale = PoliticianCleanupReview::enqueue(PoliticianCleanupReview::TYPE_DEACTIVATE, $stitt->id, null, ['source' => 'flag-suspect-profiles'], 'Name is headline text');
+    $genuine = unclaimedAbbott('OK', ['full_name' => 'Hochul Agenda', 'slug' => 'still-junk']);
+    $pending = PoliticianCleanupReview::enqueue(PoliticianCleanupReview::TYPE_DEACTIVATE, $genuine->id, null, ['source' => 'flag-suspect-profiles'], 'Name is headline text');
+
+    $this->artisan('politicians:flag-suspect-profiles', ['--apply' => true])
+        ->expectsOutputToContain('Retired 1 earlier review')
+        ->assertExitCode(0);
+
+    expect($stale->refresh()->status)->toBe('rejected')
+        ->and($stale->reason)->toContain('No longer suspect')
+        ->and($pending->refresh()->status)->toBe('pending');
+});
