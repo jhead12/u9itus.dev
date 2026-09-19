@@ -5,6 +5,7 @@ namespace App\Services\CandidateDiscovery;
 use App\Models\CandidateLead;
 use App\Models\ElectionCandidateRecord;
 use App\Support\CandidateNameCanonicalizer;
+use App\Support\CrossStateImpostors;
 use App\Support\PoliticianDataRules;
 use Illuminate\Support\Str;
 
@@ -17,6 +18,14 @@ use Illuminate\Support\Str;
 class CandidateLeadPromoter
 {
     public const SOURCE = 'candidate_discovery';
+
+    /** @var array<string, array<int, array{id: int, state: string, name: string}>>|null */
+    private ?array $holders = null;
+
+    private function seatedHolders(): array
+    {
+        return $this->holders ??= CrossStateImpostors::seatedHolders();
+    }
 
     public function promote(CandidateLead $lead): ?ElectionCandidateRecord
     {
@@ -41,6 +50,20 @@ class CandidateLeadPromoter
         }
 
         $office = $payload['political_office'] ?? $lead->office_hint;
+
+        // A national headline that mentions a sitting governor in a state-scoped
+        // news search ("North Carolina Governor" → Greg Abbott) is a mention,
+        // not a candidacy in that state.
+        $holder = CrossStateImpostors::holderElsewhere($canonicalName, $office, $lead->state, $this->seatedHolders());
+        if ($holder !== null) {
+            $lead->update([
+                'status' => CandidateLead::STATUS_REJECTED,
+                'reason' => trim((string) $lead->reason.' | cross-state: seated '.$office.' in '.$holder['state'], ' |'),
+                'resolved_at' => now(),
+            ]);
+
+            return null;
+        }
 
         // Key the ECR by candidate identity (state + office + normalized
         // name), NOT by $lead->source_hash (the news-article URL hash).

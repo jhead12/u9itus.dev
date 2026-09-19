@@ -8,6 +8,7 @@ use App\Models\Citizen;
 use App\Models\ElectionCandidateRecord;
 use App\Models\Politician;
 use App\Models\StateElectionDate;
+use App\Support\CrossStateImpostors;
 use App\Support\DataSourceLabel;
 use App\Support\MapCandidateHygiene;
 use App\Support\OfficeCanonicalizer;
@@ -171,7 +172,8 @@ class MapStateCandidatesController
             ->whereRaw('UPPER(COALESCE(state, \'\')) = ?', [$state])
             ->whereNotNull('city')->distinct()->pluck('city')->each($addPlace);
 
-        $quality = ['hidden_names' => 0, 'merged_duplicates' => 0, 'date_conflicts' => 0];
+        $quality = ['hidden_names' => 0, 'merged_duplicates' => 0, 'date_conflicts' => 0, 'cross_state' => 0];
+        $seatedHolders = CrossStateImpostors::seatedHolders();
 
         // ── 1. Seated statewide officeholders on the platform ─────────────────
         // Only pull SEATED politicians from the platform table for statewide offices.
@@ -386,6 +388,17 @@ class MapStateCandidatesController
             $recStatus = $payload['status'] ?? 'running';
             if (MapCandidateHygiene::shouldHide(['full_name' => $rec->full_name, 'status' => $recStatus], $placeNames)) {
                 $quality['hidden_names']++;
+
+                continue;
+            }
+
+            // A sitting official of another state that a state-scoped news
+            // search mistook for a candidate here (Greg Abbott as NC governor).
+            if (
+                $rec->source === ElectionCandidateRecord::DISCOVERY_SOURCE
+                && CrossStateImpostors::holderElsewhere($rec->full_name, $rec->political_office, $state, $seatedHolders) !== null
+            ) {
+                $quality['cross_state']++;
 
                 continue;
             }

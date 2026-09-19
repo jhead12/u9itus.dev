@@ -78,6 +78,8 @@ class MapCandidateHygiene
     {
         $name = CandidateNameCanonicalizer::canonicalize($name);
         $name = Str::ascii($name);
+        // "Greg Abbott's" is the same person as "Greg Abbott" with headline text attached.
+        $name = preg_replace('/[\'’]s\s*$/iu', '', trim($name)) ?? $name;
         $name = preg_replace('/\([^)]*\)|"[^"]*"/', ' ', $name) ?? $name;
         $name = preg_replace('/,\s*(jr|sr|ii|iii|iv)\.?\s*$/i', '', $name) ?? $name;
 
@@ -128,7 +130,7 @@ class MapCandidateHygiene
             return 'placeholder word in name';
         }
 
-        if (preg_match('/[\'’]s\s/u', $name) || preg_match('/^send us\b/i', $name)) {
+        if (preg_match('/[\'’]s(\s|$)/u', $name) || preg_match('/^send us\b/i', $name)) {
             return 'scraped page text, not a name';
         }
 

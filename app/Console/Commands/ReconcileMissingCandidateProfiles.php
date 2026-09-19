@@ -5,6 +5,10 @@ namespace App\Console\Commands;
 use App\Models\CandidateIdentityLink;
 use App\Models\ElectionCandidateRecord;
 use App\Models\Politician;
+use App\Services\CandidateDiscovery\CandidateLeadPromoter;
+use App\Support\CrossStateImpostors;
+use App\Support\MapCandidateHygiene;
+use App\Support\PoliticianDataRules;
 use Illuminate\Console\Command;
 
 class ReconcileMissingCandidateProfiles extends Command
@@ -16,6 +20,9 @@ class ReconcileMissingCandidateProfiles extends Command
         {--dry-run : Report actions only, no DB writes}';
 
     protected $description = 'Create/link unclaimed politician profiles from election_candidate_records when profiles are missing.';
+
+    /** @var array<string, array<int, array{id: int, state: string, name: string}>>|null */
+    private ?array $holders = null;
 
     public function handle(): int
     {
@@ -151,6 +158,19 @@ class ReconcileMissingCandidateProfiles extends Command
 
         if ($primary === 'eliminated' || $result === 'lost') {
             return false;
+        }
+
+        // Unverified news-discovery rows must not become public profiles when
+        // the "name" is headline text or the person is a sitting official of
+        // another state. Rows an importer or editor vouches for are untouched.
+        if ((string) $record->source === CandidateLeadPromoter::SOURCE) {
+            if (PoliticianDataRules::headlineFragmentViolation($name) !== null || MapCandidateHygiene::nameProblem($name) !== null) {
+                return false;
+            }
+            $this->holders ??= CrossStateImpostors::seatedHolders();
+            if (CrossStateImpostors::holderElsewhere($name, $record->political_office, $record->state, $this->holders) !== null) {
+                return false;
+            }
         }
 
         return true;
