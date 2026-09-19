@@ -65,7 +65,7 @@ class PoliticianDataRules
      * time from the front and re-validates what's left) — kept as one public
      * constant so the two vocabularies can't drift apart.
      */
-    public const LEADING_QUALIFIER_PATTERN = '/^\s*(the|former|ex|current|incumbent|new|next|another|embattled|fiery|firebrand|outspoken|controversial|progressive|conservative|moderate|billionaire|bilionaire|millionaire|millennial|boomer|independent|democrat(ic)?|republican|libertarian|green|maga|gop|trump[\s-]?backed|reality|video|watch|listen|breaking|exclusive|opinion|editorial|poll|meet|why|how|when|where|what|who|after|before|amid|apostle|pastor|bishop|chief|consumer|onerepublic|indian|asian|african|latino|latina|hispanic|jewish|muslim|evangelical|california|nevada|tennessee|texas|arizona|florida|riverside|orange county|east bay|tri[\s-]valley|bay area|silicon valley|san jos[e\x{00E9}]|los angeles|northern|southern|sheriff|deputy|officer|detective|governor|gov\.|lieutenant governor|lieutenant|lt\.|senator|sen\.|representative|rep\.|congressman|congresswoman|delegate|speaker|mayor|treasurer|controller|comptroller|supervisor|assemblymember|assemblyman|assemblywoman|councilmember|councilman|councilwoman|alderman|selectman|trustee|clerk|auditor|coroner|constable|commissioner)(?![a-zA-Z0-9_])/iu';
+    public const LEADING_QUALIFIER_PATTERN = '/^\s*(the|former|ex|current|incumbent|new|next|another|embattled|fiery|firebrand|outspoken|controversial|progressive|conservative|moderate|billionaire|bilionaire|millionaire|millennial|boomer|independent|democrat(ic)?|republican|libertarian|green|maga|gop|trump[\s-]?backed|reality|video|watch|listen|breaking|update|updated|developing|analysis|recap|explainer|roundup|exclusive|opinion|editorial|poll|meet|why|how|when|where|what|who|after|before|amid|apostle|pastor|bishop|chief|consumer|onerepublic|indian|asian|african|latino|latina|hispanic|jewish|muslim|evangelical|california|nevada|tennessee|texas|arizona|florida|riverside|orange county|east bay|tri[\s-]valley|bay area|silicon valley|san jos[e\x{00E9}]|los angeles|northern|southern|sheriff|deputy|officer|detective|governor|gov\.|lieutenant governor|lieutenant|lt\.|senator|sen\.|representative|rep\.|congressman|congresswoman|delegate|speaker|mayor|treasurer|controller|comptroller|supervisor|assemblymember|assemblyman|assemblywoman|councilmember|councilman|councilwoman|alderman|selectman|trustee|clerk|auditor|coroner|constable|commissioner)(?![a-zA-Z0-9_])/iu';
 
     /**
      * RSS / news-headline extraction artifacts. The candidate-discovery
@@ -93,6 +93,50 @@ class PoliticianDataRules
         // Headline action verb anywhere in the string.
         '/\b(exits?|exited|suspends?|concedes?|endorses?|slams?|blasts?|rips|touts?|unveils?|clashes|spars|drops out|bows out|weighs in)\b/i',
     ];
+
+    /**
+     * Headline words that are never part of a person's name, with what each catches. Kept
+     * narrow on purpose — every entry must be safe to apply to a real candidate's row, since
+     * the map uses {@see headlineWordViolation()} on scraped and imported names alike (the
+     * wider HEADLINE_NAME_REJECT_PATTERNS are only for unverified discovery rows).
+     */
+    private const HEADLINE_WORD_RULES = [
+        // "Hochul Agenda", "Hochul Statewide", "Hochul Unprecedented": an official's surname
+        // plus the next capitalised word of a headline.
+        '/\b(agenda|statewide|nationwide|unprecedented|announcement|re-?election|administration|legislation|priorities|policies|endorsements?|opponents?|supporters|challengers?|incumbents?|unopposed|landslide|mandate|platform|initiatives?)\b/i'
+            => 'contains a headline word',
+        // "UPDATE Lt. Gov. Anthony": a news label / a title in the middle of a name.
+        '/^(update|updated|developing|analysis|recap|explainer|roundup)\b/i' => 'starts with a news label',
+        '/\s(?:lt|gov|sen|rep)\.\s/i' => 'contains a title mid-name',
+        // "Marsha Blackburn Will": a modal verb closing a three-word-or-longer run.
+        // Two words are left alone — "George Will" is a real name.
+        '/^(?:\S+\s+){2,}(?:will|would|could|should|must|might|shall)$/i' => 'ends on a headline verb',
+    ];
+
+    /**
+     * Why this reads as a headline rather than a name, or null. Deliberately conservative —
+     * see HEADLINE_WORD_RULES. Also catches a shouted leading label ("BREAKING Jane Smith").
+     */
+    public static function headlineWordViolation(?string $name): ?string
+    {
+        $name = trim((string) $name);
+        if ($name === '') {
+            return null;
+        }
+
+        foreach (self::HEADLINE_WORD_RULES as $pattern => $reason) {
+            if (preg_match($pattern, $name)) {
+                return $reason;
+            }
+        }
+
+        // A run of 4+ capitals followed by ordinary words: a label, not a given name.
+        if (preg_match('/^\p{Lu}{4,}\s+\S/u', $name) && ! preg_match('/^[\p{Lu}\s.\'’-]+$/u', $name)) {
+            return 'starts with an all-caps label';
+        }
+
+        return null;
+    }
 
     /**
      * Validate a full_name. Returns null when valid, or a human-readable
@@ -161,6 +205,10 @@ class PoliticianDataRules
         }
 
         $name = trim((string) $name);
+
+        if (($word = self::headlineWordViolation($name)) !== null) {
+            return 'name matches headline-fragment pattern: '.$word;
+        }
 
         foreach (self::HEADLINE_NAME_REJECT_PATTERNS as $pattern) {
             if (preg_match($pattern, $name)) {

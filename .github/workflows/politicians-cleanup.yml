@@ -22,6 +22,10 @@ on:
         type: choice
         options: [all, federal, state-local]
         default: all
+      states:
+        description: "Comma-separated state codes to target (e.g. NC,NY,TX). Leave blank for all states. Skips the national lifecycle reconciliation."
+        default: ""
+        required: false
       dry_run:
         description: "Dry-run — report only, no DB writes"
         type: boolean
@@ -57,11 +61,17 @@ jobs:
           fec_api_key: ${{ secrets.FEC_API_KEY }}
 
       - name: Run cleanup workflow
+        env:
+          STATES: ${{ github.event.inputs.states }}
         run: |
           SCOPE="${{ github.event.inputs.scope || 'all' }}"
           DRY_ARG=""
           if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
             DRY_ARG="--dry-run"
           fi
+          STATE_ARG=""
+          if [ -n "$STATES" ]; then
+            STATE_ARG="--state=$STATES"
+          fi
 
-          php artisan politicians:cleanup-workflow --scope="$SCOPE" $DRY_ARG
+          php artisan politicians:cleanup-workflow --scope="$SCOPE" $STATE_ARG $DRY_ARG

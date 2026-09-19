@@ -137,30 +137,121 @@ it('shows the same row when nobody seated holds that office elsewhere', function
     expect($names)->toContain('Greg Abbott')->and($json['quality']['cross_state'])->toBe(0);
 });
 
-it('queues impostors and headline-text profiles for review, and nothing else', function () {
+it('deactivates confirmed impostors and mangled duplicates automatically, and queues other headline names', function () {
     $real = abbottTexas();
     $nc = unclaimedAbbott('NC');
     $ny = unclaimedAbbott('NY');
     $possessive = unclaimedAbbott('TX', ['full_name' => "Greg Abbott's"]);
+    $agenda = unclaimedAbbott('NY', ['full_name' => 'Hochul Agenda', 'political_office' => 'Governor', 'slug' => 'hochul-agenda']);
     $claimed = unclaimedAbbott('FL', ['user_id' => User::factory()->create()->id]);
     $verified = unclaimedAbbott('OH', ['verified_official' => true]);
     $honest = unclaimedAbbott('CA', ['full_name' => 'Katie Porter']);
 
     // Report-only by default.
-    $this->artisan('politicians:flag-suspect-profiles')->assertExitCode(0);
-    expect(PoliticianCleanupReview::count())->toBe(0);
+    $this->artisan('politicians:flag-suspect-profiles')->expectsOutputToContain('WOULD DEACTIVATE')->assertExitCode(0);
+    expect(PoliticianCleanupReview::count())->toBe(0)
+        ->and($nc->refresh()->is_active)->toBeTrue();
 
     $this->artisan('politicians:flag-suspect-profiles', ['--apply' => true])->assertExitCode(0);
     $this->artisan('politicians:flag-suspect-profiles', ['--apply' => true])->assertExitCode(0); // idempotent
 
-    $flagged = PoliticianCleanupReview::query()->pluck('politician_id')->all();
-    expect($flagged)->toHaveCount(3)
-        ->and($flagged)->toContain($nc->id, $ny->id, $possessive->id)
-        ->and($flagged)->not->toContain($real->id, $claimed->id, $verified->id, $honest->id);
+    // Confirmed against the sitting official → unpublished, with an approved audit row.
+    foreach ([$nc, $ny, $possessive] as $row) {
+        $row->refresh();
+        expect($row->is_active)->toBeFalse()->and($row->page_published)->toBeFalse();
+        $review = PoliticianCleanupReview::where('politician_id', $row->id)->sole();
+        expect($review->status)->toBe('approved')
+            ->and($review->payload['auto_approved'])->toBeTrue()
+            ->and($review->payload['kept_politician_id'])->toBe($real->id);
+    }
+    expect(PoliticianCleanupReview::where('politician_id', $nc->id)->value('reason'))->toContain('TX');
 
-    $review = PoliticianCleanupReview::where('politician_id', $nc->id)->first();
-    expect($review->review_type)->toBe(PoliticianCleanupReview::TYPE_DEACTIVATE)
-        ->and($review->status)->toBe('pending')
-        ->and($review->reason)->toContain('TX')
-        ->and($nc->refresh()->is_active)->toBeTrue(); // nothing was deactivated
+    // A headline-shaped name with no official to confirm it against is only queued.
+    expect($agenda->refresh()->is_active)->toBeTrue()
+        ->and(PoliticianCleanupReview::where('politician_id', $agenda->id)->sole()->status)->toBe('pending');
+
+    // Real, claimed, verified and unrelated profiles are untouched.
+    foreach ([$real, $claimed, $verified, $honest] as $row) {
+        expect($row->refresh()->is_active)->toBeTrue()
+            ->and(PoliticianCleanupReview::where('politician_id', $row->id)->exists())->toBeFalse();
+    }
 });
+
+it('recognises an incumbent stored as "running" as the holder when the profile is verified', function () {
+    abbottTexas(['term_status' => 'running', 'is_running_candidate' => true, 'verified_official' => true]);
+    $nc = unclaimedAbbott('NC');
+
+    $this->artisan('politicians:flag-suspect-profiles', ['--apply' => true])->assertExitCode(0);
+
+    expect($nc->refresh()->is_active)->toBeFalse();
+});
+
+it('resolves an earlier pending review instead of leaving a duplicate behind', function () {
+    abbottTexas();
+    $nc = unclaimedAbbott('NC');
+    PoliticianCleanupReview::enqueue(PoliticianCleanupReview::TYPE_DEACTIVATE, $nc->id, null, ['source' => 'flag-suspect-profiles'], 'queued earlier');
+
+    $this->artisan('politicians:flag-suspect-profiles', ['--apply' => true])->assertExitCode(0);
+
+    $review = PoliticianCleanupReview::where('politician_id', $nc->id)->sole();
+    expect($review->status)->toBe('approved')->and($review->payload['auto_approved'])->toBeTrue();
+});
+
+it('caps automatic deactivations per run and queues the overflow', function () {
+    abbottTexas();
+    $rows = collect(['NC', 'NY', 'FL'])->map(fn ($st) => unclaimedAbbott($st));
+
+    $this->artisan('politicians:flag-suspect-profiles', ['--apply' => true, '--max-auto' => 2])->assertExitCode(0);
+
+    expect($rows->filter(fn ($r) => ! $r->refresh()->is_active))->toHaveCount(2)
+        ->and(PoliticianCleanupReview::where('status', 'pending')->count())->toBe(1);
+});
+
+it('limits the flag command to the requested state', function () {
+    abbottTexas();
+    $nc = unclaimedAbbott('NC');
+    $ny = unclaimedAbbott('NY');
+
+    $this->artisan('politicians:flag-suspect-profiles', ['--apply' => true, '--state' => 'NC'])->assertExitCode(0);
+
+    expect($nc->refresh()->is_active)->toBeFalse()->and($ny->refresh()->is_active)->toBeTrue();
+});
+
+it('flags headline words the rules do not list when they follow a sitting official\'s surname', function () {
+    Politician::factory()->create([
+        'full_name' => 'Kathy Hochul', 'state' => 'NY', 'political_office' => 'Governor', 'governance_level' => 'state',
+        'term_status' => 'seated', 'is_active' => true, 'slug' => 'kathy-hochul-'.fake()->unique()->numerify('####'),
+    ]);
+    $stub = unclaimedAbbott('NY', ['full_name' => 'Hochul Budget', 'slug' => 'hochul-budget']);
+    $stranger = unclaimedAbbott('NY', ['full_name' => 'Elise Stefanik', 'slug' => 'elise-stefanik']);
+    $elsewhere = unclaimedAbbott('CA', ['full_name' => 'Hochul Budget', 'slug' => 'hochul-budget-ca']);
+
+    $this->artisan('politicians:flag-suspect-profiles', ['--apply' => true])->assertExitCode(0);
+
+    $review = PoliticianCleanupReview::where('politician_id', $stub->id)->sole();
+    expect($review->status)->toBe('pending')            // a hint, so a person decides
+        ->and($review->reason)->toContain('Kathy Hochul')
+        ->and($stub->refresh()->is_active)->toBeTrue()
+        ->and(PoliticianCleanupReview::where('politician_id', $stranger->id)->exists())->toBeFalse()
+        ->and(PoliticianCleanupReview::where('politician_id', $elsewhere->id)->exists())->toBeFalse(); // only that state's official
+});
+
+it('recognises headline words as junk names but leaves real names alone', function (string $name, bool $junk) {
+    $violation = \App\Support\PoliticianDataRules::headlineWordViolation($name);
+
+    expect($violation !== null)->toBe($junk)
+        ->and(\App\Support\MapCandidateHygiene::nameProblem($name) !== null)->toBe($junk);
+})->with([
+    'agenda' => ['Hochul Agenda', true],
+    'statewide' => ['Hochul Statewide', true],
+    'unprecedented' => ['Hochul Unprecedented', true],
+    'news label + title' => ['UPDATE Lt. Gov. Anthony', true],
+    'trailing modal' => ['Marsha Blackburn Will', true],
+    'shouted label' => ['BREAKING Jane Smith', true],
+    'George Will' => ['George Will', false],
+    'Kim Won' => ['Kim Won', false],
+    'Kathy Hochul' => ['Kathy Hochul', false],
+    'Al Green' => ['Al Green', false],
+    'Jamie Raskin' => ['Jamie Raskin', false],
+    'JD initials' => ['J. D. Vance', false],
+]);

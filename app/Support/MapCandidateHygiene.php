@@ -126,6 +126,10 @@ class MapCandidateHygiene
             return $violation;
         }
 
+        if (PoliticianDataRules::headlineWordViolation($name) !== null) {
+            return 'reads like a headline, not a name';
+        }
+
         if (preg_match('/\b(candidates?|nominees?|survey|contact|vacant|placeholder|write-in list)\b/i', $name)) {
             return 'placeholder word in name';
         }

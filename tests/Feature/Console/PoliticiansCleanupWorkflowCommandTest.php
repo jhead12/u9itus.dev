@@ -85,3 +85,26 @@ it('prunes junk election candidate records as part of the pipeline', function ()
 
     $this->assertDatabaseMissing('election_candidate_records', ['id' => $junkEcr->id]);
 });
+
+it('--state targets only those states and skips the national lifecycle reconciliation', function () {
+    $nc = workflowJunkPolitician(['full_name' => 'California Gavin Newsom', 'state' => 'NC']);
+    $tx = workflowJunkPolitician(['full_name' => 'California Ken Paxton', 'state' => 'TX']);
+    $ca = workflowJunkPolitician(['full_name' => 'California Karen Bass', 'state' => 'CA']);
+
+    $this->artisan('politicians:cleanup-workflow', ['--state' => 'nc, tx'])
+        ->expectsOutputToContain('Targeting states: NC, TX')
+        ->expectsOutputToContain('Lifecycle reconciliation skipped')
+        ->assertExitCode(0);
+
+    expect($nc->refresh()->full_name)->toBe('Gavin Newsom')
+        ->and($tx->refresh()->full_name)->toBe('Ken Paxton')
+        ->and($ca->refresh()->full_name)->toBe('California Karen Bass'); // untargeted state untouched
+});
+
+it('--state rejects an unknown state code before doing anything', function () {
+    $junk = workflowJunkPolitician(['full_name' => 'California Gavin Newsom']);
+
+    $this->artisan('politicians:cleanup-workflow', ['--state' => 'NC,ZZ'])->assertExitCode(1);
+
+    expect($junk->refresh()->full_name)->toBe('California Gavin Newsom');
+});
