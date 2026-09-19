@@ -150,3 +150,35 @@ test('the profile page lists each endorser by name with a link to the article', 
         ->assertSee('Read on CalMatters')
         ->assertDontSee('Governor Endorsed');
 });
+
+test('a stale row from an older detector is replaced, not left beside the correct endorser', function () {
+    $hilton = seedEndorsementPolitician('Steve Hilton');
+    $article = seedEndorsementArticle($hilton, 'President Trump endorses Steve Hilton for governor');
+    PoliticianEndorsement::create([
+        'politician_id' => $hilton->id, 'group_key' => 'governor', 'label' => 'Governor', 'endorser_key' => '',
+        'endorser_name' => null, 'matched_phrase' => 'governor', 'confidence' => 0.85, 'source_article_id' => $article->id,
+        'source_url' => $article->source_url, 'detected_article_ids' => [$article->id], 'match_count' => 1,
+    ]);
+
+    Artisan::call('candidates:detect-endorsements', ['--limit' => 10]);
+
+    $rows = PoliticianEndorsement::where('politician_id', $hilton->id)->get();
+    expect($rows)->toHaveCount(1);
+    expect($rows->first()->group_key)->toBe('president');
+    expect($rows->first()->endorser_name)->toBe('Trump');
+});
+
+test('rebuilding keeps rows an admin already dismissed', function () {
+    $jane = seedEndorsementPolitician('Jane Smith');
+    $article = seedEndorsementArticle($jane, 'Governor Gavin Newsom endorses Jane Smith');
+    PoliticianEndorsement::create([
+        'politician_id' => $jane->id, 'group_key' => 'mayor', 'label' => 'Mayor', 'endorser_key' => '',
+        'matched_phrase' => 'mayor', 'confidence' => 0.7, 'source_article_id' => $article->id, 'detected_article_ids' => [$article->id],
+        'match_count' => 1, 'status' => 'dismissed',
+    ]);
+
+    Artisan::call('candidates:detect-endorsements', ['--limit' => 10]);
+
+    expect(PoliticianEndorsement::where('politician_id', $jane->id)->where('status', 'dismissed')->count())->toBe(1);
+    expect(PoliticianEndorsement::where('politician_id', $jane->id)->active()->value('group_key'))->toBe('governor');
+});

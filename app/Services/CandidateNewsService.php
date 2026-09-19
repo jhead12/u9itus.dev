@@ -270,32 +270,59 @@ class CandidateNewsService
      * Needed for the initial backfill, and whenever config/endorsements.php
      * patterns change — live ingestion (see persistArticles) only classifies
      * an article once, at fetch time.
+     *
+     * Detected rows are derived data, so each politician touched is rebuilt from
+     * all of their verified articles: a row an older detector produced (say a
+     * "Governor" chip for "Trump endorses Hilton for governor") disappears instead
+     * of lingering next to the correct one. `limit` counts the articles used to
+     * pick which politicians to rebuild.
      */
     public function detectEndorsementsForStoredArticles(int $limit = 500, ?int $politicianId = null): array
     {
-        $query = CandidateNewsArticle::query()
+        $verified = fn () => CandidateNewsArticle::query()
             ->where('verification_status', 'verified')
             ->whereNotNull('politician_id')
-            ->when($politicianId, fn ($q, $id) => $q->where('politician_id', $id))
-            ->with('politician:id,full_name')
+            ->when($politicianId, fn ($q, $id) => $q->where('politician_id', $id));
+
+        $politicianIds = $verified()
             ->orderByDesc('published_at')
-            ->limit($limit);
+            ->limit($limit)
+            ->pluck('politician_id')
+            ->unique()
+            ->values();
 
-        $articles = $query->get();
-
-        foreach ($articles as $article) {
-            $this->detectEndorsements(
-                politicianId: $article->politician_id,
-                headline: (string) $article->headline,
-                snippet: (string) ($article->snippet ?? ''),
-                articleId: $article->id,
-                sourceUrl: (string) ($article->source_url ?? ''),
-                politicianFullName: $article->politician?->full_name,
-            );
+        if ($politicianIds->isEmpty()) {
+            return ['processed' => 0];
         }
 
+        PoliticianEndorsement::query()
+            ->whereIn('politician_id', $politicianIds)
+            ->active()
+            ->delete();
+
+        $processed = 0;
+
+        $verified()
+            ->whereIn('politician_id', $politicianIds)
+            ->with('politician:id,full_name')
+            ->orderBy('published_at')
+            ->orderBy('id')
+            ->chunk(200, function ($articles) use (&$processed) {
+                foreach ($articles as $article) {
+                    $this->detectEndorsements(
+                        politicianId: $article->politician_id,
+                        headline: (string) $article->headline,
+                        snippet: (string) ($article->snippet ?? ''),
+                        articleId: $article->id,
+                        sourceUrl: (string) ($article->source_url ?? ''),
+                        politicianFullName: $article->politician?->full_name,
+                    );
+                    $processed++;
+                }
+            });
+
         return [
-            'processed' => $articles->count(),
+            'processed' => $processed,
         ];
     }
 
