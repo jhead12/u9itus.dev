@@ -47,7 +47,7 @@ class DedupePoliticians extends Command
         {--apply                : Actually reassign/delete (default is dry-run)}
         {--force                : Skip the confirmation prompt (--scope=unclaimed-all --apply only)}
         {--enqueue-review       : Write flagged duplicate pairs to the review queue instead of applying}
-        {--limit=5000           : Max rows to scan}';
+        {--limit=50000          : Max rows to scan, newest first}';
 
     protected $description = 'Find and merge/dedupe duplicate unclaimed Politician rows (consolidates the former merge-duplicates and dedupe-unclaimed commands).';
 
@@ -84,10 +84,16 @@ class DedupePoliticians extends Command
                         'United States Representative', 'United States Senator',
                     ]);
             }))
-            ->orderBy('id')
-            ->limit($limit);
+            ->orderByDesc('id');
 
-        $groups = $service->findGroups($query, $strategy);
+        // A capped scan must say so — it used to stop silently at 5000 oldest rows, so
+        // the newest (where fresh junk lands) were never examined.
+        $total = (clone $query)->count();
+        if ($total > $limit) {
+            $this->warn("Scanned only {$limit} of {$total} matching rows (newest first) — raise --limit to cover the rest.");
+        }
+
+        $groups = $service->findGroups($query->limit($limit), $strategy);
 
         if ($groups->isEmpty()) {
             $this->info("No duplicate groups found for --scope={$scope}.");

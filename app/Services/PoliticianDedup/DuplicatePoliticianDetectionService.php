@@ -126,7 +126,8 @@ class DuplicatePoliticianDetectionService
         $clusters = collect();
 
         foreach ($rows->sortBy(fn (Politician $p) => mb_strlen(trim((string) $p->full_name))) as $politician) {
-            $name = strtolower(trim((string) $politician->full_name));
+            // "Greg Abbott's" is "Greg Abbott" with headline text attached.
+            $name = preg_replace('/[\'’]s$/u', '', strtolower(trim((string) $politician->full_name))) ?? '';
             if ($name === '') {
                 continue;
             }
