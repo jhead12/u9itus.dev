@@ -6,7 +6,8 @@ import { TOUR_STEPS, TOUR_KEY } from '../config/tour-steps.js';
 let _tourStep = 0;
 
 /**
- * Start the guided tour. Skips if already completed (unless forced).
+ * Start the guided tour. Help opens it with force=true; without force it
+ * stays skipped once completed.
  */
 export function startTutorial(force = false) {
     if (!force && localStorage.getItem(TOUR_KEY)) return;
@@ -204,6 +205,6 @@ export function initTour() {
         }
     });
 
-    // Auto-launch on first visit after map finishes loading
-    setTimeout(() => startTutorial(), 2000);
+    // No auto-launch: first-time visitors get the one-line hint in
+    // first-hint.js instead. The full tour is opened from Help.
 }

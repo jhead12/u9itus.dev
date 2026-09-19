@@ -35,6 +35,7 @@ import './state/session.js';
 /* ── Scene ── */
 import { scene, camera, renderer, controls, mapGroup, resizeRenderer } from './scene/setup.js';
 import { loadMapData } from './scene/state-meshes.js';
+import { initViewMode } from './scene/view-mode.js';
 import { stateMeshes } from './scene/state-meshes.js';
 import { buildDistrictOverlay, clearDistricts, resetDistrictSelection, districtMeshes, hoveredDistrict } from './scene/district-overlay.js';
 import { toggleNationalBoundaries, nationalDistVisible, _syncNatDistVisibility, loadNationalBoundaries } from './scene/national-boundaries.js';
@@ -61,6 +62,9 @@ import { buildCityMarkers, clearCityMarkers, buildGovMarkers, clearGovMarkers, l
 import { buildDistrictLabels, clearDistrictLabels, updateDistrictLabels, districtLabels, mapLabelsLayer } from './ui/labels-overlay.js';
 import { initBreadcrumb, updateBreadcrumb } from './ui/breadcrumb.js';
 import { initTour, startTutorial } from './ui/tour.js';
+import { initFirstHint } from './ui/first-hint.js';
+import { buildStateLabels } from './ui/state-labels.js';
+import { initDistrictsPanel } from './ui/panel-districts.js';
 import { initKeyboard, toggleKbHelp, stepZoom } from './ui/keyboard.js';
 import { initInfoPanel, openInfoPanel } from './ui/info-panel.js';
 import { initMobileMenu } from './ui/mobile-menu.js';
@@ -77,7 +81,12 @@ import { animate } from './render-loop.js';
 /* ════════════════════════════════════════════════════════
    MAP LOAD
 ════════════════════════════════════════════════════════ */
+// Flat by default; restores the visitor's saved 3D choice. Runs before the
+// first frame and before state meshes are built so borders pick the right style.
+initViewMode();
+
 loadMapData().then(() => {
+    buildStateLabels();
     buildLegend();
     restoreBootLayers();
     initDistrictConfig();
@@ -98,7 +107,9 @@ initInfoPanel();
 initMobileMenu();
 initBreadcrumb();
 initTour();
+initFirstHint();
 initKeyboard();
+initDistrictsPanel();
 initOfficesToggle();
 initCandidateCardClick();
 initRunningCandidatesFilters();

@@ -5,6 +5,7 @@
 import { controls, camera } from '../scene/setup.js';
 import { enterOverviewMode } from '../navigation/mode-transitions.js';
 import { findMyDistrict } from './location-button.js';
+import { toggleDepthView } from './depth-toggle.js';
 import * as THREE from 'three';
 
 const kbHelp = document.getElementById('kb-help');
@@ -103,6 +104,7 @@ export function initKeyboard() {
             case 's': case 'S': toggleKbHelp(); break;
             case 'r': case 'R': enterOverviewMode(); break;
             case 'o': case 'O': window.toggleOfficesSection?.(); break;
+            case 'd': case 'D': toggleDepthView(); break;
             case 'l': case 'L':
                 e.preventDefault();
                 findMyDistrict();

@@ -3,9 +3,11 @@
  * All data is static — no runtime lookups needed.
  */
 
+/* Region colors deliberately avoid red and blue — those read as party colors
+ * (PARTY_HEX below), and this palette must never be mistaken for party control. */
 export const REGIONS = {
     'Northeast': {
-        color: 0x6366f1, hex: '#6366f1',
+        color: 0x8b5cf6, hex: '#8b5cf6',
         states: ['Connecticut','Delaware','Maine','Maryland','Massachusetts','New Hampshire','New Jersey','New York','Pennsylvania','Rhode Island','Vermont'],
     },
     'Southeast': {
@@ -13,15 +15,15 @@ export const REGIONS = {
         states: ['Alabama','Arkansas','Florida','Georgia','Kentucky','Louisiana','Mississippi','North Carolina','South Carolina','Tennessee','Virginia','West Virginia'],
     },
     'Midwest': {
-        color: 0x10b981, hex: '#10b981',
+        color: 0x84cc16, hex: '#84cc16',
         states: ['Illinois','Indiana','Iowa','Kansas','Michigan','Minnesota','Missouri','Nebraska','North Dakota','Ohio','South Dakota','Wisconsin'],
     },
     'Southwest': {
-        color: 0xef4444, hex: '#ef4444',
+        color: 0xec4899, hex: '#ec4899',
         states: ['Arizona','Colorado','Nevada','New Mexico','Oklahoma','Texas','Utah'],
     },
     'West': {
-        color: 0x06b6d4, hex: '#06b6d4',
+        color: 0x14b8a6, hex: '#14b8a6',
         states: ['Alaska','California','Hawaii','Idaho','Montana','Oregon','Washington','Wyoming'],
     },
 };

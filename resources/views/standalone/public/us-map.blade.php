@@ -58,6 +58,7 @@
                 <tr><td><kbd>R</kbd></td><td>Reset view</td></tr>
                 <tr><td><kbd>L</kbd></td><td>Find my district</td></tr>
                 <tr><td><kbd>O</kbd></td><td>Toggle offices section</td></tr>
+                <tr><td><kbd>D</kbd></td><td>Switch flat / 3D view</td></tr>
                 <tr><td><kbd>Esc</kbd></td><td>Close panel / popup</td></tr>
                 <tr><td><kbd>S</kbd></td><td>Show / hide this help</td></tr>
                 <tr><td colspan="2" style="padding-top:10px;padding-bottom:2px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#475569;">Mouse</td></tr>
@@ -71,10 +72,10 @@
             </tbody>
         </table>
         <button id="kb-help-close" aria-label="Close keyboard help">Close</button>
-        <button id="kb-tour-btn" aria-label="Replay feature tour"
+        <button id="kb-tour-btn" aria-label="Take the full feature tour"
                 onclick="toggleKbHelp(false); setTimeout(() => window.startTutorial(true), 200)"
                 style="margin-top:8px;width:100%;background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.3);color:#a5b4fc;border-radius:8px;padding:8px;font-size:12px;cursor:pointer;">
-            🗺 Replay feature tour
+            🗺 Take the full tour
         </button>
     </div>
 </div>
@@ -93,7 +94,7 @@
     <svg class="spinner" width="44" height="44" viewBox="0 0 24 24" fill="none" style="color:#6366f1;">
         <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-dasharray="31.4" stroke-dashoffset="10" stroke-linecap="round"/>
     </svg>
-    <p style="color:#475569; font-size:13px; margin-top:14px;">Loading map data…</p>
+    <p style="color:#94a3b8; font-size:13px; margin-top:14px;">Loading map data…</p>
 </div>
 
 <div id="map-container" style="position:fixed; inset:0;"></div>
@@ -103,6 +104,29 @@
         <a href="{{ url('/') }}">U9itus</a>
         <span class="sep">|</span>
         <span class="title">U.S. Regional Map</span>
+    </div>
+    {{-- Always-visible search: a labeled field, not an icon. It opens the same
+         search palette (#search-overlay) that the "/" key does. --}}
+    <div id="top-search">
+        <button type="button" class="search-field" id="btn-search"
+            title="Search states, districts and candidates (press /)"
+            aria-label="Search state, district, or candidate">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
+                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <span class="search-field-text">Search state, district, or candidate</span>
+            <span class="search-field-short">Search</span>
+            <kbd>/</kbd>
+        </button>
+        <button type="button" class="top-btn top-btn-primary" id="btn-find-district"
+            title="Find my district using my location (press L)"
+            aria-label="Find my district using my location">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M12 2L12 8M12 16L12 22M2 12L8 12M16 12L22 12"/>
+            </svg>
+            <span>Find my district</span>
+        </button>
     </div>
     <div style="display:flex; gap:8px; align-items:center;">
         {{-- ── Sign-in CTA (guest only, behind the map.sign_in_cta flag) ── --}}
@@ -122,23 +146,6 @@
         @endif
 
         <button id="btn-back">← Back</button>
-        <button class="top-btn" id="btn-find-district" title="Find my district using my location (press L)"
-            aria-label="Find my district using my location">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="3"/>
-                <path d="M12 2L12 8M12 16L12 22M2 12L8 12M16 12L22 12"/>
-            </svg>
-            <span class="btn-hover-label">Find My District</span>
-            <span class="btn-hover-label" style="font-size:10px;color:#475569;border:1px solid #334155;border-radius:3px;padding:1px 5px;font-family:monospace;">L</span>
-        </button>
-        <button class="top-btn" id="btn-search" title="Search states and districts (press /)"
-            aria-label="Search states and districts">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
-                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-            </svg>
-            <span class="btn-hover-label">Search</span>
-            <span class="btn-hover-label" style="font-size:10px;color:#475569;border:1px solid #334155;border-radius:3px;padding:1px 5px;font-family:monospace;">/</span>
-        </button>
         <!-- Layers + Controls: separate hover/click dropdowns on desktop (unchanged).
              On mobile/tablet, #map-menu-sheet below becomes a single bottom-sheet
              menu; on desktop it's `display:contents` and has zero layout effect. -->
@@ -246,6 +253,10 @@
                     <span>District Boundaries</span>
                     <span class="cm-toggle" aria-hidden="true"></span>
                 </button>
+                <button class="cm-item" id="cm-btn-3d" data-view-toggle aria-pressed="false" role="menuitem" title="Show state depth and a tilted camera (press D)">
+                    <span>3D view</span>
+                    <span class="cm-toggle" aria-hidden="true"></span>
+                </button>
                 <button class="cm-item" id="cm-btn-party-colors" role="menuitem" title="Color states by governor's party instead of region">
                     <span>Party Control Colors</span>
                     <span class="cm-toggle" aria-hidden="true"></span>
@@ -267,13 +278,13 @@
                     <span class="cm-kbd">Drag</span>
                 </div>
                 <hr class="cm-divider">
-                <div class="cm-section">Keyboard</div>
+                <div class="cm-section">Help</div>
                 <button class="cm-item" id="cm-btn-kb-help" role="menuitem">
                     <span>Keyboard Shortcuts</span>
-                    <span class="cm-kbd">?</span>
+                    <span class="cm-kbd">S</span>
                 </button>
                 <button class="cm-item" id="cm-btn-tutorial" role="menuitem">
-                    <span>Replay Tutorial</span>
+                    <span>Take the full tour</span>
                     <span style="font-size:13px;">🗺</span>
                 </button>
                 <hr class="cm-divider">
@@ -323,13 +334,13 @@
 </div>
 
 <!-- Search Palette -->
-<div id="search-overlay" role="dialog" aria-modal="true" aria-label="Search states, districts, and politicians">
+<div id="search-overlay" role="dialog" aria-modal="true" aria-label="Search states, districts, and candidates">
     <div id="search-box">
         <div id="search-input-wrap">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
                 <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
             </svg>
-            <input id="search-input" type="text" placeholder="Search state, district, or politician… e.g. &quot;California&quot;, &quot;CA-38&quot;, &quot;Elizabeth Warren&quot;" autocomplete="off" spellcheck="false">
+            <input id="search-input" type="text" placeholder="Search state, district, or candidate — e.g. &quot;California&quot;, &quot;CA-38&quot;, &quot;Elizabeth Warren&quot;" autocomplete="off" spellcheck="false">
             <span id="search-kbd">esc</span>
         </div>
         <div id="search-results" role="listbox"></div>
@@ -405,26 +416,36 @@
 <div id="breadcrumb-bar">
     <div style="display:flex; align-items:center; gap:8px;">
         <div id="breadcrumb"><span class="bc-item bc-active">Overview</span></div>
-        {{-- Tap-to-toggle so mobile users (no hover) can read this too — the
-             native title/aria-label stay as a hover fallback for desktop. --}}
+        {{-- Help: tap-to-toggle (works on mobile, unlike hover). Holds the short
+             "how to use" text plus the entry points to the full tour and the
+             keyboard shortcuts. --}}
         <span style="position:relative; display:inline-flex;">
             <button type="button" id="map-help-badge"
                   aria-haspopup="true" aria-expanded="false" aria-controls="map-help-popover"
-                  aria-label="How to use this map"
-                  title="This map is clickable. Click any state to zoom in, then click a district to open its political profile. Drag to rotate, scroll/pinch to zoom, or use Search to jump to a location. Press S for keyboard shortcuts."
+                  aria-label="Help: how to use this map"
                   onclick="event.stopPropagation(); (function(){
                       var pop = document.getElementById('map-help-popover');
                       var open = pop.classList.toggle('open');
                       this.setAttribute('aria-expanded', open ? 'true' : 'false');
-                  }).call(this)">i</button>
-            <div id="map-help-popover" role="tooltip">
-                This map is clickable. Click any state to zoom in, then click a district to open its political profile. Drag to rotate, scroll/pinch to zoom, or use Search to jump to a location. Press S for keyboard shortcuts.
+                  }).call(this)">
+                <span class="help-mark" aria-hidden="true">?</span> Help
+            </button>
+            <div id="map-help-popover" role="dialog" aria-label="Map help">
+                <p>Select a state to explore its districts, then select a district to open its political profile. Drag to pan, scroll or pinch to zoom, or use search to jump to a place or candidate.</p>
+                <div class="help-actions">
+                    <button type="button" id="help-btn-tour">Take the full tour</button>
+                    <button type="button" id="help-btn-shortcuts">Keyboard shortcuts</button>
+                </div>
             </div>
         </span>
     </div>
-    <button id="kb-hint-badge" aria-label="Show keyboard shortcuts" title="Keyboard shortcuts (press S)">
-        <kbd>S</kbd> Shortcuts
-    </button>
+    <div style="display:flex; align-items:center; gap:8px;">
+        <button type="button" class="bar-toggle" id="btn-3d" data-view-toggle aria-pressed="false"
+                title="Show state depth and a tilted camera (press D)">3D view</button>
+        <button id="kb-hint-badge" aria-label="Show keyboard shortcuts" title="Keyboard shortcuts (press S)">
+            <kbd>S</kbd> Shortcuts
+        </button>
+    </div>
 </div>
 
 <div id="tooltip"></div>
@@ -435,8 +456,15 @@
         onclick="this.closest('#legend').classList.toggle('legend-collapsed')"
         onkeydown="if(event.key==='Enter'||event.key===' ')this.click()"
         title="Tap to show/hide">
-        Party Control <span id="legend-toggle-icon" style="font-size:9px;opacity:.6;">▾</span>
+        <span id="legend-title">Regions</span> <span id="legend-toggle-icon" style="font-size:9px;opacity:.6;">▾</span>
     </h3>
+    {{-- Which colors are on the map right now. Regions is the default; Party
+         control colors states by their governor's party. --}}
+    <div id="legend-mode" role="group" aria-label="Color the map by">
+        <button type="button" data-color-mode="region" aria-pressed="true" class="active">Regions</button>
+        <button type="button" data-color-mode="party" aria-pressed="false">Party control</button>
+    </div>
+    <p id="legend-note"></p>
     <div id="legend-items"></div>
 </div>
 
@@ -454,8 +482,8 @@
         </div>
         <button id="panel-close" title="Close panel">✕</button>
     </div>
-    <div id="panel-states" style="margin-bottom:6px;"></div>
-    <hr class="panel-divider" style="margin:8px 0 10px;">
+    {{-- Districts & representatives lead the panel for a selected state. --}}
+    <div id="panel-districts"></div>
     <div id="panel-stats"></div>
     <div id="panel-running-candidates"></div>
     <p class="panel-label panel-label-toggle" id="offices-toggle" role="button" tabindex="0"
@@ -476,35 +504,26 @@
     <div id="panel-topics"></div>
     <div id="panel-ballot-measures"></div>
     <div id="panel-businesses" hidden></div>
+    {{-- Other states in the region: collapsed and last, so it never pushes the
+         selected state's own content down. --}}
+    <details id="panel-states-wrap" hidden>
+        <summary id="panel-states-summary">Other states in this region</summary>
+        <div id="panel-states"></div>
+    </details>
 </div>
 
-<div id="hint" style="position:fixed;bottom:28px;right:24px;z-index:50;color:#334155;font-size:11px;text-align:right;pointer-events:none;">
+<div id="hint" style="position:fixed;bottom:28px;right:24px;z-index:50;color:#94a3b8;font-size:12px;text-align:right;pointer-events:none;text-shadow:0 1px 3px rgba(0,0,0,.8);">
     Scroll / pinch to zoom &nbsp;·&nbsp; ↑↓ tilt &nbsp;·&nbsp; drag to pan &nbsp;·&nbsp; Click a state
 </div>
 
-{{-- Dismissible "how to use" card — sits above the bottom-right hint text.
-     Hidden after first dismissal via localStorage so returning visitors
-     aren't nagged. --}}
-<div id="map-usage-card" role="note" aria-label="How to use this map">
-    <button id="map-usage-close" aria-label="Dismiss these instructions"
-            onclick="(function(){
-                document.getElementById('map-usage-card').style.display='none';
-                try{ localStorage.setItem('u9_map_usage_hint_dismissed','1'); }catch(e){}
-            })()">✕</button>
-    <h3>How to Explore</h3>
-    <ul>
-        <li>🖱 Click any state, then a district, to open its political profile.</li>
-        <li>🔍 Press <kbd>/</kbd> or tap the search icon to find a politician or district by name.</li>
-    </ul>
+{{-- One lightweight first-visit hint (replaces the auto-launching tour and the
+     "How to Explore" card). Shown once; the full tour lives under Help. --}}
+<div id="map-first-hint" role="status" aria-live="polite">
+    <span>Select a state to explore its districts.</span>
+    <button type="button" data-hint-close aria-label="Dismiss hint">✕</button>
 </div>
 <script>
-    try {
-        if (localStorage.getItem('u9_map_usage_hint_dismissed')) {
-            document.getElementById('map-usage-card').style.display = 'none';
-        }
-    } catch (e) {}
-
-    // Close the "how to use this map" popover on outside tap/click or Escape —
+    // Close the Help popover on outside tap/click or Escape —
     // it's opened via the #map-help-badge onclick handler above.
     document.addEventListener('click', function () {
         var pop = document.getElementById('map-help-popover');

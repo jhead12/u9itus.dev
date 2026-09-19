@@ -13,6 +13,7 @@ export let statePanelRequestId = 0;
 export let stateData = null;
 export let colorMode = 'region';     // 'region' | 'party' | 'poverty'
 export let showSmallCities = false;
+export let depthView = false;        // false = flat default, true = optional 3D extrusion
 
 /** hoveredMesh lives in navigation/mode-transitions.js (local variable exported from there). */
 /** hoveredDistrict lives in scene/district-overlay.js. */
@@ -26,6 +27,7 @@ export function nextRequestId()     { return ++statePanelRequestId; }
 export function setStateData(v)     { stateData = v; }
 export function setColorMode(v)     { colorMode = v; }
 export function setShowSmallCities(v){ showSmallCities = v; }
+export function setDepthViewState(v) { depthView = v; }
 
 /** Active data overlay layers (persisted in localStorage) */
 export const ACTIVE_LAYERS = new Set();

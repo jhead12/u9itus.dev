@@ -101,7 +101,7 @@ kbd {
     padding: 0 24px; height: 54px;
 }
 #top-bar a { color: #818cf8; font-weight: 700; font-size: 18px; text-decoration: none; }
-#top-bar .sep { color: #334155; font-size: 14px; margin: 0 14px; }
+#top-bar .sep { color: #64748b; font-size: 14px; margin: 0 14px; }
 #top-bar .title { color: #94a3b8; font-size: 14px; }
 
 /* "How to use the map" info badge — sits next to the title. Native
@@ -111,19 +111,19 @@ kbd {
    "map is clickable" per product ask so first-time visitors know to click
    a state. */
 #map-help-badge {
-    display: inline-flex; align-items: center; justify-content: center;
-    width: 13px; height: 13px; margin-left: 6px;
-    /* Flex align-items:center centers the *line box*, not the glyph's
-       optical center — bold text's line box has more room below the
-       baseline than above, which reads as the badge sitting too high
-       next to "Overview". Nudge down to correct for it. */
-    transform: translateY(1.5px);
-    border-radius: 50%; padding: 0; margin-top: 0; margin-bottom: 0;
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    height: 22px; margin-left: 8px; padding: 0 10px 0 4px;
+    border-radius: 999px;
     background: rgba(99,102,241,0.14);
     border: 1px solid rgba(99,102,241,0.45);
-    color: #a5b4fc; font-size: 8px; font-weight: 700; font-family: inherit; line-height: 1;
+    color: #c7d2fe; font-size: 11px; font-weight: 600; font-family: inherit; line-height: 1;
     cursor: pointer; flex-shrink: 0;
     transition: background .15s, border-color .15s, color .15s;
+}
+#map-help-badge .help-mark {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 15px; height: 15px; border-radius: 50%;
+    background: rgba(99,102,241,0.35); color: #e0e7ff; font-size: 10px; font-weight: 700;
 }
 #map-help-badge:hover,
 #map-help-badge:focus-visible,
@@ -144,6 +144,14 @@ kbd {
     color: #cbd5e1; font-size: 12px; line-height: 1.5;
     box-shadow: 0 12px 30px rgba(0,0,0,0.4);
 }
+#map-help-popover p { margin: 0 0 10px; }
+.help-actions { display: flex; flex-direction: column; gap: 6px; }
+.help-actions button {
+    text-align: left; background: rgba(99,102,241,0.14);
+    border: 1px solid rgba(99,102,241,0.35); color: #e0e7ff;
+    border-radius: 8px; padding: 7px 10px; font-size: 12px; font-weight: 600; cursor: pointer;
+}
+.help-actions button:hover { background: rgba(99,102,241,0.28); }
 #map-help-popover.open { display: block; }
 .top-btn {
     display: inline-flex; align-items: center; gap: 5px;
@@ -277,7 +285,7 @@ kbd {
     flex: 1; background: none; border: none; outline: none;
     font-size: 16px; color: #f1f5f9; caret-color: #6366f1;
 }
-#search-input::placeholder { color: #334155; }
+#search-input::placeholder { color: #7c8aa5; }
 #search-kbd {
     font-size: 10px; color: #334155; flex-shrink: 0;
     border: 1px solid #1e293b; border-radius: 4px;
@@ -333,9 +341,6 @@ kbd {
     border: 1px solid #1e293b; border-radius: 3px;
     padding: 1px 4px; font-family: monospace; font-size: 10px; color: #94a3b8;
 }
-/* Search trigger button */
-/* btn-search uses .top-btn base styles; only override the gap */
-#btn-search { gap: 6px; }
 
 /* Loading toaster for district boundary fetch */
 #dist-progress {
@@ -381,7 +386,19 @@ kbd {
     backdrop-filter: blur(12px);
     min-width: 180px;
 }
-#legend h3 { color: #a7b4c7; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 12px; }
+#legend h3 { color: #e2e8f0; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 10px; }
+#legend-mode {
+    display: flex; gap: 2px; padding: 2px; margin-bottom: 8px;
+    background: rgba(15,23,42,0.9); border: 1px solid rgba(148,163,184,0.35); border-radius: 8px;
+}
+#legend-mode[hidden], #legend-note[hidden] { display: none; }
+#legend-mode button {
+    flex: 1; padding: 5px 8px; border: 0; border-radius: 6px; background: transparent;
+    color: #cbd5e1; font: inherit; font-size: 11px; font-weight: 600; cursor: pointer; white-space: nowrap;
+}
+#legend-mode button:hover { background: rgba(99,102,241,0.18); }
+#legend-mode button.active { background: #6366f1; color: #fff; }
+#legend-note { margin: 0 0 10px; max-width: 210px; color: #cbd5e1; font-size: 11px; line-height: 1.4; }
 .legend-row {
     display: flex; align-items: center; margin-bottom: 9px;
     cursor: pointer; border-radius: 6px; padding: 3px 0;
@@ -527,7 +544,7 @@ kbd {
 
 .panel-divider { border: none; border-top: 1px solid rgba(99,102,241,0.12); margin: 16px 0; }
 .state-chip {
-    display: inline-block; padding: 3px 9px; border-radius: 999px;
+    display: inline-block; background: none; font-family: inherit; padding: 3px 9px; border-radius: 999px;
     font-size: 11px; margin: 3px 3px 3px 0;
     border: 1px solid rgba(99,102,241,0.2); color: #a7b4c7;
     cursor: pointer; transition: color 0.15s, border-color 0.15s, background 0.15s;
@@ -761,52 +778,18 @@ kbd {
 .candidate-links { display: flex; gap: 6px; margin-top: 5px; }
 .cand-link { font-size: 10px; padding: 2px 7px; border-radius: 4px; text-decoration: none; border: 1px solid rgba(99,102,241,0.25); color: #818cf8; background: rgba(99,102,241,0.08); }
 .cand-link:hover { background: rgba(99,102,241,0.22); }
-.panel-spinner { display: flex; align-items: center; justify-content: center; padding: 32px 0; color: #334155; font-size: 13px; gap: 10px; }
-.no-candidates { color: #334155; font-size: 12px; text-align: center; padding: 20px 0; }
+.panel-spinner { display: flex; align-items: center; justify-content: center; padding: 32px 0; color: #94a3b8; font-size: 13px; gap: 10px; }
+.no-candidates { color: #94a3b8; font-size: 12px; text-align: center; padding: 20px 0; }
 
 #hint {
     position: fixed; bottom: 28px; right: 24px; z-index: 50;
-    color: #334155; font-size: 11px; text-align: right; pointer-events: none;
+    color: #94a3b8; font-size: 12px; text-align: right; pointer-events: none;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.8);
 }
 /* #pol-drawer occupies the same bottom-right area (top:86px to bottom:12px) —
    once it's open with real content, the corner hint text is both redundant
    and visually overlaps/obscures the panel's last item. */
 body:has(#pol-drawer.open) #hint { display: none; }
-
-/* Bottom-right "how to use" card — dismissible, sits above the plain-text
-   #hint. Hidden while #pol-drawer is open (same corner, would overlap),
-   same treatment #hint already gets. */
-#map-usage-card {
-    position: fixed; bottom: 66px; right: 24px; z-index: 51;
-    max-width: 260px;
-    background: rgba(10, 14, 35, 0.92);
-    border: 1px solid rgba(99, 102, 241, 0.25);
-    border-radius: 14px; padding: 14px 16px;
-    backdrop-filter: blur(12px);
-}
-#map-usage-card h3 {
-    color: #a7b4c7; font-size: 10px; font-weight: 700;
-    text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 8px;
-}
-#map-usage-card ul { list-style: none; margin: 0; padding: 0; }
-#map-usage-card li {
-    color: #cbd5e1; font-size: 12px; line-height: 1.5;
-}
-#map-usage-card li + li { margin-top: 8px; }
-#map-usage-card kbd {
-    font-size: 10px; padding: 0 5px;
-    background: rgba(99,102,241,0.25); border: 1px solid rgba(99,102,241,0.45);
-    border-radius: 3px; color: #e0e7ff; font-weight: 700;
-}
-#map-usage-close {
-    position: absolute; top: 8px; right: 8px;
-    background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.2);
-    color: #94a3b8; font-size: 11px; cursor: pointer;
-    border-radius: 6px; padding: 2px 6px; line-height: 1.4;
-    transition: color 0.12s, background 0.12s;
-}
-#map-usage-close:hover { color: #e0e7ff; background: rgba(99,102,241,0.16); }
-body:has(#pol-drawer.open) #map-usage-card { display: none; }
 
 /* Map toast */
 .map-toast {
@@ -843,10 +826,10 @@ body:has(#pol-drawer.open) #map-usage-card { display: none; }
     display: flex; align-items: center; justify-content: space-between;
 }
 .bc-item { color: #94a3b8; font-size: 12px; }
-.bc-link { color: #6366f1; cursor: pointer; text-decoration: none; }
-.bc-link:hover { color: #818cf8; }
+.bc-link { color: #a5b4fc; cursor: pointer; text-decoration: none; }
+.bc-link:hover { color: #c7d2fe; }
 .bc-active { color: #e2e8f0; font-weight: 600; }
-.bc-sep { color: #1e293b; margin: 0 8px; font-size: 13px; }
+.bc-sep { color: #64748b; margin: 0 8px; font-size: 13px; }
 
 /* District tooltip */
 #district-tooltip {
@@ -864,7 +847,7 @@ body:has(#pol-drawer.open) #map-usage-card { display: none; }
     display: none;
     background: rgba(99,102,241,0.1);
     border: 1px solid rgba(99,102,241,0.3);
-    color: #6366f1; padding: 4px 12px;
+    color: #a5b4fc; padding: 4px 12px;
     border-radius: 6px; font-size: 12px; font-weight: 500;
     cursor: pointer; transition: background 0.15s;
 }
@@ -1104,7 +1087,9 @@ body:has(#pol-drawer.open) #map-usage-card { display: none; }
 * { scrollbar-width: thin; scrollbar-color: rgba(99,102,241,0.45) rgba(15,23,42,0.6); }
 
 /* Legend collapsed state (mobile toggle) */
-#legend.legend-collapsed #legend-items { display: none; }
+#legend.legend-collapsed #legend-items,
+#legend.legend-collapsed #legend-mode,
+#legend.legend-collapsed #legend-note { display: none; }
 #legend.legend-collapsed #legend-toggle-icon { display: inline; transform: rotate(-90deg); }
 #legend-toggle-icon { display: inline-block; transition: transform 0.2s; }
 
@@ -1117,6 +1102,7 @@ body:has(#pol-drawer.open) #map-usage-card { display: none; }
 ══════════════════════════════════════════ */
 @media (pointer: coarse) {
     .top-btn { min-height: 44px; padding-top: 0; padding-bottom: 0; }
+    .search-field { min-height: 44px; }
 }
 
 /* ══════════════════════════════════════════
@@ -1134,9 +1120,8 @@ body:has(#pol-drawer.open) #map-usage-card { display: none; }
     #top-bar .sep,
     #top-bar .title { display: none; }
     #btn-districts, #btn-rotate { display: none; }
-    #btn-find-district, #btn-layers, #btn-controls { display: none; }
+    #btn-layers, #btn-controls { display: none; }
     #mobile-menu-btn { display: flex; }
-    #btn-search { padding: 6px 10px; gap: 4px; font-size: 12px; }
     #btn-back { padding: 5px 10px; font-size: 12px; }
     #btn-signin-cta { padding: 5px 10px; font-size: 12px; }
     .earn-label-full { display: none; }
@@ -1237,7 +1222,9 @@ body:has(#pol-drawer.open) #map-usage-card { display: none; }
         min-width: 0;
         border-radius: 10px;
     }
-    #legend h3 { font-size: 9px; margin-bottom: 7px; }
+    #legend h3 { font-size: 10px; margin-bottom: 7px; }
+    #legend-mode button { padding: 4px 6px; font-size: 10px; }
+    #legend-note { font-size: 10px; max-width: 170px; margin-bottom: 7px; }
     .legend-name { font-size: 11px; }
     .legend-count { display: none; }
     .legend-row { margin-bottom: 5px; }
@@ -1245,7 +1232,6 @@ body:has(#pol-drawer.open) #map-usage-card { display: none; }
 
     /* Hide redundant hint; simplify progress toaster */
     #hint { display: none; }
-    #map-usage-card { max-width: 200px; right: 12px; bottom: 12px; padding: 10px 12px; }
     #dist-progress { bottom: auto; top: 82px; right: 10px; left: auto; transform: none; font-size: 11px; padding: 8px 14px; }
 
     /* Search overlay adjustments */
@@ -1255,6 +1241,9 @@ body:has(#pol-drawer.open) #map-usage-card { display: none; }
 /* ══════════════════════════════════════════
    PHONE (≤ 480 px)
 ══════════════════════════════════════════ */
+@media (max-width: 520px) {
+    #btn-find-district { display: none; }
+}
 @media (max-width: 480px) {
     #info-panel { max-height: 82vh; height: 38vh; }
     #cand-popup { max-height: 85vh; }
@@ -1637,4 +1626,159 @@ body:has(#pol-drawer.open) #map-usage-card { display: none; }
         top: 6px; right: 8px;
     }
     .pol-link { display: flex; align-items: center; justify-content: center; min-height: 44px; }
+}
+
+
+/* ══════════════════════════════════════════
+   Top bar: visible search + labeled Find my district
+══════════════════════════════════════════ */
+#top-search {
+    display: flex; align-items: center; gap: 8px;
+    flex: 1 1 auto; max-width: 620px; min-width: 0; margin: 0 20px;
+}
+.search-field {
+    flex: 1 1 auto; min-width: 0; height: 34px;
+    display: flex; align-items: center; gap: 8px; padding: 0 10px;
+    background: rgba(15,23,42,0.9);
+    border: 1px solid rgba(148,163,184,0.5); border-radius: 8px;
+    color: #cbd5e1; font: inherit; font-size: 13px; text-align: left; cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+}
+.search-field:hover, .search-field:focus-visible { border-color: #a5b4fc; background: rgba(30,41,82,0.9); outline: none; }
+.search-field svg { flex-shrink: 0; color: #a5b4fc; }
+.search-field-text { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.search-field-short { display: none; flex: 1 1 auto; }
+.search-field kbd {
+    flex-shrink: 0; font-family: monospace; font-size: 11px; padding: 0 6px;
+    color: #e0e7ff; background: rgba(99,102,241,0.25); border: 1px solid rgba(99,102,241,0.5); border-radius: 4px;
+}
+.top-btn-primary {
+    background: #6366f1; border-color: #818cf8; color: #fff; font-weight: 600; font-size: 13px;
+    height: 34px; flex-shrink: 0;
+}
+.top-btn-primary:hover { background: #818cf8; }
+
+/* ══════════════════════════════════════════
+   Breadcrumb bar: 3D toggle
+══════════════════════════════════════════ */
+.bar-toggle {
+    background: rgba(99,102,241,0.10); border: 1px solid rgba(99,102,241,0.40);
+    border-radius: 6px; padding: 3px 10px; font-size: 11px; font-weight: 600;
+    color: #c7d2fe; cursor: pointer; flex-shrink: 0;
+    transition: background .15s, border-color .15s, color .15s;
+}
+.bar-toggle:hover { background: rgba(99,102,241,0.22); border-color: rgba(99,102,241,0.65); color: #e0e7ff; }
+.bar-toggle.active { background: #6366f1; border-color: #818cf8; color: #fff; }
+
+/* ══════════════════════════════════════════
+   State abbreviations
+══════════════════════════════════════════ */
+.state-label {
+    position: absolute; pointer-events: none;
+    transform: translate(-50%, -50%);
+    display: none; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.04em; line-height: 1;
+    color: #fff;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.9), 0 0 4px rgba(0,0,0,0.7);
+}
+
+/* ══════════════════════════════════════════
+   Selected state: districts & representatives
+══════════════════════════════════════════ */
+.pd-section { margin-bottom: 14px; }
+.pd-title {
+    margin: 0 0 8px; font-size: 12px; font-weight: 700; letter-spacing: 0.06em;
+    text-transform: uppercase; color: var(--pd-accent, #a5b4fc);
+}
+.pd-label {
+    margin: 10px 0 6px; font-size: 10px; font-weight: 700; letter-spacing: 0.07em;
+    text-transform: uppercase; color: #94a3b8;
+}
+.pd-list { display: flex; flex-direction: column; gap: 2px; }
+.pd-list.pd-limited .dist-row:nth-child(n+9) { display: none; }
+.dist-row {
+    display: grid; grid-template-columns: 8px 46px 1fr auto; align-items: center; gap: 8px;
+    width: 100%; padding: 6px 8px; border: 1px solid transparent; border-radius: 8px;
+    background: rgba(15,23,42,0.55); color: #e2e8f0; font: inherit; font-size: 12px;
+    text-align: left; cursor: pointer;
+    transition: background 0.12s, border-color 0.12s;
+}
+.dist-row:hover { background: rgba(99,102,241,0.16); border-color: rgba(99,102,241,0.4); }
+.dist-row:focus-visible { outline: 2px solid #a5b4fc; outline-offset: 1px; }
+.dist-row.active { background: rgba(99,102,241,0.28); border-color: #818cf8; }
+.dist-dot { width: 8px; height: 8px; border-radius: 50%; }
+.dist-code { color: #cbd5e1; font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.dist-rep { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dist-rep-empty { color: #94a3b8; font-style: italic; }
+.dist-party { font-size: 11px; font-weight: 700; min-width: 10px; text-align: right; }
+.pd-more {
+    margin-top: 6px; width: 100%; padding: 6px 10px; border-radius: 8px; cursor: pointer;
+    background: transparent; border: 1px dashed rgba(148,163,184,0.5);
+    color: #cbd5e1; font: inherit; font-size: 12px; font-weight: 600;
+}
+.pd-more:hover { background: rgba(99,102,241,0.14); border-color: #a5b4fc; color: #fff; }
+
+/* Other states in the region: collapsed, last in the panel */
+#panel-states-wrap { margin-top: 14px; border-top: 1px solid rgba(99,102,241,0.15); padding-top: 10px; }
+#panel-states-wrap[hidden] { display: none; }
+#panel-states-summary {
+    cursor: pointer; color: #cbd5e1; font-size: 11px; font-weight: 700;
+    letter-spacing: 0.07em; text-transform: uppercase; user-select: none;
+}
+#panel-states-summary:hover { color: #fff; }
+#panel-states { margin-top: 8px; }
+
+/* ══════════════════════════════════════════
+   First-visit hint (replaces the auto-launched tour)
+══════════════════════════════════════════ */
+#map-first-hint {
+    /* Top-center under the bars: the cookie notice owns the bottom edge on a first visit. */
+    position: fixed; left: 50%; top: 100px; z-index: 55;
+    transform: translate(-50%, -8px); opacity: 0; pointer-events: none;
+    display: flex; align-items: center; gap: 12px;
+    max-width: min(440px, calc(100vw - 24px));
+    padding: 10px 12px 10px 16px;
+    background: rgba(10,14,35,0.96); border: 1px solid rgba(165,180,252,0.55);
+    border-radius: 999px; color: #e2e8f0; font-size: 13px;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+    transition: opacity 0.25s, transform 0.25s;
+}
+#map-first-hint.visible { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+#map-first-hint button {
+    flex-shrink: 0; background: rgba(99,102,241,0.2); border: 1px solid rgba(99,102,241,0.4);
+    color: #e0e7ff; border-radius: 50%; width: 24px; height: 24px; line-height: 1;
+    font-size: 11px; cursor: pointer;
+}
+#map-first-hint button:hover { background: rgba(99,102,241,0.4); }
+body:has(#pol-drawer.open) #map-first-hint { display: none; }
+
+
+/* ══════════════════════════════════════════
+   Phone / tablet overrides for the additions above.
+   Kept last so they win over the base rules that precede them.
+══════════════════════════════════════════ */
+@media (max-width: 768px) {
+    #top-search { margin: 0 8px; gap: 6px; }
+    .search-field { height: 44px; min-height: 44px; font-size: 13px; }
+    .search-field-text, .search-field kbd { display: none; }
+    .search-field-short { display: inline; }
+    .top-btn-primary { height: 44px; }
+
+    /* Touch users have no keyboard shortcuts; Help still links to them. */
+    #kb-hint-badge, .bc-extra { display: none; }
+    #breadcrumb { white-space: nowrap; }
+    #breadcrumb-bar > div:first-child { min-width: 0; }
+    #map-help-popover { left: 0; max-width: min(280px, calc(100vw - 24px)); }
+
+    /* Sits above the cookie notice (bottom edge on a first visit) and clear
+       of the top-left legend. */
+    #map-first-hint { top: auto; bottom: 150px; }
+}
+
+/* Desktop: the open info panel docks over the bottom-left corner where the
+   legend lives. The legend now holds the Regions / Party control switch, so
+   slide it clear of the panel (panel 300px + 12px margin + border + gap). */
+@media (min-width: 769px) {
+    #legend { transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+    body:has(#info-panel.open) #legend { left: 336px; }
 }

@@ -34,6 +34,25 @@ export function resetDistrictSelection() {
     }
 }
 
+/**
+ * Highlight one district (all of its polygons) and dim the selection state of
+ * the rest — the same visual a map click gives. Does not move the camera.
+ */
+export function selectDistrict(meshes) {
+    for (const d of districtMeshes) {
+        d.material.color.setHex(d.userData.originalColor);
+        d.material.opacity = 0.72;
+        d.position.z = 0.255;
+    }
+    for (const dm of meshes) {
+        const bright = new THREE.Color(dm.userData.partyHex || dm.userData.regionHex || '#6366f1')
+            .lerp(new THREE.Color(0xffffff), 0.55);
+        dm.material.color.setHex(bright.getHex());
+        dm.material.opacity = 1.0;
+        dm.position.z = 0.31;
+    }
+}
+
 export function flyToDistrictTopDown(mesh) {
     flyToMeshesTopDown([mesh], 2.6);
 }

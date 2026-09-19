@@ -10,6 +10,7 @@ import { trackEvent } from '../api/interaction.js';
 import { renderCityCard, wireCityCardClicks, fetchCitiesForState } from './city-demographics-card.js';
 import { renderRunningCandidatesSection } from './panel-running-candidates.js';
 import { closeBusinessesPanel } from './panel-businesses.js';
+import { renderDistrictsPanel } from './panel-districts.js';
 
 // Every office section now starts collapsed when a panel first opens — no
 // office defaults to expanded. Kept as a Set (rather than deleting the
@@ -477,17 +478,11 @@ export async function openStatePanel(stateName, regionName, region, districtCoun
     let html = renderElectionDatesBanner(data?.election_dates, color);
     html += DATA_BANNERS[apiStatus] ?? DATA_BANNERS.unreachable;
 
-    if (districtCount > 0) {
-        const expected = DISTRICT_COUNTS[stateName] || districtCount;
-        const popLine = (data?.population)
-            ? `<p style="color:#94a3b8;font-size:11px;margin:4px 0 0;">👥 State population: <strong style="color:#e2e8f0;">${data.population.formatted}</strong> <span style="opacity:.6">(${data.population.census_year} Census)</span></p>`
-            : '';
-        html += `<div style="background:${color}0f;border:1px solid ${color}33;border-radius:8px;padding:10px 12px;margin-bottom:14px;">
-            <p style="color:${color};font-size:12px;font-weight:600;margin:0 0 4px;">🗺 ${districtCount} of ${expected} Congressional Districts loaded</p>
-            <p style="color:#94a3b8;font-size:11px;margin:0 0 4px;">${DISTRICT_CONFIG.congress_label} district boundaries</p>
-            <p style="color:#94a3b8;font-size:11px;margin:0;">Click any district on the map to view its U.S. House candidates</p>
-            ${popLine}
-        </div>`;
+    // District boundaries and their representatives lead the panel (see
+    // panel-districts.js). Only flag the case where boundaries came back short.
+    const expectedDistricts = DISTRICT_COUNTS[stateName] || 0;
+    if (districtCount > 0 && districtCount < expectedDistricts) {
+        html += `<p style="color:#f59e0b;font-size:11px;margin:0 0 12px;">⚠ Only ${districtCount} of ${expectedDistricts} district boundaries loaded — click the state again to retry.</p>`;
     }
 
     html += `<div id="state-cities-econ"></div>`;
@@ -499,6 +494,9 @@ export async function openStatePanel(stateName, regionName, region, districtCoun
     html += renderCityOfficialsSection(data?.city_officials, color);
 
     candEl.innerHTML = html;
+
+    // Districts + senators now that the payload (and party data) has arrived.
+    renderDistrictsPanel(stateName, color, data);
 
     // Stats, topics, and ballot measures all live outside #panel-candidates
     // so they stay visible whether "Statewide Executive Offices" is

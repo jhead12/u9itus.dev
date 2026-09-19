@@ -25,7 +25,8 @@ export async function openRegionPanel(regionName, region) {
     const badge = document.getElementById('panel-badge');
     badge.textContent = `${(region?.states || []).length} states`;
     badge.style.cssText = `display:inline-block;padding:3px 12px;border-radius:999px;font-size:11px;font-weight:600;background:${color}22;color:${color};border:1px solid ${color}55;`;
-    document.getElementById('panel-states').innerHTML = '';
+    const siblings = document.getElementById('panel-states-wrap');
+    if (siblings) siblings.hidden = true;
 
     // #panel-candidates sits under a collapsible "Statewide Executive Offices"
     // toggle that remembers the user's state-mode collapse preference — that

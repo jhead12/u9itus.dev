@@ -25,7 +25,7 @@ export const TOUR_STEPS = [
     {
         target: null, pos: 'center',
         title: '🗺 Welcome to U9itus',
-        body: `Explore U.S. political representation — governors, attorneys general, representatives, and more — all on an interactive 3D map.<br><br>This quick tour covers the key controls. You can skip at any time.`,
+        body: `Explore U.S. political representation — governors, attorneys general, representatives, and more — all on an interactive map.<br><br>This quick tour covers the key controls, including the optional 3D view. You can skip at any time.`,
         media: _mediaFor('welcome',
             `The U9itus U.S. map is totally interactive. It allows you immediate access to political representatives in all states by simply pointing your mouse on the desired state to review, by clicking on this state. The state will separate away from all other states and will show area divisions populating into districts, and names of political representatives serving in these districts. Find the representatives serving any area in the United States. Click on their names and find out all about them. You can check what they stand for from various reliable resources. You can also find out who is bankrolling their campaigns — right here at U9itus. In upcoming seasons, this information will be vital in your making an intelligent choice when you go to the polls.`
         ),

@@ -14,6 +14,23 @@ const TOPO_URL     = 'https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json';
 
 export const stateMeshes = [];
 
+/* State outlines. The flat default uses a light hairline so borders stay
+ * visible on the dark background; the optional 3D view keeps the dark outline
+ * that reads against the extruded side walls. */
+const BORDER_FLAT = { color: 0xcbd5e1, opacity: 0.55 };
+const BORDER_3D   = { color: 0x090d1f, opacity: 0.85 };
+const stateBorderMaterials = [];
+let _borderDepth = false;
+
+export function setStateBorderStyle(depth) {
+    _borderDepth = depth;
+    const style = depth ? BORDER_3D : BORDER_FLAT;
+    for (const mat of stateBorderMaterials) {
+        mat.color.setHex(style.color);
+        mat.opacity = style.opacity;
+    }
+}
+
 export function buildState(feature) {
     const name       = feature.properties.name;
     const regionName = stateToRegion[name];
@@ -36,12 +53,12 @@ export function buildState(feature) {
         group.add(mesh);
         stateMeshes.push(mesh);
 
-        // Dark border outline (EdgesGeometry includes the extruded side walls + top rim)
+        // Border outline (EdgesGeometry includes the extruded side walls + top rim)
         const eg = new THREE.EdgesGeometry(geo, 2);
-        group.add(new THREE.LineSegments(
-            eg,
-            new THREE.LineBasicMaterial({ color: 0x090d1f, transparent: true, opacity: 0.85 }),
-        ));
+        const style = _borderDepth ? BORDER_3D : BORDER_FLAT;
+        const borderMat = new THREE.LineBasicMaterial({ color: style.color, transparent: true, opacity: style.opacity });
+        stateBorderMaterials.push(borderMat);
+        group.add(new THREE.LineSegments(eg, borderMat));
     }
 
     return group;

@@ -112,7 +112,11 @@ export async function openDistrictPanel(districtNum, districtLabel, stateName, r
     const badge = document.getElementById('panel-badge');
     badge.textContent = `${partyLabel} · 119th Congress`;
     badge.style.cssText = `display:inline-block;padding:3px 12px;border-radius:999px;font-size:11px;font-weight:600;background:${color}22;color:${color};border:1px solid ${color}55;`;
-    document.getElementById('panel-states').innerHTML = '';
+    for (const row of document.querySelectorAll('#panel-districts .dist-row')) {
+        const on = row.dataset.district === String(districtNum);
+        row.classList.toggle('active', on);
+        if (on) row.setAttribute('aria-current', 'true'); else row.removeAttribute('aria-current');
+    }
     openInfoPanel();
 
     const candEl = document.getElementById('panel-candidates');

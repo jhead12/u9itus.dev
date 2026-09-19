@@ -5,7 +5,7 @@
  */
 import * as THREE from 'three';
 import {
-    mapMode, activeRegion, activeState, selectedState, stateData, statePanelRequestId, colorMode, ACTIVE_LAYERS, DISTRICT_CONFIG,
+    mapMode, activeRegion, activeState, selectedState, stateData, statePanelRequestId, colorMode, govPartyByAbbr, ACTIVE_LAYERS, DISTRICT_CONFIG,
     setMapMode, setActiveRegion, setActiveState, setSelectedState, nextRequestId, setStateData, setColorMode,
 } from '../state/map-state.js';
 import { stateMeshes } from '../scene/state-meshes.js';
@@ -15,7 +15,10 @@ import { REGIONS, STATE_ABBR_MAP, PARTY_HEX, PARTY_LABEL, DISTRICT_COUNTS } from
 import { clearDistricts, buildDistrictOverlay, resetDistrictSelection, districtMeshes, hoveredDistrict, setHoveredDistrict } from '../scene/district-overlay.js';
 import { openStatePanel, partyClass, initOfficesToggle } from '../ui/panel-state.js';
 import { openDistrictPanel } from '../ui/panel-district.js';
-import { showRegionLegend, showPartyLegend } from '../ui/legend.js';
+import { showPartyLegend } from '../ui/legend.js';
+import { applyOverviewColorMode, baseColorHex, refreshOverviewLegend } from '../api/governor-parties.js';
+import { overviewCameraPosition } from '../scene/view-mode.js';
+import { renderDistrictsPanel, clearDistrictsPanel } from '../ui/panel-districts.js';
 import { loadCityBoundaries } from '../ui/markers.js';
 import { buildActiveOverlays, clearAllOverlays } from '../scene/overlay-stack.js';
 import { closePolDrawer } from '../ui/politician-drawer.js';
@@ -37,14 +40,42 @@ export function lighten(hex, amt = 55) {
 
 function dimExcept(regionName) {
     for (const m of stateMeshes) {
-        m.material.color.setHex(m.userData.regionName !== regionName ? 0x1a2240 : lighten(m.userData.originalColor, 30));
+        m.material.color.setHex(m.userData.regionName !== regionName ? 0x1a2240 : lighten(baseColorHex(m), 30));
     }
 }
 
 function clearDim() {
     for (const m of stateMeshes) {
-        if (m !== hoveredMesh && m.userData.name !== selectedState) m.material.color.setHex(m.userData.originalColor);
+        if (m !== hoveredMesh && m.userData.name !== selectedState) m.material.color.setHex(baseColorHex(m));
     }
+}
+
+/**
+ * "Other states in this region" — a collapsed list at the bottom of the panel,
+ * so the selected state's districts and representatives lead instead.
+ */
+function renderSiblingStates(stateName, regionName, region) {
+    const wrap = document.getElementById('panel-states-wrap');
+    const statesEl = document.getElementById('panel-states');
+    if (!wrap || !statesEl) return;
+    statesEl.innerHTML = '';
+    document.getElementById('panel-states-summary').textContent = `Other ${regionName || ''} states`.replace('  ', ' ');
+    for (const s of (region?.states || [])) {
+        if (s === stateName) continue;
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'state-chip';
+        chip.textContent = s;
+        chip.title = `Switch to ${s}`;
+        chip.addEventListener('click', () => {
+            closePopup();
+            const mesh = stateMeshes.find(m => m.userData.name === s);
+            if (mesh) enterStateMode(s, mesh.userData.regionName, mesh.userData.region);
+        });
+        statesEl.appendChild(chip);
+    }
+    wrap.open = false;
+    wrap.hidden = !statesEl.children.length;
 }
 
 /* ── Mode transitions ── */
@@ -61,11 +92,11 @@ export function enterOverviewMode() {
     for (const m of stateMeshes) {
         m.material.transparent = false;
         m.material.opacity = 1.0;
-        m.material.color.setHex(m.userData.originalColor);
         m.parent.position.z = 0;
     }
-    showRegionLegend();
-    flyTo(new THREE.Vector3(0, 5.4, 10.2), new THREE.Vector3(0, 0, 0));
+    applyOverviewColorMode();
+    refreshOverviewLegend();
+    flyTo(overviewCameraPosition(), new THREE.Vector3(0, 0, 0));
     updateBreadcrumb();
     _syncNatDistVisibility();
     const overviewBallotEl = document.getElementById('panel-ballot-measures');
@@ -74,6 +105,7 @@ export function enterOverviewMode() {
     if (overviewStatsEl) overviewStatsEl.innerHTML = '';
     const overviewTopicsEl = document.getElementById('panel-topics');
     if (overviewTopicsEl) overviewTopicsEl.innerHTML = '';
+    clearDistrictsPanel();
 }
 
 export function enterRegionMode(regionName, region) {
@@ -87,6 +119,7 @@ export function enterRegionMode(regionName, region) {
     if (regionStatsEl) regionStatsEl.innerHTML = '';
     const regionTopicsEl = document.getElementById('panel-topics');
     if (regionTopicsEl) regionTopicsEl.innerHTML = '';
+    clearDistrictsPanel();
     openRegionPanel(regionName, region);
     resizeRenderer();
     document.getElementById('btn-back').style.display = '';
@@ -97,7 +130,7 @@ export function enterRegionMode(regionName, region) {
         m.parent.position.z = 0;
     }
     dimExcept(regionName);
-    showRegionLegend();
+    refreshOverviewLegend();
     const rMeshes = stateMeshes.filter(m => m.userData.regionName === regionName);
     flyToMeshes(rMeshes, 1.35);
     updateBreadcrumb();
@@ -126,6 +159,7 @@ export async function enterStateMode(stateName, regionName, region) {
     _syncNatDistVisibility();
     document.getElementById('btn-back').style.display = '';
     document.getElementById('hint').innerHTML = 'Click a congressional district to see candidates';
+    document.dispatchEvent(new CustomEvent('u9:state-selected', { detail: { state: stateName } }));
     trackEvent('state_click', { state: stateName, state_abbr: STATE_ABBR_MAP[stateName] || null, region: regionName });
 
     for (const m of stateMeshes) {
@@ -148,7 +182,7 @@ export async function enterStateMode(stateName, regionName, region) {
     document.getElementById('panel-candidates').innerHTML = `<div class="panel-spinner">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="animation:spin 1s linear infinite;color:${region?.hex || '#6366f1'};">
             <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-dasharray="31.4" stroke-dashoffset="10" stroke-linecap="round"/>
-        </svg>&nbsp;Loading districts…</div>`;
+        </svg>&nbsp;Loading offices…</div>`;
     const stateBallotEl = document.getElementById('panel-ballot-measures');
     if (stateBallotEl) stateBallotEl.innerHTML = '';
     const stateStatsEl = document.getElementById('panel-stats');
@@ -164,22 +198,10 @@ export async function enterStateMode(stateName, regionName, region) {
     badge.title = `Back to ${regionName} region`;
     badge.onclick = () => enterRegionMode(regionName, REGIONS[regionName]);
 
-    const statesEl = document.getElementById('panel-states');
-    statesEl.innerHTML = '';
-    for (const s of (region?.states || [])) {
-        const chip = document.createElement('span');
-        chip.className = 'state-chip' + (s === stateName ? ' active' : '');
-        chip.textContent = s;
-        chip.title = s === stateName ? 'Currently viewing' : `Switch to ${s}`;
-        if (s !== stateName) {
-            chip.addEventListener('click', () => {
-                closePopup();
-                const mesh = stateMeshes.find(m => m.userData.name === s);
-                if (mesh) enterStateMode(s, mesh.userData.regionName, mesh.userData.region);
-            });
-        }
-        statesEl.appendChild(chip);
-    }
+    renderSiblingStates(stateName, regionName, region);
+    // Districts render right away from static counts; representatives fill in
+    // once the state payload arrives (openStatePanel re-renders with it).
+    renderDistrictsPanel(stateName, region?.hex || '#6366f1', null);
 
     let distCount = 0;
     try {
@@ -320,8 +342,7 @@ export function initHoverClick() {
         }
 
         if (hoveredMesh && hoveredMesh.userData.name !== selectedState) {
-            if (!ACTIVE_LAYERS.has('party'))
-                hoveredMesh.material.color.setHex(hoveredMesh.userData.originalColor);
+            hoveredMesh.material.color.setHex(baseColorHex(hoveredMesh));
             hoveredMesh.parent.position.z = 0;
         }
         const sHits = raycaster.intersectObjects(stateMeshes);
@@ -330,22 +351,23 @@ export function initHoverClick() {
             const outsideRegion = mapMode === 'region' && activeRegion && m.userData.regionName !== activeRegion;
             if (outsideRegion) {
                 if (hoveredMesh && hoveredMesh.userData.name !== selectedState) {
-                    if (!ACTIVE_LAYERS.has('party'))
-                        hoveredMesh.material.color.setHex(hoveredMesh.userData.originalColor);
+                    hoveredMesh.material.color.setHex(baseColorHex(hoveredMesh));
                     hoveredMesh.parent.position.z = 0;
                 }
                 hoveredMesh = null; tooltip.style.display = 'none';
                 renderer.domElement.style.cursor = 'not-allowed';
             } else {
                 hoveredMesh = m;
-                if (m.userData.name !== selectedState && !ACTIVE_LAYERS.has('party'))
-                    m.material.color.setHex(lighten(m.userData.originalColor, 50));
+                if (m.userData.name !== selectedState)
+                    m.material.color.setHex(lighten(baseColorHex(m), 50));
                 m.parent.position.z = 0.04;
                 tooltip.style.display = 'block';
                 tooltip.style.left = (e.clientX + 16) + 'px';
                 tooltip.style.top = (e.clientY - 14) + 'px';
+                const govParty = colorMode === 'party' ? (govPartyByAbbr[STATE_ABBR_MAP[m.userData.name]] || 'U') : null;
                 tooltip.innerHTML = `<strong style="color:#e2e8f0;display:block;margin-bottom:3px">${m.userData.name}</strong>
-                    <span style="color:${m.userData.region?.hex || '#888'};font-size:12px">● ${m.userData.regionName || ''} Region</span>`;
+                    <span style="color:${m.userData.region?.hex || '#888'};font-size:12px">● ${m.userData.regionName || ''} Region</span>`
+                    + (govParty ? `<br><span style="color:${PARTY_HEX[govParty]};font-size:12px">● Governor: ${PARTY_LABEL[govParty]}</span>` : '');
                 renderer.domElement.style.cursor = 'pointer';
             }
         } else {
@@ -356,8 +378,7 @@ export function initHoverClick() {
 
     renderer.domElement.addEventListener('mouseleave', () => {
         if (hoveredMesh && hoveredMesh.userData.name !== selectedState) {
-            if (!ACTIVE_LAYERS.has('party'))
-                hoveredMesh.material.color.setHex(hoveredMesh.userData.originalColor);
+            hoveredMesh.material.color.setHex(baseColorHex(hoveredMesh));
             hoveredMesh.parent.position.z = 0;
         }
         hoveredMesh = null; tooltip.style.display = 'none'; districtTip.style.display = 'none';

@@ -6,10 +6,10 @@
  */
 import * as THREE from 'three';
 import { STATE_ABBR_MAP, PARTY_HEX, PARTY_INT } from '../config/constants.js';
-import { govPartyByAbbr, povertyRateByAbbr, colorMode, mapMode, setColorMode } from '../state/map-state.js';
+import { govPartyByAbbr, povertyRateByAbbr, colorMode, mapMode, activeRegion, setColorMode } from '../state/map-state.js';
 import { stateMeshes } from '../scene/state-meshes.js';
 import { syncLayerChip } from '../state/layer-directory.js';
-import { showRegionLegend, showGradientLegend } from '../ui/legend.js';
+import { showRegionLegend, showGradientLegend, showGovernorPartyLegend, syncLegendModeSwitch } from '../ui/legend.js';
 
 const STATE_OVERLAYS_KEY = 'u9_map_state_overlays_cache';
 const STATE_OVERLAYS_TTL = 24 * 60 * 60 * 1000; // 24h
@@ -83,38 +83,48 @@ function povertyColorFor(rate, min, range) {
 }
 
 /**
- * Recolor stateMeshes for the active colorMode ('region' | 'party' | 'poverty').
- * Reverts via each mesh's own immutable userData.originalColor (region color,
- * set once at build time in scene/state-meshes.js) — this function must never
- * write back to originalColor, or a later revert-to-region would use a
- * corrupted value instead of the mesh's true base color.
+ * Resolve the fill color a state mesh should have for the active colorMode
+ * ('region' | 'party' | 'poverty'). Region colors come from each mesh's own
+ * immutable userData.originalColor (set once at build time in
+ * scene/state-meshes.js) — nothing here may write back to it, or a later
+ * revert-to-region would use a corrupted value instead of the true base color.
+ * @returns {(mesh) => number} hex color resolver
  */
-export function applyOverviewColorMode() {
-    let min = 0, range = 0;
+function baseColorResolver() {
+    if (colorMode === 'party') {
+        return (m) => PARTY_INT[govPartyByAbbr[STATE_ABBR_MAP[m.userData.name]] || 'U'];
+    }
     if (colorMode === 'poverty') {
         const vals = Object.values(povertyRateByAbbr).filter((v) => typeof v === 'number');
-        if (vals.length) {
-            min = Math.min(...vals);
-            range = Math.max(...vals) - min || 1;
-        }
+        const min = vals.length ? Math.min(...vals) : 0;
+        const range = vals.length ? (Math.max(...vals) - min || 1) : 0;
+        return (m) => {
+            const rate = povertyRateByAbbr[STATE_ABBR_MAP[m.userData.name]];
+            return rate == null ? m.userData.originalColor : povertyColorFor(rate, min, range).getHex();
+        };
     }
+    return (m) => m.userData.originalColor;
+}
 
+/** Fill color for one state mesh under the active colorMode. */
+export function baseColorHex(mesh) {
+    return baseColorResolver()(mesh);
+}
+
+const DIMMED_STATE = 0x1a2240;
+
+/**
+ * Recolor stateMeshes for the active colorMode. In region view, states
+ * outside the active region stay dimmed so the focus survives a mode switch.
+ */
+export function applyOverviewColorMode() {
+    // Inside a state the other states are deliberately dimmed; the chosen mode
+    // is repainted when the visitor returns to the overview or a region.
+    if (mapMode === 'state') return;
+    const colorFor = baseColorResolver();
     for (const m of stateMeshes) {
-        if (colorMode === 'party') {
-            const abbr = STATE_ABBR_MAP[m.userData.name];
-            const party = govPartyByAbbr[abbr] || 'U';
-            m.material.color.setHex(PARTY_INT[party]);
-        } else if (colorMode === 'poverty') {
-            const abbr = STATE_ABBR_MAP[m.userData.name];
-            const rate = povertyRateByAbbr[abbr];
-            if (rate == null) {
-                m.material.color.setHex(m.userData.originalColor);
-            } else {
-                m.material.color.copy(povertyColorFor(rate, min, range));
-            }
-        } else {
-            m.material.color.setHex(m.userData.originalColor);
-        }
+        const outside = mapMode === 'region' && activeRegion && m.userData.regionName !== activeRegion;
+        m.material.color.setHex(outside ? DIMMED_STATE : colorFor(m));
     }
 }
 
@@ -125,23 +135,40 @@ export function getPovertyRange() {
     return { min: Math.min(...vals), max: Math.max(...vals), lowHex: '#0f2040', highHex: '#06b6d4' };
 }
 
-function refreshOverviewLegend(mode) {
-    if (mapMode !== 'overview') return; // don't clobber the state-view district legend
+/** States per governor party, counted once per state (not per mesh polygon). */
+function governorPartyCounts() {
+    const counts = {};
+    const seen = new Set();
+    for (const m of stateMeshes) {
+        const name = m.userData.name;
+        if (seen.has(name)) continue;
+        seen.add(name);
+        const party = govPartyByAbbr[STATE_ABBR_MAP[name]] || 'U';
+        counts[party] = (counts[party] || 0) + 1;
+    }
+    return counts;
+}
+
+/**
+ * Show the legend matching the active colorMode. Inside a state the
+ * district party legend owns the panel, so this leaves it alone.
+ */
+export function refreshOverviewLegend(mode = colorMode) {
+    if (mapMode === 'state') return;
     if (mode === 'poverty') {
         const range = getPovertyRange();
         showGradientLegend({
-            title: 'Poverty Rate',
+            title: 'Poverty rate',
+            note: 'Colors show each state’s poverty rate (Census ACS).',
             lowHex: range?.lowHex || '#0f2040',
             highHex: range?.highHex || '#06b6d4',
             minLabel: range ? `${range.min.toFixed(1)}%` : 'Low',
             maxLabel: range ? `${range.max.toFixed(1)}%` : 'High',
         });
+    } else if (mode === 'party') {
+        showGovernorPartyLegend(governorPartyCounts());
     } else {
-        // 'region' and 'party' both fall back to the region legend — there's
-        // no per-governor-party overview legend today (showPartyLegend()
-        // needs a district-composition breakdown only computed inside a
-        // drilled-into state), and this also clears a stale gradient legend
-        // left over from switching away from poverty mode.
+        // Also clears a stale gradient legend left over from poverty mode.
         showRegionLegend();
     }
 }
@@ -159,6 +186,7 @@ export function setOverviewColorMode(mode) {
     syncLayerChip('party', mode === 'party');
     syncLayerChip('poverty', mode === 'poverty');
     document.getElementById('cm-btn-party-colors')?.classList.toggle('active', mode === 'party');
+    syncLegendModeSwitch();
 
     const finish = () => {
         applyOverviewColorMode();

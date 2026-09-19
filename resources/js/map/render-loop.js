@@ -3,10 +3,12 @@
  */
 import { renderer, scene, camera, controls } from './scene/setup.js';
 import { updateOverlays } from './scene/overlay-stack.js';
+import { updateStateLabels } from './ui/state-labels.js';
 
 export function animate() {
     requestAnimationFrame(animate);
     controls.update();
     renderer.render(scene, camera);
     updateOverlays();
+    updateStateLabels();
 }

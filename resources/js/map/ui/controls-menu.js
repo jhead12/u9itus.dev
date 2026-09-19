@@ -4,6 +4,7 @@
 import { toggleNationalBoundaries } from '../scene/national-boundaries.js';
 import { setOverviewColorMode } from '../api/governor-parties.js';
 import { colorMode, ACTIVE_LAYERS, showSmallCities, setShowSmallCities } from '../state/map-state.js';
+import { toggleDepthView } from './depth-toggle.js';
 import { stepZoom } from './keyboard.js';
 import { findMyDistrict } from './location-button.js';
 import { enterOverviewMode } from '../navigation/mode-transitions.js';
@@ -76,6 +77,10 @@ export function initControlsMenu() {
         setOverviewColorMode(colorMode === 'party' ? 'region' : 'party');
     });
 
+    for (const btn of document.querySelectorAll('[data-view-toggle]')) {
+        btn.addEventListener('click', () => toggleDepthView());
+    }
+
     document.getElementById('cm-btn-small-cities')?.addEventListener('click', () => {
         setShowSmallCities(!showSmallCities);
         document.getElementById('cm-btn-small-cities').classList.toggle('active', showSmallCities);
@@ -94,6 +99,12 @@ export function initControlsMenu() {
         openControlsMenu(false);
         setTimeout(() => window.startTutorial?.(true), 150);
     });
+
+    // Help popover (breadcrumb bar): full tour + keyboard shortcuts
+    document.getElementById('help-btn-tour')?.addEventListener('click', () => {
+        setTimeout(() => window.startTutorial?.(true), 150);
+    });
+    document.getElementById('help-btn-shortcuts')?.addEventListener('click', () => toggleKbHelp(true));
 
     document.getElementById('cm-btn-zoomin')?.addEventListener('click',  () => stepZoom(0.8));
     document.getElementById('cm-btn-zoomout')?.addEventListener('click', () => stepZoom(1.25));

@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { camera, controls, W, H } from './setup.js';
 import { project } from './projection.js';
+import { regionTilt } from './view-mode.js';
 
 function flyTo(endPos, endLook, duration = 950) {
     const startPos  = camera.position.clone();
@@ -21,7 +22,7 @@ function flyTo(endPos, endLook, duration = 950) {
     requestAnimationFrame(tick);
 }
 
-/* Angled 3D fly-to — used for region zoom (looks dramatic) */
+/* Angled fly-to — used for region zoom. Nearly top-down in the flat default, more tilted in 3D. */
 export function flyToMeshes(meshList, padFactor = 1.5) {
     if (!meshList.length) return;
     const box = new THREE.Box3();
@@ -32,7 +33,8 @@ export function flyToMeshes(meshList, padFactor = 1.5) {
     const halfH  = Math.max(size.x / (W() / H()), size.y) / 2;
     let dist = (halfH / Math.tan(fov / 2)) * padFactor;
     dist = Math.max(dist, 2.5);
-    const endPos  = new THREE.Vector3(center.x, center.y + dist * 0.35, center.z + dist * 0.93);
+    const [tiltY, tiltZ] = regionTilt();
+    const endPos  = new THREE.Vector3(center.x, center.y + dist * tiltY, center.z + dist * tiltZ);
     const endLook = new THREE.Vector3(center.x, center.y, 0);
     flyTo(endPos, endLook);
 }
