@@ -3,6 +3,8 @@
 namespace App\Console\Commands;
 
 use App\Models\Politician;
+use App\Services\CandidateWebsitePhotoFinder;
+use App\Support\MapCandidateHygiene;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -11,10 +13,13 @@ use Illuminate\Support\Facades\Log;
  * Backfill profile_photo_url for politicians who are missing a photo.
  *
  * Uses the Wikipedia pageimages API — free, no key required — to fetch a
- * thumbnail for each politician by name.  The Wikipedia page must exist and
- * have an associated image; politicians with no Wikipedia presence are skipped
- * and their photo slot remains empty until a future enrichment run or manual
- * upload fills it in.
+ * thumbnail for each politician by name.  When there is no Wikipedia photo and
+ * the profile has a website_url, the candidate's own site is checked for its
+ * social-share image (og:image); politicians with neither stay empty until a
+ * future enrichment run or manual upload fills them in.
+ *
+ * Profiles that are inactive, or whose name is headline text rather than a person
+ * ("Election results"), are skipped — there is no face to find for them.
  *
  * Only unclaimed (user_id IS NULL) politicians are touched by default; pass
  * --include-claimed to also update profiles owned by a registered user.
@@ -32,9 +37,10 @@ class BackfillPoliticianPhotos extends Command
         {--limit=1000         : Maximum number of politicians to process per run}
         {--overwrite          : Re-fetch even if profile_photo_url is already set}
         {--include-claimed    : Also update politicians who have claimed their profile (user_id IS NOT NULL)}
+        {--skip-website       : Do not fall back to the candidate website}
         {--dry-run            : Report found URLs only — no DB writes}';
 
-    protected $description = 'Backfill profile_photo_url from the Wikipedia pageimages API for politicians missing a photo.';
+    protected $description = 'Backfill profile_photo_url from Wikipedia (then the candidate\'s own website) for politicians missing a photo.';
 
     private const DELAY_MS  = 350;
     private const USER_AGENT = 'U9itus-civic-enrichment/1.0 (+https://u9itus.dev/about)';
@@ -51,7 +57,11 @@ class BackfillPoliticianPhotos extends Command
             $this->line('<fg=yellow>[dry-run] No database writes will occur.</>');
         }
 
-        $politicians = Politician::query()
+        $skipWebsite     = (bool) $this->option('skip-website');
+        $websiteFinder   = new CandidateWebsitePhotoFinder;
+
+        $query = Politician::query()
+            ->where('is_active', true)
             ->whereNotNull('full_name')
             ->where('full_name', '!=', '')
             // By default skip claimed profiles so we never overwrite a politician's own photo
@@ -61,23 +71,39 @@ class BackfillPoliticianPhotos extends Command
                 $q->whereNull('profile_photo_url')
                   ->orWhere('profile_photo_url', '');
             }))
-            ->when($stateFilter, fn ($q) => $q->whereRaw("UPPER(COALESCE(state, '')) = ?", [$stateFilter]))
-            ->orderBy('id')
-            ->limit($limit)
-            ->get();
+            ->when($stateFilter, fn ($q) => $q->whereRaw("UPPER(COALESCE(state, '')) = ?", [$stateFilter]));
 
-        $total   = $politicians->count();
+        $this->line("Scanning up to {$limit} politician(s) for missing photos...\n");
+
+        $scanned = 0;
         $found   = 0;
         $missing = 0;
+        $junk    = 0;
 
-        $this->line("Scanning {$total} politician(s) for missing photos...\n");
+        foreach ($query->lazyById(200) as $pol) {
+            if ($scanned >= $limit) {
+                break;
+            }
 
-        foreach ($politicians as $pol) {
+            // Scraped page text ("Election results") has no face to find; don't spend requests on it.
+            if (MapCandidateHygiene::nameProblem($pol->full_name) !== null) {
+                $junk++;
+                continue;
+            }
+
+            $scanned++;
+
+            $source   = 'Wikipedia';
             $photoUrl = $this->fetchWikipediaPhoto(
                 (string) $pol->full_name,
                 (string) ($pol->state ?? ''),
                 (string) ($pol->political_office ?? '')
             );
+
+            if (! $photoUrl && ! $skipWebsite && filled($pol->website_url)) {
+                $source   = 'candidate website';
+                $photoUrl = $websiteFinder->find($pol->website_url);
+            }
 
             if ($photoUrl) {
                 // TEXT columns support long URLs; guard against anything pathological
@@ -88,7 +114,7 @@ class BackfillPoliticianPhotos extends Command
                     continue;
                 }
 
-                $this->line("  <fg=cyan>✓</> {$pol->full_name}");
+                $this->line("  <fg=cyan>✓</> {$pol->full_name} <fg=gray>({$source})</>");
                 $this->line("      → {$photoUrl}");
 
                 if (! $dryRun) {
@@ -97,7 +123,7 @@ class BackfillPoliticianPhotos extends Command
 
                 $found++;
             } else {
-                $this->line("  <fg=gray>–</> {$pol->full_name}: no Wikipedia photo");
+                $this->line("  <fg=gray>–</> {$pol->full_name}: no photo found");
                 $missing++;
             }
 
@@ -105,7 +131,7 @@ class BackfillPoliticianPhotos extends Command
         }
 
         $this->newLine();
-        $this->info("Done: {$found} photo(s) backfilled, {$missing} politician(s) with no match.");
+        $this->info("Done: {$found} photo(s) backfilled, {$missing} politician(s) with no match, {$junk} junk-named profile(s) skipped.");
 
         return self::SUCCESS;
     }

@@ -134,6 +134,18 @@ class MapCandidateHygiene
             return 'placeholder word in name';
         }
 
+        if (str_contains($name, '?')) {
+            return 'a question from a web page, not a name';
+        }
+
+        // "SeGqNJTiYizIbfRrOcCvX": random-case garbage. Real names cap out at one or two
+        // internal capitals (McDonald, DeShawn, LaTonya).
+        foreach (preg_split('/[\s-]+/u', $name) ?: [] as $token) {
+            if (preg_match_all('/\p{Ll}\p{Lu}/u', $token) >= 3) {
+                return 'random-case text, not a name';
+            }
+        }
+
         if (preg_match('/[\'’]s(\s|$)/u', $name) || preg_match('/^send us\b/i', $name)) {
             return 'scraped page text, not a name';
         }
