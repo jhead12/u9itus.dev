@@ -166,7 +166,7 @@ test('a stale row from an older detector is replaced, not left beside the correc
     $rows = PoliticianEndorsement::where('politician_id', $hilton->id)->get();
     expect($rows)->toHaveCount(1);
     expect($rows->first()->group_key)->toBe('president');
-    expect($rows->first()->endorser_name)->toBe('Trump');
+    expect($rows->first()->endorser_name)->toBe('Donald Trump');
 });
 
 test('rebuilding keeps rows an admin already dismissed', function () {
