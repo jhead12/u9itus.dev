@@ -88,7 +88,7 @@ class EnrichCommitteeProfiles extends Command
 
         $query = Committee::query()
             ->when($single, fn ($q) => $q->where('fec_committee_id', $single))
-            ->when(! $single, function ($q) use ($staleHours, $force) {
+            ->when(! $single, function ($q) use ($staleHours, $force, $limit) {
                 $q->where(function ($sub) use ($staleHours, $force) {
                     $sub->whereDoesntHave('profile');
                     if (! $force) {
