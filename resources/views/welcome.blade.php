@@ -129,7 +129,7 @@
         </div>
     </nav>
 
-    <!-- Hero Section (one primary action — real candidates load immediately below) -->
+    <!-- Hero Section -->
     <section class="relative overflow-hidden">
         <!-- Gradient Background -->
         <div class="absolute inset-0 bg-gradient-to-br from-slate-900 via-slate-800 to-teal-900"></div>
@@ -194,9 +194,47 @@
         </div>
     </section>
 
+    <section id="find-information" aria-labelledby="find-information-heading" class="relative py-10 sm:py-14 bg-slate-900 border-t border-slate-800/80 scroll-mt-24">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="mb-6 sm:mb-8">
+                <h2 id="find-information-heading" class="text-2xl sm:text-3xl font-bold">What would you like to find?</h2>
+                <p class="mt-2 text-slate-300">Start with your district, or explore a candidate, issue, or PAC.</p>
+            </div>
+            @php
+                $researchLinks = [
+                    ['title' => 'Find my district & representatives', 'description' => 'Enter your address to find your districts and the people who represent you.', 'route' => 'district.lookup', 'action' => 'Find by address', 'primary' => true],
+                    ['title' => 'See candidates in my area', 'description' => 'Browse candidates by location, then open a profile to learn where they stand.', 'route' => 'politicians.directory', 'action' => 'Browse candidates'],
+                    ['title' => 'Follow the money', 'description' => 'Explore PACs and committees, their financial totals, and reported outside spending.', 'route' => 'pacs.directory', 'action' => 'Explore PACs & committees'],
+                    ['title' => 'Explore ballot measures', 'description' => 'Select a state on the map to see available ballot measures and summaries.', 'route' => 'us.map', 'action' => 'Choose a state on the map'],
+                    ['title' => 'Watch candidate videos & ads', 'description' => 'Choose a candidate, then open their profile to watch available campaign videos.', 'route' => 'politicians.directory', 'action' => 'Find a candidate to watch'],
+                    ['title' => 'Check voting records', 'description' => 'Choose an officeholder to explore voting history and public sources where available.', 'route' => 'politicians.directory', 'action' => 'Find an officeholder'],
+                ];
+            @endphp
+            <nav aria-labelledby="find-information-heading">
+                <ul class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                    @foreach ($researchLinks as $researchLink)
+                        <li class="min-w-0">
+                            <a href="{{ route($researchLink['route']) }}"
+                               class="group flex h-full flex-col rounded-xl border p-5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300 focus-visible:ring-offset-4 focus-visible:ring-offset-slate-900 {{ ($researchLink['primary'] ?? false) ? 'border-emerald-500/50 bg-emerald-500/10 hover:bg-emerald-500/20' : 'border-slate-700 bg-slate-800/50 hover:border-slate-500 hover:bg-slate-800' }}">
+                                <h3 class="text-base font-semibold text-white">{{ $researchLink['title'] }}</h3>
+                                <p class="mt-2 text-sm leading-relaxed text-slate-300">{{ $researchLink['description'] }}</p>
+                                <span class="mt-auto pt-4 text-sm font-semibold text-emerald-300 flex items-center gap-2">
+                                    {{ $researchLink['action'] }}
+                                    <svg aria-hidden="true" class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14m-6-6 6 6-6 6" />
+                                    </svg>
+                                </span>
+                            </a>
+                        </li>
+                    @endforeach
+                </ul>
+            </nav>
+        </div>
+    </section>
+
     @isset($featuredCandidates)
     @if($featuredCandidates->isNotEmpty())
-    <!-- Featured Candidates — first thing visible after the headline. Only the first
+    <!-- Featured Candidates — Only the first
          $localCount cards are matched to the visitor's (approximate) state. -->
     @php
         $localCount = $localCount ?? 0;
