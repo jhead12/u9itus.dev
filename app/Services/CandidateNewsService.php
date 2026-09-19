@@ -287,7 +287,14 @@ class CandidateNewsService
         $politicianIds = $verified()
             ->orderByDesc('published_at')
             ->limit($limit)
-            ->pluck('politician_id')
+            ->pluck('politician_id');
+
+        // Politicians who already have detected rows are always rebuilt too, so a stale
+        // row whose article was since rejected or removed cannot outlive its evidence.
+        $politicianIds = $politicianIds
+            ->merge(PoliticianEndorsement::query()->active()
+                ->when($politicianId, fn ($q, $id) => $q->where('politician_id', $id))
+                ->pluck('politician_id'))
             ->unique()
             ->values();
 
@@ -320,6 +327,11 @@ class CandidateNewsService
                     $processed++;
                 }
             });
+
+        // Guests are served a cached copy of the profile page (see PublicProfileController).
+        foreach ($politicianIds as $id) {
+            Cache::forget("profile.page.seo-v2.{$id}");
+        }
 
         return [
             'processed' => $processed,

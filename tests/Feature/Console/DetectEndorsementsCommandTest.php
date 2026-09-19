@@ -5,6 +5,7 @@ use App\Models\PoliticianEndorsement;
 use App\Models\Politician;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 
 uses(RefreshDatabase::class);
@@ -181,4 +182,29 @@ test('rebuilding keeps rows an admin already dismissed', function () {
 
     expect(PoliticianEndorsement::where('politician_id', $jane->id)->where('status', 'dismissed')->count())->toBe(1);
     expect(PoliticianEndorsement::where('politician_id', $jane->id)->active()->value('group_key'))->toBe('governor');
+});
+
+test('a stale row whose article is no longer verified is removed by the re-scan', function () {
+    $hilton = seedEndorsementPolitician('Steve Hilton');
+    $article = seedEndorsementArticle($hilton, 'Governor endorses Steve Hilton', 'rejected');
+    seedEndorsementArticle($hilton, 'Steve Hilton holds a rally in Fresno');
+    PoliticianEndorsement::create([
+        'politician_id' => $hilton->id, 'group_key' => 'governor', 'label' => 'Governor', 'endorser_key' => '',
+        'matched_phrase' => 'governor', 'confidence' => 0.85, 'source_article_id' => $article->id,
+        'detected_article_ids' => [$article->id], 'match_count' => 1,
+    ]);
+
+    Artisan::call('candidates:detect-endorsements', ['--limit' => 1]);
+
+    expect(PoliticianEndorsement::where('politician_id', $hilton->id)->exists())->toBeFalse();
+});
+
+test('the re-scan clears the cached guest copy of the profile page', function () {
+    $jane = seedEndorsementPolitician('Jane Smith');
+    seedEndorsementArticle($jane, 'Governor Gavin Newsom endorses Jane Smith');
+    Cache::put("profile.page.seo-v2.{$jane->id}", '<html>stale</html>', 600);
+
+    Artisan::call('candidates:detect-endorsements', ['--limit' => 10]);
+
+    expect(Cache::has("profile.page.seo-v2.{$jane->id}"))->toBeFalse();
 });
