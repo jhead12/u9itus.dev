@@ -1414,28 +1414,38 @@
         </section>
         @endif
 
-        {{-- ── Endorsements (news-detected, e.g. "Governor Endorsed") ──────── --}}
+        {{-- ── Endorsements (news-detected; listed by who endorsed) ────────── --}}
         @if($endorsements->isNotEmpty())
         <section>
             <h2 class="text-xl font-bold text-white mb-4 flex items-center gap-2">
                 <span class="w-1 h-6 rounded-full inline-block" style="background:var(--p13-accent,#f59e0b)"></span>
                 Endorsements
             </h2>
-            <div class="flex flex-wrap gap-2">
+            <ul class="divide-y divide-slate-700/60 rounded-xl border border-slate-700/60 bg-slate-800/30">
                 @foreach($endorsements as $endorsement)
-                    @php $endorsementHref = $endorsement->source_url; @endphp
-                    @if($endorsementHref)
-                        <a href="{{ $endorsementHref }}" target="_blank" rel="noopener"
-                           class="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/20">
-                            {{ $endorsement->label }} Endorsed
-                        </a>
-                    @else
-                        <span class="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-200">
-                            {{ $endorsement->label }} Endorsed
-                        </span>
-                    @endif
+                    @php
+                        $endorsementHref = $endorsement->source_url;
+                        $outlet = $endorsement->sourceArticle?->source_name;
+                    @endphp
+                    <li class="flex items-center justify-between gap-4 px-4 py-3">
+                        <div class="min-w-0">
+                            @if($endorsement->endorser_name)
+                                <p class="text-sm font-semibold text-white truncate">{{ $endorsement->endorser_name }}</p>
+                                <p class="text-xs text-emerald-300/80">{{ $endorsement->label }}</p>
+                            @else
+                                <p class="text-sm font-semibold text-white truncate">{{ $endorsement->label }}</p>
+                                <p class="text-xs text-slate-400">Endorser not named in the coverage</p>
+                            @endif
+                        </div>
+                        @if($endorsementHref)
+                            <a href="{{ $endorsementHref }}" target="_blank" rel="noopener"
+                               class="shrink-0 text-xs font-medium text-slate-300 hover:text-white underline underline-offset-2">
+                                {{ $outlet ? 'Read on '.$outlet : 'Read the article' }}
+                            </a>
+                        @endif
+                    </li>
                 @endforeach
-            </div>
+            </ul>
         </section>
         @endif
 

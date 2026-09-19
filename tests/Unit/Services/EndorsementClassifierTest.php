@@ -68,3 +68,43 @@ it('hasGroup detects a matched group key', function () {
     expect($classifier->hasGroup($matches, 'mayor'))->toBeTrue();
     expect($classifier->hasGroup($matches, 'governor'))->toBeFalse();
 });
+
+it('captures the full name after the title and stops at the verb, even in a Title-Case headline', function () {
+    $classifier = new EndorsementClassifier();
+
+    $named = fn (string $headline) => collect($classifier->classify($headline, ''))->pluck('endorser_name', 'group')->all();
+
+    expect($named('Gov. Gavin Newsom Endorses Steve Hilton for Governor'))->toBe(['governor' => 'Gavin Newsom']);
+    expect($named('President Donald Trump endorses Hilton'))->toBe(['president' => 'Donald Trump']);
+    expect($named('Sen. Elizabeth Warren D-Mass. backs Smith'))->toBe(['us_senator' => 'Elizabeth Warren']);
+    expect($named("Gov. Newsom's endorsement of Hilton draws fire"))->toBe(['governor' => 'Newsom']);
+});
+
+it('does not take a verb or party word for the endorser name', function () {
+    $classifier = new EndorsementClassifier();
+
+    expect($classifier->classify('Governor Endorses Hilton', '')[0]['endorser_name'])->toBeNull();
+    expect($classifier->classify('Governor Republican Nominee backs Hilton', '')[0]['endorser_name'])->toBeNull();
+});
+
+it('reads "endorsed by the Governor" as the governor endorsing', function () {
+    $classifier = new EndorsementClassifier();
+
+    $result = $classifier->classify('Hilton, endorsed by Governor Gavin Newsom, leads poll', '');
+
+    expect($result)->toHaveCount(1);
+    expect($result[0]['endorser_name'])->toBe('Gavin Newsom');
+});
+
+it('does not treat a titleholder who is being endorsed as an endorser', function () {
+    $classifier = new EndorsementClassifier();
+
+    expect($classifier->classify("Caucus Endorses Congresswoman Veronica Escobar's Dignity Act", ''))->toBe([]);
+    expect($classifier->classify('Backed by the governor, Hilton surges', ''))->toHaveCount(1);
+});
+
+it('ignores "Trump-backed" as an endorsement verb', function () {
+    $classifier = new EndorsementClassifier();
+
+    expect($classifier->classify('Collins joins 2026 governor Republican primary against Trump-backed rival', ''))->toBe([]);
+});

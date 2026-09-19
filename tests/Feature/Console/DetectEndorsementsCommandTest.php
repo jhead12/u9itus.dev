@@ -85,3 +85,68 @@ test('--politician-id scopes detection to a single politician', function () {
     expect(PoliticianEndorsement::where('politician_id', $jane->id)->exists())->toBeTrue();
     expect(PoliticianEndorsement::where('politician_id', $john->id)->exists())->toBeFalse();
 });
+
+test('two different endorsers of the same office are kept as separate rows', function () {
+    $jane = seedEndorsementPolitician('Jane Smith');
+    seedEndorsementArticle($jane, 'Sen. Elizabeth Warren endorses Jane Smith for state Senate');
+    seedEndorsementArticle($jane, 'Sen. Bernie Sanders backs Jane Smith in state Senate race');
+
+    Artisan::call('candidates:detect-endorsements', ['--limit' => 10]);
+
+    expect(PoliticianEndorsement::where('politician_id', $jane->id)->pluck('endorser_name')->sort()->values()->all())
+        ->toBe(['Bernie Sanders', 'Elizabeth Warren']);
+});
+
+test('the same endorser across articles is one row, and the fuller name wins', function () {
+    $jane = seedEndorsementPolitician('Jane Smith');
+    seedEndorsementArticle($jane, 'Gov. Newsom endorses Jane Smith for state Senate');
+    seedEndorsementArticle($jane, 'Governor Gavin Newsom backs Jane Smith again');
+
+    Artisan::call('candidates:detect-endorsements', ['--limit' => 10]);
+
+    $rows = PoliticianEndorsement::where('politician_id', $jane->id)->get();
+    expect($rows)->toHaveCount(1);
+    expect($rows->first()->endorser_name)->toBe('Gavin Newsom');
+    expect($rows->first()->match_count)->toBe(2);
+});
+
+test('a nameless mention joins the named endorser instead of adding a second chip', function () {
+    $jane = seedEndorsementPolitician('Jane Smith');
+    seedEndorsementArticle($jane, 'Governor Gavin Newsom endorses Jane Smith');
+    seedEndorsementArticle($jane, 'Governor endorses Jane Smith in surprise move');
+
+    Artisan::call('candidates:detect-endorsements', ['--limit' => 10]);
+
+    $rows = PoliticianEndorsement::where('politician_id', $jane->id)->get();
+    expect($rows)->toHaveCount(1);
+    expect($rows->first()->endorser_name)->toBe('Gavin Newsom');
+});
+
+test('a surname alone resolves to the sitting official of that office in the state', function () {
+    $jane = seedEndorsementPolitician('Jane Smith');
+    Politician::create([
+        'uuid' => Str::uuid(), 'full_name' => 'Gavin Newsom', 'state' => 'CA', 'political_office' => 'Governor',
+        'governance_level' => 'State', 'term_status' => 'seated', 'is_active' => true, 'page_published' => true,
+        'verified_official' => true, 'slug' => 'gavin-newsom-'.Str::random(6),
+    ]);
+    seedEndorsementArticle($jane, 'Gov. Newsom endorses Jane Smith for state Senate');
+
+    Artisan::call('candidates:detect-endorsements', ['--limit' => 10]);
+
+    expect(PoliticianEndorsement::where('politician_id', $jane->id)->value('endorser_name'))->toBe('Gavin Newsom');
+});
+
+test('the profile page lists each endorser by name with a link to the article', function () {
+    $jane = seedEndorsementPolitician('Jane Smith');
+    $article = seedEndorsementArticle($jane, 'Governor Gavin Newsom endorses Jane Smith');
+    $article->update(['source_name' => 'CalMatters']);
+
+    Artisan::call('candidates:detect-endorsements', ['--limit' => 10]);
+
+    $this->get('/p/'.$jane->slug)
+        ->assertOk()
+        ->assertSee('Endorsements')
+        ->assertSee('Gavin Newsom')
+        ->assertSee('Read on CalMatters')
+        ->assertDontSee('Governor Endorsed');
+});

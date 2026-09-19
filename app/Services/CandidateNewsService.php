@@ -503,29 +503,107 @@ class CandidateNewsService
                 continue;
             }
 
-            $existing = PoliticianEndorsement::query()
-                ->where('politician_id', $politicianId)
-                ->where('group_key', $match['group'])
-                ->first();
+            $name = $this->resolveEndorserName($politicianId, $match['group'], $match['endorser_name'] ?? null);
+            $existing = $this->matchingEndorsement($politicianId, $match['group'], $name);
 
-            $articleIds = array_unique(array_merge($existing->detected_article_ids ?? [], [$articleId]));
+            $articleIds = array_unique(array_merge($existing?->detected_article_ids ?? [], [$articleId]));
 
-            PoliticianEndorsement::updateOrCreate(
-                ['politician_id' => $politicianId, 'group_key' => $match['group']],
-                [
-                    'label' => $match['label'],
-                    'endorser_name' => $match['endorser_name'] ?? $existing?->endorser_name,
-                    'matched_phrase' => $existing && $existing->confidence >= $match['confidence']
-                        ? $existing->matched_phrase
-                        : $match['matched_phrase'],
-                    'confidence' => max($match['confidence'], (float) ($existing->confidence ?? 0)),
-                    'source_article_id' => $articleId,
-                    'source_url' => $sourceUrl !== '' ? $sourceUrl : $existing?->source_url,
-                    'detected_article_ids' => array_values($articleIds),
-                    'match_count' => count($articleIds),
-                ],
-            );
+            // Prefer the fuller name ("Gavin Newsom" over an earlier "Newsom"); never blank a known one.
+            $endorserName = $name;
+            if ($existing?->endorser_name && mb_strlen($existing->endorser_name) >= mb_strlen((string) $name)) {
+                $endorserName = $existing->endorser_name;
+            }
+
+            $fields = [
+                'label' => $match['label'],
+                'endorser_key' => $this->endorserKey($endorserName),
+                'endorser_name' => $endorserName,
+                'matched_phrase' => $existing && $existing->confidence >= $match['confidence']
+                    ? $existing->matched_phrase
+                    : $match['matched_phrase'],
+                'confidence' => max($match['confidence'], (float) ($existing->confidence ?? 0)),
+                'source_article_id' => $articleId,
+                'source_url' => $sourceUrl !== '' ? $sourceUrl : $existing?->source_url,
+                'detected_article_ids' => array_values($articleIds),
+                'match_count' => count($articleIds),
+            ];
+
+            $existing
+                ? $existing->update($fields)
+                : PoliticianEndorsement::create($fields + ['politician_id' => $politicianId, 'group_key' => $match['group']]);
         }
+    }
+
+    /**
+     * The row this detection belongs to: the same endorser (compared by name words, so
+     * "Newsom" and "Gavin Newsom" are one person), else — when only the office was named —
+     * the office's existing row, so "the governor" never adds a second, nameless chip
+     * beside a named governor.
+     */
+    protected function matchingEndorsement(int $politicianId, string $group, ?string $name): ?PoliticianEndorsement
+    {
+        $rows = PoliticianEndorsement::query()
+            ->where('politician_id', $politicianId)
+            ->where('group_key', $group)
+            ->orderBy('id')
+            ->get();
+
+        if ($name === null) {
+            return $rows->first(fn (PoliticianEndorsement $row) => $row->endorser_name === null) ?? $rows->first();
+        }
+
+        $words = fn (?string $n) => array_values(array_filter(explode(' ', strtolower((string) preg_replace('/[^a-z\s]/i', '', (string) $n)))));
+        $mine = $words($name);
+
+        return $rows->first(function (PoliticianEndorsement $row) use ($words, $mine) {
+            $theirs = $words($row->endorser_name);
+            if ($theirs === []) {
+                return false;
+            }
+
+            return empty(array_diff($mine, $theirs)) || empty(array_diff($theirs, $mine));
+        }) ?? $rows->first(fn (PoliticianEndorsement $row) => $row->endorser_name === null);
+    }
+
+    protected function endorserKey(?string $name): string
+    {
+        return $name === null ? '' : Str::limit(Str::slug($name), 120, '');
+    }
+
+    /**
+     * A lone surname ("Gov. Newsom") becomes the sitting official's full name when exactly
+     * one seated officeholder of that office in the candidate's state has it. Anything
+     * ambiguous is left as the article wrote it.
+     */
+    protected function resolveEndorserName(int $politicianId, string $group, ?string $name): ?string
+    {
+        if ($name === null || str_contains($name, ' ')) {
+            return $name;
+        }
+
+        $office = match ($group) {
+            'governor' => 'governor',
+            'attorney_general' => 'attorney general',
+            'us_senator' => 'senator',
+            'us_representative' => 'representative',
+            'mayor' => 'mayor',
+            default => null,
+        };
+        $state = $office === null ? null : Politician::query()->whereKey($politicianId)->value('state');
+        if ($state === null) {
+            return $name;
+        }
+
+        $matches = Politician::query()
+            ->whereRaw('UPPER(COALESCE(state, \'\')) = ?', [strtoupper((string) $state)])
+            ->where('is_active', true)
+            ->where('term_status', 'seated')
+            ->whereRaw('LOWER(political_office) LIKE ?', ["%{$office}%"])
+            ->when($group === 'governor', fn ($q) => $q->whereRaw('LOWER(political_office) NOT LIKE ?', ['%lieutenant%']))
+            ->whereRaw('LOWER(full_name) LIKE ?', ['% '.strtolower($name)])
+            ->pluck('full_name');
+
+        return $matches->count() === 1 ? $matches->first() : $name;
     }
 
     /**

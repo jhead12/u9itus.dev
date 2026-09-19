@@ -9,6 +9,7 @@ use App\Models\CandidateNewsArticle;
 use App\Models\DistrictLookupSearch;
 use App\Models\ElectionCandidateRecord;
 use App\Models\Politician;
+use App\Models\PoliticianEndorsement;
 use App\Models\PoliticianPage;
 use App\Models\PoliticianTopic;
 use App\Models\StateElectionDate;
@@ -1250,9 +1251,9 @@ class PublicProfileController extends Controller
         // enabled (or the profile is unclaimed) and a Vote Smart ID resolves.
         $birthDate = $transparencyData['votesmart']['candidate']['birth_date'] ?? null;
 
-        // News-detected endorsements (e.g. "Governor Endorsed") — distinct from the
+        // News-detected endorsements, listed by endorser — distinct from the
         // donor-inferred PAC affiliation chips rendered from $transparencyData below.
-        $endorsements = $politician->endorsements()->active()->get();
+        $endorsements = PoliticianEndorsement::listedFor($politician);
 
         // Top 3 highest-scoring viral moments (YouTube/C-SPAN/podcast/etc. clips)
         // published in the last 7 days, for the "Top This Week" video embeds.

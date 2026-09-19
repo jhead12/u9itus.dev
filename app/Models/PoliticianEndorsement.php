@@ -19,6 +19,7 @@ class PoliticianEndorsement extends Model
         'politician_id',
         'group_key',
         'label',
+        'endorser_key',
         'endorser_name',
         'matched_phrase',
         'confidence',
@@ -51,5 +52,21 @@ class PoliticianEndorsement extends Model
     public function scopeActive(Builder $query): Builder
     {
         return $query->where('status', 'detected');
+    }
+
+    /**
+     * Endorsements ready to list: named endorsers first (that is what a reader scans for),
+     * then by how sure the detection was.
+     *
+     * @return \Illuminate\Support\Collection<int, static>
+     */
+    public static function listedFor(Politician $politician)
+    {
+        return $politician->endorsements()->active()->with('sourceArticle:id,source_name')->get()
+            ->sortBy([
+                fn ($a, $b) => ($a->endorser_name === null) <=> ($b->endorser_name === null),
+                fn ($a, $b) => $b->confidence <=> $a->confidence,
+            ])
+            ->values();
     }
 }

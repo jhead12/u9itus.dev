@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Models\Committee;
 use App\Models\Organization;
 use App\Models\Politician;
+use App\Models\PoliticianEndorsement;
 use App\Models\PoliticianDonorSnapshot;
 use App\Services\PoliticianResolver;
 use App\Support\Money;
@@ -104,10 +105,10 @@ class MapCandidateEconomyController
      */
     private function formatEndorsements(Politician $politician): array
     {
-        return $politician->endorsements()->active()->get()->map(fn ($e) => [
+        return PoliticianEndorsement::listedFor($politician)->map(fn ($e) => [
             'group' => $e->group_key,
             'label' => $e->label,
-            'badge_text' => $e->label . ' Endorsed',
+            'badge_text' => $e->endorser_name ? "{$e->endorser_name} ({$e->label})" : $e->label . ' Endorsed',
             'endorser_name' => $e->endorser_name,
             'source_url' => $e->source_url,
         ])->all();

@@ -53,7 +53,7 @@ class EndorsementClassifier
 
             foreach (($group['patterns'] ?? []) as $pattern) {
                 foreach ($this->findPatternOffsets($haystack, (string) $pattern) as [$offset, $length]) {
-                    $distance = $this->nearestVerbDistance($offset, $length, $verbOffsets);
+                    $distance = $this->nearestEndorserVerbDistance($haystack, $offset, $length, $verbOffsets);
                     if ($distance === null || $distance > $this->proximityWindow) {
                         continue;
                     }
@@ -113,7 +113,11 @@ class EndorsementClassifier
             return [];
         }
 
-        return array_map(fn ($mm) => [(int) $mm[1], strlen($mm[0])], $m[0]);
+        // "Trump-backed" is a modifier on someone else's candidate, not an endorsement verb.
+        return array_values(array_filter(
+            array_map(fn ($mm) => [(int) $mm[1], strlen($mm[0])], $m[0]),
+            fn (array $v) => $v[0] === 0 || $haystackLower[$v[0] - 1] !== '-',
+        ));
     }
 
     /**
@@ -138,22 +142,32 @@ class EndorsementClassifier
     }
 
     /**
+     * Distance from the title/org keyword to a verb that makes it the ENDORSER:
+     * the verb follows it ("Governor Newsom endorses ..."), or it is the "by"/"from"
+     * object of a preceding verb ("endorsed by the Governor"). A verb that precedes
+     * the keyword without "by" makes the titleholder the one being endorsed
+     * ("Caucus endorses Congresswoman Escobar's bill") — no endorsement by them.
+     *
      * @param  array<int, array{0: int, 1: int}>  $verbOffsets
      */
-    protected function nearestVerbDistance(int $offset, int $length, array $verbOffsets): ?int
+    protected function nearestEndorserVerbDistance(string $haystackLower, int $offset, int $length, array $verbOffsets): ?int
     {
         $best = null;
+        $end = $offset + $length;
 
         foreach ($verbOffsets as [$vOffset, $vLength]) {
-            if ($vOffset >= $offset && $vOffset < $offset + $length) {
+            if ($vOffset >= $offset && $vOffset < $end) {
                 $gap = 0; // overlapping spans
-            } elseif ($vOffset >= $offset + $length) {
-                $gap = $vOffset - ($offset + $length);
+            } elseif ($vOffset >= $end) {
+                $gap = $vOffset - $end;
             } else {
-                $gap = $offset - ($vOffset + $vLength);
+                $between = substr($haystackLower, $vOffset + $vLength, $offset - ($vOffset + $vLength));
+                if (! preg_match('/^\s*(?:by|from)\s+(?:the\s+)?$/', $between)) {
+                    continue;
+                }
+                $gap = strlen($between);
             }
 
-            $gap = max(0, $gap);
             if ($best === null || $gap < $best) {
                 $best = $gap;
             }
@@ -172,16 +186,52 @@ class EndorsementClassifier
         };
     }
 
-    /** Best-effort capture of a Title-Case name right after the matched keyword. */
+    /** Title-Case words that follow a title but are not part of a person's name. */
+    private const NOT_NAME_WORDS = [
+        'republican', 'republicans', 'democrat', 'democrats', 'democratic', 'gop', 'candidate', 'candidates', 'hopeful',
+        'nominee', 'race', 'primary', 'election', 'campaign', 'announces', 'says', 'joins', 'signs', 'vetoes', 'calls',
+        'urges', 'tells', 'slams', 'names', 'picks', 'rallies', 'wants', 'and', 'the', 'for', 'of',
+    ];
+
+    /**
+     * Best-effort capture of the endorser's name from the words right after their title
+     * ("Gov. Gavin Newsom endorses ..." → "Gavin Newsom"). Stops at a verb, a party word,
+     * a "D-Mass." tag or a possessive, and never returns more than three words.
+     */
     protected function captureEndorserName(string $original, int $afterOffset): ?string
     {
-        $tail = mb_substr($original, $afterOffset, 60);
+        $tail = ltrim(mb_strcut($original, $afterOffset, 90), " \t.:");
+        $word = "\p{Lu}[\p{L}.'’-]*";
 
-        if (!preg_match('/^[\s.]*([A-Z][a-zA-Z.\'-]+(?:\s+[A-Z][a-zA-Z.\'-]+){0,2})/', $tail, $m)) {
+        if (! preg_match("/^{$word}(?:[ \t]+{$word}){0,3}/u", $tail, $m)) {
             return null;
         }
 
-        $name = trim($m[1]);
+        $verbs = implode('|', (array) config('endorsements.verbs', []));
+        $verbRegex = $verbs === '' ? null : '/^(?:'.$verbs.')$/';
+        $kept = [];
+
+        foreach (preg_split('/\s+/u', $m[0]) ?: [] as $token) {
+            $bare = rtrim($token, '.');
+            $suffix = (bool) preg_match('/^(?:jr|sr|ii|iii|iv)$/i', $bare);
+
+            if (count($kept) >= 3
+                || in_array(mb_strtolower($bare), self::NOT_NAME_WORDS, true)
+                || ($verbRegex !== null && preg_match($verbRegex, mb_strtolower($bare)))
+                || (! $suffix && preg_match('/^\p{Lu}{2,}$/u', $bare))
+                || preg_match('/^\p{Lu}-/u', $bare)) {
+                break;
+            }
+
+            $possessive = (bool) preg_match("/['’]s$/u", $bare);
+            $kept[] = $possessive ? preg_replace("/['’]s$/u", '', $bare) : ($suffix ? $token : $bare);
+
+            if ($possessive) {
+                break;
+            }
+        }
+
+        $name = trim(implode(' ', $kept));
 
         return $name !== '' ? $name : null;
     }
