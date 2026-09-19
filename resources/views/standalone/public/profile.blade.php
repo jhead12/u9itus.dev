@@ -1041,6 +1041,8 @@
         </section>
         @endif
 
+        @include('standalone.public.partials.voting-record', ['votingRecord' => $votingRecord ?? null, 'politician' => $politician])
+
         {{-- Sprint 4: Dig Deeper research section
              (Sprint 7: also shown when only meToken data is present) --}}
         @if(!empty($digDeeperData['panels'] ?? []) || !empty($meTokenData ?? null))

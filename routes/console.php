@@ -64,6 +64,16 @@ Schedule::command('candidates:detect-endorsements --limit=300')
     ->daily()
     ->withoutOverlapping();
 
+// Roll-call votes for the profile "Voting record" section. Both chambers publish
+// free XML, so no key is needed; link-members first so newly seated members
+// resolve to a Bioguide ID before their votes are shown.
+Schedule::command('congress:link-members')
+    ->dailyAt('02:00')
+    ->withoutOverlapping();
+Schedule::command('congress:sync-votes')
+    ->dailyAt('02:15')
+    ->withoutOverlapping();
+
 // Donor/sponsor enrichment — refresh cached OpenSecrets + FEC data nightly.
 // The GitHub Actions workflow (enrich-donor-snapshots.yml) also fires this.
 Schedule::command('politicians:enrich-donors --stale-hours=48 --limit=200')

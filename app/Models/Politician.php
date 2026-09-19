@@ -77,6 +77,7 @@ class Politician extends Model
         'opensecrets_id',
         'votesmart_id',
         'fec_candidate_id',
+        'bioguide_id',
         'video_links',
         'social_links',
         'is_running_candidate',

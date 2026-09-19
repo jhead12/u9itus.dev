@@ -875,6 +875,7 @@ Route::get('/earn', function () {
 })->name('earn');
 Route::get('/p/{slug}', [PublicProfileController::class, 'show'])->name('politician.public.show');
 Route::get('/p/{slug}/news', [PublicProfileController::class, 'news'])->name('politician.public.news');
+Route::get('/p/{slug}/votes', [PublicProfileController::class, 'votes'])->name('politician.public.votes');
 
 // SEO — Sitemap & robots.txt
 Route::get('/sitemap.xml', [SitemapController::class, 'index'])->name('sitemap');

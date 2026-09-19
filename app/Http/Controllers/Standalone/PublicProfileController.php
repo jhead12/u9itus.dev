@@ -23,6 +23,7 @@ use App\Services\GoogleCivicVoterInfoService;
 use App\Services\LocalCandidateAggregator;
 use App\Services\OpenSecretsService;
 use App\Services\PlatformSettingsService;
+use App\Services\PoliticianVotingRecord;
 use App\Services\VoteSmartService;
 use App\Services\Web3\MeTokenSubgraphService;
 use App\Services\WikipediaLookupService;
@@ -1255,6 +1256,14 @@ class PublicProfileController extends Controller
         // donor-inferred PAC affiliation chips rendered from $transparencyData below.
         $endorsements = PoliticianEndorsement::listedFor($politician);
 
+        // Roll-call record for sitting U.S. senators/representatives (null for everyone else).
+        $votingRecord = null;
+        try {
+            $votingRecord = app(PoliticianVotingRecord::class)->summary($politician);
+        } catch (\Throwable $e) {
+            Log::info('Voting record unavailable for profile', ['politician_id' => $politician->id, 'error' => $e->getMessage()]);
+        }
+
         // Top 3 highest-scoring viral moments (YouTube/C-SPAN/podcast/etc. clips)
         // published in the last 7 days, for the "Top This Week" video embeds.
         $topWeeklyMoments = $politician->viralMoments()
@@ -1428,6 +1437,7 @@ class PublicProfileController extends Controller
             'transparencyData',
             'digDeeperData',
             'endorsements',
+            'votingRecord',
             'topWeeklyMoments',
             'meTokenData',
             'termInfo',
@@ -2317,6 +2327,35 @@ class PublicProfileController extends Controller
             null, '' => 'Unknown',
             default => ucwords(str_replace('_', ' ', $source)),
         };
+    }
+
+    /**
+     * Full roll-call record for a sitting member of Congress, filterable by how they voted.
+     */
+    public function votes(Request $request, string $slug, PoliticianVotingRecord $record)
+    {
+        $politician = $this->resolvePublicPolitician($slug);
+        $summary = $politician ? $record->summary($politician) : null;
+
+        if (! $politician || ! $summary) {
+            abort(404);
+        }
+
+        $page = $politician->page
+            ?? new PoliticianPage(PoliticianPage::defaults($politician->id));
+
+        $filter = in_array($request->query('vote'), PoliticianVotingRecord::FILTERS, true) ? $request->query('vote') : 'all';
+        $votes = $record->listQuery($politician->bioguide_id, $summary['congress'], $filter)
+            ->paginate(30)
+            ->withQueryString();
+
+        $ogTitle = $politician->full_name.' — Voting Record';
+        $ogDescription = "How {$politician->full_name} has voted on roll-call votes in the {$summary['congress']}th Congress.";
+        $ogUrl = route('politician.public.votes', $slug);
+
+        return view('standalone.public.votes', compact(
+            'politician', 'page', 'summary', 'votes', 'filter', 'ogTitle', 'ogDescription', 'ogUrl',
+        ));
     }
 
     /**
