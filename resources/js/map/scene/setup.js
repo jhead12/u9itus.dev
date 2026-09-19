@@ -54,7 +54,8 @@ scene.add(sun);
 export const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.dampingFactor = 0.07;
-controls.minDistance = 2;
+// Close enough to frame the smallest urban districts (a district can be ~0.1 units across).
+controls.minDistance = 0.8;
 controls.maxDistance = 45;
 controls.minPolarAngle = 15 * Math.PI / 180;   // 15° — near top-down
 controls.maxPolarAngle = 130 * Math.PI / 180;  // 130° — past horizontal (opposite tilt)

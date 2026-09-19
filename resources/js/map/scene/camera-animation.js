@@ -45,7 +45,7 @@ export function flyToMeshes(meshList, padFactor = 1.5) {
  * the viewer. A "top-down" view means the camera should be high on the Z
  * axis with only a tiny Y offset for a slight north tilt (so the state
  * still reads left=west, right=east, top=north). */
-export function flyToMeshesTopDown(meshList, padFactor = 1.25) {
+export function flyToMeshesTopDown(meshList, padFactor = 1.25, minDist = 1.5) {
     if (!meshList.length) return;
     const box = new THREE.Box3();
     meshList.forEach(m => box.expandByObject(m));
@@ -56,7 +56,7 @@ export function flyToMeshesTopDown(meshList, padFactor = 1.25) {
     const effectiveAspect = W() / H();
     const halfH = Math.max(size.x / effectiveAspect, size.y) / 2;
     let dist = (halfH / Math.tan(fov / 2)) * padFactor;
-    dist = Math.max(dist, 1.5);
+    dist = Math.max(dist, minDist);
     // Camera almost directly above: high Z, slight Y tilt
     const endPos  = new THREE.Vector3(center.x, center.y + dist * 0.18, dist * 0.98);
     const endLook = new THREE.Vector3(center.x, center.y, 0);

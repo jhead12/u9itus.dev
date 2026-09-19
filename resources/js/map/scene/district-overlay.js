@@ -5,14 +5,19 @@ import * as THREE from 'three';
 import { mapGroup } from './setup.js';
 import { buildShapeFromRings } from './projection.js';
 import { STATE_ABBR_MAP, STATE_FIPS, DISTRICT_COUNTS, PARTY_INT, PARTY_HEX, PARTY_LABEL, DISTRICT_PARTY_MAP } from '../config/constants.js';
-import { DISTRICT_CONFIG, districtCache } from '../state/map-state.js';
+import { DISTRICT_CONFIG, districtCache, stateData } from '../state/map-state.js';
 import { stateMeshes } from './state-meshes.js';
 import { flyToMeshesTopDown } from './camera-animation.js';
 import { getTigerwebUrl } from '../api/district-config.js';
 import { idbGet, idbSet } from '../utils/idb-cache.js';
+import { districtCode, houseCandidatesFor, seatedMember } from '../utils/district-keys.js';
+import { showSelectedDistrict, clearSelectedDistrict, hasSelectedDistrict } from './selected-district.js';
 
 // TIGERweb GeoJSON is stable for an entire Congress (~2 years).
 const TIGER_IDB_TTL = 30 * 24 * 60 * 60 * 1000; // 30 days
+const BOUNDARY_TIMEOUT_MS = 15000;
+/** Closest a district fly-to may get; a small urban district needs to fill a fair share of the view. */
+export const DISTRICT_MIN_DIST = 0.9;
 
 export let districtGroup = null;
 export let districtMeshes = [];
@@ -21,12 +26,19 @@ export let hoveredDistrict = null;
 /** Setter for cross-module reassignment of hoveredDistrict */
 export function setHoveredDistrict(v) { hoveredDistrict = v; }
 
+/** Fill opacity of an unselected district: quieter once one is selected, so the selection reads at a glance. */
+export function districtRestOpacity() {
+    return hasSelectedDistrict() ? 0.5 : 0.72;
+}
+
 export function clearDistricts() {
+    clearSelectedDistrict();
     if (districtGroup) { mapGroup.remove(districtGroup); districtGroup = null; }
     districtMeshes = []; hoveredDistrict = null;
 }
 
 export function resetDistrictSelection() {
+    clearSelectedDistrict();
     for (const d of districtMeshes) {
         d.material.color.setHex(d.userData.originalColor);
         d.material.opacity = 0.88;
@@ -34,14 +46,29 @@ export function resetDistrictSelection() {
     }
 }
 
+/** Every polygon of one district (a district can be several meshes). */
+export function meshesForDistrict(districtNum) {
+    return districtMeshes.filter(m => m.userData.districtNum === String(districtNum));
+}
+
 /**
- * Highlight one district (all of its polygons) and dim the selection state of
- * the rest — the same visual a map click gives. Does not move the camera.
+ * Select one district (all of its polygons): lightened fill, strong outline and
+ * a persistent label, with the rest of the state quieted. The same result for a
+ * map click, a list row, a label click and a candidate card. Does not move the camera.
  */
 export function selectDistrict(meshes) {
+    if (!meshes.length) return;
+    const { stateName, districtNum, partyHex } = meshes[0].userData;
+    const abbr = STATE_ABBR_MAP[stateName];
+    const code = districtCode(abbr, districtNum);
+    const member = seatedMember(houseCandidatesFor(stateData, abbr, districtNum));
+
+    // Outline first: districtRestOpacity() below keys off it.
+    showSelectedDistrict(meshes, { code, name: member?.full_name ?? '', partyHex });
+
     for (const d of districtMeshes) {
         d.material.color.setHex(d.userData.originalColor);
-        d.material.opacity = 0.72;
+        d.material.opacity = districtRestOpacity();
         d.position.z = 0.255;
     }
     for (const dm of meshes) {
@@ -53,8 +80,23 @@ export function selectDistrict(meshes) {
     }
 }
 
+/**
+ * Hover preview for a list row: brighten a district without selecting it, so
+ * people can find a small district by scanning the list. Pass null to clear.
+ */
+let previewed = [];
+export function previewDistrict(meshes) {
+    for (const m of previewed) {
+        if (m.position.z < 0.30) m.material.color.setHex(m.userData.originalColor);
+    }
+    previewed = meshes ?? [];
+    for (const m of previewed) {
+        if (m.position.z < 0.30) m.material.color.setHex(new THREE.Color(m.userData.originalColor).lerp(new THREE.Color(0xffffff), 0.45).getHex());
+    }
+}
+
 export function flyToDistrictTopDown(mesh) {
-    flyToMeshesTopDown([mesh], 2.6);
+    flyToMeshesTopDown([mesh], 2.6, DISTRICT_MIN_DIST);
 }
 
 async function loadCongressionalDistricts(fips) {
@@ -77,6 +119,10 @@ async function loadCongressionalDistricts(fips) {
         returnGeometry: 'true',
         f: 'geojson',
         geometryPrecision: '3',
+        // Let the Census server generalise the borders (~200 m). Full-detail
+        // geometry is several MB per large state (California: 6.7 MB / ~10 s vs
+        // 0.3 MB / ~1 s) and 200 m is far below anything visible at map zoom.
+        maxAllowableOffset: '0.002',
         inSR: '4326',
         outSR: '4326',
     });
@@ -84,7 +130,10 @@ async function loadCongressionalDistricts(fips) {
     let data;
     for (let attempt = 0; attempt < 2; attempt++) {
         try {
-            const res = await fetch(`${getTigerwebUrl()}?${params}`, { cache: 'no-store' });
+            // Time-box the request: a stalled Census service must surface as an
+            // error with a Retry button, not as an endless "Loading…".
+            const res = await fetch(`${getTigerwebUrl()}?${params}`, { cache: 'no-store', signal: AbortSignal.timeout(BOUNDARY_TIMEOUT_MS) });
+            if (!res.ok) throw new Error(`Census boundary service returned ${res.status}`);
             data = await res.json();
             if (data.features?.length) break;
         } catch (e) {

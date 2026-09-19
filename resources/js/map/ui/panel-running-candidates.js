@@ -15,7 +15,6 @@
  * here for free. On top of that, clicking a card also *syncs the map* — flies
  * to / highlights the candidate's district (U.S. House) or state.
  */
-import * as THREE from 'three';
 import { renderCandidate } from './panel-state.js';
 import { PARTY_LABEL, STATE_ABBR_MAP } from '../config/constants.js';
 import { activeState } from '../state/map-state.js';
@@ -32,7 +31,7 @@ let viewMode = (() => {
 })();
 
 /** Last state payload + accent color, so the toggle can re-render in place. */
-let lastCtx = { data: null, color: '#6366f1' };
+let lastCtx = { data: null, color: '#6366f1', opts: {} };
 
 function escapeHtml(value) {
     return String(value ?? '')
@@ -177,13 +176,13 @@ function filterBar(all, color, extraNote = '') {
     </div>`;
 }
 
-function sectionShell(title, bodyHtml, color) {
+function sectionShell(title, bodyHtml, color, collapsed = false) {
     const stateActive = viewMode === 'state';
-    return `<div class="office-section" id="rc-section">
+    return `<div class="office-section${collapsed ? ' collapsed' : ''}" id="rc-section">
         <div class="office-title"
              style="background:${color}18;border-left:3px solid ${color};color:${color};"
-             onclick="this.closest('.office-section').classList.toggle('collapsed')"
-             role="button" aria-expanded="true" tabindex="0"
+             onclick="var s=this.closest('.office-section');s.classList.toggle('collapsed');this.setAttribute('aria-expanded',String(!s.classList.contains('collapsed')))"
+             role="button" aria-expanded="${!collapsed}" tabindex="0"
              onkeydown="if(event.key==='Enter'||event.key===' ')this.click()">
             <span>🗳️&nbsp;${title}</span>
             <span class="chevron">▾</span>
@@ -200,29 +199,52 @@ function sectionShell(title, bodyHtml, color) {
 
 /* ── Entry point ─────────────────────────────────────────────────────────── */
 
-export function renderRunningCandidatesSection(data, color) {
+/** "CA-3" and "CA-03" are the same seat. */
+function sameDistrict(a, b) {
+    const norm = (k) => String(k || '').toUpperCase().replace(/-0+(\d)/, '-$1');
+    return norm(a) === norm(b);
+}
+
+/**
+ * @param {Object} data   state-candidates payload
+ * @param {string} color  accent
+ * @param {Object} [opts]
+ * @param {string} [opts.title]           heading (default "Running Candidates")
+ * @param {boolean} [opts.collapsed]      start folded
+ * @param {string} [opts.excludeDistrict] district-panel mode: leave out this seat, plus the
+ *   statewide and Senate races the panel already lists, so what's left is "other races"
+ */
+export function renderRunningCandidatesSection(data, color, opts = {}) {
     color = color || '#6366f1';
-    lastCtx = { data, color };
+    lastCtx = { data, color, opts };
+    const heading = opts.title || 'Running Candidates';
 
     if (viewMode === 'news') {
         // Async — render a shell now, fill it when the fetch resolves.
         queueMicrotask(() => loadNewsView(color));
         return sectionShell(
-            'Running Candidates',
+            heading,
             `<div class="rc-list"><div class="panel-spinner" style="padding:12px 0;">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="animation:spin 1s linear infinite;color:${color};"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-dasharray="31.4" stroke-dashoffset="10" stroke-linecap="round"/></svg>
                 &nbsp;Loading candidates in the news…</div></div>`,
-            color
+            color,
+            opts.collapsed
         );
     }
 
-    const all = collectRunning(data);
+    let all = collectRunning(data);
+    if (opts.excludeDistrict) {
+        all = all.filter(c => !(c._district && sameDistrict(c._district, opts.excludeDistrict))
+            && c._tier !== 'Statewide'
+            && !(c._tier === 'Federal' && !c._district));
+    }
     if (!all.length) {
         // Still show the shell so the "In the news" toggle is reachable.
         return sectionShell(
-            'Running Candidates',
-            `<p class="rc-empty-static">No running candidates on file for this state yet. Try “In the news”.</p>`,
-            color
+            heading,
+            `<p class="rc-empty-static">${opts.excludeDistrict ? 'No other races on file for this state yet.' : 'No running candidates on file for this state yet.'} Try “In the news”.</p>`,
+            color,
+            opts.collapsed
         );
     }
 
@@ -237,12 +259,12 @@ export function renderRunningCandidatesSection(data, color) {
     }).join('');
 
     const body = `
-        <p class="rc-intro">Everyone currently running for office in this state — federal, statewide, and local. Tap a name for details; the map follows.</p>
+        <p class="rc-intro">${opts.excludeDistrict ? 'Races elsewhere in this state — other districts and local seats. Tap a name for details; the map follows.' : 'Everyone currently running for office in this state — federal, statewide, and local. Tap a name for details; the map follows.'}</p>
         ${filterBar(all, color)}
         <p class="rc-empty" hidden>No candidates match those filters.</p>
         <div class="rc-list">${groups}</div>`;
 
-    return sectionShell(`Running Candidates <span style="opacity:.7;font-weight:400;">(${all.length})</span>`, body, color);
+    return sectionShell(`${heading} <span style="opacity:.7;font-weight:400;">(${all.length})</span>`, body, color, opts.collapsed);
 }
 
 /* ── "In the news" async view ────────────────────────────────────────────── */
@@ -333,19 +355,6 @@ function applyFilters(section) {
 
 /* ── Map sync ────────────────────────────────────────────────────────────── */
 
-function highlightDistrictMesh(dm) {
-    for (const d of districtMeshes) {
-        d.material.color.setHex(d.userData.originalColor);
-        d.material.opacity = 0.72;
-        d.position.z = 0.255;
-    }
-    const bright = new THREE.Color(dm.userData.partyHex || dm.userData.regionHex || '#6366f1')
-        .lerp(new THREE.Color(0xffffff), 0.55);
-    dm.material.color.setHex(bright.getHex());
-    dm.material.opacity = 1.0;
-    dm.position.z = 0.31;
-}
-
 function syncMapToCandidate(stateAbbr, district) {
     if (!stateAbbr) return;
     const curAbbr = STATE_ABBR_MAP[activeState] || null;
@@ -364,7 +373,6 @@ function syncMapToCandidate(stateAbbr, district) {
             return (n === 'AL' ? 'AL' : n.padStart(2, '0')) === target;
         });
         if (dm) {
-            highlightDistrictMesh(dm);
             flyToDistrictTopDown(dm);
             openDistrictPanel(dm.userData.districtNum, dm.userData.districtLabel, dm.userData.stateName, dm.userData.regionHex, dm.userData.party);
             return;
@@ -391,7 +399,7 @@ export function initRunningCandidatesFilters() {
             if (next === viewMode) return;
             viewMode = next;
             try { localStorage.setItem(VIEW_PREF_KEY, viewMode); } catch {}
-            host.innerHTML = renderRunningCandidatesSection(lastCtx.data, lastCtx.color);
+            host.innerHTML = renderRunningCandidatesSection(lastCtx.data, lastCtx.color, lastCtx.opts);
             return;
         }
 

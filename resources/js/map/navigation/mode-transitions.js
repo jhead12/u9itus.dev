@@ -12,13 +12,13 @@ import { stateMeshes } from '../scene/state-meshes.js';
 import { flyTo, flyToMeshes, flyToMeshesTopDown } from '../scene/camera-animation.js';
 import { camera, controls, renderer, mapGroup, resizeRenderer } from '../scene/setup.js';
 import { REGIONS, STATE_ABBR_MAP, PARTY_HEX, PARTY_LABEL, DISTRICT_COUNTS } from '../config/constants.js';
-import { clearDistricts, buildDistrictOverlay, resetDistrictSelection, districtMeshes, hoveredDistrict, setHoveredDistrict } from '../scene/district-overlay.js';
+import { clearDistricts, buildDistrictOverlay, resetDistrictSelection, selectDistrict, meshesForDistrict, districtRestOpacity, districtMeshes, hoveredDistrict, setHoveredDistrict } from '../scene/district-overlay.js';
 import { openStatePanel, partyClass, initOfficesToggle } from '../ui/panel-state.js';
-import { openDistrictPanel } from '../ui/panel-district.js';
+import { openDistrictPanel, getOpenDistrict, clearOpenDistrict, refreshOpenDistrict } from '../ui/panel-district.js';
 import { showPartyLegend } from '../ui/legend.js';
 import { applyOverviewColorMode, baseColorHex, refreshOverviewLegend } from '../api/governor-parties.js';
 import { overviewCameraPosition } from '../scene/view-mode.js';
-import { renderDistrictsPanel, clearDistrictsPanel } from '../ui/panel-districts.js';
+import { renderDistrictsPanel, clearDistrictsPanel, setBoundaryStatus } from '../ui/panel-districts.js';
 import { loadCityBoundaries } from '../ui/markers.js';
 import { buildActiveOverlays, clearAllOverlays } from '../scene/overlay-stack.js';
 import { closePolDrawer } from '../ui/politician-drawer.js';
@@ -84,6 +84,8 @@ export function enterOverviewMode() {
     nextRequestId();
     setStateData(null);
     setMapMode('overview'); setActiveRegion(null); setActiveState(null); setSelectedState(null);
+    clearOpenDistrict();
+    document.getElementById('info-panel').dataset.view = 'overview';
     clearDim(); clearDistricts(); clearAllOverlays(); closePolDrawer();
     document.getElementById('info-panel').classList.remove('open');
     resizeRenderer();
@@ -112,6 +114,8 @@ export function enterRegionMode(regionName, region) {
     nextRequestId();
     setStateData(null);
     setMapMode('region'); setActiveRegion(regionName); setActiveState(null); setSelectedState(null);
+    clearOpenDistrict();
+    document.getElementById('info-panel').dataset.view = 'region';
     clearDistricts(); clearAllOverlays(); closePolDrawer();
     const regionBallotEl = document.getElementById('panel-ballot-measures');
     if (regionBallotEl) regionBallotEl.innerHTML = '';
@@ -138,16 +142,93 @@ export function enterRegionMode(regionName, region) {
     _syncNatDistVisibility();
 }
 
+/* ── State data + district boundaries ──
+ * The candidate payload and the Census boundaries load independently: the panel
+ * (district list, representatives, offices) paints as soon as the payload is in
+ * — instantly from the 1-hour local cache when there is one — while the map
+ * shapes arrive on their own schedule, with a status strip and Retry in the
+ * district list if they fail. */
+
+const SC_TTL = 60 * 60 * 1000; // 1 hour — mirrors server-side Cache::remember TTL
+
+function readCachedStateData(abbr) {
+    const key = `u9_map_sc_${abbr}`;
+    try {
+        const raw = localStorage.getItem(key);
+        if (!raw) return null;
+        const { ts, data } = JSON.parse(raw);
+        if (Date.now() - ts < SC_TTL) return data;
+        localStorage.removeItem(key);
+    } catch { /* ignore */ }
+    return null;
+}
+
+/** Fresh payload, or null when the API is unreachable. */
+async function fetchStateData(abbr) {
+    try {
+        const res = await fetch(`/api/v1/map/state-candidates?state=${abbr}`);
+        if (!res.ok) return null;
+        const fresh = await res.json();
+        try { localStorage.setItem(`u9_map_sc_${abbr}`, JSON.stringify({ ts: Date.now(), data: fresh })); } catch {}
+        return fresh;
+    } catch (e) {
+        console.warn('state-candidates API unavailable:', e.message);
+        return null;
+    }
+}
+
+/** Build the district shapes, reporting progress to the district list. Resolves to the district count (0 on failure). */
+async function loadBoundaries(stateName, regionHex, requestId) {
+    setBoundaryStatus('loading');
+    try {
+        const count = await buildDistrictOverlay(stateName, regionHex);
+        if (requestId !== statePanelRequestId) return 0;
+        const expected = DISTRICT_COUNTS[stateName] || 0;
+        setBoundaryStatus(count > 0 && count >= expected ? 'ready' : 'error');
+        return count;
+    } catch (err) {
+        if (requestId !== statePanelRequestId) return 0;
+        console.warn(`District overlay failed for ${stateName}:`, err);
+        setBoundaryStatus('error');
+        return 0;
+    }
+}
+
+/** Everything that needs both the shapes and the payload: selection, labels, legend, layers. */
+function afterBoundaries(stateName, requestId) {
+    if (requestId !== statePanelRequestId || !districtMeshes.length) return;
+
+    // A district picked from the list before the shapes existed gets its outline now.
+    const open = getOpenDistrict();
+    if (open) selectDistrict(meshesForDistrict(open.num));
+
+    if (ACTIVE_LAYERS.has('population')) applyPopulationDensity();
+    if (ACTIVE_LAYERS.has('cities')) loadCityBoundaries(stateName);
+
+    const breakdown = {};
+    for (const m of districtMeshes) { const p = m.userData.party || 'U'; breakdown[p] = (breakdown[p] || 0) + 1; }
+    showPartyLegend(breakdown);
+    buildActiveOverlays(stateName);
+    updateBreadcrumb();
+}
+
+async function retryBoundaries() {
+    if (mapMode !== 'state' || !activeState) return;
+    const requestId = statePanelRequestId;
+    const count = await loadBoundaries(activeState, REGIONS[activeRegion]?.hex, requestId);
+    if (count) afterBoundaries(activeState, requestId);
+}
+document.addEventListener('u9:retry-boundaries', retryBoundaries);
+
 export async function enterStateMode(stateName, regionName, region) {
     const requestId = nextRequestId();
     setMapMode('state'); setActiveRegion(regionName); setActiveState(stateName); setSelectedState(stateName);
-    // Update the breadcrumb immediately, not just at the end of this function.
-    // Everything below this point is a chain of awaited network calls
-    // (district overlay, candidate data, openStatePanel) with no surrounding
-    // try/catch — if any of them throws, the function aborts silently and
-    // the trailing updateBreadcrumb() call at the bottom never runs, leaving
-    // the breadcrumb stuck on whatever it showed before this navigation even
-    // though the mode/region/state were already committed above.
+    clearOpenDistrict();
+    document.getElementById('info-panel').dataset.view = 'state';
+    // Update the breadcrumb immediately, not just at the end of this function:
+    // everything below is a chain of awaited network calls, and if one throws
+    // the trailing updateBreadcrumb() never runs, leaving the breadcrumb on
+    // whatever it showed before even though mode/region/state were committed.
     updateBreadcrumb();
 
     // Undo the region panel's relabel/force-open of the offices toggle (see
@@ -183,12 +264,10 @@ export async function enterStateMode(stateName, regionName, region) {
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="animation:spin 1s linear infinite;color:${region?.hex || '#6366f1'};">
             <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-dasharray="31.4" stroke-dashoffset="10" stroke-linecap="round"/>
         </svg>&nbsp;Loading offices…</div>`;
-    const stateBallotEl = document.getElementById('panel-ballot-measures');
-    if (stateBallotEl) stateBallotEl.innerHTML = '';
-    const stateStatsEl = document.getElementById('panel-stats');
-    if (stateStatsEl) stateStatsEl.innerHTML = '';
-    const stateTopicsEl = document.getElementById('panel-topics');
-    if (stateTopicsEl) stateTopicsEl.innerHTML = '';
+    for (const id of ['panel-ballot-measures', 'panel-stats', 'panel-topics', 'panel-running-candidates']) {
+        const el = document.getElementById(id);
+        if (el) el.innerHTML = '';
+    }
     openInfoPanel();
 
     document.getElementById('panel-state').textContent = stateName;
@@ -200,72 +279,36 @@ export async function enterStateMode(stateName, regionName, region) {
 
     renderSiblingStates(stateName, regionName, region);
     // Districts render right away from static counts; representatives fill in
-    // once the state payload arrives (openStatePanel re-renders with it).
+    // once the state payload arrives.
     renderDistrictsPanel(stateName, region?.hex || '#6366f1', null);
 
-    let distCount = 0;
-    try {
-        distCount = await buildDistrictOverlay(stateName, region?.hex);
-        if (requestId !== statePanelRequestId) return;
-    } catch (err) {
-        console.warn(`District overlay failed for ${stateName}:`, err);
-        document.getElementById('panel-candidates').innerHTML =
-            `<p style="color:#ef444488;font-size:11px;margin:0 0 12px;">⚠ District boundaries unavailable (${err.message}). Retry by clicking the state again.</p>`;
-    }
+    // Boundaries load in parallel with — never in front of — the panel data.
+    const boundaries = loadBoundaries(stateName, region?.hex, requestId);
 
-    let nextStateData = null;
+    const paint = async (data, apiStatus) => {
+        const payload = data ? { ...data, _apiStatus: data?.offices?.length ? 'live' : 'empty' } : { _apiStatus: apiStatus };
+        setStateData(payload);
+        await openStatePanel(stateName, regionName, region, payload);
+        // A district opened from the list while the payload was loading: show it with the real data.
+        if (getOpenDistrict()) refreshOpenDistrict();
+    };
+
     const abbr = STATE_ABBR_MAP[stateName];
-    let apiStatus = 'unreachable';
-    if (abbr) {
-        const SC_LS_KEY = `u9_map_sc_${abbr}`;
-        const SC_TTL    = 60 * 60 * 1000; // 1 hour — mirrors server-side Cache::remember TTL
+    const cached = abbr ? readCachedStateData(abbr) : null;
+    if (cached) await paint(cached);
+    if (requestId !== statePanelRequestId) return;
 
-        // Show cached data immediately so the panel feels instant, then refresh.
-        try {
-            const raw = localStorage.getItem(SC_LS_KEY);
-            if (raw) {
-                const { ts, data } = JSON.parse(raw);
-                if (Date.now() - ts < SC_TTL) {
-                    nextStateData = data;
-                    apiStatus = nextStateData?.offices?.length ? 'live' : 'empty';
-                } else {
-                    localStorage.removeItem(SC_LS_KEY);
-                }
-            }
-        } catch { /* ignore */ }
-
-        try {
-            const apiRes = await fetch(`/api/v1/map/state-candidates?state=${abbr}`);
-            if (requestId !== statePanelRequestId) return;
-            if (apiRes.ok) {
-                const fresh = await apiRes.json();
-                nextStateData = fresh;
-                apiStatus = nextStateData?.offices?.length ? 'live' : 'empty';
-                try { localStorage.setItem(SC_LS_KEY, JSON.stringify({ ts: Date.now(), data: fresh })); } catch {}
-            } else if (!nextStateData) {
-                apiStatus = 'unreachable';
-            }
-        } catch (e) {
-            console.warn('state-candidates API unavailable:', e.message);
-            if (!nextStateData) apiStatus = 'unreachable';
-        }
+    const fresh = abbr ? await fetchStateData(abbr) : null;
+    if (requestId !== statePanelRequestId) return;
+    if (fresh) {
+        if (!cached || JSON.stringify(fresh) !== JSON.stringify(cached)) await paint(fresh);
+    } else if (!cached) {
+        await paint(null, 'unreachable');
     }
     if (requestId !== statePanelRequestId) return;
-    if (nextStateData) nextStateData._apiStatus = apiStatus;
-    else nextStateData = { _apiStatus: apiStatus };
-    setStateData(nextStateData);
 
-    await openStatePanel(stateName, regionName, region, distCount, nextStateData);
-    if (requestId !== statePanelRequestId) return;
-
-    if (ACTIVE_LAYERS.has('population')) applyPopulationDensity();
-    if (ACTIVE_LAYERS.has('cities')) loadCityBoundaries(stateName);
-
-    const breakdown = {};
-    for (const m of districtMeshes) { const p = m.userData.party || 'U'; breakdown[p] = (breakdown[p] || 0) + 1; }
-    showPartyLegend(breakdown);
-    buildActiveOverlays(stateName);
-    updateBreadcrumb();
+    await boundaries;
+    afterBoundaries(stateName, requestId);
 }
 
 export function handleBack() {
@@ -321,7 +364,7 @@ export function initHoverClick() {
             if (hoveredDistrict && hoveredDistrict.position.z < 0.30) {
                 if (!ACTIVE_LAYERS.has('population'))
                     hoveredDistrict.material.color.setHex(hoveredDistrict.userData.originalColor);
-                hoveredDistrict.material.opacity = 0.72;
+                hoveredDistrict.material.opacity = districtRestOpacity();
             }
             setHoveredDistrict(null);
             districtTip.style.display = 'none';
@@ -392,16 +435,6 @@ export function initHoverClick() {
             const dHits = raycaster.intersectObjects(districtMeshes);
             if (dHits.length) {
                 const dm = dHits[0].object;
-                for (const d of districtMeshes) {
-                    d.material.color.setHex(d.userData.originalColor);
-                    d.material.opacity = 0.72;
-                    d.position.z = 0.255;
-                }
-                const bright = new THREE.Color(dm.userData.partyHex || dm.userData.regionHex || '#6366f1')
-                    .lerp(new THREE.Color(0xffffff), 0.55);
-                dm.material.color.setHex(bright.getHex());
-                dm.material.opacity = 1.0;
-                dm.position.z = 0.31;
                 openDistrictPanel(dm.userData.districtNum, dm.userData.districtLabel, dm.userData.stateName, dm.userData.regionHex, dm.userData.party);
                 trackEvent('district_click', {
                     state: dm.userData.stateName,

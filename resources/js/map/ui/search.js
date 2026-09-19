@@ -7,7 +7,7 @@
 import { stateMeshes } from '../scene/state-meshes.js';
 import { enterRegionMode, enterStateMode } from '../navigation/mode-transitions.js';
 import { STATE_ABBR_MAP, REGIONS, stateToRegion, DISTRICT_COUNTS } from '../config/constants.js';
-import { districtMeshes } from '../scene/district-overlay.js';
+import { districtMeshes, DISTRICT_MIN_DIST } from '../scene/district-overlay.js';
 import { activeState, ACTIVE_LAYERS } from '../state/map-state.js';
 import { trackEvent } from '../api/interaction.js';
 import { flyToMeshesTopDown, flyToPoint } from '../scene/camera-animation.js';
@@ -16,7 +16,6 @@ import { openPolDrawer } from './politician-drawer.js';
 import { syncLayerChip } from './layers-panel.js';
 import { refreshBusinessPins } from './business-pins.js';
 import { TOP_CITIES, fmtPop } from '../config/city-data.js';
-import * as THREE from 'three';
 
 const searchOverlay = document.getElementById('search-overlay');
 const searchInput   = document.getElementById('search-input');
@@ -392,17 +391,7 @@ async function activateResult(item) {
             m.userData.districtNum === item.districtNum
         );
         if (target) {
-            for (const d of districtMeshes) {
-                d.material.color.setHex(d.userData.originalColor);
-                d.material.opacity = 0.45;
-                d.position.z       = 0.255;
-            }
-            const bright = new THREE.Color(target.userData.regionHex || '#6366f1')
-                .lerp(new THREE.Color(0xffffff), 0.72);
-            target.material.color.setHex(bright.getHex());
-            target.material.opacity = 1.0;
-            target.position.z       = 0.31;
-            flyToMeshesTopDown([target], 2.6);
+            flyToMeshesTopDown([target], 2.6, DISTRICT_MIN_DIST);
             openDistrictPanel(target.userData.districtNum, target.userData.districtLabel, target.userData.stateName, target.userData.regionHex, target.userData.party);
         }
     }

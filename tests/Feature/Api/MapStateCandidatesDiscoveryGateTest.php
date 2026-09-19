@@ -35,13 +35,13 @@ function mapNames(): array
 }
 
 it('hides ECR rows from a past election cycle', function () {
-    statewideEcr(['full_name' => 'Current Cycle Candidate', 'election_date' => now()->addMonths(3)->toDateString()]);
-    statewideEcr(['full_name' => 'Old Cycle Candidate', 'election_date' => '2018-11-06']);
+    statewideEcr(['full_name' => 'Casey Currentcycle', 'election_date' => now()->addMonths(3)->toDateString()]);
+    statewideEcr(['full_name' => 'Oliver Oldcycle', 'election_date' => '2018-11-06']);
 
     $names = mapNames();
 
-    expect($names)->toContain('Current Cycle Candidate');
-    expect($names)->not->toContain('Old Cycle Candidate');
+    expect($names)->toContain('Casey Currentcycle');
+    expect($names)->not->toContain('Oliver Oldcycle');
 });
 
 it('hides an unverified candidate_discovery row', function () {

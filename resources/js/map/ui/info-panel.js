@@ -5,6 +5,7 @@ import { resizeRenderer } from '../scene/setup.js';
 import { mapMode } from '../state/map-state.js';
 import { resetDistrictSelection } from '../scene/district-overlay.js';
 import { handleBack } from '../navigation/mode-transitions.js';
+import { clearOpenDistrict } from './panel-district.js';
 
 const infoPanel = document.getElementById('info-panel');
 const legend = document.getElementById('legend');
@@ -22,6 +23,7 @@ export function initInfoPanel() {
     document.getElementById('panel-close').addEventListener('click', () => {
         infoPanel.classList.remove('open');
         resizeRenderer();
+        clearOpenDistrict();
         if (mapMode === 'state') {
             resetDistrictSelection();
         } else {

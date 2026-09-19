@@ -105,7 +105,7 @@ class MapStateCandidatesBadgesTest extends TestCase
         \App\Models\ElectionCandidateRecord::create([
             'source'                 => 'ballotpedia',
             'external_candidate_id'  => 'jane-scraped-candidate-ny',
-            'full_name'              => 'Jane Scraped Candidate',
+            'full_name'              => 'Jane Scrapedname',
             'political_office'       => 'Secretary of State',
             'party_affiliation'      => 'Independent',
             'state'                  => 'NY',
@@ -119,7 +119,7 @@ class MapStateCandidatesBadgesTest extends TestCase
         $response->assertOk();
 
         $candidates = $response->json('offices.0.candidates');
-        $candidate = collect($candidates)->firstWhere('full_name', 'Jane Scraped Candidate');
+        $candidate = collect($candidates)->firstWhere('full_name', 'Jane Scrapedname');
 
         $this->assertNotNull($candidate);
         $this->assertSame([], $candidate['badges']);

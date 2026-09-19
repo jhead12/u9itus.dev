@@ -1,7 +1,6 @@
 /**
  * Deep-link navigation — URL param boot and window.__mapGoTo export.
  */
-import * as THREE from 'three';
 import { STATE_ABBR_MAP } from '../config/constants.js';
 import { stateMeshes } from '../scene/state-meshes.js';
 import { districtMeshes, flyToDistrictTopDown } from '../scene/district-overlay.js';
@@ -36,21 +35,8 @@ window.__mapGoTo = async function (state, district = null, slug = null) {
 
                 // Mirror the on-canvas district click handler (mode-transitions.js)
                 // so a programmatic navigation looks/behaves identically to a real
-                // click — highlight the selected district, dim the rest, and open
-                // its candidate panel. Previously this only flew the camera; the
-                // panel never opened because it dispatched a 'select' DOM event
-                // that nothing in the app was listening for.
-                for (const d of districtMeshes) {
-                    d.material.color.setHex(d.userData.originalColor);
-                    d.material.opacity = 0.72;
-                    d.position.z = 0.255;
-                }
-                const bright = new THREE.Color(dm.userData.partyHex || dm.userData.regionHex || '#6366f1')
-                    .lerp(new THREE.Color(0xffffff), 0.55);
-                dm.material.color.setHex(bright.getHex());
-                dm.material.opacity = 1.0;
-                dm.position.z = 0.31;
-
+                // click. openDistrictPanel() selects (outline, label, dimming) and
+                // opens the candidate panel; here we only add the camera move.
                 flyToDistrictTopDown(dm);
                 openDistrictPanel(dm.userData.districtNum, dm.userData.districtLabel, dm.userData.stateName, dm.userData.regionHex, dm.userData.party);
             }

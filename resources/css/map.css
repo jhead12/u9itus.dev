@@ -1754,6 +1754,106 @@ body:has(#pol-drawer.open) #map-first-hint { display: none; }
 
 
 /* ══════════════════════════════════════════
+   District view: the panel leads with this seat
+══════════════════════════════════════════ */
+/* The info panel is a flex column, so `order` re-sequences the sections without
+   moving DOM: this seat first, then the switcher, other races, state extras. */
+#info-panel[data-view="district"] > * { order: 20; }
+#info-panel[data-view="district"] > .panel-drag-handle { order: 0; }
+#info-panel[data-view="district"] > #panel-header,
+#info-panel[data-view="district"] > #pd-status { order: 1; }
+#info-panel[data-view="district"] > #panel-candidates { order: 2; }
+#info-panel[data-view="district"] > #panel-districts { order: 3; }
+#info-panel[data-view="district"] > #panel-running-candidates { order: 4; }
+#info-panel[data-view="district"] > #panel-stats { order: 5; }
+#info-panel[data-view="district"] > #panel-topics { order: 6; }
+#info-panel[data-view="district"] > #panel-ballot-measures { order: 7; }
+#info-panel[data-view="district"] > #panel-states-wrap { order: 30; }
+/* The offices toggle collapses #panel-candidates — in this view that holds the
+   representative, so it must never hide. */
+#info-panel[data-view="district"] > #offices-toggle { display: none; }
+#info-panel[data-view="district"] #panel-candidates.section-collapsed { display: block; }
+
+.dp-section { margin: 0 0 18px; }
+.dp-title {
+    margin: 0 0 4px; font-size: 13px; font-weight: 700; letter-spacing: 0.02em; color: #f1f5f9;
+}
+.dp-rep .dp-title { font-size: 15px; }
+.dp-sub { margin: 0 0 8px; font-size: 12px; color: #cbd5e1; }
+.dp-meta { margin: 6px 0 0; font-size: 11px; color: #a7b4c7; line-height: 1.5; }
+.dp-empty { margin: 4px 0 0; font-size: 12px; color: #a7b4c7; }
+
+/* "Other races" sits below the switcher in district view; keep it visually quiet. */
+#info-panel[data-view="district"] #panel-running-candidates { margin-top: 4px; }
+
+/* ══════════════════════════════════════════
+   District list: search, status, preview
+══════════════════════════════════════════ */
+details.pd-section > summary { cursor: pointer; list-style: none; user-select: none; }
+details.pd-section > summary::-webkit-details-marker { display: none; }
+details.pd-section > summary::before {
+    content: '▸'; display: inline-block; width: 1em; color: #94a3b8; transition: transform 0.15s;
+}
+details.pd-section[open] > summary::before { transform: rotate(90deg); }
+details.pd-section > summary:focus-visible { outline: 2px solid #a5b4fc; outline-offset: 2px; border-radius: 4px; }
+
+.pd-search-wrap { margin: 2px 0 6px; }
+.pd-search {
+    width: 100%; box-sizing: border-box; padding: 8px 10px; border-radius: 8px;
+    background: rgba(15,23,42,0.9); border: 1px solid rgba(148,163,184,0.45);
+    color: #f1f5f9; font: inherit; font-size: 13px;
+}
+.pd-search::placeholder { color: #94a3b8; }
+.pd-search:focus { outline: none; border-color: #a5b4fc; box-shadow: 0 0 0 2px rgba(165,180,252,0.3); }
+.pd-count { margin: 0 0 6px; font-size: 11px; color: #cbd5e1; }
+.pd-count-empty { color: #fbbf24; }
+.dist-row[hidden] { display: none; }
+/* While searching, matches are never trimmed by the "Show all" limit. */
+.pd-list.pd-limited:not(.pd-filtering) .dist-row:nth-child(n+9) { display: none; }
+.pd-list.pd-limited.pd-filtering .dist-row:nth-child(n+9):not([hidden]) { display: grid; }
+
+.pd-status {
+    flex-shrink: 0;
+    display: flex; align-items: center; gap: 8px; margin: 0 0 10px; padding: 7px 10px;
+    border-radius: 8px; font-size: 11px; line-height: 1.4; color: #cbd5e1;
+    background: rgba(99,102,241,0.12); border: 1px solid rgba(99,102,241,0.35);
+}
+.pd-status[hidden] { display: none; }
+.pd-status-error { background: rgba(245,158,11,0.12); border-color: rgba(245,158,11,0.5); color: #fde68a; }
+.pd-spinner {
+    flex-shrink: 0; width: 12px; height: 12px; border-radius: 50%;
+    border: 2px solid rgba(165,180,252,0.35); border-top-color: #a5b4fc;
+    animation: spin 0.9s linear infinite;
+}
+.pd-retry {
+    flex-shrink: 0; margin-left: auto; padding: 4px 12px; border-radius: 999px; cursor: pointer;
+    background: #fbbf24; border: 0; color: #1c1917; font: inherit; font-size: 11px; font-weight: 700;
+}
+.pd-retry:hover { background: #fcd34d; }
+.pd-retry:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+
+/* ══════════════════════════════════════════
+   Selected district: persistent callout label
+══════════════════════════════════════════ */
+.sel-district-label {
+    position: absolute; z-index: 30; pointer-events: none;
+    /* Sits above the district's centre so it never covers a small district. */
+    transform: translate(-50%, calc(-100% - 12px));
+    display: none; align-items: center; gap: 8px;
+    padding: 5px 12px; border-radius: 999px; white-space: nowrap;
+    background: rgba(5,7,15,0.94); color: #fff; font-size: 12px;
+    border: 2px solid var(--sel-accent, #a5b4fc);
+    box-shadow: 0 6px 24px rgba(0,0,0,0.55);
+}
+.sel-district-label::after {
+    content: ''; position: absolute; left: 50%; bottom: -8px; margin-left: -6px;
+    border: 6px solid transparent; border-top-color: var(--sel-accent, #a5b4fc); border-bottom: 0;
+}
+.sel-code { font-weight: 800; letter-spacing: 0.02em; }
+.sel-name { font-weight: 500; color: #e2e8f0; max-width: 170px; overflow: hidden; text-overflow: ellipsis; }
+
+
+/* ══════════════════════════════════════════
    Phone / tablet overrides for the additions above.
    Kept last so they win over the base rules that precede them.
 ══════════════════════════════════════════ */

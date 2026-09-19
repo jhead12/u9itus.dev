@@ -94,10 +94,13 @@ async function fetchStateDistrictsLow(fips) {
         inSR: '4326',
         outSR: '4326',
     });
-    const res = await fetch(`${getTigerwebUrl()}?${params}`);
+    const res = await fetch(`${getTigerwebUrl()}?${params}`, { signal: AbortSignal.timeout(20000) });
+    if (!res.ok) throw new Error(`Census boundary service returned ${res.status}`);
     const data = await res.json();
     const features = data.features || [];
-    if (features.length) idbSet(idbKey, features, NAT_TIGER_IDB_TTL).catch(() => {});
+    // An empty answer is a failed load, not "a state with no districts".
+    if (!features.length) throw new Error('No districts returned');
+    idbSet(idbKey, features, NAT_TIGER_IDB_TTL).catch(() => {});
     return features;
 }
 
@@ -127,12 +130,13 @@ export async function loadNationalBoundaries(scopeKey) {
 
         const allFips = _natDistFips(scopeKey);
         let done = 0;
+        const failed = [];
         const BATCH = 8;
 
         for (let i = 0; i < allFips.length; i += BATCH) {
             const batch = allFips.slice(i, i + BATCH);
             progress.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" style="animation:spin 1s linear infinite;color:#6366f1;vertical-align:middle;margin-right:6px;"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-dasharray="31.4" stroke-dashoffset="10" stroke-linecap="round"/></svg>
-                Loading districts… ${done}/${allFips.length} states`;
+                Loading district boundaries… ${done}/${allFips.length} states`;
 
             await Promise.all(batch.map(async fips => {
                 try {
@@ -149,18 +153,25 @@ export async function loadNationalBoundaries(scopeKey) {
                             grp.add(line);
                         }
                     }
-                } catch { /* skip failed states silently */ }
+                } catch { failed.push(fips); }
                 done++;
             }));
         }
 
-        nationalDistLoadedFor.add(scopeKey);
         nationalDistVisible = true;
         for (const [key, g] of Object.entries(nationalDistGroups)) {
             g.visible = (key === scopeKey);
         }
-        progress.style.display = 'none';
         updateDistrictsBtn(true);
+
+        if (failed.length) {
+            // Don't mark the scope loaded: say what's missing and let the user retry
+            // (states that did load are cached, so a retry only refetches the rest).
+            showNationalRetry(progress, scopeKey, failed.length, allFips.length);
+        } else {
+            nationalDistLoadedFor.add(scopeKey);
+            progress.style.display = 'none';
+        }
     } catch (err) {
         progress.style.display = 'none';
         progress.textContent = `⚠ Failed: ${err.message}`;
@@ -169,6 +180,18 @@ export async function loadNationalBoundaries(scopeKey) {
         setTimeout(() => { progress.style.display = 'none'; }, 5000);
     }
     nationalDistLoading = false;
+}
+
+function showNationalRetry(progress, scopeKey, failedCount, total) {
+    progress.style.color = '#fde68a';
+    progress.innerHTML = `⚠ ${failedCount} of ${total} states didn’t load, so some district lines are missing.
+        <button type="button" id="dist-progress-retry" style="margin-left:10px;padding:3px 12px;border:0;border-radius:999px;background:#fbbf24;color:#1c1917;font:inherit;font-weight:700;cursor:pointer;">Retry</button>`;
+    progress.style.display = 'block';
+    progress.querySelector('#dist-progress-retry').addEventListener('click', () => {
+        const stale = nationalDistGroups[scopeKey];
+        if (stale) { mapGroup.remove(stale); delete nationalDistGroups[scopeKey]; }
+        loadNationalBoundaries(scopeKey);
+    });
 }
 
 export function toggleNationalBoundaries() {

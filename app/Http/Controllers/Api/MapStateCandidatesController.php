@@ -8,6 +8,7 @@ use App\Models\Citizen;
 use App\Models\ElectionCandidateRecord;
 use App\Models\Politician;
 use App\Models\StateElectionDate;
+use App\Support\MapCandidateHygiene;
 use App\Support\OfficeCanonicalizer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -146,6 +147,30 @@ class MapStateCandidatesController
             // Should never happen — validated before cache call.
             return [];
         }
+
+        // ── 0. One authoritative election calendar + data-hygiene context ─────
+        // Every date the panel shows for the general election comes from
+        // state_election_dates, never from a per-candidate payload, so the
+        // pills, the candidate headings and the profile drawer can't disagree.
+        $electionDates = StateElectionDate::upcomingForState($state);
+        $officialGeneral = collect($electionDates)
+            ->first(fn ($d) => strtolower((string) ($d['stage_name'] ?? '')) === 'general' && ! empty($d['election_date']))['election_date'] ?? null;
+
+        // City names for the state, so a "candidate" called "Huntington Beach"
+        // (a scraped page heading, not a person) can be recognised and hidden.
+        $placeNames = [];
+        $addPlace = function (?string $city) use (&$placeNames): void {
+            $key = MapCandidateHygiene::placeKey($city);
+            if ($key !== '') {
+                $placeNames[$key] = true;
+            }
+        };
+        DB::table('city_demographics')->where('state', $state)->pluck('city_name')->each($addPlace);
+        Politician::query()
+            ->whereRaw('UPPER(COALESCE(state, \'\')) = ?', [$state])
+            ->whereNotNull('city')->distinct()->pluck('city')->each($addPlace);
+
+        $quality = ['hidden_names' => 0, 'merged_duplicates' => 0, 'date_conflicts' => 0];
 
         // ── 1. Seated statewide officeholders on the platform ─────────────────
         // Only pull SEATED politicians from the platform table for statewide offices.
@@ -357,8 +382,15 @@ class MapStateCandidatesController
                 }
             }
 
-            $seenGlobal[$nameLower] = true;
             $recStatus = $payload['status'] ?? 'running';
+            if (MapCandidateHygiene::shouldHide(['full_name' => $rec->full_name, 'status' => $recStatus], $placeNames)) {
+                $quality['hidden_names']++;
+
+                continue;
+            }
+
+            $seenGlobal[$nameLower] = true;
+            $generalDate = $this->generalDateFor($payload['general_date'] ?? null, $officialGeneral, $quality);
             $grouped[$canonical]['candidates'][] = [
                 'source'          => 'scraped',
                 'scrape_source'   => $rec->source,
@@ -372,7 +404,7 @@ class MapStateCandidatesController
                 'is_running'      => $recStatus !== 'seated',
                 'verified'        => $recStatus === 'seated',
                 'primary_result'  => $primaryResult,
-                'general_date'    => $payload['general_date'] ?? null,
+                'general_date'    => $generalDate,
                 'term_end'        => $payload['term_end'] ?? null,
                 'term_note'       => $payload['term_note'] ?? null,
                 'ballotpedia_id'  => $rec->external_candidate_id ?? null,
@@ -386,33 +418,20 @@ class MapStateCandidatesController
             ];
         }
 
-        // ── Deduplicate candidates within each office group by name ─────────
+        // ── Hide placeholder names, then merge the same person across rows ────
         // Multiple import sources (platform Politician + ECR scrape + enrichment)
-        // can write separate rows for the same person. Keep the highest-quality
-        // record: platform > scraped, seated > running, verified > unverified.
-        foreach ($grouped as $canonical => &$group) {
-            $seen  = [];
-            $deduped = [];
-            foreach ($group['candidates'] as $cand) {
-                $key = strtolower(trim((string) ($cand['full_name'] ?? '')));
-                if ($key === '') {
-                    $deduped[] = $cand;
-                    continue;
-                }
-                if (! isset($seen[$key])) {
-                    $seen[$key] = $cand;
-                    continue;
-                }
-                // Score: platform=3, scraped=1; seated=2, running=1; verified=1
-                $score = fn($c) =>
-                    (($c['source'] ?? '') === 'platform' ? 3 : 1)
-                    + (($c['status'] ?? '') === 'seated' ? 2 : 1)
-                    + ((bool)($c['verified'] ?? false) ? 1 : 0);
-                if ($score($cand) > $score($seen[$key])) {
-                    $seen[$key] = $cand;
-                }
-            }
-            $group['candidates'] = array_values(array_merge($deduped, array_values($seen)));
+        // can write separate rows for one person, often with a different
+        // spelling ("Steve"/"Steven"). MapCandidateHygiene::dedupe() keeps the
+        // best record (platform > scraped, seated > running, verified).
+        foreach ($grouped as &$group) {
+            $before = count($group['candidates']);
+            $group['candidates'] = array_values(array_filter(
+                $group['candidates'],
+                fn ($c) => ! MapCandidateHygiene::shouldHide($c, $placeNames),
+            ));
+            $quality['hidden_names'] += $before - count($group['candidates']);
+            [$group['candidates'], $mergedAway] = MapCandidateHygiene::dedupe($group['candidates']);
+            $quality['merged_duplicates'] += $mergedAway;
         }
         unset($group);
 
@@ -533,8 +552,14 @@ class MapStateCandidatesController
                 }
             }
 
-            $seenHouseNames[$nameLower] = true;
             $recStatus = $payload['status'] ?? 'running';
+            if (MapCandidateHygiene::shouldHide(['full_name' => $rec->full_name, 'status' => $recStatus], $placeNames)) {
+                $quality['hidden_names']++;
+
+                continue;
+            }
+
+            $seenHouseNames[$nameLower] = true;
             $houseCandidates[$distKey][] = [
                 'source'          => 'scraped',
                 'scrape_source'   => $rec->source,
@@ -546,6 +571,7 @@ class MapStateCandidatesController
                 'status'          => $recStatus,
                 'is_running'      => $recStatus !== 'seated',
                 'verified'        => $recStatus === 'seated',
+                'general_date'    => $this->generalDateFor($payload['general_date'] ?? null, $officialGeneral, $quality),
                 'ballotpedia_url' => ($rec->source === 'ballotpedia' && $rec->external_candidate_id)
                     ? 'https://ballotpedia.org/' . $rec->external_candidate_id
                     : null,
@@ -554,6 +580,16 @@ class MapStateCandidatesController
                 'bio_excerpt'     => null,
                 'badges'          => [],
             ];
+        }
+
+        // Same clean-up per district: hide placeholder names, then merge the
+        // same person listed twice (two platform rows, or a platform row plus
+        // a scraped one under a nickname).
+        foreach ($houseCandidates as $distKey => $rows) {
+            $kept = array_values(array_filter($rows, fn ($c) => ! MapCandidateHygiene::shouldHide($c, $placeNames)));
+            $quality['hidden_names'] += count($rows) - count($kept);
+            [$houseCandidates[$distKey], $mergedAway] = MapCandidateHygiene::dedupe($kept);
+            $quality['merged_duplicates'] += $mergedAway;
         }
 
         // ── 6. City officials grouped by city name, then by exact office/seat ──
@@ -604,8 +640,19 @@ class MapStateCandidatesController
         // (Named $cityOfficeGroups, not $offices, to avoid shadowing the
         // unrelated statewide-$offices Collection used later in this method.)
         foreach ($cityOfficialsGrouped as $cityKey => $cityOfficeGroups) {
-            $cityOfficialsGrouped[$cityKey] = array_values($cityOfficeGroups);
+            $groups = [];
+            foreach ($cityOfficeGroups as $group) {
+                $kept = array_values(array_filter($group['candidates'], fn ($c) => ! MapCandidateHygiene::shouldHide($c, $placeNames)));
+                $quality['hidden_names'] += count($group['candidates']) - count($kept);
+                [$group['candidates'], $mergedAway] = MapCandidateHygiene::dedupe($kept);
+                $quality['merged_duplicates'] += $mergedAway;
+                if ($group['candidates'] !== []) {
+                    $groups[] = $group;
+                }
+            }
+            $cityOfficialsGrouped[$cityKey] = $groups;
         }
+        $cityOfficialsGrouped = array_filter($cityOfficialsGrouped);
 
         // ── 7. Upcoming ballot measures for this state ─────────────────────────
         // Admin/CSV-curated for now (php artisan ballot-measures:import) — no
@@ -635,7 +682,7 @@ class MapStateCandidatesController
         // from Vote Smart (php artisan elections:sync-dates) — see
         // StateElectionDate::upcomingForState() for the shared query used by
         // the map, public profile, and voter dashboard alike.
-        $electionDates = StateElectionDate::upcomingForState($state);
+        // (computed once, in §0)
 
         // ── 9. Mapped local businesses in this state ────────────────────────────
         // Reuses the same Citizen rows that power the map's business pins/search
@@ -656,6 +703,8 @@ class MapStateCandidatesController
             'city_officials'     => $cityOfficialsGrouped,
             'ballot_measures'    => $ballotMeasures->values()->all(),
             'election_dates'     => $electionDates,
+            'general_election_date' => $officialGeneral,
+            'quality'            => $quality,
             'office_roles'       => $this->officeRoles(),
             'population'         => $statePopRow ? [
                 'total'       => $statePopRow->total_population,
@@ -670,6 +719,26 @@ class MapStateCandidatesController
                 'formatted'   => number_format($r->total_population),
             ])->values()->all(),
         ];
+    }
+
+    /**
+     * The general-election date to show for a candidate: the state's official
+     * calendar when we have one, else whatever the scrape recorded. A scrape
+     * that disagrees with the calendar is counted so the audit can surface it.
+     *
+     * @param  array<string, int>  $quality
+     */
+    private function generalDateFor(?string $scraped, ?string $official, array &$quality): ?string
+    {
+        $scraped = $scraped ? substr(trim($scraped), 0, 10) : null;
+        if ($official === null) {
+            return $scraped;
+        }
+        if ($scraped !== null && $scraped !== $official) {
+            $quality['date_conflicts']++;
+        }
+
+        return $official;
     }
 
     /**

@@ -482,6 +482,9 @@
         </div>
         <button id="panel-close" title="Close panel">✕</button>
     </div>
+    {{-- Boundary-loading status + Retry (filled by panel-districts.js). Outside the
+         districts list so it stays visible when that list is folded away. --}}
+    <div class="pd-status" id="pd-status" role="status" aria-live="polite" hidden></div>
     {{-- Districts & representatives lead the panel for a selected state. --}}
     <div id="panel-districts"></div>
     <div id="panel-stats"></div>

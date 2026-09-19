@@ -4,7 +4,8 @@
 import { STATE_ABBR_MAP, PARTY_HEX, PARTY_LABEL } from '../config/constants.js';
 import { districtMeshes } from '../scene/district-overlay.js';
 import { stateData } from '../state/map-state.js';
-import { openDistrictPanel } from './panel-district.js';
+import { openDistrictPanel, getOpenDistrict } from './panel-district.js';
+import { hasSelectedDistrict } from '../scene/selected-district.js';
 import { addOverlayItem, removeOverlayItems, updateOverlayPositions } from './point-overlay-factory.js';
 
 export const mapLabelsLayer = document.getElementById('map-labels-layer');
@@ -84,7 +85,7 @@ function sortByHasName(visible) {
  * city's own dot look detached from its name pill in dense areas.
  */
 export function updateDistrictLabels(occupiedRects = []) {
-    return updateOverlayPositions(districtLabels, {
+    const placed = updateOverlayPositions(districtLabels, {
         // Each label projects via its own district mesh's transform, not the
         // shared mapGroup — mesh.matrixWorld differs per district.
         getTransformNode: (item) => item.mesh,
@@ -96,6 +97,15 @@ export function updateDistrictLabels(occupiedRects = []) {
         margin: { x: 60, top: 40, bottom: 60 },
         sortItems: sortByHasName,
     }, occupiedRects);
+    // The selected district has its own persistent callout (scene/selected-district.js);
+    // a second pill for the same district would only be clutter underneath it.
+    if (hasSelectedDistrict()) {
+        const open = getOpenDistrict();
+        for (const entry of districtLabels) {
+            if (open && entry.item.mesh.userData.districtNum === open.num) entry.el.style.display = 'none';
+        }
+    }
     // Return value chains into render-loop.js's candidate-marker collision
     // avoidance off the combined city+district occupied set.
+    return placed;
 }

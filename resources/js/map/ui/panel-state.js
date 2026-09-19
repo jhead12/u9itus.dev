@@ -1,7 +1,7 @@
 /**
  * State panel — renders statewide office holders, candidates, city officials.
  */
-import { STATE_ABBR_MAP, PARTY_HEX, PARTY_LABEL, OFFICE_ROLES, CITY_OFFICE_ROLES, DISTRICT_COUNTS } from '../config/constants.js';
+import { STATE_ABBR_MAP, PARTY_HEX, PARTY_LABEL, OFFICE_ROLES, CITY_OFFICE_ROLES } from '../config/constants.js';
 import { stateData, statePanelRequestId, mapMode, activeRegion, activeState, colorMode, DISTRICT_CONFIG } from '../state/map-state.js';
 import { openDistrictPanel } from './panel-district.js';
 import { openPolDrawer } from './politician-drawer.js';
@@ -11,6 +11,7 @@ import { renderCityCard, wireCityCardClicks, fetchCitiesForState } from './city-
 import { renderRunningCandidatesSection } from './panel-running-candidates.js';
 import { closeBusinessesPanel } from './panel-businesses.js';
 import { renderDistrictsPanel } from './panel-districts.js';
+import { formatCalendarDate, parseCalendarDate, isBeforeToday } from '../utils/dates.js';
 
 // Every office section now starts collapsed when a panel first opens — no
 // office defaults to expanded. Kept as a Set (rather than deleting the
@@ -53,12 +54,11 @@ export function topicChipsHtml(badges) {
 }
 
 export function detectElectionPhase(candidates) {
-    const today = new Date();
     let anyPrimaryResult = false, generalPassed = false;
     for (const c of (candidates || [])) {
         if (c.primary_result) anyPrimaryResult = true;
         if (c.status === 'lost') anyPrimaryResult = true;
-        if (c.general_date && new Date(c.general_date) < today) { generalPassed = true; break; }
+        if (c.general_date && isBeforeToday(c.general_date)) { generalPassed = true; break; }
     }
     if (generalPassed) return 'post_general';
     if (anyPrimaryResult) return 'post_primary';
@@ -75,10 +75,7 @@ export function renderCandidate(c, color) {
         : `<span class="candidate-avatar-placeholder">${avatarSvg}</span>`;
     const py = c.party ? `<span class="party-pill ${partyClass(c.party)}">${c.party}</span>` : '';
     const elDate = c.general_date || c.election_date || null;
-    const elDateStr = elDate ? (() => {
-        try { return new Date(elDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); }
-        catch { return null; }
-    })() : null;
+    const elDateStr = elDate ? (formatCalendarDate(elDate) || null) : null;
     const elBadge = (c.is_running && elDateStr)
         ? `<span style="color:#a7b4c7;font-size:9px;margin-left:4px;">📅 ${elDateStr}</span>`
         : '';
@@ -130,17 +127,14 @@ export function renderOfficeGroup(g, roles, color) {
     const isSeated = c => c.status === 'seated' || (c.status === 'active' && !c.is_running);
     const seated = g.candidates.filter(isSeated);
     let running = g.candidates.filter(c => !isSeated(c) && c.status !== 'lost');
-    const today = new Date();
     const nextElDate = g.candidates
         .map(c => c.general_date || c.election_date || null)
         .filter(Boolean)
-        .map(d => new Date(d))
-        .filter(d => !isNaN(d))
+        .map(parseCalendarDate)
+        .filter(Boolean)
         .sort((a, b) => a - b)
-        .find(d => d >= today) || null;
-    const nextElStr = nextElDate
-        ? nextElDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-        : null;
+        .find(d => !isBeforeToday(d)) || null;
+    const nextElStr = nextElDate ? formatCalendarDate(nextElDate) : null;
 
     let runningLabel = '';
     if (phase === 'post_general') {
@@ -149,7 +143,7 @@ export function renderOfficeGroup(g, roles, color) {
         running = running.filter(c => c.primary_result === 'advanced_to_general');
         const genDate = running.find(c => c.general_date)?.general_date;
         runningLabel = 'General Election Candidates'
-            + (genDate ? ` · ${new Date(genDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}` : '');
+            + (genDate ? ` · ${formatCalendarDate(genDate)}` : '');
     } else {
         runningLabel = '2026 Primary Candidates';
     }
@@ -240,7 +234,7 @@ export function renderBallotMeasuresSection(ballotMeasures, color) {
     ballotMeasures.forEach((m, i) => {
         const label = [m.measure_number, m.title].filter(Boolean).join(' — ');
         const dateLine = m.election_date
-            ? `<p style="color:#a7b4c7;font-size:10px;margin:2px 0 0;">${escapeHtml(new Date(m.election_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }))}</p>`
+            ? `<p style="color:#a7b4c7;font-size:10px;margin:2px 0 0;">${escapeHtml(formatCalendarDate(m.election_date))}</p>`
             : '';
         const summaryLine = m.summary
             ? `<p style="color:#94a3b8;font-size:11px;line-height:1.5;margin:4px 0 0;">${escapeHtml(m.summary)}</p>`
@@ -447,15 +441,13 @@ async function fetchStateCitiesEconomy(stateAbbr, regionName, color) {
     </div>`;
 }
 
-export async function openStatePanel(stateName, regionName, region, districtCount, panelData = null) {
+export async function openStatePanel(stateName, regionName, region, panelData = null) {
     const data = panelData || stateData || {};
     const color = region?.hex || '#6366f1';
     const candEl = document.getElementById('panel-candidates');
 
     // Leaving any prior state's Local Businesses view before we repaint.
     closeBusinessesPanel();
-
-    await new Promise(r => setTimeout(r, 380));
 
     _officeIdx = 0;
     const offices = data?.offices ?? [];
@@ -479,12 +471,7 @@ export async function openStatePanel(stateName, regionName, region, districtCoun
     html += DATA_BANNERS[apiStatus] ?? DATA_BANNERS.unreachable;
 
     // District boundaries and their representatives lead the panel (see
-    // panel-districts.js). Only flag the case where boundaries came back short.
-    const expectedDistricts = DISTRICT_COUNTS[stateName] || 0;
-    if (districtCount > 0 && districtCount < expectedDistricts) {
-        html += `<p style="color:#f59e0b;font-size:11px;margin:0 0 12px;">⚠ Only ${districtCount} of ${expectedDistricts} district boundaries loaded — click the state again to retry.</p>`;
-    }
-
+    // panel-districts.js, which also reports boundary-loading problems).
     html += `<div id="state-cities-econ"></div>`;
 
     html += offices.length

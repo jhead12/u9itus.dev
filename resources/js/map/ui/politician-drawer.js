@@ -9,6 +9,7 @@ import { trackEvent } from '../api/interaction.js';
 import { createFavoriteButton } from './boundary-favorite.js';
 import { createFollowButton } from './politician-follow-button.js';
 import { resizeRenderer } from '../scene/setup.js';
+import { formatCalendarDate } from '../utils/dates.js';
 
 const polDrawer = document.getElementById('pol-drawer');
 const polDrawerClose = document.getElementById('pol-drawer-close');
@@ -458,8 +459,7 @@ function renderContributors(contributors) {
 
 function formatVoteDate(dateStr) {
     if (!dateStr) return '';
-    const d = new Date(dateStr);
-    return isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    return formatCalendarDate(dateStr);
 }
 
 /** Recent legislative votes, sourced from Vote Smart (same provider as the Overview tab's bio facts). */
@@ -752,7 +752,7 @@ function _renderPolBody() {
         const elDate = c.general_date || c.election_date || null;
         const usingTermEnd = !elDate && !!c.term_end;
         const elDisplayDate = elDate || (usingTermEnd ? c.term_end : null);
-        const elStr = elDisplayDate ? (() => { try { return new Date(elDisplayDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }); } catch { return '—'; } })() : '—';
+        const elStr = elDisplayDate ? (formatCalendarDate(elDisplayDate, { month: 'short', year: 'numeric' }) || '—') : '—';
         const elLabel = usingTermEnd ? 'Term Ends' : 'Next Election';
         const effectivePop = pop || stateData?.population || null;
         const usingStatePop = !pop && !!stateData?.population;
@@ -766,7 +766,7 @@ function _renderPolBody() {
         const bio = enrichment?.candidate || null;
         const bioFacts = [];
         if (bio?.birth_date) {
-            const born = (() => { try { return new Date(bio.birth_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }); } catch { return null; } })();
+            const born = (formatCalendarDate(bio.birth_date, { month: 'long', day: 'numeric', year: 'numeric' }) || null);
             if (born) bioFacts.push(['Born', born]);
         }
         if (bio?.education) bioFacts.push(['Education', bio.education]);
