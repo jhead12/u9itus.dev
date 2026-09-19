@@ -51,8 +51,20 @@ class EndorsementClassifier
         foreach ($groups as $groupKey => $group) {
             $best = null;
 
+            $candidates = [];
             foreach (($group['patterns'] ?? []) as $pattern) {
-                foreach ($this->findPatternOffsets($haystack, (string) $pattern) as [$offset, $length]) {
+                $candidates[] = [(string) $pattern, null];
+            }
+            foreach (($group['named'] ?? []) as $pattern => $displayName) {
+                $candidates[] = [(string) $pattern, (string) $displayName];
+            }
+
+            foreach ($candidates as [$pattern, $fixedName]) {
+                foreach ($this->findPatternOffsets($haystack, $pattern) as [$offset, $length]) {
+                    if ($fixedName !== null && ! $this->namedMatchAllowed($group, $haystack, $offset, $length)) {
+                        continue;
+                    }
+
                     $distance = $this->nearestEndorserVerbDistance($haystack, $offset, $length, $verbOffsets);
                     if ($distance === null || $distance > $this->proximityWindow) {
                         continue;
@@ -64,7 +76,7 @@ class EndorsementClassifier
                             'group' => $groupKey,
                             'label' => $group['label'] ?? $groupKey,
                             'matched_phrase' => $this->excerpt($original, $offset, $length),
-                            'endorser_name' => $this->captureEndorserName($original, $offset + $length),
+                            'endorser_name' => $fixedName ?? $this->captureEndorserName($original, $offset + $length),
                             'confidence' => $confidence,
                         ];
                     }
@@ -93,6 +105,19 @@ class EndorsementClassifier
         }
 
         return false;
+    }
+
+    /** A bare surname is only the well-known endorser when it is not a relative or a phrase like "Trump administration". */
+    protected function namedMatchAllowed(array $group, string $haystackLower, int $offset, int $length): bool
+    {
+        $before = substr($haystackLower, max(0, $offset - 20), min(20, $offset));
+        $after = substr($haystackLower, $offset + $length, 30);
+
+        if (! empty($group['named_not_before']) && preg_match($group['named_not_before'], $before)) {
+            return false;
+        }
+
+        return empty($group['named_not_after']) || ! preg_match($group['named_not_after'], $after);
     }
 
     /**

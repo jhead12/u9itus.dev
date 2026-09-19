@@ -35,6 +35,16 @@ return [
         'president' => [
             'label' => 'President',
             'patterns' => ['president', 'commander in chief'],
+            // Well-known endorsers who are usually written without their title
+            // ("Trump endorses Steve Hilton"). The value is the name shown on the profile.
+            'named' => [
+                'donald trump' => 'Donald Trump',
+                'trump' => 'Donald Trump',
+            ],
+            // Regexes tested on the lowercased text just before / after a named match, to
+            // reject relatives ("Eric Trump", "Trump Jr.") and non-endorsers ("Trump administration").
+            'named_not_before' => '/(?:eric|ivanka|lara|melania|barron|tiffany|don(?:ald)? jr\.?|michael|robert|fred|mary|the|of) $/',
+            'named_not_after' => '/^(?:\s+jr\b|\s+(?:administration|admin|campaign|organization|media|tower|university|foundation|tariffs?|effect|era|voters?|supporters?|loyalists?)\b)/',
         ],
 
         'vice_president' => [

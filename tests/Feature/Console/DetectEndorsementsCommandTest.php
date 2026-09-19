@@ -208,3 +208,28 @@ test('the re-scan clears the cached guest copy of the profile page', function ()
 
     expect(Cache::has("profile.page.seo-v2.{$jane->id}"))->toBeFalse();
 });
+
+test('a headline that names Trump without a title lists Donald Trump as the endorser', function () {
+    $hilton = seedEndorsementPolitician('Steve Hilton');
+    seedEndorsementArticle($hilton, 'Trump endorses Steve Hilton for California governor');
+
+    Artisan::call('candidates:detect-endorsements', ['--limit' => 10]);
+
+    $row = PoliticianEndorsement::where('politician_id', $hilton->id)->sole();
+    expect($row->group_key)->toBe('president');
+    expect($row->endorser_name)->toBe('Donald Trump');
+});
+
+test('Trump relatives, Trump administration and endorsing Trump are not endorsements by Trump', function (string $headline) {
+    $hilton = seedEndorsementPolitician('Steve Hilton');
+    seedEndorsementArticle($hilton, $headline);
+
+    Artisan::call('candidates:detect-endorsements', ['--limit' => 10]);
+
+    expect(PoliticianEndorsement::where('politician_id', $hilton->id)->exists())->toBeFalse();
+})->with([
+    'Eric Trump endorses Hilton',
+    'Donald Trump Jr. backs Hilton',
+    'Trump administration backs Hilton on tariffs',
+    'Steve Hilton endorses Trump for president',
+]);
