@@ -42,7 +42,8 @@
 
 import { chromium } from 'playwright';
 import { parseElectionStatus as parseWidgetStatus, generalElectionDate } from './lib/election-results.js';
-import { writeFileSync, mkdirSync, existsSync, statSync, readFileSync } from 'fs';
+import { WafGuard, detectChallenge } from './lib/waf-guard.js';
+import { writeFileSync, mkdirSync, existsSync, statSync, readFileSync, utimesSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -77,6 +78,17 @@ const OUT_PATH       = args.out
  * file already on disk. Set 0 (default) to always scrape.
  */
 const CACHE_HOURS = args['cache-hours'] ? parseFloat(args['cache-hours']) : 0;
+
+/**
+ * Ballotpedia's AWS WAF challenges scrapers it dislikes. The guard screenshots
+ * what it serves and, after --max-blocked=N consecutive blocked pages (default
+ * 10), stops the run so the remaining pages are skipped instead of burning the
+ * job budget at ~0% yield. See scripts/lib/waf-guard.js.
+ */
+const wafGuard = new WafGuard({
+  label: 'ballotpedia',
+  maxConsecutive: args['max-blocked'] ? parseInt(args['max-blocked'], 10) : undefined,
+});
 
 /**
  * --strategy=direct  bypasses the Ballotpedia index pages and constructs
@@ -377,6 +389,7 @@ async function runIndexStrategy(indexes, newPage, allCandidates) {
     console.log(`  Found ${raceLinks.length} race pages.`);
 
     for (const { url: raceUrl, text: raceText } of raceLinks) {
+      if (wafGuard.tripped) break;
       const slugText = decodeURIComponent(raceUrl.split('/').pop() ?? '').replace(/_/g, ' ');
       const stateAbbr = parseStateFromTitle(raceText || slugText);
 
@@ -387,6 +400,10 @@ async function runIndexStrategy(indexes, newPage, allCandidates) {
         raceData = await scrapeRacePageWithRetry(newPage, raceUrl, chamberConfig.key, WITH_RESULTS);
       } catch (err) {
         console.warn(`  ✗ Skipped ${raceUrl}: ${err.message}`);
+        if (wafGuard.tripped) {
+          wafGuard.noteSkipped(raceLinks.length - raceLinks.findIndex(l => l.url === raceUrl) - 1);
+          break;
+        }
         continue;
       }
 
@@ -402,7 +419,7 @@ async function runIndexStrategy(indexes, newPage, allCandidates) {
         // Optionally fetch campaign website from the candidate's Ballotpedia profile
         let campaignWebsite = null;
         let bioExcerpt = null;
-        if (FETCH_WEBSITES && c.ballotpedia_url) {
+        if (FETCH_WEBSITES && !wafGuard.tripped && c.ballotpedia_url) {
           const profile = await scrapeCandidateProfile(newPage, c.ballotpedia_url);
           if (profile) {
             campaignWebsite = profile.campaignWebsite ?? null;
@@ -533,8 +550,11 @@ async function scrapeRacePage(page, raceUrl, chamber, withResults = false) {
   // 2026-08-02. Without this check that page evaluates to 0 candidates with
   // NO thrown error, so it silently disappears (no ✗ log line) instead of
   // being retried. Throw so scrapeRacePageWithRetry's retry loop catches it.
-  if (response && response.status() === 202) {
-    throw new Error(`WAF challenge response (HTTP 202) for ${raceUrl}`);
+  // 403/429 and a 200 "Just a moment" interstitial are the same block in a
+  // different shape (see detectChallenge()).
+  const challenge = detectChallenge(response, await page.title().catch(() => ''));
+  if (challenge) {
+    throw new Error(`WAF challenge response (${challenge}) for ${raceUrl}`);
   }
 
   await sleep(DELAY_MS);
@@ -745,11 +765,18 @@ async function scrapeRacePageWithRetry(newPage, raceUrl, chamber, withResults, m
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     const page = await newPage();
     try {
-      return await scrapeRacePage(page, raceUrl, chamber, withResults);
+      const result = await scrapeRacePage(page, raceUrl, chamber, withResults);
+      wafGuard.ok();
+      return result;
     } catch (err) {
       lastErr = err;
       const retriable = /Execution context was destroyed|Target closed|Target page.*closed|net::ERR_|WAF challenge/i.test(err.message);
-      if (!retriable || attempt === maxAttempts) throw err;
+      if (!retriable || attempt === maxAttempts) {
+        // Out of retries on a challenge-type failure: count it toward the
+        // circuit breaker and screenshot the page while it's still open.
+        if (retriable) await wafGuard.block(page, raceUrl, err.message.replace(/ for https?:\/\/\S+$/, ''));
+        throw err;
+      }
       await sleep(4000 * attempt); // 4s, 8s, ... back off further each attempt
     } finally {
       await page.context().close();
@@ -773,7 +800,15 @@ async function scrapeCandidateProfile(newPage, profileUrl) {
 
   const page = await newPage();
   try {
-    await page.goto(profileUrl, { waitUntil: 'domcontentloaded', timeout: 20_000 });
+    const response = await page.goto(profileUrl, { waitUntil: 'domcontentloaded', timeout: 20_000 });
+    // A challenged profile has no infobox: it would return nulls, which looks
+    // identical to "candidate has no campaign site". Count it as a block instead.
+    const challenge = detectChallenge(response, await page.title().catch(() => ''));
+    if (challenge) {
+      await wafGuard.block(page, profileUrl, challenge);
+      return null;
+    }
+    wafGuard.ok();
     await sleep(300);
 
     const result = await page.evaluate(() => {
@@ -899,7 +934,14 @@ function normaliseWidgetOffice(rawOffice, stateAbbr) {
  * Returns raw row objects with name, officeName, party, statusText, ballotpediaUrl.
  */
 async function scrapeWidgetPage(page, stateUrl, stateAbbr) {
-  await page.goto(stateUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+  const response = await page.goto(stateUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+  const challenge = detectChallenge(response, await page.title().catch(() => ''));
+  if (challenge) {
+    // Screenshot while the page is still open; the caller only sees the error.
+    await wafGuard.block(page, stateUrl, challenge);
+    throw new Error(`WAF challenge response (${challenge}) for ${stateUrl}`);
+  }
+  wafGuard.ok();
   await sleep(DELAY_MS);
 
   return page.evaluate(({ stateAbbr, stateUrl }) => {
@@ -969,7 +1011,12 @@ async function runWidgetStrategy(newPage, allCandidates) {
 
   console.log(`  [widget] ${states.length} state overview page(s) to visit.\n`);
 
-  for (const [stateName, stateAbbr] of states) {
+  for (const [stateIndex, [stateName, stateAbbr]] of states.entries()) {
+    if (wafGuard.tripped) {
+      wafGuard.noteSkipped(states.length - stateIndex);
+      console.warn(`  ⏭ Skipping the remaining ${states.length - stateIndex} state overview page(s).`);
+      break;
+    }
     const stateUrl = buildWidgetStateUrl(stateName, ELECTION_YEAR);
     console.log(`[WIDGET] ${stateAbbr} — ${stateUrl}`);
 
@@ -1132,16 +1179,15 @@ async function main() {
     // of the list at a ~0% success rate. Confirmed manually (2026-08-02):
     // hammering this IP with dozens of requests over an hour got EVERY
     // subsequent request 202-challenged even with retries — this is the
-    // mitigation for that failure mode.
+    // mitigation for that failure mode. If the cool-downs don't help either,
+    // wafGuard trips (10 blocked pages in a row) and the rest are skipped.
     const COOLDOWN_THRESHOLD = 4;
     const COOLDOWN_MS = 90_000;
-    let consecutiveFailures = 0;
 
-    for (const { url: raceUrl, stateAbbr, stateName, chamberConfig, district } of allRaces) {
+    for (const [raceIndex, { url: raceUrl, stateAbbr, stateName, chamberConfig, district }] of allRaces.entries()) {
       let raceData;
       try {
         raceData = await scrapeRacePageWithRetry(newPage, raceUrl, chamberConfig.key, WITH_RESULTS);
-        consecutiveFailures = 0;
       } catch (err) {
         // A 404 means this state simply doesn't have this office (e.g. TX has no Lt. Gov.
         // in the same pattern) — silently skip rather than warn. (Navigation-destroyed /
@@ -1152,11 +1198,15 @@ async function main() {
           console.warn(`  ✗ ${stateAbbr} ${district ?? chamberConfig.key}: ${err.message}`);
         }
         if (isRetriableType) {
-          consecutiveFailures++;
-          if (consecutiveFailures >= COOLDOWN_THRESHOLD) {
-            console.log(`  ⏸ ${consecutiveFailures} consecutive failures — likely rate-limited. Cooling down ${COOLDOWN_MS / 1000}s…`);
+          if (wafGuard.tripped) {
+            const remaining = allRaces.length - raceIndex - 1;
+            wafGuard.noteSkipped(remaining);
+            console.warn(`  ⏭ Skipping the remaining ${remaining} race page(s).`);
+            break;
+          }
+          if (wafGuard.consecutive % COOLDOWN_THRESHOLD === 0) {
+            console.log(`  ⏸ ${wafGuard.consecutive} consecutive failures — likely rate-limited. Cooling down ${COOLDOWN_MS / 1000}s…`);
             await sleep(COOLDOWN_MS);
-            consecutiveFailures = 0;
           }
         }
         continue;
@@ -1171,7 +1221,7 @@ async function main() {
         // Optionally fetch campaign website from the candidate's Ballotpedia profile
         let campaignWebsite = null;
         let bioExcerpt = null;
-        if (FETCH_WEBSITES && c.ballotpedia_url) {
+        if (FETCH_WEBSITES && !wafGuard.tripped && c.ballotpedia_url) {
           const profile = await scrapeCandidateProfile(newPage, c.ballotpedia_url);
           if (profile) {
             campaignWebsite = profile.campaignWebsite ?? null;
@@ -1225,6 +1275,7 @@ async function main() {
   }
 
   await browser.close();
+  wafGuard.finish();
 
   // ── Deduplicate: same name + state + office ───────────────────────────────
   const seen = new Set();
@@ -1239,7 +1290,15 @@ async function main() {
   mkdirSync(dirname(OUT_PATH), { recursive: true });
   writeFileSync(OUT_PATH, JSON.stringify(deduped, null, 2), 'utf8');
 
-  console.log(`\n✓ Scraped ${deduped.length} unique candidates → ${OUT_PATH}`);
+  if (wafGuard.tripped) {
+    // The run was cut short, so this file is partial. Backdate it so the
+    // --cache-hours check doesn't treat it as a fresh scrape and suppress the
+    // next run's retry (the import step still gets whatever was collected).
+    utimesSync(OUT_PATH, new Date(0), new Date(0));
+    console.log(`\n⚠ Partial result: ${deduped.length} candidates collected, ${wafGuard.skipped} page(s) skipped after WAF blocks → ${OUT_PATH}`);
+  } else {
+    console.log(`\n✓ Scraped ${deduped.length} unique candidates → ${OUT_PATH}`);
+  }
   console.log('\nNext step:');
   console.log(`  php artisan politicians:import-ballotpedia --file=${OUT_PATH}`);
 }

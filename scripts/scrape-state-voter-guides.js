@@ -24,6 +24,7 @@
  */
 
 import { chromium } from 'playwright';
+import { WafGuard, detectChallenge } from './lib/waf-guard.js';
 import { generalElectionDate } from './lib/election-results.js';
 import { writeFileSync, mkdirSync, existsSync, statSync, readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
@@ -610,9 +611,20 @@ async function scrapeCalMatters(browser, stateCode, config, year) {
 // candidate list (names only — no need to deep-scrape every race page here;
 // scrape-ballotpedia.js handles the deep scrape).
 
+// Ballotpedia's AWS WAF: a challenged overview page used to read as "0
+// candidates" and move on silently. Screenshot it, and after 10 blocked states
+// in a row stop asking Ballotpedia for the rest (the other sources still run).
+const ballotpediaWaf = new WafGuard({ label: 'voter-guides-ballotpedia' });
+
 async function scrapeBallotpediaState(browser, stateCode, stateConfig) {
   const stateUrl = stateConfig.urls.find(u => u.includes('ballotpedia.org'));
   if (!stateUrl) return [];
+
+  if (ballotpediaWaf.tripped) {
+    ballotpediaWaf.noteSkipped(1);
+    console.log(`    Ballotpedia skipped — ${ballotpediaWaf.consecutive} consecutive WAF blocks`);
+    return [];
+  }
 
   const ctx = await browser.newContext({
     userAgent: 'Mozilla/5.0 (compatible; U9itus-civic-bot/1.0; +https://u9itus.dev/about)',
@@ -622,7 +634,13 @@ async function scrapeBallotpediaState(browser, stateCode, stateConfig) {
 
   try {
     console.log(`    Ballotpedia state overview → ${stateUrl}`);
-    await page.goto(stateUrl, { waitUntil: 'domcontentloaded', timeout: PAGE_TIMEOUT });
+    const response = await page.goto(stateUrl, { waitUntil: 'domcontentloaded', timeout: PAGE_TIMEOUT });
+    const challenge = detectChallenge(response, await page.title().catch(() => ''));
+    if (challenge) {
+      await ballotpediaWaf.block(page, stateUrl, challenge);
+      return [];
+    }
+    ballotpediaWaf.ok();
     await sleep(DELAY_MS);
 
     const candidates = await page.evaluate((args) => {
@@ -853,6 +871,7 @@ async function main() {
   }
 
   await browser.close();
+  ballotpediaWaf.finish();
 
   // Deduplicate: same name + state + office
   const seen = new Set();

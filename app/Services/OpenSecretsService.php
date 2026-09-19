@@ -34,6 +34,19 @@ class OpenSecretsService
     /** Path to the Node.js scraper script, relative to base_path() */
     protected string $scraperScript = 'scripts/scrape-opensecrets.js';
 
+    /**
+     * OpenSecrets sits behind a Cloudflare bot-check. Each politician is a
+     * separate Node process (up to a minute when blocked), so a batch of 200
+     * against a blocked IP can eat hours for nothing. The scraper reports a
+     * bot-check as `error: "blocked"`; after this many in a row every remaining
+     * politician in the run is skipped. A real answer (data or "not found")
+     * resets the count. Counters are per-process, like FECService's.
+     */
+    protected const WAF_BLOCK_SHORT_CIRCUIT_THRESHOLD = 10;
+    protected static int $consecutiveBlocks = 0;
+    protected static int $blockedCount = 0;
+    protected static int $skippedCount = 0;
+
     public function __construct() {}
 
     /**
@@ -77,11 +90,18 @@ class OpenSecretsService
             return null;
         }
 
+        // Cloudflare has blocked us repeatedly this run — every further scrape
+        // would be blocked too, so don't spawn a browser for it.
+        if (self::wasShortCircuited()) {
+            self::$skippedCount++;
+            return null;
+        }
+
         $cmd = ['node', $scriptPath, "--name={$name}"];
         if ($state !== '') $cmd[] = "--state={$state}";
         if ($mpid  !== '') $cmd[] = "--mpid={$mpid}";
 
-        $process = new Process($cmd, base_path(), null, null, 60);
+        $process = $this->newProcess($cmd);
 
         try {
             $process->run();
@@ -102,6 +122,20 @@ class OpenSecretsService
         }
 
         $json = json_decode($process->getOutput(), true);
+
+        if (is_array($json) && ($json['error'] ?? null) === 'blocked') {
+            self::$consecutiveBlocks++;
+            self::$blockedCount++;
+            Log::info('OpenSecretsService: scraper blocked by bot-check', [
+                'politician_id'      => $politician->id,
+                'consecutive_blocks' => self::$consecutiveBlocks,
+                'stderr'             => substr($process->getErrorOutput(), 0, 2000),
+            ]);
+            return null;
+        }
+        // Anything else means we got past the bot-check (found, or genuinely not found).
+        self::$consecutiveBlocks = 0;
+
         if (! is_array($json) || isset($json['error'])) {
             // Surface the scraper's stderr (it carries the [search]/[scrape]
             // diagnostic lines) so a systemic "no data returned" isn't silent.
@@ -138,6 +172,38 @@ class OpenSecretsService
             'profile_url'       => $json['profile_url']      ?? null,
             'mpid'              => $json['mpid']              ?? null,
         ];
+    }
+
+    /** Seam so tests can stand in for the Node process. */
+    protected function newProcess(array $cmd): Process
+    {
+        return new Process($cmd, base_path(), null, null, 60);
+    }
+
+    /**
+     * Per-run telemetry for the enricher's summary line.
+     */
+    public static function resetTelemetry(): void
+    {
+        self::$consecutiveBlocks = 0;
+        self::$blockedCount = 0;
+        self::$skippedCount = 0;
+    }
+
+    /** True once enough consecutive bot-check blocks have accumulated to stop scraping. */
+    public static function wasShortCircuited(): bool
+    {
+        return self::$consecutiveBlocks >= self::WAF_BLOCK_SHORT_CIRCUIT_THRESHOLD;
+    }
+
+    public static function getBlockedCount(): int
+    {
+        return self::$blockedCount;
+    }
+
+    public static function getSkippedCount(): int
+    {
+        return self::$skippedCount;
     }
 
     /**

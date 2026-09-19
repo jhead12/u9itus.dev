@@ -74,6 +74,7 @@ class EnrichPoliticianDonors extends Command
         // Per-process FEC throttle/rate-limit state — start the batch clean so
         // a short-circuit tripped in this run reflects only this run's 429s.
         FECService::resetTelemetry();
+        OpenSecretsService::resetTelemetry();
 
         if ($dryRun) {
             $this->info('[dry-run] No data will be written.');
@@ -149,6 +150,14 @@ class EnrichPoliticianDonors extends Command
         }
 
         $this->info("Done. Enriched: {$enriched} | Failed: {$failed}");
+
+        if (OpenSecretsService::getBlockedCount() > 0) {
+            $blocked = OpenSecretsService::getBlockedCount();
+            $skipped = OpenSecretsService::getSkippedCount();
+            $this->warn("OpenSecrets bot-check: {$blocked} scrape(s) blocked, {$skipped} skipped — prior snapshots kept. Screenshots: storage/app/waf-screenshots/");
+            // GitHub Actions turns this into a warning annotation on the run.
+            $this->line("::warning title=WAF challenge::OpenSecrets blocked {$blocked} scrape(s); {$skipped} skipped" . (OpenSecretsService::wasShortCircuited() ? ' (stopped after consecutive blocks)' : ''));
+        }
 
         if ($fec->isConfigured()) {
             $calls       = FECService::getHttpCallCount();

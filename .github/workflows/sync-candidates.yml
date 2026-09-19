@@ -330,6 +330,7 @@ jobs:
           path: |
             storage/app/imports/ballotpedia-*.json
             storage/app/imports/state-voter-guides-*.json
+            storage/app/waf-screenshots/
           retention-days: 14
           if-no-files-found: ignore
 
@@ -431,6 +432,7 @@ jobs:
           path: |
             storage/app/imports/ballotpedia-*.json
             storage/app/imports/state-voter-guides-*.json
+            storage/app/waf-screenshots/
           retention-days: 14
           if-no-files-found: ignore
 
@@ -528,6 +530,7 @@ jobs:
           path: |
             storage/app/imports/ballotpedia-*.json
             storage/app/imports/state-voter-guides-*.json
+            storage/app/waf-screenshots/
           retention-days: 14
           if-no-files-found: ignore
 
@@ -932,6 +935,7 @@ jobs:
           path: |
             storage/app/imports/ballotpedia-*.json
             storage/app/imports/state-voter-guides-*.json
+            storage/app/waf-screenshots/
           retention-days: 14
           if-no-files-found: ignore
 

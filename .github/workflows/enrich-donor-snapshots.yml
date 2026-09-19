@@ -70,3 +70,14 @@ jobs:
             ${POL_ARG} \
             ${FORCE} \
             ${DRY}
+
+      # Screenshots of any Cloudflare bot-check pages OpenSecrets served (see
+      # scripts/lib/waf-guard.js); nothing is uploaded when no scrape was blocked.
+      - name: Retain WAF challenge screenshots
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: waf-screenshots-${{ github.job }}
+          path: storage/app/waf-screenshots/
+          retention-days: 14
+          if-no-files-found: ignore

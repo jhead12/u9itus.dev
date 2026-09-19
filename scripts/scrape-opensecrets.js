@@ -37,6 +37,7 @@
  */
 
 import { chromium } from 'playwright';
+import { WafGuard } from './lib/waf-guard.js';
 import { writeFileSync, mkdirSync, readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -63,6 +64,15 @@ const CYCLE_ARG    = args.cycle    ?? null;   // e.g. "2026"
 const OUT_PATH  = args.out
   ? resolve(process.cwd(), args.out)
   : null;
+
+/**
+ * Cloudflare challenges datacenter IPs. Screenshots of what it served go to
+ * storage/app/waf-screenshots/ (a workflow artifact). Each process here usually
+ * scrapes one politician, so `quiet` leaves the tally to the caller — see
+ * OpenSecretsService, which counts `error: "blocked"` results across the batch
+ * and stops after 10 in a row.
+ */
+const wafGuard = new WafGuard({ label: 'opensecrets', quiet: true });
 
 const DELAY_MS  = 600;
 const TIMEOUT   = 20_000;
@@ -272,6 +282,7 @@ async function searchCandidate(page, name, state, mpid = null) {
 
       if (isBlockedPageTitle(diag.title)) {
         console.error(`  [search] Blocked by bot-check — not falling back to a guessed URL`);
+        await wafGuard.block(page, searchUrl, `bot-check page "${diag.title}"`);
         return null;
       }
 
@@ -385,6 +396,7 @@ async function scrapeProfilePage(page, profileUrl) {
   }
   if (isBlockedPageTitle(title)) {
     console.error(`  [scrape] Blocked by bot-check (title="${title}") — discarding, not a real scrape`);
+    await wafGuard.block(page, summaryUrl, `bot-check page "${title}"`);
     return null;
   }
 
@@ -735,14 +747,33 @@ async function main() {
   const results = [];
 
   for (const candidate of candidates) {
-    console.error(`\n→ ${candidate.full_name ?? candidate.name} (${candidate.state ?? '??'})`);
+    const inputName = candidate.full_name ?? candidate.name;
+    console.error(`\n→ ${inputName} (${candidate.state ?? '??'})`);
+
+    // --file batches: once Cloudflare has blocked 10 in a row, the rest would
+    // be blocked too — skip them instead of burning ~1 min each.
+    if (wafGuard.tripped) {
+      wafGuard.noteSkipped(1);
+      console.error(`  ⏭ Skipped — ${wafGuard.consecutive} consecutive bot-check blocks`);
+      results.push({ input_name: inputName, error: 'blocked' });
+      continue;
+    }
+
+    const blocksBefore = wafGuard.blocks.length;
     const result = await enrichCandidate(browser, candidate);
     if (result) {
+      wafGuard.ok();
       results.push(result);
       console.error(`  ✓ ${result.top_contributors.length} contributors, ${result.top_industries.length} industries`);
+    } else if (wafGuard.blocks.length > blocksBefore) {
+      // 'blocked' (bot-check served) is reported apart from 'not_found' so the
+      // caller can tell "OpenSecrets has nothing" from "we never got in".
+      console.error(`  ✗ Blocked by bot-check`);
+      results.push({ input_name: inputName, error: 'blocked' });
     } else {
+      wafGuard.ok(); // got a real page back, it just had no match
       console.error(`  ✗ No data found`);
-      results.push({ input_name: candidate.full_name ?? candidate.name, error: 'not_found' });
+      results.push({ input_name: inputName, error: 'not_found' });
     }
     await sleep(DELAY_MS);
   }

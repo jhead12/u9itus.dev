@@ -16,13 +16,20 @@
  *   node scripts/check-directory-duplicates.js --base-url=https://u9itus.dev --state=CA
  *   node scripts/check-directory-duplicates.js --base-url=http://localhost --max-pages=5 --out-dir=/tmp/shots
  *
- * Exit code: 1 if any duplicate is found (or the crawl errors), else 0.
- * Always writes {out-dir}/summary.json with the full duplicate report.
+ * A page the WAF challenges (instead of serving the directory) is retried,
+ * screenshotted into {out-dir}, and skipped — never mistaken for "end of
+ * directory". After --max-blocked=N (default 10) blocked pages in a row the
+ * crawl stops and the summary is marked incomplete.
+ *
+ * Exit code: 1 if any duplicate is found, the crawl errors, or the WAF blocked
+ * every page (nothing could be checked); else 0. Always writes
+ * {out-dir}/summary.json with the full duplicate report.
  */
 
 import { chromium } from 'playwright';
 import { writeFileSync, mkdirSync } from 'fs';
 import { resolve } from 'path';
+import { WafGuard, detectChallenge } from './lib/waf-guard.js';
 
 const args = Object.fromEntries(
   process.argv.slice(2)
@@ -40,6 +47,31 @@ const OUT_DIR   = resolve(process.cwd(), args['out-dir'] ?? 'storage/app/qa/poli
 const TIMEOUT   = 30_000;
 
 mkdirSync(OUT_DIR, { recursive: true });
+
+const wafGuard = new WafGuard({
+  label: 'directory',
+  outDir: OUT_DIR,
+  maxConsecutive: args['max-blocked'] ? parseInt(args['max-blocked'], 10) : undefined,
+});
+const BLOCK_RETRIES = 3;
+
+/** Load one directory page, retrying while the WAF serves a challenge. Returns true once it's a real page. */
+async function loadDirectoryPage(page, url) {
+  for (let attempt = 1; attempt <= BLOCK_RETRIES; attempt++) {
+    const response = await page.goto(url, { waitUntil: 'networkidle' });
+    const challenge = detectChallenge(response, await page.title().catch(() => ''));
+    if (!challenge) {
+      wafGuard.ok();
+      return true;
+    }
+    if (attempt === BLOCK_RETRIES) {
+      await wafGuard.block(page, url, challenge);
+      return false;
+    }
+    await page.waitForTimeout(4000 * attempt);
+  }
+  return false;
+}
 
 /** Collapse whitespace/case so trivial formatting differences don't hide (or fake) a match. */
 function normalize(text) {
@@ -73,6 +105,7 @@ async function crawl() {
   /** @type {Map<string, {name:string, office:string, location:string, hrefs:Set<string>, pages:Set<number>}>} */
   const seen = new Map();
   const pagesCrawled = [];
+  const pagesBlocked = [];
   let totalCards = 0;
 
   try {
@@ -82,7 +115,14 @@ async function crawl() {
       const url = `${BASE_URL}/politicians?${query.toString()}`;
 
       console.error(`[page ${pageNum}] ${url}`);
-      await page.goto(url, { waitUntil: 'networkidle' });
+      if (!(await loadDirectoryPage(page, url))) {
+        pagesBlocked.push(pageNum);
+        if (wafGuard.tripped) {
+          wafGuard.noteSkipped(MAX_PAGES - pageNum);
+          break;
+        }
+        continue; // blocked, not empty — try the next page rather than call it the end
+      }
 
       const cards = await extractCards(page);
       if (cards.length === 0) {
@@ -134,7 +174,7 @@ async function crawl() {
       seen_on_pages: [...entry.pages],
     }));
 
-  return { pagesCrawled, totalCards, uniqueEntries: seen.size, duplicates };
+  return { pagesCrawled, pagesBlocked, totalCards, uniqueEntries: seen.size, duplicates };
 }
 
 const result = await crawl().catch((err) => {
@@ -149,12 +189,21 @@ const summary = {
   state: STATE,
   crawled_at: new Date().toISOString(),
   pages_crawled: result.pagesCrawled.length,
+  pages_blocked_by_waf: result.pagesBlocked,
+  incomplete: result.pagesBlocked.length > 0,
   total_cards_seen: result.totalCards,
   unique_name_office_location_entries: result.uniqueEntries,
   duplicate_count: result.duplicates.length,
   duplicates: result.duplicates,
 };
 writeFileSync(resolve(OUT_DIR, 'summary.json'), JSON.stringify(summary, null, 2));
+
+wafGuard.finish();
+
+if (result.pagesBlocked.length > 0 && result.pagesCrawled.length === 0) {
+  console.error(`\nEvery page was blocked by the WAF (${result.pagesBlocked.length}) — nothing could be checked. See screenshots in ${OUT_DIR}.`);
+  process.exit(1);
+}
 
 if (result.duplicates.length > 0) {
   console.error(`\nFound ${result.duplicates.length} duplicate politician(s):`);
@@ -163,6 +212,9 @@ if (result.duplicates.length > 0) {
   }
   process.exit(1);
 } else {
-  console.error(`\nNo duplicates found across ${result.pagesCrawled.length} page(s) / ${result.totalCards} card(s).`);
+  const partial = result.pagesBlocked.length > 0
+    ? ` (INCOMPLETE: ${result.pagesBlocked.length} page(s) blocked by the WAF: ${result.pagesBlocked.join(', ')})`
+    : '';
+  console.error(`\nNo duplicates found across ${result.pagesCrawled.length} page(s) / ${result.totalCards} card(s).${partial}`);
   process.exit(0);
 }
