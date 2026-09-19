@@ -8,6 +8,7 @@ use App\Models\Citizen;
 use App\Models\ElectionCandidateRecord;
 use App\Models\Politician;
 use App\Models\StateElectionDate;
+use App\Support\DataSourceLabel;
 use App\Support\MapCandidateHygiene;
 use App\Support\OfficeCanonicalizer;
 use Illuminate\Http\JsonResponse;
@@ -184,7 +185,7 @@ class MapStateCandidatesController
             ->whereRaw('LOWER(COALESCE(governance_level, \'\')) = ?', ['state'])
             ->whereIn('term_status', ['seated', 'active'])
             ->with(['publicBadges.topic'])
-            ->get(['id', 'uuid', 'full_name', 'political_office', 'party_affiliation',
+            ->get(['updated_at', 'id', 'uuid', 'full_name', 'political_office', 'party_affiliation',
                    'profile_photo_url', 'slug', 'is_running_candidate',
                    'term_status', 'verified_official', 'ballotpedia_id',
                    'website_url', 'bio', 'term_ends_on']);
@@ -234,7 +235,7 @@ class MapStateCandidatesController
             ->whereRaw('LOWER(COALESCE(governance_level, \'\')) = ?', ['state'])
             ->where(fn ($q) => $q->whereNull('election_date')->orWhere('election_date', '>=', $cycleStart))
             ->where($discoveryVisible)
-            ->get(['id', 'full_name', 'political_office', 'party_affiliation',
+            ->get(['last_seen_at', 'updated_at', 'id', 'full_name', 'political_office', 'party_affiliation',
                    'election_date', 'source', 'external_candidate_id', 'payload']);
 
         // If a scraped candidate row has already been marked eliminated,
@@ -266,7 +267,7 @@ class MapStateCandidatesController
             ->whereRaw('LOWER(COALESCE(governance_level, \'\')) = ?', ['federal'])
             ->where(fn($q) => $q->where('term_status', '!=', 'lost')->orWhereNull('term_status'))
             ->with(['publicBadges.topic'])
-            ->get(['id', 'uuid', 'full_name', 'political_office', 'party_affiliation',
+            ->get(['updated_at', 'id', 'uuid', 'full_name', 'political_office', 'party_affiliation',
                    'profile_photo_url', 'slug', 'is_running_candidate',
                    'term_status', 'verified_official', 'ballotpedia_id',
                    'district', 'website_url', 'bio', 'term_ends_on']);
@@ -304,7 +305,7 @@ class MapStateCandidatesController
             // return an unbounded row set for one request.
             ->limit(500)
             ->with(['publicBadges.topic'])
-            ->get(['id', 'uuid', 'full_name', 'political_office', 'party_affiliation',
+            ->get(['updated_at', 'id', 'uuid', 'full_name', 'political_office', 'party_affiliation',
                    'profile_photo_url', 'slug', 'is_running_candidate',
                    'term_status', 'verified_official', 'ballotpedia_id',
                    'city', 'governance_level', 'website_url', 'bio', 'term_ends_on']);
@@ -393,6 +394,7 @@ class MapStateCandidatesController
             $generalDate = $this->generalDateFor($payload['general_date'] ?? null, $officialGeneral, $quality);
             $grouped[$canonical]['candidates'][] = [
                 'source'          => 'scraped',
+                ...DataSourceLabel::stamp($rec),
                 'scrape_source'   => $rec->source,
                 'external_candidate_id' => $rec->external_candidate_id,
                 'uuid'            => null,
@@ -487,6 +489,7 @@ class MapStateCandidatesController
             $houseCandidates[$distKey][] = [
                 'id'              => $pol->id,
                 'source'          => 'platform',
+                ...DataSourceLabel::stamp($pol),
                 'scrape_source'   => null,
                 'external_candidate_id' => null,
                 'full_name'       => $pol->full_name,
@@ -519,7 +522,7 @@ class MapStateCandidatesController
             ->whereRaw('LOWER(COALESCE(political_office, \'\')) NOT LIKE ?', ['%senat%'])
             ->where(fn ($q) => $q->whereNull('election_date')->orWhere('election_date', '>=', $cycleStart))
             ->where($discoveryVisible)
-            ->get(['id', 'full_name', 'political_office', 'party_affiliation',
+            ->get(['last_seen_at', 'updated_at', 'id', 'full_name', 'political_office', 'party_affiliation',
                    'district', 'election_date', 'source', 'external_candidate_id', 'payload']);
 
         foreach ($scrapedHouseRecords as $rec) {
@@ -562,6 +565,7 @@ class MapStateCandidatesController
             $seenHouseNames[$nameLower] = true;
             $houseCandidates[$distKey][] = [
                 'source'          => 'scraped',
+                ...DataSourceLabel::stamp($rec),
                 'scrape_source'   => $rec->source,
                 'external_candidate_id' => $rec->external_candidate_id,
                 'full_name'       => $rec->full_name,
@@ -611,6 +615,7 @@ class MapStateCandidatesController
             $cityOfficialsGrouped[$cityKey][$officeKey]['candidates'][] = [
                 'id'              => $pol->id,
                 'source'          => 'platform',
+                ...DataSourceLabel::stamp($pol),
                 'scrape_source'   => null,
                 'external_candidate_id' => null,
                 'full_name'       => $pol->full_name,
@@ -752,6 +757,7 @@ class MapStateCandidatesController
         return [
             'id'              => $pol->id,
             'source'          => 'platform',
+            ...DataSourceLabel::stamp($pol),
             'scrape_source'   => null,
             'external_candidate_id' => null,
             'uuid'            => $pol->uuid,

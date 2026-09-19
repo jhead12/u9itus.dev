@@ -30,6 +30,7 @@ use App\Http\Controllers\Api\MapCandidateOverviewController;
 use App\Http\Controllers\Api\MapCityCensusController;
 use App\Http\Controllers\Api\MapRegionDemographicsController;
 use App\Http\Controllers\Api\MapStateBusinessesController;
+use App\Http\Controllers\Api\DataReportController;
 use App\Http\Controllers\Api\MapStateCandidatesController;
 use App\Http\Controllers\Api\MapStateOverlaysController;
 use App\Http\Controllers\Api\MapPoliticianSearchController;
@@ -131,6 +132,11 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
     | Full auth model comparison: doc/auth-architecture.md
     */
     // ── Public map data — no auth, rate-limited ──────────────────────────────
+    // Visitor "Report a data problem" — tighter limit than the read endpoints.
+    Route::post('/data-reports', [DataReportController::class, 'store'])
+        ->middleware('throttle:6,1')
+        ->name('data-reports.store');
+
     Route::middleware('throttle:120,1')->group(function () {
         Route::get('/map/state-candidates', MapStateCandidatesController::class)
             ->name('map.state-candidates');

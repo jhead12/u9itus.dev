@@ -268,7 +268,7 @@ const OHIO_PAYLOAD = {
     house_candidates: {
         'OH-03': [
             { full_name: 'Joyce Beatty', party: 'Democratic', status: 'seated', is_running: false, verified: true, source: 'platform' },
-            { full_name: 'Casey Challenger', party: 'Republican', status: 'running', is_running: true, verified: false, source: 'scraped', primary_result: 'advanced_to_general', general_date: '2026-11-03' },
+            { full_name: 'Casey Challenger', party: 'Republican', status: 'running', is_running: true, verified: false, source: 'scraped', primary_result: 'advanced_to_general', general_date: '2026-11-03', source_label: 'News discovery (unverified)', updated_at: new Date(Date.now() - 3 * 86400000).toISOString() },
         ],
         'OH-12': [
             { full_name: 'Troy Balderson', party: 'Republican', status: 'seated', is_running: false, verified: true, source: 'platform' },
@@ -512,5 +512,64 @@ test.describe('map district list search (desktop)', () => {
         await expect(page.locator('#panel-districts .dist-row', { hasText: 'Troy Balderson' })).toBeVisible();
         await expect(page.locator('#pd-search')).toHaveValue('12');
         await expect(page.locator('#pd-list .dist-row:not([hidden])')).toHaveCount(1);
+    });
+});
+
+test.describe('candidate drawer: source and reporting (desktop)', () => {
+    test.use({ viewport: { width: 1440, height: 900 }, timezoneId: 'America/Los_Angeles' });
+
+    test.beforeEach(async ({ page }) => {
+        await page.addInitScript(() => localStorage.removeItem('u9_map_sc_OH'));
+        await stubOhio(page);
+    });
+
+    async function openCasey(page: Page) {
+        await openMap(page);
+        await selectState(page, 'Ohio');
+        await page.locator('#panel-districts .dist-row').nth(2).click();
+        await page.locator('#panel-candidates .candidate-card', { hasText: 'Casey Challenger' }).click();
+        await expect(page.locator('#pol-provenance')).toBeVisible();
+    }
+
+    test('shows where the data came from and how fresh it is', async ({ page }) => {
+        await openCasey(page);
+        const stamp = page.locator('#pol-provenance .dr-line');
+        await expect(stamp).toContainText('Source: News discovery (unverified)');
+        await expect(stamp).toContainText('Updated 3 days ago');
+    });
+
+    test('a visitor can report a problem; the report says which card it was about', async ({ page }) => {
+        let body: any = null;
+        await page.route('**/api/v1/data-reports', async (route) => {
+            body = route.request().postDataJSON();
+            await route.fulfill({ status: 201, contentType: 'application/json', body: '{"ok":true}' });
+        });
+        await openCasey(page);
+
+        await page.getByRole('button', { name: 'Report a data problem' }).click();
+        await page.getByLabel('What looks wrong?').selectOption('not_a_person');
+        await page.getByLabel('Details (optional)').fill('Not on the ballot.');
+        await page.getByRole('button', { name: 'Send report' }).click();
+
+        await expect(page.locator('#pol-provenance .dr-thanks')).toBeVisible();
+        expect(body).toMatchObject({
+            subject_type: 'election_candidate_record',
+            subject_name: 'Casey Challenger',
+            state: 'OH',
+            problem: 'not_a_person',
+            message: 'Not on the ballot.',
+            source_label: 'News discovery (unverified)',
+        });
+        expect(body.website).toBe('');
+    });
+
+    test('a failed send keeps the form and says why', async ({ page }) => {
+        await page.route('**/api/v1/data-reports', (route) => route.fulfill({ status: 429, body: '{}' }));
+        await openCasey(page);
+        await page.getByRole('button', { name: 'Report a data problem' }).click();
+        await page.getByRole('button', { name: 'Send report' }).click();
+
+        await expect(page.locator('#pol-provenance .dr-error')).toContainText('try again in a minute');
+        await expect(page.getByRole('button', { name: 'Send report' })).toBeEnabled();
     });
 });

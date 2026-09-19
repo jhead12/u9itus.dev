@@ -10,11 +10,13 @@ import { createFavoriteButton } from './boundary-favorite.js';
 import { createFollowButton } from './politician-follow-button.js';
 import { resizeRenderer } from '../scene/setup.js';
 import { formatCalendarDate } from '../utils/dates.js';
+import { renderProvenance } from './data-report.js';
 
 const polDrawer = document.getElementById('pol-drawer');
 const polDrawerClose = document.getElementById('pol-drawer-close');
 const polHeroEl = document.getElementById('pol-hero');
 const polBodyEl = document.getElementById('pol-body');
+const polProvenanceEl = document.getElementById('pol-provenance');
 const polTabBtns = polDrawer?.querySelectorAll('.pol-tab') ?? [];
 const toastEl = document.getElementById('map-toast');
 let _polTab = 'overview';
@@ -661,6 +663,14 @@ export function openPolDrawer(cand, accentColor, extra = {}) {
         }
 
         _renderPolBody();
+        if (polProvenanceEl) {
+            // City cards are aggregates, not a person's record — nothing to source or report.
+            if (extra?.isCityView) polProvenanceEl.hidden = true;
+            else renderProvenance(polProvenanceEl, c, {
+                stateAbbr: activeState ? STATE_ABBR_MAP[activeState] : null,
+                office: c.office || extra?.district || null,
+            });
+        }
         requestAnimationFrame(() => polDrawer.classList.add('open'));
         resizeRenderer();
         // Focus after the slide-in transition so the drawer is visually ready.

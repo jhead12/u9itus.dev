@@ -62,3 +62,11 @@ test('a former member sees no election dates', function () {
     $response->assertSee('Former Member');
     $response->assertDontSee('General:');
 });
+
+test('every profile shows where its data came from and a way to report a problem', function () {
+    $response = profileFor(['term_status' => 'seated', 'is_running_candidate' => false, 'verified_official' => false]);
+
+    $response->assertOk();
+    $response->assertSee('Source: U9itus public records');
+    $response->assertSee('Report a data problem');
+});

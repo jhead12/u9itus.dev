@@ -1464,6 +1464,48 @@ body:has(#pol-drawer.open) #hint { display: none; }
 #pol-drawer[hidden] { display: flex; } /* keep flex layout; hidden handled by transform */
 #pol-drawer.open { transform: translateX(0); }
 
+/* ── Source stamp + "Report a data problem" (candidate drawer) ─────────── */
+.dr-provenance {
+    flex: 0 0 auto;
+    padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid rgba(148, 163, 184, 0.14);
+    background: rgba(8, 11, 24, 0.6);
+    font-size: 11px;
+    color: #94a3b8;
+}
+.dr-provenance[hidden] { display: none; }
+.dr-line { margin: 0; line-height: 1.5; }
+.dr-source { display: block; font-weight: 600; color: #cbd5e1; }
+.dr-toggle {
+    background: none; border: 0; padding: 2px 0;
+    color: #a5b4fc; font: inherit; text-decoration: underline; cursor: pointer;
+}
+.dr-toggle:hover { color: #c7d2fe; }
+.dr-toggle:focus-visible, .dr-send:focus-visible, .dr-cancel:focus-visible { outline: 2px solid #a5b4fc; outline-offset: 2px; }
+.dr-form { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+.dr-label { font-weight: 600; color: #cbd5e1; }
+.dr-input {
+    width: 100%; box-sizing: border-box;
+    background: rgba(15, 23, 42, 0.8); color: #e2e8f0;
+    border: 1px solid rgba(148, 163, 184, 0.25); border-radius: 8px;
+    padding: 7px 9px; font: inherit; font-size: 12px;
+}
+.dr-input:focus { outline: 2px solid #6366f1; outline-offset: 0; border-color: transparent; }
+textarea.dr-input { resize: vertical; min-height: 60px; }
+.dr-trap { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+.dr-actions { display: flex; gap: 8px; }
+.dr-send {
+    background: #6366f1; color: #fff; border: 0; border-radius: 8px;
+    padding: 7px 14px; font: inherit; font-weight: 700; cursor: pointer;
+}
+.dr-send:disabled { opacity: 0.6; cursor: default; }
+.dr-cancel {
+    background: none; color: #94a3b8; border: 1px solid rgba(148, 163, 184, 0.3);
+    border-radius: 8px; padding: 7px 12px; font: inherit; cursor: pointer;
+}
+.dr-error { margin: 0; color: #fca5a5; }
+.dr-thanks { margin: 8px 0 0; color: #6ee7b7; font-weight: 600; }
+
 #pol-drawer-close {
     position: absolute; top: 12px; right: 14px;
     background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.2);

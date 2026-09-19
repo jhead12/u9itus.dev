@@ -555,6 +555,49 @@
                         </p>
                     @endif
 
+                    {{-- Source stamp + "Report a data problem" (reviewed at /admin/data-reports) --}}
+                    @php
+                        $provenance = \App\Support\DataSourceLabel::stamp($politician);
+                        $reportProblems = \App\Models\DataReport::PROBLEMS;
+                    @endphp
+                    <div id="profile-provenance" class="text-xs text-slate-400 mb-3"
+                         data-subject-id="{{ $politician->id }}"
+                         data-subject-name="{{ $politician->full_name }}"
+                         data-subject-office="{{ $politician->political_office }}"
+                         data-state="{{ $politician->state }}"
+                         data-source-label="{{ $provenance['source_label'] }}">
+                        <p class="flex flex-wrap items-baseline gap-x-1">
+                            <span class="font-semibold text-slate-300">Source: {{ $provenance['source_label'] }}</span>
+                            @if($politician->updated_at)
+                                <span>· updated {{ $politician->updated_at->diffForHumans() }}</span>
+                            @endif
+                            <button type="button" id="dr-open" aria-expanded="false" aria-controls="dr-form"
+                                    class="ml-2 underline text-indigo-300 hover:text-indigo-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300 rounded">
+                                Report a data problem
+                            </button>
+                        </p>
+                        <form id="dr-form" hidden novalidate class="mt-3 max-w-md space-y-2 rounded-lg border border-slate-700/60 bg-slate-900/60 p-3">
+                            <label for="dr-problem" class="block font-semibold text-slate-300">What looks wrong?</label>
+                            <select id="dr-problem" name="problem" class="w-full rounded-md border border-slate-600 bg-slate-800 px-2 py-1.5 text-sm text-slate-100">
+                                @foreach($reportProblems as $key => $label)
+                                    <option value="{{ $key }}">{{ $label }}</option>
+                                @endforeach
+                            </select>
+                            <label for="dr-message" class="block font-semibold text-slate-300">Details (optional)</label>
+                            <textarea id="dr-message" name="message" rows="3" maxlength="1000"
+                                      class="w-full rounded-md border border-slate-600 bg-slate-800 px-2 py-1.5 text-sm text-slate-100"></textarea>
+                            <div aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden;">
+                                <input type="text" name="website" tabindex="-1" autocomplete="off">
+                            </div>
+                            <p id="dr-error" role="alert" hidden class="text-red-300"></p>
+                            <div class="flex gap-2">
+                                <button type="submit" id="dr-send" class="rounded-md bg-indigo-500 px-3 py-1.5 text-sm font-bold text-white hover:bg-indigo-400 disabled:opacity-60">Send report</button>
+                                <button type="button" id="dr-cancel" class="rounded-md border border-slate-600 px-3 py-1.5 text-sm text-slate-300 hover:bg-slate-800">Cancel</button>
+                            </div>
+                        </form>
+                        <p id="dr-thanks" role="status" hidden class="mt-2 font-semibold text-emerald-300">Thanks — we’ll review it.</p>
+                    </div>
+
                     {{-- Custom CTA or default voter sign-up --}}
                     @if($page->custom_cta_text && $page->custom_cta_url)
                         <a href="{{ $page->custom_cta_url }}" target="_blank" rel="noopener"
@@ -1820,5 +1863,58 @@
     @endguest
 
     @stack('scripts')
+    <script>
+    // "Report a data problem" — posts to /api/v1/data-reports; an admin reviews it.
+    (function () {
+        var box = document.getElementById('profile-provenance');
+        if (!box) return;
+        var open = document.getElementById('dr-open');
+        var form = document.getElementById('dr-form');
+        var err = document.getElementById('dr-error');
+        var send = document.getElementById('dr-send');
+        function toggle(show) {
+            form.hidden = !show;
+            open.setAttribute('aria-expanded', show ? 'true' : 'false');
+            if (show) document.getElementById('dr-problem').focus(); else open.focus();
+        }
+        open.addEventListener('click', function () { toggle(form.hidden); });
+        document.getElementById('dr-cancel').addEventListener('click', function () { toggle(false); });
+        form.addEventListener('submit', function (e) {
+            e.preventDefault();
+            err.hidden = true;
+            send.disabled = true;
+            send.textContent = 'Sending…';
+            var d = box.dataset;
+            fetch('/api/v1/data-reports', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body: JSON.stringify({
+                    subject_type: 'politician',
+                    subject_id: Number(d.subjectId) || null,
+                    subject_name: d.subjectName || null,
+                    subject_office: d.subjectOffice || null,
+                    state: d.state || null,
+                    source_label: d.sourceLabel || null,
+                    problem: form.elements.problem.value,
+                    message: form.elements.message.value.trim() || null,
+                    website: form.elements.website.value,
+                    page_url: location.href
+                })
+            }).then(function (res) {
+                if (res.status === 429) throw new Error('You have sent several reports just now — please try again in a minute.');
+                if (res.status === 422) return res.json().then(function (b) { throw new Error(b.message || 'Please check the form and try again.'); });
+                if (!res.ok) throw new Error('Could not send the report. Please try again.');
+                form.hidden = true;
+                open.hidden = true;
+                document.getElementById('dr-thanks').hidden = false;
+            }).catch(function (e2) {
+                err.textContent = e2.message;
+                err.hidden = false;
+                send.disabled = false;
+                send.textContent = 'Send report';
+            });
+        });
+    })();
+    </script>
 </body>
 </html>

@@ -42,6 +42,7 @@ use App\Http\Controllers\Standalone\EventRsvpController;
 use App\Http\Controllers\Standalone\PoliticianSongPickController;
 use App\Http\Controllers\Standalone\VoterController;
 use App\Http\Controllers\Standalone\AdminController;
+use App\Http\Controllers\Standalone\AdminDataReportController;
 use App\Http\Controllers\Standalone\AdminOfficeProfileController;
 use App\Http\Controllers\Standalone\AdminPostController;
 use App\Http\Controllers\Standalone\AdminTopicController;
@@ -669,6 +670,10 @@ Route::middleware(['guest.trial', 'auth', 'verified', 'check.role', 'no.cache'])
         Route::post('/candidate-matches/retry/{politician}', [AdminController::class, 'retryCandidateMatch'])->name('candidate-matches.retry');
         Route::post('/candidate-matches/{review}/approve', [AdminController::class, 'approveCandidateMatch'])->name('candidate-matches.approve');
         Route::post('/candidate-matches/{review}/reject', [AdminController::class, 'rejectCandidateMatch'])->name('candidate-matches.reject');
+
+        // Visitor "Report a data problem" queue
+        Route::get('/data-reports', [AdminDataReportController::class, 'index'])->name('data-reports.index');
+        Route::patch('/data-reports/{report}', [AdminDataReportController::class, 'update'])->name('data-reports.update');
 
         // Data-Quality Cleanup Review (politicians:cleanup-workflow findings)
         Route::get('/data-quality', [AdminController::class, 'dataQualityReviews'])->name('data-quality.index');

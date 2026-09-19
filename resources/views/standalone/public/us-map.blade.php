@@ -404,6 +404,7 @@
         <button class="pol-tab"        role="tab" data-tab="contact"  aria-selected="false" id="pol-tab-contact">Contact</button>
     </nav>
     <div class="pol-body" id="pol-body" role="tabpanel" aria-labelledby="pol-tab-overview"><!-- filled by JS --></div>
+    <footer class="dr-provenance" id="pol-provenance" hidden><!-- source stamp + report form, filled by JS --></footer>
 </div>
 
 <div id="dist-progress">

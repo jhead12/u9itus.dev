@@ -129,6 +129,8 @@ export function refreshOpenDistrict() {
 /** Candidate-card shape for renderCandidate(), from a house_candidates row. */
 function toCard(c, districtLabel, houseKey) {
     return {
+        id: c.id || null, source: c.source || null,
+        source_label: c.source_label || null, updated_at: c.updated_at || null,
         full_name: c.full_name, party: c.party, is_running: c.is_running,
         status: c.status || 'running', verified: c.verified || false,
         photo: c.photo || null, slug: c.slug || null,
