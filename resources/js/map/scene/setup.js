@@ -24,7 +24,7 @@ export function leftInset() {
 }
 function rightInset() {
     const drawer = document.getElementById('pol-drawer');
-    return (window.innerWidth > 768 && drawer?.classList.contains('open')) ? POL_DRAWER_WIDTH : 0;
+    return (window.innerWidth > 768 && drawer?.classList.contains('open')) ? (drawer.offsetWidth + 24 || POL_DRAWER_WIDTH) : 0;
 }
 export function W() {
     return Math.max(container.clientWidth - leftInset() - rightInset(), 200);

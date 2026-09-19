@@ -10,6 +10,7 @@ import { createFavoriteButton } from './boundary-favorite.js';
 import { createFollowButton } from './politician-follow-button.js';
 import { resizeRenderer } from '../scene/setup.js';
 import { formatCalendarDate } from '../utils/dates.js';
+import { initialComparisonSelection, renderComparison } from './candidate-comparison.js';
 import { renderProvenance } from './data-report.js';
 
 const polDrawer = document.getElementById('pol-drawer');
@@ -25,6 +26,7 @@ let _overviewReqSeq = 0;
 let _economyReqSeq = 0;
 let _momentsReqSeq = 0;
 let _censusReqSeq = 0;
+let comparisonAbort = null;
 
 function escapeHtml(value) {
     return String(value ?? '')
@@ -215,6 +217,43 @@ async function loadOverviewEnrichment(cand) {
             _polCtx.extra = { ..._polCtx.extra, enrichmentLoading: false, enrichmentError: true };
             if (_polTab === 'overview') _renderPolBody();
         }
+    }
+}
+
+async function loadCandidateComparison() {
+    const context = _polCtx;
+    if (!context || context.extra?.isCityView) return;
+    comparisonAbort?.abort();
+    const controller = new AbortController();
+    comparisonAbort = controller;
+    const c = context.cand;
+    const state = c.state || STATE_ABBR_MAP[activeState] || activeState || '';
+    const params = new URLSearchParams({ state, full_name: c.full_name || '', office: c.office || '' });
+    if (c.id) params.set('id', c.id);
+    if (c.slug) params.set('slug', c.slug);
+    if (c.district) params.set('district', c.district);
+    else if (context.extra?.districtNumber) params.set('district', `${state}-${context.extra.districtNumber}`);
+    if (c.city) params.set('city', c.city);
+    context.extra = { ...context.extra, comparisonLoading: true, comparisonError: false };
+    if (_polTab === 'compare') _renderPolBody();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+    try {
+        const response = await fetch(`/api/v1/map/candidate-comparison?${params}`, { signal: controller.signal, headers: { Accept: 'application/json' } });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        if (_polCtx !== context || comparisonAbort !== controller) return;
+        const compareTab = document.getElementById('pol-tab-compare');
+        if (compareTab) compareTab.hidden = data.available !== true;
+        if (data.available !== true && _polTab === 'compare') {
+            document.getElementById('pol-tab-overview')?.click();
+        }
+        context.extra = { ...context.extra, comparison: data, comparisonSelected: initialComparisonSelection(data), comparisonLoading: false };
+    } catch {
+        if (_polCtx !== context || comparisonAbort !== controller) return;
+        context.extra = { ...context.extra, comparisonLoading: false, comparisonError: true };
+    } finally {
+        clearTimeout(timeout);
+        if (_polCtx === context && comparisonAbort === controller && _polTab === 'compare') _renderPolBody();
     }
 }
 
@@ -575,12 +614,16 @@ export function openPolDrawer(cand, accentColor, extra = {}) {
     }
 
     try {
+        comparisonAbort?.abort();
+        polDrawer.classList.remove('comparing');
         _polCtx = { cand, accentColor: accentColor || '#6366f1', extra };
         loadOverviewEnrichment(cand);
         _polTab = 'overview';
         polTabBtns.forEach(t => {
             t.classList.toggle('active', t.dataset.tab === 'overview');
             t.setAttribute('aria-selected', t.dataset.tab === 'overview');
+            t.tabIndex = t.dataset.tab === 'overview' ? 0 : -1;
+            t.hidden = t.dataset.tab === 'compare';
         });
         polBodyEl.setAttribute('aria-labelledby', 'pol-tab-overview');
         polDrawer.style.setProperty('--pol-accent', _polCtx.accentColor);
@@ -671,6 +714,7 @@ export function openPolDrawer(cand, accentColor, extra = {}) {
                 office: c.office || extra?.district || null,
             });
         }
+        loadCandidateComparison();
         requestAnimationFrame(() => polDrawer.classList.add('open'));
         resizeRenderer();
         // Focus after the slide-in transition so the drawer is visually ready.
@@ -688,6 +732,7 @@ export function openPolDrawer(cand, accentColor, extra = {}) {
 }
 
 export function closePolDrawer() {
+    comparisonAbort?.abort();
     _overviewReqSeq++;
     if (!polDrawer) return;
     polDrawer.classList.remove('open');
@@ -700,6 +745,17 @@ function _renderPolBody() {
     if (!_polCtx) return;
     const { cand: c, accentColor: ac, extra } = _polCtx;
     const pop = extra?.population ?? null;
+
+    if (_polTab === 'compare') {
+        if (extra?.comparisonLoading) {
+            polBodyEl.innerHTML = '<div class="pol-compare"><h3>Compare this seat</h3><p class="compare-note" role="status">Loading candidates and recorded positions…</p></div>';
+        } else if (extra?.comparisonError) {
+            polBodyEl.innerHTML = '<div class="pol-compare"><h3>Compare this seat</h3><p class="compare-note" role="alert">Comparison data is unavailable right now.</p><button type="button" class="compare-retry" data-compare-retry>Try again</button></div>';
+        } else {
+            polBodyEl.innerHTML = renderComparison(extra?.comparison, extra?.comparisonSelected);
+        }
+        return;
+    }
 
     if (_polTab === 'overview') {
         if (extra?.isCityView) {
@@ -1127,8 +1183,21 @@ export function initPolDrawer() {
             return;
         }
 
+        if (e.target.closest('[data-compare-retry]')) loadCandidateComparison();
         const shareBtn = e.target.closest('[data-share-url]');
         if (shareBtn) shareDistrictLink(shareBtn);
+    });
+
+    polDrawer.addEventListener('change', e => {
+        const input = e.target.closest('[data-compare-key]');
+        if (!input || !_polCtx?.extra?.comparison) return;
+        const selected = new Set(_polCtx.extra.comparisonSelected || []);
+        if (input.checked && selected.size < 3) selected.add(input.dataset.compareKey);
+        else selected.delete(input.dataset.compareKey);
+        _polCtx.extra.comparisonSelected = [...selected];
+        _renderPolBody();
+        [...polBodyEl.querySelectorAll('[data-compare-key]')]
+            .find(el => el.dataset.compareKey === input.dataset.compareKey)?.focus();
     });
 
     polDrawerClose.addEventListener('click', closePolDrawer);
@@ -1136,13 +1205,32 @@ export function initPolDrawer() {
         if (e.key === 'Escape') closePolDrawer();
     });
     polTabBtns.forEach(tab => {
+        tab.setAttribute('aria-controls', 'pol-body');
+        tab.tabIndex = tab.classList.contains('active') ? 0 : -1;
+        tab.addEventListener('keydown', event => {
+            if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+            event.preventDefault();
+            const tabs = [...polTabBtns].filter(button => !button.hidden);
+            const i = tabs.indexOf(tab);
+            const next = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1
+                : (i + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
+            tabs[next].click();
+            tabs[next].focus();
+            tabs[next].scrollIntoView({ block: 'nearest', inline: 'nearest' });
+        });
         tab.addEventListener('click', () => {
             _polTab = tab.dataset.tab;
             polTabBtns.forEach(t => {
                 t.classList.toggle('active', t.dataset.tab === _polTab);
                 t.setAttribute('aria-selected', t.dataset.tab === _polTab);
+                t.tabIndex = t.dataset.tab === _polTab ? 0 : -1;
             });
             polBodyEl.setAttribute('aria-labelledby', `pol-tab-${_polTab}`);
+            polDrawer.classList.toggle('comparing', _polTab === 'compare');
+            resizeRenderer();
+            if (_polTab === 'compare' && _polCtx && !_polCtx.extra?.comparison && !_polCtx.extra?.comparisonLoading) {
+                loadCandidateComparison();
+            }
             // Economy data is fetched lazily — only once, the first time the
             // tab is actually opened — to avoid doubling requests per drawer
             // open for data most users never view.

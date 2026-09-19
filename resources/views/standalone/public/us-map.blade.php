@@ -191,6 +191,7 @@
                 </div>
                 <div class="lp-chips" id="favorite-boundary-chips" aria-label="Your saved boundaries"></div>
                 <p class="lp-saved-empty" id="favorite-boundary-empty">Save districts and cities you care about to pin them here.</p>
+                <section id="saved-election-comparisons" hidden aria-label="Compare candidates in saved districts"></section>
                 <div class="lp-section">Data Overlays</div>
                 <div class="lp-chips">
                     <button class="lp-chip" data-layer="party"
@@ -402,6 +403,7 @@
         <button class="pol-tab"        role="tab" data-tab="economy"  aria-selected="false" id="pol-tab-economy">Economy</button>
         <button class="pol-tab"        role="tab" data-tab="moments"  aria-selected="false" id="pol-tab-moments">Media</button>
         <button class="pol-tab"        role="tab" data-tab="contact"  aria-selected="false" id="pol-tab-contact">Contact</button>
+        <button class="pol-tab" role="tab" data-tab="compare" aria-selected="false" id="pol-tab-compare" hidden>Compare</button>
     </nav>
     <div class="pol-body" id="pol-body" role="tabpanel" aria-labelledby="pol-tab-overview"><!-- filled by JS --></div>
     <footer class="dr-provenance" id="pol-provenance" hidden><!-- source stamp + report form, filled by JS --></footer>
@@ -646,6 +648,13 @@
     };
 })();
 </script>
+
+<dialog id="saved-comparison-dialog" aria-labelledby="saved-comparison-title">
+    <header><h2 id="saved-comparison-title">Compare candidates · Saved districts</h2><button type="button" id="saved-comparison-close" aria-label="Close comparison">×</button></header>
+    <label for="saved-comparison-seat">Choose a district</label>
+    <select id="saved-comparison-seat"></select>
+    <div id="saved-comparison-body"></div>
+</dialog>
 
 </body>
 </html>

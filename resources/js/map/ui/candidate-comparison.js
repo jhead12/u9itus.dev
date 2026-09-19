@@ -1,0 +1,70 @@
+/** Presentation only: never infer a stance from a party, donation, or badge. */
+export const escapeComparisonText = value => String(value ?? '')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+const esc = escapeComparisonText;
+
+function sourceLink(url, label) {
+    try {
+        const parsed = new URL(url);
+        if (!['http:', 'https:'].includes(parsed.protocol)) return esc(label);
+        return `<a href="${esc(parsed.href)}" target="_blank" rel="noopener noreferrer">${esc(label)}</a>`;
+    } catch { return esc(label); }
+}
+function dateLabel(value) {
+    if (!value) return 'Update date not recorded';
+    const date = new Date(/^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T12:00:00` : value);
+    return Number.isNaN(date.getTime()) ? 'Update date not recorded'
+        : `Updated ${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+}
+const topicKey = title => String(title ?? '').trim().replace(/\s+/g, ' ').toLowerCase();
+
+export function initialComparisonSelection(data) {
+    const candidates = data?.candidates ?? [];
+    const anchor = candidates.find(c => c.key === data.selected_key) ?? candidates[0];
+    return [anchor?.key, candidates.find(c => c.key !== anchor?.key)?.key].filter(Boolean);
+}
+
+export function renderComparison(data, selectedKeys = []) {
+    const candidates = data?.candidates ?? [];
+    if (!candidates.length) {
+        return `<section class="pol-compare"><h3>Compare this seat</h3><p class="compare-note">${esc(data?.message || 'No comparison data is available for this seat yet.')}</p></section>`;
+    }
+    const selected = candidates.filter(c => selectedKeys.includes(c.key)).slice(0, 3);
+    const titles = new Map();
+    for (const candidate of selected) {
+        for (const stance of candidate.stances ?? []) {
+            const key = topicKey(stance.topic);
+            if (key && !titles.has(key)) titles.set(key, stance.topic);
+        }
+    }
+    const row = (label, cells) => `<tr><th scope="row">${esc(label)}</th>${cells.map(text => `<td>${text}</td>`).join('')}</tr>`;
+    const empty = '<span class="compare-missing">Not recorded</span>';
+    const stanceRows = [...titles].sort((a, b) => a[1].localeCompare(b[1])).map(([key, title]) => row(title, selected.map(candidate => {
+        const positions = (candidate.stances ?? []).filter(s => topicKey(s.topic) === key);
+        return positions.length ? positions.map(s => `<div class="compare-stance"><p>${esc(s.text)}</p><small>${sourceLink(s.source_url, s.source_label || 'Source')}<br>${esc(dateLabel(s.updated_at))}</small></div>`).join('') : empty;
+    }))).join('');
+    return `<section class="pol-compare">
+        <p class="compare-eyebrow">ONE SEAT · SIDE BY SIDE</p>
+        <h3>${esc(data.seat?.label || 'Compare candidates')}</h3>
+        ${data.election?.date ? `<p class="compare-notice">${esc(data.election.stage)} · ${esc(data.election.date)}</p>` : ''}
+        <p class="compare-note">Choose up to three people. A current officeholder may not be running in the next election.</p>
+        ${data.message ? `<p class="compare-notice" role="status">${esc(data.message)}</p>` : ''}
+        <fieldset class="compare-picker"><legend>Candidates <span>(${selected.length}/3 selected)</span></legend>
+            ${candidates.map(c => `<label><input type="checkbox" data-compare-key="${esc(c.key)}" ${selectedKeys.includes(c.key) ? 'checked' : selected.length >= 3 ? 'disabled' : ''}><span>${esc(c.full_name)}</span></label>`).join('')}
+        </fieldset>
+        ${selected.length ? `<p class="compare-scroll-hint">Scroll sideways to see every column.</p>
+        <div class="compare-table-wrap" tabindex="0" role="region" aria-label="Side-by-side candidate comparison">
+            <table class="compare-table" style="min-width:${112 + selected.length * 205}px"><caption>Party, incumbency, and recorded policy positions for ${esc(data.seat?.label)}</caption>
+            <thead><tr><th scope="col">Compare</th>${selected.map(c => `<th scope="col">${esc(c.full_name)}</th>`).join('')}</tr></thead>
+            <tbody>
+                ${row('Party', selected.map(c => esc(c.party || 'Not recorded')))}
+                ${row('Incumbency', selected.map(c => esc(c.incumbency || 'Not recorded')))}
+                ${row('Candidacy', selected.map(c => esc(c.candidacy || 'Not recorded')))}
+                ${stanceRows || row('Policy positions', selected.map(() => empty))}
+                ${row('Record source', selected.map(c => `${sourceLink(c.profile_url, c.source_label || 'Public records')}<br><small>${esc(dateLabel(c.updated_at))}</small>`))}
+            </tbody></table>
+        </div>` : '<p class="compare-notice" role="status">Select a candidate above to start comparing.</p>'}
+        <p class="compare-note compare-footnote">Positions are published statements, not ratings. Matching topic headings are aligned; missing information does not imply support or opposition. Party and issue badges are never used to infer a position.</p>
+    </section>`;
+}

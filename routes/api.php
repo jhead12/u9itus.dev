@@ -178,6 +178,9 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         Route::get('/map/city-census', MapCityCensusController::class)
             ->name('map.city-census');
 
+        Route::get('/map/candidate-comparison', \App\Http\Controllers\Api\MapCandidateComparisonController::class)
+            ->name('map.candidate-comparison');
+
         Route::get('/map/candidate-overview', MapCandidateOverviewController::class)
             ->name('map.candidate-overview');
 

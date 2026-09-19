@@ -17,6 +17,7 @@ import { flyToPoint } from '../scene/camera-animation.js';
 import { project } from '../scene/projection.js';
 import { removeBoundary } from '../api/favorites.js';
 import * as THREE from 'three';
+import { refreshSavedComparisons } from './saved-comparisons.js';
 
 // Re-exported so ui/controls-menu.js and ui/search.js's existing
 // `import { syncLayerChip } from './layers-panel.js'` keep working unchanged
@@ -164,6 +165,7 @@ export function renderFavoriteChips() {
     if (!favChipsEl) return;
     favChipsEl.innerHTML = '';
     const entries = [...favoriteBoundaries.values()];
+    refreshSavedComparisons(entries);
 
     for (const b of entries) {
         const chip = document.createElement('button');
