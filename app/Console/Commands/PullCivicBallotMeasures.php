@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Models\BallotMeasure;
 use App\Models\ElectionDataSource;
 use App\Services\GoogleCivicService;
 use App\Support\BallotMeasureWriter;
@@ -115,9 +116,9 @@ class PullCivicBallotMeasures extends Command
             $referendums = $info['referendums'] ?? [];
             $electionDay = $info['election']['day'] ?? null;
 
-            $county = $row->level === 'county' ? $row->jurisdiction_name : null;
-
             foreach ($referendums as $referendum) {
+                [$level, $county, $locality] = $this->placeFor($row, $referendum, (string) ($referendum['title'] ?? ''), $electionDay);
+
                 $attrs = BallotMeasureWriter::normalize(
                     [
                         'title' => (string) ($referendum['title'] ?? ''),
@@ -125,10 +126,12 @@ class PullCivicBallotMeasures extends Command
                         'source_url' => $referendum['url'] ?? null,
                     ],
                     state: $row->state,
-                    county: $referendum['district_name'] ?? $county,
+                    county: $county,
                     electionDate: $electionDay,
                     source: 'google_civic',
                     fallbackUrl: $row->ballot_measures_url ?? $row->sample_ballot_url,
+                    level: $level,
+                    locality: $locality,
                 );
                 if ($attrs === null) {
                     continue;
@@ -171,6 +174,41 @@ class PullCivicBallotMeasures extends Command
         }
 
         return array_filter($map);
+    }
+
+    /**
+     * Where a Referendum contest applies. Google Civic reports the contest's district scope, so a
+     * statewide proposition that shows up on a county ballot stays statewide instead of being
+     * stamped with that county; without a scope, the registry row's own level is the best guess.
+     *
+     * @return array{0: ?string, 1: ?string, 2: ?string} level, county, locality
+     */
+    private function placeFor(ElectionDataSource $row, array $referendum, string $title, ?string $electionDay): array
+    {
+        $district = trim((string) ($referendum['district_name'] ?? '')) ?: null;
+        $rowCounty = $row->level === 'county' ? $row->jurisdiction_name : null;
+        $scope = strtolower((string) ($referendum['district_scope'] ?? ''));
+
+        return match (true) {
+            $scope === 'statewide' => ['state', null, null],
+            str_starts_with($scope, 'county') => ['county', $district ?? $rowCounty, null],
+            str_starts_with($scope, 'city') => ['city', $rowCounty, $district],
+            $scope !== '' => ['district', $rowCounty, $district],
+            // No scope reported: if the same measure is already on file as statewide (a
+            // Ballotpedia/Wikipedia row) this is that measure, not a new county one.
+            $this->existsAsStatewide($row->state, $title, $electionDay) => ['state', null, null],
+            default => [null, $district ?? $rowCounty, null],
+        };
+    }
+
+    private function existsAsStatewide(string $state, string $title, ?string $electionDay): bool
+    {
+        return BallotMeasure::query()
+            ->where('state', $state)
+            ->where('level', 'state')
+            ->where('title', trim($title))
+            ->when($electionDay, fn ($q) => $q->whereDate('election_date', $electionDay), fn ($q) => $q->whereNull('election_date'))
+            ->exists();
     }
 
     private function representativeAddress(ElectionDataSource $row): ?string

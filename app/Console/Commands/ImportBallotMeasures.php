@@ -11,7 +11,7 @@ class ImportBallotMeasures extends Command
         {file      : Path to a CSV file}
         {--dry-run : Report what would be imported without writing}';
 
-    protected $description = 'Import ballot measures from a CSV (admin-entered/curated — no automated scraper source yet).';
+    protected $description = 'Import ballot measures from a CSV (columns: state, title, election_date, level, county, locality, measure_number, summary, yes_meaning, no_meaning, status, source, source_url).';
 
     public function handle(): int
     {
@@ -60,8 +60,17 @@ class ImportBallotMeasures extends Command
                 continue;
             }
 
+            $county = trim((string) ($data['county'] ?? '')) ?: null;
+            $locality = trim((string) ($data['locality'] ?? '')) ?: null;
+            $level = strtolower(trim((string) ($data['level'] ?? '')));
+            if (! array_key_exists($level, BallotMeasure::LEVELS)) {
+                $level = $locality ? 'city' : ($county ? 'county' : 'state');
+            }
+
             $attributes = [
-                'county' => trim((string) ($data['county'] ?? '')) ?: null,
+                'level' => $level,
+                'county' => $county,
+                'locality' => $locality,
                 'measure_number' => trim((string) ($data['measure_number'] ?? '')) ?: null,
                 'summary' => trim((string) ($data['summary'] ?? '')) ?: null,
                 'yes_meaning' => trim((string) ($data['yes_meaning'] ?? '')) ?: null,
@@ -84,6 +93,7 @@ class ImportBallotMeasures extends Command
             // day regardless of the stored time component.
             $existing = BallotMeasure::query()
                 ->where('state', $state)
+                ->where('place_key', BallotMeasure::placeKeyFor($level, $county, $locality))
                 ->where('title', $title)
                 ->when(
                     $electionDate !== null,

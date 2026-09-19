@@ -19,13 +19,31 @@
             @error('state')<p class="text-red-400 text-xs mt-1">{{ $message }}</p>@enderror
         </div>
         <div>
-            <label for="county" class="block text-sm font-medium text-slate-300 mb-1.5">County</label>
-            <input type="text" id="county" name="county" value="{{ old('county', $ballotMeasure->county) }}"
-                class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2.5 text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50">
+            <label for="level" class="block text-sm font-medium text-slate-300 mb-1.5">Level <span class="text-red-400">*</span></label>
+            <select id="level" name="level" required
+                class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50">
+                @foreach(\App\Models\BallotMeasure::LEVELS as $key => $label)
+                    <option value="{{ $key }}" @selected(old('level', $ballotMeasure->level ?? 'state') === $key)>{{ $label }}</option>
+                @endforeach
+            </select>
+            @error('level')<p class="text-red-400 text-xs mt-1">{{ $message }}</p>@enderror
         </div>
         <div>
             <label for="measure_number" class="block text-sm font-medium text-slate-300 mb-1.5">Measure Number</label>
             <input type="text" id="measure_number" name="measure_number" value="{{ old('measure_number', $ballotMeasure->measure_number) }}" placeholder="e.g. Prop 22"
+                class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2.5 text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50">
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+        <div>
+            <label for="county" class="block text-sm font-medium text-slate-300 mb-1.5">County <span class="text-slate-500 font-normal">(local measures)</span></label>
+            <input type="text" id="county" name="county" value="{{ old('county', $ballotMeasure->county) }}"
+                class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2.5 text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50">
+        </div>
+        <div>
+            <label for="locality" class="block text-sm font-medium text-slate-300 mb-1.5">City / district <span class="text-slate-500 font-normal">(city or district measures)</span></label>
+            <input type="text" id="locality" name="locality" value="{{ old('locality', $ballotMeasure->locality) }}" placeholder="e.g. San Diego, or Unified School District"
                 class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2.5 text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50">
         </div>
     </div>

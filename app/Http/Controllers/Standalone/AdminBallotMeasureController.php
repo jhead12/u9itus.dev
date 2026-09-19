@@ -7,6 +7,7 @@ use App\Models\BallotMeasure;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 /**
@@ -24,12 +25,18 @@ class AdminBallotMeasureController extends Controller
             $q = $request->q;
             $query->where(function ($builder) use ($q) {
                 $builder->where('title', 'like', "%{$q}%")
-                        ->orWhere('state', 'like', "%{$q}%");
+                        ->orWhere('state', 'like', "%{$q}%")
+                        ->orWhere('county', 'like', "%{$q}%")
+                        ->orWhere('locality', 'like', "%{$q}%");
             });
         }
 
         if ($request->filled('status')) {
             $query->where('status', $request->status);
+        }
+
+        if ($request->filled('level')) {
+            $query->where('level', $request->level);
         }
 
         $ballotMeasures = $query->paginate(40)->withQueryString();
@@ -57,6 +64,7 @@ class AdminBallotMeasureController extends Controller
             // on the public map) since the table had no unique constraint.
             $existing = BallotMeasure::query()
                 ->where('state', $validated['state'])
+                ->where('place_key', BallotMeasure::placeKeyFor($validated['level'], $validated['county'] ?? null, $validated['locality'] ?? null))
                 ->where('title', $validated['title'])
                 ->when(
                     $validated['election_date'] !== null,
@@ -113,7 +121,9 @@ class AdminBallotMeasureController extends Controller
     {
         return $request->validate([
             'state'          => ['required', 'string', 'size:2'],
+            'level'          => ['required', 'string', Rule::in(array_keys(BallotMeasure::LEVELS))],
             'county'         => ['nullable', 'string', 'max:100'],
+            'locality'       => ['nullable', 'string', 'max:150'],
             'measure_number' => ['nullable', 'string', 'max:20'],
             'title'          => ['required', 'string', 'max:255'],
             'summary'        => ['nullable', 'string'],

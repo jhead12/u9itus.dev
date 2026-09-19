@@ -48,6 +48,7 @@ use App\Http\Controllers\Standalone\AdminPostController;
 use App\Http\Controllers\Standalone\AdminTopicController;
 use App\Http\Controllers\Standalone\AdminCauseController;
 use App\Http\Controllers\Standalone\AdminBallotMeasureController;
+use App\Http\Controllers\Standalone\AdminBallotMeasureImportController;
 use App\Http\Controllers\Standalone\PublicProfileController;
 use App\Http\Controllers\Standalone\CommitteeController;
 use App\Http\Controllers\Standalone\ProfileClaimController;
@@ -787,6 +788,9 @@ Route::middleware(['guest.trial', 'auth', 'verified', 'check.role', 'no.cache'])
         // Ballot Measures — complements the Ballotpedia import pipeline
         Route::get('/ballot-measures', [AdminBallotMeasureController::class, 'index'])->name('ballot-measures.index');
         Route::get('/ballot-measures/create', [AdminBallotMeasureController::class, 'create'])->name('ballot-measures.create');
+        Route::get('/ballot-measures/import', [AdminBallotMeasureImportController::class, 'create'])->name('ballot-measures.import');
+        Route::post('/ballot-measures/import/preview', [AdminBallotMeasureImportController::class, 'preview'])->name('ballot-measures.import.preview');
+        Route::post('/ballot-measures/import/store', [AdminBallotMeasureImportController::class, 'store'])->name('ballot-measures.import.store');
         Route::post('/ballot-measures', [AdminBallotMeasureController::class, 'store'])->name('ballot-measures.store');
         Route::get('/ballot-measures/{ballotMeasure}/edit', [AdminBallotMeasureController::class, 'edit'])->name('ballot-measures.edit');
         Route::put('/ballot-measures/{ballotMeasure}', [AdminBallotMeasureController::class, 'update'])->name('ballot-measures.update');

@@ -13,10 +13,16 @@
                 Manually create or edit ballot measures, alongside the existing Ballotpedia import pipeline.
             </p>
         </div>
-        <a href="{{ route('admin.ballot-measures.create') }}"
-           class="px-5 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold transition shadow-md shadow-emerald-900/30 whitespace-nowrap">
-            + New Ballot Measure
-        </a>
+        <div class="flex items-center gap-3">
+            <a href="{{ route('admin.ballot-measures.import') }}"
+               class="px-5 py-2.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-white text-sm font-semibold transition whitespace-nowrap">
+                Import voter guide
+            </a>
+            <a href="{{ route('admin.ballot-measures.create') }}"
+               class="px-5 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold transition shadow-md shadow-emerald-900/30 whitespace-nowrap">
+                + New Ballot Measure
+            </a>
+        </div>
     </div>
 
     @if(session('success'))
@@ -39,8 +45,14 @@
                 <option value="{{ $status }}" @selected(request('status') === $status)>{{ ucfirst($status) }}</option>
             @endforeach
         </select>
+        <select name="level" class="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50">
+            <option value="" @selected(!request('level'))>All levels</option>
+            @foreach(\App\Models\BallotMeasure::LEVELS as $key => $label)
+                <option value="{{ $key }}" @selected(request('level') === $key)>{{ $label }}</option>
+            @endforeach
+        </select>
         <button type="submit" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-medium transition">Filter</button>
-        @if(request('q') || request('status'))
+        @if(request('q') || request('status') || request('level'))
             <a href="{{ route('admin.ballot-measures.index') }}" class="px-5 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm font-medium transition">Clear</a>
         @endif
     </form>
@@ -51,7 +63,7 @@
             <thead>
                 <tr class="border-b border-slate-700 text-left">
                     <th class="px-5 py-3 text-slate-400 font-medium">Title</th>
-                    <th class="px-5 py-3 text-slate-400 font-medium hidden sm:table-cell">State / County</th>
+                    <th class="px-5 py-3 text-slate-400 font-medium hidden sm:table-cell">Place</th>
                     <th class="px-5 py-3 text-slate-400 font-medium hidden sm:table-cell">Election Date</th>
                     <th class="px-5 py-3 text-slate-400 font-medium text-center">Status</th>
                     <th class="px-5 py-3 text-slate-400 font-medium hidden sm:table-cell">Source</th>
@@ -68,7 +80,8 @@
                         @endif
                     </td>
                     <td class="px-5 py-3.5 hidden sm:table-cell text-slate-300">
-                        {{ strtoupper($measure->state) }}{{ $measure->county ? " · {$measure->county}" : '' }}
+                        {{ $measure->placeLabel() }}
+                        <span class="block text-slate-500 text-xs">{{ \App\Models\BallotMeasure::LEVELS[$measure->level] ?? $measure->level }}</span>
                     </td>
                     <td class="px-5 py-3.5 hidden sm:table-cell text-slate-300">
                         {{ $measure->election_date?->format('M j, Y') ?? '—' }}

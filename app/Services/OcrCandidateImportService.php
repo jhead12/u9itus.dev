@@ -29,7 +29,7 @@ class OcrCandidateImportService
         return $records;
     }
 
-    protected function extractText(string $filePath, string $extension): string
+    public function extractText(string $filePath, string $extension): string
     {
         if ($extension === 'txt') {
             $raw = file_get_contents($filePath);

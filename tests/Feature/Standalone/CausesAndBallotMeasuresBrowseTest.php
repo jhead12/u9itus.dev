@@ -177,3 +177,19 @@ test('voter can favorite a ballot measure via JSON endpoint', function () {
     $res->assertOk()->assertJson(['ok' => true, 'created' => true]);
     $this->assertDatabaseHas('voter_favorite_ballot_measures', ['voter_id' => $user->voter->id, 'ballot_measure_id' => $measure->id]);
 });
+// ── Local ballot measures ─────────────────────────────────────────────────────
+
+test('ballot measure directory filters by level and shows the place', function () {
+    $user = causeVoterUser('CA');
+    BallotMeasure::create(['state' => 'CA', 'level' => 'state', 'title' => 'Proposition 1: Statewide Bond', 'status' => 'upcoming', 'source' => 'manual']);
+    BallotMeasure::create(['state' => 'CA', 'level' => 'city', 'locality' => 'Oakland', 'title' => 'Measure A: Oakland Housing', 'status' => 'upcoming', 'source' => 'manual']);
+
+    $this->actingAs($user)->get(route('voter.ballot-measures.index'))
+        ->assertOk()->assertSee('Statewide Bond')->assertSee('Oakland Housing')->assertSee('CA · Oakland');
+
+    $this->actingAs($user)->get(route('voter.ballot-measures.index', ['level' => 'city']))
+        ->assertOk()->assertSee('Oakland Housing')->assertDontSee('Statewide Bond');
+
+    $this->actingAs($user)->get(route('voter.ballot-measures.index', ['q' => 'oakland']))
+        ->assertOk()->assertSee('Oakland Housing')->assertDontSee('Statewide Bond');
+});

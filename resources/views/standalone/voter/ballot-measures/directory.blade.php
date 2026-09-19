@@ -42,6 +42,17 @@
             </div>
 
             <div class="relative">
+                <select name="level"
+                    class="w-full bg-slate-900 border border-slate-700 text-slate-300 rounded-lg pl-3 pr-8 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 appearance-none cursor-pointer">
+                    <option value="">Statewide &amp; local</option>
+                    @foreach($levels as $key => $label)
+                    <option value="{{ $key }}" {{ request('level') === $key ? 'selected' : '' }}>{{ $label }}</option>
+                    @endforeach
+                </select>
+                <svg class="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            </div>
+
+            <div class="relative">
                 <select name="status"
                     class="w-full bg-slate-900 border border-slate-700 text-slate-300 rounded-lg pl-3 pr-8 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 appearance-none cursor-pointer">
                     @foreach($statuses as $key => $label)
@@ -53,7 +64,7 @@
 
             <div class="flex items-center gap-2">
                 <button type="submit" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition">Filter</button>
-                @if(request()->hasAny(['q', 'state', 'status', 'year']))
+                @if(request()->hasAny(['q', 'state', 'status', 'year', 'level']))
                 <a href="{{ route('voter.ballot-measures.index') }}" class="text-slate-400 hover:text-white text-sm px-3 py-2 transition">Clear</a>
                 @endif
             </div>
@@ -91,7 +102,10 @@
                     @if($measure->measure_number)
                     <span class="text-xs text-slate-500">#{{ $measure->measure_number }}</span>
                     @endif
-                    <span class="text-xs text-slate-500">{{ strtoupper($measure->state ?? '') }}{{ $measure->county ? ' · ' . $measure->county : '' }}</span>
+                    <span class="text-xs text-slate-500">{{ $measure->placeLabel() }}</span>
+                    @if($measure->level !== 'state')
+                    <span class="inline-flex items-center rounded-full border border-sky-500/30 bg-sky-500/10 text-sky-300 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide">{{ $levels[$measure->level] ?? 'Local' }}</span>
+                    @endif
                     <span class="inline-flex items-center rounded-full border {{ $statusPill }} px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide">{{ ucfirst($measure->status) }}</span>
                 </div>
 

@@ -53,3 +53,29 @@ it('passes through status and refuses an out-of-range value', function () {
     expect($ok['status'])->toBe('passed')
         ->and($bad['status'])->toBe('upcoming');
 });
+
+it('keeps same-titled measures from different cities apart, and re-runs idempotently', function () {
+    $make = fn (string $city) => BallotMeasureWriter::normalize(
+        ['title' => 'Measure A', 'measure_number' => 'A'],
+        state: 'CA', county: null, electionDate: '2026-11-03', source: 'voter_guide', level: 'city', locality: $city,
+    );
+
+    $writer = new BallotMeasureWriter;
+    expect($writer->upsert($make('Oakland')))->toBe('created')
+        ->and($writer->upsert($make('San Jose')))->toBe('created')
+        ->and($writer->upsert($make('Oakland')))->toBe('unchanged');
+
+    expect(BallotMeasure::count())->toBe(2);
+});
+
+it('does not merge a local measure into a statewide one with the same number', function () {
+    BallotMeasure::create(['state' => 'CA', 'measure_number' => '1', 'title' => 'Proposition 1', 'election_date' => '2026-11-03', 'source' => 'ca_sos']);
+
+    $attrs = BallotMeasureWriter::normalize(
+        ['title' => 'Measure 1', 'measure_number' => '1'],
+        state: 'CA', county: 'Alameda County', electionDate: '2026-11-03', source: 'voter_guide', level: 'county',
+    );
+
+    expect((new BallotMeasureWriter)->upsert($attrs))->toBe('created')
+        ->and(BallotMeasure::where('level', 'state')->count())->toBe(1);
+});

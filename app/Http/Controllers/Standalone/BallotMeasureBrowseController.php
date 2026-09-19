@@ -11,8 +11,8 @@ use Illuminate\View\View;
  * Voter-facing Ballot Measures browse pages (directory + show). The JSON
  * favorite store/destroy endpoints live in BallotMeasureFavoriteController.
  *
- * Ballot measures are never national — they are always state+county scoped —
- * so the directory defaults to the voter's state. "People near you" is the
+ * Ballot measures are never national — they are statewide or scoped to a county,
+ * city or district (`level`) — so the directory defaults to the voter's state. "People near you" is the
  * count of *other* voters in the current voter's state who favorited the
  * same measure (state-only, since voters have no county column).
  */
@@ -27,13 +27,17 @@ class BallotMeasureBrowseController extends Controller
         $status = $request->input('status', 'upcoming');
 
         $measures = BallotMeasure::query()
-            ->when($request->filled('q'), function ($q, $v) {
+            ->when($request->filled('q'), function ($q) use ($request) {
+                $v = (string) $request->input('q');
                 $q->where(function ($q) use ($v) {
                     $q->where('title', 'like', "%{$v}%")
-                        ->orWhere('measure_number', 'like', "%{$v}%");
+                        ->orWhere('measure_number', 'like', "%{$v}%")
+                        ->orWhere('county', 'like', "%{$v}%")
+                        ->orWhere('locality', 'like', "%{$v}%");
                 });
             })
             ->when($state, fn ($q, $s) => $q->where('state', $s))
+            ->when(array_key_exists((string) $request->input('level'), BallotMeasure::LEVELS), fn ($q) => $q->where('level', $request->input('level')))
             ->when($status, fn ($q, $s) => $q->where('status', $s))
             ->when($request->filled('year'), fn ($q, $y) => $q->whereYear('election_date', $y))
             ->withCount([
@@ -50,8 +54,9 @@ class BallotMeasureBrowseController extends Controller
 
         $states = config('u9itus.us_states', []);
         $statuses = ['upcoming' => 'Upcoming', 'passed' => 'Passed', 'failed' => 'Failed'];
+        $levels = BallotMeasure::LEVELS;
 
-        return view('standalone.voter.ballot-measures.directory', compact('measures', 'states', 'statuses', 'status', 'state'));
+        return view('standalone.voter.ballot-measures.directory', compact('measures', 'states', 'statuses', 'status', 'state', 'levels'));
     }
 
     public function show(Request $request, BallotMeasure $measure): View

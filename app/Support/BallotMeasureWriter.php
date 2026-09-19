@@ -29,8 +29,20 @@ class BallotMeasureWriter
     {
         $number = $attrs['measure_number'] ?? null;
 
+        $level = $attrs['level'] ?? 'state';
+
         $existing = BallotMeasure::query()
             ->where('state', $attrs['state'])
+            // "Measure A" is on the ballot in many cities at once, so a local measure only
+            // matches one covering the same place; a statewide one only matches statewide.
+            ->when($level === 'state', fn ($q) => $q->where('level', 'state'), function ($q) use ($level, $attrs) {
+                $q->where('level', $level);
+                foreach (['county', 'locality'] as $column) {
+                    ($attrs[$column] ?? null) === null || $attrs[$column] === ''
+                        ? $q->whereNull($column)
+                        : $q->where($column, $attrs[$column]);
+                }
+            })
             ->when(
                 ($attrs['election_date'] ?? null) !== null,
                 fn ($q) => $q->whereDate('election_date', $attrs['election_date']),
@@ -98,9 +110,10 @@ class BallotMeasureWriter
      * approved/defeated); otherwise they fall back to null / 'upcoming'.
      *
      * @param  array{title: string, measure_number?: ?string, summary?: ?string, yes_meaning?: ?string, no_meaning?: ?string, status?: ?string, source_url?: ?string}  $measure
+     * @param  ?string  $level  state|county|city|district; defaults to county when a county/locality is given, else state
      * @return array<string, mixed>|null null when there's no usable title
      */
-    public static function normalize(array $measure, string $state, ?string $county, ?string $electionDate, string $source, ?string $fallbackUrl = null): ?array
+    public static function normalize(array $measure, string $state, ?string $county, ?string $electionDate, string $source, ?string $fallbackUrl = null, ?string $level = null, ?string $locality = null): ?array
     {
         $title = trim((string) ($measure['title'] ?? ''));
         if ($title === '') {
@@ -109,9 +122,16 @@ class BallotMeasureWriter
 
         $clean = fn ($v, int $len) => ($s = trim((string) ($v ?? ''))) !== '' ? Str::limit($s, $len) : null;
 
+        // A county with no explicit level is a county measure, as before this column existed.
+        $level = array_key_exists((string) $level, BallotMeasure::LEVELS)
+            ? $level
+            : ($locality ? 'city' : ($county ? 'county' : 'state'));
+
         return [
             'state' => $state,
+            'level' => $level,
             'county' => $county ? Str::limit($county, 100, '') : null,
+            'locality' => $locality ? Str::limit($locality, 150, '') : null,
             'measure_number' => $measure['measure_number'] ?? self::parseMeasureNumber($title),
             'title' => Str::limit($title, 255, ''),
             'summary' => $clean($measure['summary'] ?? null, 1000),
