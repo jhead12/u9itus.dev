@@ -1098,6 +1098,22 @@ class PublicProfileController extends Controller
     }
 
     /**
+     * candidate | officeholder | former — drives which election info and
+     * wording the public profile uses.
+     */
+    private function standingFor(Politician $politician): string
+    {
+        if (in_array($politician->term_status, ['retired', 'lost'], true)) {
+            return 'former';
+        }
+        if ($politician->is_running_candidate || $politician->term_status === 'running') {
+            return 'candidate';
+        }
+
+        return $politician->term_status === 'seated' ? 'officeholder' : 'candidate';
+    }
+
+    /**
      * Display the politician's public profile page.
      *
      * Slug format: {5-char-uuid-prefix}-{seo-readable-name}
@@ -1272,6 +1288,15 @@ class PublicProfileController extends Controller
             }
         }
 
+        // Where this person stands relative to the upcoming election. The
+        // state's election dates apply to candidates only — showing "General:
+        // Nov 3" on a sitting governor who is term-limited reads as if they
+        // were on the ballot.
+        $standing = $this->standingFor($politician);
+        if ($standing === 'officeholder' && ! $termInfo && $politician->term_ends_on) {
+            $termInfo = ['start' => null, 'end' => $politician->term_ends_on->toDateString(), 'type' => null];
+        }
+
         // "Recently Won" badge: shown for 30 days after ImportElectionResults
         // records a win. won_at is only stamped on the 'won' transition (never
         // on routine incumbent re-syncs), so unlike status_updated_at it won't
@@ -1408,6 +1433,7 @@ class PublicProfileController extends Controller
             'recentlyWon',
             'birthDate',
             'electionDates',
+            'standing',
             'ogTitle',
             'ogDescription',
             'ogImage',

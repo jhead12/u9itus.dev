@@ -369,6 +369,11 @@
                                 ✓ Verified Official
                             </span>
                         @endif
+                        @if(($standing ?? '') === 'officeholder')
+                            <span class="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-sky-500/15 text-sky-300 border border-sky-500/20">
+                                🏛️ Current Officeholder
+                            </span>
+                        @endif
                         @if($recentlyWon ?? false)
                             <span class="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-yellow-500/15 text-yellow-300 border border-yellow-500/20">
                                 🎉 Recently Won
@@ -481,7 +486,7 @@
                                       border border-emerald-500/30 hover:border-emerald-400/60
                                       bg-emerald-500/10 hover:bg-emerald-500/20
                                       rounded-full px-3 py-1 transition">
-                                Sign in to follow this candidate
+                                Sign in to follow this {{ ($standing ?? 'candidate') === 'candidate' ? 'candidate' : (($standing ?? '') === 'officeholder' ? 'official' : 'politician') }}
                             </a>
                         @endauth
                     </div>
@@ -521,7 +526,7 @@
                                     🏛️ Currently Serving
                                 </span>
                                 <span class="text-slate-400">
-                                    · Term: {{ \Carbon\Carbon::parse($termInfo['start'])->format('M Y') }} – {{ $termEndDate->format('M Y') }}
+                                    · {{ !empty($termInfo['start']) ? 'Term: '.\Carbon\Carbon::parse($termInfo['start'])->format('M Y').' – ' : 'Term ends ' }}{{ $termEndDate->format('M Y') }}
                                 </span>
                             @elseif($termEndDate)
                                 <span class="text-slate-400">
@@ -531,7 +536,7 @@
                         </p>
                     @endif
 
-                    @if(!empty($electionDates))
+                    @if(!empty($electionDates) && ($standing ?? 'candidate') === 'candidate')
                         <p class="text-sm mb-3 flex flex-wrap items-center gap-x-3 gap-y-1">
                             @foreach($electionDates as $stage)
                                 @if($stage['election_date_formatted'])
