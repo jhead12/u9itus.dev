@@ -35,7 +35,8 @@ permissions:
 
 concurrency:
   # One repair per slug at a time; additional triggers queue behind.
-  group: repair-profile-${{ github.event.inputs.slug || github.event.client_payload.slug }}
+  group: civic-data-writes
+  queue: max
   cancel-in-progress: false
 
 jobs:

@@ -30,7 +30,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: politicians-cleanup
+  group: civic-data-writes
+  queue: max
   cancel-in-progress: false
 
 jobs:

@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\Politician;
+use App\Support\PoliticianDataRules;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
 
@@ -14,25 +15,18 @@ use Illuminate\Support\Str;
  *   node scripts/scrape-state-voter-guides.js --year=<YEAR>
  *
  * Each record is expected to have at minimum:
- *   full_name, state, result_status ('won'|'lost'|'incumbent'|null)
+ *   full_name, state, result_status ('advanced_to_general'|'won'|'lost'|'incumbent'|null)
  *
- * What this command does:
- *  - 'won'       → term_status='seated', is_running_candidate=false, is_active=true, won_at=now()
- *  - 'lost'      → term_status='lost',   is_running_candidate=false
- *  - 'incumbent' → term_status='seated'  (already in office, no change to running flag)
- *  - null        → is_running_candidate=true, term_status='running'  (still in race)
- *
- * Matching strategy (in order):
- *  1. ballotpedia_id (extracted from ballotpedia_url slug)
- *  2. Exact full_name + state + political_office  (case-insensitive)
- *  3. Exact full_name + state  (any office)
- *  4. Create a new unclaimed profile (when --create-missing is passed)
+ * Primary advancement keeps candidacy active. Only explicit general/special
+ * wins set won_at; serving status comes from an officeholder feed, not a win.
+ * New profiles are inactive/unpublished pending review. Ambiguous outcomes
+ * and cross-office matches are reported without changing the current office.
  */
 class ImportElectionResults extends Command
 {
     protected $signature = 'politicians:import-election-results
         {--file=storage/app/imports/state-voter-guides-2026.json : Path to scraped results JSON}
-        {--create-missing : Create new unclaimed profiles for candidates not yet in DB}
+        {--create-missing : Stage unpublished profiles for candidates not yet in DB}
         {--skip-fresh-days=7 : Skip records whose result_status is already final and status_updated_at is within this many days. Set 0 to always update.}
         {--dry-run : Parse and report only — no DB writes}';
 
@@ -85,9 +79,19 @@ class ImportElectionResults extends Command
             $state        = strtoupper(trim((string) ($row['state'] ?? '')));
             $office       = trim((string) ($row['political_office'] ?? ''));
             $resultStatus = $row['result_status'] ?? null;
+            $stage = strtolower(trim((string) ($row['election_stage'] ?? '')));
+            if ($resultStatus === 'won' && $stage === 'primary') {
+                $resultStatus = 'advanced_to_general';
+            }
+            if (! in_array($resultStatus, [null, 'won', 'lost', 'incumbent', 'advanced_to_general'], true)
+                || ($resultStatus === 'won' && ! in_array($stage, ['general', 'special'], true))) {
+                $this->warn("Row {$idx}: outcome/stage ambiguous; source review required.");
+                $skipped++;
+                continue;
+            }
 
-            if ($fullName === '' || $state === '') {
-                $this->warn("Row {$idx}: skipped — missing full_name or state.");
+            if (PoliticianDataRules::headlineFragmentViolation($fullName) !== null || ! in_array($state, PoliticianDataRules::ALLOWED_STATES, true)) {
+                $this->warn("Row {$idx}: skipped — invalid candidate name or state.");
                 $skipped++;
                 continue;
             }
@@ -116,15 +120,29 @@ class ImportElectionResults extends Command
 
             // 3. Name + state (any office)
             if (! $politician) {
-                $politician = Politician::query()
+                $matches = Politician::query()
                     ->whereRaw('LOWER(full_name) = ?', [strtolower($fullName)])
-                    ->whereRaw('UPPER(COALESCE(state, \'\')) = ?', [$state])
-                    ->first();
+                    ->whereRaw("UPPER(COALESCE(state, '')) = ?", [$state])
+                    ->limit(2)->get();
+                if ($matches->count() > 1) {
+                    $this->warn("Row {$idx}: ambiguous identity; source review required.");
+                    $skipped++;
+                    continue;
+                }
+                $politician = $matches->first();
             }
 
             // ── Apply result ──────────────────────────────────────────────────
 
             if ($politician) {
+                // A person's current office is not necessarily the office they ran for.
+                if (strcasecmp(trim((string) $politician->full_name), $fullName) !== 0
+                    || strtoupper((string) $politician->state) !== $state
+                    || ($office !== '' && $this->officeKey($office) !== $this->officeKey((string) $politician->political_office))) {
+                    $this->warn("Row {$idx}: cross-office/geography match; source review required.");
+                    $skipped++;
+                    continue;
+                }
                 // Skip records that already have a final result and were updated
                 // recently — no point overwriting stable data on every weekly run.
                 $isFinalResult = in_array($politician->term_status, ['seated', 'lost'], true);
@@ -138,7 +156,7 @@ class ImportElectionResults extends Command
                     continue;
                 }
 
-                $updates = $this->buildUpdates($resultStatus);
+                $updates = $this->buildUpdates($resultStatus, $politician);
 
                 if ($bpId !== null && $politician->ballotpedia_id === null) {
                     $updates['ballotpedia_id'] = $bpId;
@@ -148,6 +166,7 @@ class ImportElectionResults extends Command
                     'won'       => 'WON',
                     'lost'      => 'LOST',
                     'incumbent' => 'INCUMBENT',
+                    'advanced_to_general' => 'ADVANCED',
                     default     => 'RUNNING',
                 };
 
@@ -169,9 +188,16 @@ class ImportElectionResults extends Command
             // ── Create missing record (opt-in) ────────────────────────────────
 
             if ($createMissing) {
+                $source = $row['source_url'] ?? $row['source_page'] ?? $row['ballotpedia_url'] ?? null;
+                if ($office === '' || ! is_string($source) || ! filter_var($source, FILTER_VALIDATE_URL)
+                    || ! in_array(parse_url($source, PHP_URL_SCHEME), ['https', 'http'], true)) {
+                    $this->warn("Row {$idx}: cannot stage a profile without office and source URL.");
+                    $skipped++;
+                    continue;
+                }
                 $slug = $this->generateSlug($fullName);
 
-                $this->line("[CREATE] {$fullName} ({$state} {$office})");
+                $this->line("[STAGE FOR REVIEW] {$fullName} ({$state} {$office})");
 
                 if (! $dryRun) {
                     try {
@@ -184,14 +210,17 @@ class ImportElectionResults extends Command
                             'district'             => $row['district'] ?? null,
                             'party_affiliation'    => $row['party_affiliation'] ?? null,
                             'ballotpedia_id'       => $bpId,
-                            'is_active'            => true,
-                            'is_running_candidate' => $resultStatus === null,
-                            'term_status'          => $resultStatus === 'won' || $resultStatus === 'incumbent'
-                                ? 'seated'
-                                : ($resultStatus === 'lost' ? 'lost' : 'running'),
-                            'status_updated_at'    => now(),
-                            'won_at'                => $resultStatus === 'won' ? now() : null,
-                            'page_published'       => true,
+                            'is_active'            => false,
+                            ...$this->buildUpdates($resultStatus),
+                            'page_published'       => false,
+                            'page_settings'        => ['import_review' => [
+                                'status' => 'pending',
+                                'source_url' => $source,
+                                'election_stage' => $stage ?: null,
+                                'result_status' => $resultStatus,
+                                'scraped_at' => $row['scraped_at'] ?? null,
+                                'imported_at' => now()->toIso8601String(),
+                            ]],
                             'verified_official'    => false,
                             'slug'                 => $slug,
                             'user_id'              => null,
@@ -213,7 +242,7 @@ class ImportElectionResults extends Command
 
         $suffix = $dryRun ? ' (dry-run)' : '';
         $this->info(sprintf(
-            "Results import complete%s: %d seated/won, %d lost, %d running, %d created, %d skipped, %d already current.",
+            "Results import complete%s: %d wins/incumbents, %d lost, %d running, %d staged, %d skipped, %d already current.",
             $suffix, $won, $lost, $running, $created, $skipped, $fresh
         ));
 
@@ -221,18 +250,18 @@ class ImportElectionResults extends Command
     }
 
     /** Build the column updates array for a given result_status. */
-    private function buildUpdates(?string $resultStatus): array
+    private function buildUpdates(?string $resultStatus, ?Politician $politician = null): array
     {
         return match ($resultStatus) {
             'won' => [
-                'term_status'          => 'seated',
+                // 'active' + won_at records election without claiming the term has begun.
+                'term_status'          => $politician?->term_status === 'seated' ? 'seated' : 'active',
                 'is_running_candidate' => false,
-                'is_active'            => true,
                 'status_updated_at'    => now(),
-                'won_at'               => now(),
+                'won_at'               => $politician?->won_at ?? now(),
             ],
             'lost' => [
-                'term_status'          => 'lost',
+                'term_status'          => $politician?->term_status === 'seated' ? 'seated' : 'lost',
                 'is_running_candidate' => false,
                 'status_updated_at'    => now(),
             ],
@@ -242,10 +271,15 @@ class ImportElectionResults extends Command
             ],
             default => [
                 'is_running_candidate' => true,
-                'term_status'          => 'running',
+                'term_status'          => $politician?->term_status === 'seated' ? 'seated' : 'running',
                 'status_updated_at'    => now(),
             ],
         };
+    }
+
+    private function officeKey(string $office): string
+    {
+        return str_replace(['united states', 'u.s.'], 'us', strtolower(trim($office)));
     }
 
     /**
@@ -265,7 +299,8 @@ class ImportElectionResults extends Command
         }
 
         // Reject query strings, fragments, or survey-style URLs
-        if (str_contains($slug, '?') || str_contains($slug, '#') || $slug === '') {
+        if (str_contains($slug, '?') || str_contains($slug, '#') || $slug === ''
+            || preg_match('/elections?|Elections_in_/i', urldecode($slug))) {
             return null;
         }
 

@@ -4,14 +4,10 @@ name: Sync Candidates
 # The weekly politicians:reconcile-status schedule (Sun 04:00 UTC) runs after
 # this daily sync on Sundays.
 #
-# 2026-08-18: split from a single ~6h sequential job into parallel phase jobs.
-# The old single-job design meant one slow/stuck step (a single Ballotpedia
-# scrape regularly took 2-3h; one run hung 5h+ on a Playwright apt-get
-# install) silently starved every step after it — including the imports that
-# would have picked up new challengers — with the whole run reporting nothing
-# until the shared 6h job timeout killed it. Each phase below now gets its
-# own runner and its own 6h budget, and the final job only waits on the
-# phases whose data it actually needs.
+# Phase jobs retain separate runner/time budgets. Each DB-writing job joins
+# civic-data-writes with queue:max so concurrent refreshes wait instead of
+# overwriting one another or discarding pending state-scoped runs.
+# The independent final audit runs even if an import/enrichment phase fails.
 on:
   schedule:
     - cron: "0 2 * * *"   # Every day at 02:00 UTC
@@ -167,6 +163,10 @@ jobs:
     name: Sync federal legislators from congress-legislators
     needs: build-args
     runs-on: ubuntu-latest
+    concurrency:
+      group: civic-data-writes
+      queue: max
+      cancel-in-progress: false
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -214,6 +214,10 @@ jobs:
     name: Scrape & import statewide candidates
     needs: build-args
     runs-on: ubuntu-latest
+    concurrency:
+      group: civic-data-writes
+      queue: max
+      cancel-in-progress: false
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -318,10 +322,25 @@ jobs:
   # slow days it never got its full budget (a run 2026-08-14 was cancelled
   # 2h46m into this step by the shared 6h timeout, meaning House imports never
   # ran that day at all). Isolated into its own job so that can't recur.
+      - name: Retain collected source snapshots
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: candidate-sources-${{ github.job }}
+          path: |
+            storage/app/imports/ballotpedia-*.json
+            storage/app/imports/state-voter-guides-*.json
+          retention-days: 14
+          if-no-files-found: ignore
+
   scrape-house:
     name: Scrape & import U.S. House candidates
     needs: build-args
     runs-on: ubuntu-latest
+    concurrency:
+      group: civic-data-writes
+      queue: max
+      cancel-in-progress: false
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -404,10 +423,25 @@ jobs:
   # also a 404) but had never actually run since this step called
   # --strategy=widget, not --strategy=direct. Fixed to the real, verified
   # (2026-08-02) pattern: "United States Senate election in {State}, {year}".
+      - name: Retain collected source snapshots
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: candidate-sources-${{ github.job }}
+          path: |
+            storage/app/imports/ballotpedia-*.json
+            storage/app/imports/state-voter-guides-*.json
+          retention-days: 14
+          if-no-files-found: ignore
+
   scrape-senate:
     name: Scrape & import U.S. Senate candidates
     needs: build-args
     runs-on: ubuntu-latest
+    concurrency:
+      group: civic-data-writes
+      queue: max
+      cancel-in-progress: false
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -486,10 +520,25 @@ jobs:
   # data-integrity audits, etc.), so it waits on all of them before starting.
   # Runs in its own job/6h budget rather than tacked onto whichever scrape
   # phase happened to finish last.
+      - name: Retain collected source snapshots
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: candidate-sources-${{ github.job }}
+          path: |
+            storage/app/imports/ballotpedia-*.json
+            storage/app/imports/state-voter-guides-*.json
+          retention-days: 14
+          if-no-files-found: ignore
+
   enrich-and-reconcile:
     name: Enrich, verify, and reconcile candidate data
     needs: [build-args, sync-federal-legislators, scrape-statewide, scrape-house, scrape-senate]
     runs-on: ubuntu-latest
+    concurrency:
+      group: civic-data-writes
+      queue: max
+      cancel-in-progress: false
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -744,54 +793,10 @@ jobs:
           php artisan politicians:normalize-district-format \
             ${{ needs.build-args.outputs.dry_arg }}
 
-      # ── Clean cross-office ECR conflicts ──────────────────────────────────
-      # Stamps primary_result=eliminated on ECR rows where the matched
-      # politician is already seated in a DIFFERENT office.
-      # Runs after reconcile-status so term_status values are fresh.
-      - name: Clean cross-office ECR conflicts (statewide)
-        run: |
-          php artisan politicians:clean-cross-office-ecrs \
-            --scope=state \
-            ${{ needs.build-args.outputs.state_args }} \
-            ${{ needs.build-args.outputs.dry_arg }}
-
-      - name: Clean cross-office ECR conflicts (federal/house)
-        run: |
-          php artisan politicians:clean-cross-office-ecrs \
-            --scope=all \
-            ${{ needs.build-args.outputs.state_args }} \
-            ${{ needs.build-args.outputs.dry_arg }}
-
-      # ── Cross-office conflict audit ───────────────────────────────────────
-      # Detects politicians whose term_status=seated but who also appear as a
-      # candidate for a DIFFERENT office in election_candidate_records.
-      # This catches issues like "Lt. Governor listed under Governor" across
-      # all 50 states before they hit the public map.
-      # Exits 0 always — this is a warning step, not a blocker.
-      - name: Audit cross-office conflicts
-        run: |
-          php artisan tinker --execute="
-            \$conflicts = \Illuminate\Support\Facades\DB::select(\"
-              SELECT p.id, p.full_name, p.state, p.political_office AS seated_office,
-                     e.political_office AS candidate_office, e.id AS ecr_id
-              FROM politicians p
-              JOIN election_candidate_records e
-                ON LOWER(e.full_name) = LOWER(p.full_name)
-               AND UPPER(COALESCE(e.state,'')) = UPPER(COALESCE(p.state,''))
-               AND LOWER(COALESCE(e.political_office,'')) != LOWER(COALESCE(p.political_office,''))
-              WHERE p.term_status IN ('seated','current')
-                AND COALESCE(JSON_UNQUOTE(JSON_EXTRACT(e.payload,'$.primary_result')),'') != 'eliminated'
-              ORDER BY p.state, p.full_name
-            \");
-            if (count(\$conflicts) === 0) {
-              echo 'No cross-office conflicts found.' . PHP_EOL;
-            } else {
-              echo '⚠ CROSS-OFFICE CONFLICTS (' . count(\$conflicts) . '):' . PHP_EOL;
-              foreach (\$conflicts as \$c) {
-                echo '  [' . \$c->state . '] ' . \$c->full_name . ' — seated: ' . \$c->seated_office . ' | running-for: ' . \$c->candidate_office . PHP_EOL;
-              }
-            }
-          " || true
+      - name: Report cross-office records requiring verification
+        env:
+          STATES: ${{ needs.build-args.outputs.states }}
+        run: bash scripts/for-each-state.sh "$STATES" php artisan politicians:clean-cross-office-ecrs --scope=all
 
       # ── Election results & local voter guides (all 50 states) ────────────
       # Two-pass results enrichment:
@@ -802,7 +807,7 @@ jobs:
       #            (CalMatters for CA, state-specific investigative outlets for
       #            all others, Ballotpedia state overview as fallback).
       # Both outputs are fed into politicians:import-election-results which
-      # updates term_status to 'seated' (won) or 'lost' on matched records.
+      # preserves election stage; winning a race does not establish incumbency.
       - name: Scrape Ballotpedia election results (statewide, direct strategy)
         if: ${{ github.event.inputs.include_results != 'false' }}
         run: |
@@ -841,20 +846,20 @@ jobs:
         run: |
           YEAR="${{ github.event.inputs.election_year || '2026' }}"
           STATES="${{ needs.build-args.outputs.states }}"
-          # --create-missing is always on for results imports: winners like
-          # Xavier Becerra / Steve Hilton may not be in election_candidate_records
-          # yet (they weren't scraped as candidates before the primary), so we
-          # create them here with result_status='won' → primary_result='advanced_to_general'.
+          CREATE_ARG=""
+          if [ "${{ github.event.inputs.create_missing }}" = "true" ]; then
+            CREATE_ARG="--create-missing"
+          fi
           if [ -z "$STATES" ]; then
             php artisan politicians:import-election-results \
               --file=storage/app/imports/ballotpedia-results-${YEAR}.json \
-              --create-missing \
+              $CREATE_ARG \
               ${{ needs.build-args.outputs.dry_arg }}
           else
             for state in $(echo "$STATES" | tr ',' ' '); do
               php artisan politicians:import-election-results \
                 --file=storage/app/imports/ballotpedia-results-${YEAR}-$state.json \
-                --create-missing \
+                $CREATE_ARG \
                 ${{ needs.build-args.outputs.dry_arg }}
             done
           fi
@@ -918,29 +923,42 @@ jobs:
             $STATE_ARGS \
             ${{ needs.build-args.outputs.dry_arg }}
 
-      # ── Data-integrity audit ──────────────────────────────────────────────
-      # Scans politician rows against PoliticianDataRules: bad names, unknown
-      # parties, invalid state codes, unknown term_status values.
-      # --fix normalises party/state in place (safe, non-destructive).
-      # --deactivate hides artifact-name rows (garbage AI output) so they
-      # never surface on the public map or profile pages.
-      # Exits 0 always — this is a warning step, not a blocker.
-      - name: Audit & fix politician data integrity
-        run: |
-          STATES="${{ needs.build-args.outputs.states }}"
-          if [ -z "$STATES" ]; then
-            php artisan politicians:audit-data-integrity \
-              --fix \
-              --deactivate \
-              --limit=5000 \
-              ${{ needs.build-args.outputs.dry_arg }} || true
-          else
-            for state in $(echo "$STATES" | tr ',' ' '); do
-              php artisan politicians:audit-data-integrity \
-                --fix \
-                --deactivate \
-                --limit=5000 \
-                --state=$state \
-                ${{ needs.build-args.outputs.dry_arg }} || true
-            done
-          fi
+
+      - name: Retain collected source snapshots
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: candidate-sources-${{ github.job }}
+          path: |
+            storage/app/imports/ballotpedia-*.json
+            storage/app/imports/state-voter-guides-*.json
+          retention-days: 14
+          if-no-files-found: ignore
+
+  audit-candidate-data:
+    name: Audit data after all attempted imports
+    needs: [build-args, sync-federal-legislators, scrape-statewide, scrape-house, scrape-senate, enrich-and-reconcile]
+    if: ${{ always() && !cancelled() && needs.build-args.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    concurrency:
+      group: civic-data-writes
+      queue: max
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up app
+        uses: ./.github/actions/setup-app
+        with:
+          app_key: ${{ secrets.APP_KEY }}
+          app_url: ${{ secrets.APP_URL }}
+          db_host: ${{ secrets.DB_HOST }}
+          db_port: ${{ secrets.DB_PORT }}
+          db_database: ${{ secrets.DB_DATABASE }}
+          db_username: ${{ secrets.DB_USERNAME }}
+          db_password: ${{ secrets.DB_PASSWORD }}
+      - name: Audit complete dataset and publish report
+        uses: ./.github/actions/audit-candidate-data
+        with:
+          states: ${{ needs.build-args.outputs.states }}
+          dry_run: ${{ github.event.inputs.dry_run || 'false' }}

@@ -1,0 +1,37 @@
+name: Audit candidate data
+description: Scan all requested records, fail on unresolved violations, and retain reports.
+inputs:
+  states:
+    default: ''
+    description: Comma-separated states, or blank for national coverage.
+  dry_run:
+    default: 'false'
+    description: Report without changing records.
+runs:
+  using: composite
+  steps:
+    - name: Validate candidate data
+      shell: bash
+      env:
+        STATES: ${{ inputs.states }}
+        DRY_RUN: ${{ inputs.dry_run }}
+      run: bash scripts/for-each-state.sh "$STATES" bash scripts/audit-candidate-data.sh
+    - name: Publish audit summary
+      if: ${{ always() }}
+      shell: bash
+      run: |
+        echo '### Candidate data audit' >> "$GITHUB_STEP_SUMMARY"
+        for report in storage/app/qa/candidate-data/*.json; do
+          [ -f "$report" ] || continue
+          echo "#### $(basename "$report" .json)" >> "$GITHUB_STEP_SUMMARY"
+          echo '```json' >> "$GITHUB_STEP_SUMMARY"
+          cat "$report" >> "$GITHUB_STEP_SUMMARY"
+          printf '\n```\n' >> "$GITHUB_STEP_SUMMARY"
+        done
+    - name: Retain audit reports
+      if: ${{ always() }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: candidate-data-audit-${{ github.job }}
+        path: storage/app/qa/candidate-data/
+        retention-days: 14

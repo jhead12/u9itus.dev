@@ -20,18 +20,15 @@ use Illuminate\Support\Facades\Log;
  * What it does
  * ────────────────────────────────────────────────────────────────────────────
  * 1. SEATED check  — fetch legislators-current.json. Anyone in the feed with
- *    a current term gets term_status = 'seated'. Their is_running_candidate
- *    is cleared (they won and are now in office).
+ *    a current term gets term_status = 'seated'. A concurrent candidacy is preserved.
  *
  * 2. FORMER/RETIRED check — fetch legislators-historical.json. Anyone present
  *    only in historical (not current) whose term ended in the past gets
  *    term_status = 'retired' and is_active = false. Profile stays visible but
  *    marked Former.
  *
- * 3. RUNNING expiry — any record still flagged is_running_candidate = true
- *    where the election_date (stored in bio or a custom field) is in the past
- *    and they are NOT in the current seated set gets term_status = 'lost' and
- *    is_running_candidate = false.
+ * 3. CANDIDACY — absence from an officeholder feed is not an election loss.
+ *    Only sourced election results may end a candidacy.
  *
  * 4. DEACTIVATION — records marked lost or retired that have no user_id and
  *    no active campaigns get is_active = false (hidden from directory).
@@ -192,7 +189,7 @@ class ReconcilePoliticianStatus extends Command
             $feedOffice = (string) ($feedData['political_office'] ?? '');
             $feedDistrict = $feedData['district_code'] ?? null;
 
-            $needsUpdate = $politician->term_status !== 'seated' || $politician->is_running_candidate;
+            $needsUpdate = $politician->term_status !== 'seated';
 
             // Detect office/district mismatch (e.g. Rep→Senator after chamber switch)
             $officeChanged   = $feedOffice !== '' && $politician->political_office !== $feedOffice;
@@ -202,7 +199,7 @@ class ReconcilePoliticianStatus extends Command
             if ($needsUpdate || $officeChanged || $districtChanged) {
                 $updates = [
                     'term_status'          => 'seated',
-                    'is_running_candidate' => false,
+                    'is_running_candidate' => (bool) $politician->is_running_candidate,
                     'is_active'            => true,
                     'status_updated_at'    => now(),
                 ];
@@ -234,21 +231,8 @@ class ReconcilePoliticianStatus extends Command
             return 'seated';
         }
 
-        // ── 2. Running candidate whose election date has passed → lost ───────
-        if ($politician->is_running_candidate && $electionDate->isPast()) {
-            $this->line("[LOST] {$politician->full_name} ({$politician->state}) — election date passed, not in current feed");
-            if (!$dryRun) {
-                $politician->update([
-                    'term_status'          => 'lost',
-                    'is_running_candidate' => false,
-                    'status_updated_at'    => now(),
-                ]);
-                $this->reconciler->expireEcrRows($politician, $dryRun);
-            }
-            // Fall through to deactivation check below
-            $politician->refresh();
-            return $this->reconciler->maybeDeactivate($politician, $dryRun) ? 'deactivated' : 'lost';
-        }
+        // A candidate absent from the officeholder feed has not necessarily
+        // lost. Only a sourced election result may end their candidacy.
 
         // ── 3. Was previously seated but no longer in current feed → retired ─
         if (in_array($politician->term_status, ['seated', 'unknown'], true) && !$politician->is_running_candidate) {

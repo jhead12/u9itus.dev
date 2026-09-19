@@ -218,7 +218,7 @@ class ImportBallotpediaCandidates extends Command
         $payload = [];
 
         if ($row['result_status'] ?? null) {
-            $resultMap = ['won' => 'advanced_to_general', 'lost' => 'eliminated'];
+            $resultMap = ['advanced_to_general' => 'advanced_to_general', 'lost' => 'eliminated'];
             $payload['primary_result'] = $resultMap[$row['result_status']] ?? null;
         }
 

@@ -12,23 +12,29 @@ class AuditPoliticianDataIntegrity extends Command
         {--state=       : Restrict to a two-letter state code}
         {--fix          : Apply safe fixes (normalize party, uppercase state)}
         {--deactivate   : Deactivate rows with unfixable artifact names}
-        {--limit=5000   : Max rows to scan}';
+        {--limit=0      : Max rows to scan; 0 scans every row}
+        {--dry-run      : Report only, even when fix/deactivate are supplied}
+        {--max-violations=0 : Number of unresolved violations allowed}
+        {--report=      : Write a JSON audit summary to this path}';
 
     protected $description = 'Scan politician rows against central data rules; report, fix, or deactivate violations.';
 
     public function handle(): int
     {
         $state = $this->option('state') ? strtoupper(trim((string) $this->option('state'))) : null;
-        $fix = (bool) $this->option('fix');
-        $deactivate = (bool) $this->option('deactivate');
-        $limit = max(1, (int) $this->option('limit'));
+        $dryRun = (bool) $this->option('dry-run');
+        $fix = ! $dryRun && (bool) $this->option('fix');
+        $deactivate = ! $dryRun && (bool) $this->option('deactivate');
+        $limit = max(0, (int) $this->option('limit'));
 
         $rows = Politician::query()
-            ->when($state, fn ($q) => $q->whereRaw('UPPER(COALESCE(state, "")) = ?', [$state]))
+            ->when($state, fn ($q) => $q->whereRaw("UPPER(COALESCE(state, '')) = ?", [$state]))
             ->orderBy('id')
-            ->limit($limit)
-            ->get(['id', 'full_name', 'party_affiliation', 'state', 'term_status', 'is_active', 'page_published', 'political_office', 'governance_level', 'is_running_candidate']);
+            ->when($limit > 0, fn ($q) => $q->limit($limit))
+            ->select(['id', 'full_name', 'party_affiliation', 'state', 'term_status', 'is_active', 'page_published', 'political_office', 'governance_level', 'is_running_candidate'])
+            ->cursor();
 
+        $scanned = 0;
         $clean = 0;
         $fixed = 0;
         $deactivated = 0;
@@ -37,6 +43,7 @@ class AuditPoliticianDataIntegrity extends Command
         $runningSyncFixed = 0;
 
         foreach ($rows as $pol) {
+            $scanned++;
             // An officeholder whose political_office unambiguously implies a
             // governance_level that doesn't match what's stored is a data bug,
             // not a display preference — the map's buckets (
@@ -69,19 +76,11 @@ class AuditPoliticianDataIntegrity extends Command
                 }
             }
 
-            // term_status and is_running_candidate are two independent
-            // columns meant to track the same fact. They drift apart when
-            // only one gets updated — e.g. the term_status fallback above
-            // (historically) set term_status='running' without also setting
-            // this boolean. The directory search's status=running filter
-            // checks is_running_candidate, so a desynced row (like Cisneros/
-            // CA-39) shows as "running" on district-lookup but silently
-            // vanishes from directory search. 'active' is intentionally left
-            // alone — its relationship to is_running_candidate isn't
-            // well-defined elsewhere in the app.
+            // Serving in office and running in an election are independent.
+            // A seated incumbent may also be a candidate; preserve that flag.
             $expectedRunning = match (strtolower((string) $pol->term_status)) {
                 'running' => true,
-                'seated', 'lost', 'retired', 'former', 'eliminated' => false,
+                'lost', 'retired', 'former', 'eliminated' => false,
                 default => null,
             };
             if ($expectedRunning !== null && (bool) $pol->is_running_candidate !== $expectedRunning) {
@@ -129,14 +128,14 @@ class AuditPoliticianDataIntegrity extends Command
 
             // Unfixable artifact name → deactivate when requested.
             if ($nameViolation) {
-                if ($deactivate && $pol->is_active) {
+                if ($deactivate && ($pol->is_active || $pol->page_published)) {
                     // saveQuietly: skip model events — the saving hook would
                     // (correctly) reject this artifact name and abort.
                     $pol->is_active = false;
                     $pol->page_published = false;
                     $pol->saveQuietly();
                     $deactivated++;
-                } else {
+                } elseif ($pol->is_active || $pol->page_published) {
                     $flagged++;
                 }
                 continue;
@@ -172,7 +171,7 @@ class AuditPoliticianDataIntegrity extends Command
         $this->newLine();
         $this->info(sprintf(
             'Audit complete: %d scanned, %d clean, %d fixed, %d governance_level fixed, %d running-status synced, %d deactivated, %d flagged (run with --fix/--deactivate to apply).',
-            $rows->count(),
+            $scanned,
             $clean,
             $fixed,
             $governanceLevelFixed,
@@ -182,7 +181,16 @@ class AuditPoliticianDataIntegrity extends Command
         ));
 
         // Non-zero exit when unresolved violations remain — usable as CI gate.
-        return $flagged > 0 ? self::FAILURE : self::SUCCESS;
+        $summary = compact('scanned', 'clean', 'fixed', 'governanceLevelFixed', 'runningSyncFixed', 'deactivated', 'flagged', 'dryRun');
+        if ($report = $this->option('report')) {
+            $directory = dirname($report);
+            if (! is_dir($directory)) {
+                mkdir($directory, 0755, true);
+            }
+            file_put_contents($report, json_encode($summary, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
+        }
+
+        return $flagged > max(0, (int) $this->option('max-violations')) ? self::FAILURE : self::SUCCESS;
     }
 
     /**

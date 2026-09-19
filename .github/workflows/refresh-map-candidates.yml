@@ -32,7 +32,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: refresh-map-candidates
+  group: civic-data-writes
+  queue: max
   cancel-in-progress: false
 
 jobs:
@@ -130,33 +131,14 @@ jobs:
           php artisan politicians:reconcile-status \
             ${{ steps.args.outputs.dry_arg }}
 
-      - name: Scrape Ballotpedia election results
+      - name: Scrape and import Ballotpedia election results for every requested state
         if: ${{ github.event.inputs.include_results != 'false' }}
-        run: |
-          YEAR="${{ github.event.inputs.election_year || '2026' }}"
-          STATES="${{ github.event.inputs.states }}"
-          STATE_ARG=""
-          if [ -n "$STATES" ]; then
-            FIRST_STATE=$(echo "$STATES" | cut -d',' -f1)
-            STATE_ARG="--state=$FIRST_STATE"
-          fi
-
-          node scripts/scrape-ballotpedia.js \
-            --office=statewide \
-            --strategy=direct \
-            --year="$YEAR" \
-            --results \
-            $STATE_ARG \
-            --out=storage/app/imports/ballotpedia-results-${YEAR}.json
-
-      - name: Import Ballotpedia election results
-        if: ${{ github.event.inputs.include_results != 'false' }}
-        run: |
-          YEAR="${{ github.event.inputs.election_year || '2026' }}"
-          php artisan politicians:import-election-results \
-            --file=storage/app/imports/ballotpedia-results-${YEAR}.json \
-            --create-missing \
-            ${{ steps.args.outputs.dry_arg }}
+        env:
+          ELECTION_YEAR: ${{ github.event.inputs.election_year || '2026' }}
+          STATES: ${{ github.event.inputs.states }}
+          CREATE_MISSING: ${{ github.event.inputs.create_missing || 'false' }}
+          DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+        run: bash scripts/for-each-state.sh "$STATES" bash scripts/collect-election-results.sh
 
       - name: Scrape state voter guides (short cache)
         if: ${{ github.event.inputs.include_results != 'false' }}
@@ -189,94 +171,34 @@ jobs:
             $CREATE_ARG \
             ${{ steps.args.outputs.dry_arg }}
 
-      # ── Clean cross-office ECR conflicts ──────────────────────────────────
-      # Stamps primary_result=eliminated on any ECR row where the matched
-      # politician is already seated in a DIFFERENT office.
-      # Runs AFTER result imports so newly imported results are respected
-      # before we mark anything eliminated.
-      # --scope=state only touches statewide ECRs that affect the map panel.
-      # --scope=all also cleans up federal/house office-name mismatches.
-      - name: Clean cross-office ECR conflicts (statewide)
-        run: |
-          STATES="${{ github.event.inputs.states }}"
-          STATE_ARG=""
-          if [ -n "$STATES" ]; then
-            FIRST_STATE=$(echo "$STATES" | cut -d',' -f1)
-            STATE_ARG="--state=$FIRST_STATE"
-          fi
-          php artisan politicians:clean-cross-office-ecrs \
-            --scope=state \
-            $STATE_ARG \
-            ${{ steps.args.outputs.dry_arg }}
+      - name: Report cross-office records requiring verification
+        env:
+          STATES: ${{ github.event.inputs.states }}
+        run: bash scripts/for-each-state.sh "$STATES" php artisan politicians:clean-cross-office-ecrs --scope=all
 
-      - name: Clean cross-office ECR conflicts (federal/house)
+      - name: Queue duplicate candidates for review
+        env:
+          DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
         run: |
-          STATES="${{ github.event.inputs.states }}"
-          STATE_ARG=""
-          if [ -n "$STATES" ]; then
-            FIRST_STATE=$(echo "$STATES" | cut -d',' -f1)
-            STATE_ARG="--state=$FIRST_STATE"
-          fi
-          php artisan politicians:clean-cross-office-ecrs \
-            --scope=all \
-            $STATE_ARG \
-            ${{ steps.args.outputs.dry_arg }}
+          REVIEW_ARGS=()
+          if [ "$DRY_RUN" != "true" ]; then REVIEW_ARGS+=(--enqueue-review); fi
+          php artisan politicians:dedupe --scope=unclaimed-all "${REVIEW_ARGS[@]}"
+          php artisan politicians:dedupe --scope=federal "${REVIEW_ARGS[@]}"
 
-      # ── Data-integrity audit ──────────────────────────────────────────────
-      # Runs PoliticianDataRules against every active row; normalises parties
-      # and deactivates artifact-name rows created by stale AI imports.
-      # Always exits 0 so the job does not fail on marginal data quality.
-      - name: Audit & fix politician data integrity
-        run: |
-          STATES="${{ github.event.inputs.states }}"
-          STATE_ARG=""
-          if [ -n "$STATES" ]; then
-            FIRST=$(echo "$STATES" | cut -d',' -f1)
-            STATE_ARG="--state=$FIRST"
-          fi
-          php artisan politicians:audit-data-integrity \
-            --fix \
-            --deactivate \
-            --limit=5000 \
-            $STATE_ARG \
-            ${{ steps.args.outputs.dry_arg }} || true
+      - name: Retain collected source snapshots
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: candidate-sources-${{ github.job }}
+          path: |
+            storage/app/imports/ballotpedia-*.json
+            storage/app/imports/state-voter-guides-*.json
+          retention-days: 14
+          if-no-files-found: ignore
 
-      # ── Merge duplicate politician rows ────────────────────────────────────
-      # Runs last, after every import/reconcile step above, since those are
-      # the steps most likely to (re-)create duplicate unclaimed rows for the
-      # same real official (see MergeDuplicatePoliticians docblock — this has
-      # happened repeatedly, e.g. Espaillat/NY-13, Schiff, Newsom). No --state
-      # filter: the command has none, and duplicates aren't state-scoped.
-      - name: Merge duplicate politician rows
-        run: |
-          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
-            php artisan politicians:merge-duplicates --dry-run
-          else
-            php artisan politicians:merge-duplicates --force
-          fi
-
-      - name: Cross-office conflict audit
-        run: |
-          php artisan tinker --execute="
-            \$conflicts = \Illuminate\Support\Facades\DB::select(\"
-              SELECT p.id, p.full_name, p.state, p.political_office AS seated_office,
-                     e.political_office AS candidate_office, e.id AS ecr_id
-              FROM politicians p
-              JOIN election_candidate_records e
-                ON LOWER(e.full_name) = LOWER(p.full_name)
-               AND UPPER(COALESCE(e.state,'')) = UPPER(COALESCE(p.state,''))
-               AND LOWER(COALESCE(e.political_office,'')) != LOWER(COALESCE(p.political_office,''))
-              WHERE p.term_status IN ('seated','current')
-                AND COALESCE(JSON_UNQUOTE(JSON_EXTRACT(e.payload,'$.primary_result')),'') != 'eliminated'
-              ORDER BY p.state, p.full_name
-            \"
-            );
-            if (count(\$conflicts) === 0) {
-              echo 'No cross-office conflicts found.' . PHP_EOL;
-            } else {
-              echo 'CROSS-OFFICE CONFLICTS (' . count(\$conflicts) . '):' . PHP_EOL;
-              foreach (\$conflicts as \$c) {
-                echo '  [' . \$c->state . '] ' . \$c->full_name . ' - seated: ' . \$c->seated_office . ' | running-for: ' . \$c->candidate_office . PHP_EOL;
-              }
-            }
-          " || true
+      - name: Audit complete dataset even after a failed refresh
+        if: ${{ always() && !cancelled() }}
+        uses: ./.github/actions/audit-candidate-data
+        with:
+          states: ${{ github.event.inputs.states }}
+          dry_run: ${{ github.event.inputs.dry_run || 'false' }}

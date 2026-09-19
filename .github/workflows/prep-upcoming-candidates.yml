@@ -26,6 +26,11 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: civic-data-writes
+  queue: max
+  cancel-in-progress: false
+
 jobs:
   prep-upcoming-candidates:
     name: Tag primary losers, discover sites, refresh news/finance/video

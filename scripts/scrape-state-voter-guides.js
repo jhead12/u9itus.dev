@@ -24,6 +24,7 @@
  */
 
 import { chromium } from 'playwright';
+import { generalElectionDate } from './lib/election-results.js';
 import { writeFileSync, mkdirSync, existsSync, statSync, readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -530,7 +531,7 @@ async function scrapeCalMatters(browser, stateCode, config, year) {
 
       // Attempt 1: look for candidate cards / article links that contain names
       const candidates = await page.evaluate((args) => {
-        const { office, governanceLevel, stateCode, year } = args;
+        const { office, governanceLevel, stateCode, year, generalDate } = args;
         const found = [];
 
         // Candidate name patterns in CalMatters:
@@ -576,13 +577,13 @@ async function scrapeCalMatters(browser, stateCode, config, year) {
           governance_level: governanceLevel,
           state: stateCode,
           party_affiliation: c.party,
-          election_date: `${year}-11-03`,
+          election_date: generalDate,
           is_running_candidate: true,
           result_status: null,
           source_url: window.location.href,
           scraped_at: new Date().toISOString(),
         }));
-      }, { office: officeConfig.office, governanceLevel: officeConfig.governance_level, stateCode, year });
+      }, { office: officeConfig.office, governanceLevel: officeConfig.governance_level, stateCode, year, generalDate: generalElectionDate(year) });
 
       if (candidates.length > 0) {
         console.log(`      → ${candidates.length} candidate(s) found`);
@@ -625,7 +626,7 @@ async function scrapeBallotpediaState(browser, stateCode, stateConfig) {
     await sleep(DELAY_MS);
 
     const candidates = await page.evaluate((args) => {
-      const { stateCode, year } = args;
+      const { stateCode, year, generalDate } = args;
       const found = [];
 
       // Ballotpedia state overview pages list office sections with candidate tables
@@ -665,7 +666,8 @@ async function scrapeBallotpediaState(browser, stateCode, stateConfig) {
               const resultCell = cells[cells.length - 1]?.textContent?.trim().toLowerCase() ?? '';
 
               let resultStatus = null;
-              if (/won|elected|advanced|\u2713|\u2714/i.test(resultCell)) resultStatus = 'won';
+              if (/advanced/i.test(resultCell)) resultStatus = 'advanced_to_general';
+              else if (/won|elected|\u2713|\u2714/i.test(resultCell)) resultStatus = 'won';
               else if (/lost|defeated|eliminated/i.test(resultCell)) resultStatus = 'lost';
 
               found.push({
@@ -674,8 +676,8 @@ async function scrapeBallotpediaState(browser, stateCode, stateConfig) {
                 governance_level: governanceLevel,
                 state: stateCode,
                 party_affiliation: partyCell,
-                election_date: `${year}-11-03`,
-                is_running_candidate: resultStatus == null,
+                election_date: generalDate,
+                is_running_candidate: resultStatus == null || resultStatus === 'advanced_to_general',
                 result_status: resultStatus,
                 source_url: window.location.href,
                 scraped_at: new Date().toISOString(),
@@ -687,7 +689,7 @@ async function scrapeBallotpediaState(browser, stateCode, stateConfig) {
       }
 
       return found;
-    }, { stateCode, year: ELECTION_YEAR });
+    }, { stateCode, year: ELECTION_YEAR, generalDate: generalElectionDate(ELECTION_YEAR) });
 
     if (candidates.length > 0) {
       console.log(`    → ${candidates.length} candidate(s) found`);
@@ -722,7 +724,7 @@ async function scrapeLocalNewsGeneric(browser, stateCode, stateConfig) {
     await sleep(DELAY_MS);
 
     const candidates = await page.evaluate((args) => {
-      const { stateCode, year } = args;
+      const { stateCode, year, generalDate } = args;
       const found = [];
 
       // Generic: scrape article titles that mention candidate names + offices
@@ -745,7 +747,8 @@ async function scrapeLocalNewsGeneric(browser, stateCode, stateConfig) {
             const nameMatch = text.match(/^([A-Z][a-z]+ (?:[A-Z][a-z]+ )?[A-Z][a-z]+)/);
             if (nameMatch) {
               let resultStatus = null;
-              if (/wins|elected|advances|victor/i.test(text)) resultStatus = 'won';
+              if (/advances/i.test(text)) resultStatus = 'advanced_to_general';
+              else if (/wins|elected|victor/i.test(text)) resultStatus = 'won';
               else if (/loses|defeated|drops out/i.test(text)) resultStatus = 'lost';
               found.push({
                 full_name: nameMatch[1],
@@ -753,8 +756,8 @@ async function scrapeLocalNewsGeneric(browser, stateCode, stateConfig) {
                 governance_level: level,
                 state: stateCode,
                 party_affiliation: null,
-                election_date: `${year}-11-03`,
-                is_running_candidate: resultStatus == null,
+                election_date: generalDate,
+                is_running_candidate: resultStatus == null || resultStatus === 'advanced_to_general',
                 result_status: resultStatus,
                 source_url: window.location.href,
                 scraped_at: new Date().toISOString(),
@@ -765,7 +768,7 @@ async function scrapeLocalNewsGeneric(browser, stateCode, stateConfig) {
       }
 
       return found;
-    }, { stateCode, year: ELECTION_YEAR });
+    }, { stateCode, year: ELECTION_YEAR, generalDate: generalElectionDate(ELECTION_YEAR) });
 
     if (candidates.length > 0) {
       console.log(`    → ${candidates.length} candidate(s) found from local news`);

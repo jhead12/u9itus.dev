@@ -1,5 +1,5 @@
 name: 'Set up app'
-description: 'PHP 8.4, Composer install, write .env, run pending migrations — the setup block shared by every production-data-sync workflow.'
+description: 'PHP 8.4, Composer install, write .env (schema migrations belong to deployment) — the setup block shared by every production-data-sync workflow.'
 
 inputs:
   app_key:
@@ -110,7 +110,3 @@ runs:
     - name: Install Composer dependencies
       shell: bash
       run: composer install --prefer-dist --no-interaction --no-progress --no-dev
-
-    - name: Run pending migrations
-      shell: bash
-      run: php artisan migrate --force --no-interaction

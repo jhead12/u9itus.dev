@@ -25,6 +25,11 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: civic-data-writes
+  queue: max
+  cancel-in-progress: false
+
 jobs:
   sync-election-dates:
     name: Sync election dates from Vote Smart

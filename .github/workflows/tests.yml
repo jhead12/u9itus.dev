@@ -49,6 +49,14 @@ jobs:
       - name: Install NPM dependencies
         run: npm ci --legacy-peer-deps
 
+      - name: Test election collection helpers
+        run: node --test tests/scripts/election-results.test.mjs
+
+      - name: Validate workflow YAML and collection shell scripts
+        run: |
+          vendor/bin/yaml-lint .github
+          bash -n scripts/for-each-state.sh scripts/collect-election-results.sh scripts/audit-candidate-data.sh
+
       - name: Build assets
         run: npm run build
 

@@ -5,30 +5,7 @@ namespace App\Console\Commands;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
-/**
- * Finds election_candidate_records rows where the matched politician is
- * already seated in a DIFFERENT office and stamps them as eliminated so
- * they never bleed into the wrong map panel.
- *
- * Examples of what this catches:
- *  - A Lt. Governor scraped under "Governor" (Eleni Kounalakis pattern)
- *  - A seated Senator whose old House ECR row still has no primary_result
- *  - Any stale Ballotpedia row for a race a politician didn't win
- *
- * Safe guards:
- *  - Never touches rows already marked 'advanced_to_general' (legitimate candidacy)
- *  - Never touches rows whose election_date is in the future (race still open)
- *  - Preserves all other payload fields; only stamps primary_result
- *  - --dry-run reports without writing
- *  - --scope=state (default) only touches state-level ECRs that affect the
- *    statewide map panel. Use --scope=all to also clean federal/house rows.
- *
- * Usage:
- *   php artisan politicians:clean-cross-office-ecrs
- *   php artisan politicians:clean-cross-office-ecrs --dry-run
- *   php artisan politicians:clean-cross-office-ecrs --scope=all
- *   php artisan politicians:clean-cross-office-ecrs --state=CA --dry-run
- */
+/** Report ambiguous cross-office records without inferring election outcomes. */
 class CleanCrossOfficeEcrs extends Command
 {
     protected $signature = 'politicians:clean-cross-office-ecrs
@@ -36,16 +13,15 @@ class CleanCrossOfficeEcrs extends Command
         {--scope=state : Which governance_level to clean: state | all}
         {--dry-run   : Report only — no DB writes}';
 
-    protected $description = 'Mark cross-office ECR rows as eliminated for already-seated politicians.';
+    protected $description = 'Report cross-office candidate records requiring source verification; never infer a loss.';
 
     public function handle(): int
     {
-        $dryRun  = (bool)   $this->option('dry-run');
         $stateOpt = strtoupper(trim((string) $this->option('state')));
         $scope   = strtolower(trim((string) $this->option('scope')));
         $today   = now()->toDateString();
 
-        $this->line($dryRun ? '[DRY RUN — no writes]' : '[LIVE — writing to DB]');
+        $this->line('[REPORT ONLY — no election outcomes will be changed]');
         $this->line("Scope: {$scope} | State filter: " . ($stateOpt ?: 'all states'));
 
         // ── Build the query ───────────────────────────────────────────────────
@@ -102,7 +78,7 @@ class CleanCrossOfficeEcrs extends Command
             return self::SUCCESS;
         }
 
-        $this->line('Found ' . count($rows) . ' row(s) to stamp as eliminated:');
+        $this->line('Found ' . count($rows) . ' row(s) requiring source verification:');
 
         // ── Group summary by state for readable output ────────────────────────
         $byState = [];
@@ -111,7 +87,6 @@ class CleanCrossOfficeEcrs extends Command
         }
 
         $updated  = 0;
-        $byStateCount = [];
 
         foreach ($byState as $state => $stateRows) {
             foreach ($stateRows as $row) {
@@ -122,33 +97,11 @@ class CleanCrossOfficeEcrs extends Command
                     ($row->election_date ? " | election: {$row->election_date}" : '')
                 );
 
-                if (! $dryRun) {
-                    $payload = json_decode((string) $row->payload, true) ?? [];
-                    $payload['primary_result'] = 'eliminated';
-
-                    DB::table('election_candidate_records')
-                        ->where('id', $row->id)
-                        ->update([
-                            'payload'    => json_encode($payload),
-                            'updated_at' => now(),
-                        ]);
-                }
-
                 $updated++;
-                $byStateCount[$state] = ($byStateCount[$state] ?? 0) + 1;
             }
         }
 
-        // ── Summary ──────────────────────────────────────────────────────────
-        $this->newLine();
-        if ($dryRun) {
-            $this->warn("[dry-run] Would have stamped {$updated} ECR row(s) across " . count($byStateCount) . ' state(s) as eliminated.');
-        } else {
-            $this->info("Stamped {$updated} ECR row(s) across " . count($byStateCount) . ' state(s) as eliminated.');
-            foreach ($byStateCount as $state => $cnt) {
-                $this->line("  {$state}: {$cnt} row(s)");
-            }
-        }
+        $this->warn("Review required: {$updated} cross-office record(s). No records changed.");
 
         return self::SUCCESS;
     }

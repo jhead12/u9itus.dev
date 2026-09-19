@@ -41,6 +41,7 @@
  */
 
 import { chromium } from 'playwright';
+import { parseElectionStatus as parseWidgetStatus, generalElectionDate } from './lib/election-results.js';
 import { writeFileSync, mkdirSync, existsSync, statSync, readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -417,9 +418,10 @@ async function runIndexStrategy(indexes, newPage, allCandidates) {
           state: stateAbbr ?? null,
           district: district ?? null,
           party_affiliation: normaliseParty(c.party),
-          election_date: `${ELECTION_YEAR}-11-03`,
-          is_running_candidate: c.result_status == null,
+          election_date: generalElectionDate(ELECTION_YEAR),
+          is_running_candidate: c.result_status == null || c.result_status === 'advanced_to_general',
           result_status: c.result_status ?? null,
+          election_stage: c.election_stage ?? null,
           ballotpedia_url: c.ballotpedia_url ?? raceUrl,
           campaign_website: campaignWebsite,
           bio_excerpt: bioExcerpt,
@@ -573,6 +575,7 @@ async function scrapeRacePage(page, raceUrl, chamber, withResults = false) {
     function extractResult(row, cells) {
       if (!withResults) return null;
       const rowText = row.textContent ?? '';
+      if (/\badvanced?\b|\badvances\b/i.test(rowText)) return 'advanced_to_general';
       // Checkmarks and explicit win/loss text
       if (/✓|✔|✅/.test(rowText) || /\bwon\b|\belected\b|\badvanced\b|\bwinner\b/i.test(rowText)) {
         // Don't false-positive on header rows
@@ -589,15 +592,25 @@ async function scrapeRacePage(page, raceUrl, chamber, withResults = false) {
     const seen = new Set();
     const results = [];
 
-    function addCandidate(name, party, bpUrl, resultStatus) {
+    function addCandidate(name, party, bpUrl, resultStatus, electionStage = null) {
       name = (name ?? '').replace(/\s+/g, ' ').trim();
       if (name.length < 3) return;
       // Skip obvious header/label text
       if (/^(candidate|name|party|status|office|incumbent|running|general|primary)/i.test(name)) return;
+      if (resultStatus === 'won' && electionStage === 'primary') resultStatus = 'advanced_to_general';
       const key = name.toLowerCase();
       if (seen.has(key)) return;
       seen.add(key);
-      results.push({ name, party: party || null, ballotpedia_url: bpUrl || null, result_status: resultStatus || null });
+      results.push({ name, party: party || null, ballotpedia_url: bpUrl || null, result_status: resultStatus || null, election_stage: electionStage });
+    }
+
+    // The nearest section heading identifies the result stage. Do not use
+    // the page title: a general-election page also contains primary tables.
+    function tableStage(table) {
+      const heading = [...document.querySelectorAll('h2,h3,h4,h5')]
+        .filter(h => h.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING).pop();
+      const text = (heading?.textContent ?? '').toLowerCase();
+      return /primary/.test(text) ? 'primary' : /general/.test(text) ? 'general' : /special/.test(text) ? 'special' : null;
     }
 
     // ── Strategy A: scan ALL wikitables regardless of heading context ─────────
@@ -654,7 +667,7 @@ async function scrapeRacePage(page, raceUrl, chamber, withResults = false) {
         const party = (cells[partyCol]?.textContent ?? '').trim() || null;
         const resultStatus = extractResult(row, cells);
 
-        addCandidate(name, party, bpUrl, resultStatus);
+        addCandidate(name, party, bpUrl, resultStatus, tableStage(table));
       }
     }
 
@@ -686,7 +699,7 @@ async function scrapeRacePage(page, raceUrl, chamber, withResults = false) {
               : (cells[1] ?? cells[0]);
             const name = (nameCellEl?.textContent ?? '').trim();
             const party = (cells.find((c, i) => i !== cells.indexOf(nameCellEl) && /democr|republican|libertarian|green|independ|party/i.test(c.textContent ?? ''))?.textContent ?? '').trim() || null;
-            addCandidate(name, party, bpUrl, extractResult(row, cells));
+            addCandidate(name, party, bpUrl, extractResult(row, cells), tableStage(table));
           }
         }
 
@@ -837,27 +850,6 @@ async function scrapeCandidateProfile(newPage, profileUrl) {
  */
 function buildWidgetStateUrl(stateName, year) {
   return `https://ballotpedia.org/Elections_in_${stateName.replace(/ /g, '_')},_${year}`;
-}
-
-/**
- * Map a widget status string to result_status + is_running_candidate.
- * Status text is the combined main text + sub-detail, e.g.:
- *   "On the Ballot General"  → still running
- *   "On the Ballot Primary"  → still running
- *   "Lost Primary"           → eliminated
- *   "Lost General"           → lost
- *   "Won General"            → won
- *   "Advanced General"       → won (advanced to general)
- */
-function parseWidgetStatus(statusText) {
-  const t = (statusText ?? '').toLowerCase().trim();
-  if (/^lost|defeated|eliminated/.test(t)) {
-    return { result_status: 'lost', is_running_candidate: false };
-  }
-  if (/won|elected|advanced/.test(t)) {
-    return { result_status: 'won', is_running_candidate: false };
-  }
-  return { result_status: null, is_running_candidate: true };
 }
 
 /**
@@ -1016,7 +1008,7 @@ async function runWidgetStrategy(newPage, allCandidates) {
         (OFFICE_FILTER === 'secretary_state' && office === 'Secretary of State');
       if (!include) continue;
 
-      const { result_status, is_running_candidate } = parseWidgetStatus(row.statusText);
+      const { result_status, election_stage, is_running_candidate } = parseWidgetStatus(row.statusText);
 
       let campaignWebsite = null;
       let bioExcerpt = null;
@@ -1036,9 +1028,10 @@ async function runWidgetStrategy(newPage, allCandidates) {
         state: stateAbbr,
         district: district ?? null,
         party_affiliation: normaliseParty(row.party),
-        election_date: `${ELECTION_YEAR}-11-03`,
+        election_date: generalElectionDate(ELECTION_YEAR),
         is_running_candidate,
         result_status,
+        election_stage,
         ballotpedia_url: row.ballotpediaUrl ?? row.sourceUrl,
         campaign_website: campaignWebsite,
         bio_excerpt: bioExcerpt,
@@ -1194,9 +1187,10 @@ async function main() {
           state: stateAbbr,
           district: district ?? null,
           party_affiliation: normaliseParty(c.party),
-          election_date: `${ELECTION_YEAR}-11-03`,
-          is_running_candidate: c.result_status == null,
+          election_date: generalElectionDate(ELECTION_YEAR),
+          is_running_candidate: c.result_status == null || c.result_status === 'advanced_to_general',
           result_status: c.result_status ?? null,
+          election_stage: c.election_stage ?? null,
           ballotpedia_url: c.ballotpedia_url ?? raceUrl,
           campaign_website: campaignWebsite,
           bio_excerpt: bioExcerpt,
