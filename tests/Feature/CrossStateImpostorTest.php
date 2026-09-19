@@ -106,6 +106,12 @@ it('does not create public profiles from impostor or headline-text discovery rec
         'state' => 'TX', 'created_at' => now(), 'updated_at' => now(),
     ]);
     discoveryEcr('Katie Porter', 'CA');
+    // A genuine candidate is corroborated by a record from a non-news source.
+    ElectionCandidateRecord::query()->insert([
+        'source' => 'ballotpedia', 'external_candidate_id' => 'katie-porter-ca-gov',
+        'full_name' => 'Katie Porter', 'political_office' => 'Governor', 'governance_level' => 'state',
+        'state' => 'CA', 'created_at' => now(), 'updated_at' => now(),
+    ]);
 
     $before = Politician::count();
     $this->artisan('politicians:reconcile-missing-profiles')->assertExitCode(0);

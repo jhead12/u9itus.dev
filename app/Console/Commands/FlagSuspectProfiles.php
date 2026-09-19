@@ -4,6 +4,8 @@ namespace App\Console\Commands;
 
 use App\Models\Politician;
 use App\Models\PoliticianCleanupReview;
+use App\Models\ElectionCandidateRecord;
+use App\Services\CandidateDiscovery\CandidateCorroboration;
 use App\Support\CrossStateImpostors;
 use App\Support\MapCandidateHygiene;
 use App\Support\PoliticianDataRules;
@@ -21,6 +23,8 @@ use Illuminate\Support\Facades\DB;
  *    THIS state ("Greg Abbott's" in Texas).
  *
  * Queued for admin review (Admin → Data Quality), never applied:
+ *  - a profile created only from news discovery that no FEC filing, Ballotpedia/state
+ *    record or sitting official corroborates (see CandidateCorroboration).
  *  - any other name that reads as headline text ("Hochul Agenda", "Marsha Blackburn Will"),
  *    including a sitting official's surname plus one more word — heuristics, not proof.
  *
@@ -74,6 +78,8 @@ class FlagSuspectProfiles extends Command
     {
         $holders = CrossStateImpostors::seatedHolders();
         $surnames = CrossStateImpostors::surnameIndex($holders);
+        $discoveryOnly = $this->discoveryOnlyProfileIds();
+        $corroboration = new CandidateCorroboration;
         $found = [];
 
         Politician::query()
@@ -82,11 +88,13 @@ class FlagSuspectProfiles extends Command
             ->where('verified_official', false)
             ->where(fn ($q) => $q->where('term_status', '!=', 'seated')->orWhereNull('term_status'))
             ->when($state, fn ($q) => $q->whereRaw('UPPER(COALESCE(state, \'\')) = ?', [$state]))
-            ->select(['id', 'full_name', 'political_office', 'state'])
+            ->select(['id', 'full_name', 'political_office', 'state', 'district'])
             ->orderBy('id')
-            ->chunkById(500, function ($rows) use ($holders, $surnames, &$found): void {
+            ->chunkById(500, function ($rows) use ($holders, $surnames, $discoveryOnly, $corroboration, &$found): void {
                 foreach ($rows as $pol) {
-                    if ($finding = $this->classify($pol, $holders, $surnames)) {
+                    $finding = $this->classify($pol, $holders, $surnames)
+                        ?? $this->uncorroborated($pol, $discoveryOnly, $corroboration);
+                    if ($finding) {
                         $found[] = [$pol, ...$finding];
                     }
                 }
@@ -120,6 +128,37 @@ class FlagSuspectProfiles extends Command
         }
 
         return ['Name is headline text, not a person: '.$problem, [], false];
+    }
+
+    /**
+     * Profiles whose only link is to news-discovery records — nothing but a headline
+     * ever vouched for them.
+     *
+     * @return array<int, int>  politician id => id
+     */
+    private function discoveryOnlyProfileIds(): array
+    {
+        return DB::table('candidate_identity_links as l')
+            ->join('election_candidate_records as e', 'e.id', '=', 'l.election_candidate_record_id')
+            ->groupBy('l.politician_id')
+            ->havingRaw('SUM(CASE WHEN e.source = ? THEN 0 ELSE 1 END) = 0', [ElectionCandidateRecord::DISCOVERY_SOURCE])
+            ->pluck('l.politician_id', 'l.politician_id')
+            ->all();
+    }
+
+    /**
+     * @param  array<int, int>  $discoveryOnly
+     * @return array{0: string, 1: array<string, mixed>, 2: bool}|null
+     */
+    private function uncorroborated(Politician $pol, array $discoveryOnly, CandidateCorroboration $corroboration): ?array
+    {
+        if (! isset($discoveryOnly[$pol->id])) {
+            return null;
+        }
+
+        $check = $corroboration->checkIdentity($pol->full_name, $pol->state, $pol->political_office, $pol->district);
+
+        return $check['corroborated'] ? null : ["Created from a news headline and nothing corroborates it: {$check['reason']}", [], false];
     }
 
     private function label(bool $deactivate, bool $apply): string

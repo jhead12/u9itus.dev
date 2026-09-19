@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\CandidateIdentityLink;
 use App\Models\ElectionCandidateRecord;
 use App\Models\Politician;
+use App\Services\CandidateDiscovery\CandidateCorroboration;
 use App\Services\CandidateDiscovery\CandidateLeadPromoter;
 use App\Support\CrossStateImpostors;
 use App\Support\MapCandidateHygiene;
@@ -17,12 +18,20 @@ class ReconcileMissingCandidateProfiles extends Command
         {--state=* : Restrict to one or more two-letter state codes (repeatable)}
         {--election-year= : Restrict to records for a specific election year}
         {--limit=500 : Max number of unlinked candidate records to inspect}
+        {--allow-uncorroborated : Also create profiles for news-discovered names nothing else corroborates (default: quarantine them)}
         {--dry-run : Report actions only, no DB writes}';
 
     protected $description = 'Create/link unclaimed politician profiles from election_candidate_records when profiles are missing.';
 
     /** @var array<string, array<int, array{id: int, state: string, name: string}>>|null */
     private ?array $holders = null;
+
+    private ?CandidateCorroboration $corroboration = null;
+
+    private int $quarantined = 0;
+
+    /** @var array<int, string> record id => district the FEC lists, where it disagrees with the news record */
+    private array $districtFix = [];
 
     public function handle(): int
     {
@@ -99,12 +108,13 @@ class ReconcileMissingCandidateProfiles extends Command
 
         $suffix = $dryRun ? ' (dry-run)' : '';
         $this->info(sprintf(
-            'Missing-profile reconciliation complete%s: %d created, %d linked, %d updated, %d skipped.',
+            'Missing-profile reconciliation complete%s: %d created, %d linked, %d updated, %d skipped (%d of them quarantined: news-discovered, not corroborated).',
             $suffix,
             $created,
             $linked,
             $updated,
-            $skipped
+            $skipped,
+            $this->quarantined
         ));
 
         return self::SUCCESS;
@@ -178,6 +188,22 @@ class ReconcileMissingCandidateProfiles extends Command
             if (CrossStateImpostors::holderElsewhere($name, $record->political_office, $record->state, $this->holders) !== null) {
                 return false;
             }
+
+            // A headline can pass every name check. Only independent data — an FEC
+            // filing, a Ballotpedia/state record, a sitting official — makes it a person.
+            if (! $this->option('allow-uncorroborated')) {
+                $check = ($this->corroboration ??= new CandidateCorroboration)->check($record);
+                if (! $check['corroborated']) {
+                    $this->line("[QUARANTINE] {$name} (".strtoupper((string) $record->state).") — {$check['reason']}");
+                    $this->quarantined++;
+
+                    return false;
+                }
+                if ($check['district'] !== null) {
+                    $this->line("[DISTRICT] {$name}: news says ".($record->district ?: 'none').", {$check['source']} says {$check['district']} — using {$check['district']}");
+                    $this->districtFix[$record->id] = $check['district'];
+                }
+            }
         }
 
         return true;
@@ -202,7 +228,30 @@ class ReconcileMissingCandidateProfiles extends Command
 
         return $query
             ->orderByRaw('CASE WHEN user_id IS NULL THEN 0 ELSE 1 END')
-            ->first();
+            ->first() ?? $this->findByIdentity($record);
+    }
+
+    /**
+     * Same person spelled differently ("Steve" / "Steven Bradford", a middle initial, a
+     * suffix): link to the profile we already have instead of creating a second one.
+     */
+    private function findByIdentity(ElectionCandidateRecord $record): ?Politician
+    {
+        $key = MapCandidateHygiene::identityKey($record->full_name);
+        $surname = explode('|', $key, 2)[1] ?? '';
+        if ($surname === '') {
+            return null;
+        }
+
+        $kind = CandidateCorroboration::officeKind($record->political_office);
+
+        return Politician::query()
+            ->whereRaw('UPPER(COALESCE(state, \'\')) = ?', [strtoupper((string) ($record->state ?? ''))])
+            ->whereRaw('LOWER(full_name) LIKE ?', ['%'.$surname.'%'])
+            ->orderBy('id')
+            ->get()
+            ->first(fn (Politician $p) => MapCandidateHygiene::identityKey($p->full_name) === $key
+                && CandidateCorroboration::officeKind($p->political_office) === $kind);
     }
 
     /**
@@ -220,7 +269,7 @@ class ReconcileMissingCandidateProfiles extends Command
             'full_name' => trim((string) $record->full_name),
             'political_office' => $this->nullableString($record->political_office),
             'governance_level' => $this->nullableString($record->governance_level) ?? 'State',
-            'district' => $this->nullableString($record->district),
+            'district' => $this->districtFix[$record->id] ?? $this->nullableString($record->district),
             'party_affiliation' => $this->nullableString($record->party_affiliation),
             'state' => strtoupper((string) ($record->state ?? '')),
             'city' => $this->nullableString($record->city),

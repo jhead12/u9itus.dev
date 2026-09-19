@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Models\CandidateRoster;
 use App\Models\ElectionCandidateRecord;
 use App\Models\Politician;
 use App\Models\StateElectionDate;
@@ -17,6 +18,9 @@ use Illuminate\Support\Collection;
  *
  * The FEC record is authoritative for *who filed*, so this does two jobs:
  *
+ *  0. Roster: every filer is recorded in candidate_roster — the "real data" that
+ *     CandidateCorroboration checks news-discovered names against. It is never shown,
+ *     so a primary loser's filing can vouch for a name without reaching the map.
  *  1. Cross-reference: a filer who matches an existing Politician (same state,
  *     same chamber, same first/last name) gets that person's fec_candidate_id
  *     recorded. That id is what lets politicians:dedupe-by-fec prove two rows
@@ -34,7 +38,7 @@ class ImportFecCandidates extends Command
         {--year=2026 : Election year}
         {--state= : Two-letter state code — limit to one state}
         {--office=H,S : Chambers to import: H (House), S (Senate)}
-        {--include-unqualified : Also import filers below the FEC $5,000 threshold (default: candidate_status C only)}
+        {--include-unqualified : Also add filers below the FEC $5,000 threshold as candidate records (default: candidate_status C only; all filers still go on the roster)}
         {--dry-run : Report only — no DB writes}';
 
     protected $description = 'Import FEC House/Senate candidates: record FEC ids on matching profiles and add candidates we have no record of.';
@@ -51,6 +55,8 @@ class ImportFecCandidates extends Command
     /** @var array<string, ?string> state => earliest primary date (Y-m-d) */
     private array $primaryDates = [];
 
+    private bool $includeUnqualified = false;
+
     public function handle(FECService $fec): int
     {
         if (! $fec->isConfigured()) {
@@ -61,7 +67,7 @@ class ImportFecCandidates extends Command
 
         $year = (int) $this->option('year');
         $dryRun = (bool) $this->option('dry-run');
-        $statutoryOnly = ! $this->option('include-unqualified');
+        $this->includeUnqualified = (bool) $this->option('include-unqualified');
         $offices = array_values(array_intersect(
             array_map('strtoupper', array_map('trim', explode(',', (string) $this->option('office')))),
             array_keys(self::OFFICES),
@@ -77,7 +83,7 @@ class ImportFecCandidates extends Command
         }
 
         FECService::resetTelemetry();
-        $totals = ['filers' => 0, 'linked' => 0, 'already' => 0, 'conflicts' => 0, 'records' => 0, 'after_primary' => 0, 'no_date' => 0, 'failed_lists' => 0];
+        $totals = ['roster' => 0, 'filers' => 0, 'linked' => 0, 'already' => 0, 'conflicts' => 0, 'records' => 0, 'after_primary' => 0, 'no_date' => 0, 'failed_lists' => 0];
 
         foreach ($states as $state) {
             foreach ($offices as $office) {
@@ -87,7 +93,7 @@ class ImportFecCandidates extends Command
                     return $this->finish($totals, $dryRun, self::FAILURE);
                 }
 
-                $rows = $fec->listCandidates($year, $office, $state, $statutoryOnly);
+                $rows = $fec->listCandidates($year, $office, $state, false);
                 if ($rows === null) {
                     $this->warn("[{$state} {$office}] FEC list unavailable — skipped.");
                     $totals['failed_lists']++;
@@ -118,6 +124,7 @@ class ImportFecCandidates extends Command
             }
 
             $totals['filers']++;
+            $this->recordOnRoster($row, $fecId, $displayName, $state, $office, $year, $dryRun, $totals);
             $matches = $pool->get(MapCandidateHygiene::identityKey($displayName), collect());
 
             if ($matches->isNotEmpty()) {
@@ -126,6 +133,10 @@ class ImportFecCandidates extends Command
                 }
 
                 continue;
+            }
+
+            if (($row['candidate_status'] ?? null) !== 'C' && ! $this->includeUnqualified) {
+                continue; // real (it is on the roster) but below the FEC threshold — not shown as a candidate
             }
 
             $this->addRecord($row, $fecId, $displayName, $state, $office, $year, $dryRun, $totals);
@@ -148,6 +159,30 @@ class ImportFecCandidates extends Command
             ->get(['id', 'full_name', 'political_office', 'state', 'district', 'fec_candidate_id'])
             ->filter(fn (Politician $p) => $this->containsAny(strtolower((string) $p->political_office), $needles))
             ->groupBy(fn (Politician $p) => MapCandidateHygiene::identityKey($p->full_name));
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     * @param  array<string, int>  $totals
+     */
+    private function recordOnRoster(array $row, string $fecId, string $name, string $state, string $office, int $year, bool $dryRun, array &$totals): void
+    {
+        $totals['roster']++;
+        if ($dryRun) {
+            return;
+        }
+
+        CandidateRoster::updateOrCreate(
+            ['source' => 'fec', 'source_id' => $fecId, 'election_year' => $year],
+            [
+                'full_name' => $name,
+                'identity_key' => MapCandidateHygiene::identityKey($name),
+                'state' => $state,
+                'office' => $office,
+                'district' => $office === 'S' ? null : $this->districtCode($state, (string) ($row['district'] ?? '')),
+                'last_seen_at' => now(),
+            ]
+        );
     }
 
     /** @param  array<string, int>  $totals */
@@ -258,9 +293,9 @@ class ImportFecCandidates extends Command
     {
         $prefix = $dryRun ? '[dry-run] ' : '';
         $this->info(sprintf(
-            '%sFEC import: %d filer(s) — %d id(s) linked, %d already linked, %d conflict(s), %d new record(s); '
+            '%sFEC import: %d filer(s) (%d on the roster) — %d id(s) linked, %d already linked, %d conflict(s), %d new record(s); '
             .'not added: %d (primary already held — outcome unknown), %d (no primary date on file); %d list(s) unavailable.',
-            $prefix, $totals['filers'], $totals['linked'], $totals['already'], $totals['conflicts'], $totals['records'],
+            $prefix, $totals['filers'], $totals['roster'], $totals['linked'], $totals['already'], $totals['conflicts'], $totals['records'],
             $totals['after_primary'], $totals['no_date'], $totals['failed_lists'],
         ));
         $this->line('FEC API calls: '.FECService::getHttpCallCount().', rate-limited: '.FECService::getRateLimitCount());
