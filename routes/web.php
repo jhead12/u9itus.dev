@@ -53,14 +53,15 @@ Route::get('/', function () {
         $apiKey = config('u9itus.fraud.ipinfo_api_key');
         if (!empty($ip) && !empty($apiKey) && filter_var($ip, FILTER_VALIDATE_IP)) {
             $visitorState = \Illuminate\Support\Facades\Cache::remember(
-                "geo:state:{$ip}",
+                "geo:state_code:{$ip}",
                 now()->addHours(6),
                 function () use ($ip, $apiKey) {
                     $resp = \Illuminate\Support\Facades\Http::timeout(2)
                         ->get("https://ipinfo.io/{$ip}/json", ['token' => $apiKey]);
                     if (!$resp->ok()) return null;
-                    $region = $resp->json('region');
-                    return is_string($region) && $region !== '' ? $region : null;
+                    // ipinfo returns full names ("California"); politicians.state
+                    // stores USPS codes ("CA"), so normalize before querying.
+                    return \App\Support\PoliticianDataRules::resolveStateAbbreviation($resp->json('region'));
                 }
             );
         }
@@ -71,6 +72,7 @@ Route::get('/', function () {
     // Build featured candidates — 4 cards: 2 local (photo optional), rest nationwide.
     // Candidates with the most recent verified news are preferred.
     $featuredCandidates = collect();
+    $localCount = 0;
     try {
         $hasNewsTable = \Illuminate\Support\Facades\Schema::hasTable('candidate_news_articles');
 
@@ -96,6 +98,7 @@ Route::get('/', function () {
             $featuredCandidates = $orderByNewsRecency(
                 (clone $base)->where('state', $visitorState)
             )->limit(2)->get();
+            $localCount = $featuredCandidates->count();
         }
 
         if ($featuredCandidates->count() < 4) {
@@ -155,6 +158,7 @@ Route::get('/', function () {
         'featuredCandidates' => $featuredCandidates,
         'followTheMoneyPacs' => $followTheMoneyPacs,
         'visitorState'       => $visitorState,
+        'localCount'         => $localCount,
     ]);
 });
 

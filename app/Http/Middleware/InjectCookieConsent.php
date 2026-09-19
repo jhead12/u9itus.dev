@@ -95,6 +95,15 @@ class InjectCookieConsent
 
         return <<<HTML
 <!-- Cookie consent notice -->
+<style>
+/* Narrow screens: compact the notice (inline styles above need !important to be overridden). */
+@media (max-width: 640px) {
+  #u9-cookie-consent { padding: 10px 12px !important; }
+  #u9-cookie-consent p { flex-basis: 100% !important; font-size: 12px !important; line-height: 1.45 !important; }
+  #u9-cookie-consent [data-u9-cookie] { flex: 1 1 0; padding: 8px 10px !important; font-size: 12px !important; }
+  #u9-cookie-consent > div > div { flex: 1 1 100% !important; }
+}
+</style>
 <div id="u9-cookie-consent" role="region" aria-label="Cookie notice" hidden style="position:fixed;left:0;right:0;bottom:0;z-index:2147483000;box-sizing:border-box;padding:16px;background:#0f172a;border-top:1px solid #1e293b;box-shadow:0 -8px 24px rgba(0,0,0,.35);font-family:ui-sans-serif,system-ui,-apple-system,'Inter',Segoe UI,Roboto,Helvetica,Arial,sans-serif;">
   <div style="max-width:1120px;margin:0 auto;display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;">
     <p style="flex:1 1 320px;margin:0;color:#cbd5e1;font-size:13px;line-height:1.6;">

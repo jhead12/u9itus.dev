@@ -101,6 +101,22 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Homepage: Optional Sections
+    |--------------------------------------------------------------------------
+    |
+    | Sections hidden from the public homepage until they are ready.
+    |
+    | - show_rewards_section:        "Your attention pays you" paid-viewing pitch
+    | - show_civic_identity_section: "Your Civic Identity" badges pitch
+    |
+    */
+    'home' => [
+        'show_rewards_section'        => env('HOME_SHOW_REWARDS_SECTION', false),
+        'show_civic_identity_section' => env('HOME_SHOW_CIVIC_IDENTITY_SECTION', false),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Service Providers
     |--------------------------------------------------------------------------
     |

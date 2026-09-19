@@ -7,7 +7,7 @@
     <title>U9itus — See Who's Running in Your District.</title>
     @include('standalone.partials.seo-head', [
         'seoTitle' => "U9itus — See Who's Running in Your District",
-        'seoDescription' => "U9itus is the Virtual Town Hall where candidates pay $1.00 to earn your full attention — and you keep $0.50. Find who's running in your district, verify their record with public data, and get paid to engage with democracy.",
+        'seoDescription' => "Know who's running. Understand where they stand. U9itus helps you find the candidates in your district, see their positions, and check their claims against public records like FEC filings, voting history, and election data.",
         'seoCanonical' => url('/'),
     ])
 
@@ -129,33 +129,21 @@
         </div>
     </nav>
 
-    <!-- Hero Section (compact — real candidates load immediately below) -->
+    <!-- Hero Section (one primary action — real candidates load immediately below) -->
     <section class="relative overflow-hidden">
         <!-- Gradient Background -->
         <div class="absolute inset-0 bg-gradient-to-br from-slate-900 via-slate-800 to-teal-900"></div>
 
-        <!-- Animated Gradient Overlay -->
-        <div class="absolute inset-0 bg-gradient-to-tr from-emerald-500/10 via-transparent to-teal-500/10"></div>
-
-        <!-- Grid Pattern -->
-        <div class="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:72px_72px]"></div>
-
         <!-- Content -->
-        <div class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20 text-center">
+        <div class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-12 sm:pt-32 sm:pb-20 text-center">
             <div class="space-y-6">
-                <div class="animate-fade-in-up opacity-0 mt-4 sm:mt-6">
-                    <span class="inline-block px-4 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-full text-emerald-400 text-sm font-medium mb-4">
-                        — SEE WHO'S RUNNING NEAR YOU
-                    </span>
-                </div>
-
-                <h1 class="animate-fade-in-up delay-100 opacity-0 text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight">
-                    Who Wants to Represent<br/>
-                    <span class="bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent">You?</span>
+                <h1 class="animate-fade-in-up opacity-0 text-3xl sm:text-5xl lg:text-6xl font-bold tracking-tight">
+                    Know who's running.<br/>
+                    <span class="bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent">Understand where they stand.</span>
                 </h1>
 
-                <p class="animate-fade-in-up delay-200 opacity-0 text-lg sm:text-xl text-slate-300 max-w-3xl mx-auto leading-relaxed">
-                    Real candidates from your district, right below — no ZIP required to look. Watch their message, verify every claim with public data, and get paid for the time you spend understanding it.
+                <p class="animate-fade-in-up delay-100 opacity-0 text-lg sm:text-xl text-slate-300 max-w-2xl mx-auto leading-relaxed">
+                    Find the candidates on your ballot, see their positions, and check their claims against public records. No account needed.
                 </p>
 
                 @if ($activeReferralCode)
@@ -170,35 +158,19 @@
                     </div>
                 @endif
 
-                <div class="animate-fade-in-up delay-300 opacity-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 items-stretch justify-center gap-4 pt-4">
+                <div class="animate-fade-in-up delay-200 opacity-0 flex flex-col items-center gap-4 pt-2">
                     <a href="{{ route('district.lookup') }}"
-                       class="inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-white bg-gradient-to-r from-emerald-500 to-teal-500 rounded-xl hover:from-emerald-600 hover:to-teal-600 transition shadow-2xl shadow-emerald-500/40 hover:shadow-emerald-500/60 hover:-translate-y-0.5 transform">
+                       class="inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-white bg-gradient-to-r from-emerald-500 to-teal-500 rounded-xl hover:from-emerald-600 hover:to-teal-600 transition shadow-lg shadow-emerald-500/25">
                         Find My District
                         <svg class="ml-2 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/>
                         </svg>
                     </a>
-
-                    <a href="{{ route('politicians.directory') }}"
-                       class="inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-white bg-slate-800 border border-slate-700 rounded-xl hover:bg-slate-700 transition">
-                        Browse Candidates
-                    </a>
-
-                    <a href="{{ route('us.map') }}"
-                       class="inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-white bg-slate-800/60 border border-indigo-500/40 rounded-xl hover:border-indigo-400/70 hover:bg-indigo-900/30 transition group">
-                        <svg class="w-5 h-5 mr-2 text-indigo-400 group-hover:text-indigo-300 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
-                        <span class="text-indigo-300 group-hover:text-white transition">Explore the Map</span>
-                    </a>
-
-                    @guest
-                        <a href="{{ $activeReferralCode ? route('register', ['ref' => $activeReferralCode]) : route('register') }}"
-                           class="inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-white bg-slate-800 border border-slate-700 rounded-xl hover:bg-slate-700 transition">
-                            Create Free Account
-                            <svg class="ml-2 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/>
-                            </svg>
-                        </a>
-                    @endguest
+                    <p class="text-sm text-slate-400">
+                        <a href="{{ route('politicians.directory') }}" class="underline underline-offset-4 decoration-slate-600 hover:text-white hover:decoration-slate-400 transition">Browse candidates</a>
+                        <span class="mx-2 text-slate-600" aria-hidden="true">·</span>
+                        <a href="{{ route('us.map') }}" class="underline underline-offset-4 decoration-slate-600 hover:text-white hover:decoration-slate-400 transition">Explore the map</a>
+                    </p>
                 </div>
 
                 @guest
@@ -224,122 +196,165 @@
 
     @isset($featuredCandidates)
     @if($featuredCandidates->isNotEmpty())
-    <!-- Featured Candidates (geo-aware, rotating) — first thing visible after the headline -->
-    <section id="featured-candidates" class="relative py-16 sm:py-20 bg-gradient-to-b from-slate-900 to-slate-800/60">
+    <!-- Featured Candidates — first thing visible after the headline. Only the first
+         $localCount cards are matched to the visitor's (approximate) state. -->
+    @php
+        $localCount = $localCount ?? 0;
+        $hasLocal = $localCount > 0 && !empty($visitorState);
+    @endphp
+    <section id="featured-candidates" class="relative py-16 sm:py-20 bg-slate-900 border-t border-slate-800/80">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="text-center mb-12">
+            <div class="text-center mb-10">
                 <span class="text-emerald-400 font-semibold text-sm tracking-wider uppercase">
-                    @if(!empty($visitorState))
-                        — Candidates Near You · {{ $visitorState }}
-                    @else
-                        — Featured Candidates
-                    @endif
+                    {{ $hasLocal ? 'Featured candidates' : 'Featured nationwide' }}
                 </span>
-                <h2 class="mt-4 text-3xl sm:text-4xl font-bold">
-                    Who's <span class="text-emerald-400">On Your Ballot</span> Right Now
-                </h2>
-                <p class="mt-3 text-slate-400 text-sm">Click any card to see their full profile — record, positions, and how to verify their claims.</p>
+                <h2 class="mt-3 text-3xl sm:text-4xl font-bold">Candidates to know</h2>
+                <p class="mt-3 text-slate-400 text-sm max-w-2xl mx-auto">
+                    @if($hasLocal)
+                        {{ $localCount }} from {{ $visitorState }} (based on your approximate location), plus featured candidates from across the country.
+                        Not in {{ $visitorState }}? <a href="{{ route('district.lookup') }}" class="text-emerald-400 hover:text-emerald-300 underline underline-offset-4">Find your district</a>.
+                    @else
+                        A rotating selection from across the country.
+                        <a href="{{ route('district.lookup') }}" class="text-emerald-400 hover:text-emerald-300 underline underline-offset-4">Enter your address</a> to see the candidates on your own ballot.
+                    @endif
+                </p>
             </div>
 
-            <div
-                x-data="{
-                    active: 0,
-                    total: {{ $featuredCandidates->count() }},
-                    timer: null,
-                    start() {
-                        if (this.total <= 1) return;
-                        this.timer = setInterval(() => { this.active = (this.active + 1) % this.total; }, 6000);
-                    },
-                    stop() { if (this.timer) clearInterval(this.timer); }
-                }"
-                x-init="start()"
-                @mouseenter="stop()"
-                @mouseleave="start()"
-                class="relative"
-            >
-                <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                    @foreach($featuredCandidates as $index => $candidate)
-                        @php
-                            $news = $candidate->latest_news ?? null;
-                            $office = trim((string) ($candidate->political_office ?? ''));
-                            $district = trim((string) ($candidate->district ?? ''));
-                            $state = trim((string) ($candidate->state ?? ''));
-                            $jobTitle = $office !== '' ? $office : 'Candidate';
-                            $districtLine = trim($district . ($district && $state ? ', ' : '') . $state);
-                            $cardHref = route('politician.public.show', $candidate->slug);
-                        @endphp
-                        <a href="{{ $cardHref }}"
-                           :class="active === {{ $index }} ? 'ring-2 ring-emerald-500/60 scale-[1.01]' : 'opacity-90 hover:opacity-100'"
-                           class="group block bg-slate-800/70 border border-slate-700 hover:border-emerald-500/50 rounded-2xl overflow-hidden transition transform duration-300">
-                            <div class="aspect-[16/10] relative bg-gradient-to-br from-slate-700 to-slate-900">
+            <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+                @foreach($featuredCandidates as $index => $candidate)
+                    @php
+                        $news = $candidate->latest_news ?? null;
+                        $office = trim((string) ($candidate->political_office ?? ''));
+                        $district = trim((string) ($candidate->district ?? ''));
+                        $state = trim((string) ($candidate->state ?? ''));
+                        $districtLine = trim($state . ($district && $state ? ' · ' : '') . $district);
+                        $termStatus = strtolower((string) ($candidate->term_status ?? ''));
+                        $statusLabel = in_array($termStatus, ['seated', 'active'], true) ? 'Incumbent'
+                            : ($termStatus === 'running' ? 'Candidate' : null);
+                        $nameParts = preg_split('/\s+/', trim((string) $candidate->full_name)) ?: [];
+                        $initials = strtoupper(mb_substr($nameParts[0] ?? '', 0, 1) . (count($nameParts) > 1 ? mb_substr(end($nameParts), 0, 1) : ''));
+                        $isLocal = $hasLocal && $index < $localCount;
+                    @endphp
+                    <a href="{{ route('politician.public.show', $candidate->slug) }}"
+                       class="group flex flex-col min-w-0 bg-slate-800/60 border border-slate-700 hover:border-emerald-500/50 rounded-2xl p-5 transition">
+                        <div class="flex items-center gap-4">
+                            {{-- Initials sit underneath the photo, so a missing or broken image falls back cleanly. --}}
+                            <div class="relative shrink-0 w-14 h-14 rounded-full overflow-hidden bg-slate-700 flex items-center justify-center text-base font-semibold text-slate-300">
+                                {{ $initials }}
                                 @if(!empty($candidate->profile_photo_url))
                                     <img src="{{ $candidate->profile_photo_url }}"
                                          alt="{{ $candidate->full_name }}"
-                                         class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                                @else
-                                    <div class="w-full h-full flex items-center justify-center text-5xl font-bold text-slate-600">
-                                        {{ strtoupper(substr((string) $candidate->full_name, 0, 1)) }}
-                                    </div>
-                                @endif
-                                @if($candidate->verified_official)
-                                <div class="absolute top-3 right-3 bg-emerald-500 rounded-full p-1.5">
-                                    <svg class="w-3.5 h-3.5 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
-                                    </svg>
-                                </div>
-                                @endif
-                                @if($state)
-                                <div class="absolute bottom-3 left-3 flex items-center gap-1 bg-slate-900/80 backdrop-blur-sm rounded-full px-2 py-0.5 text-[10px] text-indigo-300 font-medium">
-                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                                    {{ $state }}
-                                </div>
+                                         loading="lazy"
+                                         onerror="this.remove()"
+                                         class="absolute inset-0 w-full h-full object-cover" />
                                 @endif
                             </div>
-                            <div class="p-5">
-                                <h3 class="text-white font-semibold text-lg group-hover:text-emerald-400 transition truncate">
-                                    {{ $candidate->full_name }}
-                                </h3>
-                                <p class="text-emerald-400 text-xs font-medium uppercase tracking-wider mt-1 truncate">
-                                    {{ $jobTitle }}
-                                </p>
-                                @if($districtLine !== '')
-                                    <p class="text-slate-400 text-xs mt-1 truncate">{{ $districtLine }}</p>
-                                @endif
-
-                                <div class="mt-4 pt-4 border-t border-slate-700/60">
-                                    @if($news)
-                                        <p class="text-[11px] uppercase tracking-wide text-slate-500 mb-1">Recent News</p>
-                                        <p class="text-slate-300 text-sm line-clamp-3">
-                                            {{ \Illuminate\Support\Str::limit($news->headline ?? '', 140) }}
-                                        </p>
-                                        @if(!empty($news->source_name))
-                                            <p class="text-slate-500 text-[11px] mt-2">{{ $news->source_name }}</p>
-                                        @endif
-                                    @else
-                                        <p class="text-slate-500 text-sm italic">No recent news available — view profile for full transparency record.</p>
+                            <div class="min-w-0">
+                                <h3 class="flex min-w-0 items-center gap-1.5 text-white font-semibold text-base group-hover:text-emerald-400 transition">
+                                    <span class="truncate">{{ $candidate->full_name }}</span>
+                                    @if($candidate->verified_official)
+                                        <svg class="w-4 h-4 shrink-0 text-emerald-400" fill="currentColor" viewBox="0 0 20 20" aria-label="Verified">
+                                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                        </svg>
                                     @endif
-                                </div>
+                                </h3>
+                                <p class="text-slate-300 text-sm mt-0.5 truncate">{{ $office !== '' ? $office : 'Candidate' }}</p>
                             </div>
-                        </a>
-                    @endforeach
-                </div>
+                        </div>
 
-                @if($featuredCandidates->count() > 1)
-                <div class="flex items-center justify-center gap-2 mt-8">
-                    @foreach($featuredCandidates as $index => $candidate)
-                        <button type="button"
-                                @click="active = {{ $index }}"
-                                :class="active === {{ $index }} ? 'bg-emerald-400 w-6' : 'bg-slate-600 w-2 hover:bg-slate-500'"
-                                class="h-2 rounded-full transition-all duration-300"
-                                aria-label="Show candidate {{ $index + 1 }}"></button>
-                    @endforeach
-                </div>
-                @endif
+                        <div class="mt-4 flex flex-wrap gap-2 text-xs">
+                            @if($districtLine !== '')
+                                <span class="px-2 py-0.5 rounded-full bg-slate-700/70 text-slate-300">{{ $districtLine }}</span>
+                            @endif
+                            @if($statusLabel)
+                                <span class="px-2 py-0.5 rounded-full border {{ $statusLabel === 'Incumbent' ? 'border-emerald-500/40 text-emerald-300' : 'border-slate-600 text-slate-300' }}">{{ $statusLabel }}</span>
+                            @endif
+                            @if($isLocal)
+                                <span class="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300">Near you</span>
+                            @endif
+                        </div>
+
+                        <div class="mt-4 pt-4 border-t border-slate-700/60">
+                            @if($news)
+                                <p class="text-slate-300 text-sm line-clamp-2">{{ \Illuminate\Support\Str::limit($news->headline ?? '', 120) }}</p>
+                                @if(!empty($news->source_name))
+                                    <p class="text-slate-500 text-xs mt-1.5">{{ $news->source_name }}</p>
+                                @endif
+                            @else
+                                <p class="text-slate-500 text-sm">View profile for record, positions, and sources.</p>
+                            @endif
+                        </div>
+                    </a>
+                @endforeach
+            </div>
+
+            <div class="text-center mt-8">
+                <a href="{{ route('politicians.directory') }}" class="text-sm font-medium text-emerald-400 hover:text-emerald-300 transition">Browse all candidates &rarr;</a>
             </div>
         </div>
     </section>
     @endif
     @endisset
+
+    <!-- How It Works — 3-step strip -->
+    <section id="how-it-works" class="bg-slate-900 border-t border-slate-800/80 py-16">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <h2 class="text-center text-3xl font-bold mb-10">How it works</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-8 text-center">
+                <div class="flex flex-col items-center gap-3">
+                    <div class="w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-xl">🔍</div>
+                    <div>
+                        <p class="text-white font-semibold">1. Find Your Ballot</p>
+                        <p class="text-slate-400 text-sm mt-1">Enter your ZIP — see every candidate running in your district in 10 seconds. No account needed.</p>
+                    </div>
+                </div>
+                <div class="flex flex-col items-center gap-3">
+                    <div class="w-12 h-12 rounded-full bg-teal-500/10 border border-teal-500/30 flex items-center justify-center text-xl">📺</div>
+                    <div>
+                        <p class="text-white font-semibold">2. Watch &amp; Verify</p>
+                        <p class="text-slate-400 text-sm mt-1">Watch their full message. Cross-check their claims with FEC filings, donor records, and voting history.</p>
+                    </div>
+                </div>
+                <div class="flex flex-col items-center gap-3">
+                    <div class="w-12 h-12 rounded-full bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-xl">🙋</div>
+                    <div>
+                        <p class="text-white font-semibold">3. Ask &amp; Follow</p>
+                        <p class="text-slate-400 text-sm mt-1">Ask them a question — they answer publicly. Follow the candidates and races you care about.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Sources & Trust -->
+    <section id="sources" class="relative py-16 sm:py-20 bg-slate-900 border-t border-slate-800/80">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-12">
+                <span class="text-emerald-400 font-semibold text-sm tracking-wider uppercase">— Sources &amp; Trust</span>
+                <h2 class="mt-3 text-3xl sm:text-4xl font-bold">
+                    Check their <span class="text-emerald-400">sources</span>
+                </h2>
+                <p class="mt-3 text-slate-400 text-sm max-w-2xl mx-auto">
+                    Know your candidates. Understand their positions. Candidate profiles bring together public records from four established sources.
+                </p>
+            </div>
+
+            <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                @foreach ([
+                    ['icon' => '💵', 'title' => 'FEC Data', 'desc' => 'Campaign finance, donor records, and spending context alongside videos.'],
+                    ['icon' => '🗳️', 'title' => 'Vote Smart', 'desc' => 'Issue positions and voting history linked directly to candidate profiles.'],
+                    ['icon' => '🔎', 'title' => 'OpenSecrets', 'desc' => 'Funding and lobbyist relationships for deeper voter verification.'],
+                    ['icon' => '📚', 'title' => 'Ballotpedia', 'desc' => 'Election history, biography, and prior race context in one view.'],
+                ] as $source)
+                    <div class="bg-slate-800/50 rounded-xl p-6 border border-slate-700">
+                        <div class="text-3xl mb-3" aria-hidden="true">{{ $source['icon'] }}</div>
+                        <h3 class="text-lg font-bold mb-2">{{ $source['title'] }}</h3>
+                        <p class="text-slate-300 text-sm">{{ $source['desc'] }}</p>
+                    </div>
+                @endforeach
+            </div>
+        </div>
+    </section>
 
     <!-- Follow the Money — PAC / committee directory teaser -->
     @isset($followTheMoneyPacs)
@@ -406,35 +421,6 @@
     </section>
     @endif
     @endisset
-
-    <!-- How It Works — 3-step strip -->
-    <section class="bg-slate-900 border-b border-slate-800/80 py-12">
-        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-8 text-center">
-                <div class="flex flex-col items-center gap-3">
-                    <div class="w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-xl">🔍</div>
-                    <div>
-                        <p class="text-white font-semibold">1. Find Your Ballot</p>
-                        <p class="text-slate-400 text-sm mt-1">Enter your ZIP — see every candidate running in your district in 10 seconds. No account needed.</p>
-                    </div>
-                </div>
-                <div class="flex flex-col items-center gap-3">
-                    <div class="w-12 h-12 rounded-full bg-teal-500/10 border border-teal-500/30 flex items-center justify-center text-xl">📺</div>
-                    <div>
-                        <p class="text-white font-semibold">2. Watch &amp; Verify</p>
-                        <p class="text-slate-400 text-sm mt-1">Watch their full message. Cross-check their claims with FEC filings, donor records, and voting history.</p>
-                    </div>
-                </div>
-                <div class="flex flex-col items-center gap-3">
-                    <div class="w-12 h-12 rounded-full bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-xl">🙋</div>
-                    <div>
-                        <p class="text-white font-semibold">3. Ask &amp; Get Rewarded</p>
-                        <p class="text-slate-400 text-sm mt-1">Ask them a question — they answer publicly. You keep $0.50 for the time you spent understanding your ballot.</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
 
     <!-- Interactive Map Section -->
     <section id="explore-map" class="relative py-24 bg-gradient-to-b from-slate-800 to-slate-900 overflow-hidden">
@@ -575,6 +561,8 @@
         </div>
     </section>
 
+    {{-- Hidden by default; set HOME_SHOW_CIVIC_IDENTITY=true to show. --}}
+    @if (config('platform.home.show_civic_identity_section'))
     <!-- Civic Identity Section -->
     <section id="civic-identity" class="relative py-24 bg-slate-900 overflow-hidden">
         <div class="absolute inset-0 pointer-events-none">
@@ -676,6 +664,10 @@
         </div>
     </section>
 
+    @endif
+
+    {{-- Hidden by default; set HOME_SHOW_REWARDS_SECTION=true to show. --}}
+    @if (config('platform.home.show_rewards_section'))
     <!-- Revenue Model -->
     <section id="revenue" class="relative py-24 bg-gradient-to-b from-slate-900 to-slate-800">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -721,73 +713,7 @@
         </div>
     </section>
 
-    <!-- How It Works -->
-    <section id="how-it-works" class="relative py-24 bg-slate-900">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="text-center mb-16">
-                <span class="text-emerald-400 font-semibold text-sm tracking-wider uppercase">— Phase 3 & 4</span>
-                <h2 class="mt-4 text-4xl sm:text-5xl font-bold">
-                    Transparency Layer + <span class="text-emerald-400">Growth Loop</span>
-                </h2>
-            </div>
-
-            <div class="grid md:grid-cols-3 gap-8">
-                <div class="relative bg-slate-800/50 rounded-xl p-8 border border-slate-700 hover:border-emerald-500/50 transition group">
-                    <div class="absolute inset-0 bg-gradient-to-br from-emerald-500/0 to-emerald-500/5 rounded-xl opacity-0 group-hover:opacity-100 transition"></div>
-                    <div class="relative">
-                        <div class="text-5xl mb-4">🛡️</div>
-                        <h3 class="text-xl font-bold mb-3">FEC Data</h3>
-                        <p class="text-slate-300">Campaign finance, donor records, and spending context alongside videos.</p>
-                    </div>
-                </div>
-
-                <div class="relative bg-slate-800/50 rounded-xl p-8 border border-slate-700 hover:border-teal-500/50 transition group">
-                    <div class="absolute inset-0 bg-gradient-to-br from-teal-500/0 to-teal-500/5 rounded-xl opacity-0 group-hover:opacity-100 transition"></div>
-                    <div class="relative">
-                        <div class="text-5xl mb-4">💳</div>
-                        <h3 class="text-xl font-bold mb-3">Vote Smart</h3>
-                        <p class="text-slate-300">Issue positions and voting history linked directly to candidate profiles.</p>
-                    </div>
-                </div>
-
-                <div class="relative bg-slate-800/50 rounded-xl p-8 border border-slate-700 hover:border-blue-500/50 transition group">
-                    <div class="absolute inset-0 bg-gradient-to-br from-blue-500/0 to-blue-500/5 rounded-xl opacity-0 group-hover:opacity-100 transition"></div>
-                    <div class="relative">
-                        <div class="text-5xl mb-4">📈</div>
-                        <h3 class="text-xl font-bold mb-3">OpenSecrets</h3>
-                        <p class="text-slate-300">Funding and lobbyist relationships for deeper voter verification.</p>
-                    </div>
-                </div>
-
-                <div class="relative bg-slate-800/50 rounded-xl p-8 border border-slate-700 hover:border-purple-500/50 transition group">
-                    <div class="absolute inset-0 bg-gradient-to-br from-purple-500/0 to-purple-500/5 rounded-xl opacity-0 group-hover:opacity-100 transition"></div>
-                    <div class="relative">
-                        <div class="text-5xl mb-4">⚡</div>
-                        <h3 class="text-xl font-bold mb-3">Ballotpedia</h3>
-                        <p class="text-slate-300">Election history, biography, and prior race context in one view.</p>
-                    </div>
-                </div>
-
-                <div class="relative bg-slate-800/50 rounded-xl p-8 border border-slate-700 hover:border-yellow-500/50 transition group">
-                    <div class="absolute inset-0 bg-gradient-to-br from-yellow-500/0 to-yellow-500/5 rounded-xl opacity-0 group-hover:opacity-100 transition"></div>
-                    <div class="relative">
-                        <div class="text-5xl mb-4">🤖</div>
-                        <h3 class="text-xl font-bold mb-3">Voter Growth Loop</h3>
-                        <p class="text-slate-300">Surveys, referrals, and follow-up content keep voters returning to learn more over time.</p>
-                    </div>
-                </div>
-
-                <div class="relative bg-slate-800/50 rounded-xl p-8 border border-slate-700 hover:border-pink-500/50 transition group">
-                    <div class="absolute inset-0 bg-gradient-to-br from-pink-500/0 to-pink-500/5 rounded-xl opacity-0 group-hover:opacity-100 transition"></div>
-                    <div class="relative">
-                        <div class="text-5xl mb-4">🔒</div>
-                        <h3 class="text-xl font-bold mb-3">Politician Growth Loop</h3>
-                        <p class="text-slate-300">Feedback informs next content so campaigns keep improving relevance.</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
+    @endif
 
     <!-- CTA Section -->
     @guest
@@ -797,11 +723,11 @@
                 Democracy starts with<br/><span class="text-emerald-400">knowing a name.</span>
             </h2>
             <p class="text-xl text-slate-300 mb-10 max-w-2xl mx-auto">
-                Find who's running in your city. Watch their full message. Verify their record. You can do all three in under five minutes — no account required.
+                Find who's running in your city. See where they stand. Check their record. You can do all three in under five minutes — no account required.
             </p>
             <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
                 <a href="{{ route('district.lookup') }}"
-                   class="inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-white bg-gradient-to-r from-emerald-500 to-teal-500 rounded-xl hover:from-emerald-600 hover:to-teal-600 transition shadow-2xl shadow-emerald-500/40 hover:shadow-emerald-500/60 hover:-translate-y-0.5 transform">
+                   class="inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-white bg-gradient-to-r from-emerald-500 to-teal-500 rounded-xl hover:from-emerald-600 hover:to-teal-600 transition shadow-lg shadow-emerald-500/25">
                     Find My District
                     <svg class="ml-2 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/>
@@ -812,6 +738,10 @@
                     Browse Candidates
                 </a>
             </div>
+            <p class="mt-8 text-sm text-slate-400">
+                Want to follow candidates and save your ballot?
+                <a href="{{ $activeReferralCode ? route('register', ['ref' => $activeReferralCode]) : route('register') }}" class="text-emerald-400 hover:text-emerald-300 underline underline-offset-4">Create a free account</a>
+            </p>
         </div>
     </section>
     @endguest
@@ -825,7 +755,7 @@
                         <span class="font-bold">U9</span><span class="text-emerald-400">itus</span>
                     </div>
                     <p class="text-slate-400 text-sm">
-                        Unite the politician and the voter with paid engagement and transparent accountability.
+                        Know who's running, understand where they stand, and check their sources.
                     </p>
                 </div>
                 
@@ -833,10 +763,11 @@
                     <h3 class="font-semibold mb-4">Platform</h3>
                     <ul class="space-y-2 text-slate-400 text-sm">
                         <li><a href="#featured-candidates" class="hover:text-white transition">Featured Candidates</a></li>
+                        @if(isset($followTheMoneyPacs) && $followTheMoneyPacs->isNotEmpty())
                         <li><a href="#follow-the-money" class="hover:text-white transition">Follow the Money</a></li>
-                        <li><a href="#civic-identity" class="hover:text-white transition">Your Badges</a></li>
-                        <li><a href="#revenue" class="hover:text-white transition">Voter Value</a></li>
-                        <li><a href="#how-it-works" class="hover:text-white transition">Transparency Layer</a></li>
+                        @endif
+                        <li><a href="#how-it-works" class="hover:text-white transition">How It Works</a></li>
+                        <li><a href="#sources" class="hover:text-white transition">Sources &amp; Trust</a></li>
                         <li><a href="{{ route('about') }}" class="hover:text-white transition">About Us</a></li>
                     </ul>
                 </div>
