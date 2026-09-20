@@ -408,7 +408,8 @@ class SyncCensusDemographics extends Command
             return $legacy;
         }
 
-        $placeCollectionUcgid = 'ucgid:1600000US' . str_pad($fips, 2, '0', STR_PAD_LEFT) . '*';
+        $placeSummaryLevel = sprintf('%07d', 1_600_000);
+        $placeCollectionUcgid = 'ucgid:' . $placeSummaryLevel . 'US' . str_pad($fips, 2, '0', STR_PAD_LEFT) . '*';
 
         foreach ([
             'place-collection UCGID geography' => $placeCollectionUcgid,
