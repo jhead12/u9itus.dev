@@ -91,7 +91,7 @@ class PoliticianDataRules
         // deliberately narrow — words here must never plausibly be a surname.
         '/\b(creator|advocate|activist|strategist|commentator|contributor|columnist|pundit|correspondent|anchorman|spokesperson|spokesman|spokeswoman)\s*$/i',
         // Headline action verb anywhere in the string.
-        '/\b(exits?|exited|suspends?|concedes?|endorses?|slams?|blasts?|rips|touts?|unveils?|clashes|spars|drops out|bows out|weighs in)\b/i',
+        '/\b(exits?|exited|suspends?|concedes?|endorses?|slams?|blasts?|rips|touts?|unveils?|clashes|spars|drops out|bows out|weighs in|kicks?|kicked|kickoff|attacks|hammers|torches|teases|pledges|vows|urges|warns|blames|unloads|doubles down|tees up)\b/i',
     ];
 
     /**

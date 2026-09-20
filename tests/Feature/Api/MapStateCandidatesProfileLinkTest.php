@@ -5,6 +5,7 @@ use App\Models\Politician;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Str;
 
 uses(RefreshDatabase::class);
 
@@ -118,4 +119,18 @@ it('does not list a seated governor again under a headline-decorated name', func
     $names = collect(profileLinkGovernorCards('MI'))->pluck('full_name');
 
     expect($names->filter(fn ($n) => str_contains($n, 'Whitmer')))->toHaveCount(1);
+});
+
+it('hides a discovery record whose name is a headline verb, not a person', function () {
+    foreach (['Rowdy Kicks', 'Aric Nesbitt'] as $name) {
+        (new ElectionCandidateRecord([
+            'source' => 'candidate_discovery', 'external_candidate_id' => 'disc:mi:governor:'.Str::slug($name),
+            'full_name' => $name, 'political_office' => 'Governor', 'governance_level' => 'State', 'state' => 'MI',
+            'party_affiliation' => 'Republican', 'election_date' => now()->addMonths(3)->toDateString(), 'payload' => ['primary_result' => 'running'],
+        ]))->saveQuietly();
+    }
+
+    $names = collect(profileLinkGovernorCards('MI'))->pluck('full_name');
+
+    expect($names)->not->toContain('Rowdy Kicks')->and($names)->toContain('Aric Nesbitt');
 });

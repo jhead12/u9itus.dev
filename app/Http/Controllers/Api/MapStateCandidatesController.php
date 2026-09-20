@@ -13,6 +13,7 @@ use App\Support\CrossStateImpostors;
 use App\Support\DataSourceLabel;
 use App\Support\MapCandidateHygiene;
 use App\Support\OfficeCanonicalizer;
+use App\Support\PoliticianDataRules;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -427,6 +428,16 @@ class MapStateCandidatesController
             }
 
             $recStatus = $payload['status'] ?? 'running';
+            // Unverified discovery rows get the strict headline check here too, so a fragment
+            // ("Rowdy Kicks") is hidden now rather than after the next prune run.
+            if (
+                $rec->source === ElectionCandidateRecord::DISCOVERY_SOURCE
+                && PoliticianDataRules::headlineFragmentViolation($recName) !== null
+            ) {
+                $quality['hidden_names']++;
+
+                continue;
+            }
             if (MapCandidateHygiene::shouldHide(['full_name' => $recName, 'status' => $recStatus], $placeNames)) {
                 $quality['hidden_names']++;
 
