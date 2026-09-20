@@ -37,7 +37,7 @@ class DiscoverCampaignWebsites extends Command
             ->where(fn ($q) => $q->whereNull('website_url')->orWhere('website_url', ''));
 
         if ($singleId) {
-            $query->where(fn ($q) => $q->where('id', $singleId)->orWhere('slug', $singleId));
+            $query->byReference($singleId);
         } else {
             $query->limit($limit);
         }

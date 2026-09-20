@@ -86,9 +86,7 @@ class EnrichPoliticianDonors extends Command
             ->when($upcomingOnly, fn ($q) => $q->where('is_running_candidate', true));
 
         if ($singleId) {
-            $query->where(fn ($q) =>
-                $q->where('id', $singleId)->orWhere('slug', $singleId)
-            );
+            $query->byReference($singleId);
         } else {
             // Prioritise politicians with missing or stale snapshots
             $query->where(function ($q) use ($staleHours, $force) {

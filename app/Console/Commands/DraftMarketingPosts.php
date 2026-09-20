@@ -46,9 +46,7 @@ class DraftMarketingPosts extends Command
         if ($single) {
             // No pre-filter by news/viral availability — the selector will
             // simply skip a single targeted politician with no fresh source.
-            $query->where(fn ($q) =>
-                $q->where('id', $single)->orWhere('slug', $single)
-            );
+            $query->byReference($single);
         } else {
             $query->limit($limit);
         }

@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\Politician;
+use App\Support\MapCandidateHygiene;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -349,6 +350,26 @@ class EnrichStatewideOfficeholders extends Command
     }
 
     /**
+     * Pick the row that already represents this officeholder among the rows filed under the
+     * same state/office/city. Office alone is not identity: a governor's race also has
+     * challenger rows under "Governor", and renaming whichever row came first turned a
+     * candidate's profile into the incumbent's (Gina Hinojosa's row became "Greg Abbott").
+     *
+     * A row is reused only when it is the same person, or when it is a verified official
+     * (the pre-existing "verified rows are skipped unless --force" rule). Anything else means
+     * the officeholder has no row yet, so the caller creates one.
+     *
+     * @param  \Illuminate\Support\Collection<int, Politician>  $rows  ordered verified-first
+     */
+    private function matchOfficeholderRow(\Illuminate\Support\Collection $rows, string $name): ?Politician
+    {
+        $key = MapCandidateHygiene::identityKey($name);
+
+        return $rows->first(fn (Politician $row) => MapCandidateHygiene::identityKey($row->full_name) === $key)
+            ?? $rows->first(fn (Politician $row) => (bool) $row->verified_official);
+    }
+
+    /**
      * True when an existing, unclaimed record was updated within the stale
      * window — meaning the whole Ballotpedia → Wikipedia → Claude resolution
      * pipeline can be skipped for it this run. --force and --stale-hours=0
@@ -395,7 +416,7 @@ class EnrichStatewideOfficeholders extends Command
                 $query->whereRaw('LOWER(COALESCE(city, \'\')) = ?', [strtolower($city)]);
             }
 
-            $existing = $query->orderByDesc('verified_official')->first();
+            $existing = $this->matchOfficeholderRow($query->orderByDesc('verified_official')->get(), $name);
             $bpSlug   = $bpUrl ? ltrim(parse_url($bpUrl, PHP_URL_PATH) ?? '', '/') : null;
 
             $attributes = array_filter([

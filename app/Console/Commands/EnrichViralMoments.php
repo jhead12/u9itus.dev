@@ -43,9 +43,7 @@ class EnrichViralMoments extends Command
             ->where('full_name', '!=', '');
 
         if ($singleId) {
-            $query->where(fn ($q) =>
-                $q->where('id', $singleId)->orWhere('slug', $singleId)
-            );
+            $query->byReference($singleId);
         } else {
             // Prioritise politicians with no moment run yet, then stale runs.
             $query->where(function ($q) use ($staleHours, $force) {

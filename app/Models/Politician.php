@@ -582,6 +582,25 @@ class Politician extends Model
         return $query->where('page_published', true)->where('is_active', true);
     }
 
+    /**
+     * Match one politician by numeric id or by slug — what a `--politician=` option
+     * accepts. An all-digit value is an id; anything else is a slug only. Comparing
+     * the id column to a slug string ("758c8-governor-…") would let MySQL cast it to
+     * its leading digits (758) and match a different person entirely.
+     */
+    public function scopeByReference($query, string|int $reference)
+    {
+        $reference = trim((string) $reference);
+
+        return $query->where(function ($q) use ($reference) {
+            $q->where('slug', $reference);
+
+            if (ctype_digit($reference)) {
+                $q->orWhere('id', (int) $reference);
+            }
+        });
+    }
+
     public function getRouteKeyName(): string
     {
         return 'uuid';

@@ -62,7 +62,7 @@ class EnrichIssueBadges extends Command
             ->where('full_name', '!=', '');
 
         if ($singleId) {
-            $query->where(fn ($q) => $q->where('id', $singleId)->orWhere('slug', $singleId));
+            $query->byReference($singleId);
         } else {
             // Prioritise politicians never scored, then stale signals.
             $query->where(function ($q) use ($staleHours, $force) {

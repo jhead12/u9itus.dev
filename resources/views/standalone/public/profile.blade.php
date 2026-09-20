@@ -1565,7 +1565,7 @@
                 @endif
             </div>
 
-            <p class="text-sm text-slate-300 mb-4">Spotted an error? <a href="#dr-open" class="text-emerald-300 underline">Report a data problem</a> using the correction form beside the profile’s source label.</p>
+            <p class="text-sm text-slate-300 mb-4">Spotted an error? <a href="https://forms.gle/YYHTqnHcaNjz6j2r8" target="_blank" rel="noopener noreferrer" class="text-emerald-300 underline">Report a data problem<span class="sr-only"> (opens in a new tab)</span></a> using our correction form. Please include the candidate’s name and profile link.</p>
             @php($missingSources = collect($digDeeperData['panels'] ?? [])->filter(fn ($panel) => ($panel['status'] ?? '') !== 'available'))
             @if($missingSources->isNotEmpty())
                 <p class="text-sm text-slate-400 mb-4">Not currently available: {{ $missingSources->pluck('label')->join(', ') }}. Missing coverage does not mean there are no records.</p>
