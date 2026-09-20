@@ -428,7 +428,7 @@ class SyncCensusDemographics extends Command
 
     private function censusApiUrl(int $year, string $dataset, array $params): string
     {
-        $key = env('CENSUS_DATA_API');
+        $key = config('services.census.api_key');
         if ($key) {
             $params['key'] = $key;
         }
