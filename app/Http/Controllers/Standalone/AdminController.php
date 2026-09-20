@@ -1441,7 +1441,7 @@ class AdminController extends Controller
             'rejected' => CandidateMatchReview::where('status', CandidateMatchReview::STATUS_REJECTED)->count(),
         ];
 
-        return view('standalone.admin.candidate-match-reviews', compact('reviews', 'stats', 'statusFilter'));
+        return view('standalone.admin.candidate-match-reviews', compact('reviews', 'stats', 'statusFilter', 'typeFilter', 'typeOptions', 'typeCounts'));
     }
 
     /**
@@ -1586,11 +1586,32 @@ class AdminController extends Controller
             PoliticianCleanupReview::STATUS_REJECTED,
         ];
 
+        $typeOptions = [
+            PoliticianCleanupReview::TYPE_MERGE => 'Merge Duplicate',
+            PoliticianCleanupReview::TYPE_DEACTIVATE => 'Deactivate',
+            PoliticianCleanupReview::TYPE_NAME_REJECT => 'Unrepairable Name',
+        ];
+        $typeFilter = (string) $request->query('type', '');
+        if (! array_key_exists($typeFilter, $typeOptions)) {
+            $typeFilter = '';
+        }
+
         $query = PoliticianCleanupReview::with(['politician', 'duplicatePolitician'])->latest();
 
         if (in_array($statusFilter, $allowedStatuses, true)) {
             $query->where('status', $statusFilter);
         }
+
+        if ($typeFilter !== '') {
+            $query->where('review_type', $typeFilter);
+        }
+
+        // Per-type counts within the current status filter, for the dropdown labels.
+        $typeCounts = PoliticianCleanupReview::query()
+            ->when(in_array($statusFilter, $allowedStatuses, true), fn ($q) => $q->where('status', $statusFilter))
+            ->selectRaw('review_type, COUNT(*) as aggregate')
+            ->groupBy('review_type')
+            ->pluck('aggregate', 'review_type');
 
         if ($search = trim((string) $request->query('q', ''))) {
             $query->where(function ($q) use ($search) {

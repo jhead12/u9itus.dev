@@ -61,11 +61,20 @@
                 <option value="" {{ !in_array($statusFilter, ['pending','approved','rejected']) ? 'selected' : '' }}>All Statuses</option>
             </select>
         </div>
+        <div>
+            <select name="type"
+                class="w-full lg:w-auto bg-slate-900/60 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-300 focus:outline-none focus:border-emerald-500/50 transition">
+                <option value="">All Types ({{ number_format($typeCounts->sum()) }})</option>
+                @foreach($typeOptions as $typeKey => $typeName)
+                <option value="{{ $typeKey }}" {{ $typeFilter === $typeKey ? 'selected' : '' }}>{{ $typeName }} ({{ number_format($typeCounts[$typeKey] ?? 0) }})</option>
+                @endforeach
+            </select>
+        </div>
         <button type="submit"
             class="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-white text-sm font-semibold transition shrink-0">
             Apply
         </button>
-        @if(request('q') || (request('status') && request('status') !== 'pending'))
+        @if(request('q') || $typeFilter !== '' || (request('status') && request('status') !== 'pending'))
         <a href="{{ route('admin.data-quality.index') }}"
             class="px-3 py-2 rounded-lg bg-slate-700/50 hover:bg-slate-700 text-slate-400 text-sm transition shrink-0 text-center">
             Clear
@@ -76,7 +85,7 @@
     {{-- Main table --}}
     <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl overflow-hidden">
         <div class="px-5 py-4 border-b border-slate-700/50 flex items-center justify-between">
-            <h3 class="text-sm font-semibold text-white capitalize">{{ $statusFilter ?: 'All' }} Data Quality Reviews</h3>
+            <h3 class="text-sm font-semibold text-white capitalize">{{ $statusFilter ?: 'All' }} {{ $typeFilter !== '' ? $typeOptions[$typeFilter] : 'Data Quality' }} Reviews</h3>
             <span class="text-xs text-slate-500">{{ $reviews->total() }} total</span>
         </div>
 
@@ -195,7 +204,7 @@
                     <tr>
                         <td colspan="6" class="px-5 py-8 text-center text-sm text-slate-500">
                             No {{ $statusFilter ?: '' }} data-quality reviews found.
-                            @if(request('q') || request('status'))
+                            @if(request('q') || request('status') || $typeFilter !== '')
                                 Try clearing your filters.
                             @endif
                         </td>
