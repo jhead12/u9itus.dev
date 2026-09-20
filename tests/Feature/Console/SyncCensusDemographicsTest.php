@@ -58,3 +58,41 @@ it('falls back to UCGID place geography when legacy ACS place queries return a m
         && str_contains($request->url(), 'get=NAME%2CS1701_C03_001E%2CS1501_C02_015E')
         && str_contains($request->url(), 'for=ucgid%3A160%7Cstate%3A48'));
 });
+
+it('falls through to the prefix-form UCGID retry when the collection-form retry also returns a malformed payload', function () {
+    Http::fakeSequence()
+        ->push(['error: unsupported geography hierarchy'], 200)
+        ->push(['error: malformed ucgid collection response'], 200)
+        ->push([
+            ['NAME', 'B01001_001E', 'B19013_001E', 'ucgid'],
+            ['Houston city, Texas', '2304580', '62137', '1600000US4835000'],
+        ], 200)
+        ->push(['error: unsupported geography hierarchy'], 200)
+        ->push(['error: malformed ucgid collection response'], 200)
+        ->push([
+            ['NAME', 'S1701_C03_001E', 'S1501_C02_015E', 'ucgid'],
+            ['Houston city, Texas', '19.2', '36.8', '1600000US4835000'],
+        ], 200);
+
+    $this->mock(DistrictLookupService::class, function ($mock) {
+        $mock->shouldReceive('lookupByCoordinates')
+            ->once()
+            ->with(29.763, -95.363)
+            ->andReturn([
+                'district_number' => '7',
+                'district_code' => 'TX-07',
+            ]);
+    });
+
+    $this->artisan('geo:sync-census-demographics', ['--year' => 2022, '--state' => ['TX']])
+        ->expectsOutputToContain('retrying with UCGID fallback geography')
+        ->assertExitCode(0);
+
+    Http::assertSentCount(6);
+    Http::assertSent(fn ($request) => str_starts_with($request->url(), 'https://api.census.gov/data/2022/acs/acs5?')
+        && str_contains($request->url(), 'get=NAME%2CB01001_001E%2CB19013_001E')
+        && str_contains($request->url(), 'for=ucgid%3A1600000US48%2A'));
+    Http::assertSent(fn ($request) => str_starts_with($request->url(), 'https://api.census.gov/data/2022/acs/acs5/subject?')
+        && str_contains($request->url(), 'get=NAME%2CS1701_C03_001E%2CS1501_C02_015E')
+        && str_contains($request->url(), 'for=ucgid%3A1600000US48%2A'));
+});
