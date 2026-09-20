@@ -65,7 +65,7 @@ class PoliticianDataRules
      * time from the front and re-validates what's left) — kept as one public
      * constant so the two vocabularies can't drift apart.
      */
-    public const LEADING_QUALIFIER_PATTERN = '/^\s*(the|former|ex|current|incumbent|new|next|another|embattled|fiery|firebrand|outspoken|controversial|progressive|conservative|moderate|billionaire|bilionaire|millionaire|millennial|boomer|independent|democrat(ic)?|republican|libertarian|green|maga|gop|trump[\s-]?backed|reality|video|watch|listen|breaking|update|updated|developing|analysis|recap|explainer|roundup|exclusive|opinion|editorial|poll|meet|why|how|when|where|what|who|after|before|amid|apostle|pastor|bishop|chief|consumer|onerepublic|indian|asian|african|latino|latina|hispanic|jewish|muslim|evangelical|california|nevada|tennessee|texas|arizona|florida|riverside|orange county|east bay|tri[\s-]valley|bay area|silicon valley|san jos[e\x{00E9}]|los angeles|northern|southern|sheriff|deputy|officer|detective|governor|gov\.|lieutenant governor|lieutenant|lt\.|senator|sen\.|representative|rep\.|congressman|congresswoman|delegate|speaker|mayor|treasurer|controller|comptroller|supervisor|assemblymember|assemblyman|assemblywoman|councilmember|councilman|councilwoman|alderman|selectman|trustee|clerk|auditor|coroner|constable|commissioner)(?![a-zA-Z0-9_])/iu';
+    public const LEADING_QUALIFIER_PATTERN = '/^\s*(the|former|ex|current|incumbent|new|next|another|embattled|fiery|firebrand|outspoken|controversial|progressive|conservative|moderate|billionaire|bilionaire|millionaire|millennial|boomer|businessman|businesswoman|businessperson|entrepreneur|philanthropist|independent|democrat(ic)?|republican|libertarian|green|maga|gop|trump[\s-]?backed|reality|video|watch|listen|breaking|update|updated|developing|analysis|recap|explainer|roundup|exclusive|opinion|editorial|poll|meet|why|how|when|where|what|who|after|before|amid|apostle|pastor|bishop|chief|consumer|onerepublic|indian|asian|african|latino|latina|hispanic|jewish|muslim|evangelical|california|nevada|tennessee|texas|arizona|florida|riverside|orange county|east bay|tri[\s-]valley|bay area|silicon valley|san jos[e\x{00E9}]|los angeles|northern|southern|sheriff|deputy|officer|detective|governor|gov\.|lieutenant governor|lieutenant|lt\.|senator|sen\.|representative|rep\.|congressman|congresswoman|delegate|speaker|mayor|treasurer|controller|comptroller|supervisor|assemblymember|assemblyman|assemblywoman|councilmember|councilman|councilwoman|alderman|selectman|trustee|clerk|auditor|coroner|constable|commissioner)(?![a-zA-Z0-9_])/iu';
 
     /**
      * RSS / news-headline extraction artifacts. The candidate-discovery
@@ -104,6 +104,10 @@ class PoliticianDataRules
         // Scraped organization labels and incomplete office titles, not people.
         '/\bGOP\b|\bsecretary$|\bcounty\s+sheriff\b/i' => 'contains an organization or office title',
         '/\b(?:democrats|republicans)\b|^(?:iraq|afghanistan) war (?:vet|veteran)$/i' => 'describes a group or occupation, not a person',
+        // "Businessman Perry Johnson": an occupation stuck in front of the name.
+        '/^(?:businessman|businesswoman|businessperson|entrepreneur|philanthropist)\s/i' => 'starts with an occupation label',
+        // "Mary Sheffield who was": a relative clause cut off mid-sentence.
+        '/\b(?:who|whom|whose)\b/i' => 'contains a dangling relative clause',
         // "Hochul Agenda", "Hochul Statewide", "Hochul Unprecedented": an official's surname
         // plus the next capitalised word of a headline.
         '/\b(agenda|statewide|nationwide|unprecedented|announcement|re-?election|administration|legislation|priorities|policies|endorsements?|opponents?|supporters|challengers?|incumbents?|unopposed|landslide|mandate|platform|initiatives?)\b/i'

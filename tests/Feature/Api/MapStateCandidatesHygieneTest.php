@@ -80,7 +80,7 @@ it('hides the organization and incomplete title names seen on the Michigan map',
 
     $response = test()->getJson('/api/v1/map/state-candidates?state=MI')->assertOk();
     expect($response->getContent())->not->toContain($name);
-})->with(['Michigan Secretary', 'Michigan GOP', 'Genesee County Sheriff Chris', 'Iraq War Vet', 'Can Democrats']);
+})->with(['Michigan Secretary', 'Michigan GOP', 'Genesee County Sheriff Chris', 'Iraq War Vet', 'Can Democrats', 'Businessman Perry Johnson', 'Mary Sheffield who was']);
 
 it('lists a representative once even when two rows exist for them', function () {
     houseRow('Linda Sánchez', 'CA-38');

@@ -71,6 +71,9 @@ dataset('headline fragments', [
     'Eric Swalwell Officially',
     'Steve Hilton Dinner',
     'Steve Hilton Chances',
+    // Occupation label / cut-off relative clause seen on the Michigan map.
+    'Businessman Perry Johnson',
+    'Mary Sheffield who was',
 ]);
 
 it('accepts a real first-last name', function (string $name) {
