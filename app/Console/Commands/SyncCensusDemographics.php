@@ -414,13 +414,13 @@ class SyncCensusDemographics extends Command
         $placePrefixUcgid = 'ucgid:' . self::PLACE_UCGID_PREFIX . str_pad($fips, 2, '0', STR_PAD_LEFT) . '*';
 
         $fallbacks = [
-            'place-collection UCGID geography' => $placeCollectionUcgid,
-            'place-summary-level UCGID prefix geography' => $placePrefixUcgid,
+            $placeCollectionUcgid,
+            $placePrefixUcgid,
         ];
 
-        foreach ($fallbacks as $label => $ucgid) {
-            $this->warn("  Legacy place geography failed for {$abbr}; retrying with {$label}.");
+        $this->warn("  Legacy place geography failed for {$abbr}; retrying with UCGID fallback geography.");
 
+        foreach ($fallbacks as $ucgid) {
             $fallback = $this->fetchCensus($this->censusApiUrl($year, $dataset, [
                 'get' => $variables,
                 'for' => $ucgid,
