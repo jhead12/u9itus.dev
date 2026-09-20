@@ -680,9 +680,12 @@ class MapStateCandidatesController
             ->where(function ($q) {
                 $q->whereNull('election_date')->orWhere('election_date', '>=', now()->toDateString());
             })
+            // Statewide measures first so a state full of local ones can't crowd
+            // them out of the cap below.
+            ->orderByRaw("CASE WHEN level IS NULL OR level = 'state' THEN 0 ELSE 1 END")
             ->orderBy('election_date')
             ->limit(10)
-            ->get(['id', 'measure_number', 'title', 'summary', 'yes_meaning', 'no_meaning', 'election_date', 'status', 'source_url'])
+            ->get(['id', 'measure_number', 'title', 'summary', 'yes_meaning', 'no_meaning', 'election_date', 'status', 'source_url', 'level', 'county', 'locality', 'updated_at'])
             ->map(fn (BallotMeasure $m) => [
                 'measure_number' => $m->measure_number,
                 'title'          => $m->title,
@@ -693,6 +696,12 @@ class MapStateCandidatesController
                 'status'         => $m->status,
                 'source_url'     => $m->source_url,
                 'detail_url'     => route('voter.ballot-measures.show', $m->id),
+                // Which body put it on the ballot, so a city or county measure is
+                // never presented as statewide.
+                'level'          => $m->level ?: 'state',
+                'level_label'    => BallotMeasure::LEVELS[$m->level ?: 'state'] ?? 'Statewide',
+                'place'          => $m->level === 'state' || ! $m->level ? null : ($m->locality ?: $m->county),
+                'updated_at'     => optional($m->updated_at)?->toDateString(),
             ]);
 
         // ── 8. Upcoming election dates for this state ──────────────────────────

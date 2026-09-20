@@ -4,7 +4,7 @@
  */
 import { controls, camera } from '../scene/setup.js';
 import { enterOverviewMode } from '../navigation/mode-transitions.js';
-import { findMyDistrict } from './location-button.js';
+import { openFindDistrict } from './address-entry.js';
 import { toggleDepthView } from './depth-toggle.js';
 import * as THREE from 'three';
 
@@ -107,7 +107,7 @@ export function initKeyboard() {
             case 'd': case 'D': toggleDepthView(); break;
             case 'l': case 'L':
                 e.preventDefault();
-                findMyDistrict();
+                openFindDistrict();
                 break;
             case 'ArrowUp':
                 e.preventDefault();

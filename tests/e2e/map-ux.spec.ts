@@ -34,14 +34,14 @@ async function selectState(page: Page, name: string) {
 test.describe('map (desktop)', () => {
     test.use({ viewport: { width: 1440, height: 900 } });
 
-    test('search is a visible labeled field and Find my district is a labeled button', async ({ page }) => {
+    test('search is a visible labeled field and Find my district is a labeled button that opens the address card', async ({ page }) => {
         await openMap(page);
 
         const search = page.locator('#btn-search');
         await expect(search).toBeVisible();
         await expect(search).toContainText('Search state, district, or candidate');
 
-        const find = page.getByRole('button', { name: 'Find my district using my location' });
+        const find = page.getByRole('button', { name: 'Find my district by address or location' });
         await expect(find).toBeVisible();
         await expect(find).toContainText('Find my district');
 
@@ -111,7 +111,12 @@ test.describe('map (desktop)', () => {
         await expect(page.locator('#tutorial-overlay')).not.toHaveClass(/active/);
         const hint = page.locator('#map-first-hint');
         await expect(hint).toHaveClass(/visible/, { timeout: 5000 });
-        await expect(hint).toContainText('Select a state to explore its districts.');
+        await expect(hint).toContainText('Select a state to explore its districts, or enter your address.');
+
+        // The hint's own link goes to the address card.
+        await hint.getByRole('button', { name: 'enter your address' }).click();
+        await expect(page.getByRole('dialog', { name: 'Find your district' })).toBeVisible();
+        await page.keyboard.press('Escape');
 
         await hint.getByRole('button', { name: 'Dismiss hint' }).click();
         await expect(hint).not.toHaveClass(/visible/);
@@ -300,44 +305,128 @@ test.describe('map district panel (desktop)', () => {
         await stubOhio(page);
     });
 
-    test('leads with the representative, then this seat, then statewide, then other races', async ({ page }) => {
+    test('is a one-at-a-time snapshot: representative open first, then candidates, dates, measures', async ({ page }) => {
         await openMap(page);
         await selectState(page, 'Ohio');
         await page.locator('#panel-districts .dist-row').nth(2).click();
         await expect(page.locator('#panel-state')).toContainText('District 3');
 
-        const headings = page.locator('#panel-candidates .dp-title');
-        await expect(headings).toHaveText(['Your representative', 'Candidates for this seat', 'Statewide races · Ohio']);
-        await expect(page.locator('#panel-candidates .dp-rep')).toContainText('Joyce Beatty');
-        await expect(page.locator('#panel-candidates')).toContainText('Casey Challenger');
+        const sections = page.locator('#panel-candidates details.snap-section');
+        await expect(sections.locator('.snap-title')).toHaveText(['Your representative', 'Candidates & races', 'Election dates & polling', 'Ballot measures & profiles']);
 
-        // Screen order: header → this seat's content → switcher → other races.
+        // Exactly one section is open, and it is the representative.
+        await expect(page.locator('#panel-candidates details.snap-section[open]')).toHaveCount(1);
+        await expect(page.locator('#panel-candidates .dp-rep')).toHaveAttribute('open', '');
+        await expect(page.locator('#panel-candidates .dp-rep')).toContainText('Joyce Beatty');
+        await expect(page.locator('#panel-candidates .dp-rep')).toContainText('Current officeholder');
+
+        // Closed sections still preview what is inside.
+        await expect(sections.nth(1).locator('.snap-preview')).toContainText('1 running for this seat');
+        await expect(sections.nth(2).locator('.snap-preview')).toContainText('Nov 3, 2026');
+        await expect(sections.nth(3).locator('.snap-preview')).toContainText('None listed');
+
+        // Opening another closes the first; candidates are labeled as not officeholders.
+        await sections.nth(1).locator('summary').click();
+        await expect(page.locator('#panel-candidates details.snap-section[open]')).toHaveCount(1);
+        await expect(sections.nth(0)).not.toHaveAttribute('open', '');
+        await expect(sections.nth(1)).toContainText('not current officeholders');
+        await expect(sections.nth(1)).toContainText('Casey Challenger');
+        await expect(sections.nth(1)).toContainText('Statewide races · Ohio');
+
+        // The open section survives a re-render for the same district.
+        await page.locator('#panel-districts summary').click();
+        await page.locator('#panel-districts .dist-row', { hasText: 'Joyce Beatty' }).click();
+        await expect(sections.nth(1)).toHaveAttribute('open', '');
+
+        // Screen order: header → snapshot → switcher → other races.
         const tops = await page.evaluate(() => {
             const top = (sel: string) => document.querySelector(sel)!.getBoundingClientRect().top;
-            return {
-                rep: top('#panel-candidates .dp-rep'),
-                seat: top('#panel-candidates .dp-section:nth-of-type(2)'),
-                switcher: top('#panel-districts'),
-                other: top('#panel-running-candidates'),
-            };
+            return { snap: top('#panel-candidates .snap'), switcher: top('#panel-districts'), other: top('#panel-running-candidates') };
         });
-        expect(tops.rep).toBeLessThan(tops.seat);
-        expect(tops.seat).toBeLessThan(tops.switcher);
+        expect(tops.snap).toBeLessThan(tops.switcher);
         expect(tops.switcher).toBeLessThan(tops.other);
-        // The representative is in the first screenful, not pushed down by a state-wide list.
-        expect(tops.rep).toBeLessThan(400);
+        expect(tops.snap).toBeLessThan(400);
 
-        // "Other races" is collapsed and titled for what it is.
         await expect(page.locator('#rc-section')).toHaveClass(/collapsed/);
         await expect(page.locator('#rc-section .office-title')).toContainText('Other races in Ohio');
-        // The district switcher is folded away but reachable.
         await expect(page.locator('#panel-districts summary')).toHaveText('Switch district');
+    });
+
+    test('dates section states its source and links to a polling place lookup', async ({ page }) => {
+        await openMap(page);
+        await selectState(page, 'Ohio');
+        await page.locator('#panel-districts .dist-row').nth(2).click();
+        const dates = page.locator('#panel-candidates details[data-snap="dates"]');
+        await dates.locator('summary').click();
+        await expect(dates).toContainText('Vote Smart');
+        await expect(dates).toContainText('Nov 3, 2026');
+        await expect(dates.getByRole('link', { name: /polling place on vote\.org/ })).toBeVisible();
+        await expect(dates).toContainText('not a government site');
+    });
+
+    test('a guest sees ballot measures with their level and source, never a sign-in-only link', async ({ page }) => {
+        await page.route('**/api/v1/map/state-candidates*', (route) =>
+            route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+                ...OHIO_PAYLOAD,
+                ballot_measures: [
+                    { measure_number: 'Issue 1', title: 'State thing', summary: 'A statewide question.', yes_meaning: 'Yes does A', no_meaning: 'No does B', election_date: '2026-11-03', status: 'Certified', source_url: 'https://example.gov/issue1', detail_url: '/voter/ballot-measures/1', level: 'state', level_label: 'Statewide', place: null, updated_at: '2026-09-01' },
+                    { measure_number: 'Measure L', title: 'Library levy', summary: null, yes_meaning: null, no_meaning: null, election_date: '2026-11-03', status: null, source_url: 'https://example.gov/l', detail_url: '/voter/ballot-measures/2', level: 'city', level_label: 'City / town', place: 'Columbus', updated_at: null },
+                ],
+            }) }));
+        await openMap(page);
+        await selectState(page, 'Ohio');
+        await page.locator('#panel-districts .dist-row').nth(2).click();
+
+        const measures = page.locator('#panel-candidates details[data-snap="measures"]');
+        await expect(measures.locator('.snap-preview')).toHaveText('2 measures listed');
+        await measures.locator('summary').click();
+        await expect(measures).toContainText('not filtered to this district');
+        await expect(measures).toContainText('City / town · Columbus');
+        await measures.locator('.bm-card-header', { hasText: 'Issue 1' }).click();
+        await expect(measures.getByRole('link', { name: /Read full text/ })).toHaveAttribute('href', 'https://example.gov/issue1');
+        await expect(measures).toContainText('Listing updated');
+        await expect(measures.locator('a[href*="/voter/ballot-measures"]')).toHaveCount(0);
+    });
+
+    test('candidate cards say they open a profile, and profile links are public pages', async ({ page }) => {
+        await page.route('**/api/v1/map/state-candidates*', (route) =>
+            route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+                ...OHIO_PAYLOAD,
+                house_candidates: { 'OH-03': [
+                    { full_name: 'Joyce Beatty', party: 'Democratic', status: 'seated', is_running: false, verified: true, source: 'platform', profile_url: '/p/joyce-beatty' },
+                    { full_name: 'Casey Challenger', party: 'Republican', status: 'running', is_running: true, verified: false, source: 'scraped', profile_url: '/p/casey-challenger' },
+                ] },
+            }) }));
+        await openMap(page);
+        await selectState(page, 'Ohio');
+        await page.locator('#panel-districts .dist-row').nth(2).click();
+
+        await expect(page.locator('#panel-candidates .dp-rep .candidate-open')).toHaveText('Profile ›');
+        const measures = page.locator('#panel-candidates details[data-snap="measures"]');
+        await measures.locator('summary').click();
+        await expect(measures).toContainText('Research a candidate');
+        await expect(measures.getByRole('link', { name: /Joyce Beatty/ })).toHaveAttribute('href', '/p/joyce-beatty');
+        await expect(measures.getByRole('link', { name: /Casey Challenger/ })).toHaveAttribute('href', '/p/casey-challenger');
+    });
+
+    test('an unreachable data source is reported as an error, not as empty or loading', async ({ page }) => {
+        await page.route('**/api/v1/map/state-candidates*', (route) => route.abort('failed'));
+        await openMap(page);
+        await selectState(page, 'Ohio');
+        await page.locator('#panel-districts .dist-row').nth(2).click();
+
+        await expect(page.locator('#panel-candidates [role="alert"]')).toContainText('DATA UNREACHABLE');
+        const previews = page.locator('#panel-candidates .snap-preview');
+        await expect(previews.first()).toHaveText('Unavailable right now');
+        await expect(page.locator('#panel-candidates')).not.toContainText('Loading…');
+        await expect(page.locator('#panel-candidates')).not.toContainText('No sitting representative');
     });
 
     test('shows one election date, the state calendar date, even in a US timezone', async ({ page }) => {
         await openMap(page);
         await selectState(page, 'Ohio');
         await page.locator('#panel-districts .dist-row').nth(2).click();
+        await page.locator('#panel-candidates details[data-snap="candidates"] summary').click();
         await expect(page.locator('#panel-candidates')).toContainText('Nov 3, 2026');
 
         const text = await page.locator('#panel-candidates').innerText();
@@ -349,6 +438,7 @@ test.describe('map district panel (desktop)', () => {
         await openMap(page);
         await selectState(page, 'Ohio');
         await page.locator('#panel-districts .dist-row').nth(2).click();
+        await page.locator('#panel-candidates details[data-snap="candidates"] summary').click();
         const card = page.locator('#panel-candidates .candidate-card', { hasText: 'Casey Challenger' });
         await expect(card).toContainText('Nov 3, 2026');
     });
@@ -527,6 +617,7 @@ test.describe('candidate drawer: source and reporting (desktop)', () => {
         await openMap(page);
         await selectState(page, 'Ohio');
         await page.locator('#panel-districts .dist-row').nth(2).click();
+        await page.locator('#panel-candidates details[data-snap="candidates"] summary').click();
         await page.locator('#panel-candidates .candidate-card', { hasText: 'Casey Challenger' }).click();
         await expect(page.locator('#pol-provenance')).toBeVisible();
     }
@@ -571,5 +662,180 @@ test.describe('candidate drawer: source and reporting (desktop)', () => {
 
         await expect(page.locator('#pol-provenance .dr-error')).toContainText('try again in a minute');
         await expect(page.getByRole('button', { name: 'Send report' })).toBeEnabled();
+    });
+});
+
+/**
+ * Find your district: address / ZIP first, location second, browsing always
+ * possible. The geocode API is stubbed, so these check the flow and the
+ * messages, not the Census geocoder.
+ */
+
+const OH3 = { state: 'OH', district_number: '3', district_code: 'OH-03', district_label: 'Ohio Congressional District 3' };
+
+async function stubGeocode(page: Page, status: number, body: object) {
+    await page.route('**/api/v1/map/geocode*', (route) =>
+        route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) }));
+}
+
+test.describe('find your district (desktop)', () => {
+    test.use({ viewport: { width: 1440, height: 900 }, timezoneId: 'America/Los_Angeles' });
+
+    test.beforeEach(async ({ page }) => {
+        await page.addInitScript(() => localStorage.removeItem('u9_map_sc_OH'));
+        await stubOhio(page);
+    });
+
+    test('opens focused on the address field, explains what to enter, and offers location and browsing', async ({ page }) => {
+        await openMap(page);
+        const opener = page.getByRole('button', { name: 'Find my district by address or location' });
+        await expect(opener).toHaveAttribute('aria-expanded', 'false');
+        await opener.click();
+
+        const card = page.getByRole('dialog', { name: 'Find your district' });
+        await expect(card).toBeVisible();
+        await expect(opener).toHaveAttribute('aria-expanded', 'true');
+        await expect(page.getByLabel('Street address or ZIP code')).toBeFocused();
+        await expect(card).toContainText('A full street address finds your exact district');
+        await expect(card).toContainText('ZIP code can cover more than one district');
+        await expect(card.getByRole('button', { name: 'Use my location instead' })).toBeVisible();
+        await expect(card.getByRole('button', { name: 'Just browse the map' })).toBeVisible();
+
+        // Browsing needs no location: the card just closes.
+        await card.getByRole('button', { name: 'Just browse the map' }).click();
+        await expect(card).toBeHidden();
+        await expect(opener).toBeFocused();
+    });
+
+    test('Escape closes the card and returns focus; the L shortcut opens it', async ({ page }) => {
+        await openMap(page);
+        await page.locator('#map-container').click({ position: { x: 5, y: 300 } });
+        await page.keyboard.press('l');
+        const card = page.getByRole('dialog', { name: 'Find your district' });
+        await expect(card).toBeVisible();
+        await page.keyboard.press('Escape');
+        await expect(card).toBeHidden();
+        await expect(page.locator('#btn-find-district')).toBeFocused();
+    });
+
+    test('a full address takes the visitor to that district, with the matched address stated', async ({ page }) => {
+        await stubGeocode(page, 200, { ok: true, ...OH3, precision: 'address', matched_address: '1 S HIGH ST, COLUMBUS, OH, 43215' });
+        await openMap(page);
+        await page.locator('#btn-find-district').click();
+        await page.getByLabel('Street address or ZIP code').fill('1 S High St, Columbus, OH 43215');
+        await page.getByRole('button', { name: 'Find', exact: true }).click();
+
+        await expect(page.locator('#map-toast')).toContainText('1 S HIGH ST, COLUMBUS, OH, 43215');
+        await expect(page.locator('#panel-state')).toContainText('Ohio', { timeout: 15000 });
+        await expect(page.locator('#panel-state')).toContainText('District 3', { timeout: 15000 });
+        await expect(page.locator('#find-district-card')).toBeHidden();
+        await expect(page.locator('#panel-candidates .dp-rep')).toContainText('Joyce Beatty');
+    });
+
+    test('a ZIP that spans districts asks the visitor to choose instead of guessing', async ({ page }) => {
+        await stubGeocode(page, 200, {
+            ok: true, ambiguous: true, precision: 'zip',
+            message: 'ZIP code 43215 covers more than one congressional district. Enter your full street address for an exact match, or choose one to explore.',
+            candidates: [OH3, { state: 'OH', district_number: '15', district_code: 'OH-15', district_label: 'Ohio Congressional District 15' }],
+        });
+        await openMap(page);
+        await page.locator('#btn-find-district').click();
+        await page.getByLabel('Street address or ZIP code').fill('43215');
+        await page.keyboard.press('Enter');
+
+        const card = page.locator('#find-district-card');
+        await expect(card.locator('#fd-status')).toContainText('more than one congressional district');
+        await expect(card.getByRole('button', { name: /OH-03/ })).toBeVisible();
+        await expect(card.getByRole('button', { name: /OH-15/ })).toBeVisible();
+        // Nothing was chosen for them.
+        await expect(page.locator('#info-panel')).not.toHaveClass(/open/);
+
+        await card.getByRole('button', { name: /OH-03/ }).click();
+        await expect(page.locator('#panel-state')).toContainText('District 3', { timeout: 15000 });
+    });
+
+    test('an address that cannot be matched says how to fix it and keeps what was typed', async ({ page }) => {
+        await stubGeocode(page, 404, { ok: false, error: 'We could not match that address to a district. Include the street, city, state and ZIP, or try your location instead.' });
+        await openMap(page);
+        await page.locator('#btn-find-district').click();
+        await page.getByLabel('Street address or ZIP code').fill('nowhere');
+        await page.keyboard.press('Enter');
+
+        await expect(page.locator('#fd-status')).toContainText('Include the street, city, state and ZIP');
+        await expect(page.getByLabel('Street address or ZIP code')).toHaveValue('nowhere');
+        await expect(page.locator('#find-district-card')).toBeVisible();
+    });
+
+    test('an empty submit is a message, not a request; the address never appears in the URL', async ({ page }) => {
+        let calls = 0;
+        await page.route('**/api/v1/map/geocode*', (route) => { calls += 1; return route.abort(); });
+        await openMap(page);
+        await page.locator('#btn-find-district').click();
+        await page.getByRole('button', { name: 'Find', exact: true }).click();
+        await expect(page.locator('#fd-status')).toContainText('Enter a street address or a 5-digit ZIP code');
+        expect(calls).toBe(0);
+        expect(page.url()).not.toContain('address');
+    });
+});
+
+test.describe('find your district and the bottom sheet (mobile)', () => {
+    test.use({ viewport: { width: 390, height: 780 }, hasTouch: true, isMobile: true, timezoneId: 'America/Los_Angeles' });
+
+    test.beforeEach(async ({ page }) => {
+        await page.addInitScript(() => localStorage.removeItem('u9_map_sc_OH'));
+        await stubOhio(page);
+        await stubGeocode(page, 200, { ok: true, ...OH3, precision: 'address', matched_address: '1 S HIGH ST, COLUMBUS, OH, 43215' });
+    });
+
+    test('the Find button is a 44px control and the card fits the screen', async ({ page }) => {
+        await openMap(page);
+        const opener = page.getByRole('button', { name: 'Find my district by address or location' });
+        await expect(opener).toBeVisible();
+        const box = await opener.boundingBox();
+        expect(box!.width).toBeGreaterThanOrEqual(44);
+        expect(box!.height).toBeGreaterThanOrEqual(44);
+
+        await opener.click();
+        const card = page.locator('#find-district-card');
+        await expect(card).toBeVisible();
+        const c = await card.boundingBox();
+        expect(c!.x).toBeGreaterThanOrEqual(0);
+        expect(c!.x + c!.width).toBeLessThanOrEqual(390);
+        expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
+    });
+
+    test('the same snapshot appears in a bottom sheet that can be minimized, peeked and expanded', async ({ page }) => {
+        await openMap(page);
+        await page.locator('#btn-find-district').click();
+        await page.getByLabel('Street address or ZIP code').fill('1 S High St, Columbus, OH');
+        await page.getByRole('button', { name: 'Find', exact: true }).click();
+        await expect(page.locator('#panel-state')).toContainText('District 3', { timeout: 15000 });
+
+        const panel = page.locator('#info-panel');
+        const handle = page.getByRole('button', { name: /Resize panel/ });
+        await expect(panel).toHaveClass(/open/);
+        await expect(page.locator('#panel-candidates .snap-title')).toHaveText(['Your representative', 'Candidates & races', 'Election dates & polling', 'Ballot measures & profiles']);
+        // Bottom sheet: pinned to the bottom edge, about 40% of the screen at peek.
+        const peek = await panel.boundingBox();
+        expect(peek!.y + peek!.height).toBeGreaterThan(770);
+        expect(peek!.height).toBeLessThan(400);
+
+        await handle.focus();
+        await page.keyboard.press('ArrowUp');
+        await expect(panel).toHaveClass(/expanded/);
+        // The sheet animates between heights, so wait for it to settle.
+        await expect.poll(async () => (await panel.boundingBox())!.height).toBeGreaterThan(peek!.height + 100);
+
+        await page.keyboard.press('ArrowDown');
+        await page.keyboard.press('ArrowDown');
+        await expect(panel).toHaveClass(/collapsed/);
+        await expect(handle).toHaveAttribute('aria-expanded', 'false');
+        await expect.poll(async () => (await panel.boundingBox())!.height).toBeLessThan(140);
+        // Minimized still names the district, and the map is visible above it.
+        await expect(page.locator('#panel-state')).toBeVisible();
+
+        await page.keyboard.press('Enter');
+        await expect(panel).not.toHaveClass(/collapsed/);
+        await expect(handle).toHaveAttribute('aria-expanded', 'true');
     });
 });

@@ -6,7 +6,7 @@ import { setOverviewColorMode } from '../api/governor-parties.js';
 import { colorMode, ACTIVE_LAYERS, showSmallCities, setShowSmallCities } from '../state/map-state.js';
 import { toggleDepthView } from './depth-toggle.js';
 import { stepZoom } from './keyboard.js';
-import { findMyDistrict } from './location-button.js';
+import { openFindDistrict } from './address-entry.js';
 import { enterOverviewMode } from '../navigation/mode-transitions.js';
 import { openInfoPanel } from './info-panel.js';
 import { toggleKbHelp } from './keyboard.js';
@@ -111,6 +111,6 @@ export function initControlsMenu() {
 
     document.getElementById('cm-btn-find-district')?.addEventListener('click', () => {
         openControlsMenu(false);
-        findMyDistrict();
+        openFindDistrict();
     });
 }

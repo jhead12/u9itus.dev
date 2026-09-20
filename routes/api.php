@@ -197,7 +197,10 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             ->name('map.district-config');
 
         // Reverse geocode lat/lng → congressional district for the 3D map.
+        // Address/ZIP lookups fan out to the Census and Google Civic APIs, so
+        // this one carries a tighter limit than the rest of the group.
         Route::get('/map/geocode', MapGeocodeController::class)
+            ->middleware('throttle:30,1')
             ->name('map.geocode');
 
         // Local election/civic-administration news (polling places, ballot

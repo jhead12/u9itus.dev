@@ -69,6 +69,7 @@ import { initKeyboard, toggleKbHelp, stepZoom } from './ui/keyboard.js';
 import { initInfoPanel, openInfoPanel } from './ui/info-panel.js';
 import { initMobileMenu } from './ui/mobile-menu.js';
 import { initLocationButton } from './ui/location-button.js';
+import { initAddressEntry } from './ui/address-entry.js';
 import { mountSpecularButton } from '../components/specular-button.js';
 
 /* ── Navigation ── */
@@ -115,6 +116,7 @@ initCandidateCardClick();
 initRunningCandidatesFilters();
 initBusinessesPanel();
 initLocationButton();
+initAddressEntry();
 
 const earnCta = document.getElementById('btn-signin-cta');
 if (earnCta) {

@@ -98,7 +98,8 @@ export function renderCandidate(c, color) {
             <div class="candidate-name">${safeName}</div>
             <div class="candidate-meta">${py}${st}${vf}</div>
             ${chips ? `<div class="candidate-chips">${chips}</div>` : ''}
-        </div></div>`;
+        </div>
+        <span class="candidate-open" aria-hidden="true">Profile ›</span></div>`;
 }
 
 /**
@@ -228,8 +229,11 @@ export function renderElectionDatesBanner(electionDates, color) {
  * .office-section collapse pattern above (self-contained inline onclick,
  * no delegated listener needed).
  */
-export function renderBallotMeasuresSection(ballotMeasures, color) {
+export function renderBallotMeasuresSection(ballotMeasures, color, { bare = false } = {}) {
     if (!ballotMeasures?.length) return '';
+    // The full-details page lives behind voter sign-in, so guests get the
+    // official source link only — never a link that bounces them to a login.
+    const canOpenDetail = window.U9?.session?.isVoter?.() === true;
     let cardsHtml = '';
     ballotMeasures.forEach((m, i) => {
         const label = [m.measure_number, m.title].filter(Boolean).join(' — ');
@@ -240,7 +244,15 @@ export function renderBallotMeasuresSection(ballotMeasures, color) {
             ? `<p style="color:#94a3b8;font-size:11px;line-height:1.5;margin:4px 0 0;">${escapeHtml(m.summary)}</p>`
             : '';
 
-        const hasDetail = Boolean(m.yes_meaning || m.no_meaning || m.status || m.source_url || m.detail_url);
+        const detailUrl = canOpenDetail ? m.detail_url : null;
+        const levelTag = m.level && m.level !== 'state'
+            ? `<span style="display:inline-block;margin-bottom:3px;padding:1px 8px;border-radius:999px;background:rgba(148,163,184,.14);border:1px solid rgba(148,163,184,.35);color:#cbd5e1;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;">${escapeHtml(m.level_label || 'Local')}${m.place ? ` · ${escapeHtml(m.place)}` : ''}</span>`
+            : '';
+        const updatedLine = m.updated_at
+            ? `<p style="color:#a7b4c7;font-size:10px;margin:6px 0 0;">Listing updated ${escapeHtml(formatCalendarDate(m.updated_at))}</p>`
+            : '';
+
+        const hasDetail = Boolean(m.yes_meaning || m.no_meaning || m.status || m.source_url || detailUrl);
         const statusLine = m.status
             ? `<p style="color:#a7b4c7;font-size:10px;text-transform:uppercase;letter-spacing:.05em;margin:0 0 6px;">Status: ${escapeHtml(m.status)}</p>`
             : '';
@@ -251,8 +263,8 @@ export function renderBallotMeasuresSection(ballotMeasures, color) {
         const sourceLine = m.source_url
             ? `<a href="${escapeHtml(m.source_url)}" target="_blank" rel="noopener" style="display:inline-block;margin-top:8px;margin-right:14px;color:${color};font-size:10px;font-weight:600;text-decoration:none;" onclick="event.stopPropagation()">Read full text ↗</a>`
             : '';
-        const detailLink = m.detail_url
-            ? `<a href="${escapeHtml(m.detail_url)}" target="_blank" rel="noopener" style="display:inline-block;margin-top:8px;color:#e2e8f0;font-size:10px;font-weight:600;text-decoration:none;" onclick="event.stopPropagation()">View full details ↗</a>`
+        const detailLink = detailUrl
+            ? `<a href="${escapeHtml(detailUrl)}" target="_blank" rel="noopener" style="display:inline-block;margin-top:8px;color:#e2e8f0;font-size:10px;font-weight:600;text-decoration:none;" onclick="event.stopPropagation()">View full details ↗</a>`
             : '';
 
         cardsHtml += `<div class="bm-card${hasDetail ? '' : ' bm-no-detail'} collapsed" id="bm-${i}">
@@ -261,6 +273,7 @@ export function renderBallotMeasuresSection(ballotMeasures, color) {
                  role="button" tabindex="0" aria-expanded="false"
                  onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}"` : ''}>
                 <div style="flex:1;min-width:0;">
+                    ${levelTag}
                     <p style="color:#e2e8f0;font-size:12px;font-weight:600;margin:0;">${escapeHtml(label || 'Ballot Measure')}</p>
                     ${dateLine}
                     ${summaryLine}
@@ -272,9 +285,13 @@ export function renderBallotMeasuresSection(ballotMeasures, color) {
                 ${yesNoHtml}
                 ${sourceLine}
                 ${detailLink}
+                ${updatedLine}
             </div>` : ''}
         </div>`;
     });
+
+    // Inside another collapsible (the district snapshot) the cards stand alone.
+    if (bare) return cardsHtml;
 
     // Wraps in the same .office-section/.office-title/.office-body markup
     // renderOfficeGroup() uses, so the whole "Ballot Measures" block gets
@@ -382,15 +399,17 @@ const EXTERNAL_POLLING_LOCATOR_URL = 'https://www.vote.org/polling-place-locator
  * Renders the "Find Your Polling Place" section: a single link out to
  * vote.org's locator.
  */
-export function renderPollingLocationsLink(color) {
-    return `<div style="border-top:1px solid ${color}20;margin:16px 0 14px;display:flex;align-items:center;gap:8px;">
+export function renderPollingLocationsLink(color, { bare = false } = {}) {
+    const heading = bare ? '' : `<div style="border-top:1px solid ${color}20;margin:16px 0 14px;display:flex;align-items:center;gap:8px;">
         <span style="color:${color};font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;white-space:nowrap;">🗳️ Find Your Polling Place</span>
         <div style="flex:1;border-top:1px solid ${color}20;"></div>
-    </div>
+    </div>`;
+    return `${heading}
     <a href="${EXTERNAL_POLLING_LOCATOR_URL}" target="_blank" rel="noopener noreferrer"
-       style="display:inline-flex;align-items:center;gap:6px;background:${color}18;border:1px solid ${color}44;border-radius:8px;padding:8px 12px;color:${color};font-size:12px;font-weight:600;text-decoration:none;">
+       style="display:inline-flex;align-items:center;gap:6px;min-height:44px;background:${color}18;border:1px solid ${color}44;border-radius:8px;padding:8px 12px;color:${color};font-size:12px;font-weight:600;text-decoration:none;">
         Look up your polling place on vote.org →
-    </a>`;
+    </a>
+    <p class="dp-meta">vote.org is an independent nonprofit tool, not a government site. Your county election office has the official list.</p>`;
 }
 
 /**

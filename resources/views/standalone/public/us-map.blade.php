@@ -119,8 +119,9 @@
             <kbd>/</kbd>
         </button>
         <button type="button" class="top-btn top-btn-primary" id="btn-find-district"
-            title="Find my district using my location (press L)"
-            aria-label="Find my district using my location">
+            title="Find my district by address, ZIP code or location (press L)"
+            aria-label="Find my district by address or location"
+            aria-haspopup="dialog" aria-expanded="false" aria-controls="find-district-card">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <circle cx="12" cy="12" r="3"/>
                 <path d="M12 2L12 8M12 16L12 22M2 12L8 12M16 12L22 12"/>
@@ -269,7 +270,7 @@
                 <hr class="cm-divider">
                 <div class="cm-section">Location</div>
                 <button class="cm-item" id="cm-btn-find-district" role="menuitem">
-                    <span>Find My District</span>
+                    <span>Find My District (address or location)</span>
                     <span class="cm-kbd">L</span>
                 </button>
                 <hr class="cm-divider">
@@ -471,19 +472,43 @@
     <div id="legend-items"></div>
 </div>
 
+{{-- "Find your district": the map's starting point. Opened by #btn-find-district,
+     the Controls menu item and the L key (ui/address-entry.js). --}}
+<div id="find-district-card" role="dialog" aria-labelledby="fd-title" hidden>
+    <div class="fd-head">
+        <h2 id="fd-title">Find your district</h2>
+        <button type="button" id="fd-close" aria-label="Close find your district">✕</button>
+    </div>
+    <form id="fd-form" novalidate>
+        <label for="fd-input">Street address or ZIP code</label>
+        <div class="fd-row">
+            <input id="fd-input" type="text" name="address" maxlength="200"
+                   autocomplete="street-address" enterkeyhint="search"
+                   placeholder="e.g. 1 S High St, Columbus, OH 43215"
+                   aria-describedby="fd-help fd-status">
+            <button type="submit" id="fd-submit" class="top-btn top-btn-primary">Find</button>
+        </div>
+    </form>
+    <p id="fd-help" class="fd-help">A full street address finds your exact district. A ZIP code can cover more than one district, so we may ask you to choose or add your street. Your address is sent to the U.S. Census Bureau’s geocoder (and Google’s Civic Information service if needed) to look up your district; it isn’t attached to an account.</p>
+    <div id="fd-status" role="status" aria-live="polite"></div>
+    <ul id="fd-choices" hidden></ul>
+    <div class="fd-actions">
+        <button type="button" id="fd-locate" class="fd-secondary">Use my location instead</button>
+        <button type="button" id="fd-browse" class="fd-link">Just browse the map</button>
+    </div>
+</div>
+
 <div id="info-panel">
-    <div class="panel-drag-handle" role="button" aria-label="Expand or collapse panel" tabindex="0"
-         onclick="(function(h){
-             var p=h.closest('#info-panel');
-             if(p){ p.classList.toggle('expanded'); }
-         })(this)"
-         onkeydown="if(event.key==='Enter'||event.key===' ')this.click()"></div>
+    {{-- Mobile bottom-sheet handle. Tap or Enter/Space toggles full height; drag or
+         ArrowUp/ArrowDown moves between minimized, peek and full (ui/info-panel.js). --}}
+    <div class="panel-drag-handle" id="panel-drag-handle" role="button" tabindex="0"
+         aria-label="Resize panel: drag or press up and down arrows" aria-controls="info-panel" aria-expanded="true"></div>
     <div id="panel-header">
         <div>
             <h2 id="panel-state" style="color:#e2e8f0; font-size:16px; font-weight:700; margin:0 0 4px; line-height:1.25;"></h2>
             <span id="panel-badge" style="display:inline-block; padding:2px 10px; border-radius:999px; font-size:10px; font-weight:600;"></span>
         </div>
-        <button id="panel-close" title="Close panel">✕</button>
+        <button id="panel-close" title="Close panel" aria-label="Close panel">✕</button>
     </div>
     {{-- Boundary-loading status + Retry (filled by panel-districts.js). Outside the
          districts list so it stays visible when that list is folded away. --}}
@@ -525,7 +550,7 @@
 {{-- One lightweight first-visit hint (replaces the auto-launching tour and the
      "How to Explore" card). Shown once; the full tour lives under Help. --}}
 <div id="map-first-hint" role="status" aria-live="polite">
-    <span>Select a state to explore its districts.</span>
+    <span>Select a state to explore its districts, or <button type="button" class="fd-hint-link" id="hint-find-district">enter your address</button>.</span>
     <button type="button" data-hint-close aria-label="Dismiss hint">✕</button>
 </div>
 <script>

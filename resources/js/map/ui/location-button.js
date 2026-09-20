@@ -3,14 +3,16 @@
  *
  * Uses the browser Geolocation API, reverse-geocodes the coordinates
  * through the backend Census API, then flies the map to the user's
- * congressional district and opens the representative panel.
+ * congressional district and opens the representative panel. It is the
+ * secondary path in the "Find your district" card (address-entry.js), which
+ * also reuses goToDistrict() below for typed addresses and ZIP codes.
  */
 import { trackEvent } from '../api/interaction.js';
 
 const toastEl = document.getElementById('map-toast');
 let isLocating = false;
 
-function showToast(message, type = 'info') {
+export function showToast(message, type = 'info') {
     if (!toastEl) return;
     toastEl.textContent = message;
     toastEl.className = 'map-toast visible ' + type;
@@ -25,8 +27,8 @@ function clearToast() {
 function friendlyGeolocationError(code) {
     switch (code) {
         case 1: return 'Location access was denied. Check your browser permissions and try again.';
-        case 2: return 'Your location could not be determined. Try a search instead.';
-        case 3: return 'Location lookup timed out. Try a search instead.';
+        case 2: return 'Your location could not be determined. Try entering your address instead.';
+        case 3: return 'Location lookup timed out. Try entering your address instead.';
         default: return 'Could not find your district. Try searching by state or district.';
     }
 }
@@ -42,16 +44,40 @@ async function resolveDistrict(lat, lng) {
     return res.json();
 }
 
+/**
+ * Fly the map to a resolved district ({ state, district_number }) and open its
+ * panel. If __mapGoTo isn't available yet, or the 3D state meshes haven't
+ * finished loading (it returns false), fall back to a full reload with
+ * deep-link params so bootDeepLink can retry once the map is ready —
+ * previously this was a silent no-op.
+ */
+export async function goToDistrict(data) {
+    const deepLink = () => {
+        const params = new URLSearchParams({
+            state: data.state,
+            district: data.district_number,
+        });
+        location.assign(`${location.pathname}?${params.toString()}`);
+    };
+
+    if (typeof window.__mapGoTo === 'function') {
+        const handled = await window.__mapGoTo(data.state, data.district_number, null);
+        if (!handled) deepLink();
+    } else {
+        deepLink();
+    }
+}
+
 export async function findMyDistrict() {
     if (isLocating) return;
 
     if (!navigator.geolocation) {
-        showToast('Your browser does not support geolocation. Use the search bar instead.', 'error');
+        showToast('Your browser does not support geolocation. Enter your address instead.', 'error');
         return;
     }
 
     if (window.isSecureContext === false) {
-        showToast('Location requires a secure (HTTPS) connection. Use the search bar instead.', 'error');
+        showToast('Location requires a secure (HTTPS) connection. Enter your address instead.', 'error');
         return;
     }
 
@@ -81,24 +107,7 @@ export async function findMyDistrict() {
             district: data.district_code,
         });
 
-        // Fly the map to the district. If __mapGoTo isn't available yet, or
-        // the 3D state meshes haven't finished loading (it returns false),
-        // fall back to a full reload with deep-link params so bootDeepLink can
-        // retry once the map is ready — previously this was a silent no-op.
-        const deepLink = () => {
-            const params = new URLSearchParams({
-                state: data.state,
-                district: data.district_number,
-            });
-            location.assign(`${location.pathname}?${params.toString()}`);
-        };
-
-        if (typeof window.__mapGoTo === 'function') {
-            const handled = await window.__mapGoTo(data.state, data.district_number, null);
-            if (!handled) deepLink();
-        } else {
-            deepLink();
-        }
+        await goToDistrict(data);
     } catch (err) {
         const message = err?.code
             ? friendlyGeolocationError(err.code)
@@ -111,14 +120,8 @@ export async function findMyDistrict() {
 }
 
 /**
- * Wire up the top-bar button and any other triggers.
+ * The top-bar "Find my district" button, the Controls menu item and the L key
+ * all open the "Find your district" card now (address-entry.js), so there is
+ * nothing to wire here; kept so app.js's boot sequence stays unchanged.
  */
-export function initLocationButton() {
-    document.getElementById('btn-find-district')?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        findMyDistrict();
-    });
-
-    // cm-btn-find-district is wired in controls-menu.js, whose handler also
-    // closes the dropdown. Avoid a duplicate listener here.
-}
+export function initLocationButton() {}

@@ -54,4 +54,18 @@ class MapStateCandidatesBallotMeasuresTest extends TestCase
         $response->assertOk();
         $this->assertSame([], $response->json('ballot_measures'));
     }
+
+    public function test_measures_say_which_level_they_are_and_statewide_ones_come_first(): void
+    {
+        BallotMeasure::create(['state' => 'CA', 'level' => 'city', 'locality' => 'Oakland', 'title' => 'Library levy', 'election_date' => now()->addMonth()->toDateString()]);
+        BallotMeasure::create(['state' => 'CA', 'level' => 'state', 'title' => 'Prop A', 'election_date' => now()->addMonths(3)->toDateString()]);
+
+        $rows = collect($this->getJson('/api/v1/map/state-candidates?state=CA')->assertOk()->json('ballot_measures'));
+
+        // Statewide sorts ahead of local even though the local one is sooner.
+        $this->assertSame(['Prop A', 'Library levy'], $rows->pluck('title')->all());
+        $this->assertSame(['level' => 'state', 'level_label' => 'Statewide', 'place' => null], \Illuminate\Support\Arr::only($rows[0], ['level', 'level_label', 'place']));
+        $this->assertSame(['level' => 'city', 'level_label' => 'City / town', 'place' => 'Oakland'], \Illuminate\Support\Arr::only($rows[1], ['level', 'level_label', 'place']));
+        $this->assertArrayHasKey('updated_at', $rows[1]);
+    }
 }

@@ -167,6 +167,54 @@ class GoogleCivicService
         });
     }
 
+    /**
+     * Every congressional district a ZIP code touches. ZIPs routinely span
+     * several districts, so unlike resolveDistrictByAddress() this never picks
+     * one on the caller's behalf — the caller decides what to do when more
+     * than one comes back.
+     *
+     * @return array<int, array{state:string, district_number:string, district_code:?string, district_label:?string}>
+     */
+    public function districtsForZip(string $zip): array
+    {
+        if (! $this->isConfigured()) {
+            return [];
+        }
+
+        $cacheKey = 'google_civic.zip_districts.'.md5($zip);
+        $cached = Cache::get($cacheKey);
+        if (is_array($cached)) {
+            return $cached;
+        }
+
+        $response = $this->requestDivisionsByAddress($zip, 'zip_districts');
+        if ($response === null || ! $response->successful()) {
+            return [];
+        }
+
+        $districts = [];
+        foreach (array_keys((array) ($response->json('divisions') ?? [])) as $divisionKey) {
+            $division = $this->parseDivision($divisionKey);
+            if (empty($division['state']) || $division['district_number'] === null) {
+                continue;
+            }
+            $districts[$division['district_code']] = [
+                'state' => $division['state'],
+                'district_number' => $division['district_number'],
+                'district_code' => $division['district_code'],
+                'district_label' => $this->buildDistrictLabel($division['state'], $division['district_number']),
+            ];
+        }
+        $districts = array_values($districts);
+
+        // Only cache real answers so a transient failure isn't remembered for a week.
+        if ($districts !== []) {
+            Cache::put($cacheKey, $districts, $this->cacheDuration);
+        }
+
+        return $districts;
+    }
+
     protected function requestDivisionsByAddress(string $address, string $context): ?Response
     {
         try {

@@ -431,7 +431,7 @@ kbd {
 #panel-close {
     background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.2);
     color: #94a3b8; font-size: 14px; cursor: pointer;
-    border-radius: 6px; padding: 3px 8px; line-height: 1;
+    border-radius: 6px; padding: 3px 8px; line-height: 1; min-width: 36px; min-height: 36px;
     transition: color 0.12s, background 0.12s;
 }
 #panel-close:hover { color: #94a3b8; background: rgba(99,102,241,0.16); }
@@ -1194,7 +1194,11 @@ body:has(#pol-drawer.open) #hint { display: none; }
     }
     #info-panel.open { transform: translateY(0); }
     #info-panel.expanded { height: 82vh; }  /* full-height after user expands */
-    .panel-drag-handle { display: block; cursor: ns-resize; }
+    #info-panel.collapsed { height: 108px; overflow: hidden; }  /* minimized: header only, map stays visible */
+    #info-panel.collapsed > :not(.panel-drag-handle):not(#panel-header) { display: none; }
+    .panel-drag-handle { display: block; cursor: ns-resize; touch-action: none; width: 100%; height: 28px; margin: 0; background: none; position: relative; }
+    .panel-drag-handle:hover { background: none; }
+    .panel-drag-handle::before { content: ''; position: absolute; left: 50%; top: 10px; width: 40px; height: 4px; margin-left: -20px; border-radius: 2px; background: rgba(148,163,184,0.6); }
     #panel-header { padding-top: 2px; }
 
     /* Candidate popup → bottom sheet */
@@ -1242,7 +1246,10 @@ body:has(#pol-drawer.open) #hint { display: none; }
    PHONE (≤ 480 px)
 ══════════════════════════════════════════ */
 @media (max-width: 520px) {
-    #btn-find-district { display: none; }
+    /* Icon-only on phones — the label lives in aria-label. */
+    #btn-find-district { width: 44px; min-width: 44px; padding: 0; justify-content: center; }
+    #btn-find-district span { display: none; }
+    #find-district-card { top: 56px; }
 }
 @media (max-width: 480px) {
     #info-panel { max-height: 82vh; height: 38vh; }
@@ -1825,6 +1832,86 @@ body:has(#pol-drawer.open) #map-first-hint { display: none; }
 .dp-meta { margin: 6px 0 0; font-size: 11px; color: #a7b4c7; line-height: 1.5; }
 .dp-empty { margin: 4px 0 0; font-size: 12px; color: #a7b4c7; }
 
+/* ── Find your district card (address / ZIP first, location second) ── */
+#find-district-card {
+    position: fixed; top: 62px; left: 50%; transform: translateX(-50%); z-index: 120;
+    width: min(440px, calc(100vw - 24px)); max-height: calc(100dvh - 80px); overflow-y: auto;
+    padding: 14px 16px 16px; background: #0a0e23;
+    border: 1px solid rgba(165,180,252,0.5); border-radius: 14px; color: #e2e8f0;
+    box-shadow: 0 16px 48px rgba(0,0,0,0.55);
+}
+#find-district-card[hidden] { display: none; }
+.fd-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.fd-head h2 { margin: 0; font-size: 16px; font-weight: 700; }
+#fd-close {
+    min-width: 36px; min-height: 36px; background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.25);
+    border-radius: 6px; color: #cbd5e1; font-size: 14px; cursor: pointer;
+}
+#fd-form label { display: block; margin-bottom: 6px; font-size: 13px; font-weight: 600; color: #e2e8f0; }
+.fd-row { display: flex; gap: 8px; }
+#fd-input {
+    flex: 1 1 auto; min-width: 0; height: 44px; padding: 0 12px; font: inherit; font-size: 16px;
+    color: #f1f5f9; background: rgba(15,23,42,0.95); border: 1px solid rgba(148,163,184,0.6); border-radius: 8px;
+}
+#fd-input::placeholder { color: #94a3b8; }
+#fd-input:focus-visible { outline: 2px solid #a5b4fc; outline-offset: 1px; border-color: #a5b4fc; }
+#fd-submit { height: 44px; padding: 0 18px; }
+#fd-submit:disabled { opacity: 0.6; cursor: progress; }
+.fd-help { margin: 10px 0 0; font-size: 12px; line-height: 1.5; color: #b6c2d4; }
+#fd-status { margin-top: 10px; font-size: 13px; line-height: 1.45; }
+#fd-status:empty { display: none; }
+#fd-status.fd-info { color: #cbd5e1; }
+#fd-status.fd-error { color: #fecaca; padding: 8px 10px; background: rgba(127,29,29,0.35); border: 1px solid rgba(239,68,68,0.45); border-radius: 8px; }
+#fd-choices { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
+#fd-choices[hidden] { display: none; }
+.fd-choice {
+    width: 100%; min-height: 44px; padding: 8px 12px; text-align: left; font: inherit; font-size: 13px; font-weight: 600;
+    color: #e0e7ff; background: rgba(99,102,241,0.18); border: 1px solid rgba(129,140,248,0.55); border-radius: 8px; cursor: pointer;
+}
+.fd-choice:hover { background: rgba(99,102,241,0.32); }
+.fd-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-top: 14px; padding-top: 12px; border-top: 1px solid rgba(99,102,241,0.2); }
+.fd-secondary {
+    min-height: 44px; padding: 0 14px; font: inherit; font-size: 13px; font-weight: 600; color: #e0e7ff;
+    background: transparent; border: 1px solid rgba(165,180,252,0.55); border-radius: 8px; cursor: pointer;
+}
+.fd-secondary:hover { background: rgba(99,102,241,0.18); }
+.fd-link { min-height: 44px; padding: 0 4px; font: inherit; font-size: 13px; color: #a5b4fc; background: none; border: 0; text-decoration: underline; cursor: pointer; }
+#map-first-hint { border-radius: 18px; }
+#map-first-hint button.fd-hint-link {
+    width: auto; height: auto; min-height: 24px; padding: 0; border: 0; border-radius: 0; background: none;
+    color: #a5b4fc; font-size: inherit; text-decoration: underline; display: inline;
+}
+
+/* ── Civic snapshot: exclusive accordion in the district panel ── */
+/* Ballot measures now live inside the snapshot; the state-level copy is hidden here. */
+#info-panel[data-view="district"] > #panel-ballot-measures { display: none; }
+.snap { margin: 0 0 14px; border: 1px solid rgba(99,102,241,0.22); border-radius: 12px; overflow: hidden; background: rgba(15,20,45,0.45); }
+.snap-section + .snap-section { border-top: 1px solid rgba(99,102,241,0.18); }
+.snap-section > summary {
+    display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 10px 12px;
+    cursor: pointer; list-style: none; user-select: none;
+}
+.snap-section > summary::-webkit-details-marker { display: none; }
+.snap-section > summary::after {
+    content: '▾'; margin-left: auto; flex-shrink: 0; color: #a7b4c7; font-size: 13px;
+    transform: rotate(-90deg); transition: transform 0.15s ease;
+}
+.snap-section[open] > summary::after { transform: rotate(0); }
+.snap-section > summary:hover { background: rgba(99,102,241,0.08); }
+.snap-section > summary:focus-visible { outline: 2px solid #a5b4fc; outline-offset: -2px; border-radius: 0; }
+.snap-heading { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.snap-title { font-size: 14px; font-weight: 700; color: #f1f5f9; }
+.snap-preview { font-size: 12px; color: #a7b4c7; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.snap-section[open] .snap-preview { display: none; }
+.snap-body { padding: 4px 12px 14px; }
+.snap-kicker { margin: 0 0 8px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #a7b4c7; }
+.snap-subhead { margin: 16px 0 6px; font-size: 12px; font-weight: 700; color: #e2e8f0; }
+.snap-links { list-style: none; margin: 6px 0 0; padding: 0; }
+.snap-links a { display: block; padding: 10px 0; min-height: 44px; color: #a5b4fc; font-size: 13px; font-weight: 600; text-decoration: none; }
+.snap-links a:hover { text-decoration: underline; }
+.snap-link-role { color: #a7b4c7; font-weight: 400; }
+.candidate-open { align-self: center; flex-shrink: 0; margin-left: auto; font-size: 11px; font-weight: 600; color: #a5b4fc; white-space: nowrap; }
+
 /* "Other races" sits below the switcher in district view; keep it visually quiet. */
 #info-panel[data-view="district"] #panel-running-candidates { margin-top: 4px; }
 
@@ -1975,3 +2062,19 @@ details.pd-section > summary:focus-visible { outline: 2px solid #a5b4fc; outline
 #saved-comparison-close { border: 0; background: transparent; color: #cbd5e1; font-size: 28px; cursor: pointer; padding: 4px 12px; }
 #saved-comparison-seat { display: block; width: 100%; margin: 8px 0 24px; padding: 10px; background: #17243b; color: #f1f5f9; border: 1px solid #475569; border-radius: 8px; }
 #saved-comparison-dialog :focus-visible { outline: 2px solid #a5b4fc; outline-offset: 3px; }
+
+@media (pointer: coarse) {
+    #panel-close { min-width: 44px; min-height: 44px; }
+}
+
+/* Users who ask for less motion get no sliding sheet or spinning chevrons. */
+@media (prefers-reduced-motion: reduce) {
+    #info-panel, .snap-section > summary::after, .candidate-card, .panel-drag-handle { transition: none !important; }
+    .panel-spinner svg { animation: none !important; }
+}
+
+/* On phones the toast would land on the bottom sheet's content; show it under the top bars instead. */
+@media (max-width: 768px) {
+    .map-toast { bottom: auto; top: 118px; transform: translateX(-50%) translateY(-12px); max-width: calc(100vw - 24px); text-align: center; }
+    .map-toast.visible { transform: translateX(-50%) translateY(0); }
+}
