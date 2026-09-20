@@ -410,8 +410,9 @@ class SyncCensusDemographics extends Command
             return $legacy;
         }
 
-        $placeCollectionUcgid = 'ucgid:160|state:' . str_pad($fips, 2, '0', STR_PAD_LEFT);
-        $placePrefixUcgid = 'ucgid:' . self::PLACE_UCGID_PREFIX . str_pad($fips, 2, '0', STR_PAD_LEFT) . '*';
+        $normalizedFips = str_pad($fips, 2, '0', STR_PAD_LEFT);
+        $placeCollectionUcgid = 'ucgid:160|state:' . $normalizedFips;
+        $placePrefixUcgid = 'ucgid:' . self::PLACE_UCGID_PREFIX . $normalizedFips . '*';
 
         $this->warn("  Legacy place geography failed for {$abbr}; retrying with place-collection UCGID geography.");
 
