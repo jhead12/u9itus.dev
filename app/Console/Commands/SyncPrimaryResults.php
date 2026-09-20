@@ -250,8 +250,10 @@ class SyncPrimaryResults extends Command
     {
         $payload = json_decode($rec->payload ?? '{}', true) ?: [];
 
-        // Skip records where primary_result is already set, unless --force
-        if (isset($payload['primary_result']) && $payload['primary_result'] !== null && !$force) {
+        // Skip records already settled (advanced/eliminated), unless --force. Candidate discovery
+        // stamps new rows "running", which is a placeholder, not a result — skipping on it meant a
+        // plain run never looked at any discovery candidate, so losers and withdrawals stayed on the map.
+        if (in_array($payload['primary_result'] ?? null, ['advanced_to_general', 'eliminated'], true) && !$force) {
             $stats['skipped']++;
             return;
         }

@@ -296,3 +296,41 @@ test('a page that merely says a candidate is running does not stamp them as adva
 
     expect($record->fresh()->payload['primary_result'] ?? null)->toBeNull();
 });
+
+test('a discovery record stamped "running" is still checked without --force', function () {
+    Http::fake([
+        'en.wikipedia.org/w/api.php*' => Http::response(['parse' => ['wikitext' => "====Withdrawn====\n* [[Eric Swalwell]]\n"]]),
+        'ballotpedia.org/*' => Http::response('', 404),
+        'en.wikipedia.org/*' => Http::response('', 404),
+    ]);
+
+    $record = ElectionCandidateRecord::factory()->create([
+        'full_name' => 'Eric Swalwell', 'governance_level' => 'State', 'political_office' => 'Governor',
+        'state' => 'CA', 'election_date' => '2026-11-03', 'payload' => ['primary_result' => 'running'],
+    ]);
+
+    Artisan::call('politicians:sync-primary-results', ['--state' => 'CA']);
+
+    expect($record->fresh()->payload['primary_result'])->toBe('eliminated')
+        ->and($record->fresh()->payload['withdrawn'])->toBeTrue();
+});
+
+test('a Wikipedia bullet with no wikilink is still read as a candidate name', function () {
+    Http::fake([
+        'en.wikipedia.org/w/api.php*' => Http::response(['parse' => ['wikitext' => "====Withdrawn====\n* Tom Woodard, retired CEO<ref name=\"x\">cite</ref>\n* Sophia Brink, legislative aide to [[San Mateo County]] supervisor\n"]]),
+        'ballotpedia.org/*' => Http::response('', 404),
+        'en.wikipedia.org/*' => Http::response('', 404),
+    ]);
+
+    $make = fn (string $name) => ElectionCandidateRecord::factory()->create([
+        'full_name' => $name, 'governance_level' => 'State', 'political_office' => 'Governor',
+        'state' => 'CA', 'election_date' => '2026-11-03', 'payload' => ['primary_result' => 'running'],
+    ]);
+    $woodard = $make('Tom Woodard');
+    $brink = $make('Sophia Brink');
+
+    Artisan::call('politicians:sync-primary-results', ['--state' => 'CA']);
+
+    expect($woodard->fresh()->payload['primary_result'])->toBe('eliminated')
+        ->and($brink->fresh()->payload['primary_result'])->toBe('eliminated');
+});

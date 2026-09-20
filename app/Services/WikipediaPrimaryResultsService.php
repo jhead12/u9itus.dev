@@ -298,31 +298,34 @@ class WikipediaPrimaryResultsService
     }
 
     /**
-     * The candidate on each bullet is its first wikilink — later links on the
-     * line are the offices and places that describe them.
+     * The candidate is the text before the first comma on each bullet — what follows
+     * ("state senator", "former [[Assembly Majority Leader]]") describes them. Most are
+     * wikilinked; the unlinked ones ("* Tom Woodard, retired CEO") are read as plain text.
      *
-     * @return string[] both link target and label, one entry each
+     * @return string[] the link target and label for a linked name, else the plain name
      */
     private function bulletNames(string $body): array
     {
         $names = [];
         foreach (preg_split('/\R/', $body) ?: [] as $line) {
-            if (! preg_match('/^\*+/', $line)) {
+            if (! preg_match('/^\*+\s*(.*)$/', $line, $m)) {
                 continue;
             }
-            if (! preg_match_all('/\[\[([^\]|#]+)(?:\|([^\]]*))?\]\]/', $line, $links, PREG_SET_ORDER)) {
-                continue;
-            }
-            foreach ($links as $link) {
-                if (preg_match('/^(file|image|category|wikipedia):/i', $link[1])) {
-                    continue;
-                }
+
+            $head = preg_split('/,|<ref|\{\{|\s\(|\s[–—-]\s/u', $m[1], 2)[0] ?? '';
+
+            if (preg_match('/\[\[([^\]|#]+)(?:\|([^\]]*))?\]\]/', $head, $link) && ! preg_match('/^(file|image|category|wikipedia):/i', $link[1])) {
                 $names[] = $link[1];
                 if (($link[2] ?? '') !== '') {
                     $names[] = $link[2];
                 }
 
-                break;
+                continue;
+            }
+
+            $plain = trim(preg_replace('/<[^>]+>|\'{2,}|\[\[|\]\]/', '', $head) ?? '');
+            if ($plain !== '') {
+                $names[] = $plain;
             }
         }
 
