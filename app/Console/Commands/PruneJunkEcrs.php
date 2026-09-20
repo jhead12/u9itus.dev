@@ -3,6 +3,9 @@
 namespace App\Console\Commands;
 
 use App\Models\ElectionCandidateRecord;
+use App\Services\CandidateDiscovery\CandidateCorroboration;
+use App\Services\WikipediaPrimaryResultsService;
+use App\Support\ElectionCycle;
 use App\Support\CandidateNameCanonicalizer;
 use App\Support\PoliticianDataRules;
 use Illuminate\Console\Command;
@@ -30,6 +33,11 @@ use Illuminate\Support\Facades\Log;
  *                (skipped with --keep-stale)
  *   - cross_state political_office names a different state than the row's
  *                own `state` column (e.g. "Texas Attorney General" / CA)
+ *   - unlisted   (--wikipedia) a news-discovered Governor, Senate or House row whose name is not
+ *                on the race's Wikipedia article and is not corroborated by the FEC roster or a
+ *                non-news record — a headline fragment ("Lamont Launch") or a real person
+ *                attached to the wrong race ("Stacey Abrams" in a Connecticut race). A name that
+ *                merely carries stray headline words around a listed person is reported, not flagged.
  *   - dup        an exact name+office+state duplicate of a higher-priority
  *                row; the survivor is chosen seed > manual > ballotpedia >
  *                feed > candidate_discovery, then identity-linked > has
@@ -55,6 +63,7 @@ class PruneJunkEcrs extends Command
         {--stale-before=  : ISO date; rows with an earlier election_date are stale (default: Jan 1 this year)}
         {--keep-stale     : Do not flag stale-cycle rows}
         {--no-dedup       : Do not collapse duplicate name+office+state rows}
+        {--wikipedia      : Also flag news-discovered Governor/Senate/House rows whose name is nowhere on the race\'s Wikipedia article}
         {--apply          : Actually delete flagged rows (default is dry-run)}
         {--limit=20000    : Max rows to scan}';
 
@@ -107,6 +116,11 @@ class PruneJunkEcrs extends Command
             return self::SUCCESS;
         }
 
+        $useWikipedia = (bool) $this->option('wikipedia');
+        $wikipedia = new WikipediaPrimaryResultsService();
+        $corroboration = new CandidateCorroboration();
+        $rosters = [];
+
         $linkedIds = DB::table('candidate_identity_links')
             ->whereIn('election_candidate_record_id', $rows->pluck('id'))
             ->distinct()->pluck('election_candidate_record_id')
@@ -116,11 +130,19 @@ class PruneJunkEcrs extends Command
 
         /** @var array<int, string> $flag  row id => reason */
         $flag = [];
+        /** @var array<int, string> $decorated  row id => the listed person the name wraps */
+        $decorated = [];
         /** @var array<int, string> $keptLinked  row id => reason (linked, needs manual review) */
         $keptLinked = [];
 
         foreach ($rows as $row) {
             $reason = $this->classify($row, $keepStale, $staleBefore, $stateNames);
+            if ($reason === null && $useWikipedia) {
+                [$reason, $wraps] = $this->unlisted($row, $wikipedia, $corroboration, $rosters);
+                if ($wraps !== null) {
+                    $decorated[$row->id] = $wraps;
+                }
+            }
             if ($reason === null) {
                 continue;
             }
@@ -175,6 +197,14 @@ class PruneJunkEcrs extends Command
                 mb_strimwidth((string) $r->political_office, 0, 24, '…'),
                 $r->source
             ));
+        }
+
+        if ($decorated !== []) {
+            $this->newLine();
+            $this->warn('Kept (a real person with headline words around the name — rename, do not delete):');
+            foreach ($decorated as $id => $person) {
+                $this->line(sprintf('  <fg=yellow>#%-6d</> %s → %s', $id, $byRow[$id]->full_name, $person));
+            }
         }
 
         if ($keptLinked !== []) {
@@ -257,6 +287,59 @@ class PruneJunkEcrs extends Command
         }
 
         return null;
+    }
+
+    /**
+     * @param  array<string, array<string, mixed>|null>  $rosters  memo, keyed by race
+     * @return array{0: ?string, 1: ?string} [reason, the listed person the name wraps]
+     */
+    private function unlisted(ElectionCandidateRecord $row, WikipediaPrimaryResultsService $wikipedia, CandidateCorroboration $corroboration, array &$rosters): array
+    {
+        if ((string) $row->source !== ElectionCandidateRecord::DISCOVERY_SOURCE) {
+            return [null, null];
+        }
+
+        $kind = CandidateCorroboration::officeKind($row->political_office);
+        $state = strtoupper(trim((string) $row->state));
+        if ($state === '' || ! in_array($kind, ['Governor', 'senate', 'house'], true)) {
+            return [null, null];
+        }
+
+        $payload = is_array($row->payload) ? $row->payload : [];
+        if (($payload['result_source'] ?? '') === 'manual') {
+            return [null, null];
+        }
+
+        $district = $kind === 'house' ? (string) (int) preg_replace('/\D/', '', substr((string) $row->district, (int) strrpos((string) $row->district, '-'))) : null;
+        if ($kind === 'house' && ($district === null || $district === '0')) {
+            return [null, null];
+        }
+
+        $key = "{$state}|{$kind}|{$district}";
+        $rosters[$key] ??= $wikipedia->roster($state, (string) $row->political_office, ElectionCycle::year(), $district);
+        $roster = $rosters[$key];
+
+        // A thin or missing article is not evidence of anything.
+        if ($roster === null || count($roster['advanced']) + count($roster['eliminated']) + count($roster['withdrawn']) + count($roster['declared']) < 2) {
+            return [null, null];
+        }
+
+        $found = $wikipedia->findInRoster((string) $row->full_name, $roster);
+        if ($found['listed']) {
+            return [null, null];
+        }
+        if ($found['decorated'] !== null) {
+            return [null, $found['decorated']];
+        }
+
+        // Real people the FEC roster or a non-news record already knows for this chamber stay.
+        // A sitting official does not: they are real, but not necessarily in this race.
+        $check = $corroboration->check($row);
+        if ($check['corroborated'] && $check['source'] !== 'official') {
+            return [null, null];
+        }
+
+        return ['unlisted', null];
     }
 
     private function dedupKey(ElectionCandidateRecord $row): string

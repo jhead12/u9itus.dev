@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\StateElectionDate;
+use App\Support\MapCandidateHygiene;
 use App\Support\OfficeCanonicalizer;
 use App\Support\PoliticianDataRules;
 use Illuminate\Support\Facades\Http;
@@ -100,6 +101,37 @@ class WikipediaPrimaryResultsService
         }
 
         return null;
+    }
+
+    /**
+     * Whether a name is anywhere on a race's article (advanced, eliminated, withdrawn or declared).
+     * A name carrying stray headline words ("Rob Sand Record-Breaking") still counts when a run of
+     * two or three of its words is a listed person; that person is returned as `decorated`.
+     *
+     * @param  array{advanced: string[], eliminated: string[], withdrawn: string[], declared: string[]}  $roster
+     * @return array{listed: bool, decorated: ?string}
+     */
+    public function findInRoster(string $name, array $roster): array
+    {
+        $all = array_merge($roster['advanced'], $roster['eliminated'], $roster['withdrawn'], $roster['declared']);
+
+        if ($this->contains($all, $name)) {
+            return ['listed' => true, 'decorated' => null];
+        }
+
+        $words = preg_split('/\s+/', trim($name), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        foreach ([3, 2] as $length) {
+            for ($i = 0; $i + $length <= count($words); $i++) {
+                $run = implode(' ', array_slice($words, $i, $length));
+                foreach ($all as $listed) {
+                    if ($this->contains([$listed], $run)) {
+                        return ['listed' => false, 'decorated' => $listed];
+                    }
+                }
+            }
+        }
+
+        return ['listed' => false, 'decorated' => null];
     }
 
     /**
@@ -381,12 +413,27 @@ class WikipediaPrimaryResultsService
 
         foreach ($names as $name) {
             $tokens = $this->tokens($name);
-            if (count($tokens) >= 2 && reset($tokens) === reset($wanted) && end($tokens) === end($wanted)) {
+            if (count($tokens) >= 2 && end($tokens) === end($wanted) && $this->sameGivenName(reset($tokens), reset($wanted))) {
                 return true;
             }
         }
 
         return false;
+    }
+
+    /** "Barb" and "Barbara", "Jen" and "Jennifer", "Steve" and "Steven": one is the start of the other, or a known nickname. */
+    private function sameGivenName(string $a, string $b): bool
+    {
+        if ($a === $b) {
+            return true;
+        }
+
+        [$short, $long] = strlen($a) <= strlen($b) ? [$a, $b] : [$b, $a];
+        if (strlen($short) >= 3 && str_starts_with($long, $short)) {
+            return true;
+        }
+
+        return MapCandidateHygiene::identityKey("{$a} Same") === MapCandidateHygiene::identityKey("{$b} Same");
     }
 
     /**

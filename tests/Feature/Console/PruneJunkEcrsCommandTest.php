@@ -5,6 +5,7 @@ use App\Models\ElectionCandidateRecord;
 use App\Models\Politician;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
 
 uses(RefreshDatabase::class);
 
@@ -120,4 +121,53 @@ it('respects the --state filter', function () {
 
     $this->assertDatabaseMissing('election_candidate_records', ['id' => $caJunk->id]);
     $this->assertDatabaseHas('election_candidate_records', ['id' => $nyJunk->id]);
+});
+
+
+it('with --wikipedia deletes a discovered name that is nowhere on the race article, and keeps the rest', function () {
+    Http::fake(['en.wikipedia.org/w/api.php*' => Http::response(['parse' => ['wikitext' => "====Advanced to general====\n* [[Xavier Becerra]], former AG\n* [[Steve Hilton]], commentator\n====Withdrawn====\n* [[Eric Swalwell]], former representative\n"]])]);
+
+    $fragment = ecr(['source' => 'candidate_discovery', 'full_name' => 'Lamont Launch', 'external_candidate_id' => 'a1']);
+    $wrongRace = ecr(['source' => 'candidate_discovery', 'full_name' => 'Stacey Abrams', 'external_candidate_id' => 'a2']);
+    $listed = ecr(['source' => 'candidate_discovery', 'full_name' => 'Steve Hilton', 'external_candidate_id' => 'a3']);
+    $withdrawn = ecr(['source' => 'candidate_discovery', 'full_name' => 'Eric Swalwell', 'external_candidate_id' => 'a4']);
+    $decorated = ecr(['source' => 'candidate_discovery', 'full_name' => 'Xavier Becerra Record-Breaking', 'external_candidate_id' => 'a5']);
+    $seed = ecr(['source' => 'seed', 'full_name' => 'Someone Unlisted', 'external_candidate_id' => 'a6']);
+
+    $this->artisan('politicians:prune-junk-ecrs', ['--state' => ['CA'], '--wikipedia' => true, '--apply' => true, '--no-dedup' => true])
+        ->expectsOutputToContain('Xavier Becerra Record-Breaking → Xavier Becerra')
+        ->assertExitCode(0);
+
+    $this->assertDatabaseMissing('election_candidate_records', ['id' => $fragment->id]);
+    $this->assertDatabaseMissing('election_candidate_records', ['id' => $wrongRace->id]);
+    foreach ([$listed, $withdrawn, $decorated, $seed] as $kept) {
+        $this->assertDatabaseHas('election_candidate_records', ['id' => $kept->id]);
+    }
+});
+
+it('does nothing on Wikipedia grounds without --wikipedia', function () {
+    $fragment = ecr(['source' => 'candidate_discovery', 'full_name' => 'Lamont Launch', 'external_candidate_id' => 'b1']);
+    Http::fake(['en.wikipedia.org/w/api.php*' => Http::response(['parse' => ['wikitext' => "====Advanced to general====\n* [[Steve Hilton]]\n* [[Xavier Becerra]]\n"]])]);
+
+    $this->artisan('politicians:prune-junk-ecrs', ['--state' => ['CA'], '--apply' => true, '--no-dedup' => true])->assertExitCode(0);
+
+    $this->assertDatabaseHas('election_candidate_records', ['id' => $fragment->id]);
+});
+
+it('keeps everything when the race article cannot be found', function () {
+    $fragment = ecr(['source' => 'candidate_discovery', 'full_name' => 'Lamont Launch', 'external_candidate_id' => 'b2']);
+    Http::fake(['en.wikipedia.org/w/api.php*' => Http::response(['error' => ['code' => 'missingtitle']])]);
+
+    $this->artisan('politicians:prune-junk-ecrs', ['--state' => ['CA'], '--wikipedia' => true, '--apply' => true, '--no-dedup' => true])->assertExitCode(0);
+
+    $this->assertDatabaseHas('election_candidate_records', ['id' => $fragment->id]);
+});
+
+it('keeps a discovered nickname of a listed candidate ("Barb" for "Barbara")', function () {
+    Http::fake(['en.wikipedia.org/w/api.php*' => Http::response(['parse' => ['wikitext' => "====Eliminated in primary====\n* [[Barbara Kirkmeyer]], state senator\n====Advanced to general====\n* [[Steve Hilton]]\n* [[Xavier Becerra]]\n"]])]);
+    $nick = ecr(['source' => 'candidate_discovery', 'full_name' => 'Barb Kirkmeyer', 'external_candidate_id' => 'c1']);
+
+    $this->artisan('politicians:prune-junk-ecrs', ['--state' => ['CA'], '--wikipedia' => true, '--apply' => true, '--no-dedup' => true])->assertExitCode(0);
+
+    $this->assertDatabaseHas('election_candidate_records', ['id' => $nick->id]);
 });
