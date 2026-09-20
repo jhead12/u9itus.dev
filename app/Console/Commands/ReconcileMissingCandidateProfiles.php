@@ -167,6 +167,8 @@ class ReconcileMissingCandidateProfiles extends Command
         $result = strtolower((string) ($payload['result_status'] ?? ''));
 
         if ($primary === 'eliminated' || $result === 'lost') {
+            $this->skipLine($record, 'eliminated in the primary');
+
             return false;
         }
 
@@ -174,6 +176,8 @@ class ReconcileMissingCandidateProfiles extends Command
         // result data — so a bare FEC record must not become a public profile.
         // Only one a results source has marked as advancing does.
         if ((string) $record->source === 'fec' && $primary !== 'advanced_to_general') {
+            $this->skipLine($record, 'bare FEC filing; no results source marked them advanced_to_general');
+
             return false;
         }
 
@@ -182,10 +186,14 @@ class ReconcileMissingCandidateProfiles extends Command
         // another state. Rows an importer or editor vouches for are untouched.
         if ((string) $record->source === CandidateLeadPromoter::SOURCE) {
             if (PoliticianDataRules::headlineFragmentViolation($name) !== null || MapCandidateHygiene::nameProblem($name) !== null) {
+                $this->skipLine($record, 'name reads like a headline');
+
                 return false;
             }
             $this->holders ??= CrossStateImpostors::seatedHolders();
             if (CrossStateImpostors::holderElsewhere($name, $record->political_office, $record->state, $this->holders) !== null) {
+                $this->skipLine($record, 'sitting official of another state');
+
                 return false;
             }
 
@@ -207,6 +215,11 @@ class ReconcileMissingCandidateProfiles extends Command
         }
 
         return true;
+    }
+
+    private function skipLine(ElectionCandidateRecord $record, string $reason): void
+    {
+        $this->line("[SKIP] {$record->full_name} (".strtoupper((string) $record->state).", {$record->source}, {$record->political_office}) — {$reason}");
     }
 
     protected function findExistingPolitician(ElectionCandidateRecord $record): ?Politician
