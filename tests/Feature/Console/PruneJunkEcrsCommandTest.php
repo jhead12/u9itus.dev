@@ -187,9 +187,9 @@ it('deletes no "unlisted" rows when more are flagged than --max-unlisted', funct
 
 it('leaves a state legislative "Senate District" seat alone when checking the U.S. Senate article', function () {
     Http::fake(['en.wikipedia.org/w/api.php*' => Http::response(['parse' => ['wikitext' => "====Advanced to general====\n* [[Steve Hilton]]\n* [[Xavier Becerra]]\n"]])]);
-    $seat = ecr(['source' => 'candidate_discovery', 'full_name' => 'Jane Legislator', 'political_office' => 'Arkansas Senate District 5', 'external_candidate_id' => 'e1']);
+    $seat = ecr(['source' => 'candidate_discovery', 'full_name' => 'Jane Legislator', 'political_office' => 'Arkansas Senate District 5', 'state' => 'AR', 'external_candidate_id' => 'e1']);
 
-    $this->artisan('politicians:prune-junk-ecrs', ['--state' => ['CA'], '--wikipedia' => true, '--apply' => true, '--no-dedup' => true])->assertExitCode(0);
+    $this->artisan('politicians:prune-junk-ecrs', ['--state' => ['AR'], '--wikipedia' => true, '--apply' => true, '--no-dedup' => true])->assertExitCode(0);
 
     $this->assertDatabaseHas('election_candidate_records', ['id' => $seat->id]);
 });
