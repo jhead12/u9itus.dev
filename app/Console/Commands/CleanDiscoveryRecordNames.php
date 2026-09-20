@@ -7,6 +7,7 @@ use App\Models\ElectionCandidateRecord;
 use App\Services\CandidateDiscovery\CandidateCorroboration;
 use App\Support\CandidateNameCanonicalizer;
 use App\Support\ElectionCycle;
+use App\Support\MapCacheNotice;
 use App\Support\PoliticianDataRules;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
@@ -74,8 +75,16 @@ class CleanDiscoveryRecordNames extends Command
             $label = sprintf('#%d "%s" → "%s" (%s, %s%s)', $row->id, $row->full_name, $clean, $row->state, $row->political_office, $fixOffice ? " → {$office}" : '');
 
             if (PoliticianDataRules::headlineFragmentViolation($clean) !== null) {
-                $this->line("  <fg=yellow>skip</> {$label} — cleaned name still reads as a fragment");
-                $stats['skipped']++;
+                // "Michigan AG Mike", "Candidate William": nobody to rename it to. Drop it unless a
+                // profile is linked to it.
+                if ($linked->has($row->id)) {
+                    $this->line("  <fg=yellow>skip</> {$label} — cleaned name still reads as a fragment, but a profile is linked");
+                    $stats['skipped']++;
+                } else {
+                    $this->line("  <fg=red>drop</> {$label} — cleaned name is still a fragment, not a person");
+                    $apply && $row->delete();
+                    $stats['merged']++;
+                }
 
                 continue;
             }
@@ -121,7 +130,10 @@ class CleanDiscoveryRecordNames extends Command
             $stats['renamed']++;
         }
 
-        $this->info(sprintf("\n%d renamed, %d merged into an existing record, %d skipped%s.", $stats['renamed'], $stats['merged'], $stats['skipped'], $apply ? '' : ' (dry run — pass --apply)'));
+        $this->info(sprintf("\n%d renamed, %d merged or dropped, %d skipped%s.", $stats['renamed'], $stats['merged'], $stats['skipped'], $apply ? '' : ' (dry run — pass --apply)'));
+        if ($apply) {
+            MapCacheNotice::afterWrite($this);
+        }
 
         return self::SUCCESS;
     }

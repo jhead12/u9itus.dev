@@ -21,7 +21,7 @@ class CandidateNameCanonicalizer
     private const TITLES = [
         'rep', 'representative', 'congressman', 'congresswoman', 'congressperson',
         'sen', 'senator',
-        'gov', 'governor',
+        'gov', 'governor', 'ag',
         'dr', 'mr', 'mrs', 'ms', 'hon', 'honorable',
         'mayor', 'councilman', 'councilwoman', 'councilmember',
         'former', 'state', 'us', 'u.s', 'candidate', 'nominee',
@@ -30,7 +30,7 @@ class CandidateNameCanonicalizer
     /** Titles that reliably introduce a name ("Detroit Mayor Mike Duggan"); "state"/"us"/"former" alone do not. */
     private const STRONG_TITLES = [
         'rep', 'representative', 'congressman', 'congresswoman', 'congressperson',
-        'sen', 'senator', 'gov', 'governor', 'mayor', 'councilman', 'councilwoman', 'councilmember',
+        'sen', 'senator', 'gov', 'governor', 'ag', 'mayor', 'councilman', 'councilwoman', 'councilmember',
     ];
 
     /** Verbs/labels a headline puts in front of the name ("Read James Talarico's plan"). */

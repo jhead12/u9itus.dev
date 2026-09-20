@@ -363,3 +363,15 @@ it('re-checks wrongly eliminated discovery records: clears the stamp, restores t
         ->and($profile->fresh()->term_status)->toBe('running')
         ->and($profile->fresh()->is_running_candidate)->toBeTrue();
 });
+
+it('drops an unlinked discovery record whose cleaned name is still a fragment', function () {
+    $junk = ElectionCandidateRecord::create([
+        'source' => 'candidate_discovery', 'external_candidate_id' => 'hash-ag', 'full_name' => 'Michigan AG Mike', 'state' => 'MI',
+        'political_office' => 'Governor', 'governance_level' => 'State', 'election_date' => '2026-11-03', 'payload' => [],
+    ]);
+
+    expect(CandidateNameCanonicalizer::canonicalize('Michigan AG Mike Cox'))->toBe('Mike Cox');
+    $this->artisan('candidates:clean-discovery-names', ['--state' => ['MI'], '--apply' => true])->assertSuccessful();
+
+    expect(ElectionCandidateRecord::find($junk->id))->toBeNull();
+});

@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\CandidateIdentityLink;
 use App\Models\ElectionCandidateRecord;
 use App\Support\ElectionCycle;
+use App\Support\MapCacheNotice;
 use App\Support\MapCandidateHygiene;
 use Illuminate\Console\Command;
 
@@ -91,6 +92,9 @@ class SetCandidatePrimaryResult extends Command
         }
 
         $this->info($apply ? 'Done.' : 'Dry run — pass --apply to write.');
+        if ($apply) {
+            MapCacheNotice::afterWrite($this);
+        }
 
         return self::SUCCESS;
     }

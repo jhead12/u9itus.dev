@@ -8,6 +8,7 @@ use App\Models\Citizen;
 use App\Models\ElectionCandidateRecord;
 use App\Models\Politician;
 use App\Models\StateElectionDate;
+use App\Services\CandidateDiscovery\CandidateCorroboration;
 use App\Support\CandidateNameCanonicalizer;
 use App\Support\CrossStateImpostors;
 use App\Support\DataSourceLabel;
@@ -176,6 +177,7 @@ class MapStateCandidatesController
 
         $quality = ['hidden_names' => 0, 'merged_duplicates' => 0, 'date_conflicts' => 0, 'cross_state' => 0];
         $seatedHolders = CrossStateImpostors::seatedHolders();
+        $seatedByName = CrossStateImpostors::seatedStatesByName();
 
         // ── 1. Seated statewide officeholders on the platform ─────────────────
         // Only pull SEATED politicians from the platform table for statewide offices.
@@ -440,6 +442,30 @@ class MapStateCandidatesController
             }
             if (MapCandidateHygiene::shouldHide(['full_name' => $recName, 'status' => $recStatus], $placeNames)) {
                 $quality['hidden_names']++;
+
+                continue;
+            }
+
+            // A state-legislature race is not a statewide office. A discovery row filed under one
+            // ("Michigan State Senate") was a headline mix-up about a congressional candidate, and
+            // would otherwise land in "Other Statewide".
+            if (
+                $rec->source === ElectionCandidateRecord::DISCOVERY_SOURCE
+                && CandidateCorroboration::officeKind($rec->political_office) === 'legislature'
+            ) {
+                $quality['hidden_names']++;
+
+                continue;
+            }
+
+            // A sitting official elsewhere named in a national headline (a Tennessee senator as a
+            // Michigan governor candidate).
+            if (
+                $rec->source === ElectionCandidateRecord::DISCOVERY_SOURCE
+                && OfficeCanonicalizer::canonicaliseStatewide($rec->political_office) !== null
+                && CrossStateImpostors::sittingOnlyElsewhere($recName, $state, $seatedByName) !== null
+            ) {
+                $quality['cross_state']++;
 
                 continue;
             }

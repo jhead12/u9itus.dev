@@ -150,4 +150,45 @@ final class CrossStateImpostors
 
         return $matches[0] ?? null;
     }
+
+    /**
+     * States where a sitting or verified official of ANY office has each name, keyed by identityKey().
+     * "Marsha Blackburn" (a Tennessee senator) turns up as a Michigan Governor candidate from a
+     * national headline; {@see holderElsewhere()} misses her because her office is not a statewide one.
+     *
+     * @return array<string, array<int, string>>
+     */
+    public static function seatedStatesByName(): array
+    {
+        $byName = [];
+
+        Politician::query()
+            ->where('is_active', true)
+            ->where(fn ($q) => $q->where('term_status', 'seated')->orWhere('verified_official', true))
+            ->whereNotNull('state')->where('state', '!=', '')
+            ->get(['full_name', 'state'])
+            ->each(function (Politician $p) use (&$byName): void {
+                $key = MapCandidateHygiene::identityKey($p->full_name);
+                if ($key !== '') {
+                    $byName[$key][strtoupper((string) $p->state)] = strtoupper((string) $p->state);
+                }
+            });
+
+        return array_map('array_values', $byName);
+    }
+
+    /**
+     * The state a same-named sitting official is in, when they sit somewhere other than
+     * $state and nobody of that name sits in it. Use only for statewide executive offices: a
+     * U.S. Senate race can legitimately share a name with an official elsewhere (two Mike Rogers).
+     *
+     * @param  array<string, array<int, string>>  $byName  from seatedStatesByName()
+     */
+    public static function sittingOnlyElsewhere(?string $name, ?string $state, array $byName): ?string
+    {
+        $states = $byName[MapCandidateHygiene::identityKey($name)] ?? [];
+        $state = strtoupper(trim((string) $state));
+
+        return $states !== [] && $state !== '' && ! in_array($state, $states, true) ? $states[0] : null;
+    }
 }

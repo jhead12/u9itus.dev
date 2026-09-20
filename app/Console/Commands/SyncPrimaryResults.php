@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\CandidateIdentityLink;
 use App\Support\ElectionCycle;
+use App\Support\MapCacheNotice;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -226,6 +227,10 @@ class SyncPrimaryResults extends Command
         }
 
         $this->info(sprintf("\nRe-check complete%s: %d still eliminated | %d conflicting (left as is) | %d stamps cleared | %d profile(s) restored", $dryRun ? ' (dry-run)' : '', $stats['kept'], $stats['conflicting'], $stats['cleared'], $stats['profiles']));
+
+        if (! $dryRun) {
+            MapCacheNotice::afterWrite($this);
+        }
 
         return self::SUCCESS;
     }

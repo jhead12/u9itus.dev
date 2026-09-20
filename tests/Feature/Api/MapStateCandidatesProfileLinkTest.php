@@ -134,3 +134,23 @@ it('hides a discovery record whose name is a headline verb, not a person', funct
 
     expect($names)->not->toContain('Rowdy Kicks')->and($names)->toContain('Aric Nesbitt');
 });
+
+it('keeps a sitting official of another state and a state-legislature row off the statewide panel', function () {
+    Politician::factory()->create([
+        'full_name' => 'Marsha Blackburn', 'state' => 'TN', 'user_id' => null, 'term_status' => 'seated', 'is_active' => true,
+        'political_office' => 'U.S. Senator', 'governance_level' => 'Federal', 'slug' => 'marsha-blackburn-senator',
+    ]);
+    $make = fn (string $name, string $office, string $level) => (new ElectionCandidateRecord([
+        'source' => 'candidate_discovery', 'external_candidate_id' => 'disc:mi:x:'.Str::slug($name.$office),
+        'full_name' => $name, 'political_office' => $office, 'governance_level' => $level, 'state' => 'MI',
+        'election_date' => now()->addMonths(3)->toDateString(), 'payload' => ['primary_result' => 'running'],
+    ]))->saveQuietly();
+    $make('Marsha Blackburn', 'Governor', 'State');
+    $make('Matt Koleszar', 'Michigan State Senate', 'State');
+    $make('Jocelyn Benson', 'Governor', 'State');
+
+    $offices = test()->getJson('/api/v1/map/state-candidates?state=MI')->assertOk()->json('offices');
+    $names = collect($offices)->pluck('candidates')->flatten(1)->pluck('full_name');
+
+    expect($names)->toContain('Jocelyn Benson')->not->toContain('Marsha Blackburn')->not->toContain('Matt Koleszar');
+});
