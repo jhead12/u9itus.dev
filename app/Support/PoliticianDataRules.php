@@ -103,6 +103,7 @@ class PoliticianDataRules
     private const HEADLINE_WORD_RULES = [
         // Scraped organization labels and incomplete office titles, not people.
         '/\bGOP\b|\bsecretary$|\bcounty\s+sheriff\b/i' => 'contains an organization or office title',
+        '/\b(?:democrats|republicans)\b|^(?:iraq|afghanistan) war (?:vet|veteran)$/i' => 'describes a group or occupation, not a person',
         // "Hochul Agenda", "Hochul Statewide", "Hochul Unprecedented": an official's surname
         // plus the next capitalised word of a headline.
         '/\b(agenda|statewide|nationwide|unprecedented|announcement|re-?election|administration|legislation|priorities|policies|endorsements?|opponents?|supporters|challengers?|incumbents?|unopposed|landslide|mandate|platform|initiatives?)\b/i'
