@@ -49,7 +49,7 @@ class RepairPoliticianNames extends Command
             ->when($state, fn ($q) => $q->whereRaw('UPPER(COALESCE(state, "")) = ?', [$state]))
             ->orderBy('id')
             ->limit($limit)
-            ->get(['id', 'full_name', 'political_office', 'state']);
+            ->get(['id', 'uuid', 'full_name', 'political_office', 'city', 'state', 'slug', 'page_published']);
 
         $repaired = 0;
         $unrepairable = 0;
@@ -69,6 +69,11 @@ class RepairPoliticianNames extends Command
                 if ($apply) {
                     $before = $politician->full_name;
                     $politician->full_name = $result['name'];
+                    // The slug was built from the junk name ("…-meet-mike-rogers") and is never
+                    // rebuilt on rename. An unpublished profile has no public URL to keep stable.
+                    if (! $politician->page_published) {
+                        $politician->slug = Politician::generateSlug($politician);
+                    }
                     $politician->saveQuietly();
                     // saveQuietly skips the model hooks that bust the map's per-state cache.
                     if (($code = strtoupper(trim((string) $politician->state))) !== '') {

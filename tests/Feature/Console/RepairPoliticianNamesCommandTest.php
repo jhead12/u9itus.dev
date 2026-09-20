@@ -44,6 +44,28 @@ it('repairs a junk name in place with --apply', function () {
     expect($junk->refresh()->full_name)->toBe('Michael Shellenberger');
 });
 
+it('rebuilds the slug of an unpublished profile when it repairs the name', function () {
+    $junk = politicianJunk([
+        'full_name' => 'Meet Mike Rogers', 'political_office' => 'U.S. Senator',
+        'slug' => '04505-us-senator-meet-mike-rogers', 'page_published' => false,
+    ]);
+
+    $this->artisan('politicians:repair-names', ['--state' => 'CA', '--apply' => true])->assertExitCode(0);
+
+    expect($junk->refresh()->slug)->toContain('mike-rogers')->not->toContain('meet');
+});
+
+it('keeps the slug of a published profile when it repairs the name', function () {
+    $junk = politicianJunk([
+        'full_name' => 'Meet Mike Rogers', 'political_office' => 'U.S. Senator',
+        'slug' => '04505-us-senator-meet-mike-rogers', 'page_published' => true,
+    ]);
+
+    $this->artisan('politicians:repair-names', ['--state' => 'CA', '--apply' => true])->assertExitCode(0);
+
+    expect($junk->refresh()->slug)->toBe('04505-us-senator-meet-mike-rogers');
+});
+
 it('leaves a clean name untouched', function () {
     $clean = politicianJunk(['full_name' => 'Xavier Becerra']);
 
