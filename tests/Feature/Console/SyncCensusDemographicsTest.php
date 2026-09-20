@@ -54,4 +54,7 @@ it('falls back to UCGID place geography when legacy ACS place queries return a m
     Http::assertSent(fn ($request) => str_starts_with($request->url(), 'https://api.census.gov/data/2022/acs/acs5?')
         && str_contains($request->url(), 'get=NAME%2CB01001_001E%2CB19013_001E')
         && str_contains($request->url(), 'for=ucgid%3A1600000US48%2A'));
+    Http::assertSent(fn ($request) => str_starts_with($request->url(), 'https://api.census.gov/data/2022/acs/acs5/subject?')
+        && str_contains($request->url(), 'get=NAME%2CS1701_C03_001E%2CS1501_C02_015E')
+        && str_contains($request->url(), 'for=ucgid%3A1600000US48%2A'));
 });
