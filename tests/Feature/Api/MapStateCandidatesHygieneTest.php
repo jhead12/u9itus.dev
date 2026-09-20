@@ -29,6 +29,34 @@ function caPayload(): array
     return test()->getJson('/api/v1/map/state-candidates?state=CA')->assertOk()->json();
 }
 
+it('ignores a server-local file cache after an external cleanup', function () {
+    config(['cache.default' => 'file']);
+    houseRow('Linda Sánchez', 'CA-38');
+    Cache::put('map_state_candidates_CA', ['stale' => true], 3600);
+
+    try {
+        $response = test()->getJson('/api/v1/map/state-candidates?state=CA')->assertOk();
+        expect($response->json('house_candidates.CA-38.0.full_name'))->toBe('Linda Sánchez')
+            ->and($response->headers->get('Cache-Control'))->toContain('no-store');
+    } finally {
+        Cache::forget('map_state_candidates_CA');
+    }
+});
+
+it('hides the organization and incomplete title names seen on the Michigan map', function (string $name) {
+    $row = new ElectionCandidateRecord([
+        'source' => 'ballotpedia', 'external_candidate_id' => 'legacy-junk',
+        'full_name' => $name, 'political_office' => 'Governor',
+        'state' => 'MI', 'governance_level' => 'State',
+        'election_date' => now()->addMonths(3)->toDateString(),
+        'payload' => ['status' => 'running'],
+    ]);
+    $row->saveQuietly();
+
+    $response = test()->getJson('/api/v1/map/state-candidates?state=MI')->assertOk();
+    expect($response->getContent())->not->toContain($name);
+})->with(['Michigan Secretary', 'Michigan GOP', 'Genesee County Sheriff Chris']);
+
 it('lists a representative once even when two rows exist for them', function () {
     houseRow('Linda Sánchez', 'CA-38');
     houseRow('Linda T. Sánchez', 'CA-38');

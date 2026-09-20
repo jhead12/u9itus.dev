@@ -111,9 +111,13 @@ class MapStateCandidatesController
         }
 
         try {
-            $data = Cache::remember("map_state_candidates_{$state}", 3600, function () use ($state) {
-                return $this->buildStateData($state);
-            });
+            // File caches belong to one machine. Cleanup commands run elsewhere
+            // cannot invalidate the web server's copy, even against the same DB.
+            $data = config('cache.stores.'.config('cache.default').'.driver') === 'file'
+                ? $this->buildStateData($state)
+                : Cache::remember("map_state_candidates_{$state}", 3600, function () use ($state) {
+                    return $this->buildStateData($state);
+                });
         } catch (\Throwable $e) {
             Log::error('MapStateCandidatesController: failed to build state data', [
                 'state' => $state,
@@ -138,7 +142,7 @@ class MapStateCandidatesController
             ]);
         }
 
-        return response()->json($data);
+        return response()->json($data)->header('Cache-Control', 'no-store');
     }
 
     /**
