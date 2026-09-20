@@ -3,6 +3,7 @@
 use App\Models\Politician;
 use App\Models\PoliticianCleanupReview;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 
 uses(RefreshDatabase::class);
@@ -83,4 +84,13 @@ it('does not duplicate a name_reject review (null duplicate_politician_id) on a 
     $this->artisan('politicians:repair-names', ['--state' => 'CA', '--apply' => true, '--enqueue-review' => true])->assertExitCode(0);
 
     $this->assertDatabaseCount('politician_cleanup_reviews', 1);
+});
+
+it('busts the state map cache when it repairs a name', function () {
+    politicianJunk(['full_name' => 'Independent Michael Shellenberger']);
+    Cache::put('map_state_candidates_CA', ['stale' => true], 3600);
+
+    $this->artisan('politicians:repair-names', ['--state' => 'CA', '--apply' => true])->assertExitCode(0);
+
+    expect(Cache::has('map_state_candidates_CA'))->toBeFalse();
 });

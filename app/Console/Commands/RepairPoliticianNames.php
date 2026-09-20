@@ -6,6 +6,7 @@ use App\Models\Politician;
 use App\Models\PoliticianCleanupReview;
 use App\Support\PoliticianNameRepairer;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -69,6 +70,10 @@ class RepairPoliticianNames extends Command
                     $before = $politician->full_name;
                     $politician->full_name = $result['name'];
                     $politician->saveQuietly();
+                    // saveQuietly skips the model hooks that bust the map's per-state cache.
+                    if (($code = strtoupper(trim((string) $politician->state))) !== '') {
+                        Cache::forget("map_state_candidates_{$code}");
+                    }
                     Log::info('politicians:repair-names repaired row', [
                         'id' => $politician->id,
                         'before' => $before,
