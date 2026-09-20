@@ -321,8 +321,15 @@ class SeedCivicJurisdictions extends Command
             return 'created';
         }
 
+        // Hand-curated rows (civic:import-source-urls) keep their `manual` provenance and
+        // their URLs — seeding only fills blanks on them, even under --refresh.
+        $curated = (string) $existing->source_of_record === 'manual';
+
         $changes = [];
         foreach ($always as $key => $value) {
+            if ($curated && $key === 'source_of_record') {
+                continue;
+            }
             if ($existing->{$key} !== $value) {
                 $changes[$key] = $value;
             }
@@ -332,7 +339,7 @@ class SeedCivicJurisdictions extends Command
                 continue;
             }
             $blank = $existing->{$key} === null || $existing->{$key} === '';
-            if ($this->refresh || $blank) {
+            if (($this->refresh && ! $curated) || $blank) {
                 if ($existing->{$key} !== $value) {
                     $changes[$key] = $value;
                 }

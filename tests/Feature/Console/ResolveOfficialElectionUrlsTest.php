@@ -121,3 +121,23 @@ it('--dry-run writes nothing', function () {
 
     expect(ElectionDataSource::first()->authority_name)->toBeNull();
 });
+
+it('--refresh leaves a hand-curated row alone but still fills its blanks', function () {
+    civicResolveRow(['elections_home_url' => 'https://hand-curated.example', 'source_of_record' => 'manual']);
+
+    civicResolveFake([
+        'state' => [[
+            'local_jurisdiction' => [
+                'name' => 'New Castle County',
+                'electionAdministrationBody' => ['name' => 'NCC Elections', 'electionInfoUrl' => 'https://from-civic.example'],
+            ],
+        ]],
+    ]);
+
+    $this->artisan('civic:resolve-official-urls', ['--state' => 'DE', '--stale-days' => 0, '--refresh' => true])->assertExitCode(0);
+
+    $row = ElectionDataSource::first();
+    expect($row->elections_home_url)->toBe('https://hand-curated.example')
+        ->and($row->authority_name)->toBe('NCC Elections')
+        ->and($row->source_of_record)->toBe('manual');
+});

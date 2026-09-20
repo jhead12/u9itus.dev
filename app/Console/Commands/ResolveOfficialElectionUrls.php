@@ -55,7 +55,7 @@ class ResolveOfficialElectionUrls extends Command
     private bool $dryRun = false;
 
     /** source_of_record values that google_civic data is allowed to replace. */
-    private const UPGRADEABLE_SOURCES = ['', 'manual', 'census', 'nass'];
+    private const UPGRADEABLE_SOURCES = ['', 'census', 'nass'];
 
     public function handle(GoogleCivicService $civic): int
     {
@@ -189,7 +189,7 @@ class ResolveOfficialElectionUrls extends Command
      */
     private function applyStateFallback(ElectionDataSource $row): bool
     {
-        if ($row->elections_home_url !== null && $row->elections_home_url !== '' && ! $this->refresh) {
+        if ($row->elections_home_url !== null && $row->elections_home_url !== '' && ! $this->mayOverwrite($row)) {
             return false;
         }
 
@@ -259,6 +259,16 @@ class ResolveOfficialElectionUrls extends Command
     }
 
     /**
+     * --refresh replaces existing values, except on hand-curated rows
+     * (source_of_record = manual, loaded by civic:import-source-urls): those only
+     * ever have blanks filled, and keep their `manual` provenance so they stay protected.
+     */
+    private function mayOverwrite(ElectionDataSource $row): bool
+    {
+        return $this->refresh && (string) $row->source_of_record !== 'manual';
+    }
+
+    /**
      * Keep only the candidate values that are non-empty and would fill a blank
      * column (or any column, under --refresh) with a genuinely new value.
      *
@@ -275,7 +285,7 @@ class ResolveOfficialElectionUrls extends Command
             }
             $current = $row->{$key};
             $isBlank = $current === null || $current === '';
-            if (($isBlank || $this->refresh) && $current !== $value) {
+            if (($isBlank || $this->mayOverwrite($row)) && $current !== $value) {
                 $changes[$key] = $value;
             }
         }

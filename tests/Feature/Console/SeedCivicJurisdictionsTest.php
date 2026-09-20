@@ -63,3 +63,15 @@ it('seeds county rows from a local OCD CSV and derives state + FIPS', function (
         ->and($la->county_fips)->toBe('06037')
         ->and($la->source_of_record)->toBe('census');
 });
+
+it('never overwrites a hand-curated row, even with --refresh', function () {
+    $this->artisan('civic:seed-jurisdictions', ['--source' => 'states'])->assertExitCode(0);
+    ElectionDataSource::where('ocd_id', 'ocd-division/country:us/state:ca')
+        ->update(['source_of_record' => 'manual', 'elections_home_url' => 'https://curated.example/ca']);
+
+    $this->artisan('civic:seed-jurisdictions', ['--source' => 'states', '--refresh' => true])->assertExitCode(0);
+
+    $ca = ElectionDataSource::firstWhere('ocd_id', 'ocd-division/country:us/state:ca');
+    expect($ca->source_of_record)->toBe('manual')
+        ->and($ca->elections_home_url)->toBe('https://curated.example/ca');
+});
