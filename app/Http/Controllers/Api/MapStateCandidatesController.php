@@ -192,6 +192,23 @@ class MapStateCandidatesController
                    'term_status', 'verified_official', 'ballotpedia_id',
                    'website_url', 'bio', 'term_ends_on']);
 
+        // Running statewide candidates are listed from scraped records (below),
+        // but those cards have no profile link of their own. Index the platform
+        // rows for the same people so a card can carry the slug — this is what
+        // lets /map?state=TX&slug=… find and open the candidate.
+        $runningProfileSlugs = [];
+        Politician::query()
+            ->whereRaw('UPPER(COALESCE(state, \'\')) = ?', [$state])
+            ->where('is_active', true)
+            ->whereRaw('LOWER(COALESCE(governance_level, \'\')) = ?', ['state'])
+            ->where('is_running_candidate', true)
+            ->whereNotNull('slug')
+            ->get(['full_name', 'political_office', 'slug'])
+            ->each(function ($pol) use (&$runningProfileSlugs) {
+                $key = MapCandidateHygiene::identityKey($pol->full_name) . '|' . strtolower($this->canonicalise($pol->political_office));
+                $runningProfileSlugs[$key] ??= $pol->slug;
+            });
+
         // Lost statewide candidates on the platform should also suppress matching
         // scraped running rows when payload.primary_result is missing/stale.
         $lostPlatformKeys = [];
@@ -344,6 +361,7 @@ class MapStateCandidatesController
 
         foreach ($scrapedRecords as $rec) {
             $canonical  = $this->canonicalise($rec->political_office);
+            $recName    = MapCandidateHygiene::stripLeadingPlace($rec->full_name, $placeNames);
             $nameLower  = strtolower($rec->full_name);
             $payload    = is_array($rec->payload) ? $rec->payload : [];
             $primaryResult = strtolower(trim((string) ($payload['primary_result'] ?? '')));
@@ -386,7 +404,7 @@ class MapStateCandidatesController
             }
 
             $recStatus = $payload['status'] ?? 'running';
-            if (MapCandidateHygiene::shouldHide(['full_name' => $rec->full_name, 'status' => $recStatus], $placeNames)) {
+            if (MapCandidateHygiene::shouldHide(['full_name' => $recName, 'status' => $recStatus], $placeNames)) {
                 $quality['hidden_names']++;
 
                 continue;
@@ -396,7 +414,7 @@ class MapStateCandidatesController
             // search mistook for a candidate here (Greg Abbott as NC governor).
             if (
                 $rec->source === ElectionCandidateRecord::DISCOVERY_SOURCE
-                && CrossStateImpostors::holderElsewhere($rec->full_name, $rec->political_office, $state, $seatedHolders) !== null
+                && CrossStateImpostors::holderElsewhere($recName, $rec->political_office, $state, $seatedHolders) !== null
             ) {
                 $quality['cross_state']++;
 
@@ -404,6 +422,7 @@ class MapStateCandidatesController
             }
 
             $seenGlobal[$nameLower] = true;
+            $profileSlug = $runningProfileSlugs[MapCandidateHygiene::identityKey($recName) . '|' . strtolower($canonical)] ?? null;
             $generalDate = $this->generalDateFor($payload['general_date'] ?? null, $officialGeneral, $quality);
             $grouped[$canonical]['candidates'][] = [
                 'source'          => 'scraped',
@@ -411,10 +430,10 @@ class MapStateCandidatesController
                 'scrape_source'   => $rec->source,
                 'external_candidate_id' => $rec->external_candidate_id,
                 'uuid'            => null,
-                'full_name'       => $rec->full_name,
+                'full_name'       => $recName,
                 'party'           => $rec->party_affiliation,
                 'photo'           => $payload['photo'] ?? null,
-                'slug'            => null,
+                'slug'            => $profileSlug,
                 'status'          => $recStatus,
                 'is_running'      => $recStatus !== 'seated',
                 'verified'        => $recStatus === 'seated',
@@ -427,7 +446,7 @@ class MapStateCandidatesController
                     ? 'https://ballotpedia.org/' . $rec->external_candidate_id
                     : null,
                 'website'         => $payload['website'] ?? null,
-                'profile_url'     => null,
+                'profile_url'     => $profileSlug ? url('/p/' . $profileSlug) : null,
                 'bio_excerpt'     => null,
                 'badges'          => [],
             ];

@@ -114,6 +114,27 @@ class MapCandidateHygiene
     }
 
     /**
+     * News discovery sometimes glues a dateline city onto a name ("Austin Gina
+     * Hinojosa" from "AUSTIN — Gina Hinojosa …"). Drop one leading place name
+     * (one or two words) when a real first + last name remains, so the row
+     * merges with the same person's clean record.
+     *
+     * @param  array<string, true>  $placeNames  placeKey()-normalised city names for the state
+     */
+    public static function stripLeadingPlace(?string $name, array $placeNames): ?string
+    {
+        $words = preg_split('/\s+/', trim((string) $name)) ?: [];
+
+        foreach ([1, 2] as $take) {
+            if (count($words) - $take >= 2 && isset($placeNames[self::placeKey(implode(' ', array_slice($words, 0, $take)))])) {
+                return implode(' ', array_slice($words, $take));
+            }
+        }
+
+        return $name;
+    }
+
+    /**
      * Why this isn't a plausible person's name, or null when it looks fine.
      *
      * @param  array<string, true>  $placeNames  placeKey()-normalised city names for the state
