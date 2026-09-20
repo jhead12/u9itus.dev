@@ -43,7 +43,15 @@ class ReconcileMissingCandidateProfiles extends Command
         $query = ElectionCandidateRecord::query()
             ->whereNotNull('full_name')
             ->whereRaw("TRIM(full_name) <> ''")
-            ->whereDoesntHave('identityLinks')
+            ->where(function ($q) {
+                $q->whereDoesntHave('identityLinks')
+                    // Or linked only to inactive, lost profiles — checked for staleness below.
+                    ->orWhere(fn ($q) => $q
+                        ->whereHas('identityLinks.politician', fn ($p) => $p->where('is_active', false)->where('term_status', 'lost'))
+                        ->whereDoesntHave('identityLinks.politician', fn ($p) => $p
+                            ->where(fn ($x) => $x->where('is_active', true)->orWhere('term_status', '!=', 'lost')->orWhereNull('term_status'))));
+            })
+            ->with('identityLinks.politician')
             ->orderByDesc('last_seen_at')
             ->orderByDesc('id');
 
@@ -66,8 +74,17 @@ class ReconcileMissingCandidateProfiles extends Command
         $linked = 0;
         $updated = 0;
         $skipped = 0;
+        $relinked = 0;
 
         foreach ($records as $record) {
+            $staleLinks = $record->identityLinks->isNotEmpty();
+            if ($staleLinks && ! $this->linksAreStale($record)) {
+                continue;
+            }
+            if ($staleLinks) {
+                $this->line("[STALE LINK] {$record->full_name} (".strtoupper((string) $record->state).') is linked only to inactive, lost profiles that no longer match the name');
+            }
+
             if (! $this->shouldProcessRecord($record)) {
                 $skipped++;
                 continue;
@@ -86,7 +103,9 @@ class ReconcileMissingCandidateProfiles extends Command
 
                 if (! $dryRun) {
                     $this->upsertIdentityLink($match, $record, 0.97);
+                    $staleLinks && $this->detachStaleLinks($record, $match);
                 }
+                $staleLinks && $relinked++;
 
                 $this->line('[LINK] ' . $record->full_name . ' (' . strtoupper((string) $record->state) . ') => #' . $match->id);
                 $linked++;
@@ -98,23 +117,26 @@ class ReconcileMissingCandidateProfiles extends Command
             if (! $dryRun) {
                 $createdPolitician = Politician::create($payload);
                 $this->upsertIdentityLink($createdPolitician, $record, 1.0);
+                $staleLinks && $this->detachStaleLinks($record, $createdPolitician);
                 $this->line('[CREATE] ' . $record->full_name . ' (' . strtoupper((string) $record->state) . ') => #' . $createdPolitician->id);
             } else {
                 $this->line('[CREATE] ' . $record->full_name . ' (' . strtoupper((string) $record->state) . ')');
             }
 
             $created++;
+            $staleLinks && $relinked++;
         }
 
         $suffix = $dryRun ? ' (dry-run)' : '';
         $this->info(sprintf(
-            'Missing-profile reconciliation complete%s: %d created, %d linked, %d updated, %d skipped (%d of them quarantined: news-discovered, not corroborated).',
+            'Missing-profile reconciliation complete%s: %d created, %d linked, %d updated, %d skipped (%d of them quarantined: news-discovered, not corroborated); %d replaced a stale link.',
             $suffix,
             $created,
             $linked,
             $updated,
             $skipped,
-            $this->quarantined
+            $this->quarantined,
+            $relinked
         ));
 
         return self::SUCCESS;
@@ -215,6 +237,48 @@ class ReconcileMissingCandidateProfiles extends Command
         }
 
         return true;
+    }
+
+    /**
+     * A record whose only links are to inactive, lost profiles is "stale" when those profiles
+     * no longer name the same person — "Abdul El-Sayed" linked to a junk "Abdul El-Sayed
+     * Billboards" left by an earlier headline import. A real loser (same name, lost) keeps
+     * their link: they are not a candidate to bring back.
+     */
+    private function linksAreStale(ElectionCandidateRecord $record): bool
+    {
+        if (MapCandidateHygiene::nameProblem($record->full_name) !== null) {
+            return false;
+        }
+
+        $ours = MapCandidateHygiene::identityKeys($record->full_name);
+
+        foreach ($record->identityLinks as $link) {
+            $pol = $link->politician;
+            if ($pol === null) {
+                continue;
+            }
+            if ($pol->is_active || $pol->term_status !== 'lost') {
+                return false;
+            }
+            $sameName = array_intersect($ours, MapCandidateHygiene::identityKeys($pol->full_name)) !== [];
+            $junkName = MapCandidateHygiene::nameProblem($pol->full_name) !== null;
+            if ($sameName && ! $junkName) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private function detachStaleLinks(ElectionCandidateRecord $record, Politician $keep): void
+    {
+        foreach ($record->identityLinks as $link) {
+            if ($link->politician_id != $keep->id) {
+                $this->line("[UNLINK] {$record->full_name} ⇸ #{$link->politician_id} {$link->politician?->full_name}");
+                $link->delete();
+            }
+        }
     }
 
     private function skipLine(ElectionCandidateRecord $record, string $reason): void

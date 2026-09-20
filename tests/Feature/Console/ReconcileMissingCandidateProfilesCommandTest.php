@@ -107,3 +107,82 @@ test('skips lost or eliminated records', function () {
     expect(Politician::query()->count())->toBe(0);
     expect(CandidateIdentityLink::query()->count())->toBe(0);
 });
+
+function staleLinkRecord(string $name = 'Abdul El-Sayed'): ElectionCandidateRecord
+{
+    return ElectionCandidateRecord::factory()->create([
+        'source' => 'ballotpedia',
+        'external_candidate_id' => 'bp-stale-'.str($name)->slug(),
+        'full_name' => $name,
+        'political_office' => 'U.S. Senator',
+        'governance_level' => 'Federal',
+        'state' => 'MI',
+        'payload' => ['result_status' => null],
+        'election_date' => now()->toDateString(),
+    ]);
+}
+
+function linkTo(ElectionCandidateRecord $record, string $polName, array $attrs = []): Politician
+{
+    $pol = Politician::factory()->create(array_merge([
+        'user_id' => null, 'full_name' => $polName, 'political_office' => 'U.S. Senator',
+        'governance_level' => 'Federal', 'state' => 'MI',
+        'term_status' => 'lost', 'is_active' => false, 'is_running_candidate' => false,
+    ], $attrs));
+    // Creating a profile already queues an auto-match that may have linked it.
+    CandidateIdentityLink::updateOrCreate(
+        ['politician_id' => $pol->id, 'election_candidate_record_id' => $record->id],
+        ['match_score' => 0.9, 'link_source' => 'system'],
+    );
+
+    return $pol;
+}
+
+test('replaces a link to an inactive lost profile with a junk name by a proper profile', function () {
+    $record = staleLinkRecord();
+    $junk = linkTo($record, 'Abdul El-Sayed Billboards');
+
+    $this->artisan('politicians:reconcile-missing-profiles', ['--state' => ['MI']])
+        ->expectsOutputToContain('[STALE LINK]')
+        ->assertExitCode(0);
+
+    $fresh = Politician::where('full_name', 'Abdul El-Sayed')->where('state', 'MI')->first();
+    expect($fresh)->not->toBeNull()
+        ->and($fresh->is_active)->toBeTrue()
+        ->and($fresh->term_status)->toBe('running');
+    $this->assertDatabaseHas('candidate_identity_links', ['politician_id' => $fresh->id, 'election_candidate_record_id' => $record->id]);
+    $this->assertDatabaseMissing('candidate_identity_links', ['politician_id' => $junk->id, 'election_candidate_record_id' => $record->id]);
+    expect($junk->refresh()->is_active)->toBeFalse();
+});
+
+test('leaves a real loser linked to their own lost profile', function () {
+    $record = staleLinkRecord('Steve Hilton');
+    $lost = linkTo($record, 'Steven Hilton');
+
+    $this->artisan('politicians:reconcile-missing-profiles', ['--state' => ['MI']])->assertExitCode(0);
+
+    expect(Politician::where('full_name', 'like', '%Hilton%')->count())->toBe(1);
+    $this->assertDatabaseHas('candidate_identity_links', ['politician_id' => $lost->id, 'election_candidate_record_id' => $record->id]);
+});
+
+test('leaves a record linked to an active profile alone', function () {
+    $record = staleLinkRecord();
+    $active = linkTo($record, 'Abdul El-Sayed Billboards', ['is_active' => true, 'term_status' => 'running']);
+
+    $this->artisan('politicians:reconcile-missing-profiles', ['--state' => ['MI']])->assertExitCode(0);
+
+    expect(Politician::where('full_name', 'Abdul El-Sayed')->exists())->toBeFalse();
+    $this->assertDatabaseHas('candidate_identity_links', ['politician_id' => $active->id, 'election_candidate_record_id' => $record->id]);
+});
+
+test('reports a stale link replacement without writing in dry-run', function () {
+    $record = staleLinkRecord();
+    $junk = linkTo($record, 'Abdul El-Sayed Billboards');
+
+    $this->artisan('politicians:reconcile-missing-profiles', ['--state' => ['MI'], '--dry-run' => true])
+        ->expectsOutputToContain('1 replaced a stale link')
+        ->assertExitCode(0);
+
+    expect(Politician::where('full_name', 'Abdul El-Sayed')->exists())->toBeFalse();
+    $this->assertDatabaseHas('candidate_identity_links', ['politician_id' => $junk->id, 'election_candidate_record_id' => $record->id]);
+});
