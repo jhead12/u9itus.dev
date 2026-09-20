@@ -82,3 +82,24 @@ it('merges a news-discovery name with a glued-on city into the clean candidate c
         ->and($gina->first()['full_name'])->toBe('Gina Hinojosa')
         ->and($gina->first()['party'])->toBe('Democratic');
 });
+
+it('merges a glued-on leading word into the clean name even when the city is not in the state city list', function () {
+    profileLinkTexasRecord('Gina Hinojosa');
+    (new ElectionCandidateRecord([
+        'source' => 'ballotpedia',
+        'external_candidate_id' => 'ext-austin-gina-2',
+        'full_name' => 'Austin Gina Hinojosa',
+        'political_office' => 'Governor',
+        'governance_level' => 'state',
+        'state' => 'TX',
+        'party_affiliation' => 'Democratic',
+        'election_date' => now()->addMonths(3)->toDateString(),
+        'payload' => ['status' => 'running'],
+    ]))->saveQuietly();
+
+    $gina = collect(profileLinkGovernorCards())->filter(fn ($c) => str_contains($c['full_name'], 'Hinojosa'));
+
+    expect($gina)->toHaveCount(1)
+        ->and($gina->first()['full_name'])->toBe('Gina Hinojosa')
+        ->and($gina->first()['party'])->toBe('Democratic');
+});

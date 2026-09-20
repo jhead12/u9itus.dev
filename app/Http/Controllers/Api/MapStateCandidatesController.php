@@ -359,9 +359,14 @@ class MapStateCandidatesController
             $grouped[$canonical]['candidates'][] = $this->formatPlatformCandidate($pol);
         }
 
+        $knownNameKeys = [];
+        foreach ($scrapedRecords as $rec) {
+            $knownNameKeys[MapCandidateHygiene::identityKey($rec->full_name)] = true;
+        }
+
         foreach ($scrapedRecords as $rec) {
             $canonical  = $this->canonicalise($rec->political_office);
-            $recName    = MapCandidateHygiene::stripLeadingPlace($rec->full_name, $placeNames);
+            $recName    = MapCandidateHygiene::stripLeadingPlace($rec->full_name, $placeNames, $knownNameKeys);
             $nameLower  = strtolower($rec->full_name);
             $payload    = is_array($rec->payload) ? $rec->payload : [];
             $primaryResult = strtolower(trim((string) ($payload['primary_result'] ?? '')));

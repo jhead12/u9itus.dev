@@ -119,15 +119,27 @@ class MapCandidateHygiene
      * (one or two words) when a real first + last name remains, so the row
      * merges with the same person's clean record.
      *
+     * The city list is incomplete (Austin is missing from the TX demographics),
+     * so a single leading word is also dropped when what remains is exactly
+     * another known candidate's name.
+     *
      * @param  array<string, true>  $placeNames  placeKey()-normalised city names for the state
+     * @param  array<string, true>  $knownNames  identityKey()-normalised names of other candidates in the state
      */
-    public static function stripLeadingPlace(?string $name, array $placeNames): ?string
+    public static function stripLeadingPlace(?string $name, array $placeNames, array $knownNames = []): ?string
     {
         $words = preg_split('/\s+/', trim((string) $name)) ?: [];
 
         foreach ([1, 2] as $take) {
             if (count($words) - $take >= 2 && isset($placeNames[self::placeKey(implode(' ', array_slice($words, 0, $take)))])) {
                 return implode(' ', array_slice($words, $take));
+            }
+        }
+
+        if (count($words) >= 3) {
+            $rest = implode(' ', array_slice($words, 1));
+            if (isset($knownNames[self::identityKey($rest)])) {
+                return $rest;
             }
         }
 
