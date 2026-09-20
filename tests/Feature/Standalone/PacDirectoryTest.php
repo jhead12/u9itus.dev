@@ -107,3 +107,25 @@ test('spending_by_race links to a politician profile when resolved', function ()
         ->assertSee('/p/' . $pol->slug, false)
         ->assertSee('Linked Candidate');
 });
+
+test('committee page links candidates to their profiles, resolved when the page renders', function () {
+    $pol = Politician::factory()->create(['full_name' => 'Jane Doe', 'fec_candidate_id' => 'S6OH00001', 'slug' => 'jane-doe', 'page_published' => true]);
+    $hidden = Politician::factory()->create(['full_name' => 'Hidden Person', 'fec_candidate_id' => 'S6OH00002', 'slug' => 'hidden-person', 'page_published' => false]);
+
+    $c = makeCommitteeWithProfile([], [
+        'spending_by_race' => [
+            ['candidate_fec_id' => 'S6OH00001', 'candidate_name' => 'JANE DOE', 'office' => 'Senate', 'state' => 'OH', 'district' => '00', 'support' => 900_000, 'oppose' => 0],
+            ['candidate_fec_id' => 'S6OH00002', 'candidate_name' => 'HIDDEN PERSON', 'office' => 'Senate', 'state' => 'OH', 'district' => '00', 'support' => 1_000, 'oppose' => 0],
+        ],
+        'recent_expenditures' => [
+            ['candidate_fec_id' => 'S6OH00001', 'candidate_name' => 'JANE DOE', 'support_oppose' => 'S', 'amount' => 12_000, 'date' => '2026-09-01', 'purpose' => 'MEDIA BUY'],
+        ],
+    ]);
+
+    $html = $this->get('/pacs/' . $c->publicSlug())->assertOk()->getContent();
+
+    // Linked from both the race table and the recent-expenditures list.
+    expect(substr_count($html, 'href="' . route('politician.public.show', $pol->slug) . '"'))->toBe(2);
+    expect($html)->not->toContain(route('politician.public.show', $hidden->slug));
+    expect($html)->toContain('HIDDEN PERSON');
+});

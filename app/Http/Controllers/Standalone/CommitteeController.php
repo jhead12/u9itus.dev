@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Standalone;
 use App\Http\Controllers\Controller;
 use App\Models\Committee;
 use App\Models\CommitteeProfile;
+use App\Models\Politician;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 
@@ -111,7 +112,11 @@ class CommitteeController extends Controller
                 return null;
             }
 
-            return ['committee' => $committee, 'profile' => $committee->profile];
+            return [
+                'committee' => $committee,
+                'profile' => $committee->profile,
+                'candidateSlugs' => $this->candidateSlugs($committee->profile),
+            ];
         });
 
         if ($data === null) {
@@ -134,6 +139,7 @@ class CommitteeController extends Controller
         return view('standalone.public.pac-profile', [
             'committee' => $committeeModel,
             'profile' => $profile,
+            'candidateSlugs' => $data['candidateSlugs'],
             'ogTitle' => $name,
             'ogDescription' => trim(sprintf(
                 '%s — %s. %s in independent expenditures reported to the FEC for the %s cycle.',
@@ -144,5 +150,35 @@ class CommitteeController extends Controller
             )),
             'ogUrl' => url($canonicalPath),
         ]);
+    }
+
+    /**
+     * FEC candidate ID => public politician slug for every candidate this
+     * committee spent on. Resolved when the page is built rather than read
+     * from the enrichment snapshot, so a candidate added to the platform after
+     * the nightly run is linked without waiting for the next one. Only
+     * publicly visible politicians are returned — a link to /p/{slug} for a
+     * hidden profile would 404.
+     *
+     * @return array<string, string>
+     */
+    private function candidateSlugs(CommitteeProfile $profile): array
+    {
+        $fecIds = collect($profile->spending_by_race ?? [])
+            ->merge($profile->recent_expenditures ?? [])
+            ->pluck('candidate_fec_id')
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($fecIds->isEmpty()) {
+            return [];
+        }
+
+        return Politician::query()
+            ->publiclyVisible()
+            ->whereIn('fec_candidate_id', $fecIds)
+            ->pluck('slug', 'fec_candidate_id')
+            ->all();
     }
 }

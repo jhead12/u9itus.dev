@@ -33,6 +33,8 @@
     $name = $committee->name ?: $committee->fec_committee_id;
     $fecUrl = 'https://www.fec.gov/data/committee/' . $committee->fec_committee_id . '/';
     $races = collect($profile->spending_by_race ?? []);
+    // Snapshot rows written before candidate_fec_id was stored still carry a slug.
+    $candidateSlug = fn (array $row) => $candidateSlugs[$row['candidate_fec_id'] ?? ''] ?? ($row['politician_slug'] ?? null);
     $org = $committee->organization && $committee->organization->is_active ? $committee->organization : null;
 @endphp
 
@@ -161,8 +163,8 @@
                         @foreach($races as $r)
                             <tr>
                                 <td class="py-2.5 pr-3">
-                                    @if(!empty($r['politician_slug']))
-                                        <a href="{{ route('politician.public.show', $r['politician_slug']) }}"
+                                    @if($slug = $candidateSlug($r))
+                                        <a href="{{ route('politician.public.show', $slug) }}"
                                            class="text-slate-100 font-medium hover:text-emerald-300 underline decoration-slate-700 underline-offset-2 hover:decoration-emerald-400">{{ $r['candidate_name'] }}</a>
                                     @else
                                         <span class="text-slate-200">{{ $r['candidate_name'] }}</span>
@@ -199,7 +201,12 @@
                                     : 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300' }}">
                                 {{ ($e['support_oppose'] ?? '') === 'O' ? 'Oppose' : 'Support' }}
                             </span>
-                            <span class="text-slate-200">{{ $e['candidate_name'] ?? '—' }}</span>
+                            @if($slug = $candidateSlug($e))
+                                <a href="{{ route('politician.public.show', $slug) }}"
+                                   class="text-slate-200 hover:text-emerald-300 underline decoration-slate-700 underline-offset-2 hover:decoration-emerald-400">{{ $e['candidate_name'] ?? '—' }}</a>
+                            @else
+                                <span class="text-slate-200">{{ $e['candidate_name'] ?? '—' }}</span>
+                            @endif
                             @if(!empty($e['purpose']))
                                 <span class="text-slate-500">— {{ $e['purpose'] }}</span>
                             @endif

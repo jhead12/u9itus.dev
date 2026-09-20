@@ -353,6 +353,7 @@ class EnrichCommitteeProfiles extends Command
             $rows[] = [
                 'politician_id' => $pol?->id,
                 'politician_slug' => $pol?->slug,
+                'candidate_fec_id' => $r['candidate_fec_id'],
                 'candidate_name' => $pol?->full_name ?? $r['candidate_name'],
                 'office' => $r['office'],
                 'state' => $r['state'],
@@ -374,6 +375,7 @@ class EnrichCommitteeProfiles extends Command
     private function recentLineItems(array $items): array
     {
         $rows = array_map(fn ($it) => [
+            'candidate_fec_id' => $it['candidate_id'] ?: null,
             'candidate_name' => $it['candidate_name'] ?: 'Unknown candidate',
             'support_oppose' => $it['support_oppose'],
             'amount' => round((float) $it['amount'], 2),
