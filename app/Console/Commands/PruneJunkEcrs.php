@@ -63,6 +63,7 @@ class PruneJunkEcrs extends Command
         {--stale-before=  : ISO date; rows with an earlier election_date are stale (default: Jan 1 this year)}
         {--keep-stale     : Do not flag stale-cycle rows}
         {--no-dedup       : Do not collapse duplicate name+office+state rows}
+        {--max-unlisted=150 : With --apply, do not delete "unlisted" rows if more than this many are flagged in one run (a sign the Wikipedia parse broke, not that this many are junk)}
         {--wikipedia      : Also flag news-discovered Governor/Senate/House rows whose name is nowhere on the race\'s Wikipedia article}
         {--apply          : Actually delete flagged rows (default is dry-run)}
         {--limit=20000    : Max rows to scan}';
@@ -182,6 +183,18 @@ class PruneJunkEcrs extends Command
             }
         }
 
+        // A run that suddenly flags hundreds of rows means an article changed shape, not that
+        // hundreds of candidates are junk. Report them, delete none of them.
+        $unlisted = array_keys(array_filter($flag, fn ($reason) => $reason === 'unlisted'));
+        $maxUnlisted = max(0, (int) $this->option('max-unlisted'));
+        $unlistedHeld = $apply && count($unlisted) > $maxUnlisted;
+        if ($unlistedHeld) {
+            $this->warn(sprintf('%d rows flagged "unlisted" (more than --max-unlisted=%d) — none deleted; check the Wikipedia parse.', count($unlisted), $maxUnlisted));
+            foreach ($unlisted as $id) {
+                $flag[$id] = 'unlisted (held)';
+            }
+        }
+
         // ── Report ───────────────────────────────────────────────────────────
         $byRow = $rows->keyBy('id');
         $counts = [];
@@ -237,11 +250,12 @@ class PruneJunkEcrs extends Command
         }
 
         // ── Apply ────────────────────────────────────────────────────────────
-        $affectedStates = $byRow->only(array_keys($flag))
+        $deletable = array_keys(array_filter($flag, fn ($reason) => $reason !== 'unlisted (held)'));
+        $affectedStates = $byRow->only($deletable)
             ->pluck('state')->map(fn ($s) => strtoupper(trim((string) $s)))
             ->filter()->unique()->values();
 
-        $deleted = ElectionCandidateRecord::whereIn('id', array_keys($flag))->delete();
+        $deleted = ElectionCandidateRecord::whereIn('id', $deletable)->delete();
 
         foreach ($affectedStates as $st) {
             Cache::forget("map_state_candidates_{$st}");

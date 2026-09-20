@@ -171,3 +171,16 @@ it('keeps a discovered nickname of a listed candidate ("Barb" for "Barbara")', f
 
     $this->assertDatabaseHas('election_candidate_records', ['id' => $nick->id]);
 });
+
+it('deletes no "unlisted" rows when more are flagged than --max-unlisted', function () {
+    Http::fake(['en.wikipedia.org/w/api.php*' => Http::response(['parse' => ['wikitext' => "====Advanced to general====\n* [[Steve Hilton]]\n* [[Xavier Becerra]]\n"]])]);
+    $rows = collect(['Lamont Launch', 'Impact Church', 'Iowa Split'])->map(fn ($n, $i) => ecr(['source' => 'candidate_discovery', 'full_name' => $n, 'external_candidate_id' => "d{$i}"]));
+
+    $this->artisan('politicians:prune-junk-ecrs', ['--state' => ['CA'], '--wikipedia' => true, '--apply' => true, '--no-dedup' => true, '--max-unlisted' => 2])
+        ->expectsOutputToContain('none deleted')
+        ->assertExitCode(0);
+
+    foreach ($rows as $row) {
+        $this->assertDatabaseHas('election_candidate_records', ['id' => $row->id]);
+    }
+});

@@ -25,7 +25,8 @@ use Illuminate\Support\Facades\Log;
  *   3. politicians:reconcile-status(+       — deactivate stale unclaimed rows, auto-apply
  *      -state-local)
  *   4. politicians:dedupe (both scopes)     — NEVER auto-applies; enqueues for review
- *   5. politicians:prune-junk-ecrs          — name/stale/cross_state/dup, auto-apply
+ *   5. politicians:prune-junk-ecrs          — name/stale/cross_state/dup, plus (--wikipedia) news-
+ *                                             discovered rows not on the race's Wikipedia field, auto-apply
  *      (already conservative: never touches identity-linked rows)
  *   6. politicians:flag-suspect-profiles    — profiles that duplicate a sitting official
  *                                              (cross-state impostors, "Greg Abbott's") are
@@ -115,7 +116,7 @@ class PoliticiansCleanupWorkflow extends Command
 
         $this->section('5/7 · Pruning junk election candidate records');
         $results['clean-discovery-names'] = $this->callForStates('candidates:clean-discovery-names', $dryRun ? [] : ['--apply' => true], $states);
-        $results['prune-junk-ecrs'] = $this->callForStates('politicians:prune-junk-ecrs', $dryRun ? [] : ['--apply' => true], $states);
+        $results['prune-junk-ecrs'] = $this->callForStates('politicians:prune-junk-ecrs', $dryRun ? ['--wikipedia' => true] : ['--apply' => true, '--wikipedia' => true], $states);
         $results['audit-discovery-records'] = $this->callForStates('candidates:audit-records', [], $states);
 
         $this->section('6/7 · Impostor and headline-text profiles (duplicates of a sitting official are deactivated; the rest queued)');
