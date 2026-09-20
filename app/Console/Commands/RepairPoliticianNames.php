@@ -49,14 +49,22 @@ class RepairPoliticianNames extends Command
             ->when($state, fn ($q) => $q->whereRaw('UPPER(COALESCE(state, "")) = ?', [$state]))
             ->orderBy('id')
             ->limit($limit)
-            ->get(['id', 'uuid', 'full_name', 'political_office', 'city', 'state', 'slug', 'page_published']);
+            ->get(['id', 'uuid', 'full_name', 'political_office', 'city', 'state', 'slug', 'page_published', 'is_active', 'user_id', 'fec_candidate_id']);
 
         $repaired = 0;
         $unrepairable = 0;
         $flagged = 0;
+        $retired = 0;
+        $alreadyHidden = 0;
 
         foreach ($rows as $politician) {
             $result = PoliticianNameRepairer::repair($politician->full_name);
+
+            // A "repair" that leaves a question or an office name ("do I run for office?",
+            // "State Senate") is no better than the junk it started as: treat it as unrepairable.
+            if ($result['changed'] && PoliticianNameRepairer::isNotAPerson($result['name'])) {
+                $result = ['name' => $politician->full_name, 'changed' => false, 'unrepairable' => true];
+            }
 
             if ($result['changed']) {
                 $this->line(sprintf(
@@ -92,6 +100,26 @@ class RepairPoliticianNames extends Command
             }
 
             if ($result['unrepairable']) {
+                // Already off the map and the directory: a review would change nothing.
+                if (! $politician->is_active && ! $politician->page_published) {
+                    $alreadyHidden++;
+
+                    continue;
+                }
+
+                // Nothing but place/qualifier words or an election-page title is left, so there is
+                // no person to review. Retire an unclaimed profile the way approving the review would.
+                if (PoliticianNameRepairer::isNotAPerson($politician->full_name) && $this->safeToRetire($politician)) {
+                    $this->line(sprintf('  <fg=magenta>#%d</> "%s" — not a person\'s name, %s', $politician->id, $politician->full_name, $apply ? 'retired' : 'would retire'));
+                    $retired++;
+
+                    if ($apply) {
+                        $this->retire($politician);
+                    }
+
+                    continue;
+                }
+
                 $this->line(sprintf(
                     '  <fg=red>#%d</> "%s" — nothing sensible left after stripping, needs manual review',
                     $politician->id,
@@ -118,8 +146,32 @@ class RepairPoliticianNames extends Command
 
         $this->newLine();
         $verb = $apply ? 'repaired' : 'would repair';
-        $this->info("{$rows->count()} scanned: {$repaired} {$verb}, {$unrepairable} unrepairable".($enqueueReview ? " ({$flagged} enqueued for review)" : '').'.');
+        $this->info("{$rows->count()} scanned: {$repaired} {$verb}, {$retired} not-a-person ".($apply ? 'retired' : 'would retire').", {$unrepairable} left for review".($enqueueReview ? " ({$flagged} enqueued)" : '').", {$alreadyHidden} already hidden.");
 
         return self::SUCCESS;
+    }
+
+    /** Same guard as approving a name_reject review: never a claimed or FEC-identified profile, nor one with a live campaign. */
+    private function safeToRetire(Politician $politician): bool
+    {
+        return $politician->user_id === null
+            && blank($politician->fec_candidate_id)
+            && ! $politician->campaigns()->where('status', 'active')->exists();
+    }
+
+    private function retire(Politician $politician): void
+    {
+        // Through the model so the map's per-state cache is busted.
+        $politician->update(['is_active' => false, 'page_published' => false]);
+
+        PoliticianCleanupReview::create([
+            'review_type' => PoliticianCleanupReview::TYPE_NAME_REJECT,
+            'politician_id' => $politician->id,
+            'duplicate_politician_id' => null,
+            'payload' => ['full_name' => $politician->full_name, 'political_office' => $politician->political_office, 'state' => $politician->state, 'auto_approved' => true],
+            'status' => PoliticianCleanupReview::STATUS_APPROVED,
+            'reason' => 'Auto-approved: name is not a person (place/qualifier words or an election-page title)',
+            'reviewed_at' => now(),
+        ]);
     }
 }

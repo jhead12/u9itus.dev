@@ -76,12 +76,12 @@ it('leaves a clean name untouched', function () {
 });
 
 it('enqueues an unrepairable name for review with --apply --enqueue-review', function () {
-    $unrepairable = politicianJunk(['full_name' => 'Former California']);
+    $unrepairable = politicianJunk(['full_name' => 'Former California Newsom']);
 
     $this->artisan('politicians:repair-names', ['--state' => 'CA', '--apply' => true, '--enqueue-review' => true])
         ->assertExitCode(0);
 
-    expect($unrepairable->refresh()->full_name)->toBe('Former California');
+    expect($unrepairable->refresh()->full_name)->toBe('Former California Newsom');
 
     $this->assertDatabaseHas('politician_cleanup_reviews', [
         'review_type' => PoliticianCleanupReview::TYPE_NAME_REJECT,
@@ -91,7 +91,7 @@ it('enqueues an unrepairable name for review with --apply --enqueue-review', fun
 });
 
 it('does not enqueue an unrepairable name without --enqueue-review', function () {
-    politicianJunk(['full_name' => 'Former California']);
+    politicianJunk(['full_name' => 'Former California Newsom']);
 
     $this->artisan('politicians:repair-names', ['--state' => 'CA', '--apply' => true])
         ->assertExitCode(0);
@@ -100,7 +100,7 @@ it('does not enqueue an unrepairable name without --enqueue-review', function ()
 });
 
 it('does not duplicate a name_reject review (null duplicate_politician_id) on a re-run', function () {
-    politicianJunk(['full_name' => 'Former California']);
+    politicianJunk(['full_name' => 'Former California Newsom']);
 
     $this->artisan('politicians:repair-names', ['--state' => 'CA', '--apply' => true, '--enqueue-review' => true])->assertExitCode(0);
     $this->artisan('politicians:repair-names', ['--state' => 'CA', '--apply' => true, '--enqueue-review' => true])->assertExitCode(0);
@@ -116,3 +116,81 @@ it('busts the state map cache when it repairs a name', function () {
 
     expect(Cache::has('map_state_candidates_CA'))->toBeFalse();
 });
+
+it('retires an unclaimed profile whose name is only a place or an election-page title, instead of queueing it', function () {
+    $place = politicianJunk(['full_name' => 'California', 'is_active' => true, 'page_published' => true, 'user_id' => null, 'fec_candidate_id' => null]);
+    $title = politicianJunk(['full_name' => "California's 2nd Congressional District election, 2026", 'is_active' => true, 'page_published' => true, 'user_id' => null, 'fec_candidate_id' => null]);
+
+    $this->artisan('politicians:repair-names', ['--state' => 'CA', '--apply' => true, '--enqueue-review' => true])
+        ->expectsOutputToContain('not a person')
+        ->assertExitCode(0);
+
+    expect($place->refresh()->is_active)->toBeFalse()
+        ->and($place->page_published)->toBeFalse()
+        ->and($title->refresh()->is_active)->toBeFalse()
+        ->and(PoliticianCleanupReview::where('status', PoliticianCleanupReview::STATUS_PENDING)->count())->toBe(0)
+        ->and(PoliticianCleanupReview::where('status', PoliticianCleanupReview::STATUS_APPROVED)->count())->toBe(2);
+});
+
+it('only reports a not-a-person name in dry-run', function () {
+    $place = politicianJunk(['full_name' => 'California', 'is_active' => true, 'page_published' => true]);
+
+    $this->artisan('politicians:repair-names', ['--state' => 'CA'])->expectsOutputToContain('would retire')->assertExitCode(0);
+
+    expect($place->refresh()->is_active)->toBeTrue();
+});
+
+it('never retires a claimed or FEC-identified profile, and queues it instead', function () {
+    $claimed = politicianJunk(['full_name' => 'California', 'is_active' => true, 'page_published' => true, 'user_id' => App\Models\User::factory()->create()->id]);
+    $fec = politicianJunk(['full_name' => 'Former California', 'is_active' => true, 'page_published' => true, 'user_id' => null, 'fec_candidate_id' => 'H0CA00001']);
+
+    $this->artisan('politicians:repair-names', ['--state' => 'CA', '--apply' => true, '--enqueue-review' => true])->assertExitCode(0);
+
+    expect($claimed->refresh()->is_active)->toBeTrue()
+        ->and($fec->refresh()->is_active)->toBeTrue()
+        ->and(PoliticianCleanupReview::where('status', PoliticianCleanupReview::STATUS_PENDING)->count())->toBe(2);
+});
+
+it('keeps a leftover surname for review rather than retiring it', function () {
+    $person = politicianJunk(['full_name' => 'Former California Newsom', 'is_active' => true, 'page_published' => true, 'user_id' => null]);
+
+    $this->artisan('politicians:repair-names', ['--state' => 'CA', '--apply' => true, '--enqueue-review' => true])->assertExitCode(0);
+
+    expect($person->refresh()->is_active)->toBeTrue()
+        ->and(PoliticianCleanupReview::where('politician_id', $person->id)->where('status', PoliticianCleanupReview::STATUS_PENDING)->exists())->toBeTrue();
+});
+
+it('stays quiet about an unrepairable name that is already hidden', function () {
+    politicianJunk(['full_name' => 'California', 'is_active' => false, 'page_published' => false]);
+
+    $this->artisan('politicians:repair-names', ['--state' => 'CA', '--apply' => true, '--enqueue-review' => true])
+        ->doesntExpectOutputToContain('needs manual review')
+        ->assertExitCode(0);
+
+    expect(PoliticianCleanupReview::count())->toBe(0);
+});
+
+it('retires a name whose "repair" would only leave a question or an office name', function (string $junk) {
+    $row = politicianJunk(['full_name' => $junk, 'is_active' => true, 'page_published' => true, 'user_id' => null, 'fec_candidate_id' => null]);
+
+    $this->artisan('politicians:repair-names', ['--state' => 'CA', '--apply' => true, '--enqueue-review' => true])->assertExitCode(0);
+
+    expect($row->refresh()->full_name)->toBe($junk)
+        ->and($row->is_active)->toBeFalse();
+})->with(['How do I run for office?', 'California State Senate', 'California Assembly District 30']);
+
+it('still repairs a real name with a leading qualifier', function () {
+    $row = politicianJunk(['full_name' => 'California Gavin Newsom', 'is_active' => true, 'page_published' => true]);
+
+    $this->artisan('politicians:repair-names', ['--state' => 'CA', '--apply' => true])->assertExitCode(0);
+
+    expect($row->refresh()->full_name)->toBe('Gavin Newsom')->and($row->is_active)->toBeTrue();
+});
+
+it('retires office, body and party names that a qualifier strip would leave behind', function (string $junk) {
+    $row = politicianJunk(['full_name' => $junk, 'is_active' => true, 'page_published' => true, 'user_id' => null, 'fec_candidate_id' => null]);
+
+    $this->artisan('politicians:repair-names', ['--state' => 'CA', '--apply' => true, '--enqueue-review' => true])->assertExitCode(0);
+
+    expect($row->refresh()->full_name)->toBe($junk)->and($row->is_active)->toBeFalse();
+})->with(['The Indiana Attorney General', 'The Nevada Attorney General', 'Democratic Party', 'Texas Municipal Police Association', 'Orange County Board of Commissioners']);
