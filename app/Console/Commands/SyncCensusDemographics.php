@@ -409,7 +409,7 @@ class SyncCensusDemographics extends Command
         }
 
         foreach ([
-            'UCGID collection geography' => '160|0400000US' . $fips,
+            'UCGID collection geography' => '160|state:' . $fips,
         ] as $label => $ucgid) {
             $this->warn("  Legacy place geography failed for state {$fips}; retrying with {$label}.");
 
