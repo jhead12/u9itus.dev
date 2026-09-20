@@ -39,6 +39,8 @@ class ImportFecCandidates extends Command
         {--state= : Two-letter state code — limit to one state}
         {--office=H,S : Chambers to import: H (House), S (Senate)}
         {--include-unqualified : Also add filers below the FEC $5,000 threshold as candidate records (default: candidate_status C only; all filers still go on the roster)}
+        {--overwrite-conflicts : Replace a profile\'s stale FEC id with the one FEC lists when it is unclaimed, the same chamber, and no longer a filer this year}
+        {--conflicts-only : Report id conflicts with FEC links for both ids — no DB writes, everything else is skipped}
         {--dry-run : Report only — no DB writes}';
 
     protected $description = 'Import FEC House/Senate candidates: record FEC ids on matching profiles and add candidates we have no record of.';
@@ -57,6 +59,10 @@ class ImportFecCandidates extends Command
 
     private bool $includeUnqualified = false;
 
+    private bool $overwriteConflicts = false;
+
+    private bool $conflictsOnly = false;
+
     public function handle(FECService $fec): int
     {
         if (! $fec->isConfigured()) {
@@ -66,7 +72,9 @@ class ImportFecCandidates extends Command
         }
 
         $year = (int) $this->option('year');
-        $dryRun = (bool) $this->option('dry-run');
+        $this->conflictsOnly = (bool) $this->option('conflicts-only');
+        $this->overwriteConflicts = (bool) $this->option('overwrite-conflicts') && ! $this->conflictsOnly;
+        $dryRun = (bool) $this->option('dry-run') || $this->conflictsOnly;
         $this->includeUnqualified = (bool) $this->option('include-unqualified');
         $offices = array_values(array_intersect(
             array_map('strtoupper', array_map('trim', explode(',', (string) $this->option('office')))),
@@ -83,7 +91,7 @@ class ImportFecCandidates extends Command
         }
 
         FECService::resetTelemetry();
-        $totals = ['roster' => 0, 'filers' => 0, 'linked' => 0, 'already' => 0, 'conflicts' => 0, 'records' => 0, 'after_primary' => 0, 'no_date' => 0, 'failed_lists' => 0];
+        $totals = ['roster' => 0, 'filers' => 0, 'linked' => 0, 'already' => 0, 'conflicts' => 0, 'replaced' => 0, 'records' => 0, 'after_primary' => 0, 'no_date' => 0, 'failed_lists' => 0];
 
         foreach ($states as $state) {
             foreach ($offices as $office) {
@@ -115,6 +123,7 @@ class ImportFecCandidates extends Command
     private function importList(array $rows, string $state, string $office, int $year, bool $dryRun, array &$totals): void
     {
         $pool = $this->politiciansByIdentity($state, $office);
+        $yearIds = collect($rows)->pluck('candidate_id')->filter()->map(fn ($id) => (string) $id)->flip()->all();
 
         foreach ($rows as $row) {
             $fecId = (string) ($row['candidate_id'] ?? '');
@@ -124,14 +133,20 @@ class ImportFecCandidates extends Command
             }
 
             $totals['filers']++;
-            $this->recordOnRoster($row, $fecId, $displayName, $state, $office, $year, $dryRun, $totals);
+            if (! $this->conflictsOnly) {
+                $this->recordOnRoster($row, $fecId, $displayName, $state, $office, $year, $dryRun, $totals);
+            }
             $matches = $pool->get(MapCandidateHygiene::identityKey($displayName), collect());
 
             if ($matches->isNotEmpty()) {
                 foreach ($matches as $politician) {
-                    $this->linkId($politician, $fecId, $displayName, $dryRun, $totals);
+                    $this->linkId($politician, $fecId, $displayName, $office, $yearIds, $dryRun, $totals);
                 }
 
+                continue;
+            }
+
+            if ($this->conflictsOnly) {
                 continue;
             }
 
@@ -156,7 +171,7 @@ class ImportFecCandidates extends Command
         return Politician::query()
             ->whereRaw('UPPER(COALESCE(state, \'\')) = ?', [$state])
             ->whereNotNull('political_office')
-            ->get(['id', 'full_name', 'political_office', 'state', 'district', 'fec_candidate_id'])
+            ->get(['id', 'full_name', 'political_office', 'state', 'district', 'fec_candidate_id', 'user_id'])
             ->filter(fn (Politician $p) => $this->containsAny(strtolower((string) $p->political_office), $needles))
             ->groupBy(fn (Politician $p) => MapCandidateHygiene::identityKey($p->full_name));
     }
@@ -185,8 +200,11 @@ class ImportFecCandidates extends Command
         );
     }
 
-    /** @param  array<string, int>  $totals */
-    private function linkId(Politician $politician, string $fecId, string $name, bool $dryRun, array &$totals): void
+    /**
+     * @param  array<string, int>  $yearIds  FEC ids that filed this year for the state + chamber being imported
+     * @param  array<string, int>  $totals
+     */
+    private function linkId(Politician $politician, string $fecId, string $name, string $office, array $yearIds, bool $dryRun, array &$totals): void
     {
         $existing = trim((string) $politician->fec_candidate_id);
 
@@ -197,10 +215,7 @@ class ImportFecCandidates extends Command
         }
 
         if ($existing !== '') {
-            // A person can hold more than one FEC id (a different office or district
-            // years apart), and older ids were name-search guesses — don't overwrite; flag it.
-            $this->line("[CONFLICT] {$name} (#{$politician->id}) has {$existing}, FEC lists {$fecId} — left as-is");
-            $totals['conflicts']++;
+            $this->handleConflict($politician, $existing, $fecId, $name, $office, $yearIds, $dryRun, $totals);
 
             return;
         }
@@ -208,8 +223,68 @@ class ImportFecCandidates extends Command
         if (! $dryRun) {
             $politician->updateQuietly(['fec_candidate_id' => $fecId]);
         }
-        $this->line('['.($dryRun ? 'DRY' : 'LINK')."] {$name} (#{$politician->id}) ← {$fecId}");
+        if (! $this->conflictsOnly) {
+            $this->line('['.($dryRun ? 'DRY' : 'LINK')."] {$name} (#{$politician->id}) ← {$fecId}");
+        }
         $totals['linked']++;
+    }
+
+    /**
+     * A person can hold more than one FEC id (a different office or district years apart),
+     * and older ids were name-search guesses — so a conflict is only replaced on request, and
+     * only when the stored id is safe to call stale: the profile is unclaimed, the id is for the
+     * same chamber, and it is not itself a filer this year (an id that is belongs to someone else).
+     *
+     * @param  array<string, int>  $yearIds
+     * @param  array<string, int>  $totals
+     */
+    private function handleConflict(Politician $politician, string $existing, string $fecId, string $name, string $office, array $yearIds, bool $dryRun, array &$totals): void
+    {
+        $totals['conflicts']++;
+
+        if ($this->overwriteConflicts) {
+            $reason = $this->overwriteBlocker($politician, $existing, $office, $yearIds);
+
+            if ($reason === null) {
+                if (! $dryRun) {
+                    $politician->updateQuietly(['fec_candidate_id' => $fecId]);
+                }
+                $this->line('['.($dryRun ? 'DRY' : 'REPLACED')."] {$name} (#{$politician->id}) {$existing} → {$fecId}");
+                $totals['replaced']++;
+
+                return;
+            }
+
+            $this->line("[CONFLICT] {$name} (#{$politician->id}) has {$existing}, FEC lists {$fecId} — left as-is ({$reason})");
+
+            return;
+        }
+
+        $this->line("[CONFLICT] {$name} (#{$politician->id}) has {$existing}, FEC lists {$fecId} — left as-is");
+
+        if ($this->conflictsOnly) {
+            $this->line("    stored: https://www.fec.gov/data/candidate/{$existing}/");
+            $this->line("    FEC:    https://www.fec.gov/data/candidate/{$fecId}/");
+        }
+    }
+
+    /**
+     * @param  array<string, int>  $yearIds
+     * @return string|null why the stored id must be kept, or null when it may be replaced
+     */
+    private function overwriteBlocker(Politician $politician, string $existing, string $office, array $yearIds): ?string
+    {
+        if ($politician->user_id !== null) {
+            return 'profile is claimed';
+        }
+        if (strtoupper($existing[0]) !== $office) {
+            return 'stored id is for a different chamber';
+        }
+        if (isset($yearIds[$existing])) {
+            return 'stored id also filed this year — a different person';
+        }
+
+        return null;
     }
 
     /**
@@ -293,9 +368,9 @@ class ImportFecCandidates extends Command
     {
         $prefix = $dryRun ? '[dry-run] ' : '';
         $this->info(sprintf(
-            '%sFEC import: %d filer(s) (%d on the roster) — %d id(s) linked, %d already linked, %d conflict(s), %d new record(s); '
+            '%sFEC import: %d filer(s) (%d on the roster) — %d id(s) linked, %d already linked, %d conflict(s) (%d replaced), %d new record(s); '
             .'not added: %d (primary already held — outcome unknown), %d (no primary date on file); %d list(s) unavailable.',
-            $prefix, $totals['filers'], $totals['roster'], $totals['linked'], $totals['already'], $totals['conflicts'], $totals['records'],
+            $prefix, $totals['filers'], $totals['roster'], $totals['linked'], $totals['already'], $totals['conflicts'], $totals['replaced'], $totals['records'],
             $totals['after_primary'], $totals['no_date'], $totals['failed_lists'],
         ));
         $this->line('FEC API calls: '.FECService::getHttpCallCount().', rate-limited: '.FECService::getRateLimitCount());
