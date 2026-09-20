@@ -9,6 +9,11 @@ use Illuminate\Support\Facades\Http;
 
 uses(RefreshDatabase::class);
 
+// Tier 0 reads Wikipedia's race article through the MediaWiki API. Stray requests
+// throw (the service treats that as "no answer"), so tests that fake only
+// Ballotpedia never reach the network.
+beforeEach(fn () => Http::preventStrayRequests());
+
 test('a federal candidate record is picked up and classified as eliminated', function () {
     Http::fake([
         'ballotpedia.org/*' => Http::response('<html>He lost the primary to the incumbent.</html>', 200),
@@ -145,4 +150,149 @@ test('--dry-run does not write to the linked politician', function () {
     $politician->refresh();
     expect($record->payload['primary_result'] ?? null)->toBeNull();
     expect($politician->term_status)->toBe('running');
+});
+
+
+test('a Wikipedia race article decides the result when Ballotpedia is blocked', function () {
+    $wikitext = <<<'WIKI'
+==Top-two primary==
+===Candidates===
+====Advanced to general election====
+* [[Xavier Becerra]], former [[United States Secretary of Health and Human Services|HHS Secretary]]
+* [[Steve Hilton]], political commentator
+====Eliminated in primary====
+* [[Steven Bradford]], state senator
+* [[Ian Calderon|Ian C. Calderon]], former [[Assembly Majority Leader]]
+====Withdrawn====
+* [[Some Person]]
+====Endorsements====
+* [[Not Acandidate]]
+WIKI;
+
+    Http::fake([
+        'en.wikipedia.org/w/api.php*' => Http::response(['parse' => ['title' => '2026 California gubernatorial election', 'wikitext' => $wikitext]]),
+        'ballotpedia.org/*' => Http::response('', 202),
+        'en.wikipedia.org/*' => Http::response('', 404),
+    ]);
+
+    $make = fn (string $name) => ElectionCandidateRecord::factory()->create([
+        'full_name' => $name,
+        'governance_level' => 'state',
+        'political_office' => 'Governor',
+        'state' => 'CA',
+        'election_date' => '2026-11-03',
+        'payload' => [],
+    ]);
+    $becerra = $make('Xavier Becerra');
+    $bradford = $make('Steven Bradford');
+    $calderon = $make('Ian Calderon');
+    $bystander = $make('Not Acandidate');
+
+    Artisan::call('politicians:sync-primary-results', ['--state' => 'CA']);
+
+    expect($becerra->fresh()->payload['primary_result'])->toBe('advanced_to_general')
+        ->and($becerra->fresh()->payload['result_source'])->toBe('wikipedia_race_page')
+        ->and($bradford->fresh()->payload['primary_result'])->toBe('eliminated')
+        ->and($calderon->fresh()->payload['primary_result'])->toBe('eliminated')
+        ->and($bystander->fresh()->payload['primary_result'] ?? null)->toBeNull();
+});
+
+test('a Wikipedia race article is ignored while the state primary is still ahead', function () {
+    App\Models\StateElectionDate::create([
+        'state' => 'CA', 'election_year' => 2026, 'stage_name' => 'Primary Election', 'election_date' => now()->addDays(30)->toDateString(),
+    ]);
+
+    Http::fake([
+        'en.wikipedia.org/w/api.php*' => Http::response(['parse' => ['wikitext' => "====Eliminated in primary====\n* [[Steven Bradford]]\n"]]),
+        'ballotpedia.org/*' => Http::response('', 404),
+        'en.wikipedia.org/*' => Http::response('', 404),
+    ]);
+
+    $record = ElectionCandidateRecord::factory()->create([
+        'full_name' => 'Steven Bradford', 'governance_level' => 'state', 'political_office' => 'Governor',
+        'state' => 'CA', 'election_date' => '2026-11-03', 'payload' => [],
+    ]);
+
+    Artisan::call('politicians:sync-primary-results', ['--state' => 'CA']);
+
+    expect($record->fresh()->payload['primary_result'] ?? null)->toBeNull();
+});
+
+test('a House candidate is matched only within their own district section', function () {
+    $wikitext = <<<'WIKI'
+==District 1==
+====Nominee====
+* [[Pat Winner]]
+====Eliminated in primary====
+* [[Sam Samename]]
+==District 2==
+====Nominee====
+* [[Sam Samename]]
+WIKI;
+
+    Http::fake([
+        'en.wikipedia.org/w/api.php*' => Http::response(['parse' => ['wikitext' => $wikitext]]),
+        'ballotpedia.org/*' => Http::response('', 404),
+        'en.wikipedia.org/*' => Http::response('', 404),
+    ]);
+
+    $make = fn (string $name, string $district) => ElectionCandidateRecord::factory()->create([
+        'full_name' => $name, 'governance_level' => 'federal', 'political_office' => 'U.S. Representative',
+        'state' => 'CA', 'district' => $district, 'election_date' => '2026-11-03', 'payload' => [],
+    ]);
+    $d1 = $make('Sam Samename', '1');
+    $d2 = $make('Sam Samename', '2');
+
+    Artisan::call('politicians:sync-primary-results', ['--state' => 'CA']);
+
+    expect($d1->fresh()->payload['primary_result'])->toBe('eliminated')
+        ->and($d2->fresh()->payload['primary_result'])->toBe('advanced_to_general');
+});
+
+test('a candidate listed as withdrawn is taken off the map even before the primary is held', function () {
+    App\Models\StateElectionDate::create([
+        'state' => 'CA', 'election_year' => 2026, 'stage_name' => 'Primary Election', 'election_date' => now()->addDays(30)->toDateString(),
+    ]);
+
+    Http::fake([
+        'en.wikipedia.org/w/api.php*' => Http::response(['parse' => ['wikitext' => "====Withdrawn====\n* [[Eric Swalwell]], former U.S. representative\n====Declined====\n* [[Dana Decliner]]\n"]]),
+        'ballotpedia.org/*' => Http::response('', 404),
+        'en.wikipedia.org/*' => Http::response('', 404),
+    ]);
+
+    $make = fn (string $name) => ElectionCandidateRecord::factory()->create([
+        'full_name' => $name, 'governance_level' => 'state', 'political_office' => 'Governor',
+        'state' => 'CA', 'election_date' => '2026-11-03', 'payload' => [],
+    ]);
+    $swalwell = $make('Eric Swalwell');
+    $decliner = $make('Dana Decliner');
+    $politician = Politician::factory()->create(['full_name' => 'Eric Swalwell', 'state' => 'CA', 'user_id' => null, 'term_status' => 'running', 'is_running_candidate' => true, 'slug' => 'eric-swalwell-x']);
+    CandidateIdentityLink::create(['politician_id' => $politician->id, 'election_candidate_record_id' => $swalwell->id, 'match_score' => 0.9, 'link_source' => 'system']);
+
+    Artisan::call('politicians:sync-primary-results', ['--state' => 'CA']);
+
+    $payload = $swalwell->fresh()->payload;
+    expect($payload['primary_result'])->toBe('eliminated')
+        ->and($payload['withdrawn'])->toBeTrue()
+        ->and($payload['elimination_note'])->toContain('Withdrew')
+        ->and($payload['result_source'])->toBe('wikipedia_race_page')
+        ->and($politician->fresh()->term_status)->toBe('eliminated')
+        ->and($politician->fresh()->is_running_candidate)->toBeFalse()
+        ->and($decliner->fresh()->payload['primary_result'] ?? null)->toBeNull();
+});
+
+test('a page that merely says a candidate is running does not stamp them as advanced', function () {
+    Http::fake([
+        'ballotpedia.org/*' => Http::response('<html>She is running for governor and is a candidate for the top-two primary.</html>', 200),
+        'en.wikipedia.org/*' => Http::response('', 404),
+    ]);
+
+    $record = ElectionCandidateRecord::factory()->create([
+        'full_name' => 'Jane Runner', 'governance_level' => 'state', 'political_office' => 'Governor',
+        'state' => 'CA', 'election_date' => '2026-11-03', 'payload' => [],
+    ]);
+
+    Artisan::call('politicians:sync-primary-results', ['--state' => 'CA']);
+
+    expect($record->fresh()->payload['primary_result'] ?? null)->toBeNull();
 });

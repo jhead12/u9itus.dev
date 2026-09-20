@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\CandidateIdentityLink;
+use App\Services\WikipediaPrimaryResultsService;
 use App\Support\ElectionCycle;
 use App\Support\MapCacheNotice;
 use Illuminate\Console\Command;
@@ -16,6 +17,9 @@ use Illuminate\Support\Facades\Log;
  * For each state or federal candidate record where the election_date is in the
  * past and primary_result is not yet set, this command:
  *
+ *  Tier 0 — Wikipedia race article      (MediaWiki API; reads the "Nominee" and
+ *                                        "Eliminated in primary" headings, works
+ *                                        when Ballotpedia's WAF blocks the runner)
  *  Tier 1 — Ballotpedia candidate page  (HTML scrape, no key required)
  *  Tier 2 — Wikipedia candidate page    (REST summary, free)
  *
@@ -55,14 +59,10 @@ class SyncPrimaryResults extends Command
         'advanced to general',
         'general election candidate',
         'qualified for the general',
-        'top-two primary',
-        'advance',
         'is the democratic nominee',
         'is the republican nominee',
         'democratic nominee in the',
         'republican nominee in the',
-        'is running for',
-        'is a candidate for',
     ];
 
     /** Keywords that signal a candidate was eliminated */
@@ -77,6 +77,14 @@ class SyncPrimaryResults extends Command
     ];
 
     private const DELAY_MS = 500;
+
+    /** Which tier produced the last resolvePrimaryResult() answer. */
+    private ?string $lastSource = null;
+
+    /** True when the last answer was "left the race" rather than "lost the primary". */
+    private bool $lastWithdrew = false;
+
+    private ?WikipediaPrimaryResultsService $wikipediaRaces = null;
 
     public function handle(): int
     {
@@ -118,7 +126,7 @@ class SyncPrimaryResults extends Command
             $query->whereRaw('UPPER(COALESCE(state,\'\')) = ?', [$stateFilter]);
         }
 
-        $records = $query->get(['id', 'external_candidate_id', 'full_name', 'political_office',
+        $records = $query->get(['id', 'external_candidate_id', 'full_name', 'political_office', 'district',
                                 'party_affiliation', 'state', 'election_date', 'source', 'payload']);
 
         $this->info("Found {$records->count()} state/federal candidate record(s) eligible for primary-result sync.");
@@ -168,7 +176,7 @@ class SyncPrimaryResults extends Command
             ->when($stateFilter, fn ($q) => $q->whereRaw('UPPER(COALESCE(state, \'\')) = ?', [$stateFilter]))
             ->orderBy('id')
             ->limit($limit)
-            ->get(['id', 'full_name', 'state', 'political_office', 'election_date', 'payload']);
+            ->get(['id', 'full_name', 'state', 'political_office', 'district', 'election_date', 'payload']);
 
         $this->line($dryRun ? '<fg=yellow>[dry-run] No DB writes will occur.</>' : '<comment>[LIVE — writing changes]</comment>');
         $this->info("Re-checking {$records->count()} record(s) stamped eliminated...");
@@ -178,7 +186,7 @@ class SyncPrimaryResults extends Command
         foreach ($records as $rec) {
             $payload = json_decode($rec->payload ?? '{}', true) ?: [];
             $date = $rec->election_date ?: ElectionCycle::generalElectionDate(ElectionCycle::year());
-            $result = $this->resolvePrimaryResult($rec->full_name, $rec->state, (string) $rec->political_office, $date);
+            $result = $this->resolvePrimaryResult($rec->full_name, $rec->state, (string) $rec->political_office, $date, $rec->district);
 
             if ($result === 'eliminated') {
                 $stats['kept']++;
@@ -263,7 +271,7 @@ class SyncPrimaryResults extends Command
 
         $this->line("\n<fg=green>[{$rec->state}]</> {$rec->full_name} — {$rec->political_office}");
 
-        $result = $this->resolvePrimaryResult($rec->full_name, $rec->state, $rec->political_office, $rec->election_date);
+        $result = $this->resolvePrimaryResult($rec->full_name, $rec->state, $rec->political_office, $rec->election_date, $rec->district);
 
         if ($result === null) {
             $this->line("  <fg=yellow>✗ Could not determine primary result</>");
@@ -291,12 +299,20 @@ class SyncPrimaryResults extends Command
     {
         $payload['primary_result'] = $result;
         $payload['primary_date']   = $rec->election_date;
+        if ($this->lastSource !== null) {
+            $payload['result_source'] = $this->lastSource;
+        }
         if ($result === 'advanced_to_general') {
             // Estimate general election date (first Tuesday after first Monday in November)
             $year = (int) substr($rec->election_date, 0, 4);
             $payload['general_date'] = $this->generalElectionDate($year);
         } elseif ($result === 'eliminated') {
-            $payload['elimination_note'] = "Did not advance from {$rec->election_date} primary";
+            $payload['elimination_note'] = $this->lastWithdrew
+                ? 'Withdrew from the race (per Wikipedia)'
+                : "Did not advance from {$rec->election_date} primary";
+            if ($this->lastWithdrew) {
+                $payload['withdrawn'] = true;
+            }
         }
 
         DB::table('election_candidate_records')
@@ -359,8 +375,35 @@ class SyncPrimaryResults extends Command
         string $name,
         string $state,
         string $office,
-        ?string $electionDate
+        ?string $electionDate,
+        ?string $district = null
     ): ?string {
+        $this->lastSource = null;
+        $this->lastWithdrew = false;
+
+        // ── Tier 0: Wikipedia race article ────────────────────────────────────
+        // Structured headings beat keyword matching, and the MediaWiki API is
+        // reachable from GitHub Actions when Ballotpedia is not.
+        $year = $electionDate !== null ? (int) substr($electionDate, 0, 4) : 0;
+        if ($year > 0) {
+            $result = ($this->wikipediaRaces ??= new WikipediaPrimaryResultsService())
+                ->resultFor($name, $state, $office, $district, $year);
+            if ($result !== null) {
+                $this->lastSource = 'wikipedia_race_page';
+                $this->line('  <fg=gray>[wikipedia race page]</>');
+
+                // A withdrawn candidate is off the ballot, so the map treats them like an
+                // eliminated one; the payload records that they left rather than lost.
+                if ($result === 'withdrawn') {
+                    $this->lastWithdrew = true;
+
+                    return 'eliminated';
+                }
+
+                return $result;
+            }
+        }
+
         // ── Tier 1: Ballotpedia candidate page ────────────────────────────────
         $bpSlug = str_replace(' ', '_', $name);
         $bpUrl  = "https://ballotpedia.org/{$bpSlug}";
