@@ -61,6 +61,8 @@ class SyncCensusDemographics extends Command
         'DC' => '11',
     ];
 
+    private const PLACE_UCGID_PREFIX = '1600000US';
+
     /**
      * Allow-list of cities per state (name + lat/lng), mirroring TOP_CITIES in
      * resources/js/map/config/city-data.js — bounds this sync to the same
@@ -408,8 +410,7 @@ class SyncCensusDemographics extends Command
             return $legacy;
         }
 
-        $placeSummaryLevel = sprintf('%07d', 1_600_000);
-        $placeCollectionUcgid = 'ucgid:' . $placeSummaryLevel . 'US' . str_pad($fips, 2, '0', STR_PAD_LEFT) . '*';
+        $placeCollectionUcgid = 'ucgid:' . self::PLACE_UCGID_PREFIX . str_pad($fips, 2, '0', STR_PAD_LEFT) . '*';
 
         foreach ([
             'place-collection UCGID geography' => $placeCollectionUcgid,
