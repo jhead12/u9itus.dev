@@ -6,6 +6,8 @@ import { stateMeshes } from '../scene/state-meshes.js';
 import { districtMeshes, flyToDistrictTopDown } from '../scene/district-overlay.js';
 import { enterStateMode } from './mode-transitions.js';
 import { openDistrictPanel } from '../ui/panel-district.js';
+import { activeState, mapMode } from '../state/map-state.js';
+import { showToast } from '../ui/location-button.js';
 
 /**
  * Navigate to a state/district from external code.
@@ -24,24 +26,19 @@ window.__mapGoTo = async function (state, district = null, slug = null) {
 
     await enterStateMode(stateName, mesh.userData.regionName, mesh.userData.region);
 
-    if (district) {
-        const target = String(district).padStart(2, '0');
-        let waited = 0;
-        const trySelect = setInterval(() => {
-            waited += 100;
-            const dm = districtMeshes.find(m => String(m.userData.districtNum).padStart(2, '0') === target);
-            if (dm) {
-                clearInterval(trySelect);
-
-                // Mirror the on-canvas district click handler (mode-transitions.js)
-                // so a programmatic navigation looks/behaves identically to a real
-                // click. openDistrictPanel() selects (outline, label, dimming) and
-                // opens the candidate panel; here we only add the camera move.
-                flyToDistrictTopDown(dm);
-                openDistrictPanel(dm.userData.districtNum, dm.userData.districtLabel, dm.userData.stateName, dm.userData.regionHex, dm.userData.party);
-            }
-            if (waited >= 2000) clearInterval(trySelect);
-        }, 100);
+    // enterStateMode awaits the bounded boundary request; no timer races.
+    if (mapMode !== 'state' || activeState !== stateName) return true;
+    if (district !== null && district !== '') {
+        const normalize = value => ['AL', '00', '0'].includes(String(value).toUpperCase()) ? 'AL' : String(Number(value));
+        const target = normalize(district);
+        const dm = districtMeshes.find(m => m.userData.stateName === stateName && normalize(m.userData.districtNum) === target);
+        if (dm) {
+            flyToDistrictTopDown(dm);
+            openDistrictPanel(dm.userData.districtNum, dm.userData.districtLabel, stateName, dm.userData.regionHex, dm.userData.party);
+        } else {
+            openDistrictPanel(target, target === 'AL' ? `${state} At-Large` : `${state}-${String(target).padStart(2, '0')}`, stateName, mesh.userData.region?.hex || '#6366f1', 'U');
+            showToast('District information is open. Boundaries are unavailable; use Retry in the district list to load the map outline.', 'info');
+        }
     }
 
     if (slug) {

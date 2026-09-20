@@ -44,6 +44,7 @@ class StateElectionDate extends Model
             ->get()
             ->map(fn (self $row) => [
                 'stage_name' => $row->stage_name,
+                'updated_at' => $row->updated_at?->toIso8601String(),
                 'election_date' => optional($row->election_date)?->toDateString(),
                 'election_date_formatted' => optional($row->election_date)?->format('M j, Y'),
                 'filing_deadline' => optional($row->filing_deadline)?->toDateString(),

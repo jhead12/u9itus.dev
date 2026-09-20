@@ -30,6 +30,8 @@ class MapStateCandidatesElectionDatesTest extends TestCase
         $this->assertCount(1, $dates);
         $this->assertSame('Primary', $dates[0]['stage_name']);
         $this->assertArrayHasKey('election_date_formatted', $dates[0]);
+        $this->assertNotEmpty($dates[0]['updated_at']);
+        $this->assertSame(StateElectionDate::where('state', 'CA')->first()->updated_at->toIso8601String(), $dates[0]['updated_at']);
     }
 
     public function test_response_has_empty_election_dates_when_none_synced(): void

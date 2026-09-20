@@ -107,8 +107,10 @@ async function submit(event) {
     setStatus('Looking up your district…');
 
     try {
-        const res = await fetch(`/api/v1/map/geocode?address=${encodeURIComponent(value)}`, {
-            headers: { Accept: 'application/json' },
+        const res = await fetch('/api/v1/map/geocode', {
+            method: 'POST',
+            headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+            body: JSON.stringify({ address: value }),
         });
         const data = await res.json().catch(() => ({}));
 

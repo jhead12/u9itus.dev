@@ -166,7 +166,7 @@ function readCachedStateData(abbr) {
 /** Fresh payload, or null when the API is unreachable. */
 async function fetchStateData(abbr) {
     try {
-        const res = await fetch(`/api/v1/map/state-candidates?state=${abbr}`);
+        const res = await fetch(`/api/v1/map/state-candidates?state=${abbr}`, { signal: AbortSignal.timeout(15000) });
         if (!res.ok) return null;
         const fresh = await res.json();
         try { localStorage.setItem(`u9_map_sc_${abbr}`, JSON.stringify({ ts: Date.now(), data: fresh })); } catch {}

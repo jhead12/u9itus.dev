@@ -1158,13 +1158,28 @@ export function initPolDrawer() {
         return;
     }
 
-    // Global helper for the lazy-loaded campaign video placeholder.
+    // Global helper for the lazy-loaded campaign video placeholder. Only one
+    // video plays at a time: starting one puts every other loaded video back
+    // to its placeholder, which also stops its playback (the embeds are
+    // cross-origin, so removing the src is the one control that works for
+    // YouTube, Vimeo and C-SPAN alike).
     window.__loadPolVideo = function (placeholderEl) {
         const wrap = placeholderEl?.closest('.pol-video-wrap');
         if (!wrap) return;
         const iframe = wrap.querySelector('.pol-video-iframe');
         const src = wrap.dataset.videoSrc;
         if (!iframe || !src) return;
+
+        polDrawer.querySelectorAll('.pol-video-wrap').forEach((other) => {
+            if (other === wrap) return;
+            const otherFrame = other.querySelector('.pol-video-iframe');
+            if (!otherFrame || otherFrame.style.display === 'none') return;
+            otherFrame.removeAttribute('src');
+            otherFrame.style.display = 'none';
+            const otherPlaceholder = other.querySelector('.pol-video-placeholder');
+            if (otherPlaceholder) otherPlaceholder.style.display = '';
+        });
+
         placeholderEl.style.display = 'none';
         iframe.src = src;
         iframe.style.display = 'block';

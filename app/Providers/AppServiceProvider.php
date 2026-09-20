@@ -37,6 +37,9 @@ class AppServiceProvider extends ServiceProvider
         // means an attacker on one IP cannot lock out a victim by spamming that
         // victim's email (the victim's own attempts come from a different IP and
         // use a separate bucket), while still throttling brute-force from any IP.
+        // Keep paid/location lookups separate from ordinary map page requests.
+        RateLimiter::for('map-geocode', fn ($request) => Limit::perMinute(30)->by('map-geocode:'.$request->ip()));
+
         RateLimiter::for('login', function ($request): Limit {
             $key = ($request->input('email') ? strtolower((string) $request->input('email')) : '')
                 . '|' . $request->ip();

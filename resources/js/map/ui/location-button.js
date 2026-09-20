@@ -34,8 +34,10 @@ function friendlyGeolocationError(code) {
 }
 
 async function resolveDistrict(lat, lng) {
-    const res = await fetch(`/api/v1/map/geocode?lat=${encodeURIComponent(lat)}&lng=${encodeURIComponent(lng)}`, {
-        headers: { 'Accept': 'application/json' },
+    const res = await fetch('/api/v1/map/geocode', {
+        method: 'POST',
+        headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lat, lng }),
     });
     if (!res.ok) {
         const data = await res.json().catch(() => ({}));

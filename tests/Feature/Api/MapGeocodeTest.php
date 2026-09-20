@@ -137,7 +137,7 @@ class MapGeocodeTest extends TestCase
                 'state' => 'OH',
                 'district_number' => '3',
                 'precision' => 'address',
-                'matched_address' => '1 S HIGH ST, COLUMBUS, OH, 43215',
+                'boundary_congress' => 119,
             ]);
     }
 
@@ -231,4 +231,51 @@ class MapGeocodeTest extends TestCase
             ->assertOk()
             ->assertJson(['ok' => true, 'state' => 'OH', 'precision' => 'location']);
     }
+    public function test_map_post_does_not_store_or_return_address_or_coordinates(): void
+    {
+        Cache::spy();
+        Http::fake(['geocoding.geo.census.gov/*' => Http::response($this->censusAddressMatch())]);
+        $response = $this->postJson('/api/v1/map/geocode', ['address' => '1 S High St, Columbus, OH 43215']);
+        $response->assertOk()->assertJsonMissingPath('matched_address')->assertJsonMissingPath('input_address');
+        $this->assertStringContainsString('no-store', $response->headers->get('Cache-Control'));
+        Cache::shouldHaveReceived('put')->once()->withArgs(function ($key, $value, $ttl) {
+            return str_starts_with($key, 'map.district.v1.119.')
+                && ! str_contains($key, 'High')
+                && array_keys($value) === ['state', 'district_number', 'district_code', 'district_label', 'boundary_congress'];
+        });
+        Http::assertSent(fn ($request) => $request['vintage'] === 'ACS2025_Current');
+    }
+
+    public function test_map_rejects_a_different_congress_even_with_a_valid_district_number(): void
+    {
+        Cache::flush();
+        $match = $this->censusAddressMatch();
+        $match['result']['addressMatches'][0]['geographies'] = ['120th Congressional Districts' => [['CD120' => '03']]];
+        Http::fake(['geocoding.geo.census.gov/*' => Http::response($match)]);
+        $this->postJson('/api/v1/map/geocode', ['address' => '1 S High St, Columbus, OH 43215'])->assertNotFound();
+    }
+
+    public function test_failure_logs_exclude_the_raw_address_and_exception_url(): void
+    {
+        Cache::flush();
+        \Illuminate\Support\Facades\Log::spy();
+        Http::fake(fn () => throw new \Illuminate\Http\Client\ConnectionException('Request failed: 1 S High St secret-key'));
+        $this->postJson('/api/v1/map/geocode', ['address' => '1 S High St, Columbus, OH 43215'])->assertNotFound();
+        \Illuminate\Support\Facades\Log::shouldHaveReceived('warning')->once()->withArgs(function ($message, $context) {
+            return array_keys($context) === ['input_hash', 'failure_type']
+                && ! str_contains(json_encode($context), 'High')
+                && ! str_contains(json_encode($context), 'secret-key');
+        });
+    }
+
+    public function test_regular_map_requests_do_not_use_up_the_geocode_allowance(): void
+    {
+        Cache::flush();
+        for ($i = 0; $i < 31; $i++) {
+            $this->getJson('/api/v1/map/district-config')->assertOk();
+        }
+        Http::fake(['geocoding.geo.census.gov/*' => Http::response($this->censusAddressMatch())]);
+        $this->postJson('/api/v1/map/geocode', ['address' => '1 S High St, Columbus, OH 43215'])->assertOk();
+    }
+
 }

@@ -212,6 +212,9 @@ export function renderElectionDatesBanner(electionDates, color) {
         if (stage.election_date_formatted) {
             pills.push(`<span style="font-size:11px;padding:3px 10px;border-radius:999px;background:${color}18;border:1px solid ${color}44;color:${color};font-weight:600;white-space:nowrap;">🗳️ ${escapeHtml(stage.stage_name)}: ${escapeHtml(stage.election_date_formatted)}</span>`);
         }
+        if (stage.updated_at) {
+            pills.push(`<span class="dp-meta">${escapeHtml(stage.stage_name)} listing updated ${escapeHtml(formatCalendarDate(stage.updated_at.slice(0, 10)))}</span>`);
+        }
         if (stage.filing_deadline_formatted) {
             pills.push(`<span style="font-size:11px;padding:3px 10px;border-radius:999px;background:rgba(148,163,184,0.1);border:1px solid rgba(148,163,184,0.3);color:#94a3b8;white-space:nowrap;">📋 ${escapeHtml(stage.stage_name)} filing deadline: ${escapeHtml(stage.filing_deadline_formatted)}</span>`);
         }

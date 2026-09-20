@@ -839,3 +839,42 @@ test.describe('find your district and the bottom sheet (mobile)', () => {
         await expect(handle).toHaveAttribute('aria-expanded', 'true');
     });
 });
+
+test.describe('politician drawer media', () => {
+    test.use({ viewport: { width: 1440, height: 900 } });
+
+    test('only one video is loaded at a time', async ({ page }) => {
+        await openMap(page);
+
+        // Same markup the drawer renders for each clip; no politician data needed.
+        await page.evaluate(() => {
+            const card = (n: number) => `
+                <div class="pol-video-wrap" data-video-src="about:blank#clip-${n}">
+                    <div class="pol-video-frame">
+                        <div class="pol-video-placeholder" id="ph-${n}" onclick="window.__loadPolVideo(this)" role="button" tabindex="0">Load ${n}</div>
+                        <iframe class="pol-video-iframe" id="fr-${n}" style="display:none"></iframe>
+                    </div>
+                </div>`;
+            document.getElementById('pol-drawer')!.insertAdjacentHTML('beforeend', `<div id="test-videos">${card(1)}${card(2)}${card(3)}</div>`);
+        });
+
+        const loaded = () => page.locator('#test-videos .pol-video-iframe[style*="block"]');
+
+        await page.locator('#ph-1').dispatchEvent('click');
+        await expect(loaded()).toHaveCount(1);
+        await expect(page.locator('#fr-1')).toHaveAttribute('src', /clip-1/);
+
+        // Starting a second video puts the first back to its placeholder and stops it.
+        await page.locator('#ph-2').dispatchEvent('click');
+        await expect(loaded()).toHaveCount(1);
+        await expect(page.locator('#fr-2')).toHaveAttribute('src', /clip-2/);
+        await expect(page.locator('#fr-1')).not.toHaveAttribute('src', /.+/);
+        await expect(page.locator('#ph-1')).not.toHaveCSS('display', 'none');
+
+        // The first one can be started again, which then displaces the second.
+        await page.locator('#ph-1').dispatchEvent('click');
+        await expect(loaded()).toHaveCount(1);
+        await expect(page.locator('#fr-1')).toHaveAttribute('src', /clip-1/);
+        await expect(page.locator('#fr-2')).not.toHaveAttribute('src', /.+/);
+    });
+});

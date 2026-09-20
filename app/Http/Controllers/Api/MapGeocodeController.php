@@ -2,8 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Services\DistrictLookupService;
-use App\Services\GoogleCivicService;
+use App\Services\MapDistrictLookupService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -18,8 +17,7 @@ use Illuminate\Http\Request;
 class MapGeocodeController
 {
     public function __construct(
-        private DistrictLookupService $districtLookup,
-        private GoogleCivicService $googleCivic,
+        private MapDistrictLookupService $districtLookup,
     ) {
     }
 
@@ -29,19 +27,19 @@ class MapGeocodeController
      */
     public function __invoke(Request $request): JsonResponse
     {
-        $address = $request->query('address');
+        $address = $request->input('address');
 
         if ($address !== null) {
-            return $this->lookupAddress(is_string($address) ? trim($address) : '');
+            return $this->lookupAddress(is_string($address) ? trim($address) : '')->header('Cache-Control', 'private, no-store');
         }
 
-        return $this->lookupCoordinates($request);
+        return $this->lookupCoordinates($request)->header('Cache-Control', 'private, no-store');
     }
 
     private function lookupCoordinates(Request $request): JsonResponse
     {
-        $lat = $request->query('lat');
-        $lng = $request->query('lng');
+        $lat = $request->input('lat');
+        $lng = $request->input('lng');
 
         if (! is_numeric($lat) || ! is_numeric($lng)) {
             return response()->json([
@@ -87,7 +85,7 @@ class MapGeocodeController
 
         $result = $this->districtLookup->lookup($address);
 
-        if ($result === null || empty($result['state']) || empty($result['district_number'])) {
+        if ($result === null || empty($result['state']) || ! isset($result['district_number'])) {
             return response()->json([
                 'ok' => false,
                 'error' => 'We could not match that address to a district. Include the street, city, state and ZIP, or try your location instead.',
@@ -105,7 +103,7 @@ class MapGeocodeController
      */
     private function lookupZip(string $zip): JsonResponse
     {
-        $districts = $this->googleCivic->districtsForZip($zip);
+        $districts = $this->districtLookup->districtsForZip($zip);
 
         if ($districts === []) {
             return response()->json([
@@ -154,7 +152,7 @@ class MapGeocodeController
             // How the district was found: an address or the device location pins it
             // exactly; a ZIP that maps to a single district is a weaker claim.
             'precision' => $precision,
-            'matched_address' => $precision === 'address' ? ($result['matched_address'] ?? null) : null,
+            'boundary_congress' => $result['boundary_congress'] ?? null,
         ];
     }
 }
