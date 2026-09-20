@@ -24,7 +24,7 @@ function fecConflictPolitician(array $extra = []): Politician
 }
 
 /** @param  array<int, array<string, mixed>>  $rows */
-function fakeFecList(array $rows): void
+function fakeFecConflictList(array $rows): void
 {
     $fec = Mockery::mock(FECService::class)->makePartial();
     $fec->shouldReceive('isConfigured')->andReturn(true);
@@ -32,14 +32,14 @@ function fakeFecList(array $rows): void
     app()->instance(FECService::class, $fec);
 }
 
-function ambroseFilerRow(): array
+function fecConflictAmbroseRow(): array
 {
     return ['candidate_id' => 'H6AK01134', 'name' => 'AMBROSE, DAVID', 'candidate_status' => 'C', 'district' => '00'];
 }
 
 it('leaves a conflicting id alone by default', function () {
     $p = fecConflictPolitician();
-    fakeFecList([ambroseFilerRow()]);
+    fakeFecConflictList([fecConflictAmbroseRow()]);
 
     $this->artisan('politicians:import-fec-candidates', ['--state' => 'AK', '--office' => 'H'])
         ->expectsOutputToContain('[CONFLICT]')
@@ -50,7 +50,7 @@ it('leaves a conflicting id alone by default', function () {
 
 it('conflicts-only lists both FEC links and writes nothing', function () {
     $p = fecConflictPolitician();
-    fakeFecList([ambroseFilerRow()]);
+    fakeFecConflictList([fecConflictAmbroseRow()]);
 
     $this->artisan('politicians:import-fec-candidates', ['--state' => 'AK', '--office' => 'H', '--conflicts-only' => true])
         ->expectsOutputToContain('https://www.fec.gov/data/candidate/H2AK00556/')
@@ -63,7 +63,7 @@ it('conflicts-only lists both FEC links and writes nothing', function () {
 
 it('overwrite-conflicts replaces a stale id', function () {
     $p = fecConflictPolitician();
-    fakeFecList([ambroseFilerRow()]);
+    fakeFecConflictList([fecConflictAmbroseRow()]);
 
     $this->artisan('politicians:import-fec-candidates', ['--state' => 'AK', '--office' => 'H', '--overwrite-conflicts' => true])
         ->expectsOutputToContain('[REPLACED]')
@@ -77,8 +77,8 @@ it('overwrite-conflicts keeps claimed profiles, other chambers, and ids that als
     $senate = fecConflictPolitician(['fec_candidate_id' => 'S2AK00111']);
     $filedToo = fecConflictPolitician(['fec_candidate_id' => 'H8AK00999']);
 
-    fakeFecList([
-        ambroseFilerRow(),
+    fakeFecConflictList([
+        fecConflictAmbroseRow(),
         ['candidate_id' => 'H8AK00999', 'name' => 'SOMEONE, ELSE', 'candidate_status' => 'C', 'district' => '00'],
     ]);
 
