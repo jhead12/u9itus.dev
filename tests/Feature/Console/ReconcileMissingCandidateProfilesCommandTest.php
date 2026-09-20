@@ -84,6 +84,53 @@ test('links to existing politician without creating duplicate profile', function
     expect($existing->fresh()->party_affiliation)->toBe('Republican');
 });
 
+test('skips records rejected by the politician data-integrity gate without failing the command', function () {
+    $badRecord = ElectionCandidateRecord::factory()->create([
+        'source' => 'ballotpedia',
+        'external_candidate_id' => 'bp-1003',
+        'full_name' => 'Is Mark Kelly',
+        'political_office' => 'Senator',
+        'governance_level' => 'Federal',
+        'state' => 'AZ',
+        'district' => null,
+        'party_affiliation' => 'Democratic',
+        'payload' => ['result_status' => null],
+        'election_date' => now()->toDateString(),
+    ]);
+
+    $goodRecord = ElectionCandidateRecord::factory()->create([
+        'source' => 'ballotpedia',
+        'external_candidate_id' => 'bp-1004',
+        'full_name' => 'Mark Kelly',
+        'political_office' => 'Senator',
+        'governance_level' => 'Federal',
+        'state' => 'AZ',
+        'district' => null,
+        'party_affiliation' => 'Democratic',
+        'payload' => ['result_status' => null],
+        'election_date' => now()->toDateString(),
+    ]);
+
+    $this->artisan('politicians:reconcile-missing-profiles', [
+        '--state' => ['AZ'],
+        '--election-year' => (string) now()->year,
+    ])->assertExitCode(0);
+
+    expect(Politician::query()->where('full_name', 'Is Mark Kelly')->exists())->toBeFalse();
+
+    $this->assertDatabaseMissing('candidate_identity_links', [
+        'election_candidate_record_id' => $badRecord->id,
+    ]);
+
+    $goodPolitician = Politician::query()->where('full_name', 'Mark Kelly')->first();
+    expect($goodPolitician)->not->toBeNull();
+
+    $this->assertDatabaseHas('candidate_identity_links', [
+        'politician_id' => $goodPolitician->id,
+        'election_candidate_record_id' => $goodRecord->id,
+    ]);
+});
+
 test('skips lost or eliminated records', function () {
     ElectionCandidateRecord::factory()->create([
         'full_name' => 'Lost Candidate',
