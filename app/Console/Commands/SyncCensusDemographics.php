@@ -251,10 +251,10 @@ class SyncCensusDemographics extends Command
         $this->info("Fetching {$abbr} place-level demographics…");
 
         // Detail table: population + median household income.
-        $detail = $this->fetchPlaceCensus($year, 'acs/acs5', 'NAME,B01001_001E,B19013_001E', $fips);
+        $detail = $this->fetchPlaceCensus($abbr, $year, 'acs/acs5', 'NAME,B01001_001E,B19013_001E', $fips);
 
         // Subject tables: pre-computed percentages (poverty rate, bachelor's+).
-        $subject = $this->fetchPlaceCensus($year, 'acs/acs5/subject', 'NAME,S1701_C03_001E,S1501_C02_015E', $fips);
+        $subject = $this->fetchPlaceCensus($abbr, $year, 'acs/acs5/subject', 'NAME,S1701_C03_001E,S1501_C02_015E', $fips);
 
         if ($detail === null || $subject === null) {
             return 0;
@@ -398,7 +398,7 @@ class SyncCensusDemographics extends Command
         ];
     }
 
-    private function fetchPlaceCensus(int $year, string $dataset, string $variables, string $fips): ?array
+    private function fetchPlaceCensus(string $abbr, int $year, string $dataset, string $variables, string $fips): ?array
     {
         $legacy = $this->fetchCensus($this->censusApiUrl($year, $dataset, [
             'get' => $variables,
@@ -411,7 +411,7 @@ class SyncCensusDemographics extends Command
         }
 
         $placeCollectionUcgid = 'ucgid:' . self::PLACE_UCGID_PREFIX . str_pad($fips, 2, '0', STR_PAD_LEFT) . '*';
-        $this->warn("  Legacy place geography failed for state {$fips}; retrying with place-collection UCGID geography.");
+        $this->warn("  Legacy place geography failed for {$abbr}; retrying with place-collection UCGID geography.");
 
         return $this->fetchCensus($this->censusApiUrl($year, $dataset, [
             'get' => $variables,
