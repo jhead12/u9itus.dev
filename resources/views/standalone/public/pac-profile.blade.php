@@ -95,8 +95,9 @@
                        class="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-slate-700 text-slate-200 hover:border-slate-500 transition">
                         FEC filings ↗
                     </a>
-                    @if($profile->fec_website_url)
-                        <a href="{{ \Illuminate\Support\Str::startsWith($profile->fec_website_url, ['http://','https://']) ? $profile->fec_website_url : 'https://' . $profile->fec_website_url }}"
+                    @php($committeeWebsite = $committee->website_url ?: $profile->fec_website_url)
+                    @if($committeeWebsite)
+                        <a href="{{ \Illuminate\Support\Str::startsWith($committeeWebsite, ['http://','https://']) ? $committeeWebsite : 'https://' . $committeeWebsite }}"
                            target="_blank" rel="noopener nofollow"
                            class="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-slate-700 text-slate-200 hover:border-slate-500 transition">
                             Committee website ↗

@@ -29,6 +29,9 @@ class Committee extends Model
         'organization_id',
         'first_seen_at',
         'last_seen_at',
+        'website_url',
+        'website_source_url',
+        'website_discovered_at',
     ];
 
     protected function casts(): array
@@ -37,6 +40,7 @@ class Committee extends Model
             'name_resolved_at' => 'datetime',
             'first_seen_at' => 'datetime',
             'last_seen_at' => 'datetime',
+            'website_discovered_at' => 'datetime',
         ];
     }
 
@@ -74,6 +78,6 @@ class Committee extends Model
             return $this->fec_committee_id;
         }
 
-        return Str::slug(Str::limit($name, 60, '')) . '-' . $this->fec_committee_id;
+        return Str::slug(Str::limit($name, 60, '')).'-'.$this->fec_committee_id;
     }
 }

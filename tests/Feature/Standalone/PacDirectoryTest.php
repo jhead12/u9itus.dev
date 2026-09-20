@@ -7,7 +7,7 @@ use App\Models\Politician;
 function makeCommitteeWithProfile(array $committee = [], array $profile = []): Committee
 {
     $c = Committee::create(array_merge([
-        'fec_committee_id' => 'C' . str_pad((string) random_int(1, 99999999), 8, '0', STR_PAD_LEFT),
+        'fec_committee_id' => 'C'.str_pad((string) random_int(1, 99999999), 8, '0', STR_PAD_LEFT),
         'name' => 'Test Victory Fund',
         'first_seen_at' => now(),
         'last_seen_at' => now(),
@@ -64,7 +64,7 @@ test('a committee without an enriched profile is not listed', function () {
 test('pac detail page renders financials, races and donors', function () {
     $c = makeCommitteeWithProfile(['name' => 'Detail Test Fund']);
 
-    $this->get('/pacs/' . $c->publicSlug())
+    $this->get('/pacs/'.$c->publicSlug())
         ->assertOk()
         ->assertSee('Detail Test Fund')
         ->assertSee('Super PAC')
@@ -77,8 +77,15 @@ test('pac detail page renders financials, races and donors', function () {
 test('bare FEC id redirects to the slugged url', function () {
     $c = makeCommitteeWithProfile();
 
-    $this->get('/pacs/' . $c->fec_committee_id)
-        ->assertRedirect('/pacs/' . $c->publicSlug());
+    $this->get('/pacs/'.$c->fec_committee_id)
+        ->assertRedirect('/pacs/'.$c->publicSlug());
+});
+
+test('pac detail displays a discovered committee website', function () {
+    $c = makeCommitteeWithProfile(['website_url' => 'https://www.edfactionvotes.org/']);
+    $this->get('/pacs/'.$c->publicSlug())->assertOk()
+        ->assertSee('href="https://www.edfactionvotes.org/"', false)
+        ->assertSee('Committee website');
 });
 
 test('unknown committee 404s', function () {
@@ -102,9 +109,9 @@ test('spending_by_race links to a politician profile when resolved', function ()
         ]],
     ]);
 
-    $this->get('/pacs/' . $c->publicSlug())
+    $this->get('/pacs/'.$c->publicSlug())
         ->assertOk()
-        ->assertSee('/p/' . $pol->slug, false)
+        ->assertSee('/p/'.$pol->slug, false)
         ->assertSee('Linked Candidate');
 });
 
@@ -122,10 +129,10 @@ test('committee page links candidates to their profiles, resolved when the page 
         ],
     ]);
 
-    $html = $this->get('/pacs/' . $c->publicSlug())->assertOk()->getContent();
+    $html = $this->get('/pacs/'.$c->publicSlug())->assertOk()->getContent();
 
     // Linked from both the race table and the recent-expenditures list.
-    expect(substr_count($html, 'href="' . route('politician.public.show', $pol->slug) . '"'))->toBe(2);
+    expect(substr_count($html, 'href="'.route('politician.public.show', $pol->slug).'"'))->toBe(2);
     expect($html)->not->toContain(route('politician.public.show', $hidden->slug));
     expect($html)->toContain('Hidden Person');
 });
@@ -138,7 +145,7 @@ test('a candidate with no profile shows a readable name and links to their FEC r
         'recent_expenditures' => [],
     ]);
 
-    $this->get('/pacs/' . $c->publicSlug())
+    $this->get('/pacs/'.$c->publicSlug())
         ->assertOk()
         ->assertSee('Abdul El-Sayed')
         ->assertDontSee('EL-SAYED, ABDUL')
