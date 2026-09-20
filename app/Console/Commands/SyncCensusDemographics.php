@@ -249,22 +249,10 @@ class SyncCensusDemographics extends Command
         $this->info("Fetching {$abbr} place-level demographics…");
 
         // Detail table: population + median household income.
-        $detail = $this->fetchCensus(
-            "https://api.census.gov/data/{$year}/acs/acs5"
-            . '?get=NAME,B01001_001E,B19013_001E'
-            . '&for=place:*'
-            . "&in=state:{$fips}"
-            . $this->apiKeyParam()
-        );
+        $detail = $this->fetchPlaceCensus($year, 'acs/acs5', 'NAME,B01001_001E,B19013_001E', $fips);
 
         // Subject tables: pre-computed percentages (poverty rate, bachelor's+).
-        $subject = $this->fetchCensus(
-            "https://api.census.gov/data/{$year}/acs/acs5/subject"
-            . '?get=NAME,S1701_C03_001E,S1501_C02_015E'
-            . '&for=place:*'
-            . "&in=state:{$fips}"
-            . $this->apiKeyParam()
-        );
+        $subject = $this->fetchPlaceCensus($year, 'acs/acs5/subject', 'NAME,S1701_C03_001E,S1501_C02_015E', $fips);
 
         if ($detail === null || $subject === null) {
             return 0;
@@ -408,6 +396,36 @@ class SyncCensusDemographics extends Command
         ];
     }
 
+    private function fetchPlaceCensus(int $year, string $dataset, string $variables, string $fips): ?array
+    {
+        $legacy = $this->fetchCensus($this->censusApiUrl($year, $dataset, [
+            'get' => $variables,
+            'for' => 'place:*',
+            'in' => "state:{$fips}",
+        ]));
+
+        if ($legacy !== null) {
+            return $legacy;
+        }
+
+        $this->warn("  Legacy place geography failed for state {$fips}; retrying with UCGID.");
+
+        return $this->fetchCensus($this->censusApiUrl($year, $dataset, [
+            'get' => $variables,
+            'ucgid' => '160|0400000US' . $fips,
+        ]));
+    }
+
+    private function censusApiUrl(int $year, string $dataset, array $params): string
+    {
+        $key = env('CENSUS_DATA_API');
+        if ($key) {
+            $params['key'] = $key;
+        }
+
+        return "https://api.census.gov/data/{$year}/{$dataset}?" . http_build_query($params, '', '&', PHP_QUERY_RFC3986);
+    }
+
     private function apiKeyParam(): string
     {
         $key = env('CENSUS_DATA_API');
@@ -429,8 +447,9 @@ class SyncCensusDemographics extends Command
 
         $data = $response->json();
 
-        if (! is_array($data) || count($data) < 2) {
-            $this->error('  Unexpected Census API response shape.');
+        if (! is_array($data) || count($data) < 2 || ! is_array($data[0] ?? null)) {
+            $body = preg_replace('/\s+/', ' ', trim($response->body()));
+            $this->error('  Unexpected Census API response shape.' . ($body !== '' ? " Body: {$body}" : ''));
 
             return null;
         }
