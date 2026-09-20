@@ -333,3 +333,33 @@ it('lets an admin override a wrongly eliminated primary result', function () {
     expect($record->fresh()->payload['primary_result'])->toBe('advanced_to_general')
         ->and($record->fresh()->payload)->not->toHaveKey('elimination_note');
 });
+
+it('re-checks wrongly eliminated discovery records: clears the stamp, restores the profile, keeps manual and real losses', function () {
+    Http::fake([
+        'ballotpedia.org/*' => Http::response('', 404),
+        'en.wikipedia.org/api/rest_v1/page/summary/Mike_Rogers' => Http::response(['extract' => 'Mike Rogers conceded the 2024 Senate race to Elissa Slotkin.']),
+        'en.wikipedia.org/api/rest_v1/page/summary/Real_Loser' => Http::response(['extract' => 'Real Loser lost the primary in 2026.']),
+        'en.wikipedia.org/*' => Http::response('', 404),
+    ]);
+    $make = fn (string $name, array $payload) => ElectionCandidateRecord::create([
+        'source' => 'candidate_discovery', 'external_candidate_id' => 'disc:mi:us-senator:'.Str::slug($name), 'full_name' => $name, 'state' => 'MI',
+        'political_office' => 'U.S. Senator', 'governance_level' => 'Federal', 'election_date' => '2026-11-03', 'payload' => $payload + ['primary_result' => 'eliminated'],
+    ]);
+    $rogers = $make('Mike Rogers', ['elimination_note' => 'x']);
+    $loser = $make('Real Loser', []);
+    $manual = $make('Manual Person', ['result_source' => 'manual']);
+
+    $profile = Politician::factory()->create(['full_name' => 'Mike Rogers', 'state' => 'MI', 'user_id' => null, 'term_status' => 'eliminated', 'is_running_candidate' => false, 'slug' => 'mike-rogers-x']);
+    App\Models\CandidateIdentityLink::create(['politician_id' => $profile->id, 'election_candidate_record_id' => $rogers->id, 'match_score' => 0.9, 'link_source' => 'system']);
+
+    $this->artisan('politicians:sync-primary-results', ['--recheck-eliminated' => true, '--dry-run' => true])->assertSuccessful();
+    expect($rogers->fresh()->payload['primary_result'])->toBe('eliminated');
+
+    $this->artisan('politicians:sync-primary-results', ['--recheck-eliminated' => true])->assertSuccessful();
+
+    expect($rogers->fresh()->payload)->not->toHaveKey('primary_result')
+        ->and($loser->fresh()->payload['primary_result'])->toBe('eliminated')
+        ->and($manual->fresh()->payload['primary_result'])->toBe('eliminated')
+        ->and($profile->fresh()->term_status)->toBe('running')
+        ->and($profile->fresh()->is_running_candidate)->toBeTrue();
+});

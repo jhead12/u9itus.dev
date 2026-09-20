@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\CandidateIdentityLink;
+use App\Support\ElectionCycle;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -33,7 +34,9 @@ class SyncPrimaryResults extends Command
     protected $signature = 'politicians:sync-primary-results
         {--state=  : Two-letter state code. Omit to process all states.}
         {--dry-run : Report only — no DB writes.}
-        {--force   : Re-check records that already have primary_result set.}';
+        {--force   : Re-check records that already have primary_result set.}
+        {--recheck-eliminated : Re-run the classifier on this cycle\'s news-discovered records stamped eliminated; clear a stamp it can no longer support.}
+        {--limit=300 : With --recheck-eliminated: max records to re-check per run.}';
 
     protected $description = 'Sync primary election results for state and federal candidates from Ballotpedia/Wikipedia.';
 
@@ -82,6 +85,10 @@ class SyncPrimaryResults extends Command
         $dryRun = (bool) $this->option('dry-run');
         $force  = (bool) $this->option('force');
 
+        if ($this->option('recheck-eliminated')) {
+            return $this->recheckEliminated($stateFilter, $dryRun, max(1, (int) $this->option('limit')));
+        }
+
         if ($dryRun) {
             $this->line('<fg=yellow>[dry-run] No DB writes will occur.</>');
         }
@@ -127,6 +134,98 @@ class SyncPrimaryResults extends Command
             "{$stats['eliminated']} eliminated | {$stats['unknown']} unknown | {$stats['skipped']} skipped | " .
             "{$stats['politician_updated']} politician(s) updated"
         );
+
+        return self::SUCCESS;
+    }
+
+    /**
+     * The classifier used to read "conceded" / "lost the primary" from any year, so news-discovered
+     * records for sitting senators and nominees were stamped eliminated — and the normal sync never
+     * looks at a record already stamped. Re-run the fixed classifier over them:
+     *
+     *   still eliminated  → left alone
+     *   now "advanced"    → left alone and reported (the advanced signals are too loose to overrule it)
+     *   nothing supports it → the stamp is cleared (the record goes back to "unknown")
+     *
+     * A linked profile the old run set to "eliminated" goes back to "running". One a later step
+     * marked "lost" is only reported — that status may be a real earlier loss. A stamp set by hand
+     * (candidates:set-primary-result) is never touched.
+     */
+    private function recheckEliminated(?string $stateFilter, bool $dryRun, int $limit): int
+    {
+        $driver = DB::connection()->getDriverName();
+        $extract = fn (string $key): string => $driver === 'sqlite'
+            ? "json_extract(payload,'{$key}')"
+            : "JSON_UNQUOTE(JSON_EXTRACT(payload,'{$key}'))";
+        $cycleStart = now()->startOfYear()->toDateString();
+
+        $records = DB::table('election_candidate_records')
+            ->where('source', 'candidate_discovery')
+            ->whereRaw($extract('$.primary_result').' = ?', ['eliminated'])
+            ->whereRaw('COALESCE('.$extract('$.result_source').",'') != ?", ['manual'])
+            ->where(fn ($q) => $q->whereNull('election_date')->orWhere('election_date', '>=', $cycleStart))
+            ->when($stateFilter, fn ($q) => $q->whereRaw('UPPER(COALESCE(state, \'\')) = ?', [$stateFilter]))
+            ->orderBy('id')
+            ->limit($limit)
+            ->get(['id', 'full_name', 'state', 'political_office', 'election_date', 'payload']);
+
+        $this->line($dryRun ? '<fg=yellow>[dry-run] No DB writes will occur.</>' : '<comment>[LIVE — writing changes]</comment>');
+        $this->info("Re-checking {$records->count()} record(s) stamped eliminated...");
+
+        $stats = ['kept' => 0, 'conflicting' => 0, 'cleared' => 0, 'profiles' => 0];
+
+        foreach ($records as $rec) {
+            $payload = json_decode($rec->payload ?? '{}', true) ?: [];
+            $date = $rec->election_date ?: ElectionCycle::generalElectionDate(ElectionCycle::year());
+            $result = $this->resolvePrimaryResult($rec->full_name, $rec->state, (string) $rec->political_office, $date);
+
+            if ($result === 'eliminated') {
+                $stats['kept']++;
+                usleep(self::DELAY_MS * 1000);
+
+                continue;
+            }
+
+            // The "advanced" signals are loose (a page that merely says "advance" matches), so a
+            // record the classifier now calls advanced is not flipped — it is reported to check by hand.
+            if ($result === 'advanced_to_general') {
+                $this->line(sprintf('  <fg=yellow>#%d</> %s (%s, %s) — conflicting signals, left eliminated; verify by hand', $rec->id, $rec->full_name, $rec->state, $rec->political_office));
+                $stats['conflicting']++;
+                usleep(self::DELAY_MS * 1000);
+
+                continue;
+            }
+
+            $this->line(sprintf('  <fg=cyan>#%d</> %s (%s, %s) — eliminated → cleared (nothing supports it)', $rec->id, $rec->full_name, $rec->state, $rec->political_office));
+            $stats['cleared']++;
+
+            if (! $dryRun) {
+                unset($payload['elimination_note'], $payload['primary_result'], $payload['primary_date']);
+                $payload['result_rechecked_at'] = now()->toDateString();
+
+                DB::table('election_candidate_records')->where('id', $rec->id)->update(['payload' => json_encode($payload), 'updated_at' => now()]);
+            }
+
+            foreach (CandidateIdentityLink::where('election_candidate_record_id', $rec->id)->with('politician')->get() as $link) {
+                $politician = $link->politician;
+                if ($politician === null) {
+                    continue;
+                }
+                if ($politician->term_status === 'eliminated') {
+                    $this->line("    profile #{$politician->id} eliminated → running");
+                    $stats['profiles']++;
+                    if (! $dryRun) {
+                        $politician->update(['term_status' => 'running', 'is_running_candidate' => true, 'status_updated_at' => now()]);
+                    }
+                } elseif ($politician->term_status === 'lost') {
+                    $this->line("    <fg=yellow>profile #{$politician->id} is marked lost — left alone, review by hand</>");
+                }
+            }
+
+            usleep(self::DELAY_MS * 1000);
+        }
+
+        $this->info(sprintf("\nRe-check complete%s: %d still eliminated | %d conflicting (left as is) | %d stamps cleared | %d profile(s) restored", $dryRun ? ' (dry-run)' : '', $stats['kept'], $stats['conflicting'], $stats['cleared'], $stats['profiles']));
 
         return self::SUCCESS;
     }
