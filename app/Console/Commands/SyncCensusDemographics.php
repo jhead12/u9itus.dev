@@ -411,23 +411,12 @@ class SyncCensusDemographics extends Command
         }
 
         $placeCollectionUcgid = 'ucgid:' . self::PLACE_UCGID_PREFIX . str_pad($fips, 2, '0', STR_PAD_LEFT) . '*';
+        $this->warn("  Legacy place geography failed for state {$fips}; retrying with place-collection UCGID geography.");
 
-        foreach ([
-            'place-collection UCGID geography' => $placeCollectionUcgid,
-        ] as $label => $ucgid) {
-            $this->warn("  Legacy place geography failed for state {$fips}; retrying with {$label}.");
-
-            $fallback = $this->fetchCensus($this->censusApiUrl($year, $dataset, [
-                'get' => $variables,
-                'for' => $ucgid,
-            ]));
-
-            if ($fallback !== null) {
-                return $fallback;
-            }
-        }
-
-        return null;
+        return $this->fetchCensus($this->censusApiUrl($year, $dataset, [
+            'get' => $variables,
+            'for' => $placeCollectionUcgid,
+        ]));
     }
 
     private function censusApiUrl(int $year, string $dataset, array $params): string
@@ -456,7 +445,9 @@ class SyncCensusDemographics extends Command
 
         if (! is_array($data) || count($data) < 2 || ! is_array($data[0] ?? null)) {
             $body = preg_replace('/\s+/', ' ', trim($response->body()));
-            $this->error('  Unexpected Census API response shape.' . ($body !== '' ? " Body: {$body}" : ''));
+            $excerpt = $body !== null ? mb_substr($body, 0, 240) : '';
+            $suffix = $excerpt !== '' ? " Body excerpt: {$excerpt}" . (mb_strlen($body ?? '') > 240 ? '…' : '') : '';
+            $this->error('  Unexpected Census API response shape.' . $suffix);
 
             return null;
         }
