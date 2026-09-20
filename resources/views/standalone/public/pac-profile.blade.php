@@ -34,6 +34,12 @@
     $fecUrl = 'https://www.fec.gov/data/committee/' . $committee->fec_committee_id . '/';
     $races = collect($profile->spending_by_race ?? []);
     // Snapshot rows written before candidate_fec_id was stored still carry a slug.
+    // FEC writes "EL-SAYED, ABDUL"; a candidate we have no profile for still gets a
+    // readable name and a link to their FEC record instead of the raw filing string.
+    $candidateName = fn (array $row) => \App\Support\FecCandidateName::display($row['candidate_name'] ?? '') ?: '—';
+    $candidateFecUrl = fn (array $row) => ! empty($row['candidate_fec_id'])
+        ? 'https://www.fec.gov/data/candidate/' . $row['candidate_fec_id'] . '/'
+        : null;
     $candidateSlug = fn (array $row) => $candidateSlugs[$row['candidate_fec_id'] ?? ''] ?? ($row['politician_slug'] ?? null);
     $org = $committee->organization && $committee->organization->is_active ? $committee->organization : null;
 @endphp
@@ -165,9 +171,13 @@
                                 <td class="py-2.5 pr-3">
                                     @if($slug = $candidateSlug($r))
                                         <a href="{{ route('politician.public.show', $slug) }}"
-                                           class="text-slate-100 font-medium hover:text-emerald-300 underline decoration-slate-700 underline-offset-2 hover:decoration-emerald-400">{{ $r['candidate_name'] }}</a>
+                                           class="text-slate-100 font-medium hover:text-emerald-300 underline decoration-slate-700 underline-offset-2 hover:decoration-emerald-400">{{ $candidateName($r) }}</a>
+                                    @elseif($fecUrl = $candidateFecUrl($r))
+                                        <a href="{{ $fecUrl }}" target="_blank" rel="noopener nofollow"
+                                           class="text-slate-200 hover:text-emerald-300 underline decoration-slate-700 underline-offset-2 hover:decoration-emerald-400"
+                                           title="View this candidate's FEC record">{{ $candidateName($r) }} <span class="text-xs text-slate-500">FEC ↗</span></a>
                                     @else
-                                        <span class="text-slate-200">{{ $r['candidate_name'] }}</span>
+                                        <span class="text-slate-200">{{ $candidateName($r) }}</span>
                                     @endif
                                 </td>
                                 <td class="py-2.5 px-3 text-slate-400 text-xs">
@@ -203,9 +213,13 @@
                             </span>
                             @if($slug = $candidateSlug($e))
                                 <a href="{{ route('politician.public.show', $slug) }}"
-                                   class="text-slate-200 hover:text-emerald-300 underline decoration-slate-700 underline-offset-2 hover:decoration-emerald-400">{{ $e['candidate_name'] ?? '—' }}</a>
+                                   class="text-slate-200 hover:text-emerald-300 underline decoration-slate-700 underline-offset-2 hover:decoration-emerald-400">{{ $candidateName($e) }}</a>
+                            @elseif($fecUrl = $candidateFecUrl($e))
+                                <a href="{{ $fecUrl }}" target="_blank" rel="noopener nofollow"
+                                   class="text-slate-200 hover:text-emerald-300 underline decoration-slate-700 underline-offset-2 hover:decoration-emerald-400"
+                                   title="View this candidate's FEC record">{{ $candidateName($e) }}</a>
                             @else
-                                <span class="text-slate-200">{{ $e['candidate_name'] ?? '—' }}</span>
+                                <span class="text-slate-200">{{ $candidateName($e) }}</span>
                             @endif
                             @if(!empty($e['purpose']))
                                 <span class="text-slate-500">— {{ $e['purpose'] }}</span>

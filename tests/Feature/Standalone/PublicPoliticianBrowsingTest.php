@@ -123,7 +123,7 @@ test('guest public politician profile stays in preview mode without earning copy
     $response->assertSee('Campaign Videos & Updates');
     $response->assertSee('Running Campaigns');
     $response->assertSee('Past Campaigns');
-    $response->assertSee('Research &amp; Records', false);
+    $response->assertSee('Sources & corrections');
     $response->assertSee('C-SPAN Video Search');
     $response->assertSee('Guests can browse current and past public campaign videos here to learn how this candidate is communicating over time.', false);
     $response->assertSee('Create free account for full access');
@@ -463,9 +463,9 @@ test('verified public profile shows dig deeper source panels', function () {
     $response = $this->get(route('politician.public.show', ['slug' => $politician->slug]));
 
     $response->assertOk();
-    $response->assertSee('Dig Deeper');
-    $response->assertSee('Sources available');
-    $response->assertSee('4 / 4');
+    $response->assertSee('Sources & corrections');
+    $response->assertSee('Source records and filing details');
+    $response->assertDontSee('Not currently available');
     $response->assertSee('Ballotpedia');
     $response->assertSee('OpenSecrets');
     $response->assertSee('Vote Smart');
@@ -655,8 +655,7 @@ test('dig deeper shows federal-only message when fec is enabled for non-federal 
     $response = $this->get(route('politician.public.show', ['slug' => $politician->slug]));
 
     $response->assertOk();
-    $response->assertSee('Dig Deeper');
-    $response->assertSee('Federal Election Commission');
+    $response->assertSee('Sources & corrections');
+    $response->assertSee('Not currently available: Federal Election Commission');
     $response->assertSee('FEC reporting applies to federal offices only.');
-    $response->assertSee('0 / 1');
 });

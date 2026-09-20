@@ -69,7 +69,7 @@ test('pac detail page renders financials, races and donors', function () {
         ->assertSee('Detail Test Fund')
         ->assertSee('Super PAC')
         ->assertSee('Spending in these races')
-        ->assertSee('JANE DOE')
+        ->assertSee('Jane Doe')
         ->assertSee('Big Donor LLC')
         ->assertSee('MEDIA BUY');
 });
@@ -127,5 +127,20 @@ test('committee page links candidates to their profiles, resolved when the page 
     // Linked from both the race table and the recent-expenditures list.
     expect(substr_count($html, 'href="' . route('politician.public.show', $pol->slug) . '"'))->toBe(2);
     expect($html)->not->toContain(route('politician.public.show', $hidden->slug));
-    expect($html)->toContain('HIDDEN PERSON');
+    expect($html)->toContain('Hidden Person');
+});
+
+test('a candidate with no profile shows a readable name and links to their FEC record', function () {
+    $c = makeCommitteeWithProfile([], [
+        'spending_by_race' => [
+            ['candidate_fec_id' => 'S6MI00001', 'candidate_name' => 'EL-SAYED, ABDUL', 'office' => 'Senate', 'state' => 'MI', 'district' => '00', 'support' => 0, 'oppose' => 500_000],
+        ],
+        'recent_expenditures' => [],
+    ]);
+
+    $this->get('/pacs/' . $c->publicSlug())
+        ->assertOk()
+        ->assertSee('Abdul El-Sayed')
+        ->assertDontSee('EL-SAYED, ABDUL')
+        ->assertSee('https://www.fec.gov/data/candidate/S6MI00001/', false);
 });

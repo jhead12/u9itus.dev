@@ -1566,9 +1566,14 @@
             </div>
 
             <p class="text-sm text-slate-300 mb-4">Spotted an error? <a href="#dr-open" class="text-emerald-300 underline">Report a data problem</a> using the correction form beside the profile’s source label.</p>
-            @php($missingSources = collect($digDeeperData['panels'] ?? [])->filter(fn ($panel) => ($panel['status'] ?? '') !== 'available')->pluck('label'))
+            @php($missingSources = collect($digDeeperData['panels'] ?? [])->filter(fn ($panel) => ($panel['status'] ?? '') !== 'available'))
             @if($missingSources->isNotEmpty())
-                <p class="text-sm text-slate-400 mb-4">Not currently available: {{ $missingSources->join(', ') }}. Missing coverage does not mean there are no records.</p>
+                <p class="text-sm text-slate-400 mb-4">Not currently available: {{ $missingSources->pluck('label')->join(', ') }}. Missing coverage does not mean there are no records.</p>
+                <ul class="text-xs text-slate-500 mb-4 space-y-1">
+                    @foreach($missingSources->filter(fn ($panel) => ! empty($panel['unavailable_reason'])) as $panel)
+                        <li>{{ $panel['label'] }}: {{ $panel['unavailable_reason'] }}</li>
+                    @endforeach
+                </ul>
             @endif
             <details class="rounded-xl border border-slate-700 p-4"><summary class="cursor-pointer font-semibold text-slate-200">Source records and filing details</summary><div class="space-y-6 mt-4">
                 @foreach($transparencyData as $source => $data)
