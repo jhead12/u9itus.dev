@@ -28,6 +28,7 @@ use App\Services\VoteSmartService;
 use App\Services\Web3\MeTokenSubgraphService;
 use App\Services\WikipediaLookupService;
 use App\Services\ZipDistrictLookupService;
+use App\Services\ZipVotingLocationService;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
@@ -171,6 +172,9 @@ class PublicProfileController extends Controller
             'address' => $address,
             'lookupResult' => $lookupResult,
             'zipDistricts' => $zipDistricts,
+            'isZipLookup' => $this->isZipOnlyInput($address),
+            'zipVotingLocations' => $this->isZipOnlyInput($address)
+                ? app(ZipVotingLocationService::class)->forZip($address, $voterInfo) : [],
             'candidates' => $candidates,
             'runningCandidates' => $runningCandidates,
             'runningGrid' => $runningGrid ?? collect(),

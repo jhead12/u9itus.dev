@@ -96,6 +96,10 @@
             </section>
         @endif
 
+        @if($isZipLookup)
+            @include('standalone.public.partials.zip-voting-locations')
+        @endif
+
         @if($lookupResult)
             <section class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
                 <div class="bg-slate-900/60 border border-slate-700/50 rounded-xl p-5">
@@ -151,9 +155,9 @@
                 // location — normalize the three location types into one list
                 // so the cards below and the map markers can share it.
                 $voteLocationGroups = [
-                    'polling_location' => ['label' => 'Your Polling Place', 'items' => (array) ($voterInfo['polling_locations'] ?? [])],
-                    'early_vote_site'  => ['label' => 'Early Voting',        'items' => (array) ($voterInfo['early_vote_sites'] ?? [])],
-                    'drop_off_location'=> ['label' => 'Ballot Drop-Off',     'items' => (array) ($voterInfo['drop_off_locations'] ?? [])],
+                    'polling_location' => ['label' => $isZipLookup ? 'Nearby polling location' : 'Your Polling Place', 'items' => $isZipLookup ? [] : (array) ($voterInfo['polling_locations'] ?? [])],
+                    'early_vote_site'  => ['label' => 'Early Voting',        'items' => $isZipLookup ? [] : (array) ($voterInfo['early_vote_sites'] ?? [])],
+                    'drop_off_location'=> ['label' => 'Ballot Drop-Off',     'items' => $isZipLookup ? [] : (array) ($voterInfo['drop_off_locations'] ?? [])],
                 ];
                 $hasVoteLocations = collect($voteLocationGroups)->flatMap(fn ($g) => $g['items'])->isNotEmpty();
                 $mappableVoteLocations = collect($voteLocationGroups)
