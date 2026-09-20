@@ -432,7 +432,7 @@ class SyncCensusDemographics extends Command
         ]));
 
         if ($prefixFallback === null) {
-            $this->warn("  All UCGID fallback geographies failed for {$abbr}.");
+            $this->warn("  All Census fallback requests failed for {$abbr}.");
         }
 
         return $prefixFallback;
