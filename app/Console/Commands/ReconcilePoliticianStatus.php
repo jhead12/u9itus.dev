@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Log;
 
 /**
  * Reconciles unclaimed politician records against the authoritative
- * congress-legislators feed and post-election Ballotpedia results.
+ * current congress-legislators feed.
  *
  * Run this:
  *  - Weekly (ongoing) — marks retired/former members
@@ -22,10 +22,9 @@ use Illuminate\Support\Facades\Log;
  * 1. SEATED check  — fetch legislators-current.json. Anyone in the feed with
  *    a current term gets term_status = 'seated'. A concurrent candidacy is preserved.
  *
- * 2. FORMER/RETIRED check — fetch legislators-historical.json. Anyone present
- *    only in historical (not current) whose term ended in the past gets
- *    term_status = 'retired' and is_active = false. Profile stays visible but
- *    marked Former.
+ * 2. FORMER/RETIRED check — non-candidates absent from the current feed
+ *    who were seated or have an expired term get term_status = 'retired'.
+ *    Eligible unclaimed profiles are then deactivated.
  *
  * 3. CANDIDACY — absence from an officeholder feed is not an election loss.
  *    Only sourced election results may end a candidacy.
@@ -38,7 +37,7 @@ class ReconcilePoliticianStatus extends Command
 {
     protected $signature = 'politicians:reconcile-status
         {--current-url=https://unitedstates.github.io/congress-legislators/legislators-current.json}
-        {--historical-url=https://unitedstates.github.io/congress-legislators/legislators-historical.json}
+        {--historical-url= : Deprecated; historical data is not needed for reconciliation}
         {--election-date= : ISO date of general election (e.g. 2026-11-03). Defaults to today.}
         {--dry-run : Report changes without writing to DB}';
 
@@ -64,7 +63,6 @@ class ReconcilePoliticianStatus extends Command
 
         $dryRun       = (bool) $this->option('dry-run');
         $currentUrl   = (string) $this->option('current-url');
-        $historicalUrl = (string) $this->option('historical-url');
         $electionDate = $this->option('election-date')
             ? Carbon::parse((string) $this->option('election-date'))
             : now();
@@ -73,13 +71,6 @@ class ReconcilePoliticianStatus extends Command
         $current = $this->fetchJson($currentUrl);
         if ($current === null) {
             $this->error('Failed to fetch current legislators feed.');
-            return self::FAILURE;
-        }
-
-        $this->info('Fetching historical legislators…');
-        $historical = $this->fetchJson($historicalUrl);
-        if ($historical === null) {
-            $this->error('Failed to fetch historical legislators feed.');
             return self::FAILURE;
         }
 
@@ -124,21 +115,10 @@ class ReconcilePoliticianStatus extends Command
             }
         }
 
-        // Build set of historical-only bioguide IDs (retired/former)
-        $historicalBioguides = [];
-        foreach ($historical as $row) {
-            if (!is_array($row)) continue;
-            $bioguide = $row['id']['bioguide'] ?? null;
-            if ($bioguide && !in_array($bioguide, $this->currentBioguideIds, true)) {
-                $historicalBioguides[] = $bioguide;
-            }
-        }
-
-        $this->info(sprintf(
-            'Feed loaded: %d seated | %d historical-only',
-            count($this->currentBioguideIds),
-            count($historicalBioguides),
-        ));
+        // Historical records do not participate in reconcileOne(). Avoid downloading
+        // and decoding that large feed just to display a historical-member count.
+        unset($current, $row);
+        $this->info(sprintf('Feed loaded: %d seated', count($this->currentBioguideIds)));
 
         $stats = ['seated' => 0, 'retired' => 0, 'lost' => 0, 'deactivated' => 0, 'skipped' => 0];
 
