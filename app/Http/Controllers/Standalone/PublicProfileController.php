@@ -27,6 +27,7 @@ use App\Services\PoliticianVotingRecord;
 use App\Services\VoteSmartService;
 use App\Services\Web3\MeTokenSubgraphService;
 use App\Services\WikipediaLookupService;
+use App\Services\ZipDistrictLookupService;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
@@ -56,6 +57,7 @@ class PublicProfileController extends Controller
 
         $address = (string) $request->query('address', '');
         $lookupResult = null;
+        $zipDistricts = [];
         $candidates = collect();
         $runningCandidates = collect();
         $topContenders = collect();
@@ -73,11 +75,18 @@ class PublicProfileController extends Controller
                 $error = 'Please enter a valid street address.';
             } else {
                 $lookupService = app(DistrictLookupService::class);
-                $lookupResult = $lookupService->lookup($address);
-
-                if (! $lookupResult) {
-                    $error = $this->unresolvedLookupMessage($address);
+                if ($this->isZipOnlyInput($address)) {
+                    $zipDistricts = app(ZipDistrictLookupService::class)->districtsForZip($address);
+                    if (count($zipDistricts) === 1 && $zipDistricts[0]['source'] !== 'u9itus_records') {
+                        $lookupResult = $zipDistricts[0] + ['matched_address' => trim($address)];
+                    }
                 } else {
+                    $lookupResult = $lookupService->lookup($address);
+                }
+
+                if (! $lookupResult && $zipDistricts === []) {
+                    $error = $this->unresolvedLookupMessage($address);
+                } elseif ($lookupResult) {
                     $lookupState = strtoupper((string) ($lookupResult['state'] ?? ''));
                     $voterInfo = $this->fetchVoterInfoFromGoogleCivic($address);
                     // Census geographies (state legislative layers) are always available;
@@ -150,7 +159,7 @@ class PublicProfileController extends Controller
                 $this->recordDistrictLookupSearch(
                     request: $request,
                     address: $address,
-                    lookupResult: $lookupResult,
+                    lookupResult: $lookupResult ?? ($zipDistricts !== [] ? ['matched_address' => trim($address), 'source' => $zipDistricts[0]['source'], 'districts' => $zipDistricts] : null),
                     error: $error,
                     discoveredOfficialsCount: $discoveredOfficials->count(),
                     voterInfo: $voterInfo,
@@ -161,6 +170,7 @@ class PublicProfileController extends Controller
         return view('standalone.public.district-lookup', [
             'address' => $address,
             'lookupResult' => $lookupResult,
+            'zipDistricts' => $zipDistricts,
             'candidates' => $candidates,
             'runningCandidates' => $runningCandidates,
             'runningGrid' => $runningGrid ?? collect(),
@@ -384,7 +394,7 @@ class PublicProfileController extends Controller
     protected function unresolvedLookupMessage(string $address): string
     {
         if ($this->isZipOnlyInput($address)) {
-            return 'We found your city/state from ZIP, but could not determine a congressional district from ZIP alone. Please enter your full street address to see complete district details.';
+            return 'We could not load districts for this ZIP code right now. Check the ZIP, try again, or enter your full street address to find your exact district.';
         }
 
         return 'We could not resolve that address. Try including street, city, state, and ZIP.';

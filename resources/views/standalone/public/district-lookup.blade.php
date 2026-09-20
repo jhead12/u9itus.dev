@@ -48,9 +48,9 @@
         <section class="mb-8">
             <h1 class="text-3xl sm:text-4xl font-bold text-white mb-3">Find Your District</h1>
             <p class="text-slate-400 max-w-2xl">
-                Enter your home address to identify your congressional district and see candidates currently published on U9itus in your area.
+                Enter a ZIP code to explore congressional districts in that area, or your home address to find your exact district.
             </p>
-            <p class="text-slate-500 text-sm mt-2">For best results, enter a full address with street, city, and state. ZIP-only lookups may not return full district detail.</p>
+            <p class="text-slate-500 text-sm mt-2">ZIP codes can span several districts. A full street address helps identify which one represents your home.</p>
         </section>
 
         <section class="bg-slate-900/70 border border-slate-700/50 rounded-2xl p-4 sm:p-6 mb-6">
@@ -76,6 +76,25 @@
                 <p class="mt-3 text-sm text-rose-300">{{ $error }}</p>
             @endif
         </section>
+
+        @if(!empty($zipDistricts))
+            <section class="mb-8" aria-labelledby="zip-districts-title">
+                <h2 id="zip-districts-title" class="text-2xl font-bold text-white mb-3">Related districts for ZIP {{ substr(trim($address), 0, 5) }}</h2>
+                <p class="text-slate-400 mb-4">Explore each matching district below. Enter your full street address above to confirm your exact district.</p>
+                @if(collect($zipDistricts)->contains('source', 'u9itus_records'))
+                    <p class="text-slate-500 text-sm mb-4">Source: U9itus records. These saved matches may not include every district in this ZIP area.</p>
+                @endif
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    @foreach($zipDistricts as $zipDistrict)
+                        <article class="bg-slate-900/60 border border-slate-700/50 rounded-xl p-5">
+                            <h3 class="text-xl font-semibold text-white">{{ $zipDistrict['district_code'] }}</h3>
+                            <p class="text-slate-400 text-sm mt-1">{{ $zipDistrict['district_label'] }}</p>
+                            <a href="{{ route('us.map', ['state' => $zipDistrict['state'], 'district' => $zipDistrict['district_number']]) }}" class="inline-block mt-4 text-emerald-400 hover:text-emerald-300 font-semibold">Explore district &amp; candidates →</a>
+                        </article>
+                    @endforeach
+                </div>
+            </section>
+        @endif
 
         @if($lookupResult)
             <section class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">

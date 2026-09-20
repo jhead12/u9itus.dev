@@ -128,7 +128,7 @@ test('district lookup shows zip specific guidance when zip cannot resolve distri
     ]));
 
     $response->assertOk();
-    $response->assertSee('could not determine a congressional district from ZIP alone', false);
+    $response->assertSee('could not load districts for this ZIP code right now', false);
     $response->assertDontSee('Try including street, city, state, and ZIP', false);
 });
 
