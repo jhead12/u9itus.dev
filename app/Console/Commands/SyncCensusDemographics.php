@@ -440,12 +440,18 @@ class SyncCensusDemographics extends Command
 
     private function censusApiUrl(int $year, string $dataset, array $params): string
     {
-        $key = config('services.census.api_key');
+        $key = $this->censusApiKey();
         if ($key) {
             $params['key'] = $key;
         }
 
         return "https://api.census.gov/data/{$year}/{$dataset}?" . http_build_query($params, '', '&', PHP_QUERY_RFC3986);
+    }
+
+    private function censusApiKey(): string
+    {
+        return (string) (config('services.census.api_key')
+            ?: env('CENSUS_DATA_API_KEY', env('CENSUS_DATA_API', '')));
     }
 
     private function fetchCensus(string $url): ?array
@@ -465,7 +471,7 @@ class SyncCensusDemographics extends Command
         if (! is_array($data) || count($data) < 2 || ! is_array($data[0] ?? null)) {
             $body = preg_replace('/\s+/', ' ', trim($response->body()));
             $body = $body !== null ? preg_replace('/([?&]key=)[^&\\s]+/i', '$1[REDACTED]', $body) : null;
-            $apiKey = (string) config('services.census.api_key', '');
+            $apiKey = $this->censusApiKey();
             if ($body !== null && $apiKey !== '') {
                 $body = str_replace($apiKey, '[REDACTED]', $body);
             }
