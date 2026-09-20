@@ -465,6 +465,10 @@ class SyncCensusDemographics extends Command
         if (! is_array($data) || count($data) < 2 || ! is_array($data[0] ?? null)) {
             $body = preg_replace('/\s+/', ' ', trim($response->body()));
             $body = $body !== null ? preg_replace('/([?&]key=)[^&\\s]+/i', '$1[REDACTED]', $body) : null;
+            $apiKey = (string) config('services.census.api_key', '');
+            if ($body !== null && $apiKey !== '') {
+                $body = str_replace($apiKey, '[REDACTED]', $body);
+            }
             $excerpt = $body !== null ? mb_substr($body, 0, 240) : '';
             $suffix = $excerpt !== '' ? " Body excerpt: {$excerpt}" . (mb_strlen($body ?? '') > 240 ? '…' : '') : '';
             $this->error('  Unexpected Census API response shape.' . $suffix);
