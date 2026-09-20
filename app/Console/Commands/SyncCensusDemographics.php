@@ -408,12 +408,23 @@ class SyncCensusDemographics extends Command
             return $legacy;
         }
 
-        $this->warn("  Legacy place geography failed for state {$fips}; retrying with UCGID.");
+        foreach ([
+            'UCGID collection geography' => '160|0400000US' . $fips,
+            'UCGID place prefix geography' => '1600000US' . $fips,
+        ] as $label => $ucgid) {
+            $this->warn("  Legacy place geography failed for state {$fips}; retrying with {$label}.");
 
-        return $this->fetchCensus($this->censusApiUrl($year, $dataset, [
-            'get' => $variables,
-            'ucgid' => '160|0400000US' . $fips,
-        ]));
+            $fallback = $this->fetchCensus($this->censusApiUrl($year, $dataset, [
+                'get' => $variables,
+                'ucgid' => $ucgid,
+            ]));
+
+            if ($fallback !== null) {
+                return $fallback;
+            }
+        }
+
+        return null;
     }
 
     private function censusApiUrl(int $year, string $dataset, array $params): string
@@ -424,13 +435,6 @@ class SyncCensusDemographics extends Command
         }
 
         return "https://api.census.gov/data/{$year}/{$dataset}?" . http_build_query($params, '', '&', PHP_QUERY_RFC3986);
-    }
-
-    private function apiKeyParam(): string
-    {
-        $key = env('CENSUS_DATA_API');
-
-        return $key ? '&key=' . rawurlencode($key) : '';
     }
 
     private function fetchCensus(string $url): ?array
