@@ -31,7 +31,7 @@ it('falls back to UCGID place geography when legacy ACS place queries return a m
     });
 
     $this->artisan('geo:sync-census-demographics', ['--year' => 2022, '--state' => ['TX']])
-        ->expectsOutputToContain('retrying with UCGID')
+        ->expectsOutputToContain('retrying with place-collection UCGID geography')
         ->assertExitCode(0);
 
     expect(CityDemographic::where('state', 'TX')->where('city_name', 'Houston')->exists())->toBeTrue();
@@ -85,7 +85,8 @@ it('falls through to the prefix-form UCGID retry when the collection-form retry 
     });
 
     $this->artisan('geo:sync-census-demographics', ['--year' => 2022, '--state' => ['TX']])
-        ->expectsOutputToContain('retrying with UCGID fallback geography')
+        ->expectsOutputToContain('retrying with place-collection UCGID geography')
+        ->expectsOutputToContain('retrying with place-summary-level UCGID prefix geography')
         ->assertExitCode(0);
 
     Http::assertSentCount(6);

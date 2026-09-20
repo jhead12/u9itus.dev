@@ -413,25 +413,23 @@ class SyncCensusDemographics extends Command
         $placeCollectionUcgid = 'ucgid:160|state:' . str_pad($fips, 2, '0', STR_PAD_LEFT);
         $placePrefixUcgid = 'ucgid:' . self::PLACE_UCGID_PREFIX . str_pad($fips, 2, '0', STR_PAD_LEFT) . '*';
 
-        $fallbacks = [
-            $placeCollectionUcgid,
-            $placePrefixUcgid,
-        ];
+        $this->warn("  Legacy place geography failed for {$abbr}; retrying with place-collection UCGID geography.");
 
-        $this->warn("  Legacy place geography failed for {$abbr}; retrying with UCGID fallback geography.");
+        $collectionFallback = $this->fetchCensus($this->censusApiUrl($year, $dataset, [
+            'get' => $variables,
+            'for' => $placeCollectionUcgid,
+        ]));
 
-        foreach ($fallbacks as $ucgid) {
-            $fallback = $this->fetchCensus($this->censusApiUrl($year, $dataset, [
-                'get' => $variables,
-                'for' => $ucgid,
-            ]));
-
-            if ($fallback !== null) {
-                return $fallback;
-            }
+        if ($collectionFallback !== null) {
+            return $collectionFallback;
         }
 
-        return null;
+        $this->warn("  Place-collection UCGID retry failed for {$abbr}; retrying with place-summary-level UCGID prefix geography.");
+
+        return $this->fetchCensus($this->censusApiUrl($year, $dataset, [
+            'get' => $variables,
+            'for' => $placePrefixUcgid,
+        ]));
     }
 
     private function censusApiUrl(int $year, string $dataset, array $params): string
