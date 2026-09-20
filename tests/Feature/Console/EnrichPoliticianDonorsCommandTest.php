@@ -61,3 +61,23 @@ test('without --upcoming-only both running and non-running candidates are target
     expect(PoliticianDonorSnapshot::where('politician_id', $running->id)->exists())->toBeTrue();
     expect(PoliticianDonorSnapshot::where('politician_id', $notRunning->id)->exists())->toBeTrue();
 });
+
+test('committee ID placeholders are retried and replaced with FEC names', function () {
+    config(['services.fec.api_key' => 'DEMO_KEY']);
+    \Illuminate\Support\Facades\Cache::flush();
+    \App\Models\Committee::create(['fec_committee_id' => 'C00785899', 'name' => 'C00785899']);
+    \Illuminate\Support\Facades\Http::fake(['*' => \Illuminate\Support\Facades\Http::response([
+        'results' => [['committee_id' => 'C00785899', 'name' => 'Example Committee']],
+    ])]);
+    $service = new class extends FECService {
+        public function resolveForTest(array $rows): array
+        {
+            $this->resolveCommitteeNames($rows);
+            return $rows;
+        }
+        protected function sleepMicroseconds(int $microseconds): void {}
+    };
+    $rows = $service->resolveForTest([['committee_id' => 'C00785899', 'committee_name' => 'C00785899']]);
+    expect($rows[0]['committee_name'])->toBe('Example Committee');
+    expect(\App\Models\Committee::where('fec_committee_id', 'C00785899')->value('name'))->toBe('Example Committee');
+});

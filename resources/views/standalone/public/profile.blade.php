@@ -339,7 +339,7 @@
     @endif
 
     {{-- ── Hero Section ── --}}
-    <section class="relative overflow-hidden">
+    <section id="profile-overview" class="relative overflow-hidden scroll-mt-24">
         @if($page->hero_banner_url && $page->background_style === 'image')
             <div class="absolute inset-0 bg-cover bg-center opacity-25 pointer-events-none"
                  style="background-image:url('{{ $page->hero_banner_url }}')"></div>
@@ -640,6 +640,41 @@
         </div>
     </section>
 
+
+        @php
+            $donorData          = $transparencyData['opensecrets'] ?? null;
+            $fecData            = $transparencyData['fec'] ?? null;
+            $topDonors          = $donorData['sections']['top_contributors']['items'] ?? [];
+            $topIndustries      = $donorData['sections']['top_industries']['items'] ?? [];
+            $fecSummary         = $fecData['sections']['summary'] ?? null;
+            $openSecretsSummary = $donorData['sections']['summary'] ?? null;
+            $outsideSpending    = $fecData['sections']['outside_spending']['items'] ?? null;
+            $pacAffiliations    = $donorData['pac_affiliations'] ?? null;
+            $electionCycle      = $donorData['election_cycle'] ?? $fecSummary['cycle'] ?? null;
+
+            // Stored finance values are pre-formatted strings ("$1,234,567").
+            // Render those as-is; format bare numerics. Avoids the prior bug
+            // where number_format("$52,000") cast to 52 and rendered "$52".
+            $fmtMoney = function ($v) {
+                if ($v === null || $v === '') {
+                    return null;
+                }
+                $s = trim((string) $v);
+                return str_starts_with($s, '$') ? $s : '$' . number_format((float) $s);
+            };
+        @endphp
+
+    <nav aria-label="Profile sections" class="max-w-5xl mx-auto px-4 sm:px-6 py-4 mb-6">
+        <div class="flex flex-wrap gap-2">
+            @foreach(['profile-overview' => 'Overview', 'voting-record' => 'Voting records', 'profile-money' => 'Campaign money', 'profile-videos' => 'Videos', 'profile-news' => 'News', 'profile-sources' => 'Sources & corrections'] as $anchor => $label)
+                @continue($anchor === 'voting-record' && empty($votingRecord))
+                @continue($anchor === 'profile-news' && empty($newsArticles?->count()))
+                @continue($anchor === 'profile-money' && empty($topDonors) && empty($topIndustries) && !$fecSummary && !$openSecretsSummary && empty($outsideSpending) && empty($pacAffiliations))
+                <a href="#{{ $anchor }}" class="px-4 py-3 rounded-lg bg-slate-800 text-sm text-slate-200 hover:bg-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400">{{ $label }}</a>
+            @endforeach
+        </div>
+    </nav>
+
     {{-- ── Main Content ── --}}
     <main class="max-w-5xl mx-auto px-4 sm:px-6 pb-24 space-y-12">
 
@@ -917,204 +952,7 @@
         </section>
         @endif
 
-        {{-- Phase 16: Public Records & Transparency --}}
-        @if(!empty($transparencyData))
-        <section>
-            <div class="flex items-start justify-between mb-4">
-                <div>
-                    <h2 class="text-xl font-bold text-white flex items-center gap-2">
-                        <span class="w-1 h-6 rounded-full inline-block" style="background:var(--p13-accent,#f59e0b)"></span>
-                        Public Records & Transparency
-                    </h2>
-                    <p class="text-xs text-slate-400 mt-1">Official data from trusted public sources</p>
-                </div>
-                @if($politician->verification_status === 'verified')
-                <span class="inline-flex items-center gap-1.5 bg-green-900/30 border border-green-700/50 text-green-300 text-xs font-medium px-3 py-1.5 rounded-full">
-                    <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-                    </svg>
-                    Verified Profile
-                </span>
-                @else
-                <span class="inline-flex items-center gap-1.5 bg-slate-800/60 border border-slate-700/50 text-slate-400 text-xs font-medium px-3 py-1.5 rounded-full">
-                    Public Record Data
-                </span>
-                @endif
-            </div>
-
-            <div class="space-y-6">
-                @foreach($transparencyData as $source => $data)
-                    @if($data)
-                    <div class="bg-slate-800/40 border border-slate-700/40 rounded-xl p-6">
-                        <div class="flex items-start justify-between mb-4">
-                            <h3 class="text-lg font-semibold text-white">{{ $data['source'] }}</h3>
-                            @if(isset($data['source_url']))
-                                     <a href="{{ $data['source_url'] }}" target="_blank" rel="noopener"
-                               class="text-xs text-blue-400 hover:text-blue-300 transition inline-flex items-center gap-1">
-                                View on {{ $data['source'] }} ↗
-                            </a>
-                            @endif
-                        </div>
-
-                        {{-- Financial Summary (for OpenSecrets/FEC) --}}
-                        @if(isset($data['summary']) && !empty($data['summary']))
-                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6 p-4 bg-slate-900/40 border border-slate-700/30 rounded-lg">
-                            @foreach($data['summary'] as $key => $value)
-                                <div>
-                                    <p class="text-xs text-slate-400 mb-1">{{ ucwords(str_replace('_', ' ', $key)) }}</p>
-                                    <p class="text-sm font-semibold text-white">{{ $value }}</p>
-                                </div>
-                            @endforeach
-                        </div>
-                        @endif
-
-                        {{-- Data Sections --}}
-                        @if(isset($data['sections']) && !empty($data['sections']))
-                        <div class="space-y-5">
-                            @foreach($data['sections'] as $sectionKey => $section)
-                                {{-- outside_spending gets its own formatted "Independent Spending" block
-                                     below (currency + Support/Oppose badges) — rendering it here too would
-                                     dump the raw FEC fields (unformatted totals, bare 'S'/'O' codes). --}}
-                                @if($sectionKey !== 'outside_spending' && !empty($section['items']))
-                                <div>
-                                    <h4 class="text-sm font-semibold text-slate-300 mb-3 flex items-center justify-between">
-                                        <span>{{ $section['title'] ?? ucwords(str_replace('_', ' ', is_string($sectionKey) ? $sectionKey : '')) }}</span>
-                                        @if(isset($section['show_more_url']))
-                                                     <a href="{{ $section['show_more_url'] }}" target="_blank" rel="noopener"
-                                           class="text-xs text-blue-400 hover:text-blue-300 transition">
-                                            See all ↗
-                                        </a>
-                                        @endif
-                                    </h4>
-                                    <div class="space-y-2">
-                                        @foreach($section['items'] as $item)
-                                        <div class="bg-slate-900/30 border border-slate-700/30 rounded-lg px-4 py-3">
-                                            @if(is_array($item))
-                                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                                                    @foreach($item as $key => $value)
-                                                        @if($value && $key !== 'id' && $key !== 'pdf_url' && $key !== 'fec_url')
-                                                        <div>
-                                                            <span class="text-slate-400">{{ ucwords(str_replace('_', ' ', $key)) }}:</span>
-                                                            <span class="text-slate-300 ml-1">{{ $value }}</span>
-                                                        </div>
-                                                        @endif
-                                                    @endforeach
-                                                    {{-- PDF/FEC links for filings --}}
-                                                    @if(isset($item['pdf_url']) || isset($item['fec_url']))
-                                                        <div class="col-span-full mt-1">
-                                                            @if(isset($item['pdf_url']))
-                                                                                <a href="{{ $item['pdf_url'] }}" target="_blank"
-                                                               class="text-blue-400 hover:text-blue-300 text-xs mr-3">
-                                                                View PDF ↗
-                                                            </a>
-                                                            @endif
-                                                            @if(isset($item['fec_url']))
-                                                                                <a href="{{ $item['fec_url'] }}" target="_blank"
-                                                               class="text-blue-400 hover:text-blue-300 text-xs">
-                                                                View on FEC ↗
-                                                            </a>
-                                                            @endif
-                                                        </div>
-                                                    @endif
-                                                </div>
-                                            @else
-                                                <p class="text-sm text-slate-300">{{ $item }}</p>
-                                            @endif
-                                        </div>
-                                        @endforeach
-                                    </div>
-                                </div>
-                                @endif
-                            @endforeach
-                        </div>
-                        @endif
-                    </div>
-                    @endif
-                @endforeach
-            </div>
-
-            <div class="mt-4 bg-blue-900/20 border border-blue-700/30 rounded-lg p-4">
-                <p class="text-xs text-slate-400">
-                    <strong class="text-slate-300">Data Attribution:</strong> All information above is sourced from public government databases and independent watchdog organizations. Click the source links to verify data directly.
-                </p>
-            </div>
-        </section>
-        @endif
-
         @include('standalone.public.partials.voting-record', ['votingRecord' => $votingRecord ?? null, 'politician' => $politician])
-
-        {{-- Sprint 4: Dig Deeper research section
-             (Sprint 7: also shown when only meToken data is present) --}}
-        @if(!empty($digDeeperData['panels'] ?? []) || !empty($meTokenData ?? null))
-        <section id="dig-deeper">
-            <div class="flex items-end justify-between gap-4 mb-4">
-                <div>
-                    <h2 class="text-xl font-bold text-white flex items-center gap-2">
-                        <span class="w-1 h-6 rounded-full inline-block" style="background:var(--p13-accent,#f59e0b)"></span>
-                        Dig Deeper
-                    </h2>
-                    <p class="text-xs text-slate-400 mt-1">
-                        Quick source snapshots with direct links to underlying public records.
-                    </p>
-                </div>
-                <div class="text-right">
-                    <p class="text-xs text-slate-400">Sources available</p>
-                    <p class="text-sm font-semibold text-white">
-                        {{ $digDeeperData['available_sources_count'] ?? 0 }} / {{ $digDeeperData['enabled_sources_count'] ?? 0 }}
-                    </p>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                @foreach(($digDeeperData['panels'] ?? []) as $panel)
-                <article class="bg-slate-800/40 border border-slate-700/40 rounded-xl p-5">
-                    <div class="flex items-start justify-between gap-3 mb-3">
-                        <h3 class="text-base font-semibold text-white">{{ $panel['label'] }}</h3>
-                        @if(($panel['status'] ?? null) === 'available')
-                            <span class="inline-flex items-center gap-1 text-[11px] bg-emerald-900/30 border border-emerald-700/50 text-emerald-300 px-2 py-1 rounded-full">Available</span>
-                        @else
-                            <span class="inline-flex items-center gap-1 text-[11px] bg-amber-900/30 border border-amber-700/50 text-amber-300 px-2 py-1 rounded-full">Unavailable</span>
-                        @endif
-                    </div>
-
-                    @if(($panel['status'] ?? null) === 'available')
-                        <p class="text-sm text-slate-300 mb-3">{{ $panel['summary'] ?? 'Source connected' }}</p>
-                        <p class="text-xs text-slate-400 mb-3">{{ $panel['section_count'] ?? 0 }} detail panel(s) available.</p>
-
-                        @if(!empty($panel['sections'] ?? []))
-                        <details class="group rounded-lg border border-slate-700/30 bg-slate-900/35 px-4 py-3">
-                            <summary class="cursor-pointer text-xs font-semibold text-slate-300 group-open:text-white transition">
-                                View source detail panels
-                            </summary>
-                            <div class="mt-3 space-y-2">
-                                @foreach(($panel['sections'] ?? []) as $section)
-                                    @if(!empty($section['title']))
-                                        <div class="text-xs text-slate-400">{{ $section['title'] }}</div>
-                                    @endif
-                                @endforeach
-                            </div>
-                        </details>
-                        @endif
-
-                        @if(!empty($panel['source_url'] ?? null))
-                        <a href="{{ $panel['source_url'] }}" target="_blank" rel="noopener"
-                           class="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-blue-400 hover:text-blue-300 transition">
-                            View source records ↗
-                        </a>
-                        @endif
-                    @else
-                        <p class="text-sm text-slate-400">{{ $panel['unavailable_reason'] ?? 'No data available yet.' }}</p>
-                    @endif
-                </article>
-                @endforeach
-
-                {{-- Sprint 7 — MeToken read-only transparency panel --}}
-                @if(!empty($meTokenData ?? null))
-                    @include('standalone.public.partials.metoken-panel', ['data' => $meTokenData])
-                @endif
-            </div>
-        </section>
-        @endif
 
         {{-- Videos & Appearances Section --}}
         @php
@@ -1132,7 +970,7 @@
             $youtubeVideos = array_filter($storedVideos ?? [], fn($v) => $ytIdOf($v['url'] ?? '') !== null);
             $cspanVideos   = array_filter($storedVideos ?? [], fn($v) => str_contains($v['url'] ?? '', 'c-span.org'));
         @endphp
-        <section>
+        <section id="profile-videos" class="scroll-mt-64">
             <h2 class="text-xl font-bold text-white mb-4 flex items-center gap-2">
                 <span class="w-1 h-6 rounded-full inline-block" style="background:var(--p13-accent,#f59e0b)"></span>
                 Videos &amp; Appearances
@@ -1314,7 +1152,7 @@
         {{-- ── In the News ─────────────────────────────────────────────────── --}}
         {{-- $newsArticles (6 items), $newsTotal passed from controller --}}
         @if($newsArticles->isNotEmpty())
-        <section>
+        <section id="profile-news" class="scroll-mt-64">
             <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
                 <h2 class="text-xl font-bold text-white flex items-center gap-2">
                     <span class="w-1 h-6 rounded-full inline-block flex-shrink-0" style="background:var(--p13-accent,#f59e0b)"></span>
@@ -1452,30 +1290,8 @@
         @endif
 
         {{-- ── Follow the Money (OpenSecrets / FEC donor data) ────────────── --}}
-        @php
-            $donorData          = $transparencyData['opensecrets'] ?? null;
-            $fecData            = $transparencyData['fec'] ?? null;
-            $topDonors          = $donorData['sections']['top_contributors']['items'] ?? [];
-            $topIndustries      = $donorData['sections']['top_industries']['items'] ?? [];
-            $fecSummary         = $fecData['sections']['summary'] ?? null;
-            $openSecretsSummary = $donorData['sections']['summary'] ?? null;
-            $outsideSpending    = $fecData['sections']['outside_spending']['items'] ?? null;
-            $pacAffiliations    = $donorData['pac_affiliations'] ?? null;
-            $electionCycle      = $donorData['election_cycle'] ?? $fecSummary['cycle'] ?? null;
-
-            // Stored finance values are pre-formatted strings ("$1,234,567").
-            // Render those as-is; format bare numerics. Avoids the prior bug
-            // where number_format("$52,000") cast to 52 and rendered "$52".
-            $fmtMoney = function ($v) {
-                if ($v === null || $v === '') {
-                    return null;
-                }
-                $s = trim((string) $v);
-                return str_starts_with($s, '$') ? $s : '$' . number_format((float) $s);
-            };
-        @endphp
         @if(!empty($topDonors) || !empty($topIndustries) || $fecSummary || $openSecretsSummary || !empty($outsideSpending) || !empty($pacAffiliations))
-        <section>
+        <section id="profile-money" class="scroll-mt-64">
             <h2 class="text-xl font-bold text-white mb-4 flex items-center gap-2">
                 <span class="w-1 h-6 rounded-full inline-block" style="background:var(--p13-accent,#f59e0b)"></span>
                 Follow the Money
@@ -1512,13 +1328,16 @@
 
                 {{-- FEC totals banner --}}
                 @if($fecSummary)
+                @if(!empty($fecSummary['coverage_end_date']))
+                    <p class="text-xs text-slate-400">FEC reporting period ends {{ substr($fecSummary['coverage_end_date'], 0, 10) }}.</p>
+                @endif
                 <div class="sm:col-span-2 bg-slate-800/40 border border-slate-700/40 rounded-xl p-5">
                     <p class="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-3">
                         FEC Filing Summary
                         <span class="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-slate-600 text-slate-400 text-[9px] font-bold normal-case tracking-normal align-middle cursor-help"
                               tabindex="0"
-                              aria-label="Total Raised is all money the campaign has brought in this cycle (contributions, loans, transfers). Total Spent is money the campaign has paid out. Cash on Hand is what's left to spend right now — Total Raised minus Total Spent minus any refunds. Debt Owed is outstanding loans or unpaid bills the campaign still owes, separate from cash on hand."
-                              title="Total Raised is all money the campaign has brought in this cycle (contributions, loans, transfers). Total Spent is money the campaign has paid out. Cash on Hand is what's left to spend right now — Total Raised minus Total Spent minus any refunds. Debt Owed is outstanding loans or unpaid bills the campaign still owes, separate from cash on hand.">i</span>
+                              aria-label="Total Raised is all money the campaign has brought in this cycle (contributions, loans, transfers). Total Spent is money the campaign has paid out. Cash on Hand is the balance reported at the end of the filing period, including funds carried forward. Debt Owed is outstanding loans or unpaid bills the campaign still owes, separate from cash on hand."
+                              title="Total Raised is all money the campaign has brought in this cycle (contributions, loans, transfers). Total Spent is money the campaign has paid out. Cash on Hand is the balance reported at the end of the filing period, including funds carried forward. Debt Owed is outstanding loans or unpaid bills the campaign still owes, separate from cash on hand.">i</span>
                         @if(!empty($fecData['source_url']))
                             · <a href="{{ $fecData['source_url'] }}" target="_blank" rel="noopener" class="text-emerald-400 hover:underline">View on FEC.gov ↗</a>
                         @endif
@@ -1536,18 +1355,14 @@
                             <dd class="text-lg font-bold text-white">{{ $fmtMoney($fecSummary['disbursements']) }}</dd>
                         </div>
                         @endif
-                        @if($fmtMoney($fecSummary['cash_on_hand'] ?? null))
                         <div>
                             <dt class="text-xs text-slate-400">Cash on Hand</dt>
-                            <dd class="text-lg font-bold text-emerald-400">{{ $fmtMoney($fecSummary['cash_on_hand']) }}</dd>
+                            <dd class="text-lg font-bold text-emerald-400">{{ $fmtMoney($fecSummary['cash_on_hand'] ?? null) ?? 'Not available' }}</dd>
                         </div>
-                        @endif
-                        @if($fmtMoney($fecSummary['debt'] ?? null))
                         <div>
                             <dt class="text-xs text-slate-400">Debt Owed</dt>
-                            <dd class="text-lg font-bold text-rose-400">{{ $fmtMoney($fecSummary['debt']) }}</dd>
+                            <dd class="text-lg font-bold text-rose-400">{{ $fmtMoney($fecSummary['debt'] ?? null) ?? 'Not available' }}</dd>
                         </div>
-                        @endif
                     </dl>
                 </div>
                 @endif
@@ -1559,8 +1374,8 @@
                         OpenSecrets Summary
                         <span class="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-slate-600 text-slate-400 text-[9px] font-bold normal-case tracking-normal align-middle cursor-help"
                               tabindex="0"
-                              aria-label="Total Raised is all money the campaign has brought in this cycle (contributions, loans, transfers). Total Spent is money the campaign has paid out. Cash on Hand is what's left to spend right now — Total Raised minus Total Spent minus any refunds. Debt Owed is outstanding loans or unpaid bills the campaign still owes, separate from cash on hand."
-                              title="Total Raised is all money the campaign has brought in this cycle (contributions, loans, transfers). Total Spent is money the campaign has paid out. Cash on Hand is what's left to spend right now — Total Raised minus Total Spent minus any refunds. Debt Owed is outstanding loans or unpaid bills the campaign still owes, separate from cash on hand.">i</span>
+                              aria-label="Total Raised is all money the campaign has brought in this cycle (contributions, loans, transfers). Total Spent is money the campaign has paid out. Cash on Hand is the balance reported at the end of the filing period, including funds carried forward. Debt Owed is outstanding loans or unpaid bills the campaign still owes, separate from cash on hand."
+                              title="Total Raised is all money the campaign has brought in this cycle (contributions, loans, transfers). Total Spent is money the campaign has paid out. Cash on Hand is the balance reported at the end of the filing period, including funds carried forward. Debt Owed is outstanding loans or unpaid bills the campaign still owes, separate from cash on hand.">i</span>
                         @if(!empty($donorData['source_url']))
                             · <a href="{{ $donorData['source_url'] }}" target="_blank" rel="noopener" class="text-emerald-400 hover:underline">View on OpenSecrets ↗</a>
                         @endif
@@ -1602,19 +1417,24 @@
                         <span class="text-slate-400 font-normal normal-case tracking-normal">· outside groups, not the campaign</span>
                         <span class="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-slate-600 text-slate-400 text-[9px] font-bold normal-case tracking-normal align-middle cursor-help"
                               tabindex="0"
-                              aria-label="These are outside groups — PACs, Super PACs, party committees — spending their own money on ads and mailers about this race; it is not the candidate's own campaign spending, and the candidate has no say in it. Support means the group is spending to help this candidate win; Oppose means the group is spending to help defeat them. Committee IDs (e.g. C00495028) are unique identifiers the FEC assigns to each committee. Click a committee's name to view its filings on FEC.gov, or click the ID to search Google for more about the PAC."
-                              title="These are outside groups — PACs, Super PACs, party committees — spending their own money on ads and mailers about this race; it is not the candidate's own campaign spending, and the candidate has no say in it. Support means the group is spending to help this candidate win; Oppose means the group is spending to help defeat them. Committee IDs (e.g. C00495028) are unique identifiers the FEC assigns to each committee. Click a committee's name to view its filings on FEC.gov, or click the ID to search Google for more about the PAC.">i</span>
+                              aria-label="These are outside groups — PACs, Super PACs, party committees — spending their own money on ads and mailers about this race; it is not the candidate's own campaign spending, and the candidate has no say in it. Support means the group is spending to help this candidate win; Oppose means the group is spending to help defeat them. Committee IDs (e.g. C00495028) are unique identifiers the FEC assigns to each committee. Open a committee's profile or FEC record to verify its name and filings."
+                              title="These are outside groups — PACs, Super PACs, party committees — spending their own money on ads and mailers about this race; it is not the candidate's own campaign spending, and the candidate has no say in it. Support means the group is spending to help this candidate win; Oppose means the group is spending to help defeat them. Committee IDs (e.g. C00495028) are unique identifiers the FEC assigns to each committee. Open a committee's profile or FEC record to verify its name and filings.">i</span>
                         @if(!empty($fecData['source_url']))
                             · <a href="{{ $fecData['source_url'] }}" target="_blank" rel="noopener" class="text-emerald-400 hover:underline">FEC.gov ↗</a>
                         @endif
                     </p>
                     @php
                         // Show the top spenders; cap the visible list and note how many more.
-                        $shownSpending = array_slice($outsideSpending, 0, 12);
-                        $hiddenSpending = max(0, count($outsideSpending) - count($shownSpending));
+                        $shownSpending = $outsideSpending;
+                        $hiddenSpending = max(0, count($outsideSpending) - 12);
                     @endphp
                     <ol class="space-y-2">
                         @foreach($shownSpending as $i => $spender)
+                        @if($i === 12)
+                    </ol>
+                    <details class="mt-4"><summary class="cursor-pointer text-emerald-300 py-2">Show all {{ count($outsideSpending) }} spenders</summary>
+                    <ol start="13" class="space-y-2 mt-3">
+                        @endif
                         @php
                             // Snapshots written before committee_id became its own field only
                             // stored committee_name, which itself held the raw FEC ID whenever
@@ -1622,13 +1442,15 @@
                             // Recover the ID from committee_name in that case so old snapshots
                             // still render a working link instead of dead plain text.
                             $committeeId = $spender['committee_id'] ?? null;
-                            $committeeName = $spender['committee_name'] ?? null;
+                            $committeeName = ($committeeId ? ($committeeNames[$committeeId] ?? null) : null) ?? ($spender['committee_name'] ?? null);
+                            if ($committeeName === $committeeId) { $committeeName = null; }
                             if (empty($committeeId) && $committeeName && preg_match('/^[A-Z]\d{8}$/', $committeeName)) {
                                 $committeeId = $committeeName;
                                 $committeeName = null;
                             }
+                            $committeeName = ($committeeId ? ($committeeNames[$committeeId] ?? null) : null) ?? $committeeName;
                             // Internal PAC directory page, when this committee has an
-                            // enriched profile (else fall back to FEC.gov / Google).
+                            // enriched profile (else fall back to FEC.gov).
                             $pacSlug = $committeeId ? ((isset($pacDirectorySlugs) ? $pacDirectorySlugs : [])[$committeeId] ?? null) : null;
                         @endphp
                         <li class="flex items-center justify-between gap-3">
@@ -1637,19 +1459,20 @@
                                 @if($pacSlug)
                                     <a href="{{ route('pacs.show', $pacSlug) }}"
                                        class="text-sm text-slate-200 truncate underline decoration-slate-600 decoration-1 underline-offset-2 hover:text-emerald-400 hover:decoration-emerald-400"
-                                       title="View this committee on U9itus">{{ $committeeName ?: $committeeId }}</a>
+                                       title="View this committee on U9itus">{{ $committeeName ?: 'Name unavailable' }}</a>
                                     <a href="https://www.fec.gov/data/committee/{{ $committeeId }}/" target="_blank" rel="noopener"
                                        class="shrink-0 text-xs text-slate-500 font-mono truncate hover:text-emerald-400"
                                        title="View this committee's filings on FEC.gov">FEC ↗</a>
                                 @elseif(!empty($committeeId))
+                                    @if(empty($committeeName))<span class="text-sm text-slate-300">Name unavailable</span>@endif
                                     @if(!empty($committeeName))
                                         <a href="https://www.fec.gov/data/committee/{{ $committeeId }}/" target="_blank" rel="noopener"
                                            class="text-sm text-slate-200 truncate underline decoration-slate-600 decoration-1 underline-offset-2 hover:text-emerald-400 hover:decoration-emerald-400"
                                            title="View this committee's filings on FEC.gov">{{ $committeeName }}</a>
                                     @endif
-                                    <a href="https://www.google.com/search?q={{ urlencode($committeeId) }}" target="_blank" rel="noopener nofollow"
+                                    <a href="https://www.fec.gov/data/committee/{{ $committeeId }}/" target="_blank" rel="noopener nofollow"
                                        class="shrink-0 text-sm {{ empty($committeeName) ? 'text-slate-200' : 'text-slate-400 text-xs' }} font-mono truncate underline decoration-slate-600 decoration-1 underline-offset-2 hover:text-emerald-400 hover:decoration-emerald-400"
-                                       title="Search Google for FEC committee ID {{ $committeeId }}">{{ $committeeId }}</a>
+                                       title="View FEC record {{ $committeeId }}">{{ $committeeId }}</a>
                                 @else
                                     <span class="text-sm text-slate-200 truncate">{{ $committeeName ?? '—' }}</span>
                                 @endif
@@ -1666,7 +1489,7 @@
                         @endforeach
                     </ol>
                     @if($hiddenSpending > 0)
-                    <p class="mt-3 text-xs text-slate-400">+ {{ $hiddenSpending }} more spender(s) — see FEC.gov for the full list.</p>
+                    </details>
                     @endif
                     <p class="mt-3 text-xs text-slate-400">
                         Figures are sums of itemized independent-expenditure filings reported to the FEC for the {{ $electionCycle ?? '' }} cycle; a spender's full total may be higher than shown.
@@ -1718,15 +1541,132 @@
         </section>
         @endif
 
+        {{-- Phase 16: Sources &amp; corrections --}}
+        <section id="profile-sources" class="scroll-mt-64">
+            <div class="flex items-start justify-between mb-4">
+                <div>
+                    <h2 class="text-xl font-bold text-white flex items-center gap-2">
+                        <span class="w-1 h-6 rounded-full inline-block" style="background:var(--p13-accent,#f59e0b)"></span>
+                        Sources &amp; corrections
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-1">Source records and coverage; profile updates do not imply source verification.</p>
+                </div>
+                @if($politician->verification_status === 'verified')
+                <span class="inline-flex items-center gap-1.5 bg-green-900/30 border border-green-700/50 text-green-300 text-xs font-medium px-3 py-1.5 rounded-full">
+                    <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                    </svg>
+                    Verified Profile
+                </span>
+                @else
+                <span class="inline-flex items-center gap-1.5 bg-slate-800/60 border border-slate-700/50 text-slate-400 text-xs font-medium px-3 py-1.5 rounded-full">
+                    Public Record Data
+                </span>
+                @endif
+            </div>
+
+            <p class="text-sm text-slate-300 mb-4">Spotted an error? <a href="#dr-open" class="text-emerald-300 underline">Report a data problem</a> using the correction form beside the profile’s source label.</p>
+            @php($missingSources = collect($digDeeperData['panels'] ?? [])->filter(fn ($panel) => ($panel['status'] ?? '') !== 'available')->pluck('label'))
+            @if($missingSources->isNotEmpty())
+                <p class="text-sm text-slate-400 mb-4">Not currently available: {{ $missingSources->join(', ') }}. Missing coverage does not mean there are no records.</p>
+            @endif
+            <details class="rounded-xl border border-slate-700 p-4"><summary class="cursor-pointer font-semibold text-slate-200">Source records and filing details</summary><div class="space-y-6 mt-4">
+                @foreach($transparencyData as $source => $data)
+                    @if($data)
+                    <div class="bg-slate-800/40 border border-slate-700/40 rounded-xl p-6">
+                        <div class="flex items-start justify-between mb-4">
+                            <h3 class="text-lg font-semibold text-white">{{ $data['source'] }}</h3>
+                            @if(isset($data['source_url']))
+                                     <a href="{{ $data['source_url'] }}" target="_blank" rel="noopener"
+                               class="text-xs text-blue-400 hover:text-blue-300 transition inline-flex items-center gap-1">
+                                View on {{ $data['source'] }} ↗
+                            </a>
+                            @endif
+                        </div>
+
+                        {{-- Data Sections --}}
+                        @if(isset($data['sections']) && !empty($data['sections']))
+                        <div class="space-y-5">
+                            @foreach($data['sections'] as $sectionKey => $section)
+                                {{-- outside_spending gets its own formatted "Independent Spending" block
+                                     below (currency + Support/Oppose badges) — rendering it here too would
+                                     dump the raw FEC fields (unformatted totals, bare 'S'/'O' codes). --}}
+                                @if(!in_array($sectionKey, ['outside_spending', 'summary', 'top_contributors', 'top_industries']) && !empty($section['items']))
+                                <div>
+                                    <h4 class="text-sm font-semibold text-slate-300 mb-3 flex items-center justify-between">
+                                        <span>{{ $section['title'] ?? ucwords(str_replace('_', ' ', is_string($sectionKey) ? $sectionKey : '')) }}</span>
+                                        @if(isset($section['show_more_url']))
+                                                     <a href="{{ $section['show_more_url'] }}" target="_blank" rel="noopener"
+                                           class="text-xs text-blue-400 hover:text-blue-300 transition">
+                                            See all ↗
+                                        </a>
+                                        @endif
+                                    </h4>
+                                    <div class="space-y-2">
+                                        @foreach($section['items'] as $item)
+                                        <div class="bg-slate-900/30 border border-slate-700/30 rounded-lg px-4 py-3">
+                                            @if(is_array($item))
+                                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                                                    @foreach($item as $key => $value)
+                                                        @if($value && $key !== 'id' && $key !== 'pdf_url' && $key !== 'fec_url')
+                                                        <div>
+                                                            <span class="text-slate-400">{{ ucwords(str_replace('_', ' ', $key)) }}:</span>
+                                                            <span class="text-slate-300 ml-1">{{ $value }}</span>
+                                                        </div>
+                                                        @endif
+                                                    @endforeach
+                                                    {{-- PDF/FEC links for filings --}}
+                                                    @if(isset($item['pdf_url']) || isset($item['fec_url']))
+                                                        <div class="col-span-full mt-1">
+                                                            @if(isset($item['pdf_url']))
+                                                                                <a href="{{ $item['pdf_url'] }}" target="_blank"
+                                                               class="text-blue-400 hover:text-blue-300 text-xs mr-3">
+                                                                View PDF ↗
+                                                            </a>
+                                                            @endif
+                                                            @if(isset($item['fec_url']))
+                                                                                <a href="{{ $item['fec_url'] }}" target="_blank"
+                                                               class="text-blue-400 hover:text-blue-300 text-xs">
+                                                                View on FEC ↗
+                                                            </a>
+                                                            @endif
+                                                        </div>
+                                                    @endif
+                                                </div>
+                                            @else
+                                                <p class="text-sm text-slate-300">{{ $item }}</p>
+                                            @endif
+                                        </div>
+                                        @endforeach
+                                    </div>
+                                </div>
+                                @endif
+                            @endforeach
+                        </div>
+                        @endif
+                    </div>
+                    @endif
+                @endforeach
+            </div>
+
+            </details>
+            <div class="mt-4 bg-blue-900/20 border border-blue-700/30 rounded-lg p-4">
+                <p class="text-xs text-slate-400">
+                    <strong class="text-slate-300">Data Attribution:</strong> All information above is sourced from public government databases and independent watchdog organizations. Click the source links to verify data directly.
+                </p>
+            </div>
+        </section>
+
         @if(!empty($researchLinks))
-        <section>
+        <div>
             <div class="border border-slate-700/40 bg-slate-800/30 rounded-xl p-6">
                 <h2 class="text-xl font-bold text-white mb-4 flex items-center gap-2">
                     <span class="w-1 h-6 rounded-full inline-block" style="background:var(--p13-accent,#f59e0b)"></span>
-                    Research &amp; Records
+                    Additional research
                 </h2>
                 <div class="flex flex-wrap gap-3">
                     @foreach($researchLinks as $link)
+                        @continue(in_array($link['url'], array_filter(array_column($transparencyData ?? [], 'source_url'))))
                         <a href="{{ $link['url'] }}" target="_blank" rel="noopener"
                            class="inline-flex items-center gap-1.5 text-xs font-medium text-slate-300 hover:text-white transition">
                             🔎 {{ $link['label'] }} ↗
@@ -1734,9 +1674,13 @@
                     @endforeach
                 </div>
             </div>
-        </section>
+        </div>
         @endif
 
+
+        @if(!empty($meTokenData ?? null))
+            @include('standalone.public.partials.metoken-panel', ['data' => $meTokenData])
+        @endif
     </main>
 
     {{-- ── Footer ── --}}

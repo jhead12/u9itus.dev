@@ -507,20 +507,20 @@ class FECService
         // to those rather than showing a misleading $0.
         $cashOnHand = $totals['cash_on_hand_end_period'] ?? null;
         if ($cashOnHand === null || (float) $cashOnHand === 0.0) {
-            $cashOnHand = $totals['last_cash_on_hand_end_period'] ?? $cashOnHand ?? 0;
+            $cashOnHand = $totals['last_cash_on_hand_end_period'] ?? $cashOnHand;
         }
 
         $debt = $totals['debts_owed_by_committee'] ?? null;
         if ($debt === null || (float) $debt === 0.0) {
-            $debt = $totals['last_debts_owed_by_committee'] ?? $debt ?? 0;
+            $debt = $totals['last_debts_owed_by_committee'] ?? $debt;
         }
 
         return [
             'cycle' => $totals['cycle'] ?? $cycle,
-            'receipts' => $this->formatCurrency($totals['receipts'] ?? 0),
-            'disbursements' => $this->formatCurrency($totals['disbursements'] ?? 0),
-            'cash_on_hand' => $this->formatCurrency($cashOnHand),
-            'debt' => $this->formatCurrency($debt),
+            'receipts' => isset($totals['receipts']) ? $this->formatCurrency($totals['receipts']) : null,
+            'disbursements' => isset($totals['disbursements']) ? $this->formatCurrency($totals['disbursements']) : null,
+            'cash_on_hand' => $cashOnHand !== null ? $this->formatCurrency($cashOnHand) : null,
+            'debt' => $debt !== null ? $this->formatCurrency($debt) : null,
             'coverage_end_date' => $totals['coverage_end_date'] ?? null,
         ];
     }
@@ -1078,6 +1078,8 @@ class FECService
             $known = Committee::query()
                 ->whereIn('fec_committee_id', $ids)
                 ->whereNotNull('name')
+                ->where('name', '!=', '')
+                ->whereColumn('name', '!=', 'fec_committee_id')
                 ->pluck('name', 'fec_committee_id')
                 ->all();
         } catch (\Throwable $e) {

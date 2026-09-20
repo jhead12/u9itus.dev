@@ -287,3 +287,16 @@ it('pages committee independent expenditures and drops spam / memo rows', functi
         ->and($items[0]['amount'])->toBe(25000.0)
         ->and($items[0]['support_oppose'])->toBe('O');
 });
+
+
+it('preserves unknown candidate balances and genuine reported zeroes', function () {
+    config(['services.fec.api_key' => 'DEMO_KEY']);
+    Http::fake(['*' => Http::response(['results' => [['receipts' => 0, 'disbursements' => 0]]])]);
+    $service = fecServiceNoSleep();
+    $method = new ReflectionMethod(FECService::class, 'getFinancialSummary');
+    $summary = $method->invoke($service, 'H2CA43245');
+    expect($summary['cash_on_hand'])->toBeNull()
+        ->and($summary['debt'])->toBeNull()
+        ->and($summary['receipts'])->toBe('$0')
+        ->and($summary['disbursements'])->toBe('$0');
+});

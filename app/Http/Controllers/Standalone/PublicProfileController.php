@@ -1395,17 +1395,23 @@ class PublicProfileController extends Controller
         // Map any FEC committee IDs shown in the "Independent Spending" list to
         // internal PAC directory pages, when an enriched committee_profiles row
         // exists — so the profile links to /pacs/{id} instead of a Google
-        // search. IDs without a profile fall back to the FEC/Google links.
+        // search. IDs without a profile fall back to FEC links.
         $pacDirectorySlugs = [];
+        $committeeNames = [];
         try {
             $outsideItems = $transparencyData['fec']['sections']['outside_spending']['items'] ?? [];
             $committeeIds = collect($outsideItems)
-                ->map(fn ($i) => $i['committee_id'] ?? null)
+                ->map(fn ($i) => $i['committee_id'] ?? $i['committee_name'] ?? null)
                 ->filter(fn ($id) => is_string($id) && preg_match('/^[A-Z]\d{8}$/', $id))
                 ->unique()
                 ->values();
 
             if ($committeeIds->isNotEmpty()) {
+                $committeeNames = \App\Models\Committee::query()
+                    ->whereIn('fec_committee_id', $committeeIds->all())
+                    ->whereNotNull('name')->where('name', '!=', '')
+                    ->whereColumn('name', '!=', 'fec_committee_id')
+                    ->pluck('name', 'fec_committee_id')->all();
                 $pacDirectorySlugs = Cache::remember(
                     'pac_dir_slugs:' . md5($committeeIds->join(',')),
                     900,
@@ -1428,6 +1434,7 @@ class PublicProfileController extends Controller
             'politician',
             'page',
             'pacDirectorySlugs',
+            'committeeNames',
             'isFavorited',
             'runningCampaigns',
             'pastCampaigns',

@@ -70,3 +70,10 @@ test('every profile shows where its data came from and a way to report a problem
     $response->assertSee('Source: U9itus public records');
     $response->assertSee('Report a data problem');
 });
+
+
+test('official status does not claim the official verified the profile content', function () {
+    $response = profileFor(['term_status' => 'seated', 'is_running_candidate' => false, 'verified_official' => true]);
+    $response->assertOk()->assertSee('Source: U9itus public records')
+        ->assertDontSee('Verified by the official');
+});

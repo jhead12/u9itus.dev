@@ -37,7 +37,7 @@ final class DataSourceLabel
     public static function stamp(Politician|ElectionCandidateRecord $model): array
     {
         if ($model instanceof Politician) {
-            $label = $model->verified_official ? 'Verified by the official' : 'U9itus public records';
+            $label = 'U9itus public records';
             $at = $model->updated_at;
         } else {
             $label = self::forScrapeSource($model->source);
