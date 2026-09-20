@@ -32,11 +32,13 @@ class WikipediaPrimaryResultsService
 
     private const ADVANCED_HEADING = '/^(nominees?|presumptive nominees?|advanced to (the )?general( election)?|qualified for (the )?general( election)?|general election candidates?|winners?)$/i';
 
+    private const DECLARED_HEADING = '/^(declared( candidates)?|candidates)$/i';
+
     private const ELIMINATED_HEADING = '/^(eliminated|lost|defeated|failed to advance|did not advance)\b/i';
 
     private const WITHDRAWN_HEADING = '/^(withdrawn|withdrew|withdrawn candidates|withdrawn before the primary)$/i';
 
-    /** @var array<string, array{advanced: string[], eliminated: string[], withdrawn: string[]}|null> */
+    /** @var array<string, array{advanced: string[], eliminated: string[], withdrawn: string[], roster: array<string, string[]>}|null> */
     private array $raceCache = [];
 
     /** @var array<string, string|null> */
@@ -74,6 +76,27 @@ class WikipediaPrimaryResultsService
             }
         } catch (\Throwable $e) {
             Log::warning('WikipediaPrimaryResultsService: lookup failed', ['name' => $name, 'state' => $state, 'error' => $e->getMessage()]);
+        }
+
+        return null;
+    }
+
+    /**
+     * The whole field on the race's article, for auditing what we list against it.
+     *
+     * @return array{title: string, pending: bool, advanced: string[], eliminated: string[], withdrawn: string[], declared: string[]}|null
+     */
+    public function roster(string $state, string $office, int $year, ?string $district = null): ?array
+    {
+        try {
+            foreach ($this->candidateTitles($state, $office, $year) as $title) {
+                $race = $this->race($title, $office, $district);
+                if ($race !== null) {
+                    return ['title' => $title, 'pending' => $this->primaryStillPending($state, $year)] + $race['roster'];
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::warning('WikipediaPrimaryResultsService: roster lookup failed', ['state' => $state, 'error' => $e->getMessage()]);
         }
 
         return null;
@@ -145,7 +168,7 @@ class WikipediaPrimaryResultsService
     }
 
     /**
-     * @return array{advanced: string[], eliminated: string[], withdrawn: string[]}|null
+     * @return array{advanced: string[], eliminated: string[], withdrawn: string[], roster: array<string, string[]>}|null
      */
     private function race(string $title, string $office, ?string $district): ?array
     {
@@ -230,15 +253,24 @@ class WikipediaPrimaryResultsService
     }
 
     /**
-     * @return array{advanced: string[], eliminated: string[], withdrawn: string[]}|null
+     * @return array{advanced: string[], eliminated: string[], withdrawn: string[], roster: array<string, string[]>}|null
      */
     private function parse(string $wikitext): ?array
     {
         $advanced = [];
         $eliminated = [];
         $withdrawn = [];
+        $roster = ['advanced' => [], 'eliminated' => [], 'withdrawn' => [], 'declared' => []];
 
         foreach ($this->sections($wikitext) as $section) {
+            if (preg_match(self::DECLARED_HEADING, $section['title'])) {
+                foreach ($this->bulletNames($section['body']) as $entry) {
+                    $roster['declared'][] = $entry['display'];
+                }
+
+                continue;
+            }
+
             $isAdvanced = (bool) preg_match(self::ADVANCED_HEADING, $section['title']);
             $isWithdrawn = ! $isAdvanced && preg_match(self::WITHDRAWN_HEADING, $section['title']);
             $isEliminated = ! $isAdvanced && ! $isWithdrawn && preg_match(self::ELIMINATED_HEADING, $section['title']);
@@ -248,22 +280,25 @@ class WikipediaPrimaryResultsService
 
             // Only the section's own bullets: child headings such as
             // "Endorsements" list people who are not candidates.
-            foreach ($this->bulletNames($section['body']) as $name) {
+            foreach ($this->bulletNames($section['body']) as $entry) {
                 if ($isAdvanced) {
-                    $advanced[] = $name;
+                    $advanced = array_merge($advanced, $entry['variants']);
+                    $roster['advanced'][] = $entry['display'];
                 } elseif ($isWithdrawn) {
-                    $withdrawn[] = $name;
+                    $withdrawn = array_merge($withdrawn, $entry['variants']);
+                    $roster['withdrawn'][] = $entry['display'];
                 } else {
-                    $eliminated[] = $name;
+                    $eliminated = array_merge($eliminated, $entry['variants']);
+                    $roster['eliminated'][] = $entry['display'];
                 }
             }
         }
 
-        if ($advanced === [] && $eliminated === [] && $withdrawn === []) {
+        if ($advanced === [] && $eliminated === [] && $withdrawn === [] && $roster['declared'] === []) {
             return null;
         }
 
-        return ['advanced' => $advanced, 'eliminated' => $eliminated, 'withdrawn' => $withdrawn];
+        return ['advanced' => $advanced, 'eliminated' => $eliminated, 'withdrawn' => $withdrawn, 'roster' => $roster];
     }
 
     /**
@@ -302,11 +337,11 @@ class WikipediaPrimaryResultsService
      * ("state senator", "former [[Assembly Majority Leader]]") describes them. Most are
      * wikilinked; the unlinked ones ("* Tom Woodard, retired CEO") are read as plain text.
      *
-     * @return string[] the link target and label for a linked name, else the plain name
+     * @return array<int, array{display: string, variants: string[]}> `variants` are what a name is matched against
      */
     private function bulletNames(string $body): array
     {
-        $names = [];
+        $entries = [];
         foreach (preg_split('/\R/', $body) ?: [] as $line) {
             if (! preg_match('/^\*+\s*(.*)$/', $line, $m)) {
                 continue;
@@ -315,27 +350,29 @@ class WikipediaPrimaryResultsService
             $head = preg_split('/,|<ref|\{\{|\s\(|\s[–—-]\s/u', $m[1], 2)[0] ?? '';
 
             if (preg_match('/\[\[([^\]|#]+)(?:\|([^\]]*))?\]\]/', $head, $link) && ! preg_match('/^(file|image|category|wikipedia):/i', $link[1])) {
-                $names[] = $link[1];
-                if (($link[2] ?? '') !== '') {
-                    $names[] = $link[2];
-                }
+                $label = trim($link[2] ?? '');
+                $entries[] = [
+                    'display' => $label !== '' ? $label : trim(preg_replace('/\s*\(.*?\)\s*$/', '', $link[1]) ?? $link[1]),
+                    'variants' => $label !== '' ? [$link[1], $label] : [$link[1]],
+                ];
 
                 continue;
             }
 
             $plain = trim(preg_replace('/<[^>]+>|\'{2,}|\[\[|\]\]/', '', $head) ?? '');
-            if ($plain !== '') {
-                $names[] = $plain;
+            // A running mate is listed under their ticket, not as a candidate of their own.
+            if ($plain !== '' && ! preg_match('/^running mate\\b/i', $plain)) {
+                $entries[] = ['display' => $plain, 'variants' => [$plain]];
             }
         }
 
-        return $names;
+        return $entries;
     }
 
     /**
      * @param string[] $names
      */
-    private function contains(array $names, string $candidate): bool
+    public function contains(array $names, string $candidate): bool
     {
         $wanted = $this->tokens($candidate);
         if (count($wanted) < 2) {
