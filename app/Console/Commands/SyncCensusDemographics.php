@@ -426,10 +426,16 @@ class SyncCensusDemographics extends Command
 
         $this->warn("  Place-collection UCGID retry failed for {$abbr}; retrying with place-summary-level UCGID prefix geography.");
 
-        return $this->fetchCensus($this->censusApiUrl($year, $dataset, [
+        $prefixFallback = $this->fetchCensus($this->censusApiUrl($year, $dataset, [
             'get' => $variables,
             'for' => $placePrefixUcgid,
         ]));
+
+        if ($prefixFallback === null) {
+            $this->warn("  All UCGID fallback geographies failed for {$abbr}.");
+        }
+
+        return $prefixFallback;
     }
 
     private function censusApiUrl(int $year, string $dataset, array $params): string
