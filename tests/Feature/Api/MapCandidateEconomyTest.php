@@ -2,6 +2,8 @@
 
 namespace Tests\Feature\Api;
 
+use App\Models\Committee;
+use App\Models\CommitteeProfile;
 use App\Models\Organization;
 use App\Models\Politician;
 use App\Models\PoliticianDonorSnapshot;
@@ -149,5 +151,61 @@ class MapCandidateEconomyTest extends TestCase
         $response = $this->getJson('/api/v1/map/candidate-economy');
 
         $response->assertStatus(422);
+    }
+
+    public function test_outside_spending_uses_registry_name_when_snapshot_stored_raw_fec_id(): void
+    {
+        $politician = Politician::factory()->create(['is_active' => true]);
+
+        Committee::create(['fec_committee_id' => 'C00785899', 'name' => 'Resolved Later PAC']);
+        Committee::create(['fec_committee_id' => 'C00532929', 'name' => null]);
+
+        PoliticianDonorSnapshot::create([
+            'politician_id' => $politician->id,
+            'outside_spending' => [
+                ['committee_id' => 'C00785899', 'committee_name' => 'C00785899', 'total' => 282249, 'support_oppose' => 'S'],
+                ['committee_id' => 'C00532929', 'committee_name' => 'C00532929', 'total' => 144114, 'support_oppose' => 'S'],
+                ['committee_id' => 'C00490375', 'committee_name' => 'Snapshot Name PAC', 'total' => 70733, 'support_oppose' => 'O'],
+            ],
+            'election_cycle' => 2026,
+            'enriched_at' => now(),
+        ]);
+
+        $response = $this->getJson('/api/v1/map/candidate-economy?' . http_build_query(['slug' => $politician->slug]));
+
+        $response->assertOk();
+        $response->assertJsonPath('outside_spending.items.0.committee_name', 'Resolved Later PAC');
+        $response->assertJsonPath('outside_spending.items.1.committee_name', null);
+        $response->assertJsonPath('outside_spending.items.1.committee_id', 'C00532929');
+        $response->assertJsonPath('outside_spending.items.2.committee_name', 'Snapshot Name PAC');
+    }
+
+    public function test_outside_spending_links_to_pac_page_only_for_enriched_committees(): void
+    {
+        $politician = Politician::factory()->create(['is_active' => true]);
+
+        $enriched = Committee::create(['fec_committee_id' => 'C00785899', 'name' => 'Enriched PAC']);
+        CommitteeProfile::create([
+            'committee_id' => $enriched->id,
+            'fec_committee_id' => 'C00785899',
+            'enriched_at' => now(),
+        ]);
+        Committee::create(['fec_committee_id' => 'C00532929', 'name' => 'Bare PAC']);
+
+        PoliticianDonorSnapshot::create([
+            'politician_id' => $politician->id,
+            'outside_spending' => [
+                ['committee_id' => 'C00785899', 'committee_name' => 'Enriched PAC', 'total' => 1, 'support_oppose' => 'S'],
+                ['committee_id' => 'C00532929', 'committee_name' => 'Bare PAC', 'total' => 1, 'support_oppose' => 'S'],
+            ],
+            'election_cycle' => 2026,
+            'enriched_at' => now(),
+        ]);
+
+        $response = $this->getJson('/api/v1/map/candidate-economy?' . http_build_query(['slug' => $politician->slug]));
+
+        $response->assertOk();
+        $response->assertJsonPath('outside_spending.items.0.pac_path', '/pacs/' . $enriched->publicSlug());
+        $response->assertJsonPath('outside_spending.items.1.pac_path', null);
     }
 }

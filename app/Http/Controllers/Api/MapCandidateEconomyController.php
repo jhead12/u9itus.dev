@@ -197,27 +197,44 @@ class MapCandidateEconomyController
             ];
         }
 
-        // Attach the internal PAC directory path for committees that have an
-        // enriched profile — the drawer links there instead of a Google search.
+        // Read the durable committee registry: it holds names resolved after the
+        // snapshot was written (committees:enrich-profiles backfills them), and
+        // the internal PAC directory path for committees with an enriched profile
+        // — the drawer links there instead of a Google search.
         $ids = array_values(array_filter(array_column($rows, 'committee_id')));
-        $slugs = [];
+        $registry = [];
         if ($ids !== []) {
             try {
-                $slugs = Committee::query()
+                $registry = Committee::query()
                     ->whereIn('fec_committee_id', $ids)
-                    ->listable()
-                    ->get(['fec_committee_id', 'name'])
-                    ->mapWithKeys(fn ($c) => [$c->fec_committee_id => '/pacs/' . $c->publicSlug()])
+                    ->withExists(['profile as is_listable' => fn ($q) => $q->whereNotNull('enriched_at')])
+                    ->get(['id', 'fec_committee_id', 'name'])
+                    ->keyBy('fec_committee_id')
                     ->all();
             } catch (\Throwable) {
-                $slugs = [];
+                $registry = [];
             }
         }
         foreach ($rows as &$r) {
-            $r['pac_path'] = $r['committee_id'] ? ($slugs[$r['committee_id']] ?? null) : null;
+            $committee = $r['committee_id'] ? ($registry[$r['committee_id']] ?? null) : null;
+
+            // A stored name that is just the FEC ID means it was unresolved when
+            // the snapshot was written; prefer the registry's name if it has one.
+            if ($committee && (! $r['committee_name'] || $r['committee_name'] === $r['committee_id'] || $this->looksLikeFecId($r['committee_name']))) {
+                $r['committee_name'] = $this->looksLikeFecId((string) $committee->name) ? null : ($committee->name ?: null);
+            } elseif ($r['committee_name'] && $this->looksLikeFecId($r['committee_name'])) {
+                $r['committee_name'] = null;
+            }
+
+            $r['pac_path'] = $committee?->is_listable ? '/pacs/' . $committee->publicSlug() : null;
         }
         unset($r);
 
         return ['items' => $rows, 'hidden_count' => $hidden];
+    }
+
+    private function looksLikeFecId(string $value): bool
+    {
+        return preg_match('/^[A-Z]\d{8}$/', $value) === 1;
     }
 }
