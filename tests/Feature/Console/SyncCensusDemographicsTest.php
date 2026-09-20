@@ -51,5 +51,7 @@ it('falls back to UCGID place geography when legacy ACS place queries return a m
         ->and($houston->census_year)->toBe(2022);
 
     Http::assertSentCount(4);
-    Http::assertSent(fn ($request) => str_contains($request->url(), 'for=ucgid%3A1600000US48%2A'));
+    Http::assertSent(fn ($request) => str_starts_with($request->url(), 'https://api.census.gov/data/2022/acs/acs5?')
+        && str_contains($request->url(), 'get=NAME%2CB01001_001E%2CB19013_001E')
+        && str_contains($request->url(), 'for=ucgid%3A1600000US48%2A'));
 });
