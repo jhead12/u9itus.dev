@@ -1,0 +1,105 @@
+name: Purge Junk Data
+
+# Manual only. Hides are not deletes: the cleanup workflows deactivate junk profiles
+# and leave the rows behind. This one removes them for good — hidden headline-fragment
+# profiles, unlinked junk discovery records and old rejected leads (db:purge-junk).
+#
+# Applying takes a full database backup first, encrypts it, and keeps it as a private
+# workflow artifact for 14 days. If the backup or the encryption fails, nothing is
+# deleted. Leave "apply" off for a dry run that only lists what would be removed.
+#
+# Required secrets:
+#   APP_KEY, APP_URL, DB_HOST, DB_PORT, DB_DATABASE, DB_USERNAME, DB_PASSWORD
+#   BACKUP_PASSPHRASE   passphrase for the encrypted backup (gpg symmetric, AES256)
+#
+# Restore: download the artifact, then
+#   gpg --decrypt backup.sql.gz.gpg | gunzip | mysql -h HOST -u USER -p DB
+
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: "Apply — back up, then delete. Off = dry run, nothing is written."
+        type: boolean
+        default: false
+      lead_days:
+        description: "Only delete rejected leads older than this many days"
+        default: "30"
+        required: false
+      states:
+        description: "Space-separated state codes to limit records and leads (e.g. MI TX). Blank = all."
+        default: ""
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: civic-data-writes
+  queue: max
+  cancel-in-progress: false
+
+jobs:
+  purge:
+    name: db:purge-junk (${{ inputs.apply && 'apply' || 'dry run' }})
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up app
+        uses: ./.github/actions/setup-app
+        with:
+          app_key: ${{ secrets.APP_KEY }}
+          app_url: ${{ secrets.APP_URL }}
+          db_host: ${{ secrets.DB_HOST }}
+          db_port: ${{ secrets.DB_PORT }}
+          db_database: ${{ secrets.DB_DATABASE }}
+          db_username: ${{ secrets.DB_USERNAME }}
+          db_password: ${{ secrets.DB_PASSWORD }}
+
+      - name: Back up and encrypt the database
+        if: ${{ inputs.apply }}
+        env:
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${BACKUP_PASSPHRASE:-}" ]; then
+            echo "BACKUP_PASSPHRASE is not set — refusing to delete without an encrypted backup."
+            exit 1
+          fi
+
+          command -v mysqldump >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq mysql-client; }
+
+          mkdir -p "$RUNNER_TEMP/backup"
+          php artisan db:backup --path="$RUNNER_TEMP/backup"
+
+          FILE=$(ls "$RUNNER_TEMP"/backup/*.sql.gz | head -n 1)
+          gpg --batch --yes --pinentry-mode loopback --symmetric --cipher-algo AES256 \
+              --passphrase "$BACKUP_PASSPHRASE" --output "$FILE.gpg" "$FILE"
+          rm -f "$FILE"   # only the encrypted copy is kept
+          ls -lh "$RUNNER_TEMP/backup"
+
+      - name: Upload encrypted backup
+        if: ${{ inputs.apply }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: db-backup-before-purge-${{ github.run_id }}
+          path: ${{ runner.temp }}/backup/*.gpg
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Purge junk data
+        env:
+          APPLY: ${{ inputs.apply }}
+          LEAD_DAYS: ${{ inputs.lead_days }}
+          STATES: ${{ inputs.states }}
+        run: |
+          ARGS="--lead-days=${LEAD_DAYS:-30}"
+          for s in $STATES; do ARGS="$ARGS --state=$s"; done
+          if [ "$APPLY" = "true" ]; then
+            ARGS="$ARGS --apply --skip-backup"   # the backup above is the safety net
+          fi
+          php artisan db:purge-junk $ARGS

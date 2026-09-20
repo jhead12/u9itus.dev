@@ -517,6 +517,62 @@ php artisan migrate:fresh   # Fresh migration
 php artisan migrate:status  # Check migration status
 ```
 
+### Map Candidate Data Cleanup
+
+The map's candidate panels are built from news-discovered records, and headline extraction is noisy
+("Michigan Gretchen Whitmer", "Abdul El-Sayed Billboards", a Governor row for a U.S. Senate nominee,
+a wrongly `eliminated` result). This is how to find and fix it. Every command is a **dry run unless you
+pass `--apply`**, except `politicians:sync-primary-results`, which has its own `--dry-run` flag.
+
+**Pipeline** (`sync-candidates.yml`): `candidates:discover-leads` (Google News RSS) → `candidates:verify-leads`
+(Ballotpedia → Wikipedia → Anthropic) → `election_candidate_records` (source `candidate_discovery`) → map.
+The daily `politicians:cleanup-workflow` then repairs names, prunes junk, and runs `candidates:audit-records`,
+which lists what it cannot settle by itself.
+
+**Running against production.** Run these locally with `railway run --service u9itus.dev <command>`. Variables
+are per service, so the linked service must have `ANTHROPIC_API_KEY` (`u9itus.dev` and `u9itus-worker` do,
+`u9itus-reverb` does not). The map payload is cached for an hour under `map_state_candidates_{STATE}`; with
+`CACHE_STORE=file` each server keeps its own copy, so a command run from a laptop only clears its own. Set
+`CACHE_STORE=database` on Railway so the site refreshes at once, otherwise wait up to an hour.
+
+| Symptom | Command | What it does |
+|---|---|---|
+| Names carry headline debris (`Michigan Sen. Gary Peters`, `… Billboards`) | `candidates:clean-discovery-names --state=MI` | Renames to the cleaned name, or merges into the record that already has it. A person the FEC roster lists for a U.S. seat is moved to that seat (drops the Governor / State Senate copies). Unlinked fragments are dropped; linked ones are skipped for review. |
+| Wrong `eliminated` (a page about a 2024 loss) | `politicians:sync-primary-results --recheck-eliminated --dry-run` | Re-runs the fixed classifier. Clears stamps nothing supports and restores profiles the old run set to `eliminated`; conflicting signals are reported, not changed. |
+| One result is known to be wrong | `candidates:set-primary-result --state=MI --name="Mike Rogers" --office=Senator --result=advanced_to_general` | Manual override on this cycle's records. The sync never overwrites it. |
+| Leads stuck below 0.85, or promoted then pruned | `candidates:verify-leads --state=MI --recheck --name=El-Sayed` (add `--relink` to recreate records for orphaned promoted leads) | Promotes at ≥ 0.85, or ≥ 0.7 when the FEC roster or a non-news record corroborates the name. Always pass `--name` with `--relink`: a lead cannot tell a nominee from a primary loser. |
+| See what is left | `candidates:audit-records --state=MI` | Read-only. Lists `name`, `office` and `conflict` (records disagreeing on the primary result) findings. |
+| Junk profile names | `politicians:repair-names --apply`, or approve the queue at `/admin/data-quality` | Approving a review only **hides** the profile (`is_active` / `page_published` off). Nothing is deleted. |
+
+The map also hides, without touching the data: discovery rows whose name reads as a headline, rows filed
+under a state-legislature office, and statewide rows for someone who sits in office in another state.
+
+**Purging hidden junk for good.** Hiding is not deleting; junk rows stay in the database. `db:purge-junk`
+hard-deletes hidden, unclaimed, junk-named profiles (no FEC id), unlinked junk discovery records and rejected
+leads older than 30 days. A profile is skipped when anything other than match links, review rows and scraped
+enrichment (news, donor snapshots, viral-moment runs) points at it.
+
+```bash
+railway run --service u9itus.dev php artisan db:purge-junk                # dry run, lists what would go
+railway run --service u9itus.dev php artisan db:purge-junk --apply        # backup first, then delete
+```
+
+`--apply` runs `db:backup` first and stops if it fails. The **Purge Junk Data** workflow
+(`.github/workflows/purge-junk-data.yml`, manual) does the same in Actions: it encrypts the dump with
+`BACKUP_PASSPHRASE`, keeps it as a private artifact for 14 days, then purges. Leave its `apply` box off for a
+dry run. To take the backup on your own drive instead:
+
+```bash
+railway run --service u9itus.dev php artisan db:backup --path=/Volumes/PRO-BLADE/backups --keep=14
+railway run --service u9itus.dev php artisan db:purge-junk --apply --skip-backup
+# restore: gunzip < file.sql.gz | mysql -h HOST -u USER -p DB     (workflow artifact: gpg --decrypt file.sql.gz.gpg | gunzip | mysql …)
+```
+
+**Typical order for one state:** `candidates:audit-records --state=XX` → `candidates:clean-discovery-names`
+(dry run, then `--apply`) → `politicians:sync-primary-results --recheck-eliminated --dry-run --state=XX` (then
+without `--dry-run`) → `candidates:set-primary-result` for anything still wrong → wait out (or clear) the map
+cache → reload `/map`.
+
 ### Queue Worker
 
 `QUEUE_CONNECTION=database` in `.env`, so queued jobs (batch payouts, account
