@@ -1625,7 +1625,12 @@ class AdminController extends Controller
             });
         }
 
-        $reviews = $query->paginate(30)->withQueryString();
+        $perPage = (int) $request->query('per_page', 30);
+        if (! in_array($perPage, [30, 100, 250], true)) {
+            $perPage = 30;
+        }
+
+        $reviews = $query->paginate($perPage)->withQueryString();
 
         $stats = [
             'pending' => PoliticianCleanupReview::where('status', PoliticianCleanupReview::STATUS_PENDING)->count(),
@@ -1633,7 +1638,7 @@ class AdminController extends Controller
             'rejected' => PoliticianCleanupReview::where('status', PoliticianCleanupReview::STATUS_REJECTED)->count(),
         ];
 
-        return view('standalone.admin.data-quality-reviews', compact('reviews', 'stats', 'statusFilter', 'typeFilter', 'typeOptions', 'typeCounts'));
+        return view('standalone.admin.data-quality-reviews', compact('reviews', 'stats', 'statusFilter', 'typeFilter', 'typeOptions', 'typeCounts', 'perPage'));
     }
 
     /**
@@ -1686,7 +1691,7 @@ class AdminController extends Controller
 
         $skipped = $reviewIds->count() - $updated;
         $noun = $updated === 1 ? 'review' : 'reviews';
-        $note = $skipped > 0 ? " {$skipped} skipped — already resolved, removed, or made obsolete by another change." : '';
+        $note = $skipped > 0 ? " {$skipped} skipped — already resolved, made obsolete by another change, or a claimed/FEC-linked profile that needs a manual look." : '';
 
         return back()->with('success', "Bulk {$action}d {$updated} data-quality {$noun}.{$note}");
     }
@@ -1702,7 +1707,7 @@ class AdminController extends Controller
         }
 
         if (! $this->applyDataQualityReview($review, $dedupService, auth()->user(), 'Approved by admin')) {
-            return back()->withErrors(['error' => 'That review is obsolete — one of the profiles in it no longer exists (already merged or removed), so nothing was changed.']);
+            return back()->withErrors(['error' => 'Nothing was changed — a profile in that review no longer exists, or it is a claimed/FEC-linked profile that has to be handled manually.']);
         }
 
         return back()->with('success', 'Data-quality review approved and applied.');
@@ -1757,9 +1762,25 @@ class AdminController extends Controller
                 'page_published' => false,
             ]);
         }
-        // TYPE_NAME_REJECT has no automatic action — approving it just
-        // records that an admin reviewed and accepted leaving the name as-is
-        // (or they've already hand-edited it separately).
+        elseif ($review->review_type === PoliticianCleanupReview::TYPE_NAME_REJECT) {
+            // "Unrepairable" means nothing but qualifier/geography words was left ("Former
+            // California"), so there is no person to enrich — approving retires the profile.
+            // A claimed profile or one tied to an FEC candidate id is a real identity: leave it
+            // pending for a human rather than deactivating it in a bulk click.
+            $politician = Politician::find($review->politician_id);
+
+            if ($politician === null) {
+                $this->markDataQualityReview($review, PoliticianCleanupReview::STATUS_REJECTED, $admin, 'Obsolete: the profile no longer exists');
+
+                return false;
+            }
+
+            if ($politician->user_id !== null || filled($politician->fec_candidate_id)) {
+                return false;
+            }
+
+            $politician->update(['is_active' => false, 'page_published' => false]);
+        }
 
         $this->markDataQualityReview($review, PoliticianCleanupReview::STATUS_APPROVED, $admin, $reason);
 

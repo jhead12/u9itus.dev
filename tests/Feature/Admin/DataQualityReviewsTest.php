@@ -156,3 +156,43 @@ it('the index renders and filters by review type', function () {
     $this->actingAs($admin)->get(route('admin.data-quality.index', ['type' => 'bogus', 'status' => 'approved']))
         ->assertOk();
 });
+
+function nameRejectReview(Politician $p): PoliticianCleanupReview
+{
+    return PoliticianCleanupReview::enqueue('name_reject', $p->id, null, ['full_name' => $p->full_name], 'Leading-qualifier strip left nothing sensible');
+}
+
+it('bulk approving unrepairable names retires plain profiles but leaves claimed and FEC-linked ones pending', function () {
+    $admin = dqAdmin();
+    $plain = dqPolitician('Former California', ['page_published' => true]);
+    $claimed = dqPolitician('Former Texas', ['user_id' => User::factory()->create()->id]);
+    $fec = dqPolitician('Former Ohio', ['fec_candidate_id' => 'H0OH00001']);
+
+    $reviews = collect([$plain, $claimed, $fec])->map(fn ($p) => nameRejectReview($p));
+
+    $this->actingAs($admin)->post(route('admin.data-quality.bulk-action'), [
+        'action' => 'approve',
+        'review_ids' => $reviews->pluck('id')->all(),
+    ])->assertSessionHas('success');
+
+    expect($plain->fresh()->is_active)->toBeFalse()
+        ->and($plain->fresh()->page_published)->toBeFalse()
+        ->and($reviews[0]->fresh()->status)->toBe('approved')
+        ->and($claimed->fresh()->is_active)->toBeTrue()
+        ->and($reviews[1]->fresh()->status)->toBe('pending')
+        ->and($fec->fresh()->is_active)->toBeTrue()
+        ->and($reviews[2]->fresh()->status)->toBe('pending');
+});
+
+it('the index honours the per_page option', function () {
+    $admin = dqAdmin();
+    foreach (range(1, 35) as $i) {
+        nameRejectReview(dqPolitician("Former Place{$i}"));
+    }
+
+    $page = fn (array $qs) => $this->actingAs($admin)->get(route('admin.data-quality.index', $qs))->assertOk()->viewData('reviews');
+
+    expect($page([])->perPage())->toBe(30)
+        ->and($page(['per_page' => 100])->count())->toBe(35)
+        ->and($page(['per_page' => 9999])->perPage())->toBe(30);
+});

@@ -19,7 +19,7 @@
     </div>
     @endif
 
-    <p class="text-xs text-slate-500">Findings from <code class="text-slate-400">politicians:cleanup-workflow</code> too risky to auto-apply — merges, deactivations, and unrepairable names. Approving applies the change; rejecting leaves the row untouched.</p>
+    <p class="text-xs text-slate-500">Findings from <code class="text-slate-400">politicians:cleanup-workflow</code> too risky to auto-apply — merges, deactivations, and unrepairable names. Approving applies the change (merge, deactivate, or — for unrepairable names — retire the profile); rejecting leaves the row untouched.</p>
 
     {{-- Stats --}}
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -70,11 +70,19 @@
                 @endforeach
             </select>
         </div>
+        <div>
+            <select name="per_page"
+                class="w-full lg:w-auto bg-slate-900/60 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-300 focus:outline-none focus:border-emerald-500/50 transition">
+                @foreach([30, 100, 250] as $n)
+                <option value="{{ $n }}" {{ $perPage === $n ? 'selected' : '' }}>{{ $n }} per page</option>
+                @endforeach
+            </select>
+        </div>
         <button type="submit"
             class="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-white text-sm font-semibold transition shrink-0">
             Apply
         </button>
-        @if(request('q') || $typeFilter !== '' || (request('status') && request('status') !== 'pending'))
+        @if(request('q') || $typeFilter !== '' || $perPage !== 30 || (request('status') && request('status') !== 'pending'))
         <a href="{{ route('admin.data-quality.index') }}"
             class="px-3 py-2 rounded-lg bg-slate-700/50 hover:bg-slate-700 text-slate-400 text-sm transition shrink-0 text-center">
             Clear
