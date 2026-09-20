@@ -6,6 +6,7 @@ use App\Models\CandidateLead;
 use App\Models\ElectionCandidateRecord;
 use App\Support\CandidateNameCanonicalizer;
 use App\Support\CrossStateImpostors;
+use App\Support\ElectionCycle;
 use App\Support\PoliticianDataRules;
 use Illuminate\Support\Str;
 
@@ -140,7 +141,9 @@ class CandidateLeadPromoter
      */
     private function resolveElectionDate(array $payload): ?string
     {
-        if (isset($payload['election_date'])) {
+        // A payload date from a past cycle (the LLM tier used to guess 2024) would be
+        // pruned as stale by politicians:prune-junk-ecrs — fall through to this cycle's general.
+        if (isset($payload['election_date']) && ElectionCycle::isCurrentOrFuture((string) $payload['election_date'])) {
             return $payload['election_date'];
         }
 
@@ -148,17 +151,6 @@ class CandidateLeadPromoter
             return null;
         }
 
-        return $this->generalElectionDate((int) now()->year);
-    }
-
-    private function generalElectionDate(int $year): string
-    {
-        $nov1 = new \DateTime("{$year}-11-01");
-        $dayOfWeek = (int) $nov1->format('N'); // 1=Mon … 7=Sun
-        $daysToMonday = ($dayOfWeek === 1) ? 0 : (8 - $dayOfWeek);
-        $firstMonday = (clone $nov1)->modify("+{$daysToMonday} days");
-        $electionDay = (clone $firstMonday)->modify('+1 day'); // Tuesday after first Monday
-
-        return $electionDay->format('Y-m-d');
+        return ElectionCycle::generalElectionDate(ElectionCycle::year());
     }
 }

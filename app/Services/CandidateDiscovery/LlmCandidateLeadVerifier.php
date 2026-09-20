@@ -4,6 +4,7 @@ namespace App\Services\CandidateDiscovery;
 
 use App\Contracts\CandidateLeadVerifier;
 use App\Models\CandidateLead;
+use App\Support\ElectionCycle;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -39,6 +40,9 @@ class LlmCandidateLeadVerifier implements CandidateLeadVerifier
         }
 
         $stateName = $lead->state ? (string) (config('u9itus.us_states')[$lead->state] ?? $lead->state) : 'unknown';
+        $today = now()->toDateString();
+        $cycle = ElectionCycle::year();
+        $general = ElectionCycle::generalElectionDate($cycle);
 
         try {
             $response = Http::timeout(20)
@@ -55,7 +59,12 @@ class LlmCandidateLeadVerifier implements CandidateLeadVerifier
                         . 'civic-data site. Return ONLY compact JSON with keys: full_name_confirmed (string|null), '
                         . 'is_real_candidate (boolean), office (string|null), governance_level ("Federal"|"State"|null), '
                         . 'party_affiliation (string|null), election_date_guess (string "YYYY-MM-DD"|null), '
-                        . 'status ("running"|"advanced_to_general"|"eliminated"|null), confidence (0-1), reason (short string).',
+                        . 'status ("running"|"advanced_to_general"|"eliminated"|null), confidence (0-1), reason (short string). '
+                        . "Today is {$today}. The election cycle in question is {$cycle} (general election {$general}). "
+                        . 'Judge only what the news text says about THIS cycle: a person the text describes as a candidate, '
+                        . 'nominee or primary winner for the ' . $cycle . ' election is a real candidate even if you have no '
+                        . 'other record of them, and an older cycle (e.g. 2024) is irrelevant. election_date_guess must be '
+                        . 'a ' . $cycle . ' date or null.',
                     'messages' => [[
                         'role' => 'user',
                         'content' => "Candidate name (guessed from headline): {$lead->full_name}\n"
@@ -105,7 +114,10 @@ class LlmCandidateLeadVerifier implements CandidateLeadVerifier
                 'political_office' => $ai['office'] ?? $lead->office_hint,
                 'governance_level' => $ai['governance_level'] ?? ($lead->office_hint === 'Governor' ? 'State' : 'Federal'),
                 'party_affiliation' => $ai['party_affiliation'] ?? null,
-                'election_date' => $ai['election_date_guess'] ?? null,
+                // A guess from a past cycle is a model remembering 2024, not this race.
+                'election_date' => ElectionCycle::isCurrentOrFuture($ai['election_date_guess'] ?? null)
+                    ? $ai['election_date_guess']
+                    : null,
                 'state' => $lead->state,
                 'primary_result' => $ai['status'] ?? null,
             ],

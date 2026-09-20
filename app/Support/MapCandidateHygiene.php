@@ -107,6 +107,43 @@ class MapCandidateHygiene
         return (self::NICKNAMES[$words[0]] ?? $words[0]).'|'.$words[count($words) - 1];
     }
 
+    /**
+     * identityKey() plus one key per other given name: FEC files Ken Paxton as
+     * "Warren Kenneth Paxton Jr.", whose primary key is "warren|paxton" — the
+     * name people (and headlines) use is the middle one, "kenneth|paxton".
+     *
+     * @return array<int, string> primary key first, then the alternates
+     */
+    public static function identityKeys(?string $name): array
+    {
+        $primary = self::identityKey($name);
+        if (! str_contains($primary, '|')) {
+            return $primary === '' ? [] : [$primary];
+        }
+
+        $canonical = Str::ascii(CandidateNameCanonicalizer::canonicalize($name));
+        $canonical = preg_replace('/,\s*(jr|sr|ii|iii|iv)\.?\s*$/i', '', trim($canonical)) ?? $canonical;
+        if (substr_count($canonical, ',') === 1) {
+            [$last, $first] = array_map('trim', explode(',', $canonical));
+            $canonical = $first.' '.$last;
+        }
+        $words = array_values(array_filter(
+            preg_split('/\s+/', trim(strtolower((string) preg_replace('/[^a-z\s\'-]/i', ' ', $canonical)))) ?: [],
+            fn ($w) => strlen(str_replace(['\'', '-'], '', $w)) > 1 && ! in_array($w, ['jr', 'sr', 'ii', 'iii', 'iv'], true),
+        ));
+
+        $last = $words[count($words) - 1] ?? '';
+        $keys = [$primary];
+        foreach (array_slice($words, 0, -1) as $given) {
+            $key = (self::NICKNAMES[$given] ?? $given).'|'.$last;
+            if (! in_array($key, $keys, true)) {
+                $keys[] = $key;
+            }
+        }
+
+        return $keys;
+    }
+
     /** Lowercase, punctuation-free form used to compare a name against known place names. */
     public static function placeKey(?string $value): string
     {

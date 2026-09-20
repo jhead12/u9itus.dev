@@ -41,6 +41,7 @@ class AuditPoliticianDataIntegrity extends Command
         $flagged = 0;
         $governanceLevelFixed = 0;
         $runningSyncFixed = 0;
+        $alreadyHidden = 0;
 
         foreach ($rows as $pol) {
             $scanned++;
@@ -116,6 +117,17 @@ class AuditPoliticianDataIntegrity extends Command
             }
 
             $nameViolation = PoliticianDataRules::nameViolation($pol->full_name) !== null;
+            $visible = $pol->is_active || $pol->page_published;
+
+            // An artifact-name row that is already inactive and unpublished is not on the
+            // site — it needs no fix, so say so instead of listing it like an open problem.
+            if ($nameViolation && ! $visible) {
+                $alreadyHidden++;
+                if ($this->output->isVerbose()) {
+                    $this->line(sprintf('  <fg=gray>#%d</> %s (%s) — already hidden — %s', $pol->id, mb_strimwidth((string) $pol->full_name, 0, 60, '…'), $pol->state ?: '??', implode('; ', $violations)));
+                }
+                continue;
+            }
 
             $this->line(sprintf(
                 '  <fg=%s>#%d</> %s (%s) — %s',
@@ -128,7 +140,7 @@ class AuditPoliticianDataIntegrity extends Command
 
             // Unfixable artifact name → deactivate when requested.
             if ($nameViolation) {
-                if ($deactivate && ($pol->is_active || $pol->page_published)) {
+                if ($deactivate && $visible) {
                     // saveQuietly: skip model events — the saving hook would
                     // (correctly) reject this artifact name and abort.
                     $pol->is_active = false;
@@ -170,18 +182,19 @@ class AuditPoliticianDataIntegrity extends Command
 
         $this->newLine();
         $this->info(sprintf(
-            'Audit complete: %d scanned, %d clean, %d fixed, %d governance_level fixed, %d running-status synced, %d deactivated, %d flagged (run with --fix/--deactivate to apply).',
+            'Audit complete: %d scanned, %d clean, %d fixed, %d governance_level fixed, %d running-status synced, %d deactivated, %d flagged, %d junk-named rows already hidden (run with --fix/--deactivate to apply; -v lists the hidden ones).',
             $scanned,
             $clean,
             $fixed,
             $governanceLevelFixed,
             $runningSyncFixed,
             $deactivated,
-            $flagged
+            $flagged,
+            $alreadyHidden
         ));
 
         // Non-zero exit when unresolved violations remain — usable as CI gate.
-        $summary = compact('scanned', 'clean', 'fixed', 'governanceLevelFixed', 'runningSyncFixed', 'deactivated', 'flagged', 'dryRun');
+        $summary = compact('scanned', 'clean', 'fixed', 'governanceLevelFixed', 'runningSyncFixed', 'deactivated', 'flagged', 'alreadyHidden', 'dryRun');
         if ($report = $this->option('report')) {
             $directory = dirname($report);
             if (! is_dir($directory)) {

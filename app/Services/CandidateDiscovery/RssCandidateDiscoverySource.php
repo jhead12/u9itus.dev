@@ -5,6 +5,7 @@ namespace App\Services\CandidateDiscovery;
 use App\Contracts\CandidateDiscoverySource;
 use App\Models\Politician;
 use App\Services\Concerns\HasRssParsing;
+use App\Support\CandidateNameCanonicalizer;
 use Carbon\Carbon;
 use Illuminate\Http\Client\Pool;
 use Illuminate\Support\Facades\Http;
@@ -216,10 +217,9 @@ class RssCandidateDiscoverySource implements CandidateDiscoverySource
         $words = array_values(array_filter(explode(' ', trim($m[1]))));
         $words = array_filter($words, fn (string $w) => ! in_array($w, self::NAME_STOPWORDS, true));
 
-        if (count($words) < 2) {
-            return null;
-        }
+        // "Texas Rep. James Talarico's" / "Ken Paxton College" → the person's own name.
+        $name = CandidateNameCanonicalizer::canonicalize(implode(' ', $words));
 
-        return implode(' ', $words);
+        return count(explode(' ', $name)) < 2 ? null : $name;
     }
 }

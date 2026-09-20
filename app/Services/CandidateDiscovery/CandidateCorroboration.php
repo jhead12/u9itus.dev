@@ -172,7 +172,15 @@ class CandidateCorroboration
         CandidateRoster::query()->where('state', $state)->get(['full_name', 'identity_key', 'office', 'district', 'source'])
             ->each(function (CandidateRoster $r) use (&$out): void {
                 $kind = ['H' => 'house', 'S' => 'senate', 'P' => 'president'][$r->office] ?? 'other';
-                $out[$r->identity_key][] = ['name' => $r->full_name, 'kind' => $kind, 'district' => $r->district, 'source' => strtoupper($r->source)];
+                $row = ['name' => $r->full_name, 'kind' => $kind, 'district' => $r->district, 'source' => strtoupper($r->source)];
+                $out[$r->identity_key][] = $row;
+
+                // Also reachable by any other given name ("Ken" ↔ "Warren Kenneth Paxton Jr.").
+                foreach (array_slice(MapCandidateHygiene::identityKeys($r->full_name), 1) as $alt) {
+                    if ($alt !== $r->identity_key) {
+                        $out[$alt][] = $row;
+                    }
+                }
             });
 
         return $out;
