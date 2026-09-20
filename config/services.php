@@ -127,7 +127,7 @@ return [
     ],
 
     'census' => [
-        'api_key' => env('CENSUS_DATA_API'),
+        'api_key' => env('CENSUS_DATA_API', env('CENSUS_DATA_API_KEY')),
     ],
 
     'google' => [
