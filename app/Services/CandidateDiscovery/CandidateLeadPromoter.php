@@ -23,6 +23,8 @@ class CandidateLeadPromoter
     /** @var array<string, array<int, array{id: int, state: string, name: string}>>|null */
     private ?array $holders = null;
 
+    private ?CandidateCorroboration $corroboration = null;
+
     private function seatedHolders(): array
     {
         return $this->holders ??= CrossStateImpostors::seatedHolders();
@@ -38,7 +40,8 @@ class CandidateLeadPromoter
         // Antonio", "Job Creator"). Block those here so they never reach the
         // map — mark the lead rejected rather than promoted so the run stats
         // and the review queue stay honest.
-        $canonicalName = CandidateNameCanonicalizer::canonicalize($lead->full_name);
+        $canonicalName = ($this->corroboration ??= new CandidateCorroboration)
+            ->anchorName(CandidateNameCanonicalizer::canonicalize($lead->full_name), $lead->state);
         $nameViolation = PoliticianDataRules::headlineFragmentViolation($canonicalName);
         if ($nameViolation !== null) {
             $lead->update([

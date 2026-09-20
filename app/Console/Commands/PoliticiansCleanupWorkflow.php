@@ -114,6 +114,7 @@ class PoliticiansCleanupWorkflow extends Command
         }
 
         $this->section('5/7 · Pruning junk election candidate records');
+        $results['clean-discovery-names'] = $this->callForStates('candidates:clean-discovery-names', $dryRun ? [] : ['--apply' => true], $states);
         $results['prune-junk-ecrs'] = $this->callForStates('politicians:prune-junk-ecrs', $dryRun ? [] : ['--apply' => true], $states);
 
         $this->section('6/7 · Impostor and headline-text profiles (duplicates of a sitting official are deactivated; the rest queued)');

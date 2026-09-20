@@ -27,6 +27,12 @@ class CandidateNameCanonicalizer
         'former', 'state', 'us', 'u.s', 'candidate', 'nominee',
     ];
 
+    /** Titles that reliably introduce a name ("Detroit Mayor Mike Duggan"); "state"/"us"/"former" alone do not. */
+    private const STRONG_TITLES = [
+        'rep', 'representative', 'congressman', 'congresswoman', 'congressperson',
+        'sen', 'senator', 'gov', 'governor', 'mayor', 'councilman', 'councilwoman', 'councilmember',
+    ];
+
     /** Verbs/labels a headline puts in front of the name ("Read James Talarico's plan"). */
     private const LEADING_NOISE = ['read', 'watch', 'see', 'meet', 'listen', 'exclusive', 'opinion', 'analysis', 'breaking'];
 
@@ -52,6 +58,15 @@ class CandidateNameCanonicalizer
             $words = array_slice($words, $stateWords);
         }
 
+        // "Detroit Mayor Mike Duggan" / "Detroit's Mayor Mike Duggan": one or two place words, then a
+        // title, then a first + last name.
+        foreach ([1, 2] as $take) {
+            if (count($words) - $take - 1 >= 2 && self::isStrongTitle($words[$take]) && ! self::hasTitle(array_slice($words, 0, $take))) {
+                $words = array_slice($words, $take);
+                break;
+            }
+        }
+
         while ($words !== [] && (self::isTitle($words[0]) || in_array(self::bare($words[0]), self::LEADING_NOISE, true))) {
             array_shift($words);
         }
@@ -75,6 +90,23 @@ class CandidateNameCanonicalizer
     private static function isTitle(string $word): bool
     {
         return in_array(self::bare($word), self::TITLES, true);
+    }
+
+    private static function isStrongTitle(string $word): bool
+    {
+        return in_array(self::bare($word), self::STRONG_TITLES, true);
+    }
+
+    /** @param  array<int, string>  $words */
+    private static function hasTitle(array $words): bool
+    {
+        foreach ($words as $word) {
+            if (self::isTitle($word)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static function bare(string $word): string

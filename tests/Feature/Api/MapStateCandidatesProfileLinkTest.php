@@ -10,9 +10,9 @@ uses(RefreshDatabase::class);
 
 beforeEach(fn () => Cache::flush());
 
-function profileLinkGovernorCards(): array
+function profileLinkGovernorCards(string $state = 'TX'): array
 {
-    $offices = test()->getJson('/api/v1/map/state-candidates?state=TX')->assertOk()->json('offices');
+    $offices = test()->getJson('/api/v1/map/state-candidates?state='.$state)->assertOk()->json('offices');
 
     return collect($offices)->firstWhere('office', 'Governor')['candidates'];
 }
@@ -102,4 +102,20 @@ it('merges a glued-on leading word into the clean name even when the city is not
     expect($gina)->toHaveCount(1)
         ->and($gina->first()['full_name'])->toBe('Gina Hinojosa')
         ->and($gina->first()['party'])->toBe('Democratic');
+});
+
+it('does not list a seated governor again under a headline-decorated name', function () {
+    Politician::factory()->create([
+        'full_name' => 'Gretchen Whitmer', 'state' => 'MI', 'user_id' => null, 'term_status' => 'seated', 'is_active' => true,
+        'political_office' => 'Governor', 'governance_level' => 'State', 'slug' => 'gretchen-whitmer-governor',
+    ]);
+    (new ElectionCandidateRecord([
+        'source' => 'candidate_discovery', 'external_candidate_id' => 'disc:mi:governor:michigan-gretchen-whitmer',
+        'full_name' => 'Michigan Gretchen Whitmer', 'political_office' => 'Governor', 'governance_level' => 'State', 'state' => 'MI',
+        'party_affiliation' => 'Democratic', 'election_date' => now()->addMonths(3)->toDateString(), 'payload' => ['primary_result' => 'running'],
+    ]))->saveQuietly();
+
+    $names = collect(profileLinkGovernorCards('MI'))->pluck('full_name');
+
+    expect($names->filter(fn ($n) => str_contains($n, 'Whitmer')))->toHaveCount(1);
 });

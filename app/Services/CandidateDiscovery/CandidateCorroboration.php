@@ -72,6 +72,40 @@ class CandidateCorroboration
             : "no FEC filing, non-news record or sitting official in {$state} matches this name");
     }
 
+    /**
+     * Headline names carry stray words on either side ("Abdul El-Sayed Billboards", "Michigan
+     * Gretchen Whitmer"). When a run of two or three words inside the name is a person the state's
+     * FEC roster, records or officials already know, that run is the name.
+     */
+    public function anchorName(?string $name, ?string $state): string
+    {
+        $name = trim((string) $name);
+        $state = strtoupper(trim((string) $state));
+        $words = preg_split('/\s+/', $name) ?: [];
+        if ($state === '' || count($words) < 3) {
+            return $name;
+        }
+
+        $index = $this->index($state);
+        $known = fn (string $candidate): bool => ($key = MapCandidateHygiene::identityKey($candidate)) !== ''
+            && (isset($index['roster'][$key]) || isset($index['records'][$key]) || isset($index['officials'][$key]));
+
+        if ($known($name)) {
+            return $name;
+        }
+
+        foreach ([3, 2] as $length) {
+            for ($start = 0; $start + $length <= count($words); $start++) {
+                $window = implode(' ', array_slice($words, $start, $length));
+                if ($length < count($words) && $known($window)) {
+                    return $window;
+                }
+            }
+        }
+
+        return $name;
+    }
+
     /** house | senate | legislature | president | a canonical statewide office | other */
     public static function officeKind(?string $office): string
     {

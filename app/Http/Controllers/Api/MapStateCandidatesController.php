@@ -8,6 +8,7 @@ use App\Models\Citizen;
 use App\Models\ElectionCandidateRecord;
 use App\Models\Politician;
 use App\Models\StateElectionDate;
+use App\Support\CandidateNameCanonicalizer;
 use App\Support\CrossStateImpostors;
 use App\Support\DataSourceLabel;
 use App\Support\MapCandidateHygiene;
@@ -359,14 +360,26 @@ class MapStateCandidatesController
             $grouped[$canonical]['candidates'][] = $this->formatPlatformCandidate($pol);
         }
 
+        // Names of the platform's own cards, before any scraped row is added.
+        $platformNames = $seenGlobal;
+
         $knownNameKeys = [];
         foreach ($scrapedRecords as $rec) {
             $knownNameKeys[MapCandidateHygiene::identityKey($rec->full_name)] = true;
         }
+        foreach ($platformPoliticians as $pol) {
+            $knownNameKeys[MapCandidateHygiene::identityKey($pol->full_name)] = true;
+        }
 
         foreach ($scrapedRecords as $rec) {
             $canonical  = $this->canonicalise($rec->political_office);
-            $recName    = MapCandidateHygiene::stripLeadingPlace($rec->full_name, $placeNames, $knownNameKeys);
+            $recName    = MapCandidateHygiene::stripLeadingPlace(
+                $rec->source === ElectionCandidateRecord::DISCOVERY_SOURCE
+                    ? CandidateNameCanonicalizer::canonicalize($rec->full_name)
+                    : $rec->full_name,
+                $placeNames,
+                $knownNameKeys,
+            );
             $nameLower  = strtolower($rec->full_name);
             $payload    = is_array($rec->payload) ? $rec->payload : [];
             $primaryResult = strtolower(trim((string) ($payload['primary_result'] ?? '')));
@@ -392,6 +405,11 @@ class MapStateCandidatesController
             // (prevents duplicates like "Adam Schiff" as both a Senate ECR and
             // a House/Platform Politician, or two ECRs with different office labels)
             if (isset($seenGlobal[$nameLower])) {
+                continue;
+            }
+
+            // "Michigan Gretchen Whitmer" is the seated "Gretchen Whitmer", not a second person.
+            if (isset($platformNames[strtolower((string) $recName)])) {
                 continue;
             }
 

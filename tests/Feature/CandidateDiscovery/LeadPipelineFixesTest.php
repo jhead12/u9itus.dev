@@ -207,3 +207,54 @@ it('relinks only the named person when --name is given', function () {
     expect($pick->fresh()->election_candidate_record_id)->not->toBeNull()
         ->and($other->fresh()->election_candidate_record_id)->toBeNull();
 });
+
+it('cleans a place plus title in front of a name', function (string $raw, string $expected) {
+    expect(CandidateNameCanonicalizer::canonicalize($raw))->toBe($expected);
+})->with([
+    ['Detroit Mayor Mike Duggan', 'Mike Duggan'],
+    ['Detroit’s Mayor Mike Duggan', 'Mike Duggan'],
+    ['Mayor Mike Duggan', 'Mike Duggan'],
+    ['Michigan Sen. Gary Peters', 'Gary Peters'],
+    ['Mike Duggan', 'Mike Duggan'],
+]);
+
+it('anchors a decorated name to the person the FEC roster or an official already names', function () {
+    $filer = fn (string $name) => CandidateRoster::create([
+        'source' => 'fec', 'source_id' => 'S6MI'.fake()->unique()->numerify('#####'), 'full_name' => $name,
+        'identity_key' => MapCandidateHygiene::identityKey($name), 'state' => 'MI', 'office' => 'S', 'district' => null, 'election_year' => 2026,
+    ]);
+    $filer('Abdul El-Sayed');
+    Politician::factory()->create(['full_name' => 'Gretchen Whitmer', 'state' => 'MI', 'user_id' => null, 'term_status' => 'seated', 'is_active' => true, 'political_office' => 'Governor', 'slug' => 'gretchen-whitmer']);
+
+    $anchor = new CandidateCorroboration;
+
+    expect($anchor->anchorName('Abdul El-Sayed Billboards', 'MI'))->toBe('Abdul El-Sayed')
+        ->and($anchor->anchorName('Progressive Abdul El-Sayed', 'MI'))->toBe('Abdul El-Sayed')
+        ->and($anchor->anchorName('Michigan Gretchen Whitmer', 'MI'))->toBe('Gretchen Whitmer')
+        ->and($anchor->anchorName('Abdul El-Sayed', 'MI'))->toBe('Abdul El-Sayed')
+        ->and($anchor->anchorName('Unknown Person Talks', 'MI'))->toBe('Unknown Person Talks');
+});
+
+it('renames decorated discovery records, merges into an existing one, and leaves the rest', function () {
+    CandidateRoster::create([
+        'source' => 'fec', 'source_id' => 'S6MI00418', 'full_name' => 'Abdul El-Sayed',
+        'identity_key' => MapCandidateHygiene::identityKey('Abdul El-Sayed'), 'state' => 'MI', 'office' => 'S', 'district' => null, 'election_year' => 2026,
+    ]);
+    $make = fn (string $name, string $ext) => ElectionCandidateRecord::create([
+        'source' => 'candidate_discovery', 'external_candidate_id' => $ext, 'full_name' => $name, 'state' => 'MI',
+        'political_office' => 'U.S. Senator', 'governance_level' => 'Federal', 'election_date' => '2024-11-05', 'payload' => [],
+    ]);
+    $dirty = $make('Abdul El-Sayed Billboards', 'hash-1');
+    $other = $make('Mike Rogers Says', 'hash-2');
+    $clean = $make('Mike Rogers', 'disc:mi:u-s-senator:mike-rogers');
+
+    $this->artisan('candidates:clean-discovery-names', ['--state' => ['MI']])->assertSuccessful();
+    expect($dirty->fresh()->full_name)->toBe('Abdul El-Sayed Billboards'); // dry run
+
+    $this->artisan('candidates:clean-discovery-names', ['--state' => ['MI'], '--apply' => true])->assertSuccessful();
+
+    expect($dirty->fresh()->full_name)->toBe('Abdul El-Sayed')
+        ->and($dirty->fresh()->election_date->toDateString())->toBe('2026-11-03')
+        ->and(ElectionCandidateRecord::find($other->id))->toBeNull()
+        ->and(ElectionCandidateRecord::find($clean->id))->not->toBeNull();
+});
