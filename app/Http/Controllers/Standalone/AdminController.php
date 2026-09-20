@@ -1736,6 +1736,13 @@ class AdminController extends Controller
      */
     private function applyDataQualityReview(PoliticianCleanupReview $review, DuplicatePoliticianDetectionService $dedupService, $admin, ?string $reason): bool
     {
+        // Read before a merge deletes the duplicate — the map caches its payload per state.
+        $states = Politician::query()
+            ->whereIn('id', array_filter([$review->politician_id, $review->duplicate_politician_id]))
+            ->pluck('state')
+            ->map(static fn ($state) => strtoupper(trim((string) $state)))
+            ->filter()->unique();
+
         if ($review->review_type === PoliticianCleanupReview::TYPE_MERGE && $review->duplicate_politician_id !== null) {
             $survivorId = (int) $review->politician_id;
             $duplicateId = (int) $review->duplicate_politician_id;
@@ -1780,6 +1787,12 @@ class AdminController extends Controller
             }
 
             $politician->update(['is_active' => false, 'page_published' => false]);
+        }
+
+        // Merges and deactivations go through query-builder writes, which skip the Politician
+        // model hooks that bust the map cache — do it here so the change shows without the hour wait.
+        foreach ($states as $state) {
+            Cache::forget("map_state_candidates_{$state}");
         }
 
         $this->markDataQualityReview($review, PoliticianCleanupReview::STATUS_APPROVED, $admin, $reason);
