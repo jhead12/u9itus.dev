@@ -319,6 +319,11 @@ class PruneJunkEcrs extends Command
             return [null, null];
         }
 
+        // "Arkansas Senate District 5" is a state legislative seat, not the U.S. Senate race.
+        if ($kind === 'senate' && preg_match('/district/i', (string) $row->political_office)) {
+            return [null, null];
+        }
+
         $payload = is_array($row->payload) ? $row->payload : [];
         if (($payload['result_source'] ?? '') === 'manual') {
             return [null, null];
