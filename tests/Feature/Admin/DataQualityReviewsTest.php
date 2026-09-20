@@ -136,3 +136,23 @@ it('a reversed pair cannot turn into a self-merge that deletes the survivor', fu
         ->and(Politician::whereKey($b->id)->exists())->toBeFalse()
         ->and(PoliticianCleanupReview::find($reversed->id)->status)->toBe('rejected');
 });
+
+it('the index renders and filters by review type', function () {
+    $admin = dqAdmin();
+    mergeReview(dqPolitician('Jane Doe'), dqPolitician('Jane Doe'));
+    PoliticianCleanupReview::enqueue('deactivate', dqPolitician('Ghost Headline')->id, null, [], 'Created from a news headline');
+
+    $this->actingAs($admin)->get(route('admin.data-quality.index'))
+        ->assertOk()
+        ->assertSee('All Types (2)')
+        ->assertSee('Merge Duplicate (1)')
+        ->assertSee('Deactivate (1)');
+
+    $this->actingAs($admin)->get(route('admin.data-quality.index', ['type' => 'deactivate']))
+        ->assertOk()
+        ->assertSee('Ghost Headline')
+        ->assertDontSee('Jane Doe');
+
+    $this->actingAs($admin)->get(route('admin.data-quality.index', ['type' => 'bogus', 'status' => 'approved']))
+        ->assertOk();
+});

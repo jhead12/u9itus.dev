@@ -1441,7 +1441,7 @@ class AdminController extends Controller
             'rejected' => CandidateMatchReview::where('status', CandidateMatchReview::STATUS_REJECTED)->count(),
         ];
 
-        return view('standalone.admin.candidate-match-reviews', compact('reviews', 'stats', 'statusFilter', 'typeFilter', 'typeOptions', 'typeCounts'));
+        return view('standalone.admin.candidate-match-reviews', compact('reviews', 'stats', 'statusFilter'));
     }
 
     /**
@@ -1633,7 +1633,7 @@ class AdminController extends Controller
             'rejected' => PoliticianCleanupReview::where('status', PoliticianCleanupReview::STATUS_REJECTED)->count(),
         ];
 
-        return view('standalone.admin.data-quality-reviews', compact('reviews', 'stats', 'statusFilter'));
+        return view('standalone.admin.data-quality-reviews', compact('reviews', 'stats', 'statusFilter', 'typeFilter', 'typeOptions', 'typeCounts'));
     }
 
     /**
