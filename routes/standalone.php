@@ -831,7 +831,7 @@ Route::get('/groups', [PublicGroupController::class, 'index'])->name('groups.dir
 Route::get('/groups/{group}/{scope?}', [PublicGroupController::class, 'show'])->name('groups.public.show');
 
 // Interactive 3D U.S. Regional Map
-Route::get('/map', fn() => view('standalone.public.us-map'))->name('us.map');
+Route::get('/map', \App\Http\Controllers\Standalone\PublicMapController::class)->name('us.map');
 
 // Guest (unauthenticated) map favorites — cookie-backed counterpart to the
 // role:voter-gated /voter/boundaries routes above. See GuestBoundaryCookie

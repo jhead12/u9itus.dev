@@ -43,9 +43,15 @@
 <meta property="og:title"       content="{{ $seoTitle }}">
 <meta property="og:description" content="{{ $seoDescription }}">
 <meta property="og:image"       content="{{ $ogImage }}">
+@isset($ogImageAlt)
+<meta property="og:image:alt"   content="{{ $ogImageAlt }}">
+@endisset
 
 {{-- ── Twitter / X Card ─────────────────────────────────────────────────── --}}
 <meta name="twitter:card"        content="{{ $twitterCard }}">
 <meta name="twitter:title"       content="{{ $seoTitle }}">
 <meta name="twitter:description" content="{{ $seoDescription }}">
 <meta name="twitter:image"       content="{{ $ogImage }}">
+@isset($ogImageAlt)
+<meta name="twitter:image:alt"   content="{{ $ogImageAlt }}">
+@endisset
