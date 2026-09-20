@@ -53,11 +53,25 @@ class CleanDiscoveryRecordNames extends Command
 
         foreach ($rows as $row) {
             $clean = $corroboration->anchorName(CandidateNameCanonicalizer::canonicalize($row->full_name), $row->state);
-            if ($clean === '' || $clean === $row->full_name) {
+            if ($clean === '') {
                 continue;
             }
 
-            $label = sprintf('#%d "%s" → "%s" (%s, %s)', $row->id, $row->full_name, $clean, $row->state, $row->political_office);
+            // A person on the FEC roster for a U.S. seat is not running for a state office: a record
+            // saying so is a headline mix-up ("Abdul El-Sayed" under Governor). Move it to the seat
+            // the FEC lists.
+            $seat = $corroboration->federalSeat($clean, $row->state);
+            $office = $row->political_office;
+            $fixOffice = $seat !== null && ! in_array(CandidateCorroboration::officeKind($row->political_office), ['house', 'senate'], true);
+            if ($fixOffice) {
+                $office = $seat['office'];
+            }
+
+            if ($clean === $row->full_name && ! $fixOffice) {
+                continue;
+            }
+
+            $label = sprintf('#%d "%s" → "%s" (%s, %s%s)', $row->id, $row->full_name, $clean, $row->state, $row->political_office, $fixOffice ? " → {$office}" : '');
 
             if (PoliticianDataRules::headlineFragmentViolation($clean) !== null) {
                 $this->line("  <fg=yellow>skip</> {$label} — cleaned name still reads as a fragment");
@@ -66,21 +80,11 @@ class CleanDiscoveryRecordNames extends Command
                 continue;
             }
 
-            // "Abdul El-Sayed" filed for the U.S. Senate; a state-legislature record for him is a
-            // headline mix-up, and renaming it would only make it look legitimate.
-            if (CandidateCorroboration::officeKind($row->political_office) === 'legislature'
-                && (collect(['U.S. Senator', 'U.S. Representative'])->contains(fn ($office) => $corroboration->checkIdentity($clean, $row->state, $office)['corroborated']))) {
-                $this->line("  <fg=yellow>skip</> {$label} — filed with the FEC for a federal seat, so this office is wrong; review by hand");
-                $stats['skipped']++;
-
-                continue;
-            }
-
-            $key = 'disc:'.strtolower((string) $row->state).':'.(Str::slug((string) $row->political_office) ?: 'office').':'.(Str::slug($clean) ?: 'name');
+            $key = 'disc:'.strtolower((string) $row->state).':'.(Str::slug((string) $office) ?: 'office').':'.(Str::slug($clean) ?: 'name');
             $sibling = ElectionCandidateRecord::query()
                 ->where('source', ElectionCandidateRecord::DISCOVERY_SOURCE)
                 ->where(fn ($q) => $q->where('external_candidate_id', $key)
-                    ->orWhere(fn ($same) => $same->where('full_name', $clean)->where('political_office', $row->political_office)->where('state', $row->state)))
+                    ->orWhere(fn ($same) => $same->where('full_name', $clean)->where('political_office', $office)->where('state', $row->state)))
                 ->where('id', '!=', $row->id)
                 ->first();
 
@@ -103,6 +107,11 @@ class CleanDiscoveryRecordNames extends Command
             if ($apply) {
                 $row->full_name = $clean;
                 $row->external_candidate_id = $key;
+                if ($fixOffice) {
+                    $row->political_office = $office;
+                    $row->governance_level = 'Federal';
+                    $row->district = $seat['district'];
+                }
                 // A past-cycle date would get the renamed row pruned on the next cleanup.
                 if ($row->election_date !== null && ! ElectionCycle::isCurrentOrFuture($row->election_date->toDateString())) {
                     $row->election_date = ElectionCycle::generalElectionDate(ElectionCycle::year());

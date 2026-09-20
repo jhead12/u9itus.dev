@@ -320,9 +320,17 @@ class SyncPrimaryResults extends Command
      */
     private function classify(string $text, ?string $electionDate): ?string
     {
-        foreach (self::ELIMINATED_SIGNALS as $signal) {
-            if (str_contains($text, $signal)) {
-                return 'eliminated';
+        // A page about someone who lost or conceded in an EARLIER cycle (Mike Rogers, 2024) says
+        // so too. A sentence that dates the loss before this cycle does not eliminate them.
+        $year = $electionDate !== null ? (int) substr($electionDate, 0, 4) : 0;
+        foreach (preg_split('/(?<=[.!?])\s+/', $text) ?: [] as $sentence) {
+            if ($year > 0 && $this->datesEarlierCycle($sentence, $year)) {
+                continue;
+            }
+            foreach (self::ELIMINATED_SIGNALS as $signal) {
+                if (str_contains($sentence, $signal)) {
+                    return 'eliminated';
+                }
             }
         }
         foreach (self::ADVANCED_SIGNALS as $signal) {
@@ -331,6 +339,18 @@ class SyncPrimaryResults extends Command
             }
         }
         return null;
+    }
+
+    /** True when the sentence names a year before $year and never names $year itself. */
+    private function datesEarlierCycle(string $sentence, int $year): bool
+    {
+        if (! preg_match_all('/\b(?:19|20)\d{2}\b/', $sentence, $matches)) {
+            return false;
+        }
+
+        $years = array_map('intval', $matches[0]);
+
+        return min($years) < $year && ! in_array($year, $years, true);
     }
 
     /**

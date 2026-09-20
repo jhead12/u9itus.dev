@@ -258,3 +258,78 @@ it('renames decorated discovery records, merges into an existing one, and leaves
         ->and(ElectionCandidateRecord::find($other->id))->toBeNull()
         ->and(ElectionCandidateRecord::find($clean->id))->not->toBeNull();
 });
+
+it('moves a discovery record to the U.S. seat the FEC lists, merging into the right-office record', function () {
+    CandidateRoster::create([
+        'source' => 'fec', 'source_id' => 'S6MI00418', 'full_name' => 'Abdul El-Sayed',
+        'identity_key' => MapCandidateHygiene::identityKey('Abdul El-Sayed'), 'state' => 'MI', 'office' => 'S', 'district' => null, 'election_year' => 2026,
+    ]);
+    $make = fn (string $office, string $ext) => ElectionCandidateRecord::create([
+        'source' => 'candidate_discovery', 'external_candidate_id' => $ext, 'full_name' => 'Abdul El-Sayed', 'state' => 'MI',
+        'political_office' => $office, 'governance_level' => $office === 'U.S. Senator' ? 'Federal' : 'State', 'election_date' => '2026-11-03', 'payload' => [],
+    ]);
+    $right = $make('U.S. Senator', 'disc:mi:us-senator:abdul-el-sayed');
+    $governor = $make('Governor', 'disc:mi:governor:abdul-el-sayed');
+    $legislature = $make('Michigan State Senate', 'hash-x');
+    $wrongAlone = ElectionCandidateRecord::create([
+        'source' => 'candidate_discovery', 'external_candidate_id' => 'hash-y', 'full_name' => 'Abdul El-Sayed', 'state' => 'MI',
+        'political_office' => 'Lieutenant Governor', 'governance_level' => 'State', 'election_date' => '2026-11-03', 'payload' => [],
+    ]);
+    $wrongAlone->delete(); // only the two wrong-office duplicates matter beside the right one
+
+    $this->artisan('candidates:clean-discovery-names', ['--state' => ['MI'], '--apply' => true])->assertSuccessful();
+
+    expect(ElectionCandidateRecord::where('full_name', 'Abdul El-Sayed')->pluck('political_office')->all())->toBe(['U.S. Senator'])
+        ->and(ElectionCandidateRecord::find($right->id))->not->toBeNull()
+        ->and(ElectionCandidateRecord::find($governor->id))->toBeNull()
+        ->and(ElectionCandidateRecord::find($legislature->id))->toBeNull();
+});
+
+it('lists discovery records the automatic cleanup cannot settle', function () {
+    CandidateRoster::create([
+        'source' => 'fec', 'source_id' => 'S6MI00418', 'full_name' => 'Abdul El-Sayed',
+        'identity_key' => MapCandidateHygiene::identityKey('Abdul El-Sayed'), 'state' => 'MI', 'office' => 'S', 'district' => null, 'election_year' => 2026,
+    ]);
+    $make = fn (string $name, string $office, string $ext, string $result) => ElectionCandidateRecord::create([
+        'source' => 'candidate_discovery', 'external_candidate_id' => $ext, 'full_name' => $name, 'state' => 'MI',
+        'political_office' => $office, 'election_date' => '2026-11-03', 'payload' => ['primary_result' => $result],
+    ]);
+    $make('Abdul El-Sayed', 'U.S. Senator', 'a', 'advanced_to_general');
+    $make('Abdul El-Sayed Billboards', 'Michigan State Senate', 'b', 'eliminated');
+
+    $this->artisan('candidates:audit-records', ['--state' => ['MI']])
+        ->expectsOutputToContain('records disagree on the primary result')
+        ->expectsOutputToContain('FEC lists them for U.S. Senator')
+        ->expectsOutputToContain('name should read "Abdul El-Sayed"')
+        ->assertSuccessful();
+});
+
+it('does not eliminate a candidate because a page mentions an earlier cycle\'s loss', function () {
+    Http::fake([
+        'ballotpedia.org/*' => Http::response('', 404),
+        'en.wikipedia.org/*' => Http::response(['extract' => 'Mike Rogers is a Republican who conceded the 2024 Senate race to Elissa Slotkin. He is running for the U.S. Senate in 2026.']),
+    ]);
+    $record = ElectionCandidateRecord::create([
+        'source' => 'candidate_discovery', 'external_candidate_id' => 'disc:mi:us-senator:mike-rogers', 'full_name' => 'Mike Rogers', 'state' => 'MI',
+        'political_office' => 'U.S. Senator', 'governance_level' => 'Federal', 'election_date' => '2026-11-03', 'payload' => [],
+    ]);
+
+    $this->artisan('politicians:sync-primary-results', ['--state' => 'MI'])->assertSuccessful();
+
+    expect($record->fresh()->payload['primary_result'] ?? null)->not->toBe('eliminated');
+});
+
+it('lets an admin override a wrongly eliminated primary result', function () {
+    $record = ElectionCandidateRecord::create([
+        'source' => 'candidate_discovery', 'external_candidate_id' => 'disc:mi:us-senator:mike-rogers', 'full_name' => 'Mike Rogers', 'state' => 'MI',
+        'political_office' => 'U.S. Senator', 'governance_level' => 'Federal', 'election_date' => '2026-11-03', 'payload' => ['primary_result' => 'eliminated', 'elimination_note' => 'x'],
+    ]);
+
+    $args = ['--state' => 'MI', '--name' => 'Mike Rogers', '--office' => 'Senator', '--result' => 'advanced_to_general'];
+    $this->artisan('candidates:set-primary-result', $args)->assertSuccessful();
+    expect($record->fresh()->payload['primary_result'])->toBe('eliminated'); // dry run
+
+    $this->artisan('candidates:set-primary-result', $args + ['--apply' => true])->assertSuccessful();
+    expect($record->fresh()->payload['primary_result'])->toBe('advanced_to_general')
+        ->and($record->fresh()->payload)->not->toHaveKey('elimination_note');
+});

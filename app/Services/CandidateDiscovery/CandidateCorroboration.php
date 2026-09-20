@@ -106,6 +106,40 @@ class CandidateCorroboration
         return $name;
     }
 
+    /**
+     * The one federal seat the FEC roster has this person filing for, or null when they are not
+     * on it (or filed for more than one kind of seat, so nothing here can say which is right).
+     *
+     * @return array{kind: string, office: string, district: ?string}|null
+     */
+    public function federalSeat(?string $name, ?string $state): ?array
+    {
+        $key = MapCandidateHygiene::identityKey($name);
+        $state = strtoupper(trim((string) $state));
+        if ($key === '' || $state === '') {
+            return null;
+        }
+
+        $kinds = [];
+        foreach ($this->index($state)['roster'][$key] ?? [] as $row) {
+            if (in_array($row['kind'], ['house', 'senate'], true)) {
+                $kinds[$row['kind']] = $row;
+            }
+        }
+        if (count($kinds) !== 1) {
+            return null;
+        }
+
+        $row = reset($kinds);
+        $number = $this->districtNumber($row['district']);
+
+        return [
+            'kind' => $row['kind'],
+            'office' => $row['kind'] === 'senate' ? 'U.S. Senator' : 'U.S. Representative',
+            'district' => $row['kind'] === 'house' && $number !== null ? sprintf('%s-%02s', $state, $number) : null,
+        ];
+    }
+
     /** house | senate | legislature | president | a canonical statewide office | other */
     public static function officeKind(?string $office): string
     {
