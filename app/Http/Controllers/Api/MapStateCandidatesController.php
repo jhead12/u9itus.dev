@@ -257,9 +257,16 @@ class MapStateCandidatesController
             ->orWhereIn('id', $linkedEcrIds)
             ->orWhereRaw("COALESCE({$primaryResultExpr}, '') <> ''");
 
+        // Senate races are statewide too. Cleanup correctly labels them Federal;
+        // restricting this list to State makes those corrected candidates disappear.
         $scrapedRecords = ElectionCandidateRecord::query()
             ->whereRaw('UPPER(COALESCE(state, \'\')) = ?', [$state])
-            ->whereRaw('LOWER(COALESCE(governance_level, \'\')) = ?', ['state'])
+            ->where(function ($q) {
+                $q->whereRaw('LOWER(COALESCE(governance_level, \'\')) = ?', ['state'])
+                    ->orWhere(fn ($federal) => $federal
+                        ->whereRaw('LOWER(COALESCE(governance_level, \'\')) = ?', ['federal'])
+                        ->whereRaw('LOWER(COALESCE(political_office, \'\')) LIKE ?', ['%senat%']));
+            })
             ->where(fn ($q) => $q->whereNull('election_date')->orWhere('election_date', '>=', $cycleStart))
             ->where($discoveryVisible)
             ->get(['last_seen_at', 'updated_at', 'id', 'full_name', 'political_office', 'party_affiliation',
@@ -920,6 +927,10 @@ class MapStateCandidatesController
      */
     private function canonicalise(?string $office): string
     {
+        if (CandidateCorroboration::officeKind($office) === 'senate') {
+            return 'U.S. Senators';
+        }
+
         return OfficeCanonicalizer::canonicaliseStatewide($office) ?? 'Other Statewide';
     }
 

@@ -43,6 +43,31 @@ it('ignores a server-local file cache after an external cleanup', function () {
     }
 });
 
+it('shows corrected federal Senate records in the statewide Senate bucket', function () {
+    foreach (['Mike Rogers', 'Abdul El-Sayed'] as $name) {
+        ElectionCandidateRecord::create([
+            'source' => 'candidate_discovery', 'external_candidate_id' => str($name)->slug()->toString(),
+            'full_name' => $name, 'political_office' => 'U.S. Senator',
+            'state' => 'MI', 'governance_level' => 'Federal',
+            'election_date' => now()->addMonths(3)->toDateString(),
+            'payload' => ['primary_result' => 'advanced_to_general'],
+        ]);
+    }
+    ElectionCandidateRecord::create([
+        'source' => 'candidate_discovery', 'external_candidate_id' => 'eliminated-senator',
+        'full_name' => 'Jordan Patel', 'political_office' => 'U.S. Senator',
+        'state' => 'MI', 'governance_level' => 'Federal',
+        'election_date' => now()->addMonths(3)->toDateString(),
+        'payload' => ['primary_result' => 'eliminated'],
+    ]);
+
+    $data = test()->getJson('/api/v1/map/state-candidates?state=MI')->assertOk()->json();
+    $senate = collect($data['offices'])->firstWhere('office', 'U.S. Senators');
+    expect(collect($senate['candidates'])->pluck('full_name')->all())
+        ->toEqualCanonicalizing(['Mike Rogers', 'Abdul El-Sayed']);
+    expect($data['house_candidates'])->toBeEmpty();
+});
+
 it('hides the organization and incomplete title names seen on the Michigan map', function (string $name) {
     $row = new ElectionCandidateRecord([
         'source' => 'ballotpedia', 'external_candidate_id' => 'legacy-junk',
