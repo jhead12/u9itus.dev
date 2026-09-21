@@ -524,7 +524,7 @@ class CandidateNewsService
      */
     protected function detectEndorsements(int $politicianId, string $headline, string $snippet, int $articleId, string $sourceUrl, ?string $politicianFullName = null): void
     {
-        $matches = $this->endorsementClassifier->classify($headline, $snippet);
+        $matches = $this->endorsementClassifier->classify($headline, $snippet, $politicianFullName);
         if (empty($matches)) {
             return;
         }

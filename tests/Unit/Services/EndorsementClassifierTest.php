@@ -108,3 +108,51 @@ it('ignores "Trump-backed" as an endorsement verb', function () {
 
     expect($classifier->classify('Collins joins 2026 governor Republican primary against Trump-backed rival', ''))->toBe([]);
 });
+
+it('does not read "back in the crosshairs" as an endorsement', function () {
+    $classifier = new EndorsementClassifier();
+
+    $headline = "Trump's new Cuba campaign puts Mayor Karen Bass back in the crosshairs";
+
+    expect($classifier->classify($headline, ''))->toBe([]);
+    expect($classifier->classify($headline, '', 'Karen Bass'))->toBe([]);
+});
+
+it('ignores back-verbs that mean retreat or movement', function (string $headline) {
+    expect((new EndorsementClassifier())->classify($headline, '', 'Jane Smith'))->toBe([]);
+})->with([
+    'Governor backs off plan to cut Jane Smith budget',
+    'Governor backed into a corner over Jane Smith scandal',
+    'President is back on the trail with Jane Smith',
+]);
+
+it('does not treat a possessive title as the endorser unless it is "endorsement of"', function () {
+    $classifier = new EndorsementClassifier();
+
+    expect($classifier->classify("Trump's tariffs back Jane Smith into a corner", '', 'Jane Smith'))->toBe([]);
+    expect($classifier->classify("Trump's endorsement of Jane Smith shakes up the primary", '', 'Jane Smith'))->toHaveCount(1);
+});
+
+it('requires the candidate to come after the verb when the endorser acts', function () {
+    $classifier = new EndorsementClassifier();
+
+    expect($classifier->classify('Trump backs Karen Bass', '', 'Karen Bass'))->toHaveCount(1);
+    expect($classifier->classify('Karen Bass slams Trump, who backs Steve Hilton', '', 'Karen Bass'))->toBe([]);
+    expect($classifier->classify('Karen Bass endorsed by the governor', '', 'Karen Bass'))->toHaveCount(1);
+});
+
+it('still detects Trump endorsements written in the active voice', function () {
+    $result = (new EndorsementClassifier())->classify('Trump endorses Steve Hilton for governor', '', 'Steve Hilton');
+
+    expect($result)->toHaveCount(1);
+    expect($result[0]['endorser_name'])->toBe('Donald Trump');
+});
+
+it('does not read "back-to-back" as an endorsement', function () {
+    $classifier = new EndorsementClassifier();
+    $headline = 'Trump, Cruz hold back-to-back rallies ahead of South Carolina primary';
+
+    expect($classifier->classify($headline, ''))->toBe([]);
+    expect($classifier->classify($headline, '', 'Ted Cruz'))->toBe([]);
+    expect($classifier->classify('Trump holds back-channel talks with Jane Smith', '', 'Jane Smith'))->toBe([]);
+});

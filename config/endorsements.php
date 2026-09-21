@@ -20,7 +20,9 @@ return [
 
     'verbs' => [
         'endorse', 'endorses', 'endorsed', 'endorsing', 'endorsement of', 'endorsement from',
-        'back', 'backs', 'backed', 'backing',
+        // "back in the crosshairs", "backed into a corner", "backs off": a back-verb followed by
+        // a particle is movement or retreat, not support; "back-to-back" and "back-channel" are compounds.
+        '(?:back|backs|backed|backing)(?![-–])(?!\s+(?:in|on|to|at|from|home|down|out|up|off|into|away|over|under|and\s+forth|then|after|again)\b)',
         'throws? (?:his|her|their) support behind',
         'threw (?:his|her|their) support behind',
         'voices? support for',

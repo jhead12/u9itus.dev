@@ -22,12 +22,20 @@ class EndorsementClassifier
     /** Max character distance between a group keyword and a verb phrase to count as a match. */
     protected int $proximityWindow = 60;
 
+    /** Tighter window for endorsers written without a title ("Trump endorses ..."): a bare surname is easy to hit by accident. */
+    protected int $namedProximityWindow = 30;
+
     protected ?string $verbRegex = null;
 
     /**
+     * When `$candidateName` (the politician the article was matched to) is given, an endorsement
+     * verb the endorser performs ("Trump backs Jane Smith") only counts if the candidate's
+     * surname comes after it, so an article that merely mentions both ("Trump's campaign puts
+     * Mayor Bass on the defensive") cannot attach an endorsement to the candidate.
+     *
      * @return array<int, array{group: string, label: string, matched_phrase: string, endorser_name: ?string, confidence: float}>
      */
-    public function classify(string $headline, string $snippet): array
+    public function classify(string $headline, string $snippet, ?string $candidateName = null): array
     {
         $original = trim($headline . ' ' . $snippet);
         if ($original === '') {
@@ -46,6 +54,7 @@ class EndorsementClassifier
             return [];
         }
 
+        $surname = $this->surnameOf($candidateName);
         $matches = [];
 
         foreach ($groups as $groupKey => $group) {
@@ -65,8 +74,9 @@ class EndorsementClassifier
                         continue;
                     }
 
-                    $distance = $this->nearestEndorserVerbDistance($haystack, $offset, $length, $verbOffsets);
-                    if ($distance === null || $distance > $this->proximityWindow) {
+                    $window = $fixedName !== null ? $this->namedProximityWindow : $this->proximityWindow;
+                    $distance = $this->nearestEndorserVerbDistance($haystack, $offset, $length, $verbOffsets, $surname);
+                    if ($distance === null || $distance > $window) {
                         continue;
                     }
 
@@ -173,18 +183,31 @@ class EndorsementClassifier
      * the keyword without "by" makes the titleholder the one being endorsed
      * ("Caucus endorses Congresswoman Escobar's bill") — no endorsement by them.
      *
+     * A possessive keyword ("Trump's Cuba campaign") is a modifier, not the subject, so it only
+     * pairs with a noun-form verb ("Trump's endorsement of ..."). When `$surname` is given, a
+     * verb the keyword performs must be followed by it (the candidate is the one endorsed).
+     *
      * @param  array<int, array{0: int, 1: int}>  $verbOffsets
      */
-    protected function nearestEndorserVerbDistance(string $haystackLower, int $offset, int $length, array $verbOffsets): ?int
+    protected function nearestEndorserVerbDistance(string $haystackLower, int $offset, int $length, array $verbOffsets, ?string $surname = null): ?int
     {
         $best = null;
         $end = $offset + $length;
+        $possessive = (bool) preg_match("/^['’]s\\b/u", substr($haystackLower, $end, 6));
 
         foreach ($verbOffsets as [$vOffset, $vLength]) {
             if ($vOffset >= $offset && $vOffset < $end) {
                 $gap = 0; // overlapping spans
             } elseif ($vOffset >= $end) {
                 $gap = $vOffset - $end;
+
+                if ($possessive && ! str_starts_with(substr($haystackLower, $vOffset, 8), 'endorse')) {
+                    continue;
+                }
+
+                if ($surname !== null && ! $this->mentionsAfter($haystackLower, $vOffset + $vLength, $surname)) {
+                    continue;
+                }
             } else {
                 $between = substr($haystackLower, $vOffset + $vLength, $offset - ($vOffset + $vLength));
                 if (! preg_match('/^\s*(?:by|from)\s+(?:the\s+)?$/', $between)) {
@@ -199,6 +222,21 @@ class EndorsementClassifier
         }
 
         return $best;
+    }
+
+    protected function mentionsAfter(string $haystackLower, int $from, string $surname): bool
+    {
+        return (bool) preg_match('/(?<![a-z])' . preg_quote($surname, '/') . '(?![a-z])/', substr($haystackLower, $from));
+    }
+
+    /** Lowercased last name of a full name, ignoring suffixes like "Jr."; null if unusable. */
+    protected function surnameOf(?string $fullName): ?string
+    {
+        $tokens = preg_split('/\s+/', strtolower(trim((string) preg_replace('/[^\p{L}\s\'’-]/u', '', (string) $fullName)))) ?: [];
+        $tokens = array_values(array_filter($tokens, fn ($t) => $t !== '' && ! in_array($t, ['jr', 'sr', 'ii', 'iii', 'iv'], true)));
+        $last = end($tokens);
+
+        return $last !== false && strlen($last) >= 3 ? $last : null;
     }
 
     protected function confidenceForDistance(int $distance): float
