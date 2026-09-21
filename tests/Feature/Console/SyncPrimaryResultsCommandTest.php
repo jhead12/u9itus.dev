@@ -357,3 +357,38 @@ test('page text alone never stamps a candidate, and never touches a sitting memb
         ->and($profile->fresh()->term_status)->toBe('running');
     Http::assertNotSent(fn ($request) => str_contains($request->url(), 'ballotpedia.org') || str_contains($request->url(), 'rest_v1'));
 });
+
+test('a House result is read from the sub-article a big state keeps its districts in, even with no district on the record', function () {
+    $main = "==Overview==\ntext\n==Districts 1–26==\n{{main|2026 United States House of Representatives elections in California (districts 1–26)}}\n==Districts 27–52==\n{{main|2026 United States House of Representatives elections in California (districts 27–52)}}\n";
+    $low = "==District 1==\n===Primary===\n====Advanced to general====\n* [[Pat Winner]]\n====Eliminated in primary====\n* [[Lee Loser]]\n==District 2==\n====Advanced to general====\n* [[Ann Second]]\n";
+    $high = "==District 36==\n===Primary===\n====Advanced to general====\n* [[Ted Lieu]]\n* Houston Brignano (Republican)\n====Eliminated in primary====\n* [[Sam Lost]]\n==District 37==\n====Advanced to general====\n* [[Jim Third]]\n";
+
+    Http::fake([
+        'en.wikipedia.org/w/api.php*' => function ($request) use ($main, $low, $high) {
+            $page = (string) ($request['page'] ?? '');
+
+            return Http::response(['parse' => ['wikitext' => match (true) {
+                str_contains($page, '27–52') => $high,
+                str_contains($page, '1–26') => $low,
+                default => $main,
+            }]]);
+        },
+        '*' => Http::response('', 404),
+    ]);
+
+    $make = fn (string $name) => ElectionCandidateRecord::factory()->create([
+        'full_name' => $name, 'governance_level' => 'federal', 'political_office' => 'U.S. Representative',
+        'state' => 'CA', 'district' => null, 'election_date' => '2026-11-03', 'payload' => ['primary_result' => 'running'],
+    ]);
+    $lieu = $make('Ted Lieu');
+    $lost = $make('Sam Lost');
+    $early = $make('Lee Loser');
+    $stranger = $make('Not Listed');
+
+    Artisan::call('politicians:sync-primary-results', ['--state' => 'CA']);
+
+    expect($lieu->fresh()->payload['primary_result'])->toBe('advanced_to_general')
+        ->and($lost->fresh()->payload['primary_result'])->toBe('eliminated')
+        ->and($early->fresh()->payload['primary_result'])->toBe('eliminated')
+        ->and($stranger->fresh()->payload['primary_result'])->toBe('running');
+});

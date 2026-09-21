@@ -211,7 +211,7 @@ class WikipediaPrimaryResultsService
 
         $wikitext = $this->fetchWikitext($title);
         if ($wikitext !== null && $this->isHouseOffice($office)) {
-            $wikitext = $this->districtSection($wikitext, $district);
+            $wikitext = $this->houseSection($wikitext, $district);
         }
 
         return $this->raceCache[$key] = $wikitext === null ? null : $this->parse($wikitext);
@@ -256,8 +256,43 @@ class WikipediaPrimaryResultsService
     }
 
     /**
+     * The part of a state's House article that describes one district. Big states keep the
+     * districts in sub-articles ("… elections in California (districts 1–26)") that the main
+     * article only links with {{main|…}}, so those are followed when the main one has no district
+     * section of its own.
+     */
+    private function houseSection(string $wikitext, ?string $district): ?string
+    {
+        $section = $this->districtSection($wikitext, $district);
+        if ($section !== null) {
+            return $section;
+        }
+
+        preg_match_all('/\{\{\s*main\s*\|\s*([^|}]*districts?[^|}]*?)\s*(?:\|[^}]*)?\}\}/i', $wikitext, $matches);
+        $parts = [];
+        foreach (array_unique($matches[1]) as $subTitle) {
+            $sub = $this->fetchWikitext(trim($subTitle));
+            if ($sub === null) {
+                continue;
+            }
+            $found = $this->districtSection($sub, $district);
+            if ($found === null) {
+                continue;
+            }
+            $parts[] = $found;
+            if ($district !== null) {
+                break;
+            }
+        }
+
+        return $parts === [] ? null : implode("\n", $parts);
+    }
+
+    /**
      * Narrow a state's House article to one district's section. An at-large
-     * seat (no district, or 0) matches "At-large".
+     * seat (no district, or 0) matches "At-large". A record with no district in a
+     * state that has several returns every district's section together, so the
+     * candidate is found wherever they ran (a name is only ever in one race).
      */
     private function districtSection(string $wikitext, ?string $district): ?string
     {
@@ -267,6 +302,12 @@ class WikipediaPrimaryResultsService
             : '/^(at[- ]large|district\s+0*1\b)/i';
 
         $sections = $this->sections($wikitext);
+        if ($number === 0 && ! $this->hasAtLargeSection($sections)) {
+            $districtCount = count(array_filter($sections, fn ($s) => preg_match('/^district\s+\d+/i', $s['title'])));
+            if ($districtCount > 1) {
+                return $wikitext;
+            }
+        }
         foreach ($sections as $i => $section) {
             if (! preg_match($pattern, $section['title'])) {
                 continue;
@@ -282,6 +323,18 @@ class WikipediaPrimaryResultsService
         }
 
         return null;
+    }
+
+    /** @param array<int, array{title: string, level: int, body: string}> $sections */
+    private function hasAtLargeSection(array $sections): bool
+    {
+        foreach ($sections as $section) {
+            if (preg_match('/^at[- ]large/i', $section['title'])) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
