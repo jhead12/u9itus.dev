@@ -8,20 +8,17 @@ use App\Support\ElectionCycle;
 use App\Support\MapCacheNotice;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 /**
  * Syncs primary election results into the election_candidate_records payload.
  *
- * For each state or federal candidate record where the election_date is in the
- * past and primary_result is not yet set, this command:
- *
- *  Tier 0 — Wikipedia race article      (MediaWiki API; reads the "Nominee" and
- *                                        "Eliminated in primary" headings, works
- *                                        when Ballotpedia's WAF blocks the runner)
- *  Tier 1 — Ballotpedia candidate page  (HTML scrape, no key required)
- *  Tier 2 — Wikipedia candidate page    (REST summary, free)
+ * For each state or federal candidate record that primary_result has not yet
+ * settled, this command reads the race's Wikipedia article (MediaWiki API; the
+ * "Nominee", "Eliminated in primary" and "Withdrawn" headings). That is the only
+ * source: a candidate's own page says "lost the primary" and "conceded" about
+ * people they endorsed and about earlier cycles, so page text is never used and a
+ * candidate the article does not settle stays unknown.
  *
  * Sets payload.primary_result to one of:
  *   advanced_to_general  — won or advanced from primary
@@ -44,37 +41,6 @@ class SyncPrimaryResults extends Command
         {--limit=300 : With --recheck-eliminated: max records to re-check per run.}';
 
     protected $description = 'Sync primary election results for state and federal candidates from Ballotpedia/Wikipedia.';
-
-    /**
-     * Keywords that signal a candidate advanced. Includes both Ballotpedia
-     * race-page phrasing ("won the primary") and Wikipedia bio-style phrasing
-     * ("is the Democratic nominee") — a bio summary describes someone as
-     * already being the nominee rather than narrating the primary-night
-     * result, but that's equally strong evidence they advanced.
-     */
-    private const ADVANCED_SIGNALS = [
-        'advanced to the general',
-        'won the primary',
-        'won primary',
-        'advanced to general',
-        'general election candidate',
-        'qualified for the general',
-        'is the democratic nominee',
-        'is the republican nominee',
-        'democratic nominee in the',
-        'republican nominee in the',
-    ];
-
-    /** Keywords that signal a candidate was eliminated */
-    private const ELIMINATED_SIGNALS = [
-        'lost the primary',
-        'lost primary',
-        'did not advance',
-        'eliminated',
-        'failed to advance',
-        'defeated in the primary',
-        'conceded',
-    ];
 
     private const DELAY_MS = 500;
 
@@ -371,7 +337,9 @@ class SyncPrimaryResults extends Command
     }
 
     /**
-     * Try Ballotpedia then Wikipedia to determine if a candidate advanced or was eliminated.
+     * Read the candidate's result from the race's Wikipedia article. Page text (a Ballotpedia or
+     * biography page) is deliberately not used: it says "lost the primary" and "conceded" about the
+     * people a candidate endorsed and about earlier cycles, and stamped sitting members eliminated.
      */
     private function resolvePrimaryResult(
         string $name,
@@ -406,100 +374,7 @@ class SyncPrimaryResults extends Command
             }
         }
 
-        // ── Tier 1: Ballotpedia candidate page ────────────────────────────────
-        $bpSlug = str_replace(' ', '_', $name);
-        $bpUrl  = "https://ballotpedia.org/{$bpSlug}";
-        $result = $this->checkUrl($bpUrl, $name, $electionDate);
-        if ($result !== null) {
-            $this->line("  <fg=gray>[ballotpedia]</>");
-            return $result;
-        }
-
-        usleep(self::DELAY_MS * 1000);
-
-        // ── Tier 2: Wikipedia REST summary ────────────────────────────────────
-        $wikiSlug = str_replace(' ', '_', $name);
-        $wikiUrl  = "https://en.wikipedia.org/api/rest_v1/page/summary/{$wikiSlug}";
-        try {
-            $resp = Http::timeout(12)
-                ->withHeaders(['User-Agent' => 'u9itus-sync/1.0 (primary-results)'])
-                ->get($wikiUrl);
-            if ($resp->ok()) {
-                $text = strtolower((string) ($resp->json('extract') ?? ''));
-                $result = $this->classify($text, $electionDate);
-                if ($result !== null) {
-                    $this->line("  <fg=gray>[wikipedia]</>");
-                    return $result;
-                }
-            }
-        } catch (\Throwable $e) {
-            Log::warning('SyncPrimaryResults: Wikipedia fetch failed', ['name' => $name, 'error' => $e->getMessage()]);
-        }
-
         return null;
-    }
-
-    /**
-     * Fetch a URL and classify its text content as advanced/eliminated/null.
-     */
-    private function checkUrl(string $url, string $name, ?string $electionDate): ?string
-    {
-        try {
-            // Ballotpedia sits behind an AWS WAF that challenges (HTTP 202,
-            // empty body) non-browser-looking User-Agents — a bare tool UA
-            // (e.g. "u9itus-sync/1.0") gets blocked outright, so a standard
-            // browser UA string is required to get real HTML back.
-            $resp = Http::timeout(15)
-                ->withHeaders(['User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'])
-                ->get($url);
-            if (!$resp->successful()) {
-                return null;
-            }
-            // Strip HTML tags, lowercase
-            $text = strtolower(strip_tags((string) $resp->body()));
-            return $this->classify($text, $electionDate);
-        } catch (\Throwable $e) {
-            Log::warning('SyncPrimaryResults: HTTP fetch failed', ['url' => $url, 'error' => $e->getMessage()]);
-            return null;
-        }
-    }
-
-    /**
-     * Classify page text as advanced_to_general, eliminated, or null.
-     */
-    private function classify(string $text, ?string $electionDate): ?string
-    {
-        // A page about someone who lost or conceded in an EARLIER cycle (Mike Rogers, 2024) says
-        // so too. A sentence that dates the loss before this cycle does not eliminate them.
-        $year = $electionDate !== null ? (int) substr($electionDate, 0, 4) : 0;
-        foreach (preg_split('/(?<=[.!?])\s+/', $text) ?: [] as $sentence) {
-            if ($year > 0 && $this->datesEarlierCycle($sentence, $year)) {
-                continue;
-            }
-            foreach (self::ELIMINATED_SIGNALS as $signal) {
-                if (str_contains($sentence, $signal)) {
-                    return 'eliminated';
-                }
-            }
-        }
-        foreach (self::ADVANCED_SIGNALS as $signal) {
-            if (str_contains($text, $signal)) {
-                return 'advanced_to_general';
-            }
-        }
-        return null;
-    }
-
-    /** True when the sentence names a year before $year and never names $year itself. */
-    private function datesEarlierCycle(string $sentence, int $year): bool
-    {
-        if (! preg_match_all('/\b(?:19|20)\d{2}\b/', $sentence, $matches)) {
-            return false;
-        }
-
-        $years = array_map('intval', $matches[0]);
-
-        return min($years) < $year && ! in_array($year, $years, true);
     }
 
     /**

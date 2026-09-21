@@ -9,20 +9,25 @@ use Illuminate\Support\Facades\Http;
 
 uses(RefreshDatabase::class);
 
-// Tier 0 reads Wikipedia's race article through the MediaWiki API. Stray requests
-// throw (the service treats that as "no answer"), so tests that fake only
-// Ballotpedia never reach the network.
+// A result comes only from Wikipedia's race article (MediaWiki API). Stray requests
+// throw (the service treats that as "no answer"), so a test never reaches the network.
 beforeEach(fn () => Http::preventStrayRequests());
 
-test('a federal candidate record is picked up and classified as eliminated', function () {
+function raceArticle(string $wikitext): void
+{
     Http::fake([
-        'ballotpedia.org/*' => Http::response('<html>He lost the primary to the incumbent.</html>', 200),
+        'en.wikipedia.org/w/api.php*' => Http::response(['parse' => ['wikitext' => $wikitext]]),
+        '*' => Http::response('', 404),
     ]);
+}
+
+test('a federal candidate record is picked up and classified as eliminated', function () {
+    raceArticle("====Eliminated in primary====\n* [[Jane Doe]]\n");
 
     $record = ElectionCandidateRecord::factory()->create([
         'full_name' => 'Jane Doe',
         'governance_level' => 'federal',
-        'political_office' => 'U.S. Representative',
+        'political_office' => 'U.S. Senator',
         'state' => 'CA',
         'election_date' => now()->subDays(10)->format('Y-m-d'),
         'payload' => [],
@@ -35,9 +40,7 @@ test('a federal candidate record is picked up and classified as eliminated', fun
 });
 
 test('a state-level candidate record is still classified (existing behavior preserved)', function () {
-    Http::fake([
-        'ballotpedia.org/*' => Http::response('<html>She advanced to the general election.</html>', 200),
-    ]);
+    raceArticle("====Advanced to general election====\n* [[Jane Advances]]\n");
 
     $record = ElectionCandidateRecord::factory()->create([
         'full_name' => 'Jane Advances',
@@ -74,13 +77,12 @@ test('a local-level candidate record is ignored', function () {
 });
 
 test('an eliminated result propagates to the linked politician term_status', function () {
-    Http::fake([
-        'ballotpedia.org/*' => Http::response('<html>He lost the primary to the incumbent.</html>', 200),
-    ]);
+    raceArticle("====Eliminated in primary====\n* [[Losing Candidate]]\n");
 
     $record = ElectionCandidateRecord::factory()->create([
         'full_name' => 'Losing Candidate',
         'governance_level' => 'federal',
+        'political_office' => 'U.S. Senator',
         'state' => 'CA',
         'election_date' => now()->subDays(10)->format('Y-m-d'),
         'payload' => [],
@@ -113,13 +115,12 @@ test('an eliminated result propagates to the linked politician term_status', fun
 });
 
 test('--dry-run does not write to the linked politician', function () {
-    Http::fake([
-        'ballotpedia.org/*' => Http::response('<html>He lost the primary to the incumbent.</html>', 200),
-    ]);
+    raceArticle("====Eliminated in primary====\n* [[Dry Run Candidate]]\n");
 
     $record = ElectionCandidateRecord::factory()->create([
         'full_name' => 'Dry Run Candidate',
         'governance_level' => 'federal',
+        'political_office' => 'U.S. Senator',
         'state' => 'CA',
         'election_date' => now()->subDays(10)->format('Y-m-d'),
         'payload' => [],
@@ -333,4 +334,26 @@ test('a Wikipedia bullet with no wikilink is still read as a candidate name', fu
 
     expect($woodard->fresh()->payload['primary_result'])->toBe('eliminated')
         ->and($brink->fresh()->payload['primary_result'])->toBe('eliminated');
+});
+
+test('page text alone never stamps a candidate, and never touches a sitting member', function () {
+    // Ballotpedia lists the people a candidate endorsed under "lost primary"; a biography says "conceded".
+    Http::fake([
+        'ballotpedia.org/*' => Http::response('<html>Endorsed Aaron Reitz: lost primary. He conceded and was eliminated.</html>', 200),
+        'en.wikipedia.org/w/api.php*' => Http::response(['parse' => ['wikitext' => "====Nominee====\n* [[Someone Else]]\n"]]),
+        'en.wikipedia.org/*' => Http::response(['extract' => 'Ted Lieu lost the primary and conceded.']),
+    ]);
+
+    $record = ElectionCandidateRecord::factory()->create([
+        'full_name' => 'Ted Lieu', 'governance_level' => 'federal', 'political_office' => 'U.S. Senator',
+        'state' => 'CA', 'election_date' => '2026-11-03', 'payload' => ['primary_result' => 'running'],
+    ]);
+    $profile = Politician::factory()->create(['full_name' => 'Ted Lieu', 'state' => 'CA', 'user_id' => null, 'term_status' => 'running', 'is_running_candidate' => true, 'slug' => 'ted-lieu-x']);
+    CandidateIdentityLink::create(['politician_id' => $profile->id, 'election_candidate_record_id' => $record->id, 'match_score' => 0.9, 'link_source' => 'system']);
+
+    Artisan::call('politicians:sync-primary-results', ['--state' => 'CA', '--force' => true]);
+
+    expect($record->fresh()->payload['primary_result'])->toBe('running')
+        ->and($profile->fresh()->term_status)->toBe('running');
+    Http::assertNotSent(fn ($request) => str_contains($request->url(), 'ballotpedia.org') || str_contains($request->url(), 'rest_v1'));
 });

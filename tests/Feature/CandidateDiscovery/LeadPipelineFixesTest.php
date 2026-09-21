@@ -337,8 +337,7 @@ it('lets an admin override a wrongly eliminated primary result', function () {
 it('re-checks wrongly eliminated discovery records: clears the stamp, restores the profile, keeps manual and real losses', function () {
     Http::fake([
         'ballotpedia.org/*' => Http::response('', 404),
-        'en.wikipedia.org/api/rest_v1/page/summary/Mike_Rogers' => Http::response(['extract' => 'Mike Rogers conceded the 2024 Senate race to Elissa Slotkin.']),
-        'en.wikipedia.org/api/rest_v1/page/summary/Real_Loser' => Http::response(['extract' => 'Real Loser lost the primary in 2026.']),
+        'en.wikipedia.org/w/api.php*' => Http::response(['parse' => ['wikitext' => "====Eliminated in primary====\n* [[Real Loser]]\n"]]),
         'en.wikipedia.org/*' => Http::response('', 404),
     ]);
     $make = fn (string $name, array $payload) => ElectionCandidateRecord::create([
