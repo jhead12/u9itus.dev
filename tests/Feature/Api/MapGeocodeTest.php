@@ -2,8 +2,10 @@
 
 namespace Tests\Feature\Api;
 
+use App\Models\DistrictLookupSearch;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
@@ -153,16 +155,19 @@ class MapGeocodeTest extends TestCase
             ->assertJsonPath('error', fn ($e) => str_contains($e, 'street, city, state'));
     }
 
+    private function seedCrosswalk(string $zip, array $districts, string $state = 'OH'): void
+    {
+        foreach ($districts as $number) {
+            DB::table('zip_district_crosswalk')->insert([
+                'zip' => $zip, 'state' => $state, 'district_number' => (string) $number, 'land_area' => 1000, 'congress' => 119,
+            ]);
+        }
+    }
+
     public function test_zip_spanning_several_districts_returns_them_all_and_picks_none(): void
     {
         Cache::flush();
-        config()->set('services.google.civic_api_key', 'test-key');
-        Http::fake([
-            'https://civicinfo.googleapis.com/*' => Http::response(['divisions' => [
-                'ocd-division/country:us/state:oh/cd:3' => ['name' => 'OH-3'],
-                'ocd-division/country:us/state:oh/cd:15' => ['name' => 'OH-15'],
-            ]], 200),
-        ]);
+        $this->seedCrosswalk('43215', [15, 3]);
 
         $response = $this->getJson('/api/v1/map/geocode?address=43215')->assertOk();
 
@@ -174,17 +179,27 @@ class MapGeocodeTest extends TestCase
     public function test_zip_inside_a_single_district_resolves_with_zip_precision(): void
     {
         Cache::flush();
-        config()->set('services.google.civic_api_key', 'test-key');
-        Http::fake([
-            'https://civicinfo.googleapis.com/*' => Http::response(['divisions' => [
-                'ocd-division/country:us/state:oh/cd:3' => ['name' => 'OH-3'],
-            ]], 200),
-        ]);
+        $this->seedCrosswalk('43215', [3]);
 
-        $this->getJson('/api/v1/map/geocode?address=43215')
+        $this->getJson('/api/v1/map/geocode?address=43215-1234')
             ->assertOk()
             ->assertJson(['ok' => true, 'district_code' => 'OH-03', 'precision' => 'zip'])
             ->assertJsonMissing(['ambiguous' => true]);
+    }
+
+    public function test_single_district_from_partial_records_is_offered_not_resolved(): void
+    {
+        Cache::flush();
+        Http::fake();
+        DistrictLookupSearch::create([
+            'query_address' => '1 S High St, Columbus, OH 43215', 'matched_address' => '1 S HIGH ST, COLUMBUS, OH, 43215',
+            'state' => 'OH', 'district_number' => '3', 'resolved' => true, 'source' => 'census_geocoder',
+        ]);
+
+        $response = $this->getJson('/api/v1/map/geocode?address=43215')->assertOk();
+
+        $response->assertJson(['ok' => true, 'ambiguous' => true]);
+        $this->assertSame(['OH-03'], collect($response->json('candidates'))->pluck('district_code')->all());
     }
 
     public function test_unresolvable_zip_asks_for_a_full_address(): void
@@ -195,18 +210,6 @@ class MapGeocodeTest extends TestCase
         $this->getJson('/api/v1/map/geocode?address=43215')
             ->assertNotFound()
             ->assertJson(['ok' => false, 'needs_address' => true]);
-    }
-
-    public function test_failed_zip_lookup_is_not_cached_for_later_requests(): void
-    {
-        Cache::flush();
-        config()->set('services.google.civic_api_key', 'test-key');
-        Http::fakeSequence('https://civicinfo.googleapis.com/*')
-            ->push([], 500)
-            ->push(['divisions' => ['ocd-division/country:us/state:oh/cd:3' => ['name' => 'OH-3']]], 200);
-
-        $this->getJson('/api/v1/map/geocode?address=43215')->assertNotFound();
-        $this->getJson('/api/v1/map/geocode?address=43215')->assertOk()->assertJson(['district_code' => 'OH-03']);
     }
 
     public function test_empty_and_oversized_addresses_are_rejected_before_any_lookup(): void

@@ -169,6 +169,13 @@ Schedule::command('geo:sync-state-poverty-rate')
     ->weeklyOn(0, '07:15')
     ->withoutOverlapping();
 
+// ZIP → congressional district crosswalk (Census relationship file) — lets the
+// map's "Find your district" card and /district-lookup resolve a bare ZIP.
+// Static between redistrictings, so monthly is plenty.
+Schedule::command('geo:sync-zip-districts')
+    ->monthlyOn(1, '07:30')
+    ->withoutOverlapping();
+
 // Weekly politician lifecycle reconciliation — marks seated/retired/lost/running.
 // Runs every Sunday at 04:00 UTC, after the candidate sync (02:00 UTC).
 // After a general election, trigger manually with --election-date=YYYY-MM-DD.

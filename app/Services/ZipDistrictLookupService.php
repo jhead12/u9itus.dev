@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\DistrictLookupSearch;
 use App\Models\Politician;
 use App\Models\ProfileAddress;
+use Illuminate\Support\Facades\DB;
 
 class ZipDistrictLookupService extends DistrictLookupService
 {
@@ -14,6 +15,14 @@ class ZipDistrictLookupService extends DistrictLookupService
             return [];
         }
         $zip = substr(trim($input), 0, 5);
+
+        // The Census ZIP crosswalk is a complete answer, so it wins over the
+        // partial sources below.
+        $crosswalk = $this->crosswalkDistricts($zip);
+        if ($crosswalk !== []) {
+            return $crosswalk;
+        }
+
         $districts = [];
 
         // Reuse recent resolved lookups without exposing the underlying home
@@ -65,6 +74,24 @@ class ZipDistrictLookupService extends DistrictLookupService
 
         return array_map(fn ($district) => $district + ['source' => 'google_civic'],
             app(GoogleCivicService::class)->districtsForZip($zip));
+    }
+
+    /** @return array<int, array<string, string>> */
+    private function crosswalkDistricts(string $zip): array
+    {
+        $rows = DB::table('zip_district_crosswalk')->where('zip', $zip)->get(['state', 'district_number']);
+
+        $districts = [];
+        foreach ($rows as $row) {
+            $code = $this->buildDistrictCode($row->state, $row->district_number);
+            $districts[$code] = [
+                'state' => $row->state, 'district_number' => $row->district_number, 'district_code' => $code,
+                'district_label' => $this->buildDistrictLabel($row->state, $row->district_number), 'source' => 'census_zcta',
+            ];
+        }
+        ksort($districts);
+
+        return array_values($districts);
     }
 
     private function addDistrict(array &$districts, ?string $state, ?string $raw): void

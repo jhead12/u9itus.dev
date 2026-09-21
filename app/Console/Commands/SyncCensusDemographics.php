@@ -128,6 +128,12 @@ class SyncCensusDemographics extends Command
 
     public function handle(DistrictLookupService $districtLookup): int
     {
+        if (! env('CENSUS_DATA_API')) {
+            $this->error('CENSUS_DATA_API is not set — the Census API rejects unauthenticated requests.');
+
+            return self::FAILURE;
+        }
+
         $year = (int) $this->option('year');
         $dryRun = (bool) $this->option('dry-run');
         $stateFilter = collect((array) $this->option('state'))
@@ -417,9 +423,17 @@ class SyncCensusDemographics extends Command
 
     private function fetchCensus(string $url): ?array
     {
-        $this->line("  GET {$url}");
+        $this->line('  GET ' . preg_replace('/([?&]key=)[^&]*/', '$1***', $url));
 
-        $response = Http::timeout(60)->get($url);
+        // Census answers a missing/invalid key with a 302 to an HTML page;
+        // following it yields a 200 that looks like a bad response shape.
+        $response = Http::timeout(60)->withoutRedirecting()->get($url);
+
+        if ($response->redirect() || $response->header('X-DataWebAPI-KeyError') !== '') {
+            $this->error('  Census API rejected the request: CENSUS_DATA_API is missing or invalid.');
+
+            return null;
+        }
 
         if (! $response->ok()) {
             $this->error("  Census API error: HTTP {$response->status()} — {$response->body()}");

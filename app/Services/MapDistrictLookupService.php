@@ -73,35 +73,4 @@ class MapDistrictLookupService extends DistrictLookupService
             return null;
         }
     }
-
-    public function districtsForZip(string $zip): array
-    {
-        $key = config('services.google.civic_api_key');
-        if (! $key) return [];
-        $hash = $this->inputHash($zip);
-        $cacheKey = "map.zip.v1.$hash";
-        $cached = Cache::get($cacheKey);
-        if (is_array($cached)) return $cached;
-        try {
-            $response = Http::timeout(15)->get('https://civicinfo.googleapis.com/civicinfo/v2/divisionsByAddress', ['address' => $zip, 'key' => $key]);
-            if (! $response->successful()) {
-                Log::warning('Map ZIP lookup failed', ['input_hash' => $hash, 'status' => $response->status()]);
-                return [];
-            }
-            $districts = [];
-            foreach (array_keys((array) $response->json('divisions')) as $division) {
-                if (! preg_match('~^ocd-division/country:us/state:([a-z]{2})/cd:(\d+)$~i', $division, $m)) continue;
-                $state = strtoupper($m[1]);
-                $number = (string) (int) $m[2];
-                $code = $this->buildDistrictCode($state, $number);
-                $districts[$code] = ['state' => $state, 'district_number' => $number, 'district_code' => $code, 'district_label' => $this->buildDistrictLabel($state, $number)];
-            }
-            $districts = array_values($districts);
-            if ($districts !== []) Cache::put($cacheKey, $districts, now()->addHours(12));
-            return $districts;
-        } catch (\Throwable $e) {
-            Log::warning('Map ZIP lookup unavailable', ['input_hash' => $hash, 'failure_type' => get_class($e)]);
-            return [];
-        }
-    }
 }

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Services\MapDistrictLookupService;
+use App\Services\ZipDistrictLookupService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -18,6 +19,7 @@ class MapGeocodeController
 {
     public function __construct(
         private MapDistrictLookupService $districtLookup,
+        private ZipDistrictLookupService $zipDistricts,
     ) {
     }
 
@@ -96,14 +98,16 @@ class MapGeocodeController
     }
 
     /**
-     * A ZIP often spans more than one district, so it is never resolved by
-     * picking the first match: one district is a confident answer, several
-     * are returned for the visitor to choose from, and none is reported as
-     * unresolved (including when the ZIP lookup isn't configured).
+     * Uses the same ZIP resolver as /district-lookup. A ZIP often spans more
+     * than one district, so it is never resolved by picking the first match:
+     * one district from a complete source (the Census crosswalk) is a confident
+     * answer, several are returned for the visitor to choose from, and none is
+     * reported as unresolved. A single district from U9itus's partial records
+     * is only a hint, so it is offered as a choice rather than resolved.
      */
     private function lookupZip(string $zip): JsonResponse
     {
-        $districts = $this->districtLookup->districtsForZip($zip);
+        $districts = $this->zipDistricts->districtsForZip($zip);
 
         if ($districts === []) {
             return response()->json([
@@ -113,7 +117,7 @@ class MapGeocodeController
             ], 404);
         }
 
-        if (count($districts) === 1) {
+        if (count($districts) === 1 && ($districts[0]['source'] ?? null) !== 'u9itus_records') {
             return response()->json($this->resolved($districts[0], 'zip'));
         }
 
@@ -121,7 +125,9 @@ class MapGeocodeController
             'ok' => true,
             'ambiguous' => true,
             'precision' => 'zip',
-            'message' => "ZIP code {$zip} covers more than one congressional district. Enter your full street address for an exact match, or choose one to explore.",
+            'message' => count($districts) === 1
+                ? "We only have a partial match for ZIP code {$zip}. Enter your full street address to confirm, or choose it to explore."
+                : "ZIP code {$zip} covers more than one congressional district. Enter your full street address for an exact match, or choose one to explore.",
             'candidates' => array_map(fn (array $d) => [
                 'state' => $d['state'],
                 'district_number' => $d['district_number'],
