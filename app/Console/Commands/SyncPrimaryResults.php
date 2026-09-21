@@ -40,7 +40,7 @@ class SyncPrimaryResults extends Command
         {--recheck-eliminated : Re-run the classifier on this cycle\'s news-discovered records stamped eliminated; clear a stamp it can no longer support.}
         {--limit=300 : With --recheck-eliminated: max records to re-check per run.}';
 
-    protected $description = 'Sync primary election results for state and federal candidates from Ballotpedia/Wikipedia.';
+    protected $description = 'Sync primary election results for state and federal candidates from each race\'s Wikipedia article.';
 
     private const DELAY_MS = 500;
 
@@ -73,7 +73,7 @@ class SyncPrimaryResults extends Command
         // imports often store the GENERAL election date on the row. If we filtered by
         // past election_date, eliminated primary candidates would never be processed.
         // The district filter remains broad; governance_level in (state, federal) is the
-        // scope guard — local/city races aren't covered by the Ballotpedia/Wikipedia tiers.
+        // scope guard — local/city races aren't covered by the Wikipedia race articles.
         // Driver-branching JSON extraction so the SQLite test env doesn't choke on
         // MySQL's JSON_UNQUOTE(JSON_EXTRACT(...)). Both return the unquoted scalar.
         $driver = DB::connection()->getDriverName();

@@ -18,17 +18,17 @@ class VerifyCandidateLeads extends Command
         {--recheck       : Also re-verify leads left "verified" below the threshold, or rejected by the AI tier.}
         {--relink        : Re-promote "promoted" leads whose record was deleted, when the FEC roster or a non-news record corroborates the name.}
         {--dry-run       : Report only — no DB writes.}
-        {--skip-ai       : Use Ballotpedia/Wikipedia tiers only (no Anthropic call).}
+        {--skip-ai       : Skip the Anthropic tier (no other tier verifies a lead, so leads stay pending).}
         {--require-ai    : Fail when ANTHROPIC_API_KEY is missing.}';
 
-    protected $description = 'Verify pending candidate_leads via the tiered Ballotpedia/Wikipedia/LLM registry and auto-promote high-confidence results.';
+    protected $description = 'Verify pending candidate_leads via the tiered verifier registry and auto-promote high-confidence results.';
 
     /** Confidence threshold at which a verified lead auto-promotes. */
     private const PROMOTE_THRESHOLD = 0.85;
 
     /**
      * A lead the FEC roster (or a non-news record) independently confirms is a real
-     * person on the ballot for that chamber — Wikipedia's 0.80 is enough then.
+     * person on the ballot for that chamber — a 0.80 is enough then.
      */
     private const CORROBORATED_THRESHOLD = 0.7;
 
@@ -51,7 +51,7 @@ class VerifyCandidateLeads extends Command
         }
 
         if (! $skipAi && $apiKey === '') {
-            $this->warn('ANTHROPIC_API_KEY missing: running Ballotpedia/Wikipedia tiers only.');
+            $this->warn('ANTHROPIC_API_KEY missing: no verifier is available, leads stay pending.');
             $skipAi = true;
         }
 
@@ -84,9 +84,9 @@ class VerifyCandidateLeads extends Command
 
             // Circuit breaker: first quota-exhausted response flips $allowAi for
             // the rest of the run — no more wasted API calls — then re-checks
-            // this same lead against the heuristic-only tiers.
+            // this same lead without it.
             if (($result['status'] ?? null) === 'quota_exhausted') {
-                $this->warn('  ⚡ Anthropic quota exhausted — switching to Ballotpedia/Wikipedia-only for remaining leads.');
+                $this->warn('  ⚡ Anthropic quota exhausted — remaining leads stay pending.');
                 $allowAi = false;
                 $result = $registry->verifyTiered($lead, false);
             }

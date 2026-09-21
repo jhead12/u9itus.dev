@@ -130,7 +130,7 @@ class CandidateLeadPromoter
 
     /**
      * A promoted lead almost never carries an explicit election_date — the
-     * Ballotpedia/Wikipedia tiers only classify a primary_result, they don't
+     * verifier only classifies a status, it doesn't
      * extract a date. Without one, politicians:sync-primary-results skips the
      * row unconditionally (its "no election_date" guard runs before --force
      * is even considered), so a promoted-but-dateless lead can never actually

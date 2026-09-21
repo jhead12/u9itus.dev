@@ -374,3 +374,19 @@ it('drops an unlinked discovery record whose cleaned name is still a fragment', 
 
     expect(ElectionCandidateRecord::find($junk->id))->toBeNull();
 });
+
+it('never verifies or promotes a lead from the text of a Ballotpedia or Wikipedia page', function () {
+    // Angela Paxton's page says "advance" and Ken Paxton's endorsements table says "lost primary".
+    Http::fake([
+        'ballotpedia.org/*' => Http::response('<html>Texas U.S. Senate. Endorsed Aaron Reitz: lost primary. Her husband did not advance.</html>', 200),
+        'en.wikipedia.org/*' => Http::response(['extract' => 'Angela Paxton is a Texas state senator. She could advance to the general.']),
+    ]);
+    config(['services.anthropic.api_key' => '']);
+    $lead = txSenateLead('Angela Paxton');
+
+    $this->artisan('candidates:verify-leads', ['--state' => 'TX'])->assertSuccessful();
+
+    expect($lead->fresh()->status)->toBe(CandidateLead::STATUS_PENDING);
+    $this->assertDatabaseMissing('election_candidate_records', ['full_name' => 'Angela Paxton']);
+    Http::assertNothingSent();
+});

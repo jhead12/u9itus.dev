@@ -755,7 +755,7 @@ jobs:
 
       # ── Sync primary election results ────────────────────────────────────
       # For each statewide candidate whose election_date is in the past,
-      # scrapes Ballotpedia/Wikipedia to determine if they advanced to the
+      # reads the race's Wikipedia article to determine if they advanced to the
       # general or were eliminated. Stamps payload.primary_result.
       # Eliminated candidates are then hidden from the map API automatically.
       # --force re-checks records that already have primary_result set,

@@ -8,17 +8,20 @@ use Illuminate\Support\Facades\App;
 
 /**
  * Ordered tier list of verifiers. verifyTiered() walks them in order and
- * returns the first non-null result — generalizes SyncPrimaryResults's
- * hardcoded "try Ballotpedia, then Wikipedia" fallthrough to N pluggable
- * tiers. The LLM tier is last and skipped entirely when $allowAi is false
- * (--skip-ai) or the tripped circuit breaker has disabled it for this run.
+ * returns the first non-null result. The LLM tier is skipped entirely when
+ * $allowAi is false (--skip-ai) or the tripped circuit breaker has disabled it
+ * for this run.
+ *
+ * There is deliberately no Ballotpedia or Wikipedia page-text tier. Keyword-matching
+ * a candidate's page reads their endorsements table and earlier cycles as their own
+ * result ("lost primary" flagged Ken Paxton eliminated) and a bare "advance" made
+ * Angela Paxton a U.S. Senate candidate. A primary result comes only from the race's
+ * Wikipedia article, via politicians:sync-primary-results.
  */
 class CandidateVerificationRegistry
 {
     /** @var array<int, class-string<CandidateLeadVerifier>> */
     protected array $tiers = [
-        BallotpediaLeadVerifier::class,
-        WikipediaLeadVerifier::class,
         LlmCandidateLeadVerifier::class,
     ];
 
