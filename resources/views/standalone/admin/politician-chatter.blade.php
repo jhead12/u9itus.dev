@@ -34,13 +34,15 @@
 
     <details class="rounded-2xl border border-slate-700/70 bg-slate-800/40" {{ $errors->any() ? 'open' : '' }}>
         <summary class="cursor-pointer px-5 py-4 font-semibold text-white">+ Collect a source for review</summary>
-        <form method="POST" action="{{ route('admin.politician-chatter.store') }}" class="border-t border-slate-700/60 p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+        @can('chatter.create')
+<form method="POST" action="{{ route('admin.politician-chatter.store') }}" class="border-t border-slate-700/60 p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
             @csrf
             @include('standalone.admin.partials.chatter-fields', ['chatter' => null])
             <div class="md:col-span-2 flex justify-end">
                 <button class="rounded-lg bg-amber-500 px-5 py-2.5 text-sm font-bold text-slate-950 hover:bg-amber-400">Add to review queue</button>
             </div>
         </form>
+@endcan
     </details>
 
     <form method="GET" class="flex flex-col sm:flex-row gap-3 rounded-xl border border-slate-700/60 bg-slate-800/30 p-4">
@@ -71,16 +73,24 @@
 
                     <div class="flex flex-wrap lg:w-64 gap-2">
                         @if($chatter->moderation_status !== 'published')
-                            <form method="POST" action="{{ route('admin.politician-chatter.moderate', $chatter) }}">@csrf<input type="hidden" name="action" value="publish"><button class="rounded-lg bg-emerald-500 px-3 py-2 text-xs font-bold text-slate-950 hover:bg-emerald-400">Publish</button></form>
+                            @can('chatter.publish')
+<form method="POST" action="{{ route('admin.politician-chatter.moderate', $chatter) }}">@csrf<input type="hidden" name="action" value="publish"><button class="rounded-lg bg-emerald-500 px-3 py-2 text-xs font-bold text-slate-950 hover:bg-emerald-400">Publish</button></form>
+@endcan
                         @endif
                         @if($chatter->moderation_status !== 'rejected')
-                            <form method="POST" action="{{ route('admin.politician-chatter.moderate', $chatter) }}">@csrf<input type="hidden" name="action" value="reject"><button class="rounded-lg border border-red-500/40 px-3 py-2 text-xs font-semibold text-red-200 hover:bg-red-500/10">Reject</button></form>
+                            @can('chatter.moderate')
+<form method="POST" action="{{ route('admin.politician-chatter.moderate', $chatter) }}">@csrf<input type="hidden" name="action" value="reject"><button class="rounded-lg border border-red-500/40 px-3 py-2 text-xs font-semibold text-red-200 hover:bg-red-500/10">Reject</button></form>
+@endcan
                         @endif
                         @if($chatter->moderation_status !== 'archived')
-                            <form method="POST" action="{{ route('admin.politician-chatter.moderate', $chatter) }}">@csrf<input type="hidden" name="action" value="archive"><button class="rounded-lg border border-slate-600 px-3 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-700">Archive</button></form>
+                            @can('chatter.moderate')
+<form method="POST" action="{{ route('admin.politician-chatter.moderate', $chatter) }}">@csrf<input type="hidden" name="action" value="archive"><button class="rounded-lg border border-slate-600 px-3 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-700">Archive</button></form>
+@endcan
                         @endif
                         @if($chatter->moderation_status !== 'pending')
-                            <form method="POST" action="{{ route('admin.politician-chatter.moderate', $chatter) }}">@csrf<input type="hidden" name="action" value="return_to_review"><button class="rounded-lg border border-amber-500/40 px-3 py-2 text-xs font-semibold text-amber-200">Review again</button></form>
+                            @can('chatter.moderate')
+<form method="POST" action="{{ route('admin.politician-chatter.moderate', $chatter) }}">@csrf<input type="hidden" name="action" value="return_to_review"><button class="rounded-lg border border-amber-500/40 px-3 py-2 text-xs font-semibold text-amber-200">Review again</button></form>
+@endcan
                         @endif
                     </div>
                 </div>
@@ -88,11 +98,13 @@
                 <details class="border-t border-slate-700/60">
                     <summary class="cursor-pointer px-5 py-3 text-sm font-semibold text-slate-300 hover:text-white">Edit evidence and review history</summary>
                     <div class="border-t border-slate-700/60 p-5 grid grid-cols-1 xl:grid-cols-[2fr_1fr] gap-6">
-                        <form method="POST" action="{{ route('admin.politician-chatter.update', $chatter) }}" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        @can('chatter.edit')
+<form method="POST" action="{{ route('admin.politician-chatter.update', $chatter) }}" class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             @csrf @method('PUT')
                             @include('standalone.admin.partials.chatter-fields', ['chatter' => $chatter])
                             <div class="md:col-span-2 flex justify-end"><button class="rounded-lg bg-slate-600 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-500">Save changes</button></div>
                         </form>
+@endcan
                         <aside>
                             <h3 class="text-xs font-semibold uppercase tracking-wide text-slate-400">Audit history</h3>
                             <ol class="mt-3 space-y-3">

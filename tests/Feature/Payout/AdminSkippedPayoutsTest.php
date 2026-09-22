@@ -21,7 +21,7 @@ class AdminSkippedPayoutsTest extends TestCase
         Role::firstOrCreate(['name' => 'admin', 'guard_name' => 'web']);
 
         $admin = User::factory()->create();
-        $admin->assignRole('admin');
+        $admin->assignRole('admin', 'staff:Legacy administrator');
         skipOnboarding($admin, 'admin');
 
         $voter = Voter::factory()->create();

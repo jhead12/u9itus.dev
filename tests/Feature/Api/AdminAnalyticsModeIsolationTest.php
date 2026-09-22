@@ -35,7 +35,7 @@ class AdminAnalyticsModeIsolationTest extends TestCase
 
         $admin = User::factory()->create();
         if (method_exists($admin, 'assignRole')) {
-            $admin->assignRole('admin');
+            $admin->assignRole('admin', 'staff:Legacy administrator');
         }
 
         $politician = Politician::factory()->create();

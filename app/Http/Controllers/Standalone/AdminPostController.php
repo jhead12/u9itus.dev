@@ -30,6 +30,43 @@ use Illuminate\View\View;
  */
 class AdminPostController extends Controller
 {
+    public function create(): View
+    {
+        return view('standalone.admin.posts.edit', ['post' => new Post]);
+    }
+
+    public function store(Request $request): RedirectResponse
+    {
+        $data = $this->editorData($request);
+        $post = Post::create($data + [
+            'author_type' => \App\Models\User::class, 'author_id' => $request->user()->id,
+            'status' => PostStatus::Draft->value,
+        ]);
+        return redirect()->route('admin.posts.index')->with('success', 'Draft saved for review.');
+    }
+
+    public function edit(Post $post): View
+    {
+        return view('standalone.admin.posts.edit', compact('post'));
+    }
+
+    public function update(Request $request, Post $post): RedirectResponse
+    {
+        abort_if($post->status === PostStatus::Published && ! \App\Support\AdminAccess::allowed($request->user(), 'blog.publish'), 403);
+        $post->update($this->editorData($request));
+        return redirect()->route('admin.posts.index')->with('success', 'Post updated.');
+    }
+
+    private function editorData(Request $request): array
+    {
+        return $request->validate([
+            'title' => ['required', 'string', 'max:255'],
+            'subtitle' => ['nullable', 'string', 'max:255'],
+            'excerpt' => ['nullable', 'string', 'max:2000'],
+            'body' => ['required', 'string', 'max:100000'],
+        ]);
+    }
+
     /** Statuses an admin may move a post to Published from. */
     private const PUBLISHABLE_FROM = [
         PostStatus::Draft,
@@ -51,6 +88,7 @@ class AdminPostController extends Controller
             PostStatus::cases()
         );
         $allowedAuthorTypes = [
+            \App\Models\User::class => 'Staff',
             Politician::class => 'Politician',
             Citizen::class => 'Citizen',
         ];

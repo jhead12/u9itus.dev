@@ -23,6 +23,25 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        foreach (array_keys(\App\Support\AdminAccess::catalog()) as $permission) {
+            \Illuminate\Support\Facades\Gate::define($permission, fn ($user) => \App\Support\AdminAccess::allowed($user, $permission));
+        }
+        \Illuminate\Support\Facades\Gate::define('staff.roles.manage', fn ($user) => \App\Support\AdminAccess::owner($user));
+        // Privileged identities must first be demoted through the serialized
+        // access service. This covers generic profile/self-delete paths too.
+        \App\Models\User::deleting(function ($user) {
+            if ($user->hasRole('admin', 'web')) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['user' => 'Staff accounts cannot be deleted. Revoke their access instead.']);
+            }
+        });
+        \App\Models\User::updating(function ($user) {
+            if ($user->hasRole(\App\Support\AdminAccess::OWNER, 'web')
+                && (($user->isDirty('suspended_at') && $user->suspended_at)
+                    || ($user->isDirty('user_type') && $user->user_type !== 'admin')
+                    || ($user->isDirty('email_verified_at') && ! $user->email_verified_at))) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['user' => 'Demote this Super Admin through Staff access before disabling the account.']);
+            }
+        });
         // Financial configuration health checks (non-local/non-test environments only).
         if (! app()->environment('local', 'testing')) {
             if (empty(config('services.stripe.webhook_secret'))) {

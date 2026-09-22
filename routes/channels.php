@@ -57,7 +57,10 @@ Broadcast::channel('citizen.{userId}', function (User $user, int $userId): bool 
 |--------------------------------------------------------------------------
 */
 Broadcast::channel('admin.monitor', function (User $user): bool {
-    return $user->hasRole('admin');
+    // Fraud/analytics stream: owner always allowed; otherwise requires the
+    // fraud.view permission so legacy admins (grandfathered with the full
+    // catalog) keep the access they had before staff permissions existed.
+    return \App\Support\AdminAccess::allowed($user, 'fraud.view');
 });
 
 /*
@@ -80,7 +83,7 @@ Broadcast::channel('campaign.live.{campaignUuid}', function (User $user, string 
     }
 
     // Politicians can host; voters can watch; admins can monitor
-    if (! $user->hasAnyRole(['admin', 'politician', 'voter'])) {
+    if (! $user->hasAnyRole(['politician', 'voter']) && ! \App\Support\AdminAccess::allowed($user, 'campaigns.view')) {
         return false;
     }
 

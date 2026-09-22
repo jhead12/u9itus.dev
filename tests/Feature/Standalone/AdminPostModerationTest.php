@@ -22,7 +22,8 @@ function makeAdminForPostModeration(): User
 {
     $admin = User::factory()->create(['platform' => 'standalone', 'user_type' => 'admin']);
     if (method_exists($admin, 'assignRole')) {
-        $admin->assignRole('admin');
+        $admin->assignRole('admin', 'staff:Blog Publisher');
+        $admin->givePermissionTo('blog.delete');
     }
     skipOnboarding($admin, 'admin');
     return $admin;
@@ -258,7 +259,7 @@ test('bulk action rejects an invalid action', function () {
             'action' => 'bogus',
             'post_ids' => [$post->id],
         ])
-        ->assertSessionHasErrors(['action']);
+        ->assertForbidden();
 });
 
 test('bulk action requires at least one selected post', function () {

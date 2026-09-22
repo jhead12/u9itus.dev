@@ -54,6 +54,7 @@ class AdminPoliticianChatterController extends Controller
 
     public function update(Request $request, PoliticianChatterItem $chatter)
     {
+        abort_if($chatter->moderation_status === 'published' && ! \App\Support\AdminAccess::allowed($request->user(), 'chatter.publish'), 403);
         $data = $this->validated($request);
         $before = $chatter->only(array_keys($data));
         $data['engagement_metrics'] = $this->metrics($data);

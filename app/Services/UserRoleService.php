@@ -111,6 +111,9 @@ class UserRoleService
      */
     public function dashboardRouteFor(User $user): string
     {
+        if ($this->hasRole($user, 'admin')) {
+            return route('admin.dashboard');
+        }
         // Dual-role portal picker: voter + citizen → explicit choice.
         if ($this->hasRole($user, 'voter') && $this->hasRole($user, 'citizen')) {
             return route('portal-pick');

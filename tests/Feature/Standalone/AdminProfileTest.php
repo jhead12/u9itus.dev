@@ -17,7 +17,7 @@ function makeAdminForProfileTest(array $overrides = []): User
         'email_verified_at' => now(),
     ], $overrides));
 
-    $admin->assignRole('admin');
+    $admin->assignRole('admin', 'staff:Legacy administrator');
     skipOnboarding($admin, 'admin');
 
     return $admin;

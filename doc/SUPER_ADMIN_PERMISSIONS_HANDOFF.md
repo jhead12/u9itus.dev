@@ -1,6 +1,6 @@
 # Super Admin and delegated staff permissions — implementation handoff
 
-Last inspected: 2026-09-22. This document is the durable build specification and restart prompt. It does not indicate that permissions have been implemented.
+Last inspected: 2026-09-22. This document is the durable build specification and restart prompt. Checkpoints 1-4 have a working implementation in the tree (uncommitted, on `codex/politician-chatter-review`) — see the progress ledger below for status and verification evidence before assuming anything is unfinished.
 
 ## Copy-and-paste resume prompt
 
@@ -141,6 +141,13 @@ authoring support or explicitly document an agreed scope limit.
   registration, existing seeds, and admin creation commands.
 - Produce a route/action-to-permission matrix in this document or a linked file.
   Include bulk operations, alternate HTTP verbs, and sensitive indirect reads.
+  **Implemented as `config/admin_routes.php`** (163 route-name → permission
+  entries, `@staff`/`@owner`/`@action` sentinels for special cases) plus
+  `config/admin_route_requirements.php` for routes needing more than one
+  permission. `tests/Feature/Standalone/StaffPermissionsTest.php` asserts every
+  `admin.*` and `api.v1.admin.*` route name has an entry and that any route
+  absent from the file is denied by default — treat that test, not a prose
+  table, as the matrix's source of truth.
 - Map current roles and schema using local/test data. Never expose account
   secrets or change production users to prepare the implementation.
 - Confirm staff can complete onboarding without being sent to forbidden finance
@@ -230,16 +237,27 @@ already exists. Commit hashes listed here are navigation aids, not reset targets
 
 | Checkpoint | Status | Evidence / next action |
 | --- | --- | --- |
-| Documentation | Complete | This build specification; no permission code changed |
+| Documentation | Complete | This build specification |
 | Existing chatter | Committed | `13fa5d05`; manual intake/moderation only |
-| 1. Inventory | Not started | Create complete route/action access matrix |
-| 2. Catalog/migration | Not started | Review role repair, seeder, and admin creation paths |
-| 3. Enforcement | Not started | Implement matrix across web/API/data paths |
-| 4. UI | Not started | Build role and staff management, then delegated navigation |
-| 5. Verification/rollout | Not started | Execute acceptance tests and record deployment steps |
+| 1. Inventory | Done | `config/admin_routes.php` (163 entries) + `config/admin_route_requirements.php` act as the matrix; coverage and default-deny both asserted by `StaffPermissionsTest` |
+| 2. Catalog/migration | Done | `AdminPermissionInstaller` (idempotent, preserves edited starter roles — test-covered), `database/migrations/2026_09_22_000002_install_admin_permissions.php` grandfathers pre-existing admins into a protected `staff:Legacy administrator` role with the full catalog (not auto-`super_admin`, per decision 8), `RoleSeeder` no longer syncs privileged permissions onto `admin`, `CreateAdminUser` changed from destructive `syncRoles(['admin'])` to additive `assignRole('admin')` so it can no longer erase staff/owner roles |
+| 3. Enforcement | Done | `AuthorizeAdminAccess` middleware registered globally on both `web` and `api` groups (`bootstrap/app.php`), path-filtered to `admin*` / `api/v1/admin*`, default-denies any route name absent from `admin_routes.php`; dashboard totals gated in `AdminController::dashboard()` before the query runs, not just hidden in Blade |
+| 4. UI | Done (not browser-verified) | Role CRUD, staff search/assign/revoke, effective-access summary, and audit log view all exist (`AdminStaffController`, `staff-access.blade.php`, `StaffAccessService`); sidebar nav in `dashboard.blade.php` gated per-link through `AdminAccess::canRoute()`. Still needs a real desktop/mobile pass in a browser per checkpoint 4's own instruction. |
+| 5. Verification/rollout | Tests done, rollout doc not written | `StaffPermissionsTest`: 9/9 passed, 212 assertions. Full `Standalone/Admin/Api/Campaign/Citizen/Payout` suite: 623 passed, 1 pre-existing unrelated failure (`MapStateCandidatesDiscoveryGateTest`, a seeding constraint issue, not touched by this feature). `route:list --path=admin`: 160 routes resolve cleanly. Deployment/backfill-order/cache-reset runbook text still needs writing below before production rollout. |
 
-Initial Super Admin production account: not selected. This does not block local
-implementation or fixture testing, but must be resolved before production activation.
+Initial Super Admin production account: **still not selected.** This is the one
+remaining item that blocks production activation — it is independent of code
+completeness above, and nothing in this implementation picks an owner for you.
+`php artisan admin:bootstrap-owner` exists for this but must not be run against
+a real account without explicit authorization.
+
+Known follow-up (not yet resolved as of this entry): the `admin.monitor`
+broadcast channel (`routes/channels.php`) was briefly owner-only during
+development, which would have cut grandfathered legacy admins off from the
+real-time fraud/analytics stream despite decision 8's "preserve existing
+access." It now checks `AdminAccess::allowed($user, 'fraud.view')`, which
+owners and legacy admins (and any staff role granted that permission) satisfy.
+Re-verify this is still true if the channel is touched again.
 
 ### Next-agent checkpoint entry template
 

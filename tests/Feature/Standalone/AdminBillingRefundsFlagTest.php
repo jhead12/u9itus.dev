@@ -21,7 +21,7 @@ function makeAdminForBillingRefundsTest(): User
         'email_verified_at' => now(),
     ]);
 
-    $admin->assignRole('admin');
+    $admin->assignRole('admin', 'staff:Legacy administrator');
     skipOnboarding($admin, 'admin');
 
     return $admin;

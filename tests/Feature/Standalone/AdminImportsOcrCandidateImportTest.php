@@ -17,7 +17,7 @@ function adminForOcrCandidateImportTests(): User
         'user_type' => 'admin',
     ]);
 
-    $admin->assignRole('admin');
+    $admin->assignRole('admin', 'staff:Legacy administrator');
     skipOnboarding($admin, 'admin');
 
     return $admin;

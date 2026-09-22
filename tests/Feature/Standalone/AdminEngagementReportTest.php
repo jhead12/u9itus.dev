@@ -26,7 +26,7 @@ function makeAdminForEngagementReport(): User
     ]);
 
     if (method_exists($admin, 'assignRole')) {
-        $admin->assignRole('admin');
+        $admin->assignRole('admin', 'staff:Legacy administrator');
     }
 
     skipOnboarding($admin, 'admin');

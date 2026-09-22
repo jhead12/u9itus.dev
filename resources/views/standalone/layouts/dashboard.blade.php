@@ -262,145 +262,93 @@
                 </a>
 
             @elseif($dashboardActivePortal === 'admin' && auth()->user()?->hasRole('admin'))
-                <p class="px-4 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">Overview</p>
-
-                <a href="{{ route('admin.dashboard') }}" class="sidebar-link {{ request()->routeIs('admin.dashboard') ? 'active' : '' }}">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7"/></svg>
-                    Dashboard
-                </a>
-
-                <p class="px-4 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider mt-2">Campaigns</p>
-
-                <a href="{{ route('admin.campaigns.pending') }}" class="sidebar-link {{ request()->routeIs('admin.campaigns.pending') ? 'active' : '' }}">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.069A1 1 0 0121 8.87v6.26a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
-                    Pending Approval
-                </a>
-
-                <a href="{{ route('admin.campaigns.running') }}" class="sidebar-link {{ request()->routeIs('admin.campaigns.running') ? 'active' : '' }}">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
-                    Running Campaigns
-                </a>
-
-                <p class="px-4 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider mt-2">Content</p>
-
-                <a href="{{ route('admin.posts.index') }}" class="sidebar-link {{ request()->routeIs('admin.posts.*') ? 'active' : '' }}">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                    Blog Posts
-                </a>
-
-                <a href="{{ route('admin.politician-chatter.index') }}" class="sidebar-link {{ request()->routeIs('admin.politician-chatter.*') ? 'active' : '' }}">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h6m-8 8l-2 1 1-4a9 9 0 111 3z"/></svg>
-                    Public Chatter
-                </a>
-
-                <a href="{{ route('admin.topics.index') }}" class="sidebar-link {{ request()->routeIs('admin.topics.*') ? 'active' : '' }}">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
-                    Topics
-                </a>
-
-                <a href="{{ route('admin.causes.index') }}" class="sidebar-link {{ request()->routeIs('admin.causes.*') ? 'active' : '' }}">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.196-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>
-                    Causes
-                </a>
-
-                <a href="{{ route('admin.ballot-measures.index') }}" class="sidebar-link {{ request()->routeIs('admin.ballot-measures.*') ? 'active' : '' }}">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
-                    Ballot Measures
-                </a>
-
-                <p class="px-4 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider mt-2">Users</p>
-
-                <a href="{{ route('admin.users.index') }}" class="sidebar-link {{ request()->routeIs('admin.users.*') ? 'active' : '' }}">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
-                    All Users
-                </a>
-
-                <a href="{{ route('admin.deleted-accounts.index') }}" class="sidebar-link {{ request()->routeIs('admin.deleted-accounts.*') ? 'active' : '' }}">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                    Deleted Accounts
-                </a>
-
-                <a href="{{ route('admin.candidate-matches.index') }}" class="sidebar-link {{ request()->routeIs('admin.candidate-matches.*') ? 'active' : '' }}">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9h8M8 13h6m5 8H5a2 2 0 01-2-2V5a2 2 0 012-2h6.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                    Candidate Matches
-                </a>
-
-                <a href="{{ route('admin.data-quality.index') }}" class="sidebar-link {{ request()->routeIs('admin.data-quality.*') ? 'active' : '' }}">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
-                    Data Quality
-                </a>
-
-                <a href="{{ route('admin.data-reports.index') }}" class="sidebar-link {{ request()->routeIs('admin.data-reports.*') ? 'active' : '' }}">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"/></svg>
-                    Data Reports
-                </a>
-
-                <a href="{{ route('admin.kyc.index') }}" class="sidebar-link {{ request()->routeIs('admin.kyc.*') ? 'active' : '' }}" title="Know Your Customer — Identity Verification">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2"/></svg>
-                    KYC Review
-                    <span class="ml-auto text-xs text-slate-600">ID</span>
-                </a>
-
-                <a href="{{ route('admin.fraud.index') }}" class="sidebar-link {{ request()->routeIs('admin.fraud.*') ? 'active' : '' }}">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-                    Fraud Detection
-                </a>
-
-                <p class="px-4 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider mt-2">Finance</p>
-
-                <a href="{{ route('admin.payouts.index') }}" class="sidebar-link {{ request()->routeIs('admin.payouts.*') ? 'active' : '' }}">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
-                    Payouts
-                </a>
-
-                <a href="{{ route('admin.billing.refunds') }}" class="sidebar-link {{ request()->routeIs('admin.billing.refunds') ? 'active' : '' }}">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
-                    Politician Refunds
-                </a>
-
-                <a href="{{ route('admin.citizen-billing.refunds') }}" class="sidebar-link {{ request()->routeIs('admin.citizen-billing.refunds') ? 'active' : '' }}">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
-                    Citizen Refunds
-                </a>
-
-                <a href="{{ route('admin.imports') }}" class="sidebar-link {{ request()->routeIs('admin.imports') ? 'active' : '' }}">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                    Data Imports
-                </a>
-
-                <a href="{{ route('admin.analytics') }}" class="sidebar-link {{ request()->routeIs('admin.analytics*') ? 'active' : '' }}">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
-                    Analytics
-                </a>
-
-                <a href="{{ route('admin.district-searches.index') }}" class="sidebar-link {{ request()->routeIs('admin.district-searches.*') ? 'active' : '' }}">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 01.553-.894L9 2m0 18l6-3m-6 3V2m6 15l5.447 2.724A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 2"/></svg>
-                    District Searches
-                </a>
-
-                <p class="px-4 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider mt-2">System</p>
-
-                <a href="{{ route('admin.settings') }}" class="sidebar-link {{ (request()->routeIs('admin.settings*') || request()->routeIs('admin.2fa.*')) && !request()->routeIs('admin.platform-settings*') ? 'active' : '' }}">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                    Settings
-                </a>
-
-                <a href="{{ route('admin.platform-settings') }}" class="sidebar-link {{ request()->routeIs('admin.platform-settings*') ? 'active' : '' }}">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                    Platform Pricing
-                </a>
-
-                <a href="{{ route('admin.email-templates.index') }}" class="sidebar-link {{ request()->routeIs('admin.email-templates*') ? 'active' : '' }}">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
-                    Email Templates
-                </a>
-
-                <p class="px-4 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider mt-2">Account</p>
-
-                <a href="{{ route('admin.profile') }}" class="sidebar-link {{ request()->routeIs('admin.profile*') ? 'active' : '' }}">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-                    My Profile
-                </a>
+                @if(\Illuminate\Support\Facades\Route::has('admin.dashboard') && \App\Support\AdminAccess::canRoute(auth()->user(), 'admin.dashboard'))
+                    <a href="{{ route('admin.dashboard') }}" class="sidebar-link block px-4 py-2.5 {{ request()->routeIs('admin.dashboard') ? 'active' : '' }}">Workspace</a>
+                @endif
+                @if(\Illuminate\Support\Facades\Route::has('admin.staff.index') && \App\Support\AdminAccess::canRoute(auth()->user(), 'admin.staff.index'))
+                    <a href="{{ route('admin.staff.index') }}" class="sidebar-link block px-4 py-2.5 {{ request()->routeIs('admin.staff.index') ? 'active' : '' }}">Staff access</a>
+                @endif
+                @if(\Illuminate\Support\Facades\Route::has('admin.politician-chatter.index') && \App\Support\AdminAccess::canRoute(auth()->user(), 'admin.politician-chatter.index'))
+                    <a href="{{ route('admin.politician-chatter.index') }}" class="sidebar-link block px-4 py-2.5 {{ request()->routeIs('admin.politician-chatter.index') ? 'active' : '' }}">Public chatter</a>
+                @endif
+                @if(\Illuminate\Support\Facades\Route::has('admin.posts.index') && \App\Support\AdminAccess::canRoute(auth()->user(), 'admin.posts.index'))
+                    <a href="{{ route('admin.posts.index') }}" class="sidebar-link block px-4 py-2.5 {{ request()->routeIs('admin.posts.index') ? 'active' : '' }}">Blog posts</a>
+                @endif
+                @if(\Illuminate\Support\Facades\Route::has('admin.posts.create') && \App\Support\AdminAccess::canRoute(auth()->user(), 'admin.posts.create'))
+                    <a href="{{ route('admin.posts.create') }}" class="sidebar-link block px-4 py-2.5 {{ request()->routeIs('admin.posts.create') ? 'active' : '' }}">Write a blog post</a>
+                @endif
+                @if(\Illuminate\Support\Facades\Route::has('admin.campaigns.pending') && \App\Support\AdminAccess::canRoute(auth()->user(), 'admin.campaigns.pending'))
+                    <a href="{{ route('admin.campaigns.pending') }}" class="sidebar-link block px-4 py-2.5 {{ request()->routeIs('admin.campaigns.pending') ? 'active' : '' }}">Campaign review</a>
+                @endif
+                @if(\Illuminate\Support\Facades\Route::has('admin.campaigns.running') && \App\Support\AdminAccess::canRoute(auth()->user(), 'admin.campaigns.running'))
+                    <a href="{{ route('admin.campaigns.running') }}" class="sidebar-link block px-4 py-2.5 {{ request()->routeIs('admin.campaigns.running') ? 'active' : '' }}">Running campaigns</a>
+                @endif
+                @if(\Illuminate\Support\Facades\Route::has('admin.users.index') && \App\Support\AdminAccess::canRoute(auth()->user(), 'admin.users.index'))
+                    <a href="{{ route('admin.users.index') }}" class="sidebar-link block px-4 py-2.5 {{ request()->routeIs('admin.users.index') ? 'active' : '' }}">Users</a>
+                @endif
+                @if(\Illuminate\Support\Facades\Route::has('admin.deleted-accounts.index') && \App\Support\AdminAccess::canRoute(auth()->user(), 'admin.deleted-accounts.index'))
+                    <a href="{{ route('admin.deleted-accounts.index') }}" class="sidebar-link block px-4 py-2.5 {{ request()->routeIs('admin.deleted-accounts.index') ? 'active' : '' }}">Deleted accounts</a>
+                @endif
+                @if(\Illuminate\Support\Facades\Route::has('admin.candidate-matches.index') && \App\Support\AdminAccess::canRoute(auth()->user(), 'admin.candidate-matches.index'))
+                    <a href="{{ route('admin.candidate-matches.index') }}" class="sidebar-link block px-4 py-2.5 {{ request()->routeIs('admin.candidate-matches.index') ? 'active' : '' }}">Candidate matches</a>
+                @endif
+                @if(\Illuminate\Support\Facades\Route::has('admin.data-quality.index') && \App\Support\AdminAccess::canRoute(auth()->user(), 'admin.data-quality.index'))
+                    <a href="{{ route('admin.data-quality.index') }}" class="sidebar-link block px-4 py-2.5 {{ request()->routeIs('admin.data-quality.index') ? 'active' : '' }}">Data quality</a>
+                @endif
+                @if(\Illuminate\Support\Facades\Route::has('admin.data-reports.index') && \App\Support\AdminAccess::canRoute(auth()->user(), 'admin.data-reports.index'))
+                    <a href="{{ route('admin.data-reports.index') }}" class="sidebar-link block px-4 py-2.5 {{ request()->routeIs('admin.data-reports.index') ? 'active' : '' }}">Data reports</a>
+                @endif
+                @if(\Illuminate\Support\Facades\Route::has('admin.office-profiles.index') && \App\Support\AdminAccess::canRoute(auth()->user(), 'admin.office-profiles.index'))
+                    <a href="{{ route('admin.office-profiles.index') }}" class="sidebar-link block px-4 py-2.5 {{ request()->routeIs('admin.office-profiles.index') ? 'active' : '' }}">Office profiles</a>
+                @endif
+                @if(\Illuminate\Support\Facades\Route::has('admin.topics.index') && \App\Support\AdminAccess::canRoute(auth()->user(), 'admin.topics.index'))
+                    <a href="{{ route('admin.topics.index') }}" class="sidebar-link block px-4 py-2.5 {{ request()->routeIs('admin.topics.index') ? 'active' : '' }}">Topics</a>
+                @endif
+                @if(\Illuminate\Support\Facades\Route::has('admin.causes.index') && \App\Support\AdminAccess::canRoute(auth()->user(), 'admin.causes.index'))
+                    <a href="{{ route('admin.causes.index') }}" class="sidebar-link block px-4 py-2.5 {{ request()->routeIs('admin.causes.index') ? 'active' : '' }}">Causes</a>
+                @endif
+                @if(\Illuminate\Support\Facades\Route::has('admin.ballot-measures.index') && \App\Support\AdminAccess::canRoute(auth()->user(), 'admin.ballot-measures.index'))
+                    <a href="{{ route('admin.ballot-measures.index') }}" class="sidebar-link block px-4 py-2.5 {{ request()->routeIs('admin.ballot-measures.index') ? 'active' : '' }}">Ballot measures</a>
+                @endif
+                @if(\Illuminate\Support\Facades\Route::has('admin.imports') && \App\Support\AdminAccess::canRoute(auth()->user(), 'admin.imports'))
+                    <a href="{{ route('admin.imports') }}" class="sidebar-link block px-4 py-2.5 {{ request()->routeIs('admin.imports') ? 'active' : '' }}">Data imports</a>
+                @endif
+                @if(\Illuminate\Support\Facades\Route::has('admin.kyc.index') && \App\Support\AdminAccess::canRoute(auth()->user(), 'admin.kyc.index'))
+                    <a href="{{ route('admin.kyc.index') }}" class="sidebar-link block px-4 py-2.5 {{ request()->routeIs('admin.kyc.index') ? 'active' : '' }}">Identity review</a>
+                @endif
+                @if(\Illuminate\Support\Facades\Route::has('admin.fraud.index') && \App\Support\AdminAccess::canRoute(auth()->user(), 'admin.fraud.index'))
+                    <a href="{{ route('admin.fraud.index') }}" class="sidebar-link block px-4 py-2.5 {{ request()->routeIs('admin.fraud.index') ? 'active' : '' }}">Fraud review</a>
+                @endif
+                @if(\Illuminate\Support\Facades\Route::has('admin.payouts.index') && \App\Support\AdminAccess::canRoute(auth()->user(), 'admin.payouts.index'))
+                    <a href="{{ route('admin.payouts.index') }}" class="sidebar-link block px-4 py-2.5 {{ request()->routeIs('admin.payouts.index') ? 'active' : '' }}">Payouts</a>
+                @endif
+                @if(\Illuminate\Support\Facades\Route::has('admin.billing.refunds') && \App\Support\AdminAccess::canRoute(auth()->user(), 'admin.billing.refunds'))
+                    <a href="{{ route('admin.billing.refunds') }}" class="sidebar-link block px-4 py-2.5 {{ request()->routeIs('admin.billing.refunds') ? 'active' : '' }}">Politician refunds</a>
+                @endif
+                @if(\Illuminate\Support\Facades\Route::has('admin.citizen-billing.refunds') && \App\Support\AdminAccess::canRoute(auth()->user(), 'admin.citizen-billing.refunds'))
+                    <a href="{{ route('admin.citizen-billing.refunds') }}" class="sidebar-link block px-4 py-2.5 {{ request()->routeIs('admin.citizen-billing.refunds') ? 'active' : '' }}">Citizen refunds</a>
+                @endif
+                @if(\Illuminate\Support\Facades\Route::has('admin.analytics') && \App\Support\AdminAccess::canRoute(auth()->user(), 'admin.analytics'))
+                    <a href="{{ route('admin.analytics') }}" class="sidebar-link block px-4 py-2.5 {{ request()->routeIs('admin.analytics') ? 'active' : '' }}">Financial analytics</a>
+                @endif
+                @if(\Illuminate\Support\Facades\Route::has('admin.district-searches.index') && \App\Support\AdminAccess::canRoute(auth()->user(), 'admin.district-searches.index'))
+                    <a href="{{ route('admin.district-searches.index') }}" class="sidebar-link block px-4 py-2.5 {{ request()->routeIs('admin.district-searches.index') ? 'active' : '' }}">District searches</a>
+                @endif
+                @if(\Illuminate\Support\Facades\Route::has('admin.settings') && \App\Support\AdminAccess::canRoute(auth()->user(), 'admin.settings'))
+                    <a href="{{ route('admin.settings') }}" class="sidebar-link block px-4 py-2.5 {{ request()->routeIs('admin.settings') ? 'active' : '' }}">System settings</a>
+                @endif
+                @if(\Illuminate\Support\Facades\Route::has('admin.platform-settings') && \App\Support\AdminAccess::canRoute(auth()->user(), 'admin.platform-settings'))
+                    <a href="{{ route('admin.platform-settings') }}" class="sidebar-link block px-4 py-2.5 {{ request()->routeIs('admin.platform-settings') ? 'active' : '' }}">Platform settings</a>
+                @endif
+                @if(\Illuminate\Support\Facades\Route::has('admin.email-templates.index') && \App\Support\AdminAccess::canRoute(auth()->user(), 'admin.email-templates.index'))
+                    <a href="{{ route('admin.email-templates.index') }}" class="sidebar-link block px-4 py-2.5 {{ request()->routeIs('admin.email-templates.index') ? 'active' : '' }}">Email templates</a>
+                @endif
+                @if(\Illuminate\Support\Facades\Route::has('admin.profile') && \App\Support\AdminAccess::canRoute(auth()->user(), 'admin.profile'))
+                    <a href="{{ route('admin.profile') }}" class="sidebar-link block px-4 py-2.5 {{ request()->routeIs('admin.profile') ? 'active' : '' }}">My profile</a>
+                @endif
+                @if(\Illuminate\Support\Facades\Route::has('admin.2fa.setup') && \App\Support\AdminAccess::canRoute(auth()->user(), 'admin.2fa.setup'))
+                    <a href="{{ route('admin.2fa.setup') }}" class="sidebar-link block px-4 py-2.5 {{ request()->routeIs('admin.2fa.setup') ? 'active' : '' }}">Account security</a>
+                @endif
             @endif
 
         </nav>

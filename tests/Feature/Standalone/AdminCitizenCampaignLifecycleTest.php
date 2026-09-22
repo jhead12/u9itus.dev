@@ -21,7 +21,7 @@ function makeAdminForCitizenLifecycle(): User
 {
     $admin = User::factory()->create(['platform' => 'standalone', 'user_type' => 'admin']);
     if (method_exists($admin, 'assignRole')) {
-        $admin->assignRole('admin');
+        $admin->assignRole('admin', 'staff:Legacy administrator');
     }
     skipOnboarding($admin, 'admin');
     return $admin;

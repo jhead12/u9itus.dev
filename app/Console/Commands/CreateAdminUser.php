@@ -55,8 +55,10 @@ class CreateAdminUser extends Command
         // Force-set email_verified_at (not in $fillable on some setups)
         $user->forceFill(['email_verified_at' => now()])->save();
 
-        // Revoke any non-admin roles then assign admin
-        $user->syncRoles(['admin']);
+        // Grant base admin portal membership additively — never syncRoles(),
+        // which would silently erase any staff/super_admin roles already
+        // assigned to this account.
+        $user->assignRole('admin');
 
         // Send account-created email to the admin (non-fatal)
         $isNew = $user->wasRecentlyCreated;

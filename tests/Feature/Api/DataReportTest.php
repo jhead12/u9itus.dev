@@ -102,7 +102,7 @@ it('lets an admin resolve a report and keeps non-admins out', function () {
 
     $admin = User::factory()->create(['platform' => 'standalone', 'user_type' => 'admin']);
     if (method_exists($admin, 'assignRole')) {
-        $admin->assignRole('admin');
+        $admin->assignRole('admin', 'staff:Legacy administrator');
     }
     skipOnboarding($admin, 'admin');
 

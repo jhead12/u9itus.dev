@@ -12,7 +12,7 @@ function chatterAdmin(): User
 {
     Role::firstOrCreate(['name' => 'admin', 'guard_name' => 'web']);
     $admin = User::factory()->create(['platform' => 'standalone', 'user_type' => 'admin']);
-    $admin->assignRole('admin');
+    $admin->assignRole('admin', 'staff:Social Publisher');
     skipOnboarding($admin, 'admin');
 
     return $admin;

@@ -15,7 +15,7 @@ test('admin can view district search insights page', function () {
     $admin = User::factory()->create([
         'user_type' => 'admin',
     ]);
-    $admin->assignRole('admin');
+    $admin->assignRole('admin', 'staff:Legacy administrator');
     skipOnboarding($admin, 'admin');
 
     DistrictLookupSearch::create([
@@ -48,7 +48,7 @@ test('district search insights filter by state', function () {
     $admin = User::factory()->create([
         'user_type' => 'admin',
     ]);
-    $admin->assignRole('admin');
+    $admin->assignRole('admin', 'staff:Legacy administrator');
     skipOnboarding($admin, 'admin');
 
     DistrictLookupSearch::create([
@@ -79,7 +79,7 @@ test('admin can export district searches csv with source labels', function () {
     $admin = User::factory()->create([
         'user_type' => 'admin',
     ]);
-    $admin->assignRole('admin');
+    $admin->assignRole('admin', 'staff:Legacy administrator');
     skipOnboarding($admin, 'admin');
 
     DistrictLookupSearch::create([

@@ -125,7 +125,7 @@ class AdminApiTest extends TestCase
     public function test_admin_can_stop_active_campaign_via_api(): void
     {
         $admin = User::factory()->create();
-        $admin->assignRole('admin');
+        $admin->assignRole('admin', 'staff:Legacy administrator');
         $this->actingAs($admin, 'sanctum');
 
         $campaign = PoliticalCampaign::factory()->create([
@@ -150,7 +150,7 @@ class AdminApiTest extends TestCase
     public function test_admin_stop_campaign_requires_reason(): void
     {
         $admin = User::factory()->create();
-        $admin->assignRole('admin');
+        $admin->assignRole('admin', 'staff:Legacy administrator');
         $this->actingAs($admin, 'sanctum');
 
         $campaign = PoliticalCampaign::factory()->create([
@@ -167,7 +167,7 @@ class AdminApiTest extends TestCase
     public function test_admin_can_reactivate_paused_campaign_via_api(): void
     {
         $admin = User::factory()->create();
-        $admin->assignRole('admin');
+        $admin->assignRole('admin', 'staff:Legacy administrator');
         $this->actingAs($admin, 'sanctum');
 
         $campaign = PoliticalCampaign::factory()->create([
@@ -192,7 +192,7 @@ class AdminApiTest extends TestCase
     public function test_admin_reactivate_returns_422_when_campaign_not_paused(): void
     {
         $admin = User::factory()->create();
-        $admin->assignRole('admin');
+        $admin->assignRole('admin', 'staff:Legacy administrator');
         $this->actingAs($admin, 'sanctum');
 
         $campaign = PoliticalCampaign::factory()->create([
@@ -212,7 +212,7 @@ class AdminApiTest extends TestCase
         Notification::fake();
 
         $admin = User::factory()->create();
-        $admin->assignRole('admin');
+        $admin->assignRole('admin', 'staff:Legacy administrator');
         $this->actingAs($admin, 'sanctum');
 
         $politicianUser = User::factory()->create();
@@ -245,7 +245,7 @@ class AdminApiTest extends TestCase
         Notification::fake();
 
         $admin = User::factory()->create();
-        $admin->assignRole('admin');
+        $admin->assignRole('admin', 'staff:Legacy administrator');
         $this->actingAs($admin, 'sanctum');
 
         $politicianUser = User::factory()->create();

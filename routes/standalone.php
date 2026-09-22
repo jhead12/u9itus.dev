@@ -630,6 +630,12 @@ Route::middleware(['guest.trial', 'auth', 'verified', 'check.role', 'no.cache'])
     Route::prefix('admin')->name('admin.')->middleware(['role:admin', 'check.admin.onboarding', 'admin.2fa'])->group(function () {
         Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
 
+        Route::get('/staff-access', [\App\Http\Controllers\Standalone\AdminStaffController::class, 'index'])->name('staff.index');
+        Route::post('/staff-access/roles', [\App\Http\Controllers\Standalone\AdminStaffController::class, 'saveRole'])->name('staff.roles.store');
+        Route::put('/staff-access/roles/{role}', [\App\Http\Controllers\Standalone\AdminStaffController::class, 'saveRole'])->name('staff.roles.update');
+        Route::delete('/staff-access/roles/{role}', [\App\Http\Controllers\Standalone\AdminStaffController::class, 'destroyRole'])->name('staff.roles.destroy');
+        Route::put('/staff-access/users/{user}', [\App\Http\Controllers\Standalone\AdminStaffController::class, 'assign'])->name('staff.assign');
+
         // Campaign Approval (political campaigns)
         Route::get('/campaigns/pending', [AdminController::class, 'pendingCampaigns'])->name('campaigns.pending');
         Route::get('/campaigns/running', [AdminController::class, 'runningCampaigns'])->name('campaigns.running');
@@ -769,6 +775,10 @@ Route::middleware(['guest.trial', 'auth', 'verified', 'check.role', 'no.cache'])
 
         // Post Moderation (native blog)
         Route::get('/posts', [AdminPostController::class, 'index'])->name('posts.index');
+        Route::get('/posts/create', [AdminPostController::class, 'create'])->name('posts.create');
+        Route::post('/posts', [AdminPostController::class, 'store'])->name('posts.store');
+        Route::get('/posts/{post}/edit', [AdminPostController::class, 'edit'])->name('posts.edit');
+        Route::put('/posts/{post}', [AdminPostController::class, 'update'])->name('posts.update');
         Route::post('/posts/bulk-action', [AdminPostController::class, 'bulkAction'])->name('posts.bulk-action');
         Route::post('/posts/{post}/approve', [AdminPostController::class, 'approve'])->name('posts.approve');
         Route::post('/posts/{post}/unpublish', [AdminPostController::class, 'unpublish'])->name('posts.unpublish');

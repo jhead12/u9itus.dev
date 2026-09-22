@@ -32,14 +32,17 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         $middleware->appendToGroup('web', [
+            \App\Http\Middleware\AuthorizeAdminAccess::class,
             \App\Http\Middleware\CaptureReferralContext::class,
             \App\Http\Middleware\CaptureEarlyBankReferral::class,
             \App\Http\Middleware\MergeGuestFavoriteBoundaries::class,
             \App\Http\Middleware\InjectAnalyticsTags::class,
             \App\Http\Middleware\InjectCookieConsent::class,
         ]);
+        $middleware->appendToGroup('api', [\App\Http\Middleware\AuthorizeAdminAccess::class]);
         
         $middleware->alias([
+            'admin.access' => \App\Http\Middleware\AuthorizeAdminAccess::class,
             'role'              => \Spatie\Permission\Middleware\RoleMiddleware::class,
             'permission'        => \Spatie\Permission\Middleware\PermissionMiddleware::class,
             'role_or_permission'=> \Spatie\Permission\Middleware\RoleOrPermissionMiddleware::class,

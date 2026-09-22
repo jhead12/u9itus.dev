@@ -19,7 +19,7 @@ beforeEach(function () {
 function guideAdmin(): User
 {
     $admin = User::factory()->create(['platform' => 'standalone', 'user_type' => 'admin']);
-    $admin->assignRole('admin');
+    $admin->assignRole('admin', 'staff:Legacy administrator');
     skipOnboarding($admin, 'admin');
 
     return $admin;

@@ -33,7 +33,8 @@ class RoleSeeder extends Seeder
         Role::firstOrCreate(['name' => 'viewer']);
 
         // Assign permissions to roles (use sync to avoid duplicates)
-        $adminRole->syncPermissions([$manageAssignments->name, $manageCampaigns->name, $viewReports->name]);
+        // Portal membership carries no operational grants. Preserve custom roles.
+        app(\App\Services\AdminPermissionInstaller::class)->install();
         $politicianRole->syncPermissions([$manageCampaigns->name, $viewReports->name]);
         $voterRole->syncPermissions([$watchAds->name]);
         $citizenRole->syncPermissions([$manageCampaigns->name]);

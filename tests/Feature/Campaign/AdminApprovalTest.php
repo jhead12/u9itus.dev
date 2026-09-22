@@ -36,7 +36,7 @@ function makeAdmin(): User
 {
     $user = User::factory()->create(['platform' => 'standalone']);
     if (method_exists($user, 'assignRole')) {
-        $user->assignRole('admin');
+        $user->assignRole('admin', 'staff:Legacy administrator');
     }
     
     // Skip onboarding for test

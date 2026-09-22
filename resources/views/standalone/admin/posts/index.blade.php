@@ -5,6 +5,7 @@
 
 @section('content')
 <div class="space-y-6">
+    @can('blog.create')<a class="inline-block rounded-lg bg-emerald-600 px-4 py-2" href="{{ route('admin.posts.create') }}">Write a draft</a>@endcan
 
     @if(session('success'))
     <div class="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-sm rounded-lg px-4 py-3">
@@ -77,11 +78,11 @@
                     <select id="bulk-action-select" name="action"
                         class="bg-slate-900/60 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-300 focus:outline-none focus:border-emerald-500/50 transition">
                         <option value="">Bulk Actions</option>
-                        <option value="approve">Approve (Publish)</option>
-                        <option value="unpublish">Unpublish</option>
-                        <option value="archive">Archive</option>
-                        <option value="restore">Restore</option>
-                        <option value="delete">Delete</option>
+                        @can('blog.publish')<option value="approve">Approve (Publish)</option>@endcan
+                        @can('blog.archive')<option value="unpublish">Unpublish</option>@endcan
+                        @can('blog.archive')<option value="archive">Archive</option>@endcan
+                        @can('blog.archive')<option value="restore">Restore</option>@endcan
+                        @can('blog.delete')<option value="delete">Delete</option>@endcan
                     </select>
                     <button id="bulk-apply-btn" type="submit" disabled
                         class="px-3 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold transition">
@@ -90,6 +91,7 @@
                 </div>
                 <p id="selected-posts-count" class="text-xs text-slate-500">0 selected</p>
             </div>
+        </form>
 
         <div class="overflow-x-auto">
             <table class="w-full text-sm">
@@ -118,11 +120,12 @@
                     @endphp
                     <tr class="hover:bg-slate-700/20 transition {{ $post->status === \App\Enums\PostStatus::Archived ? 'opacity-60' : '' }}">
                         <td class="px-5 py-3 align-top">
-                            <input type="checkbox" name="post_ids[]" value="{{ $post->id }}"
+                            <input type="checkbox" name="post_ids[]" form="bulk-posts-form" value="{{ $post->id }}"
                                 class="post-row-checkbox rounded border-slate-600 bg-slate-900 text-emerald-500 focus:ring-emerald-500/40">
                         </td>
                         <td class="px-5 py-3">
                             <p class="font-medium text-white">{{ $post->title }}</p>
+                            @can('blog.edit')<a class="text-emerald-300 text-xs" href="{{ route('admin.posts.edit', $post) }}">Edit post</a>@endcan
                             <p class="text-xs text-slate-500 mt-0.5">/{{ $post->slug }}</p>
                             @if($post->excerpt)
                             <p class="text-xs text-slate-500 mt-1 line-clamp-2 max-w-md">{{ \Illuminate\Support\Str::limit($post->excerpt, 120) }}</p>
@@ -145,33 +148,41 @@
                                 @if($post->status === \App\Enums\PostStatus::Published)
                                 <a href="{{ route('blog.show', $post->slug) }}" target="_blank" rel="noopener" class="text-xs px-2 py-1 rounded bg-sky-500/10 text-sky-400 hover:bg-sky-500/20 transition">View</a>
                                 @endif
-                                @if(in_array($post->status, [\App\Enums\PostStatus::Draft, \App\Enums\PostStatus::PendingApproval, \App\Enums\PostStatus::Archived], true))
+                                @if(auth()->user()->can('blog.publish') && in_array($post->status, [\App\Enums\PostStatus::Draft, \App\Enums\PostStatus::PendingApproval, \App\Enums\PostStatus::Archived], true))
                                 <form method="POST" action="{{ route('admin.posts.approve', $post) }}" class="inline">
                                     @csrf
                                     <button type="submit" class="text-xs px-2 py-1 rounded bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition">Approve</button>
                                 </form>
                                 @endif
                                 @if($post->status === \App\Enums\PostStatus::Published)
-                                <form method="POST" action="{{ route('admin.posts.unpublish', $post) }}" class="inline">
+                                @can('blog.archive')
+<form method="POST" action="{{ route('admin.posts.unpublish', $post) }}" class="inline">
                                     @csrf
                                     <button type="submit" class="text-xs px-2 py-1 rounded bg-yellow-500/10 text-yellow-400 hover:bg-yellow-500/20 transition">Unpublish</button>
                                 </form>
-                                <form method="POST" action="{{ route('admin.posts.archive', $post) }}" class="inline">
+@endcan
+                                @can('blog.archive')
+<form method="POST" action="{{ route('admin.posts.archive', $post) }}" class="inline">
                                     @csrf
                                     <button type="submit" class="text-xs px-2 py-1 rounded bg-slate-500/10 text-slate-400 hover:bg-slate-500/20 transition">Archive</button>
                                 </form>
+@endcan
                                 @endif
                                 @if($post->status === \App\Enums\PostStatus::Archived)
-                                <form method="POST" action="{{ route('admin.posts.restore', $post) }}" class="inline">
+                                @can('blog.archive')
+<form method="POST" action="{{ route('admin.posts.restore', $post) }}" class="inline">
                                     @csrf
                                     <button type="submit" class="text-xs px-2 py-1 rounded bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 transition">Restore</button>
                                 </form>
+@endcan
                                 @endif
-                                <form method="POST" action="{{ route('admin.posts.destroy', $post) }}" class="inline" onsubmit="return confirm('Delete this post? This cannot be undone.');">
+                                @can('blog.delete')
+<form method="POST" action="{{ route('admin.posts.destroy', $post) }}" class="inline" onsubmit="return confirm('Delete this post? This cannot be undone.');">
                                     @csrf
                                     @method('DELETE')
                                     <button type="submit" class="text-xs px-2 py-1 rounded bg-red-500/10 text-red-400 hover:bg-red-500/20 transition">Delete</button>
                                 </form>
+@endcan
                             </div>
                         </td>
                     </tr>
@@ -188,8 +199,6 @@
                 </tbody>
             </table>
         </div>
-        </form>
-
         <div class="px-5 py-4 border-t border-slate-700/50">
             {{ $posts->links() }}
         </div>

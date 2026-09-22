@@ -20,6 +20,10 @@ class CheckAdminOnboarding
     {
         $user = $request->user();
 
+        if ($user && ! \App\Support\AdminAccess::owner($user)) {
+            return $next($request);
+        }
+
         // Skip check if not authenticated or not an admin
         if (!$user || !$user->hasRole('admin')) {
             return $next($request);

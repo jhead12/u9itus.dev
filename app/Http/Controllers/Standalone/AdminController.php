@@ -309,6 +309,9 @@ class AdminController extends Controller
      */
     public function dashboard()
     {
+        if (! \App\Support\AdminAccess::owner(auth()->user()) && ! auth()->user()->hasRole(\App\Support\AdminAccess::LEGACY, 'web')) {
+            return view('standalone.admin.staff-home');
+        }
         $activePaymentMode = $this->activePaymentMode();
         $campaignIds = $this->modeScopedCampaignIds($activePaymentMode);
         $completedViewQuery = ViewSession::where('status', 'completed')
