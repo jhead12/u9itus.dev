@@ -201,6 +201,11 @@ Enrichment pipelines that score politicians' public discourse and label them wit
 | `php artisan admin:reset-password --email=admin@u9itus.com` | Reset an admin password |
 | `php artisan admin:data-health` | Run platform-wide data health checks and output a summary |
 | `php artisan roles:ensure` | Ensure all required Spatie permission roles exist |
+| `php artisan admin:bootstrap-owner {email}` | Promote an existing verified account to Super Admin (no email/password change) |
+| `php artisan admin:permissions:install` | Idempotently install/backfill the staff permission catalog and starter roles |
+| `php artisan admin:staff:list [--role=] [--catalog]` | List staff roles, their permissions, and members (read-only) |
+| `php artisan admin:staff:role {name} --permission=... --actor=<owner-email>` | Create/update a staff role's permissions; add `--delete` to remove it |
+| `php artisan admin:staff:assign {email} --role=... [--owner] --actor=<owner-email>` | Assign or revoke staff roles / Super Admin on an account |
 | `php artisan email:diagnostic` | Send a test email and verify mail configuration |
 | `php artisan transactions:recover-stuck` | Recover stuck/orphaned campaign transactions |
 | `php artisan users:prune-never-logged-in --dry-run` | Preview accounts that have never logged in (older than 30 days, no earnings, not admin) |

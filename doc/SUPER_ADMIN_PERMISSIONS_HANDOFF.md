@@ -242,8 +242,16 @@ already exists. Commit hashes listed here are navigation aids, not reset targets
 | 1. Inventory | Done | `config/admin_routes.php` (163 entries) + `config/admin_route_requirements.php` act as the matrix; coverage and default-deny both asserted by `StaffPermissionsTest` |
 | 2. Catalog/migration | Done | `AdminPermissionInstaller` (idempotent, preserves edited starter roles — test-covered), `database/migrations/2026_09_22_000002_install_admin_permissions.php` grandfathers pre-existing admins into a protected `staff:Legacy administrator` role with the full catalog (not auto-`super_admin`, per decision 8), `RoleSeeder` no longer syncs privileged permissions onto `admin`, `CreateAdminUser` changed from destructive `syncRoles(['admin'])` to additive `assignRole('admin')` so it can no longer erase staff/owner roles |
 | 3. Enforcement | Done | `AuthorizeAdminAccess` middleware registered globally on both `web` and `api` groups (`bootstrap/app.php`), path-filtered to `admin*` / `api/v1/admin*`, default-denies any route name absent from `admin_routes.php`; dashboard totals gated in `AdminController::dashboard()` before the query runs, not just hidden in Blade |
-| 4. UI | Done (not browser-verified) | Role CRUD, staff search/assign/revoke, effective-access summary, and audit log view all exist (`AdminStaffController`, `staff-access.blade.php`, `StaffAccessService`); sidebar nav in `dashboard.blade.php` gated per-link through `AdminAccess::canRoute()`. Still needs a real desktop/mobile pass in a browser per checkpoint 4's own instruction. |
+| 4. UI | Done, browser-verified (desktop only) | Role CRUD, staff search/assign/revoke, effective-access summary, and audit log view all exist (`AdminStaffController`, `staff-access.blade.php`, `StaffAccessService`); sidebar nav in `dashboard.blade.php` gated per-link through `AdminAccess::canRoute()`. Verified with a real Playwright/Chromium run against a throwaway DB copy: owner sees the full staff-access page and account roster; a chatter-only staff account's dashboard/sidebar shows only its own tools and gets a real 403 page on `/admin/staff-access` and `/admin/analytics`. Mobile layout still not checked. |
 | 5. Verification/rollout | Tests done, rollout doc not written | `StaffPermissionsTest`: 9/9 passed, 212 assertions. Full `Standalone/Admin/Api/Campaign/Citizen/Payout` suite: 623 passed, 1 pre-existing unrelated failure (`MapStateCandidatesDiscoveryGateTest`, a seeding constraint issue, not touched by this feature). `route:list --path=admin`: 160 routes resolve cleanly. Deployment/backfill-order/cache-reset runbook text still needs writing below before production rollout. |
+
+CLI management now exists alongside the UI: `admin:permissions:install`, `admin:staff:list`,
+`admin:staff:role`, and `admin:staff:assign` all wrap `StaffAccessService`/`AdminPermissionInstaller`
+directly, so they carry the same authorization (`--actor=<owner-email>` must be a real Super Admin),
+validation, and audit logging as the web UI — see `wiki/Development.md`'s Admin & Platform Health
+table for usage. Exercised manually against a throwaway DB copy: role create/update/delete, staff
+assign/revoke, non-owner actor rejection, and last-owner-demotion protection all behaved identically
+to the UI/service tests.
 
 Initial Super Admin production account: **still not selected.** This is the one
 remaining item that blocks production activation — it is independent of code
