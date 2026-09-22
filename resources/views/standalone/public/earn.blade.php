@@ -89,6 +89,15 @@
         }
         details[open] summary::after { content: '−'; }
         details p { color: #94a3b8; font-size: 14px; line-height: 1.75; padding-bottom: 18px; margin: 0; }
+
+        /* ── Nav (mobile) ── */
+        .nav-backlink { color: #64748b; font-size: 14px; text-decoration: none; font-weight: 500; white-space: nowrap; }
+        @media (max-width: 640px) {
+            .nav-inner { padding: 0 16px !important; height: auto !important; min-height: 56px; flex-wrap: wrap; gap: 8px 0; padding-top: 10px !important; padding-bottom: 10px !important; }
+            .nav-links { gap: 10px !important; }
+            .nav-backlink { display: none; }
+            .nav-cta { font-size: 12px !important; padding: 6px 14px !important; }
+        }
     </style>
 </head>
 <body>
@@ -106,13 +115,13 @@
 
 {{-- ── Top nav ── --}}
 <nav style="position:sticky;top:0;z-index:50;background:rgba(6,9,26,0.9);backdrop-filter:blur(12px);border-bottom:1px solid rgba(99,102,241,0.12);">
-    <div style="max-width:1100px;margin:0 auto;padding:0 24px;height:60px;display:flex;align-items:center;justify-content:space-between;">
+    <div class="nav-inner" style="max-width:1100px;margin:0 auto;padding:0 24px;height:60px;display:flex;align-items:center;justify-content:space-between;">
         <a href="{{ url('/') }}" style="color:#818cf8;font-weight:800;font-size:20px;text-decoration:none;">U9itus</a>
-        <div style="display:flex;gap:12px;align-items:center;">
-            <a href="{{ url('/map') }}" style="color:#64748b;font-size:14px;text-decoration:none;font-weight:500;">← Back to Map</a>
-            <a href="{{ route('login') }}" style="color:#94a3b8;font-size:14px;text-decoration:none;font-weight:500;">Sign in</a>
-            <a href="{{ $ctaUrl }}"
-               style="background:#6366f1;color:#fff;font-size:13px;font-weight:700;padding:7px 18px;border-radius:8px;text-decoration:none;">
+        <div class="nav-links" style="display:flex;gap:12px;align-items:center;flex-wrap:nowrap;">
+            <a href="{{ url('/map') }}" class="nav-backlink">← Back to Map</a>
+            <a href="{{ route('login') }}" style="color:#94a3b8;font-size:14px;text-decoration:none;font-weight:500;white-space:nowrap;">Sign in</a>
+            <a href="{{ $ctaUrl }}" class="nav-cta"
+               style="background:#6366f1;color:#fff;font-size:13px;font-weight:700;padding:7px 18px;border-radius:8px;text-decoration:none;white-space:nowrap;">
                 {{ ($registrationOpen ?? true) ? 'Get Started' : 'Join Waitlist' }}
             </a>
         </div>
