@@ -10,6 +10,7 @@ use App\Models\DistrictLookupSearch;
 use App\Models\ElectionCandidateRecord;
 use App\Models\Politician;
 use App\Models\PoliticianEndorsement;
+use App\Models\PoliticianChatterItem;
 use App\Models\PoliticianPage;
 use App\Models\PoliticianTopic;
 use App\Models\StateElectionDate;
@@ -1392,6 +1393,25 @@ class PublicProfileController extends Controller
             'published_at' => $a->published_at?->diffForHumans(),
         ])->values()->toJson();
 
+        // Human-reviewed public narratives only. Collection and automated
+        // drafts remain private until an admin explicitly publishes them.
+        $chatterItems = collect();
+        try {
+            if (Schema::hasTable('politician_chatter_items')) {
+                $chatterItems = PoliticianChatterItem::query()
+                    ->where('politician_id', $politician->id)
+                    ->publiclyVisible()
+                    ->orderByDesc('published_at')
+                    ->limit(6)
+                    ->get();
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Failed to load reviewed chatter for profile', [
+                'politician_id' => $politician->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
         // Issue-context badge chips for the profile hero: the politician's
         // public topic badges (self-declared + inferred discourse), rendered as
         // clickable chips that link to the browse page's structured topic filter.
@@ -1476,6 +1496,7 @@ class PublicProfileController extends Controller
             'sourceMap',
             'activeProviders',
             'articlesJson',
+            'chatterItems',
             'issueContextTags'
         ));
 

@@ -666,9 +666,10 @@
 
     <nav aria-label="Profile sections" class="max-w-5xl mx-auto px-4 sm:px-6 py-4 mb-6">
         <div class="flex flex-wrap gap-2">
-            @foreach(['profile-overview' => 'Overview', 'voting-record' => 'Voting records', 'profile-money' => 'Campaign money', 'profile-videos' => 'Videos', 'profile-news' => 'News', 'profile-sources' => 'Sources & corrections'] as $anchor => $label)
+            @foreach(['profile-overview' => 'Overview', 'voting-record' => 'Voting records', 'profile-money' => 'Campaign money', 'profile-videos' => 'Videos', 'profile-chatter' => 'Public chatter', 'profile-news' => 'News', 'profile-sources' => 'Sources & corrections'] as $anchor => $label)
                 @continue($anchor === 'voting-record' && empty($votingRecord))
                 @continue($anchor === 'profile-news' && empty($newsArticles?->count()))
+                @continue($anchor === 'profile-chatter' && empty($chatterItems?->count()))
                 @continue($anchor === 'profile-money' && empty($topDonors) && empty($topIndustries) && !$fecSummary && !$openSecretsSummary && empty($outsideSpending) && empty($pacAffiliations))
                 <a href="#{{ $anchor }}" class="px-4 py-3 rounded-lg bg-slate-800 text-sm text-slate-200 hover:bg-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400">{{ $label }}</a>
             @endforeach
@@ -1145,6 +1146,55 @@
                 @if($politician->governance_level)
                     <span class="text-sm text-slate-400">🏛️ {{ ucfirst(str_replace('_', ' ', $politician->governance_level)) }}</span>
                 @endif
+            </div>
+        </section>
+        @endif
+
+        @if($chatterItems->isNotEmpty())
+        <section id="profile-chatter" class="scroll-mt-64" aria-labelledby="profile-chatter-title">
+            <div class="flex flex-wrap items-end justify-between gap-3 mb-4">
+                <div>
+                    <p class="text-xs font-semibold uppercase tracking-wider text-amber-300">Trending in monitored sources</p>
+                    <h2 id="profile-chatter-title" class="text-xl font-bold text-white mt-1 flex items-center gap-2">
+                        <span class="w-1 h-6 rounded-full inline-block" style="background:var(--p13-accent,#f59e0b)"></span>
+                        Public chatter
+                    </h2>
+                </div>
+                <p class="max-w-xl text-xs text-slate-400">These are editor-reviewed summaries of active public discussion. Attention does not establish that a claim is true.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                @foreach($chatterItems as $chatter)
+                    @php
+                        $statusClasses = match($chatter->claim_status) {
+                            'supported' => 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200',
+                            'false' => 'border-red-500/40 bg-red-500/10 text-red-200',
+                            'disputed' => 'border-orange-500/40 bg-orange-500/10 text-orange-200',
+                            'satire' => 'border-purple-500/40 bg-purple-500/10 text-purple-200',
+                            default => 'border-amber-500/40 bg-amber-500/10 text-amber-200',
+                        };
+                        $metrics = collect($chatter->engagement_metrics ?? [])->filter(fn($value) => $value !== null);
+                    @endphp
+                    <article class="rounded-xl border border-slate-700/60 bg-slate-800/40 p-5 flex flex-col gap-3">
+                        <div class="flex flex-wrap items-center justify-between gap-2 text-xs">
+                            <span class="font-semibold text-slate-300">{{ $chatter->platformLabel() }}{{ $chatter->source_author ? ' · '.$chatter->source_author : '' }}</span>
+                            <span class="rounded-full border px-2.5 py-1 font-semibold {{ $statusClasses }}">{{ $chatter->claimStatusLabel() }}</span>
+                        </div>
+                        <div>
+                            <h3 class="font-semibold text-white leading-snug">{{ $chatter->headline }}</h3>
+                            @if($chatter->summary)
+                                <p class="mt-2 text-sm leading-relaxed text-slate-300">{{ $chatter->summary }}</p>
+                            @endif
+                        </div>
+                        @if($metrics->isNotEmpty())
+                            <p class="text-xs text-slate-400">Observed engagement: {{ $metrics->map(fn($value, $key) => number_format($value).' '.$key)->join(' · ') }}</p>
+                        @endif
+                        <div class="mt-auto flex items-center justify-between gap-3 pt-1 text-xs text-slate-400">
+                            <span>{{ ($chatter->source_published_at ?? $chatter->published_at)?->format('M j, Y') }}</span>
+                            <a href="{{ $chatter->source_url }}" target="_blank" rel="noopener noreferrer nofollow" class="font-semibold text-emerald-400 hover:text-emerald-300">View original source ↗</a>
+                        </div>
+                    </article>
+                @endforeach
             </div>
         </section>
         @endif

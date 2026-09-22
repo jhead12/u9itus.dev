@@ -415,6 +415,11 @@ class Politician extends Model
         return $this->hasMany(PoliticianInitiative::class)->orderBy('sort_order')->orderBy('id');
     }
 
+    public function chatterItems(): HasMany
+    {
+        return $this->hasMany(PoliticianChatterItem::class);
+    }
+
     /**
      * Real public endorsements detected from news coverage (see
      * App\Services\EndorsementClassifier) — distinct from the
