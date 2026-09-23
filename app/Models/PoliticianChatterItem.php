@@ -9,6 +9,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class PoliticianChatterItem extends Model
 {
+    protected $hidden = ['submitted_by_user_id', 'contributor_notes', 'source_excerpt'];
+
     public const PLATFORMS = [
         'x' => 'X', 'instagram' => 'Instagram', 'substack' => 'Substack',
         'tiktok' => 'TikTok', 'youtube' => 'YouTube', 'facebook' => 'Facebook',
@@ -41,6 +43,11 @@ class PoliticianChatterItem extends Model
             'engagement_metrics' => 'array', 'source_published_at' => 'datetime',
             'reviewed_at' => 'datetime', 'published_at' => 'datetime', 'expires_at' => 'datetime',
         ];
+    }
+
+    public function submittedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'submitted_by_user_id');
     }
 
     public function politician(): BelongsTo

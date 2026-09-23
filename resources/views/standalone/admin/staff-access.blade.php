@@ -40,6 +40,14 @@
             <button class="rounded-lg bg-slate-700 px-4">Search</button>
         </form>
         @foreach($users as $staff)
+            <form method="POST" action="{{ route('admin.staff.contributor', $staff) }}" class="rounded-xl border border-emerald-900 p-4 space-y-2">
+                @csrf @method('PUT')
+                <h4 class="font-semibold">Community contributor: {{ $staff->name }} · {{ $staff->email }}</h4>
+                <input type="hidden" name="enabled" value="0">
+                <label class="block text-sm"><input type="checkbox" name="enabled" value="1" @checked($staff->hasRole(\App\Support\ChatterContributorAccess::ROLE))> Can submit public sources and view own submissions</label>
+                <p class="text-xs text-slate-400">Separate from staff access below. Does not grant admin access, change existing roles, or remove other access. Contributor page: <a class="text-emerald-300 underline" href="{{ route('contributor.chatter.index') }}">Submit a source</a>.</p>
+                <button class="rounded-lg bg-emerald-700 px-4 py-2 text-sm">Save contributor access</button>
+            </form>
             <form method="POST" action="{{ route('admin.staff.assign', $staff) }}" class="rounded-xl border border-slate-700 p-5 space-y-3">
                 @csrf @method('PUT')
                 <h4 class="font-semibold">{{ $staff->name }} <span class="font-normal text-slate-400">{{ $staff->email }}</span></h4>

@@ -209,10 +209,13 @@ Route::middleware(['auth', 'verified', 'no.cache'])->group(function () {
 |--------------------------------------------------------------------------
 */
 
-// `guest.trial` runs first (ahead of `auth`) so an anonymous visit to a
-// /voter/* URL can be silently upgraded into a real-but-flagged voter
-// session before the `auth` middleware would otherwise redirect to login.
-// See ProvisionGuestVoterSession — it's a no-op for every other path here.
+// Contributor access is independent of admin membership and portal onboarding.
+Route::middleware(['auth', 'verified', 'no.cache', '2fa', 'admin.2fa'])->prefix('contribute/chatter')->name('contributor.chatter.')->group(function () {
+    Route::get('/', [\App\Http\Controllers\Standalone\ChatterContributorController::class, 'index'])->name('index');
+    Route::post('/', [\App\Http\Controllers\Standalone\ChatterContributorController::class, 'store'])->middleware('throttle:10,1')->name('store');
+});
+
+// `guest.trial` runs before auth to provision trial sessions only for voter paths.
 Route::middleware(['guest.trial', 'auth', 'verified', 'check.role', 'no.cache'])->group(function () {
 
     // Id.me identity verification
@@ -635,6 +638,7 @@ Route::middleware(['guest.trial', 'auth', 'verified', 'check.role', 'no.cache'])
         Route::put('/staff-access/roles/{role}', [\App\Http\Controllers\Standalone\AdminStaffController::class, 'saveRole'])->name('staff.roles.update');
         Route::delete('/staff-access/roles/{role}', [\App\Http\Controllers\Standalone\AdminStaffController::class, 'destroyRole'])->name('staff.roles.destroy');
         Route::put('/staff-access/users/{user}', [\App\Http\Controllers\Standalone\AdminStaffController::class, 'assign'])->name('staff.assign');
+        Route::put('/staff-access/users/{user}/contributor', [\App\Http\Controllers\Standalone\AdminStaffController::class, 'contributor'])->name('staff.contributor');
 
         // Campaign Approval (political campaigns)
         Route::get('/campaigns/pending', [AdminController::class, 'pendingCampaigns'])->name('campaigns.pending');

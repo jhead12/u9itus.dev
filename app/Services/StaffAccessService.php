@@ -11,6 +11,21 @@ use Spatie\Permission\PermissionRegistrar;
 
 class StaffAccessService
 {
+    public function assignContributor(User $actor, User $target, bool $enabled): void
+    {
+        $this->mutate($actor, function () use ($target, $actor, $enabled) {
+            $target = User::lockForUpdate()->findOrFail($target->id);
+            if ($enabled && ($target->suspended_at || ! $target->email_verified_at || $target->is_guest)) {
+                throw ValidationException::withMessages(['contributor' => 'Choose a verified, active, non-guest account.']);
+            }
+            $role = Role::findOrCreate(\App\Support\ChatterContributorAccess::ROLE, 'web');
+            $before = $target->hasRole($role);
+            $enabled ? $target->assignRole($role) : $target->removeRole($role);
+            $this->audit($actor->id, 'contributor.assigned', 'user:'.$target->id,
+                ['contributor' => $before], ['contributor' => $enabled]);
+        });
+    }
+
     public function mutate(User $actor, callable $callback): mixed
     {
         return DB::transaction(function () use ($actor, $callback) {

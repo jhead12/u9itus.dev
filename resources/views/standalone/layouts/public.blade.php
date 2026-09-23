@@ -41,15 +41,18 @@
 
     {{-- Top Nav Bar --}}
     <nav class="sticky top-0 z-40 bg-slate-900/80 backdrop-blur-md border-b border-slate-700/50">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between h-14">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 flex flex-wrap gap-3 items-center justify-between min-h-14 py-3">
             <a href="{{ url('/') }}" class="flex items-center space-x-1 text-lg font-bold hover:opacity-80 transition">
                 <span class="text-white">U9</span><span class="text-emerald-400">itus</span>
             </a>
-            <div class="flex items-center gap-4">
+            <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
                 <a href="{{ route('blog.index') }}" class="text-sm text-slate-300 hover:text-white transition">Blog</a>
                 <a href="{{ route('us.map') }}" class="text-sm text-slate-300 hover:text-white transition">Map</a>
                 <a href="{{ route('politicians.directory') }}" class="text-sm text-slate-300 hover:text-white transition">Politicians</a>
                 @auth
+                    @if(\App\Support\ChatterContributorAccess::allowed(auth()->user()))
+                        <a href="{{ route('contributor.chatter.index') }}" class="text-sm text-emerald-300">Submit source</a>
+                    @endif
                     <a href="{{ route('dashboard') }}" class="text-sm text-slate-300 hover:text-white transition">Dashboard</a>
                 @else
                     <a href="{{ route('login') }}" class="text-sm text-slate-300 hover:text-white transition">Sign In</a>

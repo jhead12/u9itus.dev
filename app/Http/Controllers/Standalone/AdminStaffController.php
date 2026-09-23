@@ -17,7 +17,7 @@ class AdminStaffController extends Controller
         $request->validate(['q' => ['nullable', 'string', 'max:150']]);
         $users = User::with('roles.permissions', 'permissions')
             ->when($request->filled('q'), fn ($q) => $q->where(fn ($q) => $q->where('email', 'like', '%'.$request->query('q').'%')->orWhere('name', 'like', '%'.$request->query('q').'%')),
-                fn ($q) => $q->where('user_type', 'admin'))
+                fn ($q) => $q->where('user_type', 'admin')->orWhereHas('roles', fn ($q) => $q->where('name', \App\Support\ChatterContributorAccess::ROLE)))
             ->orderBy('name')->paginate(20)->withQueryString();
         $roles = Role::with('permissions')->where('guard_name', 'web')->where('name', 'like', 'staff:%')->orderBy('name')->get();
         $catalog = AdminAccess::catalog();
@@ -46,5 +46,12 @@ class AdminStaffController extends Controller
     {
         $service->deleteRole($request->user(), $role);
         return back()->with('success', 'Unused role deleted. Its audit history is retained.');
+    }
+
+    public function contributor(Request $request, User $user, StaffAccessService $service)
+    {
+        $request->validate(['enabled' => ['required', 'boolean']]);
+        $service->assignContributor($request->user(), $user, $request->boolean('enabled'));
+        return back()->with('success', 'Contributor access updated. Existing account roles are unchanged.');
     }
 }

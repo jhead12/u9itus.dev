@@ -117,6 +117,9 @@
 
         {{-- Navigation --}}
         <nav class="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+            @if(\App\Support\ChatterContributorAccess::allowed(auth()->user()))
+                <a href="{{ route('contributor.chatter.index') }}" class="sidebar-link block px-4 py-2.5">Submit a public source</a>
+            @endif
             @if($dashboardActivePortal === 'politician' || (auth()->user()?->hasRole('politician') && $dashboardActivePortal === ''))
                 <p class="px-4 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">Overview</p>
 

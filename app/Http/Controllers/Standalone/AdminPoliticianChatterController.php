@@ -19,7 +19,7 @@ class AdminPoliticianChatterController extends Controller
         $status = in_array($status, $allowedStatuses, true) ? $status : 'pending';
 
         $items = PoliticianChatterItem::query()
-            ->with(['politician:id,full_name,slug', 'reviewedBy:id,name', 'moderationLogs.admin:id,name'])
+            ->with(['politician:id,full_name,slug', 'reviewedBy:id,name', 'moderationLogs.admin:id,name', 'submittedBy:id,name'])
             ->when($status !== 'all', fn ($query) => $query->where('moderation_status', $status))
             ->when($request->filled('q'), function ($query) use ($request) {
                 $search = trim((string) $request->query('q'));
@@ -34,7 +34,10 @@ class AdminPoliticianChatterController extends Controller
         $stats = collect(['pending', 'published', 'rejected', 'archived'])
             ->mapWithKeys(fn ($value) => [$value => PoliticianChatterItem::where('moderation_status', $value)->count()]);
 
-        $politicians = Politician::query()->where('is_active', true)->orderBy('full_name')->get(['id', 'full_name', 'state']);
+        $politicians = Politician::query()
+            ->where(fn ($query) => $query->where('is_active', true)
+                ->orWhereIn('id', $items->getCollection()->pluck('politician_id')))
+            ->orderBy('full_name')->get(['id', 'full_name', 'state', 'political_office', 'party_affiliation']);
 
         return view('standalone.admin.politician-chatter', compact('items', 'stats', 'status', 'politicians'));
     }
@@ -77,6 +80,11 @@ class AdminPoliticianChatterController extends Controller
         $target = match ($data['action']) {
             'publish' => 'published', 'reject' => 'rejected', 'archive' => 'archived', default => 'pending',
         };
+        if ($target === 'published' && ! filled($chatter->summary)) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'summary' => 'Edit this submission and add neutral public context before publishing.',
+            ]);
+        }
         $from = $chatter->moderation_status;
         $chatter->update([
             'moderation_status' => $target,

@@ -11,6 +11,7 @@ return [
     'admin.staff.roles.update' => '@owner',
     'admin.staff.roles.destroy' => '@owner',
     'admin.staff.assign' => '@owner',
+    'admin.staff.contributor' => '@owner',
     'admin.2fa.challenge' => '@staff',
     'admin.2fa.challenge.verify' => '@staff',
     'admin.analytics' => 'finance.reports.view',

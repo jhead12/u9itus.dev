@@ -15,6 +15,7 @@ class AdminPermissionInstaller
             Permission::findOrCreate($name, 'web');
         }
         Role::findOrCreate('admin', 'web');
+        Role::findOrCreate(\App\Support\ChatterContributorAccess::ROLE, 'web');
         Role::findOrCreate(AdminAccess::OWNER, 'web');
         $templates = [
             'Social Reviewer' => ['chatter.view', 'chatter.create', 'chatter.edit', 'chatter.moderate'],

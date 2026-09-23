@@ -106,6 +106,14 @@
                         </form>
 @endcan
                         <aside>
+                            @if($chatter->submitted_by_user_id || $chatter->contributor_notes)
+                                <div class="mb-5 rounded-lg border border-amber-500/30 p-3 text-sm">
+                                    <h3 class="font-semibold text-amber-200">Contributor input — private</h3>
+                                    <p class="mt-2 text-slate-400">Submitted by {{ $chatter->submittedBy?->name ?? 'Deleted account' }}. Add neutral public context in the edit form before publishing.</p>
+                                    <p class="mt-2 whitespace-pre-wrap text-slate-300">{{ $chatter->contributor_notes }}</p>
+                                    @if($chatter->source_excerpt)<blockquote class="mt-3 border-l border-slate-600 pl-3 whitespace-pre-wrap text-slate-400">{{ $chatter->source_excerpt }}</blockquote>@endif
+                                </div>
+                            @endif
                             <h3 class="text-xs font-semibold uppercase tracking-wide text-slate-400">Audit history</h3>
                             <ol class="mt-3 space-y-3">
                                 @foreach($chatter->moderationLogs as $log)

@@ -1,15 +1,7 @@
 @php
     $metrics = $chatter?->engagement_metrics ?? [];
 @endphp
-<label class="block">
-    <span class="text-xs font-semibold text-slate-300">Politician *</span>
-    <select name="politician_id" required class="mt-1 w-full rounded-lg border-slate-600 bg-slate-900 text-sm text-white">
-        <option value="">Select a politician</option>
-        @foreach($politicians as $politician)
-            <option value="{{ $politician->id }}" @selected((string)old('politician_id', $chatter?->politician_id) === (string)$politician->id)>{{ $politician->full_name }}{{ $politician->state ? ' ('.$politician->state.')' : '' }}</option>
-        @endforeach
-    </select>
-</label>
+@include('standalone.partials.chatter-candidate-picker', ['selectedPolitician' => $chatter?->politician_id])
 <label class="block"><span class="text-xs font-semibold text-slate-300">Platform *</span><select name="platform" required class="mt-1 w-full rounded-lg border-slate-600 bg-slate-900 text-sm text-white">@foreach(\App\Models\PoliticianChatterItem::PLATFORMS as $value => $label)<option value="{{ $value }}" @selected(old('platform', $chatter?->platform) === $value)>{{ $label }}</option>@endforeach</select></label>
 <label class="block md:col-span-2"><span class="text-xs font-semibold text-slate-300">Original source URL *</span><input name="source_url" type="url" required maxlength="1000" value="{{ old('source_url', $chatter?->source_url) }}" class="mt-1 w-full rounded-lg border-slate-600 bg-slate-900 text-sm text-white" placeholder="https://..."></label>
 <label class="block"><span class="text-xs font-semibold text-slate-300">Source author</span><input name="source_author" maxlength="191" value="{{ old('source_author', $chatter?->source_author) }}" class="mt-1 w-full rounded-lg border-slate-600 bg-slate-900 text-sm text-white" placeholder="@handle or publication"></label>
