@@ -15,7 +15,12 @@ class AdminStaffController extends Controller
     public function index(Request $request)
     {
         $request->validate(['q' => ['nullable', 'string', 'max:150']]);
+        // A suspended account can't be assigned staff/contributor roles (see
+        // StaffAccessService::assign/assignContributor), so it doesn't belong
+        // on a roster of manageable staff — hide it rather than list an
+        // account any action here would just reject.
         $users = User::with('roles.permissions', 'permissions')
+            ->whereNull('suspended_at')
             ->when($request->filled('q'), fn ($q) => $q->where(fn ($q) => $q->where('email', 'like', '%'.$request->query('q').'%')->orWhere('name', 'like', '%'.$request->query('q').'%')),
                 fn ($q) => $q->where('user_type', 'admin')->orWhereHas('roles', fn ($q) => $q->where('name', \App\Support\ChatterContributorAccess::ROLE)))
             ->orderBy('name')->paginate(20)->withQueryString();
@@ -23,6 +28,7 @@ class AdminStaffController extends Controller
         $catalog = AdminAccess::catalog();
         $audits = DB::table('staff_access_audits')->latest('id')->limit(30)->get();
         $pendingContributorRequests = User::whereNotNull('chatter_contributor_requested_at')
+            ->whereNull('suspended_at')
             ->whereDoesntHave('roles', fn ($q) => $q->where('name', \App\Support\ChatterContributorAccess::ROLE))
             ->orderBy('chatter_contributor_requested_at')
             ->limit(50)->get();

@@ -644,6 +644,11 @@ Route::middleware(['guest.trial', 'auth', 'verified', 'check.role', 'no.cache'])
     Route::prefix('admin')->name('admin.')->middleware(['role:admin', 'check.admin.onboarding', 'admin.2fa'])->group(function () {
         Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
 
+        Route::get('/workspace', [\App\Http\Controllers\Standalone\AdminWorkspaceController::class, 'index'])->name('workspace.index');
+        Route::post('/workspace/widgets', [\App\Http\Controllers\Standalone\AdminWorkspaceController::class, 'store'])->name('workspace.widgets.store');
+        Route::post('/workspace/widgets/layout', [\App\Http\Controllers\Standalone\AdminWorkspaceController::class, 'updateLayout'])->name('workspace.widgets.layout');
+        Route::delete('/workspace/widgets/{widget}', [\App\Http\Controllers\Standalone\AdminWorkspaceController::class, 'destroy'])->name('workspace.widgets.destroy');
+
         Route::get('/staff-access', [\App\Http\Controllers\Standalone\AdminStaffController::class, 'index'])->name('staff.index');
         Route::post('/staff-access/roles', [\App\Http\Controllers\Standalone\AdminStaffController::class, 'saveRole'])->name('staff.roles.store');
         Route::put('/staff-access/roles/{role}', [\App\Http\Controllers\Standalone\AdminStaffController::class, 'saveRole'])->name('staff.roles.update');

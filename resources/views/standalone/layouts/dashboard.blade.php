@@ -286,7 +286,10 @@
 
             @elseif($dashboardActivePortal === 'admin' && auth()->user()?->hasRole('admin'))
                 @if(\Illuminate\Support\Facades\Route::has('admin.dashboard') && \App\Support\AdminAccess::canRoute(auth()->user(), 'admin.dashboard'))
-                    <a href="{{ route('admin.dashboard') }}" class="sidebar-link block px-4 py-2.5 {{ request()->routeIs('admin.dashboard') ? 'active' : '' }}">Workspace</a>
+                    <a href="{{ route('admin.dashboard') }}" class="sidebar-link block px-4 py-2.5 {{ request()->routeIs('admin.dashboard') ? 'active' : '' }}">Dashboard</a>
+                @endif
+                @if(\Illuminate\Support\Facades\Route::has('admin.workspace.index') && \App\Support\AdminAccess::canRoute(auth()->user(), 'admin.workspace.index'))
+                    <a href="{{ route('admin.workspace.index') }}" class="sidebar-link block px-4 py-2.5 {{ request()->routeIs('admin.workspace.*') ? 'active' : '' }}">My Workspace</a>
                 @endif
                 @if(\Illuminate\Support\Facades\Route::has('admin.staff.index') && \App\Support\AdminAccess::canRoute(auth()->user(), 'admin.staff.index'))
                     <a href="{{ route('admin.staff.index') }}" class="sidebar-link block px-4 py-2.5 {{ request()->routeIs('admin.staff.index') ? 'active' : '' }}">Staff access</a>
