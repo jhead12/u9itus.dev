@@ -61,13 +61,12 @@ it('shows a candidate_discovery row once it is identity-linked', function () {
         'payload' => ['status' => 'running'],
     ]);
     $pol = Politician::factory()->create(['full_name' => 'Linked Discovery', 'state' => 'CA']);
-    CandidateIdentityLink::create([
-        'politician_id' => $pol->id,
-        'election_candidate_record_id' => $rec->id,
-        'match_score' => 0.9,
-        'link_source' => 'system',
-        'linked_at' => now(),
-    ]);
+    // updateOrCreate: Politician::created synchronously dispatches the auto-matcher (sync
+    // queue in tests), which can already have linked these two by the time we get here.
+    CandidateIdentityLink::updateOrCreate(
+        ['politician_id' => $pol->id, 'election_candidate_record_id' => $rec->id],
+        ['match_score' => 0.9, 'link_source' => 'system', 'linked_at' => now()]
+    );
 
     expect(mapNames())->toContain('Linked Discovery');
 });
@@ -82,13 +81,10 @@ it('hides a candidate_discovery row identity-linked to a now-inactive politician
         'payload' => ['status' => 'running'],
     ]);
     $pol = Politician::factory()->create(['full_name' => 'Deactivated Link', 'state' => 'CA', 'is_active' => false]);
-    CandidateIdentityLink::create([
-        'politician_id' => $pol->id,
-        'election_candidate_record_id' => $rec->id,
-        'match_score' => 1.0,
-        'link_source' => 'system',
-        'linked_at' => now(),
-    ]);
+    CandidateIdentityLink::updateOrCreate(
+        ['politician_id' => $pol->id, 'election_candidate_record_id' => $rec->id],
+        ['match_score' => 1.0, 'link_source' => 'system', 'linked_at' => now()]
+    );
 
     expect(mapNames())->not->toContain('Deactivated Link');
 });

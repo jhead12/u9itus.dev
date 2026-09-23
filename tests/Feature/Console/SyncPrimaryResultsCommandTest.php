@@ -268,7 +268,12 @@ test('a candidate listed as withdrawn is taken off the map even before the prima
     $swalwell = $make('Eric Swalwell');
     $decliner = $make('Dana Decliner');
     $politician = Politician::factory()->create(['full_name' => 'Eric Swalwell', 'state' => 'CA', 'user_id' => null, 'term_status' => 'running', 'is_running_candidate' => true, 'slug' => 'eric-swalwell-x']);
-    CandidateIdentityLink::create(['politician_id' => $politician->id, 'election_candidate_record_id' => $swalwell->id, 'match_score' => 0.9, 'link_source' => 'system']);
+    // updateOrCreate: Politician::created synchronously dispatches the auto-matcher (sync
+    // queue in tests), which can already have linked these two by the time we get here.
+    CandidateIdentityLink::updateOrCreate(
+        ['politician_id' => $politician->id, 'election_candidate_record_id' => $swalwell->id],
+        ['match_score' => 0.9, 'link_source' => 'system']
+    );
 
     Artisan::call('politicians:sync-primary-results', ['--state' => 'CA']);
 
@@ -349,7 +354,12 @@ test('page text alone never stamps a candidate, and never touches a sitting memb
         'state' => 'CA', 'election_date' => '2026-11-03', 'payload' => ['primary_result' => 'running'],
     ]);
     $profile = Politician::factory()->create(['full_name' => 'Ted Lieu', 'state' => 'CA', 'user_id' => null, 'term_status' => 'running', 'is_running_candidate' => true, 'slug' => 'ted-lieu-x']);
-    CandidateIdentityLink::create(['politician_id' => $profile->id, 'election_candidate_record_id' => $record->id, 'match_score' => 0.9, 'link_source' => 'system']);
+    // updateOrCreate: Politician::created synchronously dispatches the auto-matcher (sync
+    // queue in tests), which can already have linked these two by the time we get here.
+    CandidateIdentityLink::updateOrCreate(
+        ['politician_id' => $profile->id, 'election_candidate_record_id' => $record->id],
+        ['match_score' => 0.9, 'link_source' => 'system']
+    );
 
     Artisan::call('politicians:sync-primary-results', ['--state' => 'CA', '--force' => true]);
 
