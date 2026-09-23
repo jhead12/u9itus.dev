@@ -30,6 +30,7 @@ use App\Services\Web3\MeTokenSubgraphService;
 use App\Services\WikipediaLookupService;
 use App\Services\ZipDistrictLookupService;
 use App\Services\ZipVotingLocationService;
+use App\Support\Seo;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
@@ -1345,9 +1346,7 @@ class PublicProfileController extends Controller
 
         // Build Open Graph meta
         $ogTitle = $politician->full_name.' — '.($politician->political_office ?? 'Politician');
-        $ogDescription = $politician->bio
-            ? Str::limit($politician->bio, 160)
-            : "Research {$politician->full_name}'s campaign messages, profile, and public records on U9itus.";
+        $ogDescription = Seo::profileDescription($politician);
         $ogImage = $page->hero_banner_url ?? $politician->profile_photo_url ?? null;
         $ogUrl = route('politician.public.show', $slug);
 

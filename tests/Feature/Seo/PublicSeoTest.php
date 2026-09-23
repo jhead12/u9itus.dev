@@ -10,6 +10,7 @@ use App\Models\Politician;
 use App\Models\PoliticianTopic;
 use App\Models\Post;
 use App\Models\User;
+use App\Support\Seo;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 
@@ -178,4 +179,36 @@ test('unclaimed directory filter is not indexable', function () {
     $document = seoDocument($this->get('/politicians?unclaimed=1')->assertOk()->getContent());
     expect(seoValue($document, '//meta[@name="robots"]'))->toBe('noindex, follow');
     expect(seoValue($document, '//link[@rel="canonical"]', 'href'))->toBe(url('/politicians').'?unclaimed=1');
+});
+
+test('account and security screens are not indexed', function (string $path) {
+    $document = seoDocument($this->get($path)->getContent());
+    expect(seoValue($document, '//meta[@name="robots"]'))->toBe('noindex, nofollow');
+})->with(['/login', '/register', '/forgot-password']);
+
+test('placeholder bios give each profile its own description', function () {
+    $politician = Politician::factory()->create([
+        'page_published' => true,
+        'full_name' => 'Jane Doe',
+        'political_office' => 'Governor',
+        'party_affiliation' => 'Republican',
+        'state' => 'PA',
+        'district' => null,
+        'is_running_candidate' => true,
+        'term_status' => 'candidate',
+        'bio' => 'This is an unclaimed profile generated from election data and available for verified claim by the official campaign.',
+    ]);
+    $document = seoDocument($this->get(route('politician.public.show', $politician->slug))->assertOk()->getContent());
+    $description = seoValue($document, '//meta[@name="description"]');
+    expect($description)->toStartWith('Jane Doe: Republican candidate for Governor in PA.')
+        ->not->toContain('unclaimed profile')
+        ->and(mb_strlen($description))->toBeLessThanOrEqual(163);
+});
+
+test('real bio text survives when the placeholder sentence is removed', function () {
+    $politician = Politician::factory()->make([
+        'bio' => 'Jane Doe has represented the 7th district since 2019 and chairs the transportation committee. This is an unclaimed profile generated from public legislative data and available for verified claim by the official campaign.',
+    ]);
+    expect(Seo::profileDescription($politician))
+        ->toBe('Jane Doe has represented the 7th district since 2019 and chairs the transportation committee.');
 });
