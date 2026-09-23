@@ -34,7 +34,10 @@ class AdminPoliticianChatterController extends Controller
         $stats = collect(['pending', 'published', 'rejected', 'archived'])
             ->mapWithKeys(fn ($value) => [$value => PoliticianChatterItem::where('moderation_status', $value)->count()]);
 
-        $politicians = Politician::query()->where('is_active', true)->orderBy('full_name')->get(['id', 'full_name', 'state']);
+        $politicians = Politician::query()
+            ->where(fn ($query) => $query->where('is_active', true)
+                ->orWhereIn('id', $items->getCollection()->pluck('politician_id')))
+            ->orderBy('full_name')->get(['id', 'full_name', 'state', 'political_office', 'party_affiliation']);
 
         return view('standalone.admin.politician-chatter', compact('items', 'stats', 'status', 'politicians'));
     }

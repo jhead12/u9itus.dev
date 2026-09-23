@@ -18,6 +18,24 @@ function chatterAdmin(): User
     return $admin;
 }
 
+it('renders searchable candidate context and retains inactive candidates when editing', function () {
+    $active = Politician::factory()->create(['full_name' => 'Searchable Candidate', 'is_active' => true,
+        'state' => 'FL', 'political_office' => 'U.S. House', 'party_affiliation' => 'Republican']);
+    $inactive = Politician::factory()->create(['full_name' => 'Former Candidate', 'is_active' => false]);
+    PoliticianChatterItem::create([
+        'politician_id' => $inactive->id, 'platform' => 'x', 'source_url' => 'https://example.com/retained',
+        'headline' => 'Existing review', 'summary' => 'Context', 'claim_status' => 'unverified',
+        'moderation_status' => 'pending',
+    ]);
+
+    $this->actingAs(chatterAdmin())->get(route('admin.politician-chatter.index'))
+        ->assertOk()->assertSee('data-politician-search', false)
+        ->assertSee('Searchable Candidate')->assertSee('U.S. House')->assertSee('Republican')
+        ->assertSee('Former Candidate')->assertSee('chatter-politician-picker.js')
+        ->assertViewHas('politicians', fn ($politicians) => $politicians->contains('id', $active->id)
+            && $politicians->contains('id', $inactive->id));
+});
+
 it('keeps collected chatter private until an admin publishes it', function () {
     $politician = Politician::factory()->create(['page_published' => true, 'is_active' => true]);
     $admin = chatterAdmin();
