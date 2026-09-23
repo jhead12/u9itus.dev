@@ -46,6 +46,24 @@ it('keeps the Users, Staff access, and Deleted accounts links together under Acc
     expect($deletedPos)->toBeLessThan($candidatesPos);
 });
 
+it('places Submit a public source inside the Content section, after the other content links', function () {
+    $owner = dashboardSidebarAdminOwner();
+
+    $html = $this->actingAs($owner)->get(route('admin.dashboard'))->assertOk()->getContent();
+
+    $contentPos = strpos($html, '>Content<');
+    $campaignsPos = strpos($html, '>Campaigns<');
+    $writeBlogPostPos = strpos($html, '>Write a blog post<');
+    $submitSourcePos = strpos($html, '>Submit a public source<');
+
+    expect($contentPos)->not->toBeFalse();
+    expect($campaignsPos)->not->toBeFalse();
+    expect($submitSourcePos)->not->toBeFalse();
+    expect($submitSourcePos)->toBeGreaterThan($contentPos);
+    expect($submitSourcePos)->toBeGreaterThan($writeBlogPostPos);
+    expect($submitSourcePos)->toBeLessThan($campaignsPos);
+});
+
 it('does not render a section header when none of its links are visible to a scoped staff member', function () {
     $user = User::factory()->create(['user_type' => 'admin', 'platform' => 'standalone']);
     $user->assignRole('admin');

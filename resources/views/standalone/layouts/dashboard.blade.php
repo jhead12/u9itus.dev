@@ -117,7 +117,7 @@
 
         {{-- Navigation --}}
         <nav class="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-            @if(\App\Support\ChatterContributorAccess::allowed(auth()->user()))
+            @if(\App\Support\ChatterContributorAccess::allowed(auth()->user()) && $dashboardActivePortal !== 'admin')
                 <a href="{{ route('contributor.chatter.index') }}" class="sidebar-link block px-4 py-2.5">Submit a public source</a>
             @endif
             @if($dashboardActivePortal === 'politician' || (auth()->user()?->hasRole('politician') && $dashboardActivePortal === ''))
@@ -345,13 +345,17 @@
                     ];
                 @endphp
 
+                @php $adminCanSubmitPublicSource = \App\Support\ChatterContributorAccess::allowed(auth()->user()); @endphp
                 @foreach($adminNavSections as $adminSectionLabel => $adminSectionItems)
                     @php $adminVisibleItems = array_filter($adminSectionItems, fn ($item) => $adminNavCanRoute($item['route'])); @endphp
-                    @if(count($adminVisibleItems))
+                    @if(count($adminVisibleItems) || ($adminSectionLabel === 'Content' && $adminCanSubmitPublicSource))
                         <p class="px-4 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider {{ $loop->first ? '' : 'mt-2' }}">{{ $adminSectionLabel }}</p>
                         @foreach($adminVisibleItems as $item)
                             <a href="{{ route($item['route']) }}" class="sidebar-link block px-4 py-2.5 {{ request()->routeIs($item['pattern']) ? 'active' : '' }}">{{ $item['label'] }}</a>
                         @endforeach
+                        @if($adminSectionLabel === 'Content' && $adminCanSubmitPublicSource)
+                            <a href="{{ route('contributor.chatter.index') }}" class="sidebar-link block px-4 py-2.5 {{ request()->routeIs('contributor.chatter.*') ? 'active' : '' }}">Submit a public source</a>
+                        @endif
                     @endif
                 @endforeach
             @endif
