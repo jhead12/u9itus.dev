@@ -67,6 +67,7 @@
                         </div>
                         <h2 class="mt-3 text-lg font-semibold text-white">{{ $chatter->headline }}</h2>
                         <p class="mt-1 text-sm text-slate-400">{{ $chatter->politician->full_name }}{{ $chatter->source_author ? ' · '.$chatter->source_author : '' }}</p>
+                        <a href="{{ route('politician.public.show', $chatter->politician->slug) }}" target="_blank" rel="noopener noreferrer" class="mt-2 inline-block text-sm font-semibold text-emerald-400 hover:underline" aria-label="View {{ $chatter->politician->full_name }}'s profile (opens in a new tab)">View politician profile ↗</a>
                         @if($chatter->summary)<p class="mt-3 text-sm leading-relaxed text-slate-300">{{ $chatter->summary }}</p>@endif
                         <a href="{{ $chatter->source_url }}" target="_blank" rel="noopener noreferrer" class="mt-3 inline-block break-all text-xs text-emerald-400 hover:underline">{{ $chatter->source_url }} ↗</a>
                     </div>

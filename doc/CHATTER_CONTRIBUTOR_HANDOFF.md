@@ -1,5 +1,13 @@
 # Community chatter contributors — prompt history and recovery
 
+## Current release status — September 23, 2026
+
+The contributor feature was merged to master in `c266c45b`, followed by MySQL/SQLite migration fixes in `998928ec` and `58a65651`. Railway production web deployment `c4982f71-cf5b-4c93-9576-6288b6011ad5` for `58a65651` succeeded and passed its health check. The contributor migration was confirmed as Ran (batch 105) through the live container. An anonymous request to `https://www.u9itus.com/contribute/chatter` returned HTTP 302 to `/login`. The current code passed 28 targeted tests / 352 assertions after resumption.
+
+The older temporary release worktree at `/private/tmp/u9itus-chatter-release.YxT3mX` is superseded; do not deploy it over current master. The original stash was preserved.
+
+Latest user addition: add a direct politician profile link to each admin chatter card. Implemented below the politician name, opening the public profile in a new tab to retain review-queue position; the three chatter tests passed. Deployment verification for this small follow-up is pending. The original pre-deployment notes below are historical.
+
 ## User request and agreed scope
 
 1. User proposed a browser app for authorized users to clip social/news sources, associate them with politicians, and act as community reporters.
