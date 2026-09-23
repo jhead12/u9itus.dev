@@ -35,7 +35,7 @@
     <details class="rounded-2xl border border-slate-700/70 bg-slate-800/40" {{ $errors->any() ? 'open' : '' }}>
         <summary class="cursor-pointer px-5 py-4 font-semibold text-white">+ Collect a source for review</summary>
         @can('chatter.create')
-<form method="POST" action="{{ route('admin.politician-chatter.store') }}" class="border-t border-slate-700/60 p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+<form method="POST" action="{{ route('admin.politician-chatter.store') }}" data-autosave-key="chatter-new" class="border-t border-slate-700/60 p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
             @csrf
             @include('standalone.admin.partials.chatter-fields', ['chatter' => null])
             <div class="md:col-span-2 flex justify-end">
@@ -99,7 +99,7 @@
                     <summary class="cursor-pointer px-5 py-3 text-sm font-semibold text-slate-300 hover:text-white">Edit evidence and review history</summary>
                     <div class="border-t border-slate-700/60 p-5 grid grid-cols-1 xl:grid-cols-[2fr_1fr] gap-6">
                         @can('chatter.edit')
-<form method="POST" action="{{ route('admin.politician-chatter.update', $chatter) }}" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<form method="POST" action="{{ route('admin.politician-chatter.update', $chatter) }}" data-autosave-key="chatter-edit-{{ $chatter->id }}" class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             @csrf @method('PUT')
                             @include('standalone.admin.partials.chatter-fields', ['chatter' => $chatter])
                             <div class="md:col-span-2 flex justify-end"><button class="rounded-lg bg-slate-600 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-500">Save changes</button></div>
@@ -135,4 +135,65 @@
 
     {{ $items->links() }}
 </div>
+
+{{-- Draft autosave: these forms have no Alpine state, no client-side validation,
+     and admins spend real time filling them out — an accidental refresh or
+     browser back shouldn't lose evidence they already typed. Only restores into
+     a currently-blank form so it never overwrites Laravel's old()-repopulated
+     values after a failed submit. --}}
+<script>
+(function () {
+    var PREFIX = 'admin-chatter-draft:';
+    var SKIP = { _token: true, _method: true };
+
+    function collect(form) {
+        var data = {};
+        new FormData(form).forEach(function (value, key) {
+            if (!SKIP[key]) data[key] = value;
+        });
+        return data;
+    }
+
+    function restore(form, data) {
+        Object.keys(data).forEach(function (key) {
+            if (SKIP[key]) return;
+            var field = form.elements.namedItem(key);
+            if (!field) return;
+            if (field.type === 'checkbox' || field.type === 'radio') {
+                field.checked = field.value === data[key];
+            } else {
+                field.value = data[key];
+            }
+        });
+    }
+
+    function isBlank(form) {
+        return Array.prototype.every.call(form.elements, function (el) {
+            if (!el.name || SKIP[el.name] || el.type === 'submit' || el.type === 'button') return true;
+            return !el.value;
+        });
+    }
+
+    document.querySelectorAll('form[data-autosave-key]').forEach(function (form) {
+        var key = PREFIX + form.dataset.autosaveKey;
+
+        try {
+            var saved = localStorage.getItem(key);
+            if (saved && isBlank(form)) restore(form, JSON.parse(saved));
+        } catch (e) { /* localStorage unavailable (private browsing, etc.) — degrade silently */ }
+
+        var timer = null;
+        form.addEventListener('input', function () {
+            clearTimeout(timer);
+            timer = setTimeout(function () {
+                try { localStorage.setItem(key, JSON.stringify(collect(form))); } catch (e) {}
+            }, 400);
+        });
+
+        form.addEventListener('submit', function () {
+            try { localStorage.removeItem(key); } catch (e) {}
+        });
+    });
+})();
+</script>
 @endsection
