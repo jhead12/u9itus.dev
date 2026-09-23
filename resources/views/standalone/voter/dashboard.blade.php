@@ -318,7 +318,7 @@
     @if($recentSessions->isNotEmpty() || ($voter && $voter->earlybank_member_id))
     <div id="dash-section-activity">
         <h2 class="text-lg font-semibold text-white mb-4">Recent Activity</h2>
-        <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl overflow-hidden">
+        <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl overflow-x-auto">
             <table class="w-full text-sm">
                 <thead>
                     <tr class="border-b border-slate-700 text-slate-400 text-left">

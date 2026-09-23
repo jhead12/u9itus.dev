@@ -18,6 +18,7 @@
         /* Hide scrollbar on sidebar */
         .sidebar-scroll { scrollbar-width: none; }
         .sidebar-scroll::-webkit-scrollbar { display: none; }
+        .stat-card { @apply bg-slate-800/50 border border-slate-700/50 rounded-xl p-5; }
     </style>
 
     @stack('styles')
