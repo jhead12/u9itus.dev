@@ -23,8 +23,10 @@ return new class extends Migration
                 $table->string('source_url', 1000);
                 // varchar(1000) is too wide for a plain unique index under utf8mb4
                 // (1000 * 4 bytes exceeds InnoDB's 3072-byte key limit) — dedup on
-                // a stored hash instead so the full URL is still kept intact.
-                $table->string('source_url_hash', 64)->storedAs('SHA2(source_url, 256)');
+                // a hash instead so the full URL is still kept intact. Computed in
+                // PHP (PoliticianChatterItem::booted()) rather than as a DB-generated
+                // column so it works the same on MySQL and the SQLite test DB.
+                $table->string('source_url_hash', 64);
                 $table->string('source_author', 191)->nullable();
                 $table->timestamp('source_published_at')->nullable();
                 $table->json('engagement_metrics')->nullable();
@@ -46,7 +48,14 @@ return new class extends Migration
         } else {
             if (! Schema::hasColumn('politician_chatter_items', 'source_url_hash')) {
                 Schema::table('politician_chatter_items', function (Blueprint $table) {
-                    $table->string('source_url_hash', 64)->storedAs('SHA2(source_url, 256)')->after('source_url');
+                    $table->string('source_url_hash', 64)->nullable()->after('source_url');
+                });
+                DB::table('politician_chatter_items')->orderBy('id')->each(function ($row) {
+                    DB::table('politician_chatter_items')->where('id', $row->id)
+                        ->update(['source_url_hash' => hash('sha256', $row->source_url)]);
+                });
+                Schema::table('politician_chatter_items', function (Blueprint $table) {
+                    $table->string('source_url_hash', 64)->nullable(false)->change();
                 });
             }
             $existingIndexes = collect(DB::select('SHOW INDEX FROM politician_chatter_items'))->pluck('Key_name')->unique();

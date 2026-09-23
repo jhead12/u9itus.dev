@@ -16,6 +16,12 @@ return new class extends Migration
 {
     public function up(): void
     {
+        // information_schema.TABLE_CONSTRAINTS is MySQL-only; a fresh SQLite
+        // test/staging DB already gets this FK inline from 2026_09_22_000001.
+        if (DB::getDriverName() !== 'mysql') {
+            return;
+        }
+
         $fkExists = DB::table('information_schema.TABLE_CONSTRAINTS')
             ->where('TABLE_NAME', 'politician_chatter_moderation_logs')
             ->where('CONSTRAINT_NAME', 'politician_chatter_moderation_logs_admin_user_id_foreign')
@@ -30,6 +36,9 @@ return new class extends Migration
 
     public function down(): void
     {
+        if (DB::getDriverName() !== 'mysql') {
+            return;
+        }
         Schema::table('politician_chatter_moderation_logs', function (Blueprint $table) {
             $table->dropForeign(['admin_user_id']);
         });

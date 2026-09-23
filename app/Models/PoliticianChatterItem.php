@@ -45,6 +45,15 @@ class PoliticianChatterItem extends Model
         ];
     }
 
+    protected static function booted(): void
+    {
+        static::saving(function (self $item) {
+            if ($item->isDirty('source_url')) {
+                $item->source_url_hash = hash('sha256', $item->source_url);
+            }
+        });
+    }
+
     public function submittedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'submitted_by_user_id');
