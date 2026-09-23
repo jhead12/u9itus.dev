@@ -21,8 +21,9 @@ const form = restore => `<p data-clip-notice hidden role="status"></p><form data
 
 test('extension permissions and URL screening stay limited', () => {
     const manifest = JSON.parse(read('browser-extension/chatter-clipper/manifest.json'));
-    assert.deepEqual(manifest.permissions, ['activeTab', 'scripting']);
-    for (const field of ['host_permissions', 'content_scripts', 'background', 'externally_connectable']) assert.equal(manifest[field], undefined);
+    assert.deepEqual(manifest.permissions, ['activeTab', 'scripting', 'contextMenus']);
+    assert.deepEqual(manifest.background, { service_worker: 'background.js' });
+    for (const field of ['host_permissions', 'content_scripts', 'externally_connectable']) assert.equal(manifest[field], undefined);
     for (const url of ['https://x.com/person/status/123', 'https://publication.substack.com/p/news', 'https://youtu.be/123']) assert.equal(publicSourceUrl(url), true);
     for (const url of ['javascript:alert(1)', 'file:///secret', 'chrome://settings', 'http://127.1/a', 'http://10.0.0.1/a', 'http://[::1]/', 'https://localhost/a', 'https://service.local/a', 'https://name:pass@example.com/a', 'https://x.com/messages/1', 'https://instagram.com/direct/inbox', 'https://mail.google.com/mail/u/0', 'https://example.com?access_token=secret']) assert.equal(publicSourceUrl(url), false, url);
     assert.equal(read('public/js/chatter-source-url.js'), read('browser-extension/chatter-clipper/source-url.js'));
@@ -119,6 +120,93 @@ test('popup previews selected text and opens only a confirmed first-party draft'
     } finally { await browser.close(); }
 });
 
+test('right-click menu hands off exactly the clicked page/selection, nothing more', async () => {
+    const browser = await chromium.launch({ headless: true });
+    try {
+        const page = await browser.newPage();
+        await page.addInitScript(() => {
+            window.createdTabs = [];
+            window.registeredMenus = [];
+            window.chrome = {
+                runtime: { onInstalled: { addListener: fn => fn() }, getURL: path => 'chrome-extension://fake-id/' + path },
+                contextMenus: { create: options => window.registeredMenus.push(options), onClicked: { addListener: fn => { window.__onClicked = fn; } } },
+                tabs: { create: async data => { window.createdTabs.push(data); } },
+            };
+        });
+        await page.route('https://clipper.test/**', route => route.fulfill({
+            contentType: 'text/javascript', body: read('browser-extension/chatter-clipper/background.js'),
+        }));
+        await page.goto('about:blank');
+        await page.addScriptTag({ url: 'https://clipper.test/background.js' });
+        await page.waitForFunction(() => window.registeredMenus?.length === 1);
+        const menu = await page.evaluate(() => window.registeredMenus[0]);
+        assert.equal(menu.title, 'Clip to U9itus');
+        assert.deepEqual(menu.contexts, ['page', 'selection']);
+
+        // A click on an unrelated menu item (only relevant once other items ever exist) must no-op.
+        await page.evaluate(() => window.__onClicked({ menuItemId: 'something-else', selectionText: 'x' }, { url: 'https://example.com', title: 'Example' }));
+        assert.equal(await page.evaluate(() => window.createdTabs.length), 0);
+
+        await page.evaluate(() => window.__onClicked(
+            { menuItemId: window.registeredMenus[0].id, selectionText: '  Selected passage  ' },
+            { url: 'https://example.com/article', title: 'Example headline' },
+        ));
+        const [created] = await page.evaluate(() => window.createdTabs);
+        assert.equal(created.url.startsWith('chrome-extension://fake-id/popup.html#from-menu='), true);
+        const data = JSON.parse(decodeURIComponent(created.url.split('#from-menu=')[1]));
+        assert.deepEqual(data, { url: 'https://example.com/article', title: 'Example headline', excerpt: '  Selected passage  ' });
+
+        // No tab and no selection must not throw, and must still not act on a non-clip menu id.
+        await page.evaluate(() => window.__onClicked({ menuItemId: 'u9itus-clip', selectionText: undefined }, undefined));
+        assert.equal(await page.evaluate(() => window.createdTabs.length), 1);
+    } finally { await browser.close(); }
+});
+
+test('popup imports a right-click clip without touching chrome.tabs, and clears the fragment', async () => {
+    const browser = await chromium.launch({ headless: true });
+    try {
+        const page = await browser.newPage();
+        await page.addInitScript(() => {
+            window.tabsQueried = false;
+            window.chrome = {
+                tabs: { query: async () => { window.tabsQueried = true; return []; }, create: async () => {} },
+                scripting: { executeScript: async () => { throw new Error('must not run for a right-click clip'); } },
+            };
+        });
+        await page.route('https://clipper.test/**', route => {
+            const path = new URL(route.request().url()).pathname.slice(1) || 'popup.html';
+            return route.fulfill({ contentType: path.endsWith('.js') ? 'text/javascript' : path.endsWith('.css') ? 'text/css' : 'text/html', body: read('browser-extension/chatter-clipper/' + path) });
+        });
+        const payload = { url: 'https://x.com/example/status/1', title: 'A post', excerpt: 'Highlighted text' };
+        const hash = '#from-menu=' + encodeURIComponent(JSON.stringify(payload));
+        await page.goto('https://clipper.test/popup.html' + hash);
+        await page.waitForFunction(() => !document.querySelector('fieldset').disabled);
+        assert.equal(await page.locator('#source-url').inputValue(), payload.url);
+        assert.equal(await page.locator('#headline').inputValue(), payload.title);
+        assert.equal(await page.locator('#excerpt').inputValue(), payload.excerpt);
+        assert.equal(await page.evaluate(() => window.tabsQueried), false);
+        assert.equal(await page.evaluate(() => window.location.hash), '');
+        assert.equal(await page.evaluate(() => document.documentElement.classList.contains('standalone')), true);
+    } finally { await browser.close(); }
+});
+
+test('popup rejects a right-click clip for a non-public URL instead of populating the form', async () => {
+    const browser = await chromium.launch({ headless: true });
+    try {
+        const page = await browser.newPage();
+        await page.addInitScript(() => { window.chrome = { tabs: { query: async () => [] } }; });
+        await page.route('https://clipper.test/**', route => {
+            const path = new URL(route.request().url()).pathname.slice(1) || 'popup.html';
+            return route.fulfill({ contentType: path.endsWith('.js') ? 'text/javascript' : path.endsWith('.css') ? 'text/css' : 'text/html', body: read('browser-extension/chatter-clipper/' + path) });
+        });
+        const hash = '#from-menu=' + encodeURIComponent(JSON.stringify({ url: 'https://mail.google.com/mail/u/0', title: 'Inbox', excerpt: '' }));
+        await page.goto('https://clipper.test/popup.html' + hash);
+        await page.waitForFunction(() => document.querySelector('#status').classList.contains('error'));
+        assert.equal(await page.locator('#source-url').isDisabled(), true);
+        assert.match(await page.locator('#status').textContent(), /public article or social post/);
+    } finally { await browser.close(); }
+});
+
 test('unpacked extension installs in Chromium and displays its popup', async () => {
     const extensionPath = fileURLToPath(new URL('browser-extension/chatter-clipper', root));
     const profile = mkdtempSync(join(tmpdir(), 'u9itus-clipper-browser-'));
@@ -133,6 +221,11 @@ test('unpacked extension installs in Chromium and displays its popup', async () 
         await item.waitFor();
         const id = await item.getAttribute('id');
         assert.match(id, /^[a-p]{32}$/);
+        // Confirms background.js registered as the extension's service worker without
+        // a fatal error preventing load (a broken script would leave this list empty).
+        const worker = context.serviceWorkers().find(w => w.url() === `chrome-extension://${id}/background.js`)
+            ?? await context.waitForEvent('serviceworker', w => w.url() === `chrome-extension://${id}/background.js`, { timeout: 5000 });
+        assert.ok(worker);
         await page.goto(`chrome-extension://${id}/popup.html`);
         await page.waitForFunction(() => document.querySelector('#status').classList.contains('error'));
         assert.match(await page.locator('h1').textContent(), /Clip a public source/);

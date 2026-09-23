@@ -136,7 +136,7 @@ it('provides a public clip handoff but keeps extension setup and submissions res
     $this->actingAs(User::factory()->create())->get(route('contributor.chatter.extension'))->assertForbidden();
     $user = communityContributor();
     $this->actingAs($user)->get(route('contributor.chatter.extension'))->assertOk()
-        ->assertSee('u9itus-source-clipper-0.1.0.zip')->assertSee('Load unpacked');
+        ->assertSee('u9itus-source-clipper-0.2.0.zip')->assertSee('Load unpacked');
     $this->get(route('contributor.chatter.index'))->assertOk()->assertSee('data-restore-clip="true"', false);
     $this->withSession(['_old_input' => ['headline' => 'Preserve my edit']])
         ->get(route('contributor.chatter.index'))->assertOk()->assertSee('Preserve my edit')

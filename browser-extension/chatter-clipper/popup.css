@@ -1,6 +1,9 @@
 :root { color-scheme: dark; font-family: system-ui, sans-serif; color: #e2e8f0; background: #0f172a; }
 * { box-sizing: border-box; }
 body { width: 380px; margin: 0; padding: 20px; }
+/* When popup.html is opened as its own tab (the right-click "Clip to U9itus"
+   path) instead of the anchored toolbar popup, center it in the page. */
+html.standalone body { margin: 40px auto; }
 header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .brand { font-size: 22px; font-weight: 800; color: #fff; }
 .brand span { color: #34d399; }

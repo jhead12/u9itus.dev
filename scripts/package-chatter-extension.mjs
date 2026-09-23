@@ -13,7 +13,7 @@ mkdirSync(output, { recursive: true });
 copyFileSync(join(source, 'source-url.js'), resolve(root, 'public/js/chatter-source-url.js'));
 const temporary = mkdtempSync(join(tmpdir(), 'u9itus-extension-'));
 const archive = join(temporary, 'clipper.zip');
-execFileSync('zip', ['-q', archive, 'manifest.json', 'popup.html', 'popup.css', 'popup.js', 'source-url.js', 'README.md'], { cwd: source });
+execFileSync('zip', ['-q', archive, 'manifest.json', 'background.js', 'popup.html', 'popup.css', 'popup.js', 'source-url.js', 'README.md'], { cwd: source });
 const target = join(output, `u9itus-source-clipper-${manifest.version}.zip`);
 copyFileSync(archive, target);
 unlinkSync(archive);
