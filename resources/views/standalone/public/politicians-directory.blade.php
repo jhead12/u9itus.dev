@@ -277,27 +277,38 @@
                 @endphp
                 <div class="flex flex-nowrap items-center gap-1.5 mt-2 overflow-x-auto -mx-4 px-4 pb-2" role="group" aria-label="Filter by issue">
                     <span class="flex-shrink-0 text-[10px] font-semibold uppercase tracking-wider text-slate-400 mr-0.5">Issues</span>
-                    <a href="{{ route('politicians.directory', $baseQuery->toArray()) }}#results"
-                       class="flex-shrink-0 inline-flex items-center justify-center min-h-6 rounded-full px-2.5 py-1 text-[10px] font-semibold border transition {{ $activeTopics->isEmpty() ? 'bg-slate-700 border-slate-600 text-white' : 'border-slate-700 text-slate-400 hover:text-white hover:border-slate-600' }}"
-                       @if($activeTopics->isEmpty()) aria-current="true" @endif>
-                        All
-                    </a>
+                    {{-- GET forms preserve filtering without exposing combinatorial crawl links. --}}
+                    <form method="GET" action="{{ route('politicians.directory') }}#results" class="flex-shrink-0">
+                        @foreach($baseQuery as $name => $value)
+                            <input type="hidden" name="{{ $name }}" value="{{ $value }}">
+                        @endforeach
+                        <button type="submit"
+                           class="flex-shrink-0 inline-flex items-center justify-center min-h-6 rounded-full px-2.5 py-1 text-[10px] font-semibold border transition {{ $activeTopics->isEmpty() ? 'bg-slate-700 border-slate-600 text-white' : 'border-slate-700 text-slate-400 hover:text-white hover:border-slate-600' }}"
+                           @if($activeTopics->isEmpty()) aria-current="true" @endif>
+                            All
+                        </button>
+                    </form>
                     @foreach($topics as $topic)
                         @php
                             $isActive = $activeTopics->contains($topic->slug);
                             $newTopics = $isActive ? $activeTopics->reject(fn ($t) => $t === $topic->slug) : $activeTopics->concat([$topic->slug]);
-                            $chipQuery = $newTopics->isEmpty() ? $baseQuery->toArray() : $baseQuery->put('topic', $newTopics->implode(','))->toArray();
+                            $chipQuery = $newTopics->isEmpty() ? $baseQuery->toArray() : $baseQuery->merge(['topic' => $newTopics->implode(',')])->toArray();
                             $color = $topic->badge_color ?: '#6366f1';
                             $textColor = $readableAccent($color);
                         @endphp
-                        <a href="{{ route('politicians.directory', $chipQuery) }}#results"
-                           class="flex-shrink-0 inline-flex items-center justify-center gap-x-1 min-h-6 rounded-full px-2.5 py-1 text-[10px] font-semibold border transition-all hover:brightness-125 whitespace-nowrap {{ $isActive ? 'ring-2 ring-offset-1 ring-offset-slate-900' : '' }}"
-                           style="color:{{ $textColor }};border-color:{{ $color }}55;background-color:{{ $chipSurface }};--tw-ring-color:{{ $color }};"
-                           title="{{ $isActive ? 'Remove' : 'Add' }} the {{ $topic->name }} filter"
-                           @if($isActive) aria-current="true" @endif>
-                            @if(!empty($topic->icon))<span aria-hidden="true">{{ $topic->icon }}</span>@endif
-                            {{ $topic->name }}
-                        </a>
+                        <form method="GET" action="{{ route('politicians.directory') }}#results" class="flex-shrink-0">
+                            @foreach($chipQuery as $name => $value)
+                                <input type="hidden" name="{{ $name }}" value="{{ $value }}">
+                            @endforeach
+                            <button type="submit" aria-pressed="{{ $isActive ? 'true' : 'false' }}"
+                               class="flex-shrink-0 inline-flex items-center justify-center gap-x-1 min-h-6 rounded-full px-2.5 py-1 text-[10px] font-semibold border transition-all hover:brightness-125 whitespace-nowrap {{ $isActive ? 'ring-2 ring-offset-1 ring-offset-slate-900' : '' }}"
+                               style="color:{{ $textColor }};border-color:{{ $color }}55;background-color:{{ $chipSurface }};--tw-ring-color:{{ $color }};"
+                               title="{{ $isActive ? 'Remove' : 'Add' }} the {{ $topic->name }} filter"
+                               @if($isActive) aria-current="true" @endif>
+                                @if(!empty($topic->icon))<span aria-hidden="true">{{ $topic->icon }}</span>@endif
+                                {{ $topic->name }}
+                            </button>
+                        </form>
                     @endforeach
                 </div>
             @endif

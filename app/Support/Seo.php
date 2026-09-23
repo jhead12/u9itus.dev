@@ -7,7 +7,7 @@ class Seo
     // Only content-changing parameters belong in a canonical. Tracking and
     // refresh parameters must never create another indexable URL.
     private const FILTERS = [
-        'politicians.directory' => ['q', 'state', 'city', 'district', 'zip', 'topic', 'party', 'level', 'status', 'sort'],
+        'politicians.directory' => ['q', 'state', 'city', 'district', 'zip', 'topic', 'party', 'level', 'status', 'sort', 'unclaimed'],
         'pacs.directory' => ['q', 'type', 'party', 'state'],
         'groups.directory' => ['q', 'state', 'city', 'scope'],
         'events.index' => ['q', 'location', 'topic'],

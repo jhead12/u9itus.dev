@@ -157,3 +157,25 @@ test('invalid and first pagination values do not create canonical variants', fun
     $document = seoDocument($this->get('/blog?'.$query)->assertOk()->getContent());
     expect(seoValue($document, '//link[@rel="canonical"]', 'href'))->toBe(url('/blog'));
 })->with(['page=1', 'page=0', 'page=-1', 'page=invalid']);
+
+test('issue filters use GET forms without advertising topic combinations as links', function () {
+    PoliticianTopic::create(['name' => 'Housing', 'slug' => 'housing', 'is_active' => true, 'sort_order' => 1]);
+    PoliticianTopic::create(['name' => 'Schools', 'slug' => 'schools', 'is_active' => true, 'sort_order' => 2]);
+    $document = seoDocument($this->get('/politicians?topic=schools&state=CA&page=2')->assertOk()->getContent());
+    $group = '//div[@aria-label="Filter by issue"]';
+    expect($document->query($group.'//a[contains(@href, "topic=")]')->length)->toBe(0);
+    $housing = $group.'//form[button[contains(@title, "Housing")]]';
+    $schools = $group.'//form[button[contains(@title, "Schools")]]';
+    expect(seoValue($document, $housing.'/input[@name="topic"]', 'value'))->toBe('schools,housing');
+    expect(seoValue($document, $housing.'/input[@name="state"]', 'value'))->toBe('CA');
+    expect($document->query($schools.'/input[@name="topic"]')->length)->toBe(0);
+    expect($document->query($group.'//input[@name="page"]')->length)->toBe(0);
+    expect(seoValue($document, $schools, 'method'))->toBe('GET');
+    expect(seoValue($document, '//meta[@name="robots"]'))->toBe('noindex, follow');
+});
+
+test('unclaimed directory filter is not indexable', function () {
+    $document = seoDocument($this->get('/politicians?unclaimed=1')->assertOk()->getContent());
+    expect(seoValue($document, '//meta[@name="robots"]'))->toBe('noindex, follow');
+    expect(seoValue($document, '//link[@rel="canonical"]', 'href'))->toBe(url('/politicians').'?unclaimed=1');
+});
