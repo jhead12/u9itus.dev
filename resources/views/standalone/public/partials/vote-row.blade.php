@@ -8,6 +8,10 @@
     };
     $billUrl = $vote->billUrl();
     $heading = $vote->title ?: $vote->question ?: 'Roll call vote';
+
+    $partyTally = $vote->party_tally ?? [];
+    $partyMeta = ['D' => ['Dem', 'text-blue-300'], 'R' => ['Rep', 'text-red-300'], 'I' => ['Ind', 'text-purple-300']];
+    $partyOrder = array_merge(['D', 'R', 'I'], array_diff(array_keys($partyTally), ['D', 'R', 'I']));
 @endphp
 <li class="flex items-start gap-3 py-3">
     <span class="mt-0.5 inline-flex w-20 justify-center flex-shrink-0 text-[11px] font-semibold border rounded-full px-2 py-1 {{ $chip[1] }}">{{ $chip[0] }}</span>
@@ -26,5 +30,14 @@
             @if($vote->question && $vote->title) · {{ $vote->question }} @endif
             @if($vote->result) · {{ $vote->result }} ({{ $vote->yeas }}–{{ $vote->nays }}) @endif
         </p>
+        @if(!empty($partyTally))
+            <p class="text-xs text-slate-500 mt-1">
+                @foreach($partyOrder as $party)
+                    @continue(!isset($partyTally[$party]))
+                    @php [$label, $class] = $partyMeta[$party] ?? [$party, 'text-slate-400']; @endphp
+                    <span class="{{ $class }}">{{ $label }} {{ $partyTally[$party]['yea'] ?? 0 }}–{{ $partyTally[$party]['nay'] ?? 0 }}</span>@if(!$loop->last)&nbsp;·&nbsp;@endif
+                @endforeach
+            </p>
+        @endif
     </div>
 </li>

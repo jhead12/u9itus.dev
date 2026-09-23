@@ -2390,6 +2390,7 @@ class PublicProfileController extends Controller
         $votes = $record->listQuery($politician->bioguide_id, $summary['congress'], $filter)
             ->paginate(30)
             ->withQueryString();
+        $record->attachPartyTallies($votes->getCollection());
 
         $ogTitle = $politician->full_name.' — Voting Record';
         $ogDescription = "How {$politician->full_name} has voted on roll-call votes in the {$summary['congress']}th Congress.";

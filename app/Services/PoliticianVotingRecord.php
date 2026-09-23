@@ -2,10 +2,13 @@
 
 namespace App\Services;
 
+use App\Models\CongressMemberVote;
 use App\Models\CongressVote;
 use App\Models\Politician;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 /**
  * A sitting member of Congress's roll-call record for the public profile: headline numbers
@@ -57,8 +60,41 @@ class PoliticianVotingRecord
                 'party_line_pct' => $withParty->count() >= 10 ? round($sided / $withParty->count() * 100, 1) : null,
                 'party' => $rows->first()?->member_party,
                 'as_of' => $rows->first()?->voted_at,
-                'recent' => $rows->take($recent)->values(),
+                'recent' => $this->attachPartyTallies($rows->take($recent)->values()),
             ];
+        });
+    }
+
+    /**
+     * Attaches each vote's party-by-party yea/nay breakdown (e.g. how many Democrats,
+     * Republicans, and Independents voted each way) as $vote->party_tally, batched into
+     * a single query rather than one per row.
+     *
+     * @param  Collection<int, CongressVote>  $votes
+     * @return Collection<int, CongressVote>
+     */
+    public function attachPartyTallies(Collection $votes): Collection
+    {
+        $ids = $votes->pluck('id')->all();
+        if ($ids === []) {
+            return $votes;
+        }
+
+        $tallies = CongressMemberVote::query()
+            ->whereIn('congress_vote_id', $ids)
+            ->whereIn('vote', ['yea', 'nay'])
+            ->select('congress_vote_id', 'party', 'vote', DB::raw('count(*) as total'))
+            ->groupBy('congress_vote_id', 'party', 'vote')
+            ->get()
+            ->groupBy('congress_vote_id');
+
+        return $votes->each(function (CongressVote $vote) use ($tallies) {
+            $byParty = [];
+            foreach ($tallies->get($vote->id, []) as $row) {
+                $party = $row->party ?: '?';
+                $byParty[$party][$row->vote] = (int) $row->total;
+            }
+            $vote->party_tally = $byParty;
         });
     }
 
