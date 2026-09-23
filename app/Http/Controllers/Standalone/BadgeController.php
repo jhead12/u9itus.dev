@@ -127,4 +127,47 @@ class BadgeController extends Controller
 
         return back()->with('success', 'Badge removed from your profile.');
     }
+
+    // ── Citizen badge routes ──────────────────────────────────────────────
+
+    /**
+     * POST /citizen/badges/{topic}
+     * Citizen declares an interest topic — used to personalize the local
+     * news widget on their workspace.
+     */
+    public function citizenStore(Request $request, int $topicId): RedirectResponse
+    {
+        try {
+            $topic = $this->badgeService->resolveSelectableTopic($topicId);
+        } catch (\InvalidArgumentException $e) {
+            return back()->withErrors(['badge' => $e->getMessage()])->withInput();
+        }
+
+        $citizen = $request->user()->citizen;
+
+        if (! $citizen) {
+            abort(403, 'No citizen profile found.');
+        }
+
+        $citizen->addBadge($topic->id, 'self_declared');
+
+        return back()->with('success', "🏅 \"{$topic->name}\" added to your interests.");
+    }
+
+    /**
+     * DELETE /citizen/badges/{topic}
+     * Citizen removes a self-declared interest topic.
+     */
+    public function citizenDestroy(Request $request, int $topicId): RedirectResponse
+    {
+        $citizen = $request->user()->citizen;
+
+        if (! $citizen) {
+            abort(403, 'No citizen profile found.');
+        }
+
+        $citizen->removeSelfDeclaredBadge($topicId);
+
+        return back()->with('success', 'Interest removed.');
+    }
 }

@@ -32,7 +32,7 @@ it('shows a Posts section and a Two-Factor Auth link in the citizen dashboard si
     $this->actingAs($user)->get(route('citizen.dashboard'))
         ->assertOk()
         ->assertSee('Posts')
-        ->assertSee('My Posts')
+        ->assertSee('Blog Posts')
         ->assertSee(route('citizen.posts.index'), false)
         ->assertSee('New Post')
         ->assertSee(route('citizen.posts.create'), false)

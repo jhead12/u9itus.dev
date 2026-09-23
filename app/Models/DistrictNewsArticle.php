@@ -47,4 +47,21 @@ class DistrictNewsArticle extends Model
     {
         return $query->where('district_code', $districtCode);
     }
+
+    /**
+     * Restrict to articles classified under any of the given topic slugs
+     * (politician_topics.slug — see IssueClassifierService/DistrictNewsService,
+     * which populate topic_key on scrape).
+     *
+     * @param  array<int, string>  $topicSlugs
+     */
+    public function scopeForTopics(Builder $query, array $topicSlugs): Builder
+    {
+        return $query->whereIn('topic_key', $topicSlugs);
+    }
+
+    public function scopeForState(Builder $query, string $state): Builder
+    {
+        return $query->where('state', strtoupper($state));
+    }
 }

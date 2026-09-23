@@ -607,6 +607,16 @@ Route::middleware(['guest.trial', 'auth', 'verified', 'check.role', 'no.cache'])
         Route::get('/settings', [CitizenController::class, 'settings'])->name('settings');
         Route::put('/settings', [CitizenController::class, 'updateSettings'])->name('settings.update');
 
+        // Interest topics (self-declared badges) — drives the local news widget.
+        Route::post('/badges/{topicId}', [BadgeController::class, 'citizenStore'])->name('badges.store');
+        Route::delete('/badges/{topicId}', [BadgeController::class, 'citizenDestroy'])->name('badges.destroy');
+
+        // My Workspace — personal widget dashboard (see AdminWorkspaceController for the admin equivalent).
+        Route::get('/workspace', [\App\Http\Controllers\Standalone\CitizenWorkspaceController::class, 'index'])->name('workspace.index');
+        Route::post('/workspace/widgets', [\App\Http\Controllers\Standalone\CitizenWorkspaceController::class, 'store'])->name('workspace.widgets.store');
+        Route::post('/workspace/widgets/layout', [\App\Http\Controllers\Standalone\CitizenWorkspaceController::class, 'updateLayout'])->name('workspace.widgets.layout');
+        Route::delete('/workspace/widgets/{widget}', [\App\Http\Controllers\Standalone\CitizenWorkspaceController::class, 'destroy'])->name('workspace.widgets.destroy');
+
         // ── Blog Posts ───────────────────────────────────────────────────────
         Route::prefix('posts')->name('posts.')->group(function () {
             Route::get('/', [PostController::class, 'index'])->name('index');
