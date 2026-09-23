@@ -29,6 +29,12 @@ class ChatterContributorController extends Controller
         return view('standalone.contributor.chatter', compact('politicians', 'items'));
     }
 
+    public function extension(Request $request)
+    {
+        $this->authorizeContributor($request);
+        return view('standalone.contributor.extension');
+    }
+
     public function store(Request $request)
     {
         $this->authorizeContributor($request);

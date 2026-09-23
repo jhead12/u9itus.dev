@@ -127,10 +127,29 @@ it('rate limits repeated contributor submissions', function () {
     $this->post(route('contributor.chatter.store'), [])->assertStatus(429);
 });
 
+it('provides a public clip handoff but keeps extension setup and submissions restricted', function () {
+    $this->get(route('contributor.chatter.clip'))->assertOk()
+        ->assertHeader('Referrer-Policy', 'no-referrer')
+        ->assertHeader('X-Robots-Tag', 'noindex, nofollow')
+        ->assertSee('chatter-clip-import.js')->assertDontSee('resources/js/app.js');
+    $this->get(route('contributor.chatter.extension'))->assertRedirect();
+    $this->actingAs(User::factory()->create())->get(route('contributor.chatter.extension'))->assertForbidden();
+    $user = communityContributor();
+    $this->actingAs($user)->get(route('contributor.chatter.extension'))->assertOk()
+        ->assertSee('u9itus-source-clipper-0.1.0.zip')->assertSee('Load unpacked');
+    $this->get(route('contributor.chatter.index'))->assertOk()->assertSee('data-restore-clip="true"', false);
+    $this->withSession(['_old_input' => ['headline' => 'Preserve my edit']])
+        ->get(route('contributor.chatter.index'))->assertOk()->assertSee('Preserve my edit')
+        ->assertSee('data-restore-clip="false"', false);
+    $user->removeRole(ChatterContributorAccess::ROLE);
+    $this->actingAs($user)->get(route('contributor.chatter.extension'))->assertForbidden();
+});
+
 it('preserves two factor enforcement and denies guest accounts', function () {
     $user = communityContributor();
     $user->forceFill(['two_factor_secret' => 'JBSWY3DPEHPK3PXP', 'two_factor_confirmed_at' => now()])->save();
-    $this->actingAs($user)->get(route('contributor.chatter.index'))->assertRedirect(route('2fa.challenge'));
+    $this->actingAs($user)->get(route('contributor.chatter.index'))->assertRedirect(route('2fa.challenge'))
+        ->assertSessionHas('url.intended', route('contributor.chatter.index'));
     $this->post(route('contributor.chatter.store'), [])->assertRedirect(route('2fa.challenge'));
     $user->forceFill(['two_factor_secret' => null, 'two_factor_confirmed_at' => null, 'is_guest' => true])->save();
     $this->actingAs($user)->get(route('contributor.chatter.index'))->assertForbidden();
@@ -147,4 +166,25 @@ it('rolls back submissions when the audit write fails', function () {
     } finally {
         \Illuminate\Support\Facades\Event::forget($event);
     }
+});
+
+it('returns a voter to the clipping form after completing two factor verification', function () {
+    $user = communityContributor();
+    $user->forceFill(['two_factor_secret' => 'JBSWY3DPEHPK3PXP', 'two_factor_confirmed_at' => now(), 'two_factor_recovery_codes' => ['ABCD-EFGH']])->save();
+    $this->actingAs($user)->get(route('contributor.chatter.index'))->assertRedirect(route('2fa.challenge'));
+    $this->post(route('2fa.challenge.verify'), ['code' => 'ABCD-EFGH'])->assertRedirect(route('contributor.chatter.index'));
+    $this->get(route('contributor.chatter.index'))->assertOk();
+});
+
+it('returns an approved staff contributor to the clipping form after admin two factor verification', function () {
+    $user = User::factory()->create(['user_type' => 'admin', 'platform' => 'standalone']);
+    $user->assignRole('admin', 'staff:Social Publisher');
+    skipOnboarding($user, 'admin');
+    $user->forceFill(['admin_two_factor_secret' => 'JBSWY3DPEHPK3PXP', 'admin_two_factor_confirmed_at' => now(), 'admin_two_factor_recovery_codes' => ['ABCD-EFGH']])->save();
+    \App\Models\PlatformSetting::updateOrCreate(['key' => 'admin_2fa_enforced', 'user_tier' => null], [
+        'value' => '1', 'type' => 'boolean', 'category' => 'general', 'is_active' => true,
+    ]);
+    $this->actingAs($user)->get(route('contributor.chatter.index'))->assertRedirect(route('admin.2fa.challenge'));
+    $this->post(route('admin.2fa.challenge.verify'), ['code' => 'ABCD-EFGH'])->assertRedirect(route('contributor.chatter.index'));
+    $this->get(route('contributor.chatter.index'))->assertOk();
 });

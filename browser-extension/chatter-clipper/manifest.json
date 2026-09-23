@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "U9itus Source Clipper",
+  "version": "0.1.0",
+  "description": "Clip a public source and selected text for politician chatter review on U9itus.",
+  "minimum_chrome_version": "102",
+  "permissions": ["activeTab", "scripting"],
+  "action": {
+    "default_title": "Clip a public source for U9itus",
+    "default_popup": "popup.html"
+  }
+}

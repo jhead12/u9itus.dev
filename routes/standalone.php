@@ -210,8 +210,16 @@ Route::middleware(['auth', 'verified', 'no.cache'])->group(function () {
 */
 
 // Contributor access is independent of admin membership and portal onboarding.
-Route::middleware(['auth', 'verified', 'no.cache', '2fa', 'admin.2fa'])->prefix('contribute/chatter')->name('contributor.chatter.')->group(function () {
+Route::get('/contribute/chatter/clip', fn () => response()
+    ->view('standalone.contributor.clip')
+    ->header('Cache-Control', 'no-store, private')
+    ->header('Referrer-Policy', 'no-referrer')
+    ->header('X-Robots-Tag', 'noindex, nofollow'))
+    ->name('contributor.chatter.clip');
+
+Route::middleware(['auth', 'verified', 'no.cache', \App\Http\Middleware\RememberContributorDestination::class, '2fa', 'admin.2fa'])->prefix('contribute/chatter')->name('contributor.chatter.')->group(function () {
     Route::get('/', [\App\Http\Controllers\Standalone\ChatterContributorController::class, 'index'])->name('index');
+    Route::get('/extension', [\App\Http\Controllers\Standalone\ChatterContributorController::class, 'extension'])->name('extension');
     Route::post('/', [\App\Http\Controllers\Standalone\ChatterContributorController::class, 'store'])->middleware('throttle:10,1')->name('store');
 });
 

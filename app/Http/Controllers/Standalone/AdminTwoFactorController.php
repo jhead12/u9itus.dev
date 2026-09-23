@@ -96,6 +96,11 @@ class AdminTwoFactorController extends Controller
             $request
         );
 
+        if ($request->session()->get('url.intended') === route('contributor.chatter.index')) {
+            return redirect()->intended(route('admin.dashboard'))
+                ->with('success', 'Two-factor verification complete.');
+        }
+
         return redirect()->route('admin.dashboard')
             ->with('success', 'Two-factor verification complete.');
     }

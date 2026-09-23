@@ -6,10 +6,12 @@
         <p class="text-sm text-amber-300">Community contributors · Human review required</p>
         <h1 class="mt-2 text-3xl font-bold text-white">Submit a public source</h1>
         <p class="mt-3 text-slate-400">Found news or a public social post relevant to a politician? Share the original link and explain its relevance. Submitting does not publish or verify a claim.</p>
+        <a href="{{ route('contributor.chatter.extension') }}" class="mt-3 inline-block text-sm font-semibold text-emerald-300 hover:underline">Get the browser source clipper ↗</a>
     </header>
     @if(session('success'))<p role="status" class="rounded-lg bg-emerald-900/30 p-4 text-emerald-200">{{ session('success') }}</p>@endif
     @if($errors->any())<div role="alert" class="rounded-lg bg-red-900/30 p-4 text-red-200"><ul class="list-disc pl-5">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
-    <form method="POST" action="{{ route('contributor.chatter.store') }}" class="rounded-xl border border-slate-700 bg-slate-900/50 p-5 space-y-5">
+    <p data-clip-notice hidden role="status" class="rounded-lg border border-emerald-700 p-4 text-sm text-emerald-200"></p>
+    <form data-chatter-clip-form data-restore-clip="{{ session()->hasOldInput() ? 'false' : 'true' }}" method="POST" action="{{ route('contributor.chatter.store') }}" class="rounded-xl border border-slate-700 bg-slate-900/50 p-5 space-y-5">
         @csrf
         @include('standalone.partials.chatter-candidate-picker')
         <label class="block">Platform *<select name="platform" required class="mt-1 w-full rounded-lg border-slate-600 bg-slate-900">@foreach(\App\Models\PoliticianChatterItem::PLATFORMS as $value => $label)<option value="{{ $value }}" @selected(old('platform') === $value)>{{ $label }}</option>@endforeach</select></label>
@@ -36,3 +38,6 @@
     </section>
 </div>
 @endsection
+@push('scripts')
+    <script type="module" src="{{ asset('js/chatter-clip-import.js') }}"></script>
+@endpush

@@ -22,6 +22,8 @@
                 `${candidate.label}${pinned && candidate === current ? ' (selected)' : ''}`, candidate.value,
             )));
             select.value = selected;
+            // Multi-row native selects treat the empty option as a selection.
+            select.setCustomValidity(selected ? '' : 'Choose a politician from the results.');
             status.textContent = matches.length
                 ? `${matches.length} candidate${matches.length === 1 ? '' : 's'} found. Select a result below the search field.`
                 : 'No matching candidates. Try another name or state abbreviation.';

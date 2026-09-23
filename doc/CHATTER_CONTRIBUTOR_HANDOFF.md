@@ -1,5 +1,13 @@
 # Community chatter contributors — prompt history and recovery
 
+## Browser extension phase — active
+
+User confirmed the deployed feature works, then requested: “its running properly, we can now add the voter browser submission system”. Implement a Chrome/Edge Manifest V3 extension that captures the user-invoked active tab URL/title/selected text, previews an editable clipping, and opens the authenticated contributor form with a draft. Use existing contributor grants and moderation rules. No new social API credentials or account permissions are needed.
+
+Design: activeTab + scripting permissions only; no persistent host access, browser-history access, cookies, background crawling, or extension login tokens. Explicit public-source confirmation before opening U9itus. A first-party handoff page removes the URL fragment immediately and temporarily holds the draft in same-tab sessionStorage through login/2FA (30-minute expiry); the form imports only URL, headline, excerpt and suggested platform. It must never import politician IDs, ownership, consent, or publication fields. Actual submission stays an authenticated CSRF-protected POST. A browser extension cannot reliably distinguish every private page; block obvious private/local destinations and require confirmation. Ship a downloadable unpacked pilot ZIP plus installation/privacy docs. Store publishing and Firefox/Safari are separate follow-ups.
+
+Progress: implementation in progress. Verify hostile/oversized clips, login handoff, expiry, storage failures, form validation recovery, no automatic submission, permission manifest, and the actual extension popup. Record completed tests and release status here before ending work.
+
 ## Current release status — September 23, 2026
 
 The contributor feature was merged to master in `c266c45b`, followed by MySQL/SQLite migration fixes in `998928ec` and `58a65651`. Railway production web deployment `c4982f71-cf5b-4c93-9576-6288b6011ad5` for `58a65651` succeeded and passed its health check. The contributor migration was confirmed as Ran (batch 105) through the live container. An anonymous request to `https://www.u9itus.com/contribute/chatter` returned HTTP 302 to `/login`. The current code passed 28 targeted tests / 352 assertions after resumption.

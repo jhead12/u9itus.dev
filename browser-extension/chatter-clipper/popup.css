@@ -1,0 +1,23 @@
+:root { color-scheme: dark; font-family: system-ui, sans-serif; color: #e2e8f0; background: #0f172a; }
+* { box-sizing: border-box; }
+body { width: 380px; margin: 0; padding: 20px; }
+header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.brand { font-size: 22px; font-weight: 800; color: #fff; }
+.brand span { color: #34d399; }
+.badge { font-size: 11px; color: #fcd34d; }
+h1 { color: #fff; font-size: 22px; margin: 18px 0 8px; }
+p, footer { font-size: 13px; line-height: 1.5; color: #94a3b8; }
+#status { color: #a7f3d0; }
+#status.error { color: #fca5a5; }
+fieldset { border: 0; padding: 0; margin: 0; }
+label { display: block; font-size: 13px; font-weight: 600; margin-top: 14px; }
+input:not([type=checkbox]), textarea { display: block; width: 100%; border: 1px solid #475569; border-radius: 8px; background: #020617; color: #f8fafc; padding: 10px; margin-top: 6px; font: inherit; }
+textarea { resize: vertical; }
+input:focus-visible, textarea:focus-visible, button:focus-visible { outline: 2px solid #34d399; outline-offset: 2px; }
+.optional, .hint { font-weight: 400; color: #94a3b8; font-size: 12px; }
+.confirmation { display: flex; gap: 10px; align-items: start; font-weight: 400; line-height: 1.5; }
+.confirmation input { margin-top: 3px; accent-color: #10b981; }
+button { width: 100%; background: #10b981; color: #022c22; border: 0; border-radius: 8px; padding: 12px; font: inherit; font-weight: 750; margin-top: 18px; cursor: pointer; }
+button:hover { background: #34d399; }
+button:disabled { opacity: .5; cursor: wait; }
+footer { border-top: 1px solid #334155; padding-top: 12px; margin-top: 18px; font-size: 11px; }
