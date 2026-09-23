@@ -90,13 +90,50 @@
     @endif
 
     <style>
+        /* Plain CSS on purpose: this block is rendered verbatim by the browser (it is
+           never run through PostCSS), so @apply here silently no-ops whenever the Vite
+           build is active (public/build/manifest.json present) — only the CDN Play
+           script (dev fallback, no manifest) happens to compile @apply at runtime. */
         * { font-family: 'Inter', sans-serif; }
-        .sidebar-link { @apply flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:bg-slate-700/60 hover:text-white transition-all; }
-        .sidebar-link.active { @apply bg-emerald-500/10 text-emerald-400 border border-emerald-500/20; }
-        .stat-card { @apply bg-slate-800/50 border border-slate-700/50 rounded-xl p-5; }
-        .sidebar-section-toggle { @apply w-full flex items-center justify-between gap-2 px-4 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider hover:text-slate-300 transition-colors; }
-        .sidebar-chevron { @apply w-3 h-3 shrink-0 transition-transform duration-150; }
-        .sidebar-section-toggle[aria-expanded="false"] .sidebar-chevron { @apply -rotate-90; }
+        .sidebar-link {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.625rem 1rem;
+            border-radius: 0.5rem;
+            font-size: 0.875rem;
+            line-height: 1.25rem;
+            font-weight: 500;
+            color: #94a3b8;
+            transition: background-color 150ms ease, color 150ms ease;
+        }
+        .sidebar-link:hover { background-color: rgba(51, 65, 85, 0.6); color: #fff; }
+        .sidebar-link:focus-visible { outline: 2px solid #34d399; outline-offset: 2px; }
+        .sidebar-link.active { background-color: rgba(16, 185, 129, 0.1); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.2); }
+        .stat-card { background-color: rgba(30, 41, 59, 0.5); border: 1px solid rgba(51, 65, 85, 0.5); border-radius: 0.75rem; padding: 1.25rem; }
+        .sidebar-section-toggle {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+            padding: 0.625rem 1rem;
+            background: transparent;
+            border: 0;
+            cursor: pointer;
+            font-size: 0.75rem;
+            line-height: 1rem;
+            font-weight: 600;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            text-align: left;
+            transition: color 150ms ease;
+        }
+        .sidebar-section-toggle:hover { color: #cbd5e1; }
+        .sidebar-section-toggle:focus-visible { outline: 2px solid #34d399; outline-offset: 2px; border-radius: 0.375rem; }
+        .sidebar-chevron { width: 0.75rem; height: 0.75rem; flex-shrink: 0; transition: transform 150ms ease; }
+        .sidebar-section-toggle[aria-expanded="false"] .sidebar-chevron { transform: rotate(-90deg); }
     </style>
 
     @stack('styles')
@@ -119,98 +156,98 @@
         </div>
 
         {{-- Navigation --}}
-        <nav class="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+        <nav class="flex-1 px-3 py-4 space-y-1 overflow-y-auto" aria-label="Dashboard navigation">
             @if(\App\Support\ChatterContributorAccess::allowed(auth()->user()) && $dashboardActivePortal !== 'admin')
                 <a href="{{ route('contributor.chatter.index') }}" class="sidebar-link block px-4 py-2.5">Submit a public source</a>
             @endif
             @if($dashboardActivePortal === 'politician' || (auth()->user()?->hasRole('politician') && $dashboardActivePortal === ''))
                 <div data-sidebar-key="politician:Overview">
-                    <button type="button" class="sidebar-section-toggle" data-sidebar-toggle aria-expanded="true"><span>Overview</span><svg class="sidebar-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg></button>
-                    <div class="space-y-1" data-sidebar-body>
+                    <button type="button" class="sidebar-section-toggle" data-sidebar-toggle aria-expanded="true" aria-controls="sidebar-panel-politician-overview"><span>Overview</span><svg class="sidebar-chevron" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg></button>
+                    <div class="space-y-1" data-sidebar-body id="sidebar-panel-politician-overview">
                         <a href="{{ route('politician.dashboard') }}"
                            class="sidebar-link {{ request()->routeIs('politician.dashboard') ? 'active' : '' }}">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+                            <svg class="w-4 h-4" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
                             Dashboard
                         </a>
                     </div>
                 </div>
 
                 <div class="mt-2" data-sidebar-key="politician:Campaigns">
-                    <button type="button" class="sidebar-section-toggle" data-sidebar-toggle aria-expanded="true"><span>Campaigns</span><svg class="sidebar-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg></button>
-                    <div class="space-y-1" data-sidebar-body>
+                    <button type="button" class="sidebar-section-toggle" data-sidebar-toggle aria-expanded="true" aria-controls="sidebar-panel-politician-campaigns"><span>Campaigns</span><svg class="sidebar-chevron" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg></button>
+                    <div class="space-y-1" data-sidebar-body id="sidebar-panel-politician-campaigns">
                         <a href="{{ route('politician.campaigns.index') }}"
                            class="sidebar-link {{ request()->routeIs('politician.campaigns.*') ? 'active' : '' }}">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.069A1 1 0 0121 8.87v6.26a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                            <svg class="w-4 h-4" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.069A1 1 0 0121 8.87v6.26a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
                             My Campaigns
                         </a>
 
                         <a href="{{ route('politician.campaigns.create') }}"
                            class="sidebar-link {{ request()->routeIs('politician.campaigns.create') ? 'active' : '' }}">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                            <svg class="w-4 h-4" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
                             New Campaign
                         </a>
                     </div>
                 </div>
 
                 <div class="mt-2" data-sidebar-key="politician:Events">
-                    <button type="button" class="sidebar-section-toggle" data-sidebar-toggle aria-expanded="true"><span>Events</span><svg class="sidebar-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg></button>
-                    <div class="space-y-1" data-sidebar-body>
+                    <button type="button" class="sidebar-section-toggle" data-sidebar-toggle aria-expanded="true" aria-controls="sidebar-panel-politician-events"><span>Events</span><svg class="sidebar-chevron" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg></button>
+                    <div class="space-y-1" data-sidebar-body id="sidebar-panel-politician-events">
                         <a href="{{ route('politician.events.index') }}"
                            class="sidebar-link {{ request()->routeIs('politician.events.*') ? 'active' : '' }}">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                            <svg class="w-4 h-4" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
                             My Events
                         </a>
 
                         <a href="{{ route('politician.events.create') }}"
                            class="sidebar-link {{ request()->routeIs('politician.events.create') ? 'active' : '' }}">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                            <svg class="w-4 h-4" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
                             New Event
                         </a>
                     </div>
                 </div>
 
                 <div class="mt-2" data-sidebar-key="politician:Insights">
-                    <button type="button" class="sidebar-section-toggle" data-sidebar-toggle aria-expanded="true"><span>Insights</span><svg class="sidebar-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg></button>
-                    <div class="space-y-1" data-sidebar-body>
+                    <button type="button" class="sidebar-section-toggle" data-sidebar-toggle aria-expanded="true" aria-controls="sidebar-panel-politician-insights"><span>Insights</span><svg class="sidebar-chevron" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg></button>
+                    <div class="space-y-1" data-sidebar-body id="sidebar-panel-politician-insights">
                         <a href="{{ route('politician.analytics') }}"
                            class="sidebar-link {{ request()->routeIs('politician.analytics*') ? 'active' : '' }}">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                            <svg class="w-4 h-4" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
                             Analytics
                         </a>
 
                         <a href="{{ route('politician.map') }}"
                            class="sidebar-link {{ request()->routeIs('politician.map') ? 'active' : '' }}">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 01.553-.894L9 2m0 18l6-3m-6 3V2m6 15l5.447 2.724A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 2"/></svg>
+                            <svg class="w-4 h-4" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 01.553-.894L9 2m0 18l6-3m-6 3V2m6 15l5.447 2.724A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 2"/></svg>
                             Interactive Map
                         </a>
                     </div>
                 </div>
 
                 <div class="mt-2" data-sidebar-key="politician:Account">
-                    <button type="button" class="sidebar-section-toggle" data-sidebar-toggle aria-expanded="true"><span>Account</span><svg class="sidebar-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg></button>
-                    <div class="space-y-1" data-sidebar-body>
+                    <button type="button" class="sidebar-section-toggle" data-sidebar-toggle aria-expanded="true" aria-controls="sidebar-panel-politician-account"><span>Account</span><svg class="sidebar-chevron" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg></button>
+                    <div class="space-y-1" data-sidebar-body id="sidebar-panel-politician-account">
                         <a href="{{ route('politician.billing') }}"
                            class="sidebar-link {{ request()->routeIs('politician.billing*') ? 'active' : '' }}">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+                            <svg class="w-4 h-4" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
                             Billing
                         </a>
 
                         <a href="{{ route('politician.referrals') }}"
                            class="sidebar-link {{ request()->routeIs('politician.referrals*') ? 'active' : '' }}">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                            <svg class="w-4 h-4" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
                             Referrals
                         </a>
 
                         <a href="{{ route('politician.profile') }}"
                            class="sidebar-link {{ request()->routeIs('politician.profile*') ? 'active' : '' }}">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                            <svg class="w-4 h-4" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
                             Profile
                         </a>
 
                         {{-- Phase 13: Public Profile Page --}}
                         <a href="{{ route('politician.public-page') }}"
                            class="sidebar-link {{ request()->routeIs('politician.public-page*') ? 'active' : '' }}">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                            <svg class="w-4 h-4" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                             Public Page
                         </a>
                     </div>
@@ -218,33 +255,33 @@
 
             @elseif($dashboardActivePortal === 'voter' && auth()->user()?->hasRole('voter'))
                 <a href="{{ route('voter.dashboard') }}" class="sidebar-link {{ request()->routeIs('voter.dashboard') ? 'active' : '' }}">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+                    <svg class="w-4 h-4" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
                     Dashboard
                 </a>
                 <a href="{{ route('voter.earnings') }}" class="sidebar-link">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    <svg class="w-4 h-4" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                     Earnings
                 </a>
             @elseif($dashboardActivePortal === 'citizen' && auth()->user()?->hasRole('citizen'))
                 <div data-sidebar-key="citizen:Overview">
-                    <button type="button" class="sidebar-section-toggle" data-sidebar-toggle aria-expanded="true"><span>Overview</span><svg class="sidebar-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg></button>
-                    <div class="space-y-1" data-sidebar-body>
+                    <button type="button" class="sidebar-section-toggle" data-sidebar-toggle aria-expanded="true" aria-controls="sidebar-panel-citizen-overview"><span>Overview</span><svg class="sidebar-chevron" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg></button>
+                    <div class="space-y-1" data-sidebar-body id="sidebar-panel-citizen-overview">
                         <a href="{{ route('citizen.dashboard') }}"
                            class="sidebar-link {{ request()->routeIs('citizen.dashboard') ? 'active' : '' }}">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+                            <svg class="w-4 h-4" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
                             Dashboard
                         </a>
 
                         <a href="{{ route('groups.directory') }}"
                            class="sidebar-link {{ request()->routeIs('groups.*') ? 'active' : '' }}">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                            <svg class="w-4 h-4" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
                             Neighborhood Groups
                         </a>
 
                         @if(\Illuminate\Support\Facades\Route::has('citizen.workspace.index'))
                         <a href="{{ route('citizen.workspace.index') }}"
                            class="sidebar-link {{ request()->routeIs('citizen.workspace.*') ? 'active' : '' }}">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+                            <svg class="w-4 h-4" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
                             My Workspace
                         </a>
                         @endif
@@ -252,74 +289,74 @@
                 </div>
 
                 <div class="mt-2" data-sidebar-key="citizen:Campaigns">
-                    <button type="button" class="sidebar-section-toggle" data-sidebar-toggle aria-expanded="true"><span>Campaigns</span><svg class="sidebar-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg></button>
-                    <div class="space-y-1" data-sidebar-body>
+                    <button type="button" class="sidebar-section-toggle" data-sidebar-toggle aria-expanded="true" aria-controls="sidebar-panel-citizen-campaigns"><span>Campaigns</span><svg class="sidebar-chevron" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg></button>
+                    <div class="space-y-1" data-sidebar-body id="sidebar-panel-citizen-campaigns">
                         <a href="{{ route('citizen.campaigns.index') }}"
                            class="sidebar-link {{ request()->routeIs('citizen.campaigns.index') ? 'active' : '' }}">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.069A1 1 0 0121 8.87v6.26a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                            <svg class="w-4 h-4" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.069A1 1 0 0121 8.87v6.26a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
                             My Campaigns
                         </a>
 
                         <a href="{{ route('citizen.campaigns.create') }}"
                            class="sidebar-link {{ request()->routeIs('citizen.campaigns.create') ? 'active' : '' }}">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                            <svg class="w-4 h-4" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
                             New Campaign
                         </a>
                     </div>
                 </div>
 
                 <div class="mt-2" data-sidebar-key="citizen:Posts">
-                    <button type="button" class="sidebar-section-toggle" data-sidebar-toggle aria-expanded="true"><span>Posts</span><svg class="sidebar-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg></button>
-                    <div class="space-y-1" data-sidebar-body>
+                    <button type="button" class="sidebar-section-toggle" data-sidebar-toggle aria-expanded="true" aria-controls="sidebar-panel-citizen-posts"><span>Posts</span><svg class="sidebar-chevron" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg></button>
+                    <div class="space-y-1" data-sidebar-body id="sidebar-panel-citizen-posts">
                         <a href="{{ route('citizen.posts.index') }}"
                            class="sidebar-link {{ request()->routeIs(['citizen.posts.index', 'citizen.posts.show', 'citizen.posts.edit']) ? 'active' : '' }}">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 12h4"/></svg>
+                            <svg class="w-4 h-4" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 12h4"/></svg>
                             Blog Posts
                         </a>
 
                         <a href="{{ route('citizen.posts.create') }}"
                            class="sidebar-link {{ request()->routeIs('citizen.posts.create') ? 'active' : '' }}">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                            <svg class="w-4 h-4" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
                             New Post
                         </a>
                     </div>
                 </div>
 
                 <div class="mt-2" data-sidebar-key="citizen:Events">
-                    <button type="button" class="sidebar-section-toggle" data-sidebar-toggle aria-expanded="true"><span>Events</span><svg class="sidebar-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg></button>
-                    <div class="space-y-1" data-sidebar-body>
+                    <button type="button" class="sidebar-section-toggle" data-sidebar-toggle aria-expanded="true" aria-controls="sidebar-panel-citizen-events"><span>Events</span><svg class="sidebar-chevron" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg></button>
+                    <div class="space-y-1" data-sidebar-body id="sidebar-panel-citizen-events">
                         <a href="{{ route('citizen.events.index') }}"
                            class="sidebar-link {{ request()->routeIs('citizen.events.*') ? 'active' : '' }}">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                            <svg class="w-4 h-4" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
                             My Events
                         </a>
 
                         <a href="{{ route('citizen.events.create') }}"
                            class="sidebar-link {{ request()->routeIs('citizen.events.create') ? 'active' : '' }}">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                            <svg class="w-4 h-4" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
                             New Event
                         </a>
                     </div>
                 </div>
 
                 <div class="mt-2" data-sidebar-key="citizen:Account">
-                    <button type="button" class="sidebar-section-toggle" data-sidebar-toggle aria-expanded="true"><span>Account</span><svg class="sidebar-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg></button>
-                    <div class="space-y-1" data-sidebar-body>
+                    <button type="button" class="sidebar-section-toggle" data-sidebar-toggle aria-expanded="true" aria-controls="sidebar-panel-citizen-account"><span>Account</span><svg class="sidebar-chevron" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg></button>
+                    <div class="space-y-1" data-sidebar-body id="sidebar-panel-citizen-account">
                         <a href="{{ route('citizen.billing') }}"
                            class="sidebar-link {{ request()->routeIs('citizen.billing*') ? 'active' : '' }}">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+                            <svg class="w-4 h-4" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
                             Billing & Credits
                         </a>
 
                         <a href="{{ route('citizen.settings') }}"
                            class="sidebar-link {{ request()->routeIs('citizen.settings') ? 'active' : '' }}">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                            <svg class="w-4 h-4" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
                             Business Settings
                         </a>
 
                         <a href="{{ route('2fa.setup') }}"
                            class="sidebar-link {{ request()->routeIs('2fa.setup') ? 'active' : '' }}">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                            <svg class="w-4 h-4" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
                             Two-Factor Auth
                         </a>
                     </div>
@@ -382,9 +419,10 @@
                 @foreach($adminNavSections as $adminSectionLabel => $adminSectionItems)
                     @php $adminVisibleItems = array_filter($adminSectionItems, fn ($item) => $adminNavCanRoute($item['route'])); @endphp
                     @if(count($adminVisibleItems) || ($adminSectionLabel === 'Content' && $adminCanSubmitPublicSource))
+                        @php $adminPanelId = 'sidebar-panel-admin-' . \Illuminate\Support\Str::slug($adminSectionLabel); @endphp
                         <div class="{{ $loop->first ? '' : 'mt-2' }}" data-sidebar-key="admin:{{ $adminSectionLabel }}">
-                            <button type="button" class="sidebar-section-toggle" data-sidebar-toggle aria-expanded="true"><span>{{ $adminSectionLabel }}</span><svg class="sidebar-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg></button>
-                            <div class="space-y-1" data-sidebar-body>
+                            <button type="button" class="sidebar-section-toggle" data-sidebar-toggle aria-expanded="true" aria-controls="{{ $adminPanelId }}"><span>{{ $adminSectionLabel }}</span><svg class="sidebar-chevron" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg></button>
+                            <div class="space-y-1" data-sidebar-body id="{{ $adminPanelId }}">
                                 @foreach($adminVisibleItems as $item)
                                     <a href="{{ route($item['route']) }}" class="sidebar-link block px-4 py-2.5 {{ request()->routeIs($item['pattern']) ? 'active' : '' }}">{{ $item['label'] }}</a>
                                 @endforeach
