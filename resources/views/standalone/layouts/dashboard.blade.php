@@ -293,96 +293,67 @@
                 </a>
 
             @elseif($dashboardActivePortal === 'admin' && auth()->user()?->hasRole('admin'))
-                @if(\Illuminate\Support\Facades\Route::has('admin.dashboard') && \App\Support\AdminAccess::canRoute(auth()->user(), 'admin.dashboard'))
-                    <a href="{{ route('admin.dashboard') }}" class="sidebar-link block px-4 py-2.5 {{ request()->routeIs('admin.dashboard') ? 'active' : '' }}">Dashboard</a>
-                @endif
-                @if(\Illuminate\Support\Facades\Route::has('admin.workspace.index') && \App\Support\AdminAccess::canRoute(auth()->user(), 'admin.workspace.index'))
-                    <a href="{{ route('admin.workspace.index') }}" class="sidebar-link block px-4 py-2.5 {{ request()->routeIs('admin.workspace.*') ? 'active' : '' }}">My Workspace</a>
-                @endif
-                @if(\Illuminate\Support\Facades\Route::has('admin.staff.index') && \App\Support\AdminAccess::canRoute(auth()->user(), 'admin.staff.index'))
-                    <a href="{{ route('admin.staff.index') }}" class="sidebar-link block px-4 py-2.5 {{ request()->routeIs('admin.staff.index') ? 'active' : '' }}">Staff access</a>
-                @endif
-                @if(\Illuminate\Support\Facades\Route::has('admin.politician-chatter.index') && \App\Support\AdminAccess::canRoute(auth()->user(), 'admin.politician-chatter.index'))
-                    <a href="{{ route('admin.politician-chatter.index') }}" class="sidebar-link block px-4 py-2.5 {{ request()->routeIs('admin.politician-chatter.index') ? 'active' : '' }}">Public chatter</a>
-                @endif
-                @if(\Illuminate\Support\Facades\Route::has('admin.posts.index') && \App\Support\AdminAccess::canRoute(auth()->user(), 'admin.posts.index'))
-                    <a href="{{ route('admin.posts.index') }}" class="sidebar-link block px-4 py-2.5 {{ request()->routeIs('admin.posts.index') ? 'active' : '' }}">Blog posts</a>
-                @endif
-                @if(\Illuminate\Support\Facades\Route::has('admin.posts.create') && \App\Support\AdminAccess::canRoute(auth()->user(), 'admin.posts.create'))
-                    <a href="{{ route('admin.posts.create') }}" class="sidebar-link block px-4 py-2.5 {{ request()->routeIs('admin.posts.create') ? 'active' : '' }}">Write a blog post</a>
-                @endif
-                @if(\Illuminate\Support\Facades\Route::has('admin.campaigns.pending') && \App\Support\AdminAccess::canRoute(auth()->user(), 'admin.campaigns.pending'))
-                    <a href="{{ route('admin.campaigns.pending') }}" class="sidebar-link block px-4 py-2.5 {{ request()->routeIs('admin.campaigns.pending') ? 'active' : '' }}">Campaign review</a>
-                @endif
-                @if(\Illuminate\Support\Facades\Route::has('admin.campaigns.running') && \App\Support\AdminAccess::canRoute(auth()->user(), 'admin.campaigns.running'))
-                    <a href="{{ route('admin.campaigns.running') }}" class="sidebar-link block px-4 py-2.5 {{ request()->routeIs('admin.campaigns.running') ? 'active' : '' }}">Running campaigns</a>
-                @endif
-                @if(\Illuminate\Support\Facades\Route::has('admin.users.index') && \App\Support\AdminAccess::canRoute(auth()->user(), 'admin.users.index'))
-                    <a href="{{ route('admin.users.index') }}" class="sidebar-link block px-4 py-2.5 {{ request()->routeIs('admin.users.index') ? 'active' : '' }}">Users</a>
-                @endif
-                @if(\Illuminate\Support\Facades\Route::has('admin.deleted-accounts.index') && \App\Support\AdminAccess::canRoute(auth()->user(), 'admin.deleted-accounts.index'))
-                    <a href="{{ route('admin.deleted-accounts.index') }}" class="sidebar-link block px-4 py-2.5 {{ request()->routeIs('admin.deleted-accounts.index') ? 'active' : '' }}">Deleted accounts</a>
-                @endif
-                @if(\Illuminate\Support\Facades\Route::has('admin.candidate-matches.index') && \App\Support\AdminAccess::canRoute(auth()->user(), 'admin.candidate-matches.index'))
-                    <a href="{{ route('admin.candidate-matches.index') }}" class="sidebar-link block px-4 py-2.5 {{ request()->routeIs('admin.candidate-matches.index') ? 'active' : '' }}">Candidate matches</a>
-                @endif
-                @if(\Illuminate\Support\Facades\Route::has('admin.data-quality.index') && \App\Support\AdminAccess::canRoute(auth()->user(), 'admin.data-quality.index'))
-                    <a href="{{ route('admin.data-quality.index') }}" class="sidebar-link block px-4 py-2.5 {{ request()->routeIs('admin.data-quality.index') ? 'active' : '' }}">Data quality</a>
-                @endif
-                @if(\Illuminate\Support\Facades\Route::has('admin.data-reports.index') && \App\Support\AdminAccess::canRoute(auth()->user(), 'admin.data-reports.index'))
-                    <a href="{{ route('admin.data-reports.index') }}" class="sidebar-link block px-4 py-2.5 {{ request()->routeIs('admin.data-reports.index') ? 'active' : '' }}">Data reports</a>
-                @endif
-                @if(\Illuminate\Support\Facades\Route::has('admin.office-profiles.index') && \App\Support\AdminAccess::canRoute(auth()->user(), 'admin.office-profiles.index'))
-                    <a href="{{ route('admin.office-profiles.index') }}" class="sidebar-link block px-4 py-2.5 {{ request()->routeIs('admin.office-profiles.index') ? 'active' : '' }}">Office profiles</a>
-                @endif
-                @if(\Illuminate\Support\Facades\Route::has('admin.topics.index') && \App\Support\AdminAccess::canRoute(auth()->user(), 'admin.topics.index'))
-                    <a href="{{ route('admin.topics.index') }}" class="sidebar-link block px-4 py-2.5 {{ request()->routeIs('admin.topics.index') ? 'active' : '' }}">Topics</a>
-                @endif
-                @if(\Illuminate\Support\Facades\Route::has('admin.causes.index') && \App\Support\AdminAccess::canRoute(auth()->user(), 'admin.causes.index'))
-                    <a href="{{ route('admin.causes.index') }}" class="sidebar-link block px-4 py-2.5 {{ request()->routeIs('admin.causes.index') ? 'active' : '' }}">Causes</a>
-                @endif
-                @if(\Illuminate\Support\Facades\Route::has('admin.ballot-measures.index') && \App\Support\AdminAccess::canRoute(auth()->user(), 'admin.ballot-measures.index'))
-                    <a href="{{ route('admin.ballot-measures.index') }}" class="sidebar-link block px-4 py-2.5 {{ request()->routeIs('admin.ballot-measures.index') ? 'active' : '' }}">Ballot measures</a>
-                @endif
-                @if(\Illuminate\Support\Facades\Route::has('admin.imports') && \App\Support\AdminAccess::canRoute(auth()->user(), 'admin.imports'))
-                    <a href="{{ route('admin.imports') }}" class="sidebar-link block px-4 py-2.5 {{ request()->routeIs('admin.imports') ? 'active' : '' }}">Data imports</a>
-                @endif
-                @if(\Illuminate\Support\Facades\Route::has('admin.kyc.index') && \App\Support\AdminAccess::canRoute(auth()->user(), 'admin.kyc.index'))
-                    <a href="{{ route('admin.kyc.index') }}" class="sidebar-link block px-4 py-2.5 {{ request()->routeIs('admin.kyc.index') ? 'active' : '' }}">Identity review</a>
-                @endif
-                @if(\Illuminate\Support\Facades\Route::has('admin.fraud.index') && \App\Support\AdminAccess::canRoute(auth()->user(), 'admin.fraud.index'))
-                    <a href="{{ route('admin.fraud.index') }}" class="sidebar-link block px-4 py-2.5 {{ request()->routeIs('admin.fraud.index') ? 'active' : '' }}">Fraud review</a>
-                @endif
-                @if(\Illuminate\Support\Facades\Route::has('admin.payouts.index') && \App\Support\AdminAccess::canRoute(auth()->user(), 'admin.payouts.index'))
-                    <a href="{{ route('admin.payouts.index') }}" class="sidebar-link block px-4 py-2.5 {{ request()->routeIs('admin.payouts.index') ? 'active' : '' }}">Payouts</a>
-                @endif
-                @if(\Illuminate\Support\Facades\Route::has('admin.billing.refunds') && \App\Support\AdminAccess::canRoute(auth()->user(), 'admin.billing.refunds'))
-                    <a href="{{ route('admin.billing.refunds') }}" class="sidebar-link block px-4 py-2.5 {{ request()->routeIs('admin.billing.refunds') ? 'active' : '' }}">Politician refunds</a>
-                @endif
-                @if(\Illuminate\Support\Facades\Route::has('admin.citizen-billing.refunds') && \App\Support\AdminAccess::canRoute(auth()->user(), 'admin.citizen-billing.refunds'))
-                    <a href="{{ route('admin.citizen-billing.refunds') }}" class="sidebar-link block px-4 py-2.5 {{ request()->routeIs('admin.citizen-billing.refunds') ? 'active' : '' }}">Citizen refunds</a>
-                @endif
-                @if(\Illuminate\Support\Facades\Route::has('admin.analytics') && \App\Support\AdminAccess::canRoute(auth()->user(), 'admin.analytics'))
-                    <a href="{{ route('admin.analytics') }}" class="sidebar-link block px-4 py-2.5 {{ request()->routeIs('admin.analytics') ? 'active' : '' }}">Financial analytics</a>
-                @endif
-                @if(\Illuminate\Support\Facades\Route::has('admin.district-searches.index') && \App\Support\AdminAccess::canRoute(auth()->user(), 'admin.district-searches.index'))
-                    <a href="{{ route('admin.district-searches.index') }}" class="sidebar-link block px-4 py-2.5 {{ request()->routeIs('admin.district-searches.index') ? 'active' : '' }}">District searches</a>
-                @endif
-                @if(\Illuminate\Support\Facades\Route::has('admin.settings') && \App\Support\AdminAccess::canRoute(auth()->user(), 'admin.settings'))
-                    <a href="{{ route('admin.settings') }}" class="sidebar-link block px-4 py-2.5 {{ request()->routeIs('admin.settings') ? 'active' : '' }}">System settings</a>
-                @endif
-                @if(\Illuminate\Support\Facades\Route::has('admin.platform-settings') && \App\Support\AdminAccess::canRoute(auth()->user(), 'admin.platform-settings'))
-                    <a href="{{ route('admin.platform-settings') }}" class="sidebar-link block px-4 py-2.5 {{ request()->routeIs('admin.platform-settings') ? 'active' : '' }}">Platform settings</a>
-                @endif
-                @if(\Illuminate\Support\Facades\Route::has('admin.email-templates.index') && \App\Support\AdminAccess::canRoute(auth()->user(), 'admin.email-templates.index'))
-                    <a href="{{ route('admin.email-templates.index') }}" class="sidebar-link block px-4 py-2.5 {{ request()->routeIs('admin.email-templates.index') ? 'active' : '' }}">Email templates</a>
-                @endif
-                @if(\Illuminate\Support\Facades\Route::has('admin.profile') && \App\Support\AdminAccess::canRoute(auth()->user(), 'admin.profile'))
-                    <a href="{{ route('admin.profile') }}" class="sidebar-link block px-4 py-2.5 {{ request()->routeIs('admin.profile') ? 'active' : '' }}">My profile</a>
-                @endif
-                @if(\Illuminate\Support\Facades\Route::has('admin.2fa.setup') && \App\Support\AdminAccess::canRoute(auth()->user(), 'admin.2fa.setup'))
-                    <a href="{{ route('admin.2fa.setup') }}" class="sidebar-link block px-4 py-2.5 {{ request()->routeIs('admin.2fa.setup') ? 'active' : '' }}">Account security</a>
-                @endif
+                @php
+                    $adminNavCanRoute = fn (string $route) => \Illuminate\Support\Facades\Route::has($route) && \App\Support\AdminAccess::canRoute(auth()->user(), $route);
+                    $adminNavSections = [
+                        'Overview' => [
+                            ['route' => 'admin.dashboard', 'label' => 'Dashboard', 'pattern' => 'admin.dashboard'],
+                            ['route' => 'admin.workspace.index', 'label' => 'My Workspace', 'pattern' => 'admin.workspace.*'],
+                        ],
+                        'Content' => [
+                            ['route' => 'admin.politician-chatter.index', 'label' => 'Public chatter', 'pattern' => 'admin.politician-chatter.index'],
+                            ['route' => 'admin.posts.index', 'label' => 'Blog posts', 'pattern' => 'admin.posts.index'],
+                            ['route' => 'admin.posts.create', 'label' => 'Write a blog post', 'pattern' => 'admin.posts.create'],
+                        ],
+                        'Campaigns' => [
+                            ['route' => 'admin.campaigns.pending', 'label' => 'Campaign review', 'pattern' => 'admin.campaigns.pending'],
+                            ['route' => 'admin.campaigns.running', 'label' => 'Running campaigns', 'pattern' => 'admin.campaigns.running'],
+                        ],
+                        'Accounts' => [
+                            ['route' => 'admin.users.index', 'label' => 'Users', 'pattern' => 'admin.users.index'],
+                            ['route' => 'admin.staff.index', 'label' => 'Staff access', 'pattern' => 'admin.staff.index'],
+                            ['route' => 'admin.deleted-accounts.index', 'label' => 'Deleted accounts', 'pattern' => 'admin.deleted-accounts.index'],
+                        ],
+                        'Candidates & Data' => [
+                            ['route' => 'admin.candidate-matches.index', 'label' => 'Candidate matches', 'pattern' => 'admin.candidate-matches.index'],
+                            ['route' => 'admin.data-quality.index', 'label' => 'Data quality', 'pattern' => 'admin.data-quality.index'],
+                            ['route' => 'admin.data-reports.index', 'label' => 'Data reports', 'pattern' => 'admin.data-reports.index'],
+                            ['route' => 'admin.office-profiles.index', 'label' => 'Office profiles', 'pattern' => 'admin.office-profiles.index'],
+                            ['route' => 'admin.topics.index', 'label' => 'Topics', 'pattern' => 'admin.topics.index'],
+                            ['route' => 'admin.causes.index', 'label' => 'Causes', 'pattern' => 'admin.causes.index'],
+                            ['route' => 'admin.ballot-measures.index', 'label' => 'Ballot measures', 'pattern' => 'admin.ballot-measures.index'],
+                            ['route' => 'admin.imports', 'label' => 'Data imports', 'pattern' => 'admin.imports'],
+                            ['route' => 'admin.district-searches.index', 'label' => 'District searches', 'pattern' => 'admin.district-searches.index'],
+                        ],
+                        'Trust & Finance' => [
+                            ['route' => 'admin.kyc.index', 'label' => 'Identity review', 'pattern' => 'admin.kyc.index'],
+                            ['route' => 'admin.fraud.index', 'label' => 'Fraud review', 'pattern' => 'admin.fraud.index'],
+                            ['route' => 'admin.payouts.index', 'label' => 'Payouts', 'pattern' => 'admin.payouts.index'],
+                            ['route' => 'admin.billing.refunds', 'label' => 'Politician refunds', 'pattern' => 'admin.billing.refunds'],
+                            ['route' => 'admin.citizen-billing.refunds', 'label' => 'Citizen refunds', 'pattern' => 'admin.citizen-billing.refunds'],
+                            ['route' => 'admin.analytics', 'label' => 'Financial analytics', 'pattern' => 'admin.analytics'],
+                        ],
+                        'Settings' => [
+                            ['route' => 'admin.settings', 'label' => 'System settings', 'pattern' => 'admin.settings'],
+                            ['route' => 'admin.platform-settings', 'label' => 'Platform settings', 'pattern' => 'admin.platform-settings'],
+                            ['route' => 'admin.email-templates.index', 'label' => 'Email templates', 'pattern' => 'admin.email-templates.index'],
+                        ],
+                        'Account' => [
+                            ['route' => 'admin.profile', 'label' => 'My profile', 'pattern' => 'admin.profile'],
+                            ['route' => 'admin.2fa.setup', 'label' => 'Account security', 'pattern' => 'admin.2fa.setup'],
+                        ],
+                    ];
+                @endphp
+
+                @foreach($adminNavSections as $adminSectionLabel => $adminSectionItems)
+                    @php $adminVisibleItems = array_filter($adminSectionItems, fn ($item) => $adminNavCanRoute($item['route'])); @endphp
+                    @if(count($adminVisibleItems))
+                        <p class="px-4 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider {{ $loop->first ? '' : 'mt-2' }}">{{ $adminSectionLabel }}</p>
+                        @foreach($adminVisibleItems as $item)
+                            <a href="{{ route($item['route']) }}" class="sidebar-link block px-4 py-2.5 {{ request()->routeIs($item['pattern']) ? 'active' : '' }}">{{ $item['label'] }}</a>
+                        @endforeach
+                    @endif
+                @endforeach
             @endif
 
         </nav>
