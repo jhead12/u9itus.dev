@@ -105,10 +105,10 @@ test('popup previews selected text and opens only a confirmed first-party draft'
         await page.goto('https://clipper.test/popup.html');
         await page.waitForFunction(() => !document.querySelector('fieldset').disabled);
         assert.equal(await page.locator('#excerpt').inputValue(), 'Selected passage');
-        await page.locator('button').click();
+        await page.locator('#continue').click();
         assert.equal(await page.evaluate(() => window.createdTabs.length), 0);
         await page.locator('#public-source').check();
-        await page.locator('button').click();
+        await page.locator('#continue').click();
         const [created] = await page.evaluate(() => window.createdTabs);
         assert.equal(new URL(created.url).origin, 'https://www.u9itus.com');
         assert.equal(new URL(created.url).pathname, '/contribute/chatter/clip');

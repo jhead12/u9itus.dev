@@ -8,20 +8,33 @@
   <script type="module" src="popup.js"></script>
 </head>
 <body>
-  <header><span class="brand">U9<span>itus</span></span><span class="badge">Community contributors</span></header>
+  <header><span class="brand">U9<span>itus</span></span><span class="badge">Web Reporters</span></header>
   <h1>Clip a public source</h1>
-  <p>Review this clipping, then choose the politician and explain its relevance on U9itus.</p>
+  <p>Review this clipping, then choose the politician and explain its relevance on U9itus.
+    <button type="button" class="help" aria-label="Why does this need activeTab and scripting?" title="Uses Chrome's activeTab + scripting permissions: it only reads this one tab, only when you click the icon. It cannot see other tabs, run in the background, or read your history, cookies, or passwords.">?</button>
+  </p>
   <p id="status" role="status" aria-live="polite">Reading the current page…</p>
   <form id="clip-form">
     <fieldset id="clip-fields" disabled>
-      <label>Source link<input id="source-url" type="url" required maxlength="1000"></label>
-      <label>Suggested headline<input id="headline" required maxlength="240"></label>
-      <label>Selected excerpt <span class="optional">(optional)</span><textarea id="excerpt" rows="4" maxlength="2000"></textarea></label>
+      <label>Source link
+        <button type="button" class="help" aria-label="Source link help" title="Must be a public page anyone can open — no login walls, DMs, or private groups.">?</button>
+        <input id="source-url" type="url" required maxlength="1000">
+      </label>
+      <label>Suggested headline
+        <button type="button" class="help" aria-label="Suggested headline help" title="A short, neutral description for editors — not the final public text.">?</button>
+        <input id="headline" required maxlength="240">
+      </label>
+      <label>Selected excerpt <span class="optional">(optional)</span>
+        <button type="button" class="help" aria-label="Selected excerpt help" title="Only the text you highlighted on the page before opening the extension — never a full article or private message.">?</button>
+        <textarea id="excerpt" rows="4" maxlength="2000"></textarea>
+      </label>
       <p class="hint">Select a short passage on the page before opening the extension to include an excerpt. Private messages and full articles should not be submitted.</p>
-      <label class="confirmation"><input id="public-source" type="checkbox" required><span>This is a public source, and the clipping contains no private or confidential information.</span></label>
+      <label class="confirmation"><input id="public-source" type="checkbox" required><span>This is a public source, and the clipping contains no private or confidential information.
+        <button type="button" class="help" aria-label="Public source confirmation help" title="You're confirming there's nothing private, password-protected, or confidential in what you're sending — U9itus staff cannot see it until you confirm this.">?</button>
+      </span></label>
       <button id="continue" type="submit">Continue on U9itus ↗</button>
     </fieldset>
   </form>
-  <footer>Sign-in and contributor approval are required. Nothing is published without editorial review.</footer>
+  <footer>Sign-in and Web Reporter approval are required. Nothing is published without editorial review.</footer>
 </body>
 </html>

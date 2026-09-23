@@ -21,3 +21,6 @@ button { width: 100%; background: #10b981; color: #022c22; border: 0; border-rad
 button:hover { background: #34d399; }
 button:disabled { opacity: .5; cursor: wait; }
 footer { border-top: 1px solid #334155; padding-top: 12px; margin-top: 18px; font-size: 11px; }
+button.help { display: inline-flex; width: 14px; height: 14px; align-items: center; justify-content: center; margin-top: 0; margin-left: 5px; padding: 0; border-radius: 999px; border: 1px solid #64748b; background: transparent; color: #94a3b8; font-size: 10px; font-weight: 700; line-height: 1; cursor: help; vertical-align: middle; }
+button.help:hover { background: #1e293b; }
+button.help:focus-visible { outline: 2px solid #34d399; outline-offset: 2px; }
