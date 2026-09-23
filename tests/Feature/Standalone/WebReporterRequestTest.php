@@ -110,6 +110,39 @@ it('lets a Super Admin dismiss a Web Reporter request without granting access', 
     expect(ChatterContributorAccess::allowed($requester))->toBeFalse();
 });
 
+it('lets an owner approve a Web Reporter request for a phone-verified account with no email verification', function () {
+    // Most voters here verify by phone during onboarding and never touch
+    // email verification, so approval must not hard-require email_verified_at.
+    $owner = webReporterOwner();
+    $requester = webReporterVoter();
+    $requester->forceFill([
+        'email_verified_at' => null,
+        'phone_verified_at' => now(),
+        'chatter_contributor_requested_at' => now(),
+    ])->save();
+
+    $this->actingAs($owner)->put(route('admin.staff.contributor', $requester), ['enabled' => 1])
+        ->assertRedirect()->assertSessionHasNoErrors();
+
+    $requester->refresh();
+    expect(ChatterContributorAccess::allowed($requester))->toBeTrue();
+});
+
+it('still refuses to approve a Web Reporter request with no email or phone verification at all', function () {
+    $owner = webReporterOwner();
+    $requester = webReporterVoter();
+    $requester->forceFill([
+        'email_verified_at' => null,
+        'phone_verified_at' => null,
+        'chatter_contributor_requested_at' => now(),
+    ])->save();
+
+    $this->actingAs($owner)->put(route('admin.staff.contributor', $requester), ['enabled' => 1])
+        ->assertRedirect()->assertSessionHasErrors('contributor');
+
+    expect(ChatterContributorAccess::allowed($requester->fresh()))->toBeFalse();
+});
+
 it('does not let non-owner staff approve or dismiss Web Reporter requests', function () {
     Role::findOrCreate('staff:Social Reviewer', 'web');
     $staff = User::factory()->create(['user_type' => 'admin', 'platform' => 'standalone']);

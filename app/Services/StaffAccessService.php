@@ -15,7 +15,7 @@ class StaffAccessService
     {
         $this->mutate($actor, function () use ($target, $actor, $enabled) {
             $target = User::lockForUpdate()->findOrFail($target->id);
-            if ($enabled && ($target->suspended_at || ! $target->email_verified_at || $target->is_guest)) {
+            if ($enabled && ($target->suspended_at || ! \App\Support\ChatterContributorAccess::isVerified($target) || $target->is_guest)) {
                 throw ValidationException::withMessages(['contributor' => 'Choose a verified, active, non-guest account.']);
             }
             $role = Role::findOrCreate(\App\Support\ChatterContributorAccess::ROLE, 'web');
