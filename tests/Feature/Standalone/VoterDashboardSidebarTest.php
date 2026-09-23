@@ -58,13 +58,11 @@ it('points the sidebar Web Reporter link at the submission page once access is a
         ->assertDontSee('PENDING');
 });
 
-it('shows a Government Directory link in the sidebar that opens CivLab in a new tab', function () {
+it('shows a Study Systems link in the sidebar that points to the study systems page', function () {
     $user = dashboardSidebarVoter();
 
-    $response = $this->actingAs($user)->get(route('voter.dashboard'))
+    $this->actingAs($user)->get(route('voter.dashboard'))
         ->assertOk()
-        ->assertSee('Government Directory')
-        ->assertSee('https://graph.civlab.org/us', false);
-
-    $response->assertSee('target="_blank"', false);
+        ->assertSee('Study Systems')
+        ->assertSee(route('voter.study-systems'), false);
 });

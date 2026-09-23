@@ -562,6 +562,7 @@ Route::middleware(['guest.trial', 'auth', 'verified', 'check.role', 'no.cache'])
 
         // ── Interactive Map (portal-embedded) ────────────────────────────────
         Route::get('/map', fn () => view('standalone.voter.map'))->name('map');
+        Route::get('/study-systems', fn () => view('standalone.voter.study-systems'))->name('study-systems');
     });
 
     /*
