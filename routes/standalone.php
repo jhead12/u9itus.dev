@@ -51,6 +51,8 @@ use App\Http\Controllers\Standalone\AdminCauseController;
 use App\Http\Controllers\Standalone\AdminBallotMeasureController;
 use App\Http\Controllers\Standalone\AdminBallotMeasureImportController;
 use App\Http\Controllers\Standalone\PublicProfileController;
+use App\Http\Controllers\Standalone\PortalBuilderController;
+use App\Http\Controllers\Standalone\PortalController;
 use App\Http\Controllers\Standalone\CommitteeController;
 use App\Http\Controllers\Standalone\ProfileClaimController;
 use App\Http\Controllers\Standalone\SitemapController;
@@ -821,6 +823,22 @@ Route::middleware(['guest.trial', 'auth', 'verified', 'check.role', 'no.cache'])
 
 /*
 |--------------------------------------------------------------------------
+| White-Label Portal Builder (org-owner scoped, not a platform role)
+|--------------------------------------------------------------------------
+| Authorization is OrganizationPolicy::update (Organization.user_id, plus a
+| staff override), deliberately separate from the role:admin/politician/
+| voter groups above — see OrganizationPolicy's docblock.
+*/
+Route::middleware(['auth'])->prefix('portal/builder')->name('portal.builder.')->group(function () {
+    Route::get('/{organization:slug}', [PortalBuilderController::class, 'edit'])->name('edit');
+    Route::put('/{organization:slug}', [PortalBuilderController::class, 'update'])->name('update');
+    Route::get('/{organization:slug}/endorsements', [PortalBuilderController::class, 'endorsements'])->name('endorsements.index');
+    Route::post('/{organization:slug}/endorsements', [PortalBuilderController::class, 'storeEndorsement'])->name('endorsements.store');
+    Route::delete('/{organization:slug}/endorsements/{endorsement}', [PortalBuilderController::class, 'destroyEndorsement'])->name('endorsements.destroy');
+});
+
+/*
+|--------------------------------------------------------------------------
 | Public Pages (No Authentication Required)
 |--------------------------------------------------------------------------
 */
@@ -890,6 +908,12 @@ Route::get('/earn', function () {
     );
     return view('standalone.public.earn', ['registrationOpen' => $isOpen]);
 })->name('earn');
+// White-label client portal — public render + embeddable widget.
+// Path-based (u9itus.com/portal/{slug}), not a custom domain — see the
+// branch plan's "no custom domains yet" scope note.
+Route::get('/portal/{organization:slug}', [PortalController::class, 'show'])->name('portal.show');
+Route::get('/portal/{organization:slug}/embed', [PortalController::class, 'embed'])->name('portal.embed');
+
 Route::get('/p/{slug}', [PublicProfileController::class, 'show'])->name('politician.public.show');
 Route::get('/p/{slug}/news', [PublicProfileController::class, 'news'])->name('politician.public.news');
 Route::get('/p/{slug}/votes', [PublicProfileController::class, 'votes'])->name('politician.public.votes');

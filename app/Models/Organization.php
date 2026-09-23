@@ -14,6 +14,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  *
  * Claim/verification columns mirror Politician's — no claim UI is built yet,
  * this just keeps the schema ready for it.
+ *
+ * Also doubles as the tenant record for the white-label voter-portal
+ * product: `portal_layout` holds the Puck editor's Data tree, scoped to
+ * candidates/measures in `target_state`/`target_district` at render time
+ * (see App\Http\Controllers\Standalone\PortalController).
  */
 class Organization extends Model
 {
@@ -36,6 +41,10 @@ class Organization extends Model
         'claim_token',
         'claim_requested_at',
         'is_active',
+        'portal_layout',
+        'portal_published',
+        'target_state',
+        'target_district',
     ];
 
     protected function casts(): array
@@ -44,6 +53,8 @@ class Organization extends Model
             'verified_at' => 'datetime',
             'claim_requested_at' => 'datetime',
             'is_active' => 'boolean',
+            'portal_layout' => 'array',
+            'portal_published' => 'boolean',
         ];
     }
 
@@ -56,6 +67,18 @@ class Organization extends Model
     public function committees(): HasMany
     {
         return $this->hasMany(Committee::class);
+    }
+
+    /** This org's manually-curated portal endorsements — see OrganizationEndorsement's docblock. */
+    public function endorsements(): HasMany
+    {
+        return $this->hasMany(OrganizationEndorsement::class);
+    }
+
+    /** Whether config('organizations.types') allows this org_type to endorse a candidate (vs. ballot measures only). */
+    public function canEndorseCandidates(): bool
+    {
+        return (bool) (config('organizations.types')[$this->org_type]['can_endorse_candidates'] ?? true);
     }
 
     public function scopeActive(Builder $query): Builder
