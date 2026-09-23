@@ -1,12 +1,18 @@
 # Community chatter contributors — prompt history and recovery
 
-## Browser extension phase — active
+## Browser extension phase — implemented; release verification pending
 
 User confirmed the deployed feature works, then requested: “its running properly, we can now add the voter browser submission system”. Implement a Chrome/Edge Manifest V3 extension that captures the user-invoked active tab URL/title/selected text, previews an editable clipping, and opens the authenticated contributor form with a draft. Use existing contributor grants and moderation rules. No new social API credentials or account permissions are needed.
 
 Design: activeTab + scripting permissions only; no persistent host access, browser-history access, cookies, background crawling, or extension login tokens. Explicit public-source confirmation before opening U9itus. A first-party handoff page removes the URL fragment immediately and temporarily holds the draft in same-tab sessionStorage through login/2FA (30-minute expiry); the form imports only URL, headline, excerpt and suggested platform. It must never import politician IDs, ownership, consent, or publication fields. Actual submission stays an authenticated CSRF-protected POST. A browser extension cannot reliably distinguish every private page; block obvious private/local destinations and require confirmation. Ship a downloadable unpacked pilot ZIP plus installation/privacy docs. Store publishing and Firefox/Safari are separate follow-ups.
 
-Progress: implementation in progress. Verify hostile/oversized clips, login handoff, expiry, storage failures, form validation recovery, no automatic submission, permission manifest, and the actual extension popup. Record completed tests and release status here before ending work.
+Implemented in master commit `0bb1b383`. Download: `/downloads/u9itus-source-clipper-0.1.0.zip`. Approved users get installation instructions at `/contribute/chatter/extension`, linked from the contributor form. The extension is an unpacked desktop pilot; no browser-store listing, Firefox/Safari version, or mobile extension has been published. No new database migration is needed.
+
+Verification: 19 contributor/authentication tests passed (138 assertions), with the three existing chatter-review tests also passing earlier. Seven browser checks passed across the full six-check run and the final malformed-handoff check: minimal manifest permissions/URL screening, login draft transfer and field allowlist, expiry/validation recovery, popup confirmation, real Chromium installation/opening, candidate picker required selection, and malformed/oversized clips plus disabled session storage. Popup capture APIs are mocked in the clipping-preview test; actual unpacked installation and popup opening use Chromium. A manual approved-account capture-to-publication walkthrough in Chrome/Edge remains a pilot acceptance step. `npm run build` passed with existing bundle warnings. The packaging script creates the ZIP and synchronizes the shared URL helper.
+
+The final browser test fix navigates through a new document between clip cases, matching the extension's new-tab behavior; changing only a fragment does not reexecute module scripts. Also corrected the existing multi-row candidate picker to explicitly invalidate its empty option.
+
+On resumption, inspect the latest master and Railway deployment. At last check, feature deployment `63b4dff3-0354-4065-8767-b583bc79000c` was waiting for checks. A newer test/documentation commit may supersede it. Verify `/contribute/chatter/clip` returns 200, `/contribute/chatter/extension` redirects anonymous users to login, the ZIP downloads successfully, and the importer/URL-helper modules are served. Do not redeploy the old temporary worktree.
 
 ## Current release status — September 23, 2026
 
@@ -14,7 +20,7 @@ The contributor feature was merged to master in `c266c45b`, followed by MySQL/SQ
 
 The older temporary release worktree at `/private/tmp/u9itus-chatter-release.YxT3mX` is superseded; do not deploy it over current master. The original stash was preserved.
 
-Latest user addition: add a direct politician profile link to each admin chatter card. Implemented below the politician name, opening the public profile in a new tab to retain review-queue position; the three chatter tests passed. Deployment verification for this small follow-up is pending. The original pre-deployment notes below are historical.
+The politician-profile link follow-up in `80b0d577` deployed successfully as `ed543a5d-0b53-43f0-bd1f-9dab100797e7`; the user confirmed it works. The hash normalization migration was confirmed as Ran (batch 107). The original pre-deployment notes below are historical.
 
 ## User request and agreed scope
 

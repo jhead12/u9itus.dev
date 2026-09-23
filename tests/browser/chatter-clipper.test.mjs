@@ -151,12 +151,15 @@ test('handoff removes malformed clips and handles unavailable session storage', 
             return route.fulfill({ contentType: path.startsWith('/js/') ? 'text/javascript' : 'text/html', body: path.startsWith('/js/') ? read('public' + path) : '<p data-clip-handoff></p><script type="module" src="/js/chatter-clip-import.js"></script>' });
         });
         for (const hash of ['#clip=%broken', '#clip=' + 'a'.repeat(32001)]) {
+            // Each extension action opens a new document, rather than changing an existing fragment.
+            await page.goto('about:blank');
             await page.goto('https://www.u9itus.com/contribute/chatter/clip' + hash);
             await page.waitForFunction(() => document.querySelector('[data-clip-handoff]').textContent.includes('could not'));
             assert.equal(new URL(page.url()).hash, '');
             assert.equal(await page.evaluate(key => sessionStorage.getItem(key), key), null);
         }
         await page.addInitScript(() => { Storage.prototype.setItem = () => { throw new Error('Storage disabled'); }; });
+        await page.goto('about:blank');
         await page.goto('https://www.u9itus.com/contribute/chatter/clip' + fragment);
         await page.waitForFunction(() => document.querySelector('[data-clip-handoff]').textContent.includes('could not'));
         assert.equal(new URL(page.url()).hash, '');
