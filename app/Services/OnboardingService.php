@@ -42,6 +42,12 @@ class OnboardingService
             'route' => 'voter.onboarding.referrals',
             'required' => false,
         ],
+        'web_reporter' => [
+            'title' => 'Become a Web Reporter',
+            'description' => 'Request access to submit public news and social posts for editorial review',
+            'route' => 'voter.onboarding.web-reporter',
+            'required' => false,
+        ],
     ];
 
     /**

@@ -283,6 +283,30 @@
         @endif
     </div>
 
+    {{-- Web Reporter --}}
+    @php
+        $webReporterApproved = \App\Support\ChatterContributorAccess::allowed($user);
+        $webReporterRequested = (bool) $user->chatter_contributor_requested_at;
+    @endphp
+    <div class="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-6 space-y-3">
+        <div>
+            <h2 class="text-base font-semibold text-white">Web Reporter</h2>
+            <p class="text-slate-500 text-xs mt-0.5">Optional — collect public news and social posts about candidates for editorial review.</p>
+        </div>
+        @if($webReporterApproved)
+            <p class="text-sm text-emerald-300">You have Web Reporter access. <a href="{{ route('contributor.chatter.index') }}" class="underline">Submit a source →</a></p>
+        @elseif($webReporterRequested)
+            <p class="text-sm text-amber-300">Request pending review since {{ $user->chatter_contributor_requested_at->diffForHumans() }}.</p>
+        @else
+            <form method="POST" action="{{ route('voter.onboarding.complete-web-reporter') }}">
+                @csrf
+                <input type="hidden" name="action" value="request">
+                <input type="hidden" name="redirect_to" value="profile">
+                <button type="submit" class="rounded-lg bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-sm font-semibold text-white transition">Request Web Reporter access</button>
+            </form>
+        @endif
+    </div>
+
     @include('standalone.voter.partials.authentic-user-verifier-banner')
 
     {{-- Identity Verification --}}

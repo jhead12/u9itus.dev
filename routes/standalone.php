@@ -162,6 +162,9 @@ Route::middleware(['auth', 'verified', 'no.cache'])->group(function () {
         Route::get('/referrals', [VoterOnboardingController::class, 'referralSetup'])->name('referrals');
         Route::post('/referrals', [VoterOnboardingController::class, 'completeReferralSetup'])->name('complete-referrals');
 
+        Route::get('/web-reporter', [VoterOnboardingController::class, 'webReporterSetup'])->name('web-reporter');
+        Route::post('/web-reporter', [VoterOnboardingController::class, 'completeWebReporterSetup'])->name('complete-web-reporter');
+
         Route::post('/skip', [VoterOnboardingController::class, 'skip'])->name('skip');
     });
 
@@ -647,6 +650,7 @@ Route::middleware(['guest.trial', 'auth', 'verified', 'check.role', 'no.cache'])
         Route::delete('/staff-access/roles/{role}', [\App\Http\Controllers\Standalone\AdminStaffController::class, 'destroyRole'])->name('staff.roles.destroy');
         Route::put('/staff-access/users/{user}', [\App\Http\Controllers\Standalone\AdminStaffController::class, 'assign'])->name('staff.assign');
         Route::put('/staff-access/users/{user}/contributor', [\App\Http\Controllers\Standalone\AdminStaffController::class, 'contributor'])->name('staff.contributor');
+        Route::delete('/staff-access/users/{user}/contributor-request', [\App\Http\Controllers\Standalone\AdminStaffController::class, 'dismissContributorRequest'])->name('staff.contributor-request.dismiss');
 
         // Campaign Approval (political campaigns)
         Route::get('/campaigns/pending', [AdminController::class, 'pendingCampaigns'])->name('campaigns.pending');

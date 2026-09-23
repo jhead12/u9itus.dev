@@ -22,7 +22,11 @@ class AdminStaffController extends Controller
         $roles = Role::with('permissions')->where('guard_name', 'web')->where('name', 'like', 'staff:%')->orderBy('name')->get();
         $catalog = AdminAccess::catalog();
         $audits = DB::table('staff_access_audits')->latest('id')->limit(30)->get();
-        return view('standalone.admin.staff-access', compact('users', 'roles', 'catalog', 'audits'));
+        $pendingContributorRequests = User::whereNotNull('chatter_contributor_requested_at')
+            ->whereDoesntHave('roles', fn ($q) => $q->where('name', \App\Support\ChatterContributorAccess::ROLE))
+            ->orderBy('chatter_contributor_requested_at')
+            ->limit(50)->get();
+        return view('standalone.admin.staff-access', compact('users', 'roles', 'catalog', 'audits', 'pendingContributorRequests'));
     }
 
     public function saveRole(Request $request, StaffAccessService $service, ?Role $role = null)
@@ -53,5 +57,11 @@ class AdminStaffController extends Controller
         $request->validate(['enabled' => ['required', 'boolean']]);
         $service->assignContributor($request->user(), $user, $request->boolean('enabled'));
         return back()->with('success', 'Contributor access updated. Existing account roles are unchanged.');
+    }
+
+    public function dismissContributorRequest(Request $request, User $user, StaffAccessService $service)
+    {
+        $service->dismissContributorRequest($request->user(), $user);
+        return back()->with('success', 'Request dismissed. The account can request again later.');
     }
 }

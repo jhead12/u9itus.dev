@@ -181,8 +181,46 @@ class VoterOnboardingController extends Controller
         $progress = $this->onboardingService->getOrCreate(auth()->user(), 'voter');
         $this->onboardingService->completePhase($progress, 'referral_setup');
 
-        // Onboarding complete! Redirect to dashboard
-        return redirect()->route('voter.dashboard')->with('success', 'Onboarding complete! Welcome to U9itus.');
+        return redirect()->route('voter.onboarding.web-reporter');
+    }
+
+    /**
+     * Web Reporter opt-in phase — also reachable any time after onboarding
+     * (e.g. from the profile page), not just during the initial flow.
+     */
+    public function webReporterSetup()
+    {
+        $progress = $this->onboardingService->getOrCreate(auth()->user(), 'voter');
+        $phases = $this->onboardingService->getPhasesForType('voter');
+
+        return view('standalone.voter.onboarding.web-reporter', [
+            'progress' => $progress,
+            'phases' => $phases,
+            'totalPhases' => count($phases),
+        ]);
+    }
+
+    public function completeWebReporterSetup(Request $request)
+    {
+        $user = auth()->user();
+        $requested = $request->input('action') === 'request';
+
+        if ($requested && ! \App\Support\ChatterContributorAccess::allowed($user) && ! $user->chatter_contributor_requested_at) {
+            $user->forceFill(['chatter_contributor_requested_at' => now()])->save();
+        }
+
+        $progress = $this->onboardingService->getOrCreate($user, 'voter');
+        $this->onboardingService->completePhase($progress, 'web_reporter');
+
+        // Reached from the profile page (any time) rather than the onboarding flow
+        // itself — return there instead of dropping onto the dashboard.
+        if ($request->input('redirect_to') === 'profile') {
+            return redirect()->route('voter.profile')->with('success',
+                $requested ? 'Your Web Reporter request has been sent for review.' : 'Saved.');
+        }
+
+        return redirect()->route('voter.dashboard')->with('success',
+            $requested ? 'Onboarding complete! Your Web Reporter request has been sent for review.' : 'Onboarding complete! Welcome to U9itus.');
     }
 
     /**

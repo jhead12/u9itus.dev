@@ -33,6 +33,31 @@
             </details>
         @endforeach
     </section>
+    @if($pendingContributorRequests->isNotEmpty())
+    <section class="space-y-3" aria-labelledby="contributor-requests-heading">
+        <h3 id="contributor-requests-heading" class="text-xl font-semibold">Pending Web Reporter requests</h3>
+        <p class="text-slate-400 text-sm">Requested from onboarding or the profile page. Approving grants only source-submission access — nothing else changes on the account.</p>
+        @foreach($pendingContributorRequests as $requester)
+            <div class="rounded-xl border border-amber-800/60 bg-amber-950/20 p-4 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                    <p class="font-semibold">{{ $requester->name }} <span class="font-normal text-slate-400">{{ $requester->email }}</span></p>
+                    <p class="text-xs text-slate-400">Requested {{ $requester->chatter_contributor_requested_at->diffForHumans() }}</p>
+                </div>
+                <div class="flex gap-2">
+                    <form method="POST" action="{{ route('admin.staff.contributor', $requester) }}">
+                        @csrf @method('PUT')
+                        <input type="hidden" name="enabled" value="1">
+                        <button class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold">Approve</button>
+                    </form>
+                    <form method="POST" action="{{ route('admin.staff.contributor-request.dismiss', $requester) }}">
+                        @csrf @method('DELETE')
+                        <button class="rounded-lg border border-slate-600 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800">Dismiss</button>
+                    </form>
+                </div>
+            </div>
+        @endforeach
+    </section>
+    @endif
     <section class="space-y-4" aria-labelledby="staff-heading">
         <h3 id="staff-heading" class="text-xl font-semibold">Assign access</h3>
         <form method="GET" class="flex gap-3">
@@ -42,10 +67,13 @@
         @foreach($users as $staff)
             <form method="POST" action="{{ route('admin.staff.contributor', $staff) }}" class="rounded-xl border border-emerald-900 p-4 space-y-2">
                 @csrf @method('PUT')
-                <h4 class="font-semibold">Community contributor: {{ $staff->name }} · {{ $staff->email }}</h4>
+                <h4 class="font-semibold">Web Reporter: {{ $staff->name }} · {{ $staff->email }}</h4>
                 <input type="hidden" name="enabled" value="0">
                 <label class="block text-sm"><input type="checkbox" name="enabled" value="1" @checked($staff->hasRole(\App\Support\ChatterContributorAccess::ROLE))> Can submit public sources and view own submissions</label>
-                <p class="text-xs text-slate-400">Separate from staff access below. Does not grant admin access, change existing roles, or remove other access. Contributor page: <a class="text-emerald-300 underline" href="{{ route('contributor.chatter.index') }}">Submit a source</a>.</p>
+                @if($staff->chatter_contributor_requested_at && ! $staff->hasRole(\App\Support\ChatterContributorAccess::ROLE))
+                    <p class="text-xs text-amber-300">Requested {{ $staff->chatter_contributor_requested_at->diffForHumans() }} — check the box and save to approve.</p>
+                @endif
+                <p class="text-xs text-slate-400">Separate from staff access below. Does not grant admin access, change existing roles, or remove other access. Web Reporter page: <a class="text-emerald-300 underline" href="{{ route('contributor.chatter.index') }}">Submit a source</a>.</p>
                 <button class="rounded-lg bg-emerald-700 px-4 py-2 text-sm">Save contributor access</button>
             </form>
             <form method="POST" action="{{ route('admin.staff.assign', $staff) }}" class="rounded-xl border border-slate-700 p-5 space-y-3">

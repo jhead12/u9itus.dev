@@ -97,6 +97,7 @@ class User extends Authenticatable
             'is_guest'           => 'boolean',
             'guest_expires_at'   => 'datetime',
             'flagged_for_fraud'  => 'boolean',
+            'chatter_contributor_requested_at' => 'datetime',
             'fraud_reasons'      => 'array',
         ];
     }

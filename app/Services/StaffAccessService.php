@@ -21,8 +21,22 @@ class StaffAccessService
             $role = Role::findOrCreate(\App\Support\ChatterContributorAccess::ROLE, 'web');
             $before = $target->hasRole($role);
             $enabled ? $target->assignRole($role) : $target->removeRole($role);
+            if ($enabled && $target->chatter_contributor_requested_at) {
+                $target->forceFill(['chatter_contributor_requested_at' => null])->save();
+            }
             $this->audit($actor->id, 'contributor.assigned', 'user:'.$target->id,
                 ['contributor' => $before], ['contributor' => $enabled]);
+        });
+    }
+
+    public function dismissContributorRequest(User $actor, User $target): void
+    {
+        $this->mutate($actor, function () use ($target, $actor) {
+            $target = User::lockForUpdate()->findOrFail($target->id);
+            $before = $target->chatter_contributor_requested_at;
+            $target->forceFill(['chatter_contributor_requested_at' => null])->save();
+            $this->audit($actor->id, 'contributor.request.dismissed', 'user:'.$target->id,
+                ['requested_at' => $before?->toIso8601String()], ['requested_at' => null]);
         });
     }
 
