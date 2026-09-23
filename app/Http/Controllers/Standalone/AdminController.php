@@ -403,7 +403,10 @@ class AdminController extends Controller
             'unpaid_wallet_liability' => (float) Voter::sum('wallet_balance'),
         ];
 
-        $recentUsers = User::latest()->take(5)->get();
+        // Suspended accounts are surfaced via the 'suspended_users' stat card
+        // and the filterable Users page — this "what's new" widget should not
+        // resurface an account an admin already suspended.
+        $recentUsers = User::whereNull('suspended_at')->latest()->take(5)->get();
         $recentCampaigns = PoliticalCampaign::with('politician')->latest()->take(5)->get();
 
         return view('standalone.admin.dashboard', compact('stats', 'recentUsers', 'recentCampaigns'));
@@ -1418,7 +1421,9 @@ class AdminController extends Controller
             CandidateMatchReview::STATUS_REJECTED,
         ];
 
-        $query = CandidateMatchReview::with(['politician.user', 'candidateRecord'])->latest();
+        $sort = $request->query('sort', 'priority') === 'newest' ? 'newest' : 'priority';
+        $query = CandidateMatchReview::with(['politician.user', 'candidateRecord']);
+        $sort === 'priority' ? $query->orderByDesc('priority_score')->latest() : $query->latest();
 
         if (in_array($statusFilter, $allowedStatuses, true)) {
             $query->where('status', $statusFilter);
@@ -1444,7 +1449,7 @@ class AdminController extends Controller
             'rejected' => CandidateMatchReview::where('status', CandidateMatchReview::STATUS_REJECTED)->count(),
         ];
 
-        return view('standalone.admin.candidate-match-reviews', compact('reviews', 'stats', 'statusFilter'));
+        return view('standalone.admin.candidate-match-reviews', compact('reviews', 'stats', 'statusFilter', 'sort'));
     }
 
     /**
@@ -1599,7 +1604,9 @@ class AdminController extends Controller
             $typeFilter = '';
         }
 
-        $query = PoliticianCleanupReview::with(['politician', 'duplicatePolitician'])->latest();
+        $sort = $request->query('sort', 'priority') === 'newest' ? 'newest' : 'priority';
+        $query = PoliticianCleanupReview::with(['politician', 'duplicatePolitician']);
+        $sort === 'priority' ? $query->orderByDesc('priority_score')->latest() : $query->latest();
 
         if (in_array($statusFilter, $allowedStatuses, true)) {
             $query->where('status', $statusFilter);
@@ -1641,7 +1648,7 @@ class AdminController extends Controller
             'rejected' => PoliticianCleanupReview::where('status', PoliticianCleanupReview::STATUS_REJECTED)->count(),
         ];
 
-        return view('standalone.admin.data-quality-reviews', compact('reviews', 'stats', 'statusFilter', 'typeFilter', 'typeOptions', 'typeCounts', 'perPage'));
+        return view('standalone.admin.data-quality-reviews', compact('reviews', 'stats', 'statusFilter', 'typeFilter', 'typeOptions', 'typeCounts', 'perPage', 'sort'));
     }
 
     /**

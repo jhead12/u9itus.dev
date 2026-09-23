@@ -242,8 +242,14 @@ class MapStateCandidatesController
         //    links row). Until then, only show it if it carries an explicit
         //    primary_result — i.e. it survived politicians:sync-primary-results.
         $cycleStart = now()->startOfYear()->toDateString();
+        // Only a link to a still-active politician makes an ECR "vouched for" —
+        // a deactivated phantom profile (e.g. a discovery row misfiled to the
+        // wrong state and auto-linked to a since-deactivated profile) must not
+        // keep its ECR visible via this branch of $discoveryVisible below.
         $linkedEcrIds = CandidateIdentityLink::query()
-            ->distinct()->pluck('election_candidate_record_id')->all();
+            ->join('politicians', 'politicians.id', '=', 'candidate_identity_links.politician_id')
+            ->where('politicians.is_active', true)
+            ->distinct()->pluck('candidate_identity_links.election_candidate_record_id')->all();
 
         // Driver-branching JSON extraction — SQLite (test env) lacks MySQL's
         // JSON_UNQUOTE(JSON_EXTRACT(...)); both forms return the unquoted
@@ -252,6 +258,9 @@ class MapStateCandidatesController
             ? "json_extract(payload, '$.primary_result')"
             : "JSON_UNQUOTE(JSON_EXTRACT(payload, '$.primary_result'))";
 
+        // Mirrored (by hand, not generated) as a single-row predicate in
+        // App\Support\MapVisibility::discoveryVisible() for callers that already have a
+        // hydrated record rather than a query builder — keep both in sync.
         $discoveryVisible = fn ($q) => $q
             ->where('source', '!=', ElectionCandidateRecord::DISCOVERY_SOURCE)
             ->orWhereIn('id', $linkedEcrIds)

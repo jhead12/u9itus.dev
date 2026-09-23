@@ -36,6 +36,11 @@ use Illuminate\Support\Facades\Log;
  *                                              step that auto-applies, and only when the FEC's
  *                                              own record confirms both names (see its docblock);
  *                                              everything else is queued for review
+ *   8. politicians:score-review-priority    — recomputes the FMEA-style priority score (severity ×
+ *                                              occurrence × detectability) on every pending review
+ *                                              in politician_cleanup_reviews / candidate_match_reviews,
+ *                                              so Admin → Data Quality can triage highest-impact
+ *                                              findings first. Skipped on --dry-run.
  *
  * --state=NC,NY,TX targets those states only (steps 1, 2, 4-7); the national
  * lifecycle reconciliation in step 3 is skipped for a targeted run.
@@ -124,6 +129,14 @@ class PoliticiansCleanupWorkflow extends Command
 
         $this->section('7/7 · Merging duplicates confirmed by their FEC candidate id (unconfirmed ones queued for review)');
         $results['dedupe-by-fec'] = $this->callForStates('politicians:dedupe-by-fec', $dryRun ? [] : ['--apply' => true], $states);
+
+        // Not counted toward this command's failure status (like step 2's audit) — scoring
+        // is best-effort triage support, not a pipeline correctness gate. Skipped on
+        // --dry-run since it only touches rows steps 4-7 may not have actually written.
+        if (! $dryRun) {
+            $this->section('8/8 · Scoring review-queue priority');
+            $this->call('politicians:score-review-priority');
+        }
 
         $failed = array_filter($results, fn (int $code) => $code !== self::SUCCESS);
 

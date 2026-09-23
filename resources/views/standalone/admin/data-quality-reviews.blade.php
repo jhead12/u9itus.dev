@@ -78,11 +78,18 @@
                 @endforeach
             </select>
         </div>
+        <div>
+            <select name="sort"
+                class="w-full lg:w-auto bg-slate-900/60 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-300 focus:outline-none focus:border-emerald-500/50 transition">
+                <option value="priority" {{ $sort === 'priority' ? 'selected' : '' }}>Sort: Priority</option>
+                <option value="newest" {{ $sort === 'newest' ? 'selected' : '' }}>Sort: Newest</option>
+            </select>
+        </div>
         <button type="submit"
             class="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-white text-sm font-semibold transition shrink-0">
             Apply
         </button>
-        @if(request('q') || $typeFilter !== '' || $perPage !== 30 || (request('status') && request('status') !== 'pending'))
+        @if(request('q') || $typeFilter !== '' || $perPage !== 30 || $sort !== 'priority' || (request('status') && request('status') !== 'pending'))
         <a href="{{ route('admin.data-quality.index') }}"
             class="px-3 py-2 rounded-lg bg-slate-700/50 hover:bg-slate-700 text-slate-400 text-sm transition shrink-0 text-center">
             Clear
@@ -123,6 +130,7 @@
                             <input id="select-all-dq" type="checkbox"
                                 class="rounded border-slate-600 bg-slate-900 text-emerald-500 focus:ring-emerald-500/40">
                         </th>
+                        <th class="px-5 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide">Priority</th>
                         <th class="px-5 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide">Type</th>
                         <th class="px-5 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide">Politician (kept)</th>
                         <th class="px-5 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide">Duplicate / Detail</th>
@@ -146,6 +154,12 @@
                             default => ucfirst($review->review_type),
                         };
                         $payload = $review->payload ?? [];
+                        $priorityColor = match(true) {
+                            $review->priority_score === null => 'bg-slate-700/50 text-slate-400',
+                            $review->priority_score >= 60 => 'bg-red-500/10 text-red-400',
+                            $review->priority_score >= 20 => 'bg-amber-500/10 text-amber-400',
+                            default => 'bg-slate-700/50 text-slate-300',
+                        };
                     @endphp
                     <tr class="hover:bg-slate-700/20 transition {{ !$isPending ? 'opacity-75' : '' }}">
                         <td class="px-5 py-4 align-top">
@@ -155,6 +169,12 @@
                             @else
                             <span class="block w-4 h-4"></span>
                             @endif
+                        </td>
+                        <td class="px-5 py-4 align-top">
+                            <span class="text-xs px-2 py-0.5 rounded-full font-semibold {{ $priorityColor }}"
+                                  title="severity {{ $review->severity ?? '—' }} × occurrence {{ $review->occurrence ?? '—' }} × detectability {{ $review->detectability ?? '—' }}">
+                                {{ $review->priority_score ?? '—' }}
+                            </span>
                         </td>
                         <td class="px-5 py-4 align-top">
                             <span class="text-xs px-2 py-0.5 rounded-full bg-slate-700/50 text-slate-300">{{ $typeLabel }}</span>
@@ -210,7 +230,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="6" class="px-5 py-8 text-center text-sm text-slate-500">
+                        <td colspan="7" class="px-5 py-8 text-center text-sm text-slate-500">
                             No {{ $statusFilter ?: '' }} data-quality reviews found.
                             @if(request('q') || request('status') || $typeFilter !== '')
                                 Try clearing your filters.

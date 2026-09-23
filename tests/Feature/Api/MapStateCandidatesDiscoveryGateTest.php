@@ -72,6 +72,27 @@ it('shows a candidate_discovery row once it is identity-linked', function () {
     expect(mapNames())->toContain('Linked Discovery');
 });
 
+it('hides a candidate_discovery row identity-linked to a now-inactive politician', function () {
+    // The exact shape of the Bernie-Sanders-in-Nevada bug: a discovery row auto-linked to a
+    // phantom profile that later gets deactivated (e.g. by politicians:flag-suspect-profiles)
+    // must not keep rendering just because the (now-dead) link still exists.
+    $rec = statewideEcr([
+        'full_name' => 'Deactivated Link',
+        'source' => ElectionCandidateRecord::DISCOVERY_SOURCE,
+        'payload' => ['status' => 'running'],
+    ]);
+    $pol = Politician::factory()->create(['full_name' => 'Deactivated Link', 'state' => 'CA', 'is_active' => false]);
+    CandidateIdentityLink::create([
+        'politician_id' => $pol->id,
+        'election_candidate_record_id' => $rec->id,
+        'match_score' => 1.0,
+        'link_source' => 'system',
+        'linked_at' => now(),
+    ]);
+
+    expect(mapNames())->not->toContain('Deactivated Link');
+});
+
 it('shows a candidate_discovery row that carries an explicit primary_result', function () {
     statewideEcr([
         'full_name' => 'Advanced Discovery',

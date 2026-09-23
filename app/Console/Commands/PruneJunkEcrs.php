@@ -86,6 +86,7 @@ class PruneJunkEcrs extends Command
 
     public function handle(): int
     {
+        $startedAt = now();
         $apply = (bool) $this->option('apply');
         $keepStale = (bool) $this->option('keep-stale');
         $dedup = ! (bool) $this->option('no-dedup');
@@ -238,6 +239,7 @@ class PruneJunkEcrs extends Command
 
         if ($total === 0) {
             $this->info('Nothing to prune.');
+            $this->recordMetrics($states, $startedAt, 0, 0, $counts);
 
             return self::SUCCESS;
         }
@@ -245,6 +247,7 @@ class PruneJunkEcrs extends Command
         if (! $apply) {
             $this->newLine();
             $this->warn("[dry-run] Would delete {$total} row(s). Re-run with --apply to delete.");
+            $this->recordMetrics($states, $startedAt, $total, 0, $counts);
 
             return self::SUCCESS;
         }
@@ -268,8 +271,30 @@ class PruneJunkEcrs extends Command
         ]);
 
         $this->info("Deleted {$deleted} row(s). Map cache cleared for: ".($affectedStates->implode(', ') ?: 'none').'.');
+        $this->recordMetrics($states, $startedAt, $total, $deleted, $counts);
 
         return self::SUCCESS;
+    }
+
+    /**
+     * @param  array<int, string>  $states
+     * @param  array<string, int>  $counts
+     */
+    private function recordMetrics(array $states, \Illuminate\Support\Carbon $startedAt, int $findingsCount, int $autoApplied, array $counts): void
+    {
+        DB::table('politician_cleanup_run_metrics')->insert([
+            'step' => 'prune-junk-ecrs',
+            'scope' => $states === [] ? null : implode(',', $states),
+            'exit_code' => self::SUCCESS,
+            'findings_count' => $findingsCount,
+            'auto_applied_count' => $autoApplied,
+            'queued_count' => 0,
+            'breakdown' => json_encode($counts),
+            'started_at' => $startedAt,
+            'finished_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
     }
 
     /**

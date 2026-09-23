@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\Politician;
+use App\Services\CandidateDiscovery\CandidateCorroboration;
 
 /**
  * Spots "candidates" that are really a sitting statewide official from
@@ -190,5 +191,23 @@ final class CrossStateImpostors
         $state = strtoupper(trim((string) $state));
 
         return $states !== [] && $state !== '' && ! in_array($state, $states, true) ? $states[0] : null;
+    }
+
+    /**
+     * Narrower, federal-only counterpart to sittingOnlyElsewhere(): gated to Senate/House/
+     * President races. Two different people CAN legitimately share a name across federal
+     * races (two Mike Rogers), so a name collision alone is not proof — callers MUST
+     * additionally require CandidateCorroboration::checkIdentity() to fail before treating
+     * this as a finding. See FlagSuspectProfiles::classify().
+     *
+     * @param  array<string, array<int, string>>  $byName  from seatedStatesByName()
+     */
+    public static function federalNameCollisionElsewhere(?string $name, ?string $state, ?string $office, array $byName): ?string
+    {
+        if (! in_array(CandidateCorroboration::officeKind($office), ['senate', 'house', 'president'], true)) {
+            return null;
+        }
+
+        return self::sittingOnlyElsewhere($name, $state, $byName);
     }
 }

@@ -75,3 +75,6 @@ jobs:
           fi
 
           php artisan politicians:cleanup-workflow --scope="$SCOPE" $STATE_ARG $DRY_ARG
+
+      - name: Check pipeline health
+        run: php artisan politicians:check-cleanup-health

@@ -281,6 +281,82 @@ it('does not queue a profile for deactivation when its name can simply be repair
         ->and($stitt->refresh()->is_active)->toBeTrue();
 });
 
+function seatedSenator(string $state, array $over = []): Politician
+{
+    return Politician::factory()->create(array_merge([
+        'full_name' => 'Bernie Sanders', 'state' => $state, 'political_office' => 'U.S. Senator',
+        'governance_level' => 'Federal', 'term_status' => 'seated', 'is_active' => true,
+        'slug' => 'sanders-'.strtolower($state).'-'.fake()->unique()->numerify('####'),
+    ], $over));
+}
+
+/**
+ * An unclaimed, discovery-only federal profile — same shape as the Bernie-Sanders-in-Nevada
+ * bug: a phantom generated purely from a candidate_discovery row, identity-linked to it.
+ */
+function discoveryOnlySenatePhantom(string $state, string $name = 'Bernie Sanders'): Politician
+{
+    $p = unclaimedAbbott($state, [
+        'full_name' => $name, 'political_office' => 'U.S. Senator', 'governance_level' => 'Federal',
+        'slug' => 'senate-phantom-'.strtolower($state).'-'.fake()->unique()->numerify('####'),
+    ]);
+
+    $ecr = ElectionCandidateRecord::create([
+        'source' => ElectionCandidateRecord::DISCOVERY_SOURCE,
+        'external_candidate_id' => 'disc:'.strtolower($state).':senate:'.str($name)->slug().'-'.fake()->unique()->numerify('####'),
+        'full_name' => $name, 'political_office' => 'U.S. Senator', 'governance_level' => 'Federal',
+        'state' => $state, 'party_affiliation' => 'Independent',
+        'election_date' => now()->addMonths(2)->toDateString(),
+        'payload' => [],
+    ]);
+    \App\Models\CandidateIdentityLink::create([
+        'politician_id' => $p->id, 'election_candidate_record_id' => $ecr->id,
+        'match_score' => 1.0, 'link_source' => 'system', 'linked_at' => now(),
+    ]);
+
+    return $p;
+}
+
+it('federalNameCollisionElsewhere only fires for federal offices and returns the sitting state', function () {
+    $byName = CrossStateImpostors::seatedStatesByName();
+
+    expect(CrossStateImpostors::federalNameCollisionElsewhere('Bernie Sanders', 'NV', 'U.S. Senator', $byName))->toBeNull();
+
+    seatedSenator('VT');
+    $byName = CrossStateImpostors::seatedStatesByName();
+
+    expect(CrossStateImpostors::federalNameCollisionElsewhere('Bernie Sanders', 'NV', 'U.S. Senator', $byName))->toBe('VT')
+        ->and(CrossStateImpostors::federalNameCollisionElsewhere('Bernie Sanders', 'VT', 'U.S. Senator', $byName))->toBeNull()
+        ->and(CrossStateImpostors::federalNameCollisionElsewhere('Bernie Sanders', 'NV', 'Governor', $byName))->toBeNull()
+        ->and(CrossStateImpostors::federalNameCollisionElsewhere('Bernie Sanders', 'NV', 'State Senate District 5', $byName))->toBeNull();
+});
+
+it('queues (never auto-deactivates) a federal name-collision phantom, and never flags it once corroborated', function () {
+    seatedSenator('VT');
+    $phantom = discoveryOnlySenatePhantom('NV');
+
+    $this->artisan('politicians:flag-suspect-profiles', ['--apply' => true])->assertExitCode(0);
+
+    expect($phantom->refresh()->is_active)->toBeTrue(); // queue-only, never auto-deactivated
+    $review = PoliticianCleanupReview::where('politician_id', $phantom->id)->sole();
+    expect($review->status)->toBe('pending')
+        ->and($review->payload['source'])->toBe('flag-suspect-profiles-federal-collision')
+        ->and($review->payload['collision_state'])->toBe('VT');
+
+    // A different state, same name, but a non-news record now corroborates a real NV candidacy:
+    // no finding at all.
+    ElectionCandidateRecord::query()->insert([
+        'source' => 'ballotpedia', 'external_candidate_id' => 'bernie-nv-senate',
+        'full_name' => 'Bernie Sanders', 'political_office' => 'U.S. Senator', 'governance_level' => 'Federal',
+        'state' => 'NV', 'created_at' => now(), 'updated_at' => now(),
+    ]);
+    PoliticianCleanupReview::query()->delete();
+
+    $this->artisan('politicians:flag-suspect-profiles', ['--apply' => true])->assertExitCode(0);
+
+    expect(PoliticianCleanupReview::where('politician_id', $phantom->id)->exists())->toBeFalse();
+});
+
 it('retires an earlier pending review once the name has been repaired, so approving it cannot unpublish a real profile', function () {
     $stitt = unclaimedAbbott('OK', ['full_name' => 'Kevin Stitt', 'slug' => 'stitt-clean']);
     $stale = PoliticianCleanupReview::enqueue(PoliticianCleanupReview::TYPE_DEACTIVATE, $stitt->id, null, ['source' => 'flag-suspect-profiles'], 'Name is headline text');

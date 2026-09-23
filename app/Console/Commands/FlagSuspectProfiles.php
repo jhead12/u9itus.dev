@@ -44,17 +44,22 @@ class FlagSuspectProfiles extends Command
 
     public function handle(): int
     {
+        $startedAt = now();
         $apply = (bool) $this->option('apply');
         $maxAuto = max(0, (int) $this->option('max-auto'));
         $state = $this->option('state') ? strtoupper(trim((string) $this->option('state'))) : null;
 
         $auto = 0;
         $queued = 0;
+        $breakdown = [];
         $found = $this->suspects($state);
 
         foreach ($found as [$pol, $reason, $extra, $autoEligible]) {
             $deactivate = $autoEligible && $auto < $maxAuto;
             $this->line(sprintf('  [%s] #%d %s (%s, %s) — %s', $this->label($deactivate, $apply), $pol->id, $pol->full_name, $pol->political_office, $pol->state, $reason));
+
+            $reasonKey = (string) ($extra['source'] ?? 'flag-suspect-profiles');
+            $breakdown[$reasonKey] = ($breakdown[$reasonKey] ?? 0) + 1;
 
             if ($deactivate) {
                 $auto++;
@@ -72,6 +77,8 @@ class FlagSuspectProfiles extends Command
             $this->retireResolved(array_map(fn (array $f) => $f[0]->id, $found), $state);
         }
 
+        $this->recordMetrics($state, count($found), $auto, $queued, $breakdown, $startedAt);
+
         return self::SUCCESS;
     }
 
@@ -86,6 +93,8 @@ class FlagSuspectProfiles extends Command
         $corroboration = new CandidateCorroboration;
         $found = [];
 
+        $seatedByName = CrossStateImpostors::seatedStatesByName();
+
         Politician::query()
             ->where('is_active', true)
             ->whereNull('user_id')
@@ -94,9 +103,9 @@ class FlagSuspectProfiles extends Command
             ->when($state, fn ($q) => $q->whereRaw('UPPER(COALESCE(state, \'\')) = ?', [$state]))
             ->select(['id', 'full_name', 'political_office', 'state', 'district'])
             ->orderBy('id')
-            ->chunkById(500, function ($rows) use ($holders, $surnames, $discoveryOnly, $corroboration, &$found): void {
+            ->chunkById(500, function ($rows) use ($holders, $surnames, $seatedByName, $discoveryOnly, $corroboration, &$found): void {
                 foreach ($rows as $pol) {
-                    $finding = $this->classify($pol, $holders, $surnames)
+                    $finding = $this->classify($pol, $holders, $surnames, $seatedByName, $corroboration)
                         ?? $this->uncorroborated($pol, $discoveryOnly, $corroboration);
                     if ($finding) {
                         $found[] = [$pol, ...$finding];
@@ -110,9 +119,10 @@ class FlagSuspectProfiles extends Command
     /**
      * @param  array<string, array<int, array{id: int, state: string, name: string}>>  $holders
      * @param  array<string, array<string, array{id: int, state: string, name: string}>>  $surnames
+     * @param  array<string, array<int, string>>  $seatedByName
      * @return array{0: string, 1: array<string, mixed>, 2: bool}|null
      */
-    private function classify(Politician $pol, array $holders, array $surnames): ?array
+    private function classify(Politician $pol, array $holders, array $surnames, array $seatedByName, CandidateCorroboration $corroboration): ?array
     {
         // A real person behind a mangled name ("Oklahoma Gov. Kevin Stitt") gets renamed by
         // politicians:repair-names, not unpublished.
@@ -123,6 +133,23 @@ class FlagSuspectProfiles extends Command
         $elsewhere = CrossStateImpostors::holderElsewhere($pol->full_name, $pol->political_office, $pol->state, $holders);
         if ($elsewhere !== null) {
             return ["Sitting {$pol->political_office} of {$elsewhere['state']} ({$elsewhere['name']} #{$elsewhere['id']}) — not a candidate in {$pol->state}", ['kept_politician_id' => $elsewhere['id'], 'kept_state' => $elsewhere['state']], true];
+        }
+
+        // Senate/House/President: unlike a statewide executive office, two different people
+        // CAN legitimately share a name across federal races, so a collision alone is not
+        // proof — only act on it when nothing corroborates a candidacy here either. Queued
+        // for review, never auto-deactivated (see class docblock and CrossStateImpostors::
+        // federalNameCollisionElsewhere()).
+        $collisionState = CrossStateImpostors::federalNameCollisionElsewhere($pol->full_name, $pol->state, $pol->political_office, $seatedByName);
+        if ($collisionState !== null) {
+            $check = $corroboration->checkIdentity($pol->full_name, $pol->state, $pol->political_office, $pol->district);
+            if (! $check['corroborated']) {
+                return [
+                    "Shares a name with a sitting/verified official in {$collisionState} and nothing corroborates a {$pol->political_office} candidacy in {$pol->state}: {$check['reason']}",
+                    ['collision_state' => $collisionState, 'source' => 'flag-suspect-profiles-federal-collision'],
+                    false,
+                ];
+            }
         }
 
         $problem = PoliticianDataRules::headlineFragmentViolation($pol->full_name) ?? MapCandidateHygiene::nameProblem($pol->full_name);
@@ -156,7 +183,9 @@ class FlagSuspectProfiles extends Command
             ->where('status', PoliticianCleanupReview::STATUS_PENDING)
             ->with('politician:id,state')
             ->get()
-            ->filter(fn (PoliticianCleanupReview $r) => ($r->payload['source'] ?? null) === 'flag-suspect-profiles')
+            // str_starts_with, not ===: covers both the generic source and the more specific
+            // 'flag-suspect-profiles-federal-collision' tag — both are this command's findings.
+            ->filter(fn (PoliticianCleanupReview $r) => str_starts_with((string) ($r->payload['source'] ?? ''), 'flag-suspect-profiles'))
             ->filter(fn (PoliticianCleanupReview $r) => $state === null || strtoupper((string) $r->politician?->state) === $state)
             ->reject(fn (PoliticianCleanupReview $r) => in_array($r->politician_id, $stillSuspect, true))
             ->each(function (PoliticianCleanupReview $review) use (&$retired): void {
@@ -202,6 +231,26 @@ class FlagSuspectProfiles extends Command
         $check = $corroboration->checkIdentity($pol->full_name, $pol->state, $pol->political_office, $pol->district);
 
         return $check['corroborated'] ? null : ["Created from a news headline and nothing corroborates it: {$check['reason']}", [], false];
+    }
+
+    /**
+     * @param  array<string, int>  $breakdown
+     */
+    private function recordMetrics(?string $state, int $findingsCount, int $auto, int $queued, array $breakdown, \Illuminate\Support\Carbon $startedAt): void
+    {
+        DB::table('politician_cleanup_run_metrics')->insert([
+            'step' => 'flag-suspect-profiles',
+            'scope' => $state,
+            'exit_code' => self::SUCCESS,
+            'findings_count' => $findingsCount,
+            'auto_applied_count' => $auto,
+            'queued_count' => $queued,
+            'breakdown' => json_encode($breakdown),
+            'started_at' => $startedAt,
+            'finished_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
     }
 
     private function label(bool $deactivate, bool $apply): string
@@ -256,6 +305,8 @@ class FlagSuspectProfiles extends Command
      */
     private function payload(Politician $pol, array $extra): array
     {
-        return ['source' => 'flag-suspect-profiles', 'full_name' => $pol->full_name, 'political_office' => $pol->political_office, 'state' => $pol->state] + $extra;
+        // $extra first so a caller-supplied 'source' (e.g. the federal-collision branch)
+        // overrides the generic default instead of being silently discarded by array + .
+        return $extra + ['source' => 'flag-suspect-profiles', 'full_name' => $pol->full_name, 'political_office' => $pol->political_office, 'state' => $pol->state];
     }
 }
