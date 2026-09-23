@@ -83,6 +83,12 @@ No production writes, grants, commits, or deployments were performed in this tas
 
 ## Resume prompt
 
+### 2026-09-23: Web Reporter verification mismatch
+
+User reported approval rejection despite the profile displaying Verified Voter, then requested implementation of aligned eligibility. `ChatterContributorAccess::isVerified` now accepts email/phone timestamps, ID.me verification, or an active, non-fraud-flagged voter record with legacy `is_verified` or active Stripe status. Both owner approval and contributor access use this helper. No verification timestamps are fabricated, no roles are automatically granted, and owner-only approval plus guest/suspension safeguards remain unchanged.
+
+Regression coverage includes each identity-verification path without email/phone timestamps, submission-page access after approval, no automatic admin role, completely unverified rejection, and inactive/fraud-flagged voter rejection. This change is local; production deployment and real account approval have not been performed. Preserve unrelated dashboard/sidebar edits.
+
 Read this file, git status, and applicable AGENTS.md before editing. Preserve other work. Inspect existing implementation before repeating any step. Complete unchecked items; update this ledger with exact tests and failures. Do not claim extension support, deployments, commits, or production access grants unless actually completed. No Supabase is used: this is Laravel/Eloquent with Spatie roles. Keep contributor access separate from admin membership. Test anonymous/unverified/suspended/revoked access, forged publication fields, own-only history, duplicate links, rate limits, grants and audit persistence. Review migrations before suggesting production rollout.
 
 ## Follow-up (not part of initial build)

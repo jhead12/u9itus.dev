@@ -128,12 +128,14 @@ it('lets an owner approve a Web Reporter request for a phone-verified account wi
     expect(ChatterContributorAccess::allowed($requester))->toBeTrue();
 });
 
-it('still refuses to approve a Web Reporter request with no email or phone verification at all', function () {
+it('still refuses to approve a Web Reporter request with no accepted verification', function () {
     $owner = webReporterOwner();
     $requester = webReporterVoter();
+    $requester->voter()->update(['is_verified' => false, 'stripe_account_status' => 'pending']);
     $requester->forceFill([
         'email_verified_at' => null,
         'phone_verified_at' => null,
+        'idme_verified_at' => null,
         'chatter_contributor_requested_at' => now(),
     ])->save();
 
@@ -142,6 +144,37 @@ it('still refuses to approve a Web Reporter request with no email or phone verif
 
     expect(ChatterContributorAccess::allowed($requester->fresh()))->toBeFalse();
 });
+
+it('approves identity-verified reporters without contact timestamps and permits the submission page', function (string $method) {
+    $owner = webReporterOwner();
+    $requester = webReporterVoter();
+    $requester->forceFill([
+        'email_verified_at' => null, 'phone_verified_at' => null,
+        'idme_verified_at' => $method === 'idme' ? now() : null,
+        'chatter_contributor_requested_at' => now(),
+    ])->save();
+    $requester->voter()->update([
+        'is_verified' => $method === 'voter',
+        'stripe_account_status' => $method === 'stripe' ? 'active' : 'pending',
+    ]);
+    expect(ChatterContributorAccess::allowed($requester->fresh()))->toBeFalse();
+    $this->actingAs($owner)->put(route('admin.staff.contributor', $requester), ['enabled' => 1])
+        ->assertRedirect()->assertSessionHasNoErrors();
+    $requester->refresh();
+    expect($requester->chatter_contributor_requested_at)->toBeNull();
+    expect($requester->hasRole('admin'))->toBeFalse();
+    expect(ChatterContributorAccess::allowed($requester))->toBeTrue();
+    $this->actingAs($requester)->get(route('contributor.chatter.index'))->assertOk();
+})->with(['voter', 'stripe', 'idme']);
+
+it('does not use an inactive or fraud-flagged voter record as verification', function (string $field, bool $value) {
+    $requester = webReporterVoter();
+    $requester->forceFill(['email_verified_at' => null, 'phone_verified_at' => null, 'idme_verified_at' => null])->save();
+    $requester->voter()->update([$field => $value]);
+    $this->actingAs(webReporterOwner())->put(route('admin.staff.contributor', $requester), ['enabled' => 1])
+        ->assertSessionHasErrors('contributor');
+    expect($requester->fresh()->hasRole(ChatterContributorAccess::ROLE))->toBeFalse();
+})->with([['is_active', false], ['flagged_for_fraud', true]]);
 
 it('does not let non-owner staff approve or dismiss Web Reporter requests', function () {
     Role::findOrCreate('staff:Social Reviewer', 'web');

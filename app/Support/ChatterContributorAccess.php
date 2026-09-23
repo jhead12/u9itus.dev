@@ -15,14 +15,17 @@ final class ChatterContributorAccess
     }
 
     /**
-     * "Verified" here means the account owner has proven they're a real,
-     * reachable person by at least one channel — most voters on this
-     * platform verify by phone during onboarding and never touch email
-     * verification, so requiring email_verified_at alone would block
-     * nearly every organic contributor request.
+     * Accept contact verification or the identity-verification methods used
+     * by Voter::canViewToday(). This establishes eligibility only: an owner
+     * must still grant the contributor role before sources can be submitted.
      */
     public static function isVerified(User $user): bool
     {
-        return $user->email_verified_at !== null || $user->phone_verified_at !== null;
+        return $user->email_verified_at !== null
+            || $user->phone_verified_at !== null
+            || $user->idme_verified_at !== null
+            || $user->voter()->where('is_active', true)->where('flagged_for_fraud', false)
+                ->where(fn ($query) => $query->where('is_verified', true)
+                    ->orWhere('stripe_account_status', 'active'))->exists();
     }
 }
