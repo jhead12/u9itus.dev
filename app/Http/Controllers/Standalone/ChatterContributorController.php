@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Standalone;
 use App\Http\Controllers\Controller;
 use App\Models\Politician;
 use App\Models\PoliticianChatterItem;
+use App\Services\DistrictCandidateMatcher;
+use App\Services\DistrictLookupService;
 use App\Support\ChatterContributorAccess;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
@@ -33,6 +35,35 @@ class ChatterContributorController extends Controller
     {
         $this->authorizeContributor($request);
         return view('standalone.contributor.extension');
+    }
+
+    public function districtCandidates(Request $request)
+    {
+        $this->authorizeContributor($request);
+        $data = $request->validate([
+            'city' => ['required', 'string', 'max:100'],
+            'state' => ['nullable', 'string', 'size:2'],
+        ]);
+
+        $address = trim($data['city']).(! empty($data['state']) ? ', '.strtoupper($data['state']) : '');
+        $lookup = app(DistrictLookupService::class)->lookup($address);
+
+        if (! $lookup || empty($lookup['state'])) {
+            return response()->json([
+                'resolved' => false,
+                'message' => 'Could not resolve that address to a district. A full street address works best, e.g. "101 W Abram St, Arlington, TX".',
+                'ids' => [],
+            ]);
+        }
+
+        $matches = app(DistrictCandidateMatcher::class)->findCandidates($lookup);
+
+        return response()->json([
+            'resolved' => true,
+            'district_label' => $lookup['district_label'] ?? null,
+            'ids' => $matches->pluck('id')->values(),
+            'message' => $matches->isEmpty() ? 'No active candidates on file for that district yet.' : null,
+        ]);
     }
 
     public function store(Request $request)

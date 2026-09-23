@@ -223,6 +223,7 @@ Route::get('/contribute/chatter/clip', fn () => response()
 Route::middleware(['auth', 'verified', 'no.cache', \App\Http\Middleware\RememberContributorDestination::class, '2fa', 'admin.2fa'])->prefix('contribute/chatter')->name('contributor.chatter.')->group(function () {
     Route::get('/', [\App\Http\Controllers\Standalone\ChatterContributorController::class, 'index'])->name('index');
     Route::get('/extension', [\App\Http\Controllers\Standalone\ChatterContributorController::class, 'extension'])->name('extension');
+    Route::get('/candidates-by-city', [\App\Http\Controllers\Standalone\ChatterContributorController::class, 'districtCandidates'])->middleware('throttle:20,1')->name('candidatesByCity');
     Route::post('/', [\App\Http\Controllers\Standalone\ChatterContributorController::class, 'store'])->middleware('throttle:10,1')->name('store');
 });
 
