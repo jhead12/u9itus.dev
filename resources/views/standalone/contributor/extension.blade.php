@@ -53,7 +53,7 @@
         <h2 class="text-xl font-semibold">Your privacy and access</h2>
         <p class="text-sm text-slate-300">The extension reads the current page’s link, title, and selected text only when you click its icon or use <strong>Clip to U9itus</strong> from the right-click menu. It does not read passwords, cookies, browsing history, or whole articles, and it does not run a background crawler. Review the clipping carefully: the extension cannot identify every private page.</p>
         <p class="text-sm text-slate-300">Continuing opens a temporary draft in a new U9itus tab. It expires after 30 minutes and is cleared when imported into the form. Excerpts and relevance notes remain private to editors after submission. Nothing is submitted or published automatically.</p>
-        <p class="text-sm text-slate-300">Your verified account must already have Web Reporter access from a Super Admin. Installing the extension does not grant access. Remove it any time from your browser’s extensions page.</p>
+        <p class="text-sm text-slate-300">Your verified account must already have Web Reporter access from a Reviewer. Installing the extension does not grant access. Remove it any time from your browser’s extensions page.</p>
     </section>
 </div>
 @endsection

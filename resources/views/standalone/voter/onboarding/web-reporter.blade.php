@@ -36,7 +36,7 @@
 
         <div class="bg-blue-900 border border-blue-700 rounded-lg p-4">
             <p class="text-blue-100 text-sm">
-                <strong>Completely optional.</strong> This doesn't change your voter account, earnings, or any existing access. A Super Admin reviews every request before it's granted.
+                <strong>Completely optional.</strong> This doesn't change your voter account, earnings, or any existing access. A Reviewer checks every request before it's granted.
             </p>
         </div>
 
