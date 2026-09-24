@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\Politician;
 use App\Support\MapCandidateHygiene;
+use App\Support\ProfileOverwriteGuard;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -432,7 +433,9 @@ class EnrichStatewideOfficeholders extends Command
             ], fn($v) => $v !== null);
 
             if ($existing && (! $existing->verified_official || $force)) {
-                $existing->update($attributes);
+                // Seated officeholders can be running for re-election (or another
+                // office); don't reset that, or replace a photo already on file.
+                $existing->update(ProfileOverwriteGuard::filter($existing, $attributes, ['profile_photo_url']));
                 $this->line("    → Updated existing record #{$existing->id}");
                 $upserted++;
             } elseif (! $existing) {

@@ -777,6 +777,32 @@ jobs:
             php artisan politicians:sync-primary-results --force $DRY
           fi
 
+      # --force never revisits rows already stamped eliminated, so stale stamps
+      # (83 of 84 California House challengers, sitting members included) stuck.
+      # Re-check them: a race article showing the candidate advancing flips it.
+      - name: Re-check stale eliminated stamps
+        run: |
+          STATES="${{ needs.build-args.outputs.states }}"
+          DRY="${{ needs.build-args.outputs.dry_arg }}"
+          if [ -n "$STATES" ]; then
+            for state in $(echo "$STATES" | tr ',' ' '); do
+              php artisan politicians:sync-primary-results --recheck-eliminated --state="$state" --limit=1000 $DRY
+            done
+          else
+            php artisan politicians:sync-primary-results --recheck-eliminated --limit=1000 $DRY
+          fi
+
+      # ── Incumbents running for re-election ────────────────────────────────
+      # Sitting House members and senators whose term ends this cycle, marked
+      # running (or not) from their race article. The Congress import only
+      # knows who holds the seat.
+      - name: Sync incumbent re-election runs
+        run: |
+          STATES="${{ needs.build-args.outputs.states }}"
+          ARGS=""
+          for state in $(echo "$STATES" | tr ',' ' '); do ARGS="$ARGS --state=$state"; done
+          php artisan politicians:sync-incumbent-runs $ARGS ${{ needs.build-args.outputs.dry_arg }}
+
       # ── Reconcile lifecycle status ────────────────────────────────────────
       # Marks seated members, retires former members, and clears stale
       # is_running_candidate flags after an election date has passed.

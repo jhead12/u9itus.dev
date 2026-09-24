@@ -402,3 +402,22 @@ test('a House result is read from the sub-article a big state keeps its district
         ->and($early->fresh()->payload['primary_result'])->toBe('eliminated')
         ->and($stranger->fresh()->payload['primary_result'])->toBe('running');
 });
+
+test('--recheck-eliminated flips any source\'s stale stamp when the race article shows the candidate advancing', function () {
+    raceArticle("==District 37==\n====Advanced to general====\n* [[Sydney Kamlager-Dove]]\n====Eliminated in primary====\n* [[Juan Rey]]\n");
+
+    $make = fn (string $name, string $source) => ElectionCandidateRecord::factory()->create([
+        'full_name' => $name, 'source' => $source, 'governance_level' => 'Federal', 'political_office' => 'U.S. Representative',
+        'state' => 'CA', 'district' => 'CA-37', 'election_date' => now()->addMonth()->format('Y-m-d'), 'payload' => ['primary_result' => 'eliminated'],
+    ]);
+    $stale = $make('Sydney Kamlager', 'opensecrets');
+    $real = $make('Juan Rey', 'opensecrets');
+    $unknown = $make('Not Listed', 'opensecrets');
+
+    Artisan::call('politicians:sync-primary-results', ['--recheck-eliminated' => true, '--state' => 'CA']);
+
+    expect($stale->fresh()->payload['primary_result'])->toBe('advanced_to_general')
+        ->and($stale->fresh()->payload['result_source'])->toBe('wikipedia_race_page')
+        ->and($real->fresh()->payload['primary_result'])->toBe('eliminated')
+        ->and($unknown->fresh()->payload['primary_result'])->toBe('eliminated');
+});

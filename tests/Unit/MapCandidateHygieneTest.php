@@ -66,3 +66,15 @@ it('keeps the best record when merging duplicates and fills in what it lacks', f
         ->and($kept[0]['party'])->toBe('Democratic')
         ->and($kept[1]['full_name'])->toBe('Someone Else');
 });
+
+it('merges a record that drops half of a hyphenated surname', function () {
+    [$kept, $merged] = MapCandidateHygiene::dedupe([
+        ['full_name' => 'Sydney Kamlager-Dove', 'source' => 'platform', 'status' => 'seated', 'slug' => 'kamlager-dove'],
+        ['full_name' => 'Sydney Kamlager', 'source' => 'scraped', 'status' => 'running'],
+        ['full_name' => 'Sydney Dove-Smith', 'source' => 'scraped', 'status' => 'running'],
+        ['full_name' => 'Maria Kamlager', 'source' => 'scraped', 'status' => 'running'],
+    ]);
+
+    expect($merged)->toBe(1)
+        ->and(array_column($kept, 'full_name'))->toBe(['Sydney Kamlager-Dove', 'Sydney Dove-Smith', 'Maria Kamlager']);
+});

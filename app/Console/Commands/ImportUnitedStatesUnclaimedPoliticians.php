@@ -13,6 +13,7 @@ use App\Models\Politician;
 use App\Services\PoliticianFetchers\CongressCombinedLegislatorsFetcher;
 use App\Services\PoliticianFetchers\CongressCurrentLegislatorsFetcher;
 use App\Services\PoliticianFetchers\CongressHistoricalLegislatorsFetcher;
+use App\Support\ProfileOverwriteGuard;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 
@@ -356,13 +357,13 @@ class ImportUnitedStatesUnclaimedPoliticians extends Command
                     'source' => $source,
                     'key' => (string) $existing->id,
                     'name' => $fullName,
-                    'changes' => $this->buildPoliticianDiff($existing, $politicianPayload),
+                    'changes' => $this->buildPoliticianDiff($existing, ProfileOverwriteGuard::filter($existing, $politicianPayload)),
                 ];
             }
 
             $campaignsCreated = 0;
             if (! $dryRun) {
-                $existing->fill($politicianPayload);
+                $existing->fill(ProfileOverwriteGuard::filter($existing, $politicianPayload));
                 $existing->save();
 
                 if ($withCampaigns) {

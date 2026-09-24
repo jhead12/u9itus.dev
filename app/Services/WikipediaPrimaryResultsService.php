@@ -466,12 +466,27 @@ class WikipediaPrimaryResultsService
 
         foreach ($names as $name) {
             $tokens = $this->tokens($name);
-            if (count($tokens) >= 2 && end($tokens) === end($wanted) && $this->sameGivenName(reset($tokens), reset($wanted))) {
+            if (count($tokens) >= 2 && $this->sameSurname(end($tokens), end($wanted)) && $this->sameGivenName(reset($tokens), reset($wanted))) {
                 return true;
             }
         }
 
         return false;
+    }
+
+    /**
+     * Equal, or one is a part of the other's hyphenated surname: records and
+     * profiles often drop a married name ("Sydney Kamlager" vs Wikipedia's
+     * "Sydney Kamlager-Dove").
+     */
+    private function sameSurname(string $a, string $b): bool
+    {
+        if ($a === $b) {
+            return true;
+        }
+
+        return (str_contains($a, '-') && in_array($b, explode('-', $a), true))
+            || (str_contains($b, '-') && in_array($a, explode('-', $b), true));
     }
 
     /** "Barb" and "Barbara", "Jen" and "Jennifer", "Steve" and "Steven": one is the start of the other, or a known nickname. */

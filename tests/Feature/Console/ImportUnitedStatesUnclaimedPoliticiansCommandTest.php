@@ -205,3 +205,41 @@ test('combined fetcher imports current and historical in one execution', functio
         'external_candidate_id' => 'O000001',
     ]);
 });
+
+// The nightly import used to reset every sitting member to seated / not
+// running, erasing re-election runs recorded by the primary-result sync.
+test('re-importing an existing member keeps running status and curated fields but refreshes seat facts', function () {
+    Queue::fake();
+
+    Http::fake([
+        'https://example.test/legislators-current.json' => Http::response([[
+            'id' => ['bioguide' => 'O000001'],
+            'name' => ['official_full' => 'Jay Obernolte'],
+            'terms' => [[
+                'type' => 'rep', 'state' => 'CA', 'district' => 23, 'party' => 'Republican',
+                'start' => '2025-01-03', 'end' => '2027-01-03', 'url' => 'https://obernolte.house.gov',
+            ]],
+        ]], 200),
+    ]);
+
+    $this->artisan('politicians:import-unclaimed-us', ['--state' => ['CA'], '--current-url' => 'https://example.test/legislators-current.json'])->assertExitCode(0);
+
+    $member = Politician::query()->where('full_name', 'Jay Obernolte')->firstOrFail();
+    $member->update([
+        'is_running_candidate' => true,
+        'term_status' => 'running',
+        'bio' => 'Edited by staff.',
+        'profile_photo_url' => 'https://example.test/claimed.jpg',
+        'party_affiliation' => 'Stale',
+    ]);
+
+    $this->artisan('politicians:import-unclaimed-us', ['--state' => ['CA'], '--current-url' => 'https://example.test/legislators-current.json'])->assertExitCode(0);
+
+    $member->refresh();
+    expect(Politician::query()->where('full_name', 'Jay Obernolte')->count())->toBe(1)
+        ->and($member->is_running_candidate)->toBeTrue()
+        ->and($member->term_status)->toBe('running')
+        ->and($member->bio)->toBe('Edited by staff.')
+        ->and($member->profile_photo_url)->toBe('https://example.test/claimed.jpg')
+        ->and($member->party_affiliation)->not->toBe('Stale');
+});

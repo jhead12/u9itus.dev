@@ -37,7 +37,7 @@ class SyncPrimaryResults extends Command
         {--state=  : Two-letter state code. Omit to process all states.}
         {--dry-run : Report only — no DB writes.}
         {--force   : Re-check records that already have primary_result set.}
-        {--recheck-eliminated : Re-run the classifier on this cycle\'s news-discovered records stamped eliminated; clear a stamp it can no longer support.}
+        {--recheck-eliminated : Re-run the classifier on this cycle\'s records stamped eliminated; flip ones the race article shows advancing, clear unsupported news-discovered stamps.}
         {--limit=300 : With --recheck-eliminated: max records to re-check per run.}';
 
     protected $description = 'Sync primary election results for state and federal candidates from each race\'s Wikipedia article.';
@@ -114,13 +114,16 @@ class SyncPrimaryResults extends Command
     }
 
     /**
-     * The classifier used to read "conceded" / "lost the primary" from any year, so news-discovered
-     * records for sitting senators and nominees were stamped eliminated — and the normal sync never
-     * looks at a record already stamped. Re-run the fixed classifier over them:
+     * The classifier used to read "conceded" / "lost the primary" from any year, so records for
+     * sitting members and nominees were stamped eliminated — 83 of 84 California House records from
+     * OpenSecrets, including sitting members — and the normal sync never looks at a record already
+     * stamped. Re-run the fixed classifier over them:
      *
-     *   still eliminated  → left alone
-     *   now "advanced"    → left alone and reported (the advanced signals are too loose to overrule it)
-     *   nothing supports it → the stamp is cleared (the record goes back to "unknown")
+     *   still eliminated    → left alone
+     *   now "advanced"      → flipped when the race article's results heading says so (a structured
+     *                         source); otherwise left alone and reported to check by hand
+     *   nothing supports it → a news-discovered stamp is cleared (the record goes back to "unknown");
+     *                         other sources keep it, since the map shows their unresolved rows as running
      *
      * A linked profile the old run set to "eliminated" goes back to "running". One a later step
      * marked "lost" is only reported — that status may be a real earlier loss. A stamp set by hand
@@ -135,19 +138,18 @@ class SyncPrimaryResults extends Command
         $cycleStart = now()->startOfYear()->toDateString();
 
         $records = DB::table('election_candidate_records')
-            ->where('source', 'candidate_discovery')
             ->whereRaw($extract('$.primary_result').' = ?', ['eliminated'])
             ->whereRaw('COALESCE('.$extract('$.result_source').",'') != ?", ['manual'])
             ->where(fn ($q) => $q->whereNull('election_date')->orWhere('election_date', '>=', $cycleStart))
             ->when($stateFilter, fn ($q) => $q->whereRaw('UPPER(COALESCE(state, \'\')) = ?', [$stateFilter]))
             ->orderBy('id')
             ->limit($limit)
-            ->get(['id', 'full_name', 'state', 'political_office', 'district', 'election_date', 'payload']);
+            ->get(['id', 'source', 'full_name', 'state', 'political_office', 'district', 'election_date', 'payload']);
 
         $this->line($dryRun ? '<fg=yellow>[dry-run] No DB writes will occur.</>' : '<comment>[LIVE — writing changes]</comment>');
         $this->info("Re-checking {$records->count()} record(s) stamped eliminated...");
 
-        $stats = ['kept' => 0, 'conflicting' => 0, 'cleared' => 0, 'profiles' => 0];
+        $stats = ['kept' => 0, 'conflicting' => 0, 'advanced' => 0, 'cleared' => 0, 'profiles' => 0];
 
         foreach ($records as $rec) {
             $payload = json_decode($rec->payload ?? '{}', true) ?: [];
@@ -161,11 +163,42 @@ class SyncPrimaryResults extends Command
                 continue;
             }
 
-            // The "advanced" signals are loose (a page that merely says "advance" matches), so a
-            // record the classifier now calls advanced is not flipped — it is reported to check by hand.
+            // A race article's "Advanced to general" / "Nominee" heading is structured evidence, so
+            // it overrules the old stamp.
+            if ($result === 'advanced_to_general' && $this->lastSource === 'wikipedia_race_page') {
+                $this->line(sprintf('  <fg=green>#%d</> %s (%s, %s) — eliminated → advanced (race article)', $rec->id, $rec->full_name, $rec->state, $rec->political_office));
+                $stats['advanced']++;
+
+                if (! $dryRun) {
+                    unset($payload['elimination_note'], $payload['withdrawn']);
+                    $payload['primary_result'] = 'advanced_to_general';
+                    $payload['result_source'] = 'wikipedia_race_page';
+                    $payload['general_date'] = $this->generalElectionDate((int) substr((string) $date, 0, 4));
+                    $payload['result_rechecked_at'] = now()->toDateString();
+
+                    DB::table('election_candidate_records')->where('id', $rec->id)->update(['payload' => json_encode($payload), 'updated_at' => now()]);
+                }
+                $stats['profiles'] += $this->restoreEliminatedProfiles($rec->id, $dryRun);
+
+                usleep(self::DELAY_MS * 1000);
+
+                continue;
+            }
+
+            // Other "advanced" signals are loose (a page that merely says "advance" matches), so a
+            // record the classifier calls advanced that way is not flipped — it is reported to check by hand.
             if ($result === 'advanced_to_general') {
                 $this->line(sprintf('  <fg=yellow>#%d</> %s (%s, %s) — conflicting signals, left eliminated; verify by hand', $rec->id, $rec->full_name, $rec->state, $rec->political_office));
                 $stats['conflicting']++;
+                usleep(self::DELAY_MS * 1000);
+
+                continue;
+            }
+
+            // The map only gates news-discovered rows on a primary result; other sources' unresolved
+            // rows show as running, so without supporting evidence their stamp stays.
+            if ($rec->source !== 'candidate_discovery') {
+                $stats['kept']++;
                 usleep(self::DELAY_MS * 1000);
 
                 continue;
@@ -180,33 +213,44 @@ class SyncPrimaryResults extends Command
 
                 DB::table('election_candidate_records')->where('id', $rec->id)->update(['payload' => json_encode($payload), 'updated_at' => now()]);
             }
-
-            foreach (CandidateIdentityLink::where('election_candidate_record_id', $rec->id)->with('politician')->get() as $link) {
-                $politician = $link->politician;
-                if ($politician === null) {
-                    continue;
-                }
-                if ($politician->term_status === 'eliminated') {
-                    $this->line("    profile #{$politician->id} eliminated → running");
-                    $stats['profiles']++;
-                    if (! $dryRun) {
-                        $politician->update(['term_status' => 'running', 'is_running_candidate' => true, 'status_updated_at' => now()]);
-                    }
-                } elseif ($politician->term_status === 'lost') {
-                    $this->line("    <fg=yellow>profile #{$politician->id} is marked lost — left alone, review by hand</>");
-                }
-            }
+            $stats['profiles'] += $this->restoreEliminatedProfiles($rec->id, $dryRun);
 
             usleep(self::DELAY_MS * 1000);
         }
 
-        $this->info(sprintf("\nRe-check complete%s: %d still eliminated | %d conflicting (left as is) | %d stamps cleared | %d profile(s) restored", $dryRun ? ' (dry-run)' : '', $stats['kept'], $stats['conflicting'], $stats['cleared'], $stats['profiles']));
+        $this->info(sprintf("\nRe-check complete%s: %d still eliminated | %d flipped to advanced | %d conflicting (left as is) | %d stamps cleared | %d profile(s) restored", $dryRun ? ' (dry-run)' : '', $stats['kept'], $stats['advanced'], $stats['conflicting'], $stats['cleared'], $stats['profiles']));
 
         if (! $dryRun) {
             MapCacheNotice::afterWrite($this);
         }
 
         return self::SUCCESS;
+    }
+
+    /**
+     * A linked profile the old run set to "eliminated" goes back to "running". One marked "lost"
+     * is only reported — that status may be a real earlier loss.
+     */
+    private function restoreEliminatedProfiles(int $recordId, bool $dryRun): int
+    {
+        $restored = 0;
+        foreach (CandidateIdentityLink::where('election_candidate_record_id', $recordId)->with('politician')->get() as $link) {
+            $politician = $link->politician;
+            if ($politician === null) {
+                continue;
+            }
+            if ($politician->term_status === 'eliminated') {
+                $this->line("    profile #{$politician->id} eliminated → running");
+                $restored++;
+                if (! $dryRun) {
+                    $politician->update(['term_status' => 'running', 'is_running_candidate' => true, 'status_updated_at' => now()]);
+                }
+            } elseif ($politician->term_status === 'lost') {
+                $this->line("    <fg=yellow>profile #{$politician->id} is marked lost — left alone, review by hand</>");
+            }
+        }
+
+        return $restored;
     }
 
     /**

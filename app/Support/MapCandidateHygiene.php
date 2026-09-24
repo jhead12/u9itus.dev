@@ -276,6 +276,7 @@ class MapCandidateHygiene
 
                 continue;
             }
+            $key = self::hyphenatedMatch($key, array_keys($best)) ?? $key;
 
             if (! isset($best[$key])) {
                 $best[$key] = $cand;
@@ -294,6 +295,34 @@ class MapCandidateHygiene
         }
 
         return [$out, $merged];
+    }
+
+    /**
+     * An existing key for the same given name whose surname is this one's
+     * hyphenated form or a part of it ("sydney|kamlager" and
+     * "sydney|kamlager-dove" — records often drop a married name).
+     *
+     * @param  array<int, string>  $keys
+     */
+    private static function hyphenatedMatch(string $key, array $keys): ?string
+    {
+        if (! str_contains($key, '|')) {
+            return null;
+        }
+        [$given, $surname] = explode('|', $key, 2);
+
+        foreach ($keys as $other) {
+            if ($other === $key || ! str_starts_with($other, $given.'|')) {
+                continue;
+            }
+            $otherSurname = substr($other, strlen($given) + 1);
+            if ((str_contains($otherSurname, '-') && in_array($surname, explode('-', $otherSurname), true))
+                || (str_contains($surname, '-') && in_array($otherSurname, explode('-', $surname), true))) {
+                return $other;
+            }
+        }
+
+        return null;
     }
 
     /**
