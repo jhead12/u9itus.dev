@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Services\PlatformSettingsService;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Validator;
 
@@ -16,7 +17,7 @@ class UpdateCampaignRequest extends FormRequest
 
     public function rules(): array
     {
-        $minBudget = (float) config('u9itus.revenue_per_view', 1.00) * 10;
+        $minBudget = (float) PlatformSettingsService::get('revenue_per_view') * 10;
         $governanceLevels = implode(',', array_keys(config('u9itus.governance_levels', [])));
         $minDuration = max(10, min(180, (int) config('u9itus.min_video_duration', 10)));
         $maxDuration = max($minDuration, min(180, (int) config('u9itus.max_video_duration', 180)));

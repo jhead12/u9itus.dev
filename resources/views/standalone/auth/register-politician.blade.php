@@ -16,7 +16,7 @@
 </head>
 <body class="min-h-screen bg-slate-900 flex items-center justify-center px-4 py-10 antialiased">
 @php
-    $politicianRatePerView = number_format((float) \App\Services\PlatformSettingsService::get('revenue_per_view', null, 1.00), 2);
+    $politicianRatePerView = number_format((float) \App\Services\PlatformSettingsService::get('revenue_per_view'), 2);
 @endphp
 
 <div class="w-full max-w-lg">

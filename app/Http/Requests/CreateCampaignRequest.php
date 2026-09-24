@@ -26,7 +26,7 @@ class CreateCampaignRequest extends FormRequest
      */
     public function rules(): array
     {
-        $revenuePerView = (float) PlatformSettingsService::get('revenue_per_view', null, (float) config('u9itus.revenue_per_view', 1.00));
+        $revenuePerView = (float) PlatformSettingsService::get('revenue_per_view');
         $minBudget   = $revenuePerView * 10;
         $minDuration = max(1, (int) PlatformSettingsService::get('min_video_duration', null, (int) config('u9itus.min_video_duration', 10)));
         $maxDuration = max($minDuration, (int) PlatformSettingsService::get('max_video_duration', null, (int) config('u9itus.max_video_duration', 180)));
@@ -89,7 +89,7 @@ class CreateCampaignRequest extends FormRequest
      */
     public function messages(): array
     {
-        $minBudget = (float) PlatformSettingsService::get('revenue_per_view', null, (float) config('u9itus.revenue_per_view', 1.00)) * 10;
+        $minBudget = (float) PlatformSettingsService::get('revenue_per_view') * 10;
         $minDuration = max(1, (int) PlatformSettingsService::get('min_video_duration', null, (int) config('u9itus.min_video_duration', 10)));
         $maxDuration = max($minDuration, (int) PlatformSettingsService::get('max_video_duration', null, (int) config('u9itus.max_video_duration', 180)));
 

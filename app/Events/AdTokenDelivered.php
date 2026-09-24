@@ -39,7 +39,7 @@ class AdTokenDelivered implements ShouldBroadcastNow
     public function broadcastWith(): array
     {
         $campaign = $this->token->campaign;
-        $payoutAmount = (float) PlatformSettingsService::get('viewer_payout_per_view', null, 0.25);
+        $payoutAmount = (float) PlatformSettingsService::get('viewer_payout_per_view');
 
         return [
             'token'            => $this->token->token,

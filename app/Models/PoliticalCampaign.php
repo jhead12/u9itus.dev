@@ -191,10 +191,10 @@ class PoliticalCampaign extends Model implements BroadcastableCampaign
                 $campaign->uuid = (string) Str::uuid();
             }
             if (is_null($campaign->revenue_per_view)) {
-                $campaign->revenue_per_view = (float) PlatformSettingsService::get('revenue_per_view', null, 0.60);
+                $campaign->revenue_per_view = (float) PlatformSettingsService::get('revenue_per_view');
             }
             if (empty($campaign->voter_payout_per_view)) {
-                $campaign->voter_payout_per_view = (float) PlatformSettingsService::get('viewer_payout_per_view', null, 0.25);
+                $campaign->voter_payout_per_view = (float) PlatformSettingsService::get('viewer_payout_per_view');
             }
         });
     }

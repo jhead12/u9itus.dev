@@ -7,7 +7,6 @@ use App\Models\EarlyBankWebhookLog;
 use App\Models\Politician;
 use App\Models\ViewSession;
 use App\Models\Voter;
-use App\Services\PlatformSettingsService;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -119,7 +118,7 @@ class EarlyBankWebhookService
             'earlybank_member_id'           => $voter->earlybank_member_id,
             'session_uuid'                  => $session->uuid,
             'payout_amount'                 => (float) $session->payout_amount,
-            'referral_commission_percent'   => (float) config('u9itus.referral_commission_percent', 10),
+            'referral_commission_percent'   => (float) PlatformSettingsService::get('referral_commission_percent'),
             'completed_at'                  => optional($session->completed_at)->toIso8601String() ?? now()->toIso8601String(),
         ]);
     }
@@ -166,7 +165,7 @@ class EarlyBankWebhookService
             return;
         }
 
-        $commissionPercent = (float) config('u9itus.procurement_commission_percent', 10);
+        $commissionPercent = (float) PlatformSettingsService::get('procurement_commission_percent');
         $commissionAmount  = round($purchaseAmount * ($commissionPercent / 100), 2);
 
         $this->dispatch('politician.purchased', [

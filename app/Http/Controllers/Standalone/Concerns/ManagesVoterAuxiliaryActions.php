@@ -271,7 +271,7 @@ trait ManagesVoterAuxiliaryActions
     {
         $voter     = $this->resolveVoter();
         $user = Auth::user();
-        $minPayout = (float) PlatformSettingsService::get('min_payout_amount', null, 5.00);
+        $minPayout = (float) PlatformSettingsService::get('min_payout_amount');
 
         $idmeConfigured = (string) config('services.idme.client_id', '') !== ''
             && (string) config('services.idme.client_secret', '') !== '';

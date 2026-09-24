@@ -41,12 +41,12 @@ class PlatformSettingsDefaultsSeeder extends Seeder
             'category'    => 'pricing',
         ]);
 
-        PlatformSettingsService::set('batch_payout_min', 25.00, [
+        PlatformSettingsService::set('batch_payout_min', 5.00, [
             'description' => 'Minimum balance required to trigger a batch payout',
             'category'    => 'pricing',
         ]);
 
-        PlatformSettingsService::set('min_payout_amount', 25.00, [
+        PlatformSettingsService::set('min_payout_amount', 5.00, [
             'description' => 'Minimum balance a voter can manually cash out',
             'category'    => 'pricing',
         ]);

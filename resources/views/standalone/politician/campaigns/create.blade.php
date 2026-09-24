@@ -605,7 +605,7 @@
                     </div>
                 </div>
                 <p class="text-xs text-amber-400/80 bg-amber-500/10 rounded-lg px-3 py-2">
-                    Each repeat view costs <strong>${{ number_format($revenuePerView, 2) }}</strong> and pays the voter <strong>${{ number_format((float) \App\Services\PlatformSettingsService::get('viewer_payout_per_view', null, 0.25), 2) }}</strong> — ensure your budget covers the additional views.
+                    Each repeat view costs <strong>${{ number_format($revenuePerView, 2) }}</strong> and pays the voter <strong>${{ number_format((float) \App\Services\PlatformSettingsService::get('viewer_payout_per_view'), 2) }}</strong> — ensure your budget covers the additional views.
                 </p>
             </div>
         </div>

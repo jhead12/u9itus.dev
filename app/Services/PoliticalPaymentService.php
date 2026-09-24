@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Services\PlatformSettingsService;
 use App\Enums\PaymentStatus;
 use App\Enums\ViewPaymentStatus;
 use App\Jobs\PollPayPalPayoutStatus;
@@ -135,7 +136,7 @@ class PoliticalPaymentService
      */
     public function createPayoutRun(?int $triggeredByAdminId = null, string $triggerSource = 'system'): PayoutRun
     {
-        $minPayout = (float) PlatformSettingsService::get('min_payout_amount', null, 5.00);
+        $minPayout = (float) PlatformSettingsService::get('min_payout_amount');
         $holdHours = (int) PlatformSettingsService::get('fraud_payout_hold_hours', null, 48);
 
         return PayoutRun::create([
@@ -776,10 +777,10 @@ class PoliticalPaymentService
         float $processingFee = 0.02,
         float $opsCost = 0.05
     ): array {
-        $revenuePerView ??= (float) PlatformSettingsService::get('revenue_per_view', null, 0.60);
-        $voterPayout    ??= (float) PlatformSettingsService::get('viewer_payout_per_view', null, 0.25);
+        $revenuePerView ??= (float) PlatformSettingsService::get('revenue_per_view');
+        $voterPayout    ??= (float) PlatformSettingsService::get('viewer_payout_per_view');
         $referralCommission = $hasReferral
-            ? $voterPayout * (PlatformSettingsService::get('referral_commission_percent', null, 10) / 100)
+            ? $voterPayout * (PlatformSettingsService::get('referral_commission_percent') / 100)
             : 0;
 
         $totalCost = $voterPayout + $referralCommission + $processingFee + $opsCost;

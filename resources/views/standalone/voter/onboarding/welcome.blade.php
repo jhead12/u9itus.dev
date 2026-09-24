@@ -8,7 +8,7 @@
 >
     @php
         $voterPayoutPerView = number_format(
-            (float) \App\Services\PlatformSettingsService::get('viewer_payout_per_view', null, (float) config('u9itus.viewer_payout_per_view', 0.50)),
+            (float) \App\Services\PlatformSettingsService::get('viewer_payout_per_view'),
             2
         );
     @endphp

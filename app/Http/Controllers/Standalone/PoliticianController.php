@@ -332,7 +332,7 @@ class PoliticianController extends Controller
         $politician = Auth::user()->politician;
         abort_unless($politician, 403);
 
-        $revenuePerView = (float) PlatformSettingsService::get('revenue_per_view', null, (float) config('u9itus.revenue_per_view', 1.00));
+        $revenuePerView = (float) PlatformSettingsService::get('revenue_per_view');
         $creditBalance  = $this->computeModeAwareCreditBalance(
             $politician->id,
             $this->activePaymentMode()
@@ -372,8 +372,8 @@ class PoliticianController extends Controller
 
         $data['politician_id'] = $politician->id;
         $data['status']        = 'draft';
-        $data['revenue_per_view'] = (float) PlatformSettingsService::get('revenue_per_view', null, (float) config('u9itus.revenue_per_view', 1.00));
-        $data['voter_payout_per_view'] = (float) PlatformSettingsService::get('viewer_payout_per_view', null, 0.25);
+        $data['revenue_per_view'] = (float) PlatformSettingsService::get('revenue_per_view');
+        $data['voter_payout_per_view'] = (float) PlatformSettingsService::get('viewer_payout_per_view');
         // Always recompute total_budget from views × rate (never trust form input)
         $data['total_budget'] = round((float)($data['total_views_requested'] ?? 0) * $data['revenue_per_view'], 2);
 
@@ -427,8 +427,8 @@ class PoliticianController extends Controller
         // Set defaults for draft campaigns
         $data['politician_id'] = $politician->id;
         $data['status'] = 'draft';
-        $data['revenue_per_view'] = (float) PlatformSettingsService::get('revenue_per_view', null, (float) config('u9itus.revenue_per_view', 1.00));
-        $data['voter_payout_per_view'] = (float) PlatformSettingsService::get('viewer_payout_per_view', null, 0.25);
+        $data['revenue_per_view'] = (float) PlatformSettingsService::get('revenue_per_view');
+        $data['voter_payout_per_view'] = (float) PlatformSettingsService::get('viewer_payout_per_view');
         
         // Ensure we have at least a title for the draft
         if (!isset($data['title']) || empty($data['title'])) {
@@ -627,7 +627,7 @@ class PoliticianController extends Controller
             );
         }
 
-        $revenuePerView = (float) PlatformSettingsService::get('revenue_per_view', null, (float) config('u9itus.revenue_per_view', 1.00));
+        $revenuePerView = (float) PlatformSettingsService::get('revenue_per_view');
         // Always recompute total_budget from views × rate (never trust form input)
         $validated['total_budget'] = round(
             (float)($validated['total_views_requested'] ?? $campaign->total_views_requested)

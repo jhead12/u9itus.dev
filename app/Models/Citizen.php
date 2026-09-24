@@ -197,8 +197,8 @@ class Citizen extends Model
 
     /**
      * Whether this citizen has completed Stripe identity verification.
-     * Standard/community ad types auto-approve once this is true;
-     * ballot-issue ads always require admin review regardless.
+     * Lets the citizen's blog posts publish without admin review
+     * (PostController::requiresApproval). Campaigns are admin-reviewed either way.
      */
     public function isIdentityVerified(): bool
     {
