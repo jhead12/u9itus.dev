@@ -77,12 +77,14 @@ test('unnumbered council seats are not combined', function () {
 });
 
 test('a Senate race compares only the people running, not the senator whose seat is not up', function () {
-    $senate = ['political_office' => 'U.S. Senator', 'district' => null];
+    // Texas holds a 2026 Senate race (config/election_races.php); California does not.
+    \App\Models\StateElectionDate::create(['state' => 'TX', 'election_year' => 2026, 'stage_name' => 'General', 'election_date' => '2026-11-03', 'source' => 'civic']);
+    $senate = ['political_office' => 'U.S. Senator', 'district' => null, 'state' => 'TX'];
     $p = comparisonProfile('Jamie Carter', '', $senate);
     comparisonProfile('Alex Rivera', '', $senate);
     $sitting = comparisonProfile('Robin Nelson', '', $senate + ['term_status' => 'seated', 'is_running_candidate' => false]);
     $this->getJson(comparisonUrl($p))->assertOk()->assertJsonPath('available', true)
-        ->assertJsonPath('seat.label', 'U.S. Senate · CA')
+        ->assertJsonPath('seat.label', 'U.S. Senate · TX')
         ->assertJsonCount(2, 'candidates');
     $this->getJson(comparisonUrl($sitting))->assertOk()->assertJsonPath('available', false);
 });
@@ -172,16 +174,16 @@ test('saved district comparisons resolve without a selected candidate', function
         ->assertJsonPath('candidates.0.full_name', 'Jamie Carter');
 });
 
-test('a statewide office requires its own dated candidate record within the window', function () {
-    $p = comparisonProfile('Jamie Carter', '', ['political_office' => 'Governor', 'governance_level' => 'State']);
+test('a statewide office the race calendar does not cover requires its own dated candidate record within the window', function () {
+    $p = comparisonProfile('Jamie Carter', '', ['political_office' => 'Attorney General', 'governance_level' => 'State']);
     $record = \App\Models\ElectionCandidateRecord::create([
         'source' => 'ballotpedia', 'external_candidate_id' => 'Jamie_Carter', 'full_name' => 'Jamie Carter',
-        'state' => 'CA', 'political_office' => 'Governor', 'governance_level' => 'State',
+        'state' => 'CA', 'political_office' => 'Attorney General', 'governance_level' => 'State',
         'election_date' => '2026-11-03',
     ]);
     $this->mock(\App\Http\Controllers\Api\MapStateCandidatesController::class, function ($mock) use ($p) {
         $mock->shouldReceive('__invoke')->andReturn(response()->json(['offices' => [[
-            'office' => 'Governor', 'candidates' => [[
+            'office' => 'Attorney General', 'candidates' => [[
                 'id' => $p->id, 'full_name' => $p->full_name, 'party' => 'Independent',
                 'status' => 'running', 'is_running' => true, 'scrape_source' => 'ballotpedia',
                 'external_candidate_id' => 'Jamie_Carter',
@@ -189,9 +191,9 @@ test('a statewide office requires its own dated candidate record within the wind
         ]]]));
     });
     $this->getJson(comparisonUrl($p))->assertOk()->assertJsonPath('available', true);
-    $record->update(['political_office' => 'Lieutenant Governor']);
+    $record->update(['political_office' => 'Secretary of State']);
     $this->getJson(comparisonUrl($p))->assertOk()->assertJsonPath('available', false);
-    $record->update(['political_office' => 'Governor', 'election_date' => now()->addDays(91)->toDateString()]);
+    $record->update(['political_office' => 'Attorney General', 'election_date' => now()->addDays(91)->toDateString()]);
     $this->getJson(comparisonUrl($p))->assertOk()->assertJsonPath('available', false);
 });
 
@@ -248,9 +250,23 @@ test('research refuses ambiguous names and senate pools without seat identifiers
     comparisonProfile('Jamie Carter', 'CA-04', ['slug' => 'jamie-carter-other']);
     $this->getJson('/api/v1/map/candidate-comparison?state=CA&full_name=Jamie%20Carter&context=research')
         ->assertOk()->assertJsonPath('available', false)->assertJsonPath('seat', null);
-    $senator = comparisonProfile('Alex Rivera', '', ['political_office' => 'U.S. Senator']);
-    $this->getJson(comparisonUrl($senator, ['context' => 'research']))->assertOk()
-        ->assertJsonPath('available', false)->assertJsonCount(0, 'candidates');
+});
+
+test('research opens a Senate race any time before its confirmed election, only for people running in it', function () {
+    \App\Models\StateElectionDate::create(['state' => 'TX', 'election_year' => 2026, 'stage_name' => 'General', 'election_date' => '2026-11-03', 'source' => 'civic']);
+    $senate = ['political_office' => 'U.S. Senator', 'district' => null, 'state' => 'TX'];
+    $running = comparisonProfile('Alex Rivera', '', $senate);
+    comparisonProfile('Jamie Carter', '', $senate);
+    $notUp = comparisonProfile('Robin Nelson', '', $senate + ['term_status' => 'seated', 'is_running_candidate' => false]);
+    // The election is 45 days past the 90-day map window.
+    $this->travelTo(\Carbon\Carbon::parse('2026-06-21 12:00:00'));
+    $this->getJson(comparisonUrl($running))->assertOk()->assertJsonPath('available', false);
+    $this->getJson(comparisonUrl($running, ['context' => 'research']))->assertOk()->assertJsonPath('available', true)
+        ->assertJsonPath('election.date', '2026-11-03')->assertJsonCount(2, 'candidates');
+    $this->getJson(comparisonUrl($notUp, ['context' => 'research']))->assertOk()->assertJsonPath('available', false);
+    \App\Models\StateElectionDate::query()->delete();
+    $this->getJson(comparisonUrl($running, ['context' => 'research']))->assertOk()->assertJsonPath('available', false)
+        ->assertJsonCount(0, 'candidates');
 });
 
 test('research keeps a resolved seat available after a shared anchor disappears', function () {
@@ -330,4 +346,34 @@ test('comparison lists each profile\'s latest verified coverage and press releas
         ->and($candidates['Jamie Carter']['news']['coverage'][0])->toBe(['headline' => 'Carter story 4', 'source_name' => 'Daily News', 'source_url' => 'https://news.example.com/4', 'published_at' => '2026-09-04'])
         ->and(array_column($candidates['Jamie Carter']['news']['press_releases'], 'headline'))->toBe(['Press Release: Carter backs bill', 'Carter statement'])
         ->and($candidates['Alex Rivera']['news'])->toBe(['coverage' => [], 'press_releases' => []]);
+});
+
+test('a governor race the race calendar lists uses the state election date when candidate records carry none', function () {
+    $governor = ['political_office' => 'Governor', 'governance_level' => 'State', 'district' => null];
+    $running = comparisonProfile('Alex Rivera', '', $governor);
+    comparisonProfile('Jamie Carter', '', $governor);
+    \App\Models\ElectionCandidateRecord::create(['source' => 'manual_correction', 'external_candidate_id' => 'rivera', 'full_name' => 'Alex Rivera',
+        'state' => 'CA', 'political_office' => 'Governor', 'governance_level' => 'State', 'election_date' => null]);
+
+    // California holds a 2026 governor's race: dated from its general election, in both modes.
+    $this->getJson(comparisonUrl($running))->assertOk()->assertJsonPath('available', true)
+        ->assertJsonPath('election', ['date' => '2026-11-03', 'stage' => 'General']);
+    $this->getJson(comparisonUrl($running, ['context' => 'research']))->assertOk()
+        ->assertJsonPath('election', ['date' => '2026-11-03', 'stage' => 'General']);
+    $races = collect($this->getJson('/api/v1/map/candidate-races?state=CA')->json('races'))->keyBy('label');
+    expect($races['Governor · CA']['election'])->toBe(['date' => '2026-11-03', 'stage' => 'General']);
+
+    // New Jersey elects its governor in odd years: no 2026 date, and the map tab stays election-gated.
+    \App\Models\StateElectionDate::create(['state' => 'NJ', 'election_year' => 2026, 'stage_name' => 'General', 'election_date' => '2026-11-03', 'source' => 'civic']);
+    $nj = comparisonProfile('Morgan Parker', '', $governor + ['state' => 'NJ']);
+    $this->getJson(comparisonUrl($nj))->assertOk()->assertJsonPath('available', false);
+    $this->getJson(comparisonUrl($nj, ['context' => 'research']))->assertOk()->assertJsonPath('election', null);
+});
+
+test('a Senate comparison is unavailable in a state the race calendar says has no Senate race that year', function () {
+    $senator = comparisonProfile('Alex Rivera', '', ['political_office' => 'U.S. Senator', 'district' => null]);
+    comparisonProfile('Jamie Carter', '', ['political_office' => 'U.S. Senator', 'district' => null]);
+    $this->getJson(comparisonUrl($senator))->assertOk()->assertJsonPath('available', false);
+    $this->getJson(comparisonUrl($senator, ['context' => 'research']))->assertOk()->assertJsonPath('available', false)
+        ->assertJsonPath('message', 'This state has two Senate seats. We can compare Senate candidates once an upcoming election for this seat is confirmed.');
 });

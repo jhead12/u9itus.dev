@@ -251,13 +251,18 @@ async function loadCandidateComparison() {
     if (_polTab === 'compare') _renderPolBody();
     const timeout = setTimeout(() => controller.abort(), 10000);
     try {
-        const response = await fetch(`/api/v1/map/candidate-comparison?${params}`, { signal: controller.signal, headers: { Accept: 'application/json' } });
+        // Same rules as /compare: open for research any time before the election,
+        // not only in the last 90 days.
+        const query = new URLSearchParams(params);
+        query.set('context', 'research');
+        const response = await fetch(`/api/v1/map/candidate-comparison?${query}`, { signal: controller.signal, headers: { Accept: 'application/json' } });
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
         if (_polCtx !== context || comparisonAbort !== controller) return;
         const compareTab = document.getElementById('pol-tab-compare');
-        if (compareTab) compareTab.hidden = data.available !== true;
-        if (data.available !== true && _polTab === 'compare') {
+        const comparable = data.available === true && (data.candidates?.length ?? 0) > 0;
+        if (compareTab) compareTab.hidden = !comparable;
+        if (!comparable && _polTab === 'compare') {
             document.getElementById('pol-tab-overview')?.click();
         }
         context.extra = { ...context.extra, comparison: data, comparisonParams: params.toString(), comparisonSelected: initialComparisonSelection(data), comparisonLoading: false };

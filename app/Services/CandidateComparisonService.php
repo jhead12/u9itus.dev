@@ -12,6 +12,7 @@ use App\Models\Politician;
 use App\Models\PoliticianDonorSnapshot;
 use App\Models\StateElectionDate;
 use App\Support\MapCandidateHygiene;
+use App\Support\RaceCalendar;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 
@@ -57,12 +58,9 @@ class CandidateComparisonService
                 $label = "U.S. House · {$district}";
             }
         } elseif (preg_match('/^(?:U\.?S\.?|United States) Senat(?:e|ors?)\b/i', $office)) {
-            // The current map pool is state-wide, without Senate class/seat identifiers.
-            // Keep its existing election behavior, but never broaden this into year-round seat research.
-            if ($research) {
-                return ['available' => false, 'seat' => null, 'candidates' => [], 'selected_key' => null,
-                    'message' => 'This state has two Senate seats. We cannot confirm the exact Senate seat for this research comparison yet.'];
-            }
+            // The pool is state-wide, without Senate class/seat identifiers. Only people
+            // running in a confirmed upcoming election identify the seat on the ballot, so
+            // research mode drops the 90-day window but still requires that election.
             $isSenate = true;
             $city = '';
             foreach ($data['offices'] ?? [] as $group) {
@@ -119,24 +117,29 @@ class CandidateComparisonService
             $pool = array_values(array_filter($pool, fn ($c) => $c['is_running'] ?? false));
         }
 
-        // A state-wide calendar alone does not establish a local or statewide
+        // A state's election calendar alone does not establish a local or statewide
         // office's election. House districts share regular even-year elections;
-        // other offices require a dated candidate record for this exact seat.
+        // Senate and Governor races use the state's date only in years the race
+        // calendar (config/election_races.php) lists; other offices require a dated
+        // candidate record for this exact seat.
         $role = \App\Support\OfficeGlossary::forPlace($office, $state, $city);
         $seat = ['label' => $label, 'state' => $state, 'office' => $office, 'district' => $district, 'city' => $city,
             'role' => $role ? $role + ['glossary_url' => url('/compare/glossary').'#'.$role['slug']] : null];
         $election = $this->currentElection($state, $isHouse, $pool, $office, $district, $city, $isSenate, $research);
-        if ($election === null && ! $research) {
+        if ($election === null && (! $research || $isSenate)) {
             return ['available' => false, 'seat' => $seat,
                 'candidates' => [], 'selected_key' => null,
-                'message' => 'No current election is confirmed for this seat.'];
+                'message' => $isSenate && $research
+                    ? 'This state has two Senate seats. We can compare Senate candidates once an upcoming election for this seat is confirmed.'
+                    : 'No current election is confirmed for this seat.'];
         }
 
         $pool = array_values(array_filter($pool, fn ($c) => ! in_array($c['status'] ?? '', ['lost', 'eliminated', 'retired', 'former'], true)));
         [$pool] = MapCandidateHygiene::dedupe($pool);
         $selected = collect($pool)->first(fn ($c) => MapCandidateHygiene::identityKey($c['full_name'] ?? '') === MapCandidateHygiene::identityKey(($input['full_name'] ?? '')));
         if (empty($input['full_name']) && empty($input['id'])) $selected = $pool[0] ?? null;
-        if (! $selected && ! $research) {
+        // A senator whose seat is not up this cycle is not in this race.
+        if (! $selected && (! $research || $isSenate)) {
             return ['available' => false, 'seat' => $seat, 'candidates' => [], 'selected_key' => null,
                 'message' => 'This profile could not be matched to the current public records for this seat.'];
         }
@@ -241,7 +244,8 @@ class CandidateComparisonService
 
             $recordDate = $ballot->min(fn ($r) => $r->election_date?->toDateString());
             $election = $recordDate ? ['date' => $recordDate, 'stage' => 'Election']
-                : ($seat['house'] && $houseDate ? ['date' => $houseDate->election_date->toDateString(), 'stage' => $houseDate->stage_name] : null);
+                : ($seat['house'] ? ($houseDate ? ['date' => $houseDate->election_date->toDateString(), 'stage' => $houseDate->stage_name] : null)
+                    : $this->calendarElection($state, $seat['office'], '9999-12-31'));
             $params = array_filter(['state' => $state, 'office' => $seat['office'], 'district' => $seat['district'], 'city' => $seat['city']]);
             // Statewide and local seats are resolved from a named person on the seat.
             if (! $seat['district']) $params['full_name'] = $running[0]['full_name'];
@@ -267,10 +271,12 @@ class CandidateComparisonService
         $today = now()->toDateString();
         $end = $research ? '9999-12-31' : now()->addDays(90)->toDateString();
         if ($isHouse || $isSenate) {
+            // A Senate seat is not up every cycle; the race calendar rules out years without one.
             $stage = StateElectionDate::query()->where('state', $state)
                 ->whereRaw('LOWER(stage_name) IN (?, ?)', ['primary', 'general'])
                 ->whereDate('election_date', '>=', $today)->whereDate('election_date', '<=', $end)
-                ->orderBy('election_date')->get()->first(fn ($date) => $date->election_date->year % 2 === 0);
+                ->orderBy('election_date')->get()->first(fn ($date) => $date->election_date->year % 2 === 0
+                    && ($isHouse || RaceCalendar::held($state, 'U.S. Senate', $date->election_date->year) !== false));
             if ($stage) return ['date' => $stage->election_date->toDateString(), 'stage' => $stage->stage_name];
         }
         // Match both the person and the exact office/location. Names by
@@ -282,7 +288,25 @@ class CandidateComparisonService
             ->whereDate('election_date', '>=', $today)->whereDate('election_date', '<=', $end)
             ->orderBy('election_date')->get()->first(fn ($r) => $isSenate ? $this->isSenateOffice((string) $r->political_office)
                 : (! $isHouse || $this->districtKey($r->district, $state) === $district));
-        return $record ? ['date' => $record->election_date->toDateString(), 'stage' => 'Election'] : null;
+        return $record ? ['date' => $record->election_date->toDateString(), 'stage' => 'Election']
+            : ($isSenate ? null : $this->calendarElection($state, $office, $end));
+    }
+
+    /**
+     * The state's election date for a statewide race the race calendar confirms is on
+     * this year's ballot (e.g. California's 2026 governor's race), for candidate records
+     * that carry no date of their own. Offices the calendar does not cover get none.
+     */
+    private function calendarElection(string $state, string $office, string $end): ?array
+    {
+        if (RaceCalendar::kind($office) === null) return null;
+        $stages = StateElectionDate::query()->where('state', $state)
+            ->whereRaw('LOWER(stage_name) IN (?, ?)', ['primary', 'general'])
+            ->whereDate('election_date', '>=', now()->toDateString())->whereDate('election_date', '<=', $end)
+            ->orderBy('election_date')->get();
+        $stage = $stages->first(fn ($date) => RaceCalendar::held($state, $office, $date->election_date->year) === true);
+
+        return $stage ? ['date' => $stage->election_date->toDateString(), 'stage' => $stage->stage_name] : null;
     }
 
     /**
