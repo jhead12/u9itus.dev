@@ -377,3 +377,42 @@ test('a Senate comparison is unavailable in a state the race calendar says has n
     $this->getJson(comparisonUrl($senator, ['context' => 'research']))->assertOk()->assertJsonPath('available', false)
         ->assertJsonPath('message', 'This state has two Senate seats. We can compare Senate candidates once an upcoming election for this seat is confirmed.');
 });
+
+test('a candidate record merged into the pool uses its linked profile\'s evidence and keeps its comparison key', function () {
+    $governor = ['political_office' => 'Governor', 'governance_level' => 'State', 'district' => null];
+    $becerra = comparisonProfile('Xavier Becerra', '', $governor + ['party_affiliation' => 'Democratic', 'is_running_candidate' => false, 'term_status' => 'active']);
+    $hilton = comparisonProfile('Steve Hilton', '', $governor + ['party_affiliation' => 'Republican', 'is_running_candidate' => false, 'term_status' => 'active']);
+    $impostor = comparisonProfile('Someone Else', '', $governor + ['is_running_candidate' => false]);
+    $record = fn (string $name, string $id) => \App\Models\ElectionCandidateRecord::create(['source' => 'manual_correction', 'external_candidate_id' => $id,
+        'full_name' => $name, 'state' => 'CA', 'political_office' => 'Governor', 'governance_level' => 'State', 'election_date' => null]);
+    $hiltonRecord = $record('Steve Hilton', 'hilton');
+    $record('Xavier Becerra', 'becerra');
+    $newsomRecord = $record('Gavin Newsom', 'newsom');
+    \App\Models\CandidateIdentityLink::create(['politician_id' => $hilton->id, 'election_candidate_record_id' => $hiltonRecord->id, 'confidence' => 1]);
+    // A link to a different person's profile is never used.
+    \App\Models\CandidateIdentityLink::create(['politician_id' => $impostor->id, 'election_candidate_record_id' => $newsomRecord->id, 'confidence' => 1]);
+    $pool = collect([['Xavier Becerra', 'becerra', $becerra->slug], ['Steve Hilton', 'hilton', null], ['Gavin Newsom', 'newsom', null]])
+        ->map(fn ($c) => ['full_name' => $c[0], 'party' => null, 'status' => 'running', 'is_running' => true, 'source_label' => 'U9itus editors',
+            'scrape_source' => 'manual_correction', 'external_candidate_id' => $c[1], 'slug' => $c[2]])->all();
+    $this->mock(\App\Http\Controllers\Api\MapStateCandidatesController::class, fn ($mock) => $mock->shouldReceive('__invoke')
+        ->andReturn(response()->json(['offices' => [['office' => 'Governor', 'candidates' => $pool]]])));
+    \App\Models\PoliticianDonorSnapshot::create(['politician_id' => $becerra->id, 'election_cycle' => 2026, 'enriched_at' => now(),
+        'fec_summary' => ['cycle' => 2026, 'receipts' => '$1,000']]);
+    $article = fn (array $a) => \App\Models\CandidateNewsArticle::create(array_merge(['source_name' => 'Daily News', 'provider' => 'google_news',
+        'content_type' => 'news', 'verification_status' => 'verified', 'published_at' => '2026-09-01', 'source_hash' => md5(json_encode($a))], $a));
+    $article(['politician_id' => $hilton->id, 'candidate_name' => 'Steve Hilton', 'headline' => 'Hilton profile story', 'source_url' => 'https://news.example.com/h']);
+    $article(['politician_id' => null, 'candidate_name' => 'Gavin Newsom', 'headline' => 'Newsom name-only story', 'source_url' => 'https://news.example.com/n']);
+    $article(['politician_id' => null, 'candidate_name' => 'Gavin Newsom', 'headline' => 'Rejected Newsom story', 'source_url' => 'https://news.example.com/r', 'verification_status' => 'rejected']);
+
+    $response = $this->getJson('/api/v1/map/candidate-comparison?'.http_build_query(['state' => 'CA', 'office' => 'Governor', 'full_name' => 'Steve Hilton', 'context' => 'research']))->assertOk();
+    $candidates = collect($response->json('candidates'))->keyBy('full_name');
+    expect($candidates['Xavier Becerra']['party'])->toBe('Democratic')
+        ->and($candidates['Xavier Becerra']['finance']['receipts'])->toBe('$1,000')
+        ->and($candidates['Xavier Becerra']['key'])->toStartWith('record:')
+        ->and($candidates['Steve Hilton']['party'])->toBe('Republican')
+        ->and(array_column($candidates['Steve Hilton']['news']['coverage'], 'headline'))->toBe(['Hilton profile story'])
+        ->and($candidates['Gavin Newsom']['party'])->toBe('Not recorded')
+        ->and(array_column($candidates['Gavin Newsom']['news']['coverage'], 'headline'))->toBe(['Newsom name-only story'])
+        ->and($response->json('seat.finance_note'))->toContain("FEC data covers federal races only");
+    $this->getJson(comparisonUrl(comparisonProfile('Jamie Carter', 'CA-03')))->assertOk()->assertJsonPath('seat.finance_note', null);
+});

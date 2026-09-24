@@ -77,14 +77,14 @@ export function renderPrintGuide(data, selectedKeys) {
     // Money is reported as filed with the FEC for its cycle and period; never used to infer a position.
     const finance = c => {
         const f = c.finance;
-        if (!f) return 'Not recorded';
+        if (!f) return esc(data.seat?.finance_note || 'Not recorded');
         const figures = [['Raised', f.receipts], ['Spent', f.disbursements], ['Cash on hand', f.cash_on_hand]].filter(([, v]) => v)
             .map(([k, v]) => `${esc(k)}: ${esc(v)}`).join('<br>');
         return `<p>${figures || 'Not recorded'}</p>${reference(f.source_url, `FEC filings${f.cycle ? `, ${f.cycle} cycle` : ''}`, f.coverage_end_date, 'Through')}`;
     };
     const profileRows = row('Political party', field('party')) + row('Current role', field('incumbency'))
         + row('Running status', field('candidacy'))
-        + row('Campaign money (FEC)', finance)
+        + row('Campaign money', finance)
         + row('Record source', c => reference(c.profile_url, c.source_label, c.updated_at));
     const electionDate = guideDate(data.election?.date);
     const missing = selectedKeys.filter(key => !candidates.some(c => c.key === key));

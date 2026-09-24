@@ -44,9 +44,11 @@ export function renderComparison(data, selectedKeys = [], options = {}) {
         const positions = (candidate.stances ?? []).filter(s => topicKey(s.topic) === key);
         return positions.length ? positions.map(s => `<div class="compare-stance"><p>${esc(s.text)}</p>${s.quote ? `<blockquote>“${esc(s.quote)}”</blockquote>` : ''}<small>${sourceLink(s.source_url, s.source_label || 'Source')}<br>${esc(dateLabel(s.updated_at))}</small></div>`).join('') : empty;
     }))).join('');
+    // State and local money isn't collected yet (FEC covers federal races only); say so.
+    const noFinance = data.seat?.finance_note ? `<span class="compare-missing">${esc(data.seat.finance_note)}</span>` : empty;
     const finance = c => {
         const f = c.finance;
-        if (!f) return empty;
+        if (!f) return noFinance;
         const lines = [['Raised', f.receipts], ['Spent', f.disbursements], ['Cash on hand', f.cash_on_hand]]
             .filter(([, v]) => v).map(([k, v]) => `<div class="compare-figure"><span>${esc(k)}</span> <strong>${esc(v)}</strong></div>`).join('');
         const through = f.coverage_end_date ? ` · through ${esc(dateLabel(f.coverage_end_date).replace('Updated ', ''))}` : '';

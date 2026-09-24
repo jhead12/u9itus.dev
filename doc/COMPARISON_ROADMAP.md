@@ -43,7 +43,7 @@ Completion: a signed-in voter can start from a race, build and save a canvas, an
 
 ## Phase 3: richer evidence and organization nodes
 
-Extend both the public chart and the canvas with existing finance and news integrations. Label reporting periods, distinguish contributions from independent spending, keep incompatible periods separate, and preserve missing data. Add PAC, foundation, and ballot-measure nodes, with ballot measures presented separately and their yes/no meanings sourced. Introduce organization and relationship records here rather than forcing them into candidate fields.
+Extend both the public chart and the canvas with existing finance and news integrations, and add state campaign-finance integrations (for example California's Cal-Access) so state and local races are not limited to FEC data, which covers federal races only. Label reporting periods, distinguish contributions from independent spending, keep incompatible periods separate, and preserve missing data. Add PAC, foundation, and ballot-measure nodes, with ballot measures presented separately and their yes/no meanings sourced. Introduce organization and relationship records here rather than forcing them into candidate fields.
 
 Organize reporting around claims and evidence: show what articles agree on and dispute, and recognize several articles repeating one report as a single underlying source. Keep reporting separate from candidate-authored positions. Add topic filters.
 
