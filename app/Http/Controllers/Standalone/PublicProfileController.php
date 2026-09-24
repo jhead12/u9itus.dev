@@ -868,6 +868,7 @@ class PublicProfileController extends Controller
                 if (! empty($politicianIds)) {
                     CandidateNewsArticle::query()
                         ->whereIn('politician_id', $politicianIds)
+                        ->verified()
                         ->where('scraped_at', '>=', now()->subHours(24))
                         ->orderByDesc('published_at')
                         ->get()
@@ -1415,8 +1416,11 @@ class PublicProfileController extends Controller
         $newsArticles = collect();
         try {
             if (Schema::hasTable('candidate_news_articles')) {
+                // Verified only, matching the /news archive: rejected rows are kept
+                // for audit but failed the name/context relevance gate.
                 $newsArticles = CandidateNewsArticle::query()
                     ->where('politician_id', $politician->id)
+                    ->verified()
                     ->orderByDesc('published_at')
                     ->limit(60)
                     ->get();

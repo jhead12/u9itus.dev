@@ -31,6 +31,7 @@ class MapCandidatesInNewsController
             // Newest qualifying article per politician within the window.
             $articles = CandidateNewsArticle::query()
                 ->whereNotNull('politician_id')
+                ->verified()
                 ->where('published_at', '>=', $since)
                 ->orderByDesc('published_at')
                 ->get(['politician_id', 'headline', 'source_name', 'source_url', 'published_at']);

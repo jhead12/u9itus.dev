@@ -50,8 +50,9 @@ class MapCandidateOverviewController
                 ? $newsService->getForPolitician($politician, 40)
                 : $newsService->getForCandidateName($fullName, 40, $state !== '' ? $state : null);
 
-            $verified = $items->where('verification_status', 'verified');
-            $pool = $verified->isNotEmpty() ? $verified : $items;
+            // Never fall back to rejected rows — they failed the relevance gate
+            // and are often about someone else who shares the name.
+            $pool = $items->where('verification_status', 'verified');
 
             $mapItem = fn ($item) => [
                 'headline' => $item->headline,
