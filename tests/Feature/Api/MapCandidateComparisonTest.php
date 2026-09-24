@@ -70,11 +70,65 @@ test('cached Vote Smart positions are sourced and respect the data visibility pr
     Http::assertNothingSent();
 });
 
-test('unknown Senate seat and unnumbered council seats are not combined', function (string $office, string $level) {
-    $p = comparisonProfile('Jamie Carter', '', ['political_office' => $office, 'governance_level' => $level, 'city' => 'Oakland']);
-    comparisonProfile('Alex Rivera', '', ['political_office' => $office, 'governance_level' => $level, 'city' => 'Oakland']);
+test('unnumbered council seats are not combined', function () {
+    $p = comparisonProfile('Jamie Carter', '', ['political_office' => 'City Council Member', 'governance_level' => 'City', 'city' => 'Oakland']);
+    comparisonProfile('Alex Rivera', '', ['political_office' => 'City Council Member', 'governance_level' => 'City', 'city' => 'Oakland']);
     $this->getJson(comparisonUrl($p))->assertOk()->assertJsonPath('seat', null)->assertJsonCount(0, 'candidates');
-})->with([['U.S. Senator', 'Federal'], ['City Council Member', 'City']]);
+});
+
+test('a Senate race compares only the people running, not the senator whose seat is not up', function () {
+    $senate = ['political_office' => 'U.S. Senator', 'district' => null];
+    $p = comparisonProfile('Jamie Carter', '', $senate);
+    comparisonProfile('Alex Rivera', '', $senate);
+    $sitting = comparisonProfile('Robin Nelson', '', $senate + ['term_status' => 'seated', 'is_running_candidate' => false]);
+    $this->getJson(comparisonUrl($p))->assertOk()->assertJsonPath('available', true)
+        ->assertJsonPath('seat.label', 'U.S. Senate · CA')
+        ->assertJsonCount(2, 'candidates');
+    $this->getJson(comparisonUrl($sitting))->assertOk()->assertJsonPath('available', false);
+});
+
+test('a dated ballot record for the same seat fills a missing candidacy and party', function () {
+    $governor = ['political_office' => 'Governor', 'governance_level' => 'State', 'district' => null];
+    $incumbent = comparisonProfile('Jamie Carter', '', $governor + ['term_status' => 'seated', 'is_running_candidate' => false, 'party_affiliation' => null]);
+    $challenger = comparisonProfile('Alex Rivera', '', $governor + ['party_affiliation' => 'Democratic']);
+    foreach ([[$incumbent, 'Republican', 'Governor'], [$challenger, 'Democratic', 'Governor'], [$incumbent, 'Green', 'Lieutenant Governor']] as [$person, $party, $office]) {
+        \App\Models\ElectionCandidateRecord::create(['source' => 'ballotpedia', 'external_candidate_id' => $person->slug.$office, 'full_name' => $person->full_name,
+            'state' => 'CA', 'political_office' => $office, 'governance_level' => 'State', 'party_affiliation' => $party, 'election_date' => '2026-11-03']);
+    }
+    $response = $this->getJson(comparisonUrl($challenger))->assertOk()->assertJsonPath('available', true);
+    $carter = collect($response->json('candidates'))->firstWhere('full_name', 'Jamie Carter');
+    expect($carter['candidacy'])->toBe('Running')
+        ->and($carter['incumbency'])->toBe('Current officeholder')
+        ->and($carter['party'])->toBe('Republican');
+});
+
+test('comparison shows campaign finance, issue focus, and a sitting member\'s record and floor positions', function () {
+    $p = comparisonProfile('Jamie Carter', 'CA-03', ['bioguide_id' => 'C000001']);
+    $topic = \App\Models\PoliticianTopic::create(['name' => 'Housing', 'slug' => 'housing', 'is_active' => true, 'sort_order' => 1]);
+    $p->addBadge($topic->id, 'inferred_discourse', ['is_public' => true, 'earned_at' => now()]);
+    \App\Models\PoliticianDonorSnapshot::create(['politician_id' => $p->id, 'enriched_at' => now(), 'election_cycle' => 2026,
+        'fec_summary' => ['cycle' => 2026, 'receipts' => '$1,200,000', 'disbursements' => '$800,000', 'cash_on_hand' => '$400,000'],
+        'fec_source_url' => 'https://www.fec.gov/data/candidate/H0CA03000/']);
+    \App\Models\CongressMemberLegislation::create(['bioguide_id' => 'C000001', 'since_congress' => 118, 'sponsored_total' => 12, 'cosponsored_total' => 90, 'policy_areas' => [], 'topics' => []]);
+    \App\Models\CongressCommitteeAssignment::create(['bioguide_id' => 'C000001', 'committee_code' => 'HSBA', 'name' => 'House Committee on Financial Services', 'chamber' => 'house']);
+    \App\Models\CongressFloorSpeech::create(['granule_id' => 'G1', 'bioguide_id' => 'C000001', 'chamber' => 'house', 'spoken_on' => '2026-07-15', 'title' => 'HOUSING',
+        'body' => 'Text.', 'source_url' => 'https://www.govinfo.gov/g1.htm', 'topic_key' => 'housing', 'stance' => 'support',
+        'position_summary' => 'Supports building more homes.', 'quote' => 'We need more homes.']);
+    \App\Models\CongressFloorSpeech::create(['granule_id' => 'G2', 'bioguide_id' => 'C000001', 'chamber' => 'house', 'spoken_on' => '2026-07-16', 'title' => 'HOUSING ACT',
+        'body' => 'Text.', 'source_url' => 'https://www.govinfo.gov/g2.htm', 'topic_key' => 'housing']);
+
+    $this->getJson(comparisonUrl($p))->assertOk()
+        ->assertJsonPath('candidates.0.finance.receipts', '$1,200,000')
+        ->assertJsonPath('candidates.0.finance.source_url', 'https://www.fec.gov/data/candidate/H0CA03000/')
+        ->assertJsonPath('candidates.0.issue_focus', ['Housing'])
+        ->assertJsonPath('candidates.0.legislation.sponsored', 12)
+        ->assertJsonPath('candidates.0.legislation.committees', ['House Committee on Financial Services'])
+        // Only a speech with a read position becomes a stance; a keyword-tagged title does not.
+        ->assertJsonCount(1, 'candidates.0.stances')
+        ->assertJsonPath('candidates.0.stances.0.topic', 'Housing')
+        ->assertJsonPath('candidates.0.stances.0.quote', 'We need more homes.')
+        ->assertJsonPath('candidates.0.stances.0.source_label', 'Congressional Record floor speech');
+});
 
 test('a single recorded candidate does not imply an uncontested election', function () {
     $p = comparisonProfile('Jamie Carter', 'CA-03');

@@ -2,9 +2,13 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Models\Politician;
-use App\Models\StateElectionDate;
+use App\Models\CongressCommitteeAssignment;
+use App\Models\CongressFloorSpeech;
+use App\Models\CongressMemberLegislation;
 use App\Models\ElectionCandidateRecord;
+use App\Models\Politician;
+use App\Models\PoliticianDonorSnapshot;
+use App\Models\StateElectionDate;
 use App\Support\MapCandidateHygiene;
 use App\Support\PoliticianDataRules;
 use Illuminate\Http\JsonResponse;
@@ -45,6 +49,7 @@ class MapCandidateComparisonController
         $pool = [];
         $label = null;
         $isHouse = false;
+        $isSenate = false;
 
         if (preg_match('/^(?:U\.?S\.?|United States) (?:Representative|House)(?:\b|$)/i', $office)) {
             $isHouse = true;
@@ -57,6 +62,15 @@ class MapCandidateComparisonController
                 }
                 $label = "U.S. House · {$district}";
             }
+        } elseif (preg_match('/^(?:U\.?S\.?|United States) Senat(?:e|ors?)\b/i', $office)) {
+            $isSenate = true;
+            $city = '';
+            foreach ($data['offices'] ?? [] as $group) {
+                if (($group['office'] ?? '') === 'U.S. Senators') {
+                    $pool = $group['candidates'] ?? [];
+                }
+            }
+            $label = "U.S. Senate · {$state}";
         } elseif ($canonical = $this->statewideOffice($office)) {
             $city = '';
             foreach ($data['offices'] ?? [] as $group) {
@@ -86,10 +100,29 @@ class MapCandidateComparisonController
             ]);
         }
 
+        // Dated candidate records for this exact seat fill in a candidacy or party the
+        // profile is missing (e.g. an incumbent governor whose re-election run was
+        // never flagged on the profile).
+        $ballot = $this->ballotRecords($state, $pool, $isHouse, $isSenate, $office, $district, $city);
+        $pool = array_map(function (array $c) use ($ballot) {
+            $record = $ballot->get(mb_strtolower(trim($c['full_name'] ?? '')));
+            if ($record) {
+                $c['is_running'] = true;
+                $c['party'] = ($c['party'] ?? null) ?: $record->party_affiliation;
+            }
+
+            return $c;
+        }, $pool);
+        if ($isSenate) {
+            // A state has two Senate seats, normally one on the ballot. Only people running
+            // this cycle are in the race; a sitting senator whose seat is not up is not.
+            $pool = array_values(array_filter($pool, fn ($c) => $c['is_running'] ?? false));
+        }
+
         // A state-wide calendar alone does not establish a local or statewide
         // office's election. House districts share regular even-year elections;
         // other offices require a dated candidate record for this exact seat.
-        $election = $this->currentElection($state, $isHouse, $pool, $office, $district, $city);
+        $election = $this->currentElection($state, $isHouse, $pool, $office, $district, $city, $isSenate);
         if ($election === null) {
             return response()->json(['available' => false, 'seat' => ['label' => $label],
                 'candidates' => [], 'selected_key' => null,
@@ -107,8 +140,11 @@ class MapCandidateComparisonController
 
         $profiles = Politician::query()->where('is_active', true)
             ->whereIn('id', array_filter(array_column($pool, 'id')))
-            ->with(['page', 'initiatives' => fn ($q) => $q->published()])->get()->keyBy('id');
-        $candidates = collect($pool)->map(function ($candidate) use ($profiles) {
+            ->with(['page', 'initiatives' => fn ($q) => $q->published(), 'publicBadges.topic'])->get()->keyBy('id');
+        $records = $this->congressRecords($profiles);
+        $finance = PoliticianDonorSnapshot::whereIn('politician_id', $profiles->keys())->whereNotNull('enriched_at')
+            ->get()->keyBy('politician_id');
+        $candidates = collect($pool)->map(function ($candidate) use ($profiles, $records, $finance) {
             $profile = $profiles->get($candidate['id'] ?? null);
             // Read incumbency independently of candidacy; 'active' is not proof
             // that an elected winner has begun their term.
@@ -124,7 +160,10 @@ class MapCandidateComparisonController
                 'profile_url' => $profile?->page_published ? $candidate['profile_url'] ?? null : null,
                 'source_label' => $candidate['source_label'] ?? 'Public records',
                 'updated_at' => $candidate['updated_at'] ?? null,
-                'stances' => $this->stances($profile),
+                'stances' => [...$this->stances($profile), ...($records['speeches'][$profile?->bioguide_id] ?? [])],
+                'issue_focus' => $profile ? $profile->publicBadges->map(fn ($b) => $b->topic?->name)->filter()->unique()->sort()->values()->all() : [],
+                'finance' => $this->finance($finance->get($profile?->id)),
+                'legislation' => $records['legislation'][$profile?->bioguide_id] ?? null,
             ];
         })->sortBy('full_name', SORT_NATURAL | SORT_FLAG_CASE)->values()->all();
 
@@ -138,14 +177,14 @@ class MapCandidateComparisonController
         ]);
     }
 
-    private function currentElection(string $state, bool $isHouse, array $pool, string $office, ?string $district, string $city): ?array
+    private function currentElection(string $state, bool $isHouse, array $pool, string $office, ?string $district, string $city, bool $isSenate = false): ?array
     {
         $running = collect($pool)->filter(fn ($c) => ($c['is_running'] ?? false)
             && ! in_array($c['status'] ?? '', ['lost', 'eliminated', 'retired', 'former'], true));
         if ($running->isEmpty()) return null;
         $today = now()->toDateString();
         $end = now()->addDays(90)->toDateString();
-        if ($isHouse) {
+        if ($isHouse || $isSenate) {
             $stage = StateElectionDate::query()->where('state', $state)
                 ->whereRaw('LOWER(stage_name) IN (?, ?)', ['primary', 'general'])
                 ->whereDate('election_date', '>=', $today)->whereDate('election_date', '<=', $end)
@@ -156,11 +195,101 @@ class MapCandidateComparisonController
         // themselves cannot establish which seat an election date belongs to.
         $record = ElectionCandidateRecord::query()->where('state', $state)
             ->whereIn('full_name', $running->pluck('full_name')->all())
-            ->where('political_office', $office)
+            ->when(! $isSenate, fn ($q) => $q->where('political_office', $office))
             ->when($city !== '', fn ($q) => $q->where('city', $city))
             ->whereDate('election_date', '>=', $today)->whereDate('election_date', '<=', $end)
-            ->orderBy('election_date')->get()->first(fn ($r) => ! $isHouse || $this->districtKey($r->district, $state) === $district);
+            ->orderBy('election_date')->get()->first(fn ($r) => $isSenate ? $this->isSenateOffice((string) $r->political_office)
+                : (! $isHouse || $this->districtKey($r->district, $state) === $district));
         return $record ? ['date' => $record->election_date->toDateString(), 'stage' => 'Election'] : null;
+    }
+
+    /**
+     * Upcoming dated candidate records for people in this pool, keyed by lowercase name,
+     * kept only when the record's office is this same seat.
+     */
+    private function ballotRecords(string $state, array $pool, bool $isHouse, bool $isSenate, string $office, ?string $district, string $city): \Illuminate\Support\Collection
+    {
+        $names = array_values(array_filter(array_column($pool, 'full_name')));
+        if ($names === []) return collect();
+        $canonical = $this->statewideOffice($office);
+
+        return ElectionCandidateRecord::query()->where('state', $state)->whereIn('full_name', $names)
+            ->whereDate('election_date', '>=', now()->toDateString())
+            ->orderBy('election_date')->get()
+            ->filter(fn ($r) => match (true) {
+                $isSenate => $this->isSenateOffice((string) $r->political_office),
+                $isHouse => $this->districtKey($r->district, $state) === $district,
+                $canonical !== null => $this->statewideOffice((string) $r->political_office) === $canonical,
+                default => strcasecmp((string) $r->political_office, $office) === 0 && strcasecmp((string) $r->city, $city) === 0,
+            })
+            ->unique(fn ($r) => mb_strtolower(trim($r->full_name)))
+            ->keyBy(fn ($r) => mb_strtolower(trim($r->full_name)));
+    }
+
+    private function isSenateOffice(string $office): bool
+    {
+        return (bool) preg_match('/^(?:U\.?S\.?|United States) Senat(?:e|ors?)\b/i', trim($office));
+    }
+
+    /** @return array{cycle: mixed, receipts: ?string, disbursements: ?string, cash_on_hand: ?string, coverage_end_date: ?string, source_url: string}|null */
+    private function finance(?PoliticianDonorSnapshot $snapshot): ?array
+    {
+        $summary = $snapshot?->fec_summary;
+        if (empty($summary['receipts']) && empty($summary['disbursements']) && empty($summary['cash_on_hand'])) return null;
+
+        return [
+            'cycle' => $summary['cycle'] ?? $snapshot->election_cycle,
+            'receipts' => $summary['receipts'] ?? null,
+            'disbursements' => $summary['disbursements'] ?? null,
+            'cash_on_hand' => $summary['cash_on_hand'] ?? null,
+            'coverage_end_date' => $summary['coverage_end_date'] ?? null,
+            'source_url' => $snapshot->fec_source_url ?: 'https://www.fec.gov/data/',
+        ];
+    }
+
+    /**
+     * Bill and committee record plus floor-speech positions for sitting members of
+     * Congress, keyed by Bioguide ID.
+     *
+     * @return array{legislation: array<string, array>, speeches: array<string, list<array>>}
+     */
+    private function congressRecords(\Illuminate\Support\Collection $profiles): array
+    {
+        $bioguides = $profiles->pluck('bioguide_id')->filter()->unique()->values();
+        if ($bioguides->isEmpty()) return ['legislation' => [], 'speeches' => []];
+
+        $committees = CongressCommitteeAssignment::whereIn('bioguide_id', $bioguides)->whereNull('parent_code')
+            ->orderByRaw('title IS NULL')->orderBy('name')->get()->groupBy('bioguide_id');
+        $legislation = [];
+        foreach (CongressMemberLegislation::whereIn('bioguide_id', $bioguides)->get() as $row) {
+            $legislation[$row->bioguide_id] = [
+                'sponsored' => $row->sponsored_total, 'cosponsored' => $row->cosponsored_total,
+                'since_congress' => $row->since_congress,
+            ];
+        }
+        foreach ($committees as $bioguide => $seats) {
+            $legislation[$bioguide] = ($legislation[$bioguide] ?? []) + ['sponsored' => null, 'cosponsored' => null, 'since_congress' => null];
+            $legislation[$bioguide]['committees'] = $seats->map(fn ($s) => $s->title ? "{$s->name} ({$s->title})" : $s->name)->all();
+        }
+
+        // Latest stated position per issue: Claude-read speeches with a summary only,
+        // so a keyword-tagged title never stands in for a position.
+        $speeches = [];
+        CongressFloorSpeech::whereIn('bioguide_id', $bioguides)->whereNotNull('topic_key')->whereNotNull('position_summary')
+            ->with('topic')->orderByDesc('spoken_on')->limit(200)->get()
+            ->groupBy('bioguide_id')
+            ->each(function ($rows, $bioguide) use (&$speeches) {
+                $speeches[$bioguide] = $rows->unique('topic_key')->filter(fn ($s) => $s->topic)->take(6)->map(fn ($s) => [
+                    'topic' => $s->topic->name,
+                    'text' => $s->position_summary,
+                    'quote' => $s->quote,
+                    'source_label' => $s->kind === 'written' ? 'Congressional Record statement' : 'Congressional Record floor speech',
+                    'source_url' => $s->source_url,
+                    'updated_at' => $s->spoken_on?->toDateString(),
+                ])->values()->all();
+            });
+
+        return ['legislation' => $legislation, 'speeches' => $speeches];
     }
 
     private function candidateKey(array $candidate): string

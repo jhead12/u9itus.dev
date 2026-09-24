@@ -1,4 +1,4 @@
-/** Presentation only: never infer a stance from a party, donation, or badge. */
+/** Presentation only: never infer a stance from a party, donation, or issue-focus badge. */
 export const escapeComparisonText = value => String(value ?? '')
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
@@ -42,8 +42,27 @@ export function renderComparison(data, selectedKeys = []) {
     const empty = '<span class="compare-missing">Not recorded</span>';
     const stanceRows = [...titles].sort((a, b) => a[1].localeCompare(b[1])).map(([key, title]) => row(title, selected.map(candidate => {
         const positions = (candidate.stances ?? []).filter(s => topicKey(s.topic) === key);
-        return positions.length ? positions.map(s => `<div class="compare-stance"><p>${esc(s.text)}</p><small>${sourceLink(s.source_url, s.source_label || 'Source')}<br>${esc(dateLabel(s.updated_at))}</small></div>`).join('') : empty;
+        return positions.length ? positions.map(s => `<div class="compare-stance"><p>${esc(s.text)}</p>${s.quote ? `<blockquote>“${esc(s.quote)}”</blockquote>` : ''}<small>${sourceLink(s.source_url, s.source_label || 'Source')}<br>${esc(dateLabel(s.updated_at))}</small></div>`).join('') : empty;
     }))).join('');
+    const finance = c => {
+        const f = c.finance;
+        if (!f) return empty;
+        const lines = [['Raised', f.receipts], ['Spent', f.disbursements], ['Cash on hand', f.cash_on_hand]]
+            .filter(([, v]) => v).map(([k, v]) => `<div class="compare-figure"><span>${esc(k)}</span> <strong>${esc(v)}</strong></div>`).join('');
+        const through = f.coverage_end_date ? ` · through ${esc(dateLabel(f.coverage_end_date).replace('Updated ', ''))}` : '';
+        return `${lines}<small>${f.cycle ? `${esc(f.cycle)} cycle${through} · ` : ''}${sourceLink(f.source_url, 'FEC filings')}</small>`;
+    };
+    const legislation = c => {
+        const l = c.legislation;
+        if (!l) return empty;
+        const bills = l.sponsored != null
+            ? `<div class="compare-figure"><strong>${esc(l.sponsored)}</strong> <span>bills sponsored</span> · <strong>${esc(l.cosponsored)}</strong> <span>cosponsored</span></div>` : '';
+        const committees = (l.committees ?? []).length
+            ? `<ul class="compare-list">${l.committees.slice(0, 4).map(n => `<li>${esc(n)}</li>`).join('')}${l.committees.length > 4 ? `<li>+${l.committees.length - 4} more</li>` : ''}</ul>` : '';
+        return `${bills}${committees}${l.since_congress ? `<small>Since the ${esc(l.since_congress)}th Congress · Congress.gov</small>` : ''}` || empty;
+    };
+    const focus = c => (c.issue_focus ?? []).length
+        ? `<ul class="compare-chips">${c.issue_focus.map(t => `<li>${esc(t)}</li>`).join('')}</ul>` : empty;
     return `<section class="pol-compare">
         <p class="compare-eyebrow">ONE SEAT · SIDE BY SIDE</p>
         <h3>${esc(data.seat?.label || 'Compare candidates')}</h3>
@@ -55,16 +74,19 @@ export function renderComparison(data, selectedKeys = []) {
         </fieldset>
         ${selected.length ? `<p class="compare-scroll-hint">Scroll sideways to see every column.</p>
         <div class="compare-table-wrap" tabindex="0" role="region" aria-label="Side-by-side candidate comparison">
-            <table class="compare-table" style="min-width:${112 + selected.length * 205}px"><caption>Party, incumbency, and recorded policy positions for ${esc(data.seat?.label)}</caption>
+            <table class="compare-table" style="min-width:${112 + selected.length * 205}px"><caption>Party, incumbency, campaign finance, record, and recorded policy positions for ${esc(data.seat?.label)}</caption>
             <thead><tr><th scope="col">Compare</th>${selected.map(c => `<th scope="col">${esc(c.full_name)}</th>`).join('')}</tr></thead>
             <tbody>
                 ${row('Party', selected.map(c => esc(c.party || 'Not recorded')))}
                 ${row('Incumbency', selected.map(c => esc(c.incumbency || 'Not recorded')))}
                 ${row('Candidacy', selected.map(c => esc(c.candidacy || 'Not recorded')))}
+                ${row('Campaign finance', selected.map(finance))}
+                ${selected.some(c => c.legislation) ? row('Legislative record', selected.map(legislation)) : ''}
+                ${row('Issue focus', selected.map(focus))}
                 ${stanceRows || row('Policy positions', selected.map(() => empty))}
                 ${row('Record source', selected.map(c => `${sourceLink(c.profile_url, c.source_label || 'Public records')}<br><small>${esc(dateLabel(c.updated_at))}</small>`))}
             </tbody></table>
         </div>` : '<p class="compare-notice" role="status">Select a candidate above to start comparing.</p>'}
-        <p class="compare-note compare-footnote">Positions are published statements, not ratings. Matching topic headings are aligned; missing information does not imply support or opposition. Party and issue badges are never used to infer a position.</p>
+        <p class="compare-note compare-footnote">Positions are published statements, not ratings. Matching topic headings are aligned; missing information does not imply support or opposition. Issue focus lists the topics someone works on most, from bills, floor speeches, and news coverage; it is not a position. Party, money, and issue focus are never used to infer a stance.</p>
     </section>`;
 }

@@ -2045,6 +2045,13 @@ details.pd-section > summary:focus-visible { outline: 2px solid #a5b4fc; outline
 .compare-stance + .compare-stance { margin-top: 12px; padding-top: 10px; border-top: 1px solid #334155; }
 .compare-stance p { margin: 0 0 6px; white-space: pre-line; }
 .compare-missing { color: #a7b4c7; font-style: italic; }
+.compare-stance blockquote { margin: 0 0 6px; padding-left: 8px; border-left: 2px solid #818cf8; color: #cbd5e1; font-size: 12px; }
+.compare-figure { font-size: 13px; line-height: 1.6; }
+.compare-figure span { color: #a7b4c7; }
+.compare-figure strong { color: #f1f5f9; font-variant-numeric: tabular-nums; }
+.compare-list { margin: 6px 0; padding-left: 16px; font-size: 12px; line-height: 1.5; }
+.compare-chips { display: flex; flex-wrap: wrap; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.compare-chips li { padding: 2px 8px; border: 1px solid #475569; border-radius: 999px; font-size: 11px; color: #e2e8f0; background: rgba(99,102,241,.1); }
 .compare-footnote { font-size: 11px; margin: 12px 0 0; }
 .compare-retry { min-height: 44px; padding: 8px 16px; background: #4f46e5; color: white; border: 0; border-radius: 8px; cursor: pointer; }
 @media (max-width: 768px) {
