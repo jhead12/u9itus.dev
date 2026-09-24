@@ -38,7 +38,6 @@ use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
@@ -783,34 +782,7 @@ class PublicProfileController extends Controller
         if ($topicSlugs->isNotEmpty()) {
             $topicRows = PoliticianTopic::whereIn('slug', $topicSlugs)->where('is_active', true)->get()->keyBy('slug');
 
-            $query->where(function ($q) use ($topicSlugs, $topicRows) {
-                foreach ($topicSlugs as $slug) {
-                    // Match prose, not the slug: "public-safety" never appears in a bio.
-                    $topic = $topicRows->get($slug)?->name ?? str_replace('-', ' ', $slug);
-                    $q->orWhere('bio', 'like', '%'.$topic.'%')
-                        ->orWhereHas('campaigns', function ($cq) use ($topic) {
-                            $cq->where('approval_status', 'approved')
-                                ->where(function ($sq) use ($topic) {
-                                    $sq->where('title', 'like', '%'.$topic.'%')
-                                        ->orWhere('message_summary', 'like', '%'.$topic.'%');
-                                });
-                        })
-                        ->orWhereHas('initiatives', function ($iq) use ($topic) {
-                            $iq->where('is_published', true)
-                                ->where(function ($sq) use ($topic) {
-                                    $sq->where('title', 'like', '%'.$topic.'%')
-                                        ->orWhere('description', 'like', '%'.$topic.'%');
-                                });
-                        });
-
-                    // Structured badge match (self-declared + inferred discourse).
-                    if ($topicRow = $topicRows->get($slug)) {
-                        $q->orWhereHas('publicBadges', function ($bq) use ($topicRow) {
-                            $bq->where('topic_id', $topicRow->id);
-                        });
-                    }
-                }
-            });
+            $query->where(fn ($q) => $this->applyTopicFilter($q, $topicSlugs, $topicRows));
         }
 
         // Governance level filter
@@ -919,20 +891,14 @@ class PublicProfileController extends Controller
                 ->get(['id', 'slug', 'name', 'icon', 'badge_color']);
         });
 
-        // Profiles carrying each topic's public badge, so chips show how many
-        // results they lead to and empty topics can be hidden.
-        $topicCounts = Cache::remember('issues:directory-topic-counts', 300, function () {
-            return DB::table('profile_badges')
-                ->join('politicians', 'politicians.id', '=', 'profile_badges.badgeable_id')
-                ->where('profile_badges.badgeable_type', (new Politician)->getMorphClass())
-                ->where('profile_badges.is_public', true)
-                ->where('politicians.page_published', true)
-                ->where('politicians.is_active', true)
-                ->groupBy('profile_badges.topic_id')
-                ->selectRaw('profile_badges.topic_id, count(distinct profile_badges.badgeable_id) as total')
-                ->pluck('total', 'topic_id')
-                ->map(fn ($total) => (int) $total)
-                ->all();
+        // Profiles each chip's filter would return (the same match as ?topic=), so chips
+        // show how many results they lead to and issues with none are hidden.
+        $topicCounts = Cache::remember('issues:directory-topic-counts-v2', 600, function () use ($topics) {
+            return $topics->mapWithKeys(fn ($topic) => [$topic->id => Politician::query()
+                ->where('page_published', true)
+                ->where('is_active', true)
+                ->where(fn ($q) => $this->applyTopicFilter($q, collect([$topic->slug]), collect([$topic->slug => $topic])))
+                ->count()])->all();
         });
 
         $view = $useVoterLayout
@@ -951,6 +917,40 @@ class PublicProfileController extends Controller
             'topics',
             'topicCounts'
         ));
+    }
+
+    /**
+     * OR-matches politicians against topic slugs: a public badge for the topic, or its name
+     * in their bio, approved campaigns, or published initiatives.
+     */
+    protected function applyTopicFilter($q, Collection $topicSlugs, Collection $topicRows): void
+    {
+        foreach ($topicSlugs as $slug) {
+            // Match prose, not the slug: "public-safety" never appears in a bio.
+            $topic = $topicRows->get($slug)?->name ?? str_replace('-', ' ', $slug);
+            $q->orWhere('bio', 'like', '%'.$topic.'%')
+                ->orWhereHas('campaigns', function ($cq) use ($topic) {
+                    $cq->where('approval_status', 'approved')
+                        ->where(function ($sq) use ($topic) {
+                            $sq->where('title', 'like', '%'.$topic.'%')
+                                ->orWhere('message_summary', 'like', '%'.$topic.'%');
+                        });
+                })
+                ->orWhereHas('initiatives', function ($iq) use ($topic) {
+                    $iq->where('is_published', true)
+                        ->where(function ($sq) use ($topic) {
+                            $sq->where('title', 'like', '%'.$topic.'%')
+                                ->orWhere('description', 'like', '%'.$topic.'%');
+                        });
+                });
+
+            // Structured badge match (self-declared + inferred discourse).
+            if ($topicRow = $topicRows->get($slug)) {
+                $q->orWhereHas('publicBadges', function ($bq) use ($topicRow) {
+                    $bq->where('topic_id', $topicRow->id);
+                });
+            }
+        }
     }
 
     /**
