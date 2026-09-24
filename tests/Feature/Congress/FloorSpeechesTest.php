@@ -65,6 +65,7 @@ function recordFeeds(): void
 
     Http::fake([
         'api.govinfo.gov/packages/CREC-2025-07-15/mods*' => Http::response($mods),
+        'api.govinfo.gov/packages/CREC-2025-07-19/*' => Http::response(['message' => 'The requested resource does not exist.'], 400),
         'api.govinfo.gov/packages/*' => Http::response('', 404),
         'www.govinfo.gov/content/pkg/CREC-2025-07-15/html/CREC-2025-07-15-pt1-PgH3257-5.htm' => Http::response($debate),
     ]);

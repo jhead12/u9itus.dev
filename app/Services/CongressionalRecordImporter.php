@@ -227,7 +227,10 @@ class CongressionalRecordImporter
     {
         $response = Http::withHeaders(['User-Agent' => self::USER_AGENT])->timeout(60)->retry(2, 1000, throw: false)
             ->get("https://api.govinfo.gov/packages/{$packageId}/mods", ['api_key' => $this->apiKey]);
-        if ($response->status() === 404) {
+        // No issue that day (weekend, recess). GovInfo answers 400 "does not exist" here,
+        // not 404, so a missing day must not be reported as a failure.
+        if ($response->status() === 404
+            || ($response->status() === 400 && str_contains((string) $response->json('message'), 'does not exist'))) {
             return null;
         }
         if (! $response->successful()) {
