@@ -164,12 +164,15 @@
                     {{ $isEdit ? 'Update Post' : 'Save Draft' }}
                 </button>
 
-                @if($isEdit && $post->status->value !== 'published')
+                @php($needsApproval = $isEdit && \App\Http\Controllers\Standalone\PostController::requiresApproval($post))
+                @if($needsApproval && $post->status->value === 'pending_approval')
+                <p class="text-xs text-amber-300">Awaiting admin review. Verify your identity to publish future posts instantly.</p>
+                @elseif($isEdit && $post->status->value !== 'published')
                 <form id="publish-form" method="POST" action="{{ route($routePrefix . '.publish', $post) }}">
                     @csrf
                     <button type="submit"
                             class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-lg px-4 py-2.5 text-sm transition">
-                        Publish Now
+                        {{ $needsApproval ? 'Submit for Review' : 'Publish Now' }}
                     </button>
                 </form>
                 @endif

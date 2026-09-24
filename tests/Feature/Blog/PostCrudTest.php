@@ -49,9 +49,10 @@ it('allows a citizen to create a draft post', function (): void {
     expect($post->author_id)->toBe($citizen->id);
 });
 
-it('allows a citizen to publish a draft post', function (): void {
+it('allows an identity-verified citizen to publish a draft post', function (): void {
     $user = makeCitizenUser();
     $citizen = $user->citizen;
+    $citizen->update(['verified_at' => now()]);
 
     $post = Post::factory()->create([
         'author_type' => Citizen::class,
@@ -65,6 +66,26 @@ it('allows a citizen to publish a draft post', function (): void {
     $post->refresh();
     expect($post->status->value)->toBe(PostStatus::Published->value);
     expect($post->published_at)->not->toBeNull();
+});
+
+it('sends an unverified citizen publish to admin review instead of going live', function (): void {
+    $user = makeCitizenUser();
+
+    $post = Post::factory()->create([
+        'author_type' => Citizen::class,
+        'author_id' => $user->citizen->id,
+        'status' => PostStatus::Draft,
+    ]);
+
+    $this->actingAs($user)->post(route('citizen.posts.publish', $post))->assertRedirect();
+
+    $post->refresh();
+    expect($post->status->value)->toBe(PostStatus::PendingApproval->value);
+    expect($post->published_at)->toBeNull();
+
+    // Pressing publish again must not bypass review.
+    $this->actingAs($user)->post(route('citizen.posts.publish', $post))->assertRedirect();
+    expect($post->refresh()->status->value)->toBe(PostStatus::PendingApproval->value);
 });
 
 it('prevents one citizen from editing another citizen post', function (): void {
