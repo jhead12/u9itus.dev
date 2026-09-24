@@ -233,6 +233,9 @@
             @if(isset($topics) && $topics->isNotEmpty())
                 @php
                     $activeTopics = collect(explode(',', (string) request('topic', '')))->map(fn ($t) => trim($t))->filter()->values();
+                    // Issues with no matching profile are hidden, so drop them from the selection too.
+                    $emptyTopics = $topics->filter(fn ($t) => ($topicCounts[$t->id] ?? 0) === 0)->pluck('slug');
+                    $activeTopics = $activeTopics->diff($emptyTopics)->values();
                     $baseQuery = collect(request()->only(['q', 'district', 'level', 'state', 'party', 'sort', 'unclaimed']))->filter();
 
                     // Topic badge_color is admin-configured and arbitrary, so raw
@@ -297,8 +300,7 @@
                             $color = $topic->badge_color ?: '#6366f1';
                             $textColor = $readableAccent($color);
                         @endphp
-                        {{-- Hide issues no profile carries yet (all shown until badges exist). --}}
-                        @continue(! $isActive && ! empty($topicCounts) && $topicCount === 0)
+                        @continue($topicCount === 0)
                         <form method="GET" action="{{ route('politicians.directory') }}#results" class="flex-shrink-0">
                             @foreach($chipQuery as $name => $value)
                                 <input type="hidden" name="{{ $name }}" value="{{ $value }}">

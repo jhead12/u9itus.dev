@@ -167,6 +167,15 @@ it('filters the directory by topic name in prose and counts badged profiles per 
     $html = $this->get('/politicians')->assertOk()->getContent();
     expect($html)->toContain('aria-label="1 profile"')
         ->and($html)->toContain('the Healthcare filter')
+        // A bio mention counts too: the chip leads to the same results as the filter.
+        ->and($html)->toContain('the Public Safety filter')
         // No profile carries Gun Control yet, so its chip is hidden.
         ->and($html)->not->toContain('the Gun Control filter');
+
+    // Even when selected, an issue with no profiles is hidden and dropped from chip links.
+    $html = $this->get('/politicians?topic=gun-control,healthcare')->assertOk()->getContent();
+    expect($html)->not->toContain('the Gun Control filter')
+        ->and($html)->toContain('Remove the Healthcare filter')
+        // Adding Public Safety keeps Healthcare and leaves the empty Gun Control out.
+        ->and($html)->toContain('<input type="hidden" name="topic" value="healthcare,public-safety">');
 });

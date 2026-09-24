@@ -162,6 +162,8 @@ test('invalid and first pagination values do not create canonical variants', fun
 test('issue filters use GET forms without advertising topic combinations as links', function () {
     PoliticianTopic::create(['name' => 'Housing', 'slug' => 'housing', 'is_active' => true, 'sort_order' => 1]);
     PoliticianTopic::create(['name' => 'Schools', 'slug' => 'schools', 'is_active' => true, 'sort_order' => 2]);
+    // Issues with no matching profile are hidden, so give both chips one.
+    Politician::factory()->create(['bio' => 'Working on housing and schools.', 'page_published' => true, 'is_active' => true]);
     $document = seoDocument($this->get('/politicians?topic=schools&state=CA&page=2')->assertOk()->getContent());
     $group = '//div[@aria-label="Filter by issue"]';
     expect($document->query($group.'//a[contains(@href, "topic=")]')->length)->toBe(0);

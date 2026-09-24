@@ -170,6 +170,9 @@
             @if(isset($topics) && $topics->isNotEmpty())
                 @php
                     $activeTopics = collect(explode(',', (string) request('topic', '')))->map(fn ($t) => trim($t))->filter()->values();
+                    // Issues with no matching profile are hidden, so drop them from the selection too.
+                    $emptyTopics = $topics->filter(fn ($t) => ($topicCounts[$t->id] ?? 0) === 0)->pluck('slug');
+                    $activeTopics = $activeTopics->diff($emptyTopics)->values();
                     $baseQuery = collect(request()->only(['q', 'district', 'level', 'state', 'party', 'sort', 'unclaimed']))->filter();
                 @endphp
                 <div class="flex flex-nowrap items-center gap-1.5 mt-3 overflow-x-auto -mx-4 px-4 pb-2" role="group" aria-label="Filter by issue">
@@ -187,8 +190,7 @@
                             $chipQuery = $newTopics->isEmpty() ? $baseQuery->toArray() : $baseQuery->put('topic', $newTopics->implode(','))->toArray();
                             $color = $topic->badge_color ?: '#6366f1';
                         @endphp
-                        {{-- Hide issues no profile carries yet (all shown until badges exist). --}}
-                        @continue(! $isActive && ! empty($topicCounts) && $topicCount === 0)
+                        @continue($topicCount === 0)
                         <a href="{{ route('politicians.directory', $chipQuery) }}#results"
                            class="flex-shrink-0 inline-flex items-center justify-center gap-x-1 min-h-6 rounded-full px-2.5 py-1 text-[10px] font-semibold border transition-all hover:brightness-125 whitespace-nowrap {{ $isActive ? 'ring-2 ring-offset-1 ring-offset-slate-900' : '' }}"
                            style="color:{{ $color }};border-color:{{ $color }}40;background-color:{{ $color }}1a;--tw-ring-color:{{ $color }};"
