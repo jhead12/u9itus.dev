@@ -137,12 +137,18 @@ test('a surname alone resolves to the sitting official of that office in the sta
     expect(PoliticianEndorsement::where('politician_id', $jane->id)->value('endorser_name'))->toBe('Gavin Newsom');
 });
 
-test('the profile page lists each endorser by name with a link to the article', function () {
+test('the profile page lists each confirmed endorser by name with a link to the article', function () {
     $jane = seedEndorsementPolitician('Jane Smith');
     $article = seedEndorsementArticle($jane, 'Governor Gavin Newsom endorses Jane Smith');
     $article->update(['source_name' => 'CalMatters']);
 
     Artisan::call('candidates:detect-endorsements', ['--limit' => 10]);
+
+    // Detected rows wait for an editor; only confirmed ones are public.
+    $this->get('/p/'.$jane->slug)->assertOk()->assertDontSee('Read on CalMatters');
+
+    PoliticianEndorsement::where('politician_id', $jane->id)->update(['status' => PoliticianEndorsement::STATUS_CONFIRMED]);
+    Cache::flush();
 
     $this->get('/p/'.$jane->slug)
         ->assertOk()
