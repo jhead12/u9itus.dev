@@ -180,6 +180,8 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
 
         Route::get('/map/candidate-comparison', \App\Http\Controllers\Api\MapCandidateComparisonController::class)
             ->name('map.candidate-comparison');
+        Route::get('/map/candidate-races', [\App\Http\Controllers\Api\MapCandidateComparisonController::class, 'races'])
+            ->name('map.candidate-races');
 
         Route::get('/map/candidate-overview', MapCandidateOverviewController::class)
             ->name('map.candidate-overview');

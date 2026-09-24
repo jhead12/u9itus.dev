@@ -51,3 +51,30 @@ test('shows finance, record, and issue focus without treating focus as a positio
     const plain = renderComparison(fixture(), ['a']);
     assert.ok(!plain.includes('Legislative record'));
 });
+
+test('research view aligns topic headings and keeps missing positions explicit', () => {
+    const data = fixture();
+    data.election = null;
+    data.candidates[0].stances = [{ topic: 'Housing', text: 'Build homes', source_url: 'https://example.com/a' }];
+    data.candidates[1].stances = [{ topic: ' housing ', text: 'Repair homes', source_url: 'https://example.com/b' }];
+    const html = renderComparison(data, ['a', 'b', 'c'], { basic: true });
+    assert.equal((html.match(/<th scope="row">Housing<\/th>/g) || []).length, 1);
+    assert.match(html, /No upcoming election is confirmed/);
+    assert.match(html, /Not recorded/);
+    assert.ok(!html.includes('<th scope="row">Campaign finance</th>'));
+});
+test('comparison table shows recent coverage and press releases separately, with safe links and no tone', () => {
+    const data = { seat: { label: 'U.S. House · CA-03' }, candidates: [
+        { key: 'a', full_name: 'Alex Rivera', news: { coverage: [{ headline: 'Rivera <b>profile</b>', source_name: 'Daily News', source_url: 'javascript:alert(1)', published_at: '2026-09-01' }], press_releases: [] } },
+        { key: 'b', full_name: 'Jamie Carter', news: { coverage: [], press_releases: [{ headline: 'Carter statement', source_name: 'Carter campaign', source_url: 'https://carter.example.com/p', published_at: '2026-09-10' }] } },
+    ] };
+    const html = renderComparison(data, ['a', 'b'], { basic: true });
+    assert.match(html, /Recent news coverage/);
+    assert.match(html, /Candidate press releases/);
+    assert.match(html, /Rivera &lt;b&gt;profile&lt;\/b&gt;/);
+    assert.doesNotMatch(html, /javascript:/);
+    assert.match(html, /href="https:\/\/carter\.example\.com\/p"/);
+    assert.match(html, /None recorded in the last year/);
+    assert.match(html, /do not rate coverage as positive or negative/);
+    assert.doesNotMatch(renderComparison({ ...data, candidates: data.candidates.map(({ news, ...c }) => c) }, ['a', 'b']), /Recent news coverage/);
+});

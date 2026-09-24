@@ -25,7 +25,7 @@ export function initialComparisonSelection(data) {
     return [anchor?.key, candidates.find(c => c.key !== anchor?.key)?.key].filter(Boolean);
 }
 
-export function renderComparison(data, selectedKeys = []) {
+export function renderComparison(data, selectedKeys = [], options = {}) {
     const candidates = data?.candidates ?? [];
     if (!candidates.length) {
         return `<section class="pol-compare"><h3>Compare this seat</h3><p class="compare-note">${esc(data?.message || 'No comparison data is available for this seat yet.')}</p></section>`;
@@ -61,32 +61,52 @@ export function renderComparison(data, selectedKeys = []) {
             ? `<ul class="compare-list">${l.committees.slice(0, 4).map(n => `<li>${esc(n)}</li>`).join('')}${l.committees.length > 4 ? `<li>+${l.committees.length - 4} more</li>` : ''}</ul>` : '';
         return `${bills}${committees}${l.since_congress ? `<small>Since the ${esc(l.since_congress)}th Congress · Congress.gov</small>` : ''}` || empty;
     };
+    // Reporting and press releases are listed as found, newest first; tone is never rated.
+    const hasNews = selected.some(c => c.news);
+    const articles = list => (list ?? []).length
+        ? `<ul class="compare-news">${list.map(a => `<li>${sourceLink(a.source_url, a.headline)}<small>${esc([a.source_name, dateLabel(a.published_at).replace('Updated ', '')].filter(Boolean).join(' · '))}</small></li>`).join('')}</ul>`
+        : '<span class="compare-missing">None recorded in the last year</span>';
     const focus = c => (c.issue_focus ?? []).length
         ? `<ul class="compare-chips">${c.issue_focus.map(t => `<li>${esc(t)}</li>`).join('')}</ul>` : empty;
     return `<section class="pol-compare">
         <p class="compare-eyebrow">ONE SEAT · SIDE BY SIDE</p>
         <h3>${esc(data.seat?.label || 'Compare candidates')}</h3>
-        ${data.election?.date ? `<p class="compare-notice">${esc(data.election.stage)} · ${esc(data.election.date)}</p>` : ''}
+        ${data.election?.date ? `<p class="compare-notice">${esc(data.election.stage)} · ${esc(data.election.date)}</p>` : options.basic ? '<p class="compare-notice">No upcoming election is confirmed for this seat.</p>' : ''}
         <p class="compare-note">Choose up to three people. A current officeholder may not be running in the next election.</p>
         ${data.message ? `<p class="compare-notice" role="status">${esc(data.message)}</p>` : ''}
         <fieldset class="compare-picker"><legend>Candidates <span>(${selected.length}/3 selected)</span></legend>
-            ${candidates.map(c => `<label><input type="checkbox" data-compare-key="${esc(c.key)}" ${selectedKeys.includes(c.key) ? 'checked' : selected.length >= 3 ? 'disabled' : ''}><span>${esc(c.full_name)}</span></label>`).join('')}
+            ${candidates.map(c => `<label><input type="checkbox" data-compare-key="${esc(c.key)}" ${selectedKeys.includes(c.key) ? 'checked' : selectedKeys.length >= 3 ? 'disabled' : ''}><span>${esc(c.full_name)}</span></label>`).join('')}
         </fieldset>
         ${selected.length ? `<p class="compare-scroll-hint">Scroll sideways to see every column.</p>
         <div class="compare-table-wrap" tabindex="0" role="region" aria-label="Side-by-side candidate comparison">
-            <table class="compare-table" style="min-width:${112 + selected.length * 205}px"><caption>Party, incumbency, campaign finance, record, and recorded policy positions for ${esc(data.seat?.label)}</caption>
+            <table class="compare-table" style="min-width:${112 + selected.length * 205}px"><caption>Party, incumbency, ${options.basic ? '' : 'campaign finance, record, and '}recorded policy positions for ${esc(data.seat?.label)}</caption>
             <thead><tr><th scope="col">Compare</th>${selected.map(c => `<th scope="col">${esc(c.full_name)}</th>`).join('')}</tr></thead>
             <tbody>
                 ${row('Party', selected.map(c => esc(c.party || 'Not recorded')))}
                 ${row('Incumbency', selected.map(c => esc(c.incumbency || 'Not recorded')))}
                 ${row('Candidacy', selected.map(c => esc(c.candidacy || 'Not recorded')))}
-                ${row('Campaign finance', selected.map(finance))}
-                ${selected.some(c => c.legislation) ? row('Legislative record', selected.map(legislation)) : ''}
-                ${row('Issue focus', selected.map(focus))}
+                ${options.basic ? '' : row('Campaign finance', selected.map(finance))}
+                ${!options.basic && selected.some(c => c.legislation) ? row('Legislative record', selected.map(legislation)) : ''}
+                ${options.basic ? '' : row('Issue focus', selected.map(focus))}
                 ${stanceRows || row('Policy positions', selected.map(() => empty))}
+                ${hasNews ? row('Recent news coverage', selected.map(c => articles(c.news?.coverage))) : ''}
+                ${hasNews ? row('Candidate press releases', selected.map(c => articles(c.news?.press_releases))) : ''}
                 ${row('Record source', selected.map(c => `${sourceLink(c.profile_url, c.source_label || 'Public records')}<br><small>${esc(dateLabel(c.updated_at))}</small>`))}
             </tbody></table>
         </div>` : '<p class="compare-notice" role="status">Select a candidate above to start comparing.</p>'}
-        <p class="compare-note compare-footnote">Positions are published statements, not ratings. Matching topic headings are aligned; missing information does not imply support or opposition. Issue focus lists the topics someone works on most, from bills, floor speeches, and news coverage; it is not a position. Party, money, and issue focus are never used to infer a stance.</p>
+        <p class="compare-note compare-footnote">Positions are published statements, not ratings. Matching topic headings are aligned; missing information does not imply support or opposition. ${options.basic ? '' : 'Issue focus lists the topics someone works on most, from bills, floor speeches, and news coverage; it is not a position. '}Party, money, and issue focus are never used to infer a stance.${hasNews ? ' News coverage is reporting about a candidate, not their position; press releases are written by the candidate or their office. We do not rate coverage as positive or negative.' : ''}</p>
     </section>`;
+}
+
+/** A public deep link using only the resolved seat and explicit selections. */
+export function comparisonPageUrl(data, selectedKeys = []) {
+    if (!data?.seat?.state) return null;
+    const params = new URLSearchParams();
+    for (const key of ['state', 'office', 'district', 'city']) {
+        if (data.seat[key]) params.set(key, data.seat[key]);
+    }
+    // Statewide and local seats currently require an anchor name.
+    if (!data.seat.district) params.set('full_name', data.candidates?.[0]?.full_name || data.anchor_name || '');
+    if (selectedKeys.length) params.set('selected', selectedKeys.join(','));
+    return `/compare?${params}`;
 }

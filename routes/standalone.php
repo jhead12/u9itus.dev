@@ -61,6 +61,10 @@ use App\Http\Controllers\Standalone\IdmeController;
 use App\Http\Controllers\Standalone\TwoFactorController;
 use Illuminate\Support\Facades\Route;
 
+Route::get('/compare', [\App\Http\Controllers\Standalone\ComparisonController::class, 'index'])->name('candidates.compare');
+Route::get('/compare/glossary', [\App\Http\Controllers\Standalone\ComparisonController::class, 'glossary'])->name('candidates.compare.glossary');
+Route::get('/compare/qr', [\App\Http\Controllers\Standalone\ComparisonController::class, 'qr'])->middleware('throttle:60,1')->name('candidates.compare.qr');
+
 /*
 |--------------------------------------------------------------------------
 | Guest Routes (Authentication)

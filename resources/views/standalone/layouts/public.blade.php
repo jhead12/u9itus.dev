@@ -47,6 +47,7 @@
             </a>
             <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
                 <a href="{{ route('blog.index') }}" class="text-sm text-slate-300 hover:text-white transition">Blog</a>
+                <a href="{{ route('candidates.compare') }}" class="text-sm text-slate-300 hover:text-white transition">Compare</a>
                 <a href="{{ route('us.map') }}" class="text-sm text-slate-300 hover:text-white transition">Map</a>
                 <a href="{{ route('politicians.directory') }}" class="text-sm text-slate-300 hover:text-white transition">Politicians</a>
                 @auth

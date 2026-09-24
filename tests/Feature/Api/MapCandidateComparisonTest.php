@@ -210,3 +210,124 @@ test('an odd-year state election does not establish a regular House election', f
     \App\Models\StateElectionDate::query()->update(['election_year' => 2027, 'election_date' => '2027-11-02']);
     $this->getJson(comparisonUrl($p))->assertOk()->assertJsonPath('available', false);
 });
+
+test('research comparison is year round while the default remains election gated', function () {
+    $p = comparisonProfile('Jamie Carter', 'CA-03');
+    comparisonProfile('Alex Rivera', 'CA-03');
+    $this->travelTo(\Carbon\Carbon::parse('2026-01-01'));
+    $this->getJson(comparisonUrl($p))->assertOk()->assertJsonPath('available', false);
+    $this->getJson(comparisonUrl($p, ['context' => 'research']))->assertOk()
+        ->assertJsonPath('available', true)->assertJsonCount(2, 'candidates')
+        ->assertJsonPath('seat.district', 'CA-03')->assertJsonPath('election.date', '2026-11-03');
+});
+
+test('research comparison works without an election and excludes other seats and former records', function () {
+    $p = comparisonProfile('Jamie Carter', 'CA-03');
+    comparisonProfile('Alex Rivera', 'CA-03');
+    comparisonProfile('Morgan Parker', 'CA-04');
+    comparisonProfile('Robin Nelson', 'CA-03', ['term_status' => 'former']);
+    \App\Models\StateElectionDate::query()->delete();
+    $this->getJson(comparisonUrl($p, ['context' => 'research']))->assertOk()
+        ->assertJsonPath('available', true)->assertJsonPath('election', null)->assertJsonCount(2, 'candidates');
+});
+
+test('research context retains publication restrictions', function () {
+    $p = comparisonProfile('Jamie Carter', 'CA-03', ['page_published' => false]);
+    $p->initiatives()->create(['title' => 'Housing', 'description' => 'Private statement', 'is_published' => true]);
+    $response = $this->getJson(comparisonUrl($p, ['context' => 'research']))->assertOk();
+    $response->assertDontSee('Private statement');
+});
+
+test('comparison rejects unknown context values', function () {
+    $p = comparisonProfile('Jamie Carter', 'CA-03');
+    $this->getJson(comparisonUrl($p, ['context' => 'unknown']))->assertUnprocessable();
+});
+
+test('research refuses ambiguous names and senate pools without seat identifiers', function () {
+    $p = comparisonProfile('Jamie Carter', 'CA-03');
+    comparisonProfile('Jamie Carter', 'CA-04', ['slug' => 'jamie-carter-other']);
+    $this->getJson('/api/v1/map/candidate-comparison?state=CA&full_name=Jamie%20Carter&context=research')
+        ->assertOk()->assertJsonPath('available', false)->assertJsonPath('seat', null);
+    $senator = comparisonProfile('Alex Rivera', '', ['political_office' => 'U.S. Senator']);
+    $this->getJson(comparisonUrl($senator, ['context' => 'research']))->assertOk()
+        ->assertJsonPath('available', false)->assertJsonCount(0, 'candidates');
+});
+
+test('research keeps a resolved seat available after a shared anchor disappears', function () {
+    comparisonProfile('Alex Rivera', 'CA-03');
+    $this->getJson('/api/v1/map/candidate-comparison?state=CA&district=CA-03&full_name=Missing%20Person&context=research')
+        ->assertOk()->assertJsonPath('available', true)->assertJsonPath('selected_key', null)->assertJsonCount(1, 'candidates');
+});
+
+test('research resolves the district formats offered by public search', function (string $district) {
+    $p = comparisonProfile('Jamie Carter', 'CA-03');
+    comparisonProfile('Alex Rivera', 'CA-03');
+    $this->getJson(comparisonUrl($p, ['context' => 'research', 'district' => $district]))
+        ->assertOk()->assertJsonPath('seat.district', 'CA-03')->assertJsonCount(2, 'candidates');
+})->with(['District 3', 'CD-03', 'CD 3', 'CA-03']);
+
+test('races lists only seats with running candidates, ready to open with them selected', function () {
+    $carter = comparisonProfile('Jamie Carter', 'CA-03');
+    $rivera = comparisonProfile('Alex Rivera', 'CA-3', ['party_affiliation' => 'Republican']);
+    comparisonProfile('Taylor Morgan', 'CA-04', ['term_status' => 'seated', 'is_running_candidate' => false]);
+    comparisonProfile('Jordan Baker', 'CA-03', ['term_status' => 'lost']);
+    $governor = ['political_office' => 'Governor', 'governance_level' => 'State', 'district' => null];
+    $incumbent = comparisonProfile('Morgan Parker', '', $governor + ['term_status' => 'seated', 'is_running_candidate' => false, 'party_affiliation' => null]);
+    \App\Models\ElectionCandidateRecord::create(['source' => 'ballotpedia', 'external_candidate_id' => 'parker-gov', 'full_name' => $incumbent->full_name,
+        'state' => 'CA', 'political_office' => 'Governor', 'governance_level' => 'State', 'party_affiliation' => 'Green', 'election_date' => '2026-11-03']);
+
+    $races = $this->getJson('/api/v1/map/candidate-races?state=CA')->assertOk()->json('races');
+
+    expect(array_column($races, 'label'))->toBe(['Governor · CA', 'U.S. House · CA-03'])
+        ->and($races[0]['election'])->toBe(['date' => '2026-11-03', 'stage' => 'Election'])
+        ->and($races[0]['running'])->toBe([['key' => 'profile:'.$incumbent->id, 'full_name' => 'Morgan Parker', 'party' => 'Green']])
+        ->and($races[0]['params'])->toMatchArray(['state' => 'CA', 'office' => 'Governor', 'full_name' => 'Morgan Parker'])
+        ->and($races[1]['election'])->toBe(['date' => '2026-11-03', 'stage' => 'General'])
+        ->and(array_column($races[1]['running'], 'full_name'))->toBe(['Alex Rivera', 'Jamie Carter'])
+        ->and($races[1]['params'])->toBe(['state' => 'CA', 'office' => 'U.S. Representative', 'district' => 'CA-03',
+            'selected' => 'profile:'.$rivera->id.',profile:'.$carter->id]);
+
+    // The race's params open the same seat and selection on the comparison endpoint.
+    $params = $races[1]['params'];
+    unset($params['selected']);
+    $keys = array_column($this->getJson('/api/v1/map/candidate-comparison?'.http_build_query($params + ['context' => 'research']))->json('candidates'), 'key');
+    expect($keys)->toContain('profile:'.$rivera->id, 'profile:'.$carter->id);
+    $this->getJson('/api/v1/map/candidate-races?state=XX')->assertUnprocessable();
+});
+
+test('races include House challengers from candidate filings the map already vouches for, but not eliminated ones', function () {
+    comparisonProfile('Jamie Carter', 'CA-03', ['term_status' => 'seated', 'is_running_candidate' => false]);
+    foreach ([['Alex Rivera', 'advanced_to_general'], ['Morgan Parker', 'eliminated']] as [$name, $result]) {
+        \App\Models\ElectionCandidateRecord::create(['source' => 'ballotpedia', 'external_candidate_id' => $name, 'full_name' => $name, 'state' => 'CA',
+            'political_office' => 'U.S. Representative', 'governance_level' => 'Federal', 'district' => 'CA-03',
+            'party_affiliation' => 'Independent', 'election_date' => '2026-11-03', 'payload' => ['primary_result' => $result]]);
+    }
+    $races = $this->getJson('/api/v1/map/candidate-races?state=CA')->assertOk()->json('races');
+    expect($races)->toHaveCount(1)
+        ->and(array_column($races[0]['running'], 'full_name'))->toBe(['Alex Rivera'])
+        ->and($races[0]['running'][0]['key'])->toStartWith('record:');
+});
+
+test('comparison lists each profile\'s latest verified coverage and press releases, never rejected, stale, archive, or name-only matches', function () {
+    $carter = comparisonProfile('Jamie Carter', 'CA-03');
+    $rivera = comparisonProfile('Alex Rivera', 'CA-03');
+    $article = fn (array $a) => \App\Models\CandidateNewsArticle::create(array_merge([
+        'politician_id' => $carter->id, 'candidate_name' => 'Jamie Carter', 'source_name' => 'Daily News', 'provider' => 'google_news',
+        'content_type' => 'news', 'verification_status' => 'verified', 'published_at' => '2026-09-01', 'source_hash' => md5(json_encode($a)),
+    ], $a));
+    foreach (range(1, 4) as $day) $article(['headline' => "Carter story $day - Daily News", 'source_url' => "https://news.example.com/$day", 'published_at' => "2026-09-0$day"]);
+    $article(['headline' => 'Carter statement', 'source_name' => 'Carter campaign', 'source_url' => 'https://carter.example.com/p', 'content_type' => 'press_release']);
+    $article(['headline' => 'Rejected match', 'source_url' => 'https://news.example.com/rejected', 'verification_status' => 'rejected', 'published_at' => '2026-09-18']);
+    $article(['headline' => 'Old story', 'source_url' => 'https://news.example.com/old', 'published_at' => '2025-01-01']);
+    $article(['headline' => 'Jamie Carter Archives', 'source_url' => 'https://news.example.com/tag', 'published_at' => '2026-09-18']);
+    $article(['headline' => 'Jamie Carter Archives - Daily News', 'source_url' => 'https://news.example.com/tag2', 'published_at' => '2026-09-18']);
+    $article(['headline' => 'Press Release: Carter backs bill', 'source_name' => 'Aggregator', 'source_url' => 'https://agg.example.com/r', 'published_at' => '2026-09-17']);
+    $article(['headline' => 'Carter backs bill', 'source_name' => 'Carter campaign', 'source_url' => 'https://carter.example.com/r2', 'content_type' => 'press_release', 'published_at' => '2026-09-16']);
+    $article(['politician_id' => null, 'candidate_name' => 'Alex Rivera', 'headline' => 'Another Alex Rivera', 'source_url' => 'https://news.example.com/other']);
+
+    $candidates = collect($this->getJson(comparisonUrl($carter, ['context' => 'research']))->assertOk()->json('candidates'))->keyBy('full_name');
+    expect(array_column($candidates['Jamie Carter']['news']['coverage'], 'headline'))->toBe(['Carter story 4', 'Carter story 3', 'Carter story 2'])
+        ->and($candidates['Jamie Carter']['news']['coverage'][0])->toBe(['headline' => 'Carter story 4', 'source_name' => 'Daily News', 'source_url' => 'https://news.example.com/4', 'published_at' => '2026-09-04'])
+        ->and(array_column($candidates['Jamie Carter']['news']['press_releases'], 'headline'))->toBe(['Press Release: Carter backs bill', 'Carter statement'])
+        ->and($candidates['Alex Rivera']['news'])->toBe(['coverage' => [], 'press_releases' => []]);
+});

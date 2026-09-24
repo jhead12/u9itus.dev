@@ -222,6 +222,8 @@ async function loadOverviewEnrichment(cand) {
 
 async function loadCandidateComparison() {
     const context = _polCtx;
+    const fullComparison = document.getElementById('pol-full-comparison');
+    if (fullComparison) fullComparison.hidden = true;
     if (!context || context.extra?.isCityView) return;
     comparisonAbort?.abort();
     const controller = new AbortController();
@@ -242,6 +244,10 @@ async function loadCandidateComparison() {
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
         if (_polCtx !== context || comparisonAbort !== controller) return;
+        if (fullComparison && data.seat) {
+            fullComparison.href = `/compare?${params}`;
+            fullComparison.hidden = false;
+        }
         const compareTab = document.getElementById('pol-tab-compare');
         if (compareTab) compareTab.hidden = data.available !== true;
         if (data.available !== true && _polTab === 'compare') {
@@ -1210,6 +1216,12 @@ export function initPolDrawer() {
         if (input.checked && selected.size < 3) selected.add(input.dataset.compareKey);
         else selected.delete(input.dataset.compareKey);
         _polCtx.extra.comparisonSelected = [...selected];
+        const fullLink = document.getElementById('pol-full-comparison');
+        if (fullLink && !fullLink.hidden) {
+            const url = new URL(fullLink.href);
+            url.searchParams.set('selected', [...selected].join(','));
+            fullLink.href = url.href;
+        }
         _renderPolBody();
         [...polBodyEl.querySelectorAll('[data-compare-key]')]
             .find(el => el.dataset.compareKey === input.dataset.compareKey)?.focus();

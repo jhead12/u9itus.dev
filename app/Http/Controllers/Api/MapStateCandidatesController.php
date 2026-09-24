@@ -966,32 +966,6 @@ class MapStateCandidatesController
      */
     private function officeRoles(): array
     {
-        return [
-            'U.S. Senators' =>
-                'U.S. Senators represent the entire state in the U.S. Senate, serving 6-year ' .
-                'terms. Each state elects two, who vote on federal legislation, confirm ' .
-                'presidential nominees, and ratify treaties.',
-            'Governor' =>
-                'The Governor is the chief executive of the state. They sign or veto legislation, ' .
-                'command the state National Guard, and oversee all executive state agencies.',
-            'Lieutenant Governor' =>
-                'The Lieutenant Governor acts as second-in-command to the Governor, presides over ' .
-                'the state senate in many states, and assumes the governorship if needed.',
-            'Attorney General' =>
-                'The Attorney General is the state\'s chief law-enforcement officer and top legal ' .
-                'advisor, representing the state in litigation and leading consumer-protection efforts.',
-            'State Treasurer' =>
-                'The State Treasurer manages the state\'s financial assets, oversees investments of ' .
-                'public funds, and is responsible for debt management and cash flow.',
-            'State Controller' =>
-                'The State Controller (or Comptroller) audits state spending, issues warrants for ' .
-                'payments from the state treasury, and oversees accounting of public funds.',
-            'Secretary of State' =>
-                'The Secretary of State manages elections, maintains official state records and ' .
-                'business filings, and certifies election results.',
-            'Other Statewide' =>
-                'Other statewide executive offices vary by state and may include commissioners, ' .
-                'auditors, and other elected or appointed officials.',
-        ];
+        return \App\Support\OfficeGlossary::statewideRoles();
     }
 }

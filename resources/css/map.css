@@ -2050,6 +2050,8 @@ details.pd-section > summary:focus-visible { outline: 2px solid #a5b4fc; outline
 .compare-figure span { color: #a7b4c7; }
 .compare-figure strong { color: #f1f5f9; font-variant-numeric: tabular-nums; }
 .compare-list { margin: 6px 0; padding-left: 16px; font-size: 12px; line-height: 1.5; }
+.compare-news { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; font-size: 12px; line-height: 1.45; }
+.compare-news small { display: block; margin-top: 2px; color: #a7b4c7; }
 .compare-chips { display: flex; flex-wrap: wrap; gap: 4px; margin: 0; padding: 0; list-style: none; }
 .compare-chips li { padding: 2px 8px; border: 1px solid #475569; border-radius: 999px; font-size: 11px; color: #e2e8f0; background: rgba(99,102,241,.1); }
 .compare-footnote { font-size: 11px; margin: 12px 0 0; }
