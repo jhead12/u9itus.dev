@@ -151,6 +151,71 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
                     </svg>
                 </a>
+                {{-- Public share: anyone can share the plain profile link. Voters
+                     with a referral code get the referral toolbar instead. --}}
+                @unless($showReferralShareModal)
+                    @php
+                        $publicShareText = "Check out {$politician->full_name} on U9itus";
+                    @endphp
+                    <div id="public-share" class="relative"
+                         x-data="{
+                             open: false,
+                             copied: false,
+                             async share() {
+                                 if (navigator.share) {
+                                     try {
+                                         await navigator.share({ title: @js($ogTitle), text: @js($publicShareText), url: @js($ogUrl) });
+                                         return;
+                                     } catch (e) {
+                                         if (e && e.name === 'AbortError') return;
+                                     }
+                                 }
+                                 this.open = !this.open;
+                             },
+                             async copy() {
+                                 try {
+                                     await navigator.clipboard.writeText(@js($ogUrl));
+                                 } catch (e) {
+                                     this.$refs.link.select();
+                                     document.execCommand('copy');
+                                 }
+                                 this.copied = true;
+                                 setTimeout(() => this.copied = false, 1800);
+                             }
+                         }"
+                         @keydown.escape.window="open = false"
+                         @click.outside="open = false">
+                        <button type="button" @click="share()"
+                                :aria-expanded="open.toString()" aria-haspopup="true"
+                                aria-label="Share this profile"
+                                class="inline-flex items-center gap-1.5 text-sm text-slate-300 hover:text-white transition">
+                            <svg class="w-5 h-5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12s-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/>
+                            </svg>
+                            <span class="hidden sm:inline">Share</span>
+                        </button>
+                        <div x-show="open" x-cloak x-transition.opacity
+                             class="absolute right-0 mt-2 w-64 rounded-xl border border-slate-700 bg-slate-900 shadow-xl shadow-black/40 p-3 space-y-2">
+                            <div class="flex items-center gap-2">
+                                <input x-ref="link" type="text" readonly value="{{ $ogUrl }}" aria-label="Profile link"
+                                       class="w-full min-w-0 bg-slate-800 border border-slate-700 text-slate-200 text-xs rounded-lg px-2 py-1.5">
+                                <button type="button" @click="copy()"
+                                        class="p13-btn-primary text-xs font-semibold px-2.5 py-1.5 rounded-lg whitespace-nowrap"
+                                        x-text="copied ? 'Copied!' : 'Copy'">Copy</button>
+                            </div>
+                            <div class="grid grid-cols-2 gap-1.5 text-xs font-medium">
+                                <a href="https://twitter.com/intent/tweet?text={{ rawurlencode($publicShareText) }}&url={{ rawurlencode($ogUrl) }}" target="_blank" rel="noopener noreferrer"
+                                   class="px-2.5 py-1.5 rounded-lg border border-slate-700 text-slate-200 hover:text-white hover:border-slate-500 transition">X</a>
+                                <a href="https://www.facebook.com/sharer/sharer.php?u={{ rawurlencode($ogUrl) }}" target="_blank" rel="noopener noreferrer"
+                                   class="px-2.5 py-1.5 rounded-lg border border-slate-700 text-slate-200 hover:text-white hover:border-slate-500 transition">Facebook</a>
+                                <a href="https://api.whatsapp.com/send?text={{ rawurlencode($publicShareText.' '.$ogUrl) }}" target="_blank" rel="noopener noreferrer"
+                                   class="px-2.5 py-1.5 rounded-lg border border-slate-700 text-slate-200 hover:text-white hover:border-slate-500 transition">WhatsApp</a>
+                                <a href="mailto:?subject={{ rawurlencode($publicShareText) }}&body={{ rawurlencode($publicShareText."\n\n".$ogUrl) }}"
+                                   class="px-2.5 py-1.5 rounded-lg border border-slate-700 text-slate-200 hover:text-white hover:border-slate-500 transition">Email</a>
+                            </div>
+                        </div>
+                    </div>
+                @endunless
                 @auth
                     <a href="{{ route('dashboard') }}" class="text-sm text-slate-300 hover:text-white transition">Dashboard</a>
                 @else

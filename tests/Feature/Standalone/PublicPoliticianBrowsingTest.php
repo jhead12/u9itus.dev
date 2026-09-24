@@ -625,6 +625,43 @@ test('public profile renders FEC outside-spending section with no title key with
         $response->assertSee('https://twitter.com/intent/tweet?text=Admin%20custom%20profile%20share%20message.', false);
     });
 
+test('guests can share any profile with its plain link', function (string $status) {
+    $politician = Politician::factory()->create([
+        'full_name' => 'Quinn Harbor',
+        'slug' => 'quinn-harbor',
+        'page_published' => true,
+        'is_active' => true,
+        'verification_status' => $status,
+    ]);
+    $link = rawurlencode(route('politician.public.show', ['slug' => $politician->slug]));
+
+    $response = $this->get(route('politician.public.show', ['slug' => $politician->slug]));
+
+    $response->assertOk();
+    $response->assertSee('id="public-share"', false);
+    $response->assertSee('aria-label="Share this profile"', false);
+    $response->assertSee('https://twitter.com/intent/tweet?text=Check%20out%20Quinn%20Harbor%20on%20U9itus&url='.$link, false);
+    $response->assertSee('https://www.facebook.com/sharer/sharer.php?u='.$link, false);
+    $response->assertDontSee('Referral Toolbar');
+})->with(['pending', 'verified']);
+
+test('referral toolbar replaces the public share button for voters with a code', function () {
+    $user = User::factory()->create(['user_type' => 'voter']);
+    Voter::factory()->create(['user_id' => $user->id, 'referral_code' => 'SHARE123']);
+    $politician = Politician::factory()->create([
+        'slug' => 'toolbar-only',
+        'page_published' => true,
+        'is_active' => true,
+        'verification_status' => 'pending',
+    ]);
+
+    $response = $this->actingAs($user)->get(route('politician.public.show', ['slug' => $politician->slug]));
+
+    $response->assertOk();
+    $response->assertSee('Referral Toolbar');
+    $response->assertDontSee('id="public-share"', false);
+});
+
 test('dig deeper shows federal-only message when fec is enabled for non-federal office', function () {
     $politician = Politician::factory()->create([
         'full_name' => 'Dana Price',
