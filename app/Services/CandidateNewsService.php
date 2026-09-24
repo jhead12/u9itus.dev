@@ -340,8 +340,14 @@ class CandidateNewsService
     /**
      * Re-run verification/topic extraction on existing stored articles.
      * Useful for backfills and quality-cleaning workflows.
+     *
+     * $onlyUnchecked limits the pass to rows that never went through the gate
+     * (verification_reason is null — they got the column's 'verified' default).
+     * $dryRun computes verdicts without writing and returns sample status flips.
+     *
+     * @return array{processed:int,verified:int,rejected:int,newly_rejected:int,newly_verified:int,samples:array<int,array<string,mixed>>}
      */
-    public function reverifyStoredArticles(int $limit = 500, ?int $politicianId = null, ?string $state = null): array
+    public function reverifyStoredArticles(int $limit = 500, ?int $politicianId = null, ?string $state = null, bool $onlyUnchecked = false, bool $dryRun = false): array
     {
         $query = CandidateNewsArticle::query()
             ->when($politicianId, fn ($q, $id) => $q->where('politician_id', $id))
@@ -349,26 +355,58 @@ class CandidateNewsService
                 'politician',
                 fn ($pq) => $pq->whereRaw('UPPER(COALESCE(state, \'\')) = ?', [$s])
             ))
+            ->when($onlyUnchecked, fn ($q) => $q->whereNull('verification_reason'))
             ->orderByDesc('published_at')
             ->limit($limit);
 
-        $articles = $query->get();
-        $verified = 0;
-        $rejected = 0;
+        $politicians = [];
+        $counts = ['processed' => 0, 'verified' => 0, 'rejected' => 0, 'newly_rejected' => 0, 'newly_verified' => 0];
+        $samples = [];
 
-        foreach ($articles as $article) {
-            $politician = $article->politician_id
-                ? Politician::query()->find($article->politician_id)
-                : null;
+        foreach ($query->cursor() as $article) {
+            $politician = null;
+            if ($article->politician_id) {
+                $politician = $politicians[$article->politician_id] ??= Politician::query()->find($article->politician_id);
+            }
 
-            $verification = $this->verifyCandidateRelevance(
-                candidateName: (string) $article->candidate_name,
-                headline: (string) $article->headline,
-                snippet: (string) ($article->snippet ?? ''),
-                sourceName: (string) ($article->source_name ?? ''),
-                state: (string) ($politician?->state ?? ''),
-                office: (string) ($politician?->political_office ?? ''),
-            );
+            $verification = $article->provider === 'official_site'
+                ? null
+                : $this->verifyCandidateRelevance(
+                    candidateName: (string) $article->candidate_name,
+                    headline: (string) $article->headline,
+                    snippet: (string) ($article->snippet ?? ''),
+                    sourceName: (string) ($article->source_name ?? ''),
+                    state: (string) ($politician?->state ?? ''),
+                    office: (string) ($politician?->political_office ?? ''),
+                    district: (string) ($politician?->district ?? ''),
+                );
+
+            $counts['processed']++;
+
+            // Official-site rows are site-scoped and verified by construction
+            // (see persistArticles); re-running the name gate would drop them.
+            if ($verification === null) {
+                $counts['verified']++;
+                continue;
+            }
+
+            $counts[$verification['status']]++;
+            if ($article->verification_status !== $verification['status']) {
+                $counts[$verification['status'] === 'rejected' ? 'newly_rejected' : 'newly_verified']++;
+                if (count(array_filter($samples, fn ($row) => $row['to'] === $verification['status'])) < 25) {
+                    $samples[] = [
+                        'id' => $article->id,
+                        'candidate' => $article->candidate_name,
+                        'to' => $verification['status'],
+                        'reason' => $verification['reason'],
+                        'headline' => Str::limit((string) $article->headline, 110),
+                    ];
+                }
+            }
+
+            if ($dryRun) {
+                continue;
+            }
 
             $topic = $verification['status'] === 'verified'
                 ? $this->extractTopicKey((string) $article->headline, (string) ($article->snippet ?? ''))
@@ -390,19 +428,11 @@ class CandidateNewsService
                 'topic_key' => $topic['topic_key'],
                 'topic_confidence' => $topic['topic_confidence'],
             ]);
-
-            if ($verification['status'] === 'verified') {
-                $verified++;
-            } else {
-                $rejected++;
-            }
         }
 
-        return [
-            'processed' => $articles->count(),
-            'verified' => $verified,
-            'rejected' => $rejected,
-        ];
+        usort($samples, fn ($a, $b) => strcmp($b['to'], $a['to']));
+
+        return $counts + ['samples' => $samples];
     }
 
     /**
@@ -461,6 +491,7 @@ class CandidateNewsService
                     sourceName: (string) ($article['source_name'] ?? ''),
                     state: (string) ($politician?->state ?? ''),
                     office: (string) ($politician?->political_office ?? ''),
+                    district: (string) ($politician?->district ?? ''),
                 );
 
             $topic = $verification['status'] === 'verified'
@@ -669,10 +700,36 @@ class CandidateNewsService
     }
 
     /**
-     * First-pass relevance gate (balanced policy):
+     * Words that tie a bare surname mention to politics or public office.
+     * Matched as whole words, with an optional plural "s".
+     */
+    protected const POLITICAL_TERMS = [
+        'election', 'campaign', 'candidate', 'candidacy', 'primary', 'ballot', 'reelection', 're-election',
+        'governor', 'gov.', 'senator', 'sen.', 'senate', 'representative', 'rep.', 'congress', 'congressman',
+        'congresswoman', 'congressional', 'u.s. house', 'state house', 'lawmaker', 'legislator', 'legislature', 'legislative',
+        'mayor', 'attorney general', 'lieutenant governor', 'council', 'commissioner', 'speaker', 'caucus', 'committee',
+        'district', 'bill', 'vote', 'voted', 'voter', 'voting', 'poll', 'republican', 'democrat', 'democratic', 'gop', 'town hall', 'white house', 'capitol', 'administration', 'incumbent',
+        'endorse', 'endorsed', 'endorsement', 'constituent', 'impeach', 'veto', 'political',
+        'politician', 'politics', 'debate', 'fundrais', 'nominee', 'gubernatorial', 'statehouse',
+    ];
+
+    /** Reference works that describe historical namesakes, not current news. */
+    protected const REFERENCE_SOURCES = ['britannica', 'wikipedia', 'biography.com', 'history.com', 'encyclopedia', 'findagrave', 'ushistory'];
+
+    /** Outlet tag/index pages that aggregators return as if they were articles. */
+    protected const INDEX_PAGE_PATTERNS = ['breaking news, photos and videos', 'latest news, top stories', 'news, photos and videos'];
+
+    /**
+     * First-pass relevance gate:
+     * - Reject reference/encyclopedia entries and "this day in history" pieces
+     *   dated before 1900 — they describe namesakes (Daniel Webster the 1830s
+     *   senator), not the official. Reject outlet tag/index pages too.
      * - Accept exact full-name matches.
-     * - Else accept surname match with office/state/news context terms.
+     * - Else accept a surname match with a political/office/state term.
      * - Else reject (kept in DB as rejected for audit).
+     *
+     * The outlet's own name never counts as context: aggregator headlines end in
+     * " - Source Name", so counting it verified nearly everything.
      *
      * @return array{status:string,reason:string,confidence:float,name_match_score:float,context_match_score:float,full_name_match:bool,surname_match:bool,context_hits:array<int,string>}
      */
@@ -683,8 +740,10 @@ class CandidateNewsService
         string $sourceName,
         string $state,
         string $office,
+        string $district = '',
     ): array {
-        $haystack = Str::lower(trim($headline . ' ' . $snippet));
+        $rawHaystack = Str::lower(trim($headline . ' ' . $snippet));
+        $haystack = Str::lower(trim($this->withoutSourceSuffix($headline, $sourceName) . ' ' . $snippet));
         $fullName = Str::lower(trim(preg_replace('/\s+/', ' ', $candidateName)));
 
         $parts = preg_split('/\s+/', trim($candidateName)) ?: [];
@@ -696,17 +755,20 @@ class CandidateNewsService
         $fullNameMatch = $fullName !== '' && str_contains($haystack, $fullName);
         $surnameMatch = $surname !== '' && strlen($surname) >= 3 && preg_match('/\b' . preg_quote($surname, '/') . '\b/u', $haystack) === 1;
 
-        $contextTerms = array_filter(array_unique(array_map('strtolower', [
-            trim($state),
+        $stateCode = strtoupper(trim($state));
+        $districtNumber = preg_match('/(\d+)\s*$/', trim($district), $m) ? ltrim($m[1], '0') : '';
+
+        $stateName = Str::lower((string) config("u9itus.us_states.{$stateCode}", ''));
+        $contextTerms = array_unique(array_map('strtolower', array_filter([
+            ...self::POLITICAL_TERMS,
+            $stateName,
             trim($office),
-            'election', 'campaign', 'candidate', 'primary', 'general election',
-            'governor', 'senator', 'representative', 'congress', 'mayor', 'attorney general',
-            strtolower(trim($sourceName)),
+            $districtNumber !== '' ? "district {$districtNumber}" : '',
         ])));
 
         $contextHits = [];
         foreach ($contextTerms as $term) {
-            if ($term !== '' && strlen($term) >= 3 && str_contains($haystack, $term)) {
+            if (strlen($term) >= 3 && preg_match('/(?<![a-z])' . preg_quote($term, '/') . 's?(?![a-z])/u', $haystack) === 1) {
                 $contextHits[] = $term;
             }
         }
@@ -715,20 +777,78 @@ class CandidateNewsService
         $contextScore = min(1.0, count($contextHits) / 3.0);
         $confidence = max($nameScore, ($surnameMatch ? 0.55 : 0.0) + (0.35 * $contextScore));
 
-        $isVerified = $fullNameMatch || ($surnameMatch && $contextScore >= 0.35 && $confidence >= $this->verificationThreshold);
+        $nonCoverage = $this->nonCoverageReason($rawHaystack, Str::lower($sourceName));
+
+        $reason = match (true) {
+            $nonCoverage !== null => $nonCoverage,
+            $fullNameMatch => 'full-name match',
+            // A state name alone doesn't tie a common surname to the official
+            // ("Brown" + "Washington"); it needs a political/office term.
+            $surnameMatch && array_diff($contextHits, [$stateName]) !== [] && $confidence >= $this->verificationThreshold => 'surname + context match',
+            default => 'candidate name/context mismatch',
+        };
+        $isVerified = in_array($reason, ['full-name match', 'surname + context match'], true);
 
         return [
             'status' => $isVerified ? 'verified' : 'rejected',
-            'reason' => $isVerified
-                ? ($fullNameMatch ? 'full-name match' : 'surname + context match')
-                : 'candidate name/context mismatch',
-            'confidence' => round($confidence, 3),
+            'reason' => $reason,
+            'confidence' => round($isVerified ? $confidence : min($confidence, 0.5), 3),
             'name_match_score' => round($nameScore, 3),
             'context_match_score' => round($contextScore, 3),
             'full_name_match' => $fullNameMatch,
             'surname_match' => (bool) $surnameMatch,
             'context_hits' => array_values($contextHits),
         ];
+    }
+
+    /**
+     * Drop the " - Outlet" suffix aggregators append to headlines when it names
+     * the article's source ("... - Florida Politics", "... - politico.com"), so
+     * words in the outlet's name aren't mistaken for context.
+     */
+    protected function withoutSourceSuffix(string $headline, string $sourceName): string
+    {
+        $pos = strrpos($headline, ' - ');
+        if ($pos === false) {
+            return $headline;
+        }
+
+        $normalize = fn (string $v) => preg_replace('/[^a-z0-9]/', '', preg_replace('/^the\s+|\.(com|org|net)$/', '', Str::lower(trim($v))));
+        $suffix = $normalize(substr($headline, $pos + 3));
+        $source = $normalize($sourceName);
+
+        return $suffix !== '' && $source !== '' && (str_contains($suffix, $source) || str_contains($source, $suffix))
+            ? substr($headline, 0, $pos)
+            : $headline;
+    }
+
+    /**
+     * Returns a rejection reason when the article isn't current coverage of the
+     * official: an outlet tag/index page, a reference-work source, or a pre-1900 dated
+     * anniversary headline ("resigns from the Senate, July 22, 1850"). A bare
+     * old year isn't enough — current news cites old laws ("the 1864 ban").
+     */
+    protected function nonCoverageReason(string $haystack, string $sourceName): ?string
+    {
+        foreach (self::INDEX_PAGE_PATTERNS as $pattern) {
+            if (str_contains($haystack, $pattern)) {
+                return 'outlet index page, not an article';
+            }
+        }
+
+        foreach (self::REFERENCE_SOURCES as $ref) {
+            if (str_contains($sourceName, $ref) || str_contains($haystack, "- {$ref}")) {
+                return 'reference/encyclopedia source';
+            }
+        }
+
+        $month = '(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?';
+        if (preg_match('/\b' . $month . '\s+\d{1,2},?\s+1[0-8]\d\d\b/u', $haystack) === 1
+            || preg_match('/\(\s*1[0-8]\d\d\s*[-\x{2013}]\s*1[0-9]\d\d\s*\)/u', $haystack) === 1) {
+            return 'historical namesake (pre-1900 date)';
+        }
+
+        return null;
     }
 
     /**
