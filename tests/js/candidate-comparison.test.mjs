@@ -86,3 +86,9 @@ test('the standalone page shows campaign finance, record, and issue focus like t
     assert.match(html, /Legislative record/);
     assert.match(html, /Issue focus/);
 });
+test('a state seat explains missing campaign money instead of showing Not recorded', () => {
+    const data = { seat: { label: 'Governor · CA', finance_note: "State and local campaign finance isn't collected yet. FEC data covers federal races only." },
+        candidates: [{ key: 'a', full_name: 'Alex Rivera' }] };
+    const html = renderComparison(data, ['a'], { basic: true });
+    assert.match(html, /State and local campaign finance isn&#39;t collected yet/);
+});

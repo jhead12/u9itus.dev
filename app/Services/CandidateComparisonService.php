@@ -124,7 +124,9 @@ class CandidateComparisonService
         // candidate record for this exact seat.
         $role = \App\Support\OfficeGlossary::forPlace($office, $state, $city);
         $seat = ['label' => $label, 'state' => $state, 'office' => $office, 'district' => $district, 'city' => $city,
-            'role' => $role ? $role + ['glossary_url' => url('/compare/glossary').'#'.$role['slug']] : null];
+            'role' => $role ? $role + ['glossary_url' => url('/compare/glossary').'#'.$role['slug']] : null,
+            // Only FEC filings (federal races) are collected; say so instead of implying nothing was raised.
+            'finance_note' => ($isHouse || $isSenate) ? null : "State and local campaign finance isn't collected yet. FEC data covers federal races only."];
         $election = $this->currentElection($state, $isHouse, $pool, $office, $district, $city, $isSenate, $research);
         if ($election === null && (! $research || $isSenate)) {
             return ['available' => false, 'seat' => $seat,
@@ -144,15 +146,20 @@ class CandidateComparisonService
                 'message' => 'This profile could not be matched to the current public records for this seat.'];
         }
 
+        $pool = $this->attachProfiles($state, $pool);
         $profiles = Politician::query()->where('is_active', true)
-            ->whereIn('id', array_filter(array_column($pool, 'id')))
+            ->whereIn('id', array_filter(array_map(fn ($c) => $c['id'] ?? $c['profile_id'] ?? null, $pool)))
             ->with(['page', 'initiatives' => fn ($q) => $q->published(), 'publicBadges.topic'])->get()->keyBy('id');
         $records = $this->congressRecords($profiles);
         $news = $this->recentNews($profiles->keys()->all());
+        // People with no profile at all: verified articles filed under their exact name,
+        // as the drawer's Overview tab shows them (the relevance check weighs office and state).
+        $nameNews = $this->recentNewsByName(array_values(array_filter(array_map(
+            fn ($c) => $profiles->has($c['id'] ?? $c['profile_id'] ?? null) ? null : ($c['full_name'] ?? null), $pool))));
         $finance = PoliticianDonorSnapshot::whereIn('politician_id', $profiles->keys())->whereNotNull('enriched_at')
             ->get()->keyBy('politician_id');
-        $candidates = collect($pool)->map(function ($candidate) use ($profiles, $records, $finance, $news) {
-            $profile = $profiles->get($candidate['id'] ?? null);
+        $candidates = collect($pool)->map(function ($candidate) use ($profiles, $records, $finance, $news, $nameNews) {
+            $profile = $profiles->get($candidate['id'] ?? $candidate['profile_id'] ?? null);
             // Read incumbency independently of candidacy; 'active' is not proof
             // that an elected winner has begun their term.
             $status = $profile?->term_status ?? $candidate['status'] ?? null;
@@ -161,17 +168,18 @@ class CandidateComparisonService
             return [
                 'key' => $this->candidateKey($candidate),
                 'full_name' => $candidate['full_name'],
-                'party' => $candidate['party'] ?: 'Not recorded',
+                'party' => ($candidate['party'] ?? null) ?: ($profile?->party_affiliation ?: 'Not recorded'),
                 'incumbency' => $incumbency,
                 'candidacy' => ($candidate['is_running'] ?? false) ? 'Running' : 'Candidacy not confirmed',
-                'profile_url' => $profile?->page_published ? $candidate['profile_url'] ?? null : null,
+                'profile_url' => $profile?->page_published ? ($candidate['profile_url'] ?? ($profile->slug ? url('/p/'.$profile->slug) : null)) : null,
                 'source_label' => $candidate['source_label'] ?? 'Public records',
                 'updated_at' => $candidate['updated_at'] ?? null,
                 'stances' => [...$this->stances($profile), ...($records['speeches'][$profile?->bioguide_id] ?? [])],
                 'issue_focus' => $profile ? $profile->publicBadges->map(fn ($b) => $b->topic?->name)->filter()->unique()->sort()->values()->all() : [],
                 'finance' => $this->finance($finance->get($profile?->id)),
                 'legislation' => $records['legislation'][$profile?->bioguide_id] ?? null,
-                'news' => $news[$profile?->id] ?? ['coverage' => [], 'press_releases' => []],
+                'news' => $profile ? ($news[$profile->id] ?? ['coverage' => [], 'press_releases' => []])
+                    : ($nameNews[$candidate['full_name']] ?? ['coverage' => [], 'press_releases' => []]),
             ];
         })->sortBy('full_name', SORT_NATURAL | SORT_FLAG_CASE)->values()->all();
 
@@ -410,39 +418,107 @@ class CandidateComparisonService
      */
     private function recentNews(array $politicianIds, int $perGroup = 3): array
     {
-        if ($politicianIds === []) return [];
         $news = [];
         // One bounded query per person, so a heavily covered candidate cannot crowd out the others.
-        collect($politicianIds)->mapWithKeys(fn ($id) => [$id => \App\Models\CandidateNewsArticle::query()->verified()
-            ->where('politician_id', $id)->whereIn('content_type', ['news', 'press_release'])->whereNotNull('published_at')
-            ->where('published_at', '>=', now()->subYear())->orderByDesc('published_at')->limit(40)
-            ->get(['headline', 'source_name', 'source_url', 'published_at', 'content_type'])])
-            ->filter->isNotEmpty()
-            ->each(function ($articles, $id) use (&$news, $perGroup) {
-                $groups = ['coverage' => [], 'press_releases' => []];
-                $seen = [];
-                foreach ($articles as $a) {
-                    $source = trim((string) $a->source_name);
-                    // Feeds often append " - Publisher" to the headline; the publisher is shown separately.
-                    $headline = trim(html_entity_decode(strip_tags((string) $a->headline), ENT_QUOTES | ENT_HTML5));
-                    if ($source !== '' && str_ends_with(mb_strtolower($headline), mb_strtolower(' - '.$source))) {
-                        $headline = trim(mb_substr($headline, 0, -mb_strlen(' - '.$source)));
-                    }
-                    // Tag and archive listing pages ("Jane Doe Archives") are not articles.
-                    if ($headline === '' || preg_match('/\b(?:archives?|tag|topics?)$/i', $headline)) continue;
-                    // A reprinted press release is the candidate's own words, not independent coverage.
-                    $group = $a->content_type === 'press_release' || preg_match('/^press release\s*[:\-–—]/iu', $headline) ? 'press_releases' : 'coverage';
-                    // The same release is often posted at several URLs.
-                    $dedupe = mb_strtolower(preg_replace('/^press release\s*[:\-–—]\s*/iu', '', $headline));
-                    if (isset($seen[$dedupe]) || count($groups[$group]) >= $perGroup) continue;
-                    $seen[$dedupe] = true;
-                    $groups[$group][] = ['headline' => $headline, 'source_name' => $source ?: null, 'source_url' => $a->source_url,
-                        'published_at' => $a->published_at->toDateString()];
-                }
-                $news[$id] = $groups;
-            });
+        foreach ($politicianIds as $id) {
+            $groups = $this->groupArticles($this->recentArticles()->where('politician_id', $id)->get(), $perGroup);
+            if ($groups) $news[$id] = $groups;
+        }
 
         return $news;
+    }
+
+    /**
+     * Verified articles filed under a person's exact name with no profile attached, for
+     * candidates who have no profile. Keyed by name.
+     *
+     * @param  list<string>  $names
+     * @return array<string, array{coverage: list<array>, press_releases: list<array>}>
+     */
+    private function recentNewsByName(array $names, int $perGroup = 3): array
+    {
+        $news = [];
+        foreach (array_unique($names) as $name) {
+            $groups = $this->groupArticles($this->recentArticles()->whereNull('politician_id')->where('candidate_name', $name)->get(), $perGroup);
+            if ($groups) $news[$name] = $groups;
+        }
+
+        return $news;
+    }
+
+    private function recentArticles(): \Illuminate\Database\Eloquent\Builder
+    {
+        // Rejected articles (failed the relevance gate) are never shown; tone is not judged.
+        return \App\Models\CandidateNewsArticle::query()->verified()
+            ->whereIn('content_type', ['news', 'press_release'])->whereNotNull('published_at')
+            ->where('published_at', '>=', now()->subYear())->orderByDesc('published_at')->limit(40)
+            ->select(['headline', 'source_name', 'source_url', 'published_at', 'content_type']);
+    }
+
+    /** @return array{coverage: list<array>, press_releases: list<array>}|null */
+    private function groupArticles(\Illuminate\Support\Collection $articles, int $perGroup): ?array
+    {
+        if ($articles->isEmpty()) return null;
+        $groups = ['coverage' => [], 'press_releases' => []];
+        $seen = [];
+        foreach ($articles as $a) {
+            $source = trim((string) $a->source_name);
+            // Feeds often append " - Publisher" to the headline; the publisher is shown separately.
+            $headline = trim(html_entity_decode(strip_tags((string) $a->headline), ENT_QUOTES | ENT_HTML5));
+            if ($source !== '' && str_ends_with(mb_strtolower($headline), mb_strtolower(' - '.$source))) {
+                $headline = trim(mb_substr($headline, 0, -mb_strlen(' - '.$source)));
+            }
+            // Tag and archive listing pages ("Jane Doe Archives") are not articles.
+            if ($headline === '' || preg_match('/\b(?:archives?|tag|topics?)$/i', $headline)) continue;
+            // A reprinted press release is the candidate's own words, not independent coverage.
+            $group = $a->content_type === 'press_release' || preg_match('/^press release\s*[:\-–—]/iu', $headline) ? 'press_releases' : 'coverage';
+            // The same release is often posted at several URLs.
+            $dedupe = mb_strtolower(preg_replace('/^press release\s*[:\-–—]\s*/iu', '', $headline));
+            if (isset($seen[$dedupe]) || count($groups[$group]) >= $perGroup) continue;
+            $seen[$dedupe] = true;
+            $groups[$group][] = ['headline' => $headline, 'source_name' => $source ?: null, 'source_url' => $a->source_url,
+                'published_at' => $a->published_at->toDateString()];
+        }
+
+        return $groups;
+    }
+
+    /**
+     * Candidate records merged into the map pool carry their profile only as a slug, or
+     * through the reconcile pipeline's candidate_identity_links. Resolve both to an active,
+     * same-state, same-name profile ('profile_id') so its news, finance, and positions show.
+     * The comparison key is unchanged, so shared links keep working.
+     */
+    private function attachProfiles(string $state, array $pool): array
+    {
+        $pending = array_filter($pool, fn ($c) => empty($c['id']));
+        if ($pending === []) return $pool;
+        $active = fn ($q) => $q->where('is_active', true)->whereRaw('UPPER(state) = ?', [$state]);
+        $bySlug = Politician::query()->where($active)->whereIn('slug', array_filter(array_column($pending, 'slug')))
+            ->get(['id', 'slug', 'full_name'])->keyBy('slug');
+        $linked = [];
+        $ids = array_filter(array_map(fn ($c) => ! empty($c['scrape_source']) && ! empty($c['external_candidate_id'])
+            ? $c['scrape_source'].'|'.$c['external_candidate_id'] : null, $pending));
+        if ($ids !== []) {
+            ElectionCandidateRecord::query()->where('state', $state)
+                ->whereIn('external_candidate_id', array_map(fn ($k) => explode('|', $k, 2)[1], $ids))
+                ->with(['identityLinks.politician' => $active])->get()
+                ->each(function ($record) use (&$linked) {
+                    $politician = $record->identityLinks->pluck('politician')->filter()->first();
+                    if ($politician) $linked[$record->source.'|'.$record->external_candidate_id] = $politician;
+                });
+        }
+
+        return array_map(function ($c) use ($bySlug, $linked) {
+            if (! empty($c['id'])) return $c;
+            $profile = $bySlug->get($c['slug'] ?? '') ?? ($linked[($c['scrape_source'] ?? '').'|'.($c['external_candidate_id'] ?? '')] ?? null);
+            // Never attach a different person's profile.
+            if ($profile && array_intersect(MapCandidateHygiene::identityKeys($profile->full_name), MapCandidateHygiene::identityKeys($c['full_name'] ?? '')) !== []) {
+                $c['profile_id'] = $profile->id;
+            }
+
+            return $c;
+        }, $pool);
     }
 
     private function candidateKey(array $candidate): string

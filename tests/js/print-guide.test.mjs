@@ -77,8 +77,13 @@ test('print guide shows FEC money with its cycle, period, and numbered source', 
     const data = fixture();
     data.candidates[0].finance = { cycle: 2026, receipts: '$1,200,000', disbursements: '$800,000', cash_on_hand: '$400,000', coverage_end_date: '2026-06-30', source_url: 'https://www.fec.gov/data/candidate/H0CA03000/' };
     const guide = renderPrintGuide(data, ['a', 'b']);
-    assert.match(guide.html, /Campaign money \(FEC\)/);
+    assert.match(guide.html, /Campaign money/);
     assert.match(guide.html, /Raised: \$1,200,000<br>Spent: \$800,000<br>Cash on hand: \$400,000/);
     assert.match(guide.html, /FEC filings, 2026 cycle \[\d\]<br>Through June 30, 2026/);
     assert.ok(guide.sources.some(s => s.url.startsWith('https://www.fec.gov/')));
+});
+test('print guide says state campaign money is not collected rather than implying none was raised', () => {
+    const data = fixture();
+    data.seat.finance_note = "State and local campaign finance isn't collected yet. FEC data covers federal races only.";
+    assert.match(renderPrintGuide(data, ['a']).html, /State and local campaign finance isn&#39;t collected yet/);
 });
