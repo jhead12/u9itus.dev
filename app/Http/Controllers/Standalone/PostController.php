@@ -231,7 +231,18 @@ class PostController extends Controller
             'Only draft, pending, or archived posts can be published.'
         );
 
-        // TODO: approval gate for unverified citizens (mirror CitizenCampaign rules).
+        // Citizens without identity verification go through admin review
+        // (AdminPostController::approve), mirroring CitizenCampaign rules.
+        if (self::requiresApproval($post)) {
+            if ($post->status === PostStatus::PendingApproval) {
+                return back()->with('success', 'This post is already awaiting admin review.');
+            }
+
+            $post->update(['status' => PostStatus::PendingApproval->value]);
+
+            return back()->with('success', 'Post submitted for review. It will go live once an admin approves it.');
+        }
+
         $post->update([
             'status' => PostStatus::Published->value,
             'published_at' => now(),
@@ -239,6 +250,13 @@ class PostController extends Controller
         ]);
 
         return back()->with('success', 'Post published.');
+    }
+
+    /** Whether publishing this post needs admin approval (identity-unverified citizen author). */
+    public static function requiresApproval(Post $post): bool
+    {
+        return $post->author_type === Citizen::class
+            && ! $post->author?->isIdentityVerified();
     }
 
     public function archive(Post $post)

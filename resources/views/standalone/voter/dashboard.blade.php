@@ -6,8 +6,8 @@
 <div class="px-4 sm:px-6 lg:px-8 py-8 max-w-5xl mx-auto space-y-7">
 
     @php
-        $minPayout = (float) \App\Services\PlatformSettingsService::get('min_payout_amount', null, 5.00);
-        $defaultPayout = (float) \App\Services\PlatformSettingsService::get('viewer_payout_per_view', null, 0.25);
+        $minPayout = (float) \App\Services\PlatformSettingsService::get('min_payout_amount');
+        $defaultPayout = (float) \App\Services\PlatformSettingsService::get('viewer_payout_per_view');
     @endphp
 
     {{-- Page Header --}}

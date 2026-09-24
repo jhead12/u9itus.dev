@@ -1,10 +1,13 @@
+@php
+    $payout = '$' . number_format((float) \App\Services\PlatformSettingsService::get('viewer_payout_per_view'), 2);
+@endphp
 <!DOCTYPE html>
 <html lang="en" class="scroll-smooth">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Earn Money Watching Videos — U9itus</title>
-    @include('standalone.partials.seo-head', ['seoTitle' => 'Earn Money Watching Videos — U9itus', 'seoDescription' => 'Get paid $0.50 every time you watch a video on U9itus — from politicians, local businesses, and your community. Free to join. No experience needed.', 'seoCanonical' => url('/earn')])
+    @include('standalone.partials.seo-head', ['seoTitle' => 'Earn Money Watching Videos — U9itus', 'seoDescription' => 'Get paid ' . $payout . ' every time you watch a video on U9itus — from politicians, local businesses, and your community. Free to join. No experience needed.', 'seoCanonical' => url('/earn')])
 
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=inter:300,400,500,600,700,800&display=swap" rel="stylesheet"/>
@@ -136,7 +139,7 @@
                 <line x1="12" y1="1" x2="12" y2="23"/>
                 <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
             </svg>
-            Earn up to $0.50 per video — paid to you
+            Earn up to {{ $payout }} per video — paid to you
         </div>
 
         <h1 style="font-size:clamp(32px,6vw,56px);font-weight:800;line-height:1.12;margin:0 0 20px;color:#f1f5f9;">
@@ -192,7 +195,7 @@
             <div class="step-num">3</div>
             <h3 style="font-size:18px;font-weight:700;color:#e2e8f0;margin:0 0 10px;">Get paid — your way</h3>
             <p style="font-size:14px;color:#94a3b8;line-height:1.7;margin:0;">
-                Your earnings accumulate in your wallet. Cash out anytime via Stripe, PayPal, or Cash App. Each qualifying view pays <strong style="color:#34d399;">up to $0.50</strong> directly to you.
+                Your earnings accumulate in your wallet. Cash out anytime via Stripe, PayPal, or Cash App. Each qualifying view pays <strong style="color:#34d399;">up to {{ $payout }}</strong> directly to you.
             </p>
         </div>
     </div>
@@ -202,7 +205,7 @@
 <section style="padding:0 24px 72px;max-width:1100px;margin:0 auto;">
     <div style="background:rgba(15,23,42,0.8);border:1px solid rgba(99,102,241,0.18);border-radius:18px;padding:40px;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:32px;text-align:center;">
         <div>
-            <div style="font-size:42px;font-weight:800;color:#34d399;">$0.50</div>
+            <div style="font-size:42px;font-weight:800;color:#34d399;">{{ $payout }}</div>
             <div style="font-size:13px;color:#64748b;margin-top:6px;">per qualifying view<br>(paid to you)</div>
         </div>
         <div>

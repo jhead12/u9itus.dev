@@ -862,11 +862,10 @@ Route::middleware(['guest.trial', 'auth', 'verified', 'check.role', 'no.cache'])
 |--------------------------------------------------------------------------
 */
 
-Route::get('/about', fn () => view('standalone.about'))->name('about');
-Route::get('/how-it-works', fn () => view('standalone.how-it-works'))->name('how-it-works');
-Route::get('/pricing', fn () => view('standalone.pricing'))->name('pricing');
-Route::get('/contact', fn () => view('standalone.contact'))->name('contact');
-Route::post('/contact', [DashboardController::class, 'submitContact'])->name('contact.submit');
+// /about is served by routes/web.php.
+Route::get('/how-it-works', [\App\Http\Controllers\Standalone\PublicPageController::class, 'howItWorks'])->name('how-it-works');
+Route::get('/pricing', [\App\Http\Controllers\Standalone\PublicPageController::class, 'pricing'])->name('pricing');
+Route::get('/contact', fn () => view('standalone.public.contact', ['formUrl' => config('u9itus.contact_form_url')]))->name('contact');
 
 // Phase 13 — Politician Public Profile Pages
 Route::get('/politicians', [PublicProfileController::class, 'index'])->name('politicians.directory');

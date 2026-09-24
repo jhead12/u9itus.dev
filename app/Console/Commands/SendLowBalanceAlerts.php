@@ -48,7 +48,7 @@ class SendLowBalanceAlerts extends Command
         $sent   = 0;
         $failed = 0;
 
-        $revenuePerView = (float) PlatformSettingsService::get('revenue_per_view', null, 0.60);
+        $revenuePerView = (float) PlatformSettingsService::get('revenue_per_view');
 
         foreach ($politicians as $politician) {
             $user = $politician->user;

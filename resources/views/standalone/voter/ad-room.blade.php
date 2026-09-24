@@ -6,7 +6,7 @@
 <div class="px-4 sm:px-6 lg:px-8 py-8 max-w-6xl mx-auto space-y-7">
 
     @php
-        $defaultPayout = (float) \App\Services\PlatformSettingsService::get('viewer_payout_per_view', null, 0.25);
+        $defaultPayout = (float) \App\Services\PlatformSettingsService::get('viewer_payout_per_view');
     @endphp
 
     {{-- ── Page Header ──────────────────────────────────────── --}}

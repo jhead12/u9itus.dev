@@ -133,18 +133,10 @@ class CitizenCampaign extends Model implements BroadcastableCampaign
             // both a 'citizen' and 'ballot_issue' row. See
             // CitizenTierPricingSeeder for the seeded values.
             if (is_null($campaign->revenue_per_view)) {
-                $campaign->revenue_per_view = (float) PlatformSettingsService::get(
-                    $tier . '_revenue_per_view',
-                    null,
-                    $tier === 'ballot_issue' ? 1.00 : 0.75
-                );
+                $campaign->revenue_per_view = (float) PlatformSettingsService::get($tier . '_revenue_per_view');
             }
             if (empty($campaign->voter_payout_per_view)) {
-                $campaign->voter_payout_per_view = (float) PlatformSettingsService::get(
-                    $tier . '_voter_payout_per_view',
-                    null,
-                    0.50
-                );
+                $campaign->voter_payout_per_view = (float) PlatformSettingsService::get($tier . '_voter_payout_per_view');
             }
 
             // Ballot-issue campaigns are uncapped and always admin-reviewed.

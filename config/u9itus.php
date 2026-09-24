@@ -15,7 +15,14 @@ return [
     */
 
     /**
-     * Head Enterprises platform fee percentage charged on each campaign.
+     * Where the /contact page sends people until native contact storage ships.
+     */
+    'contact_form_url' => env('CONTACT_FORM_URL', 'https://docs.google.com/forms/d/e/1FAIpQLSd3uaWdkMoqfL-gUG8rgf0KQiuicHK6xmn4GPywN8YJkK__gw/viewform'),
+
+    /**
+     * Head Enterprises platform fee percentage, snapshotted onto each campaign.
+     * Not currently charged: PoliticalPaymentService::calculatePlatformFee()
+     * has no callers, so this is recorded but never billed.
      */
     'head_enterprises_fee_percent' => env('HEAD_ENTERPRISES_FEE_PERCENT', 15.0),
 
@@ -33,20 +40,26 @@ return [
     |--------------------------------------------------------------------------
     |
     | Revenue from politician per view:          $1.00
-    | Revenue from citizen per view:              $1.00
+    | Revenue from citizen per view:              $0.75
     | Revenue from citizen ballot-issue per view: $1.00
     | Direct viewer/voter payout:                $0.50
     | Referral commission (10 % of $0.50):       $0.050
     | Politician-procurement commission (10 %):  $0.06 (one-time, amortised)
     |
     | Stripe processing fee (on credit top-ups): 2.5% of gross charge
-    | Gross-up formula: gross = credits / (1 - 0.050)
+    | Gross-up formula: gross = credits / (1 - 0.025)
+    |
+    | These are the defaults only. Read them through PlatformSettingsService
+    | (never config() directly, never with an inline fallback) so an admin
+    | override in Platform Settings applies everywhere.
     |
     */
     'revenue_per_view' => env('REVENUE_PER_VIEW', 1.00),
-    'citizen_revenue_per_view' => env('CITIZEN_REVENUE_PER_VIEW', 0.60),
+    'citizen_revenue_per_view' => env('CITIZEN_REVENUE_PER_VIEW', 0.75),
     'ballot_issue_revenue_per_view' => env('BALLOT_ISSUE_REVENUE_PER_VIEW', 1.00),
     'viewer_payout_per_view' => env('VIEWER_PAYOUT_PER_VIEW', 0.50),
+    'citizen_voter_payout_per_view' => env('CITIZEN_VOTER_PAYOUT_PER_VIEW', 0.50),
+    'ballot_issue_voter_payout_per_view' => env('BALLOT_ISSUE_VOTER_PAYOUT_PER_VIEW', 0.50),
     'referral_commission_percent' => env('REFERRAL_COMMISSION_PERCENT', 10),
     'procurement_commission_percent' => env('PROCUREMENT_COMMISSION_PERCENT', 10),
 

@@ -197,8 +197,8 @@ class CitizenController extends Controller
         $citizen = Auth::user()->citizen;
         abort_unless($citizen, 403);
 
-        $citizenRate     = (float) PlatformSettingsService::get('citizen_revenue_per_view', null, 0.60);
-        $ballotIssueRate = (float) PlatformSettingsService::get('ballot_issue_revenue_per_view', null, 1.00);
+        $citizenRate     = (float) PlatformSettingsService::get('citizen_revenue_per_view');
+        $ballotIssueRate = (float) PlatformSettingsService::get('ballot_issue_revenue_per_view');
 
         return view('standalone.citizen.campaigns.create', [
             'citizen'         => $citizen,
@@ -413,8 +413,8 @@ class CitizenController extends Controller
             'Only draft or cancelled campaigns can be edited.'
         );
 
-        $citizenRate     = (float) PlatformSettingsService::get('citizen_revenue_per_view', null, 0.60);
-        $ballotIssueRate = (float) PlatformSettingsService::get('ballot_issue_revenue_per_view', null, 1.00);
+        $citizenRate     = (float) PlatformSettingsService::get('citizen_revenue_per_view');
+        $ballotIssueRate = (float) PlatformSettingsService::get('ballot_issue_revenue_per_view');
 
         return view('standalone.citizen.campaigns.edit', [
             'campaign'        => $campaign,

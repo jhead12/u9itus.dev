@@ -4,9 +4,9 @@
      ======================================================================== --}}
 @php
     // Use passed values or fallback to service defaults
-    $payoutPerView = $payoutPerView ?? (float) \App\Services\PlatformSettingsService::get('viewer_payout_per_view', null, 0.25);
-    $voterCommissionPercent = $voterCommissionPercent ?? (float) \App\Services\PlatformSettingsService::get('referral_commission_percent', null, 10);
-    $politicianCommissionPercent = $politicianCommissionPercent ?? (float) \App\Services\PlatformSettingsService::get('procurement_commission_percent', null, 10);
+    $payoutPerView = $payoutPerView ?? (float) \App\Services\PlatformSettingsService::get('viewer_payout_per_view');
+    $voterCommissionPercent = $voterCommissionPercent ?? (float) \App\Services\PlatformSettingsService::get('referral_commission_percent');
+    $politicianCommissionPercent = $politicianCommissionPercent ?? (float) \App\Services\PlatformSettingsService::get('procurement_commission_percent');
     
     // Assumptions for calculations
     $avgAdsPerReferredVoter = 3; // Assume each referred voter watches 3 ads/day

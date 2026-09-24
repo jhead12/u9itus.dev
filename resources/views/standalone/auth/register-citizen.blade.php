@@ -16,8 +16,8 @@
 </head>
 <body class="min-h-screen bg-slate-900 flex items-center justify-center px-4 py-10 antialiased">
 @php
-    $citizenRatePerView     = number_format((float) \App\Services\PlatformSettingsService::get('citizen_revenue_per_view', null, 1.00), 2);
-    $ballotIssueRatePerView = number_format((float) \App\Services\PlatformSettingsService::get('ballot_issue_revenue_per_view', null, 1.00), 2);
+    $citizenRatePerView     = number_format((float) \App\Services\PlatformSettingsService::get('citizen_revenue_per_view'), 2);
+    $ballotIssueRatePerView = number_format((float) \App\Services\PlatformSettingsService::get('ballot_issue_revenue_per_view'), 2);
 @endphp
 
 <div class="w-full max-w-lg">

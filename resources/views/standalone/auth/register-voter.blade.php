@@ -17,8 +17,8 @@
 <body class="min-h-screen bg-slate-900 flex items-center justify-center px-4 py-10 antialiased">
 
 @php
-    $voterPayoutPerView = number_format((float) \App\Services\PlatformSettingsService::get('viewer_payout_per_view', null, 0.50), 2);
-    $referralCommissionPct = (int) config('u9itus.referral_commission_percent', 10);
+    $voterPayoutPerView = number_format((float) \App\Services\PlatformSettingsService::get('viewer_payout_per_view'), 2);
+    $referralCommissionPct = (int) \App\Services\PlatformSettingsService::get('referral_commission_percent');
 @endphp
 
 <div class="w-full max-w-md">

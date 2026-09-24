@@ -392,7 +392,7 @@
             {{-- Payout shortcut --}}
             @auth
             @php $voter = $voter ?? auth()->user()->voter; @endphp
-            @php $minPayout = (float) \App\Services\PlatformSettingsService::get('min_payout_amount', null, 5.00); @endphp
+            @php $minPayout = (float) \App\Services\PlatformSettingsService::get('min_payout_amount'); @endphp
             @if($voter && ($voter->pending_earnings ?? 0) >= $minPayout)
             <div class="p-3 border-t border-slate-800">
                 <form action="{{ route('voter.earnings.payout') }}" method="POST">

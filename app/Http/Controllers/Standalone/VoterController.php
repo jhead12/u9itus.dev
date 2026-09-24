@@ -479,7 +479,7 @@ class VoterController extends Controller
         $durationFallback = (int) PlatformSettingsService::get('max_video_duration', null, (int) config('u9itus.max_video_duration', 180));
         $duration  = (int) ($campaign->media_duration ?? max(1, $durationFallback));
         $mustWatch = (int) ($campaign->min_watch_time_percent ?? config('u9itus.min_watch_time_percent', 80));
-        $payout    = (float) ($campaign->voter_payout_per_view ?? PlatformSettingsService::get('viewer_payout_per_view', null, 0.25));
+        $payout    = (float) ($campaign->voter_payout_per_view ?? PlatformSettingsService::get('viewer_payout_per_view'));
 
         $playableMediaUrl = $this->resolvePlayableMediaUrl($campaign);
         if ($playableMediaUrl) {
@@ -843,8 +843,8 @@ class VoterController extends Controller
                 ->with('info', 'You already have a Citizen profile on this account.');
         }
 
-        $citizenRate     = (float) PlatformSettingsService::get('citizen_revenue_per_view', null, 0.60);
-        $ballotIssueRate = (float) PlatformSettingsService::get('ballot_issue_revenue_per_view', null, 1.00);
+        $citizenRate     = (float) PlatformSettingsService::get('citizen_revenue_per_view');
+        $ballotIssueRate = (float) PlatformSettingsService::get('ballot_issue_revenue_per_view');
 
         return view('standalone.voter.add-citizen-profile', [
             'user'            => $user,
