@@ -291,11 +291,14 @@
                     @foreach($topics as $topic)
                         @php
                             $isActive = $activeTopics->contains($topic->slug);
+                            $topicCount = $topicCounts[$topic->id] ?? 0;
                             $newTopics = $isActive ? $activeTopics->reject(fn ($t) => $t === $topic->slug) : $activeTopics->concat([$topic->slug]);
                             $chipQuery = $newTopics->isEmpty() ? $baseQuery->toArray() : $baseQuery->merge(['topic' => $newTopics->implode(',')])->toArray();
                             $color = $topic->badge_color ?: '#6366f1';
                             $textColor = $readableAccent($color);
                         @endphp
+                        {{-- Hide issues no profile carries yet (all shown until badges exist). --}}
+                        @continue(! $isActive && ! empty($topicCounts) && $topicCount === 0)
                         <form method="GET" action="{{ route('politicians.directory') }}#results" class="flex-shrink-0">
                             @foreach($chipQuery as $name => $value)
                                 <input type="hidden" name="{{ $name }}" value="{{ $value }}">
@@ -307,6 +310,7 @@
                                @if($isActive) aria-current="true" @endif>
                                 @if(!empty($topic->icon))<span aria-hidden="true">{{ $topic->icon }}</span>@endif
                                 {{ $topic->name }}
+                                @if($topicCount > 0)<span class="opacity-70 tabular-nums" aria-label="{{ $topicCount }} {{ Str::plural('profile', $topicCount) }}">{{ number_format($topicCount) }}</span>@endif
                             </button>
                         </form>
                     @endforeach

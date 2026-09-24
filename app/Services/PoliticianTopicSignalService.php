@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Models\CandidateNewsArticle;
+use App\Models\CongressFloorSpeech;
+use App\Models\CongressMemberLegislation;
 use App\Models\Politician;
 use App\Models\PoliticianTopic;
 use App\Models\PoliticianTopicSignal;
@@ -56,6 +58,8 @@ class PoliticianTopicSignalService
         $wNews = (float) ($weights['news'] ?? 1.0);
         $wViral = (float) ($weights['viral_moment'] ?? 1.2);
         $wVoteSmart = (float) ($weights['votesmart'] ?? 1.5);
+        $wLegislation = (float) ($weights['legislation'] ?? 1.0);
+        $wFloorSpeech = (float) ($weights['floor_speech'] ?? 0.6);
         $since = now()->subDays($windowDays);
 
         // topicId => ['news' => aggregate, 'viral' => aggregate, 'votesmart' => aggregate,
@@ -144,9 +148,52 @@ class PoliticianTopicSignalService
         }
 
         // ── Materialize signals (persist, or hydrate unsaved for dry-run) ──
+        // ── Legislation: bills sponsored/cosponsored (congress:sync-legislation) ──
+        // A record of what the member files, not what the press covers, so it is not
+        // limited to the news recency window. Scored by the topic's share of the
+        // member's own bill activity: everyone cosponsors hundreds of bills, so raw
+        // counts would badge every busy member with every topic.
+        if ($politician->bioguide_id) {
+            $cosponsorWeight = (float) config('u9itus.issues.legislation_cosponsor_weight', 0.2);
+            $sharePerPoint = max((float) config('u9itus.issues.legislation_share_per_point', 0.08), 0.01);
+            $minBills = (float) config('u9itus.issues.legislation_min_bills', 3);
+            $legislation = CongressMemberLegislation::where('bioguide_id', $politician->bioguide_id)->first();
+            $memberBills = $legislation ? $legislation->sponsored_total + $cosponsorWeight * $legislation->cosponsored_total : 0.0;
+            foreach ($memberBills > 0 ? (array) $legislation->topics : [] as $slug => $counts) {
+                $topicId = $this->topicIdForSlug((string) $slug);
+                $bills = (int) ($counts['sponsored'] ?? 0) + $cosponsorWeight * (int) ($counts['cosponsored'] ?? 0);
+                if ($topicId === null || $bills < $minBills) {
+                    continue;
+                }
+                $acc[$topicId]['legislation'] = min(($bills / $memberBills) / $sharePerPoint, 3.0);
+                $acc[$topicId]['legislation_count'] = (int) ($counts['sponsored'] ?? 0) + (int) ($counts['cosponsored'] ?? 0);
+            }
+        }
+
+        // ── Floor speeches: the member's own words in the Congressional Record ──
+        // Tagged by congress:analyze-floor-speeches. Kept for a year with a slower decay
+        // than news, since a speech is a standing statement rather than a news cycle.
+        if ($politician->bioguide_id) {
+            $speechHalfLife = (float) config('u9itus.issues.floor_speech_half_life_days', 180);
+            $speeches = CongressFloorSpeech::query()
+                ->where('bioguide_id', $politician->bioguide_id)
+                ->whereNotNull('topic_key')
+                ->where('spoken_on', '>=', now()->subDays((int) config('u9itus.issues.floor_speech_window_days', 365)))
+                ->get(['topic_key', 'topic_confidence', 'spoken_on']);
+            foreach ($speeches as $speech) {
+                $topicId = $this->topicIdForSlug((string) $speech->topic_key);
+                if ($topicId === null) {
+                    continue;
+                }
+                $decay = exp(-$this->ageDays($speech->spoken_on) / max($speechHalfLife, 1.0));
+                $acc[$topicId]['floor_speech'] = ($acc[$topicId]['floor_speech'] ?? 0.0) + max((float) $speech->topic_confidence, 0.5) * $decay;
+                $acc[$topicId]['floor_speech_count'] = ($acc[$topicId]['floor_speech_count'] ?? 0) + 1;
+            }
+        }
+
         $rows = [];
         foreach ($acc as $topicId => $a) {
-            $rows[$topicId] = $this->rowFor($topicId, $a, $politician, $wNews, $wViral, $wVoteSmart);
+            $rows[$topicId] = $this->rowFor($topicId, $a, $politician, $wNews, $wViral, $wVoteSmart, $wLegislation, $wFloorSpeech);
         }
 
         if (! $persist) {
@@ -188,12 +235,15 @@ class PoliticianTopicSignalService
      * @param  array<string, float|int>  $a
      * @return array<string, mixed>
      */
-    protected function rowFor(int $topicId, array $a, Politician $politician, float $wNews, float $wViral, float $wVoteSmart): array
+    protected function rowFor(int $topicId, array $a, Politician $politician, float $wNews, float $wViral, float $wVoteSmart, float $wLegislation = 1.0, float $wFloorSpeech = 0.6): array
     {
         $newsAgg = (float) ($a['news'] ?? 0.0);
         $viralAgg = (float) ($a['viral'] ?? 0.0);
         $votesmartAgg = (float) ($a['votesmart'] ?? 0.0);
-        $total = $wNews * $newsAgg + $wViral * $viralAgg + $wVoteSmart * $votesmartAgg;
+        $legislationAgg = (float) ($a['legislation'] ?? 0.0);
+        $floorSpeechAgg = (float) ($a['floor_speech'] ?? 0.0);
+        $total = $wNews * $newsAgg + $wViral * $viralAgg + $wVoteSmart * $votesmartAgg
+            + $wLegislation * $legislationAgg + $wFloorSpeech * $floorSpeechAgg;
 
         return [
             'politician_id' => $politician->id,
@@ -201,11 +251,15 @@ class PoliticianTopicSignalService
             'news_count' => (int) ($a['news_count'] ?? 0),
             'viral_moment_count' => (int) ($a['viral_count'] ?? 0),
             'votesmart_count' => (int) ($a['votesmart_count'] ?? 0),
+            'legislation_count' => (int) ($a['legislation_count'] ?? 0),
+            'floor_speech_count' => (int) ($a['floor_speech_count'] ?? 0),
             'total_score' => round($total, 4),
             'score_components' => json_encode([
                 'news' => round($wNews * $newsAgg, 4),
                 'viral_moment' => round($wViral * $viralAgg, 4),
                 'votesmart' => round($wVoteSmart * $votesmartAgg, 4),
+                'legislation' => round($wLegislation * $legislationAgg, 4),
+                'floor_speech' => round($wFloorSpeech * $floorSpeechAgg, 4),
             ]),
             'last_seen_at' => now(),
             'updated_at' => now(),

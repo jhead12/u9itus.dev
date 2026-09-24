@@ -731,8 +731,10 @@
 
     <nav aria-label="Profile sections" class="max-w-5xl mx-auto px-4 sm:px-6 py-4 mb-6">
         <div class="flex flex-wrap gap-2">
-            @foreach(['profile-overview' => 'Overview', 'voting-record' => 'Voting records', 'profile-money' => 'Campaign money', 'profile-videos' => 'Videos', 'profile-chatter' => 'Public chatter', 'profile-news' => 'News', 'profile-sources' => 'Sources & corrections'] as $anchor => $label)
+            @foreach(['profile-overview' => 'Overview', 'voting-record' => 'Voting records', 'profile-committees' => 'Committees', 'profile-speeches' => 'Floor speeches', 'profile-money' => 'Campaign money', 'profile-videos' => 'Videos', 'profile-chatter' => 'Public chatter', 'profile-news' => 'News', 'profile-sources' => 'Sources & corrections'] as $anchor => $label)
                 @continue($anchor === 'voting-record' && empty($votingRecord))
+                @continue($anchor === 'profile-committees' && ($committees ?? collect())->isEmpty() && empty($legislation?->policy_areas))
+                @continue($anchor === 'profile-speeches' && ($floorSpeeches ?? collect())->isEmpty())
                 @continue($anchor === 'profile-news' && empty($newsArticles?->count()))
                 @continue($anchor === 'profile-chatter' && empty($chatterItems?->count()))
                 @continue($anchor === 'profile-money' && empty($topDonors) && empty($topIndustries) && !$fecSummary && !$openSecretsSummary && empty($outsideSpending) && empty($pacAffiliations))
@@ -1019,6 +1021,10 @@
         @endif
 
         @include('standalone.public.partials.voting-record', ['votingRecord' => $votingRecord ?? null, 'politician' => $politician])
+
+        @include('standalone.public.partials.committee-assignments', ['committees' => $committees ?? collect(), 'legislation' => $legislation ?? null, 'politician' => $politician])
+
+        @include('standalone.public.partials.floor-speeches', ['floorSpeeches' => $floorSpeeches ?? collect(), 'floorSpeechTotal' => $floorSpeechTotal ?? 0, 'politician' => $politician])
 
         {{-- Videos & Appearances Section --}}
         @php

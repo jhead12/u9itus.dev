@@ -18,6 +18,7 @@ class Seo
         'blog.topic' => [],
         'blog.author' => [],
         'politician.public.news' => ['q', 'mode', 'sort', 'from', 'to', 'source'],
+        'politician.public.speeches' => ['q', 'topic'],
     ];
 
     // Account and security screens have nothing a searcher wants to land on.

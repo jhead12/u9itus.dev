@@ -3,12 +3,10 @@
 namespace App\Services;
 
 use App\Models\DistrictNewsArticle;
-use App\Models\PoliticianTopic;
 use App\Services\Concerns\HasRssParsing;
 use Illuminate\Http\Client\Pool;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -270,41 +268,12 @@ class DistrictNewsService
     }
 
     /**
-     * Lightweight topic tagging for verified articles, reusing the same
-     * active PoliticianTopic slugs CandidateNewsService anchors to
-     * (voting-rights, democracy, etc.) — no district-specific topics needed.
+     * Topic tagging for verified articles, via the same shared keyword matcher
+     * CandidateNewsService uses — no district-specific topics needed.
      */
     protected function extractTopicKey(string $headline, string $snippet): ?string
     {
-        $text = Str::lower(trim($headline . ' ' . $snippet));
-        if ($text === '') {
-            return null;
-        }
-
-        $topics = Cache::remember('news:topic-slug-map', 300, function () {
-            return PoliticianTopic::query()
-                ->where('is_active', true)
-                ->get(['slug', 'name'])
-                ->map(fn (PoliticianTopic $t) => [
-                    'slug' => strtolower((string) $t->slug),
-                    'name' => strtolower((string) $t->name),
-                ])
-                ->all();
-        });
-
-        foreach ($topics as $topic) {
-            $slug = (string) ($topic['slug'] ?? '');
-            $name = (string) ($topic['name'] ?? '');
-
-            if ($slug !== '' && str_contains($text, str_replace('-', ' ', $slug))) {
-                return $slug;
-            }
-            if ($name !== '' && str_contains($text, $name)) {
-                return $slug !== '' ? $slug : null;
-            }
-        }
-
-        return null;
+        return app(IssueClassifierService::class)->confidentKeywordMatch(trim($headline.' '.$snippet))['topic_slug'] ?? null;
     }
 
     /**

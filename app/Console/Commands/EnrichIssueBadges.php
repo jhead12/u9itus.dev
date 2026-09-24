@@ -2,6 +2,8 @@
 
 namespace App\Console\Commands;
 
+use App\Models\CongressFloorSpeech;
+use App\Models\CongressMemberLegislation;
 use App\Models\Politician;
 use App\Services\BadgeService;
 use App\Services\PoliticianTopicSignalService;
@@ -99,8 +101,9 @@ class EnrichIssueBadges extends Command
             }
 
             // News-freshness gate: a politician with no recent coverage is
-            // unlikely to have fresh discourse signals. --force bypasses it.
-            if (! $force && ! $enricher->hasRecentNews($politician)) {
+            // unlikely to have fresh discourse signals, unless their bill record or
+            // floor speeches give them a congressional signal. --force bypasses it.
+            if (! $force && ! $enricher->hasRecentNews($politician) && ! $this->hasLegislation($politician)) {
                 $skipped++;
                 $this->line("  ⏭ {$politician->full_name} (no recent news)");
 
@@ -152,6 +155,13 @@ class EnrichIssueBadges extends Command
         return $last !== null && $last > now()->subHours($staleHours)->toDateTimeString();
     }
 
+    private function hasLegislation(Politician $politician): bool
+    {
+        return $politician->bioguide_id
+            && (CongressMemberLegislation::where('bioguide_id', $politician->bioguide_id)->exists()
+                || CongressFloorSpeech::where('bioguide_id', $politician->bioguide_id)->whereNotNull('topic_key')->exists());
+    }
+
     private function reportDryRun(Politician $politician, $rows): void
     {
         $threshold = (float) config('u9itus.issues.signal_threshold', 1.0);
@@ -164,12 +174,14 @@ class EnrichIssueBadges extends Command
             $topicName = $signal->topic?->name ?? "#{$signal->topic_id}";
             $wouldGrant = (float) $signal->total_score >= $threshold ? ' ★ would grant' : '';
             $this->line(sprintf(
-                '    [dry-run] %s — score=%.4f (news=%d, viral=%d, votesmart=%d)%s',
+                '    [dry-run] %s — score=%.4f (news=%d, viral=%d, votesmart=%d, bills=%d, speeches=%d)%s',
                 $topicName,
                 (float) $signal->total_score,
                 $signal->news_count,
                 $signal->viral_moment_count,
                 $signal->votesmart_count,
+                $signal->legislation_count,
+                $signal->floor_speech_count,
                 $wouldGrant,
             ));
         }

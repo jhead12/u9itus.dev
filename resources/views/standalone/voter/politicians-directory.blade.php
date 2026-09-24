@@ -182,10 +182,13 @@
                     @foreach($topics as $topic)
                         @php
                             $isActive = $activeTopics->contains($topic->slug);
+                            $topicCount = $topicCounts[$topic->id] ?? 0;
                             $newTopics = $isActive ? $activeTopics->reject(fn ($t) => $t === $topic->slug) : $activeTopics->concat([$topic->slug]);
                             $chipQuery = $newTopics->isEmpty() ? $baseQuery->toArray() : $baseQuery->put('topic', $newTopics->implode(','))->toArray();
                             $color = $topic->badge_color ?: '#6366f1';
                         @endphp
+                        {{-- Hide issues no profile carries yet (all shown until badges exist). --}}
+                        @continue(! $isActive && ! empty($topicCounts) && $topicCount === 0)
                         <a href="{{ route('politicians.directory', $chipQuery) }}#results"
                            class="flex-shrink-0 inline-flex items-center justify-center gap-x-1 min-h-6 rounded-full px-2.5 py-1 text-[10px] font-semibold border transition-all hover:brightness-125 whitespace-nowrap {{ $isActive ? 'ring-2 ring-offset-1 ring-offset-slate-900' : '' }}"
                            style="color:{{ $color }};border-color:{{ $color }}40;background-color:{{ $color }}1a;--tw-ring-color:{{ $color }};"
@@ -193,6 +196,7 @@
                            @if($isActive) aria-current="true" @endif>
                             @if(!empty($topic->icon))<span aria-hidden="true">{{ $topic->icon }}</span>@endif
                             {{ $topic->name }}
+                            @if($topicCount > 0)<span class="opacity-70 tabular-nums" aria-label="{{ $topicCount }} {{ Str::plural('profile', $topicCount) }}">{{ number_format($topicCount) }}</span>@endif
                         </a>
                     @endforeach
                 </div>

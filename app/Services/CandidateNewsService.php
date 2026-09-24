@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Models\CandidateNewsArticle;
 use App\Models\Politician;
 use App\Models\PoliticianEndorsement;
-use App\Models\PoliticianTopic;
 use App\Services\Concerns\HasRssParsing;
 use Illuminate\Http\Client\Pool;
 use Illuminate\Http\Client\Response;
@@ -733,60 +732,18 @@ class CandidateNewsService
     }
 
     /**
-     * Lightweight issue/topic extraction for verified articles.
-     * Uses active PoliticianTopic slugs and names as keyword anchors.
+     * Issue/topic tagging for verified articles, via the shared keyword matcher
+     * (topic slugs, names and synonym keywords).
      *
      * @return array{topic_key:?string,topic_confidence:?float}
      */
     protected function extractTopicKey(string $headline, string $snippet): array
     {
-        $text = Str::lower(trim($headline . ' ' . $snippet));
-        if ($text === '') {
-            return ['topic_key' => null, 'topic_confidence' => null];
-        }
-
-        $topics = Cache::remember('news:topic-slug-map', 300, function () {
-            return PoliticianTopic::query()
-                ->where('is_active', true)
-                ->get(['slug', 'name'])
-                ->map(fn (PoliticianTopic $t) => [
-                    'slug' => strtolower((string) $t->slug),
-                    'name' => strtolower((string) $t->name),
-                ])
-                ->all();
-        });
-
-        $best = null;
-        $bestScore = 0;
-
-        foreach ($topics as $topic) {
-            $slug = (string) ($topic['slug'] ?? '');
-            $name = (string) ($topic['name'] ?? '');
-            if ($slug === '' && $name === '') {
-                continue;
-            }
-
-            $score = 0;
-            if ($slug !== '' && str_contains($text, str_replace('-', ' ', $slug))) {
-                $score += 0.65;
-            }
-            if ($name !== '' && str_contains($text, $name)) {
-                $score += 0.55;
-            }
-
-            if ($score > $bestScore) {
-                $bestScore = $score;
-                $best = $slug ?: null;
-            }
-        }
-
-        if ($best === null || $bestScore < 0.55) {
-            return ['topic_key' => null, 'topic_confidence' => null];
-        }
+        $match = app(IssueClassifierService::class)->confidentKeywordMatch(trim($headline.' '.$snippet));
 
         return [
-            'topic_key' => $best,
-            'topic_confidence' => round(min(1.0, $bestScore), 3),
+            'topic_key' => $match['topic_slug'] ?? null,
+            'topic_confidence' => $match['confidence'] ?? null,
         ];
     }
 

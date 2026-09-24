@@ -74,6 +74,32 @@ Schedule::command('congress:sync-votes')
     ->dailyAt('02:15')
     ->withoutOverlapping();
 
+// Committee seats for the profile "Committees" section (two small public JSON
+// files, no key) and each member's bill record by policy area/issue topic
+// (Congress.gov API). Legislation refreshes a member at most every 6 days, so
+// the daily run spreads the ~3k API calls of a full pass across the week; it
+// finishes before the 06:30 issue-badge pass that scores it.
+Schedule::command('congress:sync-committees')
+    ->dailyAt('02:30')
+    ->withoutOverlapping();
+Schedule::command('congress:sync-legislation --limit=150')
+    ->dailyAt('02:45')
+    ->withoutOverlapping()
+    ->runInBackground();
+
+// Floor speeches from the Congressional Record (GovInfo). The Record is published a
+// day or two after each session and sometimes revised, so re-scan the last week;
+// articles already imported are skipped without fetching their text. Analysis
+// (topic, position, quote) runs next, ahead of the 06:30 issue-badge pass.
+Schedule::command('congress:sync-floor-speeches --days=7')
+    ->dailyAt('03:15')
+    ->withoutOverlapping()
+    ->runInBackground();
+Schedule::command('congress:analyze-floor-speeches --limit=400')
+    ->dailyAt('04:15')
+    ->withoutOverlapping()
+    ->runInBackground();
+
 // Donor/sponsor enrichment — refresh cached OpenSecrets + FEC data nightly.
 // The GitHub Actions workflow (enrich-donor-snapshots.yml) also fires this.
 Schedule::command('politicians:enrich-donors --stale-hours=48 --limit=200')
